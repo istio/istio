@@ -287,34 +287,71 @@ type CNIConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether CNI is installed.
-	Enabled           *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Hub               string                `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag               *structpb.Value       `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
-	Variant           string                `protobuf:"bytes,29,opt,name=variant,proto3" json:"variant,omitempty"`
-	Image             string                `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
-	PullPolicy        string                `protobuf:"bytes,5,opt,name=pullPolicy,proto3" json:"pullPolicy,omitempty"`
-	CniBinDir         string                `protobuf:"bytes,6,opt,name=cniBinDir,proto3" json:"cniBinDir,omitempty"`
-	CniConfDir        string                `protobuf:"bytes,7,opt,name=cniConfDir,proto3" json:"cniConfDir,omitempty"`
-	CniConfFileName   string                `protobuf:"bytes,8,opt,name=cniConfFileName,proto3" json:"cniConfFileName,omitempty"`
-	CniNetnsDir       string                `protobuf:"bytes,31,opt,name=cniNetnsDir,proto3" json:"cniNetnsDir,omitempty"`
-	ExcludeNamespaces []string              `protobuf:"bytes,9,rep,name=excludeNamespaces,proto3" json:"excludeNamespaces,omitempty"`
-	Affinity          *structpb.Struct      `protobuf:"bytes,20,opt,name=affinity,proto3" json:"affinity,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Hub to pull the container image from. Image will be `Hub/Image:Tag-Variant`.
+	Hub string `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
+	// The container image tag to pull. Image will be `Hub/Image:Tag-Variant`.
+	Tag *structpb.Value `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	// The container image variant to pull. Options are "debug" or "distroless". Unset will use the default for the given version.
+	Variant string `protobuf:"bytes,29,opt,name=variant,proto3" json:"variant,omitempty"`
+	// Image name to pull from. Image will be `Hub/Image:Tag-Variant`.
+	// If Image contains a "/", it will replace the entire `image` in the pod.
+	Image string `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
+	// Specifies the image pull policy. one of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated.
+	//
+	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+	PullPolicy string `protobuf:"bytes,5,opt,name=pullPolicy,proto3" json:"pullPolicy,omitempty"`
+	// The directory path within the cluster node's filesystem where the CNI binaries are to be installed. Typically /var/lib/cni/bin.
+	CniBinDir string `protobuf:"bytes,6,opt,name=cniBinDir,proto3" json:"cniBinDir,omitempty"`
+	// The directory path within the cluster node's filesystem where the CNI configuration files are to be installed. Typically /etc/cni/net.d.
+	CniConfDir string `protobuf:"bytes,7,opt,name=cniConfDir,proto3" json:"cniConfDir,omitempty"`
+	// The name of the CNI plugin configuration file. Defaults to istio-cni.conf.
+	CniConfFileName string `protobuf:"bytes,8,opt,name=cniConfFileName,proto3" json:"cniConfFileName,omitempty"`
+	// The directory path within the cluster node's filesystem where network namespaces are located.
+	// Defaults to '/var/run/netns', in minikube/docker/others can be '/var/run/docker/netns'.
+	CniNetnsDir string `protobuf:"bytes,31,opt,name=cniNetnsDir,proto3" json:"cniNetnsDir,omitempty"`
+	// List of namespaces that should be ignored by the CNI plugin.
+	ExcludeNamespaces []string `protobuf:"bytes,9,rep,name=excludeNamespaces,proto3" json:"excludeNamespaces,omitempty"`
+	// K8s affinity to set on the istio-cni Pods. Can be used to exclude istio-cni from being scheduled on specified nodes.
+	Affinity *structpb.Struct `protobuf:"bytes,20,opt,name=affinity,proto3" json:"affinity,omitempty"`
+	// Additional annotations to apply to the istio-cni Pods.
+	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-	PodAnnotations *structpb.Struct      `protobuf:"bytes,10,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
-	PspClusterRole string                `protobuf:"bytes,11,opt,name=psp_cluster_role,json=pspClusterRole,proto3" json:"psp_cluster_role,omitempty"`
-	LogLevel       string                `protobuf:"bytes,12,opt,name=logLevel,proto3" json:"logLevel,omitempty"`
-	Repair         *CNIRepairConfig      `protobuf:"bytes,13,opt,name=repair,proto3" json:"repair,omitempty"`
-	Chained        *wrapperspb.BoolValue `protobuf:"bytes,14,opt,name=chained,proto3" json:"chained,omitempty"`
-	ResourceQuotas *ResourceQuotas       `protobuf:"bytes,16,opt,name=resource_quotas,json=resourceQuotas,proto3" json:"resource_quotas,omitempty"`
-	Resources      *Resources            `protobuf:"bytes,17,opt,name=resources,proto3" json:"resources,omitempty"`
-	Privileged     *wrapperspb.BoolValue `protobuf:"bytes,18,opt,name=privileged,proto3" json:"privileged,omitempty"`
+	PodAnnotations *structpb.Struct `protobuf:"bytes,10,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	// PodSecurityPolicy cluster role. No longer used anywhere.
+	PspClusterRole string `protobuf:"bytes,11,opt,name=psp_cluster_role,json=pspClusterRole,proto3" json:"psp_cluster_role,omitempty"`
+	// Configuration log level of istio-cni binary. By default, istio-cni sends all logs to the UDS server.
+	// To see the logs, change global.logging.level to cni:debug.
+	LogLevel string `protobuf:"bytes,12,opt,name=logLevel,proto3" json:"logLevel,omitempty"`
+	// Configuration for the CNI Repair controller.
+	Repair *CNIRepairConfig `protobuf:"bytes,13,opt,name=repair,proto3" json:"repair,omitempty"`
+	// Configure the plugin as a chained CNI plugin. When true, the configuration is added to the CNI chain; when false,
+	// the configuration is added as a standalone file in the CNI configuration directory.
+	Chained *wrapperspb.BoolValue `protobuf:"bytes,14,opt,name=chained,proto3" json:"chained,omitempty"`
+	// The resource quotas configration for the CNI DaemonSet.
+	ResourceQuotas *ResourceQuotas `protobuf:"bytes,16,opt,name=resource_quotas,json=resourceQuotas,proto3" json:"resource_quotas,omitempty"`
+	// The k8s resource requests and limits for the istio-cni Pods.
+	Resources *Resources `protobuf:"bytes,17,opt,name=resources,proto3" json:"resources,omitempty"`
+	// Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift) or features (repairPods).
+	// Note that even if this is false, the `istio-cni` container *requires* root privileges on the node to function,
+	// and setting this to false does not change that, nor will it run the container as non-root or make it "un-privileged".
+	Privileged *wrapperspb.BoolValue `protobuf:"bytes,18,opt,name=privileged,proto3" json:"privileged,omitempty"`
 	// The Container seccompProfile
 	//
 	// See: https://kubernetes.io/docs/tutorials/security/seccomp/
-	SeccompProfile *structpb.Struct  `protobuf:"bytes,19,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
-	Ambient        *CNIAmbientConfig `protobuf:"bytes,21,opt,name=ambient,proto3" json:"ambient,omitempty"`
-	Provider       string            `protobuf:"bytes,22,opt,name=provider,proto3" json:"provider,omitempty"`
-	// K8s rolling update strategy
+	SeccompProfile *structpb.Struct `protobuf:"bytes,19,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
+	// Configuration for Istio Ambient.
+	Ambient *CNIAmbientConfig `protobuf:"bytes,21,opt,name=ambient,proto3" json:"ambient,omitempty"`
+	// Specifies the CNI provider. Can be either "default" or "multus". When set to "multus", an additional
+	// NetworkAttachmentDefinition resource is deployed to the cluster to allow the istio-cni plugin to be
+	// invoked in a cluster using the Multus CNI plugin.
+	Provider string `protobuf:"bytes,22,opt,name=provider,proto3" json:"provider,omitempty"`
+	// The number of pods that can be unavailable during a rolling update of the CNI DaemonSet (see
+	// `updateStrategy.rollingUpdate.maxUnavailable` here:
+	// https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).
+	// May be specified as a number of pods or as a percent of the total number
+	// of pods at the start of the update.
 	RollingMaxUnavailable *IntOrString `protobuf:"bytes,23,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
 }
 
@@ -582,8 +619,10 @@ type CNIAmbientConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether ambient redirection is enabled
-	Enabled    *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	ConfigDir  string                `protobuf:"bytes,3,opt,name=configDir,proto3" json:"configDir,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// The directory path containing the configuration files for Ambient. Defaults to /etc/ambient-config.
+	ConfigDir string `protobuf:"bytes,3,opt,name=configDir,proto3" json:"configDir,omitempty"`
+	// If enabled, and ambient is enabled, DNS redirection will be enabled.
 	DnsCapture *wrapperspb.BoolValue `protobuf:"bytes,5,opt,name=dnsCapture,proto3" json:"dnsCapture,omitempty"`
 }
 
@@ -647,18 +686,40 @@ type CNIRepairConfig struct {
 
 	// Controls whether repair behavior is enabled.
 	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Hub     string                `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag     *structpb.Value       `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
-	Image   string                `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
-	// Controls whether various repair behaviors are enabled.
-	LabelPods  bool `protobuf:"varint,5,opt,name=labelPods,proto3" json:"labelPods,omitempty"`
+	// Hub to pull the container image from. Image will be `Hub/Image:Tag-Variant`.
+	Hub string `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
+	// The container image tag to pull. Image will be `Hub/Image:Tag-Variant`.
+	Tag *structpb.Value `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	// Image name to pull from. Image will be `Hub/Image:Tag-Variant`.
+	// If Image contains a "/", it will replace the entire `image` in the pod.
+	Image string `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
+	// The Repair controller has 3 modes (labelPods, deletePods, and repairPods). Pick which one meets your use cases. Note only one may be used.
+	// The mode defines the action the controller will take when a pod is detected as broken.
+	// If labelPods is true, the controller will label all broken pods with <brokenPodLabelKey>=<brokenPodLabelValue>.
+	// This is only capable of identifying broken pods; the user is responsible for fixing them (generally, by deleting them).
+	// Note this gives the DaemonSet a relatively high privilege, as modifying pod metadata/status can have wider impacts.
+	LabelPods bool `protobuf:"varint,5,opt,name=labelPods,proto3" json:"labelPods,omitempty"`
+	// The Repair controller has 3 modes (labelPods, deletePods, and repairPods). Pick which one meets your use cases. Note only one may be used.
+	// The mode defines the action the controller will take when a pod is detected as broken.
+	// If repairPods is true, the controller will dynamically repair any broken pod by setting up the pod networking configuration even after it has started.
+	// Note the pod will be crashlooping, so this may take a few minutes to become fully functional based on when the retry occurs.
+	// This requires no RBAC privilege, but does require `securityContext.privileged`.
 	RepairPods bool `protobuf:"varint,11,opt,name=repairPods,proto3" json:"repairPods,omitempty"`
+	// No longer used.
+	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-	CreateEvents        string `protobuf:"bytes,6,opt,name=createEvents,proto3" json:"createEvents,omitempty"`
-	DeletePods          bool   `protobuf:"varint,7,opt,name=deletePods,proto3" json:"deletePods,omitempty"`
-	BrokenPodLabelKey   string `protobuf:"bytes,8,opt,name=brokenPodLabelKey,proto3" json:"brokenPodLabelKey,omitempty"`
+	CreateEvents string `protobuf:"bytes,6,opt,name=createEvents,proto3" json:"createEvents,omitempty"`
+	// The Repair controller has 3 modes (labelPods, deletePods, and repairPods). Pick which one meets your use cases. Note only one may be used.
+	// The mode defines the action the controller will take when a pod is detected as broken.
+	// If deletePods is true, the controller will delete the broken pod. The pod will then be rescheduled, hopefully onto a node that is fully ready.
+	// Note this gives the DaemonSet a relatively high privilege, as it can delete any Pod.
+	DeletePods bool `protobuf:"varint,7,opt,name=deletePods,proto3" json:"deletePods,omitempty"`
+	// The label key to apply to a broken pod when the controller is in labelPods mode.
+	BrokenPodLabelKey string `protobuf:"bytes,8,opt,name=brokenPodLabelKey,proto3" json:"brokenPodLabelKey,omitempty"`
+	// The label value to apply to a broken pod when the controller is in labelPods mode.
 	BrokenPodLabelValue string `protobuf:"bytes,9,opt,name=brokenPodLabelValue,proto3" json:"brokenPodLabelValue,omitempty"`
-	InitContainerName   string `protobuf:"bytes,10,opt,name=initContainerName,proto3" json:"initContainerName,omitempty"`
+	// The name of the init container to use for the repairPods mode.
+	InitContainerName string `protobuf:"bytes,10,opt,name=initContainerName,proto3" json:"initContainerName,omitempty"`
 }
 
 func (x *CNIRepairConfig) Reset() {
@@ -771,6 +832,7 @@ func (x *CNIRepairConfig) GetInitContainerName() string {
 	return ""
 }
 
+// Configuration for the resource quotas for the CNI DaemonSet.
 type ResourceQuotas struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -778,7 +840,8 @@ type ResourceQuotas struct {
 
 	// Controls whether to create resource quotas or not for the CNI DaemonSet.
 	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Pods    int64                 `protobuf:"varint,2,opt,name=pods,proto3" json:"pods,omitempty"`
+	// The hard limit on the number of pods in the namespace where the CNI DaemonSet is deployed.
+	Pods int64 `protobuf:"varint,2,opt,name=pods,proto3" json:"pods,omitempty"`
 }
 
 func (x *ResourceQuotas) Reset() {
@@ -878,13 +941,18 @@ func (x *TargetUtilizationConfig) GetTargetAverageUtilization() int32 {
 	return 0
 }
 
-// Mirrors Resources for unmarshaling.
+// Compute resources required by a container.
 type Resources struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Limits   map[string]string `protobuf:"bytes,1,rep,name=limits,proto3" json:"limits,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// The maximum amount of compute resources allowed.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+	Limits map[string]string `protobuf:"bytes,1,rep,name=limits,proto3" json:"limits,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// The minimum amount of compute resources required. If Requests is omitted for a container,
+	// it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 	Requests map[string]string `protobuf:"bytes,2,rep,name=requests,proto3" json:"requests,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
@@ -1182,7 +1250,11 @@ type EgressGatewayConfig struct {
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	RollingMaxSurge *IntOrString `protobuf:"bytes,21,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
-	// K8s rolling update strategy
+	// The number of pods that can be unavailable during a rolling update (see
+	// `strategy.rollingUpdate.maxUnavailable` here:
+	// https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
+	// May be specified as a number of pods or as a percent of the total number
+	// of pods at the start of the update.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	RollingMaxUnavailable *IntOrString          `protobuf:"bytes,22,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
@@ -1192,8 +1264,14 @@ type EgressGatewayConfig struct {
 	// The injection template to use for the gateway. If not set, no injection will be performed.
 	InjectionTemplate string          `protobuf:"bytes,27,opt,name=injectionTemplate,proto3" json:"injectionTemplate,omitempty"`
 	ServiceAccount    *ServiceAccount `protobuf:"bytes,28,opt,name=serviceAccount,proto3" json:"serviceAccount,omitempty"`
-	IpFamilies        []string        `protobuf:"bytes,29,rep,name=ipFamilies,proto3" json:"ipFamilies,omitempty"`
-	IpFamilyPolicy    string          `protobuf:"bytes,30,opt,name=ipFamilyPolicy,proto3" json:"ipFamilyPolicy,omitempty"` // Next available 31.
+	// Defines which IP family to use for single stack or the order of IP families for dual-stack.
+	// Valid list items are "IPv4", "IPv6".
+	// More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+	IpFamilies []string `protobuf:"bytes,29,rep,name=ipFamilies,proto3" json:"ipFamilies,omitempty"`
+	// Controls whether Services are configured to use IPv4, IPv6, or both. Valid options
+	// are PreferDualStack, RequireDualStack, and SingleStack.
+	// More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+	IpFamilyPolicy string `protobuf:"bytes,30,opt,name=ipFamilyPolicy,proto3" json:"ipFamilyPolicy,omitempty"` // Next available 31.
 }
 
 func (x *EgressGatewayConfig) Reset() {
@@ -1533,11 +1611,15 @@ type GlobalConfig struct {
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	Arch *ArchConfig `protobuf:"bytes,1,opt,name=arch,proto3" json:"arch,omitempty"`
 	// List of certSigners to allow "approve" action in the ClusterRole
-	CertSigners         []string `protobuf:"bytes,68,rep,name=certSigners,proto3" json:"certSigners,omitempty"`
-	ConfigRootNamespace string   `protobuf:"bytes,50,opt,name=configRootNamespace,proto3" json:"configRootNamespace,omitempty"`
+	CertSigners []string `protobuf:"bytes,68,rep,name=certSigners,proto3" json:"certSigners,omitempty"`
+	// TODO: remove this?
+	// No longer used.
+	ConfigRootNamespace string `protobuf:"bytes,50,opt,name=configRootNamespace,proto3" json:"configRootNamespace,omitempty"`
 	// Controls whether the server-side validation is enabled.
-	ConfigValidation                *wrapperspb.BoolValue `protobuf:"bytes,3,opt,name=configValidation,proto3" json:"configValidation,omitempty"`
-	DefaultConfigVisibilitySettings []string              `protobuf:"bytes,52,rep,name=defaultConfigVisibilitySettings,proto3" json:"defaultConfigVisibilitySettings,omitempty"`
+	ConfigValidation *wrapperspb.BoolValue `protobuf:"bytes,3,opt,name=configValidation,proto3" json:"configValidation,omitempty"`
+	// TODO: remove this?
+	// No longer used.
+	DefaultConfigVisibilitySettings []string `protobuf:"bytes,52,rep,name=defaultConfigVisibilitySettings,proto3" json:"defaultConfigVisibilitySettings,omitempty"`
 	// Default k8s node selector for all the Istio control plane components
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
@@ -1554,6 +1636,13 @@ type GlobalConfig struct {
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	DefaultResources *DefaultResourcesConfig `protobuf:"bytes,9,opt,name=defaultResources,proto3" json:"defaultResources,omitempty"`
+	// Default node tolerations to be applied to all deployments so that all pods can be
+	// scheduled to nodes with matching taints. Each component can overwrite
+	// these default values by adding its tolerations block in the relevant section below
+	// and setting the desired values.
+	// Configure this field in case that all pods of Istio control plane are expected to
+	// be scheduled to particular nodes with specified taints.
+	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	DefaultTolerations []*structpb.Struct `protobuf:"bytes,55,rep,name=defaultTolerations,proto3" json:"defaultTolerations,omitempty"`
 	// Specifies the docker hub for Istio images.
@@ -1562,14 +1651,39 @@ type GlobalConfig struct {
 	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated.
 	//
 	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
-	ImagePullPolicy  string   `protobuf:"bytes,13,opt,name=imagePullPolicy,proto3" json:"imagePullPolicy,omitempty"` // ImagePullPolicy             v1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
+	ImagePullPolicy string `protobuf:"bytes,13,opt,name=imagePullPolicy,proto3" json:"imagePullPolicy,omitempty"`
+	// ImagePullSecrets for the control plane ServiceAccount, list of secrets in the same namespace
+	// to use for pulling any images in pods that reference this ServiceAccount.
+	// Must be set for any cluster configured with private docker registry.
 	ImagePullSecrets []string `protobuf:"bytes,37,rep,name=imagePullSecrets,proto3" json:"imagePullSecrets,omitempty"`
 	// Specifies the default namespace for the Istio control plane components.
-	IstioNamespace string                `protobuf:"bytes,14,opt,name=istioNamespace,proto3" json:"istioNamespace,omitempty"`
-	LogAsJson      *wrapperspb.BoolValue `protobuf:"bytes,36,opt,name=logAsJson,proto3" json:"logAsJson,omitempty"`
+	IstioNamespace string `protobuf:"bytes,14,opt,name=istioNamespace,proto3" json:"istioNamespace,omitempty"`
+	// Specifies whether istio components should output logs in json format by adding --log_as_json argument to each container.
+	LogAsJson *wrapperspb.BoolValue `protobuf:"bytes,36,opt,name=logAsJson,proto3" json:"logAsJson,omitempty"`
 	// Specifies the global logging level settings for the Istio control plane components.
 	Logging *GlobalLoggingConfig `protobuf:"bytes,17,opt,name=logging,proto3" json:"logging,omitempty"`
-	MeshID  string               `protobuf:"bytes,53,opt,name=meshID,proto3" json:"meshID,omitempty"`
+	// The Mesh Identifier. It should be unique within the scope where
+	// meshes will interact with each other, but it is not required to be
+	// globally/universally unique. For example, if any of the following are true,
+	// then two meshes must have different Mesh IDs:
+	// - Meshes will have their telemetry aggregated in one place
+	// - Meshes will be federated together
+	// - Policy will be written referencing one mesh from the other
+	//
+	// If an administrator expects that any of these conditions may become true in
+	// the future, they should ensure their meshes have different Mesh IDs
+	// assigned.
+	//
+	// Within a multicluster mesh, each cluster must be (manually or auto)
+	// configured to have the same Mesh ID value. If an existing cluster 'joins' a
+	// multicluster mesh, it will need to be migrated to the new mesh ID. Details
+	// of migration TBD, and it may be a disruptive operation to change the Mesh
+	// ID post-install.
+	//
+	// If the mesh admin does not specify a value, Istio will use the value of the
+	// mesh's Trust Domain. The best practice is to select a proper Trust Domain
+	// value.
+	MeshID string `protobuf:"bytes,53,opt,name=meshID,proto3" json:"meshID,omitempty"`
 	// Configure the mesh networks to be used by the Split Horizon EDS.
 	//
 	// The following example defines two networks with different endpoints association methods.
@@ -1600,17 +1714,26 @@ type GlobalConfig struct {
 	MeshNetworks *structpb.Struct `protobuf:"bytes,19,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
 	// Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.
 	MultiCluster *MultiClusterConfig `protobuf:"bytes,22,opt,name=multiCluster,proto3" json:"multiCluster,omitempty"`
-	Network      string              `protobuf:"bytes,39,opt,name=network,proto3" json:"network,omitempty"`
+	// Network defines the network this cluster belong to. This name
+	// corresponds to the networks in the map of mesh networks.
+	Network string `protobuf:"bytes,39,opt,name=network,proto3" json:"network,omitempty"`
 	// Custom DNS config for the pod to resolve names of services in other
 	// clusters. Use this to add additional search domains, and other settings.
 	// see https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#dns-config
 	// This does not apply to gateway pods as they typically need a different
 	// set of DNS settings than the normal application pods (e.g. in multicluster scenarios).
-	PodDNSSearchNamespaces       []string              `protobuf:"bytes,43,rep,name=podDNSSearchNamespaces,proto3" json:"podDNSSearchNamespaces,omitempty"`
+	PodDNSSearchNamespaces []string `protobuf:"bytes,43,rep,name=podDNSSearchNamespaces,proto3" json:"podDNSSearchNamespaces,omitempty"`
+	// Controls whether the creation of the sidecar injector ConfigMap should be skipped.
+	// Defaults to false. When set to true, the sidecar injector ConfigMap will not be created.
 	OmitSidecarInjectorConfigMap *wrapperspb.BoolValue `protobuf:"bytes,38,opt,name=omitSidecarInjectorConfigMap,proto3" json:"omitSidecarInjectorConfigMap,omitempty"`
 	// Controls whether to restrict the applications namespace the controller manages;
 	// If set it to false, the controller watches all namespaces.
-	OneNamespace           *wrapperspb.BoolValue `protobuf:"bytes,23,opt,name=oneNamespace,proto3" json:"oneNamespace,omitempty"`
+	OneNamespace *wrapperspb.BoolValue `protobuf:"bytes,23,opt,name=oneNamespace,proto3" json:"oneNamespace,omitempty"`
+	// Controls whether the WebhookConfiguration resource(s) should be created. The current behavior
+	// of Istiod is to manage its own webhook configurations.
+	// When this option is set to true, Istio Operator, instead of webhooks, manages the
+	// webhook configurations. When this option is set as false, webhooks manage their
+	// own webhook configurations.
 	OperatorManageWebhooks *wrapperspb.BoolValue `protobuf:"bytes,41,opt,name=operatorManageWebhooks,proto3" json:"operatorManageWebhooks,omitempty"`
 	// Specifies the k8s priorityClassName for the istio control plane components.
 	//
@@ -1625,8 +1748,9 @@ type GlobalConfig struct {
 	// Specifies the Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 	Sds *SDSConfig `protobuf:"bytes,30,opt,name=sds,proto3" json:"sds,omitempty"`
 	// Specifies the tag for the Istio docker images.
-	Tag     *structpb.Value `protobuf:"bytes,31,opt,name=tag,proto3" json:"tag,omitempty"`
-	Variant string          `protobuf:"bytes,67,opt,name=variant,proto3" json:"variant,omitempty"`
+	Tag *structpb.Value `protobuf:"bytes,31,opt,name=tag,proto3" json:"tag,omitempty"`
+	// The variant of the Istio container images to use. Options are "debug" or "distroless". Unset will use the default for the given version.
+	Variant string `protobuf:"bytes,67,opt,name=variant,proto3" json:"variant,omitempty"`
 	// Specifies the Configuration for each of the supported tracers.
 	Tracer *TracerConfig `protobuf:"bytes,33,opt,name=tracer,proto3" json:"tracer,omitempty"`
 	// Controls whether to use of Mesh Configuration Protocol to distribute configuration.
@@ -1658,14 +1782,22 @@ type GlobalConfig struct {
 	// will be used as the certificates for workloads.
 	// The default value is "" and when caName="", the CA will be configured by other
 	// mechanisms (e.g., environmental variable CA_PROVIDER).
-	CaName           string                `protobuf:"bytes,65,opt,name=caName,proto3" json:"caName,omitempty"`
+	CaName string `protobuf:"bytes,65,opt,name=caName,proto3" json:"caName,omitempty"`
+	// TODO: remove this?
+	// No longer used.
 	Autoscalingv2API *wrapperspb.BoolValue `protobuf:"bytes,66,opt,name=autoscalingv2API,proto3" json:"autoscalingv2API,omitempty"`
 	// Platform in which Istio is deployed. Possible values are: "openshift" and "gcp"
 	// An empty value means it is a vanilla Kubernetes distribution, therefore no special
 	// treatment will be considered.
-	Platform       string   `protobuf:"bytes,69,opt,name=platform,proto3" json:"platform,omitempty"`
-	IpFamilies     []string `protobuf:"bytes,70,rep,name=ipFamilies,proto3" json:"ipFamilies,omitempty"`
-	IpFamilyPolicy string   `protobuf:"bytes,71,opt,name=ipFamilyPolicy,proto3" json:"ipFamilyPolicy,omitempty"` // The next available key is 72
+	Platform string `protobuf:"bytes,69,opt,name=platform,proto3" json:"platform,omitempty"`
+	// Defines which IP family to use for single stack or the order of IP families for dual-stack.
+	// Valid list items are "IPv4", "IPv6".
+	// More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+	IpFamilies []string `protobuf:"bytes,70,rep,name=ipFamilies,proto3" json:"ipFamilies,omitempty"`
+	// Controls whether Services are configured to use IPv4, IPv6, or both. Valid options
+	// are PreferDualStack, RequireDualStack, and SingleStack.
+	// More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+	IpFamilyPolicy string `protobuf:"bytes,71,opt,name=ipFamilyPolicy,proto3" json:"ipFamilyPolicy,omitempty"` // The next available key is 72
 }
 
 func (x *GlobalConfig) Reset() {
@@ -2256,7 +2388,11 @@ type IngressGatewayConfig struct {
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	RollingMaxSurge *IntOrString `protobuf:"bytes,31,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
-	// K8s rolling update strategy
+	// The number of pods that can be unavailable during a rolling update (see
+	// `strategy.rollingUpdate.maxUnavailable` here:
+	// https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
+	// May be specified as a number of pods or as a percent of the total number
+	// of pods at the start of the update.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	RollingMaxUnavailable *IntOrString `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
@@ -2270,8 +2406,14 @@ type IngressGatewayConfig struct {
 	// The injection template to use for the gateway. If not set, no injection will be performed.
 	InjectionTemplate string          `protobuf:"bytes,46,opt,name=injectionTemplate,proto3" json:"injectionTemplate,omitempty"`
 	ServiceAccount    *ServiceAccount `protobuf:"bytes,47,opt,name=serviceAccount,proto3" json:"serviceAccount,omitempty"`
-	IpFamilies        []string        `protobuf:"bytes,48,rep,name=ipFamilies,proto3" json:"ipFamilies,omitempty"`
-	IpFamilyPolicy    string          `protobuf:"bytes,49,opt,name=ipFamilyPolicy,proto3" json:"ipFamilyPolicy,omitempty"` // Next available 50.
+	// Defines which IP family to use for single stack or the order of IP families for dual-stack.
+	// Valid list items are "IPv4", "IPv6".
+	// More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+	IpFamilies []string `protobuf:"bytes,48,rep,name=ipFamilies,proto3" json:"ipFamilies,omitempty"`
+	// Controls whether Services are configured to use IPv4, IPv6, or both. Valid options
+	// are PreferDualStack, RequireDualStack, and SingleStack.
+	// More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+	IpFamilyPolicy string `protobuf:"bytes,49,opt,name=ipFamilyPolicy,proto3" json:"ipFamilyPolicy,omitempty"` // Next available 50.
 }
 
 func (x *IngressGatewayConfig) Reset() {
@@ -2627,9 +2769,13 @@ type MultiClusterConfig struct {
 
 	// Enables the connection between two kubernetes clusters via their respective ingressgateway services.
 	// Use if the pods in each cluster cannot directly talk to one another.
-	Enabled            *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	ClusterName        string                `protobuf:"bytes,2,opt,name=clusterName,proto3" json:"clusterName,omitempty"`
-	GlobalDomainSuffix string                `protobuf:"bytes,3,opt,name=globalDomainSuffix,proto3" json:"globalDomainSuffix,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// The name of the cluster this installation will run in. This is required for sidecar injection
+	// to properly label proxies
+	ClusterName string `protobuf:"bytes,2,opt,name=clusterName,proto3" json:"clusterName,omitempty"`
+	// The suffix for global service names.
+	GlobalDomainSuffix string `protobuf:"bytes,3,opt,name=globalDomainSuffix,proto3" json:"globalDomainSuffix,omitempty"`
+	// Enable envoy filter to translate `globalDomainSuffix` to cluster local suffix for cross cluster communication.
 	IncludeEnvoyFilter *wrapperspb.BoolValue `protobuf:"bytes,4,opt,name=includeEnvoyFilter,proto3" json:"includeEnvoyFilter,omitempty"`
 }
 
@@ -2799,11 +2945,14 @@ type PilotConfig struct {
 	//
 	// Examples: 300s, 30m, 1h
 	KeepaliveMaxServerConnectionAge *durationpb.Duration `protobuf:"bytes,13,opt,name=keepaliveMaxServerConnectionAge,proto3" json:"keepaliveMaxServerConnectionAge,omitempty"`
-	// Labels that are added to Pilot deployment and pods.
+	// Labels that are added to Pilot deployment.
 	//
 	// See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 	DeploymentLabels *structpb.Struct `protobuf:"bytes,14,opt,name=deploymentLabels,proto3" json:"deploymentLabels,omitempty"`
-	PodLabels        *structpb.Struct `protobuf:"bytes,36,opt,name=podLabels,proto3" json:"podLabels,omitempty"`
+	// Labels that are added to Pilot pods.
+	//
+	// See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+	PodLabels *structpb.Struct `protobuf:"bytes,36,opt,name=podLabels,proto3" json:"podLabels,omitempty"`
 	// Configuration settings passed to Pilot as a ConfigMap.
 	//
 	// This controls whether the mesh config map, generated from values.yaml is generated.
@@ -2820,23 +2969,32 @@ type PilotConfig struct {
 	//
 	//	ENV_VAR_1: value1
 	//	ENV_VAR_2: value2
-	Env      *structpb.Struct `protobuf:"bytes,21,opt,name=env,proto3" json:"env,omitempty"`
+	Env *structpb.Struct `protobuf:"bytes,21,opt,name=env,proto3" json:"env,omitempty"`
+	// K8s affinity to set on the Pilot Pods.
 	Affinity *structpb.Struct `protobuf:"bytes,22,opt,name=affinity,proto3" json:"affinity,omitempty"`
 	// K8s rolling update strategy
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	RollingMaxSurge *IntOrString `protobuf:"bytes,24,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"`
-	// K8s rolling update strategy
+	// The number of pods that can be unavailable during a rolling update (see
+	// `strategy.rollingUpdate.maxUnavailable` here:
+	// https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
+	// May be specified as a number of pods or as a percent of the total number
+	// of pods at the start of the update.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	RollingMaxUnavailable *IntOrString `protobuf:"bytes,25,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
+	// The node tolerations to be applied to the Pilot deployment so that it can be
+	// scheduled to particular nodes with matching taints.
+	// More info: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling
+	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	Tolerations []*structpb.Struct `protobuf:"bytes,26,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
-	// if protocol sniffing is enabled for outbound
+	// Specifies whether protocol sniffing is enabled for outbound traffic.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	EnableProtocolSniffingForOutbound *wrapperspb.BoolValue `protobuf:"bytes,28,opt,name=enableProtocolSniffingForOutbound,proto3" json:"enableProtocolSniffingForOutbound,omitempty"`
-	// if protocol sniffing is enabled for inbound
+	// Specifies whether protocol sniffing is enabled for inbound traffic.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	EnableProtocolSniffingForInbound *wrapperspb.BoolValue `protobuf:"bytes,29,opt,name=enableProtocolSniffingForInbound,proto3" json:"enableProtocolSniffingForInbound,omitempty"`
@@ -2845,26 +3003,44 @@ type PilotConfig struct {
 	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-	PodAnnotations     *structpb.Struct `protobuf:"bytes,30,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	PodAnnotations *structpb.Struct `protobuf:"bytes,30,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"`
+	// K8s annotations for the Service.
+	//
+	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 	ServiceAnnotations *structpb.Struct `protobuf:"bytes,37,opt,name=serviceAnnotations,proto3" json:"serviceAnnotations,omitempty"`
 	// ConfigSource describes a source of configuration data for networking
 	// rules, and other Istio configuration artifacts. Multiple data sources
 	// can be configured for a single control plane.
-	ConfigSource            *PilotConfigSource `protobuf:"bytes,31,opt,name=configSource,proto3" json:"configSource,omitempty"`
-	JwksResolverExtraRootCA string             `protobuf:"bytes,32,opt,name=jwksResolverExtraRootCA,proto3" json:"jwksResolverExtraRootCA,omitempty"`
-	Hub                     string             `protobuf:"bytes,34,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag                     *structpb.Value    `protobuf:"bytes,35,opt,name=tag,proto3" json:"tag,omitempty"`
-	Variant                 string             `protobuf:"bytes,39,opt,name=variant,proto3" json:"variant,omitempty"`
-	// The Container seccompProfile
+	ConfigSource *PilotConfigSource `protobuf:"bytes,31,opt,name=configSource,proto3" json:"configSource,omitempty"`
+	// Specifies an extra root certificate in PEM format. This certificate will be trusted
+	// by pilot when resolving JWKS URIs.
+	JwksResolverExtraRootCA string `protobuf:"bytes,32,opt,name=jwksResolverExtraRootCA,proto3" json:"jwksResolverExtraRootCA,omitempty"`
+	// Hub to pull the container image from. Image will be `Hub/Image:Tag-Variant`.
+	Hub string `protobuf:"bytes,34,opt,name=hub,proto3" json:"hub,omitempty"`
+	// The container image tag to pull. Image will be `Hub/Image:Tag-Variant`.
+	Tag *structpb.Value `protobuf:"bytes,35,opt,name=tag,proto3" json:"tag,omitempty"`
+	// The container image variant to pull. Options are "debug" or "distroless". Unset will use the default for the given version.
+	Variant string `protobuf:"bytes,39,opt,name=variant,proto3" json:"variant,omitempty"`
+	// The seccompProfile for the Pilot container.
 	//
 	// See: https://kubernetes.io/docs/tutorials/security/seccomp/
-	SeccompProfile            *structpb.Struct   `protobuf:"bytes,38,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
+	SeccompProfile *structpb.Struct `protobuf:"bytes,38,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
+	// The k8s topologySpreadConstraints for the Pilot pods.
 	TopologySpreadConstraints []*structpb.Struct `protobuf:"bytes,41,rep,name=topologySpreadConstraints,proto3" json:"topologySpreadConstraints,omitempty"`
-	ExtraContainerArgs        []*structpb.Struct `protobuf:"bytes,42,rep,name=extraContainerArgs,proto3" json:"extraContainerArgs,omitempty"`
-	VolumeMounts              []*structpb.Struct `protobuf:"bytes,49,rep,name=volumeMounts,proto3" json:"volumeMounts,omitempty"`
-	Volumes                   []*structpb.Struct `protobuf:"bytes,51,rep,name=volumes,proto3" json:"volumes,omitempty"`
-	IpFamilies                []string           `protobuf:"bytes,52,rep,name=ipFamilies,proto3" json:"ipFamilies,omitempty"`
-	IpFamilyPolicy            string             `protobuf:"bytes,53,opt,name=ipFamilyPolicy,proto3" json:"ipFamilyPolicy,omitempty"`
+	// Additional container arguments for the Pilot container.
+	ExtraContainerArgs []*structpb.Struct `protobuf:"bytes,42,rep,name=extraContainerArgs,proto3" json:"extraContainerArgs,omitempty"`
+	// Additional volumeMounts to add to the Pilot container.
+	VolumeMounts []*structpb.Struct `protobuf:"bytes,49,rep,name=volumeMounts,proto3" json:"volumeMounts,omitempty"`
+	// Additional volumes to add to the Pilot Pod.
+	Volumes []*structpb.Struct `protobuf:"bytes,51,rep,name=volumes,proto3" json:"volumes,omitempty"`
+	// Defines which IP family to use for single stack or the order of IP families for dual-stack.
+	// Valid list items are "IPv4", "IPv6".
+	// More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+	IpFamilies []string `protobuf:"bytes,52,rep,name=ipFamilies,proto3" json:"ipFamilies,omitempty"`
+	// Controls whether Services are configured to use IPv4, IPv6, or both. Valid options
+	// are PreferDualStack, RequireDualStack, and SingleStack.
+	// More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+	IpFamilyPolicy string `protobuf:"bytes,53,opt,name=ipFamilyPolicy,proto3" json:"ipFamilyPolicy,omitempty"`
 	// Target memory utilization used in HorizontalPodAutoscaler.
 	//
 	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
@@ -3316,7 +3492,7 @@ type TelemetryConfig struct {
 
 	// Controls whether telemetry is exported for Pilot.
 	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Use telemetry v2.
+	// Configuration for Telemetry v2.
 	V2 *TelemetryV2Config `protobuf:"bytes,3,opt,name=v2,proto3" json:"v2,omitempty"`
 }
 
@@ -3373,8 +3549,10 @@ type TelemetryV2Config struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Controls whether pilot will configure telemetry v2.
-	Enabled     *wrapperspb.BoolValue         `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Prometheus  *TelemetryV2PrometheusConfig  `protobuf:"bytes,2,opt,name=prometheus,proto3" json:"prometheus,omitempty"`
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Telemetry v2 settings for prometheus.
+	Prometheus *TelemetryV2PrometheusConfig `protobuf:"bytes,2,opt,name=prometheus,proto3" json:"prometheus,omitempty"`
+	// Telemetry v2 settings for stackdriver.
 	Stackdriver *TelemetryV2StackDriverConfig `protobuf:"bytes,3,opt,name=stackdriver,proto3" json:"stackdriver,omitempty"`
 }
 
@@ -3670,6 +3848,7 @@ type ProxyConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Controls the 'policy' in the sidecar injector.
 	AutoInject string `protobuf:"bytes,4,opt,name=autoInject,proto3" json:"autoInject,omitempty"`
 	// Domain for the cluster, default: "cluster.local".
 	//
@@ -3709,8 +3888,9 @@ type ProxyConfig struct {
 	// Sets the interval between readiness probes in seconds.
 	ReadinessPeriodSeconds uint32 `protobuf:"varint,21,opt,name=readinessPeriodSeconds,proto3" json:"readinessPeriodSeconds,omitempty"`
 	// Sets the number of successive failed probes before indicating readiness failure.
-	ReadinessFailureThreshold uint32        `protobuf:"varint,22,opt,name=readinessFailureThreshold,proto3" json:"readinessFailureThreshold,omitempty"`
-	StartupProbe              *StartupProbe `protobuf:"bytes,41,opt,name=startupProbe,proto3" json:"startupProbe,omitempty"`
+	ReadinessFailureThreshold uint32 `protobuf:"varint,22,opt,name=readinessFailureThreshold,proto3" json:"readinessFailureThreshold,omitempty"`
+	// Configures the startup probe for the istio-proxy container.
+	StartupProbe *StartupProbe `protobuf:"bytes,41,opt,name=startupProbe,proto3" json:"startupProbe,omitempty"`
 	// Default port used for the Pilot agent's health checks.
 	StatusPort uint32 `protobuf:"varint,23,opt,name=statusPort,proto3" json:"statusPort,omitempty"`
 	// K8s resources settings.
@@ -3718,18 +3898,26 @@ type ProxyConfig struct {
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-	Resources            *Resources       `protobuf:"bytes,24,opt,name=resources,proto3" json:"resources,omitempty"`
-	Tracer               Tracer           `protobuf:"varint,25,opt,name=tracer,proto3,enum=v1alpha1.Tracer" json:"tracer,omitempty"`
-	ExcludeOutboundPorts string           `protobuf:"bytes,28,opt,name=excludeOutboundPorts,proto3" json:"excludeOutboundPorts,omitempty"`
-	Lifecycle            *structpb.Struct `protobuf:"bytes,36,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`
+	Resources *Resources `protobuf:"bytes,24,opt,name=resources,proto3" json:"resources,omitempty"`
+	// Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
+	// If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
+	Tracer Tracer `protobuf:"varint,25,opt,name=tracer,proto3,enum=v1alpha1.Tracer" json:"tracer,omitempty"`
+	// A comma separated list of outbound ports to be excluded from redirection to Envoy.
+	ExcludeOutboundPorts string `protobuf:"bytes,28,opt,name=excludeOutboundPorts,proto3" json:"excludeOutboundPorts,omitempty"`
+	// The k8s lifecycle hooks definition (pod.spec.containers.lifecycle) for the proxy container.
+	// More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks
+	Lifecycle *structpb.Struct `protobuf:"bytes,36,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`
 	// Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready
 	//
 	// Deprecated: replaced by ProxyConfig setting which allows per-pod configuration of this behavior.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	HoldApplicationUntilProxyStarts *wrapperspb.BoolValue `protobuf:"bytes,37,opt,name=holdApplicationUntilProxyStarts,proto3" json:"holdApplicationUntilProxyStarts,omitempty"`
-	IncludeInboundPorts             string                `protobuf:"bytes,38,opt,name=includeInboundPorts,proto3" json:"includeInboundPorts,omitempty"`
-	IncludeOutboundPorts            string                `protobuf:"bytes,39,opt,name=includeOutboundPorts,proto3" json:"includeOutboundPorts,omitempty"`
+	// A comma separated list of inbound ports for which traffic is to be redirected to Envoy.
+	// The wildcard character '*' can be used to configure redirection for all ports.
+	IncludeInboundPorts string `protobuf:"bytes,38,opt,name=includeInboundPorts,proto3" json:"includeInboundPorts,omitempty"`
+	// A comma separated list of outbound ports for which traffic is to be redirected to Envoy, regardless of the destination IP.
+	IncludeOutboundPorts string `protobuf:"bytes,39,opt,name=includeOutboundPorts,proto3" json:"includeOutboundPorts,omitempty"`
 }
 
 func (x *ProxyConfig) Reset() {
@@ -3925,8 +4113,18 @@ type StartupProbe struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Enabled          *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	FailureThreshold uint32                `protobuf:"varint,2,opt,name=failureThreshold,proto3" json:"failureThreshold,omitempty"`
+	// Enables or disables a startup probe.
+	// For optimal startup times, changing this should be tied to the readiness probe values.
+	//
+	// If the probe is enabled, it is recommended to have delay=0s,period=15s,failureThreshold=4.
+	// This ensures the pod is marked ready immediately after the startup probe passes (which has a 1s poll interval),
+	// and doesn't spam the readiness endpoint too much
+	//
+	// If the probe is disabled, it is recommended to have delay=1s,period=2s,failureThreshold=30.
+	// This ensures the startup is reasonable fast (polling every 2s). 1s delay is used since the startup is not often ready instantly.
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Minimum consecutive failures for the probe to be considered failed after having succeeded.
+	FailureThreshold uint32 `protobuf:"varint,2,opt,name=failureThreshold,proto3" json:"failureThreshold,omitempty"`
 }
 
 func (x *StartupProbe) Reset() {
@@ -4044,7 +4242,9 @@ type ResourcesRequestsConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Cpu    string `protobuf:"bytes,1,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	// CPU requests.
+	Cpu string `protobuf:"bytes,1,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	// Memory requests.
 	Memory string `protobuf:"bytes,2,opt,name=memory,proto3" json:"memory,omitempty"`
 }
 
@@ -4816,25 +5016,44 @@ type Values struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Cni      *CNIConfig      `protobuf:"bytes,2,opt,name=cni,proto3" json:"cni,omitempty"`
+	// Configuration for the Istio CNI plugin.
+	Cni *CNIConfig `protobuf:"bytes,2,opt,name=cni,proto3" json:"cni,omitempty"`
+	// Configuration for ingress and egress gateways.
 	Gateways *GatewaysConfig `protobuf:"bytes,5,opt,name=gateways,proto3" json:"gateways,omitempty"`
-	Global   *GlobalConfig   `protobuf:"bytes,6,opt,name=global,proto3" json:"global,omitempty"`
-	Pilot    *PilotConfig    `protobuf:"bytes,10,opt,name=pilot,proto3" json:"pilot,omitempty"`
-	Ztunnel  *structpb.Value `protobuf:"bytes,41,opt,name=ztunnel,proto3" json:"ztunnel,omitempty"`
+	// Global configuration for Istio components.
+	Global *GlobalConfig `protobuf:"bytes,6,opt,name=global,proto3" json:"global,omitempty"`
+	// Configuration for the Pilot component.
+	Pilot *PilotConfig `protobuf:"bytes,10,opt,name=pilot,proto3" json:"pilot,omitempty"`
+	// Configuration for the ZTunnel component.
+	Ztunnel *structpb.Value `protobuf:"bytes,41,opt,name=ztunnel,proto3" json:"ztunnel,omitempty"`
 	// Controls whether telemetry is exported for Pilot.
-	Telemetry              *TelemetryConfig       `protobuf:"bytes,23,opt,name=telemetry,proto3" json:"telemetry,omitempty"`
+	Telemetry *TelemetryConfig `protobuf:"bytes,23,opt,name=telemetry,proto3" json:"telemetry,omitempty"`
+	// Configuration for the sidecar injector webhook.
 	SidecarInjectorWebhook *SidecarInjectorConfig `protobuf:"bytes,13,opt,name=sidecarInjectorWebhook,proto3" json:"sidecarInjectorWebhook,omitempty"`
-	IstioCni               *CNIUsageConfig        `protobuf:"bytes,19,opt,name=istio_cni,json=istioCni,proto3" json:"istio_cni,omitempty"`
-	Revision               string                 `protobuf:"bytes,21,opt,name=revision,proto3" json:"revision,omitempty"`
-	OwnerName              string                 `protobuf:"bytes,22,opt,name=ownerName,proto3" json:"ownerName,omitempty"`
+	// Configuration for the Istio CNI plugin.
+	IstioCni *CNIUsageConfig `protobuf:"bytes,19,opt,name=istio_cni,json=istioCni,proto3" json:"istio_cni,omitempty"`
+	// Identifies the revision this installation is associated with.
+	Revision string `protobuf:"bytes,21,opt,name=revision,proto3" json:"revision,omitempty"`
+	// Used internally to identify the owner of each resource.
+	OwnerName string `protobuf:"bytes,22,opt,name=ownerName,proto3" json:"ownerName,omitempty"`
+	// Defines runtime configuration of components, including Istiod and istio-agent behavior.
+	// See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options.
 	// TODO can this import the real mesh config API?
-	MeshConfig           *structpb.Value     `protobuf:"bytes,36,opt,name=meshConfig,proto3" json:"meshConfig,omitempty"`
-	Base                 *BaseConfig         `protobuf:"bytes,37,opt,name=base,proto3" json:"base,omitempty"`
-	IstiodRemote         *IstiodRemoteConfig `protobuf:"bytes,38,opt,name=istiodRemote,proto3" json:"istiodRemote,omitempty"`
-	RevisionTags         []string            `protobuf:"bytes,39,rep,name=revisionTags,proto3" json:"revisionTags,omitempty"`
-	DefaultRevision      string              `protobuf:"bytes,40,opt,name=defaultRevision,proto3" json:"defaultRevision,omitempty"`
-	Profile              string              `protobuf:"bytes,42,opt,name=profile,proto3" json:"profile,omitempty"`
-	CompatibilityVersion string              `protobuf:"bytes,43,opt,name=compatibilityVersion,proto3" json:"compatibilityVersion,omitempty"`
+	MeshConfig *structpb.Value `protobuf:"bytes,36,opt,name=meshConfig,proto3" json:"meshConfig,omitempty"`
+	// Configuration for the base component.
+	Base *BaseConfig `protobuf:"bytes,37,opt,name=base,proto3" json:"base,omitempty"`
+	// Configuration for istiod-remote.
+	IstiodRemote *IstiodRemoteConfig `protobuf:"bytes,38,opt,name=istiodRemote,proto3" json:"istiodRemote,omitempty"`
+	// Specifies the aliases for the Istio control plane revision. A MutatingWebhookConfiguration
+	// is created for each alias.
+	RevisionTags []string `protobuf:"bytes,39,rep,name=revisionTags,proto3" json:"revisionTags,omitempty"`
+	// The name of the default revision in the cluster.
+	DefaultRevision string `protobuf:"bytes,40,opt,name=defaultRevision,proto3" json:"defaultRevision,omitempty"`
+	// Specifies which installation configuration profile to apply.
+	Profile string `protobuf:"bytes,42,opt,name=profile,proto3" json:"profile,omitempty"`
+	// Specifies the compatibility version to use. When this is set, the control plane will
+	// be configured with the same defaults as the specified version.
+	CompatibilityVersion string `protobuf:"bytes,43,opt,name=compatibilityVersion,proto3" json:"compatibilityVersion,omitempty"`
 }
 
 func (x *Values) Reset() {
