@@ -242,9 +242,7 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 		opts.HTTP.Headers.Set(headers.Host, host)
 	}
 	// Default address based on port
-	if opts.Address == "" {
-		opts.Address = addr
-	}
+	opts.Address = addr
 	if len(c.cluster.HTTPProxy()) > 0 && !c.cluster.ProxyKubectlOnly() {
 		opts.HTTP.HTTPProxy = c.cluster.HTTPProxy()
 	}
