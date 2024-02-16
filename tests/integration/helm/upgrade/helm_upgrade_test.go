@@ -75,7 +75,7 @@ func TestDefaultInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performInPlaceUpgradeFunc(previousSupportedVersion, false))
+		Run(performInPlaceUpgradeFunc(previousSupportedVersion))
 }
 
 // TestCanaryUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
@@ -108,12 +108,4 @@ func TestStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
 		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion))
-}
-
-// TestAmbientInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with ambient profile for Istio 1.(n-1)
-func TestAmbientInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
-	framework.
-		NewTest(t).
-		Features("installation.helm.ambient.upgrade").
-		Run(performInPlaceUpgradeFunc(previousSupportedVersion, true))
 }
