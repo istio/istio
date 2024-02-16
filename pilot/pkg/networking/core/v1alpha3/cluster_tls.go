@@ -284,6 +284,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 	}
+
+	// FIPS compliance for upstream.
+	sec_model.EnforceCompliance(tlsContext.CommonTlsContext, opts.mesh.GetCompliancePolicy())
 	return tlsContext, nil
 }
 
