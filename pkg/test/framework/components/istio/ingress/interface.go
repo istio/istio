@@ -38,7 +38,7 @@ type Instance interface {
 	//	// when in an environment that doesn't support LoadBalancer).
 	HTTPAddresses() ([]string, []int)
 	// HTTPSAddresses returns the external HTTPS (443) address of the ingress gateway (or the NodePort address,
-	//	// when in an environment that doesn't support LoadBalancer).
+	// when in an environment that doesn't support LoadBalancer).
 	HTTPSAddresses() ([]string, []int)
 	// TCPAddresses returns the external TCP (31400) address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer).
