@@ -246,6 +246,7 @@ func EnforceGoCompliance(ctx *gotls.Config, policy string) {
 			gotls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 			gotls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 		}
+		return
 	default:
 		log.Warnf("unknown compliance policy: %q", policy)
 		return
