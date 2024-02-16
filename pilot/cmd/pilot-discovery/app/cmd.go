@@ -142,7 +142,7 @@ func addFlags(c *cobra.Command) {
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	c.PersistentFlags().DurationVar(&serverArgs.ShutdownDuration, "shutdownDuration", 10*time.Second,
 		"Duration the discovery server needs to terminate gracefully")
-	c.PersistentFlags().StringVarP(&serverArgs.CompliancePolicy, "compliancePolicy", "fips-140-2",
+	c.PersistentFlags().StringVar(&serverArgs.CompliancePolicy, "compliancePolicy", "fips-140-2",
 		"Specify compliance policy startup-flag")
 
 	// RegistryOptions Controller options
