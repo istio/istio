@@ -24,6 +24,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 const (
@@ -53,6 +54,23 @@ type JWTServer struct {
 
 // ServeHTTP serves the JWT Keys.
 func (s *JWTServer) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	// Add artificious delay based on delay query
+	delayParam := request.URL.Query().Get("delay")
+	if delayParam != "" {
+		delayDuration, err := time.ParseDuration(delayParam)
+		if err != nil {
+			// Handle invalid delay parameter
+			response.WriteHeader(http.StatusBadRequest)
+			response.Write([]byte("Invalid delay parameter"))
+			return
+		}
+
+		// If delay parameter is provided and valid, add delay
+		if delayDuration > 0 {
+			time.Sleep(delayDuration)
+		}
+	}
+
 	response.WriteHeader(http.StatusOK)
 	response.Write([]byte(string(jwtKey)))
 }
