@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -701,5 +702,6 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
+	authnmodel.EnforceCompliance(ctx, push.Mesh.GetCompliancePolicy())
 	return ctx
 }

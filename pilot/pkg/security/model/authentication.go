@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -208,6 +209,54 @@ func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 		res = append(res, spiffe.URIPrefix+td+"/")
 	}
 	return res
+}
+
+const fips = "fips-140-2"
+
+var fipsCiphers = []string{
+	"ECDHE-ECDSA-AES128-GCM-SHA256",
+	"ECDHE-RSA-AES128-GCM-SHA256",
+	"ECDHE-ECDSA-AES256-GCM-SHA384",
+	"ECDHE-RSA-AES256-GCM-SHA384",
+}
+
+func index(ciphers []string) map[string]struct{} {
+	out := make(map[string]struct{})
+	for _, cipher := range ciphers {
+		out[cipher] = struct{}{}
+	}
+	return out
+}
+
+var fipsCipherIndex = index(fipsCiphers)
+
+// EnforceCompliance limits the TLS settings to the compliant values.
+// This should be called as the last policy.
+func EnforceCompliance(ctx *tls.CommonTlsContext, policy string) {
+	switch policy {
+	case "":
+		return
+	case fips:
+		if ctx.TlsParams == nil {
+			ctx.TlsParams = &tls.TlsParameters{}
+		}
+		ctx.TlsParams.TlsMinimumProtocolVersion = tls.TlsParameters_TLSv1_2
+		ctx.TlsParams.TlsMaximumProtocolVersion = tls.TlsParameters_TLSv1_2
+		// Default (unset) cipher suites in FIPS build of Envoy uses only FIPS ciphers.
+		if len(ctx.TlsParams.CipherSuites) > 0 {
+			ciphers := []string{}
+			for _, cipher := range ctx.TlsParams.CipherSuites {
+				if _, ok := fipsCipherIndex[cipher]; ok {
+					ciphers = append(ciphers, cipher)
+				}
+			}
+			ctx.TlsParams.CipherSuites = ciphers
+		}
+		return
+	default:
+		log.Warnf("unknown compliance policy: %q", policy)
+		return
+	}
 }
 
 // ApplyToCommonTLSContext completes the commonTlsContext

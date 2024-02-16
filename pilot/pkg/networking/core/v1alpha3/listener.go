@@ -178,6 +178,9 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
 		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
 	}
+
+	// FIPS compliance for downstream.
+	authnmodel.EnforceCompliance(ctx.CommonTlsContext, mesh.GetCompliancePolicy())
 	return ctx
 }
 
