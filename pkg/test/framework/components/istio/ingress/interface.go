@@ -35,7 +35,7 @@ func (i Instances) Callers() echo.Callers {
 type Instance interface {
 	echo.Caller
 	// HTTPAddresses returns the external HTTP (80) address of the ingress gateway ((or the NodePort address,
-	//	// when in an environment that doesn't support LoadBalancer).
+	// when in an environment that doesn't support LoadBalancer).
 	HTTPAddresses() ([]string, []int)
 	// HTTPSAddresses returns the external HTTPS (443) address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer).
