@@ -63,6 +63,7 @@ type PilotArgs struct {
 	KeepaliveOptions   *keepalive.Options
 	ShutdownDuration   time.Duration
 	JwtRule            string
+	CompliancePolicy   string
 }
 
 // DiscoveryServerOptions contains options for create a new discovery server instance.

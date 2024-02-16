@@ -15,6 +15,7 @@
 package model
 
 import (
+	gotls "crypto/tls"
 	"strings"
 	"time"
 
@@ -229,6 +230,27 @@ func index(ciphers []string) map[string]struct{} {
 }
 
 var fipsCipherIndex = index(fipsCiphers)
+
+// EnforceGoCompliance limits the TLS settings to the compliant values.
+// This should be called as the last policy.
+func EnforceGoCompliance(ctx *gotls.Config, policy string) {
+	switch policy {
+	case "":
+		return
+	case fips:
+		ctx.MinVersion = gotls.VersionTLS12
+		ctx.MaxVersion = gotls.VersionTLS12
+		ctx.CipherSuites = []uint16{
+			gotls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			gotls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			gotls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			gotls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		}
+	default:
+		log.Warnf("unknown compliance policy: %q", policy)
+		return
+	}
+}
 
 // EnforceCompliance limits the TLS settings to the compliant values.
 // This should be called as the last policy.
