@@ -1877,13 +1877,15 @@ func scopeToSidecar(scope *SidecarScope) string {
 }
 
 func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
+	now := time.Now()
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	testhost := "httpbin.org"
 	app1DestinationRule := config.Config{
 		Meta: config.Meta{
-			Name:      "nsRule1",
-			Namespace: "test",
+			Name:              "nsRule1",
+			Namespace:         "test",
+			CreationTimestamp: now,
 		},
 		Spec: &networking.DestinationRule{
 			Host:     testhost,
@@ -1909,8 +1911,9 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 	}
 	app2DestinationRule := config.Config{
 		Meta: config.Meta{
-			Name:      "nsRule2",
-			Namespace: "test",
+			Name:              "nsRule2",
+			Namespace:         "test",
+			CreationTimestamp: now.Add(time.Second),
 		},
 		Spec: &networking.DestinationRule{
 			Host:     testhost,
@@ -1938,8 +1941,9 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 	}
 	app3DestinationRule := config.Config{
 		Meta: config.Meta{
-			Name:      "nsRule3",
-			Namespace: "test",
+			Name:              "nsRule3",
+			Namespace:         "test",
+			CreationTimestamp: now.Add(time.Second),
 		},
 		Spec: &networking.DestinationRule{
 			Host:     testhost,
@@ -1967,8 +1971,9 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 	}
 	namespaceDestinationRule := config.Config{
 		Meta: config.Meta{
-			Name:      "nsRule4",
-			Namespace: "test",
+			Name:              "nsRule4",
+			Namespace:         "test",
+			CreationTimestamp: now.Add(-time.Second),
 		},
 		Spec: &networking.DestinationRule{
 			Host:     testhost,
@@ -1992,12 +1997,13 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 		},
 	}
 	testCases := []struct {
-		name            string
-		proxyNs         string
-		serviceNs       string
-		serviceHostname string
-		expectedDrCount int
-		expectedDrName  []string
+		name                   string
+		proxyNs                string
+		serviceNs              string
+		serviceHostname        string
+		expectedDrCount        int
+		expectedDrName         []string
+		expectedNamespacedFrom map[string][]types.NamespacedName
 	}{
 		{
 			name:            "return list of DRs for specific host",
@@ -2006,14 +2012,20 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 			serviceHostname: testhost,
 			expectedDrCount: 3,
 			expectedDrName:  []string{app1DestinationRule.Meta.Name, app2DestinationRule.Meta.Name, namespaceDestinationRule.Meta.Name},
+			expectedNamespacedFrom: map[string][]types.NamespacedName{
+				app1DestinationRule.Meta.Name:      {app1DestinationRule.NamespacedName(), namespaceDestinationRule.NamespacedName()},
+				app2DestinationRule.Meta.Name:      {app2DestinationRule.NamespacedName(), app3DestinationRule.NamespacedName(), namespaceDestinationRule.NamespacedName()},
+				namespaceDestinationRule.Meta.Name: {namespaceDestinationRule.NamespacedName()},
+			},
 		},
 		{
-			name:            "workload specific DR should not be exported",
-			proxyNs:         "test2",
-			serviceNs:       "test",
-			serviceHostname: testhost,
-			expectedDrCount: 1,
-			expectedDrName:  []string{namespaceDestinationRule.Meta.Name},
+			name:                   "workload specific DR should not be exported",
+			proxyNs:                "test2",
+			serviceNs:              "test",
+			serviceHostname:        testhost,
+			expectedDrCount:        1,
+			expectedDrName:         []string{namespaceDestinationRule.Meta.Name},
+			expectedNamespacedFrom: map[string][]types.NamespacedName{},
 		},
 		{
 			name:            "rules with same workloadselector should be merged",
@@ -2022,6 +2034,11 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 			serviceHostname: testhost,
 			expectedDrCount: 3,
 			expectedDrName:  []string{app1DestinationRule.Meta.Name, app2DestinationRule.Meta.Name, namespaceDestinationRule.Meta.Name},
+			expectedNamespacedFrom: map[string][]types.NamespacedName{
+				app1DestinationRule.Meta.Name:      {app1DestinationRule.NamespacedName(), namespaceDestinationRule.NamespacedName()},
+				app2DestinationRule.Meta.Name:      {app2DestinationRule.NamespacedName(), app3DestinationRule.NamespacedName(), namespaceDestinationRule.NamespacedName()},
+				namespaceDestinationRule.Meta.Name: {namespaceDestinationRule.NamespacedName()},
+			},
 		},
 	}
 
@@ -2041,6 +2058,18 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 		for i, dr := range drList {
 			if dr.rule.Name != tt.expectedDrName[i] {
 				t.Errorf("case %s failed, destinationRuleName expected %v got %v", tt.name, tt.expectedDrName[i], dr.rule.Name)
+			}
+		}
+		testLocal := ps.destinationRuleIndex.namespaceLocal[tt.proxyNs]
+		if testLocal != nil {
+			destRules := testLocal.specificDestRules
+			for _, dr := range destRules[host.Name(testhost)] {
+
+				// Check if the 'from' values match the expectedFrom map
+				expectedFrom := tt.expectedNamespacedFrom[dr.rule.Meta.Name]
+				if !reflect.DeepEqual(dr.from, expectedFrom) {
+					t.Errorf("Unexpected 'from' value for destination rule %s. Got: %v, Expected: %v", dr.rule.NamespacedName(), dr.from, expectedFrom)
+				}
 			}
 		}
 	}
