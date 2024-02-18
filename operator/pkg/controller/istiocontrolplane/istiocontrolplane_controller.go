@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	kubeversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
 	cache2 "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,7 +84,7 @@ type Options struct {
 // watchedResources contains all resources we will watch and reconcile when changed
 // Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
 // a type that does not yet exist.
-func watchedResources(version *kubeversion.Info) []schema.GroupVersionKind {
+func watchedResources() []schema.GroupVersionKind {
 	res := []schema.GroupVersionKind{
 		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
 		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
@@ -491,12 +490,8 @@ func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error
 	if err != nil {
 		return err
 	}
-	ver, err := r.kubeClient.GetKubernetesVersion()
-	if err != nil {
-		return err
-	}
 	// watch for changes to Istio resources
-	err = watchIstioResources(mgr.GetCache(), c, ver)
+	err = watchIstioResources(mgr.GetCache(), c)
 	if err != nil {
 		return err
 	}
@@ -505,8 +500,8 @@ func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error
 }
 
 // Watch changes for Istio resources managed by the operator
-func watchIstioResources(mgrCache cache2.Cache, c controller.Controller, ver *kubeversion.Info) error {
-	for _, t := range watchedResources(ver) {
+func watchIstioResources(mgrCache cache2.Cache, c controller.Controller) error {
+	for _, t := range watchedResources() {
 		u := &unstructured.Unstructured{}
 		u.SetGroupVersionKind(schema.GroupVersionKind{
 			Kind:    t.Kind,
