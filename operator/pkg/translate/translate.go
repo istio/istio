@@ -52,10 +52,6 @@ const (
 	HelmValuesHubSubpath = "hub"
 	// HelmValuesTagSubpath is the subpath from the component root to the tag parameter.
 	HelmValuesTagSubpath = "tag"
-	// default ingress gateway name
-	defaultIngressGWName = "istio-ingressgateway"
-	// default egress gateway name
-	defaultEgressGWName = "istio-egressgateway"
 )
 
 var scope = log.RegisterScope("translator", "API translator")
@@ -74,9 +70,6 @@ type Translator struct {
 	GlobalNamespaces map[name.ComponentName]string `yaml:"globalNamespaces"`
 	// ComponentMaps is a set of mappings for each Istio component.
 	ComponentMaps map[name.ComponentName]*ComponentMaps `yaml:"componentMaps"`
-	// checkedDeprecatedAutoscalingFields represents whether the translator already checked the deprecated fields already.
-	// Different components do not need to rerun the translation logic
-	checkedDeprecatedAutoscalingFields bool
 }
 
 // ComponentMaps is a set of mappings for an Istio component.
@@ -314,67 +307,6 @@ var componentToAutoScaleEnabledPath = map[name.ComponentName]string{
 	name.EgressComponentName:  "gateways.istio-egressgateway.autoscaleEnabled",
 }
 
-// checkDeprecatedHPAFields is a helper function to check for the deprecated fields usage in HorizontalPodAutoscalerSpec
-func checkDeprecatedHPAFields(iop *v1alpha1.IstioOperatorSpec) bool {
-	hpaSpecs := []*v1alpha1.HorizontalPodAutoscalerSpec{}
-	if iop.GetComponents().GetPilot().GetK8S().GetHpaSpec() != nil {
-		hpaSpecs = append(hpaSpecs, iop.GetComponents().GetPilot().GetK8S().GetHpaSpec())
-	}
-	for _, gwSpec := range iop.GetComponents().GetIngressGateways() {
-		if gwSpec.Name == defaultIngressGWName && gwSpec.GetK8S().GetHpaSpec() != nil {
-			hpaSpecs = append(hpaSpecs, gwSpec.GetK8S().GetHpaSpec())
-		}
-	}
-	for _, gwSpec := range iop.GetComponents().GetEgressGateways() {
-		if gwSpec.Name == defaultEgressGWName && gwSpec.GetK8S().GetHpaSpec() != nil {
-			hpaSpecs = append(hpaSpecs, gwSpec.GetK8S().GetHpaSpec())
-		}
-	}
-	for _, hpaSpec := range hpaSpecs {
-		if hpaSpec.GetMetrics() != nil {
-			for _, me := range hpaSpec.GetMetrics() {
-				// nolint: staticcheck
-				if me.GetObject().GetMetricName() != "" || me.GetObject().GetAverageValue() != nil ||
-					// nolint: staticcheck
-					me.GetObject().GetSelector() != nil || me.GetObject().GetTargetValue() != nil {
-					return true
-				}
-				// nolint: staticcheck
-				if me.GetPods().GetMetricName() != "" || me.GetPods().GetSelector() != nil ||
-					// nolint: staticcheck
-					me.GetPods().GetTargetAverageValue() != nil {
-					return true
-				}
-				// nolint: staticcheck
-				if me.GetResource().GetTargetAverageValue() != nil || me.GetResource().GetTargetAverageUtilization() != 0 {
-					return true
-				}
-				// nolint: staticcheck
-				if me.GetExternal().GetTargetAverageValue() != nil || me.GetExternal().GetTargetValue() != nil ||
-					// nolint: staticcheck
-					me.GetExternal().GetMetricName() != "" || me.GetExternal().GetMetricSelector() != nil {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-// translateDeprecatedAutoscalingFields checks for existence of deprecated HPA fields, if found, set values.global.autoscalingv2API to false
-// It only needs to run the logic for the first component because we are setting the values.global field instead of per component ones.
-// we do not set per component values because we may want to avoid mixture of v2 and v2beta1 autoscaling templates usage
-func (t *Translator) translateDeprecatedAutoscalingFields(values map[string]any, iop *v1alpha1.IstioOperatorSpec) error {
-	if t.checkedDeprecatedAutoscalingFields || checkDeprecatedHPAFields(iop) {
-		path := util.PathFromString("global.autoscalingv2API")
-		if err := tpath.WriteNode(values, path, false); err != nil {
-			return fmt.Errorf("failed to set autoscalingv2API path: %v", err)
-		}
-		t.checkedDeprecatedAutoscalingFields = true
-	}
-	return nil
-}
-
 func skipReplicaCountWithAutoscaleEnabled(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) bool {
 	values := iop.GetValues().AsMap()
 	path, ok := componentToAutoScaleEnabledPath[componentName]
@@ -540,11 +472,6 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 
 	// Special additional handling not covered by simple translation rules.
 	if err := t.setComponentProperties(root, ii); err != nil {
-		return "", err
-	}
-
-	// Special handling of the settings of legacy fields in autoscaling/v2beta1
-	if err := t.translateDeprecatedAutoscalingFields(root, ii); err != nil {
 		return "", err
 	}
 

@@ -140,6 +140,7 @@ type meshConfig struct {
 	EnableAutoMtls                 *wrappers.BoolValue                                       `json:"enableAutoMtls" patchStrategy:"replace"`
 	EnablePrometheusMerge          *wrappers.BoolValue                                       `json:"enablePrometheusMerge" patchStrategy:"replace"`
 	OutboundTrafficPolicy          *v1alpha13.MeshConfig_OutboundTrafficPolicy               `json:"outboundTrafficPolicy" patchStrategy:"merge"`
+	InboundTrafficPolicy           *v1alpha13.MeshConfig_InboundTrafficPolicy                `json:"inboundTrafficPolicy" patchStrategy:"merge"`
 	TCPKeepalive                   *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive `json:"tcpKeepalive" patchStrategy:"merge"`
 	DefaultConfig                  *proxyConfig                                              `json:"defaultConfig" patchStrategy:"merge"`
 	ConfigSources                  []*v1alpha13.ConfigSource                                 `json:"configSources" patchStrategy:"merge" patchMergeKey:"address"`

@@ -1,0 +1,34 @@
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      ISTIO_META_ENABLE_HBONE: "true"
+global:
+  platform: openshift
+cni:
+  ambient:
+    enabled: true
+  cniBinDir: /var/lib/cni/bin
+  cniConfDir: /etc/cni/multus/net.d
+  chained: false
+  cniConfFileName: "istio-cni.conf"
+  excludeNamespaces:
+    - kube-system
+  logLevel: info
+  privileged: true
+  provider: "multus"
+istio_cni:
+  enabled: true
+  chained: false
+pilot:
+  variant: distroless
+  env:
+    # Setup more secure default that is off in 'default' only for backwards compatibility
+    VERIFY_CERTIFICATE_AT_CLIENT: "true"
+    ENABLE_AUTO_SNI: "true"
+
+    PILOT_ENABLE_HBONE: "true"
+    CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
+    PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
+variant: distroless
+seLinuxOptions:
+  type: spc_t

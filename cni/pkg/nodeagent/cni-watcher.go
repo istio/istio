@@ -28,7 +28,6 @@ import (
 
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/pluginlistener"
-	"istio.io/istio/pkg/network"
 )
 
 // Just a composite of the CNI plugin add event struct + some extracted "args"
@@ -94,20 +93,25 @@ func (s *CniPluginServer) Start() error {
 		return fmt.Errorf("failed to create CNI listener: %v", err)
 	}
 	go func() {
-		if err := s.cniListenServer.Serve(unixListener); network.IsUnexpectedListenerError(err) {
-			log.Errorf("Error running CNI listener server: %v", err)
+		err := s.cniListenServer.Serve(unixListener)
+
+		select {
+		case <-s.ctx.Done():
+			// ctx done, we should silently go away
+			return
+		default:
+			// If the cniListener exits, at least we should record an error log
+			log.Errorf("CNI listener server exiting unexpectedly: %v", err)
 		}
 	}()
 
-	go func() {
-		<-s.ctx.Done()
+	context.AfterFunc(s.ctx, func() {
 		if err := s.cniListenServer.Close(); err != nil {
 			log.Errorf("CNI listen server terminated with error: %v", err)
 		} else {
 			log.Debug("CNI listen server terminated")
 		}
-	}()
-
+	})
 	return nil
 }
 
@@ -153,26 +157,31 @@ func processAddEvent(body []byte) (CNIPluginAddEvent, error) {
 func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPluginAddEvent) error {
 	log := log.WithLabels("cni-event", addCmd)
 
+	log.Debugf("netns: %s", addCmd.Netns)
+
 	// The CNI node plugin should have already checked the pod against the k8s API before forwarding us the event,
 	// but we have to invoke the K8S client anyway, so to be safe we check it again here to make sure we get the same result.
-	maxStaleRetries := 5
+	maxStaleRetries := 10
+	msInterval := 10
 	retries := 0
 	var ambientPod *corev1.Pod
 	var err error
+
+	log.Debugf("Checking pod: %s in ns: %s is enabled for ambient", addCmd.PodName, addCmd.PodNamespace)
 	// The plugin already consulted the k8s API - but on this end handler caches may be stale, so retry a few times if we get no pod.
-	for ambientPod, err = s.handlers.GetPodIfAmbient(addCmd.PodName, addCmd.PodNamespace); (ambientPod == nil) || (retries < maxStaleRetries); retries++ {
+	for ambientPod, err = s.handlers.GetPodIfAmbient(addCmd.PodName, addCmd.PodNamespace); (ambientPod == nil) && (retries < maxStaleRetries); retries++ {
 		if err != nil {
 			return err
 		}
 		log.Warnf("got an event for pod %s in namespace %s not found in current pod cache, retry %d of %d",
 			addCmd.PodName, addCmd.PodNamespace, retries, maxStaleRetries)
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(time.Duration(msInterval) * time.Millisecond)
 	}
 
 	if ambientPod == nil {
 		return fmt.Errorf("got event for pod %s in namespace %s but could not find in pod cache after retries", addCmd.PodName, addCmd.PodNamespace)
 	}
-	log.Debugf("Pod: %s in ns: %s is enabled for ambient, adding to mesh. ", addCmd.PodName, addCmd.PodNamespace)
+	log.Debugf("Pod: %s in ns: %s is enabled for ambient, adding to mesh.", addCmd.PodName, addCmd.PodNamespace)
 
 	var podIps []netip.Addr
 	for _, configuredPodIPs := range addCmd.IPs {

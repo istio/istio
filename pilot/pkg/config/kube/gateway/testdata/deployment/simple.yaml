@@ -8,6 +8,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   annotations:
+    ambient.istio.io/redirection: disabled
     should: see
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
@@ -16,11 +17,17 @@ metadata:
     should: see
   name: default-istio
   namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: default
+    uid: ""
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
+    ambient.istio.io/redirection: disabled
     should: see
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
@@ -41,6 +48,7 @@ spec:
   template:
     metadata:
       annotations:
+        ambient.istio.io/redirection: disabled
         istio.io/rev: default
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
@@ -211,6 +219,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
+    ambient.istio.io/redirection: disabled
     should: see
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller

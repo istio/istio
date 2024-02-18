@@ -320,6 +320,8 @@ spec:
 
 				host, _ := defaultIngress.HTTPAddress()
 				hostIsIP := net.ParseIP(host).String() != "<nil>"
+				ingressHostFound := false
+				actualHosts := []string{}
 				retry.UntilSuccessOrFail(t, func() error {
 					ing, err := t.Clusters().Default().Kube().NetworkingV1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
@@ -328,12 +330,19 @@ spec:
 					if len(ing.Status.LoadBalancer.Ingress) < 1 {
 						return fmt.Errorf("unexpected ingress status, ingress is empty")
 					}
-					got := ing.Status.LoadBalancer.Ingress[0].Hostname
-					if hostIsIP {
-						got = ing.Status.LoadBalancer.Ingress[0].IP
+					for _, ingress := range ing.Status.LoadBalancer.Ingress {
+						got := ingress.Hostname
+						if hostIsIP {
+							got = ingress.IP
+						}
+						actualHosts = append(actualHosts, got)
+						if got == host {
+							ingressHostFound = true
+							break
+						}
 					}
-					if got != host {
-						return fmt.Errorf("unexpected ingress status, got %+v want %v", got, host)
+					if !ingressHostFound {
+						return fmt.Errorf("unexpected ingress status, got %+v want %v", actualHosts, host)
 					}
 					return nil
 				}, retry.Timeout(time.Second*90))

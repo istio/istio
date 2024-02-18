@@ -7,18 +7,25 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  annotations: {}
+  annotations:
+    ambient.istio.io/redirection: enabled
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
     istio.io/gateway-name: default
   name: default-istio
   namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: default
+    uid: ""
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations: {}
+  annotations:
+    ambient.istio.io/redirection: enabled
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
@@ -123,7 +130,7 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        image: '/proxyv2:'
+        image: test/proxyv2:test
         name: istio-proxy
         ports:
         - containerPort: 15021
@@ -205,7 +212,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations: {}
+  annotations:
+    ambient.istio.io/redirection: enabled
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default

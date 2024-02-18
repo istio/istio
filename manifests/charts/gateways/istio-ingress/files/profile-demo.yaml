@@ -7,7 +7,7 @@ meshConfig:
   extensionProviders:
     - name: otel
       envoyOtelAls:
-        service: opentelemetry-collector.istio-system.svc.cluster.local
+        service: opentelemetry-collector.observability.svc.cluster.local
         port: 4317
     - name: skywalking
       skywalking:
@@ -16,7 +16,7 @@ meshConfig:
     - name: otel-tracing
       opentelemetry:
         port: 4317
-        service: opentelemetry-collector.otel-collector.svc.cluster.local
+        service: opentelemetry-collector.observability.svc.cluster.local
 
 global:
   proxy:

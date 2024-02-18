@@ -12,6 +12,14 @@ metadata:
         "gateway.networking.k8s.io/gateway-name" .Name
         "istio.io/gateway-name" .Name
       ) | nindent 4 }}
+  {{- if ge .KubeVersion 128 }}
+  # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: "{{.Name}}"
+    uid: "{{.UID}}"
+  {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
