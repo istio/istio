@@ -15,7 +15,6 @@
 package grpc
 
 import (
-	"context"
 	"io"
 	"math"
 	"strings"
@@ -31,30 +30,6 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/util/sets"
 )
-
-type SendHandler func() error
-
-// Send with timeout if specified. If timeout is zero, sends without timeout.
-func Send(ctx context.Context, send SendHandler) error {
-	if features.XdsPushSendTimeout.Nanoseconds() > 0 {
-		errChan := make(chan error, 1)
-		timeoutCtx, cancel := context.WithTimeout(ctx, features.XdsPushSendTimeout)
-		defer cancel()
-		go func() {
-			err := send()
-			errChan <- err
-			close(errChan)
-		}()
-		select {
-		case <-timeoutCtx.Done():
-			return status.Errorf(codes.DeadlineExceeded, "timeout sending")
-		case err := <-errChan:
-			return err
-		}
-	}
-	err := send()
-	return err
-}
 
 func ServerOptions(options *istiokeepalive.Options, interceptors ...grpc.UnaryServerInterceptor) []grpc.ServerOption {
 	maxStreams := features.MaxConcurrentStreams

@@ -67,6 +67,7 @@ func startAndWaitForServer(t *testing.T) *Server {
 
 	// Start and wait for server
 	o := DefaultOptions()
+	o.Port = 0
 	s, err := Run(o, nil)
 	if err != nil {
 		t.Fatalf("Failed to start server: %v", err)

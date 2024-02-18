@@ -478,7 +478,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				}
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
-			if err := sendUpstream(con.upstream, req); err != nil {
+			if err := con.upstream.Send(req); err != nil {
 				err = fmt.Errorf("send error for type url %s: %v", req.TypeUrl, err)
 				upstreamErr(con, err)
 				return
@@ -593,6 +593,18 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 	}
 }
 
+// sendDownstream sends discovery response.
+func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse) error {
+	tStart := time.Now()
+	defer func() {
+		// This is a hint to help debug slow responses.
+		if time.Since(tStart) > 10*time.Second {
+			proxyLog.Warnf("sendDownstream took %v", time.Since(tStart))
+		}
+	}()
+	return downstream.Send(response)
+}
+
 func (p *XdsProxy) close() {
 	close(p.stopChan)
 	p.wasmCache.Cleanup()
@@ -667,23 +679,6 @@ func (p *XdsProxy) getTLSOptions(agent *Agent) (*istiogrpc.TLSOptions, error) {
 		ServerAddress: agent.proxyConfig.DiscoveryAddress,
 		SAN:           p.istiodSAN,
 	}, nil
-}
-
-// sendUpstream sends discovery request.
-func sendUpstream(upstream xds.DiscoveryClient, request *discovery.DiscoveryRequest) error {
-	return istiogrpc.Send(upstream.Context(), func() error { return upstream.Send(request) })
-}
-
-// sendDownstream sends discovery response.
-func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse) error {
-	tStart := time.Now()
-	defer func() {
-		// This is a hint to help debug slow responses.
-		if time.Since(tStart) > 10*time.Second {
-			proxyLog.Warnf("sendDownstream took %v", time.Since(tStart))
-		}
-	}()
-	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
 }
 
 // tapRequest() sends "req" to Istiod, and returns a matching response, or `nil` on timeout.
