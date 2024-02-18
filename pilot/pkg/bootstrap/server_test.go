@@ -18,10 +18,19 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	caclient "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -766,4 +775,170 @@ func TestGetDNSNames(t *testing.T) {
 			assert.Equal(t, sans, tc.sans)
 		})
 	}
+}
+
+func TestConnectionOverload(t *testing.T) {
+
+	testConnectionOverload(t, 4, 4, 2)
+
+	testConnectionOverload(t, 25, 500, 6)
+}
+
+func testConnectionOverload(t *testing.T, qps, limit, reconnection int) {
+
+	features.RequestLimit = float64(qps)
+	features.ConnectionLimit = limit
+
+	g := NewGomegaWithT(t)
+	configDir := t.TempDir()
+	args := NewPilotArgs(func(p *PilotArgs) {
+		p.Namespace = "istio-system"
+		p.ServerOptions = DiscoveryServerOptions{
+			HTTPAddr:  ":8080",
+			HTTPSAddr: ":15017",
+			GRPCAddr:  ":15010",
+			//SecureGRPCAddr: ":15012",
+			MonitoringAddr: ":15014",
+		}
+		p.RegistryOptions = RegistryOptions{
+			FileDir: configDir,
+		}
+
+		p.ShutdownDuration = 1 * time.Millisecond
+
+	})
+
+	s, err := NewServer(args, func(s *Server) {
+		s.kubeClient = kube.NewFakeClient()
+	})
+	g.Expect(err).To(Succeed())
+	stop := make(chan struct{})
+	g.Expect(s.Start(stop)).To(Succeed())
+	defer func() {
+		close(stop)
+		s.WaitUntilCompletion()
+	}()
+
+	var connectionListLock sync.Mutex
+	var wg sync.WaitGroup
+	connectionSuccessful := make([]*FakeAgent, 0, qps*2)
+	// init connection
+	last := 0
+	for i := 0; i < features.ConnectionLimit/2; i++ {
+		client := NewFakeAgent("localhost:15010", "localhost:15010")
+		client.Connect(t)
+		client.ADS().WithType(v3.EndpointType)
+		client.ADS().RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
+		connectionSuccessful = append(connectionSuccessful, client)
+		if i-last == int(features.RequestLimit) {
+			time.Sleep(time.Second)
+			last = i
+		}
+	}
+
+	// burst connection
+	for i := 0; i < features.ConnectionLimit*2; i++ {
+		wg.Add(1)
+		go func(id string) {
+			defer wg.Done()
+			time.Sleep(time.Second * time.Duration(rand.Intn(4)))
+			client := NewFakeAgent("localhost:15010", "localhost:15010")
+			client.Connect(t)
+			ads := client.ADS().WithType(v3.EndpointType).WithID("sidecar~1.1.1.1~test.default." + id + "~default.svc.cluster.local")
+			req := &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}}
+			time.Sleep(time.Second * time.Duration(rand.Intn(2)))
+			if err := ads.HasError(t); err != nil {
+				return
+			}
+			ads.Request(t, req)
+
+			if err := ads.HasError(t); err != nil {
+				t.Logf("connection failed: %v", err)
+			} else {
+				resp := ads.ExpectResponse(t)
+				req.ResponseNonce = resp.Nonce
+				req.VersionInfo = resp.VersionInfo
+				ads.Request(t, req)
+				connectionListLock.Lock()
+				defer connectionListLock.Unlock()
+				connectionSuccessful = append(connectionSuccessful, client)
+			}
+
+		}(strconv.Itoa(i))
+
+		if i%(int(features.RequestLimit)*8) == 0 {
+			time.Sleep(time.Second)
+		}
+	}
+	wg.Wait()
+
+	if len(connectionSuccessful) < features.ConnectionLimit/2 || len(connectionSuccessful) > features.ConnectionLimit {
+		t.Fatalf("connection is not as expected %d:%d", len(connectionSuccessful), features.ConnectionLimit)
+	} else if len(connectionSuccessful) != len(s.XDSServer.AllClients()) {
+		t.Fatalf("inconsistent connection")
+	} else {
+		t.Logf("establish %d connections", len(connectionSuccessful))
+	}
+
+	// reconnection
+
+	randCloseConnection := func() {
+		sliceSwapLast(rand.Intn(len(connectionSuccessful)), connectionSuccessful)
+		connectionSuccessful[len(connectionSuccessful)-1].ADS().Cleanup() // repeat
+		connectionSuccessful = connectionSuccessful[:len(connectionSuccessful)-1]
+	}
+
+	time.Sleep(time.Second * 4)
+	for i := 0; i < reconnection; i++ {
+		randCloseConnection()
+		time.Sleep(time.Second * 2)
+		if len(connectionSuccessful) != len(s.XDSServer.AllClients()) {
+			t.Fatalf("inconsistent after disconnection %d:%d", len(connectionSuccessful), len(s.XDSServer.AllClients()))
+		}
+		client := NewFakeAgent("localhost:15010", "localhost:15010")
+		client.Connect(t)
+		ads := client.ADS().WithType(v3.EndpointType)
+		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
+		connectionSuccessful = append(connectionSuccessful, client)
+	}
+}
+
+type FakeAgent struct {
+	DiscoveryAddress string
+	CAEndpoint       string
+
+	ads      *xds.AdsTest
+	caClient *caclient.CitadelClient
+}
+
+func NewFakeAgent(discoveryAddress, caServer string) *FakeAgent {
+	return &FakeAgent{
+		DiscoveryAddress: discoveryAddress,
+		CAEndpoint:       caServer,
+	}
+}
+
+func (agent *FakeAgent) Connect(t test.Failer) {
+	conn, err := grpc.Dial(agent.DiscoveryAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		t.Fatalf("failed to connect: %v", err)
+	}
+
+	agent.ads = xds.NewAdsTest(t, conn)
+	t.Cleanup(agent.ads.Cleanup)
+}
+
+func (agent *FakeAgent) ADS() *xds.AdsTest {
+	return agent.ads
+}
+
+func sliceSwapLast[T any](i int, arr []T) {
+	sliceSwap(i, len(arr)-1, arr)
+}
+
+func sliceSwap[T any](i, j int, arr []T) {
+	arr[i], arr[j] = arr[j], arr[i]
 }

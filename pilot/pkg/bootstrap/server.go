@@ -20,6 +20,9 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 	"net"
 	"net/http"
 	"os"
@@ -167,6 +170,8 @@ type Server struct {
 	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreController
+
+	connectionCounter atomic.Int64
 }
 
 type readinessFlags struct {
@@ -721,6 +726,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 		grpcprom.UnaryServerInterceptor,
 	}
 	grpcOptions := istiogrpc.ServerOptions(options, interceptors...)
+	grpcOptions = append(grpcOptions, grpc.StreamInterceptor(middleware.ChainStreamServer(s.StreamServerOverloadInterceptor)))
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
@@ -768,6 +774,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	}
 	opts := istiogrpc.ServerOptions(args.KeepaliveOptions, interceptors...)
 	opts = append(opts, grpc.Creds(tlsCreds))
+	opts = append(opts, grpc.StreamInterceptor(middleware.ChainStreamServer(s.StreamServerOverloadInterceptor)))
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
@@ -1342,4 +1349,16 @@ func (s *Server) initReadinessProbes() {
 	for name, probe := range probes {
 		s.addReadinessProbe(name, probe)
 	}
+}
+
+func (s *Server) StreamServerOverloadInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	connectionTotal.RecordInt(s.connectionCounter.Add(1))
+	defer func() {
+		connectionTotal.RecordInt(s.connectionCounter.Add(-1))
+	}()
+	if features.ConnectionLimit > 0 && int64(features.ConnectionLimit) < s.connectionCounter.Load() {
+		return grpcstatus.Errorf(codes.ResourceExhausted, "connection limit exceeded")
+	}
+	err := handler(srv, ss)
+	return err
 }

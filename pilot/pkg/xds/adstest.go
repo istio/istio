@@ -159,6 +159,17 @@ func (a *AdsTest) ExpectError(t test.Failer) error {
 	return nil
 }
 
+func (a *AdsTest) HasError(t test.Failer) error {
+	t.Helper()
+	select {
+	case <-time.After(a.timeout):
+		t.Logf("did not get error in time")
+	case err := <-a.error:
+		return err
+	}
+	return nil
+}
+
 // ExpectNoResponse waits a short period of time and ensures no response is received
 func (a *AdsTest) ExpectNoResponse(t test.Failer) {
 	t.Helper()

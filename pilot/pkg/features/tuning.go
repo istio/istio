@@ -23,6 +23,12 @@ import (
 
 // Define performance tuning related features here.
 var (
+	ConnectionLimit = env.RegisterIntVar(
+		"PILOT_MAX_CONNECTION",
+		0,
+		"Limits the number of incoming ADS connection.",
+	).Get()
+
 	MaxConcurrentStreams = env.Register(
 		"ISTIO_GPRC_MAXSTREAMS",
 		100000,

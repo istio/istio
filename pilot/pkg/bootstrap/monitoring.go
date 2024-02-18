@@ -49,10 +49,20 @@ var (
 		"pilot_info",
 		"Pilot version and build information.",
 	)
+
+	connectionTotal = monitoring.NewGauge(
+		"pilot_connection_total",
+		"Total number of grpc connections established.",
+	)
 )
 
 func init() {
 	pilotVersion.With(versionTag.Value(version.Info.String())).Record(1)
+
+	monitoring.MustRegister(
+		connectionTotal,
+	)
+	connectionTotal.RecordInt(0)
 }
 
 func addMonitor(mux *http.ServeMux) error {
