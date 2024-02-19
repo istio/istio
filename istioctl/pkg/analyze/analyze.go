@@ -201,7 +201,7 @@ func Analyze(ctx cli.Context) *cobra.Command {
 					return err
 				}
 				for _, c := range clients {
-					k := kube.EnableCrdWatcher(c)
+					k := kube.EnableCrdWatcher(c.client)
 					sa.AddRunningKubeSourceWithRevision(k, revisionSpecified, c.remote)
 				}
 			}
@@ -486,7 +486,7 @@ func isJSONorYAMLOutputFormat() bool {
 }
 
 type Client struct {
-	kube.Client
+	client kube.Client
 	remote bool
 }
 
@@ -497,7 +497,7 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 	}
 	clients := []*Client{
 		{
-			Client: client,
+			client: client,
 			remote: false,
 		},
 	}
@@ -526,7 +526,7 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 				return nil, err
 			}
 			clients = append(clients, &Client{
-				Client: client,
+				client: client,
 				remote: true,
 			})
 		}

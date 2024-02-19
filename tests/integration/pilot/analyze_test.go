@@ -518,7 +518,7 @@ spec:
 			}
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})
-			output, _ := istioctlSafe(t, istioCtl, "", true, "--multi-cluster", "--all-namespaces")
+			output, _ := istioctlSafe(t, istioCtl, "", true, "--all-namespaces")
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
 		})
 }
