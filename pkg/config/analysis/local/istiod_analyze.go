@@ -70,8 +70,6 @@ type IstiodAnalyzer struct {
 	namespace      resource.Namespace
 	istioNamespace resource.Namespace
 
-	initializedStore model.ConfigStoreController
-
 	// List of code and resource suppressions to exclude messages on
 	suppressions []AnalysisSuppression
 
@@ -163,7 +161,7 @@ func (sa *IstiodAnalyzer) internalAnalyze(a *analysis.CombinedAnalyzer, cancel <
 
 	a.Analyze(ctx)
 
-	// TODO(hzxuzhonghu): we do not need set here
+	// TODO(hzxuzhonghu): wex do not need set here
 	namespaces := sets.New[resource.Namespace]()
 	if sa.namespace != "" {
 		namespaces.Insert(sa.namespace)
@@ -237,8 +235,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		return err
 	}
 	go store.Run(cancel)
-	sa.initializedStore = store
-	sa.multiClusterStores[sa.cluster] = sa.initializedStore
+	sa.multiClusterStores[sa.cluster] = store
 	return nil
 }
 
@@ -416,7 +413,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		},
 	}, krs)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
-	if !remote {
+	if remote {
 		clusterID := c.ClusterID()
 		if clusterID == "" {
 			clusterID = "default"

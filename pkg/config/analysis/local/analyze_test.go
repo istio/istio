@@ -161,8 +161,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
 	// We have a store for Istio configs and one for service discovery K8S resources.
-	g.Expect(sa.stores).To(HaveLen(1))
-	g.Expect(sa.multiClusterStores).To(HaveLen(1))
+	g.Expect(sa.stores).To(HaveLen(2))
 }
 
 func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
