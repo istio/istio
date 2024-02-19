@@ -41,7 +41,7 @@ func NewContext(stores map[cluster.ID]model.ConfigStore, cancelCh <-chan struct{
 		messages:           map[string]*diag.Messages{},
 		collectionReporter: collectionReporter,
 		found:              map[key]*resource.Instance{},
-		foundCollections:   map[config.GroupVersionKind]map[resource.FullName]*resource.Instance{},
+		foundCollections:   map[config.GroupVersionKind]map[key]*resource.Instance{},
 	}
 }
 
@@ -51,13 +51,14 @@ type istiodContext struct {
 	messages           map[string]*diag.Messages
 	collectionReporter CollectionReporterFn
 	found              map[key]*resource.Instance
-	foundCollections   map[config.GroupVersionKind]map[resource.FullName]*resource.Instance
+	foundCollections   map[config.GroupVersionKind]map[key]*resource.Instance
 	currentAnalyzer    string
 }
 
 type key struct {
 	collectionName config.GroupVersionKind
 	name           resource.FullName
+	cluster        cluster.ID
 }
 
 func (i *istiodContext) Report(c config.GroupVersionKind, m diag.Message) {
@@ -92,11 +93,12 @@ func (i *istiodContext) GetMessages(analyzerNames ...string) diag.Messages {
 
 func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName) *resource.Instance {
 	i.collectionReporter(col)
-	if result, ok := i.found[key{col, name}]; ok {
+	k := key{col, name, "default"}
+	if result, ok := i.found[k]; ok {
 		return result
 	}
 	if cache, ok := i.foundCollections[col]; ok {
-		if result, ok2 := cache[name]; ok2 {
+		if result, ok2 := cache[k]; ok2 {
 			return result
 		}
 	}
@@ -116,7 +118,7 @@ func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName
 				cfg.Meta.GroupVersionKind.Kind, cfg.Meta.Namespace, cfg.Meta.Namespace, err)
 			return nil
 		}
-		i.found[key{col, name}] = result
+		i.found[k] = result
 		return result
 	}
 	return nil
@@ -145,23 +147,23 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 		log.Errorf("collection %s could not be found", col.String())
 		return
 	}
+	cache := map[key]*resource.Instance{}
 	for id, store := range i.stores {
 		// TODO: this needs to include file source as well
 		cfgs := store.List(colschema.GroupVersionKind(), "")
 		broken := false
-		cache := map[resource.FullName]*resource.Instance{}
 		for _, cfg := range cfgs {
 			k := key{
 				col, resource.FullName{
 					Name:      resource.LocalName(cfg.Name),
 					Namespace: resource.Namespace(cfg.Namespace),
-				},
+				}, id,
 			}
 			if res, ok := i.found[k]; ok {
 				if !broken && !fn(res) {
 					broken = true
 				}
-				cache[res.Metadata.FullName] = res
+				cache[k] = res
 				continue
 			}
 			res, err := cfgToInstance(cfg, col, colschema, id)
@@ -174,7 +176,7 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 			if !broken && !fn(res) {
 				broken = true
 			}
-			cache[res.Metadata.FullName] = res
+			cache[k] = res
 		}
 		if len(cache) > 0 {
 			i.foundCollections[col] = cache

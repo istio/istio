@@ -140,6 +140,6 @@ func addStore(sa *local.IstiodAnalyzer, clusterName string, yamls []string) erro
 		}
 	}
 	sa.AddSourceForCluster(src, cluster.ID(clusterName))
-	sa.AddRunningKubeSourceWithRevision(client, clusterName, true)
+	sa.AddRunningKubeSourceWithRevision(client, clusterName, false)
 	return nil
 }

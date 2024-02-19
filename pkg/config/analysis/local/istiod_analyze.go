@@ -86,7 +86,7 @@ type IstiodAnalyzer struct {
 	// Hook function called when a collection is used in analysis
 	collectionReporter CollectionReporterFn
 
-	clientsToRun map[cluster.ID]kubelib.Client
+	clientsToRun []kubelib.Client
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
@@ -121,7 +121,7 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 		istioNamespace:     istioNamespace,
 		kubeResources:      kubeResources,
 		collectionReporter: cr,
-		clientsToRun:       map[cluster.ID]kubelib.Client{},
+		clientsToRun:       []kubelib.Client{},
 		multiClusterStores: make(map[cluster.ID]model.ConfigStoreController),
 	}
 
@@ -234,8 +234,10 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	go store.Run(cancel)
 	sa.multiClusterStores[sa.cluster] = store
+	for _, mcs := range sa.multiClusterStores {
+		go mcs.Run(cancel)
+	}
 	return nil
 }
 
@@ -422,7 +424,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 	} else {
 		sa.stores = append(sa.stores, store)
 	}
-	sa.clientsToRun[c.ClusterID()] = c
+	sa.clientsToRun = append(sa.clientsToRun, c)
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
 	if err := sa.addRunningKubeIstioConfigMapSource(c); err != nil {
