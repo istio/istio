@@ -71,6 +71,7 @@ func All() []analysis.Analyzer {
 		&telemetry.SelectorAnalyzer{},
 		&telemetry.DefaultSelectorAnalyzer{},
 		&telemetry.LightstepAnalyzer{},
+		&multicluster.ServiceAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)
@@ -80,7 +81,6 @@ func All() []analysis.Analyzer {
 
 func AllMultiCluster() []analysis.Analyzer {
 	analyzers := []analysis.Analyzer{
-		// Please keep this list sorted alphabetically by pkg.name for convenience
 		&multicluster.ServiceAnalyzer{},
 	}
 	return analyzers

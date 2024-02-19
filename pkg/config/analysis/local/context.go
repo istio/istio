@@ -34,10 +34,9 @@ import (
 )
 
 // NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.
-func NewContext(store model.ConfigStore, cluster cluster.ID, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
+func NewContext(stores map[cluster.ID]model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
 	return &istiodContext{
-		cluster:            cluster,
-		store:              store,
+		stores:             stores,
 		cancelCh:           cancelCh,
 		messages:           map[string]*diag.Messages{},
 		collectionReporter: collectionReporter,
@@ -47,8 +46,7 @@ func NewContext(store model.ConfigStore, cluster cluster.ID, cancelCh <-chan str
 }
 
 type istiodContext struct {
-	cluster            cluster.ID
-	store              model.ConfigStore
+	stores             map[cluster.ID]model.ConfigStore
 	cancelCh           <-chan struct{}
 	messages           map[string]*diag.Messages
 	collectionReporter CollectionReporterFn
@@ -107,19 +105,21 @@ func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName
 		log.Warnf("collection %s could not be found", col.String())
 		return nil
 	}
-	cfg := i.store.Get(colschema.GroupVersionKind(), name.Name.String(), name.Namespace.String())
-	if cfg == nil {
-		log.Debugf(" %s resource [%s/%s] could not be found", colschema.GroupVersionKind(), name.Namespace.String(), name.Name.String())
-		return nil
+	for id, store := range i.stores {
+		cfg := store.Get(colschema.GroupVersionKind(), name.Name.String(), name.Namespace.String())
+		if cfg == nil {
+			continue
+		}
+		result, err := cfgToInstance(*cfg, col, colschema, id)
+		if err != nil {
+			log.Errorf("failed converting found config %s %s/%s to instance: %s, ",
+				cfg.Meta.GroupVersionKind.Kind, cfg.Meta.Namespace, cfg.Meta.Namespace, err)
+			return nil
+		}
+		i.found[key{col, name}] = result
+		return result
 	}
-	result, err := cfgToInstance(*cfg, col, colschema, i.cluster)
-	if err != nil {
-		log.Errorf("failed converting found config %s %s/%s to instance: %s, ",
-			cfg.Meta.GroupVersionKind.Kind, cfg.Meta.Namespace, cfg.Meta.Namespace, err)
-		return nil
-	}
-	i.found[key{col, name}] = result
-	return result
+	return nil
 }
 
 func (i *istiodContext) Exists(col config.GroupVersionKind, name resource.FullName) bool {
@@ -145,38 +145,40 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 		log.Errorf("collection %s could not be found", col.String())
 		return
 	}
-	// TODO: this needs to include file source as well
-	cfgs := i.store.List(colschema.GroupVersionKind(), "")
-	broken := false
-	cache := map[resource.FullName]*resource.Instance{}
-	for _, cfg := range cfgs {
-		k := key{
-			col, resource.FullName{
-				Name:      resource.LocalName(cfg.Name),
-				Namespace: resource.Namespace(cfg.Namespace),
-			},
-		}
-		if res, ok := i.found[k]; ok {
+	for id, store := range i.stores {
+		// TODO: this needs to include file source as well
+		cfgs := store.List(colschema.GroupVersionKind(), "")
+		broken := false
+		cache := map[resource.FullName]*resource.Instance{}
+		for _, cfg := range cfgs {
+			k := key{
+				col, resource.FullName{
+					Name:      resource.LocalName(cfg.Name),
+					Namespace: resource.Namespace(cfg.Namespace),
+				},
+			}
+			if res, ok := i.found[k]; ok {
+				if !broken && !fn(res) {
+					broken = true
+				}
+				cache[res.Metadata.FullName] = res
+				continue
+			}
+			res, err := cfgToInstance(cfg, col, colschema, id)
+			if err != nil {
+				// TODO: demote this log before merging
+				log.Error(err)
+				// TODO: is continuing the right thing here?
+				continue
+			}
 			if !broken && !fn(res) {
 				broken = true
 			}
 			cache[res.Metadata.FullName] = res
-			continue
 		}
-		res, err := cfgToInstance(cfg, col, colschema, i.cluster)
-		if err != nil {
-			// TODO: demote this log before merging
-			log.Error(err)
-			// TODO: is continuing the right thing here?
-			continue
+		if len(cache) > 0 {
+			i.foundCollections[col] = cache
 		}
-		if !broken && !fn(res) {
-			broken = true
-		}
-		cache[res.Metadata.FullName] = res
-	}
-	if len(cache) > 0 {
-		i.foundCollections[col] = cache
 	}
 }
 

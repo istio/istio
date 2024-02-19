@@ -60,17 +60,16 @@ type IstiodAnalyzer struct {
 	internalStore model.ConfigStore
 	// stores contains all the (non file) config sources to analyze
 	stores []model.ConfigStoreController
-	// cluster is the cluster ID for the environment we are analyzing
-	cluster cluster.ID
 	// multiClusterStores contains all the multi-cluster config sources to analyze
 	multiClusterStores map[cluster.ID]model.ConfigStoreController
+	// cluster is the cluster ID for the environment we are analyzing
+	cluster cluster.ID
 	// fileSource contains all file bases sources
 	fileSource *file.KubeSource
 
-	analyzer              *analysis.CombinedAnalyzer
-	multiClusterAnalyzers *analysis.CombinedAnalyzer
-	namespace             resource.Namespace
-	istioNamespace        resource.Namespace
+	analyzer       *analysis.CombinedAnalyzer
+	namespace      resource.Namespace
+	istioNamespace resource.Namespace
 
 	initializedStore model.ConfigStoreController
 
@@ -119,13 +118,14 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 		meshCfg:            mcfg,
 		meshNetworks:       mesh.DefaultMeshNetworks(),
 		analyzer:           analyzer,
-		multiClusterStores: map[cluster.ID]model.ConfigStoreController{},
 		namespace:          namespace,
+		cluster:            "default",
 		internalStore:      memory.Make(collection.SchemasFor(collections.MeshNetworks, collections.MeshConfig)),
 		istioNamespace:     istioNamespace,
 		kubeResources:      kubeResources,
 		collectionReporter: cr,
 		clientsToRun:       map[cluster.ID]kubelib.Client{},
+		multiClusterStores: make(map[cluster.ID]model.ConfigStoreController),
 	}
 
 	return sa
@@ -142,16 +142,25 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 }
 
 func (sa *IstiodAnalyzer) internalAnalyze(a *analysis.CombinedAnalyzer, cancel <-chan struct{}) (AnalysisResult, error) {
-	store := sa.initializedStore
+	var schemas collection.Schemas
+	for _, store := range sa.multiClusterStores {
+		schemas = schemas.Union(store.Schemas())
+	}
 
 	var result AnalysisResult
 	result.ExecutedAnalyzers = a.AnalyzerNames()
-	result.SkippedAnalyzers = a.RemoveSkipped(store.Schemas())
+	result.SkippedAnalyzers = a.RemoveSkipped(schemas)
 	result.MappedMessages = make(map[string]diag.Messages, len(result.ExecutedAnalyzers))
 
-	kubelib.WaitForCacheSync("istiod analyzer", cancel, store.HasSynced)
+	for _, store := range sa.multiClusterStores {
+		kubelib.WaitForCacheSync("istiod analyzer", cancel, store.HasSynced)
+	}
 
-	ctx := NewContext(store, sa.cluster, cancel, sa.collectionReporter)
+	stores := map[cluster.ID]model.ConfigStore{}
+	for k, v := range sa.multiClusterStores {
+		stores[k] = v
+	}
+	ctx := NewContext(stores, cancel, sa.collectionReporter)
 
 	a.Analyze(ctx)
 
@@ -169,25 +178,7 @@ func (sa *IstiodAnalyzer) internalAnalyze(a *analysis.CombinedAnalyzer, cancel <
 	msgs := filterMessages(ctx.(*istiodContext).GetMessages(), namespaces, sa.suppressions)
 	result.Messages = msgs.SortedDedupedCopy()
 
-	if len(sa.multiClusterStores) == 0 || sa.multiClusterAnalyzers == nil {
-		return result, nil
-	}
-	stores := func() map[cluster.ID]model.ConfigStore {
-		stores := map[cluster.ID]model.ConfigStore{}
-		for c, s := range sa.multiClusterStores {
-			stores[c] = s
-		}
-		return stores
-	}()
-	mcCtx := NewMultiClusterContext(stores, cancel)
-	sa.multiClusterAnalyzers.Analyze(mcCtx)
-	msgs = filterMessages(mcCtx.(*multiClusterContext).messages, namespaces, sa.suppressions)
-	result.Messages.Add(msgs.SortedDedupedCopy()...)
 	return result, nil
-}
-
-func (sa *IstiodAnalyzer) AddMultiClusterAnalyzers(analyzers *analysis.CombinedAnalyzer) {
-	sa.multiClusterAnalyzers = analyzers
 }
 
 // Analyze loads the sources and executes the analysis
@@ -248,6 +239,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	}
 	go store.Run(cancel)
 	sa.initializedStore = store
+	sa.multiClusterStores[sa.cluster] = sa.initializedStore
 	return nil
 }
 
@@ -425,7 +417,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		},
 	}, krs)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
-	if remote {
+	if !remote {
 		clusterID := c.ClusterID()
 		if clusterID == "" {
 			clusterID = "default"

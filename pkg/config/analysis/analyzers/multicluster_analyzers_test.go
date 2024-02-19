@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-
 	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -72,6 +71,9 @@ func TestMultiClusterAnalyzers(t *testing.T) {
 			// Set up a hook to record which collections are accessed by each analyzer
 			analyzerName := tc.analyzer.Metadata().Name
 			cr := func(col config.GroupVersionKind) {
+				if _, ok := requestedInputsByAnalyzer[analyzerName]; !ok {
+					requestedInputsByAnalyzer[analyzerName] = make(map[config.GroupVersionKind]struct{})
+				}
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
@@ -93,8 +95,7 @@ func TestMultiClusterAnalyzers(t *testing.T) {
 }
 
 func setupMultiClusterEnvironmentForCase(tc mcTestCase, cr local.CollectionReporterFn) (*local.IstiodAnalyzer, error) {
-	sa := local.NewIstiodAnalyzer(&analysis.CombinedAnalyzer{}, "", "istio-system", cr)
-	sa.AddMultiClusterAnalyzers(AllMultiClusterCombined())
+	sa := local.NewIstiodAnalyzer(AllMultiClusterCombined(), "", "istio-system", cr)
 
 	// Add the test files to the fake client
 	if err := addStore(sa, "cluster1", tc.cluster1InputFiles); err != nil {
@@ -111,8 +112,20 @@ func setupMultiClusterEnvironmentForCase(tc mcTestCase, cr local.CollectionRepor
 	return sa, nil
 }
 
+type fakeClientImpl struct {
+	kube.CLIClient
+	clusterID cluster.ID
+}
+
+func (f *fakeClientImpl) ClusterID() cluster.ID {
+	return f.clusterID
+}
+
 func addStore(sa *local.IstiodAnalyzer, clusterName string, yamls []string) error {
-	client := kube.NewFakeClient()
+	client := &fakeClientImpl{
+		CLIClient: kube.NewFakeClient(),
+		clusterID: cluster.ID(clusterName),
+	}
 	// Gather test files
 	src := file.NewKubeSource(collections.All)
 	for i, yamlFile := range yamls {

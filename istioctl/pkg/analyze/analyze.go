@@ -66,21 +66,20 @@ func (f FileParseError) Error() string {
 }
 
 var (
-	listAnalyzers      bool
-	useKube            bool
-	failureThreshold   = formatting.MessageThreshold{Level: diag.Error} // messages at least this level will generate an error exit code
-	outputThreshold    = formatting.MessageThreshold{Level: diag.Info}  // messages at least this level will be included in the output
-	colorize           bool
-	msgOutputFormat    string
-	meshCfgFile        string
-	selectedNamespace  string
-	allNamespaces      bool
-	suppress           []string
-	analysisTimeout    time.Duration
-	recursive          bool
-	ignoreUnknown      bool
-	revisionSpecified  string
-	enableMultiCluster bool
+	listAnalyzers     bool
+	useKube           bool
+	failureThreshold  = formatting.MessageThreshold{Level: diag.Error} // messages at least this level will generate an error exit code
+	outputThreshold   = formatting.MessageThreshold{Level: diag.Info}  // messages at least this level will be included in the output
+	colorize          bool
+	msgOutputFormat   string
+	meshCfgFile       string
+	selectedNamespace string
+	allNamespaces     bool
+	suppress          []string
+	analysisTimeout   time.Duration
+	recursive         bool
+	ignoreUnknown     bool
+	revisionSpecified string
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -197,25 +196,13 @@ func Analyze(ctx cli.Context) *cobra.Command {
 
 			// If we're using kube, use that as a base source.
 			if useKube {
-				// Set up the kube client
-				clik, err := ctx.CLIClient()
+				clients, err := getClients(ctx)
 				if err != nil {
 					return err
 				}
-				k := kube.EnableCrdWatcher(clik.(kube.Client))
-				sa.AddRunningKubeSourceWithRevision(k, revisionSpecified, false)
-				if enableMultiCluster {
-					clients, err := getClients(ctx)
-					if err != nil {
-						return err
-					}
-					sa.AddMultiClusterAnalyzers(analyzers.AllMultiClusterCombined())
-					for _, c := range clients {
-						if c.ClusterID() != clik.ClusterID() {
-							k = kube.EnableCrdWatcher(c)
-						}
-						sa.AddRunningKubeSourceWithRevision(k, revisionSpecified, true)
-					}
+				for _, c := range clients {
+					k := kube.EnableCrdWatcher(c)
+					sa.AddRunningKubeSourceWithRevision(k, revisionSpecified, c.remote)
 				}
 			}
 
@@ -346,8 +333,6 @@ func Analyze(ctx cli.Context) *cobra.Command {
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
 	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "", "default",
 		"analyze a specific revision deployed.")
-	analysisCmd.PersistentFlags().BoolVar(&enableMultiCluster, "multi-cluster", false, "Enable multi-cluster analysis."+
-		"If this flag is set, the remote secrets will be used to access the remote clusters. Note: this flag is EXPERIMENTAL.")
 	return analysisCmd
 }
 
@@ -500,39 +485,50 @@ func isJSONorYAMLOutputFormat() bool {
 	return msgOutputFormat == formatting.JSONFormat || msgOutputFormat == formatting.YAMLFormat
 }
 
-func getClients(ctx cli.Context) ([]kube.Client, error) {
+type Client struct {
+	kube.Client
+	remote bool
+}
+
+func getClients(ctx cli.Context) ([]*Client, error) {
 	client, err := ctx.CLIClient()
 	if err != nil {
 		return nil, err
 	}
-	clients := []kube.Client{client}
-	if enableMultiCluster {
-		secrets, err := client.Kube().CoreV1().Secrets(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", multicluster.MultiClusterSecretLabel, "true"),
-		})
-		if err != nil {
-			return nil, err
-		}
-		for _, s := range secrets.Items {
-			for _, cfg := range s.Data {
-				clientConfig, err := clientcmd.NewClientConfigFromBytes(cfg)
-				if err != nil {
-					return nil, err
-				}
-				rawConfig, err := clientConfig.RawConfig()
-				if err != nil {
-					return nil, err
-				}
-				curContext := rawConfig.Contexts[rawConfig.CurrentContext]
-				if curContext == nil {
-					continue
-				}
-				client, err := kube.NewCLIClientWithCluster(clientConfig, revisionSpecified, cluster.ID(curContext.Cluster))
-				if err != nil {
-					return nil, err
-				}
-				clients = append(clients, client)
+	clients := []*Client{
+		{
+			Client: client,
+			remote: false,
+		},
+	}
+	secrets, err := client.Kube().CoreV1().Secrets(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", multicluster.MultiClusterSecretLabel, "true"),
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range secrets.Items {
+		for _, cfg := range s.Data {
+			clientConfig, err := clientcmd.NewClientConfigFromBytes(cfg)
+			if err != nil {
+				return nil, err
 			}
+			rawConfig, err := clientConfig.RawConfig()
+			if err != nil {
+				return nil, err
+			}
+			curContext := rawConfig.Contexts[rawConfig.CurrentContext]
+			if curContext == nil {
+				continue
+			}
+			client, err := kube.NewCLIClientWithCluster(clientConfig, revisionSpecified, cluster.ID(curContext.Cluster))
+			if err != nil {
+				return nil, err
+			}
+			clients = append(clients, &Client{
+				Client: client,
+				remote: true,
+			})
 		}
 	}
 	return clients, nil
