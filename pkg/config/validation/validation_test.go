@@ -5128,7 +5128,8 @@ func TestValidateServiceEntries(t *testing.T) {
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 			},
-			valid: true,
+			valid:   true,
+			warning: true,
 		},
 		{
 			name: "workload selector without labels",
@@ -5154,7 +5155,32 @@ func TestValidateServiceEntries(t *testing.T) {
 					{Address: "1.1.1.1"},
 				},
 			},
-			valid: false,
+			valid:   false,
+			warning: true,
+		},
+		{
+			name: "selector and resolution NONE", in: &networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "selector and resolution DNS", in: &networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DNS,
+			},
+			valid:   true,
+			warning: true,
 		},
 		{
 			name: "bad selector key", in: &networking.ServiceEntry{
@@ -5168,9 +5194,8 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 		{
 			name: "repeat target port", in: &networking.ServiceEntry{
-				Hosts:            []string{"google.com"},
-				Resolution:       networking.ServiceEntry_DNS,
-				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Hosts:      []string{"google.com"},
+				Resolution: networking.ServiceEntry_DNS,
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 80},
 					{Number: 81, Protocol: "http", Name: "http-valid2", TargetPort: 80},
@@ -5180,9 +5205,8 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 		{
 			name: "valid target port", in: &networking.ServiceEntry{
-				Hosts:            []string{"google.com"},
-				Resolution:       networking.ServiceEntry_DNS,
-				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Hosts:      []string{"google.com"},
+				Resolution: networking.ServiceEntry_DNS,
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
 				},
@@ -5191,9 +5215,8 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 		{
 			name: "invalid target port", in: &networking.ServiceEntry{
-				Hosts:            []string{"google.com"},
-				Resolution:       networking.ServiceEntry_DNS,
-				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Hosts:      []string{"google.com"},
+				Resolution: networking.ServiceEntry_DNS,
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 65536},
 				},

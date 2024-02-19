@@ -3522,6 +3522,9 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			if len(serviceEntry.Endpoints) != 0 {
 				errs = appendValidation(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 			}
+			if serviceEntry.WorkloadSelector != nil {
+				errs = appendWarningf(errs, "workloadSelector should not be set when resolution mode is NONE")
+			}
 		case networking.ServiceEntry_STATIC:
 			for _, endpoint := range serviceEntry.Endpoints {
 				if endpoint == nil {
@@ -3566,6 +3569,11 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 						ValidatePort(int(port)))
 				}
 			}
+
+			if serviceEntry.WorkloadSelector != nil {
+				errs = appendWarningf(errs, "workloadSelector should not be set when resolution mode is %v", serviceEntry.Resolution)
+			}
+
 			if len(serviceEntry.Addresses) > 0 {
 				for _, port := range serviceEntry.Ports {
 					if port == nil {
