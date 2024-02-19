@@ -20,9 +20,11 @@ import (
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	buffer "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/buffer/v3"
 	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	rbactcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/api/annotation"
@@ -293,7 +295,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 		ShadowRules:           rules,
 		ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
 	}
-	return []*hcm.HttpFilter{
+	httpFilters := []*hcm.HttpFilter{
 		{
 			Name:       wellknown.HTTPRoleBasedAccessControl,
 			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
@@ -303,6 +305,20 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.http)},
 		},
 	}
+	// By default, HttpConnectionManager buffers 1MiB (1048576B), so we have to adjust its buffer
+	// when ExtAuthz maxRequestBytes is greater than 1MiB. Otherwise, ExtAuthz would not receive more data than this limit.
+	if extauthz.http.GetWithRequestBody().GetMaxRequestBytes() > 1048576 {
+		httpBuffer := &hcm.HttpFilter{
+			Name: wellknown.Buffer,
+			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&buffer.Buffer{
+				MaxRequestBytes: &wrappers.UInt32Value{Value: extauthz.http.GetWithRequestBody().MaxRequestBytes},
+			})},
+		}
+		// insert buffer between rbac and ext_authz
+		httpFilters = append(httpFilters[:1], httpFilters[0:]...)
+		httpFilters[1] = httpBuffer
+	}
+	return httpFilters
 }
 
 func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*listener.Filter {

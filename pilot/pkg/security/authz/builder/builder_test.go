@@ -108,6 +108,23 @@ var (
 			},
 		},
 	}
+	meshConfigHTTPMaxRequestBody1MiB = &meshconfig.MeshConfig{
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "default",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
+					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
+						Service: "foo/my-custom-ext-authz.foo.svc.cluster.local",
+						Port:    9000,
+						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{
+							// 1MiB + 1B
+							MaxRequestBytes: 1048577,
+						},
+					},
+				},
+			},
+		},
+	}
 	meshConfigInvalid = &meshconfig.MeshConfig{
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
@@ -188,6 +205,16 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			meshConfig: meshConfigInvalid,
 			input:      "custom-simple-http-in.yaml",
 			want:       []string{"custom-bad-out.yaml"},
+		},
+		{
+			name:       "custom-http-provider-with-max-request-body-bigger-than-1MiB",
+			meshConfig: meshConfigHTTPMaxRequestBody1MiB,
+			input:      "custom-simple-http-in.yaml",
+			want: []string{
+				"custom-http-provider-with-max-request-body-bigger-than-1MiB-out1.yaml",
+				"custom-http-provider-with-max-request-body-bigger-than-1MiB-out2.yaml",
+				"custom-http-provider-with-max-request-body-bigger-than-1MiB-out3.yaml",
+			},
 		},
 		{
 			name:  "deny-and-allow",

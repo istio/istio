@@ -1,0 +1,18 @@
+name: envoy.filters.http.ext_authz
+typed_config:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+  filter_enabled_metadata:
+    filter: envoy.filters.http.rbac
+    path:
+      - key: istio_ext_authz_shadow_effective_policy_id
+    value:
+      string_match:
+        prefix: istio-ext-authz
+  http_service:
+    server_uri:
+      cluster: outbound|9000||my-custom-ext-authz.foo.svc.cluster.local
+      timeout: 600s
+      uri: http://my-custom-ext-authz.foo.svc.cluster.local
+  transport_api_version: V3
+  with_request_body:
+    max_request_bytes: 1048577
