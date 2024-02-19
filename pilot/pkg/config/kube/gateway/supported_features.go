@@ -12,14 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesh
+package gateway
 
 import (
-	"istio.io/istio/pkg/config/resource"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+
+	"istio.io/istio/pkg/util/sets"
 )
 
-// MeshConfigResourceName is the resource name for the Istio MeshConfig resource.
-var MeshConfigResourceName = resource.NewFullName("istio-system", "meshconfig")
+var SupportedFeatures = suite.AllFeatures
 
-// MeshNetworksResourceName is the resource name for the Istio MeshNetworks resource.
-var MeshNetworksResourceName = resource.NewFullName("istio-system", "meshnetworks")
+var gatewaySupportedFeatures = getSupportedFeatures()
+
+func getSupportedFeatures() []k8sv1.SupportedFeature {
+	ret := sets.New[k8sv1.SupportedFeature]()
+	for _, feature := range SupportedFeatures.UnsortedList() {
+		ret.Insert(k8sv1.SupportedFeature(feature))
+	}
+	return sets.SortedList(ret)
+}

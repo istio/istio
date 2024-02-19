@@ -165,8 +165,11 @@ type ADSC struct {
 
 	watchTime time.Time
 
-	// InitialLoad tracks the time to receive the initial configuration.
-	InitialLoad time.Duration
+	// initialLoad tracks the time to receive the initial configuration.
+	initialLoad time.Duration
+
+	// indicates if the initial LDS request is sent
+	initialLds bool
 
 	// httpListeners contains received listeners with a http_connection_manager filter.
 	httpListeners map[string]*listener.Listener
@@ -424,7 +427,8 @@ func (a *ADSC) Run() error {
 		return err
 	}
 	a.sendNodeMeta = true
-	a.InitialLoad = 0
+	a.initialLoad = 0
+	a.initialLds = false
 	// Send the initial requests
 	for _, r := range a.cfg.InitialDiscoveryRequests {
 		if r.TypeUrl == v3.ClusterType {
@@ -934,12 +938,13 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 		b, _ := json.MarshalIndent(eds, " ", " ")
 		adscLog.Debugf(string(b))
 	}
-	if a.InitialLoad == 0 {
+	if a.initialLoad == 0 && !a.initialLds {
 		// first load - Envoy loads listeners after endpoints
 		_ = a.stream.Send(&discovery.DiscoveryRequest{
 			Node:    a.node(),
 			TypeUrl: v3.ListenerType,
 		})
+		a.initialLds = true
 	}
 
 	a.mutex.Lock()
@@ -971,9 +976,9 @@ func (a *ADSC) handleRDS(configurations []*route.RouteConfiguration) {
 		rds[r.Name] = r
 		size += proto.Size(r)
 	}
-	if a.InitialLoad == 0 {
-		a.InitialLoad = time.Since(a.watchTime)
-		adscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d time=%d", len(configurations), size, vh, rcount, a.InitialLoad)
+	if a.initialLoad == 0 {
+		a.initialLoad = time.Since(a.watchTime)
+		adscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d time=%d", len(configurations), size, vh, rcount, a.initialLoad)
 	} else {
 		adscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d", len(configurations), size, vh, rcount)
 	}

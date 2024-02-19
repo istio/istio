@@ -25,7 +25,7 @@ import (
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
@@ -55,7 +55,7 @@ type Server struct {
 	ca             CertificateAuthority
 	serverCertTTL  time.Duration
 
-	nodeAuthorizer *NodeAuthorizer
+	nodeAuthorizer *MulticlusterNodeAuthorizor
 }
 
 type SaNode struct {
@@ -99,10 +99,10 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 
 		}
-		if err := s.nodeAuthorizer.authenticateImpersonation(caller.KubernetesInfo, impersonatedIdentity); err != nil {
+		if err := s.nodeAuthorizer.authenticateImpersonation(ctx, caller.KubernetesInfo, impersonatedIdentity); err != nil {
 			s.monitoring.AuthnError.Increment()
 			// Return an opaque error (for security purposes) but log the full reason
-			serverCaLog.Warnf("impersonation failed: %v", err)
+			serverCaLog.Warnf("impersonation failed for identity %s, error: %v", impersonatedIdentity, err)
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 		}
 		// Node is authorized to impersonate; overwrite the SAN to the impersonated identity.
@@ -177,8 +177,8 @@ func New(
 	ca CertificateAuthority,
 	ttl time.Duration,
 	authenticators []security.Authenticator,
-	client kube.Client,
 	filter namespace.DiscoveryFilter,
+	addClusterHandler func(multicluster.ClusterHandler),
 ) (*Server, error) {
 	certBundle := ca.GetCAKeyCertBundle()
 	if len(certBundle.GetRootCertPem()) != 0 {
@@ -192,14 +192,10 @@ func New(
 		monitoring:     newMonitoringMetrics(),
 	}
 
-	if len(features.CATrustedNodeAccounts) > 0 && client != nil {
+	if len(features.CATrustedNodeAccounts) > 0 {
 		// TODO: do we need some way to delayed readiness until this is synced? Probably
 		// Worst case is we deny some requests though which are retried
-		na, err := NewNodeAuthorizer(client, filter, features.CATrustedNodeAccounts)
-		if err != nil {
-			return nil, err
-		}
-		server.nodeAuthorizer = na
+		server.nodeAuthorizer = NewMulticlusterNodeAuthenticator(filter, features.CATrustedNodeAccounts, addClusterHandler)
 	}
 	return server, nil
 }

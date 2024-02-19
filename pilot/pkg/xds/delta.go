@@ -239,12 +239,12 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 }
 
 func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
-	sendHandler := func() error {
+	sendResonse := func() error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
 		return conn.deltaStream.Send(res)
 	}
-	err := istiogrpc.Send(conn.deltaStream.Context(), sendHandler)
+	err := sendResonse()
 	if err == nil {
 		if !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()

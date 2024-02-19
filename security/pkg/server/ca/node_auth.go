@@ -15,28 +15,104 @@
 package ca
 
 import (
+	"context"
 	"fmt"
+	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/security/pkg/server/ca/authenticate/kubeauth"
 )
 
-// NodeAuthorizer is a component that implements a subset of Kubernetes Node Authorization
-// (https://kubernetes.io/docs/reference/access-authn-authz/node/) for Istio CA. Specifically, it
-// validates that a node proxy which requests certificates for workloads on its own node is requesting
-// valid identities which run on that node (rather than arbitrary ones).
-type NodeAuthorizer struct {
-	trustedNodeAccounts map[types.NamespacedName]struct{}
+// MulticlusterNodeAuthorizor is is responsible for maintaining an index of ClusterNodeAuthenticators,
+// one per cluster (https://docs.google.com/document/d/10uf4EvUVif4xGeCYQydaKh9Yaz9wpysao7gyLewJY2Q).
+// Node authorizations from one cluster will be forwarded to the ClusterNodeAuthenticators for the same cluster.
+type MulticlusterNodeAuthorizor struct {
+	remoteNodeAuthenticators map[cluster.ID]*ClusterNodeAuthorizer
+	m                        sync.Mutex // protects remoteNodeAuthenticators
+	filter                   namespace.DiscoveryFilter
+	trustedNodeAccounts      sets.Set[types.NamespacedName]
+}
+
+func NewMulticlusterNodeAuthenticator(filter namespace.DiscoveryFilter, trustedNodeAccounts sets.Set[types.NamespacedName],
+	addClusterHandler func(multicluster.ClusterHandler),
+) *MulticlusterNodeAuthorizor {
+	m := &MulticlusterNodeAuthorizor{
+		remoteNodeAuthenticators: map[cluster.ID]*ClusterNodeAuthorizer{},
+		filter:                   filter,
+		trustedNodeAccounts:      trustedNodeAccounts,
+	}
+	if addClusterHandler != nil {
+		addClusterHandler(m)
+	}
+	return m
+}
+
+func (m *MulticlusterNodeAuthorizor) ClusterAdded(cluster *multicluster.Cluster, _ <-chan struct{}) {
+	na, err := NewClusterNodeAuthorizer(cluster.Client, m.filter, m.trustedNodeAccounts)
+	if err != nil {
+		serverCaLog.Errorf("failed to initialize node authorizer for cluster %v: %v", cluster.ID, err)
+		return
+	}
+	m.addCluster(cluster.ID, na)
+}
+
+func (m *MulticlusterNodeAuthorizor) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) {
+	na, err := NewClusterNodeAuthorizer(cluster.Client, m.filter, m.trustedNodeAccounts)
+	if err != nil {
+		serverCaLog.Errorf("failed to initialize node authorizer for cluster %v: %v", cluster.ID, err)
+	}
+	m.m.Lock()
+	defer m.m.Unlock()
+	m.remoteNodeAuthenticators[cluster.ID] = na
+}
+
+func (m *MulticlusterNodeAuthorizor) ClusterDeleted(key cluster.ID) {
+	m.m.Lock()
+	defer m.m.Unlock()
+	delete(m.remoteNodeAuthenticators, key)
+}
+
+func (m *MulticlusterNodeAuthorizor) addCluster(clusterID cluster.ID, na *ClusterNodeAuthorizer) {
+	m.m.Lock()
+	defer m.m.Unlock()
+	m.remoteNodeAuthenticators[clusterID] = na
+}
+
+func (m *MulticlusterNodeAuthorizor) authenticateImpersonation(ctx context.Context, caller security.KubernetesInfo, requestedIdentityString string) error {
+	clusterID := kubeauth.ExtractClusterID(ctx)
+	m.m.Lock()
+	na, found := m.remoteNodeAuthenticators[clusterID]
+	m.m.Unlock()
+	if !found {
+		return fmt.Errorf("no node authorizer for cluster %v", clusterID)
+	}
+	return na.authenticateImpersonation(caller, requestedIdentityString)
+}
+
+// ClusterNodeAuthorizer is a component that implements a subset of Kubernetes Node Authorization
+// (https://kubernetes.io/docs/reference/access-authn-authz/node/) for Istio CA within one cluster.
+// Specifically, it validates that a node proxy which requests certificates for workloads on its
+// own node is requesting valid identities which run on that node (rather than arbitrary ones).
+
+type ClusterNodeAuthorizer struct {
+	trustedNodeAccounts sets.Set[types.NamespacedName]
 	pods                kclient.Client[*v1.Pod]
 	nodeIndex           *kclient.Index[SaNode, *v1.Pod]
 }
 
-func NewNodeAuthorizer(client kube.Client, filter func(t any) bool, trustedNodeAccounts map[types.NamespacedName]struct{}) (*NodeAuthorizer, error) {
+func NewClusterNodeAuthorizer(client kube.Client, filter namespace.DiscoveryFilter,
+	trustedNodeAccounts sets.Set[types.NamespacedName],
+) (*ClusterNodeAuthorizer, error) {
 	pods := kclient.NewFiltered[*v1.Pod](client, kclient.Filter{
 		ObjectFilter:    filter,
 		ObjectTransform: kube.StripPodUnusedFields,
@@ -57,14 +133,14 @@ func NewNodeAuthorizer(client kube.Client, filter func(t any) bool, trustedNodeA
 			Node: pod.Spec.NodeName,
 		}}
 	})
-	return &NodeAuthorizer{
+	return &ClusterNodeAuthorizer{
 		pods:                pods,
 		nodeIndex:           index,
 		trustedNodeAccounts: trustedNodeAccounts,
 	}, nil
 }
 
-func (na *NodeAuthorizer) authenticateImpersonation(caller security.KubernetesInfo, requestedIdentityString string) error {
+func (na *ClusterNodeAuthorizer) authenticateImpersonation(caller security.KubernetesInfo, requestedIdentityString string) error {
 	callerSa := types.NamespacedName{
 		Namespace: caller.PodNamespace,
 		Name:      caller.PodServiceAccount,

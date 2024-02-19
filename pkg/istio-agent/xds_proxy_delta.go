@@ -201,7 +201,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
 
-			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
+			if err := con.upstreamDeltas.Send(req); err != nil {
 				err = fmt.Errorf("send error for type url %s: %v", req.TypeUrl, err)
 				upstreamErr(con, err)
 				return
@@ -288,13 +288,9 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 		return
 	}
 
-	respResources := make([]*discovery.Resource, 0, len(resources))
 	for i := range resources {
-		respResources = append(respResources, &discovery.Resource{
-			Resource: resources[i],
-		})
+		resp.Resources[i].Resource = resources[i]
 	}
-	resp.Resources = respResources
 
 	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
 	forward(resp)
@@ -316,10 +312,6 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 	}
 }
 
-func sendUpstreamDelta(deltaUpstream xds.DeltaDiscoveryClient, req *discovery.DeltaDiscoveryRequest) error {
-	return istiogrpc.Send(deltaUpstream.Context(), func() error { return deltaUpstream.Send(req) })
-}
-
 func sendDownstreamDelta(deltaDownstream xds.DeltaDiscoveryStream, res *discovery.DeltaDiscoveryResponse) error {
 	tStart := time.Now()
 	defer func() {
@@ -328,7 +320,7 @@ func sendDownstreamDelta(deltaDownstream xds.DeltaDiscoveryStream, res *discover
 			proxyLog.Warnf("sendDownstreamDelta took %v", time.Since(tStart))
 		}
 	}()
-	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) })
+	return deltaDownstream.Send(res)
 }
 
 func (p *XdsProxy) sendDeltaHealthRequest(req *discovery.DeltaDiscoveryRequest) {

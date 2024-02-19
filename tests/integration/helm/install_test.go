@@ -40,7 +40,7 @@ global:
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.install").
-		Run(setupInstallation(overrideValuesStr))
+		Run(setupInstallation(overrideValuesStr, false))
 }
 
 // TestInstallWithFirstPartyJwt tests Istio installation using Helm
@@ -58,11 +58,19 @@ global:
 		NewTest(t).
 		Features("installation.helm.firstpartyjwt.install").
 		Run(func(t framework.TestContext) {
-			setupInstallation(overrideValuesStr)(t)
+			setupInstallation(overrideValuesStr, false)(t)
 		})
 }
 
-func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
+// TestAmbientInstall tests Istio ambient profile installation using Helm
+func TestAmbientInstall(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("installation.helm.ambient.install").
+		Run(setupInstallation(ambientProfileOverride, true))
+}
+
+func setupInstallation(overrideValuesStr string, isAmbient bool) func(t framework.TestContext) {
 	return func(t framework.TestContext) {
 		workDir, err := t.CreateTmpDirectory("helm-install-test")
 		if err != nil {
@@ -84,14 +92,14 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 				namespace.Dump(t, IstioNamespace)
 			}
 		})
-		InstallIstio(t, cs, h, overrideValuesFile, "", true)
+		InstallIstio(t, cs, h, overrideValuesFile, "", true, isAmbient)
 
-		VerifyInstallation(t, cs, true)
+		VerifyInstallation(t, cs, true, isAmbient)
 		verifyValidation(t)
 
 		sanitycheck.RunTrafficTest(t, t)
 		t.Cleanup(func() {
-			deleteIstio(t, h, cs)
+			DeleteIstio(t, h, cs, isAmbient)
 		})
 	}
 }

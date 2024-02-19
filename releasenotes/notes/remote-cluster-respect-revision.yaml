@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - 47552
+
+releaseNotes:
+- |
+  **Fixed** an issue that Endpoint and Service in istiod-remote chart do not respect the revision value

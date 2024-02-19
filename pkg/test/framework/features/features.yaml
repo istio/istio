@@ -179,6 +179,9 @@ features:
         upgrade:
       firstpartyjwt:
         install:
+      ambient:
+        install:
+        upgrade:
     upgrade:
   # describes internal build and testing infrastructure
   infrastructure:

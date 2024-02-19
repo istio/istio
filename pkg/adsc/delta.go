@@ -128,7 +128,13 @@ type DeltaADSConfig struct {
 	Config
 }
 
-type HandlerFunc func(ctx HandlerContext, res proto.Message, event Event)
+type Resource struct {
+	Name    string
+	Version string
+	Entity  proto.Message
+}
+
+type HandlerFunc func(ctx HandlerContext, res *Resource, event Event)
 
 // Client is a stateful ADS (Aggregated Discovery Service) client designed to handle delta updates from an xDS server.
 // Central to this client is a dynamic 'tree' of resources, representing the relationships and states of resources in the service mesh.
@@ -207,10 +213,30 @@ type Client struct {
 }
 
 func (c *Client) trigger(ctx *handlerContext, typeURL string, r *discovery.Resource, event Event) error {
-	res := newProto(typeURL)
-	if r != nil && res != nil {
-		if err := r.Resource.UnmarshalTo(res); err != nil {
+	var res *Resource
+	if r == nil {
+		return fmt.Errorf("trigged by event %d,but resource is nil", event)
+	}
+	if event == EventAdd {
+		if r.Resource == nil {
+			return fmt.Errorf("trigged by EventAdd,but be added resource object is nil")
+		}
+		entity := newProto(typeURL)
+		if entity == nil {
+			return fmt.Errorf("new resource entity by typeURL: %s error", entity)
+		}
+		if err := r.Resource.UnmarshalTo(entity); err != nil {
 			return err
+		}
+		res = &Resource{
+			Name:    r.Name,
+			Version: r.Version,
+			Entity:  entity,
+		}
+	} else {
+		// EventDelete
+		res = &Resource{
+			Name: r.Name,
 		}
 	}
 	handler, f := c.handlers[typeURL]
@@ -316,10 +342,15 @@ func typeName[T proto.Message]() string {
 }
 
 // Register registers a handler for a type which is reflected by the proto message.
-func Register[T proto.Message](f func(ctx HandlerContext, res T, event Event)) Option {
+func Register[T proto.Message](f func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity T, event Event)) Option {
 	return func(c *Client) {
-		c.handlers[typeName[T]()] = func(ctx HandlerContext, res proto.Message, event Event) {
-			f(ctx, res.(T), event)
+		c.handlers[typeName[T]()] = func(ctx HandlerContext, res *Resource, event Event) {
+			if res.Entity == nil {
+				var nilEntity T
+				f(ctx, res.Name, res.Version, nilEntity, event)
+			} else {
+				f(ctx, res.Name, res.Version, res.Entity.(T), event)
+			}
 		}
 	}
 }

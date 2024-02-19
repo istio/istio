@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
 	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
