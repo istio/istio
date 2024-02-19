@@ -8,4 +8,4 @@ issue:
 
 releaseNotes:
 - |
-        **Added** Support multiple addresses for an IstioEndpoint in Istio. Originally one dual stack pod should be represented by 2 istioEndpoints instances(an IPv4 one and an IPv6 one). And only one istioEndpoint is needed for this dual stack pod with this feature enabled.
+        **Added** There are 2 stages for this change. Stage 1 is that support multiple addresses for an IstioEndpoint in Istio. Stage 2 is that one IstioEndpointcan instance can represent one dual stack pod. One dual stack pod is originally represented by 2 istioEndpoints instances(an IPv4 one and an IPv6 one). And only one istioEndpoint is needed for this dual stack pod after this change.
