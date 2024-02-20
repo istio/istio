@@ -573,7 +573,7 @@ func (ilw *IstioEgressListenerWrapper) VirtualServices() []config.Config {
 	return ilw.virtualServices
 }
 
-// MostSpecificWildcardVirtualServiceIndex returns the the wildcardHostVirtualServiceIndex for this egress
+// MostSpecificWildcardVirtualServiceIndex returns the mostSpecificWildcardVsIndex for this egress
 // listener.
 func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardVirtualServiceIndex() map[host.Name]types.NamespacedName {
 	return ilw.mostSpecificWildcardVsIndex
