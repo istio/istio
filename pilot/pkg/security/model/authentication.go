@@ -212,7 +212,7 @@ func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 
 // ApplyToCommonTLSContext completes the commonTlsContext
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
-	subjectAltNames []string, trustDomainAliases []string, validateClient bool,
+	subjectAltNames []string, crl string, trustDomainAliases []string, validateClient bool,
 ) {
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
@@ -232,12 +232,23 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 
 	// configure server listeners with SDS.
 	if validateClient {
+		defaultValidationContext := &tls.CertificateValidationContext{
+			MatchSubjectAltNames: matchSAN,
+		}
+		if crl != "" {
+			defaultValidationContext.Crl = &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: crl,
+				},
+			}
+		}
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
+				DefaultValidationContext:         defaultValidationContext,
 				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
 			},
 		}
+
 	}
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),
