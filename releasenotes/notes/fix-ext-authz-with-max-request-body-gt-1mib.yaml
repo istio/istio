@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** a bug in external authorization when `envoyExtAuthz{Http,Grpc}.includeRequestBodyInCheck.maxRequestBytes`
+    was greater than 1MiB, which caused returning `413 Payload Too Large`.
