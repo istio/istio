@@ -1380,7 +1380,7 @@ func (node *Proxy) UpdateWatchedResource(typeURL string, updateFn func(*WatchedR
 	}
 }
 
-func (node *Proxy) Unsubscribe(typeURL string) {
+func (node *Proxy) DeleteWatchedResource(typeURL string) {
 	node.Lock()
 	defer node.Unlock()
 

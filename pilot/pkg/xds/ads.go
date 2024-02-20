@@ -386,7 +386,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 
 	if shouldUnsubscribe(request) {
 		log.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
-		con.proxy.Unsubscribe(request.TypeUrl)
+		con.proxy.DeleteWatchedResource(request.TypeUrl)
 		return false, emptyResourceDelta
 	}
 
