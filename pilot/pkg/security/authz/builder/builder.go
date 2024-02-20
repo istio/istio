@@ -314,9 +314,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 				MaxRequestBytes: &wrappers.UInt32Value{Value: extauthz.http.GetWithRequestBody().MaxRequestBytes},
 			})},
 		}
-		// insert buffer between rbac and ext_authz
-		httpFilters = append(httpFilters[:1], httpFilters[0:]...)
-		httpFilters[1] = httpBuffer
+		httpFilters = append([]*hcm.HttpFilter{httpBuffer}, httpFilters...)
 	}
 	return httpFilters
 }
