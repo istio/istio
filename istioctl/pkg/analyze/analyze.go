@@ -521,7 +521,9 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 			if curContext == nil {
 				continue
 			}
-			client, err := kube.NewCLIClientWithCluster(clientConfig, revisionSpecified, cluster.ID(curContext.Cluster))
+			client, err := kube.NewCLIClient(clientConfig,
+				kube.WithRevision(revisionSpecified),
+				kube.WithCluster(cluster.ID(curContext.Cluster)))
 			if err != nil {
 				return nil, err
 			}

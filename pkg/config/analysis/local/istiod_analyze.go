@@ -161,7 +161,7 @@ func (sa *IstiodAnalyzer) internalAnalyze(a *analysis.CombinedAnalyzer, cancel <
 
 	a.Analyze(ctx)
 
-	// TODO(hzxuzhonghu): wex do not need set here
+	// TODO(hzxuzhonghu): we do not need set here
 	namespaces := sets.New[resource.Namespace]()
 	if sa.namespace != "" {
 		namespaces.Insert(sa.namespace)

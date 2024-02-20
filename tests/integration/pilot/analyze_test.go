@@ -527,8 +527,6 @@ func createRemoteSecret(t test.Failer, i istioctl.Instance, cluster string) (str
 	t.Helper()
 
 	args := []string{"create-remote-secret"}
-	// Suppress some cluster-wide checks. This ensures we do not fail tests when running on clusters that trigger
-	// analyzers we didn't intended to test.
 	args = append(args, "--name", cluster)
 
 	return i.Invoke(args)
