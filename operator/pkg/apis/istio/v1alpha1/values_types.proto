@@ -1340,6 +1340,9 @@ message BaseConfig {
   google.protobuf.BoolValue enableIstioConfigCRDs = 3;
 
   google.protobuf.BoolValue validateGateway = 4;
+
+  // validation webhook CA bundle
+  string validationCABundle = 5;
 }
 
 message IstiodRemoteConfig {
@@ -1347,6 +1350,9 @@ message IstiodRemoteConfig {
   string injectionURL = 1;
   // Path to use for the sidecar injector webhook service.
   string injectionPath = 2;
+  // injector ca bundle
+  string injectionCABundle = 3;
+
 }
 
 message Values {
