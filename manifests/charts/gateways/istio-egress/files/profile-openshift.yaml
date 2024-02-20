@@ -16,4 +16,4 @@ global:
 pilot:
   cni:
     enabled: true
-    chained: false
+    provider: "multus"

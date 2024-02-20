@@ -25,7 +25,7 @@ helm install istio-cni -n kube-system manifests/charts/istio-cni --set cni.cniBi
 3) `istio-control/istio-discovery` chart installs a revision of istiod.
 
 ```console
- helm install -n istio-system istiod manifests/charts/istio-control/istio-discovery --set pilot.cnienabled=true --set pilot.cni.chained=false --set global.platform=openshift
+ helm install -n istio-system istiod manifests/charts/istio-control/istio-discovery --set pilot.cni.enabled=true --set pilot.cni.provider=multus --set global.platform=openshift
 ```
 
 4) `gateways` charts install a load balancer with `ingress` and `egress`.

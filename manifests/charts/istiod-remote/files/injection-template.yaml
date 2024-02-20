@@ -46,7 +46,7 @@ metadata:
     {{- end }}
     {{- end }}
 {{- if or .Values.pilot.cni.enabled .Values.istio_cni.enabled }}
-    {{- if not (or .Values.pilot.cni.chained .Values.istio_cni.chained) }}
+    {{- if or (eq .Values.pilot.cni.provider "multus") (eq .Values.istio_cni.provider "multus") (not .Values.istio_cni.chained)}}
     k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `default/istio-cni` }}',
     {{- end }}
     sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}",

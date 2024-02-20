@@ -133,12 +133,15 @@ message CNIConfig {
   IntOrString rollingMaxUnavailable = 23;
 }
 
-// Configures whether to use an existing CNI installation for workloads
 message CNIUsageConfig {
   // Controls whether CNI should be used.
   google.protobuf.BoolValue enabled = 1;
 
-  google.protobuf.BoolValue chained = 2;
+  google.protobuf.BoolValue chained = 2 [deprecated=true];
+
+  // Specifies the CNI provider. Can be either "default" or "multus". When set to "multus", an annotation
+  // `k8s.v1.cni.cncf.io/networks` is set on injected pods to point to a NetworkAttachmentDefinition
+  string provider = 3;
 }
 
 message CNIAmbientConfig {
@@ -968,6 +971,7 @@ message PilotConfig {
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   TargetUtilizationConfig memory = 54 [deprecated=true];
 
+  // Configures whether to use an existing CNI installation for workloads
   CNIUsageConfig cni = 55;
 }
 
@@ -1374,7 +1378,7 @@ message Values {
   SidecarInjectorConfig sidecarInjectorWebhook = 13;
 
   // Configuration for the Istio CNI plugin.
-  CNIUsageConfig istio_cni = 19;
+  CNIUsageConfig istio_cni = 19 [deprecated=true];
 
   // Identifies the revision this installation is associated with.
   string revision = 21;

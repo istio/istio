@@ -23,10 +23,10 @@ defaults:
         memory: 2048Mi
     # Set to `type: RuntimeDefault` to use the default profile if available.
     seccompProfile: {}
-    # keep in sync with settings used when installing the Istio CNI chart
+    # Whether to use an existing CNI installation
     cni:
       enabled: false
-      chained: true
+      provider: default
     # Additional container arguments
     extraContainerArgs: []
     env: {}
@@ -414,3 +414,8 @@ defaults:
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
+  # `istio_cni` has been deprecated and will be removed in a future release. use `pilot.cni` instead
+  istio_cni:
+    # `chained` has been deprecated and will be removed in a future release. use `provider` instead
+    chained: true
+    provider: default

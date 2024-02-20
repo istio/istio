@@ -19,7 +19,7 @@ cni:
 pilot:
   cni:
     enabled: true
-    chained: false
+    provider: "multus"
   variant: distroless
   env:
     # Setup more secure default that is off in 'default' only for backwards compatibility
