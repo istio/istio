@@ -247,6 +247,7 @@ func EnforceGoCompliance(ctx *gotls.Config) {
 		ctx.MinVersion = gotls.VersionTLS12
 		ctx.MaxVersion = gotls.VersionTLS12
 		ctx.CipherSuites = fipsGoCiphers
+		ctx.CurvePreferences = []gotls.CurveID{gotls.CurveP256}
 		return
 	default:
 		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
@@ -277,6 +278,8 @@ func EnforceCompliance(ctx *tls.CommonTlsContext) {
 			}
 			ctx.TlsParams.CipherSuites = ciphers
 		}
+		// Default (unset) is P-256
+		ctx.TlsParams.EcdhCurves = nil
 		return
 	default:
 		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
