@@ -967,6 +967,8 @@ message PilotConfig {
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   TargetUtilizationConfig memory = 54 [deprecated=true];
+
+  CNIUsageConfig cni = 55;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.

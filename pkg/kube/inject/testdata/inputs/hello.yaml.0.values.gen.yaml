@@ -95,6 +95,12 @@
     "chained": true,
     "enabled": true
   },
+  "pilot": {
+    "cni": {
+      "chained": true,
+      "enabled": false
+    }
+  },
   "revision": "",
   "sidecarInjectorWebhook": {
     "alwaysInjectSelector": [],
