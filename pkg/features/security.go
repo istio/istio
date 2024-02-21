@@ -20,6 +20,7 @@ import (
 
 const (
 	// FIPS_140_2 compliance policy.
+	// nolint: revive
 	FIPS_140_2 = "fips-140-2"
 )
 
