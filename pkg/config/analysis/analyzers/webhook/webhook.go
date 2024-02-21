@@ -74,10 +74,8 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	resources := map[string]*resource.Instance{}
 	revisions := sets.New[string]()
 	context.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
-		if a.SkipDefaultRevisionedWebhook {
-			if isDefaultRevisionedWebhook(resource.Message.(*v1.MutatingWebhookConfiguration)) {
-				return true
-			}
+		if a.SkipDefaultRevisionedWebhook && isDefaultRevisionedWebhook(resource.Message.(*v1.MutatingWebhookConfiguration)) {
+			return true
 		}
 		wh := resource.Message.(*v1.MutatingWebhookConfiguration)
 		revs := extractRevisions(wh)
