@@ -31,6 +31,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -505,6 +507,46 @@ func TestCmdAddExcludePodWithIstioInitContainer(t *testing.T) {
 	if len(mockIntercept.lastRedirect) != 0 {
 		t.Fatalf("failed to exclude pod")
 	}
+}
+
+func TestCmdAddWithProxySidecarAmbientEnabledWithIstioInitContainer(t *testing.T) {
+	url, serverClose := setupCNIEventClientWithMockServer(false)
+
+	cniConf := buildMockConf(true, url)
+
+	pod, ns := buildFakePodAndNSForClient()
+
+	proxy := corev1.Container{
+			Name: "istio-proxy", 
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					"cpu": resource.MustParse("100m"),
+					"memory": resource.MustParse("256Mi"),
+				},
+				Requests: corev1.ResourceList{
+					"cpu":    resource.MustParse("100m"),
+					"memory": resource.MustParse("128Mi"),
+				},
+				Claims: []corev1.ResourceClaim{
+					{Name: "claim1"},
+					{Name: "claim2"},
+				},
+			},
+		}
+	app := corev1.Container{Name: "app"}
+
+	pod.Spec.Containers = []corev1.Container{app, proxy}
+	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient}
+	pod.ObjectMeta.Annotations = map[string]string{annotation.SidecarStatus.Name: "true"}
+
+	pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{Name: "istio-init"})
+
+	testDoAddRun(t, cniConf, testNSName, pod, ns)
+
+	wasCalled := serverClose()
+	// Pod has both sidecar injection and ambient mode enabled with istio-init container, should not be added to mesh
+	assert.Equal(t, wasCalled, false)
+
 }
 
 func TestCmdAddExcludePodWithEnvoyDisableEnv(t *testing.T) {
