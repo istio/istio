@@ -10,11 +10,11 @@ First, deploy the `otel-collector` backend with simple configuration.
 kubectl -n <namespace> apply -f ../otel.yaml
 ```
 
-In this example, we use `otel-collector` as the namespace to deploy the `otel-collector` backend:
+In this example, we use `observability` as the namespace to deploy the `otel-collector` backend:
 
 ```bash
-kubectl create namespace otel-collector
-kubectl -n otel-collector apply -f ../otel.yaml
+kubectl create namespace observability
+kubectl -n observability apply -f ../otel.yaml
 ```
 
 The otel-collector will create a grpc receiver on port `4317`, and later the sidecars will report trace information to this grpc port. You can find more details from [here](https://github.com/open-telemetry/opentelemetry-collector).
@@ -94,7 +94,7 @@ mesh: |-
   - name: otel-tracing
     opentelemetry:
       port: 4317
-      service: opentelemetry-collector.otel-collector.svc.cluster.local
+      service: opentelemetry-collector.observability.svc.cluster.local
 ```
 
 Make sure the service name matches the one you deployed if you select a different namespace.
@@ -140,6 +140,6 @@ You will see the requests' trace records.
 ## Cleanup
 
 ```bash
-kubectl -n otel-collector delete -f ./telemetry.yaml
-kubectl -n otel-collector delete -f ../otel.yaml
+kubectl -n observability delete -f ./telemetry.yaml
+kubectl -n observability delete -f ../otel.yaml
 ```

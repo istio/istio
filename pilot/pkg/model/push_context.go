@@ -1327,7 +1327,7 @@ func (ps *PushContext) updateContext(
 		case kind.RequestAuthentication,
 			kind.PeerAuthentication:
 			authnChanged = true
-		case kind.HTTPRoute, kind.TCPRoute, kind.GatewayClass, kind.KubernetesGateway, kind.TLSRoute, kind.ReferenceGrant:
+		case kind.HTTPRoute, kind.TCPRoute, kind.TLSRoute, kind.GRPCRoute, kind.GatewayClass, kind.KubernetesGateway, kind.ReferenceGrant:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
@@ -1932,6 +1932,30 @@ func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
 	ps.setDestinationRules(configs)
 }
 
+// sortConfigBySelectorAndCreationTime sorts the list of config objects based on priority and creation time.
+func sortConfigBySelectorAndCreationTime(configs []config.Config) []config.Config {
+	creationTimeComparator := sortByCreationComparator(configs)
+	// Define a comparator function for sorting configs by priority and creation time
+	comparator := func(i, j int) bool {
+		idr := configs[i].Spec.(*networking.DestinationRule)
+		jdr := configs[j].Spec.(*networking.DestinationRule)
+
+		// Check if one of the configs has priority set to true
+		if idr.GetWorkloadSelector() != nil && jdr.GetWorkloadSelector() == nil {
+			return true
+		} else if idr.GetWorkloadSelector() == nil && jdr.GetWorkloadSelector() != nil {
+			return false
+		}
+
+		// If priority is the same or neither has priority, fallback to creation time ordering
+		return creationTimeComparator(i, j)
+	}
+
+	// Sort the configs using the defined comparator function
+	sort.Slice(configs, comparator)
+	return configs
+}
+
 // setDestinationRules updates internal structures using a set of configs.
 // Split out of DestinationRule expensive conversions, computed once per push.
 // This will not work properly for Sidecars, which will precompute their
@@ -1939,7 +1963,7 @@ func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
 func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
-	sortConfigByCreationTime(configs)
+	sortConfigBySelectorAndCreationTime(configs)
 	namespaceLocalDestRules := make(map[string]*consolidatedDestRules)
 	exportedDestRulesByNamespace := make(map[string]*consolidatedDestRules)
 	rootNamespaceLocalDestRules := newConsolidatedDestRules()
