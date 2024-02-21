@@ -25,7 +25,7 @@ const (
 
 // Define common security feature flags shared among the Istio components.
 var (
-	CompliancePolicy = env.Register("COMPLIANCE_POLICY", "fips-140-2",
+	CompliancePolicy = env.Register("COMPLIANCE_POLICY", "",
 		`If set, applies policy-specific restrictions over all existing TLS
 settings, including in-mesh mTLS and external TLS. Valid values are:
 
@@ -36,7 +36,7 @@ components, including Envoy, gRPC Go SDK, and gRPC C++ SDK.
 
 WARNING: Setting compliance policy in the control plane is a necessary but
 not a sufficient requirement to achieve compliance. There are additional
-steps necessary to claim compliance, including using the certified
+steps necessary to claim compliance, including using the validated
 cryptograhic modules (please consult
 https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/security/ssl#fips-140-2).`).Get()
 )
