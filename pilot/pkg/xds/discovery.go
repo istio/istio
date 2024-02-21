@@ -252,7 +252,8 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 
 // Push is called to push changes on config updates using ADS.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
-	if !req.Full {
+	// If it is headless service endpoint update, we need to re-init service registry to prevent generating stale nds.
+	if !req.Full && !req.Reason.Has(model.HeadlessEndpointUpdate) {
 		req.Push = s.globalPushContext()
 		s.dropCacheForRequest(req)
 		s.AdsPushAll(req)
