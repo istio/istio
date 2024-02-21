@@ -87,7 +87,7 @@ spec:
               resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
-            {"discoveryAddress":"foo:123","concurrency":0,"proxyMetadata":{"COMPLIANCE_POLICY":"fips-140-2","FOO":"bar","ISTIO_META_TLS_CLIENT_KEY":"/etc/identity2/client/keys/client-key.pem"}}
+            {"discoveryAddress":"foo:123","concurrency":0,"proxyMetadata":{"FOO":"bar","ISTIO_META_TLS_CLIENT_KEY":"/etc/identity2/client/keys/client-key.pem"}}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -121,8 +121,6 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        - name: COMPLIANCE_POLICY
-          value: fips-140-2
         - name: FOO
           value: bar
         - name: ISTIO_META_TLS_CLIENT_KEY
@@ -200,8 +198,6 @@ spec:
         - 7,8,9
         - --log_output_level=default:info
         env:
-        - name: COMPLIANCE_POLICY
-          value: fips-140-2
         - name: FOO
           value: bar
         - name: ISTIO_META_TLS_CLIENT_KEY

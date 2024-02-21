@@ -73,7 +73,7 @@ spec:
               resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
-            {"proxyMetadata":{"COMPLIANCE_POLICY":"fips-140-2"}}
+            {}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -108,8 +108,6 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        - name: COMPLIANCE_POLICY
-          value: fips-140-2
         - name: ISTIO_KUBE_APP_PROBERS
           value: '{"/app-health/hello/livez":{"httpGet":{"port":80}},"/app-health/hello/readyz":{"httpGet":{"port":3333}},"/app-health/world/livez":{"httpGet":{"port":90}}}'
         image: gcr.io/istio-testing/proxyv2:latest
@@ -221,9 +219,6 @@ spec:
         - -d
         - 15090,15021,15020
         - --log_output_level=default:info
-        env:
-        - name: COMPLIANCE_POLICY
-          value: fips-140-2
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-init
         resources:

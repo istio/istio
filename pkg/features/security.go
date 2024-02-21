@@ -25,7 +25,7 @@ const (
 
 // Define common security feature flags shared among the Istio components.
 var (
-	CompliancePolicy = env.Register("COMPLIANCE_POLICY", "",
+	CompliancePolicy = env.Register("COMPLIANCE_POLICY", "fips-140-2",
 		`If set, applies policy-specific restrictions over all existing TLS
 settings, including in-mesh mTLS and external TLS. Valid values are:
 

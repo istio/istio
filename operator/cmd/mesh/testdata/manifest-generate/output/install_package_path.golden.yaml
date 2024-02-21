@@ -43,8 +43,6 @@ spec:
         - --keepaliveMaxServerConnectionAge
         - 30m
         env:
-        - name: COMPLIANCE_POLICY
-          value: fips-140-2
         - name: REVISION
           value: default
         - name: JWT_POLICY

@@ -12,10 +12,6 @@ spec:
       enabled: true
     pilot:
       enabled: true
-      k8s:
-        env:
-        - name: COMPLIANCE_POLICY
-          value: fips-140-2
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -34,8 +30,3 @@ spec:
     gateways:
       istio-ingressgateway: {}
       istio-egressgateway: {}
-
-  meshConfig:
-    defaultConfig:
-      proxyMetadata:
-        COMPLIANCE_POLICY: fips-140-2
