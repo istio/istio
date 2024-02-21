@@ -230,10 +230,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
-          {{- if eq .Values.meshConfig.compliancePolicy "fips-140-2" }}
-          - name: ISTIO_META_FIPS
-            value: "true"
-          {{- end }}
           volumeMounts:
           - name: workload-socket
             mountPath: /var/run/secrets/workload-spiffe-uds

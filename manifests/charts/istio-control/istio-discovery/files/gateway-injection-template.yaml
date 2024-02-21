@@ -107,10 +107,6 @@ spec:
       valueFrom:
         resourceFieldRef:
           resource: limits.cpu
-    {{- if eq .MeshConfig.CompliancePolicy "fips-140-2" }}
-    - name: ISTIO_META_FIPS
-      value: "true"
-    {{- end }}
     - name: ISTIO_META_APP_CONTAINERS
       value: "{{ $containers | join "," }}"
     - name: ISTIO_META_CLUSTER_ID

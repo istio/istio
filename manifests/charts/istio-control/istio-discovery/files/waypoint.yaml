@@ -164,10 +164,6 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
-        {{- if eq .MeshConfig.CompliancePolicy "fips-140-2" }}
-        - name: ISTIO_META_FIPS
-          value: "true"
-        {{- end }}
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
         {{- $network := valueOrDefault (index .InfrastructureLabels `topology.istio.io/network`) .Values.global.network }}

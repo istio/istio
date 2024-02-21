@@ -302,10 +302,6 @@ spec:
       valueFrom:
         resourceFieldRef:
           resource: limits.cpu
-    {{- if eq .MeshConfig.CompliancePolicy "fips-140-2" }}
-    - name: ISTIO_META_FIPS
-      value: "true"
-    {{- end }}
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
     - name: ISTIO_META_NODE_NAME

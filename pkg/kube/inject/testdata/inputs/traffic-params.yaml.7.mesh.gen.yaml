@@ -1,6 +1,7 @@
-compliancePolicy: fips-140-2
 defaultConfig:
   discoveryAddress: istiod.istio-system.svc:15012
+  proxyMetadata:
+    COMPLIANCE_POLICY: fips-140-2
   tracing:
     zipkin:
       address: zipkin.istio-system:9411
