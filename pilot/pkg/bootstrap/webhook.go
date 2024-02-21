@@ -56,7 +56,8 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 		MinVersion:     tls.VersionTLS12,
 		CipherSuites:   args.ServerOptions.TLSOptions.CipherSuits,
 	}
-	sec_model.EnforceGoCompliance(tlsConfig, args.CompliancePolicy)
+	// Compliance for control plane validation and injection webhook server.
+	sec_model.EnforceGoCompliance(tlsConfig)
 
 	istiolog.Info("initializing secure webhook server for istiod webhooks")
 	// create the https server for hosting the k8s injectionWebhook handlers.

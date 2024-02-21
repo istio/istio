@@ -702,6 +702,7 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
-	authnmodel.EnforceCompliance(ctx, push.Mesh.GetCompliancePolicy())
+	// Compliance for Envoy tunnel TLS contexts.
+	authnmodel.EnforceCompliance(ctx)
 	return ctx
 }

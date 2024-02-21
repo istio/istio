@@ -179,8 +179,8 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
 	}
 
-	// FIPS compliance for downstream.
-	authnmodel.EnforceCompliance(ctx.CommonTlsContext, mesh.GetCompliancePolicy())
+	// Compliance for Envoy TLS downstreams.
+	authnmodel.EnforceCompliance(ctx.CommonTlsContext)
 	return ctx
 }
 

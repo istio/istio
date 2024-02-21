@@ -285,9 +285,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		}
 	}
 
-	// FIPS compliance for upstream.
+	// Compliance for Envoy TLS upstreams.
 	if tlsContext != nil {
-		sec_model.EnforceCompliance(tlsContext.CommonTlsContext, opts.mesh.GetCompliancePolicy())
+		sec_model.EnforceCompliance(tlsContext.CommonTlsContext)
 	}
 	return tlsContext, nil
 }

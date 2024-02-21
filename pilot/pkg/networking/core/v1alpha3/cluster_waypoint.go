@@ -174,8 +174,8 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 			Matcher: uriSanMatcher,
 		})
 	}
-	// FIPS compliance for upstream.
-	sec_model.EnforceCompliance(ctx, push.Mesh.GetCompliancePolicy())
+	// Compliance for Envoy tunnel upstreams.
+	sec_model.EnforceCompliance(ctx)
 	return &cluster.Cluster{
 		Name:                          ConnectOriginate,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},

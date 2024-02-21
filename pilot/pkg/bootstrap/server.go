@@ -758,8 +758,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		MinVersion:   tls.VersionTLS12,
 		CipherSuites: args.ServerOptions.TLSOptions.CipherSuits,
 	}
-	// FIPS for SDS.
-	sec_model.EnforceGoCompliance(cfg, args.CompliancePolicy)
+	// Compliance for xDS server TLS.
+	sec_model.EnforceGoCompliance(cfg)
 
 	tlsCreds := credentials.NewTLS(cfg)
 
