@@ -25,3 +25,6 @@ releaseNotes:
   * JWK fetch from Istiod;
   * Wasm image and URL fetch from Istio Proxy containers;
   * ztunnel.
+
+  Note that Istio injector will propagate the value of COMPLIANCE_POLICY to the
+  injected proxy container, when set.
