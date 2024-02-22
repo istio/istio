@@ -38,6 +38,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/controllers/untaint"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
@@ -1106,6 +1107,15 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	if features.EnableEnhancedResourceScoping {
 		// setup namespace filter
 		args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter = s.multiclusterController.DiscoveryNamespacesFilter
+	}
+
+	if features.EnableNodeUntaintControllers {
+		// TODO: leader election
+		nodeUntainter := untaint.NewNodeUntainter(s.kubeClient, args.CniNamespace, args.Namespace)
+		s.addStartFunc("nodeUntainter controller", func(stop <-chan struct{}) error {
+			nodeUntainter.Run(stop)
+			return nil
+		})
 	}
 	if err := s.initConfigController(args); err != nil {
 		return fmt.Errorf("error initializing config controller: %v", err)
