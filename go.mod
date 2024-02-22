@@ -5,9 +5,6 @@ go 1.21
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
-// TODO: Remove once istio/api#3018 PR is merged
-replace istio.io/api => github.com/Nordix/api v0.0.0-20240201122737-b94a77e955fe
-
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
 	cloud.google.com/go/logging v1.9.0
