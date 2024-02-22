@@ -27,7 +27,6 @@ import (
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -38,7 +37,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/fuzz"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	xdsutil "istio.io/istio/pkg/wellknown"
@@ -1331,7 +1329,6 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 					TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
 						Cookie: &httpv3.Cookie{
 							Path: "/",
-							Ttl:  &durationpb.Duration{Seconds: 120},
 							Name: "test-cookie",
 						},
 					}),
@@ -1351,7 +1348,6 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 					TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
 						Cookie: &httpv3.Cookie{
 							Path: "/path",
-							Ttl:  &durationpb.Duration{Seconds: 120},
 							Name: "test-cookie",
 						},
 					}),
@@ -1641,12 +1637,4 @@ func TestMergeSubsetTrafficPolicy(t *testing.T) {
 			assert.Equal(t, policy, tt.expected)
 		})
 	}
-}
-
-func FuzzShallowcopyTrafficPolicy(f *testing.F) {
-	fuzz.Fuzz(f, func(fg fuzz.Helper) {
-		r := fuzz.Struct[*networking.TrafficPolicy](fg)
-		copied := ShallowcopyTrafficPolicy(r)
-		assert.Equal(fg.T(), r, copied)
-	})
 }

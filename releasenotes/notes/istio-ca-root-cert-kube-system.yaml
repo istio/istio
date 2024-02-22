@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: []
+
+releaseNotes:
+  - |
+    **Updated** namespace controller to create `istio-ca-root-cert` in the `kube-system` namespace.

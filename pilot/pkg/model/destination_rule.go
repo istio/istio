@@ -29,7 +29,7 @@ import (
 
 // This function merges one or more destination rules for a given host string
 // into a single destination rule. Note that it does not perform inheritance style merging.
-// IOW, given three dest rules (*.foo.com, *.foo.com, *.com), calling this function for
+// IOW, given three dest rules (*.foo.com, *.foo.com, *.com) without selectors, calling this function for
 // each config will result in a final dest rule set (*.foo.com, and *.com).
 //
 // The following is the merge logic:

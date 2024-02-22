@@ -77,6 +77,7 @@ func testMesh() *meshconfig.MeshConfig {
 		EnableAutoMtls: &wrappers.BoolValue{
 			Value: false,
 		},
+		InboundTrafficPolicy: &meshconfig.MeshConfig_InboundTrafficPolicy{},
 	}
 }
 
@@ -1267,6 +1268,7 @@ func TestStatNamePattern(t *testing.T) {
 			Seconds: 10,
 			Nanos:   1,
 		},
+		InboundTrafficPolicy: &meshconfig.MeshConfig_InboundTrafficPolicy{},
 		EnableAutoMtls: &wrappers.BoolValue{
 			Value: false,
 		},

@@ -182,13 +182,40 @@ EOF
     fi
   fi
 
+  KIND_WAIT_FLAG="--wait=180s"
+  KIND_DISABLE_CNI="false"
+  if [[ -n "${KUBERNETES_CNI:-}" ]]; then
+    unset KIND_WAIT_FLAG
+    KIND_DISABLE_CNI="true"
+  fi
+
   # Create KinD cluster
-  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v4 --retain --image "${IMAGE}" --wait=180s); then
+  if ! (yq eval "${CONFIG}" --expression ".networking.disableDefaultCNI = ${KIND_DISABLE_CNI}" | \
+    kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" ${KIND_WAIT_FLAG:+"$KIND_WAIT_FLAG"} --config -); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     return 9
   fi
   # Workaround kind issue causing taints to not be removed in 1.24
   kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- || true
+
+  # Determine what CNI to install
+  case "${KUBERNETES_CNI:-}" in 
+
+    "calico")
+      echo "Installing Calico CNI"
+      install_calico "" "$(dirname "$CONFIG")"
+      ;;
+
+    "")
+      # perfectly fine, we accepted the default KinD CNI
+      ;;
+
+    *)
+      # we don't know what to do but we've got no CNI, return non-zero
+      echo "${KUBERNETES_CNI} is not recognized. Supported options are \"calico\" or do not set the variable to use default."
+      return 1
+      ;;
+  esac
 
   # If metrics server configuration directory is specified then deploy in
   # the cluster just created
@@ -360,6 +387,17 @@ function connect_kind_clusters() {
     docker exec "${C2_NODE}" ip route add "${C1_POD_CIDR}" via "${C1_DOCKER_IP}"
     docker exec "${C2_NODE}" ip route add "${C1_SVC_CIDR}" via "${C1_DOCKER_IP}"
   fi
+}
+
+function install_calico {
+  local KUBECONFIG="${1}"
+  local CONFIG_DIR="${2}"
+
+  echo "Setting up ambient cluster, Calico CNI will be used."
+  kubectl --kubeconfig="$KUBECONFIG" apply -f "${CONFIG_DIR}"/calico.yaml
+
+  kubectl --kubeconfig="$KUBECONFIG" wait --for condition=ready -n kube-system pod -l k8s-app=calico-node --timeout 90s
+  kubectl --kubeconfig="$KUBECONFIG" wait --for condition=ready -n kube-system pod -l k8s-app=calico-kube-controllers --timeout 90s
 }
 
 function install_metallb() {

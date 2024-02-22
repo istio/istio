@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
+	legacykube "istio.io/istio/pkg/config/analysis/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	sresource "istio.io/istio/pkg/config/schema/resource"
@@ -426,7 +426,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		BuildFieldPathMap(yamlNode, lineNum, "", fieldMap)
 	}
 
-	pos := kube2.Position{Filename: name, Line: lineNum}
+	pos := legacykube.Position{Filename: name, Line: lineNum}
 	c, err := ToConfig(objMeta, schema, &pos, fieldMap)
 	if err != nil {
 		return resources, err

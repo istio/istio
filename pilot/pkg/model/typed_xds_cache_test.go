@@ -15,6 +15,7 @@
 package model
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/hash"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/tests/util/leak"
 )
 
 type entry struct {
@@ -137,7 +139,7 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 1)
+	assert.Equal(t, cache.indexLength(), 1)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
@@ -192,7 +194,7 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 2)
+	assert.Equal(t, cache.indexLength(), 2)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
@@ -265,7 +267,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 3)
+	assert.Equal(t, cache.indexLength(), 3)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
@@ -280,7 +282,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 5)
+	assert.Equal(t, cache.indexLength(), 5)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key(), secondEntry.Key()),
@@ -297,7 +299,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 3)
+	assert.Equal(t, cache.indexLength(), 3)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key()),
@@ -312,7 +314,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 5)
+	assert.Equal(t, cache.indexLength(), 5)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key(), secondEntry.Key()),
@@ -327,7 +329,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 0)
+	assert.Equal(t, cache.indexLength(), 0)
 
 	assert.Equal(t, cache.store.Len(), 0)
 }
@@ -380,4 +382,61 @@ func TestCacheClearAll(t *testing.T) {
 	// no change on empty clear
 	assert.Equal(t, cache.indexLength(), 0)
 	assert.Equal(t, cache.store.Len(), 0)
+}
+
+func TestEvictQueueMemoryLeak(t *testing.T) {
+	testEvictQueueMemoryLeak(t, "Flush")
+	testEvictQueueMemoryLeak(t, "ClearAll")
+}
+
+func testEvictQueueMemoryLeak(t *testing.T, f string) {
+	entry1 := entry{
+		key:            "key",
+		dependentTypes: []kind.Kind{kind.Service},
+		dependentConfigs: []ConfigHash{
+			ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode(),
+		},
+	}
+	entry2 := entry{
+		key:            "key", // use the same key so that the old one will be pushed to the evictQueue
+		dependentTypes: []kind.Kind{kind.Service, kind.DestinationRule},
+		dependentConfigs: []ConfigHash{
+			ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode(),
+			ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(),
+		},
+	}
+
+	zeroTime := time.Time{}
+	push1 := &PushRequest{Start: zeroTime.Add(time.Duration(1))}
+	push2 := &PushRequest{Start: zeroTime.Add(time.Duration(2))}
+
+	value := &discovery.Resource{Name: "test"}
+
+	// build xds cache
+	c := newTypedXdsCache[uint64]()
+	c.Add(entry1.Key(), entry1, push1, value)
+	c.Add(entry2.Key(), entry2, push2, value)
+
+	// When Flush (or ClearAll) is called, the length of `cache.evictQueue` becomes 0, and we
+	// cannot use it to check whether the elements referenced by the underlying array are released.
+	// Since shallow copy shares the underlying array, we can use it to check.
+	cache := c.(*lruCache[uint64])
+	evictQueue := cache.evictQueue
+	for _, item := range evictQueue {
+		leak.MustGarbageCollect(t, &item)
+	}
+
+	if f == "Flush" {
+		cache.Flush()
+	} else {
+		cache.ClearAll()
+	}
+
+	// Checks that the elements referenced by the underlying array have been released.
+	var empty evictKeyConfigs[uint64]
+	for _, item := range evictQueue {
+		if !reflect.DeepEqual(item, empty) {
+			t.Fatalf("test %s func, expected empty value, but got %+v", f, item)
+		}
+	}
 }

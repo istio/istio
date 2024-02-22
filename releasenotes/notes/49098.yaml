@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issues:
+- 49098
+releaseNotes:
+- |
+  **Fixed** a bug that made PeerAuthentication too restrictive in Ambient mode.

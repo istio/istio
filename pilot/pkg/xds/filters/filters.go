@@ -35,6 +35,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
+	resourcedetectors "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/resource_detectors/v3"
 	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -425,4 +426,16 @@ var (
 	mtlsHTTP10ALPN = []string{"istio-http/1.0", "istio", "http/1.0"}
 	mtlsHTTP11ALPN = []string{"istio-http/1.1", "istio", "http/1.1"}
 	mtlsHTTP2ALPN  = []string{"istio-h2", "istio", "h2"}
+)
+
+// OpenTelemetry Resource Detectors
+var (
+	EnvironmentResourceDetector = &core.TypedExtensionConfig{
+		Name:        "envoy.tracers.opentelemetry.resource_detectors.environment",
+		TypedConfig: protoconv.MessageToAny(&resourcedetectors.EnvironmentResourceDetectorConfig{}),
+	}
+	DynatraceResourceDetector = &core.TypedExtensionConfig{
+		Name:        "envoy.tracers.opentelemetry.resource_detectors.dynatrace",
+		TypedConfig: protoconv.MessageToAny(&resourcedetectors.DynatraceResourceDetectorConfig{}),
+	}
 )

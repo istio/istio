@@ -97,10 +97,7 @@ func (a *AdsTest) Cleanup() {
 }
 
 func (a *AdsTest) adsReceiveChannel() {
-	go func() {
-		<-a.context.Done()
-		a.Cleanup()
-	}()
+	context.AfterFunc(a.context, a.Cleanup)
 	for {
 		resp, err := a.client.Recv()
 		if err != nil {

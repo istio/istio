@@ -150,7 +150,7 @@ func redirectRunningPod(pod *corev1.Pod, netns string) error {
 	if err != nil {
 		return fmt.Errorf("setup redirect: %v", err)
 	}
-	rulesMgr := plugin.IptablesInterceptRuleMgrCtor()
+	rulesMgr := plugin.IptablesInterceptRuleMgr()
 	if err := rulesMgr.Program(pod.Name, netns, redirect); err != nil {
 		return fmt.Errorf("program redirection: %v", err)
 	}

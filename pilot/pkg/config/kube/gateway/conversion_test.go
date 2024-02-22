@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
@@ -1136,6 +1137,14 @@ func getStatus(t test.Failer, acfgs ...[]config.Config) []byte {
 		cfgs = append(cfgs, cl...)
 	}
 	for i, c := range cfgs {
+		if c.Status.(*kstatus.WrappedStatus) != nil && c.GroupVersionKind == gvk.GatewayClass {
+			// Override GatewaySupportedFeatures for the test so we dont have huge golden files plus we wont need to update them every time we support a new feature
+			c.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+				gcs := s.(*k8sv1.GatewayClassStatus)
+				gcs.SupportedFeatures = []k8sv1.SupportedFeature{"HTTPRouteFeatureA", "HTTPRouteFeatureB"}
+				return gcs
+			})
+		}
 		c = c.DeepCopy()
 		c.Spec = nil
 		c.Labels = nil
@@ -1240,11 +1249,11 @@ func insertDefaults(cfgs []config.Config) []config.Config {
 	for _, c := range cfgs {
 		switch c.GroupVersionKind {
 		case gvk.GatewayClass:
-			c.Status = kstatus.Wrap(&k8s.GatewayClassStatus{})
+			c.Status = kstatus.Wrap(&k8sv1.GatewayClassStatus{})
 		case gvk.KubernetesGateway:
-			c.Status = kstatus.Wrap(&k8s.GatewayStatus{})
+			c.Status = kstatus.Wrap(&k8sv1.GatewayStatus{})
 		case gvk.HTTPRoute:
-			c.Status = kstatus.Wrap(&k8s.HTTPRouteStatus{})
+			c.Status = kstatus.Wrap(&k8sv1.HTTPRouteStatus{})
 		case gvk.GRPCRoute:
 			c.Status = kstatus.Wrap(&k8s.GRPCRouteStatus{})
 		case gvk.TCPRoute:
@@ -1365,7 +1374,7 @@ func TestExtractGatewayServices(t *testing.T) {
 	tests := []struct {
 		name            string
 		r               GatewayResources
-		kgw             *k8s.GatewaySpec
+		kgw             *k8sv1.GatewaySpec
 		obj             config.Config
 		gatewayServices []string
 		err             *ConfigError
@@ -1373,7 +1382,7 @@ func TestExtractGatewayServices(t *testing.T) {
 		{
 			name: "managed gateway",
 			r:    GatewayResources{Domain: "cluster.local"},
-			kgw: &k8s.GatewaySpec{
+			kgw: &k8sv1.GatewaySpec{
 				GatewayClassName: "istio",
 			},
 			obj: config.Config{
@@ -1387,7 +1396,7 @@ func TestExtractGatewayServices(t *testing.T) {
 		{
 			name: "managed gateway with name overridden",
 			r:    GatewayResources{Domain: "cluster.local"},
-			kgw: &k8s.GatewaySpec{
+			kgw: &k8sv1.GatewaySpec{
 				GatewayClassName: "istio",
 			},
 			obj: config.Config{
@@ -1404,22 +1413,22 @@ func TestExtractGatewayServices(t *testing.T) {
 		{
 			name: "unmanaged gateway",
 			r:    GatewayResources{Domain: "domain"},
-			kgw: &k8s.GatewaySpec{
+			kgw: &k8sv1.GatewaySpec{
 				GatewayClassName: "istio",
-				Addresses: []k8s.GatewayAddress{
+				Addresses: []k8sv1.GatewayAddress{
 					{
 						Value: "abc",
 					},
 					{
-						Type: func() *k8s.AddressType {
-							t := k8s.HostnameAddressType
+						Type: func() *k8sv1.AddressType {
+							t := k8sv1.HostnameAddressType
 							return &t
 						}(),
 						Value: "example.com",
 					},
 					{
-						Type: func() *k8s.AddressType {
-							t := k8s.IPAddressType
+						Type: func() *k8sv1.AddressType {
+							t := k8sv1.IPAddressType
 							return &t
 						}(),
 						Value: "1.2.3.4",

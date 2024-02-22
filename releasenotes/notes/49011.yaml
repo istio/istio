@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 47489
+releaseNotes:
+  - |-
+    **Added** support for istio CA to handle node authorization for CSRs with impersonate identity from remote clusters.
+    This could help istio CA to authenticate ztunnel in remote clusters in an external control plane scenario.

@@ -187,7 +187,7 @@ func (s *extAuthzServerV3) allow(request *authv3.CheckRequest) *authv3.CheckResp
 					{
 						Header: &corev3.HeaderValue{
 							Key:   receivedHeader,
-							Value: request.GetAttributes().String(),
+							Value: returnIfNotTooLong(request.GetAttributes().String()),
 						},
 					},
 					{
@@ -220,7 +220,7 @@ func (s *extAuthzServerV3) deny(request *authv3.CheckRequest) *authv3.CheckRespo
 					{
 						Header: &corev3.HeaderValue{
 							Key:   receivedHeader,
-							Value: request.GetAttributes().String(),
+							Value: returnIfNotTooLong(request.GetAttributes().String()),
 						},
 					},
 					{
@@ -262,7 +262,7 @@ func (s *ExtAuthzServer) ServeHTTP(response http.ResponseWriter, request *http.R
 	if err != nil {
 		log.Printf("[HTTP] read body failed: %v", err)
 	}
-	l := fmt.Sprintf("%s %s%s, headers: %v, body: [%s]\n", request.Method, request.Host, request.URL, request.Header, body)
+	l := fmt.Sprintf("%s %s%s, headers: %v, body: [%s]\n", request.Method, request.Host, request.URL, request.Header, returnIfNotTooLong(string(body)))
 	if allowedValue == request.Header.Get(checkHeader) {
 		log.Printf("[HTTP][allowed]: %s", l)
 		response.Header().Set(resultHeader, resultAllowed)
@@ -357,4 +357,13 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
+}
+
+func returnIfNotTooLong(body string) string {
+	// Maximum size of a header accepted by Envoy is 60KiB, so when the request body is bigger than 60KB,
+	// we don't return it in a response header to avoid rejecting it by Envoy and returning 431 to the client
+	if len(body) > 60000 {
+		return "<too-long>"
+	}
+	return body
 }

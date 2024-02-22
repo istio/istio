@@ -43,7 +43,7 @@ func TestStatusMaps(t *testing.T) {
 	r.processEvent("conA", typ, "d")
 	Expect(r.status).To(Equal(map[string]string{"conA~": "d", "conB~": "a", "conC~": "c", "conD~": "d"}))
 	Expect(r.reverseStatus).To(Equal(map[string]sets.String{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x, "conA~": x}}))
-	r.RegisterDisconnect("conA", []xds.EventType{typ})
+	r.RegisterDisconnect("conA", sets.New[xds.EventType](typ))
 	Expect(r.status).To(Equal(map[string]string{"conB~": "a", "conC~": "c", "conD~": "d"}))
 	Expect(r.reverseStatus).To(Equal(map[string]sets.String{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x}}))
 }
@@ -114,7 +114,7 @@ func TestBuildReport(t *testing.T) {
 	// mark only one connection as having acked version 2
 	r.processEvent(connections[1], "", r.ledger.RootHash())
 	// mark one connection as having disconnected.
-	r.RegisterDisconnect(connections[2], []xds.EventType{""})
+	r.RegisterDisconnect(connections[2], sets.New[xds.EventType](""))
 	// build a report, which should have only two dataplanes, with 50% acking v2 of config
 	rpt, prunes := r.buildReport()
 	r.removeCompletedResource(prunes)

@@ -455,12 +455,18 @@ func (a *AmbientIndexImpl) updateWaypointForWorkload(byWorkload map[string]*mode
 		}
 		if isDelete {
 			if wl.Waypoint != nil && proto.Equal(wl.Waypoint, addr) {
-				wl.Waypoint = nil
+				var wp *workloadapi.GatewayAddress
+				// Check if there is a waypoint for the namespace
+				if scope.ServiceAccount != "" {
+					wp = a.waypoints[model.WaypointScope{Namespace: wl.Namespace}]
+				}
+				wl.Waypoint = wp
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 			}
 		} else {
-			if wl.Waypoint == nil || !proto.Equal(wl.Waypoint, addr) {
+			// If the workload has no waypoint, or the waypoint is for a SA, update it
+			if wl.Waypoint == nil || (!proto.Equal(wl.Waypoint, addr) && scope.ServiceAccount != "") {
 				wl.Waypoint = addr
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})

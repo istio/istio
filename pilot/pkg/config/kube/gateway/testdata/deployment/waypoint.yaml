@@ -15,6 +15,11 @@ metadata:
     topology.istio.io/network: network-1
   name: namespace-istio-waypoint
   namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: namespace
+    uid: ""
 ---
 apiVersion: apps/v1
 kind: Deployment

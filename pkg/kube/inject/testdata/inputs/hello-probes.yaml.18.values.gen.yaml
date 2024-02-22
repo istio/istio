@@ -93,8 +93,13 @@
     "variant": ""
   },
   "istio_cni": {
-    "chained": true,
     "enabled": false
+  },
+  "pilot": {
+    "cni": {
+      "chained": true,
+      "enabled": false
+    }
   },
   "revision": "",
   "sidecarInjectorWebhook": {

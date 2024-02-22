@@ -36,9 +36,9 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/diag"
+	legacykube "istio.io/istio/pkg/config/analysis/legacy/source/kube"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
-	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kubetypes"
@@ -225,7 +225,7 @@ func checkDestinationRuleTLS(cli kube.CLIClient, messages *diag.Messages) error 
 
 func ObjectToInstance(c controllers.Object) *resource.Instance {
 	return &resource.Instance{
-		Origin: &kube3.Origin{
+		Origin: &legacykube.Origin{
 			Type: kubetypes.GvkFromObject(c),
 			FullName: resource.FullName{
 				Namespace: resource.Namespace(c.GetNamespace()),
@@ -306,7 +306,7 @@ func checkGatewayAPIs(cli kube.CLIClient) (diag.Messages, error) {
 			has = strings.Join(sets.SortedList(versions), ",")
 		}
 		if !versions.Contains(gvk.KubernetesGateway.Version) {
-			origin := kube3.Origin{
+			origin := legacykube.Origin{
 				Type: gvk.CustomResourceDefinition,
 				FullName: resource.FullName{
 					Namespace: resource.Namespace(r.Namespace),

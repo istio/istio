@@ -16,7 +16,7 @@ The installation process using the Helm charts is as follows:
 helm install istio-base -n istio-system manifests/charts/base
 ```
 
-2) `istio-cni` chart installs the CNI plugin. This should be installed after the `base` chart and prior to `istiod` chart. Need to add `--set istio_cni.enabled=true` to the `istiod` install to enable its usage.
+2) `istio-cni` chart installs the CNI plugin. This should be installed after the `base` chart and prior to `istiod` chart. Need to add `--set pilot.cnienabled=true` to the `istiod` install to enable its usage.
 
 ```console
 helm install istio-cni -n kube-system manifests/charts/istio-cni --set cni.cniBinDir="/var/lib/cni/bin" --set cni.cniConfDir="/etc/cni/multus/net.d" --set cni.chained=false --set cni.cniConfFileName="istio-cni.conf" --set cni.excludeNamespaces[0]="istio-system" --set cni.excludeNamespaces[1]="kube-system" --set cni.privileged=true --set cni.provider=multus --set cni.logLevel=info
@@ -25,7 +25,7 @@ helm install istio-cni -n kube-system manifests/charts/istio-cni --set cni.cniBi
 3) `istio-control/istio-discovery` chart installs a revision of istiod.
 
 ```console
- helm install -n istio-system istiod manifests/charts/istio-control/istio-discovery --set istio_cni.enabled=true --set istio_cni.chained=false --set global.platform=openshift
+ helm install -n istio-system istiod manifests/charts/istio-control/istio-discovery --set pilot.cnienabled=true --set pilot.cni.chained=false --set global.platform=openshift
 ```
 
 4) `gateways` charts install a load balancer with `ingress` and `egress`.

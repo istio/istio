@@ -69,6 +69,7 @@ func TestConfigWriter_PrintSecretSummary(t *testing.T) {
 		name               string
 		wantOutputSecret   string
 		wantOutputWorkload string
+		configNamespace    string
 		callPrime          bool
 		wantErr            bool
 	}{
@@ -85,6 +86,12 @@ func TestConfigWriter_PrintSecretSummary(t *testing.T) {
 			name:               "returns expected workload summary onto Stdout",
 			callPrime:          true,
 			wantOutputWorkload: "testdata/workloadsummary.txt",
+		},
+		{
+			name:               "returns expected workload summary with the default namespace",
+			callPrime:          true,
+			configNamespace:    "default",
+			wantOutputWorkload: "testdata/workloadsummary_default.txt",
 		},
 	}
 	for _, tt := range tests {
@@ -105,7 +112,11 @@ func TestConfigWriter_PrintSecretSummary(t *testing.T) {
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputSecret)
 			}
 			if tt.wantOutputWorkload != "" {
-				err := cw.PrintWorkloadSummary(WorkloadFilter{Verbose: true})
+				wf := WorkloadFilter{Verbose: true}
+				if tt.configNamespace != "" {
+					wf.Namespace = tt.configNamespace
+				}
+				err := cw.PrintWorkloadSummary(wf)
 				if err == nil && tt.wantErr {
 					t.Errorf("PrintWorkloadSummary (%v) did not produce expected err", tt.name)
 				} else if err != nil && !tt.wantErr {

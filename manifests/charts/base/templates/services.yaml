@@ -4,10 +4,10 @@ kind: Service
 metadata:
   {{- if .Values.pilot.enabled }}
   # when local istiod is enabled, we can't use istiod service name to reach the remote control plane
-  name: istiod-remote
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
   {{- else }}
   # when local istiod isn't enabled, we can use istiod service name to reach the remote control plane
-  name: istiod
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
   {{- end }}
   namespace: {{ .Release.Namespace }}
 spec:

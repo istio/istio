@@ -221,10 +221,9 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 
 func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
-	log.Debug("Pod is now stopped or opt out... cleaning up.")
 	err := s.netServer.RemovePodFromMesh(ctx, pod)
 	if err != nil {
-		log.Errorf("failed to remove pod to ztunnel: %v", err)
+		log.Errorf("failed to remove pod from mesh: %v", err)
 		return err
 	}
 	log.Debug("removing annotation from pod")
@@ -238,11 +237,9 @@ func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) 
 // Delete pod from mesh: pod is deleted. iptables rules will die with it, we just need to update ztunnel
 func (s *meshDataplane) DelPodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
-	log.Debug("Pod is now stopped or opt out... cleaning up.")
-	log.Info("in pod mode - deleting pod from ztunnel")
 	err := s.netServer.DelPodFromMesh(ctx, pod)
 	if err != nil {
-		log.Errorf("failed to remove pod to ztunnel: %v", err)
+		log.Errorf("failed to delete pod from mesh: %v", err)
 		return err
 	}
 	return nil

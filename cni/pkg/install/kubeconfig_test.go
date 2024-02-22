@@ -182,7 +182,6 @@ func TestCheckMismatchedExistingKubeConfig(t *testing.T) {
 	os.WriteFile(filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename), []byte(expectedKC.Full), 0o644)
 
 	err = checkExistingKubeConfigFile(cfg, expectedKC)
-
 	if err != nil {
 		t.Fatalf("expected no error, matching kubeconfig present, got %+v", err)
 	}

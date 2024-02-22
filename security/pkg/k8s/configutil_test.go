@@ -187,6 +187,17 @@ func TestInsertDataToConfigMap(t *testing.T) {
 			expectedErr: "",
 			clientMod:   createConfigMapNamespaceDeletingClient,
 		},
+		{
+			name:              "creation: namespace is forbidden",
+			existingConfigMap: nil,
+			caBundle:          caBundle,
+			meta:              metav1.ObjectMeta{Namespace: constants.KubeSystemNamespace, Name: configMapName},
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, constants.KubeSystemNamespace, createConfigMap(constants.KubeSystemNamespace, configMapName, testData)),
+			},
+			expectedErr: "",
+			clientMod:   createConfigMapNamespaceForbidden,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -250,6 +261,16 @@ func createConfigMapNamespaceDeletingClient(client *fake.Clientset) {
 	})
 	client.PrependReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, &v1.ConfigMap{}, err
+	})
+}
+
+func createConfigMapNamespaceForbidden(client *fake.Clientset) {
+	client.PrependReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, &v1.ConfigMap{}, errors.NewNotFound(v1.Resource("configmaps"), configMapName)
+	})
+	client.PrependReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, &v1.ConfigMap{}, errors.NewForbidden(v1.Resource("configmaps"), configMapName, fmt.Errorf(
+			"User \"system:serviceaccount:istio-system:istiod\" cannot create resource \"configmaps\" in API group \"\" in the namespace \"kube-system\""))
 	})
 }
 

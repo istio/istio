@@ -1,0 +1,15 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    cni:
+      enabled: true
+      namespace: kube-system
+    ztunnel:
+      enabled: true
+      namespace: kube-system
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
+  values:
+    profile: openshift-ambient

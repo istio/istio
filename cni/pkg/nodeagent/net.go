@@ -81,7 +81,6 @@ func (s *NetServer) Stop() {
 }
 
 func (s *NetServer) rescanPod(pod *metav1.ObjectMeta) error {
-	// if we get ErrPodNotFound, it means we got the pod, but no netns.
 	// this can happen if the pod was dynamically added to the mesh after it was created.
 	// in that case, try finding the netns using procfs.
 	filter := sets.New[types.UID]()
@@ -97,27 +96,7 @@ func (s *NetServer) getOrOpenNetns(pod *metav1.ObjectMeta, netNs string) (Netns,
 }
 
 func (s *NetServer) openNetns(pod *metav1.ObjectMeta, netNs string) (Netns, error) {
-	openNetns, err := s.currentPodSnapshot.UpsertPodCache(string(pod.UID), netNs)
-	if !errors.Is(err, ErrPodNotFound) {
-		return openNetns, err
-	}
-	// only rescan if the error is ErrPodNotFound
-	log.Debug("pod netns was not found, trying to find it using procfs")
-	// if we get ErrPodNotFound, it means we got the pod, but no netns.
-	// this can happen if the pod was dynamically added to the mesh after it was created.
-	// in that case, try finding the netns using procfs.
-	if err := s.rescanPod(pod); err != nil {
-		log.Errorf("error scanning proc: error was %s", err)
-		return nil, err
-	}
-	// try again. we can still get here if the pod is in the process of being created.
-	// in this case the CNI will be invoked soon and provide us with the netns.
-	openNetns, err = s.currentPodSnapshot.UpsertPodCache(string(pod.UID), netNs)
-	if err != nil && errors.Is(err, ErrPodNotFound) {
-		return nil, fmt.Errorf("can't find netns for pod, this is ok if this is a newly created pod (%w)", err)
-	}
-
-	return openNetns, err
+	return s.currentPodSnapshot.UpsertPodCache(string(pod.UID), netNs)
 }
 
 func (s *NetServer) getNetns(pod *metav1.ObjectMeta) (Netns, error) {
@@ -125,9 +104,7 @@ func (s *NetServer) getNetns(pod *metav1.ObjectMeta) (Netns, error) {
 	if openNetns != nil {
 		return openNetns, nil
 	}
-	// only rescan if the error is ErrPodNotFound
 	log.Debug("pod netns was not found, trying to find it using procfs")
-	// if we get ErrPodNotFound, it means we got the pod, but no netns.
 	// this can happen if the pod was dynamically added to the mesh after it was created.
 	// in that case, try finding the netns using procfs.
 	if err := s.rescanPod(pod); err != nil {
@@ -248,7 +225,7 @@ func realDependencies() *dep.RealDependencies {
 // Remove pod from mesh: pod is not deleted, we just want to remove it from the mesh.
 func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
-	log.Debugf("Pod is now stopped or opt out... cleaning up.")
+	log.Debugf("Pod is now opt out... cleaning up.")
 
 	openNetns := s.currentPodSnapshot.Take(string(pod.UID))
 	if openNetns == nil {
@@ -277,7 +254,7 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) erro
 // Delete pod from mesh: pod is deleted. iptables rules will die with it, we just need to update ztunnel
 func (s *NetServer) DelPodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
-	log.Debug("Pod is now stopped or opt out... cleaning up.")
+	log.Debug("Pod is now stopped... cleaning up.")
 
 	if err := removePodFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
 		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)

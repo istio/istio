@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio/issues/47835
+
+docs:
+ - '[reference] https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshConfig-ExtensionProvider-OpenTelemetryTracingProvider'
+
+releaseNotes:
+- |
+  **Added** option to export OpenTelemetry traces via HTTP

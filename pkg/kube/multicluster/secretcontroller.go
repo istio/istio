@@ -328,7 +328,11 @@ func (c *Controller) handleDelete(key cluster.ID) {
 
 // ListRemoteClusters provides debug info about connected remote clusters.
 func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
-	var out []cluster.DebugInfo
+	// Start with just the config cluster
+	out := []cluster.DebugInfo{{
+		ID: c.configClusterID,
+	}}
+	// Append each cluster derived from secrets
 	for secretName, clusters := range c.cs.All() {
 		for clusterID, c := range clusters {
 			syncStatus := "syncing"

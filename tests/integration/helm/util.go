@@ -20,6 +20,7 @@ package helm
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -55,34 +56,110 @@ const (
 	IngressReleaseName     = "istio-ingress"
 	ControlChartsDir       = "istio-control"
 	GatewayChartsDir       = "gateway"
+	CniChartsDir           = "istio-cni"
+	ZtunnelChartsDir       = "ztunnel"
+	RepoCniChartPath       = "cni"
+	CniReleaseName         = ReleasePrefix + "cni"
+	RepoZtunnelChartPath   = "ztunnel"
+	ZtunnelReleaseName     = "ztunnel"
 
 	RetryDelay   = 2 * time.Second
 	RetryTimeOut = 5 * time.Minute
 	Timeout      = 2 * time.Minute
+
+	defaultValues = `
+global:
+  hub: %s
+  tag: %s
+revision: "%s"
+`
+	// TODO: Remove this once the previous release version for the ambient upgrade test becomes 1.21, and start using --set profile=ambient
+	// refer: https://github.com/istio/istio/issues/49242
+	ambientProfileOverride = `
+global:
+  hub: %s
+  tag: %s
+variant: ""
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      ISTIO_META_ENABLE_HBONE: "true"
+pilot:
+  variant: ""
+  env:
+    # Setup more secure default that is off in 'default' only for backwards compatibility
+    VERIFY_CERTIFICATE_AT_CLIENT: "true"
+    ENABLE_AUTO_SNI: "true"
+
+    PILOT_ENABLE_HBONE: "true"
+    CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
+    PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
+cni:
+  logLevel: info
+  privileged: true
+  ambient:
+    enabled: true
+
+  # Default excludes istio-system; its actually fine to redirect there since we opt-out istiod, ztunnel, and istio-cni
+  excludeNamespaces:
+    - kube-system
+`
 )
 
 // ManifestsChartPath is path of local Helm charts used for testing.
 var ManifestsChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
+// getValuesOverrides returns the values file created to pass into Helm override default values
+// for the hub and tag
+func GetValuesOverrides(ctx framework.TestContext, hub, tag, revision string, isAmbient bool) string {
+	workDir := ctx.CreateTmpDirectoryOrFail("helm")
+	overrideValues := fmt.Sprintf(defaultValues, hub, tag, revision)
+	if isAmbient {
+		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag)
+	}
+	overrideValuesFile := filepath.Join(workDir, "values.yaml")
+	if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+		ctx.Fatalf("failed to write iop cr file: %v", err)
+	}
+
+	return overrideValuesFile
+}
+
 // InstallIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, overrideValuesFile, version string, installGateway bool,
+func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, overrideValuesFile, version string, installGateway bool, ambientProfile bool,
 ) {
 	CreateNamespace(t, cs, IstioNamespace)
 
 	versionArgs := ""
+
 	baseChartPath := RepoBaseChartPath
 	discoveryChartPath := RepoDiscoveryChartPath
 	gatewayChartPath := RepoGatewayChartPath
+	cniChartPath := RepoCniChartPath
+	ztunnelChartPath := RepoZtunnelChartPath
+
+	gatewayOverrideValuesFile := overrideValuesFile
 
 	if version != "" {
 		versionArgs = fmt.Sprintf("--repo %s --version %s", t.Settings().HelmRepo, version)
+		// Currently the ambient in-place upgrade tests try an upgrade from previous release which is 1.20,
+		// and many of the profile override values seem to be unrecognized by the gateway installation.
+		// So, this is a workaround until we move to 1.21 where we can use --set profile=ambient for the install/upgrade.
+		// TODO: Remove this once the previous release version for the test becomes 1.21
+		// refer: https://github.com/istio/istio/issues/49242
+		if ambientProfile {
+			gatewayOverrideValuesFile = GetValuesOverrides(t, t.Settings().Image.Hub, version, "", false)
+		}
 	} else {
 		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
 		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
 		gatewayChartPath = filepath.Join(ManifestsChartPath, version, GatewayChartsDir)
+		cniChartPath = filepath.Join(ManifestsChartPath, version, CniChartsDir)
+		ztunnelChartPath = filepath.Join(ManifestsChartPath, version, ZtunnelChartsDir)
 
 	}
+
 	// Install base chart
 	err := h.InstallChart(BaseReleaseName, baseChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 	if err != nil {
@@ -96,9 +173,23 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	}
 
 	if installGateway {
-		err = h.InstallChart(IngressReleaseName, gatewayChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
+		err = h.InstallChart(IngressReleaseName, gatewayChartPath, IstioNamespace, gatewayOverrideValuesFile, Timeout, versionArgs)
 		if err != nil {
 			t.Fatalf("failed to install istio %s chart: %v", GatewayChartsDir, err)
+		}
+	}
+
+	if ambientProfile {
+		// Install cni chart
+		err = h.InstallChart(CniReleaseName, cniChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
+		if err != nil {
+			t.Fatalf("failed to install istio %s chart: %v", CniChartsDir, err)
+		}
+
+		// Install ztunnel chart
+		err = h.InstallChart(ZtunnelReleaseName, ztunnelChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
+		if err != nil {
+			t.Fatalf("failed to install istio %s chart: %v", ZtunnelChartsDir, err)
 		}
 	}
 }
@@ -163,14 +254,22 @@ func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
 	}
 }
 
-// deleteIstio deletes installed Istio Helm charts and resources
-func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
+// DeleteIstio deletes installed Istio Helm charts and resources
+func DeleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster, isAmbient bool) {
 	scopes.Framework.Infof("cleaning up resources")
 	if err := h.DeleteChart(IngressReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release: %v", IngressReleaseName, err)
 	}
 	if err := h.DeleteChart(IstiodReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release: %v", IstiodReleaseName, err)
+	}
+	if isAmbient {
+		if err := h.DeleteChart(ZtunnelReleaseName, IstioNamespace); err != nil {
+			t.Errorf("failed to delete %s release: %v", ZtunnelReleaseName, err)
+		}
+		if err := h.DeleteChart(CniReleaseName, IstioNamespace); err != nil {
+			t.Errorf("failed to delete %s release: %v", CniReleaseName, err)
+		}
 	}
 	if err := h.DeleteChart(BaseReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release: %v", BaseReleaseName, err)
@@ -184,25 +283,31 @@ func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 }
 
 // VerifyInstallation verify that the Helm installation is successful
-func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGateway bool) {
+func VerifyPodReady(ctx framework.TestContext, cs cluster.Cluster, label string) {
+	retry.UntilSuccessOrFail(ctx, func() error {
+		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, label)); err != nil {
+			return fmt.Errorf("%s pod is not ready: %v", label, err)
+		}
+		return nil
+	}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
+}
+
+// VerifyInstallation verify that the Helm installation is successful
+func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGateway bool, verifyAmbient bool) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
 
 	VerifyValidatingWebhookConfigurations(ctx, cs, []string{
 		"istiod-default-validator",
 	})
 
-	retry.UntilSuccessOrFail(ctx, func() error {
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
-			return fmt.Errorf("istiod pod is not ready: %v", err)
-		}
-
-		if verifyGateway {
-			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-ingress")); err != nil {
-				return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
-			}
-		}
-		return nil
-	}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
+	VerifyPodReady(ctx, cs, "app=istiod")
+	if verifyAmbient {
+		VerifyPodReady(ctx, cs, "app=ztunnel")
+		VerifyPodReady(ctx, cs, "k8s-app=istio-cni-node")
+	}
+	if verifyGateway {
+		VerifyPodReady(ctx, cs, "app=istio-ingress")
+	}
 	scopes.Framework.Infof("=== succeeded ===")
 }
 

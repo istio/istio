@@ -48,7 +48,7 @@ spec:
                 type: string
               imagePullPolicy:
                 description: The pull behaviour to be applied when fetching Wasm module
-                  by either OCI image or http/https.
+                  by either OCI image or `http/https`.
                 enum:
                 - UNSPECIFIED_POLICY
                 - IfNotPresent
@@ -885,6 +885,11 @@ spec:
                                       certificate authority certificates to use in
                                       verifying a presented server certificate.'
                                     type: string
+                                  caCrl:
+                                    description: 'OPTIONAL: The path to the file containing
+                                      the certificate revocation list (CRL) to use
+                                      in verifying a presented server certificate.'
+                                    type: string
                                   clientCertificate:
                                     description: REQUIRED if mode is `MUTUAL`.
                                     type: string
@@ -942,6 +947,11 @@ spec:
                             caCertificates:
                               description: 'OPTIONAL: The path to the file containing
                                 certificate authority certificates to use in verifying
+                                a presented server certificate.'
+                              type: string
+                            caCrl:
+                              description: 'OPTIONAL: The path to the file containing
+                                the certificate revocation list (CRL) to use in verifying
                                 a presented server certificate.'
                               type: string
                             clientCertificate:
@@ -1592,6 +1602,11 @@ spec:
                                 certificate authority certificates to use in verifying
                                 a presented server certificate.'
                               type: string
+                            caCrl:
+                              description: 'OPTIONAL: The path to the file containing
+                                the certificate revocation list (CRL) to use in verifying
+                                a presented server certificate.'
+                              type: string
                             clientCertificate:
                               description: REQUIRED if mode is `MUTUAL`.
                               type: string
@@ -1649,6 +1664,11 @@ spec:
                         description: 'OPTIONAL: The path to the file containing certificate
                           authority certificates to use in verifying a presented server
                           certificate.'
+                        type: string
+                      caCrl:
+                        description: 'OPTIONAL: The path to the file containing the
+                          certificate revocation list (CRL) to use in verifying a
+                          presented server certificate.'
                         type: string
                       clientCertificate:
                         description: REQUIRED if mode is `MUTUAL`.
@@ -2375,6 +2395,11 @@ spec:
                                       certificate authority certificates to use in
                                       verifying a presented server certificate.'
                                     type: string
+                                  caCrl:
+                                    description: 'OPTIONAL: The path to the file containing
+                                      the certificate revocation list (CRL) to use
+                                      in verifying a presented server certificate.'
+                                    type: string
                                   clientCertificate:
                                     description: REQUIRED if mode is `MUTUAL`.
                                     type: string
@@ -2432,6 +2457,11 @@ spec:
                             caCertificates:
                               description: 'OPTIONAL: The path to the file containing
                                 certificate authority certificates to use in verifying
+                                a presented server certificate.'
+                              type: string
+                            caCrl:
+                              description: 'OPTIONAL: The path to the file containing
+                                the certificate revocation list (CRL) to use in verifying
                                 a presented server certificate.'
                               type: string
                             clientCertificate:
@@ -3082,6 +3112,11 @@ spec:
                                 certificate authority certificates to use in verifying
                                 a presented server certificate.'
                               type: string
+                            caCrl:
+                              description: 'OPTIONAL: The path to the file containing
+                                the certificate revocation list (CRL) to use in verifying
+                                a presented server certificate.'
+                              type: string
                             clientCertificate:
                               description: REQUIRED if mode is `MUTUAL`.
                               type: string
@@ -3139,6 +3174,11 @@ spec:
                         description: 'OPTIONAL: The path to the file containing certificate
                           authority certificates to use in verifying a presented server
                           certificate.'
+                        type: string
+                      caCrl:
+                        description: 'OPTIONAL: The path to the file containing the
+                          certificate revocation list (CRL) to use in verifying a
+                          presented server certificate.'
                         type: string
                       clientCertificate:
                         description: REQUIRED if mode is `MUTUAL`.
@@ -3576,6 +3616,11 @@ spec:
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
+                        caCrl:
+                          description: 'OPTIONAL: The path to the file containing
+                            the certificate revocation list (CRL) to use in verifying
+                            a presented client side certificate.'
+                          type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
                             cipher list.'
@@ -3719,6 +3764,11 @@ spec:
                       properties:
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
+                          type: string
+                        caCrl:
+                          description: 'OPTIONAL: The path to the file containing
+                            the certificate revocation list (CRL) to use in verifying
+                            a presented client side certificate.'
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -4474,6 +4524,11 @@ spec:
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
+                        caCrl:
+                          description: 'OPTIONAL: The path to the file containing
+                            the certificate revocation list (CRL) to use in verifying
+                            a presented client side certificate.'
+                          type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
                             cipher list.'
@@ -4861,6 +4916,11 @@ spec:
                       properties:
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
+                          type: string
+                        caCrl:
+                          description: 'OPTIONAL: The path to the file containing
+                            the certificate revocation list (CRL) to use in verifying
+                            a presented client side certificate.'
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -7361,6 +7421,8 @@ spec:
     kind: AuthorizationPolicy
     listKind: AuthorizationPolicyList
     plural: authorizationpolicies
+    shortNames:
+    - ap
     singular: authorizationpolicy
   scope: Namespaced
   versions:
@@ -7969,6 +8031,11 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    timeout:
+                      description: The maximum amount of time that the resolver, determined
+                        by the PILOT_JWT_ENABLE_REMOTE_JWKS environment variable,
+                        will spend waiting for the JWKS to be fetched.
+                      type: string
                   required:
                   - issuer
                   type: object
@@ -8087,6 +8154,11 @@ spec:
                     outputPayloadToHeader:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
+                      type: string
+                    timeout:
+                      description: The maximum amount of time that the resolver, determined
+                        by the PILOT_JWT_ENABLE_REMOTE_JWKS environment variable,
+                        will spend waiting for the JWKS to be fetched.
                       type: string
                   required:
                   - issuer

@@ -19,13 +19,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -47,8 +47,7 @@ func TestAggregateStoreBasicMake(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	schemas := store.Schemas()
-	g.Expect(schemas.All()).To(HaveLen(2))
-	fixtures.ExpectEqual(t, schemas, collection.SchemasFor(schema1, schema2))
+	g.Expect(cmp.Diff(schemas, collection.SchemasFor(schema1, schema2))).To(BeEmpty())
 }
 
 func TestAggregateStoreMakeValidationFailure(t *testing.T) {

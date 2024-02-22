@@ -45,7 +45,7 @@ spec:
       {{if .Values.cni.ambient.enabled }}hostNetwork: true{{ end }}
       nodeSelector:
         kubernetes.io/os: linux
-      # Can be configured to allow for excluding instio-cni from being scheduled on specified nodes
+      # Can be configured to allow for excluding istio-cni from being scheduled on specified nodes
       {{- with .Values.cni.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}

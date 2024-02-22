@@ -105,9 +105,6 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if .Values.pilot.plugins }}
-          - --plugins={{ .Values.pilot.plugins }}
-{{- end }}
 {{- if .Values.pilot.taint.namespace }}
           - --cniNamespace={{ .Values.pilot.taint.namespace }}
 {{- end }}

@@ -28,15 +28,22 @@ import (
 
 // WorkloadFilter is used to pass filter information into workload based config writer print functions
 type WorkloadFilter struct {
-	Address string
-	Node    string
-	Verbose bool
+	Address   string
+	Node      string
+	Verbose   bool
+	Namespace string
 }
 
 // Verify returns true if the passed workload matches the filter fields
 func (wf *WorkloadFilter) Verify(workload *ztunnelDump.ZtunnelWorkload) bool {
-	if wf.Address == "" && wf.Node == "" {
+	if wf.Address == "" && wf.Node == "" && wf.Namespace == "" {
 		return true
+	}
+
+	if wf.Namespace != "" {
+		if !strings.EqualFold(workload.Namespace, wf.Namespace) {
+			return false
+		}
 	}
 
 	if wf.Address != "" {

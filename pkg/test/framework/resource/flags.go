@@ -209,4 +209,8 @@ func init() {
 		"Deploy Istio with Dual Stack enabled.")
 
 	flag.StringVar(&settingsFromCommandLine.HelmRepo, "istio.test.helmRepo", settingsFromCommandLine.HelmRepo, "Helm repo to use to pull the charts.")
+
+	flag.BoolVar(&settingsFromCommandLine.GatewayConformanceStandardOnly, "istio.test.gatewayConformanceStandardOnly",
+		settingsFromCommandLine.GatewayConformanceStandardOnly,
+		"If set, only the standard gateway conformance tests will be run; tests relying on experimental resources will be skipped.")
 }

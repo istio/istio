@@ -22,7 +22,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"istio.io/istio/pkg/config/legacy/source/kube"
+	"istio.io/istio/pkg/config/analysis/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	r2 "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"

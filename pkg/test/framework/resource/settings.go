@@ -178,6 +178,9 @@ type Settings struct {
 	DisableDefaultExternalServiceConnectivity bool
 
 	PeerMetadataDiscovery bool
+
+	// GatewayConformanceStandardOnly indicates that only the standard gateway conformance tests should be run.
+	GatewayConformanceStandardOnly bool
 }
 
 // SkipVMs changes the skip settings at runtime
@@ -237,25 +240,26 @@ func DefaultSettings() *Settings {
 func (s *Settings) String() string {
 	result := ""
 
-	result += fmt.Sprintf("TestID:            %s\n", s.TestID)
-	result += fmt.Sprintf("RunID:             %s\n", s.RunID.String())
-	result += fmt.Sprintf("NoCleanup:         %v\n", s.NoCleanup)
-	result += fmt.Sprintf("BaseDir:           %s\n", s.BaseDir)
-	result += fmt.Sprintf("Selector:          %v\n", s.Selector)
-	result += fmt.Sprintf("FailOnDeprecation: %v\n", s.FailOnDeprecation)
-	result += fmt.Sprintf("CIMode:            %v\n", s.CIMode)
-	result += fmt.Sprintf("Retries:           %v\n", s.Retries)
-	result += fmt.Sprintf("StableNamespaces:  %v\n", s.StableNamespaces)
-	result += fmt.Sprintf("Revision:          %v\n", s.Revision)
-	result += fmt.Sprintf("SkipWorkloads      %v\n", s.SkipWorkloadClasses)
-	result += fmt.Sprintf("Compatibility:     %v\n", s.Compatibility)
-	result += fmt.Sprintf("Revisions:         %v\n", s.Revisions.String())
-	result += fmt.Sprintf("Hub:               %s\n", s.Image.Hub)
-	result += fmt.Sprintf("Tag:               %s\n", s.Image.Tag)
-	result += fmt.Sprintf("PullPolicy:        %s\n", s.Image.PullPolicy)
-	result += fmt.Sprintf("PullSecret:        %s\n", s.Image.PullSecret)
-	result += fmt.Sprintf("MaxDumps:          %d\n", s.MaxDumps)
-	result += fmt.Sprintf("HelmRepo:          %v\n", s.HelmRepo)
+	result += fmt.Sprintf("TestID:            						 %s\n", s.TestID)
+	result += fmt.Sprintf("RunID:             						 %s\n", s.RunID.String())
+	result += fmt.Sprintf("NoCleanup:         						 %v\n", s.NoCleanup)
+	result += fmt.Sprintf("BaseDir:           						 %s\n", s.BaseDir)
+	result += fmt.Sprintf("Selector:          						 %v\n", s.Selector)
+	result += fmt.Sprintf("FailOnDeprecation: 						 %v\n", s.FailOnDeprecation)
+	result += fmt.Sprintf("CIMode:            						 %v\n", s.CIMode)
+	result += fmt.Sprintf("Retries:           						 %v\n", s.Retries)
+	result += fmt.Sprintf("StableNamespaces:  						 %v\n", s.StableNamespaces)
+	result += fmt.Sprintf("Revision:          						 %v\n", s.Revision)
+	result += fmt.Sprintf("SkipWorkloads      						 %v\n", s.SkipWorkloadClasses)
+	result += fmt.Sprintf("Compatibility:     						 %v\n", s.Compatibility)
+	result += fmt.Sprintf("Revisions:         						 %v\n", s.Revisions.String())
+	result += fmt.Sprintf("Hub:               						 %s\n", s.Image.Hub)
+	result += fmt.Sprintf("Tag:               						 %s\n", s.Image.Tag)
+	result += fmt.Sprintf("PullPolicy:        						 %s\n", s.Image.PullPolicy)
+	result += fmt.Sprintf("PullSecret:        						 %s\n", s.Image.PullSecret)
+	result += fmt.Sprintf("MaxDumps:          						 %d\n", s.MaxDumps)
+	result += fmt.Sprintf("HelmRepo:          						 %v\n", s.HelmRepo)
+	result += fmt.Sprintf("GatewayConformanceStandardOnly: %v\n", s.GatewayConformanceStandardOnly)
 	return result
 }
 

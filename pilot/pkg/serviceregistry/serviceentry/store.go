@@ -22,7 +22,7 @@ import (
 )
 
 type hostPort struct {
-	host string
+	host instancesKey
 	port int
 }
 
@@ -64,7 +64,7 @@ func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInsta
 func (s *serviceInstancesStore) deleteInstanceKeys(key configKey, instances []*model.ServiceInstance) {
 	for _, i := range instances {
 		ikey := makeInstanceKey(i)
-		s.instancesByHostAndPort.Delete(hostPort{ikey.hostname.String(), i.ServicePort.Port})
+		s.instancesByHostAndPort.Delete(hostPort{ikey, i.ServicePort.Port})
 		oldInstances := s.instances[ikey][key]
 		delete(s.instances[ikey], key)
 		if len(s.instances[ikey]) == 0 {
@@ -73,7 +73,7 @@ func (s *serviceInstancesStore) deleteInstanceKeys(key configKey, instances []*m
 		delete(s.ip2instance, i.Endpoint.Address)
 		// Cleanup stale IPs, if the IPs changed
 		for _, oi := range oldInstances {
-			s.instancesByHostAndPort.Delete(hostPort{ikey.hostname.String(), oi.ServicePort.Port})
+			s.instancesByHostAndPort.Delete(hostPort{ikey, oi.ServicePort.Port})
 			delete(s.ip2instance, oi.Endpoint.Address)
 		}
 	}
@@ -83,7 +83,7 @@ func (s *serviceInstancesStore) deleteInstanceKeys(key configKey, instances []*m
 func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.ServiceInstance) {
 	for _, instance := range instances {
 		ikey := makeInstanceKey(instance)
-		hostPort := hostPort{ikey.hostname.String(), instance.ServicePort.Port}
+		hostPort := hostPort{ikey, instance.ServicePort.Port}
 		// For DNSRoundRobinLB resolution type, check if service instances already exist and do not add
 		// if it already exist. This can happen if two Service Entries are created with same host name,
 		// resolution as DNS_ROUND_ROBIN and with same/different endpoints.

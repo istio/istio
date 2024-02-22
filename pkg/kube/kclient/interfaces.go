@@ -16,6 +16,7 @@ package kclient
 
 import (
 	klabels "k8s.io/apimachinery/pkg/labels"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube/controllers"
@@ -63,6 +64,8 @@ type Writer[T controllers.Object] interface {
 	Update(object T) (T, error)
 	// UpdateStatus updates a resource's status, returning the newly applied resource.
 	UpdateStatus(object T) (T, error)
+	// Patch patches the resource, returning the newly applied resource.
+	Patch(name, namespace string, pt apitypes.PatchType, data []byte) (T, error)
 	// Delete removes a resource.
 	Delete(name, namespace string) error
 }

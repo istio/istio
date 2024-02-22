@@ -162,12 +162,11 @@ func (wp *WorkerPool) Push(target Resource, controller *Controller, context any)
 }
 
 func (wp *WorkerPool) Run(ctx context.Context) {
-	go func() {
-		<-ctx.Done()
+	context.AfterFunc(ctx, func() {
 		wp.lock.Lock()
 		wp.closing = true
 		wp.lock.Unlock()
-	}()
+	})
 }
 
 // maybeAddWorker adds a worker unless we are at maxWorkers.  Workers exit when there are no more tasks, except for the

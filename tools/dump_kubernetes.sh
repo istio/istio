@@ -17,5 +17,5 @@
 set -e
 
 echo "Use istioctl bug-report instead.";
-echo "https://istio.io/latest/about/bugs/#generating-a-cluster-state-archive";
+echo "https://istio.io/latest/docs/releases/bugs/#kubernetes-cluster-state-archives";
 exit 1;

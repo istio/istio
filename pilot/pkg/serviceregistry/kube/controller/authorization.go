@@ -621,19 +621,15 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 	}
 
 	action := security.Action_DENY
-	var groups []*security.Group
+	var rules []*security.Rules
 
 	if mode == v1beta1.PeerAuthentication_MutualTLS_STRICT {
-		groups = append(groups, &security.Group{
-			Rules: []*security.Rules{
+		rules = append(rules, &security.Rules{
+			Matches: []*security.Match{
 				{
-					Matches: []*security.Match{
+					NotPrincipals: []*security.StringMatch{
 						{
-							NotPrincipals: []*security.StringMatch{
-								{
-									MatchType: &security.StringMatch_Presence{},
-								},
-							},
+							MatchType: &security.StringMatch_Presence{},
 						},
 					},
 				},
@@ -649,19 +645,15 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 	for port, mtls := range pa.PortLevelMtls {
 		switch portMtlsMode := mtls.GetMode(); {
 		case portMtlsMode == v1beta1.PeerAuthentication_MutualTLS_STRICT:
-			groups = append(groups, &security.Group{
-				Rules: []*security.Rules{
+			rules = append(rules, &security.Rules{
+				Matches: []*security.Match{
 					{
-						Matches: []*security.Match{
+						NotPrincipals: []*security.StringMatch{
 							{
-								NotPrincipals: []*security.StringMatch{
-									{
-										MatchType: &security.StringMatch_Presence{},
-									},
-								},
-								DestinationPorts: []uint32{port},
+								MatchType: &security.StringMatch_Presence{},
 							},
 						},
+						DestinationPorts: []uint32{port},
 					},
 				},
 			})
@@ -676,14 +668,10 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 			foundNonStrictPortmTLS = true
 
 			// If the top level policy is STRICT, we need to add a rule for the port that exempts it from the deny policy
-			groups = append(groups, &security.Group{
-				Rules: []*security.Rules{
+			rules = append(rules, &security.Rules{
+				Matches: []*security.Match{
 					{
-						Matches: []*security.Match{
-							{
-								NotDestinationPorts: []uint32{port}, // if the incoming connection does not match this port, deny (notice there's no principals requirement)
-							},
-						},
+						NotDestinationPorts: []uint32{port}, // if the incoming connection does not match this port, deny (notice there's no principals requirement)
 					},
 				},
 			})
@@ -698,14 +686,10 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 			foundNonStrictPortmTLS = true
 
 			// If the top level policy is STRICT, we need to add a rule for the port that exempts it from the deny policy
-			groups = append(groups, &security.Group{
-				Rules: []*security.Rules{
+			rules = append(rules, &security.Rules{
+				Matches: []*security.Match{
 					{
-						Matches: []*security.Match{
-							{
-								NotDestinationPorts: []uint32{port}, // if the incoming connection does not match this port, deny (notice there's no principals requirement)
-							},
-						},
+						NotDestinationPorts: []uint32{port}, // if the incoming connection does not match this port, deny (notice there's no principals requirement)
 					},
 				},
 			})
@@ -720,7 +704,7 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 		return nil
 	}
 
-	if len(groups) == 0 {
+	if len(rules) == 0 {
 		// we never added any rules; return
 		return nil
 	}
@@ -734,7 +718,7 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 		Namespace: cfg.Namespace,
 		Scope:     scope,
 		Action:    action,
-		Groups:    groups,
+		Groups:    []*security.Group{{Rules: rules}},
 	}
 
 	return opol

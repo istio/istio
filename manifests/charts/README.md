@@ -60,7 +60,7 @@ Each component in the new installer is optional. Users can install the component
 use the equivalent component in `istio-system`, configured with the official installer, or use a different
 version or implementation.
 
-For example you may use your own Prometheus and Grafana installs, or you may use a specialized/custom
+For example, you may use your own Prometheus and Grafana installs, or you may use a specialized/custom
 certificate provisioning tool, or use components that are centrally managed and running in a different cluster.
 
 This is a work in progress - building on top of the multi-cluster installer.
@@ -75,7 +75,7 @@ all CRDs to be present. On each upgrade it is recommended to reapply the file, t
 you get all CRDs.  CRDs are separated by release and by component type in the CRD directory.
 
 Istio has strong integration with certmanager.  Some operators may want to keep their current certmanager
-CRDs in place and not have Istio modify them.  In this case, it is necessary to apply CRD files individually.
+CRDs in place and not have Istio modify them. In this case, it is necessary to apply CRD files individually.
 
 ```bash
 kubectl apply -k github.com/istio/installer/base

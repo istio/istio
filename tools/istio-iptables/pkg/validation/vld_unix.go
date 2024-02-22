@@ -77,7 +77,6 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 		addr, err = unix.GetsockoptIPv6MTUInfo(
 			int(fd), unix.IPPROTO_IPV6,
 			constants.SoOriginalDst)
-
 		if err != nil {
 			log.Errorf("Error to ipv6 getsockopt: %v", err)
 			return

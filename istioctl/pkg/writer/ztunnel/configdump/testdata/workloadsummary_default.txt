@@ -1,0 +1,9 @@
+NAMESPACE NAME                           NETWORK IP          NODE            WAYPOINT PROTOCOL
+default   details-v1-698d88b-krdw7               10.244.2.55 ambient-worker2 None     HBONE
+default   httpbin-7447985f87-t8hv7               10.244.1.40 ambient-worker  None     TCP
+default   productpage-v1-675fc69cf-kkrm2         10.244.2.56 ambient-worker2 None     HBONE
+default   ratings-v1-6484c4d9bb-8xc2r            10.244.2.57 ambient-worker2 None     HBONE
+default   reviews-v1-5b5d6494f4-c7z5w            10.244.1.41 ambient-worker  None     HBONE
+default   reviews-v2-5b667bcbf8-twvx6            10.244.1.42 ambient-worker  None     HBONE
+default   reviews-v3-5b9bd44f4-z9ms4             10.244.1.43 ambient-worker  None     HBONE
+default   sleep-7656cf8794-lxcmx                 10.244.2.58 ambient-worker2 None     HBONE

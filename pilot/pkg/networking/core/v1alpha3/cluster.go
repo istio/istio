@@ -474,6 +474,7 @@ func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.P
 	enableSidecarServiceInboundListenerMerge bool,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
+	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
 	clustersToBuild := make(map[int][]model.ServiceTarget)
 
 	ingressPortListSet := sets.New[int]()
@@ -490,7 +491,10 @@ func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.P
 		clustersToBuild[port] = append(clustersToBuild[port], instance)
 	}
 
-	bind := ""
+	bind := actualLocalHosts[0]
+	if cb.req.Push.Mesh.GetInboundTrafficPolicy().GetMode() == meshconfig.MeshConfig_InboundTrafficPolicy_PASSTHROUGH {
+		bind = ""
+	}
 	// For each workload port, we will construct a cluster
 	for epPort, instances := range clustersToBuild {
 		if ingressPortListSet.Contains(int(instances[0].Port.TargetPort)) {

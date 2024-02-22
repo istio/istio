@@ -23,6 +23,10 @@ defaults:
         memory: 2048Mi
     # Set to `type: RuntimeDefault` to use the default profile if available.
     seccompProfile: {}
+    # keep in sync with settings used when installing the Istio CNI chart
+    cni:
+      enabled: false
+      chained: true
     # Additional container arguments
     extraContainerArgs: []
     env: {}
@@ -53,7 +57,6 @@ defaults:
     # the default MCP is assumed.
     configSource:
       subscribedResources: []
-    plugins: []
     # The following is used to limit how long a sidecar can be connected
     # to a pilot. It balances out load across pilot instances at the cost of
     # increasing system churn.
@@ -414,7 +417,3 @@ defaults:
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
-    #  keep in sync with settings used when installing the Istio CNI chart
-  istio_cni:
-    enabled: false
-    chained: true

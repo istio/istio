@@ -39,9 +39,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/analysis/scope"
-	mesh_const "istio.io/istio/pkg/config/legacy/mesh"
-	"istio.io/istio/pkg/config/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -181,8 +180,8 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	// Create a store containing mesh config. There should be exactly one.
 	_, err := sa.internalStore.Create(config.Config{
 		Meta: config.Meta{
-			Name:             mesh_const.MeshConfigResourceName.Name.String(),
-			Namespace:        mesh_const.MeshConfigResourceName.Namespace.String(),
+			Name:             "meshconfig",
+			Namespace:        sa.istioNamespace.String(),
 			GroupVersionKind: gvk.MeshConfig,
 		},
 		Spec: sa.meshCfg,
@@ -193,8 +192,8 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	// Create a store containing meshnetworks. There should be exactly one.
 	_, err = sa.internalStore.Create(config.Config{
 		Meta: config.Meta{
-			Name:             mesh_const.MeshNetworksResourceName.Name.String(),
-			Namespace:        mesh_const.MeshNetworksResourceName.Namespace.String(),
+			Name:             "meshnetworks",
+			Namespace:        sa.istioNamespace.String(),
 			GroupVersionKind: gvk.MeshNetworks,
 		},
 		Spec: sa.meshNetworks,

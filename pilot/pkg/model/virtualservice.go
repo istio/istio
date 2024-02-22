@@ -36,35 +36,19 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	importedVirtualServices := make([]config.Config, 0)
 	vsset := sets.New[types.NamespacedName]()
 
-	addVirtualService := func(vs config.Config, hosts hostClassification) {
+	addVirtualService := func(vs config.Config, hc hostClassification) {
 		key := vs.NamespacedName()
 		if vsset.Contains(key) {
 			return
 		}
 
 		rule := vs.Spec.(*networking.VirtualService)
+		useGatewaySemantics := UseGatewaySemantics(vs)
 		for _, vh := range rule.Hosts {
-			// first, check exactHosts
-			if hosts.exactHosts.Contains(host.Name(vh)) {
+			if hc.VSMatches(host.Name(vh), useGatewaySemantics) {
 				importedVirtualServices = append(importedVirtualServices, vs)
 				vsset.Insert(key)
 				return
-			}
-
-			// exactHosts not found, fallback to loop allHosts
-			vhIsWildCard := host.Name(vh).IsWildCarded()
-			for _, ah := range hosts.allHosts {
-				// If both are exact hosts, then fallback is not needed.
-				// In this scenario it should be determined by exact lookup.
-				if !vhIsWildCard && !ah.IsWildCarded() {
-					continue
-				}
-				if vsHostMatches(vh, ah, vs) {
-					importedVirtualServices = append(importedVirtualServices, vs)
-					vsset.Insert(key)
-					// break both loops
-					return
-				}
 			}
 		}
 	}
@@ -96,18 +80,6 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])
 
 	return importedVirtualServices
-}
-
-// vsHostMatches checks if the given VirtualService host matches the importedHost (from Sidecar)
-func vsHostMatches(vsHost string, importedHost host.Name, vs config.Config) bool {
-	if UseGatewaySemantics(vs) {
-		// The new way. Matching logic exactly mirrors Service matching
-		// If a route defines `*.com` and we import `a.com`, it will not match
-		return host.Name(vsHost).SubsetOf(importedHost)
-	}
-
-	// The old way. We check Matches which is bi-directional. This is for backwards compatibility
-	return host.Name(vsHost).Matches(importedHost)
 }
 
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {

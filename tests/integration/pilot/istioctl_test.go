@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	commonDeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -55,36 +54,6 @@ var (
 
 	describePodAOutput = describeSvcAOutput
 )
-
-func TestWait(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/29315")
-	// nolint: staticcheck
-	framework.NewTest(t).Features("usability.observability.wait").
-		RequiresSingleCluster().
-		RequiresLocalControlPlane().
-		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "default",
-				Inject: true,
-			})
-			t.ConfigIstio().YAML(ns.Name(), `
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: reviews
-spec:
-  gateways: [missing-gw]
-  hosts:
-  - reviews
-  http:
-  - route:
-    - destination: 
-        host: reviews
-`).ApplyOrFail(t)
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
-			istioCtl.InvokeOrFail(t, []string{"x", "wait", "-v", "VirtualService", "reviews." + ns.Name()})
-		})
-}
 
 // This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
 // TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data
