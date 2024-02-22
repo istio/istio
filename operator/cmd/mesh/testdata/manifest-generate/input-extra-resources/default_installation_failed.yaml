@@ -1,11 +1,11 @@
+# Simulate the case where the default installation failed, and the user has to reinstall the components.
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   labels:
     app: sidecar-injector
-    istio.io/tag: default
   name: w-istio-sidecar-injector-istio-system
-  
+
 webhooks:
 - admissionReviewVersions:
   - v1beta1
@@ -47,7 +47,6 @@ webhooks:
   sideEffects: None
   timeoutSeconds: 10
 ---
-# same webhook but with different name, will result in a duplicate
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
