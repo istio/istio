@@ -73,6 +73,9 @@ message Service {
   // Typically, this is not set and per-workload identity is used to verify
   // TODO: support this field
   repeated string subject_alt_names = 6;
+  // Waypoint is the waypoint proxy for this service. When set, all incoming requests must go
+  // through the waypoint.
+  GatewayAddress waypoint = 7;
 }
 
 // Workload represents a workload - an endpoint (or collection behind a hostname).
