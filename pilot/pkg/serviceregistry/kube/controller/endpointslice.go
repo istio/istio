@@ -116,10 +116,15 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
 	// Trigger EDS push for all hostnames.
 	esc.pushEDS(hostnames, namespacedName.Namespace)
+
+	if !features.EnableHeadlessService {
+		return
+	}
+
 	name := serviceNameForEndpointSlice(esLabels)
 	namespace := ep.GetNamespace()
 	svc := esc.c.services.Get(name, namespace)
-	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone {
+	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone || svc.Spec.Type == corev1.ServiceTypeExternalName {
 		return
 	}
 
@@ -130,7 +135,7 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 		if modelSvc.Attributes.ExportTo.Contains(visibility.None) {
 			continue
 		}
-		configsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
+		configsUpdated.Insert(model.ConfigKey{Kind: kind.DNSName, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
 
 		for _, p := range modelSvc.Ports {
 			if !p.Protocol.IsHTTP() {

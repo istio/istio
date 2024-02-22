@@ -41,6 +41,7 @@ const (
 	Service
 	ServiceAccount
 	ServiceEntry
+	DNSName
 	Sidecar
 	StatefulSet
 	TCPRoute
