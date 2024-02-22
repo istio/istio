@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.21
+go 1.22
 
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
