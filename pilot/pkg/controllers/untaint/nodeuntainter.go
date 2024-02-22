@@ -12,45 +12,68 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package untaint
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"gomodules.xyz/jsonpatch/v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config/labels"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/kubetypes"
+	istiolog "istio.io/istio/pkg/log"
 )
+
+var log = istiolog.RegisterScope("untaint", "CNI node-untaint controller")
 
 const (
 	TaintName = "cni.istio.io/not-ready"
 )
 
+var istioCniLabels = map[string]string{
+	"k8s-app": "istio-cni-node",
+}
+
 type nodeUntainter struct {
 	podsClient  kclient.Client[*v1.Pod]
 	nodesClient kclient.Client[*v1.Node]
-	cnilabels   map[string]string
+	cnilabels   labels.Instance
 	ourNs       string
 	queue       controllers.Queue
 }
 
-func newNodeUntainter(c *Controller) *nodeUntainter {
-	labels := map[string]string{
-		"k8s-app": "istio-cni-node",
+func filterNamespace(ns string) func(any) bool {
+	return func(obj any) bool {
+		object := controllers.ExtractObject(obj)
+		if object == nil {
+			return false
+		}
+		return ns == object.GetNamespace()
 	}
-	log.Debugf("starting node untainter with labels %v", labels)
-	ns := c.opts.CniNamespace
+}
+
+func NewNodeUntainter(kubeClient kubelib.Client, cniNs, sysNs string) *nodeUntainter {
+	log.Debugf("starting node untainter with labels %v", istioCniLabels)
+	ns := cniNs
 	if ns == "" {
-		ns = c.opts.SystemNamespace
+		ns = sysNs
 	}
+	podsClient := kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
+		ObjectFilter:    kubetypes.NewStaticObjectFilter(filterNamespace(ns)),
+		ObjectTransform: kubelib.StripPodUnusedFields,
+	})
+	nodes := kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: kubelib.StripNodeUnusedFields})
 	nt := &nodeUntainter{
-		podsClient:  c.podsClient,
-		nodesClient: c.nodes,
-		cnilabels:   labels,
+		podsClient:  podsClient,
+		nodesClient: nodes,
+		cnilabels:   labels.Instance(istioCniLabels),
 		ourNs:       ns,
 	}
 	nt.setup()
@@ -62,13 +85,12 @@ func (n *nodeUntainter) setup() {
 	// as we fetch all pods anyway, no need to create new informer..
 	pods := krt.WrapClient[*v1.Pod](n.podsClient)
 
-	labelInst := labels.Instance(n.cnilabels)
 	readyCniPods := krt.NewCollection(pods, func(ctx krt.HandlerContext, p *v1.Pod) *v1.Pod {
 		log.Debugf("cniPods event: %s", p.Name)
 		if p.Namespace != n.ourNs {
 			return nil
 		}
-		if !labelInst.SubsetOf(p.ObjectMeta.Labels) {
+		if !n.cnilabels.SubsetOf(p.ObjectMeta.Labels) {
 			return nil
 		}
 		if !IsPodReadyConditionTrue(p.Status) {
@@ -129,12 +151,31 @@ func (n *nodeUntainter) reconcileNode(key types.NamespacedName) error {
 func removeReadinessTaint(nodesClient kclient.Client[*v1.Node], node *v1.Node) error {
 	updatedTaint := deleteTaint(node.Spec.Taints, &v1.Taint{Key: TaintName, Effect: v1.TaintEffectNoSchedule})
 	if len(updatedTaint) == len(node.Spec.Taints) {
+		// nothing to remove..
 		return nil
 	}
 
 	log.Debugf("removing readiness taint from node %v", node.Name)
-	node.Spec.Taints = updatedTaint
-	_, err := nodesClient.Update(node)
+	atomicTaintRemove := []jsonpatch.Operation{
+		// make sure taints hadn't chained since we last read the node
+		{
+			Operation: "test",
+			Path:      "/spec/taints",
+			Value:     node.Spec.Taints,
+		},
+		// remove the taint
+		{
+			Operation: "replace",
+			Path:      "/spec/taints",
+			Value:     updatedTaint,
+		},
+	}
+	patch, err := json.Marshal(atomicTaintRemove)
+	if err != nil {
+		return fmt.Errorf("failed to marshal patch: %v", err)
+	}
+
+	_, err = nodesClient.Patch(node.Name, "", types.JSONPatchType, patch)
 	if err != nil {
 		return fmt.Errorf("failed to update node %v after adding taint: %v", node.Name, err)
 	}
@@ -161,4 +202,41 @@ func hasTaint(n *v1.Node) bool {
 		}
 	}
 	return false
+}
+
+// IsPodReady is copied from kubernetes/pkg/api/v1/pod/utils.go
+func IsPodReady(pod *v1.Pod) bool {
+	return IsPodReadyConditionTrue(pod.Status)
+}
+
+// IsPodReadyConditionTrue returns true if a pod is ready; false otherwise.
+func IsPodReadyConditionTrue(status v1.PodStatus) bool {
+	condition := GetPodReadyCondition(status)
+	return condition != nil && condition.Status == v1.ConditionTrue
+}
+
+func GetPodReadyCondition(status v1.PodStatus) *v1.PodCondition {
+	_, condition := GetPodCondition(&status, v1.PodReady)
+	return condition
+}
+
+func GetPodCondition(status *v1.PodStatus, conditionType v1.PodConditionType) (int, *v1.PodCondition) {
+	if status == nil {
+		return -1, nil
+	}
+	return GetPodConditionFromList(status.Conditions, conditionType)
+}
+
+// GetPodConditionFromList extracts the provided condition from the given list of condition and
+// returns the index of the condition and the condition. Returns -1 and nil if the condition is not present.
+func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodConditionType) (int, *v1.PodCondition) {
+	if conditions == nil {
+		return -1, nil
+	}
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return i, &conditions[i]
+		}
+	}
+	return -1, nil
 }

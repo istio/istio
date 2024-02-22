@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package untaint
 
 import (
 	"testing"
@@ -21,11 +21,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const systemNS = "istio-system"
@@ -36,31 +38,44 @@ var cniPodLabels = map[string]string{
 }
 
 type nodeTainterTestServer struct {
-	controller *FakeController
-	fx         *xdsfake.Updater
-	pc         clienttest.TestClient[*corev1.Pod]
-	nc         clienttest.TestClient[*corev1.Node]
-	t          *testing.T
+	client kubelib.Client
+	pc     clienttest.TestClient[*corev1.Pod]
+	nc     clienttest.TestClient[*corev1.Node]
+	t      *testing.T
+}
+
+func setupLogging() {
+	opts := istiolog.DefaultOptions()
+	opts.SetDefaultOutputLevel(istiolog.OverrideScopeName, istiolog.DebugLevel)
+	istiolog.Configure(opts)
+	for _, scope := range istiolog.Scopes() {
+		scope.SetOutputLevel(istiolog.DebugLevel)
+	}
 }
 
 func newNodeUntainterTestServer(t *testing.T) *nodeTainterTestServer {
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		SystemNamespace: systemNS,
-	})
+	client := kubelib.NewFakeClient()
 
-	pc := clienttest.Wrap(t, controller.podsClient)
-	nc := clienttest.Wrap(t, controller.nodes)
+	nodeUntainter := NewNodeUntainter(client, systemNS, systemNS)
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
+	go nodeUntainter.Run(stop)
+	go client.Informers().Start(stop)
+	kubelib.WaitForCacheSync("test", stop, nodeUntainter.nodesClient.HasSynced, nodeUntainter.podsClient.HasSynced)
+
+	pc := clienttest.Wrap(t, nodeUntainter.podsClient)
+	nc := clienttest.Wrap(t, nodeUntainter.nodesClient)
 
 	return &nodeTainterTestServer{
-		t:          t,
-		controller: controller,
-		fx:         fx,
-		pc:         pc,
-		nc:         nc,
+		client: client,
+		t:      t,
+		pc:     pc,
+		nc:     nc,
 	}
 }
 
 func TestNodeUntainter(t *testing.T) {
+	setupLogging()
 	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
 	s := newNodeUntainterTestServer(t)
 	s.addTaintedNodes(t, "node1", "node2", "node3")
@@ -154,5 +169,70 @@ func (s *nodeTainterTestServer) addPod(t *testing.T, node string, markReady bool
 		s.pc.UpdateStatus(newPod)
 	} else {
 		s.pc.Update(pod)
+	}
+}
+
+func generateNode(name string, labels map[string]string) *corev1.Node {
+	return &corev1.Node{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Node",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: labels,
+		},
+	}
+}
+
+func generatePod(ip, name, namespace, saName, node string, labels map[string]string, annotations map[string]string) *corev1.Pod {
+	automount := false
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Labels:      labels,
+			Annotations: annotations,
+			Namespace:   namespace,
+		},
+		Spec: corev1.PodSpec{
+			ServiceAccountName:           saName,
+			NodeName:                     node,
+			AutomountServiceAccountToken: &automount,
+			// Validation requires this
+			Containers: []corev1.Container{
+				{
+					Name:  "test",
+					Image: "ununtu",
+				},
+			},
+		},
+		// The cache controller uses this as key, required by our impl.
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:               corev1.PodReady,
+					Status:             corev1.ConditionTrue,
+					LastTransitionTime: metav1.Now(),
+				},
+			},
+			PodIP:  ip,
+			HostIP: ip,
+			PodIPs: []corev1.PodIP{
+				{
+					IP: ip,
+				},
+			},
+			Phase: corev1.PodRunning,
+		},
+	}
+}
+
+func setPodReady(pod *corev1.Pod) {
+	pod.Status.Conditions = []corev1.PodCondition{
+		{
+			Type:               corev1.PodReady,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Now(),
+		},
 	}
 }
