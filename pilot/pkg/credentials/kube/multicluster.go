@@ -63,6 +63,7 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 }
 
 func (m *Multicluster) AddSecretHandler(h func(name string, namespace string)) {
+	// Intentionally no lock. The controller today requires that handlers are registered before execution and not in parallel.
 	m.secretHandlers = append(m.secretHandlers, h)
 }
 

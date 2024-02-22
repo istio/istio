@@ -169,6 +169,7 @@ func BuildMultiClusterComponent[T ComponentConstraint](c ComponentBuilder, const
 }
 
 func (c *Controller) registerHandler(h handler) {
+	// Intentionally no lock. The controller today requires that handlers are registered before execution and not in parallel.
 	c.handlers = append(c.handlers, h)
 }
 
