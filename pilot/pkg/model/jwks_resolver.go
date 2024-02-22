@@ -106,7 +106,7 @@ type jwtPubKeyEntry struct {
 	lastUsedTime time.Time
 
 	// OpenID Discovery web request timeout
-	timeout *time.Duration
+	timeout time.Duration
 }
 
 // jwtKey is a key in the JwksResolver keyEntries map.
@@ -233,7 +233,7 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.
 		e := val.(jwtPubKeyEntry)
 		// Update cached key's last used time.
 		e.lastUsedTime = now
-		e.timeout = &timeout
+		e.timeout = timeout
 		r.keyEntries.Store(key, e)
 		if e.pubKey == "" {
 			return e.pubKey, errEmptyPubKeyFoundInCache
@@ -262,7 +262,7 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.
 		pubKey:            pubKey,
 		lastRefreshedTime: now,
 		lastUsedTime:      now,
-		timeout:           &timeout,
+		timeout:           timeout,
 	})
 	if err != nil {
 		// fetching the public key in the background
@@ -487,7 +487,7 @@ func (r *JwksResolver) refresh() bool {
 			jwksURI := k.jwksURI
 			if jwksURI == "" {
 				var err error
-				jwksURI, err = r.resolveJwksURIUsingOpenID(k.issuer, *e.timeout)
+				jwksURI, err = r.resolveJwksURIUsingOpenID(k.issuer, e.timeout)
 				if err != nil {
 					hasErrors.Store(true)
 					log.Errorf("Failed to resolve Jwks from issuer %q: %v", k.issuer, err)
@@ -497,7 +497,7 @@ func (r *JwksResolver) refresh() bool {
 				r.keyEntries.Delete(k)
 				k.jwksURI = jwksURI
 			}
-			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow, *e.timeout)
+			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow, e.timeout)
 			if err != nil {
 				hasErrors.Store(true)
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
