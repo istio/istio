@@ -9,10 +9,12 @@ import (
 
 const (
 	Address Kind = iota
+	DNSName
 	AuthorizationPolicy
 	CertificateSigningRequest
 	ConfigMap
 	CustomResourceDefinition
+	DNSName
 	DaemonSet
 	Deployment
 	DestinationRule
@@ -41,7 +43,6 @@ const (
 	Service
 	ServiceAccount
 	ServiceEntry
-	DNSName
 	Sidecar
 	StatefulSet
 	TCPRoute
@@ -59,6 +60,8 @@ func (k Kind) String() string {
 	switch k {
 	case Address:
 		return "Address"
+	case DNSName:
+		return "DNSName"
 	case AuthorizationPolicy:
 		return "AuthorizationPolicy"
 	case CertificateSigningRequest:
@@ -67,6 +70,8 @@ func (k Kind) String() string {
 		return "ConfigMap"
 	case CustomResourceDefinition:
 		return "CustomResourceDefinition"
+	case DNSName:
+		return "DNSName"
 	case DaemonSet:
 		return "DaemonSet"
 	case Deployment:
@@ -152,6 +157,8 @@ func (k Kind) String() string {
 
 func MustFromGVK(g config.GroupVersionKind) Kind {
 	switch g {
+	case gvk.DNSName:
+		return DNSName
 	case gvk.AuthorizationPolicy:
 		return AuthorizationPolicy
 	case gvk.CertificateSigningRequest:
@@ -160,6 +167,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return ConfigMap
 	case gvk.CustomResourceDefinition:
 		return CustomResourceDefinition
+	case gvk.DNSName:
+		return DNSName
 	case gvk.DaemonSet:
 		return DaemonSet
 	case gvk.Deployment:

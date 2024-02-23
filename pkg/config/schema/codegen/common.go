@@ -36,9 +36,14 @@ func Run() error {
 	}
 
 	// Include synthetic types used for XDS pushes
-	kindEntries := append([]colEntry{{
-		Resource: &ast.Resource{Identifier: "Address", Kind: "Address", Version: "internal", Group: "internal"},
-	}}, inp.Entries...)
+	kindEntries := append([]colEntry{
+		{
+			Resource: &ast.Resource{Identifier: "Address", Kind: "Address", Version: "internal", Group: "internal"},
+		},
+		{
+			Resource: &ast.Resource{Identifier: "DNSName", Kind: "DNSName", Version: "internal", Group: "internal"},
+		},
+	}, inp.Entries...)
 
 	// filter to only types agent needs (to keep binary small)
 	agentEntries := []colEntry{}

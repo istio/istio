@@ -15,6 +15,7 @@ var (
 	CertificateSigningRequest      = config.GroupVersionKind{Group: "certificates.k8s.io", Version: "v1", Kind: "CertificateSigningRequest"}
 	ConfigMap                      = config.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 	CustomResourceDefinition       = config.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"}
+	DNSName                        = config.GroupVersionKind{Group: "", Version: "v1alpha3", Kind: "DNSName"}
 	DaemonSet                      = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}
 	Deployment                     = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
 	DestinationRule                = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "DestinationRule"}
@@ -84,6 +85,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.ConfigMap, true
 	case CustomResourceDefinition:
 		return gvr.CustomResourceDefinition, true
+	case DNSName:
+		return gvr.DNSName, true
 	case DaemonSet:
 		return gvr.DaemonSet, true
 	case Deployment:
@@ -218,6 +221,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return ConfigMap, true
 	case gvr.CustomResourceDefinition:
 		return CustomResourceDefinition, true
+	case gvr.DNSName:
+		return DNSName, true
 	case gvr.DaemonSet:
 		return DaemonSet, true
 	case gvr.Deployment:
