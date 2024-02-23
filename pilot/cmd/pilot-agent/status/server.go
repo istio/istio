@@ -660,6 +660,7 @@ func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, context.
 	applyHeaders(req.Header, header, "Accept",
 		"User-Agent",
 		"X-Prometheus-Scrape-Timeout-Seconds",
+		"Authorization",
 	)
 
 	resp, err := s.http.Do(req)
