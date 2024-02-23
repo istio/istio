@@ -60,27 +60,35 @@ var (
 	remoteClusters = clustersCount.With(clusterType.Value("remote"))
 )
 
-type ClusterHandler interface {
-	ClusterAdded(cluster *Cluster, stop <-chan struct{})
-	ClusterUpdated(cluster *Cluster, stop <-chan struct{})
-	ClusterDeleted(clusterID cluster.ID)
+type handler interface {
+	clusterAdded(cluster *Cluster) ComponentConstraint
+	clusterUpdated(cluster *Cluster)
+	clusterDeleted(clusterID cluster.ID)
+	HasSynced() bool
 }
+
+// ClientBuilder builds a new kube.Client from a kubeconfig. Mocked out for testing
+type ClientBuilder = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error)
 
 // Controller is the controller implementation for Secret resources
 type Controller struct {
-	namespace           string
-	configClusterID     cluster.ID
-	configClusterClient kube.Client
-	queue               controllers.Queue
-	secrets             kclient.Client[*corev1.Secret]
-	configOverrides     []func(*rest.Config)
+	namespace            string
+	configClusterID      cluster.ID
+	configCluster        *Cluster
+	configClusterSyncers []ComponentConstraint
+
+	ClientBuilder ClientBuilder
+
+	queue           controllers.Queue
+	secrets         kclient.Client[*corev1.Secret]
+	configOverrides []func(*rest.Config)
 
 	namespaces kclient.Client[*corev1.Namespace]
 
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 	cs                        *ClusterStore
 
-	handlers []ClusterHandler
+	handlers []handler
 }
 
 // NewController returns a new secret controller
@@ -119,12 +127,13 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	remoteClusters.Record(0.0)
 
 	controller := &Controller{
-		namespace:           namespace,
-		configClusterID:     clusterID,
-		configClusterClient: kubeclientset,
-		cs:                  newClustersStore(),
-		secrets:             secrets,
-		configOverrides:     configOverrides,
+		ClientBuilder:   DefaultBuildClientsFromConfig,
+		namespace:       namespace,
+		configClusterID: clusterID,
+		configCluster:   &Cluster{Client: kubeclientset, ID: clusterID},
+		cs:              newClustersStore(),
+		secrets:         secrets,
+		configOverrides: configOverrides,
 	}
 
 	namespaces := kclient.New[*corev1.Namespace](kubeclientset)
@@ -142,7 +151,25 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	return controller
 }
 
-func (c *Controller) AddHandler(h ClusterHandler) {
+type ComponentBuilder interface {
+	registerHandler(h handler)
+}
+
+// BuildMultiClusterComponent constructs a new multicluster component. For each cluster, the constructor will be called.
+// If the cluster is removed, the T.Close() method will be called.
+// Constructors MUST not do blocking IO; they will block other operations.
+// During a cluster update, a new component is constructed before the old one is removed for seamless migration.
+func BuildMultiClusterComponent[T ComponentConstraint](c ComponentBuilder, constructor func(cluster *Cluster) T) *Component[T] {
+	comp := &Component[T]{
+		constructor: constructor,
+		clusters:    make(map[cluster.ID]T),
+	}
+	c.registerHandler(comp)
+	return comp
+}
+
+func (c *Controller) registerHandler(h handler) {
+	// Intentionally no lock. The controller today requires that handlers are registered before execution and not in parallel.
 	c.handlers = append(c.handlers, h)
 }
 
@@ -157,8 +184,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	}
 	// run handlers for the config cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
-	configCluster := &Cluster{Client: c.configClusterClient, ID: c.configClusterID}
-	c.handleAdd(configCluster, stopCh)
+	c.configClusterSyncers = c.handleAdd(c.configCluster)
 	go func() {
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
@@ -171,6 +197,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
 		c.queue.Run(stopCh)
+		c.handleDelete(c.configClusterID)
 	}()
 	return nil
 }
@@ -181,6 +208,12 @@ func (c *Controller) HasSynced() bool {
 		// we haven't finished processing the secrets that were present at startup
 		return false
 	}
+	// Check all config cluster components are synced
+	// c.ConfigClusterHandler.HasSynced does not work; config cluster is handle specially
+	if !kube.AllSynced(c.configClusterSyncers) {
+		return false
+	}
+	// Check all remote clusters are synced (or timed out)
 	return c.cs.HasSynced()
 }
 
@@ -201,14 +234,14 @@ func (c *Controller) processItem(key types.NamespacedName) error {
 	return nil
 }
 
-// BuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overridden for testing only
-var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+// DefaultBuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overridden for testing only
+func DefaultBuildClientsFromConfig(kubeConfig []byte, clusterID cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 	restConfig, err := kube.NewUntrustedRestConfig(kubeConfig, configOverrides...)
 	if err != nil {
 		return nil, err
 	}
 
-	clients, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), clusterId)
+	clients, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
@@ -219,7 +252,7 @@ var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID, confi
 }
 
 func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*Cluster, error) {
-	clients, err := BuildClientsFromConfig(kubeConfig, cluster.ID(clusterID), c.configOverrides...)
+	clients, err := c.ClientBuilder(kubeConfig, cluster.ID(clusterID), c.configOverrides...)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +285,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			continue
 		}
 
-		action, callback := "Adding", c.handleAdd
+		action, callback := "Adding", func(cluster *Cluster) { c.handleAdd(cluster) }
 		if prev := c.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
 			action, callback = "Updating", c.handleUpdate
 			// clusterID must be unique even across multiple secrets
@@ -276,10 +309,10 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		callback(remoteCluster, remoteCluster.stop)
+		callback(remoteCluster)
 		logger.Infof("finished callback for cluster and starting to sync")
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
-		go remoteCluster.Run()
+		go remoteCluster.Run(c.handlers)
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
@@ -308,29 +341,36 @@ func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }
 
-func (c *Controller) handleAdd(cluster *Cluster, stop <-chan struct{}) {
+func (c *Controller) handleAdd(cluster *Cluster) []ComponentConstraint {
+	syncers := make([]ComponentConstraint, 0, len(c.handlers))
 	for _, handler := range c.handlers {
-		handler.ClusterAdded(cluster, stop)
+		syncers = append(syncers, handler.clusterAdded(cluster))
 	}
+	return syncers
 }
 
-func (c *Controller) handleUpdate(cluster *Cluster, stop <-chan struct{}) {
+func (c *Controller) handleUpdate(cluster *Cluster) {
 	for _, handler := range c.handlers {
-		handler.ClusterUpdated(cluster, stop)
+		handler.clusterUpdated(cluster)
 	}
 }
 
 func (c *Controller) handleDelete(key cluster.ID) {
 	for _, handler := range c.handlers {
-		handler.ClusterDeleted(key)
+		handler.clusterDeleted(key)
 	}
 }
 
 // ListRemoteClusters provides debug info about connected remote clusters.
 func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 	// Start with just the config cluster
+	configCluster := "syncing"
+	if kube.AllSynced(c.configClusterSyncers) {
+		configCluster = "synced"
+	}
 	out := []cluster.DebugInfo{{
-		ID: c.configClusterID,
+		ID:         c.configClusterID,
+		SyncStatus: configCluster,
 	}}
 	// Append each cluster derived from secrets
 	for secretName, clusters := range c.cs.All() {

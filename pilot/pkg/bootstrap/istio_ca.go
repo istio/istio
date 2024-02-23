@@ -143,7 +143,7 @@ var (
 // 'hostlist' must be non-empty - but is not used since CA Server will start on existing
 // grpc server. Adds client cert auth and kube (sds enabled)
 func (s *Server) initCAServer(ca caserver.CertificateAuthority, opts *caOptions) {
-	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators, opts.DiscoveryFilter, s.multiclusterController.AddHandler)
+	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators, opts.DiscoveryFilter, s.multiclusterController)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}

@@ -128,7 +128,8 @@ type Client interface {
 
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
-	RunAndWait(stop <-chan struct{})
+	// "false" is returned if this prematurely exited without syncing.
+	RunAndWait(stop <-chan struct{}) bool
 
 	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
 	WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
@@ -499,17 +500,21 @@ func (c *client) CrdWatcher() kubetypes.CrdWatcher {
 
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
-func (c *client) RunAndWait(stop <-chan struct{}) {
+func (c *client) RunAndWait(stop <-chan struct{}) bool {
 	c.Run(stop)
 	if c.fastSync {
 		if c.crdWatcher != nil {
-			c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced)
+			if !c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced) {
+				return false
+			}
 		}
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
 		// Instead, we add an aggressive sync polling
-		fastWaitForCacheSync(stop, c.informerFactory)
-		_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
+		if !fastWaitForCacheSync(stop, c.informerFactory) {
+			return false
+		}
+		err := wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
 			select {
 			case <-stop:
 				return false, fmt.Errorf("channel closed")
@@ -520,12 +525,14 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 			}
 			return false, nil
 		})
-	} else {
-		if c.crdWatcher != nil {
-			c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced)
-		}
-		c.informerFactory.WaitForCacheSync(stop)
+		return err == nil
 	}
+	if c.crdWatcher != nil {
+		if !c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced) {
+			return false
+		}
+	}
+	return c.informerFactory.WaitForCacheSync(stop)
 }
 
 func (c *client) Shutdown() {
@@ -555,10 +562,10 @@ func (c *client) ClusterID() cluster.ID {
 
 // Wait for cache sync immediately, rather than with 100ms delay which slows tests
 // See https://github.com/kubernetes/kubernetes/issues/95262#issuecomment-703141573
-func fastWaitForCacheSync(stop <-chan struct{}, informerFactory informerfactory.InformerFactory) {
+func fastWaitForCacheSync(stop <-chan struct{}, informerFactory informerfactory.InformerFactory) bool {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
-	_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
 		select {
 		case <-stop:
 			return false, fmt.Errorf("channel closed")
@@ -566,6 +573,7 @@ func fastWaitForCacheSync(stop <-chan struct{}, informerFactory informerfactory.
 		}
 		return informerFactory.WaitForCacheSync(returnImmediately), nil
 	})
+	return err == nil
 }
 
 // WaitForCacheSync waits until all caches are synced. This will return true only if things synced

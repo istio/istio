@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -72,41 +73,36 @@ func deleteMultiClusterSecret(k8s kube.Client, sname string) error {
 
 func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount int, timeoutName string) {
 	t.Helper()
-	retry.UntilOrFail(t, func() bool {
-		m.m.Lock()
-		defer m.m.Unlock()
-		return len(m.remoteKubeControllers) == expectedControllerCount
-	}, retry.Message(timeoutName), retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
+	assert.EventuallyEqual(t, func() int {
+		return len(m.component.All())
+	}, expectedControllerCount, retry.Message(timeoutName), retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
 }
 
-func initController(client kube.CLIClient, ns string, stop <-chan struct{}, mc *Multicluster) {
+func initController(client kube.CLIClient, ns string, stop <-chan struct{}) *multicluster.Controller {
 	sc := multicluster.NewController(client, ns, "cluster-1", mesh.NewFixedWatcher(nil))
-	sc.AddHandler(mc)
+	sc.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		return kube.NewFakeClient(), nil
+	}
 	client.RunAndWait(stop)
-	_ = sc.Run(stop)
-	client.RunAndWait(stop)
-	kube.WaitForCacheSync("test", stop, sc.HasSynced)
+	return sc
 }
 
 func Test_KubeSecretController(t *testing.T) {
-	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
-		return kube.NewFakeClient(), nil
-	}
 	clientset := kube.NewFakeClient()
 	stop := test.NewStop(t)
 	s := server.New()
+	mcc := initController(clientset, testSecretNameSpace, stop)
 	mc := NewMulticluster("pilot-abc-123", clientset.Kube(), testSecretNameSpace, Options{
 		ClusterID:             "cluster-1",
 		DomainSuffix:          DomainSuffix,
 		MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		MeshServiceController: mockserviceController,
-	}, nil, nil, nil, "default", false, nil, s)
-	initController(clientset, testSecretNameSpace, stop, mc)
-	_ = s.Start(stop)
-	go func() {
-		_ = mc.Run(stop)
-	}()
+	}, nil, nil, nil, "default", false, nil, s, mcc)
+	assert.NoError(t, mcc.Run(stop))
 	go mockserviceController.Run(stop)
+	clientset.RunAndWait(stop)
+	kube.WaitForCacheSync("test", stop, mcc.HasSynced)
+	_ = s.Start(stop)
 
 	verifyControllers(t, mc, 1, "create local controller")
 
@@ -134,24 +130,21 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	test.SetForTest(t, &features.ExternalIstiod, true)
 	test.SetForTest(t, &features.InjectionWebhookConfigName, "")
 	clientset := kube.NewFakeClient()
-	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
-		return kube.NewFakeClient(), nil
-	}
 	stop := test.NewStop(t)
 	s := server.New()
 	certWatcher := keycertbundle.NewWatcher()
+	mcc := initController(clientset, testSecretNameSpace, stop)
 	mc := NewMulticluster("pilot-abc-123", clientset.Kube(), testSecretNameSpace, Options{
 		ClusterID:             "cluster-1",
 		DomainSuffix:          DomainSuffix,
 		MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		MeshServiceController: mockserviceController,
-	}, nil, nil, certWatcher, "default", false, nil, s)
-	initController(clientset, testSecretNameSpace, stop, mc)
-	_ = s.Start(stop)
-	go func() {
-		_ = mc.Run(stop)
-	}()
+	}, nil, nil, certWatcher, "default", false, nil, s, mcc)
+	assert.NoError(t, mcc.Run(stop))
 	go mockserviceController.Run(stop)
+	clientset.RunAndWait(stop)
+	kube.WaitForCacheSync("test", stop, mcc.HasSynced)
+	_ = s.Start(stop)
 
 	// the multicluster controller will register the local cluster
 	verifyControllers(t, mc, 1, "registered local cluster controller")
