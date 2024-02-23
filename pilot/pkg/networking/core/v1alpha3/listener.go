@@ -172,6 +172,9 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
 		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
 	}
+
+	// Compliance for Envoy TLS downstreams.
+	authnmodel.EnforceCompliance(ctx.CommonTlsContext)
 	return ctx
 }
 
