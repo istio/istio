@@ -55,8 +55,8 @@ func (a *index) WorkloadsCollection(
 		}
 		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
 		// We need to filter from the policies that are present, which apply to us.
-		// We only want label selector ones, we handle global ones through another mechanism.
-		// In general we just take all ofthe policies
+		// We only want label selector ones; global ones are not attached to the final WorkloadInfo
+		// In general we just take all of the policies
 		basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(p.Labels), krt.FilterGeneric(func(a any) bool {
 			return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
 		}))
@@ -64,29 +64,12 @@ func (a *index) WorkloadsCollection(
 			return t.ResourceName()
 		}))
 		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
-		auths := krt.Fetch(ctx, PeerAuths, krt.FilterGeneric(func(a any) bool {
-			pol := a.(*securityclient.PeerAuthentication)
-			if pol.Namespace == meshCfg.GetRootNamespace() && pol.Spec.Selector == nil {
-				return true
-			}
-			if pol.Namespace != p.Namespace {
-				return false
-			}
-			sel := pol.Spec.Selector
-			if sel == nil {
-				return true // No selector matches everything
-			}
-			return labels.Instance(sel.MatchLabels).SubsetOf(p.Labels)
-		}))
+		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
 		policies = append(policies, a.convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
 		var waypoints []Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			// Waypoints do not have waypoints, but anything else does
-			waypoints = krt.Fetch(ctx, Waypoints,
-				krt.FilterNamespace(p.Namespace), krt.FilterGeneric(func(a any) bool {
-					w := a.(Waypoint)
-					return w.ForServiceAccount == "" || w.ForServiceAccount == p.Spec.ServiceAccountName
-				}))
+			waypoints = fetchWaypoints(ctx, Waypoints, p.Namespace, p.Spec.ServiceAccountName)
 		}
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableServiceEntrySelectPods {
@@ -151,8 +134,8 @@ func (a *index) WorkloadsCollection(
 	WorkloadEntryWorkloads := krt.NewCollection(WorkloadEntries, func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
 		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
 		// We need to filter from the policies that are present, which apply to us.
-		// We only want label selector ones, we handle global ones through another mechanism.
-		// In general we just take all ofthe policies
+		// We only want label selector ones; global ones are not attached to the final WorkloadInfo
+		// In general we just take all of the policies
 		basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(p.Labels), krt.FilterGeneric(func(a any) bool {
 			return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
 		}))
@@ -160,29 +143,11 @@ func (a *index) WorkloadsCollection(
 			return t.ResourceName()
 		}))
 		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
-		auths := krt.Fetch(ctx, PeerAuths, krt.FilterGeneric(func(a any) bool {
-			pol := a.(*securityclient.PeerAuthentication)
-			if pol.Namespace == meshCfg.GetRootNamespace() && pol.Spec.Selector == nil {
-				return true
-			}
-			if pol.Namespace != p.Namespace {
-				return false
-			}
-			sel := pol.Spec.Selector
-			if sel == nil {
-				return true // No selector matches everything
-			}
-			return labels.Instance(sel.MatchLabels).SubsetOf(p.Labels)
-		}))
+		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
 		policies = append(policies, a.convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
 		var waypoints []Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-			// Waypoints do not have waypoints, but anything else does
-			waypoints = krt.Fetch(ctx, Waypoints,
-				krt.FilterNamespace(p.Namespace), krt.FilterGeneric(func(a any) bool {
-					w := a.(Waypoint)
-					return w.ForServiceAccount == "" || w.ForServiceAccount == p.Spec.ServiceAccount
-				}))
+			waypoints = fetchWaypoints(ctx, Waypoints, p.Namespace, p.Spec.ServiceAccount)
 		}
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableK8SServiceSelectWorkloadEntries {
@@ -255,8 +220,8 @@ func (a *index) WorkloadsCollection(
 		for _, p := range se.Spec.Endpoints {
 			meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
 			// We need to filter from the policies that are present, which apply to us.
-			// We only want label selector ones, we handle global ones through another mechanism.
-			// In general we just take all ofthe policies
+			// We only want label selector ones; global ones are not attached to the final WorkloadInfo
+			// In general we just take all of the policies
 			basePolicies := krt.Fetch(ctx, AllPolicies, krt.FilterSelects(se.Labels), krt.FilterGeneric(func(a any) bool {
 				return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
 			}))
@@ -264,29 +229,12 @@ func (a *index) WorkloadsCollection(
 				return t.ResourceName()
 			}))
 			// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
-			auths := krt.Fetch(ctx, PeerAuths, krt.FilterGeneric(func(a any) bool {
-				pol := a.(*securityclient.PeerAuthentication)
-				if pol.Namespace == meshCfg.GetRootNamespace() && pol.Spec.Selector == nil {
-					return true
-				}
-				if pol.Namespace != se.Namespace {
-					return false
-				}
-				sel := pol.Spec.Selector
-				if sel == nil {
-					return true // No selector matches everything
-				}
-				return labels.Instance(sel.MatchLabels).SubsetOf(p.Labels)
-			}))
+			auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, se.Namespace, p.Labels)
 			policies = append(policies, a.convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
 			var waypoints []Waypoint
 			if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 				// Waypoints do not have waypoints, but anything else does
-				waypoints = krt.Fetch(ctx, Waypoints,
-					krt.FilterNamespace(se.Namespace), krt.FilterGeneric(func(a any) bool {
-						w := a.(Waypoint)
-						return w.ForServiceAccount == "" || w.ForServiceAccount == p.ServiceAccount
-					}))
+				waypoints = fetchWaypoints(ctx, Waypoints, se.Namespace, p.ServiceAccount)
 			}
 			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 			network := a.Network(p.Address, p.Labels).String()
@@ -342,6 +290,37 @@ func (a *index) WorkloadsCollection(
 	}, krt.WithName("ServiceEntryWorkloads"))
 	Workloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{PodWorkloads, WorkloadEntryWorkloads, ServiceEntryWorkloads}, krt.WithName("Workloads"))
 	return Workloads
+}
+
+func fetchPeerAuthentications(
+	ctx krt.HandlerContext,
+	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
+	meshCfg *MeshConfig,
+	ns string,
+	matchLabels map[string]string,
+) []*securityclient.PeerAuthentication {
+	return krt.Fetch(ctx, PeerAuths, krt.FilterGeneric(func(a any) bool {
+		pol := a.(*securityclient.PeerAuthentication)
+		if pol.Namespace == meshCfg.GetRootNamespace() && pol.Spec.Selector == nil {
+			return true
+		}
+		if pol.Namespace != ns {
+			return false
+		}
+		sel := pol.Spec.Selector
+		if sel == nil {
+			return true // No selector matches everything
+		}
+		return labels.Instance(sel.MatchLabels).SubsetOf(matchLabels)
+	}))
+}
+
+func fetchWaypoints(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], ns, sa string) []Waypoint {
+	return krt.Fetch(ctx, Waypoints,
+		krt.FilterNamespace(ns), krt.FilterGeneric(func(a any) bool {
+			w := a.(Waypoint)
+			return w.ForServiceAccount == "" || w.ForServiceAccount == sa
+		}))
 }
 
 func (a *index) constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, services []model.ServiceInfo) map[string]*workloadapi.PortList {

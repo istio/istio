@@ -468,9 +468,11 @@ func (h *manyCollection[I, O]) List(namespace string) (res []O) {
 		res = maps.Values(h.collectionState.outputs)
 	} else {
 		// Future improvement: shard outputs by namespace so we can query more efficiently
-		res = slices.FilterInPlace(maps.Values(h.collectionState.outputs), func(o O) bool {
-			return getNamespace(o) == namespace
-		})
+		for _, v := range h.collectionState.outputs {
+			if getNamespace(v) == namespace {
+				res = append(res, v)
+			}
+		}
 		return
 	}
 	return
