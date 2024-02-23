@@ -124,7 +124,7 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 		return
 	}
 
-	configs := []types.NamespacedName
+	configs := []types.NamespacedName{}
 	pureHTTP := true
 	for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
 		// skip push if it is not exported

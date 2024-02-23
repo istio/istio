@@ -294,6 +294,14 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
+  - kind: "DNSName"
+    plural: "DNSNames"
+    group: ""
+    version: "v1alpha3"
+    proto: "istio.mesh.v1alpha1.DNSName"
+    protoPackage: "istio.io/api/networking/v1alpha3"
+    synthetic: true
+
   - kind: "WorkloadEntry"
     plural: "workloadentries"
     group: "networking.istio.io"
