@@ -124,6 +124,7 @@ trace.set_tracer_provider(provider)
 
 tracer = trace.get_tracer(__name__)
 
+
 def getForwardHeaders(request):
     headers = {}
 
