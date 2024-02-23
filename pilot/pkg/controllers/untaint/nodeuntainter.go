@@ -36,11 +36,9 @@ const (
 	TaintName = "cni.istio.io/not-ready"
 )
 
-var (
-	istioCniLabels = map[string]string{
-		"k8s-app": "istio-cni-node",
-	}
-)
+var istioCniLabels = map[string]string{
+	"k8s-app": "istio-cni-node",
+}
 
 type nodeUntainter struct {
 	podsClient  kclient.Client[*v1.Pod]
@@ -58,11 +56,9 @@ func filterNamespace(ns string) func(any) bool {
 		}
 		return ns == object.GetNamespace()
 	}
-
 }
 
 func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sysNs string) *nodeUntainter {
-
 	log.Debugf("starting node untainter with labels %v", istioCniLabels)
 	ns := cniNs
 	if ns == "" {
