@@ -81,6 +81,9 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 	}
 	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{}, /*subjectAltNames*/
 		trustDomainAliases, ctx.RequireClientCertificate.Value)
+
+	// Compliance for downstream mesh mTLS.
+	authn_model.EnforceCompliance(ctx.CommonTlsContext)
 	return ctx
 }
 

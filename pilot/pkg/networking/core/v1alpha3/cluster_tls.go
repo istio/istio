@@ -280,6 +280,11 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 	}
+
+	// Compliance for Envoy TLS upstreams.
+	if tlsContext != nil {
+		sec_model.EnforceCompliance(tlsContext.CommonTlsContext)
+	}
 	return tlsContext, nil
 }
 
