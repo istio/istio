@@ -233,7 +233,7 @@ func checkVirtualServiceHostMatching(cli kube.CLIClient, messages *diag.Messages
 		for _, hostname := range vs.Spec.Hosts {
 			if host.Name(hostname).IsWildCarded() {
 				res := ObjectToInstance(vs)
-				messages.Add(msg.NewUnknownUpgradeCompatibility(res,
+				messages.Add(msg.NewUpdateIncompatibility(res,
 					"PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", "1.20",
 					"previously, VirtualServices with overlapping wildcard hosts would have the oldest "+
 						"VirtualService take precedence. Now, the most specific VirtualService will win", "1.20"),
