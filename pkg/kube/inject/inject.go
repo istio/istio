@@ -45,6 +45,7 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -109,6 +110,7 @@ type SidecarTemplateData struct {
 	ProxyUID                 int64
 	ProxyGID                 int64
 	InboundTrafficPolicyMode string
+	CompliancePolicy         string
 }
 
 type (
@@ -424,6 +426,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		ProxyUID:                 proxyUID,
 		ProxyGID:                 proxyGID,
 		InboundTrafficPolicyMode: InboundTrafficPolicyMode(meshConfig),
+		CompliancePolicy:         common_features.CompliancePolicy,
 	}
 
 	mergedPod = params.pod
