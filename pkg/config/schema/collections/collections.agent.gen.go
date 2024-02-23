@@ -39,21 +39,6 @@ var (
 		ValidateProto: validation.ValidateAuthorizationPolicy,
 	}.MustBuild()
 
-	DNSName = resource.Builder{
-		Identifier:    "DNSName",
-		Group:         "",
-		Kind:          "DNSName",
-		Plural:        "DNSNames",
-		Version:       "v1alpha3",
-		Proto:         "istio.mesh.v1alpha1.DNSName",
-		ReflectType:   reflect.TypeOf(&istioioapinetworkingv1alpha3.DNSName{}).Elem(),
-		ProtoPackage:  "istio.io/api/networking/v1alpha3",
-		ClusterScoped: false,
-		Synthetic:     true,
-		Builtin:       false,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild()
-
 	DestinationRule = resource.Builder{
 		Identifier: "DestinationRule",
 		Group:      "networking.istio.io",
@@ -306,7 +291,6 @@ var (
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
-		MustAdd(DNSName).
 		MustAdd(DestinationRule).
 		MustAdd(EnvoyFilter).
 		MustAdd(Gateway).

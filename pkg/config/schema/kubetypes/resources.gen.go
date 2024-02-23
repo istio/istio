@@ -43,8 +43,6 @@ func getGvk(obj any) config.GroupVersionKind {
 		return gvk.ConfigMap
 	case *k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition:
 		return gvk.CustomResourceDefinition
-	case *istioioapinetworkingv1alpha3.DNSName:
-		return gvk.DNSName
 	case *k8sioapiappsv1.DaemonSet:
 		return gvk.DaemonSet
 	case *k8sioapiappsv1.Deployment:
