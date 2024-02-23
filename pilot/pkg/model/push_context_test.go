@@ -2895,6 +2895,68 @@ func TestServiceWithExportTo(t *testing.T) {
 	}
 }
 
+func TestInitServiceRegistry(t *testing.T) {
+	ps := NewPushContext()
+	env := NewEnvironment()
+	env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
+	ps.Mesh = env.Mesh()
+
+	svc5_1 := &Service{
+		Hostname: "svc5",
+		Attributes: ServiceAttributes{
+			Namespace:       "test5",
+			ServiceRegistry: provider.External,
+			ExportTo: sets.New(
+				visibility.Instance("test5"),
+			),
+		},
+		Ports:      port7000,
+		Resolution: DNSLB,
+	}
+	// kubernetes service will override non kubernetes
+	svc5_2 := &Service{
+		Hostname: "svc5",
+		Attributes: ServiceAttributes{
+			Namespace:       "test5",
+			ServiceRegistry: provider.External,
+			ExportTo: sets.New(
+				visibility.Instance("test5"),
+			),
+		},
+		Ports:      port8000,
+		Resolution: DNSLB,
+	}
+
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{svc5_1, svc5_2},
+	}
+
+	env.EndpointIndex.shardsBySvc = map[string]map[string]*EndpointShards{
+		svc5_1.Hostname.String(): {
+			svc5_1.Attributes.Namespace: {
+				Shards: map[ShardKey][]*IstioEndpoint{
+					{Cluster: "Kubernets", Provider: provider.External}: {
+						&IstioEndpoint{
+							Address:         "1.1.1.1",
+							EndpointPort:    7000,
+							ServicePortName: "uds",
+						},
+						&IstioEndpoint{
+							Address:         "1.1.1.2",
+							EndpointPort:    8000,
+							ServicePortName: "uds",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ps.initServiceRegistry(env, nil)
+	instancesByPort := ps.ServiceIndex.instancesByPort[svc5_1.Key()]
+	assert.Equal(t, len(instancesByPort), 2)
+}
+
 func TestGetHostsFromMeshConfig(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{
