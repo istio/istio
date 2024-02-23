@@ -1218,7 +1218,11 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtualservices and services with overlapping wildcard hosts", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
-			Configs:  []config.Config{virtualServiceWithWildcardHost, virtualServiceWithNestedWildcardHost},
+			Configs: []config.Config{
+				virtualServiceWithWildcardHost,
+				virtualServiceWithNestedWildcardHost,
+				virtualServiceWithGoogleWildcardHost,
+			},
 			Services: []*model.Service{exampleWildcardService, exampleNestedWildcardService},
 		})
 
@@ -1234,13 +1238,60 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 
 		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
-			[]config.Config{virtualServiceWithWildcardHost, virtualServiceWithNestedWildcardHost}, 8080,
+			[]config.Config{
+				virtualServiceWithWildcardHost,
+				virtualServiceWithNestedWildcardHost,
+				virtualServiceWithGoogleWildcardHost,
+			}, 8080,
 			wildcardIndex,
 		)
 		log.Printf("%#v", vhosts)
+		// *.example.org, *.hello.example.org. The *.google.com VS is missing from virtualHosts because
+		// it is not attached to a service
 		g.Expect(vhosts).To(HaveLen(2))
 		for _, vhost := range vhosts {
 			g.Expect(vhost.Services).To(HaveLen(1))
+			g.Expect(vhost.Routes).To(HaveLen(1))
+		}
+	})
+
+	t.Run("for virtualservices with with wildcard hosts outside of the serviceregistry (on port 80)", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+			Configs: []config.Config{
+				virtualServiceWithWildcardHost,
+				virtualServiceWithNestedWildcardHost,
+				virtualServiceWithGoogleWildcardHost,
+			},
+			Services: []*model.Service{exampleWildcardService, exampleNestedWildcardService},
+		})
+
+		// Redefine the service registry for this test
+		serviceRegistry := map[host.Name]*model.Service{
+			"*.example.org":             exampleWildcardService,
+			"goodbye.hello.example.org": exampleNestedWildcardService,
+		}
+
+		// note that the VS containing *.google.com doesn't have an entry in the wildcard index
+		wildcardIndex := map[host.Name]types.NamespacedName{
+			"*.example.org":       virtualServiceWithWildcardHost.NamespacedName(),
+			"*.hello.example.org": virtualServiceWithNestedWildcardHost.NamespacedName(),
+		}
+
+		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
+			[]config.Config{virtualServiceWithGoogleWildcardHost}, 80, wildcardIndex,
+		)
+		// The service hosts (*.example.org and goodbye.hello.example.org) and the unattached VS host (*.google.com)
+		g.Expect(vhosts).To(HaveLen(3))
+		for _, vhost := range vhosts {
+			if len(vhost.VirtualServiceHosts) > 0 && vhost.VirtualServiceHosts[0] == "*.google.com" {
+				// The *.google.com VS shouldn't have any services
+				g.Expect(vhost.Services).To(HaveLen(0))
+			} else {
+				// The other two VSs should have one service each
+				g.Expect(vhost.Services).To(HaveLen(1))
+			}
+			// All VSs should have one route
 			g.Expect(vhost.Routes).To(HaveLen(1))
 		}
 	})
@@ -1549,6 +1600,36 @@ var virtualServiceWithNestedWildcardHost = config.Config{
 							Port: &networking.PortSelector{
 								Number: 8080,
 							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithGoogleWildcardHost = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "google-wildcard",
+	},
+	Spec: &networking.VirtualService{
+		Hosts: []string{"*.google.com"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "internal-google.default.svc.cluster.local",
 						},
 					},
 				},

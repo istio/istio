@@ -76,7 +76,7 @@ type authorizationResponse struct {
 
 var _ credentials.Controller = &CredentialsController{}
 
-func NewCredentialsController(kc kube.Client) *CredentialsController {
+func NewCredentialsController(kc kube.Client, handlers []func(name string, namespace string)) *CredentialsController {
 	// We only care about TLS certificates and docker config for Wasm image pulling.
 	// Unfortunately, it is not as simple as selecting type=kubernetes.io/tls and type=kubernetes.io/dockerconfigjson.
 	// Because of legacy reasons and supporting an extra ca.crt, we also support generic types.
@@ -91,11 +91,27 @@ func NewCredentialsController(kc kube.Client) *CredentialsController {
 		FieldSelector: fieldSelector,
 	})
 
+	for _, h := range handlers {
+		h := h
+		// register handler before informer starts
+		secrets.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+			h(o.GetName(), o.GetNamespace())
+		}))
+	}
+
 	return &CredentialsController{
 		secrets:            secrets,
 		sar:                kc.Kube().AuthorizationV1().SubjectAccessReviews(),
 		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
+}
+
+func (s *CredentialsController) Close() {
+	s.secrets.ShutdownHandlers()
+}
+
+func (s *CredentialsController) HasSynced() bool {
+	return s.secrets.HasSynced()
 }
 
 const cacheTTL = time.Minute
@@ -290,11 +306,4 @@ func extractRoot(scrt *v1.Secret) (certInfo *credentials.CertInfo, err error) {
 	found := truncatedKeysMessage(scrt.Data)
 	return nil, fmt.Errorf("found secret, but didn't have expected keys %s or %s; found: %s",
 		GenericScrtCaCert, TLSSecretCaCert, found)
-}
-
-func (s *CredentialsController) AddEventHandler(h func(name string, namespace string)) {
-	// register handler before informer starts
-	s.secrets.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-		h(o.GetName(), o.GetNamespace())
-	}))
 }

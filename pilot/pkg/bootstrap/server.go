@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -497,7 +498,7 @@ func (s *Server) initSDSServer() {
 		// Make sure we have security
 		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 	} else {
-		creds := kubecredentials.NewMulticluster(s.clusterID)
+		creds := kubecredentials.NewMulticluster(s.clusterID, s.multiclusterController)
 		creds.AddSecretHandler(func(name string, namespace string) {
 			s.XDSServer.ConfigUpdate(&model.PushRequest{
 				Full:           false,
@@ -506,7 +507,6 @@ func (s *Server) initSDSServer() {
 				Reason: model.NewReasonStats(model.SecretTrigger),
 			})
 		})
-		s.multiclusterController.AddHandler(creds)
 		s.environment.CredentialsController = creds
 	}
 }
@@ -759,6 +759,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		MinVersion:   tls.VersionTLS12,
 		CipherSuites: args.ServerOptions.TLSOptions.CipherSuits,
 	}
+	// Compliance for xDS server TLS.
+	sec_model.EnforceGoCompliance(cfg)
 
 	tlsCreds := credentials.NewTLS(cfg)
 

@@ -1213,7 +1213,7 @@ func splitInput(t test.Failer, configs []config.Config) GatewayResources {
 	}
 
 	client := kube.NewFakeClient(secrets...)
-	out.Credentials = credentials.NewCredentialsController(client)
+	out.Credentials = credentials.NewCredentialsController(client, nil)
 	client.RunAndWait(test.NewStop(t))
 
 	out.Domain = "domain.suffix"

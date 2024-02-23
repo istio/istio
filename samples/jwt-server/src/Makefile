@@ -13,7 +13,7 @@
 # limitations under the License.
 
 HUB ?= gcr.io/istio-testing/jwt-server
-TAG ?= 0.8
+TAG ?= 0.7
 
 push: main.go Dockerfile
 	docker buildx build --push --platform=linux/amd64,linux/arm64 . -t $(HUB):$(TAG)

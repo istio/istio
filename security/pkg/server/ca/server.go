@@ -178,7 +178,7 @@ func New(
 	ttl time.Duration,
 	authenticators []security.Authenticator,
 	filter namespace.DiscoveryFilter,
-	addClusterHandler func(multicluster.ClusterHandler),
+	controller multicluster.ComponentBuilder,
 ) (*Server, error) {
 	certBundle := ca.GetCAKeyCertBundle()
 	if len(certBundle.GetRootCertPem()) != 0 {
@@ -195,7 +195,7 @@ func New(
 	if len(features.CATrustedNodeAccounts) > 0 {
 		// TODO: do we need some way to delayed readiness until this is synced? Probably
 		// Worst case is we deny some requests though which are retried
-		server.nodeAuthorizer = NewMulticlusterNodeAuthenticator(filter, features.CATrustedNodeAccounts, addClusterHandler)
+		server.nodeAuthorizer = NewMulticlusterNodeAuthenticator(filter, features.CATrustedNodeAccounts, controller)
 	}
 	return server, nil
 }

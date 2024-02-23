@@ -1446,7 +1446,10 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		}
 		shards, ok := env.EndpointIndex.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
 		if ok {
-			ps.ServiceIndex.instancesByPort[svcKey] = shards.CopyEndpoints(portMap)
+			instancesByPort := shards.CopyEndpoints(portMap)
+			for port, instances := range instancesByPort {
+				ps.ServiceIndex.instancesByPort[svcKey][port] = instances
+			}
 		}
 		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}

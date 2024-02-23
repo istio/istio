@@ -257,6 +257,19 @@ func TestRequestAuthentication(t *testing.T) {
 				},
 			}))
 
+			t.NewSubTest("timeout").Run(newTest("testdata/requestauthn/timeout.yaml.tmpl", []testCase{
+				{
+					name: "valid-token-forward-remote-jwks",
+					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
+						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
+						opts.Check = check.And(
+							check.NotOK(),
+							check.Status(http.StatusUnauthorized))
+					},
+				},
+			}))
+
 			t.NewSubTest("aud").Run(newTest("testdata/requestauthn/aud.yaml.tmpl", []testCase{
 				{
 					name: "invalid-aud",

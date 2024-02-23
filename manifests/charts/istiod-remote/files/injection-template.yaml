@@ -302,6 +302,10 @@ spec:
       valueFrom:
         resourceFieldRef:
           resource: limits.cpu
+    {{- if .CompliancePolicy }}
+    - name: COMPLIANCE_POLICY
+      value: "{{ .CompliancePolicy }}"
+    {{- end }}
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
     - name: ISTIO_META_NODE_NAME

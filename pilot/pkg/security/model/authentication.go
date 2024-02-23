@@ -15,6 +15,7 @@
 package model
 
 import (
+	gotls "crypto/tls"
 	"strings"
 	"time"
 
@@ -26,6 +27,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
+	common_features "istio.io/istio/pkg/features"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -208,6 +211,80 @@ func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 		res = append(res, spiffe.URIPrefix+td+"/")
 	}
 	return res
+}
+
+var fipsCiphers = []string{
+	"ECDHE-ECDSA-AES128-GCM-SHA256",
+	"ECDHE-RSA-AES128-GCM-SHA256",
+	"ECDHE-ECDSA-AES256-GCM-SHA384",
+	"ECDHE-RSA-AES256-GCM-SHA384",
+}
+
+var fipsGoCiphers = []uint16{
+	gotls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+	gotls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	gotls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+	gotls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+}
+
+func index(ciphers []string) map[string]struct{} {
+	out := make(map[string]struct{})
+	for _, cipher := range ciphers {
+		out[cipher] = struct{}{}
+	}
+	return out
+}
+
+var fipsCipherIndex = index(fipsCiphers)
+
+// EnforceGoCompliance limits the TLS settings to the compliant values.
+// This should be called as the last policy.
+func EnforceGoCompliance(ctx *gotls.Config) {
+	switch common_features.CompliancePolicy {
+	case "":
+		return
+	case common_features.FIPS_140_2:
+		ctx.MinVersion = gotls.VersionTLS12
+		ctx.MaxVersion = gotls.VersionTLS12
+		ctx.CipherSuites = fipsGoCiphers
+		ctx.CurvePreferences = []gotls.CurveID{gotls.CurveP256}
+		return
+	default:
+		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
+		return
+	}
+}
+
+// EnforceCompliance limits the TLS settings to the compliant values.
+// This should be called as the last policy.
+func EnforceCompliance(ctx *tls.CommonTlsContext) {
+	switch common_features.CompliancePolicy {
+	case "":
+		return
+	case common_features.FIPS_140_2:
+		if ctx.TlsParams == nil {
+			ctx.TlsParams = &tls.TlsParameters{}
+		}
+		ctx.TlsParams.TlsMinimumProtocolVersion = tls.TlsParameters_TLSv1_2
+		ctx.TlsParams.TlsMaximumProtocolVersion = tls.TlsParameters_TLSv1_2
+		// Default (unset) cipher suites field in the FIPS build of Envoy uses only the FIPS ciphers.
+		// Therefore, we only filter this field when it is set.
+		if len(ctx.TlsParams.CipherSuites) > 0 {
+			ciphers := []string{}
+			for _, cipher := range ctx.TlsParams.CipherSuites {
+				if _, ok := fipsCipherIndex[cipher]; ok {
+					ciphers = append(ciphers, cipher)
+				}
+			}
+			ctx.TlsParams.CipherSuites = ciphers
+		}
+		// Default (unset) is P-256
+		ctx.TlsParams.EcdhCurves = nil
+		return
+	default:
+		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
+		return
+	}
 }
 
 // ApplyToCommonTLSContext completes the commonTlsContext

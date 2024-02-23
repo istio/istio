@@ -505,3 +505,16 @@ func sanitizeKubeConfig(config api.Config, allowlist sets.String) error {
 	}
 	return nil
 }
+
+type Syncer interface {
+	HasSynced() bool
+}
+
+func AllSynced[T Syncer](syncers []T) bool {
+	for _, h := range syncers {
+		if !h.HasSynced() {
+			return false
+		}
+	}
+	return true
+}

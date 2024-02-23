@@ -153,56 +153,75 @@ func separateVSHostsAndServices(virtualService config.Config,
 	// However, that requires assuming that serviceRegistry never got filtered after the
 	// egressListener was created.
 	rule := virtualService.Spec.(*networking.VirtualService)
-	hosts := make([]string, 0)
-	servicesInVirtualService := make([]*model.Service, 0)
+	// Stores VS hosts that don't correspond to services in the registry
+	// Currently, the only use for this list is to enable VirtualService configuration to affect
+	// traffic to hosts outside of the service registry (e.g. google.com) on port 80
+	nonServiceRegistryHosts := make([]string, 0)
+	// Stores services for this VirtualService that are in the registry (based on hostname)
+	matchingRegistryServices := make([]*model.Service, 0)
 	wchosts := make([]host.Name, 0)
 
 	// As a performance optimization, process non wildcard hosts first, so that they can be
 	// looked up directly in the service registry map.
 	for _, hostname := range rule.Hosts {
 		vshost := host.Name(hostname)
-		if !vshost.IsWildCarded() {
-			if svc, exists := serviceRegistry[vshost]; exists {
-				servicesInVirtualService = append(servicesInVirtualService, svc)
-			} else {
-				hosts = append(hosts, hostname)
-			}
-		} else {
-			// Add it to the wildcard hosts so that they can be processed later.
+		if vshost.IsWildCarded() {
+			// We'll process wild card hosts later
 			wchosts = append(wchosts, vshost)
+			continue
+		}
+		if svc, exists := serviceRegistry[vshost]; exists {
+			matchingRegistryServices = append(matchingRegistryServices, svc)
+		} else {
+			nonServiceRegistryHosts = append(nonServiceRegistryHosts, hostname)
 		}
 	}
 
 	// Now process wild card hosts as they need to follow the slow path of looping through all Services in the registry.
 	for _, hostname := range wchosts {
 		if model.UseGatewaySemantics(virtualService) {
-			hosts = append(hosts, string(hostname))
+			nonServiceRegistryHosts = append(nonServiceRegistryHosts, string(hostname))
 			continue
 		}
-		// Say this VS's host is *.global and there's another VS with host *.foo.global
+		// foundSvcMatch's only purpose is to make sure we don't add hosts that correspond to services
+		// to the list of non-serviceregistry hosts
 		foundSvcMatch := false
-		// Say we have Services *.foo.global, *.bar.global
 		for svcHost, svc := range serviceRegistry {
+			// First, check if this service matches the VS host.
+			// If it does, then we never want to add it to the nonServiceRegistryHosts list.
+			// The result is OR'd so we don't overwrite a previously true value
+			// localMatch is tracking the match found within this iteration of the loop
+			localMatch := svcHost.Matches(hostname)
+			// foundSvcMatch is tracking in the wider context whether or not ANY match was found during an iteration
+			foundSvcMatch = foundSvcMatch || localMatch
+			if !localMatch {
+				// If the wildcard doesn't even match this service, it won't be in the index
+				continue
+			}
+			// The mostSpecificWildcardVsIndex ensures that each VirtualService host is only associated with
+			// a single service in the registry. This is generally results in the most specific wildcard match for
+			// a given wildcard host (unless PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING is true).
 			vs, ok := mostSpecificWildcardVsIndex[svcHost]
 			if !ok {
 				// This service doesn't have a virtualService that matches it.
 				continue
 			}
-			foundSvcMatch = true // we did find a match
 			if vs != virtualService.NamespacedName() {
 				// This virtual service is not the most specific wildcard match for this service.
 				// So we don't add it to the list of services in this virtual service so as
 				// to avoid duplicates
 				continue
 			}
-			servicesInVirtualService = append(servicesInVirtualService, svc)
+			matchingRegistryServices = append(matchingRegistryServices, svc)
 		}
+
+		// If we never found a match for this hostname in the service registry, add it to the list of non-service hosts
 		if !foundSvcMatch {
-			hosts = append(hosts, string(hostname))
+			nonServiceRegistryHosts = append(nonServiceRegistryHosts, string(hostname))
 		}
 	}
 
-	return hosts, servicesInVirtualService
+	return nonServiceRegistryHosts, matchingRegistryServices
 }
 
 // buildSidecarVirtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
@@ -231,12 +250,12 @@ func buildSidecarVirtualHostsForVirtualService(
 		return nil
 	}
 
-	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry, mostSpecificWildcardVsIndex)
+	hosts, matchingRegistryServices := separateVSHostsAndServices(virtualService, serviceRegistry, mostSpecificWildcardVsIndex)
 
 	// Gateway allows only routes from the namespace of the proxy, or namespace of the destination.
 	if model.UseGatewaySemantics(virtualService) {
-		res := make([]*model.Service, 0, len(servicesInVirtualService))
-		for _, s := range servicesInVirtualService {
+		res := make([]*model.Service, 0, len(matchingRegistryServices))
+		for _, s := range matchingRegistryServices {
 			if s.Attributes.Namespace != virtualService.Namespace && node.ConfigNamespace != virtualService.Namespace {
 				continue
 			}
@@ -253,7 +272,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	// If the destination service is being accessed on port X, we set that as the default
 	// destination port
 	serviceByPort := make(map[int][]*model.Service)
-	for _, svc := range servicesInVirtualService {
+	for _, svc := range matchingRegistryServices {
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTPOrSniffed() {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)

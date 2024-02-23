@@ -59,7 +59,7 @@ data:
       custom_secrets: []
       host_aliases: []
       hpa:
-        api_version: autoscaling/v2beta2
+        api_version: autoscaling/v2
         spec: {}
       image_digest: ""
       image_name: quay.io/kiali/kiali
@@ -465,7 +465,7 @@ spec:
         app.kubernetes.io/part-of: "kiali"
         sidecar.istio.io/inject: "false"
       annotations:
-        checksum/config: ce97ed2896a797e7aace42e18922786c78956f2ee862cfae70cc24ff1a9a600f
+        checksum/config: 5df0dcfdbf1b7f4bf6cd593286ead627290d8afafd0953d5e252a39d6a698119
         prometheus.io/scrape: "false"
         prometheus.io/port: ""
         kiali.io/dashboards: go,kiali

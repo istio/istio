@@ -39,6 +39,7 @@ import (
 	legacykube "istio.io/istio/pkg/config/analysis/legacy/source/kube"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kubetypes"
@@ -142,6 +143,7 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 	}
 
 	var messages diag.Messages = make([]diag.Message, 0)
+
 	if minor <= 20 {
 		// VERIFY_CERTIFICATE_AT_CLIENT and ENABLE_AUTO_SNI
 		if err := checkDestinationRuleTLS(cli, &messages); err != nil {
@@ -152,10 +154,9 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 			return nil, err
 		}
 		// PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING
-		// TODO
-		messages.Add(msg.NewUnknownUpgradeCompatibility(nil,
-			"PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", "1.20",
-			"consult upgrade notes for more information", "1.20"))
+		if err := checkVirtualServiceHostMatching(cli, &messages); err != nil {
+			return nil, err
+		}
 	}
 	return messages, nil
 }
@@ -218,6 +219,27 @@ func checkDestinationRuleTLS(cli kube.CLIClient, messages *diag.Messages) error 
 			messages.Add(msg.NewUpdateIncompatibility(res,
 				"ENABLE_AUTO_SNI", "1.20",
 				"previously, no SNI would be set; now it will be automatically set", "1.20"))
+		}
+	}
+	return nil
+}
+
+func checkVirtualServiceHostMatching(cli kube.CLIClient, messages *diag.Messages) error {
+	virtualServices, err := cli.Istio().NetworkingV1alpha3().VirtualServices(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, vs := range virtualServices.Items {
+		for _, hostname := range vs.Spec.Hosts {
+			if host.Name(hostname).IsWildCarded() {
+				res := ObjectToInstance(vs)
+				messages.Add(msg.NewUpdateIncompatibility(res,
+					"PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", "1.20",
+					"previously, VirtualServices with overlapping wildcard hosts would have the oldest "+
+						"VirtualService take precedence. Now, the most specific VirtualService will win", "1.20"),
+				)
+				continue
+			}
 		}
 	}
 	return nil

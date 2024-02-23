@@ -42,6 +42,7 @@ import (
 	dnsClient "istio.io/istio/pkg/dns/client"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/log"
@@ -272,7 +273,8 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 		a.envoyOpts.ConfigCleanup = false
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
-			Node: node,
+			Node:             node,
+			CompliancePolicy: common_features.CompliancePolicy,
 		}).CreateFile()
 		if err != nil {
 			return fmt.Errorf("failed to generate bootstrap config: %v", err)

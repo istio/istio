@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"strings"
 
+	sec_model "istio.io/istio/pilot/pkg/security/model"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -50,17 +51,21 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 		return
 	}
 
+	tlsConfig := &tls.Config{
+		GetCertificate: s.getIstiodCertificate,
+		MinVersion:     tls.VersionTLS12,
+		CipherSuites:   args.ServerOptions.TLSOptions.CipherSuits,
+	}
+	// Compliance for control plane validation and injection webhook server.
+	sec_model.EnforceGoCompliance(tlsConfig)
+
 	istiolog.Info("initializing secure webhook server for istiod webhooks")
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	s.httpsMux = http.NewServeMux()
 	s.httpsServer = &http.Server{
-		Addr:     args.ServerOptions.HTTPSAddr,
-		ErrorLog: log.New(&httpServerErrorLogWriter{}, "", 0),
-		Handler:  s.httpsMux,
-		TLSConfig: &tls.Config{
-			GetCertificate: s.getIstiodCertificate,
-			MinVersion:     tls.VersionTLS12,
-			CipherSuites:   args.ServerOptions.TLSOptions.CipherSuits,
-		},
+		Addr:      args.ServerOptions.HTTPSAddr,
+		ErrorLog:  log.New(&httpServerErrorLogWriter{}, "", 0),
+		Handler:   s.httpsMux,
+		TLSConfig: tlsConfig,
 	}
 }

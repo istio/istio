@@ -304,6 +304,40 @@ func TestConfigureIstioGateway(t *testing.T) {
 			},
 			objects: defaultObjects,
 		},
+		{
+			name: "kube-gateway-ambient-redirect",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"ambient.istio.io/redirection": "enabled",
+					},
+				},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: defaultClassName,
+				},
+			},
+			objects: defaultObjects,
+		},
+		{
+			name: "kube-gateway-ambient-redirect-infra",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: defaultClassName,
+					Infrastructure: &k8sv1.GatewayInfrastructure{
+						Annotations: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{
+							"ambient.istio.io/redirection": "enabled",
+						},
+					},
+				},
+			},
+			objects: defaultObjects,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
