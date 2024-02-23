@@ -41,7 +41,7 @@ var istioCniLabels = map[string]string{
 	"k8s-app": "istio-cni-node",
 }
 
-type nodeUntainter struct {
+type NodeUntainter struct {
 	podsClient  kclient.Client[*v1.Pod]
 	nodesClient kclient.Client[*v1.Node]
 	cnilabels   labels.Instance
@@ -59,7 +59,7 @@ func filterNamespace(ns string) func(any) bool {
 	}
 }
 
-func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sysNs string) *nodeUntainter {
+func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sysNs string) *NodeUntainter {
 	log.Debugf("starting node untainter with labels %v", istioCniLabels)
 	ns := cniNs
 	if ns == "" {
@@ -70,7 +70,7 @@ func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sy
 		ObjectTransform: kubelib.StripPodUnusedFields,
 	})
 	nodes := kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: kubelib.StripNodeUnusedFields})
-	nt := &nodeUntainter{
+	nt := &NodeUntainter{
 		podsClient:  podsClient,
 		nodesClient: nodes,
 		cnilabels:   labels.Instance(istioCniLabels),
@@ -80,7 +80,7 @@ func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sy
 	return nt
 }
 
-func (n *nodeUntainter) setup(stop <-chan struct{}) {
+func (n *NodeUntainter) setup(stop <-chan struct{}) {
 	nodes := krt.WrapClient[*v1.Node](n.nodesClient)
 	pods := krt.WrapClient[*v1.Pod](n.podsClient)
 
@@ -129,11 +129,11 @@ func (n *nodeUntainter) setup(stop <-chan struct{}) {
 	})
 }
 
-func (n *nodeUntainter) Run(stop <-chan struct{}) {
+func (n *NodeUntainter) Run(stop <-chan struct{}) {
 	n.queue.Run(stop)
 }
 
-func (n *nodeUntainter) reconcileNode(key types.NamespacedName) error {
+func (n *NodeUntainter) reconcileNode(key types.NamespacedName) error {
 	log.Debugf("reconciling node %s", key.Name)
 	node := n.nodesClient.Get(key.Name, key.Namespace)
 	if node == nil {
@@ -148,7 +148,7 @@ func (n *nodeUntainter) reconcileNode(key types.NamespacedName) error {
 }
 
 func removeReadinessTaint(nodesClient kclient.Client[*v1.Node], node *v1.Node) error {
-	updatedTaint := deleteTaint(node.Spec.Taints, &v1.Taint{Key: TaintName, Effect: v1.TaintEffectNoSchedule})
+	updatedTaint := deleteTaint(node.Spec.Taints)
 	if len(updatedTaint) == len(node.Spec.Taints) {
 		// nothing to remove..
 		return nil
@@ -183,7 +183,7 @@ func removeReadinessTaint(nodesClient kclient.Client[*v1.Node], node *v1.Node) e
 }
 
 // deleteTaint removes all the taints that have the same key and effect to given taintToDelete.
-func deleteTaint(taints []v1.Taint, taintToDelete *v1.Taint) []v1.Taint {
+func deleteTaint(taints []v1.Taint) []v1.Taint {
 	newTaints := []v1.Taint{}
 	for i := range taints {
 		if taints[i].Key == TaintName {
