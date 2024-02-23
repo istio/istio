@@ -43,11 +43,8 @@ const (
 	// SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
 	SDSRootResourceName = "ROOTCA"
 
-	// K8sSAJwtFileName is the token volume mount file name for k8s jwt token.
-	K8sSAJwtFileName = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-
-	// K8sSATrustworthyJwtFileName is the token volume mount file name for k8s trustworthy jwt token.
-	K8sSATrustworthyJwtFileName = "/var/run/secrets/tokens/istio-token"
+	// ThirdPartyJwtPath is the token volume mount file name for k8s trustworthy jwt token.
+	ThirdPartyJwtPath = "/var/run/secrets/tokens/istio-token"
 
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = credentials.SdsCaSuffix

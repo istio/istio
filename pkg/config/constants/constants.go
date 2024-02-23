@@ -141,8 +141,8 @@ const (
 	InternalGatewaySemantics = "internal.istio.io/gateway-semantics"
 	GatewaySemanticsGateway  = "gateway"
 
-	// TrustworthyJWTPath is the default 3P token to authenticate with third party services
-	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
+	// ThirdPartyJwtPath is the default 3P token to authenticate with third party services
+	ThirdPartyJwtPath = "./var/run/secrets/tokens/istio-token"
 
 	// CertProviderIstiod uses istiod self signed DNS certificates for the control plane
 	CertProviderIstiod = "istiod"

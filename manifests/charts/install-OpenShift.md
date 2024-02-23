@@ -33,11 +33,11 @@ helm install istio-cni -n kube-system manifests/charts/istio-cni --set cni.cniBi
 Ingress secrets and access should be separated from the control plane.
 
 ```console
-helm install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress --set global.jwtPolicy=first-party-jwt
+helm install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress
 ```
 
 Egress secrets and access should be separated from the control plane.
 
 ```console
-helm install -n istio-system istio-egress manifests/charts/gateways/istio-egress --set global.jwtPolicy=first-party-jwt
+helm install -n istio-system istio-egress manifests/charts/gateways/istio-egress
 ```
