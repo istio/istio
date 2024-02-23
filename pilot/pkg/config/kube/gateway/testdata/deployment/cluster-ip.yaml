@@ -8,6 +8,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   annotations:
+    ambient.istio.io/redirection: disabled
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
@@ -25,6 +26,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
+    ambient.istio.io/redirection: disabled
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
@@ -44,6 +46,7 @@ spec:
   template:
     metadata:
       annotations:
+        ambient.istio.io/redirection: disabled
         istio.io/rev: default
         networking.istio.io/service-type: ClusterIP
         prometheus.io/path: /stats/prometheus
@@ -213,6 +216,7 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
+    ambient.istio.io/redirection: disabled
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller

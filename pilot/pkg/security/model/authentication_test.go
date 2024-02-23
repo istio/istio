@@ -83,6 +83,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 		name               string
 		node               *model.Proxy
 		trustDomainAliases []string
+		crl                string
 		validateClient     bool
 		expected           *auth.CommonTlsContext
 	}{
@@ -419,12 +420,77 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "MTLSStrict using SDS with CRL",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			validateClient: true,
+			crl:            "/custom/path/to/crl.pem",
+			expected: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						Name: "default",
+						SdsConfig: &core.ConfigSource{
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
+							ResourceApiVersion:  core.ApiVersion_V3,
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{
+							Crl: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: "/custom/path/to/crl.pem",
+								},
+							},
+						},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "ROOTCA",
+							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
+								ResourceApiVersion:  core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.trustDomainAliases, test.validateClient)
+			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.crl, test.trustDomainAliases, test.validateClient)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))

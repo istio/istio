@@ -358,6 +358,23 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		gw.Labels[label.TopologyNetwork.Name] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
 	}
 
+	// Disable ambient redirection for kube-gateway if there is no explicit setting
+	var hasAmbientAnnotation bool
+	if _, ok := gw.Annotations[constants.AmbientRedirection]; ok {
+		hasAmbientAnnotation = true
+	}
+	if gw.Spec.Infrastructure != nil {
+		if _, ok := gw.Spec.Infrastructure.Annotations[constants.AmbientRedirection]; ok {
+			hasAmbientAnnotation = true
+		}
+	}
+	if features.EnableAmbientControllers && !isWaypointGateway && !hasAmbientAnnotation {
+		if gw.Annotations == nil {
+			gw.Annotations = make(map[string]string)
+		}
+		gw.Annotations[constants.AmbientRedirection] = constants.AmbientRedirectionDisabled
+	}
+
 	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),

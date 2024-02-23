@@ -291,7 +291,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			force: true,
 			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
 				g.Expect(err).Should(BeNil())
-				g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(2))
+				g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(3))
 			},
 		},
 		{
@@ -333,8 +333,16 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 }
 
 func TestManifestGenerateDefaultWithRevisionedWebhook(t *testing.T) {
+	runRevisionedWebhookTest(t, "minimal-revisioned", "default_tag")
+}
+
+func TestManifestGenerateFailedDefaultInstallation(t *testing.T) {
+	runRevisionedWebhookTest(t, "minimal", "default_installation_failed")
+}
+
+func runRevisionedWebhookTest(t *testing.T, testResourceFile, whSource string) {
+	t.Helper()
 	recreateSimpleTestEnv()
-	testResourceFile := "minimal-revisioned"
 	tmpDir := t.TempDir()
 	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
 	err := copyDir(string(liveCharts), string(tmpCharts))
@@ -343,7 +351,6 @@ func TestManifestGenerateDefaultWithRevisionedWebhook(t *testing.T) {
 	}
 
 	// Add a default tag which is the webhook that will be processed post-install
-	whSource := "default_tag"
 	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", whSource+".yaml"))
 	if err != nil {
 		t.Fatal(err)
