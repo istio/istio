@@ -16,10 +16,10 @@ cni:
   logLevel: info
   privileged: true
   provider: "multus"
-istio_cni:
-  enabled: true
-  chained: false
 pilot:
+  cni:
+    enabled: true
+    chained: false
   variant: distroless
   env:
     # Setup more secure default that is off in 'default' only for backwards compatibility
