@@ -1276,7 +1276,6 @@ func TestOutboundTLSIPv6Only(t *testing.T) {
 		}
 	}
 	log.Printf("Listeners: %v", listeners)
-
 }
 
 func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
