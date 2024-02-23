@@ -139,6 +139,7 @@ func (t *testController) AddSecret(secretName, clusterID string) {
 }
 
 func (t *testController) DeleteSecret(secretName string) {
+	t.t.Helper()
 	t.secrets.Delete(secretName, secretNamespace)
 }
 
@@ -196,21 +197,22 @@ func TestShutdown(t *testing.T) {
 	}))
 
 	// Remove secret, it should be marked as closed
-	c.DeleteSecret("s" + string(components[2].ID[1]))
-	assert.EventuallyEqual(t, func() []bool {
-		return slices.Map(components, func(e testHandler) bool {
-			return e.Closed.Load()
-		})
-	}, []bool{false, false, true})
+	c.DeleteSecret("s0")
+	fetchClosed := func() map[string]bool {
+		res := map[string]bool{}
+		for _, c := range components {
+			res[string(c.ID)] = c.Closed.Load()
+		}
+		return res
+	}
+	assert.EventuallyEqual(t, fetchClosed, map[string]bool{"config": false, "c1": false, "c0": true})
 
 	// close everything
 	close(stop)
 
 	// We should *not* shutdown anything else
 	// In theory we could, but we only shut down the controller when the entire application is closing so we don't bother
-	assert.Equal(t, []bool{false, false, true}, slices.Map(components, func(e testHandler) bool {
-		return e.Closed.Load()
-	}))
+	assert.Equal(t, map[string]bool{"config": false, "c1": false, "c0": true}, fetchClosed())
 }
 
 type informerHandler[T controllers.ComparableObject] struct {
