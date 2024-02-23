@@ -397,8 +397,11 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// i.e. non empty response nonce.
 	// We should always respond with the current resource names.
 	if request.ResponseNonce == "" || previousInfo == nil {
+		con.proxy.Lock()
+		defer con.proxy.Unlock()
+
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
-		con.proxy.AddOrUpdateWatchedResource(&model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames})
+		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
 		// For all EDS requests that we have already responded with in the same stream let us
 		// force the response. It is important to respond to those requests for Envoy to finish
 		// warming of those resources(Clusters).
@@ -410,13 +413,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
 		// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
 		for _, dependent := range warmingDependencies(request.TypeUrl) {
-			con.proxy.UpdateWatchedResource(dependent, func(wr *model.WatchedResource) *model.WatchedResource {
-				if wr == nil {
-					return nil
-				}
-				wr.AlwaysRespond = true
-				return wr
-			})
+			if dwr, exists := con.proxy.WatchedResources[dependent]; exists {
+				dwr.AlwaysRespond = true
+			}
 		}
 		return true, emptyResourceDelta
 	}
