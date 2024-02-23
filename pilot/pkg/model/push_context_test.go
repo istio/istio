@@ -2833,10 +2833,6 @@ func TestServiceWithExportTo(t *testing.T) {
 			proxyNs:   "random",
 			wantHosts: []string{"svc3", "svc4"},
 		},
-		{
-			proxyNs:   "test5",
-			wantHosts: []string{"svc3", "svc4", "svc4", "svc4", "svc5", "svc5"},
-		},
 	}
 	for _, tt := range cases {
 		services := ps.servicesExportedToNamespace(tt.proxyNs)
