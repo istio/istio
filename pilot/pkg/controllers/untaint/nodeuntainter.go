@@ -59,7 +59,7 @@ func filterNamespace(ns string) func(any) bool {
 	}
 }
 
-func NewNodeUntainter(kubeClient kubelib.Client, cniNs, sysNs string) *nodeUntainter {
+func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sysNs string) *nodeUntainter {
 	log.Debugf("starting node untainter with labels %v", istioCniLabels)
 	ns := cniNs
 	if ns == "" {
@@ -76,13 +76,12 @@ func NewNodeUntainter(kubeClient kubelib.Client, cniNs, sysNs string) *nodeUntai
 		cnilabels:   labels.Instance(istioCniLabels),
 		ourNs:       ns,
 	}
-	nt.setup()
+	nt.setup(stop)
 	return nt
 }
 
-func (n *nodeUntainter) setup() {
+func (n *nodeUntainter) setup(stop <-chan struct{}) {
 	nodes := krt.WrapClient[*v1.Node](n.nodesClient)
-	// as we fetch all pods anyway, no need to create new informer..
 	pods := krt.WrapClient[*v1.Pod](n.podsClient)
 
 	readyCniPods := krt.NewCollection(pods, func(ctx krt.HandlerContext, p *v1.Pod) *v1.Pod {
@@ -98,7 +97,7 @@ func (n *nodeUntainter) setup() {
 		}
 		log.Debugf("pod %s on node %s ready!", p.Name, p.Spec.NodeName)
 		return p
-	})
+	}, krt.WithStop(stop))
 
 	// these are all the nodes that have a ready cni pod. if the cni pod is ready,
 	// it means we are ok scheduling pods to it.
@@ -112,7 +111,7 @@ func (n *nodeUntainter) setup() {
 			return nil
 		}
 		return node
-	})
+	}, krt.WithStop(stop))
 
 	n.queue = controllers.NewQueue("untaint nodes",
 		controllers.WithReconciler(n.reconcileNode),

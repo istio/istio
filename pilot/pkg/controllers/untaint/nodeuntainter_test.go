@@ -33,8 +33,8 @@ import (
 const systemNS = "istio-system"
 
 var cniPodLabels = map[string]string{
-	"k8s-app":      "istio-cni-node",
-	"istio.io/rev": "default",
+	"k8s-app":    "istio-cni-node",
+	"some-other": "label",
 }
 
 type nodeTainterTestServer struct {
@@ -54,11 +54,11 @@ func setupLogging() {
 }
 
 func newNodeUntainterTestServer(t *testing.T) *nodeTainterTestServer {
-	client := kubelib.NewFakeClient()
-
-	nodeUntainter := NewNodeUntainter(client, systemNS, systemNS)
 	stop := make(chan struct{})
 	t.Cleanup(func() { close(stop) })
+	client := kubelib.NewFakeClient()
+
+	nodeUntainter := NewNodeUntainter(stop, client, systemNS, systemNS)
 	go nodeUntainter.Run(stop)
 	go client.Informers().Start(stop)
 	kubelib.WaitForCacheSync("test", stop, nodeUntainter.nodesClient.HasSynced, nodeUntainter.podsClient.HasSynced)
