@@ -58,7 +58,7 @@ rules:
 {{- if .Values.pilot.taint.enabled }}
   - apiGroups: [""]
     resources: ["nodes"]
-    verbs: ["update"]
+    verbs: ["patch"]
 {{- end }}
 
   # ingress controller

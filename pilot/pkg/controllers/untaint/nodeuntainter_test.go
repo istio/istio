@@ -19,6 +19,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	kubelib "istio.io/istio/pkg/kube"
@@ -27,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const systemNS = "istio-system"
