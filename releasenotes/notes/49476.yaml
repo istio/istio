@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: traffic
+area: traffic-management
 issues:
 - 49476
 releaseNotes:
