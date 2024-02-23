@@ -2882,6 +2882,10 @@ func TestServiceWithExportTo(t *testing.T) {
 			proxyNs:   "random",
 			wantHosts: []string{"svc3", "svc4", "svc4", "svc4"},
 		},
+		{
+			proxyNs:   "test5",
+			wantHosts: []string{"svc3", "svc4", "svc4", "svc4", "svc5", "svc5"},
+		},
 	}
 	for _, tt := range cases {
 		services := ps.servicesExportedToNamespace(tt.proxyNs)
@@ -2893,6 +2897,68 @@ func TestServiceWithExportTo(t *testing.T) {
 			t.Errorf("proxy in %s namespace: want %+v, got %+v", tt.proxyNs, tt.wantHosts, gotHosts)
 		}
 	}
+}
+
+func TestInitServiceRegistry(t *testing.T) {
+	ps := NewPushContext()
+	env := NewEnvironment()
+	env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
+	ps.Mesh = env.Mesh()
+
+	svc5_1 := &Service{
+		Hostname: "svc5",
+		Attributes: ServiceAttributes{
+			Namespace:       "test5",
+			ServiceRegistry: provider.External,
+			ExportTo: sets.New(
+				visibility.Instance("test5"),
+			),
+		},
+		Ports:      port7000,
+		Resolution: DNSLB,
+	}
+	// kubernetes service will override non kubernetes
+	svc5_2 := &Service{
+		Hostname: "svc5",
+		Attributes: ServiceAttributes{
+			Namespace:       "test5",
+			ServiceRegistry: provider.External,
+			ExportTo: sets.New(
+				visibility.Instance("test5"),
+			),
+		},
+		Ports:      port8000,
+		Resolution: DNSLB,
+	}
+
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{svc5_1, svc5_2},
+	}
+
+	env.EndpointIndex.shardsBySvc = map[string]map[string]*EndpointShards{
+		svc5_1.Hostname.String(): {
+			svc5_1.Attributes.Namespace: {
+				Shards: map[ShardKey][]*IstioEndpoint{
+					{Cluster: "Kubernets", Provider: provider.External}: {
+						&IstioEndpoint{
+							Address:         "1.1.1.1",
+							EndpointPort:    7000,
+							ServicePortName: "uds",
+						},
+						&IstioEndpoint{
+							Address:         "1.1.1.2",
+							EndpointPort:    8000,
+							ServicePortName: "uds",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ps.initServiceRegistry(env, nil)
+	instancesByPort := ps.ServiceIndex.instancesByPort[svc5_1.Key()]
+	assert.Equal(t, len(instancesByPort), 2)
 }
 
 func TestGetHostsFromMeshConfig(t *testing.T) {
