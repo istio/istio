@@ -371,7 +371,7 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout 
 				networkFetchSuccessCounter.Increment()
 			}
 		}()
-		req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 		if err != nil {
 			return nil, err
 		}
