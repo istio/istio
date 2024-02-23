@@ -32,8 +32,6 @@ import simplejson as json
 import sys
 
 
-
-
 # These two lines enable debugging at httplib level (requests->urllib3->http.client)
 # You will see the REQUEST, including HEADERS and DATA, and RESPONSE with HEADERS but without DATA.
 # The only thing missing will be the response.body which is not logged.
@@ -130,7 +128,7 @@ def getForwardHeaders(request):
     headers = {}
 
     # x-b3-*** headers can be populated using the OpenTelemetry span
-    ctx = propagator.extract(carrier={k.lower():v for k, v in request.headers})
+    ctx = propagator.extract(carrier={k.lower(): v for k, v in request.headers})
     propagator.inject(headers, ctx)
 
     # We handle other (non x-b3-***) headers manually
