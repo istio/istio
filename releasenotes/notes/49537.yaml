@@ -5,4 +5,5 @@ issue:
   - 49537
 releaseNotes:
   - |
-    **Fixed** an issue that when using `withoutHeaders` matching, if the header does not exist, it should be matched.
+    **Fixed** an issue that when using `withoutHeaders` matching,
+    if the header is missing, it should be treated as empty value for matching.
