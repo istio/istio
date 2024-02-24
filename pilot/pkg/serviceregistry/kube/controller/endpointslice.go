@@ -146,7 +146,7 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			// pure HTTP headless services should not need a full push since they do not
 			// require a Listener based on IP: https://github.com/istio/istio/issues/48207
-			Full: !pureHTTP && features.EnableHeadlessService,
+			Full: !pureHTTP,
 			// TODO: extend and set service instance type, so no need to re-init push context
 			ConfigsUpdated: configsUpdated,
 
