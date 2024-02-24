@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 49537
+releaseNotes:
+  - |
+    **Fixed** an issue that when using `withoutHeaders` matching, if the header does not exist, it should be matched.

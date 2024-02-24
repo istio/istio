@@ -1014,6 +1014,7 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest, useE
 		} else {
 			matcher := translateHeaderMatch(name, stringMatch)
 			matcher.InvertMatch = true
+			matcher.TreatMissingHeaderAsEmpty = true
 			out.Headers = append(out.Headers, matcher)
 		}
 	}
