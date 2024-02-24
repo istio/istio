@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
@@ -75,6 +76,8 @@ const (
 // Config for creating a bootstrap file.
 type Config struct {
 	*model.Node
+	// CompliancePolicy to decouple the environment variable dependency.
+	CompliancePolicy string
 }
 
 // toTemplateParams creates a new template configuration for the given configuration.
@@ -125,7 +128,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	}
 
 	// Support passing extra info from node environment as metadata
-	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
+	opts = append(opts, getNodeMetadataOptions(cfg.Node, cfg.CompliancePolicy)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
 	if network.AllIPv4(cfg.Metadata.InstanceIPs) {
@@ -289,7 +292,7 @@ func lightstepAccessTokenFile(config string) string {
 	return path.Join(config, lightstepAccessTokenBase)
 }
 
-func getNodeMetadataOptions(node *model.Node) []option.Instance {
+func getNodeMetadataOptions(node *model.Node, policy string) []option.Instance {
 	// Add locality options.
 	opts := getLocalityOptions(node.Locality)
 
@@ -297,7 +300,7 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 	opts = append(opts,
 		option.NodeMetadata(node.Metadata, node.RawMetadata),
-		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig)),
+		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig, policy)),
 		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
 	return opts
@@ -305,13 +308,17 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
-func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
+func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig, policy string) map[string]any {
 	// Setup defaults
 	runtimeFlags := map[string]any{
 		"overload.global_downstream_max_connections": "2147483647",
 		"re2.max_program_size.error_level":           "32768",
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
+	}
+	if policy == common_features.FIPS_140_2 {
+		// This flag limits google_grpc client in Envoy to TLSv1.2 as the maximum version.
+		runtimeFlags["envoy.reloadable_features.google_grpc_disable_tls_13"] = true
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted

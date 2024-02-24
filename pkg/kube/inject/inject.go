@@ -45,6 +45,7 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
@@ -96,17 +97,18 @@ const (
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
-	TypeMeta       metav1.TypeMeta
-	DeploymentMeta metav1.ObjectMeta
-	ObjectMeta     metav1.ObjectMeta
-	Spec           corev1.PodSpec
-	ProxyConfig    *meshconfig.ProxyConfig
-	MeshConfig     *meshconfig.MeshConfig
-	Values         map[string]any
-	Revision       string
-	ProxyImage     string
-	ProxyUID       int64
-	ProxyGID       int64
+	TypeMeta         metav1.TypeMeta
+	DeploymentMeta   metav1.ObjectMeta
+	ObjectMeta       metav1.ObjectMeta
+	Spec             corev1.PodSpec
+	ProxyConfig      *meshconfig.ProxyConfig
+	MeshConfig       *meshconfig.MeshConfig
+	Values           map[string]any
+	Revision         string
+	ProxyImage       string
+	ProxyUID         int64
+	ProxyGID         int64
+	CompliancePolicy string
 }
 
 type (
@@ -400,17 +402,18 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	proxyUID, proxyGID := GetProxyIDs(params.namespace)
 
 	data := SidecarTemplateData{
-		TypeMeta:       params.typeMeta,
-		DeploymentMeta: params.deployMeta,
-		ObjectMeta:     strippedPod.ObjectMeta,
-		Spec:           strippedPod.Spec,
-		ProxyConfig:    params.proxyConfig,
-		MeshConfig:     meshConfig,
-		Values:         params.valuesConfig.asMap,
-		Revision:       params.revision,
-		ProxyImage:     ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
-		ProxyUID:       proxyUID,
-		ProxyGID:       proxyGID,
+		TypeMeta:         params.typeMeta,
+		DeploymentMeta:   params.deployMeta,
+		ObjectMeta:       strippedPod.ObjectMeta,
+		Spec:             strippedPod.Spec,
+		ProxyConfig:      params.proxyConfig,
+		MeshConfig:       meshConfig,
+		Values:           params.valuesConfig.asMap,
+		Revision:         params.revision,
+		ProxyImage:       ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		ProxyUID:         proxyUID,
+		ProxyGID:         proxyGID,
+		CompliancePolicy: common_features.CompliancePolicy,
 	}
 
 	mergedPod = params.pod
