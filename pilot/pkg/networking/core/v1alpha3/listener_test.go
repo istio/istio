@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -83,6 +84,10 @@ func getIPv6Proxy() *model.Proxy {
 	pr := &model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"2001:1::1"},
+		Metadata: &model.NodeMetadata{
+			Namespace: "not-default",
+		},
+		ConfigNamespace: "not-default",
 	}
 	return pr
 }
@@ -1232,6 +1237,45 @@ func TestOutboundTls(t *testing.T) {
 	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
 		buildOutboundListeners(t, p, &virtualService2, &virtualService, services...)
 	}
+}
+
+// Checks for scenarios like https://github.com/istio/istio/issues/49476
+func TestOutboundTLSIPv6Only(t *testing.T) {
+	services := []*model.Service{
+		{
+			CreationTime:   tnow,
+			Hostname:       host.Name("test.com"),
+			DefaultAddress: wildcardIPv4,
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "https",
+					Port:     8080,
+					Protocol: protocol.HTTPS,
+				},
+			},
+			Resolution: model.Passthrough,
+			Attributes: model.ServiceAttributes{
+				Namespace:       "default",
+				ServiceRegistry: provider.External,
+			},
+		},
+	}
+
+	p := getIPv6Proxy()
+	listeners := buildOutboundListeners(t, p, nil, nil, services...)
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	}
+	l := listeners[0]
+	for _, fc := range l.FilterChains {
+		if fc.FilterChainMatch == nil {
+			t.Fatalf("expected filter chain match for chain %s to be set, found nil", fc.Name)
+		}
+		if len(fc.FilterChainMatch.ServerNames) == 0 {
+			t.Fatalf("expected SNI to be set, found %v", fc.FilterChainMatch.ServerNames)
+		}
+	}
+	log.Printf("Listeners: %v", listeners)
 }
 
 func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
