@@ -55,6 +55,7 @@ type PilotArgs struct {
 	InjectionOptions   InjectionOptions
 	PodName            string
 	Namespace          string
+	CniNamespace       string
 	Revision           string
 	MeshConfigFile     string
 	NetworksConfigFile string
@@ -139,6 +140,7 @@ func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
 // Apply default value to PilotArgs
 func (p *PilotArgs) applyDefaults() {
 	p.Namespace = PodNamespace
+	p.CniNamespace = PodNamespace
 	p.PodName = PodName
 	p.Revision = Revision
 	p.JwtRule = JwtRule

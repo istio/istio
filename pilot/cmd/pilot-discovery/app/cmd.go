@@ -140,6 +140,8 @@ func addFlags(c *cobra.Command) {
 		"File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used.")
 	c.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", bootstrap.PodNamespace,
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
+	c.PersistentFlags().StringVar(&serverArgs.CniNamespace, "cniNamespace", bootstrap.PodNamespace,
+		"Select a namespace where the istio-cni resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	c.PersistentFlags().DurationVar(&serverArgs.ShutdownDuration, "shutdownDuration", 10*time.Second,
 		"Duration the discovery server needs to terminate gracefully")
 

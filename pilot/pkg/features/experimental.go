@@ -180,6 +180,11 @@ var (
 		false,
 		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
 
+	EnableNodeUntaintControllers = env.Register(
+		"PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS",
+		false,
+		"If enabled, controller that untaints nodes with cni pods ready will run. This should be enabled if you disabled ambient init containers.").Get()
+
 	DeltaXds = env.Register("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()

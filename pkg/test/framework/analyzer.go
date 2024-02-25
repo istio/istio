@@ -132,6 +132,10 @@ func (s *suiteAnalyzer) Setup(resource.SetupFn) Suite {
 	return s
 }
 
+func (s *suiteAnalyzer) Teardown(resource.TeardownFn) Suite {
+	return s
+}
+
 func (s *suiteAnalyzer) SetupParallel(_ ...resource.SetupFn) Suite {
 	// TODO track setup fns?
 	return s

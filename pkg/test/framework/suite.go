@@ -122,6 +122,7 @@ type Suite interface {
 	RequireMaxVersion(minorVersion uint) Suite
 	// Setup runs enqueues the given setup function to run before test execution.
 	Setup(fn resource.SetupFn) Suite
+	Teardown(fn resource.TeardownFn) Suite
 	// SetupParallel runs the given setup functions in parallel before test execution.
 	SetupParallel(fns ...resource.SetupFn) Suite
 	// Run the suite. This method calls os.Exit and does not return.
@@ -137,8 +138,9 @@ type suiteImpl struct {
 	osExit      func(int)
 	labels      label.Set
 
-	requireFns []resource.SetupFn
-	setupFns   []resource.SetupFn
+	requireFns  []resource.SetupFn
+	setupFns    []resource.SetupFn
+	teardownFns []resource.TeardownFn
 
 	getSettings getSettingsFunc
 	envFactory  resource.EnvironmentFactory
@@ -351,6 +353,11 @@ func (s *suiteImpl) Setup(fn resource.SetupFn) Suite {
 	return s
 }
 
+func (s *suiteImpl) Teardown(fn resource.TeardownFn) Suite {
+	s.teardownFns = append(s.teardownFns, fn)
+	return s
+}
+
 func (s *suiteImpl) SetupParallel(fns ...resource.SetupFn) Suite {
 	s.setupFns = append(s.setupFns, func(ctx resource.Context) error {
 		g := multierror.Group{}
@@ -485,6 +492,8 @@ func (s *suiteImpl) run() (errLevel int) {
 			scopes.Framework.Warnf("=== RETRY: Test Run: '%s' ===", ctx.Settings().TestID)
 		}
 	}
+
+	s.runTeardownFns(ctx)
 	s.writeOutput()
 
 	return
@@ -574,6 +583,25 @@ func (s *suiteImpl) runSetupFns(ctx SuiteContext) (err error) {
 	elapsed := time.Since(start)
 	scopes.Framework.Infof("=== DONE: Setup: '%s' (%v) ===", ctx.Settings().TestID, elapsed)
 	return nil
+}
+
+func (s *suiteImpl) runTeardownFns(ctx SuiteContext) {
+	if len(s.teardownFns) == 0 {
+		return
+	}
+	scopes.Framework.Infof("=== BEGIN: Teardown: '%s' ===", ctx.Settings().TestID)
+
+	// don't waste time tearing up if already skipped
+	if s.isSkipped(ctx) {
+		return
+	}
+
+	start := time.Now()
+	for _, fn := range s.teardownFns {
+		fn(ctx)
+	}
+	elapsed := time.Since(start)
+	scopes.Framework.Infof("=== DONE: Teardown: '%s' (%v) ===", ctx.Settings().TestID, elapsed)
 }
 
 func initRuntime(s *suiteImpl) error {
