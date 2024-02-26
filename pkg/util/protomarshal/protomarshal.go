@@ -52,13 +52,6 @@ func UnmarshalAllowUnknown(b []byte, m proto.Message) error {
 	return unmarshaler.Unmarshal(bytes.NewReader(b), legacyproto.MessageV1(m))
 }
 
-func UnmarshalAllowUnknownWithAnyResolver(anyResolver jsonpb.AnyResolver, b []byte, m proto.Message) error {
-	return (&jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
-		AnyResolver:        anyResolver,
-	}).Unmarshal(bytes.NewReader(b), legacyproto.MessageV1(m))
-}
-
 func UnmarshalWithGlobalTypesResolver(b []byte, m proto.Message) error {
 	return protojson.Unmarshal(b, m)
 }
