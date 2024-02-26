@@ -283,7 +283,7 @@ func TestInjection(t *testing.T) {
 			in:   "proxy-override-args.yaml",
 			want: "proxy-override-args-native.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAlways)
 			},
 		},
 		{
@@ -294,14 +294,14 @@ func TestInjection(t *testing.T) {
 			in:   "gateway.yaml",
 			want: "gateway.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAlways)
 			},
 		},
 		{
 			in:   "native-sidecar.yaml",
 			want: "native-sidecar.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAlways)
 			},
 		},
 		{

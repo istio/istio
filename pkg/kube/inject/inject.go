@@ -106,6 +106,7 @@ type SidecarTemplateData struct {
 	MeshConfig               *meshconfig.MeshConfig
 	Values                   map[string]any
 	Revision                 string
+	NativeSidecars           bool
 	ProxyImage               string
 	ProxyUID                 int64
 	ProxyGID                 int64
@@ -421,15 +422,17 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 
 	// When changing this, make sure to change TemplateInput in deploymentcontroller.go
 	data := SidecarTemplateData{
-		TypeMeta:                 params.typeMeta,
-		DeploymentMeta:           params.deployMeta,
-		ObjectMeta:               strippedPod.ObjectMeta,
-		Spec:                     strippedPod.Spec,
-		ProxyConfig:              params.proxyConfig,
-		MeshConfig:               meshConfig,
-		Values:                   params.valuesConfig.asMap,
-		Revision:                 params.revision,
-		ProxyImage:               ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		TypeMeta:       params.typeMeta,
+		DeploymentMeta: params.deployMeta,
+		ObjectMeta:     strippedPod.ObjectMeta,
+		Spec:           strippedPod.Spec,
+		ProxyConfig:    params.proxyConfig,
+		MeshConfig:     meshConfig,
+		Values:         params.valuesConfig.asMap,
+		Revision:       params.revision,
+		ProxyImage:     ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+
+		NativeSidecars:           params.nativeSidecar,
 		ProxyUID:                 proxyUID,
 		ProxyGID:                 proxyGID,
 		InboundTrafficPolicyMode: InboundTrafficPolicyMode(meshConfig),
@@ -458,7 +461,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		// these will be in the `containers` field.
 		// So if we see the proxy container in `containers` in the original pod, and in `initContainers` in the template pod,
 		// move the container.
-		if features.EnableNativeSidecars.Get() &&
+		if params.nativeSidecar &&
 			FindContainer(ProxyContainerName, templatePod.Spec.InitContainers) != nil &&
 			FindContainer(ProxyContainerName, mergedPod.Spec.Containers) != nil {
 			mergedPod = mergedPod.DeepCopy()
@@ -793,9 +796,14 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			meshConfig:          meshconfig,
 			proxyConfig:         meshconfig.GetDefaultConfig(),
 			valuesConfig:        valuesConfig,
+			nativeSidecar:       false,
 			revision:            revision,
 			proxyEnvs:           map[string]string{},
 			injectedAnnotations: nil,
+		}
+		// The 'auto' mode is not supported for this codepath, only for webhook injection.
+		if features.EnableNativeSidecars == features.NativeSidecarModeAlways {
+			params.nativeSidecar = true
 		}
 		patchBytes, err = injectPod(params)
 	}

@@ -49,13 +49,18 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/monitoring/monitortest"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 )
 
@@ -1390,4 +1395,86 @@ func defaultInstallPackageDir() string {
 		panic(err)
 	}
 	return filepath.Join(wd, "../../../manifests/")
+}
+
+func TestDetectNativeSidecar(t *testing.T) {
+	tests := []struct {
+		name  string
+		mode  features.NativeSidecarMode
+		nodes []*corev1.Node
+		want  bool
+	}{
+		{
+			name: "always",
+			mode: features.NativeSidecarModeAlways,
+			want: true,
+		},
+		{
+			name: "never",
+			mode: features.NativeSidecarModeNever,
+			want: false,
+		},
+		{
+			name: "auto without any nodes",
+			mode: features.NativeSidecarModeAutoBeta,
+			want: false,
+		},
+		{
+			name:  "auto without any valid nodes",
+			mode:  features.NativeSidecarModeAutoBeta,
+			nodes: []*corev1.Node{{}},
+			want:  false,
+		},
+		{
+			name: "auto with old versions",
+			mode: features.NativeSidecarModeAutoBeta,
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.20.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.21.0"}}},
+			},
+			want: false,
+		},
+		{
+			name: "auto with old and new version",
+			mode: features.NativeSidecarModeAutoBeta,
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.20.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.40.0"}}},
+			},
+			want: false,
+		},
+		{
+			name: "auto with new versions",
+			mode: features.NativeSidecarModeAutoBeta,
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.39.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.40.0"}}},
+			},
+			want: true,
+		},
+		{
+			name: "auto with new and unparsable versions",
+			mode: features.NativeSidecarModeAutoBeta,
+			nodes: []*corev1.Node{
+				{},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.40.0"}}},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableNativeSidecars, tt.mode)
+			i := 0
+			kc := kube.NewFakeClient(slices.Map(tt.nodes, func(n *corev1.Node) runtime.Object {
+				i++
+				n.Name = fmt.Sprintf("name-%d", i)
+				return n
+			})...)
+			nodes := kclient.New[*corev1.Node](kc)
+			kc.RunAndWait(test.NewStop(t))
+			kube.WaitForCacheSync("test", test.NewStop(t), nodes.HasSynced)
+			assert.Equal(t, detectNativeSidecar(nodes), tt.want)
+		})
+	}
 }

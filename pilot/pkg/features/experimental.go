@@ -217,9 +217,25 @@ var (
 	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
 		"If enabled, Istiod will not push changes on arbitrary annotation change.").Get()
 
-	// This is used in injection templates, it is not unused.
-	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
-		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
+	EnableNativeSidecars = func() NativeSidecarMode {
+		v := env.Register("ENABLE_NATIVE_SIDECARS", "false",
+			"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag."+
+				" Set to true or false to unconditionally enable. Set to auto-beta or auto-stable to automatically enable"+
+				" if support is detected (at the beta or stable level).").Get()
+		switch v {
+		case "never", "false":
+			return NativeSidecarModeNever
+		case "always", "true":
+			return NativeSidecarModeAlways
+		case "auto-beta":
+			return NativeSidecarModeAutoBeta
+		case "auto-stable":
+			return NativeSidecarModeAutoStable
+		default:
+			log.Warnf("unknown ENABLE_NATIVE_SIDECARS value %q", v)
+			return NativeSidecarModeNever
+		}
+	}()
 
 	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
 		"If enabled, pilot will only rebuild config for resources that have changed").Get()
@@ -227,4 +243,17 @@ var (
 	PersistOldestWinsHeuristicForVirtualServiceHostMatching = env.Register("PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", false,
 		"If enabled, istiod will persist the oldest first heuristic for subtly conflicting traffic policy selection"+
 			"(such as with overlapping wildcard hosts)").Get()
+)
+
+type NativeSidecarMode int
+
+const (
+	// Never use native sidecar
+	NativeSidecarModeNever NativeSidecarMode = iota
+	// Always use native sidecar
+	NativeSidecarModeAlways = iota
+	// AutoBeta will use native sidecars if its detected as supported at a beta+ stability level
+	NativeSidecarModeAutoBeta = iota
+	// AutoStable will use native sidecars if its detected as supported at a stable stability level
+	NativeSidecarModeAutoStable = iota
 )
