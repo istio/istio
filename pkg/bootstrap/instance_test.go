@@ -89,6 +89,7 @@ func TestGolden(t *testing.T) {
 		setup                      func()
 		teardown                   func()
 		check                      func(got *bootstrap.Bootstrap, t *testing.T)
+		compliancePolicy           string
 	}{
 		{
 			base: "xdsproxy",
@@ -280,7 +281,8 @@ func TestGolden(t *testing.T) {
 			base: "tracing_tls_custom_sni",
 		},
 		{
-			base: "lrs",
+			base:             "lrs",
+			compliancePolicy: "fips-140-2",
 			envVars: map[string]string{
 				"ISTIO_META_LOAD_STATS_CONFIG_JSON": `{"api_type": "GRPC", "transport_api_version": "V3"}`,
 			},
@@ -341,7 +343,8 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			fn, err := New(Config{
-				Node: node,
+				Node:             node,
+				CompliancePolicy: c.compliancePolicy,
 			}).CreateFile()
 			if err != nil {
 				t.Fatal(err)
