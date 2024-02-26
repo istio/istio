@@ -18,7 +18,11 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 )
 
 type ComponentConstraint interface {
@@ -86,4 +90,44 @@ func (m *Component[T]) HasSynced() bool {
 		}
 	}
 	return true
+}
+
+type KclientComponent[T controllers.ComparableObject] struct {
+	internal *Component[kclientInternalComponent[T]]
+}
+
+type kclientInternalComponent[T controllers.ComparableObject] struct {
+	client kclient.Client[T]
+}
+
+func (k kclientInternalComponent[T]) Close() {
+	k.client.ShutdownHandlers()
+}
+
+func (k kclientInternalComponent[T]) HasSynced() bool {
+	return k.client.HasSynced()
+}
+
+// BuildMultiClusterKclientComponent builds a simple Component that just wraps a single kclient.Client
+func BuildMultiClusterKclientComponent[T controllers.ComparableObject](c ComponentBuilder, filter kubetypes.Filter) *KclientComponent[T] {
+	res := BuildMultiClusterComponent[kclientInternalComponent[T]](c, func(cluster *Cluster) kclientInternalComponent[T] {
+		return kclientInternalComponent[T]{kclient.NewFiltered[T](cluster.Client, filter)}
+	})
+	return &KclientComponent[T]{res}
+}
+
+// ForCluster returns the client for the requests cluster
+// Note: this may return nil.
+func (m *KclientComponent[T]) ForCluster(clusterID cluster.ID) kclient.Client[T] {
+	c := m.internal.ForCluster(clusterID)
+	if c == nil {
+		return nil
+	}
+	return c.client
+}
+
+func (m *KclientComponent[T]) All() []kclient.Client[T] {
+	return slices.Map(m.internal.All(), func(e kclientInternalComponent[T]) kclient.Client[T] {
+		return e.client
+	})
 }
