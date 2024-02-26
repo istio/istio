@@ -2768,6 +2768,113 @@ func TestInitVirtualService(t *testing.T) {
 	})
 }
 
+func TestVirtualServiceOrder(t *testing.T) {
+	ps := NewPushContext()
+	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	ps.Mesh = env.Mesh()
+	configStore := NewFakeStore()
+	t0 := time.Now()
+
+	root := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  gvk.VirtualService,
+			Name:              "root",
+			Namespace:         "ns1",
+			CreationTimestamp: t0.Add(1),
+		},
+		Spec: &networking.VirtualService{
+			ExportTo: []string{"*"},
+			Hosts:    []string{"*.org"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/login"},
+							},
+						},
+					},
+					Delegate: &networking.Delegate{
+						Name:      "delegate",
+						Namespace: "ns1",
+					},
+				},
+			},
+		},
+	}
+	delegate := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  gvk.VirtualService,
+			Name:              "delegate",
+			Namespace:         "ns1",
+			CreationTimestamp: t0.Add(2),
+		},
+		Spec: &networking.VirtualService{
+			ExportTo: []string{"*"},
+			Hosts:    []string{},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "delegate",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	normal := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  gvk.VirtualService,
+			Name:              "normal",
+			Namespace:         "ns1",
+			CreationTimestamp: t0.Add(3),
+		},
+		Spec: &networking.VirtualService{
+			Hosts: []string{"*.org"},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "normal",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range []config.Config{root, delegate, normal} {
+		if _, err := configStore.Create(c); err != nil {
+			t.Fatalf("could not create %v", c.Name)
+		}
+	}
+
+	env.ConfigStore = configStore
+	ps.initDefaultExportMaps()
+	ps.initVirtualServices(env)
+
+	gotOrder := make([]string, 0)
+	for _, c := range ps.virtualServiceIndex.publicByGateway["mesh"] {
+		gotOrder = append(gotOrder, fmt.Sprintf("%s/%s", c.Namespace, c.Name))
+	}
+
+	wantOrder := []string{"ns1/root", "ns1/normal"}
+	if !slices.Equal(wantOrder, gotOrder) {
+		t.Errorf("want %+v, but got %+v", wantOrder, gotOrder)
+	}
+}
+
 func TestServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := NewEnvironment()
