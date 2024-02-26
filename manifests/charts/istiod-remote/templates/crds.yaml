@@ -1,6 +1,8 @@
+{{- if .Values.global.configCluster }}
 {{- if and .Values.base.enableCRDTemplates (eq .Values.base.releaseChannel "stable") }}
 {{ .Files.Get "files/stable.gen.yaml" }}
 {{- end }}
 {{- if and .Values.base.enableCRDTemplates (or (eq .Values.base.releaseChannel "standard") (not .Values.base.releaseChannel)) }}
 {{ .Files.Get "files/standard.gen.yaml" }}
+{{- end }}
 {{- end }}

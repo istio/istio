@@ -23,8 +23,12 @@ defaults:
     ipFamilies: []
 
   base:
-    # Used for helm2 to add the CRDs to templates.
-    enableCRDTemplates: false
+    # Used in Helm3 and Helm2 for selecting the CRDs based on Release Channel
+    enableCRDTemplates: true
+
+    # Used for choosing the stability level of CRDs istalled
+    # Standard channel is the default release channel
+    releaseChannel: "standard"
 
     # Validation webhook configuration url
     # For example: https://$remotePilotAddress:15017/validate
