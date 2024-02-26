@@ -93,12 +93,13 @@
   },
   "istio_cni": {
     "chained": true,
-    "enabled": true
+    "enabled": true,
+    "provider": "default"
   },
   "pilot": {
     "cni": {
-      "chained": true,
-      "enabled": false
+      "enabled": false,
+      "provider": "default"
     }
   },
   "revision": "",

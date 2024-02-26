@@ -92,13 +92,14 @@
     "variant": ""
   },
   "istio_cni": {
-    "chained": false,
-    "enabled": true
+    "chained": true,
+    "enabled": true,
+    "provider": "multus"
   },
   "pilot": {
     "cni": {
-      "chained": true,
-      "enabled": false
+      "enabled": false,
+      "provider": "default"
     }
   },
   "revision": "",
