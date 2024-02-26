@@ -3,4 +3,4 @@ kind: bug-fix
 area: istioctl
 releaseNotes:
 - |
-  **Fixed** an issue where `istioctl experimental proxy-status <proxy>` is not working when there's ECDS config exists in the config dump.
+  **Fixed** an issue where commands relying on Envoy config dump may not work due to the presence of ECDS config.
