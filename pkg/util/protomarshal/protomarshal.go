@@ -65,10 +65,6 @@ func UnmarshalAllowUnknownWithAnyResolver(anyResolver resolver, b []byte, m prot
 	}).Unmarshal(b, m)
 }
 
-func UnmarshalWithGlobalTypesResolver(b []byte, m proto.Message) error {
-	return protojson.Unmarshal(b, m)
-}
-
 // ToJSON marshals a proto to canonical JSON
 func ToJSON(msg proto.Message) (string, error) {
 	return ToJSONWithIndent(msg, "")
