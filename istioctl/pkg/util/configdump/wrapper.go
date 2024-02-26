@@ -18,9 +18,10 @@ import (
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	emptypb "github.com/golang/protobuf/ptypes/empty"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 type resolver struct {
@@ -32,6 +33,7 @@ var nonStrictResolver = &resolver{protoregistry.GlobalTypes}
 func (r *resolver) FindMessageByURL(url string) (protoreflect.MessageType, error) {
 	typ, err := r.Types.FindMessageByURL(url)
 	if err != nil {
+		// Here we ignore the error since we want istioctl to ignore unknown types due to the Envoy version change
 		msg := exprpb.Type{TypeKind: &exprpb.Type_Dyn{Dyn: &emptypb.Empty{}}}
 		return msg.ProtoReflect().Type(), nil
 	}
@@ -47,10 +49,7 @@ type Wrapper struct {
 // UnmarshalJSON is a custom unmarshaller to handle protobuf pain
 func (w *Wrapper) UnmarshalJSON(b []byte) error {
 	cd := &admin.ConfigDump{}
-	err := protojson.UnmarshalOptions{
-		DiscardUnknown: true,
-		Resolver:       nonStrictResolver,
-	}.Unmarshal(b, cd)
+	err := protomarshal.UnmarshalAllowUnknownWithAnyResolver(nonStrictResolver, b, cd)
 	*w = Wrapper{cd}
 	return err
 }
