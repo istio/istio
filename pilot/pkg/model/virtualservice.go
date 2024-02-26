@@ -254,6 +254,12 @@ func mergeVirtualServicesIfNeeded(
 		out = append(out, root)
 	}
 
+	// When delegate VS exists, merging delegate VS and root VS may make their order inconsistent with `vServices`.
+	// Sort again here to ensure the order is consistent with the `vServices` parameter.
+	if len(delegatesByRoot) > 0 {
+		sortConfigByCreationTime(out)
+	}
+
 	return out, delegatesByRoot
 }
 
