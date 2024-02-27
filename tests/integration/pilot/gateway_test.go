@@ -99,7 +99,7 @@ spec:
 	}
 
 	t.ConfigIstio().YAML(apps.Namespace.Name(), `
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: managed-owner
@@ -145,7 +145,7 @@ spec:
 }
 
 func ManagedGatewayTest(t framework.TestContext) {
-	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1beta1
+	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -157,7 +157,7 @@ spec:
     port: 80
     protocol: HTTP
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http-1
@@ -170,7 +170,7 @@ spec:
     - name: b
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http-2
@@ -255,7 +255,7 @@ spec:
 }
 
 func ManagedGatewayShortNameTest(t framework.TestContext) {
-	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1beta1
+	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -267,7 +267,7 @@ spec:
     port: 80
     protocol: HTTP
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http
@@ -313,7 +313,7 @@ func UnmanagedGatewayTest(t framework.TestContext) {
 
 	t.ConfigIstio().
 		YAML("", `
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: custom-istio
@@ -321,7 +321,7 @@ spec:
   controllerName: istio.io/gateway-controller
 `).
 		YAML("", fmt.Sprintf(`
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -372,7 +372,7 @@ spec:
         name: test-gateway-cert-same
 `, apps.Namespace.Name())).
 		YAML(apps.Namespace.Name(), `
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http
@@ -403,7 +403,7 @@ spec:
     - name: b
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: b
@@ -455,7 +455,7 @@ spec:
     - name: c
       port: 7070
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: tls-same
@@ -469,7 +469,7 @@ spec:
     - name: b
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: tls-cross
@@ -483,7 +483,7 @@ spec:
     - name: b
       port: 80
 `).YAML(apps.Namespace.Name(), fmt.Sprintf(`
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets

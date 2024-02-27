@@ -511,7 +511,7 @@ global:
 }
 
 func buildPatch(version int) string {
-	return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1beta1
+	return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   annotations:
