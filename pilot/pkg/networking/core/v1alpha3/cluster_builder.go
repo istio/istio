@@ -27,6 +27,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -309,7 +310,6 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		}
 		c.DnsRefreshRate = cb.req.Push.Mesh.DnsRefreshRate
 		c.RespectDnsTtl = true
-		fallthrough
 	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
 			log.Debugf("locality endpoints missing for cluster %s", c.Name)
@@ -321,7 +321,18 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 			ClusterName: name,
 			Endpoints:   localityLbEndpoints,
 		}
+	case cluster.Cluster_ORIGINAL_DST:
+		dport := uint32(port.Port)
+		if override, f := service.Attributes.PassthroughTargetPorts[uint32(port.Port)]; f {
+			dport = override
+		}
+		c.LbConfig = &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UpstreamPortOverride: wrappers.UInt32(dport),
+			},
+		}
 	}
+	log.Errorf("howardjohn: building service %+v", service)
 
 	ec := newClusterWrapper(c)
 	cb.setUpstreamProtocol(ec, port)
