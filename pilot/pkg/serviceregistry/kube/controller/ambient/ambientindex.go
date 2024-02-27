@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -57,7 +56,7 @@ var _ Index = &index{}
 type workloadsCollection struct {
 	krt.Collection[model.WorkloadInfo]
 	ByAddress        *krt.Index[model.WorkloadInfo, networkAddress]
-	ByServiceVIP     *krt.Index[model.WorkloadInfo, string]
+	ByServiceKey     *krt.Index[model.WorkloadInfo, string]
 	ByOwningWaypoint *krt.Index[model.WorkloadInfo, model.WaypointScope]
 }
 
@@ -68,6 +67,7 @@ type waypointsCollection struct {
 
 type servicesCollection struct {
 	krt.Collection[model.ServiceInfo]
+	ByAddress *krt.Index[model.ServiceInfo, networkAddress]
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -87,7 +87,144 @@ type index struct {
 	Network         LookupNetwork
 }
 
-// Lookup finds a given IP address.
+type Options struct {
+	Client kubeclient.Client
+
+	Revision                  string
+	SystemNamespace           string
+	DomainSuffix              string
+	ClusterID                 cluster.ID
+	XDSUpdater                model.XDSUpdater
+	LookupNetwork             LookupNetwork
+	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
+}
+
+func New(options Options) Index {
+	a := &index{
+		networkUpdateTrigger: krt.NewRecomputeTrigger(),
+
+		SystemNamespace: options.SystemNamespace,
+		DomainSuffix:    options.DomainSuffix,
+		ClusterID:       options.ClusterID,
+		XDSUpdater:      options.XDSUpdater,
+		Network:         options.LookupNetwork,
+	}
+
+	filter := kclient.Filter{
+		ObjectFilter: options.DiscoveryNamespacesFilter.Filter,
+	}
+	ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, krt.WithName("ConfigMaps"))
+
+	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
+		gvr.AuthorizationPolicy, kubetypes.StandardInformer, filter)
+	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, krt.WithName("AuthorizationPolicies"))
+
+	peerAuths := kclient.NewDelayedInformer[*securityclient.PeerAuthentication](options.Client,
+		gvr.PeerAuthentication, kubetypes.StandardInformer, filter)
+	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, krt.WithName("PeerAuthentications"))
+
+	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](options.Client,
+		gvr.ServiceEntry, kubetypes.StandardInformer, filter)
+	ServiceEntries := krt.WrapClient[*networkingclient.ServiceEntry](serviceEntries, krt.WithName("ServiceEntries"))
+
+	workloadEntries := kclient.NewDelayedInformer[*networkingclient.WorkloadEntry](options.Client,
+		gvr.WorkloadEntry, kubetypes.StandardInformer, filter)
+	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, krt.WithName("WorkloadEntries"))
+
+	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](options.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
+	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, krt.WithName("Gateways"))
+
+	Services := krt.NewInformerFiltered[*v1.Service](options.Client, filter, krt.WithName("Services"))
+	Pods := krt.NewInformerFiltered[*v1.Pod](options.Client, kclient.Filter{
+		ObjectFilter:    options.DiscoveryNamespacesFilter.Filter,
+		ObjectTransform: kubeclient.StripPodUnusedFields,
+	}, krt.WithName("Pods"))
+
+	MeshConfig := MeshConfigCollection(ConfigMaps, options)
+	Waypoints := WaypointsCollection(Gateways)
+	WaypointIndex := krt.CreateIndex[Waypoint, model.WaypointScope](Waypoints, func(w Waypoint) []model.WaypointScope {
+		// We can be a part of a service account waypoint, or a namespace waypoint
+		return []model.WaypointScope{{Namespace: w.Namespace, ServiceAccount: w.ForServiceAccount}}
+	})
+
+	// AllPolicies includes peer-authentication converted policies
+	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig)
+	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater, func(i model.WorkloadAuthorization) model.ConfigKey {
+		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
+	}), false)
+
+	WorkloadServices := a.ServicesCollection(Services, ServiceEntries)
+	ServiceAddressIndex := krt.CreateIndex[model.ServiceInfo, networkAddress](WorkloadServices, networkAddressFromService)
+	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
+		func(a model.ServiceInfo) *workloadapi.Service {
+			// Only trigger push if the XDS object changed; the rest is just for computation of others
+			return a.Service
+		},
+		PushXds(a.XDSUpdater, func(i model.ServiceInfo) model.ConfigKey {
+			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
+		})), false)
+
+	Workloads := a.WorkloadsCollection(
+		Pods,
+		MeshConfig,
+		AuthorizationPolicies,
+		PeerAuths,
+		Waypoints,
+		WorkloadServices,
+		WorkloadEntries,
+		ServiceEntries,
+		AllPolicies,
+	)
+	WorkloadAddressIndex := krt.CreateIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
+	WorkloadServiceIndex := krt.CreateIndex[model.WorkloadInfo, string](Workloads, func(o model.WorkloadInfo) []string {
+		return maps.Keys(o.Services)
+	})
+	WorkloadWaypointIndex := krt.CreateIndex[model.WorkloadInfo, model.WaypointScope](Workloads, func(w model.WorkloadInfo) []model.WaypointScope {
+		// Filter out waypoints.
+		if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		// We can be a part of a service account waypoint, or a namespace waypoint
+		return []model.WaypointScope{
+			{
+				Namespace:      w.Namespace,
+				ServiceAccount: w.ServiceAccount,
+			},
+			{
+				Namespace: w.Namespace,
+			},
+		}
+	})
+	// Subtle: make sure we register the event after the Index are created. This ensures when we get the event, the index is populated.
+	Workloads.RegisterBatch(krt.BatchedEventFilter(
+		func(a model.WorkloadInfo) *workloadapi.Workload {
+			// Only trigger push if the XDS object changed; the rest is just for computation of others
+			return a.Workload
+		},
+		PushXds(a.XDSUpdater, func(i model.WorkloadInfo) model.ConfigKey {
+			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
+		})), false)
+
+	a.workloads = workloadsCollection{
+		Collection:       Workloads,
+		ByAddress:        WorkloadAddressIndex,
+		ByServiceKey:     WorkloadServiceIndex,
+		ByOwningWaypoint: WorkloadWaypointIndex,
+	}
+	a.services = servicesCollection{
+		Collection: WorkloadServices,
+		ByAddress:  ServiceAddressIndex,
+	}
+	a.waypoints = waypointsCollection{
+		Collection: Waypoints,
+		ByScope:    WaypointIndex,
+	}
+	a.authorizationPolicies = AllPolicies
+
+	return a
+}
+
+// Lookup finds all addresses associated with a given key. Many different key formats are supported; see inline comments.
 func (a *index) Lookup(key string) []model.AddressInfo {
 	// 1. Workload UID
 	if w := a.workloads.GetKey(krt.Key[model.WorkloadInfo](key)); w != nil {
@@ -124,13 +261,9 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 		for _, addr := range svc.Service.Addresses {
 			vips.Insert(byteIPToString(addr.Address))
 		}
-		rn := svc.ResourceName()
 		res := []model.AddressInfo{serviceToAddressInfo(svc.Service)}
-		// TODO: avoid full scan
-		for _, wl := range a.workloads.List(metav1.NamespaceAll) {
-			if _, f := wl.Services[rn]; f {
-				res = append(res, workloadToAddressInfo(wl.Workload))
-			}
+		for _, w := range a.workloads.ByServiceKey.Lookup(svc.ResourceName()) {
+			res = append(res, workloadToAddressInfo(w.Workload))
 		}
 		return res
 	}
@@ -146,16 +279,11 @@ func (a *index) lookupService(key string) *model.ServiceInfo {
 
 	// 2. network/ip format
 	network, ip, _ := strings.Cut(key, "/")
-	// Maybe its a hostname..
-	// TODO remove full scan
-	for _, maybe := range a.services.List(metav1.NamespaceAll) {
-		for _, addr := range maybe.Addresses {
-			if network == addr.Network && ip == byteIPToString(addr.Address) {
-				return &maybe
-			}
-		}
-	}
-	return nil
+	services := a.services.ByAddress.Lookup(networkAddress{
+		network: network,
+		ip:      ip,
+	})
+	return slices.First(services)
 }
 
 // All return all known workloads. Result is un-ordered
@@ -308,138 +436,6 @@ func (a *index) SyncAll() {
 }
 
 type LookupNetwork func(endpointIP string, labels labels.Instance) network.ID
-
-type Options struct {
-	Client kubeclient.Client
-
-	SystemNamespace           string
-	DomainSuffix              string
-	ClusterID                 cluster.ID
-	XDSUpdater                model.XDSUpdater
-	LookupNetwork             LookupNetwork
-	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
-}
-
-func New(options Options) Index {
-	a := &index{
-		networkUpdateTrigger: krt.NewRecomputeTrigger(),
-
-		SystemNamespace: options.SystemNamespace,
-		DomainSuffix:    options.DomainSuffix,
-		ClusterID:       options.ClusterID,
-		XDSUpdater:      options.XDSUpdater,
-		Network:         options.LookupNetwork,
-	}
-
-	filter := kclient.Filter{
-		ObjectFilter: options.DiscoveryNamespacesFilter.Filter,
-	}
-	ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, krt.WithName("ConfigMaps"))
-
-	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
-		gvr.AuthorizationPolicy, kubetypes.StandardInformer, filter)
-	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, krt.WithName("AuthorizationPolicies"))
-
-	peerAuths := kclient.NewDelayedInformer[*securityclient.PeerAuthentication](options.Client,
-		gvr.PeerAuthentication, kubetypes.StandardInformer, filter)
-	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, krt.WithName("PeerAuthentications"))
-
-	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](options.Client,
-		gvr.ServiceEntry, kubetypes.StandardInformer, filter)
-	ServiceEntries := krt.WrapClient[*networkingclient.ServiceEntry](serviceEntries, krt.WithName("ServiceEntries"))
-
-	workloadEntries := kclient.NewDelayedInformer[*networkingclient.WorkloadEntry](options.Client,
-		gvr.WorkloadEntry, kubetypes.StandardInformer, filter)
-	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, krt.WithName("WorkloadEntries"))
-
-	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](options.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
-	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, krt.WithName("Gateways"))
-
-	Services := krt.NewInformerFiltered[*v1.Service](options.Client, filter, krt.WithName("Services"))
-	Pods := krt.NewInformerFiltered[*v1.Pod](options.Client, kclient.Filter{
-		ObjectFilter:    options.DiscoveryNamespacesFilter.Filter,
-		ObjectTransform: kubeclient.StripPodUnusedFields,
-	}, krt.WithName("Pods"))
-
-	MeshConfig := MeshConfigCollection(ConfigMaps, options)
-	Waypoints := WaypointsCollection(Gateways)
-	WaypointIndex := krt.CreateIndex[Waypoint, model.WaypointScope](Waypoints, func(w Waypoint) []model.WaypointScope {
-		// We can be a part of a service account waypoint, or a namespace waypoint
-		return []model.WaypointScope{{Namespace: w.Namespace, ServiceAccount: w.ForServiceAccount}}
-	})
-
-	// AllPolicies includes peer-authentication converted policies
-	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig)
-	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater, func(i model.WorkloadAuthorization) model.ConfigKey {
-		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
-	}), false)
-
-	WorkloadServices := a.ServicesCollection(Services, ServiceEntries)
-	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
-		func(a model.ServiceInfo) *workloadapi.Service {
-			// Only trigger push if the XDS object changed; the rest is just for computation of others
-			return a.Service
-		},
-		PushXds(a.XDSUpdater, func(i model.ServiceInfo) model.ConfigKey {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
-		})), false)
-
-	Workloads := a.WorkloadsCollection(
-		Pods,
-		MeshConfig,
-		AuthorizationPolicies,
-		PeerAuths,
-		Waypoints,
-		WorkloadServices,
-		WorkloadEntries,
-		ServiceEntries,
-		AllPolicies,
-	)
-	WorkloadAddressIndex := krt.CreateIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
-	WorkloadServiceIndex := krt.CreateIndex[model.WorkloadInfo, string](Workloads, func(o model.WorkloadInfo) []string {
-		return maps.Keys(o.Services)
-	})
-	WorkloadWaypointIndex := krt.CreateIndex[model.WorkloadInfo, model.WaypointScope](Workloads, func(w model.WorkloadInfo) []model.WaypointScope {
-		// Filter out waypoints.
-		if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-			return nil
-		}
-		// We can be a part of a service account waypoint, or a namespace waypoint
-		return []model.WaypointScope{
-			{
-				Namespace:      w.Namespace,
-				ServiceAccount: w.ServiceAccount,
-			},
-			{
-				Namespace: w.Namespace,
-			},
-		}
-	})
-	// Subtle: make sure we register the event after the Index are created. This ensures when we get the event, the index is populated.
-	Workloads.RegisterBatch(krt.BatchedEventFilter(
-		func(a model.WorkloadInfo) *workloadapi.Workload {
-			// Only trigger push if the XDS object changed; the rest is just for computation of others
-			return a.Workload
-		},
-		PushXds(a.XDSUpdater, func(i model.WorkloadInfo) model.ConfigKey {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
-		})), false)
-
-	a.workloads = workloadsCollection{
-		Collection:       Workloads,
-		ByAddress:        WorkloadAddressIndex,
-		ByServiceVIP:     WorkloadServiceIndex,
-		ByOwningWaypoint: WorkloadWaypointIndex,
-	}
-	a.services = servicesCollection{Collection: WorkloadServices}
-	a.waypoints = waypointsCollection{
-		Collection: Waypoints,
-		ByScope:    WaypointIndex,
-	}
-	a.authorizationPolicies = AllPolicies
-
-	return a
-}
 
 func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {
 	return func(events []krt.Event[T]) {

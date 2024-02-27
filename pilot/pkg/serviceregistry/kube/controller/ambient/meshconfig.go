@@ -20,6 +20,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
@@ -34,12 +35,18 @@ func (m MeshConfig) ResourceName() string { return " " }
 func (m MeshConfig) Equals(other MeshConfig) bool { return proto.Equal(m.MeshConfig, other.MeshConfig) }
 
 func MeshConfigCollection(ConfigMaps krt.Collection[*v1.ConfigMap], options Options) krt.Singleton[MeshConfig] {
+	cmName := "istio"
+	if options.Revision != "" && options.Revision != "default" {
+		cmName = cmName + "-" + options.Revision
+	}
 	return krt.NewSingleton[MeshConfig](
 		func(ctx krt.HandlerContext) *MeshConfig {
 			meshCfg := mesh.DefaultMeshConfig()
 			cms := []*v1.ConfigMap{}
-			cms = AppendNonNil(cms, krt.FetchOne(ctx, ConfigMaps, krt.FilterName("istio-user", options.SystemNamespace)))
-			cms = AppendNonNil(cms, krt.FetchOne(ctx, ConfigMaps, krt.FilterName("istio", options.SystemNamespace)))
+			if features.SharedMeshConfig != "" {
+				cms = AppendNonNil(cms, krt.FetchOne(ctx, ConfigMaps, krt.FilterName(features.SharedMeshConfig, options.SystemNamespace)))
+			}
+			cms = AppendNonNil(cms, krt.FetchOne(ctx, ConfigMaps, krt.FilterName(cmName, options.SystemNamespace)))
 
 			for _, c := range cms {
 				n, err := mesh.ApplyMeshConfig(meshConfigMapData(c), meshCfg)

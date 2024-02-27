@@ -946,7 +946,7 @@ type ServiceInfo struct {
 	LabelSelector
 	// PortNames provides a mapping of ServicePort -> port names. Note these are only used internally, not sent over XDS
 	PortNames map[int32]ServicePortName
-	// Source is the type that introduced this workload.
+	// Source is the type that introduced this service.
 	Source kind.Kind
 }
 

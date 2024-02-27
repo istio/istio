@@ -139,6 +139,9 @@ type Options struct {
 	// SyncTimeout, if set, causes HasSynced to be returned when timeout.
 	SyncTimeout time.Duration
 
+	// Revision of this Istiod instance
+	Revision string
+
 	ConfigCluster    bool
 }
 
@@ -283,6 +286,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			SystemNamespace:           options.SystemNamespace,
 			DomainSuffix:              options.DomainSuffix,
 			ClusterID:                 options.ClusterID,
+			Revision:                  options.Revision,
 			XDSUpdater:                options.XDSUpdater,
 			DiscoveryNamespacesFilter: c.opts.DiscoveryNamespacesFilter,
 			LookupNetwork:             c.Network,

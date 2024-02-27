@@ -154,6 +154,15 @@ func networkAddressFromWorkload(wl model.WorkloadInfo) []networkAddress {
 	return networkAddrs
 }
 
+func networkAddressFromService(s model.ServiceInfo) []networkAddress {
+	networkAddrs := make([]networkAddress, 0, len(s.Addresses))
+	for _, addr := range s.Addresses {
+		ip, _ := netip.AddrFromSlice(addr.Address)
+		networkAddrs = append(networkAddrs, networkAddress{network: addr.Network, ip: ip.String()})
+	}
+	return networkAddrs
+}
+
 // internal object used for indexing in ambientindex maps
 type networkAddress struct {
 	network string

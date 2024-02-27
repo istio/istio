@@ -96,39 +96,14 @@ func (a *index) WorkloadsCollection(
 			Services:              a.constructServices(p, services),
 			AuthorizationPolicies: policies,
 			Status:                status,
-		}
-		if len(waypoints) > 0 {
-			// Pick the best waypoint. One scoped to a SA is higher precedence
-			wp := ptr.OrDefault(
-				slices.FindFunc(waypoints, func(waypoint Waypoint) bool {
-					return waypoint.ForServiceAccount != ""
-				}),
-				waypoints[0],
-			)
-			w.Waypoint = &workloadapi.GatewayAddress{
-				Destination: &workloadapi.GatewayAddress_Address{
-					Address: a.toNetworkAddress(wp.Addresses[0].String()),
-				},
-				// TODO: look up the HBONE port instead of hardcoding it
-				HboneMtlsPort: 15008,
-			}
+			Waypoint:              a.pickWaypoint(waypoints),
+			TrustDomain:           pickTrustDomain(),
 		}
 
-		if td := spiffe.GetTrustDomain(); td != "cluster.local" {
-			w.TrustDomain = td
-		}
 		w.WorkloadName, w.WorkloadType = workloadNameAndType(p)
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
-		if p.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
-			// Configured for override
-			w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
-		}
-		// Otherwise supports tunnel directly
-		if model.SupportsTunnel(p.Labels, model.TunnelHTTP) {
-			w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
-			w.NativeTunnel = true
-		}
+		setTunnelProtocol(p.Labels, p.Annotations, w)
 		return &model.WorkloadInfo{Workload: w, Labels: p.Labels, Source: kind.Pod}
 	}, krt.WithName("PodWorkloads"))
 	WorkloadEntryWorkloads := krt.NewCollection(WorkloadEntries, func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
@@ -171,6 +146,8 @@ func (a *index) WorkloadsCollection(
 			Services:              a.constructServicesFromWorkloadEntry(&p.Spec, services),
 			AuthorizationPolicies: policies,
 			Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
+			Waypoint:              a.pickWaypoint(waypoints),
+			TrustDomain:           pickTrustDomain(),
 		}
 
 		if addr, err := netip.ParseAddr(p.Spec.Address); err == nil {
@@ -178,32 +155,11 @@ func (a *index) WorkloadsCollection(
 		} else {
 			log.Warnf("skipping workload entry %s/%s; DNS Address resolution is not yet implemented", p.Namespace, p.Name)
 		}
-		if len(waypoints) > 0 {
-			wp := waypoints[0]
-			w.Waypoint = &workloadapi.GatewayAddress{
-				Destination: &workloadapi.GatewayAddress_Address{
-					Address: a.toNetworkAddress(wp.Addresses[0].String()),
-				},
-				// TODO: look up the HBONE port instead of hardcoding it
-				HboneMtlsPort: 15008,
-			}
-		}
 
-		if td := spiffe.GetTrustDomain(); td != "cluster.local" {
-			w.TrustDomain = td
-		}
 		w.WorkloadName, w.WorkloadType = p.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
-		if p.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
-			// Configured for override
-			w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
-		}
-		// Otherwise supports tunnel directly
-		if model.SupportsTunnel(p.Labels, model.TunnelHTTP) {
-			w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
-			w.NativeTunnel = true
-		}
+		setTunnelProtocol(p.Labels, p.Annotations, w)
 		return &model.WorkloadInfo{Workload: w, Labels: p.Labels, Source: kind.WorkloadEntry}
 	}, krt.WithName("WorkloadEntryWorkloads"))
 	ServiceEntryWorkloads := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
@@ -251,6 +207,8 @@ func (a *index) WorkloadsCollection(
 				Services:              a.constructServicesFromWorkloadEntry(p, []model.ServiceInfo{*svc}),
 				AuthorizationPolicies: policies,
 				Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
+				Waypoint:              a.pickWaypoint(waypoints),
+				TrustDomain:           pickTrustDomain(),
 			}
 
 			if addr, err := netip.ParseAddr(p.Address); err == nil {
@@ -258,38 +216,56 @@ func (a *index) WorkloadsCollection(
 			} else {
 				log.Warnf("skipping workload entry %s/%s; DNS Address resolution is not yet implemented", se.Namespace, se.Name)
 			}
-			if len(waypoints) > 0 {
-				wp := waypoints[0]
-				w.Waypoint = &workloadapi.GatewayAddress{
-					Destination: &workloadapi.GatewayAddress_Address{
-						Address: a.toNetworkAddress(wp.Addresses[0].String()),
-					},
-					// TODO: look up the HBONE port instead of hardcoding it
-					HboneMtlsPort: 15008,
-				}
-			}
 
-			if td := spiffe.GetTrustDomain(); td != "cluster.local" {
-				w.TrustDomain = td
-			}
 			w.WorkloadName, w.WorkloadType = se.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
 			w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(se.Labels, w.WorkloadName)
 
-			if se.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
-				// Configured for override
-				w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
-			}
-			// Otherwise supports tunnel directly
-			if model.SupportsTunnel(se.Labels, model.TunnelHTTP) {
-				w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
-				w.NativeTunnel = true
-			}
+			setTunnelProtocol(se.Labels, se.Annotations, w)
 			res = append(res, model.WorkloadInfo{Workload: w, Labels: se.Labels, Source: kind.WorkloadEntry})
 		}
 		return res
 	}, krt.WithName("ServiceEntryWorkloads"))
 	Workloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{PodWorkloads, WorkloadEntryWorkloads, ServiceEntryWorkloads}, krt.WithName("Workloads"))
 	return Workloads
+}
+
+func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Workload) {
+	if annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
+		// Configured for override
+		w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
+	}
+	// Otherwise supports tunnel directly
+	if model.SupportsTunnel(labels, model.TunnelHTTP) {
+		w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
+		w.NativeTunnel = true
+	}
+}
+
+func pickTrustDomain() string {
+	if td := spiffe.GetTrustDomain(); td != "cluster.local" {
+		return td
+	}
+	return ""
+}
+
+func (a *index) pickWaypoint(waypoints []Waypoint) *workloadapi.GatewayAddress {
+	if len(waypoints) > 0 {
+		// Pick the best waypoint. One scoped to a SA is higher precedence
+		wp := ptr.OrDefault(
+			slices.FindFunc(waypoints, func(waypoint Waypoint) bool {
+				return waypoint.ForServiceAccount != ""
+			}),
+			waypoints[0],
+		)
+		return &workloadapi.GatewayAddress{
+			Destination: &workloadapi.GatewayAddress_Address{
+				Address: a.toNetworkAddress(wp.Addresses[0].String()),
+			},
+			// TODO: look up the HBONE port instead of hardcoding it
+			HboneMtlsPort: 15008,
+		}
+	}
+	return nil
 }
 
 func fetchPeerAuthentications(
