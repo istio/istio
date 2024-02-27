@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: GatewayClass
 metadata:
   creationTimestamp: null
@@ -16,7 +16,7 @@ status:
   - HTTPRouteFeatureA
   - HTTPRouteFeatureB
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   creationTimestamp: null
@@ -454,7 +454,7 @@ status:
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -479,7 +479,7 @@ status:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -505,7 +505,7 @@ status:
       namespace: istio-system
       sectionName: foobar
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -532,7 +532,7 @@ status:
       namespace: istio-system
       sectionName: slctr-labels
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -559,7 +559,7 @@ status:
       namespace: istio-system
       sectionName: same-namespace
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -585,7 +585,7 @@ status:
       namespace: istio-system
       sectionName: foobar
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -691,7 +691,7 @@ status:
       namespace: istio-system
       sectionName: slctr-combined-yes
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -717,7 +717,7 @@ status:
       namespace: istio-system
       sectionName: slctr-labels
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -759,7 +759,7 @@ status:
       namespace: istio-system
       sectionName: foobar
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1alpha2
 kind: TCPRoute
 metadata:
   creationTimestamp: null
@@ -770,7 +770,7 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: kind gateway.networking.k8s.io/v1alpha2/TCPRoute is not allowed
+      message: kind gateway.networking.k8s.io/v1beta1alpha2/TCPRoute is not allowed
       reason: NotAllowedByListeners
       status: "False"
       type: Accepted

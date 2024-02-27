@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: eastwestgateway
@@ -26,7 +26,7 @@ spec:
     tls:
       mode: Passthrough
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1alpha2
 kind: TLSRoute
 metadata:
   name: eastwestgateway-grpc
@@ -41,7 +41,7 @@ spec:
     - name: istiod
       port: 15012
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1alpha2
 kind: TLSRoute
 metadata:
   name: eastwestgateway-webhook

@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   creationTimestamp: null
@@ -6,7 +6,7 @@ metadata:
   namespace: istio-system
 spec: null
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1alpha2
 kind: TLSRoute
 metadata:
   creationTimestamp: null
@@ -16,7 +16,7 @@ spec: null
 status:
   parents: []
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1alpha2
 kind: TLSRoute
 metadata:
   creationTimestamp: null

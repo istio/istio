@@ -535,7 +535,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 }
 
 func (d *DeploymentController) setGatewayControllerVersion(gws gateway.Gateway) error {
-	patch := fmt.Sprintf(`{"apiVersion":"gateway.networking.k8s.io/v1","kind":"Gateway","metadata":{"annotations":{"%s":"%d"}}}`,
+	patch := fmt.Sprintf(`{"apiVersion":"gateway.networking.k8s.io/v1beta1","kind":"Gateway","metadata":{"annotations":{"%s":"%d"}}}`,
 		ControllerVersionAnnotation, ControllerVersion)
 
 	log.Debugf("applying %v", patch)

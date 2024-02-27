@@ -10129,7 +10129,7 @@ data:
                 "gateway.istio.io/managed" "istio.io-mesh-controller"
               ) | nindent 4 }}
           ownerReferences:
-          - apiVersion: gateway.networking.k8s.io/v1
+          - apiVersion: gateway.networking.k8s.io/v1beta1
             kind: Gateway
             name: "{{.Name}}"
             uid: "{{.UID}}"
@@ -10377,7 +10377,7 @@ data:
           name: {{.DeploymentName | quote}}
           namespace: {{.Namespace | quote}}
           ownerReferences:
-          - apiVersion: gateway.networking.k8s.io/v1
+          - apiVersion: gateway.networking.k8s.io/v1beta1
             kind: Gateway
             name: "{{.Name}}"
             uid: "{{.UID}}"
@@ -10427,7 +10427,7 @@ data:
                 "istio.io/gateway-name" .Name
               ) | nindent 4 }}
           ownerReferences:
-          - apiVersion: gateway.networking.k8s.io/v1
+          - apiVersion: gateway.networking.k8s.io/v1beta1
             kind: Gateway
             name: {{.Name}}
             uid: "{{.UID}}"
@@ -10728,7 +10728,7 @@ data:
           name: {{.DeploymentName | quote}}
           namespace: {{.Namespace | quote}}
           ownerReferences:
-          - apiVersion: gateway.networking.k8s.io/v1
+          - apiVersion: gateway.networking.k8s.io/v1beta1
             kind: Gateway
             name: {{.Name}}
             uid: {{.UID}}
