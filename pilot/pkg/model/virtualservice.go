@@ -182,7 +182,7 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 }
 
 // Return merged virtual services and the root->delegate vs map
-func mergeVirtualServicesIfNeeded(
+func sortAndMergeVirtualServicesIfNeeded(
 	vServices []config.Config,
 	defaultExportTo sets.Set[visibility.Instance],
 ) ([]config.Config, map[ConfigKey][]ConfigKey) {
@@ -282,11 +282,11 @@ func mergeVirtualServicesIfNeeded(
 		out = append(out, root)
 	}
 
-	// When delegate VS exists, merging delegate VS and root VS may make their order inconsistent with `vServices`.
-	// Sort again here to ensure the order is consistent with the `vServices` parameter.
-	if len(delegatesByRoot) > 0 {
-		sortConfigByCreationTime(out)
-	}
+	// TODO(rshriram): parse each virtual service and maintain a map of the
+	// virtualservice name, the list of registry hosts in the VS and non
+	// registry DNS names in the VS.  This should cut down processing in
+	// the RDS code. See separateVSHostsAndServices in route/route.go
+	sortConfigByCreationTime(out)
 
 	return out, delegatesByRoot
 }
