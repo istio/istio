@@ -27,7 +27,7 @@ spec:
       options:
         gateway.istio.io/listener-protocol: auto-passthrough
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1alpha2
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
   name: eastwestgateway-grpc
@@ -42,7 +42,7 @@ spec:
     - name: istiod
       port: 15012
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1alpha2
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
   name: eastwestgateway-webhook

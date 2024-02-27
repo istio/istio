@@ -75,7 +75,7 @@ status:
     - group: gateway.networking.k8s.io
       kind: TCPRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1alpha2
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
   creationTimestamp: null
@@ -101,7 +101,7 @@ status:
       namespace: istio-system
       sectionName: my-svc
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1alpha2
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
   creationTimestamp: null

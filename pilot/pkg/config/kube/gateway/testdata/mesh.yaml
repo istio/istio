@@ -139,7 +139,7 @@ spec:
       namespace: apple
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1alpha2
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
   name: tcp
@@ -154,7 +154,7 @@ spec:
         - name: echo
           port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1alpha2
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
   name: tls

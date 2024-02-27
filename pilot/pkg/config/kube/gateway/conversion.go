@@ -763,7 +763,7 @@ func routeMeta(obj config.Config) map[string]string {
 }
 
 // sortHTTPRoutes sorts generated vs routes to meet gateway-api requirements
-// see https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1beta1alpha2.HTTPRouteRule
+// see https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1alpha2.HTTPRouteRule
 func sortHTTPRoutes(routes []*istio.HTTPRoute) {
 	sort.SliceStable(routes, func(i, j int) bool {
 		if len(routes[i].Match) == 0 {
