@@ -144,7 +144,7 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 
 	configsUpdated := sets.New[model.ConfigKey]()
 	for _, config := range configs {
-		if !pureHTTP && features.EnableHeadlessService {
+		if !pureHTTP {
 			configsUpdated.Insert(model.ConfigKey{Kind: kind.Service, Name: config.Name, Namespace: config.Namespace})
 		} else {
 			// pure HTTP headless services should not need a full push since they do not
