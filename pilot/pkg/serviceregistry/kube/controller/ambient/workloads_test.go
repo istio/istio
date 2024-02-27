@@ -22,6 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	meshapi "istio.io/api/mesh/v1alpha1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
@@ -147,7 +148,7 @@ func TestPodWorkloads(t *testing.T) {
 			PeerAuths := krt.NewStaticCollection(extractType[*securityclient.PeerAuthentication](&inputs))
 			Waypoints := krt.NewStaticCollection(extractType[Waypoint](&inputs))
 			WorkloadServices := krt.NewStaticCollection(extractType[model.ServiceInfo](&inputs))
-			MeshConfig := krt.NewStatic(&MeshConfig{slices.First(extractType[meshconfig.MeshConfig](&inputs))})
+			MeshConfig := krt.NewStatic(&MeshConfig{slices.First(extractType[meshapi.MeshConfig](&inputs))})
 			assert.Equal(t, len(inputs), 0, fmt.Sprintf("some inputs were not consumed: %v", inputs))
 			builder := a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices)
 			wrapper := builder(krt.TestingDummyContext{}, tt.pod)

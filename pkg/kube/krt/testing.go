@@ -19,7 +19,7 @@ func Dump[O any](c Collection[O]) {
 	c.(internalCollection[O]).dump()
 }
 
-type TestingDummyContext struct {}
+type TestingDummyContext struct{}
 
 func (t TestingDummyContext) _internalHandler() {
 }
@@ -31,5 +31,7 @@ func (t TestingDummyContext) name() string {
 	return "testing"
 }
 
-var _ registerDependency = TestingDummyContext{}
-var _ HandlerContext = TestingDummyContext{}
+var (
+	_ registerDependency = TestingDummyContext{}
+	_ HandlerContext     = TestingDummyContext{}
+)

@@ -35,13 +35,16 @@ func (s *staticList[T]) GetKey(k Key[T]) *T {
 	return nil
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) name() string {
 	return "staticList"
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) dump() {
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) augment(a any) any {
 	return a
 }
