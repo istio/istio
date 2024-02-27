@@ -953,6 +953,90 @@ spec:
 			},
 			workloadAgnostic: true,
 		})
+
+		// access is denied when the request header `end-user` is not jason.
+		t.RunTraffic(TrafficTestCase{
+			name: "without headers",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs
+spec:
+  hosts:
+  - {{ .dstSvc }}
+  http:
+  - match:
+    - withoutHeaders:
+        end-user:
+          exact: jason
+    route:
+    - destination:
+        host: {{ .dstSvc }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 403
+  - route:
+    - destination:
+        host: {{ .dstSvc }}
+`,
+			children: []TrafficCall{
+				{
+					name: "end-user is jason",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+								Headers: headers.New().
+									With("end-user", "jason").
+									Build(),
+							},
+							Count: 1,
+							Check: check.Status(http.StatusOK),
+						}
+					}(),
+				},
+				{
+					name: "end-user is not jason",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+								Headers: headers.New().
+									With("end-user", "not-jason").
+									Build(),
+							},
+							Count: 1,
+							Check: check.Status(http.StatusForbidden),
+						}
+					}(),
+				},
+				{
+					name: "do not have end-user header",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+							},
+							Count: 1,
+							Check: check.Status(http.StatusForbidden),
+						}
+					}(),
+				},
+			},
+			workloadAgnostic: true,
+		})
 	}
 }
 
