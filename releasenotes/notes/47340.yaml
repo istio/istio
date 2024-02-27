@@ -5,4 +5,4 @@ issue:
   - 47340
 releaseNotes:
 - |
-  **Fixed** an issue where the local DNS client contained incorrect entries in the name table
+  **Fixed** an issue where the local client contained incorrect entries in the local DNS name table
