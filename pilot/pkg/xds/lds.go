@@ -37,6 +37,7 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.WorkloadEntry,
 		kind.Secret,
 		kind.ProxyConfig,
+		kind.DNSName,
 	),
 	model.SidecarProxy: sets.New[kind.Kind](
 		kind.Gateway,
@@ -44,6 +45,7 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.WorkloadEntry,
 		kind.Secret,
 		kind.ProxyConfig,
+		kind.DNSName,
 	),
 	model.Waypoint: sets.New[kind.Kind](
 		kind.Gateway,
@@ -51,6 +53,7 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.WorkloadEntry,
 		kind.Secret,
 		kind.ProxyConfig,
+		kind.DNSName,
 	),
 }
 
