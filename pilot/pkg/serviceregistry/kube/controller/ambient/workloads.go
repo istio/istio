@@ -49,63 +49,11 @@ func (a *index) WorkloadsCollection(
 	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
 	AllPolicies krt.Collection[model.WorkloadAuthorization],
 ) krt.Collection[model.WorkloadInfo] {
-	PodWorkloads := krt.NewCollection(Pods, func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
-		if !IsPodRunning(p) || p.Spec.HostNetwork {
-			return nil
-		}
-		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
-		// We need to filter from the policies that are present, which apply to us.
-		// We only want label selector ones; global ones are not attached to the final WorkloadInfo
-		// In general we just take all of the policies
-		basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(p.Labels), krt.FilterGeneric(func(a any) bool {
-			return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
-		}))
-		policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {
-			return t.ResourceName()
-		}))
-		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
-		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
-		policies = append(policies, a.convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
-		var waypoints []Waypoint
-		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-			// Waypoints do not have waypoints, but anything else does
-			waypoints = fetchWaypoints(ctx, Waypoints, p.Namespace, p.Spec.ServiceAccountName)
-		}
-		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
-		if !features.EnableServiceEntrySelectPods {
-			fo = append(fo, krt.FilterGeneric(func(a any) bool {
-				return a.(model.ServiceInfo).Source == kind.Service
-			}))
-		}
-		services := krt.Fetch(ctx, WorkloadServices, fo...)
-		status := workloadapi.WorkloadStatus_HEALTHY
-		if !IsPodReady(p) {
-			status = workloadapi.WorkloadStatus_UNHEALTHY
-		}
-		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		network := a.Network(p.Status.PodIP, p.Labels).String()
-		w := &workloadapi.Workload{
-			Uid:                   a.generatePodUID(p),
-			Name:                  p.Name,
-			Namespace:             p.Namespace,
-			Network:               network,
-			ClusterId:             string(a.ClusterID),
-			Addresses:             [][]byte{netip.MustParseAddr(p.Status.PodIP).AsSlice()},
-			ServiceAccount:        p.Spec.ServiceAccountName,
-			Node:                  p.Spec.NodeName,
-			Services:              a.constructServices(p, services),
-			AuthorizationPolicies: policies,
-			Status:                status,
-			Waypoint:              a.pickWaypoint(waypoints),
-			TrustDomain:           pickTrustDomain(),
-		}
-
-		w.WorkloadName, w.WorkloadType = workloadNameAndType(p)
-		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
-
-		setTunnelProtocol(p.Labels, p.Annotations, w)
-		return &model.WorkloadInfo{Workload: w, Labels: p.Labels, Source: kind.Pod}
-	}, krt.WithName("PodWorkloads"))
+	PodWorkloads := krt.NewCollection(
+		Pods,
+		a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices),
+		krt.WithName("PodWorkloads"),
+	)
 	WorkloadEntryWorkloads := krt.NewCollection(WorkloadEntries, func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
 		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
 		// We need to filter from the policies that are present, which apply to us.
@@ -119,7 +67,7 @@ func (a *index) WorkloadsCollection(
 		}))
 		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
 		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
-		policies = append(policies, a.convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
 		var waypoints []Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			waypoints = fetchWaypoints(ctx, Waypoints, p.Namespace, p.Spec.ServiceAccount)
@@ -186,7 +134,7 @@ func (a *index) WorkloadsCollection(
 			}))
 			// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
 			auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, se.Namespace, p.Labels)
-			policies = append(policies, a.convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+			policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
 			var waypoints []Waypoint
 			if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 				// Waypoints do not have waypoints, but anything else does
@@ -227,6 +175,72 @@ func (a *index) WorkloadsCollection(
 	}, krt.WithName("ServiceEntryWorkloads"))
 	Workloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{PodWorkloads, WorkloadEntryWorkloads, ServiceEntryWorkloads}, krt.WithName("Workloads"))
 	return Workloads
+}
+
+func (a *index) podWorkloadBuilder(
+	MeshConfig krt.Singleton[MeshConfig],
+	AuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
+	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
+	Waypoints krt.Collection[Waypoint],
+	WorkloadServices krt.Collection[model.ServiceInfo],
+) func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
+	return func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
+		if !IsPodRunning(p) || p.Spec.HostNetwork {
+			return nil
+		}
+		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
+		// We need to filter from the policies that are present, which apply to us.
+		// We only want label selector ones; global ones are not attached to the final WorkloadInfo
+		// In general we just take all of the policies
+		basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(p.Labels), krt.FilterGeneric(func(a any) bool {
+			return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
+		}))
+		policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {
+			return t.ResourceName()
+		}))
+		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
+		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
+		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+		var waypoints []Waypoint
+		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
+			// Waypoints do not have waypoints, but anything else does
+			waypoints = fetchWaypoints(ctx, Waypoints, p.Namespace, p.Spec.ServiceAccountName)
+		}
+		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
+		if !features.EnableServiceEntrySelectPods {
+			fo = append(fo, krt.FilterGeneric(func(a any) bool {
+				return a.(model.ServiceInfo).Source == kind.Service
+			}))
+		}
+		services := krt.Fetch(ctx, WorkloadServices, fo...)
+		status := workloadapi.WorkloadStatus_HEALTHY
+		if !IsPodReady(p) {
+			status = workloadapi.WorkloadStatus_UNHEALTHY
+		}
+		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
+		network := a.Network(p.Status.PodIP, p.Labels).String()
+		w := &workloadapi.Workload{
+			Uid:                   a.generatePodUID(p),
+			Name:                  p.Name,
+			Namespace:             p.Namespace,
+			Network:               network,
+			ClusterId:             string(a.ClusterID),
+			Addresses:             [][]byte{netip.MustParseAddr(p.Status.PodIP).AsSlice()},
+			ServiceAccount:        p.Spec.ServiceAccountName,
+			Node:                  p.Spec.NodeName,
+			Services:              constructServices(p, services),
+			AuthorizationPolicies: policies,
+			Status:                status,
+			Waypoint:              a.pickWaypoint(waypoints),
+			TrustDomain:           pickTrustDomain(),
+		}
+
+		w.WorkloadName, w.WorkloadType = workloadNameAndType(p)
+		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
+
+		setTunnelProtocol(p.Labels, p.Annotations, w)
+		return &model.WorkloadInfo{Workload: w, Labels: p.Labels, Source: kind.Pod}
+	}
 }
 
 func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Workload) {
@@ -344,7 +358,7 @@ func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
 	}
 }
 
-func (a *index) constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*workloadapi.PortList {
+func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*workloadapi.PortList {
 	res := map[string]*workloadapi.PortList{}
 	for _, svc := range services {
 		n := namespacedHostname(svc.Namespace, svc.Hostname)

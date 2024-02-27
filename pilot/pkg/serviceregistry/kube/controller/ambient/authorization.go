@@ -60,7 +60,7 @@ func (a *index) Policies(requested sets.Set[model.ConfigKey]) []model.WorkloadAu
 
 // convertedSelectorPeerAuthentications returns a list of keys corresponding to one or both of:
 // [static STRICT policy, port-level STRICT policy] based on the effective PeerAuthentication policy
-func (a *index) convertedSelectorPeerAuthentications(rootNamespace string, configs []*securityclient.PeerAuthentication) []string {
+func convertedSelectorPeerAuthentications(rootNamespace string, configs []*securityclient.PeerAuthentication) []string {
 	var meshCfg, namespaceCfg, workloadCfg *securityclient.PeerAuthentication
 	for _, cfg := range configs {
 		spec := &cfg.Spec
@@ -106,7 +106,7 @@ func (a *index) convertedSelectorPeerAuthentications(rootNamespace string, confi
 	}
 
 	if workloadCfg == nil {
-		return a.effectivePeerAuthenticationKeys(rootNamespace, isEffectiveStrictPolicy, "")
+		return effectivePeerAuthenticationKeys(rootNamespace, isEffectiveStrictPolicy, "")
 	}
 
 	workloadSpec := &workloadCfg.Spec
@@ -200,10 +200,10 @@ func (a *index) convertedSelectorPeerAuthentications(rootNamespace string, confi
 		}
 	}
 
-	return a.effectivePeerAuthenticationKeys(rootNamespace, isEffectiveStrictPolicy, effectivePortLevelPolicyKey)
+	return effectivePeerAuthenticationKeys(rootNamespace, isEffectiveStrictPolicy, effectivePortLevelPolicyKey)
 }
 
-func (a *index) effectivePeerAuthenticationKeys(rootNamespace string, isEffectiveStringPolicy bool, effectiveWorkloadPolicyKey string) []string {
+func effectivePeerAuthenticationKeys(rootNamespace string, isEffectiveStringPolicy bool, effectiveWorkloadPolicyKey string) []string {
 	res := sets.New[string]()
 
 	if isEffectiveStringPolicy {

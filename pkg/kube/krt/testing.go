@@ -18,3 +18,18 @@ package krt
 func Dump[O any](c Collection[O]) {
 	c.(internalCollection[O]).dump()
 }
+
+type TestingDummyContext struct {}
+
+func (t TestingDummyContext) _internalHandler() {
+}
+
+func (t TestingDummyContext) registerDependency(d dependency) {
+}
+
+func (t TestingDummyContext) name() string {
+	return "testing"
+}
+
+var _ registerDependency = TestingDummyContext{}
+var _ HandlerContext = TestingDummyContext{}
