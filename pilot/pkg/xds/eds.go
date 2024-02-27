@@ -108,7 +108,7 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 		return true
 	}
 	for config := range updates {
-		if _, f := skippedEdsConfigs[config.Kind]; !f {
+		if !skippedEdsConfigs.Contains(config.Kind) {
 			return true
 		}
 	}
@@ -153,7 +153,7 @@ func canSendPartialFullPushes(req *model.PushRequest) bool {
 		return false
 	}
 	for cfg := range req.ConfigsUpdated {
-		if _, f := skippedEdsConfigs[cfg.Kind]; f {
+		if skippedEdsConfigs.Contains(cfg.Kind) {
 			// the updated config does not impact EDS, skip it
 			// this happens when push requests are merged due to debounce
 			continue
