@@ -327,6 +327,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(Equal(1))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSafeRegex().GetRegex()).To(Equal("BAR .+?\\..+?\\..+?"))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(Equal(true))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetTreatMissingHeaderAsEmpty()).To(Equal(true))
 	})
 
 	t.Run("for virtual service with presence matching on header", func(t *testing.T) {
