@@ -145,7 +145,7 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	configsUpdated := sets.New[model.ConfigKey]()
 	for _, config := range configs {
 		if !pureHTTP {
-			configsUpdated.Insert(model.ConfigKey{Kind: kind.Service, Name: config.Name, Namespace: config.Namespace})
+			configsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: config.Name, Namespace: config.Namespace})
 		} else {
 			// pure HTTP headless services should not need a full push since they do not
 			// require a Listener based on IP: https://github.com/istio/istio/issues/48207
