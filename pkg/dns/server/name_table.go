@@ -38,11 +38,6 @@ type Config struct {
 // be used by the agent to resolve DNS. This logic is always active. However, local DNS resolution
 // will only be effective if DNS capture is enabled in the proxy
 func BuildNameTable(cfg Config) *dnsProto.NameTable {
-	if cfg.Node.Type != model.SidecarProxy {
-		// DNS resolution is only for sidecars
-		return nil
-	}
-
 	out := &dnsProto.NameTable{
 		Table: make(map[string]*dnsProto.NameTable_NameInfo),
 	}

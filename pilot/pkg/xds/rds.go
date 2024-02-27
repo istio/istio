@@ -38,6 +38,7 @@ var skippedRdsConfigs = sets.New[kind.Kind](
 	kind.WasmPlugin,
 	kind.Telemetry,
 	kind.ProxyConfig,
+	kind.DNSName,
 )
 
 func rdsNeedsPush(req *model.PushRequest) bool {
