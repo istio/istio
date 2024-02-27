@@ -2895,12 +2895,14 @@ func TestServiceWithExportTo(t *testing.T) {
 	}
 }
 
-func TestInitServiceRegistry(t *testing.T) {
+func TestInstancesByPort(t *testing.T) {
 	ps := NewPushContext()
 	env := NewEnvironment()
 	env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
 	ps.Mesh = env.Mesh()
 
+	// Test the Service Entry merge with same host with different generates
+	// correct instances by port.
 	svc5_1 := &Service{
 		Hostname: "svc5",
 		Attributes: ServiceAttributes{
@@ -2913,7 +2915,6 @@ func TestInitServiceRegistry(t *testing.T) {
 		Ports:      port7000,
 		Resolution: DNSLB,
 	}
-	// kubernetes service will override non kubernetes
 	svc5_2 := &Service{
 		Hostname: "svc5",
 		Attributes: ServiceAttributes{
