@@ -40,6 +40,7 @@ import (
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
