@@ -28,7 +28,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/util/assert"
@@ -46,12 +45,9 @@ func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
 
 func TestNewKubeJWTAuthenticator(t *testing.T) {
 	meshHolder := mockMeshConfigHolder{"testdomain.com"}
-	jwtPolicy := jwt.PolicyThirdParty
-
-	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, "kubernetes", nil, jwtPolicy)
+	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, "kubernetes", nil)
 	expectedAuthenticator := &KubeJWTAuthenticator{
 		meshHolder: meshHolder,
-		jwtPolicy:  jwtPolicy,
 		clusterID:  "kubernetes",
 	}
 	if !reflect.DeepEqual(authenticator, expectedAuthenticator) {
@@ -71,7 +67,6 @@ func TestAuthenticate(t *testing.T) {
 		remoteCluster  bool
 		metadata       metadata.MD
 		token          string
-		jwtPolicy      string
 		expectedID     string
 		expectedErrMsg string
 	}{
@@ -92,7 +87,6 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			jwtPolicy:      jwt.PolicyFirstParty,
 			expectedErrMsg: `failed to validate the JWT from cluster "Kubernetes": the token is not authenticated`,
 		},
 		"token authenticated": {
@@ -103,7 +97,6 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			jwtPolicy:      jwt.PolicyFirstParty,
 			expectedID:     spiffe.MustGenSpiffeURI("default", "example-pod-sa"),
 			expectedErrMsg: "",
 		},
@@ -116,7 +109,6 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			jwtPolicy:      jwt.PolicyFirstParty,
 			expectedErrMsg: "could not get cluster non-exist's kube client",
 		},
 	}
@@ -136,9 +128,6 @@ func TestAuthenticate(t *testing.T) {
 				Spec: k8sauth.TokenReviewSpec{
 					Token: tc.token,
 				},
-			}
-			if tc.jwtPolicy == jwt.PolicyThirdParty {
-				tokenReview.Spec.Audiences = security.TokenAudiences
 			}
 
 			tokenReview.Status.Audiences = []string{}
@@ -169,7 +158,7 @@ func TestAuthenticate(t *testing.T) {
 				return nil
 			}
 
-			authenticator := NewKubeJWTAuthenticator(meshHolder, client, "Kubernetes", remoteKubeClientGetter, tc.jwtPolicy)
+			authenticator := NewKubeJWTAuthenticator(meshHolder, client, "Kubernetes", remoteKubeClientGetter)
 			actualCaller, err := authenticator.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tc.expectedErrMsg) > 0 {
 				if err == nil {

@@ -23,7 +23,6 @@
     "istiod": {
       "enableAnalysis": false
     },
-    "jwtPolicy": "third-party-jwt",
     "logAsJson": false,
     "logging": {
       "level": "default:info"

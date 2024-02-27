@@ -81,8 +81,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        - name: JWT_POLICY
-          value: <no value>
         - name: PILOT_CERT_PROVIDER
           value: <no value>
         - name: CA_ADDR

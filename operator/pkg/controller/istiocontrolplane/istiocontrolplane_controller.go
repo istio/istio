@@ -58,7 +58,6 @@ import (
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
 )
@@ -333,20 +332,6 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	val := iopMerged.Spec.Values.AsMap()
 	if _, ok := val["global"]; !ok {
 		val["global"] = make(map[string]any)
-	}
-	globalValues := val["global"].(map[string]any)
-	scope.Info("Detecting third-party JWT support")
-	var jwtPolicy util.JWTPolicy
-	if jwtPolicy, err = util.DetectSupportedJWTPolicy(r.kubeClient.Kube()); err != nil {
-		// TODO(howardjohn): add to dictionary. When resolved, replace this sentence with Done or WontFix - if WontFix, add reason.
-		scope.Warnf("Failed to detect third-party JWT support: %v", err)
-	} else {
-		if jwtPolicy == util.FirstPartyJWT {
-			scope.Info("Detected that your cluster does not support third party JWT authentication. " +
-				"Falling back to less secure first party JWT. " +
-				"See " + url.ConfigureSAToken + " for details.")
-		}
-		globalValues["jwtPolicy"] = string(jwtPolicy)
 	}
 	err = util.ValidateIOPCAConfig(r.kubeClient, iopMerged)
 	if err != nil {

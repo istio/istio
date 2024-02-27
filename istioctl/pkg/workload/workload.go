@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/istioctl/pkg/completion"
 	istioctlutil "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -50,7 +49,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/url"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/shellescape"
@@ -400,29 +398,6 @@ func createCertsTokens(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGro
 
 	serviceAccount := wg.Spec.Template.ServiceAccount
 	tokenPath := filepath.Join(dir, "istio-token")
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(kubeClient.Kube())
-	if err != nil {
-		fmt.Fprintf(out, "Failed to determine JWT policy support: %v", err)
-	}
-	if jwtPolicy == util.FirstPartyJWT {
-		fmt.Fprintf(out, "Warning: cluster does not support third party JWT authentication. "+
-			"Falling back to less secure first party JWT. "+
-			"See "+url.ConfigureSAToken+" for details."+"\n")
-		sa, err := kubeClient.Kube().CoreV1().ServiceAccounts(wg.Namespace).Get(context.TODO(), serviceAccount, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		secret, err := kubeClient.Kube().CoreV1().Secrets(wg.Namespace).Get(context.TODO(), sa.Secrets[0].Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(tokenPath, secret.Data["token"], filePerms); err != nil {
-			return err
-		}
-		fmt.Fprintf(out, "Warning: a security token for namespace %q and service account %q has been generated "+
-			"and stored at %q\n", wg.Namespace, serviceAccount, tokenPath)
-		return nil
-	}
 	token := &authenticationv1.TokenRequest{
 		// ObjectMeta isn't required in real k8s, but needed for tests
 		ObjectMeta: metav1.ObjectMeta{

@@ -236,10 +236,6 @@ defaults:
     # Used to locate istiod.
     istioNamespace: istio-system
 
-    # Configure the policy for validating JWT.
-    # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
-    jwtPolicy: "third-party-jwt"
-
     # Mesh ID means Mesh Identifier. It should be unique within the scope where
     # meshes will interact with each other, but it is not required to be
     # globally/universally unique. For example, if any of the following are true,
