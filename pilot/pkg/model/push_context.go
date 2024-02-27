@@ -1675,18 +1675,12 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 
 	totalVirtualServices.Record(float64(len(virtualServices)))
 
-	// TODO(rshriram): parse each virtual service and maintain a map of the
-	// virtualservice name, the list of registry hosts in the VS and non
-	// registry DNS names in the VS.  This should cut down processing in
-	// the RDS code. See separateVSHostsAndServices in route/route.go
-	sortConfigByCreationTime(vservices)
-
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
 		resolveVirtualServiceShortnames(r.Spec.(*networking.VirtualService), r.Meta)
 	}
 
-	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
+	vservices, ps.virtualServiceIndex.delegates = sortAndMergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
