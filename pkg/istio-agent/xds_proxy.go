@@ -696,7 +696,17 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 	defer p.tapMutex.Unlock()
 
 	// Send to Istiod
-	connection.sendRequest(req)
+	if connection.deltaRequestsChan != nil {
+		// Need to tap into Delta. Our Tap mechanism is not aware of whether we are tapping into SotW or Delta; we always get SotW
+		// Convert SotW to Delta.
+		connection.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+			Node:                   req.Node,
+			TypeUrl:                req.TypeUrl,
+			ResourceNamesSubscribe: req.ResourceNames,
+		})
+	} else {
+		connection.sendRequest(req)
+	}
 
 	delay := time.NewTimer(timeout)
 	defer delay.Stop()

@@ -17,6 +17,7 @@ package istioagent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -33,6 +34,8 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/istio-agent/metrics"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/wasm"
 )
 
@@ -259,7 +262,11 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 					forwardDeltaToEnvoy(con, resp)
 				}
 			default:
-				forwardDeltaToEnvoy(con, resp)
+				if strings.HasPrefix(resp.TypeUrl, v3.DebugType) {
+					p.forwardDeltaToTap(resp)
+				} else {
+					forwardDeltaToEnvoy(con, resp)
+				}
 			}
 		case resp := <-forwardEnvoyCh:
 			forwardDeltaToEnvoy(con, resp)
@@ -332,4 +339,20 @@ func (p *XdsProxy) sendDeltaHealthRequest(req *discovery.DeltaDiscoveryRequest) 
 	// Otherwise place it as our initial request for new connections
 	p.initialDeltaHealthRequest = req
 	p.connectedMutex.Unlock()
+}
+
+func (p *XdsProxy) forwardDeltaToTap(resp *discovery.DeltaDiscoveryResponse) {
+	select {
+	// Convert back to a SotW response
+	case p.tapResponseChannel <- &discovery.DiscoveryResponse{
+		VersionInfo:  resp.SystemVersionInfo,
+		Resources:    slices.Map(resp.Resources, (*discovery.Resource).GetResource),
+		Canary:       false,
+		TypeUrl:      resp.TypeUrl,
+		Nonce:        resp.Nonce,
+		ControlPlane: resp.ControlPlane,
+	}:
+	default:
+		log.Infof("tap response %q arrived too late; discarding", resp.TypeUrl)
+	}
 }
