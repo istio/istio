@@ -41,12 +41,12 @@ func TestDNS(t *testing.T) {
 	testDNS(t, d)
 }
 
-func TestBuildAltHosts(t *testing.T) {
+func TestBuildAlternateHosts(t *testing.T) {
 	d := initDNS(t, false)
-	testBuildAltHosts(t, d)
+	testBuildAlternateHosts(t, d)
 }
 
-func testBuildAltHosts(t *testing.T, d *LocalDNSServer) {
+func testBuildAlternateHosts(t *testing.T, d *LocalDNSServer) {
 	testCases := []struct {
 		startsWith string
 		expected   sets.Set[string]
