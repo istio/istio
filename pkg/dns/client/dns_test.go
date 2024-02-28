@@ -24,9 +24,11 @@ import (
 
 	"github.com/miekg/dns"
 	"go.uber.org/atomic"
+	"google.golang.org/protobuf/proto"
 
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestDNSForwardParallel(t *testing.T) {
@@ -37,6 +39,60 @@ func TestDNSForwardParallel(t *testing.T) {
 func TestDNS(t *testing.T) {
 	d := initDNS(t, false)
 	testDNS(t, d)
+}
+
+func TestBuildAltHosts(t *testing.T) {
+	d := initDNS(t, false)
+	testBuildAltHosts(t, d)
+}
+
+func testBuildAltHosts(t *testing.T, d *LocalDNSServer) {
+	testCases := []struct {
+		startsWith string
+		expected   sets.Set[string]
+	}{
+		{
+			startsWith: "productpage",
+			expected: sets.New(
+				"productpage.ns1.svc.cluster.local.", "productpage.", "productpage.ns1.svc.cluster.local", "productpage.ns1.", "productpage.ns1.svc.",
+			),
+		},
+		{
+			startsWith: "www.google.com",
+			expected:   sets.New("www.google.com."),
+		},
+	}
+
+	nt := d.NameTable()
+	nt = proto.Clone(nt).(*dnsProto.NameTable)
+	d.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, _ []string) {
+		for host := range althosts {
+			if _, exists := nt.Table[host]; !exists {
+				addresses := make([]string, 0, len(ipv4)+len(ipv6))
+				for _, addr := range ipv4 {
+					addresses = append(addresses, addr.String())
+				}
+				for _, addr := range ipv6 {
+					addresses = append(addresses, addr.String())
+				}
+				nt.Table[host] = &dnsProto.NameTable_NameInfo{
+					Ips:      addresses,
+					Registry: "Kubernetes",
+				}
+			}
+		}
+	})
+	for _, tc := range testCases {
+		matched := sets.New[string]()
+		for key := range nt.Table {
+			if strings.HasPrefix(key, tc.startsWith) {
+				matched.Insert(key)
+			}
+		}
+		if !matched.Equals(tc.expected) {
+			t.Errorf("expected records %v, got: %v", tc.expected, matched)
+		}
+	}
 }
 
 func testDNS(t *testing.T, d *LocalDNSServer) {
