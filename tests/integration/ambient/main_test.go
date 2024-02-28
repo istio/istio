@@ -55,17 +55,26 @@ var (
 
 type EchoDeployments struct {
 	// Namespace echo apps will be deployed
-	Namespace         namespace.Instance
-	Waypoint          echo.Instances
-	Captured          echo.Instances
-	Uncaptured        echo.Instances
-	SidecarWaypoint   echo.Instances
-	SidecarCaptured   echo.Instances
+	Namespace namespace.Instance
+	// Traffic-captured echo services configured with L7 waypoint proxies
+	Waypoint echo.Instances
+	// Traffic-captured echo services
+	Captured echo.Instances
+	// Uncaptured echo services
+	Uncaptured echo.Instances
+	// Traffic-captured echo services with an injected sidecar and waypoint
+	SidecarWaypoint echo.Instances
+	// Traffic-captured echo services with an injected sidecar
+	SidecarCaptured echo.Instances
+	// Uncaptured echo services with an injected sidecar
 	SidecarUncaptured echo.Instances
-	All               echo.Instances
-	Mesh              echo.Instances
-	MeshExternal      echo.Instances
-
+	// All echo services
+	All echo.Instances
+	// Echo services that are in the mesh
+	Mesh echo.Instances
+	// Echo services that are not in mesh
+	MeshExternal echo.Instances
+	// Waypoint proxy for the echo service with waypoint
 	WaypointProxy ambient.WaypointProxy
 }
 
