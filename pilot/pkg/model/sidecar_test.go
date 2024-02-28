@@ -3250,3 +3250,7 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 		})
 	}
 }
+
+// TODO Add tests for AppendSidecarServices
+func TestAppendSidecarServices(t *testing.T) {
+}
