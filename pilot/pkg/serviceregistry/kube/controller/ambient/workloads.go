@@ -335,14 +335,31 @@ func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, ser
 		res[n] = pl
 		for _, port := range svc.Ports {
 			targetPort := port.TargetPort
-			if named, f := svc.PortNames[int32(port.ServicePort)]; f && named.TargetPortName != "" {
-				// get port name or target port
-				tv, ok := p.Ports[named.TargetPortName]
-				if !ok {
-					// We needed an explicit port, but didn't find one - skip this port
-					continue
+			// Named targetPort has different semantics from Service vs ServiceEntry
+			if svc.Source == kind.Service {
+				// Service has explicit named targetPorts.
+				if named, f := svc.PortNames[int32(port.ServicePort)]; f && named.TargetPortName != "" {
+					// This port is a named target port, look it up
+					tv, ok := p.Ports[named.TargetPortName]
+					if !ok {
+						// We needed an explicit port, but didn't find one - skip this port
+						continue
+					}
+					targetPort = tv
 				}
-				targetPort = tv
+			} else {
+				// ServiceEntry has no explicit named targetPorts; targetPort only allows a number
+				// Instead, there is name matching between the port names
+				if named, f := svc.PortNames[int32(port.ServicePort)]; f {
+					// get port name or target port
+					tv, ok := p.Ports[named.PortName]
+					if ok {
+						// if we match one, override it. Otherwise, use the service port
+						targetPort = tv
+					} else if targetPort == 0 {
+						targetPort = port.ServicePort
+					}
+				}
 			}
 			pl.Ports = append(pl.Ports, &workloadapi.Port{
 				ServicePort: port.ServicePort,
