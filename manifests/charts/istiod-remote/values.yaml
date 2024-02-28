@@ -294,9 +294,9 @@ defaults:
           memory: 1024Mi
       # Default port for Pilot agent health checks. A value of 0 will disable health checking.
       statusPort: 15020
-      # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
+      # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver, none.
       # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
-      tracer: "zipkin"
+      tracer: "none"
     proxy_init:
       # Base name for the proxy_init container, used to configure iptables.
       image: proxyv2

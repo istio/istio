@@ -72,7 +72,7 @@
         "failureThreshold": 600
       },
       "statusPort": 123,
-      "tracer": "zipkin"
+      "tracer": "none"
     },
     "proxy_init": {
       "image": "proxyv2"

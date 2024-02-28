@@ -4,3 +4,8 @@ pilot:
     PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING: "true"
     VERIFY_CERTIFICATE_AT_CLIENT: "false"
     ENABLE_AUTO_SNI: "false"
+meshConfig:
+  defaultConfig:
+    tracing:
+      zipkin:
+        address: zipkin.istio-system:9411
