@@ -46,7 +46,6 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/kube/namespace"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
@@ -139,18 +138,8 @@ type Options struct {
 	// SyncTimeout, if set, causes HasSynced to be returned when timeout.
 	SyncTimeout time.Duration
 
-	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
-	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
-
 	ConfigController model.ConfigStoreController
 	ConfigCluster    bool
-}
-
-func (o *Options) GetFilter() namespace.DiscoveryFilter {
-	if o.DiscoveryNamespacesFilter != nil {
-		return o.DiscoveryNamespacesFilter.Filter
-	}
-	return nil
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -248,7 +237,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 	c.networkManager = initNetworkManager(c, options)
 
-	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
+	c.namespaces = kclient.NewFiltered[*v1.Namespace](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
 
 	if c.opts.SystemNamespace != "" {
 		registerHandlers[*v1.Namespace](
@@ -265,14 +254,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		)
 	}
 
-	// always init for each cluster, otherwise different ns labels in different cluster may not take effect,
-	// but we skip it for configCluster which has been initiated before
-	if !c.opts.ConfigCluster || c.opts.DiscoveryNamespacesFilter == nil {
-		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
-	}
-	c.initDiscoveryHandlers(c.opts.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
-
-	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
+	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
 
 	registerHandlers[*v1.Service](c, c.services, "Services", c.onServiceEvent, nil)
 
@@ -283,7 +265,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	registerHandlers[*v1.Node](c, c.nodes, "Nodes", c.onNodeEvent, nil)
 
 	c.podsClient = kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
-		ObjectFilter:    c.opts.DiscoveryNamespacesFilter.Filter,
+		ObjectFilter:    kubeClient.ObjectFilter(),
 		ObjectTransform: kubelib.StripPodUnusedFields,
 	})
 	c.pods = newPodCache(c, c.podsClient, func(key types.NamespacedName) {

@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/multicluster"
-	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
@@ -35,21 +34,18 @@ import (
 // one per cluster (https://docs.google.com/document/d/10uf4EvUVif4xGeCYQydaKh9Yaz9wpysao7gyLewJY2Q).
 // Node authorizations from one cluster will be forwarded to the ClusterNodeAuthenticators for the same cluster.
 type MulticlusterNodeAuthorizor struct {
-	filter              namespace.DiscoveryFilter
 	trustedNodeAccounts sets.Set[types.NamespacedName]
 	component           *multicluster.Component[*ClusterNodeAuthorizer]
 }
 
 func NewMulticlusterNodeAuthenticator(
-	filter namespace.DiscoveryFilter,
 	trustedNodeAccounts sets.Set[types.NamespacedName],
 	controller multicluster.ComponentBuilder,
 ) *MulticlusterNodeAuthorizor {
 	m := &MulticlusterNodeAuthorizor{
-		filter:              filter,
 		trustedNodeAccounts: trustedNodeAccounts,
 		component: multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster) *ClusterNodeAuthorizer {
-			return NewClusterNodeAuthorizer(cluster.Client, filter, trustedNodeAccounts)
+			return NewClusterNodeAuthorizer(cluster.Client, trustedNodeAccounts)
 		}),
 	}
 	return m
@@ -75,11 +71,9 @@ type ClusterNodeAuthorizer struct {
 	nodeIndex           *kclient.Index[SaNode, *v1.Pod]
 }
 
-func NewClusterNodeAuthorizer(client kube.Client, filter namespace.DiscoveryFilter,
-	trustedNodeAccounts sets.Set[types.NamespacedName],
-) *ClusterNodeAuthorizer {
+func NewClusterNodeAuthorizer(client kube.Client, trustedNodeAccounts sets.Set[types.NamespacedName]) *ClusterNodeAuthorizer {
 	pods := kclient.NewFiltered[*v1.Pod](client, kclient.Filter{
-		ObjectFilter:    filter,
+		ObjectFilter:    client.ObjectFilter(),
 		ObjectTransform: kube.StripPodUnusedFields,
 	})
 	// Add an Index on the pods, storing the service account and node. This allows us to later efficiently query.

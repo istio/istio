@@ -225,6 +225,7 @@ func (fx *Updater) Clear() {
 
 // AssertEmpty ensures there are no events in the channel
 func (fx *Updater) AssertEmpty(t test.Failer, dur time.Duration) {
+	t.Helper()
 	if dur == 0 {
 		select {
 		case e := <-fx.Events:

@@ -49,7 +49,7 @@ var (
 )
 
 func newEndpointSliceController(c *Controller) *endpointSliceController {
-	slices := kclient.NewFiltered[*v1.EndpointSlice](c.client, kclient.Filter{ObjectFilter: c.opts.GetFilter()})
+	slices := kclient.NewFiltered[*v1.EndpointSlice](c.client, kclient.Filter{ObjectFilter: c.client.ObjectFilter()})
 	out := &endpointSliceController{
 		c:             c,
 		slices:        slices,
@@ -79,17 +79,6 @@ func (esc *endpointSliceController) initializeNamespace(ns string, filtered bool
 	log.Debugf("initializing %d endpointslices", len(endpoints))
 	for _, s := range endpoints {
 		err = multierror.Append(err, esc.onEvent(nil, s, model.EventAdd))
-	}
-	return err.ErrorOrNil()
-}
-
-// deleteEndpoints deletes endpoints for a given namespace.
-func (esc *endpointSliceController) deleteEndpoints(ns string) error {
-	var err *multierror.Error
-	endpoints := esc.slices.ListUnfiltered(ns, klabels.Everything())
-	log.Debugf("deleting %d endpointslices", len(endpoints))
-	for _, s := range endpoints {
-		err = multierror.Append(err, esc.onEvent(nil, s, model.EventDelete))
 	}
 	return err.ErrorOrNil()
 }
