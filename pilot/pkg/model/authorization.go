@@ -103,7 +103,7 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 }
 
 func updateAuthorizationPoliciesResult(configs AuthorizationPoliciesResult, config AuthorizationPolicy) AuthorizationPoliciesResult {
-	log.Infof("applying authorization policy %s.%s",
+	log.Debugf("applying authorization policy %s.%s",
 		config.Namespace, config.Name)
 	switch config.Spec.GetAction() {
 	case authpb.AuthorizationPolicy_ALLOW:
