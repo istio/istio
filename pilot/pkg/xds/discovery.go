@@ -294,7 +294,15 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
-	if len(model.ConfigsOfKind(req.ConfigsUpdated, kind.Address)) > 0 {
+	if features.EnableUnsafeAssertions {
+		// This operation is really slow, which makes tests fail for unrelated reasons, so we process it async.
+		go func() {
+			if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Service) {
+				panic("assertion failed kind.Service can not be set in ConfigKey")
+			}
+		}()
+	}
+	if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
 		// This is a bit like clearing EDS cache on EndpointShard update. Because Address
 		// types are fetched dynamically, they are not part of the same protections, so we need to clear
 		// the cache.
