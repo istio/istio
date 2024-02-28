@@ -1,5 +1,6 @@
 pilot:
   env:
+    # 1.22 behavioral changes
     ENABLE_RESOLUTION_NONE_TARGET_PORT: "false"
 meshConfig:
   defaultConfig:
