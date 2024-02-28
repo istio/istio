@@ -1014,7 +1014,10 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest, useE
 		} else {
 			matcher := translateHeaderMatch(name, stringMatch)
 			matcher.InvertMatch = true
-			matcher.TreatMissingHeaderAsEmpty = true
+			// treat_missing_header_as_empty conflict with present_match
+			if !canBeConvertedToPresentMatch(stringMatch) {
+				matcher.TreatMissingHeaderAsEmpty = true
+			}
 			out.Headers = append(out.Headers, matcher)
 		}
 	}
@@ -1075,7 +1078,7 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 		Name: name,
 	}
 
-	if isCatchAllStringMatch(in) {
+	if canBeConvertedToPresentMatch(in) {
 		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_PresentMatch{
 			PresentMatch: true,
 		}
@@ -1091,9 +1094,9 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 	return out
 }
 
-// isCatchAllStringMatch determines if the given matcher is matched with all strings or not.
-// Currently, if the regex has "*" value, it returns true
-func isCatchAllStringMatch(in *networking.StringMatch) bool {
+// canBeConvertedToPresentMatch determines if the given matcher can be converted to present_match or not.
+// Currently, if the regex is "*" value, it returns true
+func canBeConvertedToPresentMatch(in *networking.StringMatch) bool {
 	if in == nil || in.MatchType == nil {
 		return true
 	}
@@ -1102,6 +1105,9 @@ func isCatchAllStringMatch(in *networking.StringMatch) bool {
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Regex:
+		// `*` is NOT a RE2 style regex, it's a metacharacter.
+		// It will be translated as present_match, rather than matching "any string".
+		// see https://github.com/istio/istio/pull/20629
 		catchall = m.Regex == "*"
 	}
 
@@ -1135,7 +1141,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 		Name: name,
 	}
 
-	if isCatchAllStringMatch(in) {
+	if canBeConvertedToPresentMatch(in) {
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PresentMatch{PresentMatch: true}
 		return out
 	}
