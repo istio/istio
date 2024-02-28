@@ -6,3 +6,4 @@ spec:
     ingressGateways:
       - enabled: true
         namespace: my-namespace
+        name: istio-ingressgateway
