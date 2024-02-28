@@ -52,14 +52,34 @@ func testBuildAltHosts(t *testing.T, d *LocalDNSServer) {
 		expected   sets.Set[string]
 	}{
 		{
+			startsWith: "www.google.com",
+			expected:   sets.New("www.google.com", "www.google.com."),
+		},
+		{
+			startsWith: "example",
+			expected:   sets.New("example.ns2.", "example.ns2.svc.", "example.localhost.", "example.ns2.svc.cluster.local.", "example.ns2.svc.cluster.local"),
+		},
+		{
+			startsWith: "details",
+			expected:   sets.New("details.ns2.svc.cluster.remote", "details.ns2.svc.cluster.remote."),
+		},
+		{
 			startsWith: "productpage",
 			expected: sets.New(
 				"productpage.ns1.svc.cluster.local.", "productpage.", "productpage.ns1.svc.cluster.local", "productpage.ns1.", "productpage.ns1.svc.",
 			),
 		},
 		{
-			startsWith: "www.google.com",
-			expected:   sets.New("www.google.com."),
+			startsWith: "svc-with-alt",
+			expected:   sets.New("svc-with-alt.", "svc-with-alt.ns1.svc.", "svc-with-alt.ns1.", "svc-with-alt.ns1.svc.clusterset.local.", "svc-with-alt.ns1.svc.cluster.local.", "svc-with-alt.ns1.svc.cluster.local"),
+		},
+		{
+			startsWith: "*.wildcard",
+			expected:   sets.New("*.wildcard", "*.wildcard."),
+		},
+		{
+			startsWith: "example.localhost.",
+			expected:   sets.New("example.localhost."),
 		},
 	}
 
