@@ -71,7 +71,14 @@ func testBuildAltHosts(t *testing.T, d *LocalDNSServer) {
 		},
 		{
 			startsWith: "svc-with-alt",
-			expected:   sets.New("svc-with-alt.", "svc-with-alt.ns1.svc.", "svc-with-alt.ns1.", "svc-with-alt.ns1.svc.clusterset.local.", "svc-with-alt.ns1.svc.cluster.local.", "svc-with-alt.ns1.svc.cluster.local"),
+			expected: sets.New(
+				"svc-with-alt.",
+				"svc-with-alt.ns1.",
+				"svc-with-alt.ns1.svc.",
+				"svc-with-alt.ns1.svc.clusterset.local.",
+				"svc-with-alt.ns1.svc.cluster.local.",
+				"svc-with-alt.ns1.svc.cluster.local",
+			),
 		},
 		{
 			startsWith: "*.wildcard",
