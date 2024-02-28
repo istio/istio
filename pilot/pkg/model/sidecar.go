@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -938,16 +939,30 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 }
 
 func canMergeServices(s1, s2 *Service) bool {
-	if s1.Hostname != s2.Hostname {
+	if s1.Attributes.Namespace != s2.Attributes.Namespace {
 		return false
 	}
+
+	// Hostname has been compared
+
 	if s1.Resolution != s2.Resolution {
 		return false
 	}
-	if s1.Attributes.ServiceRegistry != provider.External || s2.Attributes.ServiceRegistry != provider.External {
+
+	// kuberneres service registry has been checked before
+	if s1.Attributes.ServiceRegistry != s2.Attributes.ServiceRegistry {
 		return false
 	}
-	if !s1.Attributes.Equals(&s2.Attributes) {
+
+	if !maps.Equal(s1.Attributes.Labels, s2.Attributes.Labels) {
+		return false
+	}
+
+	if !maps.Equal(s1.Attributes.LabelSelectors, s2.Attributes.LabelSelectors) {
+		return false
+	}
+
+	if !maps.Equal(s1.Attributes.ExportTo, s2.Attributes.ExportTo) {
 		return false
 	}
 
