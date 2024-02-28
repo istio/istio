@@ -54,62 +54,11 @@ func (a *index) WorkloadsCollection(
 		a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices),
 		krt.WithName("PodWorkloads"),
 	)
-	WorkloadEntryWorkloads := krt.NewCollection(WorkloadEntries, func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
-		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
-		// We need to filter from the policies that are present, which apply to us.
-		// We only want label selector ones; global ones are not attached to the final WorkloadInfo
-		// In general we just take all of the policies
-		basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(p.Labels), krt.FilterGeneric(func(a any) bool {
-			return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
-		}))
-		policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {
-			return t.ResourceName()
-		}))
-		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
-		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
-		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
-		var waypoints []Waypoint
-		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-			waypoints = fetchWaypoints(ctx, Waypoints, p.Namespace, p.Spec.ServiceAccount)
-		}
-		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
-		if !features.EnableK8SServiceSelectWorkloadEntries {
-			fo = append(fo, krt.FilterGeneric(func(a any) bool {
-				return a.(model.ServiceInfo).Source == kind.ServiceEntry
-			}))
-		}
-		services := krt.Fetch(ctx, WorkloadServices, fo...)
-		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		network := a.Network(p.Spec.Address, p.Labels).String()
-		if p.Spec.Network != "" {
-			network = p.Spec.Network
-		}
-		w := &workloadapi.Workload{
-			Uid:                   a.generateWorkloadEntryUID(p.Namespace, p.Name),
-			Name:                  p.Name,
-			Namespace:             p.Namespace,
-			Network:               network,
-			ClusterId:             string(a.ClusterID),
-			ServiceAccount:        p.Spec.ServiceAccount,
-			Services:              a.constructServicesFromWorkloadEntry(&p.Spec, services),
-			AuthorizationPolicies: policies,
-			Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
-			Waypoint:              a.pickWaypoint(waypoints),
-			TrustDomain:           pickTrustDomain(),
-		}
-
-		if addr, err := netip.ParseAddr(p.Spec.Address); err == nil {
-			w.Addresses = [][]byte{addr.AsSlice()}
-		} else {
-			log.Warnf("skipping workload entry %s/%s; DNS Address resolution is not yet implemented", p.Namespace, p.Name)
-		}
-
-		w.WorkloadName, w.WorkloadType = p.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
-		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
-
-		setTunnelProtocol(p.Labels, p.Annotations, w)
-		return &model.WorkloadInfo{Workload: w, Labels: p.Labels, Source: kind.WorkloadEntry}
-	}, krt.WithName("WorkloadEntryWorkloads"))
+	WorkloadEntryWorkloads := krt.NewCollection(
+		WorkloadEntries,
+		a.workloadEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices),
+		krt.WithName("WorkloadEntryWorkloads"),
+	)
 	ServiceEntryWorkloads := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
 		if len(se.Spec.Endpoints) == 0 {
 			return nil
@@ -152,7 +101,7 @@ func (a *index) WorkloadsCollection(
 				Network:               network,
 				ClusterId:             string(a.ClusterID),
 				ServiceAccount:        p.ServiceAccount,
-				Services:              a.constructServicesFromWorkloadEntry(p, []model.ServiceInfo{*svc}),
+				Services:              constructServicesFromWorkloadEntry(p, []model.ServiceInfo{*svc}),
 				AuthorizationPolicies: policies,
 				Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
 				Waypoint:              a.pickWaypoint(waypoints),
@@ -175,6 +124,71 @@ func (a *index) WorkloadsCollection(
 	}, krt.WithName("ServiceEntryWorkloads"))
 	Workloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{PodWorkloads, WorkloadEntryWorkloads, ServiceEntryWorkloads}, krt.WithName("Workloads"))
 	return Workloads
+}
+
+func (a *index) workloadEntryWorkloadBuilder(
+	MeshConfig krt.Singleton[MeshConfig],
+	AuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
+	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
+	Waypoints krt.Collection[Waypoint],
+	WorkloadServices krt.Collection[model.ServiceInfo],
+) func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
+	return func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
+		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
+		// We need to filter from the policies that are present, which apply to us.
+		// We only want label selector ones; global ones are not attached to the final WorkloadInfo
+		// In general we just take all of the policies
+		basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(p.Labels), krt.FilterGeneric(func(a any) bool {
+			return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
+		}))
+		policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {
+			return t.ResourceName()
+		}))
+		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
+		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
+		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+		var waypoints []Waypoint
+		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
+			waypoints = fetchWaypoints(ctx, Waypoints, p.Namespace, p.Spec.ServiceAccount)
+		}
+		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
+		if !features.EnableK8SServiceSelectWorkloadEntries {
+			fo = append(fo, krt.FilterGeneric(func(a any) bool {
+				return a.(model.ServiceInfo).Source == kind.ServiceEntry
+			}))
+		}
+		services := krt.Fetch(ctx, WorkloadServices, fo...)
+		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
+		network := a.Network(p.Spec.Address, p.Labels).String()
+		if p.Spec.Network != "" {
+			network = p.Spec.Network
+		}
+		w := &workloadapi.Workload{
+			Uid:                   a.generateWorkloadEntryUID(p.Namespace, p.Name),
+			Name:                  p.Name,
+			Namespace:             p.Namespace,
+			Network:               network,
+			ClusterId:             string(a.ClusterID),
+			ServiceAccount:        p.Spec.ServiceAccount,
+			Services:              constructServicesFromWorkloadEntry(&p.Spec, services),
+			AuthorizationPolicies: policies,
+			Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
+			Waypoint:              a.pickWaypoint(waypoints),
+			TrustDomain:           pickTrustDomain(),
+		}
+
+		if addr, err := netip.ParseAddr(p.Spec.Address); err == nil {
+			w.Addresses = [][]byte{addr.AsSlice()}
+		} else {
+			log.Warnf("skipping workload entry %s/%s; DNS Address resolution is not yet implemented", p.Namespace, p.Name)
+		}
+
+		w.WorkloadName, w.WorkloadType = p.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
+		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
+
+		setTunnelProtocol(p.Labels, p.Annotations, w)
+		return &model.WorkloadInfo{Workload: w, Labels: p.Labels, Source: kind.WorkloadEntry}
+	}
 }
 
 func (a *index) podWorkloadBuilder(
@@ -313,7 +327,7 @@ func fetchWaypoints(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], 
 		}))
 }
 
-func (a *index) constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, services []model.ServiceInfo) map[string]*workloadapi.PortList {
+func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, services []model.ServiceInfo) map[string]*workloadapi.PortList {
 	res := map[string]*workloadapi.PortList{}
 	for _, svc := range services {
 		n := namespacedHostname(svc.Namespace, svc.Hostname)
@@ -321,19 +335,14 @@ func (a *index) constructServicesFromWorkloadEntry(p *networkingv1alpha3.Workloa
 		res[n] = pl
 		for _, port := range svc.Ports {
 			targetPort := port.TargetPort
-			if named, f := svc.PortNames[int32(port.ServicePort)]; f {
+			if named, f := svc.PortNames[int32(port.ServicePort)]; f && named.TargetPortName != "" {
 				// get port name or target port
-				nv, nf := p.Ports[named.PortName]
-				tv, tf := p.Ports[named.TargetPortName]
-				// TODO: is this logic/order correct?
-				if tf {
-					targetPort = tv
-				} else if nf {
-					targetPort = nv
-				} else if named.TargetPortName != "" {
+				tv, ok := p.Ports[named.TargetPortName]
+				if !ok {
 					// We needed an explicit port, but didn't find one - skip this port
 					continue
 				}
+				targetPort = tv
 			}
 			pl.Ports = append(pl.Ports, &workloadapi.Port{
 				ServicePort: port.ServicePort,
@@ -366,11 +375,13 @@ func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*work
 		res[n] = pl
 		for _, port := range svc.Ports {
 			targetPort := port.TargetPort
+			// The svc.Ports represents the workloadapi.Service, which drops the port name info and just has numeric target Port.
+			// TargetPort can be 0 which indicates its a named port. Check if its a named port and replace with the real targetPort if so.
 			if named, f := svc.PortNames[int32(port.ServicePort)]; f && named.TargetPortName != "" {
 				// Pods only match on TargetPort names
 				tp, ok := FindPortName(p, named.TargetPortName)
 				if !ok {
-					// Port not present for this workload
+					// Port not present for this workload. Exclude the port entirely
 					continue
 				}
 				targetPort = uint32(tp)
