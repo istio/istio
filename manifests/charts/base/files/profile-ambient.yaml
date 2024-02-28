@@ -16,7 +16,6 @@ pilot:
     PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
 cni:
   logLevel: info
-  privileged: true
   ambient:
     enabled: true
 

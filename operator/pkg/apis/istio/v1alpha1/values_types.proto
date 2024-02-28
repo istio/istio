@@ -107,10 +107,8 @@ message CNIConfig {
   // The k8s resource requests and limits for the istio-cni Pods.
   Resources resources = 17;
 
-  // Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift) or features (repairPods).
-  // Note that even if this is false, the `istio-cni` container *requires* root privileges on the node to function,
-  // and setting this to false does not change that, nor will it run the container as non-root or make it "un-privileged".
-  google.protobuf.BoolValue privileged = 18;
+ // No longer used for CNI. See: https://github.com/istio/istio/issues/49004
+  google.protobuf.BoolValue privileged = 18 [deprecated=true];
 
   // The Container seccompProfile
   //
@@ -180,7 +178,7 @@ message CNIRepairConfig {
   // The mode defines the action the controller will take when a pod is detected as broken.
   // If repairPods is true, the controller will dynamically repair any broken pod by setting up the pod networking configuration even after it has started.
   // Note the pod will be crashlooping, so this may take a few minutes to become fully functional based on when the retry occurs.
-  // This requires no RBAC privilege, but does require `securityContext.privileged`.
+  // This requires no RBAC privilege, but will require the CNI agent to run as a privileged pod.
   bool repairPods = 11;
 
   // No longer used.
