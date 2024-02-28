@@ -310,6 +310,8 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		}
 		c.DnsRefreshRate = cb.req.Push.Mesh.DnsRefreshRate
 		c.RespectDnsTtl = true
+		// we want to run all the STATIC parts as well to build the load assignment
+		fallthrough
 	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
 			log.Debugf("locality endpoints missing for cluster %s", c.Name)
@@ -322,17 +324,18 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 			Endpoints:   localityLbEndpoints,
 		}
 	case cluster.Cluster_ORIGINAL_DST:
-		dport := uint32(port.Port)
-		if override, f := service.Attributes.PassthroughTargetPorts[uint32(port.Port)]; f {
-			dport = override
-		}
-		c.LbConfig = &cluster.Cluster_OriginalDstLbConfig_{
-			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
-				UpstreamPortOverride: wrappers.UInt32(dport),
-			},
+		if features.PassthroughTargetPort {
+			dport := uint32(port.Port)
+			if override, f := service.Attributes.PassthroughTargetPorts[uint32(port.Port)]; f {
+				dport = override
+			}
+			c.LbConfig = &cluster.Cluster_OriginalDstLbConfig_{
+				OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+					UpstreamPortOverride: wrappers.UInt32(dport),
+				},
+			}
 		}
 	}
-	log.Errorf("howardjohn: building service %+v", service)
 
 	ec := newClusterWrapper(c)
 	cb.setUpstreamProtocol(ec, port)

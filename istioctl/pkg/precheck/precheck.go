@@ -167,8 +167,10 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 			return nil, err
 		}
 	}
-
 	if minor <= 21 {
+		if err := checkPassthroughTargetPorts(cli, &messages); err != nil {
+			return nil, err
+		}
 		if err := checkTracing(cli, &messages); err != nil {
 			return nil, err
 		}
@@ -194,6 +196,31 @@ func checkTracing(cli kube.CLIClient, messages *diag.Messages) error {
 		"tracing is no longer by default enabled to send to 'zipkin.istio-system.svc'; "+
 			"follow https://istio.io/latest/docs/tasks/observability/distributed-tracing/telemetry-api/",
 		"1.21"))
+	return nil
+}
+
+func checkPassthroughTargetPorts(cli kube.CLIClient, messages *diag.Messages) error {
+	ses, err := cli.Istio().NetworkingV1alpha3().ServiceEntries(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, se := range ses.Items {
+		if se.Spec.Resolution != networking.ServiceEntry_NONE {
+			continue
+		}
+		changed := false
+		for _, p := range se.Spec.Ports {
+			if p.TargetPort != 0 && p.Number != p.TargetPort {
+				changed = true
+			}
+		}
+		if changed {
+			res := ObjectToInstance(se)
+			messages.Add(msg.NewUpdateIncompatibility(res,
+				"ENABLE_RESOLUTION_NONE_TARGET_PORT", "1.21",
+				"ServiceEntry with resolution NONE and a targetPort set previously did nothing but now is respected", "1.21"))
+		}
+	}
 	return nil
 }
 

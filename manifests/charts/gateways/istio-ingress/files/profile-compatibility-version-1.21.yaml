@@ -1,3 +1,6 @@
+pilot:
+  env:
+    ENABLE_RESOLUTION_NONE_TARGET_PORT: "false"
 meshConfig:
   defaultConfig:
     tracing:
