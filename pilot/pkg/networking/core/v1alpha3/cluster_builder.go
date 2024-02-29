@@ -325,14 +325,12 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		}
 	case cluster.Cluster_ORIGINAL_DST:
 		if features.PassthroughTargetPort {
-			dport := uint32(port.Port)
 			if override, f := service.Attributes.PassthroughTargetPorts[uint32(port.Port)]; f {
-				dport = override
-			}
-			c.LbConfig = &cluster.Cluster_OriginalDstLbConfig_{
-				OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
-					UpstreamPortOverride: wrappers.UInt32(dport),
-				},
+				c.LbConfig = &cluster.Cluster_OriginalDstLbConfig_{
+					OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+						UpstreamPortOverride: wrappers.UInt32(override),
+					},
+				}
 			}
 		}
 	}
