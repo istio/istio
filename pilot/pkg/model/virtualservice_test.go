@@ -702,7 +702,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, _ := sortAndMergeVirtualServicesIfNeeded(tc.virtualServices, tc.defaultExportTo)
+			got, _ := mergeVirtualServicesIfNeeded(tc.virtualServices, tc.defaultExportTo)
 			assert.Equal(t, got, tc.expectedVirtualServices)
 		})
 	}
@@ -727,11 +727,11 @@ func TestMergeVirtualServices(t *testing.T) {
 			assert.Equal(t, gotOrder, wantOrder)
 		}
 
-		vses := []config.Config{root.DeepCopy(), delegate.DeepCopy(), normal.DeepCopy()}
-		checkOrder(sortAndMergeVirtualServicesIfNeeded(vses, sets.New(visibility.Public)))
+		vses := []config.Config{root, delegate, normal}
+		checkOrder(mergeVirtualServicesIfNeeded(vses, sets.New(visibility.Public)))
 
-		vses = []config.Config{normal.DeepCopy(), delegate.DeepCopy(), root.DeepCopy()}
-		checkOrder(sortAndMergeVirtualServicesIfNeeded(vses, sets.New(visibility.Public)))
+		vses = []config.Config{normal, delegate, root}
+		checkOrder(mergeVirtualServicesIfNeeded(vses, sets.New(visibility.Public)))
 	})
 }
 
