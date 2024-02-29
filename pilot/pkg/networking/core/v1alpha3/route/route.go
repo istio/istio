@@ -1475,34 +1475,6 @@ func hashForHTTPDestination(push *model.PushContext, node *model.Proxy,
 	return consistentHash, mergedDR
 }
 
-// isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise
-// false. Note - this may not be exactly "catch all" as we don't know the full
-// class of possible inputs As such, this is used only for optimization.
-func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
-	catchall := false
-	if m.Uri != nil {
-		switch m := m.Uri.MatchType.(type) {
-		case *networking.StringMatch_Prefix:
-			catchall = m.Prefix == "/"
-		case *networking.StringMatch_Regex:
-			catchall = m.Regex == "*"
-		}
-	}
-	// A Match is catch all if and only if it has no match set
-	// and URI has a prefix / or regex *.
-	return catchall &&
-		len(m.Headers) == 0 &&
-		len(m.QueryParams) == 0 &&
-		len(m.SourceLabels) == 0 &&
-		len(m.WithoutHeaders) == 0 &&
-		len(m.Gateways) == 0 &&
-		m.Method == nil &&
-		m.Scheme == nil &&
-		m.Port == 0 &&
-		m.Authority == nil &&
-		m.SourceNamespace == ""
-}
-
 // SortVHostRoutes moves the catch all routes alone to the end, while retaining
 // the relative order of other routes in the slice.
 func SortVHostRoutes(routes []*route.Route) []*route.Route {
