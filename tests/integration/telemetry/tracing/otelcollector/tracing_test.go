@@ -54,7 +54,7 @@ func TestProxyTracingOpenCensusMeshConfig(t *testing.T) {
 							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
 						}
 
-						traces, err := tracing.GetZipkinInstance().QueryTraces(300,
+						traces, err := tracing.GetZipkinInstances()[0].QueryTraces(300,
 							fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
@@ -128,7 +128,7 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 									}
 
 									// the OTel collector exports to Zipkin
-									traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", tc.customAttribute)
+									traces, err := tracing.GetZipkinInstances()[0].QueryTraces(300, "", tc.customAttribute)
 									t.Logf("got traces %v from %s", traces, cluster)
 									if err != nil {
 										return fmt.Errorf("cannot get traces from zipkin: %v", err)
@@ -195,7 +195,12 @@ meshConfig:
 }
 
 func testSetup(ctx resource.Context) (err error) {
-	addr, _ := tracing.GetIngressInstance().HTTPAddress()
-	_, err = opentelemetry.New(ctx, opentelemetry.Config{IngressAddr: addr})
+	addrs, _ := tracing.GetIngressInstance().HTTPAddresses()
+	for _, addr := range addrs {
+		_, err = opentelemetry.New(ctx, opentelemetry.Config{IngressAddr: addr})
+		if err != nil {
+			return err
+		}
+	}
 	return
 }

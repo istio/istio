@@ -52,7 +52,7 @@ func TestClientTracing(t *testing.T) {
 						if err != nil {
 							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
 						}
-						traces, err := tracing.GetZipkinInstance().QueryTraces(100,
+						traces, err := tracing.GetZipkinInstances()[0].QueryTraces(100,
 							fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)

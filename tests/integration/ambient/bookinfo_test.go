@@ -80,11 +80,41 @@ func TestBookinfo(t *testing.T) {
 			}
 			ingressClient := http.Client{}
 			ingressInst := istio.DefaultIngressOrFail(t, t)
-			addr, ingrPort := ingressInst.HTTPAddress()
-			ingressURL := fmt.Sprintf("http://%v:%v", addr, ingrPort)
-
+			addrs, ingrPorts := ingressInst.HTTPAddresses()
+			var ingressURLs []string
+			for i, addr := range addrs {
+				ingressURLs = append(ingressURLs, fmt.Sprintf("http://%v:%v", addr, ingrPorts[i]))
+			}
 			t.NewSubTest("no waypoint").Run(func(t framework.TestContext) {
 				t.NewSubTest("productpage reachable").Run(func(t framework.TestContext) {
+					for _, ingressURL := range ingressURLs {
+						retry.UntilSuccessOrFail(t, func() error {
+							resp, err := ingressClient.Get(ingressURL + "/productpage")
+							if err != nil {
+								return fmt.Errorf("error fetching /productpage: %v", err)
+							}
+							defer resp.Body.Close()
+							if resp.StatusCode != http.StatusOK {
+								return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+							}
+							bodyBytes, err := io.ReadAll(resp.Body)
+							if err != nil {
+								return fmt.Errorf("error reading /productpage response: %v", err)
+							}
+							reviewsFound := strings.Contains(string(bodyBytes), "Reviews served by:")
+							detailsFound := strings.Contains(string(bodyBytes), "Book Details")
+							if !reviewsFound || !detailsFound {
+								return fmt.Errorf("productpage could not reach other service(s), reviews reached:%v details reached:%v", reviewsFound, detailsFound)
+							}
+							return nil
+						})
+					}
+				})
+			})
+
+			t.NewSubTest("ingress receives waypoint updates").Run(func(t framework.TestContext) {
+				setupWaypoints(t, nsConfig, "bookinfo-productpage")
+				for _, ingressURL := range ingressURLs {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
 						if err != nil {
@@ -94,96 +124,78 @@ func TestBookinfo(t *testing.T) {
 						if resp.StatusCode != http.StatusOK {
 							return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
 						}
-						bodyBytes, err := io.ReadAll(resp.Body)
+						return nil
+					}, retry.Converge(5))
+				}
+				deleteWaypoints(t, nsConfig, "bookinfo-productpage")
+				for _, ingressURL := range ingressURLs {
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := ingressClient.Get(ingressURL + "/productpage")
 						if err != nil {
-							return fmt.Errorf("error reading /productpage response: %v", err)
+							return fmt.Errorf("error fetching /productpage: %v", err)
 						}
-						reviewsFound := strings.Contains(string(bodyBytes), "Reviews served by:")
-						detailsFound := strings.Contains(string(bodyBytes), "Book Details")
-						if !reviewsFound || !detailsFound {
-							return fmt.Errorf("productpage could not reach other service(s), reviews reached:%v details reached:%v", reviewsFound, detailsFound)
+						defer resp.Body.Close()
+						if resp.StatusCode != http.StatusOK {
+							return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
 						}
 						return nil
-					})
-				})
-			})
-
-			t.NewSubTest("ingress receives waypoint updates").Run(func(t framework.TestContext) {
-				setupWaypoints(t, nsConfig, "bookinfo-productpage")
-				retry.UntilSuccessOrFail(t, func() error {
-					resp, err := ingressClient.Get(ingressURL + "/productpage")
-					if err != nil {
-						return fmt.Errorf("error fetching /productpage: %v", err)
-					}
-					defer resp.Body.Close()
-					if resp.StatusCode != http.StatusOK {
-						return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
-					}
-					return nil
-				}, retry.Converge(5))
-				deleteWaypoints(t, nsConfig, "bookinfo-productpage")
-				retry.UntilSuccessOrFail(t, func() error {
-					resp, err := ingressClient.Get(ingressURL + "/productpage")
-					if err != nil {
-						return fmt.Errorf("error fetching /productpage: %v", err)
-					}
-					defer resp.Body.Close()
-					if resp.StatusCode != http.StatusOK {
-						return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
-					}
-					return nil
-				}, retry.Converge(5))
+					}, retry.Converge(5))
+				}
 			})
 
 			t.NewSubTest("waypoint routing").Run(func(t framework.TestContext) {
 				setupWaypoints(t, nsConfig, "bookinfo-reviews")
 
 				t.NewSubTest("productpage reachable").Run(func(t framework.TestContext) {
-					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := ingressClient.Get(ingressURL + "/productpage")
-						if err != nil {
-							return fmt.Errorf("error fetching /productpage: %v", err)
-						}
-						defer resp.Body.Close()
-						if resp.StatusCode != http.StatusOK {
-							return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
-						}
-						bodyBytes, err := io.ReadAll(resp.Body)
-						if err != nil {
-							return fmt.Errorf("error reading /productpage response: %v", err)
-						}
-						reviewsFound := strings.Contains(string(bodyBytes), "Reviews served by:")
-						detailsFound := strings.Contains(string(bodyBytes), "Book Details")
-						if !reviewsFound || !detailsFound {
-							return fmt.Errorf("productpage could not reach other service(s), reviews reached:%v details reached:%v", reviewsFound, detailsFound)
-						}
-						return nil
-					})
+					for _, ingressURL := range ingressURLs {
+						retry.UntilSuccessOrFail(t, func() error {
+							resp, err := ingressClient.Get(ingressURL + "/productpage")
+							if err != nil {
+								return fmt.Errorf("error fetching /productpage: %v", err)
+							}
+							defer resp.Body.Close()
+							if resp.StatusCode != http.StatusOK {
+								return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+							}
+							bodyBytes, err := io.ReadAll(resp.Body)
+							if err != nil {
+								return fmt.Errorf("error reading /productpage response: %v", err)
+							}
+							reviewsFound := strings.Contains(string(bodyBytes), "Reviews served by:")
+							detailsFound := strings.Contains(string(bodyBytes), "Book Details")
+							if !reviewsFound || !detailsFound {
+								return fmt.Errorf("productpage could not reach other service(s), reviews reached:%v details reached:%v", reviewsFound, detailsFound)
+							}
+							return nil
+						})
+					}
 				})
 
 				t.NewSubTest("reviews v1").Run(func(t framework.TestContext) {
 					applyFileOrFail(t, nsConfig.Name(), routingV1)
-					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := ingressClient.Get(ingressURL + "/productpage")
-						if err != nil {
-							return fmt.Errorf("error fetching /productpage: %v", err)
-						}
-						defer resp.Body.Close()
-						if resp.StatusCode != http.StatusOK {
-							return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
-						}
-						bodyBytes, err := io.ReadAll(resp.Body)
-						if err != nil {
-							return fmt.Errorf("error reading /productpage response: %v", err)
-						}
-						if !strings.Contains(string(bodyBytes), "Reviews served by:") {
-							return fmt.Errorf("productpage could not reach reviews")
-						}
-						if strings.Contains(string(bodyBytes), "glyphicon glyphicon-star") {
-							return fmt.Errorf("stars were provided when none were exected")
-						}
-						return nil
-					}, retry.Converge(5))
+					for _, ingressURL := range ingressURLs {
+						retry.UntilSuccessOrFail(t, func() error {
+							resp, err := ingressClient.Get(ingressURL + "/productpage")
+							if err != nil {
+								return fmt.Errorf("error fetching /productpage: %v", err)
+							}
+							defer resp.Body.Close()
+							if resp.StatusCode != http.StatusOK {
+								return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+							}
+							bodyBytes, err := io.ReadAll(resp.Body)
+							if err != nil {
+								return fmt.Errorf("error reading /productpage response: %v", err)
+							}
+							if !strings.Contains(string(bodyBytes), "Reviews served by:") {
+								return fmt.Errorf("productpage could not reach reviews")
+							}
+							if strings.Contains(string(bodyBytes), "glyphicon glyphicon-star") {
+								return fmt.Errorf("stars were provided when none were exected")
+							}
+							return nil
+						}, retry.Converge(5))
+					}
 				})
 				t.NewSubTest("reviews v2").Run(func(t framework.TestContext) {
 					applyFileOrFail(t, nsConfig.Name(), headerRouting)
@@ -193,34 +205,36 @@ func TestBookinfo(t *testing.T) {
 							return http.ErrUseLastResponse
 						},
 					}
-					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := cookieClient.PostForm(ingressURL+"/login",
-							url.Values{"username": {"jason"}, "passwd": {"password"}})
-						if err != nil {
-							return fmt.Errorf("error during /login: %v", err)
-						}
-						defer resp.Body.Close()
-						if resp.StatusCode != http.StatusFound {
-							return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
-						}
+					for _, ingressURL := range ingressURLs {
+						retry.UntilSuccessOrFail(t, func() error {
+							resp, err := cookieClient.PostForm(ingressURL+"/login",
+								url.Values{"username": {"jason"}, "passwd": {"password"}})
+							if err != nil {
+								return fmt.Errorf("error during /login: %v", err)
+							}
+							defer resp.Body.Close()
+							if resp.StatusCode != http.StatusFound {
+								return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+							}
 
-						resp, err = cookieClient.Get(ingressURL + "/productpage")
-						if err != nil {
-							return fmt.Errorf("error fetching /productpage: %v", err)
-						}
-						defer resp.Body.Close()
-						if resp.StatusCode != http.StatusOK {
-							return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
-						}
-						bodyBytes, err := io.ReadAll(resp.Body)
-						if err != nil {
-							return fmt.Errorf("error reading /productpage response: %v", err)
-						}
-						if !strings.Contains(string(bodyBytes), "glyphicon glyphicon-star") {
-							return fmt.Errorf("expected stars to be provided with reviews, received none. Body:\n%v", string(bodyBytes))
-						}
-						return nil
-					})
+							resp, err = cookieClient.Get(ingressURL + "/productpage")
+							if err != nil {
+								return fmt.Errorf("error fetching /productpage: %v", err)
+							}
+							defer resp.Body.Close()
+							if resp.StatusCode != http.StatusOK {
+								return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+							}
+							bodyBytes, err := io.ReadAll(resp.Body)
+							if err != nil {
+								return fmt.Errorf("error reading /productpage response: %v", err)
+							}
+							if !strings.Contains(string(bodyBytes), "glyphicon glyphicon-star") {
+								return fmt.Errorf("expected stars to be provided with reviews, received none. Body:\n%v", string(bodyBytes))
+							}
+							return nil
+						})
+					}
 				})
 			})
 			t.NewSubTest("waypoint template change").Run(func(t framework.TestContext) {
