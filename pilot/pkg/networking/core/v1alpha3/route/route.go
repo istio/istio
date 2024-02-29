@@ -1563,7 +1563,7 @@ func isCatchAllRoute(r *route.Route) bool {
 	case *route.RouteMatch_PathSeparatedPrefix:
 		catchall = ir.PathSeparatedPrefix == "/"
 	case *route.RouteMatch_SafeRegex:
-		catchall = ir.SafeRegex.GetRegex() == "*"
+		catchall = ir.SafeRegex.GetRegex() == ".*"
 	}
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
