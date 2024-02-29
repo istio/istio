@@ -226,79 +226,76 @@ func checkInstallPermissions(cli kube.CLIClient, istioNamespace string) diag.Mes
 		namespace string
 		group     string
 		version   string
-		name      string
+		resource  string
 	}{
 		{
-			version: "v1",
-			name:    "Namespace",
+			version:  "v1",
+			resource: "namespaces",
+		},
+		{
+			group:    "rbac.authorization.k8s.io",
+			version:  "v1",
+			resource: "clusterroles",
+		},
+		{
+			group:    "rbac.authorization.k8s.io",
+			version:  "v1",
+			resource: "clusterrolebindings",
+		},
+		{
+			group:    "apiextensions.k8s.io",
+			version:  "v1",
+			resource: "customresourcedefinitions",
 		},
 		{
 			namespace: istioNamespace,
 			group:     "rbac.authorization.k8s.io",
 			version:   "v1",
-			name:      "ClusterRole",
-		},
-		{
-			namespace: istioNamespace,
-			group:     "rbac.authorization.k8s.io",
-			version:   "v1",
-			name:      "ClusterRoleBinding",
-		},
-		{
-			namespace: istioNamespace,
-			group:     "apiextensions.k8s.io",
-			version:   "v1",
-			name:      "CustomResourceDefinition",
-		},
-		{
-			namespace: istioNamespace,
-			group:     "rbac.authorization.k8s.io",
-			version:   "v1",
-			name:      "Role",
+			resource:  "roles",
 		},
 		{
 			namespace: istioNamespace,
 			version:   "v1",
-			name:      "ServiceAccount",
+			resource:  "serviceaccounts",
 		},
 		{
 			namespace: istioNamespace,
 			version:   "v1",
-			name:      "Service",
+			resource:  "services",
 		},
 		{
 			namespace: istioNamespace,
 			group:     "apps",
 			version:   "v1",
-			name:      "Deployments",
+			resource:  "deployments",
 		},
 		{
 			namespace: istioNamespace,
 			version:   "v1",
-			name:      "ConfigMap",
+			resource:  "configmaps",
 		},
 		{
-			group:   "admissionregistration.k8s.io",
-			version: "v1",
-			name:    "MutatingWebhookConfiguration",
+			group:    "admissionregistration.k8s.io",
+			version:  "v1",
+			resource: "mutatingwebhookconfigurations",
 		},
 		{
-			group:   "admissionregistration.k8s.io",
-			version: "v1",
-			name:    "ValidatingWebhookConfiguration",
+			group:    "admissionregistration.k8s.io",
+			version:  "v1",
+			resource: "validatingwebhookconfigurations",
 		},
 	}
 	msgs := diag.Messages{}
 	for _, r := range Resources {
-		err := checkCanCreateResources(cli, r.namespace, r.group, r.version, r.name)
+		err := checkCanCreateResources(cli, r.namespace, r.group, r.version, r.resource)
 		if err != nil {
-			msgs.Add(msg.NewInsufficientPermissions(&resource.Instance{Origin: clusterOrigin{}}, r.name, err.Error()))
+			msgs.Add(msg.NewInsufficientPermissions(&resource.Instance{Origin: clusterOrigin{}}, r.resource, err.Error()))
 		}
 	}
 	return msgs
 }
 
-func checkCanCreateResources(c kube.CLIClient, namespace, group, version, name string) error {
+func checkCanCreateResources(c kube.CLIClient, namespace, group, version, resource string) error {
 	s := &authorizationapi.SelfSubjectAccessReview{
 		Spec: authorizationapi.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authorizationapi.ResourceAttributes{
@@ -306,7 +303,7 @@ func checkCanCreateResources(c kube.CLIClient, namespace, group, version, name s
 				Verb:      "create",
 				Group:     group,
 				Version:   version,
-				Resource:  name,
+				Resource:  resource,
 			},
 		},
 	}
