@@ -706,6 +706,33 @@ func TestMergeVirtualServices(t *testing.T) {
 			assert.Equal(t, got, tc.expectedVirtualServices)
 		})
 	}
+
+	t.Run("test merge order", func(t *testing.T) {
+		root := rootVs.DeepCopy()
+		delegate := delegateVs.DeepCopy()
+		normal := independentVs.DeepCopy()
+
+		// make sorting results predictable.
+		t0 := time.Now()
+		root.CreationTimestamp = t0.Add(1)
+		delegate.CreationTimestamp = t0.Add(2)
+		normal.CreationTimestamp = t0.Add(3)
+
+		checkOrder := func(got []config.Config, _ map[ConfigKey][]ConfigKey) {
+			gotOrder := make([]string, 0, len(got))
+			for _, c := range got {
+				gotOrder = append(gotOrder, fmt.Sprintf("%s/%s", c.Namespace, c.Name))
+			}
+			wantOrder := []string{"istio-system/root-vs", "default/virtual-service"}
+			assert.Equal(t, gotOrder, wantOrder)
+		}
+
+		vses := []config.Config{root, delegate, normal}
+		checkOrder(mergeVirtualServicesIfNeeded(vses, sets.New(visibility.Public)))
+
+		vses = []config.Config{normal, delegate, root}
+		checkOrder(mergeVirtualServicesIfNeeded(vses, sets.New(visibility.Public)))
+	})
 }
 
 func TestMergeHttpRoutes(t *testing.T) {
