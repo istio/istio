@@ -183,7 +183,8 @@ func checkTracing(cli kube.CLIClient, messages *diag.Messages) error {
 	res := ObjectToInstance(svc)
 	messages.Add(msg.NewUpdateIncompatibility(res,
 		"meshConfig.defaultConfig.tracer", "1.21",
-		"tracing is no longer by default enabled to send to 'zipkin.istio-system.svc'; follow https://istio.io/latest/docs/tasks/observability/distributed-tracing/telemetry-api/",
+		"tracing is no longer by default enabled to send to 'zipkin.istio-system.svc'; "+
+			"follow https://istio.io/latest/docs/tasks/observability/distributed-tracing/telemetry-api/",
 		"1.21"))
 	return nil
 }
