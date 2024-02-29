@@ -60,9 +60,6 @@ var (
 	PilotCertProvider = env.Register("PILOT_CERT_PROVIDER", constants.CertProviderIstiod,
 		"The provider of Pilot DNS certificate.").Get()
 
-	JwtPolicy = env.Register("JWT_POLICY", jwt.PolicyThirdParty,
-		"The JWT validation policy.").Get()
-
 	ClusterName = env.Register("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance belongs to").Get()
 
