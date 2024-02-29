@@ -434,7 +434,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			test.SetForTest(t, &features.CATrustedNodeAccounts, c.trustedNodeAccounts)
 
 			multiClusterController := multicluster.NewFakeController()
-			server, _ := New(c.ca, time.Duration(1), c.authenticators, nil, multiClusterController)
+			server, _ := New(c.ca, time.Duration(1), c.authenticators, multiClusterController)
 
 			var pods []runtime.Object
 			for _, p := range c.pods {

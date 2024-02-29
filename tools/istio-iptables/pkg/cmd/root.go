@@ -140,12 +140,18 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 	flag.BindEnv(fs, constants.IptablesVersion, "", "version of iptables command. If not set, this is automatically detected.", &cfg.IPTablesVersion)
 }
 
-func GetCommand() *cobra.Command {
+func GetCommand(logOpts *log.Options) *cobra.Command {
 	cfg := config.DefaultConfig()
 	cmd := &cobra.Command{
 		Use:   "istio-iptables",
 		Short: "Set up iptables rules for Istio Sidecar",
 		Long:  "istio-iptables is responsible for setting up port forwarding for Istio Sidecar.",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := log.Configure(logOpts); err != nil {
+				return err
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			cfg.FillConfigFromEnvironment()
 			if err := cfg.Validate(); err != nil {

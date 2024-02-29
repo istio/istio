@@ -98,9 +98,9 @@ var errUnsupportedOp = errors.New("unsupported operation: the ingress config sto
 func NewController(client kube.Client, meshWatcher mesh.Holder,
 	options kubecontroller.Options,
 ) model.ConfigStoreController {
-	ingress := kclient.NewFiltered[*knetworking.Ingress](client, kclient.Filter{ObjectFilter: options.GetFilter()})
+	ingress := kclient.NewFiltered[*knetworking.Ingress](client, kclient.Filter{ObjectFilter: client.ObjectFilter()})
 	classes := kclient.New[*knetworking.IngressClass](client)
-	services := kclient.NewFiltered[*corev1.Service](client, kclient.Filter{ObjectFilter: options.GetFilter()})
+	services := kclient.NewFiltered[*corev1.Service](client, kclient.Filter{ObjectFilter: client.ObjectFilter()})
 
 	c := &controller{
 		meshWatcher:  meshWatcher,

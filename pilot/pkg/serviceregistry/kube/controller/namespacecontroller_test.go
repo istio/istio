@@ -46,12 +46,14 @@ func TestNamespaceController(t *testing.T) {
 	caBundle := []byte("caBundle")
 	watcher.SetAndNotify(nil, nil, caBundle)
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+	stop := test.NewStop(t)
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
 		kclient.New[*v1.Namespace](client),
-		meshWatcher.Mesh().DiscoverySelectors,
+		meshWatcher,
+		stop,
 	)
-	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
-	stop := test.NewStop(t)
+	kube.SetObjectFilter(client, discoveryNamespacesFilter)
+	nc := NewNamespaceController(client, watcher)
 	client.RunAndWait(stop)
 	go nc.Run(stop)
 	retry.UntilOrFail(t, nc.queue.HasSynced)
@@ -102,12 +104,14 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 			},
 		},
 	})
+	stop := test.NewStop(t)
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
 		kclient.New[*v1.Namespace](client),
-		meshWatcher.Mesh().DiscoverySelectors,
+		meshWatcher,
+		stop,
 	)
-	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
-	stop := test.NewStop(t)
+	kube.SetObjectFilter(client, discoveryNamespacesFilter)
+	nc := NewNamespaceController(client, watcher)
 	client.RunAndWait(stop)
 	go nc.Run(stop)
 	retry.UntilOrFail(t, nc.queue.HasSynced)
@@ -140,12 +144,14 @@ func TestNamespaceControllerDiscovery(t *testing.T) {
 			MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 		}},
 	})
+	stop := test.NewStop(t)
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
 		kclient.New[*v1.Namespace](client),
-		meshWatcher.Mesh().DiscoverySelectors,
+		meshWatcher,
+		stop,
 	)
-	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
-	stop := test.NewStop(t)
+	kube.SetObjectFilter(client, discoveryNamespacesFilter)
+	nc := NewNamespaceController(client, watcher)
 	client.RunAndWait(stop)
 	go nc.Run(stop)
 	retry.UntilOrFail(t, nc.queue.HasSynced)
@@ -159,9 +165,11 @@ func TestNamespaceControllerDiscovery(t *testing.T) {
 	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "selected", expectedData)
 	expectConfigMapNotExist(t, nc.configmaps, "not-selected")
 
-	discoveryNamespacesFilter.SelectorsChanged([]*metav1.LabelSelector{{
-		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "not-selected"},
-	}})
+	meshWatcher.Update(&meshconfig.MeshConfig{
+		DiscoverySelectors: []*metav1.LabelSelector{{
+			MatchLabels: map[string]string{"kubernetes.io/metadata.name": "not-selected"},
+		}},
+	}, time.Second)
 	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "not-selected", expectedData)
 	expectConfigMapNotExist(t, nc.configmaps, "selected")
 }

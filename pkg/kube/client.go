@@ -78,6 +78,7 @@ import (
 	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/informerfactory"
@@ -125,6 +126,10 @@ type Client interface {
 
 	// CrdWatcher returns the CRD watcher for this client
 	CrdWatcher() kubetypes.CrdWatcher
+
+	// ObjectFilter returns an object filter that can be used to filter out unwanted objects based on configuration.
+	// This must be set on a client with SetObjectFilter.
+	ObjectFilter() kubetypes.DynamicObjectFilter
 
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
@@ -341,7 +346,8 @@ type client struct {
 
 	version lazy.Lazy[*kubeVersion.Info]
 
-	crdWatcher kubetypes.CrdWatcher
+	crdWatcher   kubetypes.CrdWatcher
+	objectFilter kubetypes.DynamicObjectFilter
 
 	// http is a client for HTTP requests
 	http *http.Client
@@ -425,6 +431,12 @@ func newClientInternal(clientFactory *clientFactory, revision string, cluster cl
 	return &c, nil
 }
 
+// SetObjectFilter adds an object filter to the client, which can later be returned with client.ObjectFilter()
+func SetObjectFilter(c Client, filter kubetypes.DynamicObjectFilter) Client {
+	c.(*client).objectFilter = filter
+	return c
+}
+
 // EnableCrdWatcher enables the CRD watcher on the client.
 func EnableCrdWatcher(c Client) Client {
 	if NewCrdWatcher == nil {
@@ -496,6 +508,10 @@ func (c *client) Informers() informerfactory.InformerFactory {
 
 func (c *client) CrdWatcher() kubetypes.CrdWatcher {
 	return c.crdWatcher
+}
+
+func (c *client) ObjectFilter() kubetypes.DynamicObjectFilter {
+	return c.objectFilter
 }
 
 // RunAndWait starts all informers and waits for their caches to sync.
@@ -1214,4 +1230,12 @@ func findIstiodMonitoringPort(pod *v1.Pod) int {
 		}
 	}
 	return 15014
+}
+
+// FilterIfEnhancedFilteringEnabled returns the namespace filter if EnhancedResourceScoping is enabled, otherwise a NOP filter.
+func FilterIfEnhancedFilteringEnabled(k Client) kubetypes.DynamicObjectFilter {
+	if features.EnableEnhancedResourceScoping {
+		return k.ObjectFilter()
+	}
+	return nil
 }

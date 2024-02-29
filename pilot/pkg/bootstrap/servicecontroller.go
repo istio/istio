@@ -77,7 +77,6 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
 	// pass namespace to k8s service registry
-	args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter = s.multiclusterController.DiscoveryNamespacesFilter
 	kubecontroller.NewMulticluster(args.PodName,
 		s.kubeClient.Kube(),
 		args.RegistryOptions.ClusterRegistriesNamespace,

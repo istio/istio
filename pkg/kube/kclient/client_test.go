@@ -22,6 +22,7 @@ import (
 
 	"go.uber.org/atomic"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,14 +30,17 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	istioclient "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/kubetypes"
+	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -195,9 +199,9 @@ func TestHasSynced(t *testing.T) {
 func TestClient(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
-	deployments := kclient.NewFiltered[*appsv1.Deployment](c, kclient.Filter{ObjectFilter: func(t any) bool {
+	deployments := kclient.NewFiltered[*appsv1.Deployment](c, kclient.Filter{ObjectFilter: kubetypes.NewStaticObjectFilter(func(t any) bool {
 		return t.(*appsv1.Deployment).Spec.MinReadySeconds < 100
-	}})
+	})})
 	deployments.AddEventHandler(clienttest.TrackerHandler(tracker))
 	tester := clienttest.Wrap(t, deployments)
 
@@ -325,4 +329,77 @@ func TestToOpts(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFilterNamespace(t *testing.T) {
+	tracker := assert.NewTracker[string](t)
+	c := kube.NewFakeClient()
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*metav1.LabelSelector{{
+		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
+	}}})
+	testns := clienttest.NewWriter[*corev1.Namespace](t, c)
+	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+		kclient.New[*corev1.Namespace](c),
+		meshWatcher,
+		test.NewStop(t),
+	)
+	namespaces := kclient.NewFiltered[*corev1.Namespace](c, kubetypes.Filter{
+		ObjectFilter: discoveryNamespacesFilter,
+	})
+	c.RunAndWait(test.NewStop(t))
+	testns.Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "selected", Labels: map[string]string{"kubernetes.io/metadata.name": "selected"}}})
+	namespaces.AddEventHandler(clienttest.TrackerHandler(tracker))
+	// This is not great! But seems the best we can do.
+	// For namespaces specifically we have an interesting race.
+	// We will have 2+ informer handlers: the filter itself, and N controllers.
+	// The ordering of handlers if random. If the filter receives the event first, it could suppress re-sending the namespace event,
+	// and the usual "add" notification would pass the filter.
+	// However, if the ordering is backwards there, it would not pass the filter.
+	// We tradeoff the possibility for 2 add events instead of possibly missing events.
+	retry.UntilOrFail(t, func() bool {
+		return slices.Equal(tracker.Events(), []string{"add/selected"}) ||
+			slices.Equal(tracker.Events(), []string{"add/selected", "add/selected"})
+	})
+}
+
+func TestFilter(t *testing.T) {
+	tracker := assert.NewTracker[string](t)
+	c := kube.NewFakeClient()
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+	testns := clienttest.NewWriter[*corev1.Namespace](t, c)
+	testns.Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default", Labels: map[string]string{"kubernetes.io/metadata.name": "default"}}})
+	testns.Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "selected", Labels: map[string]string{"kubernetes.io/metadata.name": "selected"}}})
+	namespaces := kclient.New[*corev1.Namespace](c)
+	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+		namespaces,
+		meshWatcher,
+		test.NewStop(t),
+	)
+	deployments := kclient.NewFiltered[*appsv1.Deployment](c, kubetypes.Filter{
+		ObjectFilter: discoveryNamespacesFilter,
+	})
+	deployments.AddEventHandler(clienttest.TrackerHandler(tracker))
+	c.RunAndWait(test.NewStop(t))
+	tester := clienttest.Wrap(t, deployments)
+	obj1 := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "1", Namespace: "default"},
+		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 1},
+	}
+	tester.Create(obj1)
+	tracker.WaitOrdered("add/1")
+	obj2 := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "2", Namespace: "selected"},
+		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 1},
+	}
+	tester.Create(obj2)
+	tracker.WaitOrdered("add/2")
+
+	assert.Equal(t, len(tester.List("", klabels.Everything())), 2)
+
+	// Update the selectors...
+	assert.NoError(t, meshWatcher.Update(&meshconfig.MeshConfig{DiscoverySelectors: []*metav1.LabelSelector{{
+		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
+	}}}, time.Second))
+	tracker.WaitOrdered("delete/1")
+	assert.Equal(t, len(tester.List("", klabels.Everything())), 1)
 }

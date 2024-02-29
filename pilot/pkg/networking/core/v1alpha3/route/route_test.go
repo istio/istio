@@ -381,6 +381,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(Equal("FOO-HEADER"))
 			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(Equal(true))
 			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(Equal(false))
+			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetTreatMissingHeaderAsEmpty()).To(Equal(false))
 		}
 	})
 

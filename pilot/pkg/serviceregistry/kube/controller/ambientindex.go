@@ -21,6 +21,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -890,14 +891,10 @@ func (c *Controller) AdditionalPodSubscriptions(
 // syncAllWorkloadsForAmbient refreshes all ambient workloads.
 func (c *Controller) syncAllWorkloadsForAmbient() {
 	if c.ambientIndex != nil {
-		var namespaces []string
-		if c.opts.DiscoveryNamespacesFilter != nil {
-			namespaces = c.opts.DiscoveryNamespacesFilter.GetMembers().UnsortedList()
-		}
-		for _, ns := range namespaces {
-			pods := c.podsClient.List(ns, klabels.Everything())
-			services := c.services.List(ns, klabels.Everything())
-			c.ambientIndex.HandleSelectedNamespace(ns, pods, services, c)
+		for _, ns := range c.namespaces.List(metav1.NamespaceAll, klabels.Everything()) {
+			pods := c.podsClient.List(ns.Name, klabels.Everything())
+			services := c.services.List(ns.Name, klabels.Everything())
+			c.ambientIndex.HandleSelectedNamespace(ns.Name, pods, services, c)
 		}
 	}
 }
@@ -913,5 +910,45 @@ func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
 		return objMeta.Name, workloadapi.WorkloadType_CRONJOB
 	default:
 		return pod.Name, workloadapi.WorkloadType_POD
+	}
+}
+
+// HandleSelectedNamespace processes pods, workload entries and services for the selected namespace
+// and sends an XDS update as needed.
+//
+// NOTE: As an interface method of AmbientIndex, this locks the index.
+func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*v1.Pod, services []*v1.Service, c *Controller) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	updates := sets.New[model.ConfigKey]()
+
+	// Handle Pods.
+	for _, p := range pods {
+		updates = updates.Merge(a.handlePod(nil, p, model.EventAdd, c))
+	}
+
+	// Handle Services.
+	for _, s := range services {
+		updates = updates.Merge(a.handleService(s, model.EventAdd, c))
+	}
+
+	if c.configCluster {
+		// Handle WorkloadEntries.
+		allWorkloadEntries := c.getControllerWorkloadEntries(ns)
+		for _, w := range allWorkloadEntries {
+			updates = updates.Merge(a.handleWorkloadEntry(nil, w, false, c))
+		}
+		allServiceEntries := c.getControllerServiceEntries(ns)
+		for _, s := range allServiceEntries {
+			updates = updates.Merge(a.handleServiceEntry(s, model.EventUpdate, c))
+		}
+	}
+
+	if len(updates) > 0 {
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			ConfigsUpdated: updates,
+			Reason:         model.NewReasonStats(model.AmbientUpdate),
+		})
 	}
 }
