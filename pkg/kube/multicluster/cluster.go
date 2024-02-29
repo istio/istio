@@ -48,7 +48,7 @@ type Cluster struct {
 
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
 // This should be called after each of the handlers have registered informers, and should be run in a goroutine.
-func (r *Cluster) Run(mesh mesh.Watcher, handlers []handler) {
+func (r *Cluster) Run(mesh mesh.Watcher, handlers []handler, buildComponents func(cluster *Cluster)) {
 	if features.RemoteClusterTimeout > 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
 			if !r.initialSync.Load() {
@@ -59,9 +59,12 @@ func (r *Cluster) Run(mesh mesh.Watcher, handlers []handler) {
 		})
 	}
 	// Build a namespace watcher. This must have no filter, since this is our input to the filter itself.
+	// This must be done before we build components, so they can access the filter.
 	namespaces := kclient.New[*corev1.Namespace](r.Client)
 	filter := filter.NewDiscoveryNamespacesFilter(namespaces, mesh, r.stop)
 	kube.SetObjectFilter(r.Client, filter)
+
+	buildComponents(r)
 
 	if !r.Client.RunAndWait(r.stop) {
 		log.Warnf("remote cluster %s failed to sync", r.ID)

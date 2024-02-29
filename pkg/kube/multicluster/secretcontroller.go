@@ -298,10 +298,12 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		callback(remoteCluster)
-		logger.Infof("finished callback for cluster and starting to sync")
+		// We run cluster async so we do not block, as this requires actually connecting to the cluster and loading configuration.
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
-		go remoteCluster.Run(c.meshWatcher, c.handlers)
+		go func() {
+			remoteCluster.Run(c.meshWatcher, c.handlers, callback)
+			logger.Infof("finished callback for cluster")
+		}()
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
