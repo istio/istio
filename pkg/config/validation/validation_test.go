@@ -1584,6 +1584,16 @@ func TestValidateTlsOptions(t *testing.T) {
 			"", "PASSTHROUGH mode does not use certificates",
 		},
 		{
+			"pass through sds crl",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_PASSTHROUGH,
+				ServerCertificate: "",
+				CaCertificates:    "",
+				CaCrl:             "scrl",
+			},
+			"", "PASSTHROUGH mode does not use certificates",
+		},
+		{
 			"istio_mutual no certs",
 			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
