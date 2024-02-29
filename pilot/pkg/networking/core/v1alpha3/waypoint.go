@@ -45,13 +45,13 @@ type waypointServices struct {
 }
 
 // findWaypointResources returns workloads and services associated with the waypoint proxy
-func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]*model.WorkloadInfo, *waypointServices) {
+func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.WorkloadInfo, *waypointServices) {
 	scope := node.WaypointScope()
 	workloads := push.WorkloadsForWaypoint(scope)
 	return workloads, findWorkloadServices(workloads, push)
 }
 
-func findWorkloadServices(workloads []*model.WorkloadInfo, push *model.PushContext) *waypointServices {
+func findWorkloadServices(workloads []model.WorkloadInfo, push *model.PushContext) *waypointServices {
 	wps := &waypointServices{}
 	for _, wl := range workloads {
 		for _, ns := range push.ServiceIndex.HostnameAndNamespace {

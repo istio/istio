@@ -56,6 +56,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
@@ -169,21 +170,23 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		if opts.KubeClientModifier != nil {
 			opts.KubeClientModifier(client)
 		}
-		k8sConfig := configController
-		if k8sCluster != opts.DefaultClusterName {
-			k8sConfig = nil
-		}
 		k8s, _ := kube.NewFakeControllerWithOptions(t, kube.FakeControllerOptions{
-			ServiceHandler:   serviceHandler,
-			Client:           client,
-			ClusterID:        k8sCluster,
-			DomainSuffix:     "cluster.local",
-			XDSUpdater:       xdsUpdater,
-			NetworksWatcher:  opts.NetworksWatcher,
-			SkipRun:          true,
-			ConfigController: k8sConfig,
-			ConfigCluster:    k8sCluster == opts.DefaultClusterName,
-			MeshWatcher:      mesh.NewFixedWatcher(m),
+			ServiceHandler:  serviceHandler,
+			Client:          client,
+			ClusterID:       k8sCluster,
+			DomainSuffix:    "cluster.local",
+			XDSUpdater:      xdsUpdater,
+			NetworksWatcher: opts.NetworksWatcher,
+			SkipRun:         true,
+			ConfigCluster:   k8sCluster == opts.DefaultClusterName,
+			MeshWatcher:     mesh.NewFixedWatcher(m),
+			CRDs: []schema.GroupVersionResource{
+				gvr.AuthorizationPolicy,
+				gvr.PeerAuthentication,
+				gvr.KubernetesGateway,
+				gvr.WorkloadEntry,
+				gvr.ServiceEntry,
+			},
 		})
 		stop := test.NewStop(t)
 		// start default client informers after creating ingress/secret controllers
