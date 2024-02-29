@@ -31,7 +31,6 @@ import (
 )
 
 func TestAmbientIndex_WorkloadEntries(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addWorkloadEntries(t, "127.0.0.1", "name1", "sa1", map[string]string{"app": "a"})
@@ -284,7 +283,6 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 }
 
 func TestAmbientIndex_EmptyAddrWorkloadEntries(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 	s.addWorkloadEntries(t, "", "emptyaddr1", "sa1", map[string]string{"app": "a"})
 	s.assertEvent(t, s.wleXdsName("emptyaddr1"))
@@ -308,7 +306,6 @@ func TestAmbientIndex_EmptyAddrWorkloadEntries(t *testing.T) {
 }
 
 func TestAmbientIndex_UpdateExistingWorkloadEntry(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 	s.addWorkloadEntries(t, "", "emptyaddr1", "sa1", map[string]string{"app": "a"})
 	s.assertEvent(t, s.wleXdsName("emptyaddr1"))
@@ -321,7 +318,6 @@ func TestAmbientIndex_UpdateExistingWorkloadEntry(t *testing.T) {
 }
 
 func TestAmbientIndex_InlinedWorkloadEntries(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "se1", testNS, map[string]string{"app": "a"}, []string{"127.0.0.1", "127.0.0.2"})
@@ -351,7 +347,6 @@ func TestAmbientIndex_InlinedWorkloadEntries(t *testing.T) {
 }
 
 func TestAmbientIndex_WorkloadEntries_DisableK8SServiceSelectWorkloadEntries(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	test.SetForTest(t, &features.EnableK8SServiceSelectWorkloadEntries, false)
 	s := newAmbientTestServer(t, testC, testNW)
 

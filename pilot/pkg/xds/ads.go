@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -539,6 +540,12 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	con.conID = connectionID(proxy.ID)
 	con.node = node
 	con.proxy = proxy
+	if proxy.IsWaypointProxy() && !features.EnableAmbientWaypoints {
+		return fmt.Errorf("waypoint proxies require PILOT_ENABLE_AMBIENT_WAYPOINTS=true")
+	}
+	if proxy.IsZTunnel() && !features.EnableAmbientControllers {
+		return fmt.Errorf("ztunnel requires PILOT_ENABLE_AMBIENT_CONTROLLERS=true")
+	}
 
 	// Authorize xds clients
 	if err := s.authorize(con, identities); err != nil {

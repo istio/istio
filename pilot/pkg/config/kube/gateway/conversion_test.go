@@ -359,7 +359,7 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 
 func init() {
 	features.EnableAlphaGatewayAPI = true
-	features.EnableAmbientControllers = true
+	features.EnableAmbientWaypoints = true
 	// Recompute with ambient enabled
 	classInfos = getClassInfos()
 	builtinClasses = getBuiltinClasses()
