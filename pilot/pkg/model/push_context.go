@@ -1649,7 +1649,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		resolveVirtualServiceShortnames(r.Spec.(*networking.VirtualService), r.Meta)
 	}
 
-	vservices, ps.virtualServiceIndex.delegates = sortAndMergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
+	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
