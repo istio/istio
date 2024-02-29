@@ -42,11 +42,14 @@ func TestDNS(t *testing.T) {
 }
 
 func TestBuildAlternateHosts(t *testing.T) {
-	d := initDNS(t, false)
-	testBuildAlternateHosts(t, d)
-}
+	// Create the server instance without starting it, as it's unnecessary for this test
+	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Fill the DNS table with test data
+	fillTable(d)
 
-func testBuildAlternateHosts(t *testing.T, d *LocalDNSServer) {
 	testCases := []struct {
 		startsWith string
 		expected   sets.Set[string]
@@ -592,8 +595,14 @@ func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 	}
 	testAgentDNS.resolvConfServers = []string{srv}
 	testAgentDNS.StartDNS()
-	testAgentDNS.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
-	testAgentDNS.UpdateLookupTable(&dnsProto.NameTable{
+	fillTable(testAgentDNS)
+	t.Cleanup(testAgentDNS.Close)
+	return testAgentDNS
+}
+
+func fillTable(server *LocalDNSServer) {
+	server.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+	server.UpdateLookupTable(&dnsProto.NameTable{
 		Table: map[string]*dnsProto.NameTable_NameInfo{
 			"www.google.com": {
 				Ips:      []string{"1.1.1.1"},
@@ -656,8 +665,6 @@ func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 			},
 		},
 	})
-	t.Cleanup(testAgentDNS.Close)
-	return testAgentDNS
 }
 
 // reflect.DeepEqual doesn't seem to work well for dns.RR
