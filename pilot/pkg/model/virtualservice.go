@@ -163,7 +163,7 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 }
 
 // Return merged virtual services and the root->delegate vs map
-func sortAndMergeVirtualServicesIfNeeded(
+func mergeVirtualServicesIfNeeded(
 	vServices []config.Config,
 	defaultExportTo map[visibility.Instance]bool,
 ) ([]config.Config, map[ConfigKey][]ConfigKey) {
@@ -260,10 +260,6 @@ func sortAndMergeVirtualServicesIfNeeded(
 		out = append(out, root)
 	}
 
-	// TODO(rshriram): parse each virtual service and maintain a map of the
-	// virtualservice name, the list of registry hosts in the VS and non
-	// registry DNS names in the VS.  This should cut down processing in
-	// the RDS code. See separateVSHostsAndServices in route/route.go
 	sortConfigByCreationTime(out)
 
 	return out, delegatesByRoot
