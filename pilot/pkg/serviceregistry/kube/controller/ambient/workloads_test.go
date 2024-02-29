@@ -167,11 +167,11 @@ func TestPodWorkloads(t *testing.T) {
 					},
 					PortNames: map[int32]model.ServicePortName{
 						// Not a named port
-						80: {"80", ""},
+						80: {PortName: "80"},
 						// Named port found in pod
-						81: {"81", "81-target"},
+						81: {PortName: "81", TargetPortName: "81-target"},
 						// Named port not found in pod
-						82: {"82", "82-target"},
+						82: {PortName: "82", TargetPortName: "82-target"},
 					},
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
 				},
@@ -334,13 +334,13 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 					},
 					PortNames: map[int32]model.ServicePortName{
 						// Not a named port
-						80: {"80", ""},
+						80: {PortName: "80"},
 						// Named port found in WE
-						81: {"81", "81-target"},
+						81: {PortName: "81", TargetPortName: "81-target"},
 						// Named port target found in WE
-						82: {"82", "82-target"},
+						82: {PortName: "82", TargetPortName: "82-target"},
 						// Named port not found in WE
-						83: {"83", "83-target"},
+						83: {PortName: "83", TargetPortName: "83-target"},
 					},
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
 					Source:        kind.Service,
@@ -416,11 +416,11 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 					},
 					PortNames: map[int32]model.ServicePortName{
 						// TargetPort explicitly set
-						80: {"80", ""},
+						80: {PortName: "80"},
 						// Port name found
-						81: {"81", ""},
+						81: {PortName: "81"},
 						// Port name not found
-						82: {"82", ""},
+						82: {PortName: "82"},
 					},
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
 					Source:        kind.ServiceEntry,
