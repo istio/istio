@@ -327,7 +327,23 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
 // into a ClusterLoadAssignment. Used for EDS.
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
+	svcPort := b.servicePort(b.port)
+	if svcPort == nil {
+		return nil
+	}
 	svcEps := b.snapshotShards(endpointIndex)
+	slices.Filter(svcEps, func(ep *model.IstioEndpoint) bool {
+		// filter out endpoints that don't match the service port
+		if svcPort.Name != ep.ServicePortName {
+			return false
+		}
+		// filter out endpoints that don't match the subset
+		if !b.subsetLabels.SubsetOf(ep.Labels) {
+			return false
+		}
+		return true
+	})
+
 	localityLbEndpoints := b.generate(svcEps, false)
 	if len(localityLbEndpoints) == 0 {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
@@ -481,13 +497,6 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *
 	if !ep.IsDiscoverableFromProxy(b.proxy) {
 		return false
 	}
-	if svcPort.Name != ep.ServicePortName {
-		return false
-	}
-	// Port labels
-	if !b.subsetLabels.SubsetOf(ep.Labels) {
-		return false
-	}
 	// If we don't know the address we must eventually use a gateway address
 	if ep.Address == "" && (!b.gateways().IsMultiNetworkEnabled() || b.proxy.InNetwork(ep.Network)) {
 		return false
@@ -518,9 +527,9 @@ func (b *EndpointBuilder) snapshotShards(endpointIndex *model.EndpointIndex) []*
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
 	isClusterLocal := b.clusterLocal
-
 	var eps []*model.IstioEndpoint
 	shards.RLock()
+	defer shards.RUnlock()
 	// Extract shard keys so we can iterate in order. This ensures a stable EDS output.
 	keys := shards.Keys()
 	// The shards are updated independently, now need to filter and merge for this cluster
@@ -534,7 +543,6 @@ func (b *EndpointBuilder) snapshotShards(endpointIndex *model.EndpointIndex) []*
 		}
 		eps = append(eps, shards.Shards[shardKey]...)
 	}
-	shards.RUnlock()
 	return eps
 }
 
