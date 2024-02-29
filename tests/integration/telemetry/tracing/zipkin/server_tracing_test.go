@@ -45,15 +45,13 @@ func TestServerTracing(t *testing.T) {
 						if err != nil {
 							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
 						}
-						for _, zipkinInst := range tracing.GetZipkinInstances() {
-							traces, err := zipkinInst.QueryTraces(300,
-								fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
-							if err != nil {
-								return fmt.Errorf("cannot get traces from zipkin: %v", err)
-							}
-							if !tracing.VerifyEchoTraces(t, appNsInst.Name(), cluster.Name(), traces) {
-								return errors.New("cannot find expected traces")
-							}
+						traces, err := tracing.GetZipkinInstances()[0].QueryTraces(300,
+							fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
+						if err != nil {
+							return fmt.Errorf("cannot get traces from zipkin: %v", err)
+						}
+						if !tracing.VerifyEchoTraces(t, appNsInst.Name(), cluster.Name(), traces) {
+							return errors.New("cannot find expected traces")
 						}
 						return nil
 					}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
