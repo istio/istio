@@ -15,7 +15,9 @@
 package ambient
 
 import (
+	"fmt"
 	"net/netip"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -65,21 +67,59 @@ func serviceToAddressInfo(s *workloadapi.Service) model.AddressInfo {
 	}
 }
 
-func byteIPToString(b []byte) string {
-	ip, _ := netip.AddrFromSlice(b)
+func mustByteIPToString(b []byte) string {
+	ip, _ := netip.AddrFromSlice(b) // Address only comes from objects we create, so it must be valid
 	return ip.String()
 }
 
 func byteIPToAddr(b []byte) netip.Addr {
-	ip, _ := netip.AddrFromSlice(b)
+	ip, _ := netip.AddrFromSlice(b) // Address only comes from objects we create, so it must be valid
 	return ip
 }
 
-func (a *index) toNetworkAddress(vip string) *workloadapi.NetworkAddress {
+func (a *index) toNetworkAddress(vip string) (*workloadapi.NetworkAddress, error) {
+	ip, err := netip.ParseAddr(vip)
+	if err != nil {
+		return nil, fmt.Errorf("parse %v: %v", vip, err)
+	}
 	return &workloadapi.NetworkAddress{
 		Network: a.Network(vip, make(labels.Instance, 0)).String(),
-		Address: netip.MustParseAddr(vip).AsSlice(),
+		Address: ip.AsSlice(),
+	}, nil
+}
+
+func (a *index) toNetworkAddressFromIP(ip netip.Addr) *workloadapi.NetworkAddress {
+	return &workloadapi.NetworkAddress{
+		Network: a.Network(ip.String(), make(labels.Instance, 0)).String(),
+		Address: ip.AsSlice(),
 	}
+}
+
+func (a *index) toNetworkAddressFromCidr(vip string) (*workloadapi.NetworkAddress, error) {
+	ip, err := parseCidrOrIP(vip)
+	if err != nil {
+		return nil, err
+	}
+	return &workloadapi.NetworkAddress{
+		Network: a.Network(vip, make(labels.Instance, 0)).String(),
+		Address: ip.AsSlice(),
+	}, nil
+}
+
+// parseCidrOrIP parses an IP or a CIDR of a exactly 1 IP (e.g. /32).
+// This is to support ServiceEntry which supports CIDRs, but we don't currently support more than 1 IP
+func parseCidrOrIP(ip string) (netip.Addr, error) {
+	if strings.Contains(ip, "/") {
+		prefix, err := netip.ParsePrefix(ip)
+		if err != nil {
+			return netip.Addr{}, err
+		}
+		if !prefix.IsSingleIP() {
+			return netip.Addr{}, fmt.Errorf("only single IP CIDR is allowed")
+		}
+		return prefix.Addr(), nil
+	}
+	return netip.ParseAddr(ip)
 }
 
 func AppendNonNil[T any](data []T, i *T) []T {
@@ -148,8 +188,8 @@ func namespacedHostname(namespace, hostname string) string {
 func networkAddressFromWorkload(wl model.WorkloadInfo) []networkAddress {
 	networkAddrs := make([]networkAddress, 0, len(wl.Addresses))
 	for _, addr := range wl.Addresses {
-		ip, _ := netip.AddrFromSlice(addr)
-		networkAddrs = append(networkAddrs, networkAddress{network: wl.Network, ip: ip.String()})
+		// mustByteIPToString is ok since this is from our IP constructed
+		networkAddrs = append(networkAddrs, networkAddress{network: wl.Network, ip: mustByteIPToString(addr)})
 	}
 	return networkAddrs
 }
@@ -157,8 +197,8 @@ func networkAddressFromWorkload(wl model.WorkloadInfo) []networkAddress {
 func networkAddressFromService(s model.ServiceInfo) []networkAddress {
 	networkAddrs := make([]networkAddress, 0, len(s.Addresses))
 	for _, addr := range s.Addresses {
-		ip, _ := netip.AddrFromSlice(addr.Address)
-		networkAddrs = append(networkAddrs, networkAddress{network: addr.Network, ip: ip.String()})
+		// mustByteIPToString is ok since this is from our IP constructed
+		networkAddrs = append(networkAddrs, networkAddress{network: addr.Network, ip: mustByteIPToString(addr.Address)})
 	}
 	return networkAddrs
 }

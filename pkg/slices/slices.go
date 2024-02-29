@@ -180,6 +180,19 @@ func Map[E any, O any](s []E, f func(E) O) []O {
 	return n
 }
 
+// MapErr runs f() over all elements in s and returns the result, short circuiting if there is an error.
+func MapErr[E any, O any](s []E, f func(E) (O, error)) ([]O, error) {
+	n := make([]O, 0, len(s))
+	for _, e := range s {
+		res, err := f(e)
+		if err != nil {
+			return nil, err
+		}
+		n = append(n, res)
+	}
+	return n, nil
+}
+
 // MapFilter runs f() over all elements in s and returns any non-nil results
 func MapFilter[E any, O any](s []E, f func(E) *O) []O {
 	n := make([]O, 0, len(s))

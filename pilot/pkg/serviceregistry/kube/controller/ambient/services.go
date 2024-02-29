@@ -21,8 +21,10 @@ import (
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -74,6 +76,11 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry) []model.Ser
 }
 
 func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry) []*workloadapi.Service {
+	addresses, err := slices.MapErr(svc.Spec.Addresses, a.toNetworkAddressFromCidr)
+	if err != nil {
+		// TODO: perhaps we should support CIDR in the future?
+		return nil
+	}
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
 		ports = append(ports, &workloadapi.Port{
@@ -89,7 +96,7 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry) []*w
 			Name:      svc.Name,
 			Namespace: svc.Namespace,
 			Hostname:  h,
-			Addresses: slices.Map(svc.Spec.Addresses, a.toNetworkAddress),
+			Addresses: addresses,
 			Ports:     ports,
 		})
 	}
@@ -105,12 +112,17 @@ func (a *index) constructService(svc *v1.Service) *workloadapi.Service {
 		})
 	}
 
+	addresses, err := slices.MapErr(getVIPs(svc), a.toNetworkAddress)
+	if err != nil {
+		log.Warnf("fail to parse service %v: %v", config.NamespacedName(svc), err)
+		return nil
+	}
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	return &workloadapi.Service{
 		Name:      svc.Name,
 		Namespace: svc.Namespace,
 		Hostname:  string(kube.ServiceHostname(svc.Name, svc.Namespace, a.DomainSuffix)),
-		Addresses: slices.Map(getVIPs(svc), a.toNetworkAddress),
+		Addresses: addresses,
 		Ports:     ports,
 	}
 }
