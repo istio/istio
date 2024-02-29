@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
-	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
@@ -90,13 +89,12 @@ type index struct {
 type Options struct {
 	Client kubeclient.Client
 
-	Revision                  string
-	SystemNamespace           string
-	DomainSuffix              string
-	ClusterID                 cluster.ID
-	XDSUpdater                model.XDSUpdater
-	LookupNetwork             LookupNetwork
-	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
+	Revision        string
+	SystemNamespace string
+	DomainSuffix    string
+	ClusterID       cluster.ID
+	XDSUpdater      model.XDSUpdater
+	LookupNetwork   LookupNetwork
 }
 
 func New(options Options) Index {
@@ -111,7 +109,7 @@ func New(options Options) Index {
 	}
 
 	filter := kclient.Filter{
-		ObjectFilter: options.DiscoveryNamespacesFilter.Filter,
+		ObjectFilter: options.Client.ObjectFilter(),
 	}
 	ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, krt.WithName("ConfigMaps"))
 
@@ -136,7 +134,7 @@ func New(options Options) Index {
 
 	Services := krt.NewInformerFiltered[*v1.Service](options.Client, filter, krt.WithName("Services"))
 	Pods := krt.NewInformerFiltered[*v1.Pod](options.Client, kclient.Filter{
-		ObjectFilter:    options.DiscoveryNamespacesFilter.Filter,
+		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
 	}, krt.WithName("Pods"))
 

@@ -48,10 +48,8 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeclient "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -1112,12 +1110,11 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		clienttest.MakeCRD(t, cl, crd)
 	}
 	idx := New(Options{
-		Client:                    cl,
-		SystemNamespace:           systemNS,
-		DomainSuffix:              "company.com",
-		ClusterID:                 clusterID,
-		XDSUpdater:                up,
-		DiscoveryNamespacesFilter: namespace.NewDiscoveryNamespacesFilter(kclient.New[*corev1.Namespace](cl), nil),
+		Client:          cl,
+		SystemNamespace: systemNS,
+		DomainSuffix:    "company.com",
+		ClusterID:       clusterID,
+		XDSUpdater:      up,
 		LookupNetwork: func(endpointIP string, labels labels.Instance) network.ID {
 			return networkID
 		},

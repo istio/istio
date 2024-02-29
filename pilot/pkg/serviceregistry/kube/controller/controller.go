@@ -142,7 +142,7 @@ type Options struct {
 	// Revision of this Istiod instance
 	Revision string
 
-	ConfigCluster    bool
+	ConfigCluster bool
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -282,14 +282,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	if features.EnableAmbientControllers {
 		c.ambientIndex = ambient.New(ambient.Options{
-			Client:                    kubeClient,
-			SystemNamespace:           options.SystemNamespace,
-			DomainSuffix:              options.DomainSuffix,
-			ClusterID:                 options.ClusterID,
-			Revision:                  options.Revision,
-			XDSUpdater:                options.XDSUpdater,
-			DiscoveryNamespacesFilter: c.opts.DiscoveryNamespacesFilter,
-			LookupNetwork:             c.Network,
+			Client:          kubeClient,
+			SystemNamespace: options.SystemNamespace,
+			DomainSuffix:    options.DomainSuffix,
+			ClusterID:       options.ClusterID,
+			Revision:        options.Revision,
+			XDSUpdater:      options.XDSUpdater,
+			LookupNetwork:   c.Network,
 		})
 	}
 	c.exports = newServiceExportCache(c)
