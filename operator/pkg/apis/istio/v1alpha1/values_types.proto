@@ -527,10 +527,6 @@ message GlobalConfig {
   // Defaults to false. When set to true, the sidecar injector ConfigMap will not be created.
   google.protobuf.BoolValue omitSidecarInjectorConfigMap = 38;
 
-  // Controls whether to restrict the applications namespace the controller manages;
-  // If set it to false, the controller watches all namespaces.
-  google.protobuf.BoolValue oneNamespace = 23;
-
   // Controls whether the WebhookConfiguration resource(s) should be created. The current behavior
   // of Istiod is to manage its own webhook configurations.
   // When this option is set to true, Istio Operator, instead of webhooks, manages the

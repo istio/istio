@@ -37,7 +37,6 @@
     "namespace": "istio-system",
     "network": "network1",
     "omitSidecarInjectorConfigMap": false,
-    "oneNamespace": false,
     "operatorManageWebhooks": false,
     "pilotCertProvider": "istiod",
     "priorityClassName": "",
