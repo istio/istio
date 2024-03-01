@@ -1536,6 +1536,8 @@ func SortVHostRoutes(routes []*route.Route) []*route.Route {
 // isCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.
 func isCatchAllRoute(r *route.Route) bool {
 	catchall := false
+	// A Match is catch all if and only if it has no header/query param match
+	// and URI has a prefix `/` or regex `.*`.
 	switch ir := r.Match.PathSpecifier.(type) {
 	case *route.RouteMatch_Prefix:
 		catchall = ir.Prefix == "/"
@@ -1544,8 +1546,7 @@ func isCatchAllRoute(r *route.Route) bool {
 	case *route.RouteMatch_SafeRegex:
 		catchall = ir.SafeRegex.GetRegex() == ".*"
 	}
-	// A Match is catch all if and only if it has no header/query param match
-	// and URI has a prefix / or regex *.
+
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
 }
 
