@@ -25,6 +25,7 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -389,6 +390,83 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
 	return cmd
 }
 
+// istiodDebugDashCmd port-forwards to istio monitoring port; open browser to the debug page
+func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
+	cmd := &cobra.Command{
+		Use:   "istiod-debug [<type>/]<name>[.<namespace>]",
+		Short: "Open Istio debug web UI",
+		Long:  `Open the debug web UI for a Istio control plane pod`,
+		Example: `  # Open Istio debug web UI for the istiod-123-456.istio-system pod
+  istioctl dashboard istiod-debug istiod-123-456.istio-system
+
+  # Open Istio debug web UI for the istiod-56dd66799-jfdvs pod in a custom namespace
+  istioctl dashboard istiod-debug istiod-123-456 -n custom-ns
+
+  # Open Istio debug web UI for any Istiod pod
+  istioctl dashboard istiod-debug deployment/istiod.istio-system
+
+  # with short syntax
+  istioctl dash istiod-debug pilot-123-456.istio-system
+  istioctl d istiod-debug pilot-123-456.istio-system
+`,
+		RunE: func(c *cobra.Command, args []string) error {
+			if labelSelector == "" && len(args) < 1 {
+				c.Println(c.UsageString())
+				return fmt.Errorf("specify a pod or --selector")
+			}
+
+			if labelSelector != "" && len(args) > 0 {
+				c.Println(c.UsageString())
+				return fmt.Errorf("name cannot be provided when a selector is specified")
+			}
+
+			client, err := ctx.CLIClientWithRevision(opts.Revision)
+			if err != nil {
+				return fmt.Errorf("failed to create k8s client: %v", err)
+			}
+
+			var podName, ns string
+			if labelSelector != "" {
+				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.IstioNamespace()), labelSelector)
+				if err != nil {
+					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
+				}
+
+				if len(pl.Items) < 1 {
+					return errors.New("no pods found")
+				}
+
+				if len(pl.Items) > 1 {
+					log.Warnf("more than 1 pods fits selector: %s; will use pod: %s", labelSelector, pl.Items[0].Name)
+				}
+
+				// only use the first pod in the list
+				podName = pl.Items[0].Name
+				ns = pl.Items[0].Namespace
+			} else {
+				podName, ns, err = ctx.InferPodInfoFromTypedResource(args[0], ctx.IstioNamespace())
+				if err != nil {
+					return err
+				}
+			}
+			port := inferMonitoringPort(client, podName, ns)
+			return portForward(podName, ns, fmt.Sprintf("Istio debug %s", podName),
+				"http://%s/debug", bindAddress, port, client, c.OutOrStdout(), browser)
+		},
+	}
+	return cmd
+}
+
+func inferMonitoringPort(client kube.Client, name, ns string) int {
+	port := 15014
+	pod, err := client.Kube().CoreV1().Pods(ns).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return port
+	}
+	return kube.FindIstiodMonitoringPort(pod)
+}
+
 // port-forward to SkyWalking UI on istio-system
 func skywalkingDashCmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
@@ -564,6 +642,10 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
 	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	dashboardCmd.AddCommand(controlz)
+
+	istioDebug := istioDebugDashCmd(cliContext)
+	istioDebug.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
+	dashboardCmd.AddCommand(istioDebug)
 
 	return dashboardCmd
 }

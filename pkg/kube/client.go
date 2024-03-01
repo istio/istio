@@ -752,7 +752,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		monitoringPort := findIstiodMonitoringPort(&istiod)
+		monitoringPort := FindIstiodMonitoringPort(&istiod)
 		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, monitoringPort)
 		if err != nil {
 			return nil, err
@@ -853,7 +853,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 			Revision:  pod.GetLabels()[label.IoIstioRev.Name],
 		}
 
-		monitoringPort := findIstiodMonitoringPort(&pod)
+		monitoringPort := FindIstiodMonitoringPort(&pod)
 		result, err := c.portForwardRequest(ctx, pod.Name, pod.Namespace, http.MethodGet, "/version", monitoringPort)
 		if err != nil {
 			errs = multierror.Append(errs,
@@ -1223,7 +1223,7 @@ func SetRevisionForTest(c CLIClient, rev string) CLIClient {
 	return tc
 }
 
-func findIstiodMonitoringPort(pod *v1.Pod) int {
+func FindIstiodMonitoringPort(pod *v1.Pod) int {
 	if v, ok := pod.GetAnnotations()["prometheus.io/port"]; ok {
 		if port, err := strconv.Atoi(v); err == nil {
 			return port
