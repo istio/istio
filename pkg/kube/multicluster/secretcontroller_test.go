@@ -167,6 +167,7 @@ func TestListRemoteClusters(t *testing.T) {
 		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: "syncing"},
 		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: "syncing"},
 	})
+	assert.EventuallyEqual(t, func() int { return len(c.component.All()) }, 3)
 
 	// Sync
 	for _, c := range c.component.All() {
