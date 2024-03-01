@@ -589,19 +589,6 @@ func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery
 	}
 }
 
-// nolint
-// ClientsOf returns the clients that are watching the given resource.
-func (s *DiscoveryServer) ClientsOf(typeUrl string) []*Connection {
-	pending := []*Connection{}
-	for _, v := range s.Clients() {
-		if v.Watching(typeUrl) {
-			pending = append(pending, v)
-		}
-	}
-
-	return pending
-}
-
 func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
 	if s.RequestRateLimit.Limit() == 0 {
 		// Allow opt out when rate limiting is set to 0qps
