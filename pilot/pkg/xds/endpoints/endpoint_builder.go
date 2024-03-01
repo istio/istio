@@ -332,7 +332,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		return nil
 	}
 	svcEps := b.snapshotShards(endpointIndex)
-	slices.Filter(svcEps, func(ep *model.IstioEndpoint) bool {
+	svcEps = slices.FilterInPlace(svcEps, func(ep *model.IstioEndpoint) bool {
 		// filter out endpoints that don't match the service port
 		if svcPort.Name != ep.ServicePortName {
 			return false
