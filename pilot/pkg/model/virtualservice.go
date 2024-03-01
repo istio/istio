@@ -260,6 +260,8 @@ func mergeVirtualServicesIfNeeded(
 		out = append(out, root)
 	}
 
+	sortConfigByCreationTime(out)
+
 	return out, delegatesByRoot
 }
 
