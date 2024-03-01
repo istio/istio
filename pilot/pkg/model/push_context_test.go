@@ -335,6 +335,7 @@ func TestEnvoyFilterOrder(t *testing.T) {
 		{
 			Meta: config.Meta{Name: "a-medium-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
 			Spec: &networking.EnvoyFilter{
+				Priority: 10,
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 					{
 						Patch: &networking.EnvoyFilter_Patch{},
