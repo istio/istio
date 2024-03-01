@@ -1,4 +1,6 @@
 version: v1beta1
+deps:
+  - "buf.build/k8s/api"
 build:
   roots:
     - operator
