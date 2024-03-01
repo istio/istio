@@ -329,7 +329,7 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
 	svcPort := b.servicePort(b.port)
 	if svcPort == nil {
-		return nil
+		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 	svcEps := b.snapshotShards(endpointIndex)
 	svcEps = slices.FilterInPlace(svcEps, func(ep *model.IstioEndpoint) bool {
@@ -378,13 +378,9 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed 
 	if !b.ServiceFound() {
 		return nil
 	}
-	svcPort := b.servicePort(b.port)
-	if svcPort == nil {
-		return nil
-	}
 
 	eps = slices.Filter(eps, func(ep *model.IstioEndpoint) bool {
-		return b.filterIstioEndpoint(ep, svcPort)
+		return b.filterIstioEndpoint(ep)
 	})
 
 	localityEpMap := make(map[string]*LocalityEndpoints)
@@ -477,7 +473,7 @@ func addUint32(left, right uint32) (uint32, bool) {
 	return left + right, false
 }
 
-func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *model.Port) bool {
+func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	// for ServiceInternalTrafficPolicy
 	if b.service.Attributes.NodeLocal && ep.NodeName != b.proxy.GetNodeName() {
 		return false
