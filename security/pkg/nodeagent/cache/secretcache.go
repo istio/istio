@@ -19,8 +19,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -39,6 +37,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/monitoring"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
+	"istio.io/istio/security/pkg/pki/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
 
@@ -405,11 +404,7 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 		if err != nil {
 			return err
 		}
-		block, _ := pem.Decode(rootCert)
-		if block == nil {
-			return fmt.Errorf("pem decode failed")
-		}
-		_, err := x509.ParseCertificates(block.Bytes)
+		_, _, err := util.ParsePemEncodedCertificateChain(rootCert)
 		if err != nil {
 			return err
 		}
