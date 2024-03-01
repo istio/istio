@@ -1279,8 +1279,8 @@ spec:
 			tc.children = append(tc.children, TrafficCall{
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
-					Port:    echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
-					Count:   1,
+					Port:  echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count: 1,
 					// Failed requests will go to non-existent port which hangs forever
 					// Set a low timeout to fail faster
 					Timeout: time.Millisecond * 500,
@@ -1316,7 +1316,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: external-service
+  name: alt-external-service
 spec:
   exportTo: [.]
   hosts:
@@ -1344,8 +1344,8 @@ spec:
 			tc.children = append(tc.children, TrafficCall{
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
-					Port:    echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
-					Count:   1,
+					Port:  echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count: 1,
 					// Failed requests will go to non-existent port which hangs forever
 					// Set a low timeout to fail faster
 					Timeout: time.Millisecond * 500,
@@ -1396,7 +1396,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: external-service
+  name: alt-external-service
 spec:
   exportTo: [.]
   hosts:
@@ -1434,8 +1434,8 @@ spec:
 			tc.children = append(tc.children, TrafficCall{
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
-					Port:    echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
-					Count:   1,
+					Port:  echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count: 1,
 					// Failed requests will go to non-existent port which hangs forever
 					// Set a low timeout to fail faster
 					Timeout: time.Millisecond * 500,
