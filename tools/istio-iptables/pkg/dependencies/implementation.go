@@ -69,33 +69,109 @@ type RealDependencies struct {
 const iptablesVersionPattern = `v([0-9]+(\.[0-9]+)+)`
 
 type IptablesVersion struct {
+	detectedBinary string
 	// the actual version
 	version *utilversion.Version
 	// true if legacy mode, false if nf_tables
 	legacy bool
 }
 
-func DetectIptablesVersion(ver string) (IptablesVersion, error) {
-	if ver == "" {
-		var err error
-		verb, err := exec.Command("iptables", "--version").CombinedOutput()
+
+// Constants for iptables commands
+const (
+	IPTABLES_BIN         = "iptables" //TODO check usages, nothing should use this directly but below
+	IPTABLES_NFT_BIN     = "iptables-nft"
+	IPTABLES_LEGACY_BIN  = "iptables-legacy"
+	IP6TABLES_BIN        = "ip6tables"
+	IP6TABLES_NFT_BIN    = "ip6tables-nft"
+	IP6TABLES_LEGACY_BIN = "ip6tables-legacy"
+)
+
+// It is not sufficient to check for the presence of one binary or the other in $PATH -
+// we must choose a binary that is
+// 1. Available in our $PATH
+// 2. Matches where rules are actually defined in the netns we're operating in
+// (legacy or nft, with a preference for the latter if both present)
+//
+// This is designed to handle situations where, for instance, the host has nft-defined rules, and our default container
+// binary is `legacy`, or vice-versa - we must match the binaries we have in our $PATH to what rules are actually defined
+// in our current netns context.
+//
+// Basic selection logic is as follows:
+// 1. see if we have `nft` binary in our $PATH
+// 2. see if we have existing rules in `nft` in our netns
+// 3. If so, use `nft`
+// 4. Otherwise, see if we have `legacy` binary, and use that.
+// 5. Otherwise, see if we have `iptables` binary, and use that (detecting whether it's nft or legacy).
+func DetectIptablesVersion(overrideVersion string) (IptablesVersion, error) {
+	// If an override version string is defined, we do no detection and assume you are telling
+	// us to use something that's actually in $PATH
+	if overrideVersion != "" {
+		// Legacy will have no marking or 'legacy', so just look for nf_tables
+		nft := strings.Contains(overrideVersion, "nf_tables")
+		parsedVer, err := parseIptablesVer(string(overrideVersion))
 		if err != nil {
-			return IptablesVersion{}, err
+			return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", overrideVersion, err)
 		}
-		ver = string(verb)
+		return IptablesVersion{version: parsedVer, legacy: !nft}, nil
+	} else {
+		// does the nft binary exist?
+		ver, err := shouldUseBinaryForCurrentContext(IPTABLES_NFT_BIN)
+		if err == nil {
+			// if so, use it.
+			return ver, nil
+		} else {
+			// does the legacy binary exist?
+			ver, err := shouldUseBinaryForCurrentContext(IPTABLES_LEGACY_BIN)
+			if err == nil {
+				// if so, use it
+				return ver, err
+			} else {
+				// regular non-suffixed binary is our last resort - if it's not there,
+				// propagate the error, we can't do anything
+				return shouldUseBinaryForCurrentContext(IPTABLES_BIN)
+			}
+		}
 	}
-	// Legacy will have no marking or 'legacy', so just look for nf_tables
-	nft := strings.Contains(ver, "nf_tables")
+}
+
+func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, error) {
+	// We assume that whatever `iptablesXXX` binary you pass us also has a `iptablesXXX-save` binary
+	// which should always be true for any valid iptables installation (we use both in our iptables code anyway)
+	iptablesSaveBin := fmt.Sprintf("%s-save", iptablesBin)
+	// does the "xx-save" binary exist?
+	rawIptablesVer, execErr := exec.Command(iptablesSaveBin, "--version").CombinedOutput()
+	if execErr == nil {
+		// if it seems to, use it to dump the rules in our netns, and see if any rules exist there
+		rulesDump, _ := exec.Command(iptablesSaveBin).CombinedOutput()
+		// `xx-save` should return _no_ output (0 lines) if no rules are defined in this netns for that binary variant.
+		// `xx-save` should return at least 3 output lines if at least one rule is defined in this netns for that binary variant.
+		if strings.Count(string(rulesDump), "\n") >= 3 {
+			// binary exists and rules exist in its tables in this netns -> we should use this binary for this netns.
+			parsedVer, err := parseIptablesVer(string(rawIptablesVer))
+			if err != nil {
+				return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", rawIptablesVer, err)
+			}
+			// Legacy will have no marking or 'legacy', so just look for nf_tables
+			isNft := strings.Contains(string(rawIptablesVer), "nf_tables")
+			return IptablesVersion{detectedBinary: iptablesBin, version: parsedVer, legacy: !isNft}, nil
+		}
+	}
+	return IptablesVersion{}, fmt.Errorf("iptables save binary: %s either not present, or has no rules defined in current netns", iptablesSaveBin)
+}
+
+// TODO BML verify this won't choke on "-save" binaries having slightly diff. version string prefixes
+func parseIptablesVer(rawVer string) (*utilversion.Version, error) {
 	versionMatcher := regexp.MustCompile(iptablesVersionPattern)
-	match := versionMatcher.FindStringSubmatch(ver)
+	match := versionMatcher.FindStringSubmatch(rawVer)
 	if match == nil {
-		return IptablesVersion{}, fmt.Errorf("no iptables version found: %q", ver)
+		return nil, fmt.Errorf("no iptables version found for: %q", rawVer)
 	}
 	version, err := utilversion.ParseGeneric(match[1])
 	if err != nil {
-		return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", match[1], err)
+		return nil, fmt.Errorf("iptables version %q is not a valid version string: %v", match[1], err)
 	}
-	return IptablesVersion{version: version, legacy: !nft}, nil
+	return version, nil
 }
 
 // transformToXTablesErrorMessage returns an updated error message with explicit xtables error hints, if applicable.
