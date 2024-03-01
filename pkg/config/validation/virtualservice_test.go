@@ -263,6 +263,58 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: true},
+		{name: "exact without headers match", route: &networking.HTTPRoute{
+			Redirect: &networking.HTTPRedirect{
+				Uri:       "/",
+				Authority: "foo.biz",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				WithoutHeaders: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Exact{Exact: "test"},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "regex without headers match", route: &networking.HTTPRoute{
+			Redirect: &networking.HTTPRedirect{
+				Uri:       "/",
+				Authority: "foo.biz",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				WithoutHeaders: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Regex{Regex: "test"},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "regex without headers match ?", route: &networking.HTTPRoute{
+			Redirect: &networking.HTTPRedirect{
+				Uri:       "/",
+				Authority: "foo.biz",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				WithoutHeaders: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Regex{Regex: "?"},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "regex without headers match *", route: &networking.HTTPRoute{
+			Redirect: &networking.HTTPRedirect{
+				Uri:       "/",
+				Authority: "foo.biz",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				WithoutHeaders: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Regex{Regex: "*"},
+					},
+				},
+			}},
+		}, valid: true},
 		{name: "regex uri match", route: &networking.HTTPRoute{
 			Delegate: &networking.Delegate{
 				Name:      "test",
