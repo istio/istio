@@ -168,7 +168,7 @@ func convertServices(cfg config.Config) []*model.Service {
 	var portOverrides map[uint32]uint32
 	for _, port := range serviceEntry.Ports {
 		svcPorts = append(svcPorts, convertPort(port))
-		if resolution == model.Passthrough && port.TargetPort != port.Number && port.TargetPort != 0 {
+		if resolution == model.Passthrough  && port.TargetPort != 0 {
 			if portOverrides == nil {
 				portOverrides = map[uint32]uint32{}
 			}

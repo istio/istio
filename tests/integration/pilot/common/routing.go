@@ -1281,6 +1281,9 @@ spec:
 				opts: echo.CallOptions{
 					Port:    echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
 					Count:   1,
+					// Failed requests will go to non-existent port which hangs forever
+					// Set a low timeout to fail faster
+					Timeout: time.Millisecond * 500,
 					Address: t.Apps.External.All[0].Address(),
 					HTTP: echo.HTTP{
 						Headers: HostHeader(t.Apps.External.All[0].Config().DefaultHostHeader),
@@ -1343,6 +1346,9 @@ spec:
 				opts: echo.CallOptions{
 					Port:    echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
 					Count:   1,
+					// Failed requests will go to non-existent port which hangs forever
+					// Set a low timeout to fail faster
+					Timeout: time.Millisecond * 500,
 					Address: t.Apps.External.All[0].Address(),
 					HTTP: echo.HTTP{
 						Headers: HostHeader(t.Apps.External.All[0].Config().ClusterLocalFQDN()),
@@ -1430,6 +1436,9 @@ spec:
 				opts: echo.CallOptions{
 					Port:    echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
 					Count:   1,
+					// Failed requests will go to non-existent port which hangs forever
+					// Set a low timeout to fail faster
+					Timeout: time.Millisecond * 500,
 					Address: t.Apps.External.All[0].Address(),
 					HTTP: echo.HTTP{
 						Headers: HostHeader(t.Apps.External.All[0].Config().ClusterLocalFQDN()),
