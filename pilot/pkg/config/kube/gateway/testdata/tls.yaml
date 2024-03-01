@@ -57,8 +57,6 @@ spec:
         from: All
     tls:
       mode: Terminate
-      certificateRefs:
-      - name: dummy # TODO: revmove this when https://github.com/kubernetes-sigs/gateway-api/pull/2721 is in
       options:
         gateway.istio.io/tls-terminate-mode: ISTIO_MUTUAL
 ---

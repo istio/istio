@@ -2400,12 +2400,12 @@ func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 	case k8sv1.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
 		if tls.Options != nil {
-			mode := tls.Options[gatewayTLSTerminateModeKey]
-			if mode == "MUTUAL" {
+			switch tls.Options[gatewayTLSTerminateModeKey] {
+			case "MUTUAL":
 				out.Mode = istio.ServerTLSSettings_MUTUAL
-			} else if mode == "ISTIO_MUTUAL" {
+			case "ISTIO_MUTUAL":
 				out.Mode = istio.ServerTLSSettings_ISTIO_MUTUAL
-				break
+				return out, nil
 			}
 		}
 		if len(tls.CertificateRefs) != 1 {
