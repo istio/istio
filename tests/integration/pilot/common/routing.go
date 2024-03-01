@@ -824,7 +824,6 @@ spec:
 		},
 		workloadAgnostic: true,
 	})
-
 	t.RunTraffic(TrafficTestCase{
 		name: "fault abort gRPC",
 		config: `
@@ -854,6 +853,40 @@ spec:
 		},
 		workloadAgnostic: true,
 		sourceMatchers:   includeProxyless,
+	})
+	t.RunTraffic(TrafficTestCase{
+		name: "catch all route short circuit the other routes",
+		config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - match:
+    - uri:
+        regex: .*
+    route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 418
+  - route:
+    - destination:
+        host: {{ .dstSvc }}`,
+		opts: echo.CallOptions{
+			Port: echo.Port{
+				Name: "http",
+			},
+			Count: 1,
+			Check: check.Status(http.StatusTeapot),
+		},
+		workloadAgnostic: true,
 	})
 
 	splits := [][]int{
