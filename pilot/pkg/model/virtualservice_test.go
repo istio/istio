@@ -727,10 +727,10 @@ func TestMergeVirtualServices(t *testing.T) {
 		}
 
 		vses := []config.Config{root, delegate, normal}
-		checkOrder(mergeVirtualServicesIfNeeded(vses, sets.New(visibility.Public)))
+		checkOrder(mergeVirtualServicesIfNeeded(vses, map[visibility.Instance]bool{visibility.Public: true}))
 
 		vses = []config.Config{normal, delegate, root}
-		checkOrder(mergeVirtualServicesIfNeeded(vses, sets.New(visibility.Public)))
+		checkOrder(mergeVirtualServicesIfNeeded(vses, map[visibility.Instance]bool{visibility.Public: true}))
 	})
 }
 
