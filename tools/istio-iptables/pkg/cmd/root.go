@@ -191,7 +191,12 @@ func ProgramIptables(cfg *config.Config) error {
 	if cfg.DryRun {
 		ext = &dep.StdoutStubDependencies{}
 	} else {
-		ipv, err := dep.DetectIptablesVersion(cfg.IPTablesVersion)
+		iptVer, err := dep.DetectIptablesVersion(cfg.IPTablesVersion, false)
+
+		if cfg.EnableInboundIPv6 {
+			ipt6Ver, err := dep.DetectIptablesVersion(cfg.IPTablesVersion, true)
+		}
+
 		if err != nil {
 			return err
 		}
@@ -205,7 +210,7 @@ func ProgramIptables(cfg *config.Config) error {
 	iptConfigurator := capture.NewIptablesConfigurator(cfg, ext)
 
 	if !cfg.SkipRuleApply {
-		if err := iptConfigurator.Run(); err != nil {
+		if err := iptConfigurator.Run(iptVer); err != nil {
 			return err
 		}
 		if err := capture.ConfigureRoutes(cfg); err != nil {

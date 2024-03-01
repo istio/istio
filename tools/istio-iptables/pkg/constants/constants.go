@@ -167,3 +167,13 @@ const (
 const (
 	IstioAgentDNSListenerPort = "15053"
 )
+
+// type of iptables operation/command to run, as an enum
+// the implementation will choose the correct underlying binary,
+// so callers should just use these enums to indicate what they want to do.
+type IptablesCmd int
+const (
+	Iptables IptablesCmd = iota
+	IptablesSave IptablesCmd = iota
+	IptablesRestore IptablesCmd = iota
+)

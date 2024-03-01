@@ -107,6 +107,8 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 	}
 
 	var delErrs []error
+
+	// TODO BML FIXME detect binaries at start and use them here.
 	// iptablei seems like a reasonable pluralization of iptables
 	iptablei := []string{iptablesconstants.IPTABLES}
 	if cfg.cfg.EnableInboundIPv6 {
@@ -151,13 +153,13 @@ func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSNAT *netip.Addr) err
 	return nil
 }
 
-func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *builder.IptablesBuilder {
+func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *builder.IptablesRuleBuilder {
 	redirectDNS := cfg.cfg.RedirectDNS
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodTProxyMask)
 
-	iptablesBuilder := builder.NewIptablesBuilder(ipbuildConfig(cfg.cfg))
+	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
 
 	// Insert jumps to our custom chains
 	// This is mostly just for visual tidiness and cleanup, as we can delete the secondary chains and jumps
@@ -334,7 +336,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 	return iptablesBuilder
 }
 
-func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.IptablesBuilder) error {
+func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.IptablesRuleBuilder) error {
 	var execErrs []error
 
 	if cfg.cfg.RestoreFormat {
@@ -369,7 +371,7 @@ func (cfg *IptablesConfigurator) executeIptablesCommands(commands [][]string) er
 	return errors.Join(iptErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptablesBuilder *builder.IptablesBuilder, isIpv4 bool) error {
+func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptablesBuilder *builder.IptablesRuleBuilder, isIpv4 bool) error {
 	var data, cmd string
 	if isIpv4 {
 		data = iptablesBuilder.BuildV4Restore()
@@ -451,10 +453,10 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	}
 }
 
-func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP *netip.Addr) *builder.IptablesBuilder {
+func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP *netip.Addr) *builder.IptablesRuleBuilder {
 	log.Info("configuring host-level iptables rules (healthchecks, etc)")
 
-	iptablesBuilder := builder.NewIptablesBuilder(ipbuildConfig(cfg.cfg))
+	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
 
 	// For easier cleanup, insert a jump into an owned chain
 	// -A POSTROUTING -p tcp -j ISTIO_POSTRT

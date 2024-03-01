@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 var DryRunFilePath = env.Register("DRY_RUN_FILE_PATH", "", "If provided, StdoutStubDependencies will write the input from stdin to the given file.")
@@ -30,8 +31,8 @@ var DryRunFilePath = env.Register("DRY_RUN_FILE_PATH", "", "If provided, StdoutS
 type StdoutStubDependencies struct{}
 
 // Run runs a command
-func (s *StdoutStubDependencies) Run(cmd string, stdin io.ReadSeeker, args ...string) error {
-	log.Infof("%s %s", cmd, strings.Join(args, " "))
+func (s *StdoutStubDependencies) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
+	log.Infof("%s %s", iptVer.CmdToString(cmd), strings.Join(args, " "))
 
 	path := DryRunFilePath.Get()
 	if path != "" {
@@ -52,6 +53,6 @@ func (s *StdoutStubDependencies) Run(cmd string, stdin io.ReadSeeker, args ...st
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
-func (s *StdoutStubDependencies) RunQuietlyAndIgnore(cmd string, stdin io.ReadSeeker, args ...string) {
-	_ = s.Run(cmd, stdin, args...)
+func (s *StdoutStubDependencies) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
+	_ = s.Run(cmd, iptVer, stdin, args...)
 }

@@ -54,19 +54,19 @@ func DeleteRule(ext dep.Dependencies, cmd string, table string, chain string, ru
 	ext.RunQuietlyAndIgnore(cmd, nil, args...)
 }
 
-func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
+func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string, iptV *dep.IptablesVersion) {
 	// Remove the old TCP rules
 	for _, table := range []string{constants.NAT, constants.MANGLE} {
-		ext.RunQuietlyAndIgnore(cmd, nil, "-t", table, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
+		ext.RunQuietlyAndIgnore(cmd, iptV, nil, "-t", table, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
 	}
-	ext.RunQuietlyAndIgnore(cmd, nil, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
+	ext.RunQuietlyAndIgnore(cmd, iptV, nil, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
 
 	redirectDNS := cfg.RedirectDNS
 	// Remove the old DNS UDP rules
 	if redirectDNS {
 		ownerGroupsFilter := types.ParseInterceptFilter(cfg.OwnerGroupsInclude, cfg.OwnerGroupsExclude)
 
-		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesBuilder(nil), ext, cmd, cfg.ProxyUID, cfg.ProxyGID,
+		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesRuleBuilder(nil), ext, cmd, cfg.ProxyUID, cfg.ProxyGID,
 			cfg.DNSServersV4, cfg.DNSServersV6, cfg.CaptureAllDNS, ownerGroupsFilter)
 	}
 

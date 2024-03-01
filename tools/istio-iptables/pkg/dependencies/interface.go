@@ -19,7 +19,7 @@ import "io"
 // Dependencies is used as abstraction for the commands used from the operating system
 type Dependencies interface {
 	// Run runs a command
-	Run(cmd string, stdin io.ReadSeeker, args ...string) error
+	Run(cmd string, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error
 	// RunQuietlyAndIgnore runs a command quietly and ignores errors
-	RunQuietlyAndIgnore(cmd string, stdin io.ReadSeeker, args ...string)
+	RunQuietlyAndIgnore(cmd string, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string)
 }
