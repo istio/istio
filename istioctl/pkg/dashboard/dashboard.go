@@ -394,21 +394,21 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
 func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:   "istio-debug [<type>/]<name>[.<namespace>]",
+		Use:   "istiod-debug [<type>/]<name>[.<namespace>]",
 		Short: "Open Istio debug web UI",
 		Long:  `Open the debug web UI for a Istio control plane pod`,
 		Example: `  # Open Istio debug web UI for the istiod-123-456.istio-system pod
-  istioctl dashboard istio-debug istiod-123-456.istio-system
+  istioctl dashboard istiod-debug istiod-123-456.istio-system
 
   # Open Istio debug web UI for the istiod-56dd66799-jfdvs pod in a custom namespace
-  istioctl dashboard istio-debug istiod-123-456 -n custom-ns
+  istioctl dashboard istiod-debug istiod-123-456 -n custom-ns
 
   # Open Istio debug web UI for any Istiod pod
-  istioctl dashboard istio-debug deployment/istiod.istio-system
+  istioctl dashboard istiod-debug deployment/istiod.istio-system
 
   # with short syntax
-  istioctl dash istio-debug pilot-123-456.istio-system
-  istioctl d istio-debug pilot-123-456.istio-system
+  istioctl dash istiod-debug pilot-123-456.istio-system
+  istioctl d istiod-debug pilot-123-456.istio-system
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			if labelSelector == "" && len(args) < 1 {
