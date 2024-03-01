@@ -1537,7 +1537,7 @@ func SortVHostRoutes(routes []*route.Route) []*route.Route {
 func isCatchAllRoute(r *route.Route) bool {
 	catchall := false
 	// A Match is catch all if and only if it has no header/query param match
-	// and URI has a prefix / or regex .*.
+	// and URI has a prefix `/` or regex `.*`.
 	switch ir := r.Match.PathSpecifier.(type) {
 	case *route.RouteMatch_Prefix:
 		catchall = ir.Prefix == "/"
