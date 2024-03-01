@@ -769,7 +769,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl := con.orderWatchedResources()
+	wrl := con.watchedResourcesByOrder()
 	for _, w := range wrl {
 		if err := s.pushXds(con, w, pushRequest); err != nil {
 			return err
@@ -941,42 +941,24 @@ func (conn *Connection) Clusters() []string {
 	return []string{}
 }
 
-func (conn *Connection) Routes() []string {
-	wr := conn.proxy.GetWatchedResource(v3.RouteType)
-	if wr != nil {
-		return wr.ResourceNames
-	}
-	return []string{}
-}
-
-// nolint
-func (conn *Connection) Watching(typeUrl string) bool {
-	wr := conn.proxy.GetWatchedResource(v3.RouteType)
-	if wr != nil {
-		return true
-	}
-	return false
-}
-
-// orderWatchedResources returns the ordered list of
+// watchedResourcesByOrder returns the ordered list of
 // watched resources for the proxy, ordered in accordance with known push order.
-// nolint
-func (conn *Connection) orderWatchedResources() []*model.WatchedResource {
-	types := conn.proxy.GetWatchedResourceTypes()
-	wr := make([]*model.WatchedResource, 0, len(types))
+func (conn *Connection) watchedResourcesByOrder() []*model.WatchedResource {
+	allWatched := conn.proxy.CloneWatchedResources()
+	ordered := make([]*model.WatchedResource, 0, len(allWatched))
 	// first add all known types, in order
 	for _, tp := range PushOrder {
-		if types.Contains(tp) {
-			wr = append(wr, conn.proxy.GetWatchedResource(tp))
+		if allWatched[tp] != nil {
+			ordered = append(ordered, allWatched[tp])
 		}
 	}
 	// Then add any undeclared types
-	for tp := range types {
+	for tp, res := range allWatched {
 		if !KnownOrderedTypeUrls.Contains(tp) {
-			wr = append(wr, conn.proxy.GetWatchedResource(tp))
+			ordered = append(ordered, res)
 		}
 	}
-	return wr
+	return ordered
 }
 
 // reportAllEventsForProxyNoPush reports all tracking events for a proxy without need to push xds.

@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/ledger"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
@@ -1343,6 +1344,13 @@ func (node *Proxy) WorkloadEntry() (string, bool) {
 	return node.workloadEntryName, node.workloadEntryAutoCreated
 }
 
+// CloneWatchedResources clones the watched resources, both the keys and values are shallow copy.
+func (node *Proxy) CloneWatchedResources() map[string]*WatchedResource {
+	node.RLock()
+	defer node.RUnlock()
+	return maps.Clone(node.WatchedResources)
+}
+
 func (node *Proxy) GetWatchedResourceTypes() sets.String {
 	node.RLock()
 	defer node.RUnlock()
@@ -1377,6 +1385,8 @@ func (node *Proxy) UpdateWatchedResource(typeURL string, updateFn func(*WatchedR
 	r = updateFn(r)
 	if r != nil {
 		node.WatchedResources[typeURL] = r
+	} else {
+		delete(node.WatchedResources, typeURL)
 	}
 }
 
