@@ -25,12 +25,14 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -213,6 +215,67 @@ func TestShutdown(t *testing.T) {
 	// We should *not* shutdown anything else
 	// In theory we could, but we only shut down the controller when the entire application is closing so we don't bother
 	assert.Equal(t, map[string]bool{"config": false, "c1": false, "c0": true}, fetchClosed())
+}
+
+// TestObjectFilter tests that when a component is created, it should have access to the objectfilter.
+// This ensures we do not load everything, then later filter it out.
+func TestObjectFilter(t *testing.T) {
+	stop := test.NewStop(t)
+	clientWithNamespace := func() kube.Client {
+		return kube.NewFakeClient(
+			&v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "allowed",
+					Labels: map[string]string{"kubernetes.io/metadata.name": "allowed"},
+				},
+			},
+			&v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "not-allowed",
+					Labels: map[string]string{"kubernetes.io/metadata.name": "not-allowed"},
+				},
+			})
+	}
+	tc := testController{
+		client: clientWithNamespace(),
+		t:      t,
+	}
+	mesh := mesh.NewFixedWatcher(&meshconfig.MeshConfig{
+		DiscoverySelectors: []*metav1.LabelSelector{
+			{
+				MatchLabels: map[string]string{
+					"kubernetes.io/metadata.name": "allowed",
+				},
+			},
+		},
+	})
+
+	// For primary cluster, we need to set it up ourselves.
+	namespaces := kclient.New[*v1.Namespace](tc.client)
+	filter := namespace.NewDiscoveryNamespacesFilter(namespaces, mesh, stop)
+	tc.client = kube.SetObjectFilter(tc.client, filter)
+
+	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
+	tc.controller = NewController(tc.client, secretNamespace, "config", mesh)
+	tc.controller.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		return clientWithNamespace(), nil
+	}
+
+	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
+		// Filter must immediately work!
+		assert.Equal(t, cluster.Client.ObjectFilter() != nil, true, "cluster "+cluster.ID.String())
+		assert.Equal(t, cluster.Client.ObjectFilter().Filter("allowed"), true)
+		assert.Equal(t, cluster.Client.ObjectFilter().Filter("not-allowed"), false)
+		return testHandler{
+			ID:     cluster.ID,
+			Closed: atomic.NewBool(false),
+			Synced: atomic.NewBool(true),
+		}
+	})
+	tc.AddSecret("s0", "c0")
+	tc.AddSecret("s1", "c1")
+	tc.Run(stop)
+	retry.UntilOrFail(t, tc.controller.HasSynced, retry.Timeout(2*time.Second))
 }
 
 type informerHandler[T controllers.ComparableObject] struct {
