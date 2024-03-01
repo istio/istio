@@ -187,30 +187,36 @@ type IptablesError struct {
 }
 
 func ProgramIptables(cfg *config.Config) error {
+	var err error
 	var ext dep.Dependencies
+	var iptVer, ipt6Ver dep.IptablesVersion
 	if cfg.DryRun {
 		ext = &dep.StdoutStubDependencies{}
+		iptVer = dep.IptablesVersion{}
+		ipt6Ver = dep.IptablesVersion{}
 	} else {
-		iptVer, err := dep.DetectIptablesVersion(cfg.IPTablesVersion, false)
 
-		if cfg.EnableInboundIPv6 {
-			ipt6Ver, err := dep.DetectIptablesVersion(cfg.IPTablesVersion, true)
-		}
-
+		iptVer, err = dep.DetectIptablesVersion(cfg.IPTablesVersion, false)
 		if err != nil {
 			return err
 		}
+		if cfg.EnableInboundIPv6 {
+			ipt6Ver, err = dep.DetectIptablesVersion(cfg.IPTablesVersion, true)
+		}
+		if err != nil {
+			return err
+		}
+
 		ext = &dep.RealDependencies{
 			CNIMode:          cfg.CNIMode,
 			NetworkNamespace: cfg.NetworkNamespace,
-			IptablesVersion:  ipv,
 		}
 	}
 
 	iptConfigurator := capture.NewIptablesConfigurator(cfg, ext)
 
 	if !cfg.SkipRuleApply {
-		if err := iptConfigurator.Run(iptVer); err != nil {
+		if err := iptConfigurator.Run(&iptVer, &ipt6Ver); err != nil {
 			return err
 		}
 		if err := capture.ConfigureRoutes(cfg); err != nil {

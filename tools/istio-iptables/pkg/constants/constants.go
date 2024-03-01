@@ -173,7 +173,7 @@ const (
 // so callers should just use these enums to indicate what they want to do.
 type IptablesCmd int
 const (
-	Iptables IptablesCmd = iota
-	IptablesSave IptablesCmd = iota
-	IptablesRestore IptablesCmd = iota
+	IpTables IptablesCmd = iota
+	IpTablesSave IptablesCmd = iota
+	IpTablesRestore IptablesCmd = iota
 )

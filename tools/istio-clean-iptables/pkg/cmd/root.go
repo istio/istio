@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
@@ -69,7 +70,17 @@ func GetCommand(logOpts *log.Options) *cobra.Command {
 				return err
 			}
 			ext := NewDependencies(cfg)
-			cleaner := NewIptablesCleaner(cfg, ext)
+
+			iptVer, err := dep.DetectIptablesVersion("", false)
+			if err != nil {
+				return err
+			}
+			ipt6Ver, err := dep.DetectIptablesVersion("", true)
+			if err != nil {
+				return err
+			}
+
+			cleaner := NewIptablesCleaner(cfg, &iptVer, &ipt6Ver, ext)
 			cleaner.Run()
 			return nil
 		},

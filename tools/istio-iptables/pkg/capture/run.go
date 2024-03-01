@@ -281,9 +281,9 @@ func configureIPv6Addresses(cfg *config.Config) error {
 func (cfg *IptablesConfigurator) Run(iptVer, ipt6Ver *dep.IptablesVersion) error {
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		_ = cfg.ext.Run(iptVer.DetectedSaveBinary, iptVer, nil)
+		_ = cfg.ext.Run(constants.IpTablesSave, iptVer, nil)
 		if cfg.cfg.EnableInboundIPv6 {
-			_ = cfg.ext.Run(ipt6Ver.DetectedSaveBinary, ipt6Ver, nil)
+			_ = cfg.ext.Run(constants.IpTablesSave, ipt6Ver, nil)
 		}
 	}()
 
@@ -500,7 +500,7 @@ func (cfg *IptablesConfigurator) Run(iptVer, ipt6Ver *dep.IptablesVersion) error
 
 	if redirectDNS {
 		HandleDNSUDP(
-			AppendOps, cfg.ruleBuilder, cfg.ext, "", iptVer,
+			AppendOps, cfg.ruleBuilder, cfg.ext, iptVer,
 			cfg.cfg.ProxyUID, cfg.cfg.ProxyGID,
 			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS,
 			ownerGroupsFilter)
@@ -551,8 +551,8 @@ type UDPRuleApplier struct {
 	ops      Ops
 	table    string
 	chain    string
-	cmd      string
 	iptV *dep.IptablesVersion
+	ipt6V *dep.IptablesVersion
 }
 
 func (f UDPRuleApplier) RunV4(args ...string) {
@@ -562,7 +562,7 @@ func (f UDPRuleApplier) RunV4(args ...string) {
 	case DeleteOps:
 		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
 		deleteArgs = append(deleteArgs, args...)
-		f.ext.RunQuietlyAndIgnore(f.cmd, f.iptV, nil, deleteArgs...)
+		f.ext.RunQuietlyAndIgnore(constants.IpTables, f.iptV, nil, deleteArgs...)
 	}
 }
 
@@ -573,7 +573,7 @@ func (f UDPRuleApplier) RunV6(args ...string) {
 	case DeleteOps:
 		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
 		deleteArgs = append(deleteArgs, args...)
-		f.ext.RunQuietlyAndIgnore(f.cmd, f.iptV, nil, deleteArgs...)
+		f.ext.RunQuietlyAndIgnore(constants.IpTables, f.ipt6V, nil, deleteArgs...)
 	}
 }
 
@@ -594,12 +594,9 @@ func (f UDPRuleApplier) WithTable(table string) UDPRuleApplier {
 
 // HandleDNSUDP is a helper function to tackle with DNS UDP specific operations.
 // This helps the creation logic of DNS UDP rules in sync with the deletion.
-//
-// TODO BML drop "UDPRuleApplier", it is a largely useless type.
-// we do not need a unique type just to apply UDP iptables rules
 func HandleDNSUDP(
 	ops Ops, iptables *builder.IptablesRuleBuilder, ext dep.Dependencies,
-	cmd string, iptV *dep.IptablesVersion, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
+	iptV *dep.IptablesVersion, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
 	ownerGroupsFilter config.InterceptFilter,
 ) {
 	// TODO BML drop "UDPRuleApplier", it is a largely useless type.
@@ -610,7 +607,6 @@ func HandleDNSUDP(
 		ops:      ops,
 		table:    constants.NAT,
 		chain:    constants.OUTPUT,
-		cmd:      cmd,
 		iptV:	  iptV,
 	}
 	// Make sure that upstream DNS requests from agent/envoy dont get captured.
@@ -736,34 +732,27 @@ func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter config.Interce
 
 func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, commands [][]string) error {
 	for _, cmd := range commands {
-		//TODO BML FIXME why are we doing a len check?
-		if len(cmd) > 1 {
-			if err := cfg.ext.Run(cmd[0], iptVer, nil, cmd[1:]...); err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("executeIptablesCommands called with no commands")
+		if err := cfg.ext.Run(constants.IpTables, iptVer, nil, cmd[1:]...); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
 func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptVer, ipt6Ver *dep.IptablesVersion, isIpv4 bool) error {
-	var data, cmd string
+	var data string
 	var iptVersion *dep.IptablesVersion
 	if isIpv4 {
 		data = cfg.ruleBuilder.BuildV4Restore()
-		cmd = iptVer.DetectedRestoreBinary
 		iptVersion = iptVer
 	} else {
 		data = cfg.ruleBuilder.BuildV6Restore()
-		cmd = ipt6Ver.DetectedRestoreBinary
 		iptVersion = ipt6Ver
 	}
 
-	log.Infof("Running %s with the following input:\n%v", cmd, strings.TrimSpace(data))
+	log.Infof("Running %s with the following input:\n%v", iptVersion.CmdToString(constants.IpTablesRestore), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(cmd, iptVersion, strings.NewReader(data), "--noflush")
+	return cfg.ext.Run(constants.IpTablesRestore, iptVersion, strings.NewReader(data), "--noflush")
 }
 
 func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVersion) error {

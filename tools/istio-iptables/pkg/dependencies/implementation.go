@@ -70,11 +70,11 @@ type IptablesVersion struct {
 
 func (v IptablesVersion) CmdToString(cmd constants.IptablesCmd) string {
 	switch cmd {
-	case constants.Iptables:
+	case constants.IpTables:
 		return v.DetectedBinary
-	case constants.IptablesSave:
+	case constants.IpTablesSave:
 		return v.DetectedSaveBinary
-	case constants.IptablesRestore:
+	case constants.IpTablesRestore:
 		return v.DetectedRestoreBinary
 	default:
 		return ""
@@ -84,9 +84,9 @@ func (v IptablesVersion) CmdToString(cmd constants.IptablesCmd) string {
 // IsWriteCmd returns true for all command types that do write actions (and thus need a lock)
 func (v IptablesVersion) IsWriteCmd(cmd constants.IptablesCmd) bool {
 	switch cmd {
-	case constants.Iptables:
+	case constants.IpTables:
 		return true
-	case constants.IptablesRestore:
+	case constants.IpTablesRestore:
 		return true
 	default:
 		return false

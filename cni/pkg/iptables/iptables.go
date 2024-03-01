@@ -55,6 +55,8 @@ type IptablesConfigurator struct {
 	ext    dep.Dependencies
 	nlDeps NetlinkDependencies
 	cfg    *Config
+	iptV   *dep.IptablesVersion
+	ipt6V  *dep.IptablesVersion
 }
 
 func ipbuildConfig(c *Config) *iptablesconfig.Config {
@@ -72,11 +74,23 @@ func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDe
 			RestoreFormat: true,
 		}
 	}
-	return &IptablesConfigurator{
+
+	configurator := &IptablesConfigurator{
 		ext:    ext,
 		nlDeps: nlDeps,
 		cfg:    cfg,
 	}
+
+	iptVer, err := dep.DetectIptablesVersion("", false)
+	if err != nil {
+		configurator.iptV = &iptVer
+	}
+	ipt6Ver, err := dep.DetectIptablesVersion("", true)
+	if err != nil {
+		configurator.ipt6V = &ipt6Ver
+	}
+
+	return configurator
 }
 
 func (cfg *IptablesConfigurator) DeleteInpodRules() error {
