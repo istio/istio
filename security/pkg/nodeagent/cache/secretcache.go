@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/monitoring"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
-	"istio.io/istio/security/pkg/pki/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
 
@@ -404,7 +403,7 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 		if err != nil {
 			return err
 		}
-		_, _, err := util.ParsePemEncodedCertificateChain(rootCert)
+		_, _, err := pkiutil.ParsePemEncodedCertificateChain(rootCert)
 		if err != nil {
 			return err
 		}
