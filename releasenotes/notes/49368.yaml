@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 49368
+releaseNotes:
+- |
+  **Fixed** a bug where VirtualServices containing duplicate hosts with different case cause routes to be rejected by Envoy.
