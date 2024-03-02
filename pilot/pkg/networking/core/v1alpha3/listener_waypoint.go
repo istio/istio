@@ -455,11 +455,10 @@ func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, li
 			}
 			// This is a catchall route, so we can stop processing the rest of the routes.
 			break
-		} else {
-			for _, match := range http.Match {
-				if r := lb.translateRoute(virtualService, http, match, listenPort); r != nil {
-					out = append(out, r)
-				}
+		}
+		for _, match := range http.Match {
+			if r := lb.translateRoute(virtualService, http, match, listenPort); r != nil {
+				out = append(out, r)
 			}
 		}
 	}
