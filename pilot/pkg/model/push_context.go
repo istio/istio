@@ -2177,6 +2177,9 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		matchedEnvoyFilters = append(matchedEnvoyFilters, matched...)
 	}
 
+	sort.Slice(matchedEnvoyFilters, func(i, j int) bool {
+		return matchedEnvoyFilters[i].Priority < matchedEnvoyFilters[j].Priority
+	})
 	var out *EnvoyFilterWrapper
 	if len(matchedEnvoyFilters) > 0 {
 		out = &EnvoyFilterWrapper{

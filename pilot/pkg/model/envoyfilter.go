@@ -33,6 +33,7 @@ type EnvoyFilterWrapper struct {
 	Namespace        string
 	workloadSelector labels.Instance
 	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
+	Priority         int32
 }
 
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
@@ -72,7 +73,7 @@ var wellKnownVersions = map[string]string{
 func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
 
-	out := &EnvoyFilterWrapper{Name: local.Name, Namespace: local.Namespace}
+	out := &EnvoyFilterWrapper{Name: local.Name, Namespace: local.Namespace, Priority: localEnvoyFilter.Priority}
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
 	}
