@@ -188,8 +188,7 @@ type WebhookParameters struct {
 	// The istio.io/rev this injector is responsible for
 	Revision string
 
-	KubeClient kube.Client
-
+	// MultiCluster is used to access namespaces across clusters
 	MultiCluster multicluster.ComponentBuilder
 }
 
