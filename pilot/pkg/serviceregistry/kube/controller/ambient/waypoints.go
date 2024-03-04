@@ -17,7 +17,9 @@ package ambient
 
 import (
 	"net/netip"
+	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
@@ -31,6 +33,40 @@ type Waypoint struct {
 
 	ForServiceAccount string
 	Addresses         []netip.Addr
+}
+
+// TODO: this only handles if use-waypoint exists on o itself, need to handle the full namespace case as well...
+func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], o metav1.ObjectMeta) *Waypoint {
+	wpNamed := getUseWaypoint(o)
+	if wpNamed == nil {
+		return nil
+	}
+
+	return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterName(wpNamed.Name, wpNamed.Namespace))
+}
+
+func getUseWaypoint(meta metav1.ObjectMeta) (named *krt.Named) {
+	if annotationValue, ok := meta.Annotations[constants.AmbientUseWaypoint]; ok {
+		if annotationValue != "#none" && annotationValue != "~" {
+			namespacedName := strings.Split(annotationValue, "/")
+			switch len(namespacedName) {
+			case 1:
+				return &krt.Named{
+					Name:      namespacedName[0],
+					Namespace: meta.Namespace,
+				}
+			case 2:
+				return &krt.Named{
+					Name:      namespacedName[1],
+					Namespace: namespacedName[0],
+				}
+			default:
+				// malformed annotation error
+				log.Errorf("Service %s/%s, has a malformed istio.io/waypoint annotation, value found: %s", meta.GetNamespace(), meta.GetName(), annotationValue)
+			}
+		}
+	}
+	return nil
 }
 
 func (w Waypoint) ResourceName() string {

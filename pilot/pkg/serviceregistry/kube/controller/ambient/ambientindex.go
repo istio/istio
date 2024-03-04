@@ -151,7 +151,7 @@ func New(options Options) Index {
 		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 	}), false)
 
-	WorkloadServices := a.ServicesCollection(Services, ServiceEntries)
+	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints)
 	ServiceAddressIndex := krt.CreateIndex[model.ServiceInfo, networkAddress](WorkloadServices, networkAddressFromService)
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *workloadapi.Service {
