@@ -166,7 +166,7 @@ debug and diagnose their Istio mesh.
 	}
 	troubleshootingCommands := []*cobra.Command{
 		version.NewVersionCommand(ctx),
-		proxystatus.XdsStatusCommand(ctx),
+		proxystatus.StableXdsStatusCommand(ctx),
 	}
 	var debugCmdAttachmentPoint *cobra.Command
 	if viper.GetBool("PREFER-EXPERIMENTAL") {

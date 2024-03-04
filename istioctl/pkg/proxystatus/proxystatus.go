@@ -57,6 +57,18 @@ func readConfigFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
+func StableXdsStatusCommand(ctx cli.Context) *cobra.Command {
+	cmd := XdsStatusCommand(ctx)
+	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		if flagValue, err := cmd.Flags().GetBool("xds-via-agents"); err != nil || flagValue == true {
+			return fmt.Errorf("--xds-via-agents is experimental. Use `istioctl experimental ps --xds-via-agents`")
+		}
+		return nil
+	}
+	cmd.Flags().MarkHidden("xds-via-agents")
+	return cmd
+}
+
 func XdsStatusCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
