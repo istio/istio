@@ -2183,7 +2183,12 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		if ifilter.Priority != jfilter.Priority {
 			return ifilter.Priority < jfilter.Priority
 		}
-		if ifilter.creationTime != ifilter.creationTime {
+		// Prefer root namespace filters over non-root namespace filters.
+		if ifilter.Namespace != jfilter.Namespace &&
+			(ifilter.Namespace == ps.Mesh.RootNamespace || jfilter.Namespace == ps.Mesh.RootNamespace) {
+			return ifilter.Namespace == ps.Mesh.RootNamespace
+		}
+		if ifilter.creationTime != jfilter.creationTime {
 			return ifilter.creationTime.Before(jfilter.creationTime)
 		}
 		in := ifilter.Name + "." + ifilter.Namespace
