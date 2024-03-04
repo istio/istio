@@ -126,7 +126,7 @@ const (
 // 4. Otherwise, see if we have `legacy` binary set, and use that.
 // 5. Otherwise, see if we have `iptables` binary set, and use that (detecting whether it's nft or legacy).
 // TODO BML FIXME drop overrideVersion
-func DetectIptablesVersion(overrideVersion string, ipV6 bool) (IptablesVersion, error) {
+func (r *RealDependencies) DetectIptablesVersion(overrideVersion string, ipV6 bool) (IptablesVersion, error) {
 	// If an override version string is defined, we effectively use what you tell us, do no really validation,
 	// and assume you are telling us to use something that's actually in $PATH
 	if overrideVersion != "" {

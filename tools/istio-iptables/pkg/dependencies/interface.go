@@ -26,4 +26,8 @@ type Dependencies interface {
 	Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error
 	// RunQuietlyAndIgnore runs a command quietly and ignores errors
 	RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string)
+
+	// DetectIptablesVersion consults the available binaries and in-use tables to determine
+	// which iptables variant (legacy, nft, v6, v4) we should use in the current context.
+	DetectIptablesVersion(overrideVersion string, ipV6 bool) (IptablesVersion, error)
 }

@@ -95,11 +95,11 @@ func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDe
 	// `nft`, we would still inject our rules in-pod into nft tables, which is a bit wonky.
 	//
 	// But that's stunningly unlikely (and would still work either way)
-	iptVer, err := dep.DetectIptablesVersion("", false)
+	iptVer, err := ext.DetectIptablesVersion("", false)
 	if err != nil {
 		configurator.iptV = iptVer
 	}
-	ipt6Ver, err := dep.DetectIptablesVersion("", true)
+	ipt6Ver, err := ext.DetectIptablesVersion("", true)
 	if err != nil {
 		configurator.ipt6V = ipt6Ver
 	}

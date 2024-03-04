@@ -196,12 +196,12 @@ func ProgramIptables(cfg *config.Config) error {
 		ipt6Ver = dep.IptablesVersion{}
 	} else {
 
-		iptVer, err = dep.DetectIptablesVersion(cfg.IPTablesVersion, false)
+		iptVer, err = ext.DetectIptablesVersion(cfg.IPTablesVersion, false)
 		if err != nil {
 			return err
 		}
 		if cfg.EnableInboundIPv6 {
-			ipt6Ver, err = dep.DetectIptablesVersion(cfg.IPTablesVersion, true)
+			ipt6Ver, err = ext.DetectIptablesVersion(cfg.IPTablesVersion, true)
 		}
 		if err != nil {
 			return err

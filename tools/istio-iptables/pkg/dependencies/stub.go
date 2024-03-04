@@ -56,3 +56,8 @@ func (s *StdoutStubDependencies) Run(cmd constants.IptablesCmd, iptVer *Iptables
 func (s *StdoutStubDependencies) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
 	_ = s.Run(cmd, iptVer, stdin, args...)
 }
+
+// TODO BML this stub can be smarter
+func (s *StdoutStubDependencies) DetectIptablesVersion(overrideVersion string, ipV6 bool) (IptablesVersion, error) {
+	return IptablesVersion{}, nil
+}
