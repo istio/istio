@@ -399,7 +399,7 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 	o.InitialInterval = sc.configOptions.FileDebounceDuration
 	b := backoff.NewExponentialBackOff(o)
 	certValid := func() error {
-		rootCert, err = sc.readFileWithTimeout(rootCertPath)
+		rootCert, err = os.ReadFile(rootCertPath)
 		if err != nil {
 			return err
 		}
