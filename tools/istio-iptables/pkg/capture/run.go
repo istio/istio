@@ -278,12 +278,27 @@ func configureIPv6Addresses(cfg *config.Config) error {
 	return nil
 }
 
-func (cfg *IptablesConfigurator) Run(iptVer, ipt6Ver *dep.IptablesVersion) error {
+func (cfg *IptablesConfigurator) Run() error {
+
+	var iptVer, ipt6Ver dep.IptablesVersion
+	var err error
+
+	iptVer, err = cfg.ext.DetectIptablesVersion(cfg.cfg.IPTablesVersion, false)
+	if err != nil {
+		return err
+	}
+	if cfg.cfg.EnableInboundIPv6 {
+		ipt6Ver, err = cfg.ext.DetectIptablesVersion(cfg.cfg.IPTablesVersion, true)
+	}
+	if err != nil {
+		return err
+	}
+
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		_ = cfg.ext.Run(constants.IpTablesSave, iptVer, nil)
+		_ = cfg.ext.Run(constants.IpTablesSave, &iptVer, nil)
 		if cfg.cfg.EnableInboundIPv6 {
-			_ = cfg.ext.Run(constants.IpTablesSave, ipt6Ver, nil)
+			_ = cfg.ext.Run(constants.IpTablesSave, &ipt6Ver, nil)
 		}
 	}()
 
@@ -500,7 +515,7 @@ func (cfg *IptablesConfigurator) Run(iptVer, ipt6Ver *dep.IptablesVersion) error
 
 	if redirectDNS {
 		HandleDNSUDP(
-			AppendOps, cfg.ruleBuilder, cfg.ext, iptVer,
+			AppendOps, cfg.ruleBuilder, cfg.ext, &iptVer, &ipt6Ver,
 			cfg.cfg.ProxyUID, cfg.cfg.ProxyGID,
 			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS,
 			ownerGroupsFilter)
@@ -542,7 +557,7 @@ func (cfg *IptablesConfigurator) Run(iptVer, ipt6Ver *dep.IptablesVersion) error
 		cfg.ruleBuilder.InsertRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 3,
 			"-p", constants.TCP, "-i", "lo", "-m", "mark", "!", "--mark", outboundMark, "-j", constants.RETURN)
 	}
-	return cfg.executeCommands(iptVer, ipt6Ver)
+	return cfg.executeCommands(&iptVer, &ipt6Ver)
 }
 
 type UDPRuleApplier struct {
@@ -596,7 +611,7 @@ func (f UDPRuleApplier) WithTable(table string) UDPRuleApplier {
 // This helps the creation logic of DNS UDP rules in sync with the deletion.
 func HandleDNSUDP(
 	ops Ops, iptables *builder.IptablesRuleBuilder, ext dep.Dependencies,
-	iptV *dep.IptablesVersion, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
+	iptV, ipt6V *dep.IptablesVersion, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
 	ownerGroupsFilter config.InterceptFilter,
 ) {
 	// TODO BML drop "UDPRuleApplier", it is a largely useless type.
@@ -608,6 +623,7 @@ func HandleDNSUDP(
 		table:    constants.NAT,
 		chain:    constants.OUTPUT,
 		iptV:	  iptV,
+		ipt6V:	  ipt6V,
 	}
 	// Make sure that upstream DNS requests from agent/envoy dont get captured.
 	// TODO: add ip6 as well

@@ -25,6 +25,7 @@ import (
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 func constructTestConfig() *config.Config {
@@ -88,7 +89,9 @@ func TestIptables(t *testing.T) {
 			tt.config(cfg)
 
 			ext := &DependenciesStub{}
-			cleaner := NewIptablesCleaner(cfg, ext)
+			iptV, _ := ext.DetectIptablesVersion("", false)
+			ipt6V, _ := ext.DetectIptablesVersion("", true)
+			cleaner := NewIptablesCleaner(cfg, &iptV, &ipt6V, ext)
 
 			cleaner.Run()
 
@@ -116,23 +119,30 @@ func compareToGolden(t *testing.T, name string, actual []string) {
 	testutil.CompareContent(t, gotBytes, goldenFile)
 }
 
+// TODO BML replace DIY mocks/state with something better, also this is duplicated
+// with other stubs elsewhere
 type DependenciesStub struct {
 	ExecutedNormally []string
 	ExecutedQuietly  []string
 	ExecutedAll      []string
 }
 
-func (s *DependenciesStub) Run(cmd string, stdin io.ReadSeeker, args ...string) error {
-	s.execute(false /*quietly*/, cmd, args...)
+func (s *DependenciesStub) Run(cmd constants.IptablesCmd, iptVer *dep.IptablesVersion, stdin io.ReadSeeker, args ...string) error {
+	s.execute(false /*quietly*/, cmd, iptVer, args...)
 	return nil
 }
 
-func (s *DependenciesStub) RunQuietlyAndIgnore(cmd string, stdin io.ReadSeeker, args ...string) {
-	s.execute(true /*quietly*/, cmd, args...)
+func (s *DependenciesStub) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *dep.IptablesVersion, stdin io.ReadSeeker, args ...string) {
+	s.execute(true /*quietly*/, cmd, iptVer, args...)
 }
 
-func (s *DependenciesStub) execute(quietly bool, cmd string, args ...string) {
-	cmdline := strings.Join(append([]string{cmd}, args...), " ")
+// TODO BML this stub can be smarter
+func (s *DependenciesStub) DetectIptablesVersion(overrideVersion string, ipV6 bool) (dep.IptablesVersion, error) {
+	return dep.IptablesVersion{}, nil
+}
+
+func (s *DependenciesStub) execute(quietly bool, cmd constants.IptablesCmd, iptVer *dep.IptablesVersion, args ...string) {
+	cmdline := strings.Join(append([]string{iptVer.CmdToString(cmd)}, args...), " ")
 	s.ExecutedAll = append(s.ExecutedAll, cmdline)
 	if quietly {
 		s.ExecutedQuietly = append(s.ExecutedQuietly, cmdline)

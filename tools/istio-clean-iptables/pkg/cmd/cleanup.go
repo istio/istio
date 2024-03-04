@@ -66,15 +66,6 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, iptV *dep.Iptable
 	}
 	ext.RunQuietlyAndIgnore(constants.IpTables, iptV, nil, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
 
-	redirectDNS := cfg.RedirectDNS
-	// Remove the old DNS UDP rules
-	if redirectDNS {
-		ownerGroupsFilter := types.ParseInterceptFilter(cfg.OwnerGroupsInclude, cfg.OwnerGroupsExclude)
-
-		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesRuleBuilder(nil), ext, iptV, cfg.ProxyUID, cfg.ProxyGID,
-			cfg.DNSServersV4, cfg.DNSServersV6, cfg.CaptureAllDNS, ownerGroupsFilter)
-	}
-
 	// Flush and delete the istio chains from NAT table.
 	chains := []string{constants.ISTIOOUTPUT, constants.ISTIOINBOUND}
 	flushAndDeleteChains(ext, iptV, constants.NAT, chains)
@@ -95,6 +86,20 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, iptV *dep.Iptable
 	flushAndDeleteChains(ext, iptV, constants.NAT, chains)
 }
 
+// cleanupDNSUDP removes any IPv4/v6 UDP rules.
+// TODO BML drop `HandleDSNUDP` and friends, no real need to tread UDP rules specially
+// or create unique abstractions for them
+func cleanupDNSUDP(cfg *config.Config, ext dep.Dependencies, iptV, ipt6V *dep.IptablesVersion) {
+	redirectDNS := cfg.RedirectDNS
+	// Remove the old DNS UDP rules
+	if redirectDNS {
+		ownerGroupsFilter := types.ParseInterceptFilter(cfg.OwnerGroupsInclude, cfg.OwnerGroupsExclude)
+
+		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesRuleBuilder(nil), ext, iptV, ipt6V, cfg.ProxyUID, cfg.ProxyGID,
+			cfg.DNSServersV4, cfg.DNSServersV6, cfg.CaptureAllDNS, ownerGroupsFilter)
+	}
+}
+
 func (c *IptablesCleaner) Run() {
 	defer func() {
 		_ = c.ext.Run(constants.IpTablesSave, c.iptV, nil)
@@ -102,6 +107,10 @@ func (c *IptablesCleaner) Run() {
 	}()
 
 	// clean v4/v6
+	// Remove chains (run once per v4/v6)
 	removeOldChains(c.cfg, c.ext, c.iptV)
 	removeOldChains(c.cfg, c.ext, c.ipt6V)
+
+	// Remove DNS UDP (runs for both v4 and v6 at the same time)
+	cleanupDNSUDP(c.cfg, c.ext, c.iptV, c.ipt6V)
 }
