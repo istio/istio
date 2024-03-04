@@ -255,10 +255,6 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 
 	// 3. Service
 	if svc := a.lookupService(key); svc != nil {
-		vips := sets.New[string]()
-		for _, addr := range svc.Service.Addresses {
-			vips.Insert(byteIPToString(addr.Address))
-		}
 		res := []model.AddressInfo{serviceToAddressInfo(svc.Service)}
 		for _, w := range a.workloads.ByServiceKey.Lookup(svc.ResourceName()) {
 			res = append(res, workloadToAddressInfo(w.Workload))

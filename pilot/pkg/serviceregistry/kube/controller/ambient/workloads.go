@@ -202,6 +202,11 @@ func (a *index) podWorkloadBuilder(
 		if !IsPodRunning(p) || p.Spec.HostNetwork {
 			return nil
 		}
+		podIP, err := netip.ParseAddr(p.Status.PodIP)
+		if err != nil {
+			// Is this possible? Probably not in typical case, but anyone could put garbage there.
+			return nil
+		}
 		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
 		// We need to filter from the policies that are present, which apply to us.
 		// We only want label selector ones; global ones are not attached to the final WorkloadInfo
@@ -239,7 +244,7 @@ func (a *index) podWorkloadBuilder(
 			Namespace:             p.Namespace,
 			Network:               network,
 			ClusterId:             string(a.ClusterID),
-			Addresses:             [][]byte{netip.MustParseAddr(p.Status.PodIP).AsSlice()},
+			Addresses:             [][]byte{podIP.AsSlice()},
 			ServiceAccount:        p.Spec.ServiceAccountName,
 			Node:                  p.Spec.NodeName,
 			Services:              constructServices(p, services),
@@ -285,9 +290,10 @@ func (a *index) pickWaypoint(waypoints []Waypoint) *workloadapi.GatewayAddress {
 			}),
 			waypoints[0],
 		)
+		// TODO: should we support multiple addresses?
 		return &workloadapi.GatewayAddress{
 			Destination: &workloadapi.GatewayAddress_Address{
-				Address: a.toNetworkAddress(wp.Addresses[0].String()),
+				Address: a.toNetworkAddressFromIP(wp.Addresses[0]),
 			},
 			// TODO: look up the HBONE port instead of hardcoding it
 			HboneMtlsPort: 15008,
