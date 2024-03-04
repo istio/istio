@@ -1364,7 +1364,6 @@ spec:
 	}
 	t.RunTraffic(tc)
 
-	time.Sleep(time.Second)
 	tc = TrafficTestCase{
 		name: "Redirect NONE",
 		config: tmpl.MustEvaluate(`
