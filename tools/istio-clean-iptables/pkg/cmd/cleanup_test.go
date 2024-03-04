@@ -89,9 +89,19 @@ func TestIptables(t *testing.T) {
 			tt.config(cfg)
 
 			ext := &DependenciesStub{}
-			iptV, _ := ext.DetectIptablesVersion("", false)
-			ipt6V, _ := ext.DetectIptablesVersion("", true)
-			cleaner := NewIptablesCleaner(cfg, &iptV, &ipt6V, ext)
+			ext.DetectIptablesStub = dep.IptablesVersion{
+				DetectedBinary: "iptables",
+				DetectedSaveBinary: "iptables-save",
+				DetectedRestoreBinary: "iptables-restore",
+			}
+
+			ext.DetectIptablesV6Stub = dep.IptablesVersion{
+				DetectedBinary: "ip6tables",
+				DetectedSaveBinary: "ip6tables-save",
+				DetectedRestoreBinary: "ip6tables-restore",
+			}
+
+			cleaner := NewIptablesCleaner(cfg, &ext.DetectIptablesStub, &ext.DetectIptablesV6Stub, ext)
 
 			cleaner.Run()
 
@@ -125,6 +135,8 @@ type DependenciesStub struct {
 	ExecutedNormally []string
 	ExecutedQuietly  []string
 	ExecutedAll      []string
+	DetectIptablesStub dep.IptablesVersion
+	DetectIptablesV6Stub dep.IptablesVersion
 }
 
 func (s *DependenciesStub) Run(cmd constants.IptablesCmd, iptVer *dep.IptablesVersion, stdin io.ReadSeeker, args ...string) error {
@@ -138,7 +150,10 @@ func (s *DependenciesStub) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer
 
 // TODO BML this stub can be smarter
 func (s *DependenciesStub) DetectIptablesVersion(overrideVersion string, ipV6 bool) (dep.IptablesVersion, error) {
-	return dep.IptablesVersion{}, nil
+	if ipV6 {
+		return s.DetectIptablesV6Stub, nil
+	}
+	return s.DetectIptablesStub, nil
 }
 
 func (s *DependenciesStub) execute(quietly bool, cmd constants.IptablesCmd, iptVer *dep.IptablesVersion, args ...string) {
