@@ -19,11 +19,14 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
+	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
 )
 
@@ -43,9 +46,26 @@ type Cluster struct {
 	initialSyncTimeout *atomic.Bool
 }
 
+type ACTION int
+
+const (
+	Add ACTION = iota
+	Update
+)
+
+func (a ACTION) String() string {
+	switch a {
+	case Add:
+		return "Add"
+	case Update:
+		return "Update"
+	}
+	return "Unknown"
+}
+
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
 // This should be called after each of the handlers have registered informers, and should be run in a goroutine.
-func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler) {
+func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 	if features.RemoteClusterTimeout > 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
 			if !c.initialSync.Load() {
@@ -56,11 +76,27 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler) {
 		})
 	}
 
+	// Build a namespace watcher. This must have no filter, since this is our input to the filter itself.
+	// This must be done before we build components, so they can access the filter.
+	namespaces := kclient.New[*corev1.Namespace](c.Client)
+	// This will start a namespace informer and wait for it to be ready. So we must start it in a go routine to avoid blocking.
+	filter := filter.NewDiscoveryNamespacesFilter(namespaces, mesh, c.stop)
+	kube.SetObjectFilter(c.Client, filter)
+
+	for _, h := range handlers {
+		switch action {
+		case Add:
+			h.clusterAdded(c)
+		case Update:
+			h.clusterUpdated(c)
+		}
+	}
 	if !c.Client.RunAndWait(c.stop) {
 		log.Warnf("remote cluster %s failed to sync", c.ID)
 		return
 	}
 	for _, h := range handlers {
+		// TODO: we may only need to check this cluster's cache
 		if !kube.WaitForCacheSync("cluster"+string(c.ID), c.stop, h.HasSynced) {
 			log.Warnf("remote cluster %s failed to sync handler", c.ID)
 			return
