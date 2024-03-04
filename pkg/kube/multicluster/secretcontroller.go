@@ -299,17 +299,17 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			errs = multierror.Append(errs, err)
 			continue
 		}
-
-		// Build a namespace watcher. This must have no filter, since this is our input to the filter itself.
-		// This must be done before we build components, so they can access the filter.
-		namespaces := kclient.New[*corev1.Namespace](remoteCluster.Client)
-		filter := filter.NewDiscoveryNamespacesFilter(namespaces, c.meshWatcher, remoteCluster.stop)
-		kube.SetObjectFilter(remoteCluster.Client, filter)
-		callback(remoteCluster)
-
 		// We run cluster async so we do not block, as this requires actually connecting to the cluster and loading configuration.
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		go func() {
+			// Build a namespace watcher. This must have no filter, since this is our input to the filter itself.
+			// This must be done before we build components, so they can access the filter.
+			namespaces := kclient.New[*corev1.Namespace](remoteCluster.Client)
+			// This will start a namespace informer and wait for it to be ready. So we must start it in a go routine to avoid blocking.
+			filter := filter.NewDiscoveryNamespacesFilter(namespaces, c.meshWatcher, remoteCluster.stop)
+			kube.SetObjectFilter(remoteCluster.Client, filter)
+			callback(remoteCluster)
+
 			remoteCluster.Run(c.meshWatcher, c.handlers)
 			logger.Infof("finished callback for cluster")
 		}()
