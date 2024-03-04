@@ -233,12 +233,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE119 checks whether the given Istio version is greater than or equals 1.19.
-func IsIstioVersionGE119(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 19, Patch: -1}) >= 0
-}
-
 // ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *core.Locality {
 	if locality == "" {
