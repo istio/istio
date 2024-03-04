@@ -1,7 +1,7 @@
 {
   "application_log_config": {
     "log_format": {
-        "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %s:%# %!\t%v\tthread=%t"
+        "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
     }
   },
   "node": {
