@@ -1349,7 +1349,7 @@ spec:
 					// Failed requests will go to non-existent port which hangs forever
 					// Set a low timeout to fail faster
 					Timeout: time.Millisecond * 500,
-					Address: t.Apps.External.All[0].Address(),
+					Address: t.Apps.External.All.ForCluster(c.Config().Cluster.Name())[0].Address(),
 					HTTP: echo.HTTP{
 						Headers: HostHeader(t.Apps.External.All[0].Config().ClusterLocalFQDN()),
 					},
@@ -1438,7 +1438,7 @@ spec:
 					// Failed requests will go to non-existent port which hangs forever
 					// Set a low timeout to fail faster
 					Timeout: time.Millisecond * 500,
-					Address: t.Apps.External.All[0].Address(),
+					Address: t.Apps.External.All.ForCluster(c.Config().Cluster.Name())[0].Address(),
 					HTTP: echo.HTTP{
 						Headers: HostHeader(t.Apps.External.All[0].Config().ClusterLocalFQDN()),
 					},
