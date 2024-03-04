@@ -55,8 +55,8 @@ type IptablesConfigurator struct {
 	ext    dep.Dependencies
 	nlDeps NetlinkDependencies
 	cfg    *Config
-	iptV   *dep.IptablesVersion
-	ipt6V  *dep.IptablesVersion
+	iptV   dep.IptablesVersion
+	ipt6V  dep.IptablesVersion
 }
 
 func ipbuildConfig(c *Config) *iptablesconfig.Config {
@@ -81,13 +81,27 @@ func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDe
 		cfg:    cfg,
 	}
 
+	// By detecting iptables versions *here* once-for-all we are
+	// commiting to using the same binary/variant (legacy or nft)
+	// within all pods as we do on the host.
+	//
+	// This should be fine, as the host binaries are all we have to work with here anyway,
+	// as we are running within a privileged container - and we don't want to take the time to
+	// redetect for each pod anyway.
+	//
+	// Extreme corner case:
+	// If for some reason your host had both binaries, and you were injecting out-of-band
+	// iptables rules within a pod context into `legacy` tables, but your host context preferred
+	// `nft`, we would still inject our rules in-pod into nft tables, which is a bit wonky.
+	//
+	// But that's stunningly unlikely (and would still work either way)
 	iptVer, err := dep.DetectIptablesVersion("", false)
 	if err != nil {
-		configurator.iptV = &iptVer
+		configurator.iptV = iptVer
 	}
 	ipt6Ver, err := dep.DetectIptablesVersion("", true)
 	if err != nil {
-		configurator.ipt6V = &ipt6Ver
+		configurator.ipt6V = ipt6Ver
 	}
 
 	return configurator
@@ -122,20 +136,20 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 	var delErrs []error
 
-	// TODO BML FIXME detect binaries at start and use them here.
-	// iptablei seems like a reasonable pluralization of iptables
-	iptablei := []string{iptablesconstants.IPTABLES}
+	iptablesVariant := []dep.IptablesVersion{}
+	iptablesVariant = append(iptablesVariant, cfg.iptV)
+
 	if cfg.cfg.EnableInboundIPv6 {
-		iptablei = append(iptablei, iptablesconstants.IP6TABLES)
+		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
 	}
-	for _, iptables := range iptablei {
+
+	for _, iptVer := range iptablesVariant {
 		for _, cmd := range deleteCmds {
-			delErrs = append(delErrs, cfg.ext.Run(iptables, nil, cmd...))
+			delErrs = append(delErrs, cfg.ext.Run(iptablesconstants.IpTables, &iptVer, nil, cmd...))
 		}
-	}
-	for _, iptables := range iptablei {
+
 		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptables, nil, cmd...)
+			err := cfg.ext.Run(iptablesconstants.IpTables, &iptVer, nil, cmd...)
 			if err != nil {
 				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
 			}
@@ -355,49 +369,45 @@ func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.Iptabl
 
 	if cfg.cfg.RestoreFormat {
 		// Execute iptables-restore
-		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, true))
+		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, &cfg.iptV, true))
 		// Execute ip6tables-restore
 		if cfg.cfg.EnableInboundIPv6 {
-			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, false))
+			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, &cfg.ipt6V, false))
 		}
 	} else {
 		// Execute iptables commands
 		execErrs = append(execErrs,
-			cfg.executeIptablesCommands(iptablesBuilder.BuildV4()))
+			cfg.executeIptablesCommands(&cfg.iptV, iptablesBuilder.BuildV4()))
 		// Execute ip6tables commands
 		if cfg.cfg.EnableInboundIPv6 {
 			execErrs = append(execErrs,
-				cfg.executeIptablesCommands(iptablesBuilder.BuildV6()))
+				cfg.executeIptablesCommands(&cfg.ipt6V, iptablesBuilder.BuildV6()))
 		}
 	}
 	return errors.Join(execErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeIptablesCommands(commands [][]string) error {
+func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, args [][]string) error {
 	var iptErrs []error
-	for _, cmd := range commands {
-		if len(cmd) > 1 {
-			iptErrs = append(iptErrs, cfg.ext.Run(cmd[0], nil, cmd[1:]...))
-		} else {
-			iptErrs = append(iptErrs, cfg.ext.Run(cmd[0], nil))
-		}
+	for _, argSet := range args {
+	  iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IpTables, iptVer, nil, argSet...))
 	}
 	return errors.Join(iptErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptablesBuilder *builder.IptablesRuleBuilder, isIpv4 bool) error {
-	var data, cmd string
+func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptablesBuilder *builder.IptablesRuleBuilder, iptVer *dep.IptablesVersion, isIpv4 bool) error {
+	cmd := iptablesconstants.IpTablesRestore
+	var data string
+
 	if isIpv4 {
 		data = iptablesBuilder.BuildV4Restore()
-		cmd = iptablesconstants.IPTABLESRESTORE
 	} else {
 		data = iptablesBuilder.BuildV6Restore()
-		cmd = iptablesconstants.IP6TABLESRESTORE
 	}
 
-	log.Infof("Running %s with the following input:\n%v", cmd, strings.TrimSpace(data))
+	log.Infof("Running %s with the following input:\n%v", iptVer.CmdToString(cmd), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(cmd, strings.NewReader(data), "--noflush", "-v")
+	return cfg.ext.Run(cmd, iptVer, strings.NewReader(data), "--noflush", "-v")
 }
 
 func (cfg *IptablesConfigurator) addLoopbackRoute() error {
@@ -453,13 +463,15 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	}
 
 	// iptablei seems like a reasonable pluralization of iptables
-	iptablei := []string{iptablesconstants.IPTABLES}
+	iptablesVariant := []dep.IptablesVersion{}
+	iptablesVariant = append(iptablesVariant, cfg.iptV)
+
 	if cfg.cfg.EnableInboundIPv6 {
-		iptablei = append(iptablei, iptablesconstants.IP6TABLES)
+		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
 	}
-	for _, iptables := range iptablei {
+	for _, iptVer := range iptablesVariant {
 		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptables, nil, cmd...)
+			err := cfg.ext.Run(iptablesconstants.IpTables, &iptVer, nil, cmd...)
 			if err != nil {
 				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
 			}

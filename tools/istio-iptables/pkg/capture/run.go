@@ -767,11 +767,11 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 		}
 	} else {
 		// Execute iptables commands
-		if err := cfg.executeIptablesCommands(iptVer, cfg.ruleBuilder.BuildV4(iptVer.DetectedBinary)); err != nil {
+		if err := cfg.executeIptablesCommands(iptVer, cfg.ruleBuilder.BuildV4()); err != nil {
 			return err
 		}
 		// Execute ip6tables commands
-		if err := cfg.executeIptablesCommands(ipt6Ver, cfg.ruleBuilder.BuildV6(ipt6Ver.DetectedBinary)); err != nil {
+		if err := cfg.executeIptablesCommands(ipt6Ver, cfg.ruleBuilder.BuildV6()); err != nil {
 			return err
 		}
 	}
