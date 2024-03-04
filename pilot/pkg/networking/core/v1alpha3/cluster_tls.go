@@ -212,12 +212,21 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			if !res.IsRootCertificate() || tls.GetInsecureSkipVerify().GetValue() {
 				tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_ValidationContext{}
 			} else {
+				defaultValidationContext := &tlsv3.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)}
+				if tls.GetCaCrl() != "" {
+					defaultValidationContext.Crl = &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.GetCaCrl(),
+						},
+					}
+				}
 				tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &tlsv3.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext:         &tlsv3.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+						DefaultValidationContext:         defaultValidationContext,
 						ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 					},
 				}
+
 			}
 		}
 
@@ -268,9 +277,17 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			if !res.IsRootCertificate() || tls.GetInsecureSkipVerify().GetValue() {
 				tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_ValidationContext{}
 			} else {
+				defaultValidationContext := &tlsv3.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)}
+				if tls.GetCaCrl() != "" {
+					defaultValidationContext.Crl = &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.GetCaCrl(),
+						},
+					}
+				}
 				tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &tlsv3.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext:         &tlsv3.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+						DefaultValidationContext:         defaultValidationContext,
 						ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 					},
 				}

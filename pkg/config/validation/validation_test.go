@@ -1803,6 +1803,17 @@ func TestValidateTLS(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "MUTUAL: CredentialName set with CACRL specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCrl:             "ca",
+			},
+			valid: false,
+		},
+		{
 			name: "MUTUAL: CredentialName not set with ClientCertificate and Key specified",
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
