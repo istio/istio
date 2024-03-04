@@ -454,17 +454,17 @@ func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, li
 			if r := lb.translateRoute(virtualService, http, nil, listenPort); r != nil {
 				out = append(out, r)
 			}
-			catchall = true
-		} else {
-			for _, match := range http.Match {
-				if r := lb.translateRoute(virtualService, http, match, listenPort); r != nil {
-					out = append(out, r)
-					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
-					// As an optimization, we can just top sending any more routes here.
-					//if isCatchAllMatch(match) {
-					//	catchall = true
-					//	break
-					//}
+			// This is a catchall route, so we can stop processing the rest of the routes.
+			break
+		}
+		for _, match := range http.Match {
+			if r := lb.translateRoute(virtualService, http, match, listenPort); r != nil {
+				out = append(out, r)
+				// This is a catch all path. Routes are matched in order, so we will never go beyond this match
+				// As an optimization, we can just stop sending any more routes here.
+				if istio_route.IsCatchAllRoute(r) {
+					catchall = true
+					break
 				}
 			}
 		}

@@ -397,8 +397,8 @@ func BuildHTTPRoutesForVirtualService(
 					hashByDestination, gatewayNames, opts); r != nil {
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
-					// As an optimization, we can just top sending any more routes here.
-					if isCatchAllRoute(r) {
+					// As an optimization, we can just stop sending any more routes here.
+					if IsCatchAllRoute(r) {
 						catchall = true
 						break
 					}
@@ -1524,7 +1524,7 @@ func SortVHostRoutes(routes []*route.Route) []*route.Route {
 	allroutes := make([]*route.Route, 0, len(routes))
 	catchAllRoutes := make([]*route.Route, 0)
 	for _, r := range routes {
-		if isCatchAllRoute(r) {
+		if IsCatchAllRoute(r) {
 			catchAllRoutes = append(catchAllRoutes, r)
 		} else {
 			allroutes = append(allroutes, r)
@@ -1533,8 +1533,8 @@ func SortVHostRoutes(routes []*route.Route) []*route.Route {
 	return append(allroutes, catchAllRoutes...)
 }
 
-// isCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.
-func isCatchAllRoute(r *route.Route) bool {
+// IsCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.
+func IsCatchAllRoute(r *route.Route) bool {
 	catchall := false
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix `/` or regex `.*`.

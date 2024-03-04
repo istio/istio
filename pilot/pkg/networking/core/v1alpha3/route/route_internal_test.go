@@ -155,7 +155,7 @@ func TestIsCatchAllRoute(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			catchall := isCatchAllRoute(tt.route)
+			catchall := IsCatchAllRoute(tt.route)
 			if catchall != tt.want {
 				t.Errorf("Unexpected catchAllMatch want %v, got %v", tt.want, catchall)
 			}
