@@ -14,7 +14,7 @@
 Istio is an open source service mesh that layers transparently onto existing distributed applications. Istio’s powerful features provide a uniform and more efficient way to secure, connect, and monitor services. Istio is the path to load balancing, service-to-service authentication, and monitoring – with few or no service code changes.
 
 - For in-depth information about how to use Istio, visit [istio.io](https://istio.io)
-- To ask questions and get assistance from our community, visit [discuss.istio.io](https://discuss.istio.io)
+- To ask questions and get assistance from our community, visit [Github Discussions](https://github.com/istio/istio/discussions)
 - To learn how to participate in our overall community, visit [our community page](https://istio.io/about/community)
 
 In this README:
@@ -94,6 +94,9 @@ including Citadel (acting as Certificate Authority), citadel agent, etc.
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
 extensions to the [Envoy proxy](https://github.com/envoyproxy/envoy) (in the form of
 Envoy filters) that support authentication, authorization, and telemetry collection.
+
+- [istio/ztunnel](https://github.com/istio/ztunnel). The repository contains the Rust implementation of the ztunnel
+component of Ambient mesh.
 
 ## Issue management
 

@@ -25,6 +25,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
@@ -179,6 +180,11 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	// Ignore the err because we don't want to show
 	// "no running Istio pods in istio-system" for the first time
 	_ = detectIstioVersionDiff(p, tag, ns, kubeClient, iop)
+	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
+	err = detectDefaultWebhookChange(p, kubeClient, iop, exists)
+	if err != nil {
+		return fmt.Errorf("failed to detect the default webhook change: %v", err)
+	}
 
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.DryRun && !iArgs.SkipConfirmation {
@@ -196,7 +202,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	iop.Name = savedIOPName(iop)
 
 	// Detect whether previous installation exists prior to performing the installation.
-	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
 	if err := InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
@@ -390,4 +395,23 @@ func humanReadableJoin(ss []string) string {
 	default:
 		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
 	}
+}
+
+func detectDefaultWebhookChange(p Printer, client kube.CLIClient, iop *v1alpha12.IstioOperator, exists bool) error {
+	if !helmreconciler.DetectIfTagWebhookIsNeeded(iop, exists) {
+		return nil
+	}
+	mwhs, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
+		LabelSelector: "app=sidecar-injector,istio.io/rev=default,istio.io/tag=default",
+	})
+	if err != nil {
+		return err
+	}
+	// If there is no default webhook but a revisioned default webhook exists,
+	// and we are installing a new IOP with default semantics, the default webhook shifts.
+	if exists && len(mwhs.Items) == 0 && iop.Spec.GetRevision() == "" {
+		p.Println("This installation will make default injection and validation pointing to the default revision, and " +
+			"originally it was pointing to the revisioned one.")
+	}
+	return nil
 }

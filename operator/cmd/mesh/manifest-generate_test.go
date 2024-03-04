@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/version"
 )
 
@@ -290,7 +291,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			force: true,
 			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
 				g.Expect(err).Should(BeNil())
-				g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(2))
+				g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(3))
 			},
 		},
 		{
@@ -329,6 +330,43 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			tc.assertFunc(g, objs, err)
 		})
 	}
+}
+
+func TestManifestGenerateDefaultWithRevisionedWebhook(t *testing.T) {
+	runRevisionedWebhookTest(t, "minimal-revisioned", "default_tag")
+}
+
+func TestManifestGenerateFailedDefaultInstallation(t *testing.T) {
+	runRevisionedWebhookTest(t, "minimal", "default_installation_failed")
+}
+
+func runRevisionedWebhookTest(t *testing.T, testResourceFile, whSource string) {
+	t.Helper()
+	recreateSimpleTestEnv()
+	tmpDir := t.TempDir()
+	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
+	err := copyDir(string(liveCharts), string(tmpCharts))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add a default tag which is the webhook that will be processed post-install
+	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", whSource+".yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writeFile(filepath.Join(tmpDir, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fakeControllerReconcile(testResourceFile, tmpCharts, &helmreconciler.Options{Force: false, SkipPrune: true})
+	assert.NoError(t, err)
+
+	// Install a default revision should not cause any error
+	minimal := "minimal"
+	_, err = fakeControllerReconcile(minimal, tmpCharts, &helmreconciler.Options{Force: false, SkipPrune: true})
+	assert.NoError(t, err)
 }
 
 func TestManifestGenerateIstiodRemote(t *testing.T) {
@@ -505,17 +543,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 			diffSelect: "ConfigMap:*:istio$",
 		},
 		{
-			desc:       "deprecated_autoscaling_k8s_spec",
-			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
-			fileSelect: []string{"templates/autoscale.yaml"},
-		},
-		{
 			desc:       "autoscaling_ingress_v2",
-			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
-			fileSelect: []string{"templates/autoscale.yaml"},
-		},
-		{
-			desc:       "autoscaling_v2beta1_k8s_and_values",
 			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
 			fileSelect: []string{"templates/autoscale.yaml"},
 		},

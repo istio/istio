@@ -44,7 +44,6 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/kube/namespace"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -172,13 +171,9 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 // The controller will not start until Run() is called.
 func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *model.Environment,
 	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher, revision string,
-	nsFilter namespace.DiscoveryNamespacesFilter,
 ) *DeploymentController {
-	var filter namespace.DiscoveryFilter
-	if nsFilter != nil {
-		filter = nsFilter.Filter
-	}
-	gateways := kclient.NewFiltered[*gateway.Gateway](client, kclient.Filter{ObjectFilter: filter})
+	filter := kclient.Filter{ObjectFilter: kube.FilterIfEnhancedFilteringEnabled(client)}
+	gateways := kclient.NewFiltered[*gateway.Gateway](client, filter)
 	gatewayClasses := kclient.New[*gateway.GatewayClass](client)
 	dc := &DeploymentController{
 		client:    client,
@@ -209,19 +204,19 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *mode
 	// the Gateway to the queue and reconcile the state of the world.
 	parentHandler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
 
-	dc.services = kclient.NewFiltered[*corev1.Service](client, kclient.Filter{ObjectFilter: filter})
+	dc.services = kclient.NewFiltered[*corev1.Service](client, filter)
 	dc.services.AddEventHandler(parentHandler)
 	dc.clients[gvr.Service] = NewUntypedWrapper(dc.services)
 
-	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, kclient.Filter{ObjectFilter: filter})
+	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, filter)
 	dc.deployments.AddEventHandler(parentHandler)
 	dc.clients[gvr.Deployment] = NewUntypedWrapper(dc.deployments)
 
-	dc.serviceAccounts = kclient.NewFiltered[*corev1.ServiceAccount](client, kclient.Filter{ObjectFilter: filter})
+	dc.serviceAccounts = kclient.NewFiltered[*corev1.ServiceAccount](client, filter)
 	dc.serviceAccounts.AddEventHandler(parentHandler)
 	dc.clients[gvr.ServiceAccount] = NewUntypedWrapper(dc.serviceAccounts)
 
-	dc.namespaces = kclient.NewFiltered[*corev1.Namespace](client, kclient.Filter{ObjectFilter: filter})
+	dc.namespaces = kclient.NewFiltered[*corev1.Namespace](client, filter)
 	dc.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		// TODO: make this more intelligent, checking if something we care about has changed
 		// requeue this namespace
@@ -350,11 +345,29 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	isWaypointGateway := strings.Contains(string(gw.Spec.GatewayClassName), "waypoint")
 
 	// Default the network label for waypoints if not explicitly set in gateway's labels
-	if _, ok := gw.GetLabels()["topology.istio.io/network"]; !ok && isWaypointGateway {
+	network := d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+	if _, ok := gw.GetLabels()[label.TopologyNetwork.Name]; !ok && network != "" && isWaypointGateway {
 		if gw.Labels == nil {
 			gw.Labels = make(map[string]string)
 		}
-		gw.Labels["topology.istio.io/network"] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+		gw.Labels[label.TopologyNetwork.Name] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+	}
+
+	// Disable ambient redirection for kube-gateway if there is no explicit setting
+	var hasAmbientAnnotation bool
+	if _, ok := gw.Annotations[constants.AmbientRedirection]; ok {
+		hasAmbientAnnotation = true
+	}
+	if gw.Spec.Infrastructure != nil {
+		if _, ok := gw.Spec.Infrastructure.Annotations[constants.AmbientRedirection]; ok {
+			hasAmbientAnnotation = true
+		}
+	}
+	if features.EnableAmbientControllers && !isWaypointGateway && !hasAmbientAnnotation {
+		if gw.Annotations == nil {
+			gw.Annotations = make(map[string]string)
+		}
+		gw.Annotations[constants.AmbientRedirection] = constants.AmbientRedirectionDisabled
 	}
 
 	input := TemplateInput{
@@ -364,7 +377,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		Ports:          extractServicePorts(gw),
 		ClusterID:      d.clusterID.String(),
 
-		KubeVersion122:            kube.IsAtLeastVersion(d.client, 22),
+		KubeVersion:               kube.GetVersionAsInt(d.client),
 		Revision:                  d.revision,
 		ServiceType:               serviceType,
 		ProxyUID:                  proxyUID,
@@ -388,8 +401,8 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		// Default the network label for waypoints if not explicitly set in infra labels
 		// We do this a second time here for correctness since if infra labels are set (according to the gwapi spec),
 		// the gateway's labels are ignored.
-		if _, ok := infraLabels["topology.istio.io/network"]; !ok && isWaypointGateway {
-			infraLabels["topology.istio.io/network"] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+		if _, ok := infraLabels[label.TopologyNetwork.Name]; !ok && network != "" && isWaypointGateway {
+			infraLabels[label.TopologyNetwork.Name] = network
 		}
 
 		input.InfrastructureLabels = infraLabels
@@ -622,7 +635,7 @@ type TemplateInput struct {
 	Ports                     []corev1.ServicePort
 	ServiceType               corev1.ServiceType
 	ClusterID                 string
-	KubeVersion122            bool
+	KubeVersion               int
 	Revision                  string
 	ProxyUID                  int64
 	ProxyGID                  int64

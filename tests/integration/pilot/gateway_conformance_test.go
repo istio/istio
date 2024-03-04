@@ -20,14 +20,14 @@ package pilot
 import (
 	"testing"
 
+	k8ssets "k8s.io/apimachinery/pkg/util/sets" //nolint: depguard
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 
+	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
@@ -58,11 +58,6 @@ var skippedTests = map[string]string{
 	"MeshFrontendHostname": "https://github.com/istio/istio/issues/44702",
 }
 
-func init() {
-	scope := log.RegisterScope("controlleruntime", "scope for controller runtime")
-	controllruntimelog.SetLogger(log.NewLogrAdapter(scope))
-}
-
 func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -89,7 +84,15 @@ func TestGatewayConformance(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			features := suite.AllFeatures
+			features := gateway.SupportedFeatures
+			if ctx.Settings().GatewayConformanceStandardOnly {
+				features = k8ssets.New[suite.SupportedFeature]().
+					Insert(suite.GatewayExtendedFeatures.UnsortedList()...).
+					Insert(suite.ReferenceGrantCoreFeatures.UnsortedList()...).
+					Insert(suite.HTTPRouteCoreFeatures.UnsortedList()...).
+					Insert(suite.HTTPRouteExtendedFeatures.UnsortedList()...).
+					Insert(suite.MeshCoreFeatures.UnsortedList()...)
+			}
 			hostnameType := v1.AddressType("Hostname")
 			opts := suite.Options{
 				Client:                   c,

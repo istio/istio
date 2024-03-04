@@ -115,12 +115,11 @@ func TestSetup(ctx resource.Context) (err error) {
 	client = servicePrefix("client").GetMatches(echos)
 	server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: appNsInst}).GetMatches(echos)
 	ingInst = ist.IngressFor(ctx.Clusters().Default())
-	addr, _ := ingInst.HTTPAddress()
-	zipkinInst, err = zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default(), IngressAddr: addr})
+	addrs, _ := ingInst.HTTPAddresses()
+	zipkinInst, err = zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default(), IngressAddr: addrs[0]})
 	if err != nil {
 		return
 	}
-
 	return nil
 }
 

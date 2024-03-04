@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2023-12-20T19-00-49
+BASE_VERSION ?= master-2024-02-16T19-00-50
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -219,8 +219,7 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./samples/extauthz/cmd/extauthz \
-  ./operator/cmd/operator \
-  ./tools/bug-report
+  ./operator/cmd/operator
 
 # These are binaries that require Linux to build, and should
 # be skipped on other platforms. Notably this includes the current Linux-only Istio CNI plugin
@@ -231,12 +230,20 @@ LINUX_AGENT_BINARIES:=./cni/cmd/istio-cni \
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES) $(LINUX_AGENT_BINARIES)
 
 # List of binaries that have their size tested
-RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl bug-report envoy ztunnel client server
+RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl envoy ztunnel client server
+
+# agent: enables agent-specific files. Usually this is used to trim dependencies where they would be hard to trim through standard refactoring
+# disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
+# not set vtprotobuf: this adds some performance improvement, but at a binary cost increase that is not worth it for the agent
+AGENT_TAGS=agent,disable_pgv
+# disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
+# vtprotobuf: enables optimized protobuf marshalling
+STANDARD_TAGS=disable_pgv,vtprotobuf
 
 .PHONY: build
 build: depend ## Builds all go binaries.
-	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ $(STANDARD_BINARIES)
-	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=agent $(AGENT_BINARIES)
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(AGENT_TAGS) $(AGENT_BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
 # This target should be expanded upon as we add more Linux architectures: i.e. build-arm64.
@@ -244,8 +251,8 @@ build: depend ## Builds all go binaries.
 # various platform images.
 .PHONY: build-linux
 build-linux: depend
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ $(STANDARD_BINARIES)
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=agent $(LINUX_AGENT_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(AGENT_TAGS) $(LINUX_AGENT_BINARIES)
 
 # Create targets for TARGET_OUT_LINUX/binary
 # There are two use cases here:
@@ -263,8 +270,8 @@ $(TARGET_OUT_LINUX)/$(shell basename $(1)): $(TARGET_OUT_LINUX)
 endif
 endef
 
-$(foreach bin,$(STANDARD_BINARIES),$(eval $(call build-linux,$(bin),"")))
-$(foreach bin,$(LINUX_AGENT_BINARIES),$(eval $(call build-linux,$(bin),"agent")))
+$(foreach bin,$(STANDARD_BINARIES),$(eval $(call build-linux,$(bin),$(STANDARD_TAGS))))
+$(foreach bin,$(LINUX_AGENT_BINARIES),$(eval $(call build-linux,$(bin),$(AGENT_TAGS))))
 
 # Create helper targets for each binary, like "pilot-discovery"
 # As an optimization, these still build everything
@@ -317,6 +324,7 @@ gen: \
 
 gen-check: gen check-clean-repo
 
+CHARTS = gateway default ztunnel istio-operator base "gateways/istio-ingress" "gateways/istio-egress" "istio-control/istio-discovery" istiod-remote istio-cni
 copy-templates:
 	rm manifests/charts/istiod-remote/templates/*
 	rm manifests/charts/gateways/istio-egress/templates/*
@@ -351,24 +359,30 @@ copy-templates:
 
 	# copy istio-discovery values, but apply some local customizations
 	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
-	yq -i '.telemetry.enabled=false | .global.externalIstiod=true | .global.omitSidecarInjectorConfigMap=true | .pilot.configMap=false' manifests/charts/istiod-remote/values.yaml
+	yq -i '.defaults.telemetry.enabled=false | .defaults.global.externalIstiod=true | .defaults.global.omitSidecarInjectorConfigMap=true | .defaults.pilot.configMap=false' manifests/charts/istiod-remote/values.yaml
+	for chart in $(CHARTS) ; do \
+		for profile in manifests/helm-profiles/*.yaml ; do \
+			cp $$profile manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
+		done; \
+		cp manifests/zzz_profile.yaml manifests/charts/$$chart/templates ; \
+	done
 
 #-----------------------------------------------------------------------------
 # Target: go build
 #-----------------------------------------------------------------------------
 
 # Non-static istioctl targets. These are typically a build artifact.
-${TARGET_OUT}/release/istioctl-linux-amd64: depend
+${TARGET_OUT}/release/istioctl-linux-amd64:
 	GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${TARGET_OUT}/release/istioctl-linux-armv7: depend
+${TARGET_OUT}/release/istioctl-linux-armv7:
 	GOOS=linux GOARCH=arm GOARM=7 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${TARGET_OUT}/release/istioctl-linux-arm64: depend
+${TARGET_OUT}/release/istioctl-linux-arm64:
 	GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${TARGET_OUT}/release/istioctl-osx: depend
+${TARGET_OUT}/release/istioctl-osx:
 	GOOS=darwin GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${TARGET_OUT}/release/istioctl-osx-arm64: depend
+${TARGET_OUT}/release/istioctl-osx-arm64:
 	GOOS=darwin GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${TARGET_OUT}/release/istioctl-win.exe: depend
+${TARGET_OUT}/release/istioctl-win.exe:
 	GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files

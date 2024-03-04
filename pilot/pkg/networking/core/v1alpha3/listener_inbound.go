@@ -359,7 +359,7 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(enableSidecarServiceInbo
 			hbone:             lb.node.IsWaypointProxy(),
 		}
 		// for inbound only generate a standalone listener when bindToPort=true
-		if bindToPort && conflictWithStaticListener(lb.node, cc.bind, int(port.TargetPort), port.Protocol) {
+		if bindToPort && conflictWithReservedListener(lb.node, nil, cc.bind, int(port.TargetPort), port.Protocol) {
 			log.Debugf("buildInboundListeners: skipping service port %d for node %s as it conflicts with static listener",
 				port.TargetPort, lb.node.ID)
 			continue
@@ -442,7 +442,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				}
 			}
 			// for inbound only generate a standalone listener when bindToPort=true
-			if bindtoPort && conflictWithStaticListener(lb.node, cc.bind, port.Port, port.Protocol) {
+			if bindtoPort && conflictWithReservedListener(lb.node, nil, cc.bind, port.Port, port.Protocol) {
 				log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
 					port.TargetPort, lb.node.ID)
 				continue

@@ -98,7 +98,7 @@ type VirtualHostWrapper struct {
 // and a list of Services from the service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
 func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
-	virtualServices []config.Config, listenPort int, mostSpecificWildcardIndex map[host.Name]types.NamespacedName,
+	virtualServices []config.Config, listenPort int, mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
@@ -111,7 +111,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 		hashByDestination, destinationRules := hashForVirtualService(push, node, virtualService)
 		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
 		wrappers := buildSidecarVirtualHostsForVirtualService(
-			node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh, mostSpecificWildcardIndex,
+			node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh, mostSpecificWildcardVsIndex,
 		)
 		out = append(out, wrappers...)
 	}
@@ -147,62 +147,81 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 // plain non-registry hostnames
 func separateVSHostsAndServices(virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
-	mostSpecificWildcardIndex map[host.Name]types.NamespacedName,
+	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) ([]string, []*model.Service) {
 	// TODO: A further optimization would be to completely rely on the index and not do the loop below
 	// However, that requires assuming that serviceRegistry never got filtered after the
 	// egressListener was created.
 	rule := virtualService.Spec.(*networking.VirtualService)
-	hosts := make([]string, 0)
-	servicesInVirtualService := make([]*model.Service, 0)
+	// Stores VS hosts that don't correspond to services in the registry
+	// Currently, the only use for this list is to enable VirtualService configuration to affect
+	// traffic to hosts outside of the service registry (e.g. google.com) on port 80
+	nonServiceRegistryHosts := make([]string, 0)
+	// Stores services for this VirtualService that are in the registry (based on hostname)
+	matchingRegistryServices := make([]*model.Service, 0)
 	wchosts := make([]host.Name, 0)
 
 	// As a performance optimization, process non wildcard hosts first, so that they can be
 	// looked up directly in the service registry map.
 	for _, hostname := range rule.Hosts {
 		vshost := host.Name(hostname)
-		if !vshost.IsWildCarded() {
-			if svc, exists := serviceRegistry[vshost]; exists {
-				servicesInVirtualService = append(servicesInVirtualService, svc)
-			} else {
-				hosts = append(hosts, hostname)
-			}
-		} else {
-			// Add it to the wildcard hosts so that they can be processed later.
+		if vshost.IsWildCarded() {
+			// We'll process wild card hosts later
 			wchosts = append(wchosts, vshost)
+			continue
+		}
+		if svc, exists := serviceRegistry[vshost]; exists {
+			matchingRegistryServices = append(matchingRegistryServices, svc)
+		} else {
+			nonServiceRegistryHosts = append(nonServiceRegistryHosts, hostname)
 		}
 	}
 
 	// Now process wild card hosts as they need to follow the slow path of looping through all Services in the registry.
 	for _, hostname := range wchosts {
 		if model.UseGatewaySemantics(virtualService) {
-			hosts = append(hosts, string(hostname))
+			nonServiceRegistryHosts = append(nonServiceRegistryHosts, string(hostname))
 			continue
 		}
-		// Say this VS's host is *.global and there's another VS with host *.foo.global
+		// foundSvcMatch's only purpose is to make sure we don't add hosts that correspond to services
+		// to the list of non-serviceregistry hosts
 		foundSvcMatch := false
-		// Say we have Services *.foo.global, *.bar.global
 		for svcHost, svc := range serviceRegistry {
-			vs, ok := mostSpecificWildcardIndex[svcHost]
+			// First, check if this service matches the VS host.
+			// If it does, then we never want to add it to the nonServiceRegistryHosts list.
+			// The result is OR'd so we don't overwrite a previously true value
+			// localMatch is tracking the match found within this iteration of the loop
+			localMatch := svcHost.Matches(hostname)
+			// foundSvcMatch is tracking in the wider context whether or not ANY match was found during an iteration
+			foundSvcMatch = foundSvcMatch || localMatch
+			if !localMatch {
+				// If the wildcard doesn't even match this service, it won't be in the index
+				continue
+			}
+			// The mostSpecificWildcardVsIndex ensures that each VirtualService host is only associated with
+			// a single service in the registry. This is generally results in the most specific wildcard match for
+			// a given wildcard host (unless PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING is true).
+			vs, ok := mostSpecificWildcardVsIndex[svcHost]
 			if !ok {
 				// This service doesn't have a virtualService that matches it.
 				continue
 			}
-			foundSvcMatch = true // we did find a match
 			if vs != virtualService.NamespacedName() {
 				// This virtual service is not the most specific wildcard match for this service.
 				// So we don't add it to the list of services in this virtual service so as
 				// to avoid duplicates
 				continue
 			}
-			servicesInVirtualService = append(servicesInVirtualService, svc)
+			matchingRegistryServices = append(matchingRegistryServices, svc)
 		}
+
+		// If we never found a match for this hostname in the service registry, add it to the list of non-service hosts
 		if !foundSvcMatch {
-			hosts = append(hosts, string(hostname))
+			nonServiceRegistryHosts = append(nonServiceRegistryHosts, string(hostname))
 		}
 	}
 
-	return hosts, servicesInVirtualService
+	return nonServiceRegistryHosts, matchingRegistryServices
 }
 
 // buildSidecarVirtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
@@ -215,7 +234,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	hashByDestination DestinationHashMap,
 	listenPort int,
 	mesh *meshconfig.MeshConfig,
-	mostSpecificWildcardIndex map[host.Name]types.NamespacedName,
+	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	meshGateway := sets.New(constants.IstioMeshGateway)
 	opts := RouteOptions{
@@ -231,12 +250,12 @@ func buildSidecarVirtualHostsForVirtualService(
 		return nil
 	}
 
-	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry, mostSpecificWildcardIndex)
+	hosts, matchingRegistryServices := separateVSHostsAndServices(virtualService, serviceRegistry, mostSpecificWildcardVsIndex)
 
 	// Gateway allows only routes from the namespace of the proxy, or namespace of the destination.
 	if model.UseGatewaySemantics(virtualService) {
-		res := make([]*model.Service, 0, len(servicesInVirtualService))
-		for _, s := range servicesInVirtualService {
+		res := make([]*model.Service, 0, len(matchingRegistryServices))
+		for _, s := range matchingRegistryServices {
 			if s.Attributes.Namespace != virtualService.Namespace && node.ConfigNamespace != virtualService.Namespace {
 				continue
 			}
@@ -253,7 +272,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	// If the destination service is being accessed on port X, we set that as the default
 	// destination port
 	serviceByPort := make(map[int][]*model.Service)
-	for _, svc := range servicesInVirtualService {
+	for _, svc := range matchingRegistryServices {
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTPOrSniffed() {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
@@ -995,6 +1014,10 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest, useE
 		} else {
 			matcher := translateHeaderMatch(name, stringMatch)
 			matcher.InvertMatch = true
+			// treat_missing_header_as_empty conflict with present_match
+			if !canBeConvertedToPresentMatch(stringMatch) {
+				matcher.TreatMissingHeaderAsEmpty = true
+			}
 			out.Headers = append(out.Headers, matcher)
 		}
 	}
@@ -1055,7 +1078,7 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 		Name: name,
 	}
 
-	if isCatchAllStringMatch(in) {
+	if canBeConvertedToPresentMatch(in) {
 		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_PresentMatch{
 			PresentMatch: true,
 		}
@@ -1071,9 +1094,9 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 	return out
 }
 
-// isCatchAllStringMatch determines if the given matcher is matched with all strings or not.
-// Currently, if the regex has "*" value, it returns true
-func isCatchAllStringMatch(in *networking.StringMatch) bool {
+// canBeConvertedToPresentMatch determines if the given matcher can be converted to present_match or not.
+// Currently, if the regex is "*" value, it returns true
+func canBeConvertedToPresentMatch(in *networking.StringMatch) bool {
 	if in == nil || in.MatchType == nil {
 		return true
 	}
@@ -1082,6 +1105,9 @@ func isCatchAllStringMatch(in *networking.StringMatch) bool {
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Regex:
+		// `*` is NOT a RE2 style regex, it's a metacharacter.
+		// It will be translated as present_match, rather than matching "any string".
+		// see https://github.com/istio/istio/pull/20629
 		catchall = m.Regex == "*"
 	}
 
@@ -1115,7 +1141,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 		Name: name,
 	}
 
-	if isCatchAllStringMatch(in) {
+	if canBeConvertedToPresentMatch(in) {
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PresentMatch{PresentMatch: true}
 		return out
 	}
@@ -1492,34 +1518,6 @@ func hashForHTTPDestination(push *model.PushContext, node *model.Proxy,
 	return consistentHash, mergedDR
 }
 
-// isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise
-// false. Note - this may not be exactly "catch all" as we don't know the full
-// class of possible inputs As such, this is used only for optimization.
-func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
-	catchall := false
-	if m.Uri != nil {
-		switch m := m.Uri.MatchType.(type) {
-		case *networking.StringMatch_Prefix:
-			catchall = m.Prefix == "/"
-		case *networking.StringMatch_Regex:
-			catchall = m.Regex == "*"
-		}
-	}
-	// A Match is catch all if and only if it has no match set
-	// and URI has a prefix / or regex *.
-	return catchall &&
-		len(m.Headers) == 0 &&
-		len(m.QueryParams) == 0 &&
-		len(m.SourceLabels) == 0 &&
-		len(m.WithoutHeaders) == 0 &&
-		len(m.Gateways) == 0 &&
-		m.Method == nil &&
-		m.Scheme == nil &&
-		m.Port == 0 &&
-		m.Authority == nil &&
-		m.SourceNamespace == ""
-}
-
 // SortVHostRoutes moves the catch all routes alone to the end, while retaining
 // the relative order of other routes in the slice.
 func SortVHostRoutes(routes []*route.Route) []*route.Route {
@@ -1538,16 +1536,17 @@ func SortVHostRoutes(routes []*route.Route) []*route.Route {
 // isCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.
 func isCatchAllRoute(r *route.Route) bool {
 	catchall := false
+	// A Match is catch all if and only if it has no header/query param match
+	// and URI has a prefix `/` or regex `.*`.
 	switch ir := r.Match.PathSpecifier.(type) {
 	case *route.RouteMatch_Prefix:
 		catchall = ir.Prefix == "/"
 	case *route.RouteMatch_PathSeparatedPrefix:
 		catchall = ir.PathSeparatedPrefix == "/"
 	case *route.RouteMatch_SafeRegex:
-		catchall = ir.SafeRegex.GetRegex() == "*"
+		catchall = ir.SafeRegex.GetRegex() == ".*"
 	}
-	// A Match is catch all if and only if it has no header/query param match
-	// and URI has a prefix / or regex *.
+
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
 }
 

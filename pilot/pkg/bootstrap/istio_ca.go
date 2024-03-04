@@ -34,8 +34,6 @@ import (
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/jwt"
-	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/cmd"
@@ -54,7 +52,6 @@ type caOptions struct {
 	Namespace        string
 	Authenticators   []security.Authenticator
 	CertSignerDomain string
-	DiscoveryFilter  namespace.DiscoveryFilter
 }
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -139,15 +136,26 @@ var (
 		"Kubernetes CA Signer type. Valid from Kubernetes 1.18").Get()
 )
 
+// initCAServer create a CA Server. The CA API uses cert with the max workload cert TTL.
+// 'hostlist' must be non-empty - but is not used since CA Server will start on existing
+// grpc server. Adds client cert auth and kube (sds enabled)
+func (s *Server) initCAServer(ca caserver.CertificateAuthority, opts *caOptions) {
+	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators, s.multiclusterController)
+	if startErr != nil {
+		log.Fatalf("failed to create istio ca server: %v", startErr)
+	}
+	s.caServer = caServer
+}
+
 // RunCA will start the cert signing GRPC service on an existing server.
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *caOptions) {
+func (s *Server) RunCA(grpc *grpc.Server) {
 	iss := trustedIssuer.Get()
 	aud := audience.Get()
 
-	token, err := os.ReadFile(getJwtPath())
+	token, err := os.ReadFile(securityModel.ThirdPartyJwtPath)
 	if err == nil {
 		tok, err := detectAuthEnv(string(token))
 		if err != nil {
@@ -162,14 +170,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		}
 	}
 
-	// The CA API uses cert with the max workload cert TTL.
-	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
-	// Adds client cert auth and kube (sds enabled)
-	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators, s.kubeClient, opts.DiscoveryFilter)
-	if startErr != nil {
-		log.Fatalf("failed to create istio ca server: %v", startErr)
-	}
-
 	// TODO: if not set, parse Istiod's own token (if present) and get the issuer. The same issuer is used
 	// for all tokens - no need to configure twice. The token may also include cluster info to auto-configure
 	// networking properties.
@@ -180,14 +180,14 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		jwtRule := v1beta1.JWTRule{Issuer: iss, Audiences: []string{aud}}
 		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule)
 		if err == nil {
-			caServer.Authenticators = append(caServer.Authenticators, oidcAuth)
+			s.caServer.Authenticators = append(s.caServer.Authenticators, oidcAuth)
 			log.Info("Using out-of-cluster JWT authentication")
 		} else {
 			log.Info("K8S token doesn't support OIDC, using only in-cluster auth")
 		}
 	}
 
-	caServer.Register(grpc)
+	s.caServer.Register(grpc)
 
 	log.Info("Istiod CA has started")
 }
@@ -337,7 +337,6 @@ func handleEvent(s *Server) {
 		fileBundle.SigningKeyFile,
 		fileBundle.CertChainFiles,
 		fileBundle.RootCertFile)
-
 	if err != nil {
 		log.Errorf("Failed to update new Plug-in CA certs: %v", err)
 		return
@@ -564,18 +563,4 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 		s.RA.SetCACertificatesFromMeshConfig(caCertificates)
 	})
 	return raServer, err
-}
-
-// getJwtPath returns jwt path.
-func getJwtPath() string {
-	log.Infof("JWT policy is %v", features.JwtPolicy)
-	switch features.JwtPolicy {
-	case jwt.PolicyThirdParty:
-		return securityModel.K8sSATrustworthyJwtFileName
-	case jwt.PolicyFirstParty:
-		return securityModel.K8sSAJwtFileName
-	default:
-		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy)
-		return ""
-	}
 }

@@ -912,6 +912,7 @@ func (ps *PushContext) extraGatewayServices(proxy *Proxy) sets.String {
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 			hosts.Insert(p.Skywalking.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
+			//nolint: staticcheck
 			hosts.Insert(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
 			hosts.Insert(p.Opentelemetry.Service)
@@ -1304,7 +1305,7 @@ func (ps *PushContext) updateContext(
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
-		case kind.ServiceEntry:
+		case kind.ServiceEntry, kind.DNSName:
 			servicesChanged = true
 		case kind.DestinationRule:
 			destinationRulesChanged = true
@@ -1326,7 +1327,7 @@ func (ps *PushContext) updateContext(
 		case kind.RequestAuthentication,
 			kind.PeerAuthentication:
 			authnChanged = true
-		case kind.HTTPRoute, kind.TCPRoute, kind.GatewayClass, kind.KubernetesGateway, kind.TLSRoute, kind.ReferenceGrant:
+		case kind.HTTPRoute, kind.TCPRoute, kind.TLSRoute, kind.GRPCRoute, kind.GatewayClass, kind.KubernetesGateway, kind.ReferenceGrant:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
@@ -1445,7 +1446,11 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		}
 		shards, ok := env.EndpointIndex.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
 		if ok {
-			ps.ServiceIndex.instancesByPort[svcKey] = shards.CopyEndpoints(portMap)
+			instancesByPort := shards.CopyEndpoints(portMap)
+			// Iterate over the instances and add them to the service index to avoid overiding the existing port instances.
+			for port, instances := range instancesByPort {
+				ps.ServiceIndex.instancesByPort[svcKey][port] = instances
+			}
 		}
 		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
@@ -1670,12 +1675,6 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 	}
 
 	totalVirtualServices.Record(float64(len(virtualServices)))
-
-	// TODO(rshriram): parse each virtual service and maintain a map of the
-	// virtualservice name, the list of registry hosts in the VS and non
-	// registry DNS names in the VS.  This should cut down processing in
-	// the RDS code. See separateVSHostsAndServices in route/route.go
-	sortConfigByCreationTime(vservices)
 
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
@@ -1931,6 +1930,30 @@ func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
 	ps.setDestinationRules(configs)
 }
 
+// sortConfigBySelectorAndCreationTime sorts the list of config objects based on priority and creation time.
+func sortConfigBySelectorAndCreationTime(configs []config.Config) []config.Config {
+	creationTimeComparator := sortByCreationComparator(configs)
+	// Define a comparator function for sorting configs by priority and creation time
+	comparator := func(i, j int) bool {
+		idr := configs[i].Spec.(*networking.DestinationRule)
+		jdr := configs[j].Spec.(*networking.DestinationRule)
+
+		// Check if one of the configs has priority set to true
+		if idr.GetWorkloadSelector() != nil && jdr.GetWorkloadSelector() == nil {
+			return true
+		} else if idr.GetWorkloadSelector() == nil && jdr.GetWorkloadSelector() != nil {
+			return false
+		}
+
+		// If priority is the same or neither has priority, fallback to creation time ordering
+		return creationTimeComparator(i, j)
+	}
+
+	// Sort the configs using the defined comparator function
+	sort.Slice(configs, comparator)
+	return configs
+}
+
 // setDestinationRules updates internal structures using a set of configs.
 // Split out of DestinationRule expensive conversions, computed once per push.
 // This will not work properly for Sidecars, which will precompute their
@@ -1938,7 +1961,7 @@ func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
 func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
-	sortConfigByCreationTime(configs)
+	sortConfigBySelectorAndCreationTime(configs)
 	namespaceLocalDestRules := make(map[string]*consolidatedDestRules)
 	exportedDestRulesByNamespace := make(map[string]*consolidatedDestRules)
 	rootNamespaceLocalDestRules := newConsolidatedDestRules()
@@ -2406,6 +2429,6 @@ func (ps *PushContext) WaypointsFor(scope WaypointScope) []netip.Addr {
 }
 
 // WorkloadsForWaypoint returns all workloads associated with a given WaypointScope
-func (ps *PushContext) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
+func (ps *PushContext) WorkloadsForWaypoint(scope WaypointScope) []WorkloadInfo {
 	return ps.ambientIndex.WorkloadsForWaypoint(scope)
 }

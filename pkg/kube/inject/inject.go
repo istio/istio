@@ -45,6 +45,7 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -97,17 +98,19 @@ const (
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
-	TypeMeta       metav1.TypeMeta
-	DeploymentMeta metav1.ObjectMeta
-	ObjectMeta     metav1.ObjectMeta
-	Spec           corev1.PodSpec
-	ProxyConfig    *meshconfig.ProxyConfig
-	MeshConfig     *meshconfig.MeshConfig
-	Values         map[string]any
-	Revision       string
-	ProxyImage     string
-	ProxyUID       int64
-	ProxyGID       int64
+	TypeMeta                 metav1.TypeMeta
+	DeploymentMeta           metav1.ObjectMeta
+	ObjectMeta               metav1.ObjectMeta
+	Spec                     corev1.PodSpec
+	ProxyConfig              *meshconfig.ProxyConfig
+	MeshConfig               *meshconfig.MeshConfig
+	Values                   map[string]any
+	Revision                 string
+	ProxyImage               string
+	ProxyUID                 int64
+	ProxyGID                 int64
+	InboundTrafficPolicyMode string
+	CompliancePolicy         string
 }
 
 type (
@@ -327,6 +330,16 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 	return imageURL(global.GetHub(), imageName, tag, imageType)
 }
 
+func InboundTrafficPolicyMode(meshConfig *meshconfig.MeshConfig) string {
+	switch meshConfig.GetInboundTrafficPolicy().GetMode() {
+	case meshconfig.MeshConfig_InboundTrafficPolicy_LOCALHOST:
+		return "localhost"
+	case meshconfig.MeshConfig_InboundTrafficPolicy_PASSTHROUGH:
+		return "passthrough"
+	}
+	return "passthrough"
+}
+
 // imageURL creates url from parts.
 // imageType is appended if not empty
 // if imageType is already present in the tag, then it is replaced.
@@ -359,17 +372,8 @@ func updateImageTypeIfPresent(tag string, imageType string) string {
 	return tag + "-" + imageType
 }
 
-// RunTemplate renders the sidecar template
-// Returns the raw string template, as well as the parse pod form
-func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod *corev1.Pod, err error) {
+func extractClusterAndNetwork(params InjectionParameters) (string, string) {
 	metadata := &params.pod.ObjectMeta
-	meshConfig := params.meshConfig
-
-	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
-		log.Errorf("Injection failed due to invalid annotations: %v", err)
-		return nil, nil, err
-	}
-
 	cluster := params.valuesConfig.asStruct.GetGlobal().GetMultiCluster().GetClusterName()
 	// TODO allow overriding the values.global network in injection with the system namespace label
 	network := params.valuesConfig.asStruct.GetGlobal().GetNetwork()
@@ -384,6 +388,21 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	if n, ok := metadata.Labels[label.TopologyNetwork.Name]; ok {
 		network = n
 	}
+	return cluster, network
+}
+
+// RunTemplate renders the sidecar template
+// Returns the raw string template, as well as the parse pod form
+func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod *corev1.Pod, err error) {
+	metadata := &params.pod.ObjectMeta
+	meshConfig := params.meshConfig
+
+	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
+		log.Errorf("Injection failed due to invalid annotations: %v", err)
+		return nil, nil, err
+	}
+
+	cluster, network := extractClusterAndNetwork(params)
 
 	// use network in values for template, and proxy env variables
 	if cluster != "" {
@@ -401,17 +420,19 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	proxyUID, proxyGID := GetProxyIDs(params.namespace)
 
 	data := SidecarTemplateData{
-		TypeMeta:       params.typeMeta,
-		DeploymentMeta: params.deployMeta,
-		ObjectMeta:     strippedPod.ObjectMeta,
-		Spec:           strippedPod.Spec,
-		ProxyConfig:    params.proxyConfig,
-		MeshConfig:     meshConfig,
-		Values:         params.valuesConfig.asMap,
-		Revision:       params.revision,
-		ProxyImage:     ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
-		ProxyUID:       proxyUID,
-		ProxyGID:       proxyGID,
+		TypeMeta:                 params.typeMeta,
+		DeploymentMeta:           params.deployMeta,
+		ObjectMeta:               strippedPod.ObjectMeta,
+		Spec:                     strippedPod.Spec,
+		ProxyConfig:              params.proxyConfig,
+		MeshConfig:               meshConfig,
+		Values:                   params.valuesConfig.asMap,
+		Revision:                 params.revision,
+		ProxyImage:               ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		ProxyUID:                 proxyUID,
+		ProxyGID:                 proxyGID,
+		InboundTrafficPolicyMode: InboundTrafficPolicyMode(meshConfig),
+		CompliancePolicy:         common_features.CompliancePolicy,
 	}
 
 	mergedPod = params.pod

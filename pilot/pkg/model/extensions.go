@@ -49,6 +49,10 @@ const (
 	WasmPolicyEnv = "ISTIO_META_WASM_IMAGE_PULL_POLICY"
 	// name of environment variable at Wasm VM, which will carry the resource version of WasmPlugin.
 	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
+
+	// WasmPluginResourceNamePrefix is the prefix of the resource name of WasmPlugin,
+	// preventing the name collision with other resources.
+	WasmPluginResourceNamePrefix = "extenstions.istio.io/wasmplugin/"
 )
 
 // WasmPluginType defines the type of wasm plugin
@@ -247,7 +251,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 	return &WasmPluginWrapper{
 		Name:            plugin.Name,
 		Namespace:       plugin.Namespace,
-		ResourceName:    plugin.Namespace + "." + plugin.Name,
+		ResourceName:    WasmPluginResourceNamePrefix + plugin.Namespace + "." + plugin.Name,
 		WasmPlugin:      wasmPlugin,
 		ResourceVersion: plugin.ResourceVersion,
 	}

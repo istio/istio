@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type fullClient[T controllers.Object] struct {
@@ -47,13 +49,20 @@ type writeClient[T controllers.Object] struct {
 	client kube.Client
 }
 
+// handlerRegistration stores a handler, with the registration so it can be de-registered
+type handlerRegistration struct {
+	registration cache.ResourceEventHandlerRegistration
+	// handler is the actual handler. Note this does NOT have the filtering applied.
+	handler cache.ResourceEventHandler
+}
+
 type informerClient[T controllers.Object] struct {
 	informer      cache.SharedIndexInformer
 	startInformer func(stopCh <-chan struct{})
 	filter        func(t any) bool
 
 	handlerMu          sync.RWMutex
-	registeredHandlers []cache.ResourceEventHandlerRegistration
+	registeredHandlers []handlerRegistration
 }
 
 func (n *informerClient[T]) Get(name, namespace string) T {
@@ -92,6 +101,11 @@ func (n *writeClient[T]) Update(object T) (T, error) {
 	return api.Update(context.Background(), object, metav1.UpdateOptions{})
 }
 
+func (n *writeClient[T]) Patch(name, namespace string, pt apitypes.PatchType, data []byte) (T, error) {
+	api := kubeclient.GetWriteClient[T](n.client, namespace)
+	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{})
+}
+
 func (n *writeClient[T]) UpdateStatus(object T) (T, error) {
 	api, ok := kubeclient.GetWriteClient[T](n.client, object.GetNamespace()).(kubetypes.WriteStatusAPI[T])
 	if !ok {
@@ -109,7 +123,7 @@ func (n *informerClient[T]) ShutdownHandlers() {
 	n.handlerMu.Lock()
 	defer n.handlerMu.Unlock()
 	for _, c := range n.registeredHandlers {
-		_ = n.informer.RemoveEventHandler(c)
+		_ = n.informer.RemoveEventHandler(c.registration)
 	}
 }
 
@@ -123,10 +137,14 @@ func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 		},
 		Handler: h,
 	}
-	reg, _ := n.informer.AddEventHandler(fh)
+	reg, err := n.informer.AddEventHandler(fh)
+	if err != nil {
+		// Should only happen if its already stopped. We should exit early.
+		return
+	}
 	n.handlerMu.Lock()
 	defer n.handlerMu.Unlock()
-	n.registeredHandlers = append(n.registeredHandlers, reg)
+	n.registeredHandlers = append(n.registeredHandlers, handlerRegistration{registration: reg, handler: h})
 }
 
 func (n *informerClient[T]) HasSynced() bool {
@@ -137,7 +155,7 @@ func (n *informerClient[T]) HasSynced() bool {
 	defer n.handlerMu.RUnlock()
 	// HasSynced is fast, so doing it under the lock is okay
 	for _, g := range n.registeredHandlers {
-		if !g.HasSynced() {
+		if !g.registration.HasSynced() {
 			return false
 		}
 	}
@@ -272,8 +290,8 @@ func newDelayedInformer[T controllers.ComparableObject](
 		fc := &informerClient[T]{
 			informer:      inf.Informer,
 			startInformer: inf.Start,
-			filter:        filter.ObjectFilter,
 		}
+		applyDynamicFilter(filter, fc)
 		inf.Start(stop)
 		log.Infof("%v is now ready, building client", gvr.GroupResource())
 		// Swap out the dummy client with the full one
@@ -288,10 +306,52 @@ func newDelayedInformer[T controllers.ComparableObject](
 }
 
 func newInformerClient[T controllers.ComparableObject](inf informerfactory.StartableInformer, filter Filter) Informer[T] {
-	return &informerClient[T]{
+	ic := &informerClient[T]{
 		informer:      inf.Informer,
 		startInformer: inf.Start,
-		filter:        filter.ObjectFilter,
+	}
+	applyDynamicFilter(filter, ic)
+	return ic
+}
+
+func applyDynamicFilter[T controllers.ComparableObject](filter Filter, ic *informerClient[T]) {
+	if filter.ObjectFilter != nil {
+		ic.filter = filter.ObjectFilter.Filter
+		filter.ObjectFilter.AddHandler(func(added, removed sets.String) {
+			ic.handlerMu.RLock()
+			defer ic.handlerMu.RUnlock()
+			if types.GetGVR[T]() == istiogvr.Namespace {
+				// Namespace is special; we query all namespaces
+				// Note: other cluster-scoped resources should just not use the filter
+				for _, item := range ic.ListUnfiltered(metav1.NamespaceAll, klabels.Everything()) {
+					if !added.Contains(item.GetName()) && !removed.Contains(item.GetName()) {
+						continue
+					}
+					for _, c := range ic.registeredHandlers {
+						if added.Contains(item.GetName()) {
+							c.handler.OnAdd(item, false)
+						} else {
+							c.handler.OnDelete(item)
+						}
+					}
+				}
+			} else {
+				for ns := range added {
+					for _, item := range ic.ListUnfiltered(ns, klabels.Everything()) {
+						for _, c := range ic.registeredHandlers {
+							c.handler.OnAdd(item, false)
+						}
+					}
+				}
+				for ns := range removed {
+					for _, item := range ic.ListUnfiltered(ns, klabels.Everything()) {
+						for _, c := range ic.registeredHandlers {
+							c.handler.OnDelete(item)
+						}
+					}
+				}
+			}
+		})
 	}
 }
 

@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/util/sets"
 	pkgversion "istio.io/istio/pkg/version"
 )
 
@@ -160,7 +160,7 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 
 	// Merge k8s specific values.
 	if client != nil {
-		kubeOverrides, err := getClusterSpecificValues(client, skipValidation, l)
+		kubeOverrides, err := getClusterSpecificValues(client)
 		if err != nil {
 			return "", nil, err
 		}
@@ -380,19 +380,9 @@ func overlayHubAndTag(yml string) (string, error) {
 	return out, nil
 }
 
-func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (string, error) {
+func getClusterSpecificValues(client kube.Client) (string, error) {
 	overlays := []string{}
 
-	jwtStr, err := getJwtTypeOverlay(client, l)
-	if err != nil {
-		if force {
-			l.LogAndPrint(err)
-		} else {
-			return "", err
-		}
-	} else {
-		overlays = append(overlays, jwtStr)
-	}
 	cni := getCNISettings(client)
 	if cni != "" {
 		overlays = append(overlays, cni)
@@ -450,19 +440,6 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 	return tpath.AddSpecRoot(string(out))
 }
 
-func getJwtTypeOverlay(client kube.Client, l clog.Logger) (string, error) {
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(client.Kube())
-	if err != nil {
-		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
-	}
-	if jwtPolicy == util.FirstPartyJWT {
-		// nolint: lll
-		l.LogAndPrint("Detected that your cluster does not support third party JWT authentication. " +
-			"Falling back to less secure first party JWT. See " + url.ConfigureSAToken + " for details.")
-	}
-	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
-}
-
 // unmarshalAndValidateIOP unmarshals a string containing IstioOperator YAML, validates it, and returns a struct
 // representation if successful. If force is set, validation errors are written to logger rather than causing an
 // error.
@@ -490,6 +467,10 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 	return iop.Spec.InstallPackagePath, nil
 }
 
+// alwaysString represents types that should always be decoded as strings
+// TODO: this could be automatically derived from the value_types.proto?
+var alwaysString = sets.New("values.compatibilityVersion", "compatibilityVersion")
+
 // overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
 func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 	iop := make(map[string]any)
@@ -509,7 +490,11 @@ func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 			return "", err
 		}
 		// input value type is always string, transform it to correct type before setting.
-		if err := tpath.WritePathContext(inc, util.ParseValue(v), false); err != nil {
+		var val any = v
+		if !alwaysString.Contains(p) {
+			val = util.ParseValue(v)
+		}
+		if err := tpath.WritePathContext(inc, val, false); err != nil {
 			return "", err
 		}
 	}

@@ -27,7 +27,6 @@ import (
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -1330,7 +1329,6 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 					TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
 						Cookie: &httpv3.Cookie{
 							Path: "/",
-							Ttl:  &durationpb.Duration{Seconds: 120},
 							Name: "test-cookie",
 						},
 					}),
@@ -1350,7 +1348,6 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 					TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
 						Cookie: &httpv3.Cookie{
 							Path: "/path",
-							Ttl:  &durationpb.Duration{Seconds: 120},
 							Name: "test-cookie",
 						},
 					}),
@@ -1368,7 +1365,7 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 	}
 }
 
-func TestMergeTrafficPolicy(t *testing.T) {
+func TestMergeSubsetTrafficPolicy(t *testing.T) {
 	cases := []struct {
 		name     string
 		original *networking.TrafficPolicy
@@ -1636,7 +1633,7 @@ func TestMergeTrafficPolicy(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			policy := MergeTrafficPolicy(tt.original, tt.subset, tt.port)
+			policy := MergeSubsetTrafficPolicy(tt.original, tt.subset, tt.port)
 			assert.Equal(t, policy, tt.expected)
 		})
 	}

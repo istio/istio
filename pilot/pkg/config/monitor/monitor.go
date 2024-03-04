@@ -179,7 +179,7 @@ func (m *Monitor) checkAndUpdate() {
 	for oldIndex < oldLen && newIndex < newLen {
 		oldConfig := m.configs[oldIndex]
 		newConfig := newConfigs[newIndex]
-		if v := compareIds(oldConfig, newConfig); v < 0 {
+		if v := compareIDs(oldConfig, newConfig); v < 0 {
 			m.deleteConfig(oldConfig)
 			oldIndex++
 		} else if v > 0 {
@@ -234,8 +234,8 @@ func (m *Monitor) deleteConfig(c *config.Config) {
 	}
 }
 
-// compareIds compares the IDs (i.e. Namespace, GroupVersionKind, and Name) of the two configs and returns
+// compareIDs compares the IDs (i.e. Namespace, GroupVersionKind, and Name) of the two configs and returns
 // 0 if a == b, -1 if a < b, and 1 if a > b. Used for sorting config arrays.
-func compareIds(a, b *config.Config) int {
+func compareIDs(a, b *config.Config) int {
 	return strings.Compare(a.Key(), b.Key())
 }

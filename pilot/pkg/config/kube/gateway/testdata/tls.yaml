@@ -48,6 +48,17 @@ spec:
       - name: my-cert-http
       options:
         gateway.istio.io/tls-terminate-mode: MUTUAL
+  - name: terminate-istio-mtls
+    hostname: "egress.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      options:
+        gateway.istio.io/tls-terminate-mode: ISTIO_MUTUAL
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute

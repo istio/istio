@@ -15,7 +15,6 @@
 package mesh
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"os"
@@ -78,7 +77,7 @@ func TestProfileDiffDirect(t *testing.T) {
 			// We won't be parsing with Cobra, but this is the command equivalent
 			args: "profile diff default openshift",
 			// This is just one of the many differences
-			expectedString: "+      cniBinDir: /var/lib/cni/bin",
+			expectedString: "+    profile: openshift",
 			// The profile doesn't change istiocoredns, so we shouldn't see this in the diff
 			notExpected: "-    istiocoredns:",
 			// 'profile diff' "fails" so that the error level `$?` is 1, not 0, if there is a diff
@@ -91,8 +90,8 @@ func TestProfileDiffDirect(t *testing.T) {
 		t.Run(fmt.Sprintf("case %d %q", i, c.args), func(t *testing.T) {
 			args := strings.Split(c.args, " ")
 			setFlag := fmt.Sprintf("installPackagePath=%s", snapshotCharts)
-			var by bytes.Buffer
-			_, err := profileDiffInternal(args[len(args)-2], args[len(args)-1], []string{setFlag}, bufio.NewWriter(&by), l)
+			by := &bytes.Buffer{}
+			_, err := profileDiffInternal(args[len(args)-2], args[len(args)-1], []string{setFlag}, by, l)
 			verifyProfileDiffCommandCaseOutput(t, c, by.String(), err)
 		})
 	}

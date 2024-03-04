@@ -306,7 +306,9 @@ func setupDashboardTest(done <-chan struct{}) {
 			times++
 			scopes.Framework.Infof("sending traffic %v", times)
 			for _, ing := range ingr {
-				host, port := ing.TCPAddress()
+				hosts, ports := ing.TCPAddresses()
+				host := hosts[0]
+				port := ports[0]
 				_, err := ing.Call(echo.CallOptions{
 					Port: echo.Port{
 						Protocol: protocol.HTTP,

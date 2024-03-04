@@ -48,7 +48,7 @@ spec:
                 type: string
               imagePullPolicy:
                 description: The pull behaviour to be applied when fetching Wasm module
-                  by either OCI image or http/https.
+                  by either OCI image or `http/https`.
                 enum:
                 - UNSPECIFIED_POLICY
                 - IfNotPresent
@@ -315,6 +315,8 @@ spec:
                                     pool connections.
                                   type: string
                                 maxConcurrentStreams:
+                                  description: The maximum number of concurrent streams
+                                    allowed for a peer on one HTTP/2 connection.
                                   format: int32
                                   type: integer
                                 maxRequestsPerConnection:
@@ -602,6 +604,9 @@ spec:
                                           connection pool connections.
                                         type: string
                                       maxConcurrentStreams:
+                                        description: The maximum number of concurrent
+                                          streams allowed for a peer on one HTTP/2
+                                          connection.
                                         format: int32
                                         type: integer
                                       maxRequestsPerConnection:
@@ -880,6 +885,11 @@ spec:
                                       certificate authority certificates to use in
                                       verifying a presented server certificate.'
                                     type: string
+                                  caCrl:
+                                    description: 'OPTIONAL: The path to the file containing
+                                      the certificate revocation list (CRL) to use
+                                      in verifying a presented server certificate.'
+                                    type: string
                                   clientCertificate:
                                     description: REQUIRED if mode is `MUTUAL`.
                                     type: string
@@ -937,6 +947,11 @@ spec:
                             caCertificates:
                               description: 'OPTIONAL: The path to the file containing
                                 certificate authority certificates to use in verifying
+                                a presented server certificate.'
+                              type: string
+                            caCrl:
+                              description: 'OPTIONAL: The path to the file containing
+                                the certificate revocation list (CRL) to use in verifying
                                 a presented server certificate.'
                               type: string
                             clientCertificate:
@@ -1032,6 +1047,8 @@ spec:
                               pool connections.
                             type: string
                           maxConcurrentStreams:
+                            description: The maximum number of concurrent streams
+                              allowed for a peer on one HTTP/2 connection.
                             format: int32
                             type: integer
                           maxRequestsPerConnection:
@@ -1314,6 +1331,8 @@ spec:
                                     pool connections.
                                   type: string
                                 maxConcurrentStreams:
+                                  description: The maximum number of concurrent streams
+                                    allowed for a peer on one HTTP/2 connection.
                                   format: int32
                                   type: integer
                                 maxRequestsPerConnection:
@@ -1583,6 +1602,11 @@ spec:
                                 certificate authority certificates to use in verifying
                                 a presented server certificate.'
                               type: string
+                            caCrl:
+                              description: 'OPTIONAL: The path to the file containing
+                                the certificate revocation list (CRL) to use in verifying
+                                a presented server certificate.'
+                              type: string
                             clientCertificate:
                               description: REQUIRED if mode is `MUTUAL`.
                               type: string
@@ -1640,6 +1664,11 @@ spec:
                         description: 'OPTIONAL: The path to the file containing certificate
                           authority certificates to use in verifying a presented server
                           certificate.'
+                        type: string
+                      caCrl:
+                        description: 'OPTIONAL: The path to the file containing the
+                          certificate revocation list (CRL) to use in verifying a
+                          presented server certificate.'
                         type: string
                       clientCertificate:
                         description: REQUIRED if mode is `MUTUAL`.
@@ -1796,6 +1825,8 @@ spec:
                                     pool connections.
                                   type: string
                                 maxConcurrentStreams:
+                                  description: The maximum number of concurrent streams
+                                    allowed for a peer on one HTTP/2 connection.
                                   format: int32
                                   type: integer
                                 maxRequestsPerConnection:
@@ -2083,6 +2114,9 @@ spec:
                                           connection pool connections.
                                         type: string
                                       maxConcurrentStreams:
+                                        description: The maximum number of concurrent
+                                          streams allowed for a peer on one HTTP/2
+                                          connection.
                                         format: int32
                                         type: integer
                                       maxRequestsPerConnection:
@@ -2361,6 +2395,11 @@ spec:
                                       certificate authority certificates to use in
                                       verifying a presented server certificate.'
                                     type: string
+                                  caCrl:
+                                    description: 'OPTIONAL: The path to the file containing
+                                      the certificate revocation list (CRL) to use
+                                      in verifying a presented server certificate.'
+                                    type: string
                                   clientCertificate:
                                     description: REQUIRED if mode is `MUTUAL`.
                                     type: string
@@ -2418,6 +2457,11 @@ spec:
                             caCertificates:
                               description: 'OPTIONAL: The path to the file containing
                                 certificate authority certificates to use in verifying
+                                a presented server certificate.'
+                              type: string
+                            caCrl:
+                              description: 'OPTIONAL: The path to the file containing
+                                the certificate revocation list (CRL) to use in verifying
                                 a presented server certificate.'
                               type: string
                             clientCertificate:
@@ -2513,6 +2557,8 @@ spec:
                               pool connections.
                             type: string
                           maxConcurrentStreams:
+                            description: The maximum number of concurrent streams
+                              allowed for a peer on one HTTP/2 connection.
                             format: int32
                             type: integer
                           maxRequestsPerConnection:
@@ -2795,6 +2841,8 @@ spec:
                                     pool connections.
                                   type: string
                                 maxConcurrentStreams:
+                                  description: The maximum number of concurrent streams
+                                    allowed for a peer on one HTTP/2 connection.
                                   format: int32
                                   type: integer
                                 maxRequestsPerConnection:
@@ -3064,6 +3112,11 @@ spec:
                                 certificate authority certificates to use in verifying
                                 a presented server certificate.'
                               type: string
+                            caCrl:
+                              description: 'OPTIONAL: The path to the file containing
+                                the certificate revocation list (CRL) to use in verifying
+                                a presented server certificate.'
+                              type: string
                             clientCertificate:
                               description: REQUIRED if mode is `MUTUAL`.
                               type: string
@@ -3121,6 +3174,11 @@ spec:
                         description: 'OPTIONAL: The path to the file containing certificate
                           authority certificates to use in verifying a presented server
                           certificate.'
+                        type: string
+                      caCrl:
+                        description: 'OPTIONAL: The path to the file containing the
+                          certificate revocation list (CRL) to use in verifying a
+                          presented server certificate.'
                         type: string
                       clientCertificate:
                         description: REQUIRED if mode is `MUTUAL`.
@@ -3558,6 +3616,11 @@ spec:
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
+                        caCrl:
+                          description: 'OPTIONAL: The path to the file containing
+                            the certificate revocation list (CRL) to use in verifying
+                            a presented client side certificate.'
+                          type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
                             cipher list.'
@@ -3701,6 +3764,11 @@ spec:
                       properties:
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
+                          type: string
+                        caCrl:
+                          description: 'OPTIONAL: The path to the file containing
+                            the certificate revocation list (CRL) to use in verifying
+                            a presented client side certificate.'
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -4270,6 +4338,8 @@ spec:
                           connections.
                         type: string
                       maxConcurrentStreams:
+                        description: The maximum number of concurrent streams allowed
+                          for a peer on one HTTP/2 connection.
                         format: int32
                         type: integer
                       maxRequestsPerConnection:
@@ -4369,6 +4439,8 @@ spec:
                                 pool connections.
                               type: string
                             maxConcurrentStreams:
+                              description: The maximum number of concurrent streams
+                                allowed for a peer on one HTTP/2 connection.
                               format: int32
                               type: integer
                             maxRequestsPerConnection:
@@ -4451,6 +4523,11 @@ spec:
                       properties:
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
+                          type: string
+                        caCrl:
+                          description: 'OPTIONAL: The path to the file containing
+                            the certificate revocation list (CRL) to use in verifying
+                            a presented client side certificate.'
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -4654,6 +4731,8 @@ spec:
                           connections.
                         type: string
                       maxConcurrentStreams:
+                        description: The maximum number of concurrent streams allowed
+                          for a peer on one HTTP/2 connection.
                         format: int32
                         type: integer
                       maxRequestsPerConnection:
@@ -4753,6 +4832,8 @@ spec:
                                 pool connections.
                               type: string
                             maxConcurrentStreams:
+                              description: The maximum number of concurrent streams
+                                allowed for a peer on one HTTP/2 connection.
                               format: int32
                               type: integer
                             maxRequestsPerConnection:
@@ -4835,6 +4916,11 @@ spec:
                       properties:
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
+                          type: string
+                        caCrl:
+                          description: 'OPTIONAL: The path to the file containing
+                            the certificate revocation list (CRL) to use in verifying
+                            a presented client side certificate.'
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -7335,10 +7421,25 @@ spec:
     kind: AuthorizationPolicy
     listKind: AuthorizationPolicyList
     plural: authorizationpolicies
+    shortNames:
+    - ap
     singular: authorizationpolicy
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: The operation to take.
+      jsonPath: .spec.action
+      name: Action
+      type: string
+    - description: 'CreationTimestamp is a timestamp representing the server time
+        when this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
     schema:
       openAPIV3Schema:
         properties:
@@ -7540,7 +7641,20 @@ spec:
     storage: false
     subresources:
       status: {}
-  - name: v1beta1
+  - additionalPrinterColumns:
+    - description: The operation to take.
+      jsonPath: .spec.action
+      name: Action
+      type: string
+    - description: 'CreationTimestamp is a timestamp representing the server time
+        when this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
     schema:
       openAPIV3Schema:
         properties:
@@ -7943,6 +8057,11 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    timeout:
+                      description: The maximum amount of time that the resolver, determined
+                        by the PILOT_JWT_ENABLE_REMOTE_JWKS environment variable,
+                        will spend waiting for the JWKS to be fetched.
+                      type: string
                   required:
                   - issuer
                   type: object
@@ -8061,6 +8180,11 @@ spec:
                     outputPayloadToHeader:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
+                      type: string
+                    timeout:
+                      description: The maximum amount of time that the resolver, determined
+                        by the PILOT_JWT_ENABLE_REMOTE_JWKS environment variable,
+                        will spend waiting for the JWKS to be fetched.
                       type: string
                   required:
                   - issuer
@@ -8202,7 +8326,7 @@ spec:
                             nullable: true
                             type: boolean
                           match:
-                            description: Match allows provides the scope of the override.
+                            description: Match allows providing the scope of the override.
                             oneOf:
                             - not:
                                 anyOf:
@@ -8220,8 +8344,8 @@ spec:
                                 minLength: 1
                                 type: string
                               metric:
-                                description: One of the well-known Istio Standard
-                                  Metrics.
+                                description: One of the well-known [Istio Standard
+                                  Metrics](https://istio.io/latest/docs/reference/config/metrics/).
                                 enum:
                                 - ALL_METRICS
                                 - REQUEST_COUNT
@@ -8237,7 +8361,7 @@ spec:
                                 type: string
                               mode:
                                 description: 'Controls which mode of metrics generation
-                                  is selected: CLIENT and/or SERVER.'
+                                  is selected: `CLIENT`, `SERVER`, or `CLIENT_AND_SERVER`.'
                                 enum:
                                 - CLIENT_AND_SERVER
                                 - CLIENT

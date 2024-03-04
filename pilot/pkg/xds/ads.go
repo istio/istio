@@ -219,9 +219,11 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
+
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.conID, req.TypeUrl, req.ResponseNonce)
 	}
+
 	shouldRespond, delta := s.shouldRespond(con, req)
 	if !shouldRespond {
 		return nil
@@ -246,7 +248,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
 		s.computeProxyState(con.proxy, request)
 	}
-	return s.pushXds(con, con.Watched(req.TypeUrl), request)
+	return s.pushXds(con, con.proxy.GetWatchedResource(req.TypeUrl), request)
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -379,32 +381,26 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		errCode := codes.Code(request.ErrorDetail.Code)
 		log.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.conID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
-		if s.StatusGen != nil {
-			s.StatusGen.OnNack(con.proxy, request)
-		}
 		return false, emptyResourceDelta
 	}
 
 	if shouldUnsubscribe(request) {
 		log.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
-		con.proxy.Lock()
-		delete(con.proxy.WatchedResources, request.TypeUrl)
-		con.proxy.Unlock()
+		con.proxy.DeleteWatchedResource(request.TypeUrl)
 		return false, emptyResourceDelta
 	}
 
-	con.proxy.RLock()
-	previousInfo := con.proxy.WatchedResources[request.TypeUrl]
-	con.proxy.RUnlock()
-
+	previousInfo := con.proxy.GetWatchedResource(request.TypeUrl)
 	// This can happen in two cases:
 	// 1. When Envoy starts for the first time, it sends an initial Discovery request to Istiod.
 	// 2. When Envoy reconnects to a new Istiod that does not have information about this typeUrl
 	// i.e. non empty response nonce.
 	// We should always respond with the current resource names.
 	if request.ResponseNonce == "" || previousInfo == nil {
-		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
+		defer con.proxy.Unlock()
+
+		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
 		// For all EDS requests that we have already responded with in the same stream let us
 		// force the response. It is important to respond to those requests for Envoy to finish
@@ -421,7 +417,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 				dwr.AlwaysRespond = true
 			}
 		}
-		con.proxy.Unlock()
 		return true, emptyResourceDelta
 	}
 
@@ -441,13 +436,16 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	}
 
 	// If it comes here, that means nonce match.
-	con.proxy.Lock()
-	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
-	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
-	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
-	alwaysRespond := previousInfo.AlwaysRespond
-	previousInfo.AlwaysRespond = false
-	con.proxy.Unlock()
+	var previousResources []string
+	var alwaysRespond bool
+	con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
+		previousResources = wr.ResourceNames
+		wr.NonceAcked = request.ResponseNonce
+		wr.ResourceNames = request.ResourceNames
+		alwaysRespond = wr.AlwaysRespond
+		wr.AlwaysRespond = false
+		return wr
+	})
 
 	// Envoy can send two DiscoveryRequests with same version and nonce.
 	// when it detects a new resource. We should respond if they change.
@@ -456,23 +454,28 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	removed := prev.Difference(cur)
 	added := cur.Difference(prev)
 
-	if len(removed) == 0 && len(added) == 0 {
-		// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
-		// even though Nonce match and it looks like an ACK.
-		if alwaysRespond {
-			log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
-			return true, emptyResourceDelta
-		}
+	// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
+	// even though Nonce match and it looks like an ACK.
+	if alwaysRespond {
+		log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
+		return true, emptyResourceDelta
+	}
 
+	if len(removed) == 0 && len(added) == 0 {
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false, emptyResourceDelta
 	}
 	log.Debugf("ADS:%s: RESOURCE CHANGE added %v removed %v %s %s %s", stype,
 		added, removed, con.conID, request.VersionInfo, request.ResponseNonce)
 
+	// For non wildcard resource, if no new resources are subscribed, it means we do not need to push.
+	if !isWildcardTypeURL(request.TypeUrl) && len(added) == 0 {
+		return false, emptyResourceDelta
+	}
+
 	return true, model.ResourceDelta{
-		Subscribed:   added,
-		Unsubscribed: removed,
+		Subscribed: added,
+		// we do not need to set unsubscribed for StoW
 	}
 }
 
@@ -517,20 +520,6 @@ func warmingDependencies(typeURL string) []string {
 	}
 }
 
-// listEqualUnordered checks that two lists contain all the same elements
-func listEqualUnordered(a []string, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	first := sets.New(a...)
-	for _, c := range b {
-		if !first.Contains(c) {
-			return false
-		}
-	}
-	return true
-}
-
 // update the node associated with the connection, after receiving a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, identities []string) error {
@@ -571,10 +560,6 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 		s.closeConnection(con)
 		return err
 	}
-
-	if s.StatusGen != nil {
-		s.StatusGen.OnConnect(con)
-	}
 	return nil
 }
 
@@ -583,11 +568,8 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 		return
 	}
 	s.removeCon(con.conID)
-	if s.StatusGen != nil {
-		s.StatusGen.OnDisconnect(con)
-	}
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterDisconnect(con.conID, AllEventTypesList)
+		s.StatusReporter.RegisterDisconnect(con.conID, AllTrackingEventTypes)
 	}
 	s.WorkloadEntryController.OnDisconnect(con)
 }
@@ -595,6 +577,11 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 func connectionID(node string) string {
 	id := atomic.AddInt64(&connectionNumber, 1)
 	return node + "-" + strconv.FormatInt(id, 10)
+}
+
+// Only used for test
+func ResetConnectionNumberForTest() {
+	atomic.StoreInt64(&connectionNumber, 0)
 }
 
 // initProxyMetadata initializes just the basic metadata of a proxy. This is decoupled from
@@ -712,7 +699,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
-			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.Sidecar, kind.HTTPRoute, kind.TCPRoute:
+			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.Sidecar, kind.HTTPRoute, kind.TCPRoute, kind.TLSRoute, kind.GRPCRoute:
 				sidecar = true
 			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferenceGrant:
 				gateway = true
@@ -775,14 +762,14 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		log.Debugf("Skipping push to %v, no updates required", con.conID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version.
-			reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, nil)
+			reportAllEventsForProxyNoPush(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 		}
 		return nil
 	}
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl, ignoreEvents := con.pushDetails()
+	wrl := con.watchedResourcesByOrder()
 	for _, w := range wrl {
 		if err := s.pushXds(con, w, pushRequest); err != nil {
 			return err
@@ -790,7 +777,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, ignoreEvents)
+		reportEventsForUnWatched(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -802,28 +789,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
 
 // KnownOrderedTypeUrls has typeUrls for which we know the order of push.
-var KnownOrderedTypeUrls = map[string]struct{}{
-	v3.ClusterType:  {},
-	v3.EndpointType: {},
-	v3.ListenerType: {},
-	v3.RouteType:    {},
-	v3.SecretType:   {},
-}
-
-func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.String) {
-	if s == nil {
-		return
-	}
-	// this version of the config will never be distributed to this envoy because it is not a relevant diff.
-	// inform distribution status reporter that this connection has been updated, because it effectively has
-	for distributionType := range AllEventTypes {
-		if ignored.Contains(distributionType) {
-			// Skip this type
-			continue
-		}
-		s.RegisterEvent(id, distributionType, version)
-	}
-}
+var KnownOrderedTypeUrls = sets.New(PushOrder...)
 
 func (s *DiscoveryServer) adsClientCount() int {
 	s.adsClientsMutex.RLock()
@@ -887,11 +853,11 @@ func (s *DiscoveryServer) AdsPushAll(req *model.PushRequest) {
 		}
 	}
 
-	s.startPush(req)
+	s.StartPush(req)
 }
 
 // Send a signal to all connections, with a push event.
-func (s *DiscoveryServer) startPush(req *model.PushRequest) {
+func (s *DiscoveryServer) StartPush(req *model.PushRequest) {
 	// Push config changes, iterating over connected envoys.
 	if log.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
@@ -925,22 +891,22 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	}
 }
 
-// Send with timeout if configured.
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
-	sendHandler := func() error {
+	sendResponse := func() error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
 		return conn.stream.Send(res)
 	}
-	err := istiogrpc.Send(conn.stream.Context(), sendHandler)
+	err := sendResponse()
 	if err == nil {
 		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
-			conn.proxy.Lock()
-			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
-			}
-			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-			conn.proxy.Unlock()
+			conn.proxy.UpdateWatchedResource(res.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
+				if wr == nil {
+					wr = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				}
+				wr.NonceSent = res.Nonce
+				return wr
+			})
 		}
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
 		log.Infof("Timeout writing %s: ", conn.conID, v3.GetShortType(res.TypeUrl))
@@ -951,89 +917,77 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 
 // nolint
 func (conn *Connection) NonceAcked(typeUrl string) string {
-	conn.proxy.RLock()
-	defer conn.proxy.RUnlock()
-	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[typeUrl] != nil {
-		return conn.proxy.WatchedResources[typeUrl].NonceAcked
+	wr := conn.proxy.GetWatchedResource(typeUrl)
+	if wr != nil {
+		return wr.NonceAcked
 	}
 	return ""
 }
 
 // nolint
 func (conn *Connection) NonceSent(typeUrl string) string {
-	conn.proxy.RLock()
-	defer conn.proxy.RUnlock()
-	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[typeUrl] != nil {
-		return conn.proxy.WatchedResources[typeUrl].NonceSent
+	wr := conn.proxy.GetWatchedResource(typeUrl)
+	if wr != nil {
+		return wr.NonceSent
 	}
 	return ""
 }
 
 func (conn *Connection) Clusters() []string {
-	conn.proxy.RLock()
-	defer conn.proxy.RUnlock()
-	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[v3.EndpointType] != nil {
-		return conn.proxy.WatchedResources[v3.EndpointType].ResourceNames
+	wr := conn.proxy.GetWatchedResource(v3.EndpointType)
+	if wr != nil {
+		return wr.ResourceNames
 	}
 	return []string{}
 }
 
-func (conn *Connection) Routes() []string {
-	conn.proxy.RLock()
-	defer conn.proxy.RUnlock()
-	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[v3.RouteType] != nil {
-		return conn.proxy.WatchedResources[v3.RouteType].ResourceNames
-	}
-	return []string{}
-}
-
-// nolint
-func (conn *Connection) Watching(typeUrl string) bool {
-	conn.proxy.RLock()
-	defer conn.proxy.RUnlock()
-	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[typeUrl] != nil {
-		return true
-	}
-	return false
-}
-
-// nolint
-func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
-	conn.proxy.RLock()
-	defer conn.proxy.RUnlock()
-	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[typeUrl] != nil {
-		return conn.proxy.WatchedResources[typeUrl]
-	}
-	return nil
-}
-
-// pushDetails returns the details needed for current push. It returns ordered list of
+// watchedResourcesByOrder returns the ordered list of
 // watched resources for the proxy, ordered in accordance with known push order.
-// It also returns the lis of typeUrls.
-// nolint
-func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.String) {
-	conn.proxy.RLock()
-	defer conn.proxy.RUnlock()
-	typeUrls := sets.New[string]()
-	for k := range conn.proxy.WatchedResources {
-		typeUrls.Insert(k)
-	}
-	return orderWatchedResources(conn.proxy.WatchedResources), typeUrls
-}
-
-func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
-	wr := make([]*model.WatchedResource, 0, len(resources))
+func (conn *Connection) watchedResourcesByOrder() []*model.WatchedResource {
+	allWatched := conn.proxy.CloneWatchedResources()
+	ordered := make([]*model.WatchedResource, 0, len(allWatched))
 	// first add all known types, in order
 	for _, tp := range PushOrder {
-		if w, f := resources[tp]; f {
-			wr = append(wr, w)
+		if allWatched[tp] != nil {
+			ordered = append(ordered, allWatched[tp])
 		}
 	}
 	// Then add any undeclared types
-	for tp, w := range resources {
-		if _, f := KnownOrderedTypeUrls[tp]; !f {
-			wr = append(wr, w)
+	for tp, res := range allWatched {
+		if !KnownOrderedTypeUrls.Contains(tp) {
+			ordered = append(ordered, res)
 		}
 	}
-	return wr
+	return ordered
+}
+
+// reportAllEventsForProxyNoPush reports all tracking events for a proxy without need to push xds.
+func reportAllEventsForProxyNoPush(con *Connection, statusReporter DistributionStatusCache, nonce string) {
+	if statusReporter == nil {
+		return
+	}
+	for distributionType := range AllTrackingEventTypes {
+		statusReporter.RegisterEvent(con.conID, distributionType, nonce)
+	}
+}
+
+// reportEventsForUnWatched is to report events for unwatched types after push.
+// e.g. there is no rds if no route configured for gateway.
+// nolint
+func reportEventsForUnWatched(con *Connection, statusReporter DistributionStatusCache, nonce string) {
+	if statusReporter == nil {
+		return
+	}
+
+	// if typeUrl is not empty, report all events that are not being watched
+	unWatched := sets.NewWithLength[EventType](len(AllTrackingEventTypes))
+	watchedTypes := con.proxy.GetWatchedResourceTypes()
+	for tyeUrl := range AllTrackingEventTypes {
+		if _, exists := watchedTypes[tyeUrl]; !exists {
+			unWatched.Insert(tyeUrl)
+		}
+	}
+	for tyeUrl := range unWatched {
+		statusReporter.RegisterEvent(con.conID, tyeUrl, nonce)
+	}
 }

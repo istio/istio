@@ -77,7 +77,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 		}
 
 		sic.serviceImports = kclient.NewDelayedInformer[controllers.Object](sic.client, mcs.ServiceImportGVR, kubetypes.DynamicInformer, kclient.Filter{
-			ObjectFilter: sic.opts.GetFilter(),
+			ObjectFilter: sic.client.ObjectFilter(),
 		})
 		// Register callbacks for events.
 		registerHandlers(sic.Controller, sic.serviceImports, "ServiceImports", sic.onServiceImportEvent, nil)
@@ -136,7 +136,7 @@ func (ic *serviceImportCacheImpl) onServiceEvent(_, curr *model.Service, event m
 		}
 
 		mcsService := ic.genMCSService(curr, mcsHost, vips)
-		ic.addOrUpdateService(nil, mcsService, event, false)
+		ic.addOrUpdateService(nil, nil, mcsService, event, false)
 		return nil
 	})
 }
@@ -191,7 +191,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object
 
 	// Always force a rebuild of the endpoint cache in case this import caused
 	// a change to the discoverability policy.
-	ic.addOrUpdateService(nil, mcsService, event, true)
+	ic.addOrUpdateService(nil, nil, mcsService, event, true)
 
 	// TODO: do we really need a full push, we should do it in `addOrUpdateService`.
 	if needsFullPush {

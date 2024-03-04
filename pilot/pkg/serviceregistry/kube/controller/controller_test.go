@@ -45,14 +45,13 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
-	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -556,6 +555,30 @@ func TestGetProxyServiceTargets(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expected, podServices[0]) {
 		t.Fatalf("expected instance %v, got %v", expected, podServices[0])
+	}
+
+	// pod with no services should return no service targets
+	p = generatePod("130.0.0.1", "pod4", "nsa", "foo", "node1", map[string]string{"app": "no-service-app"}, map[string]string{})
+	addPods(t, controller, fx, p)
+
+	podServices = controller.GetProxyServiceTargets(&model.Proxy{
+		Type:            "sidecar",
+		IPAddresses:     []string{"130.0.0.1"},
+		Locality:        &core.Locality{Region: "r", Zone: "z"},
+		ConfigNamespace: "nsa",
+		Labels: map[string]string{
+			"app": "no-service-app",
+		},
+		Metadata: &model.NodeMetadata{
+			ServiceAccount: "account",
+			ClusterID:      clusterID,
+			Labels: map[string]string{
+				"app": "no-service-app",
+			},
+		},
+	})
+	if len(podServices) != 0 {
+		t.Fatalf("expect 0 instance, got %v", len(podServices))
 	}
 }
 
@@ -1155,15 +1178,6 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 	createNamespace(t, controller.client.Kube(), nsA, map[string]string{"pilot-discovery": "enabled"})
 	createNamespace(t, controller.client.Kube(), nsB, map[string]string{})
 
-	// wait for namespaces to be created
-	eventually(t, func() bool {
-		list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			t.Fatalf("error listing namespaces: %v", err)
-		}
-		return len(list.Items) == 2
-	})
-
 	// service event handlers should trigger for svc1 and svc2
 	createServiceWait(controller, "svc1", nsA,
 		map[string]string{}, map[string]string{},
@@ -1278,17 +1292,10 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		})
 	}
 
-	client := kubelib.NewFakeClient()
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
-	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
-		kclient.New[*corev1.Namespace](client),
-		meshWatcher.Mesh().DiscoverySelectors,
-	)
 
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		Client:                    client,
-		MeshWatcher:               meshWatcher,
-		DiscoveryNamespacesFilter: discoveryNamespacesFilter,
+		MeshWatcher: meshWatcher,
 	})
 
 	nsA := "nsA"
@@ -1298,21 +1305,6 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	createNamespace(t, controller.client.Kube(), nsA, map[string]string{"app": "foo"})
 	createNamespace(t, controller.client.Kube(), nsB, map[string]string{"app": "bar"})
 	createNamespace(t, controller.client.Kube(), nsC, map[string]string{"app": "baz"})
-
-	// wait for namespaces to be created
-	eventually(t, func() bool {
-		list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			t.Fatalf("error listing namespaces: %v", err)
-		}
-		return len(list.Items) == 3
-	})
-
-	// assert that namespace membership has been updated
-	eventually(t, func() bool {
-		members := discoveryNamespacesFilter.GetMembers()
-		return members.Contains(nsA) && members.Contains(nsB) && members.Contains(nsC)
-	})
 
 	// service event handlers should trigger for all svcs
 	createServiceWait(controller, "svc1", nsA,
@@ -1480,37 +1472,18 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	client := kubelib.NewFakeClient()
 	t.Cleanup(client.Shutdown)
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
-	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
-		kclient.New[*corev1.Namespace](client),
-		meshWatcher.Mesh().DiscoverySelectors,
-	)
 
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		Client:                    client,
-		MeshWatcher:               meshWatcher,
-		DiscoveryNamespacesFilter: discoveryNamespacesFilter,
-	})
 	nsA := "nsA"
 	nsB := "nsB"
 	nsC := "nsC"
 
-	createNamespace(t, controller.client.Kube(), nsA, map[string]string{"app": "foo"})
-	createNamespace(t, controller.client.Kube(), nsB, map[string]string{"app": "bar"})
-	createNamespace(t, controller.client.Kube(), nsC, map[string]string{"app": "baz"})
+	createNamespace(t, client.Kube(), nsA, map[string]string{"app": "foo"})
+	createNamespace(t, client.Kube(), nsB, map[string]string{"app": "bar"})
+	createNamespace(t, client.Kube(), nsC, map[string]string{"app": "baz"})
 
-	// wait for namespaces to be created
-	eventually(t, func() bool {
-		list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			t.Fatalf("error listing namespaces: %v", err)
-		}
-		return len(list.Items) == 3
-	})
-
-	// assert that namespace membership has been updated
-	eventually(t, func() bool {
-		members := discoveryNamespacesFilter.GetMembers()
-		return members.Contains(nsA) && members.Contains(nsB) && members.Contains(nsC)
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		Client:      client,
+		MeshWatcher: meshWatcher,
 	})
 
 	// service event handlers should trigger for all svcs
@@ -1540,6 +1513,8 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 		return servicesEqual(svcList, expectedSvcList)
 	})
 
+	fx.Clear()
+
 	// restrict namespaces to nsA (expect 2 delete events for svc3 and svc4)
 	updateMeshConfig(
 		&meshconfig.MeshConfig{
@@ -1559,7 +1534,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	)
 
 	// namespace nsB, nsC deselected
-	fx.WaitOrFail(t, "xds full")
+	fx.AssertEmpty(t, 0)
 
 	// create vs1 in nsA
 	createVirtualService(controller, "vs1", nsA, map[string]string{}, t)
@@ -1590,7 +1565,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	)
 
 	// namespace nsB selected
-	fx.WaitOrFail(t, "xds full")
+	fx.AssertEmpty(t, 0)
 }
 
 func TestEndpoints_WorkloadInstances(t *testing.T) {
@@ -1963,6 +1938,7 @@ func createServiceWithTargetPorts(controller *FakeController, name, namespace st
 func createServiceWait(controller *FakeController, name, namespace string, labels, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T,
 ) {
+	t.Helper()
 	createService(controller, name, namespace, labels, annotations, ports, selector, t)
 	controller.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "service")
 }
@@ -2843,46 +2819,86 @@ func TestServiceUpdateNeedsPush(t *testing.T) {
 		return s
 	}
 
-	tests := []struct {
-		name   string
-		prev   *model.Service
-		curr   *model.Service
-		expect bool
-	}{
+	type testcase struct {
+		name     string
+		prev     *corev1.Service
+		curr     *corev1.Service
+		prevConv *model.Service
+		currConv *model.Service
+		expect   bool
+	}
+
+	tests := []testcase{
 		{
-			name:   "no change",
-			prev:   newService(visibility.Public, []int{80}),
-			curr:   newService(visibility.Public, []int{80}),
-			expect: false,
+			name:     "no change",
+			prevConv: newService(visibility.Public, []int{80}),
+			currConv: newService(visibility.Public, []int{80}),
+			expect:   false,
 		},
 		{
-			name:   "new service",
-			prev:   nil,
-			curr:   newService(visibility.Public, []int{80}),
-			expect: true,
+			name:     "new service",
+			prevConv: nil,
+			currConv: newService(visibility.Public, []int{80}),
+			expect:   true,
 		},
 		{
-			name:   "new service with none visibility",
-			prev:   nil,
-			curr:   newService(visibility.None, []int{80}),
-			expect: false,
+			name:     "new service with none visibility",
+			prevConv: nil,
+			currConv: newService(visibility.None, []int{80}),
+			expect:   false,
 		},
 		{
-			name:   "public visibility, spec change",
-			prev:   newService(visibility.Public, []int{80}),
-			curr:   newService(visibility.Public, []int{80, 443}),
-			expect: true,
+			name:     "public visibility, spec change",
+			prevConv: newService(visibility.Public, []int{80}),
+			currConv: newService(visibility.Public, []int{80, 443}),
+			expect:   true,
 		},
 		{
-			name:   "none visibility, spec change",
-			prev:   newService(visibility.None, []int{80}),
-			curr:   newService(visibility.None, []int{80, 443}),
-			expect: false,
+			name:     "none visibility, spec change",
+			prevConv: newService(visibility.None, []int{80}),
+			currConv: newService(visibility.None, []int{80, 443}),
+			expect:   false,
 		},
 	}
 
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 80, TargetPort: intstr.FromInt32(8080)}},
+		},
+	}
+	updatedSvc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 80, TargetPort: intstr.FromInt32(8081)}},
+		},
+	}
+	tests = append(tests,
+		testcase{
+			name:     "target ports changed",
+			prev:     &svc,
+			curr:     &updatedSvc,
+			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
+			currConv: kube.ConvertService(updatedSvc, constants.DefaultClusterLocalDomain, ""),
+			expect:   true,
+		},
+		testcase{
+			name:     "target ports unchanged",
+			prev:     &svc,
+			curr:     &svc,
+			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
+			currConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
+			expect:   false,
+		})
+
 	for _, test := range tests {
-		actual := serviceUpdateNeedsPush(test.prev, test.curr)
+		actual := serviceUpdateNeedsPush(test.prev, test.curr, test.prevConv, test.currConv)
 		if actual != test.expect {
 			t.Fatalf("%s: expected %v, got %v", test.name, test.expect, actual)
 		}

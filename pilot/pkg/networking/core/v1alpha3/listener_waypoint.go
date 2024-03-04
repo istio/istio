@@ -166,7 +166,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 	return lb.buildConnectTerminateListener(routes)
 }
 
-func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
 	chains := []*listener.FilterChain{}
 	pre, post := lb.buildWaypointHTTPFilters()
@@ -683,7 +683,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 // NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used with this function.
 func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, nil, true)
+	security.ApplyToCommonTLSContext(ctx, proxy, nil, "", nil, true)
 	aliases := authn.TrustDomainsForValidation(push.Mesh)
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
 	if len(aliases) > 0 {
@@ -701,5 +701,7 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
+	// Compliance for Envoy tunnel TLS contexts.
+	security.EnforceCompliance(ctx)
 	return ctx
 }

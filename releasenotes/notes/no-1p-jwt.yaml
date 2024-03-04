@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: enhancement
+area: security
+releaseNotes:
+  - |
+    **Removed** the `first-party-jwt` legacy option for `values.global.jwtPolicy`. Support for the more secure `third-party-jwt`
+    has been default for many years and is supported in all Kubernetes platforms.

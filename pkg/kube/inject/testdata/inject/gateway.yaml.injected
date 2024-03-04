@@ -34,8 +34,6 @@ spec:
         - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info
         env:
-        - name: JWT_POLICY
-          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
         - name: CA_ADDR
@@ -134,6 +132,10 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
       volumes:
       - emptyDir: {}
         name: workload-socket

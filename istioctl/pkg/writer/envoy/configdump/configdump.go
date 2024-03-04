@@ -43,14 +43,12 @@ func SetPrintConfigTypeInSummary(p bool) {
 
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	cd := &adminv3.ConfigDump{}
-	err := protomarshal.UnmarshalWithGlobalTypesResolver(b, cd)
+	w := &configdump.Wrapper{}
+	err := w.UnmarshalJSON(b)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from Envoy: %v", err)
 	}
-	c.configDump = &configdump.Wrapper{
-		ConfigDump: cd,
-	}
+	c.configDump = w
 	return nil
 }
 
@@ -65,7 +63,7 @@ func (c *ConfigWriter) PrintBootstrapDump(outputFormat string) error {
 	}
 	out, err := protomarshal.ToJSONWithIndent(bootstrapDump, "    ")
 	if err != nil {
-		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump")
+		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump: %v", err)
 	}
 	if outputFormat == "yaml" {
 		outbyte, err := yaml.JSONToYAML([]byte(out))
@@ -89,7 +87,7 @@ func (c *ConfigWriter) PrintSecretDump(outputFormat string) error {
 	}
 	out, err := protomarshal.ToJSONWithIndent(secretDump, "    ")
 	if err != nil {
-		return fmt.Errorf("unable to marshal secrets in Envoy config dump")
+		return fmt.Errorf("unable to marshal secrets in Envoy config dump: %v", err)
 	}
 	if outputFormat == "yaml" {
 		outbyte, err := yaml.JSONToYAML([]byte(out))

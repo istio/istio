@@ -166,6 +166,7 @@ func buildExtAuthzHTTP(push *model.PushContext,
 		}
 	}
 	checkWildcard("IncludeRequestHeadersInCheck", config.IncludeRequestHeadersInCheck)
+	//nolint: staticcheck
 	checkWildcard("IncludeHeadersInCheck", config.IncludeHeadersInCheck)
 	checkWildcard("HeadersToDownstreamOnDeny", config.HeadersToDownstreamOnDeny)
 	checkWildcard("HeadersToDownstreamOnAllow", config.HeadersToDownstreamOnAllow)
@@ -241,6 +242,7 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 	if allowedHeaders == nil {
 		// IncludeHeadersInCheck is deprecated, only use it if IncludeRequestHeadersInCheck is not set.
 		// TODO: Remove the IncludeHeadersInCheck field before promoting to beta.
+		//nolint: staticcheck
 		allowedHeaders = generateHeaders(config.IncludeHeadersInCheck)
 	}
 	var headersToAdd []*core.HeaderValue

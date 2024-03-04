@@ -18,13 +18,11 @@ import (
 	"fmt"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -84,23 +82,25 @@ func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
 // EdsGenerator implements the new Generate method for EDS, using the in-memory, optimized endpoint
 // storage in DiscoveryServer.
 type EdsGenerator struct {
-	Server *DiscoveryServer
+	Cache         model.XdsCache
+	EndpointIndex *model.EndpointIndex
 }
 
 var _ model.XdsDeltaResourceGenerator = &EdsGenerator{}
 
 // Map of all configs that do not impact EDS
-var skippedEdsConfigs = map[kind.Kind]struct{}{
-	kind.Gateway:               {},
-	kind.VirtualService:        {},
-	kind.WorkloadGroup:         {},
-	kind.AuthorizationPolicy:   {},
-	kind.RequestAuthentication: {},
-	kind.Secret:                {},
-	kind.Telemetry:             {},
-	kind.WasmPlugin:            {},
-	kind.ProxyConfig:           {},
-}
+var skippedEdsConfigs = sets.New[kind.Kind](
+	kind.Gateway,
+	kind.VirtualService,
+	kind.WorkloadGroup,
+	kind.AuthorizationPolicy,
+	kind.RequestAuthentication,
+	kind.Secret,
+	kind.Telemetry,
+	kind.WasmPlugin,
+	kind.ProxyConfig,
+	kind.DNSName,
+)
 
 func edsNeedsPush(updates model.XdsUpdates) bool {
 	// If none set, we will always push
@@ -108,7 +108,7 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 		return true
 	}
 	for config := range updates {
-		if _, f := skippedEdsConfigs[config.Kind]; !f {
+		if !skippedEdsConfigs.Contains(config.Kind) {
 			return true
 		}
 	}
@@ -121,21 +121,6 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, 
 	}
 	resources, logDetails := eds.buildEndpoints(proxy, req, w)
 	return resources, logDetails, nil
-}
-
-func endpointDiscoveryResponse(loadAssignments []*anypb.Any, version, noncePrefix string) *discovery.DiscoveryResponse {
-	out := &discovery.DiscoveryResponse{
-		TypeUrl: v3.EndpointType,
-		// Pilot does not really care for versioning. It always supplies what's currently
-		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
-		// responses. Pilot believes in eventual consistency and that at some point, Envoy
-		// will begin seeing results it deems to be good.
-		VersionInfo: version,
-		Nonce:       nonce(noncePrefix),
-		Resources:   loadAssignments,
-	}
-
-	return out
 }
 
 func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
@@ -168,7 +153,7 @@ func canSendPartialFullPushes(req *model.PushRequest) bool {
 		return false
 	}
 	for cfg := range req.ConfigsUpdated {
-		if _, f := skippedEdsConfigs[cfg.Kind]; f {
+		if skippedEdsConfigs.Contains(cfg.Kind) {
 			// the updated config does not impact EDS, skip it
 			// this happens when push requests are merged due to debounce
 			continue
@@ -210,7 +195,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 		if !features.EnableUnsafeAssertions {
-			cachedEndpoint := eds.Server.Cache.Get(&builder)
+			cachedEndpoint := eds.Cache.Get(&builder)
 			if cachedEndpoint != nil {
 				resources = append(resources, cachedEndpoint)
 				cached++
@@ -220,7 +205,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 		// generate eds from beginning
 		{
-			l := builder.BuildClusterLoadAssignment(eds.Server.Env.EndpointIndex)
+			l := builder.BuildClusterLoadAssignment(eds.EndpointIndex)
 			if l == nil {
 				continue
 			}
@@ -234,7 +219,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(&builder, req, resource)
+			eds.Cache.Add(&builder, req, resource)
 		}
 	}
 	return resources, model.XdsLogDetails{
@@ -270,7 +255,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 
 		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 		if !features.EnableUnsafeAssertions {
-			cachedEndpoint := eds.Server.Cache.Get(&builder)
+			cachedEndpoint := eds.Cache.Get(&builder)
 			if cachedEndpoint != nil {
 				resources = append(resources, cachedEndpoint)
 				cached++
@@ -279,7 +264,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 		}
 		// generate new eds cache
 		{
-			l := builder.BuildClusterLoadAssignment(eds.Server.Env.EndpointIndex)
+			l := builder.BuildClusterLoadAssignment(eds.EndpointIndex)
 			if l == nil {
 				removed = append(removed, clusterName)
 				continue
@@ -293,7 +278,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(&builder, req, resource)
+			eds.Cache.Add(&builder, req, resource)
 		}
 	}
 	return resources, removed, model.XdsLogDetails{

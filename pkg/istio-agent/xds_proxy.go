@@ -301,8 +301,8 @@ func (p *XdsProxy) StreamAggregatedResources(downstream xds.DiscoveryStream) err
 func (p *XdsProxy) handleStream(downstream adsStream) error {
 	con := &ProxyConnection{
 		conID:           connectionNumber.Inc(),
-		upstreamError:   make(chan error, 2), // can be produced by recv and send
-		downstreamError: make(chan error, 2), // can be produced by recv and send
+		upstreamError:   make(chan error), // can be produced by recv and send
+		downstreamError: make(chan error), // can be produced by recv and send
 		// Requests channel is unbounded. The Envoy<->XDS Proxy<->Istiod system produces a natural
 		// looping of Recv and Send. Due to backpressure introduced by gRPC natively (that is, Send() can
 		// only send so much data without being Recv'd before it starts blocking), along with the
@@ -379,10 +379,7 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 			// from istiod
 			resp, err := con.upstream.Recv()
 			if err != nil {
-				select {
-				case con.upstreamError <- err:
-				case <-con.stopChan:
-				}
+				upstreamErr(con, err)
 				return
 			}
 			select {
@@ -432,10 +429,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 			// recv xds requests from envoy
 			req, err := con.downstream.Recv()
 			if err != nil {
-				select {
-				case con.downstreamError <- err:
-				case <-con.stopChan:
-				}
+				downstreamErr(con, err)
 				return
 			}
 
@@ -484,9 +478,9 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				}
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
-			if err := sendUpstream(con.upstream, req); err != nil {
-				err = fmt.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
-				con.upstreamError <- err
+			if err := con.upstream.Send(req); err != nil {
+				err = fmt.Errorf("send error for type url %s: %v", req.TypeUrl, err)
+				upstreamErr(con, err)
 				return
 			}
 		case <-con.stopChan:
@@ -593,22 +587,22 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 		return
 	}
 	if err := sendDownstream(con.downstream, resp); err != nil {
-		select {
-		case con.downstreamError <- err:
-			// we cannot return partial error and hope to restart just the downstream
-			// as we are blindly proxying req/responses. For now, the best course of action
-			// is to terminate upstream connection as well and restart afresh.
-			proxyLog.Errorf("downstream [%d] send error: %v", con.conID, err)
-		default:
-			// Do not block on downstream error channel push, this could happen when forward
-			// is triggered from a separated goroutine (e.g. ECDS processing go routine) while
-			// downstream connection has already been teared down and no receiver is available
-			// for downstream error channel.
-			proxyLog.Debugf("downstream [%d] error channel full, but get downstream send error: %v", con.conID, err)
-		}
-
+		err = fmt.Errorf("send error for type url %s: %v", resp.TypeUrl, err)
+		downstreamErr(con, err)
 		return
 	}
+}
+
+// sendDownstream sends discovery response.
+func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse) error {
+	tStart := time.Now()
+	defer func() {
+		// This is a hint to help debug slow responses.
+		if time.Since(tStart) > 10*time.Second {
+			proxyLog.Warnf("sendDownstream took %v", time.Since(tStart))
+		}
+	}()
+	return downstream.Send(response)
 }
 
 func (p *XdsProxy) close() {
@@ -687,23 +681,6 @@ func (p *XdsProxy) getTLSOptions(agent *Agent) (*istiogrpc.TLSOptions, error) {
 	}, nil
 }
 
-// sendUpstream sends discovery request.
-func sendUpstream(upstream xds.DiscoveryClient, request *discovery.DiscoveryRequest) error {
-	return istiogrpc.Send(upstream.Context(), func() error { return upstream.Send(request) })
-}
-
-// sendDownstream sends discovery response.
-func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse) error {
-	tStart := time.Now()
-	defer func() {
-		// This is a hint to help debug slow responses.
-		if time.Since(tStart) > 10*time.Second {
-			proxyLog.Warnf("sendDownstream took %v", time.Since(tStart))
-		}
-	}()
-	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
-}
-
 // tapRequest() sends "req" to Istiod, and returns a matching response, or `nil` on timeout.
 // Requests are serialized -- only one may be in-flight at a time.
 func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Duration) (*discovery.DiscoveryResponse, error) {
@@ -719,7 +696,17 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 	defer p.tapMutex.Unlock()
 
 	// Send to Istiod
-	connection.sendRequest(req)
+	if connection.deltaRequestsChan != nil {
+		// Need to tap into Delta. Our Tap mechanism is not aware of whether we are tapping into SotW or Delta; we always get SotW
+		// Convert SotW to Delta.
+		connection.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+			Node:                   req.Node,
+			TypeUrl:                req.TypeUrl,
+			ResourceNamesSubscribe: req.ResourceNames,
+		})
+	} else {
+		connection.sendRequest(req)
+	}
 
 	delay := time.NewTimer(timeout)
 	defer delay.Stop()
@@ -839,4 +826,22 @@ func (p *XdsProxy) initDebugInterface(port int) error {
 	}()
 
 	return nil
+}
+
+// upstreamErr sends the error to upstreamError channel, and return immediately if the connection closed.
+func upstreamErr(con *ProxyConnection, err error) {
+	proxyLog.Errorf("upstream [%d] error: %v", con.conID, err)
+	select {
+	case con.upstreamError <- err:
+	case <-con.stopChan:
+	}
+}
+
+// downstreamErr sends the error to downstreamError channel, and return immediately if the connection closed.
+func downstreamErr(con *ProxyConnection, err error) {
+	proxyLog.Errorf("downstream [%d] error: %v", con.conID, err)
+	select {
+	case con.downstreamError <- err:
+	case <-con.stopChan:
+	}
 }

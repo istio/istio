@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pkg/flag"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
@@ -50,12 +51,18 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 	flag.BindEnv(fs, constants.InboundTProxyMark, "t", "", &cfg.InboundTProxyMark)
 }
 
-func GetCommand() *cobra.Command {
+func GetCommand(logOpts *log.Options) *cobra.Command {
 	cfg := config.DefaultConfig()
 	cmd := &cobra.Command{
 		Use:   "istio-clean-iptables",
 		Short: "Clean up iptables rules for Istio Sidecar",
 		Long:  "Script responsible for cleaning up iptables rules",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := log.Configure(logOpts); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg.FillConfigFromEnvironment()
 			if err := cfg.Validate(); err != nil {

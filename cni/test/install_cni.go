@@ -17,22 +17,24 @@ package install
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/viper"
 
-	"istio.io/istio/cni/pkg/cmd"
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/cni/pkg/install"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
@@ -168,33 +170,69 @@ func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, te
 	t.Logf("Finished pre-populating working dirs")
 }
 
-// startDocker starts a test Docker container and runs the install-cni script.
+// create an install server instance and run it, blocking until it gets terminated
+// via context cancellation
+func startInstallServer(ctx context.Context, serverConfig *config.Config, t *testing.T) {
+	readyFlag := &atomic.Value{}
+	installer := install.NewInstaller(&serverConfig.InstallConfig, readyFlag)
+
+	t.Logf("CNI installer created, watching...")
+	// installer.Run() will block indefinitely, and attempt to permanently "keep"
+	// the CNI binary installed.
+	if err := installer.Run(ctx); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			// Error was caused by interrupt/termination signal
+			t.Logf("installer complete: %v", err)
+		} else {
+			t.Errorf("installer failed: %v", err)
+		}
+	}
+
+	if cleanErr := installer.Cleanup(); cleanErr != nil {
+		t.Errorf("Error during test CNI installer cleanup, error was: %s", cleanErr)
+	}
+}
+
 func runInstall(ctx context.Context, tempCNIConfDir, tempCNIBinDir,
-	tempK8sSvcAcctDir, cniConfFileName string, chainedCNIPlugin bool,
+	tempK8sSvcAcctDir, cniConfFileName, testBinDir string, chainedCNIPlugin bool, t *testing.T,
 ) {
-	root := cmd.GetCommand()
+	ztunnelAddr := "/tmp/ztfoo"
+	cniEventAddr := "/tmp/cnieventfoo"
+	defer os.Remove(ztunnelAddr)
+	defer os.Remove(cniEventAddr)
+
+	// "fake" constant, overridable for tests
+	// TODO this is gross, fix this
 	constants.ServiceAccountPath = tempK8sSvcAcctDir
-	constants.HostCNIBinDir = tempCNIBinDir
-	constants.CNIBinDir = filepath.Join(env.IstioSrc, "cni/test/testdata/bindir")
-	root.SetArgs([]string{
-		"--mounted-cni-net-dir", tempCNIConfDir,
-		"--ctrlz_port", "0",
-	})
-	os.Setenv("KUBERNETES_SERVICE_PORT", "443")
-	os.Setenv("KUBERNETES_SERVICE_HOST", "10.110.0.1")
+
+	installConfig := config.Config{
+		InstallConfig: config.InstallConfig{
+			CNIEventAddress:    cniEventAddr,
+			ZtunnelUDSAddress:  ztunnelAddr,
+			MountedCNINetDir:   tempCNIConfDir,
+			CNIBinSourceDir:    testBinDir,
+			CNIBinTargetDirs:   []string{tempCNIBinDir},
+			K8sServicePort:     "443",
+			K8sServiceHost:     "10.110.0.1",
+			MonitoringPort:     0,
+			LogUDSAddress:      "",
+			CNINetworkConfig:   cniNetworkConfig,
+			KubeconfigFilename: "ZZZ-istio-cni-kubeconfig",
+			CNINetDir:          "/etc/cni/net.d",
+			ChainedCNIPlugin:   true,
+			LogLevel:           "debug",
+			KubeconfigMode:     constants.DefaultKubeconfigMode,
+		},
+	}
+
 	if cniConfFileName != "" {
-		os.Setenv(cniConfName, cniConfFileName)
-	} else {
-		os.Unsetenv(cniConfName)
+		installConfig.InstallConfig.CNIConfName = cniConfFileName
 	}
 	if !chainedCNIPlugin {
-		os.Setenv(chainedCNIPluginName, "false")
-	} else {
-		os.Unsetenv(chainedCNIPluginName)
+		installConfig.InstallConfig.ChainedCNIPlugin = false
 	}
-	if err := root.ExecuteContext(ctx); err != nil {
-		log.Errorf("error during install-cni execution")
-	}
+
+	startInstallServer(ctx, &installConfig, t)
 }
 
 // checkResult checks if resultFile is equal to expectedFile at each tick until timeout
@@ -222,23 +260,27 @@ func compareConfResult(result, expected string, t *testing.T) {
 }
 
 // checkBinDir verifies the presence/absence of test files.
-func checkBinDir(t *testing.T, tempCNIBinDir, op string, files ...string) {
+func checkBinDir(t *testing.T, tempCNIBinDir, op string, files ...string) error {
 	t.Helper()
 	for _, f := range files {
 		if _, err := os.Stat(tempCNIBinDir + "/" + f); !os.IsNotExist(err) {
 			if op == "add" {
 				t.Logf("PASS: File %v was added to %v", f, tempCNIBinDir)
+				return nil
 			} else if op == "del" {
-				t.Fatalf("FAIL: File %v was not removed from %v", f, tempCNIBinDir)
+				return fmt.Errorf("FAIL: File %v was not removed from %v", f, tempCNIBinDir)
 			}
 		} else {
 			if op == "add" {
-				t.Fatalf("FAIL: File %v was not added to %v", f, tempCNIBinDir)
+				return fmt.Errorf("FAIL: File %v was not added to %v", f, tempCNIBinDir)
 			} else if op == "del" {
 				t.Logf("PASS: File %v was removed from %v", f, tempCNIBinDir)
+				return nil
 			}
 		}
 	}
+
+	return fmt.Errorf("no files, or unrecognized op")
 }
 
 // checkTempFilesCleaned verifies that all temporary files have been cleaned up
@@ -285,7 +327,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 		wg.Wait()
 	}()
 	go func() {
-		runInstall(ctx, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir, envPreconf, chainedCNIPlugin)
+		runInstall(ctx, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir, envPreconf, filepath.Join(env.IstioSrc, "cni/test/testdata/bindir"), chainedCNIPlugin, t)
 		wg.Done()
 	}()
 
@@ -307,8 +349,11 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 		cp(delayedConfFile, tempCNIConfDir+"/"+destFilenm, t)
 	}
 
+	retry.UntilSuccessOrFail(t, func() error {
+		return checkBinDir(t, tempCNIBinDir, "add", "istio-cni")
+	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
+
 	compareConfResult(resultFile, expectedOutputFile, t)
-	checkBinDir(t, tempCNIBinDir, "add", "istio-cni")
 
 	// Test script restart by removing configuration
 	if chainedCNIPlugin {
@@ -336,7 +381,10 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 			t.Logf("FAIL: Istio CNI config file was not removed: %s", resultFile)
 		}
 	}
-	checkBinDir(t, tempCNIBinDir, "del", "istio-cni")
+	retry.UntilSuccessOrFail(t, func() error {
+		return checkBinDir(t, tempCNIBinDir, "del", "istio-cni")
+	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
+
 	checkTempFilesCleaned(tempCNIConfDir, t)
 }
 

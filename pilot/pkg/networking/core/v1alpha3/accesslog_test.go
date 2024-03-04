@@ -349,6 +349,7 @@ var (
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: model.EnvoyJSONLogFormatIstio,
 				},
+				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
 			},
 		},
 	}

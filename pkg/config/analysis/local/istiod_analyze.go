@@ -34,20 +34,19 @@ import (
 	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/analysis/scope"
-	mesh_const "istio.io/istio/pkg/config/legacy/mesh"
-	"istio.io/istio/pkg/config/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
@@ -132,11 +131,12 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 }
 
 func (sa *IstiodAnalyzer) internalAnalyze(a *analysis.CombinedAnalyzer, cancel <-chan struct{}) (AnalysisResult, error) {
-	var result AnalysisResult
-	result.MappedMessages = map[string]diag.Messages{}
 	store := sa.initializedStore
+
+	var result AnalysisResult
 	result.ExecutedAnalyzers = a.AnalyzerNames()
 	result.SkippedAnalyzers = a.RemoveSkipped(store.Schemas())
+	result.MappedMessages = make(map[string]diag.Messages, len(result.ExecutedAnalyzers))
 
 	kubelib.WaitForCacheSync("istiod analyzer", cancel, store.HasSynced)
 
@@ -180,8 +180,8 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	// Create a store containing mesh config. There should be exactly one.
 	_, err := sa.internalStore.Create(config.Config{
 		Meta: config.Meta{
-			Name:             mesh_const.MeshConfigResourceName.Name.String(),
-			Namespace:        mesh_const.MeshConfigResourceName.Namespace.String(),
+			Name:             "meshconfig",
+			Namespace:        sa.istioNamespace.String(),
 			GroupVersionKind: gvk.MeshConfig,
 		},
 		Spec: sa.meshCfg,
@@ -192,8 +192,8 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	// Create a store containing meshnetworks. There should be exactly one.
 	_, err = sa.internalStore.Create(config.Config{
 		Meta: config.Meta{
-			Name:             mesh_const.MeshNetworksResourceName.Name.String(),
-			Namespace:        mesh_const.MeshNetworksResourceName.Namespace.String(),
+			Name:             "meshnetworks",
+			Namespace:        sa.istioNamespace.String(),
 			GroupVersionKind: gvk.MeshNetworks,
 		},
 		Spec: sa.meshNetworks,
@@ -203,7 +203,9 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	}
 	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore})
 	if sa.fileSource != nil {
-		allstores = append(allstores, sa.fileSource)
+		// File source takes the highest precedence, since files are resources to be configured to in-cluster resources.
+		// The order here does matter - aggregated store takes the first available resource.
+		allstores = append([]model.ConfigStoreController{sa.fileSource}, allstores...)
 	}
 
 	for _, c := range sa.clientsToRun {
@@ -306,8 +308,11 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 }
 
 func isIstioConfigMap(obj any) bool {
-	cObj, ok := obj.(controllers.Object)
+	cObj, ok := obj.(*v1.ConfigMap)
 	if !ok {
+		return false
+	}
+	if _, ok = cObj.GetAnnotations()[k8sresourcelock.LeaderElectionRecordAnnotationKey]; ok {
 		return false
 	}
 	return strings.HasPrefix(cObj.GetName(), "istio")
@@ -321,7 +326,7 @@ func (sa *IstiodAnalyzer) GetFiltersByGVK() map[config.GroupVersionKind]kubetype
 	return map[config.GroupVersionKind]kubetypes.Filter{
 		gvk.ConfigMap: {
 			Namespace:    sa.istioNamespace.String(),
-			ObjectFilter: isIstioConfigMap,
+			ObjectFilter: kubetypes.NewStaticObjectFilter(isIstioConfigMap),
 		},
 		gvk.Secret: {
 			FieldSelector: secretFieldSelector,
@@ -354,7 +359,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
 			gvk.ConfigMap: {
 				Namespace:    sa.istioNamespace.String(),
-				ObjectFilter: isIstioConfigMap,
+				ObjectFilter: kubetypes.NewStaticObjectFilter(isIstioConfigMap),
 			},
 		},
 	}, sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...))

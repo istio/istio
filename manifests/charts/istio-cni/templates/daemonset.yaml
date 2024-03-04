@@ -45,7 +45,7 @@ spec:
       {{if .Values.cni.ambient.enabled }}hostNetwork: true{{ end }}
       nodeSelector:
         kubernetes.io/os: linux
-      # Can be configured to allow for excluding instio-cni from being scheduled on specified nodes
+      # Can be configured to allow for excluding istio-cni from being scheduled on specified nodes
       {{- with .Values.cni.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
@@ -81,10 +81,27 @@ spec:
               path: /readyz
               port: 8000
           securityContext:
+            privileged: true # always requires privilege to be useful (install node plugin, etc)
             runAsGroup: 0
             runAsUser: 0
             runAsNonRoot: false
-            privileged: {{ .Values.cni.privileged }}
+            # Both ambient and sidecar repair mode require elevated node privileges to function.
+            # But we don't need _everything_ in `privileged`, so drop+readd capabilities based on feature.
+            # privileged is redundant with CAP_SYS_ADMIN
+            # since it's redundant, hardcode it to `true`, then manually drop ALL + readd granular
+            # capabilities we actually require
+            capabilities:
+              drop:
+              - ALL
+              add:
+              # CAP_NET_ADMIN is required to allow ipset and route table access
+              - NET_ADMIN
+              # CAP_NET_RAW is required to allow iptables mutation of the `nat` table
+              - NET_RAW
+              # CAP_SYS_ADMIN is required for both ambient and repair, in order to open
+              # network namespaces in `/proc` to obtain descriptors for entering pod netnamespaces.
+              # There does not appear to be a more granular capability for this.
+              - SYS_ADMIN
 {{- if .Values.cni.seccompProfile }}
             seccompProfile:
 {{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
@@ -116,6 +133,10 @@ spec:
               value: "{{ .Values.cni.chained }}"
             - name: REPAIR_ENABLED
               value: "{{ .Values.cni.repair.enabled }}"
+{{- if .Values.cni.ambient.enabled }}
+            - name: AMBIENT_DNS_CAPTURE
+              value: "{{ .Values.cni.ambient.dnsCapture }}"
+{{- end }}
             - name: REPAIR_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -147,10 +168,6 @@ spec:
             {{- if .Values.cni.ambient.enabled }}
             - name: AMBIENT_ENABLED
               value: "true"
-            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
-            - name: EBPF_ENABLED
-              value: "true"
-            {{- end }}
             {{- end }}
             - name: GOMEMLIMIT
               valueFrom:
@@ -163,25 +180,21 @@ spec:
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
-            {{- if .Values.cni.repair.repairPods }}
+            {{- if or .Values.cni.repair.repairPods .Values.cni.ambient.enabled }}
             - mountPath: /host/proc
               name: cni-host-procfs
+              readOnly: true
             {{- end }}
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
             - mountPath: /var/run/istio-cni
-              name: cni-log-dir
+              name: cni-socket-dir
             {{- if .Values.cni.ambient.enabled }}
-            - mountPath: /etc/ambient-config
-              name: cni-ambient-config-dir
-            - mountPath: /var/run/netns
+            - mountPath: /host/var/run/netns
               mountPropagation: HostToContainer
               name: cni-netns-dir
-            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
-            - mountPath: /sys/fs/bpf
-              mountPropagation: Bidirectional
-              name: cni-bpffs-dir
-            {{- end }}
+            - mountPath: /var/run/ztunnel
+              name: cni-ztunnel-sock-dir
             {{ end }}
           resources:
 {{- if .Values.cni.resources }}
@@ -194,31 +207,28 @@ spec:
         - name: cni-bin-dir
           hostPath:
             path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
-        {{- if .Values.cni.repair.repairPods }}
+        {{- if or .Values.cni.repair.repairPods .Values.cni.ambient.enabled }}
         - name: cni-host-procfs
           hostPath:
             path: /proc
             type: Directory
         {{- end }}
         {{- if .Values.cni.ambient.enabled }}
-        - name: cni-ambient-config-dir
+        - name: cni-ztunnel-sock-dir
           hostPath:
-            path: {{ .Values.cni.ambient.configDir | default "/etc/ambient-config" }}
+            path: /var/run/ztunnel
+            type: DirectoryOrCreate
         {{- end }}
         - name: cni-net-dir
           hostPath:
             path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
-        # Used for UDS log
-        - name: cni-log-dir
+        # Used for UDS sockets for logging, ambient eventing
+        - name: cni-socket-dir
           hostPath:
             path: /var/run/istio-cni
         - name: cni-netns-dir
           hostPath:
             path: {{ .Values.cni.cniNetnsDir | default "/var/run/netns" }}
-            type: Directory # this directory must exist on the node, if it does not,
-            # consult your container runtime documentation for the appropriate path
-        {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
-        - name: cni-bpffs-dir
-          hostPath:
-            path: /sys/fs/bpf
-        {{- end }}
+            type: DirectoryOrCreate # DirectoryOrCreate instead of Directory for the following reason - CNI may not bind mount this until a non-hostnetwork pod is scheduled on the node,
+            # and we don't want to block CNI agent pod creation on waiting for the first non-hostnetwork pod.
+            # Once the CNI does mount this, it will get populated and we're good.

@@ -38,9 +38,9 @@ import (
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/completion"
 	istioctlutil "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/url"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/shellescape"
@@ -91,18 +90,18 @@ func Cmd(ctx cli.Context) *cobra.Command {
   # workload entry configuration generation
   istioctl x workload entry configure`,
 	}
-	workloadCmd.AddCommand(groupCommand())
+	workloadCmd.AddCommand(groupCommand(ctx))
 	workloadCmd.AddCommand(entryCommand(ctx))
 	return workloadCmd
 }
 
-func groupCommand() *cobra.Command {
+func groupCommand(ctx cli.Context) *cobra.Command {
 	groupCmd := &cobra.Command{
 		Use:     "group",
 		Short:   "Commands dealing with WorkloadGroup resources",
 		Example: "  istioctl x workload group create --name foo --namespace bar --labels app=foobar",
 	}
-	groupCmd.AddCommand(createCommand())
+	groupCmd.AddCommand(createCommand(ctx))
 	return groupCmd
 }
 
@@ -116,7 +115,7 @@ func entryCommand(ctx cli.Context) *cobra.Command {
 	return entryCmd
 }
 
-func createCommand() *cobra.Command {
+func createCommand(ctx cli.Context) *cobra.Command {
 	createCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",
@@ -168,6 +167,11 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 	createCmd.PersistentFlags().StringSliceVarP(&annotations, "annotations", "a", nil, "The annotations to apply to the workload instances")
 	createCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
 	createCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
+	_ = createCmd.RegisterFlagCompletionFunc("serviceAccount", func(
+		cmd *cobra.Command, args []string, toComplete string,
+	) ([]string, cobra.ShellCompDirective) {
+		return completion.ValidServiceAccountArgs(cmd, ctx, args, toComplete)
+	})
 	return createCmd
 }
 
@@ -394,29 +398,6 @@ func createCertsTokens(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGro
 
 	serviceAccount := wg.Spec.Template.ServiceAccount
 	tokenPath := filepath.Join(dir, "istio-token")
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(kubeClient.Kube())
-	if err != nil {
-		fmt.Fprintf(out, "Failed to determine JWT policy support: %v", err)
-	}
-	if jwtPolicy == util.FirstPartyJWT {
-		fmt.Fprintf(out, "Warning: cluster does not support third party JWT authentication. "+
-			"Falling back to less secure first party JWT. "+
-			"See "+url.ConfigureSAToken+" for details."+"\n")
-		sa, err := kubeClient.Kube().CoreV1().ServiceAccounts(wg.Namespace).Get(context.TODO(), serviceAccount, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		secret, err := kubeClient.Kube().CoreV1().Secrets(wg.Namespace).Get(context.TODO(), sa.Secrets[0].Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(tokenPath, secret.Data["token"], filePerms); err != nil {
-			return err
-		}
-		fmt.Fprintf(out, "Warning: a security token for namespace %q and service account %q has been generated "+
-			"and stored at %q\n", wg.Namespace, serviceAccount, tokenPath)
-		return nil
-	}
 	token := &authenticationv1.TokenRequest{
 		// ObjectMeta isn't required in real k8s, but needed for tests
 		ObjectMeta: metav1.ObjectMeta{

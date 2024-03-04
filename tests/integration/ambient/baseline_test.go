@@ -666,6 +666,32 @@ spec:
 				}
 				src.CallOrFail(t, opt)
 			})
+			// globally peerauth == STRICT, but we have a port-specific allowlist that is PERMISSIVE,
+			// so anything hitting that port should not be rejected
+			t.NewSubTest("strict-permissive-ports").Run(func(t framework.TestContext) {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: global-strict
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    8080:
+      mode: PERMISSIVE
+				`).ApplyOrFail(t)
+				opt = opt.DeepCopy()
+				// Should pass for all workloads, in or out of mesh, targeting this port
+				src.CallOrFail(t, opt)
+			})
 		})
 	})
 }
@@ -1232,6 +1258,77 @@ spec:
 	})
 }
 
+// Relies on the suite running in a cluster with a CNI which enforces K8s netpol but presently has no check
+func TestK8sNetPol(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.reachability").
+		Run(func(t framework.TestContext) {
+			t.Skip("https://github.com/istio/istio/issues/49301")
+			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
+
+			// configure a NetPol which will only allow HBONE traffic in the test app namespace
+			// we should figure out what our recommendation for NetPol will be and have this reflect it
+			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/only-hbone.yaml").ApplyOrFail(t)
+
+			Always := func(echo.Instance, echo.CallOptions) bool {
+				return true
+			}
+			Never := func(echo.Instance, echo.CallOptions) bool {
+				return false
+			}
+			SameNetwork := func(from echo.Instance, to echo.Target) echo.Instances {
+				return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+			}
+			SupportsHBone := func(from echo.Instance, opts echo.CallOptions) bool {
+				if !from.Config().IsUncaptured() && !opts.To.Config().IsUncaptured() {
+					return true
+				}
+				if !from.Config().IsUncaptured() && opts.To.Config().HasSidecar() {
+					return true
+				}
+				if from.Config().HasSidecar() && !opts.To.Config().IsUncaptured() {
+					return true
+				}
+				if from.Config().HasSidecar() && opts.To.Config().HasSidecar() {
+					return true
+				}
+				return false
+			}
+			_ = Never
+			_ = SameNetwork
+			testCases := []reachability.TestCase{
+				{
+					ConfigFile:    "beta-mtls-on.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: SupportsHBone,
+					// we do not expect HBONE traffic to have mutated user traffic
+					// presently ExpectMTLS is checking that headers were added to user traffic
+					ExpectMTLS: Never,
+				},
+				{
+					ConfigFile:    "beta-mtls-permissive.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: SupportsHBone,
+					// we do not expect HBONE traffic to have mutated user traffic
+					// presently ExpectMTLS is checking that headers were added to user traffic
+					ExpectMTLS: Never,
+				},
+				{
+					ConfigFile:    "beta-mtls-off.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: SupportsHBone,
+					// we do not expect HBONE traffic to have mutated user traffic
+					// presently ExpectMTLS is checking that headers were added to user traffic
+					ExpectMTLS: Never,
+				},
+			}
+			RunReachability(testCases, t)
+		})
+}
+
 func TestMTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
@@ -1555,31 +1652,33 @@ spec:
       http: {{.IngressHttpPort}}`).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
-			ip, port := istio.DefaultIngressOrFail(t, t).HTTPAddress()
+			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
 				tc := tc
-				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
-					echotest.
-						New(t, apps.All).
-						// TODO eventually we can do this for uncaptured -> l7
-						FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
-							Name:      "uncaptured",
-							Namespace: apps.Namespace,
-						}))).
-						Config(cfg.WithParams(param.Params{
-							"Resolution":      tc.resolution.String(),
-							"Location":        tc.location.String(),
-							"IngressIp":       ip,
-							"IngressHttpPort": port,
-						})).
-						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
-							from.CallOrFail(t, echo.CallOptions{
-								Address: "111.111.222.222",
-								Port:    to.PortForName("http"),
+				for i, ip := range ips {
+					t.NewSubTestf("%s %s %s", tc.location, tc.resolution, ip).Run(func(t framework.TestContext) {
+						echotest.
+							New(t, apps.All).
+							// TODO eventually we can do this for uncaptured -> l7
+							FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
+								Name:      "uncaptured",
+								Namespace: apps.Namespace,
+							}))).
+							Config(cfg.WithParams(param.Params{
+								"Resolution":      tc.resolution.String(),
+								"Location":        tc.location.String(),
+								"IngressIp":       ip,
+								"IngressHttpPort": ports[i],
+							})).
+							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+								from.CallOrFail(t, echo.CallOptions{
+									Address: "111.111.222.222",
+									Port:    to.PortForName("http"),
+								})
 							})
-						})
-				})
+					})
+				}
 			}
 		})
 }
@@ -1671,31 +1770,34 @@ spec:
       app: selected`).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
-			ip, port := istio.DefaultIngressOrFail(t, t).HTTPAddress()
+			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
 				tc := tc
-				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
-					echotest.
-						New(t, apps.All).
-						// TODO eventually we can do this for uncaptured -> l7
-						FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
-							Name:      "uncaptured",
-							Namespace: apps.Namespace,
-						}))).
-						Config(cfg.WithParams(param.Params{
-							"Resolution":      tc.resolution.String(),
-							"Location":        tc.location.String(),
-							"IngressIp":       ip,
-							"IngressHttpPort": port,
-						})).
-						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
-							from.CallOrFail(t, echo.CallOptions{
-								Address: "111.111.222.222",
-								Port:    to.PortForName("http"),
+				for i, ip := range ips {
+					t.NewSubTestf("%s %s %s", tc.location, tc.resolution, ip).Run(func(t framework.TestContext) {
+						echotest.
+							New(t, apps.All).
+							// TODO eventually we can do this for uncaptured -> l7
+							FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
+								Name:      "uncaptured",
+								Namespace: apps.Namespace,
+							}))).
+							Config(cfg.WithParams(param.Params{
+								"Resolution":      tc.resolution.String(),
+								"Location":        tc.location.String(),
+								"IngressIp":       ip,
+								"IngressHttpPort": ports[i],
+							})).
+							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+								from.CallOrFail(t, echo.CallOptions{
+									Address: "111.111.222.222",
+									Port:    to.PortForName("http"),
+								})
 							})
-						})
-				})
+					})
+				}
+
 			}
 		})
 }

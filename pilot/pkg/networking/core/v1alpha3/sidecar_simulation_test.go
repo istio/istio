@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/simulation"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -312,7 +312,6 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|81||": {"127.0.0.1:8080"},
 			},
 		},
-
 		// Disable inbound passthrough
 		{
 			name:      "single service, partial instance",
@@ -391,15 +390,18 @@ func TestInboundClusters(t *testing.T) {
 			name += "-" + tt.proxy.Metadata.IstioVersion
 		}
 
-		if tt.disableInboundPassthrough {
-			name += "-disableinbound"
-		}
 		t.Run(name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableInboundPassthrough, !tt.disableInboundPassthrough)
 			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				Services:  tt.services,
 				Instances: tt.instances,
 				Configs:   tt.configs,
+				MeshConfig: func() *meshconfig.MeshConfig {
+					m := mesh.DefaultMeshConfig()
+					if tt.disableInboundPassthrough {
+						m.InboundTrafficPolicy.Mode = meshconfig.MeshConfig_InboundTrafficPolicy_LOCALHOST
+					}
+					return m
+				}(),
 			})
 			sim := simulation.NewSimulationFromConfigGen(t, s, s.SetupProxy(tt.proxy))
 

@@ -30,7 +30,7 @@ spec:
           value: istiod.istio-system.svc:15012
         - name: XDS_ADDRESS
           value: istiod.istio-system.svc:15012
-        - name: CLUSTER_ID
+        - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: POD_NAME
           valueFrom:
@@ -52,6 +52,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: ISTIO_META_ENABLE_HBONE
+          value: "true"
         image: gcr.io/istio-testing/ztunnel:latest-distroless
         name: istio-proxy
         ports:

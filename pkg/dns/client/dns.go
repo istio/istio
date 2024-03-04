@@ -149,7 +149,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 	v4, v6 := netutil.ParseIPsSplitToV4V6(dnsConfig.Servers)
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		return nil, fmt.Errorf("dns address must be a valid host:port")
+		return nil, fmt.Errorf("dns address must be a valid host:port: %v", err)
 	}
 	addresses := []string{addr}
 	if host == "localhost" && len(v4)+len(v6) > 0 {
@@ -479,6 +479,9 @@ func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, pr
 	proxyDomainParts []string,
 ) sets.String {
 	out := sets.New[string]()
+	if strings.HasSuffix(hostname, ".") {
+		return out
+	}
 	out.Insert(hostname + ".")
 	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
 	// as we have no way to resolve conflicts on name.namespace entries across clusters of different domains

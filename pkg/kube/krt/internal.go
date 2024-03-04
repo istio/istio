@@ -163,15 +163,23 @@ func getNamespace(a any) string {
 	if ok {
 		return ak.GetNamespace()
 	}
+	pk, ok := any(&a).(Namespacer)
+	if ok {
+		return pk.GetNamespace()
+	}
 	panic(fmt.Sprintf("No Namespace, got %T", a))
 }
 
 // getLabels returns the labels for an object, if possible.
 // Warning: this will panic if the labels is not available.
 func getLabels(a any) map[string]string {
-	al, ok := a.(labeler)
+	al, ok := a.(Labeler)
 	if ok {
 		return al.GetLabels()
+	}
+	pal, ok := any(&a).(Labeler)
+	if ok {
+		return pal.GetLabels()
 	}
 	ak, ok := a.(metav1.Object)
 	if ok {
@@ -222,6 +230,10 @@ func equal[O any](a, b O) bool {
 	ak, ok := any(a).(Equaler[O])
 	if ok {
 		return ak.Equals(b)
+	}
+	pk, ok := any(&a).(Equaler[O])
+	if ok {
+		return pk.Equals(b)
 	}
 	// Future improvement: add a default Kubernetes object implementation
 	// ResourceVersion is tempting but probably not safe. If we are comparing objects from the API server its fine,

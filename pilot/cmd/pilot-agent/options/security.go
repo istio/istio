@@ -20,7 +20,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/log"
@@ -79,14 +78,14 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.Options, jwtPolicy,
 	credFetcherTypeEnv, credIdentityProvider string,
 ) (*security.Options, error) {
-	var jwtPath string
+	jwtPath := constants.ThirdPartyJwtPath
 	switch jwtPolicy {
 	case jwt.PolicyThirdParty:
 		log.Info("JWT policy is third-party-jwt")
-		jwtPath = constants.TrustworthyJWTPath
+		jwtPath = constants.ThirdPartyJwtPath
 	case jwt.PolicyFirstParty:
-		log.Info("JWT policy is first-party-jwt")
-		jwtPath = securityModel.K8sSAJwtFileName
+		log.Warnf("Using deprecated JWT policy 'first-party-jwt'; treating as 'third-party-jwt'")
+		jwtPath = constants.ThirdPartyJwtPath
 	default:
 		log.Info("Using existing certs")
 	}

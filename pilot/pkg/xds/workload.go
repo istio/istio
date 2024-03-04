@@ -25,7 +25,7 @@ import (
 )
 
 type WorkloadGenerator struct {
-	s *DiscoveryServer
+	Server *DiscoveryServer
 }
 
 var (
@@ -51,21 +51,32 @@ func (e WorkloadGenerator) GenerateDeltas(
 		// Nothing changed..
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
+
 	subs := sets.New(w.ResourceNames...)
-	addresses := updatedAddresses
-	// If it is not a wildcard, filter out resources we are not subscribed to
-	if !w.Wildcard {
-		addresses = addresses.Intersection(subs)
+	var addresses sets.String
+	if isReq {
+		// this is from request, we only send response for the subscribed address
+		// At t0, a client request A, we only send A and aditional resources back to the client.
+		// At t1, a client request B, we only send B and aditional resources back to the client, no A here.
+		addresses = req.Delta.Subscribed
+	} else {
+		if w.Wildcard {
+			addresses = updatedAddresses
+		} else {
+			// this is from the external triggers instead of request
+			// send response for all the subscribed intersect with the updated
+			addresses = updatedAddresses.Intersection(subs)
+		}
 	}
-	// Specific requested resource: always include
-	addresses = addresses.Merge(req.Delta.Subscribed)
-	addresses = addresses.Difference(req.Delta.Unsubscribed)
+
 	if !w.Wildcard {
 		// We only need this for on-demand. This allows us to subscribe the client to resources they
 		// didn't explicitly request.
 		// For wildcard, they subscribe to everything already.
-		// TODO: optimize me
-		additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
+		additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
+		if addresses == nil {
+			addresses = sets.New[string]()
+		}
 		addresses.Merge(additional)
 	}
 
@@ -84,7 +95,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
 	resources := make(model.Resources, 0)
-	addrs, removed := e.s.Env.ServiceDiscovery.AddressInformation(addresses)
+	addrs, removed := e.Server.Env.ServiceDiscovery.AddressInformation(addresses)
 	// Note: while "removed" is a weird name for a resource that never existed, this is how the spec works:
 	// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#id2
 	have := sets.New[string]()
@@ -136,7 +147,7 @@ func (e WorkloadGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource
 }
 
 type WorkloadRBACGenerator struct {
-	s *DiscoveryServer
+	Server *DiscoveryServer
 }
 
 func (e WorkloadRBACGenerator) GenerateDeltas(
@@ -167,7 +178,7 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 
-	policies := e.s.Env.ServiceDiscovery.Policies(updatedPolicies)
+	policies := e.Server.Env.ServiceDiscovery.Policies(updatedPolicies)
 
 	resources := make(model.Resources, 0)
 	expected := sets.New[string]()
@@ -183,11 +194,11 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 
 	removed := expected
 	for _, p := range policies {
-		n := p.Namespace + "/" + p.Name
+		n := p.ResourceName()
 		removed.Delete(n) // We found it, so it isn't a removal
 		resources = append(resources, &discovery.Resource{
 			Name:     n,
-			Resource: protoconv.MessageToAny(p),
+			Resource: protoconv.MessageToAny(p.Authorization),
 		})
 	}
 

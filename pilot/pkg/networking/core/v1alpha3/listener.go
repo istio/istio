@@ -156,7 +156,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 
 	switch {
 	case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, validateClient)
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl, []string{}, validateClient)
 	// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
 	case serverTLSSettings.CredentialName != "":
 		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
@@ -170,7 +170,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 			TLSServerRootCert:  serverTLSSettings.CaCertificates,
 		}
 
-		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, validateClient)
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl, []string{}, validateClient)
 	}
 
 	if isSimpleOrMutual(serverTLSSettings.Mode) {
@@ -178,6 +178,9 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
 		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
 	}
+
+	// Compliance for Envoy TLS downstreams.
+	authnmodel.EnforceCompliance(ctx.CommonTlsContext)
 	return ctx
 }
 
@@ -402,7 +405,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				Name:     egressListener.IstioListener.Port.Name,
 			}
 
-			if conflictWithStaticListener(node, bind.Primary(), listenPort.Port, listenPort.Protocol) {
+			if conflictWithReservedListener(node, push, bind.Primary(), listenPort.Port, listenPort.Protocol) {
 				log.Warnf("buildSidecarOutboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
 					egressListener.IstioListener.Port.Number, node.ID)
 				continue
@@ -458,7 +461,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 						continue
 					}
 
-					if conflictWithStaticListener(node, bind.Primary(), servicePort.Port, servicePort.Protocol) {
+					if conflictWithReservedListener(node, push, bind.Primary(), servicePort.Port, servicePort.Protocol) {
 						log.Debugf("buildSidecarOutboundListeners: skipping service port %s:%d for node %s as it conflicts with static listener",
 							service.Hostname, servicePort.Port, node.ID)
 						continue
@@ -476,7 +479,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
 					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
 					// wildcard route match to get to the appropriate IP through original dst clusters.
-					if features.EnableHeadlessService && bind.Primary() == "" && service.Resolution == model.Passthrough &&
+					if bind.Primary() == "" && service.Resolution == model.Passthrough &&
 						saddress == constants.UnspecifiedIP && (servicePort.Protocol.IsTCP() || servicePort.Protocol.IsUnsupported()) {
 						instances := push.ServiceEndpointsByPort(service, servicePort.Port, nil)
 						if service.Attributes.ServiceRegistry != provider.Kubernetes && len(instances) == 0 && service.Attributes.LabelSelectors == nil {
@@ -1358,9 +1361,10 @@ type listenerKey struct {
 	port int
 }
 
-// conflictWithStaticListener checks whether the listener address bind:port conflicts with static listener port
-// default is 15021 and 15090
-func conflictWithStaticListener(proxy *model.Proxy, bind string, port int, protocol protocol.Instance) bool {
+// conflictWithReservedListener checks whether the listener address bind:port conflicts with
+// - static listener port：default is 15021 and 15090
+// - virtual listener port: default is 15001 and 15006 (only need to check for outbound listener)
+func conflictWithReservedListener(proxy *model.Proxy, push *model.PushContext, bind string, port int, protocol protocol.Instance) bool {
 	if bind != "" {
 		if bind != wildCards[proxy.GetIPMode()][0] {
 			return false
@@ -1370,10 +1374,15 @@ func conflictWithStaticListener(proxy *model.Proxy, bind string, port int, proto
 		return false
 	}
 
+	var conflictWithStaticListener, conflictWithVirtualListener bool
+
 	// bind == wildcard
 	// or bind unspecified, but protocol is HTTP
-	if proxy.Metadata == nil {
-		return false
+	if proxy.Metadata != nil {
+		conflictWithStaticListener = proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port
 	}
-	return proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port
+	if push != nil {
+		conflictWithVirtualListener = int(push.Mesh.ProxyListenPort) == port || int(push.Mesh.ProxyInboundListenPort) == port
+	}
+	return conflictWithStaticListener || conflictWithVirtualListener
 }

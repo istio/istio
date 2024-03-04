@@ -72,42 +72,75 @@ func TestProxyTracingOpenCensusMeshConfig(t *testing.T) {
 //go:embed testdata/otel-tracing.yaml
 var otelTracingCfg string
 
+//go:embed testdata/otel-tracing-http.yaml
+var otelTracingHTTPCfg string
+
+//go:embed testdata/otel-tracing-res-detectors.yaml
+var otelTracingResDetectorsCfg string
+
 // TestProxyTracingOpenTelemetryProvider validates that Telemetry API configuration
 // referencing an OpenTelemetry provider will generate traces appropriately.
 // NOTE: This test relies on the priority of Telemetry API over MeshConfig tracing
 // configuration. In the future, these two approaches should likely be separated
 // into two distinct test suites.
 func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
+	testcases := []struct {
+		name            string
+		customAttribute string
+		cfgFile         string
+	}{
+		{
+			name:            "grpc exporter",
+			customAttribute: "provider=otel",
+			cfgFile:         otelTracingCfg,
+		},
+		{
+			name:            "http exporter",
+			customAttribute: "provider=otel-http",
+			cfgFile:         otelTracingHTTPCfg,
+		},
+		{
+			name:            "resource detectors",
+			customAttribute: "provider=otel-grpc-with-res-detectors",
+			cfgFile:         otelTracingResDetectorsCfg,
+		},
+	}
+
 	framework.NewTest(t).
 		Features("observability.telemetry.tracing.server").
-		Run(func(t framework.TestContext) {
+		Run(func(ctx framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
 
-			// apply Telemetry resource with OTel provider
-			t.ConfigIstio().YAML(appNsInst.Name(), otelTracingCfg).ApplyOrFail(t)
+			for _, tc := range testcases {
+				ctx.NewSubTest(tc.name).
+					Run(func(ctx framework.TestContext) {
+						// apply Telemetry resource with OTel provider
+						ctx.ConfigIstio().YAML(appNsInst.Name(), tc.cfgFile).ApplyOrFail(ctx)
 
-			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
-			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
-				cluster := cluster
-				t.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
-					retry.UntilSuccessOrFail(ctx, func() error {
-						err := tracing.SendTraffic(ctx, nil, cluster)
-						if err != nil {
-							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
-						}
+						// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
+						for _, cluster := range ctx.Clusters().ByNetwork()[ctx.Clusters().Default().NetworkName()] {
+							cluster := cluster
+							ctx.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
+								retry.UntilSuccessOrFail(ctx, func() error {
+									err := tracing.SendTraffic(ctx, nil, cluster)
+									if err != nil {
+										return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
+									}
 
-						// the OTel collector exports to Zipkin
-						traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", "provider=otel")
-						t.Logf("got traces %v from %s", traces, cluster)
-						if err != nil {
-							return fmt.Errorf("cannot get traces from zipkin: %v", err)
+									// the OTel collector exports to Zipkin
+									traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", tc.customAttribute)
+									t.Logf("got traces %v from %s", traces, cluster)
+									if err != nil {
+										return fmt.Errorf("cannot get traces from zipkin: %v", err)
+									}
+									if !tracing.VerifyOtelEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
+										return errors.New("cannot find expected traces")
+									}
+									return nil
+								}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+							})
 						}
-						if !tracing.VerifyOtelEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
-							return errors.New("cannot find expected traces")
-						}
-						return nil
-					}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
-				})
+					})
 			}
 		})
 }
@@ -139,13 +172,30 @@ meshConfig:
     opentelemetry:
       service: opentelemetry-collector.istio-system.svc.cluster.local
       port: 4317
+  - name: test-otel-http
+    opentelemetry:
+      service: opentelemetry-collector.istio-system.svc.cluster.local
+      port: 4318
+      http:
+        path: "v1/traces"
+        timeout: 10s
+        headers:
+          - name: "some-header"
+            value: "some-value"
+  - name: test-otel-res-detectors
+    opentelemetry:
+      service: opentelemetry-collector.istio-system.svc.cluster.local
+      port: 4317
+      resource_detectors:
+        environment: {}
+        dynatrace: {}
 `
 	cfg.Values["pilot.traceSampling"] = "100.0"
 	cfg.Values["global.proxy.tracer"] = "openCensusAgent"
 }
 
 func testSetup(ctx resource.Context) (err error) {
-	addr, _ := tracing.GetIngressInstance().HTTPAddress()
-	_, err = opentelemetry.New(ctx, opentelemetry.Config{IngressAddr: addr})
+	addrs, _ := tracing.GetIngressInstance().HTTPAddresses()
+	_, err = opentelemetry.New(ctx, opentelemetry.Config{IngressAddr: addrs[0]})
 	return
 }

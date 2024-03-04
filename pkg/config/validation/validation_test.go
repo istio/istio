@@ -1584,6 +1584,16 @@ func TestValidateTlsOptions(t *testing.T) {
 			"", "PASSTHROUGH mode does not use certificates",
 		},
 		{
+			"pass through sds crl",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_PASSTHROUGH,
+				ServerCertificate: "",
+				CaCertificates:    "",
+				CaCrl:             "scrl",
+			},
+			"", "PASSTHROUGH mode does not use certificates",
+		},
+		{
 			"istio_mutual no certs",
 			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
@@ -1670,6 +1680,23 @@ func TestValidateTlsOptions(t *testing.T) {
 				CipherSuites: []string{"not-a-cipher-suite"},
 			},
 			"requires a private key", "not-a-cipher-suite",
+		},
+		{
+			"crl specified for SIMPLE TLS",
+			&networking.ServerTLSSettings{
+				Mode:  networking.ServerTLSSettings_SIMPLE,
+				CaCrl: "crl",
+			},
+			"CRL is not supported with SIMPLE TLS", "",
+		},
+		{
+			"crl specified for CredentialName",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CaCrl:          "crl",
+				CredentialName: "credential",
+			},
+			"", "",
 		},
 	}
 	for _, tt := range tests {
@@ -4024,6 +4051,7 @@ func TestValidateConnectionPool(t *testing.T) {
 					MaxRequestsPerConnection: 5,
 					MaxRetries:               4,
 					IdleTimeout:              &durationpb.Duration{Seconds: 30},
+					MaxConcurrentStreams:     5,
 				},
 			},
 			valid: true,
@@ -4047,6 +4075,7 @@ func TestValidateConnectionPool(t *testing.T) {
 					MaxRequestsPerConnection: 5,
 					MaxRetries:               4,
 					IdleTimeout:              &durationpb.Duration{Seconds: 30},
+					MaxConcurrentStreams:     5,
 				},
 			},
 			valid: true,
@@ -4059,6 +4088,7 @@ func TestValidateConnectionPool(t *testing.T) {
 					Http2MaxRequests:         11,
 					MaxRequestsPerConnection: 5,
 					MaxRetries:               4,
+					MaxConcurrentStreams:     5,
 				},
 			},
 			valid: true,
@@ -4113,6 +4143,13 @@ func TestValidateConnectionPool(t *testing.T) {
 		{
 			name: "invalid connection pool, bad idle timeout", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &durationpb.Duration{Seconds: 30, Nanos: 5}},
+			},
+			valid: false,
+		},
+
+		{
+			name: "invalid connection pool, bad max concurrent streams", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxConcurrentStreams: -1},
 			},
 			valid: false,
 		},
@@ -5118,7 +5155,8 @@ func TestValidateServiceEntries(t *testing.T) {
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 			},
-			valid: true,
+			valid:   true,
+			warning: true,
 		},
 		{
 			name: "workload selector without labels",
@@ -5144,7 +5182,32 @@ func TestValidateServiceEntries(t *testing.T) {
 					{Address: "1.1.1.1"},
 				},
 			},
-			valid: false,
+			valid:   false,
+			warning: true,
+		},
+		{
+			name: "selector and resolution NONE", in: &networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "selector and resolution DNS", in: &networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DNS,
+			},
+			valid:   true,
+			warning: true,
 		},
 		{
 			name: "bad selector key", in: &networking.ServiceEntry{
@@ -5158,9 +5221,8 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 		{
 			name: "repeat target port", in: &networking.ServiceEntry{
-				Hosts:            []string{"google.com"},
-				Resolution:       networking.ServiceEntry_DNS,
-				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Hosts:      []string{"google.com"},
+				Resolution: networking.ServiceEntry_DNS,
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 80},
 					{Number: 81, Protocol: "http", Name: "http-valid2", TargetPort: 80},
@@ -5170,9 +5232,8 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 		{
 			name: "valid target port", in: &networking.ServiceEntry{
-				Hosts:            []string{"google.com"},
-				Resolution:       networking.ServiceEntry_DNS,
-				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Hosts:      []string{"google.com"},
+				Resolution: networking.ServiceEntry_DNS,
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
 				},
@@ -5181,9 +5242,8 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 		{
 			name: "invalid target port", in: &networking.ServiceEntry{
-				Hosts:            []string{"google.com"},
-				Resolution:       networking.ServiceEntry_DNS,
-				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Hosts:      []string{"google.com"},
+				Resolution: networking.ServiceEntry_DNS,
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 65536},
 				},

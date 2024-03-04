@@ -46,9 +46,11 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/platform"
 	"istio.io/istio/pkg/slices"
@@ -105,7 +107,7 @@ type Webhook struct {
 	Config       *Config
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig ValuesConfig
-	namespaces   kclient.Client[*corev1.Namespace]
+	namespaces   *multicluster.KclientComponent[*corev1.Namespace]
 
 	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
 	watcher   Watcher
@@ -187,6 +189,8 @@ type WebhookParameters struct {
 	Revision string
 
 	KubeClient kube.Client
+
+	MultiCluster multicluster.ComponentBuilder
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -204,7 +208,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 
 	if p.KubeClient != nil {
 		if platform.IsOpenShift() {
-			wh.namespaces = kclient.New[*corev1.Namespace](p.KubeClient)
+			wh.namespaces = multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](p.MultiCluster, kubetypes.Filter{})
 		}
 	}
 
@@ -234,14 +238,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
 	go wh.watcher.Run(stop)
-}
-
-func (wh *Webhook) HasSynced() bool {
-	if wh.namespaces != nil {
-		return wh.namespaces.HasSynced()
-	}
-
-	return true
 }
 
 func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) error {
@@ -1065,15 +1061,9 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	proxyConfig := wh.env.GetProxyConfigOrDefault(pod.Namespace, pod.Labels, pod.Annotations, wh.meshConfig)
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
 
-	var podNamespace *corev1.Namespace
-	if wh.namespaces != nil {
-		podNamespace = wh.namespaces.Get(pod.Namespace, "")
-	}
-
 	params := InjectionParameters{
 		pod:                 &pod,
 		deployMeta:          deploy,
-		namespace:           podNamespace,
 		typeMeta:            typeMeta,
 		templates:           wh.Config.Templates,
 		defaultTemplate:     wh.Config.DefaultTemplates,
@@ -1084,6 +1074,15 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
+	}
+	clusterID, _ := extractClusterAndNetwork(params)
+	if wh.namespaces != nil {
+		client := wh.namespaces.ForCluster(cluster.ID(clusterID))
+		if client != nil {
+			params.namespace = client.Get(pod.Namespace, "")
+		} else {
+			log.Warnf("unable to fetch namespace, failed to get client for %q", clusterID)
+		}
 	}
 	wh.mu.RUnlock()
 

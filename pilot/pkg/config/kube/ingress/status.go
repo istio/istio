@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	istiolabels "istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
@@ -56,16 +55,16 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 }
 
 // NewStatusSyncer creates a new instance
-func NewStatusSyncer(meshHolder mesh.Watcher, kc kubelib.Client, options kubecontroller.Options) *StatusSyncer {
+func NewStatusSyncer(meshHolder mesh.Watcher, kc kubelib.Client) *StatusSyncer {
 	c := &StatusSyncer{
 		meshConfig:     meshHolder,
-		ingresses:      kclient.NewFiltered[*knetworking.Ingress](kc, kclient.Filter{ObjectFilter: options.GetFilter()}),
+		ingresses:      kclient.NewFiltered[*knetworking.Ingress](kc, kclient.Filter{ObjectFilter: kc.ObjectFilter()}),
 		ingressClasses: kclient.New[*knetworking.IngressClass](kc),
 		pods: kclient.NewFiltered[*corev1.Pod](kc, kclient.Filter{
-			ObjectFilter:    options.GetFilter(),
+			ObjectFilter:    kc.ObjectFilter(),
 			ObjectTransform: kubelib.StripPodUnusedFields,
 		}),
-		services: kclient.NewFiltered[*corev1.Service](kc, kclient.Filter{ObjectFilter: options.GetFilter()}),
+		services: kclient.NewFiltered[*corev1.Service](kc, kclient.Filter{ObjectFilter: kc.ObjectFilter()}),
 		nodes: kclient.NewFiltered[*corev1.Node](kc, kclient.Filter{
 			ObjectTransform: kubelib.StripNodeUnusedFields,
 		}),

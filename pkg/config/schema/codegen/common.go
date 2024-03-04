@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -36,9 +37,18 @@ func Run() error {
 	}
 
 	// Include synthetic types used for XDS pushes
-	kindEntries := append([]colEntry{{
-		Resource: &ast.Resource{Identifier: "Address", Kind: "Address", Version: "internal", Group: "internal"},
-	}}, inp.Entries...)
+	kindEntries := append([]colEntry{
+		{
+			Resource: &ast.Resource{Identifier: "Address", Kind: "Address", Version: "internal", Group: "internal"},
+		},
+		{
+			Resource: &ast.Resource{Identifier: "DNSName", Kind: "DNSName", Version: "internal", Group: "internal"},
+		},
+	}, inp.Entries...)
+
+	sort.Slice(kindEntries, func(i, j int) bool {
+		return strings.Compare(kindEntries[i].Resource.Identifier, kindEntries[j].Resource.Identifier) < 0
+	})
 
 	// filter to only types agent needs (to keep binary small)
 	agentEntries := []colEntry{}

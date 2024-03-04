@@ -24,9 +24,11 @@ import (
 
 	"github.com/miekg/dns"
 	"go.uber.org/atomic"
+	"google.golang.org/protobuf/proto"
 
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestDNSForwardParallel(t *testing.T) {
@@ -37,6 +39,90 @@ func TestDNSForwardParallel(t *testing.T) {
 func TestDNS(t *testing.T) {
 	d := initDNS(t, false)
 	testDNS(t, d)
+}
+
+func TestBuildAlternateHosts(t *testing.T) {
+	// Create the server instance without starting it, as it's unnecessary for this test
+	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Fill the DNS table with test data
+	fillTable(d)
+
+	testCases := []struct {
+		startsWith string
+		expected   sets.Set[string]
+	}{
+		{
+			startsWith: "www.google.com",
+			expected:   sets.New("www.google.com", "www.google.com."),
+		},
+		{
+			startsWith: "example",
+			expected:   sets.New("example.ns2.", "example.ns2.svc.", "example.localhost.", "example.ns2.svc.cluster.local.", "example.ns2.svc.cluster.local"),
+		},
+		{
+			startsWith: "details",
+			expected:   sets.New("details.ns2.svc.cluster.remote", "details.ns2.svc.cluster.remote."),
+		},
+		{
+			startsWith: "productpage",
+			expected: sets.New(
+				"productpage.ns1.svc.cluster.local.", "productpage.", "productpage.ns1.svc.cluster.local", "productpage.ns1.", "productpage.ns1.svc.",
+			),
+		},
+		{
+			startsWith: "svc-with-alt",
+			expected: sets.New(
+				"svc-with-alt.",
+				"svc-with-alt.ns1.",
+				"svc-with-alt.ns1.svc.",
+				"svc-with-alt.ns1.svc.clusterset.local.",
+				"svc-with-alt.ns1.svc.cluster.local.",
+				"svc-with-alt.ns1.svc.cluster.local",
+			),
+		},
+		{
+			startsWith: "*.wildcard",
+			expected:   sets.New("*.wildcard", "*.wildcard."),
+		},
+		{
+			startsWith: "example.localhost.",
+			expected:   sets.New("example.localhost."),
+		},
+	}
+
+	nt := d.NameTable()
+	nt = proto.Clone(nt).(*dnsProto.NameTable)
+	d.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, _ []string) {
+		for host := range althosts {
+			if _, exists := nt.Table[host]; !exists {
+				addresses := make([]string, 0, len(ipv4)+len(ipv6))
+				for _, addr := range ipv4 {
+					addresses = append(addresses, addr.String())
+				}
+				for _, addr := range ipv6 {
+					addresses = append(addresses, addr.String())
+				}
+				nt.Table[host] = &dnsProto.NameTable_NameInfo{
+					Ips:      addresses,
+					Registry: "Kubernetes",
+				}
+			}
+		}
+	})
+	for _, tc := range testCases {
+		matched := sets.New[string]()
+		for key := range nt.Table {
+			if strings.HasPrefix(key, tc.startsWith) {
+				matched.Insert(key)
+			}
+		}
+		if !matched.Equals(tc.expected) {
+			t.Errorf("expected records %v, got: %v", tc.expected, matched)
+		}
+	}
 }
 
 func testDNS(t *testing.T, d *LocalDNSServer) {
@@ -509,8 +595,14 @@ func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 	}
 	testAgentDNS.resolvConfServers = []string{srv}
 	testAgentDNS.StartDNS()
-	testAgentDNS.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
-	testAgentDNS.UpdateLookupTable(&dnsProto.NameTable{
+	fillTable(testAgentDNS)
+	t.Cleanup(testAgentDNS.Close)
+	return testAgentDNS
+}
+
+func fillTable(server *LocalDNSServer) {
+	server.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+	server.UpdateLookupTable(&dnsProto.NameTable{
 		Table: map[string]*dnsProto.NameTable_NameInfo{
 			"www.google.com": {
 				Ips:      []string{"1.1.1.1"},
@@ -573,8 +665,6 @@ func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 			},
 		},
 	})
-	t.Cleanup(testAgentDNS.Close)
-	return testAgentDNS
 }
 
 // reflect.DeepEqual doesn't seem to work well for dns.RR

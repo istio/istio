@@ -34,14 +34,18 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -63,7 +67,9 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
@@ -71,6 +77,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
+	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/server/ca/authenticate/kubeauth"
 )
@@ -135,8 +142,9 @@ type Server struct {
 	cacertsWatcher *fsnotify.Watcher
 	dnsNames       []string
 
-	CA *ca.IstioCA
-	RA ra.RegistrationAuthority
+	CA       *ca.IstioCA
+	RA       ra.RegistrationAuthority
+	caServer *caserver.Server
 
 	// TrustAnchors for workload to workload mTLS
 	workloadTrustBundle     *tb.TrustBundle
@@ -238,6 +246,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.RegistryOptions.KubeOptions.ClusterAliases)
+	configGen := v1alpha3.NewConfigGenerator(s.XDSServer.Cache)
 
 	grpcprom.EnableHandlingTimeHistogram()
 
@@ -259,9 +268,17 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	s.initMeshConfiguration(args, s.fileWatcher)
 	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
+	// Setup Kubernetes watch filters
+	// Because this relies on meshconfig, it needs to be outside initKubeClient
+	if s.kubeClient != nil {
+		// Build a namespace watcher. This must have no filter, since this is our input to the filter itself.
+		namespaces := kclient.New[*corev1.Namespace](s.kubeClient)
+		filter := namespace.NewDiscoveryNamespacesFilter(namespaces, s.environment.Watcher, s.internalStop)
+		s.kubeClient = kubelib.SetObjectFilter(s.kubeClient, filter)
+	}
 
 	s.initMeshNetworks(args, s.fileWatcher)
-	s.initMeshHandlers()
+	s.initMeshHandlers(configGen.MeshConfigChanged)
 	s.environment.Init()
 	if err := s.environment.InitNetworksManager(s.XDSServer); err != nil {
 		return nil, err
@@ -271,7 +288,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	caOpts := &caOptions{
 		TrustDomain:      s.environment.Mesh().TrustDomain,
 		Namespace:        args.Namespace,
-		DiscoveryFilter:  args.RegistryOptions.KubeOptions.GetFilter(),
 		ExternalCAType:   ra.CaExternalType(externalCaType),
 		CertSignerDomain: features.CertSignerDomain,
 	}
@@ -289,7 +305,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, err
 	}
 
-	s.XDSServer.InitGenerators(e, args.Namespace, s.clusterID, s.internalDebugMux)
+	InitGenerators(s.XDSServer, configGen, args.Namespace, s.clusterID, s.internalDebugMux)
 
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
@@ -353,7 +369,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// so we build it later.
 	if s.kubeClient != nil {
 		authenticators = append(authenticators,
-			kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
+			kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient))
 	}
 	if len(features.TrustedGatewayCIDR) > 0 {
 		authenticators = append(authenticators, &authenticate.XfccAuthenticator{})
@@ -490,7 +506,7 @@ func (s *Server) initSDSServer() {
 		// Make sure we have security
 		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 	} else {
-		creds := kubecredentials.NewMulticluster(s.clusterID)
+		creds := kubecredentials.NewMulticluster(s.clusterID, s.multiclusterController)
 		creds.AddSecretHandler(func(name string, namespace string) {
 			s.XDSServer.ConfigUpdate(&model.PushRequest{
 				Full:           false,
@@ -499,7 +515,6 @@ func (s *Server) initSDSServer() {
 				Reason: model.NewReasonStats(model.SecretTrigger),
 			})
 		})
-		s.multiclusterController.AddHandler(creds)
 		s.environment.CredentialsController = creds
 	}
 }
@@ -752,6 +767,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		MinVersion:   tls.VersionTLS12,
 		CipherSuites: args.ServerOptions.TLSOptions.CipherSuits,
 	}
+	// Compliance for xDS server TLS.
+	sec_model.EnforceGoCompliance(cfg)
 
 	tlsCreds := credentials.NewTLS(cfg)
 
@@ -834,9 +851,6 @@ func (s *Server) cachesSynced() bool {
 		return false
 	}
 	if !s.configController.HasSynced() {
-		return false
-	}
-	if s.webhookInfo.wh != nil && !s.webhookInfo.wh.HasSynced() {
 		return false
 	}
 	return true
@@ -947,7 +961,6 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 			KeyFile:    tlsKeyPath,
 			CertFile:   tlsCertPath,
 		})
-
 		if err != nil {
 			// Not crashing istiod - This typically happens if certs are missing and in tests.
 			log.Errorf("error initializing certificate watches: %v", err)
@@ -1099,10 +1112,6 @@ func (s *Server) initControllers(args *PilotArgs) error {
 
 	s.initSDSServer()
 
-	if features.EnableEnhancedResourceScoping {
-		// setup namespace filter
-		args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter = s.multiclusterController.DiscoveryNamespacesFilter
-	}
 	if err := s.initConfigController(args); err != nil {
 		return fmt.Errorf("error initializing config controller: %v", err)
 	}
@@ -1177,30 +1186,32 @@ func (s *Server) startCA(caOpts *caOptions) {
 	if s.CA == nil && s.RA == nil {
 		return
 	}
+	// init the RA server if configured, else start init CA server
+	if s.RA != nil {
+		log.Infof("initializing CA server with RA")
+		s.initCAServer(s.RA, caOpts)
+	} else if s.CA != nil {
+		log.Infof("initializing CA server with IstioD CA")
+		s.initCAServer(s.CA, caOpts)
+	}
 	s.addStartFunc("ca", func(stop <-chan struct{}) error {
 		grpcServer := s.secureGrpcServer
 		if s.secureGrpcServer == nil {
 			grpcServer = s.grpcServer
 		}
-		// Start the RA server if configured, else start the CA server
-		if s.RA != nil {
-			log.Infof("Starting RA")
-			s.RunCA(grpcServer, s.RA, caOpts)
-		} else if s.CA != nil {
-			log.Infof("Starting IstioD CA")
-			s.RunCA(grpcServer, s.CA, caOpts)
-		}
+		log.Infof("starting CA server")
+		s.RunCA(grpcServer)
 		return nil
 	})
 }
 
 // initMeshHandlers initializes mesh and network handlers.
-func (s *Server) initMeshHandlers() {
+func (s *Server) initMeshHandlers(changeHandler func(_ *meshconfig.MeshConfig)) {
 	log.Info("initializing mesh handlers")
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
 		spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
-		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
+		changeHandler(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: model.NewReasonStats(model.GlobalUpdate),

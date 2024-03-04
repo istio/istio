@@ -32,6 +32,23 @@ func Equal[E comparable](s1, s2 []E) bool {
 	return slices.Equal(s1, s2)
 }
 
+// EqualUnordered reports whether two slices are equal, ignoring order
+func EqualUnordered[E comparable](s1, s2 []E) bool {
+	if len(s1) != len(s2) {
+		return false
+	}
+	first := make(map[E]struct{}, len(s1))
+	for _, c := range s1 {
+		first[c] = struct{}{}
+	}
+	for _, c := range s2 {
+		if _, f := first[c]; !f {
+			return false
+		}
+	}
+	return true
+}
+
 // EqualFunc reports whether two slices are equal using a comparison
 // function on each pair of elements. If the lengths are different,
 // EqualFunc returns false. Otherwise, the elements are compared in
@@ -101,6 +118,14 @@ func FindFunc[E any](s []E, f func(E) bool) *E {
 		return nil
 	}
 	return &s[idx]
+}
+
+// First returns the first item in the slice, if there is one
+func First[E any](s []E) *E {
+	if len(s) == 0 {
+		return nil
+	}
+	return &s[0]
 }
 
 // Reverse returns its argument array reversed
@@ -189,6 +214,9 @@ func Dereference[E any](s []*E) []E {
 
 // Flatten merges a slice of slices into a single slice.
 func Flatten[E any](s [][]E) []E {
+	if s == nil {
+		return nil
+	}
 	res := make([]E, 0)
 	for _, v := range s {
 		res = append(res, v...)

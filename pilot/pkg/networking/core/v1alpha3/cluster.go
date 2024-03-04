@@ -250,7 +250,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	}
 
 	// OutboundTunnel cluster is needed for sidecar and gateway.
-	if proxy.EnableHBONE() {
+	if proxy.EnableHBONE() && proxy.Type != model.Waypoint {
 		clusters = append(clusters, cb.buildConnectOriginate(proxy, req.Push, nil))
 	}
 
@@ -492,7 +492,7 @@ func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.P
 	}
 
 	bind := actualLocalHosts[0]
-	if features.EnableInboundPassthrough {
+	if cb.req.Push.Mesh.GetInboundTrafficPolicy().GetMode() == meshconfig.MeshConfig_InboundTrafficPolicy_PASSTHROUGH {
 		bind = ""
 	}
 	// For each workload port, we will construct a cluster

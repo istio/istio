@@ -53,9 +53,9 @@ func TestWorkloadEntryGateway(t *testing.T) {
 				if _, ok := gatewayAddresses[cluster.NetworkName()]; ok {
 					continue
 				}
-				ip, port := i.EastWestGatewayFor(cluster).AddressForPort(15443)
-				if ip != "" {
-					gatewayAddresses[cluster.NetworkName()] = gwAddr{ip, port}
+				ips, ports := i.EastWestGatewayFor(cluster).AddressesForPort(15443)
+				if ips != nil {
+					gatewayAddresses[cluster.NetworkName()] = gwAddr{ips[0], ports[0]}
 				}
 			}
 			if len(t.Clusters().Networks()) != len(gatewayAddresses) {

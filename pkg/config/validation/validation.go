@@ -625,7 +625,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_PASSTHROUGH || tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
-		if tls.ServerCertificate != "" || tls.PrivateKey != "" || tls.CaCertificates != "" || tls.CredentialName != "" {
+		if tls.CaCrl != "" || tls.ServerCertificate != "" || tls.PrivateKey != "" || tls.CaCertificates != "" || tls.CredentialName != "" {
 			// Warn for backwards compatibility
 			v = appendWarningf(v, "%v mode does not use certificates, they will be ignored", tls.Mode)
 		}
@@ -653,6 +653,14 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		}
 		if tls.CaCertificates == "" {
 			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
+		}
+	}
+	if tls.CaCrl != "" {
+		if tls.CredentialName != "" {
+			v = appendValidation(v, fmt.Errorf("CRL is not supported with credentialName. CRL has to be specified in the credential"))
+		}
+		if tls.Mode == networking.ServerTLSSettings_SIMPLE {
+			v = appendValidation(v, fmt.Errorf("CRL is not supported with SIMPLE TLS"))
 		}
 	}
 	return
@@ -1458,6 +1466,9 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		}
 		if httpSettings.H2UpgradePolicy == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE && httpSettings.UseClientProtocol {
 			errs = appendErrors(errs, fmt.Errorf("use client protocol must not be true when H2UpgradePolicy is UPGRADE"))
+		}
+		if httpSettings.MaxConcurrentStreams < 0 {
+			errs = appendErrors(errs, fmt.Errorf("max concurrent streams must be non-negative"))
 		}
 	}
 
@@ -3519,6 +3530,9 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			if len(serviceEntry.Endpoints) != 0 {
 				errs = appendValidation(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 			}
+			if serviceEntry.WorkloadSelector != nil {
+				errs = appendWarningf(errs, "workloadSelector should not be set when resolution mode is NONE")
+			}
 		case networking.ServiceEntry_STATIC:
 			for _, endpoint := range serviceEntry.Endpoints {
 				if endpoint == nil {
@@ -3563,6 +3577,11 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 						ValidatePort(int(port)))
 				}
 			}
+
+			if serviceEntry.WorkloadSelector != nil {
+				errs = appendWarningf(errs, "workloadSelector should not be set when resolution mode is %v", serviceEntry.Resolution)
+			}
+
 			if len(serviceEntry.Addresses) > 0 {
 				for _, port := range serviceEntry.Ports {
 					if port == nil {
