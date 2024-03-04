@@ -939,11 +939,11 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 }
 
 func canMergeServices(s1, s2 *Service) bool {
+	// Hostname has been compared in the caller `appendSidecarServices`, so we donot need to compare again.
+
 	if s1.Attributes.Namespace != s2.Attributes.Namespace {
 		return false
 	}
-
-	// Hostname has been compared
 
 	if s1.Resolution != s2.Resolution {
 		return false
