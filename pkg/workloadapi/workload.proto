@@ -154,11 +154,12 @@ message Workload {
   // WorkloadName represents the name for the workload (of type WorkloadType). Used for telemetry.
   string workload_name = 13;
 
+  // Deprecated: superseded by native_tunnel.
+  // If set, it's equivilant to using native_tunnel with HBONE protocol.
+  bool is_native_tunnel = 14;
+
   // If set, this indicates a workload expects to directly receive tunnel traffic.
-  // In ztunnel, this means:
-  // * Requests *from* this workload do not need to be tunneled if they already are tunneled by the tunnel_protocol.
-  // * Requests *to* this workload, via the tunnel_protocol, do not need to be de-tunneled.
-  bool native_tunnel = 14;
+  NativeTunnel native_tunnel = 23;
 
   // The services for which this workload is an endpoint.
   // The key is the NamespacedHostname string of the format namespace/hostname.
@@ -213,6 +214,33 @@ enum TunnelProtocol {
   // This does not dictate HTTP/1.1 vs HTTP/2; ALPN should be used for that purpose.
   HBONE = 1;
   // Future options may include things like QUIC/HTTP3, etc.
+}
+
+// NativeTunnel describes how an application or gateway
+// can consume tunnel information directly.
+message NativeTunnel {
+  // A target natively handles this type of traffic.  
+  GatewayProtocol protocol;
+  // optional: if set, traffic should be sent to this port after the last zTunnel hop
+  uint32 port;
+}
+
+enum GatewayProtocol {
+  // Bytes are just copied directly.
+  NONE = 1;
+
+  // The workload nativley supports HBONE
+  // For the zTunnel, this means:
+  // * Requests *from* this workload do not need to be tunneled if they already are tunneled by the tunnel_protocol.
+  // * Requests *to* this workload, via the tunnel_protocol, do not need to be de-tunneled.
+  HBONE = 2;
+
+  // Prepend PROXY protocol headers before copying bytes
+  // Standard PROXY source and destination information
+  // is included, along with potential extra TLV headers:
+  // 0xD0 - The SPIFFE identity of the source workload
+  // 0xD1 - The FQDN or Hostname of the targeted Service
+  PROXY = 3;
 }
 
 // GatewayAddress represents the address of a gateway
