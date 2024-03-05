@@ -745,7 +745,7 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl experimental envoy-stats <pod-name[.namespace]> --output prom
 
   # Retrieve Envoy server metrics in prometheus format with custom proxy admin port
-  istioctl experimental envoy-stats <pod-name[.namespace]> --output prom --proxy-admin-port 19001
+  istioctl experimental envoy-stats <pod-name[.namespace]> --output prom --proxy-admin-port 15000
 
   # Retrieve Envoy server metrics in prometheus format with merged application metrics
   istioctl experimental envoy-stats <pod-name[.namespace]> --output prom-merged
