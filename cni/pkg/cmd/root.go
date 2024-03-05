@@ -90,7 +90,7 @@ var rootCmd = &cobra.Command{
 			// node agent will spawn a goroutine and watch the K8S API for events,
 			// as well as listen for messages from the CNI binary.
 			log.Info("Starting ambient node agent with inpod redirect mode")
-			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cfg.InstallConfig.CNIEventAddress,
+			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cfg.InstallConfig.CNIEventAddress, cfg.InstallConfig.AmbientBlockPorts,
 				nodeagent.AmbientArgs{
 					SystemNamespace: nodeagent.PodNamespace,
 					Revision:        nodeagent.Revision,
@@ -262,6 +262,7 @@ func constructConfig() (*config.Config, error) {
 
 		AmbientEnabled:    viper.GetBool(constants.AmbientEnabled),
 		AmbientDNSCapture: viper.GetBool(constants.AmbientDNSCapture),
+		AmbientBlockPorts: viper.GetBool(constants.AmbientBlockPorts),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {

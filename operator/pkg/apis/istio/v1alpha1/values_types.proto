@@ -151,6 +151,9 @@ message CNIAmbientConfig {
 
   // If enabled, and ambient is enabled, DNS redirection will be enabled.
   google.protobuf.BoolValue dnsCapture = 5;
+  // If ztunnel binds to its ports, block the ports from being used by other processes in the pod.
+  google.protobuf.BoolValue blockPorts = 6;
+  
 }
 
 message CNIRepairConfig {
