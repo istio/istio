@@ -83,20 +83,20 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 	filter := filter.NewDiscoveryNamespacesFilter(namespaces, mesh, c.stop)
 	kube.SetObjectFilter(c.Client, filter)
 
+	syncers := make([]ComponentConstraint, 0, len(handlers))
 	for _, h := range handlers {
 		switch action {
 		case Add:
-			h.clusterAdded(c)
+			syncers = append(syncers, h.clusterAdded(c))
 		case Update:
-			h.clusterUpdated(c)
+			syncers = append(syncers, h.clusterUpdated(c))
 		}
 	}
 	if !c.Client.RunAndWait(c.stop) {
 		log.Warnf("remote cluster %s failed to sync", c.ID)
 		return
 	}
-	for _, h := range handlers {
-		// TODO: we may only need to check this cluster's cache
+	for _, h := range syncers {
 		if !kube.WaitForCacheSync("cluster"+string(c.ID), c.stop, h.HasSynced) {
 			log.Warnf("remote cluster %s failed to sync handler", c.ID)
 			return
