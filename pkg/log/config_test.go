@@ -377,7 +377,7 @@ func TestCapture(t *testing.T) {
 		timePattern + "\tinfo\tlog/config_test.go:.*\tzap-info",
 		timePattern + "\tdebug\tlog/config_test.go:.*\tzap-debug",
 		timePattern + "\terror\tlog/config_test.go:.*\tzap-with",
-		timePattern + "\terror\tzap-write",
+		"error\tzap-write",
 		"",
 	}
 

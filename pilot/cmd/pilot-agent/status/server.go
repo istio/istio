@@ -593,7 +593,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 }
 
 const (
+	// nolint: revive
 	FmtOpenMetrics_0_0_1 = expfmt.OpenMetricsType + `; version=` + expfmt.OpenMetricsVersion_0_0_1 + `; charset=utf-8`
+	// nolint: revive
 	FmtOpenMetrics_1_0_0 = expfmt.OpenMetricsType + `; version=` + expfmt.OpenMetricsVersion_1_0_0 + `; charset=utf-8`
 	FmtText              = `text/plain; version=` + expfmt.TextVersion + `; charset=utf-8`
 )
