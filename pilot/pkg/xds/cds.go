@@ -38,6 +38,7 @@ var skippedCdsConfigs = sets.New[kind.Kind](
 	kind.Telemetry,
 	kind.WasmPlugin,
 	kind.ProxyConfig,
+	kind.DNSName,
 )
 
 // Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
