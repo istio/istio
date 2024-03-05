@@ -748,7 +748,7 @@ func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter config.Interce
 
 func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, commands [][]string) error {
 	for _, cmd := range commands {
-		if err := cfg.ext.Run(constants.IpTables, iptVer, nil, cmd[1:]...); err != nil {
+		if err := cfg.ext.Run(constants.IpTables, iptVer, nil, cmd...); err != nil {
 			return err
 		}
 	}

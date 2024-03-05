@@ -15,6 +15,7 @@
 package capture
 
 import (
+	"io"
 	"net/netip"
 	"path/filepath"
 	"reflect"
@@ -38,7 +39,7 @@ func constructTestConfig() *config.Config {
 		InboundTProxyRouteTable: "133",
 		OwnerGroupsInclude:      constants.OwnerGroupsInclude.DefaultValue,
 		HostIPv4LoopbackCidr:    constants.HostIPv4LoopbackCidr.DefaultValue,
-		RestoreFormat:           true,
+		RestoreFormat:           false,
 	}
 }
 
@@ -275,13 +276,11 @@ func TestIptables(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
 			tt.config(cfg)
-			iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+
+			ext := &DependenciesStub{}
+			iptConfigurator := NewIptablesConfigurator(cfg, ext)
 			iptConfigurator.Run()
-			v4Rules := iptConfigurator.ruleBuilder.BuildV4()
-			v6Rules := iptConfigurator.ruleBuilder.BuildV6()
-			allRules := append(v4Rules, v6Rules...)
-			actual := FormatIptablesCommands(allRules)
-			compareToGolden(t, tt.name, actual)
+			compareToGolden(t, tt.name, ext.ExecutedAll)
 		})
 	}
 }
@@ -344,4 +343,48 @@ func compareToGolden(t *testing.T, name string, actual []string) {
 	gotBytes := []byte(strings.Join(actual, "\n"))
 	goldenFile := filepath.Join("testdata", name+".golden")
 	testutil.CompareContent(t, gotBytes, goldenFile)
+}
+
+// TODO BML replace DIY mocks/state with something better, also this is duplicated
+// with other stubs elsewhere
+type DependenciesStub struct {
+	ExecutedNormally     []string
+	ExecutedQuietly      []string
+	ExecutedAll          []string
+}
+
+func (s *DependenciesStub) Run(cmd constants.IptablesCmd, iptVer *dep.IptablesVersion, stdin io.ReadSeeker, args ...string) error {
+	s.execute(false /*quietly*/, cmd, iptVer, args...)
+	return nil
+}
+
+func (s *DependenciesStub) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *dep.IptablesVersion, stdin io.ReadSeeker, args ...string) {
+	s.execute(true /*quietly*/, cmd, iptVer, args...)
+}
+
+// TODO BML this stub can be smarter
+func (s *DependenciesStub) DetectIptablesVersion(overrideVersion string, ipV6 bool) (dep.IptablesVersion, error) {
+	if ipV6 {
+
+			return dep.IptablesVersion{
+				DetectedBinary:        "ip6tables",
+				DetectedSaveBinary:    "ip6tables-save",
+				DetectedRestoreBinary: "ip6tables-restore",
+			}, nil
+	}
+	return dep.IptablesVersion{
+		DetectedBinary:        "iptables",
+		DetectedSaveBinary:    "iptables-save",
+		DetectedRestoreBinary: "iptables-restore",
+	}, nil
+}
+
+func (s *DependenciesStub) execute(quietly bool, cmd constants.IptablesCmd, iptVer *dep.IptablesVersion, args ...string) {
+	cmdline := strings.Join(append([]string{iptVer.CmdToString(cmd)}, args...), " ")
+	s.ExecutedAll = append(s.ExecutedAll, cmdline)
+	if quietly {
+		s.ExecutedQuietly = append(s.ExecutedQuietly, cmdline)
+	} else {
+		s.ExecutedNormally = append(s.ExecutedNormally, cmdline)
+	}
 }
