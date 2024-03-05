@@ -96,11 +96,11 @@ func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDe
 	//
 	// But that's stunningly unlikely (and would still work either way)
 	iptVer, err := ext.DetectIptablesVersion("", false)
-	if err != nil {
+	if err == nil {
 		configurator.iptV = iptVer
 	}
 	ipt6Ver, err := ext.DetectIptablesVersion("", true)
-	if err != nil {
+	if err == nil {
 		configurator.ipt6V = ipt6Ver
 	}
 
