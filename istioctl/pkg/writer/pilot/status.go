@@ -250,42 +250,32 @@ func xdsStatusPrintln(w io.Writer, status *xdsWriterStatus) error {
 	return err
 }
 
+func formatStatus(s *xdsstatus.ClientConfig_GenericXdsConfig) string {
+	switch s.GetConfigStatus() {
+	case xdsstatus.ConfigStatus_UNKNOWN:
+		return ignoredStatus
+	case xdsstatus.ConfigStatus_NOT_SENT:
+		return "NOT SENT"
+	default:
+		return s.GetConfigStatus().String()
+	}
+}
+
 func getSyncStatus(clientConfig *xdsstatus.ClientConfig) (cds, lds, eds, rds, ecds string) {
 	configs := handleAndGetXdsConfigs(clientConfig)
 	for _, config := range configs {
 		cfgType := config.GetTypeUrl()
-		status := config.GetConfigStatus()
 		switch cfgType {
 		case xdsresource.ListenerType:
-			if status == xdsstatus.ConfigStatus_UNKNOWN {
-				lds = ignoredStatus
-			} else {
-				lds = config.GetConfigStatus().String()
-			}
+			lds = formatStatus(config)
 		case xdsresource.ClusterType:
-			if status == xdsstatus.ConfigStatus_UNKNOWN {
-				cds = ignoredStatus
-			} else {
-				cds = config.GetConfigStatus().String()
-			}
+			cds = formatStatus(config)
 		case xdsresource.RouteType:
-			if status == xdsstatus.ConfigStatus_UNKNOWN {
-				rds = ignoredStatus
-			} else {
-				rds = config.GetConfigStatus().String()
-			}
+			rds = formatStatus(config)
 		case xdsresource.EndpointType:
-			if status == xdsstatus.ConfigStatus_UNKNOWN {
-				eds = ignoredStatus
-			} else {
-				eds = config.GetConfigStatus().String()
-			}
+			eds = formatStatus(config)
 		case xdsresource.ExtensionConfigurationType:
-			if status == xdsstatus.ConfigStatus_UNKNOWN {
-				ecds = ignoredStatus
-			} else {
-				ecds = config.GetConfigStatus().String()
-			}
+			ecds = formatStatus(config)
 		default:
 			log.Infof("GenericXdsConfig unexpected type %s\n", xdsresource.GetShortType(cfgType))
 		}
