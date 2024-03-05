@@ -2177,14 +2177,15 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		matchedEnvoyFilters = append(matchedEnvoyFilters, matched...)
 	}
 
-	sort.SliceStable(matchedEnvoyFilters, func(i, j int) bool {
+	sort.Slice(matchedEnvoyFilters, func(i, j int) bool {
 		ifilter := matchedEnvoyFilters[i]
 		jfilter := matchedEnvoyFilters[j]
-		if ifilter.Priority < jfilter.Priority {
-			return true
+		if ifilter.Priority != jfilter.Priority {
+			return ifilter.Priority < jfilter.Priority
 		}
 		// Prefer root namespace filters over non-root namespace filters.
-		if ifilter.Namespace == ps.Mesh.RootNamespace || jfilter.Namespace == ps.Mesh.RootNamespace {
+		if ifilter.Namespace != jfilter.Namespace &&
+			(ifilter.Namespace == ps.Mesh.RootNamespace || jfilter.Namespace == ps.Mesh.RootNamespace) {
 			return ifilter.Namespace == ps.Mesh.RootNamespace
 		}
 		if ifilter.creationTime != jfilter.creationTime {
