@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 )
 
 type Waypoint struct {
@@ -48,10 +49,10 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 	}
 
 	// try fetching the namespace-defined waypoint
-	namespace := krt.FetchOne[*v1.Namespace](ctx, Namespaces, krt.FilterKey(o.Namespace))
+	namespace := ptr.OrEmpty[*v1.Namespace](krt.FetchOne[*v1.Namespace](ctx, Namespaces, krt.FilterKey(o.Namespace)))
 	// this probably should never be nil. How would o exist in a namespace we know nothing about? maybe edge case of starting the controller or ns delete?
-	if namespace != nil && *namespace != nil {
-		wpNamespace := getUseWaypoint((*namespace).ObjectMeta)
+	if namespace != nil {
+		wpNamespace := getUseWaypoint(namespace.ObjectMeta)
 		if wpNamespace != nil {
 			return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterName(wpNamespace.Name, wpNamespace.Namespace))
 		}
