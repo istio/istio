@@ -23,7 +23,6 @@
     "istiod": {
       "enableAnalysis": false
     },
-    "jwtPolicy": "third-party-jwt",
     "logAsJson": false,
     "logging": {
       "level": "default:info"
@@ -38,7 +37,6 @@
     "namespace": "istio-system",
     "network": "",
     "omitSidecarInjectorConfigMap": false,
-    "oneNamespace": false,
     "operatorManageWebhooks": false,
     "pilotCertProvider": "istiod",
     "priorityClassName": "",
@@ -93,12 +91,14 @@
     "variant": ""
   },
   "istio_cni": {
-    "enabled": false
+    "chained": true,
+    "enabled": false,
+    "provider": "default"
   },
   "pilot": {
     "cni": {
-      "chained": true,
-      "enabled": false
+      "enabled": false,
+      "provider": "default"
     }
   },
   "revision": "",

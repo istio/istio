@@ -46,7 +46,7 @@ func (s *DiscoveryServer) compareDiff(
 	delta model.ResourceDelta,
 	incremental bool,
 ) {
-	current := con.Watched(w.TypeUrl).LastResources
+	current := con.proxy.GetWatchedResource(w.TypeUrl).LastResources
 	if current == nil {
 		log.Debugf("ADS:%s: resources initialized", v3.GetShortType(w.TypeUrl))
 		return

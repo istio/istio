@@ -107,10 +107,8 @@ message CNIConfig {
   // The k8s resource requests and limits for the istio-cni Pods.
   Resources resources = 17;
 
-  // Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift) or features (repairPods).
-  // Note that even if this is false, the `istio-cni` container *requires* root privileges on the node to function,
-  // and setting this to false does not change that, nor will it run the container as non-root or make it "un-privileged".
-  google.protobuf.BoolValue privileged = 18;
+ // No longer used for CNI. See: https://github.com/istio/istio/issues/49004
+  google.protobuf.BoolValue privileged = 18 [deprecated=true];
 
   // The Container seccompProfile
   //
@@ -133,12 +131,15 @@ message CNIConfig {
   IntOrString rollingMaxUnavailable = 23;
 }
 
-// Configures whether to use an existing CNI installation for workloads
 message CNIUsageConfig {
   // Controls whether CNI should be used.
   google.protobuf.BoolValue enabled = 1;
 
-  google.protobuf.BoolValue chained = 2;
+  google.protobuf.BoolValue chained = 2 [deprecated=true];
+
+  // Specifies the CNI provider. Can be either "default" or "multus". When set to "multus", an annotation
+  // `k8s.v1.cni.cncf.io/networks` is set on injected pods to point to a NetworkAttachmentDefinition
+  string provider = 3;
 }
 
 message CNIAmbientConfig {
@@ -177,7 +178,7 @@ message CNIRepairConfig {
   // The mode defines the action the controller will take when a pod is detected as broken.
   // If repairPods is true, the controller will dynamically repair any broken pod by setting up the pod networking configuration even after it has started.
   // Note the pod will be crashlooping, so this may take a few minutes to become fully functional based on when the retry occurs.
-  // This requires no RBAC privilege, but does require `securityContext.privileged`.
+  // This requires no RBAC privilege, but will require the CNI agent to run as a privileged pod.
   bool repairPods = 11;
 
   // No longer used.
@@ -526,10 +527,6 @@ message GlobalConfig {
   // Defaults to false. When set to true, the sidecar injector ConfigMap will not be created.
   google.protobuf.BoolValue omitSidecarInjectorConfigMap = 38;
 
-  // Controls whether to restrict the applications namespace the controller manages;
-  // If set it to false, the controller watches all namespaces.
-  google.protobuf.BoolValue oneNamespace = 23;
-
   // Controls whether the WebhookConfiguration resource(s) should be created. The current behavior
   // of Istiod is to manage its own webhook configurations.
   // When this option is set to true, Istio Operator, instead of webhooks, manages the
@@ -574,8 +571,8 @@ message GlobalConfig {
   string pilotCertProvider = 56;
 
   // Configure the policy for validating JWT.
-  // Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
-  string jwtPolicy = 57;
+  // This is deprecated and has no effect.
+  string jwtPolicy = 57 [deprecated=true];
 
   // Specifies the configuration for Security Token Service.
   STSConfig sts = 58;
@@ -968,6 +965,7 @@ message PilotConfig {
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   TargetUtilizationConfig memory = 54 [deprecated=true];
 
+  // Configures whether to use an existing CNI installation for workloads
   CNIUsageConfig cni = 55;
 }
 
@@ -1374,7 +1372,7 @@ message Values {
   SidecarInjectorConfig sidecarInjectorWebhook = 13;
 
   // Configuration for the Istio CNI plugin.
-  CNIUsageConfig istio_cni = 19;
+  CNIUsageConfig istio_cni = 19 [deprecated=true];
 
   // Identifies the revision this installation is associated with.
   string revision = 21;

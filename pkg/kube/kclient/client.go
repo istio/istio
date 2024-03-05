@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type fullClient[T controllers.Object] struct {
@@ -48,13 +49,20 @@ type writeClient[T controllers.Object] struct {
 	client kube.Client
 }
 
+// handlerRegistration stores a handler, with the registration so it can be de-registered
+type handlerRegistration struct {
+	registration cache.ResourceEventHandlerRegistration
+	// handler is the actual handler. Note this does NOT have the filtering applied.
+	handler cache.ResourceEventHandler
+}
+
 type informerClient[T controllers.Object] struct {
 	informer      cache.SharedIndexInformer
 	startInformer func(stopCh <-chan struct{})
 	filter        func(t any) bool
 
 	handlerMu          sync.RWMutex
-	registeredHandlers []cache.ResourceEventHandlerRegistration
+	registeredHandlers []handlerRegistration
 }
 
 func (n *informerClient[T]) Get(name, namespace string) T {
@@ -115,7 +123,7 @@ func (n *informerClient[T]) ShutdownHandlers() {
 	n.handlerMu.Lock()
 	defer n.handlerMu.Unlock()
 	for _, c := range n.registeredHandlers {
-		_ = n.informer.RemoveEventHandler(c)
+		_ = n.informer.RemoveEventHandler(c.registration)
 	}
 }
 
@@ -136,7 +144,7 @@ func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 	}
 	n.handlerMu.Lock()
 	defer n.handlerMu.Unlock()
-	n.registeredHandlers = append(n.registeredHandlers, reg)
+	n.registeredHandlers = append(n.registeredHandlers, handlerRegistration{registration: reg, handler: h})
 }
 
 func (n *informerClient[T]) HasSynced() bool {
@@ -147,7 +155,7 @@ func (n *informerClient[T]) HasSynced() bool {
 	defer n.handlerMu.RUnlock()
 	// HasSynced is fast, so doing it under the lock is okay
 	for _, g := range n.registeredHandlers {
-		if !g.HasSynced() {
+		if !g.registration.HasSynced() {
 			return false
 		}
 	}
@@ -282,8 +290,8 @@ func newDelayedInformer[T controllers.ComparableObject](
 		fc := &informerClient[T]{
 			informer:      inf.Informer,
 			startInformer: inf.Start,
-			filter:        filter.ObjectFilter,
 		}
+		applyDynamicFilter(filter, fc)
 		inf.Start(stop)
 		log.Infof("%v is now ready, building client", gvr.GroupResource())
 		// Swap out the dummy client with the full one
@@ -298,10 +306,52 @@ func newDelayedInformer[T controllers.ComparableObject](
 }
 
 func newInformerClient[T controllers.ComparableObject](inf informerfactory.StartableInformer, filter Filter) Informer[T] {
-	return &informerClient[T]{
+	ic := &informerClient[T]{
 		informer:      inf.Informer,
 		startInformer: inf.Start,
-		filter:        filter.ObjectFilter,
+	}
+	applyDynamicFilter(filter, ic)
+	return ic
+}
+
+func applyDynamicFilter[T controllers.ComparableObject](filter Filter, ic *informerClient[T]) {
+	if filter.ObjectFilter != nil {
+		ic.filter = filter.ObjectFilter.Filter
+		filter.ObjectFilter.AddHandler(func(added, removed sets.String) {
+			ic.handlerMu.RLock()
+			defer ic.handlerMu.RUnlock()
+			if types.GetGVR[T]() == istiogvr.Namespace {
+				// Namespace is special; we query all namespaces
+				// Note: other cluster-scoped resources should just not use the filter
+				for _, item := range ic.ListUnfiltered(metav1.NamespaceAll, klabels.Everything()) {
+					if !added.Contains(item.GetName()) && !removed.Contains(item.GetName()) {
+						continue
+					}
+					for _, c := range ic.registeredHandlers {
+						if added.Contains(item.GetName()) {
+							c.handler.OnAdd(item, false)
+						} else {
+							c.handler.OnDelete(item)
+						}
+					}
+				}
+			} else {
+				for ns := range added {
+					for _, item := range ic.ListUnfiltered(ns, klabels.Everything()) {
+						for _, c := range ic.registeredHandlers {
+							c.handler.OnAdd(item, false)
+						}
+					}
+				}
+				for ns := range removed {
+					for _, item := range ic.ListUnfiltered(ns, klabels.Everything()) {
+						for _, c := range ic.registeredHandlers {
+							c.handler.OnDelete(item)
+						}
+					}
+				}
+			}
+		})
 	}
 }
 

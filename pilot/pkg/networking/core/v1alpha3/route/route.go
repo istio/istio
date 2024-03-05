@@ -397,8 +397,8 @@ func BuildHTTPRoutesForVirtualService(
 					hashByDestination, gatewayNames, opts); r != nil {
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
-					// As an optimization, we can just top sending any more routes here.
-					if isCatchAllRoute(r) {
+					// As an optimization, we can just stop sending any more routes here.
+					if IsCatchAllRoute(r) {
 						catchall = true
 						break
 					}
@@ -1014,6 +1014,10 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest, useE
 		} else {
 			matcher := translateHeaderMatch(name, stringMatch)
 			matcher.InvertMatch = true
+			// treat_missing_header_as_empty conflict with present_match
+			if !canBeConvertedToPresentMatch(stringMatch) {
+				matcher.TreatMissingHeaderAsEmpty = true
+			}
 			out.Headers = append(out.Headers, matcher)
 		}
 	}
@@ -1074,7 +1078,7 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 		Name: name,
 	}
 
-	if isCatchAllStringMatch(in) {
+	if canBeConvertedToPresentMatch(in) {
 		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_PresentMatch{
 			PresentMatch: true,
 		}
@@ -1090,9 +1094,9 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 	return out
 }
 
-// isCatchAllStringMatch determines if the given matcher is matched with all strings or not.
-// Currently, if the regex has "*" value, it returns true
-func isCatchAllStringMatch(in *networking.StringMatch) bool {
+// canBeConvertedToPresentMatch determines if the given matcher can be converted to present_match or not.
+// Currently, if the regex is "*" value, it returns true
+func canBeConvertedToPresentMatch(in *networking.StringMatch) bool {
 	if in == nil || in.MatchType == nil {
 		return true
 	}
@@ -1101,6 +1105,9 @@ func isCatchAllStringMatch(in *networking.StringMatch) bool {
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Regex:
+		// `*` is NOT a RE2 style regex, it's a metacharacter.
+		// It will be translated as present_match, rather than matching "any string".
+		// see https://github.com/istio/istio/pull/20629
 		catchall = m.Regex == "*"
 	}
 
@@ -1134,7 +1141,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 		Name: name,
 	}
 
-	if isCatchAllStringMatch(in) {
+	if canBeConvertedToPresentMatch(in) {
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PresentMatch{PresentMatch: true}
 		return out
 	}
@@ -1511,41 +1518,13 @@ func hashForHTTPDestination(push *model.PushContext, node *model.Proxy,
 	return consistentHash, mergedDR
 }
 
-// isCatchAll returns true if HTTPMatchRequest is a catchall match otherwise
-// false. Note - this may not be exactly "catch all" as we don't know the full
-// class of possible inputs As such, this is used only for optimization.
-func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
-	catchall := false
-	if m.Uri != nil {
-		switch m := m.Uri.MatchType.(type) {
-		case *networking.StringMatch_Prefix:
-			catchall = m.Prefix == "/"
-		case *networking.StringMatch_Regex:
-			catchall = m.Regex == "*"
-		}
-	}
-	// A Match is catch all if and only if it has no match set
-	// and URI has a prefix / or regex *.
-	return catchall &&
-		len(m.Headers) == 0 &&
-		len(m.QueryParams) == 0 &&
-		len(m.SourceLabels) == 0 &&
-		len(m.WithoutHeaders) == 0 &&
-		len(m.Gateways) == 0 &&
-		m.Method == nil &&
-		m.Scheme == nil &&
-		m.Port == 0 &&
-		m.Authority == nil &&
-		m.SourceNamespace == ""
-}
-
 // SortVHostRoutes moves the catch all routes alone to the end, while retaining
 // the relative order of other routes in the slice.
 func SortVHostRoutes(routes []*route.Route) []*route.Route {
 	allroutes := make([]*route.Route, 0, len(routes))
 	catchAllRoutes := make([]*route.Route, 0)
 	for _, r := range routes {
-		if isCatchAllRoute(r) {
+		if IsCatchAllRoute(r) {
 			catchAllRoutes = append(catchAllRoutes, r)
 		} else {
 			allroutes = append(allroutes, r)
@@ -1554,19 +1533,20 @@ func SortVHostRoutes(routes []*route.Route) []*route.Route {
 	return append(allroutes, catchAllRoutes...)
 }
 
-// isCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.
-func isCatchAllRoute(r *route.Route) bool {
+// IsCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.
+func IsCatchAllRoute(r *route.Route) bool {
 	catchall := false
+	// A Match is catch all if and only if it has no header/query param match
+	// and URI has a prefix `/` or regex `.*`.
 	switch ir := r.Match.PathSpecifier.(type) {
 	case *route.RouteMatch_Prefix:
 		catchall = ir.Prefix == "/"
 	case *route.RouteMatch_PathSeparatedPrefix:
 		catchall = ir.PathSeparatedPrefix == "/"
 	case *route.RouteMatch_SafeRegex:
-		catchall = ir.SafeRegex.GetRegex() == "*"
+		catchall = ir.SafeRegex.GetRegex() == ".*"
 	}
-	// A Match is catch all if and only if it has no header/query param match
-	// and URI has a prefix / or regex *.
+
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
 }
 

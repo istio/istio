@@ -214,8 +214,8 @@ func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.Ad
 		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
 		// a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
 		address, err := retry.UntilComplete(func() (any, bool, error) {
-			return getRemoteServiceAddress(i.env.Settings(), primary, i.cfg.SystemNamespace, istiodLabel,
-				istiodSvcName, discoveryPort)
+			addrs, outcome, err := getRemoteServiceAddresses(i.env.Settings(), primary, i.cfg.SystemNamespace, istiodLabel, istiodSvcName, discoveryPort)
+			return addrs[0], outcome, err
 		}, getAddressTimeout, getAddressDelay)
 		if err != nil {
 			return netip.AddrPort{}, err
@@ -223,7 +223,7 @@ func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.Ad
 		addr = address.(netip.AddrPort)
 	} else {
 		name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.cfg.SystemNamespace}
-		addr = i.CustomIngressFor(primary, name, eastWestIngressIstioLabel).DiscoveryAddress()
+		addr = i.CustomIngressFor(primary, name, eastWestIngressIstioLabel).DiscoveryAddresses()[0]
 	}
 	if !addr.IsValid() {
 		return netip.AddrPort{}, fmt.Errorf("failed to get ingress IP for %s", primary.Name())
@@ -395,7 +395,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 			// Wait for the eastwestgateway to have a public IP.
 			name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.cfg.SystemNamespace}
-			_ = i.CustomIngressFor(c, name, eastWestIngressIstioLabel).DiscoveryAddress()
+			_ = i.CustomIngressFor(c, name, eastWestIngressIstioLabel).DiscoveryAddresses()
 		}
 	}
 

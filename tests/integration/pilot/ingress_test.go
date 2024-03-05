@@ -318,34 +318,36 @@ spec:
 					t.Fatal(err)
 				}
 
-				host, _ := defaultIngress.HTTPAddress()
-				hostIsIP := net.ParseIP(host).String() != "<nil>"
-				ingressHostFound := false
-				actualHosts := []string{}
-				retry.UntilSuccessOrFail(t, func() error {
-					ing, err := t.Clusters().Default().Kube().NetworkingV1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-					if len(ing.Status.LoadBalancer.Ingress) < 1 {
-						return fmt.Errorf("unexpected ingress status, ingress is empty")
-					}
-					for _, ingress := range ing.Status.LoadBalancer.Ingress {
-						got := ingress.Hostname
-						if hostIsIP {
-							got = ingress.IP
+				hosts, _ := defaultIngress.HTTPAddresses()
+				for _, host := range hosts {
+					hostIsIP := net.ParseIP(host).String() != "<nil>"
+					ingressHostFound := false
+					actualHosts := []string{}
+					retry.UntilSuccessOrFail(t, func() error {
+						ing, err := t.Clusters().Default().Kube().NetworkingV1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
+						if err != nil {
+							return err
 						}
-						actualHosts = append(actualHosts, got)
-						if got == host {
-							ingressHostFound = true
-							break
+						if len(ing.Status.LoadBalancer.Ingress) < 1 {
+							return fmt.Errorf("unexpected ingress status, ingress is empty")
 						}
-					}
-					if !ingressHostFound {
-						return fmt.Errorf("unexpected ingress status, got %+v want %v", actualHosts, host)
-					}
-					return nil
-				}, retry.Timeout(time.Second*90))
+						for _, ingress := range ing.Status.LoadBalancer.Ingress {
+							got := ingress.Hostname
+							if hostIsIP {
+								got = ingress.IP
+							}
+							actualHosts = append(actualHosts, got)
+							if got == host {
+								ingressHostFound = true
+								break
+							}
+						}
+						if !ingressHostFound {
+							return fmt.Errorf("unexpected ingress status, got %+v want %v", actualHosts, host)
+						}
+						return nil
+					}, retry.Timeout(time.Second*90))
+				}
 			})
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first

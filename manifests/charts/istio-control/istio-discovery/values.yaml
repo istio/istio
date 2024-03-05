@@ -28,10 +28,10 @@ defaults:
     # Set to `type: RuntimeDefault` to use the default profile if available.
     seccompProfile: {}
 
-    # keep in sync with settings used when installing the Istio CNI chart
+    # Whether to use an existing CNI installation
     cni:
       enabled: false
-      chained: true
+      provider: default
 
     # Additional container arguments
     extraContainerArgs: []
@@ -251,10 +251,6 @@ defaults:
 
     omitSidecarInjectorConfigMap: false
 
-    # Whether to restrict the applications namespace the controller manages;
-    # If not set, controller watches all namespaces
-    oneNamespace: false
-
     # Configure whether Operator manages webhook configurations. The current behavior
     # of Istiod is to manage its own webhook configurations.
     # When this option is set as true, Istio Operator, instead of webhooks, manages the
@@ -384,10 +380,6 @@ defaults:
     # Configure a remote cluster as the config cluster for an external istiod.
     configCluster: false
 
-    # Configure the policy for validating JWT.
-    # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
-    jwtPolicy: "third-party-jwt"
-
     # Mesh ID means Mesh Identifier. It should be unique within the scope where
     # meshes will interact with each other, but it is not required to be
     # globally/universally unique. For example, if any of the following are true,
@@ -489,3 +481,9 @@ defaults:
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
+
+  # `istio_cni` has been deprecated and will be removed in a future release. use `pilot.cni` instead
+  istio_cni:
+    # `chained` has been deprecated and will be removed in a future release. use `provider` instead
+    chained: true
+    provider: default

@@ -2399,8 +2399,14 @@ func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 	switch mode {
 	case k8sv1.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
-		if tls.Options != nil && tls.Options[gatewayTLSTerminateModeKey] == "MUTUAL" {
-			out.Mode = istio.ServerTLSSettings_MUTUAL
+		if tls.Options != nil {
+			switch tls.Options[gatewayTLSTerminateModeKey] {
+			case "MUTUAL":
+				out.Mode = istio.ServerTLSSettings_MUTUAL
+			case "ISTIO_MUTUAL":
+				out.Mode = istio.ServerTLSSettings_ISTIO_MUTUAL
+				return out, nil
+			}
 		}
 		if len(tls.CertificateRefs) != 1 {
 			// This is required in the API, should be rejected in validation

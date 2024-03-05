@@ -77,6 +77,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/data/tap/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/filters/cel/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/fluentd/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/open_telemetry/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/stream/v3"

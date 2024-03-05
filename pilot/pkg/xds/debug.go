@@ -658,7 +658,7 @@ func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *mod
 	}
 
 	for _, resourceType := range ts {
-		w := conn.Watched(resourceType)
+		w := conn.proxy.GetWatchedResource(resourceType)
 		if w == nil {
 			// Not watched, skip
 			continue

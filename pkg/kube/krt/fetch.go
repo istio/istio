@@ -49,8 +49,8 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 	}
 	if log.DebugEnabled() {
 		log.WithLabels(
-			"from", h.name(),
-			"for", c.name(),
+			"parent", h.name(),
+			"fetch", c.name(),
 			"filter", d.filter,
 			"size", len(res),
 		).Debugf("Fetch")

@@ -396,23 +396,9 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 		select {
 		case err := <-con.upstreamError:
 			// error from upstream Istiod.
-			if istiogrpc.IsExpectedGRPCError(err) {
-				proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
-				metrics.IstiodConnectionCancellations.Increment()
-			} else {
-				proxyLog.Warnf("upstream [%d] terminated with unexpected error %v", con.conID, err)
-				metrics.IstiodConnectionErrors.Increment()
-			}
 			return err
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
-			if istiogrpc.IsExpectedGRPCError(err) {
-				proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
-				metrics.EnvoyConnectionCancellations.Increment()
-			} else {
-				proxyLog.Warnf("downstream [%d] terminated with unexpected error %v", con.conID, err)
-				metrics.EnvoyConnectionErrors.Increment()
-			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
@@ -696,7 +682,17 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 	defer p.tapMutex.Unlock()
 
 	// Send to Istiod
-	connection.sendRequest(req)
+	if connection.deltaRequestsChan != nil {
+		// Need to tap into Delta. Our Tap mechanism is not aware of whether we are tapping into SotW or Delta; we always get SotW
+		// Convert SotW to Delta.
+		connection.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+			Node:                   req.Node,
+			TypeUrl:                req.TypeUrl,
+			ResourceNamesSubscribe: req.ResourceNames,
+		})
+	} else {
+		connection.sendRequest(req)
+	}
 
 	delay := time.NewTimer(timeout)
 	defer delay.Stop()
@@ -820,7 +816,13 @@ func (p *XdsProxy) initDebugInterface(port int) error {
 
 // upstreamErr sends the error to upstreamError channel, and return immediately if the connection closed.
 func upstreamErr(con *ProxyConnection, err error) {
-	proxyLog.Errorf("upstream [%d] error: %v", con.conID, err)
+	if istiogrpc.IsExpectedGRPCError(err) {
+		proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
+		metrics.IstiodConnectionCancellations.Increment()
+	} else {
+		proxyLog.Warnf("upstream [%d] terminated with unexpected error %v", con.conID, err)
+		metrics.IstiodConnectionErrors.Increment()
+	}
 	select {
 	case con.upstreamError <- err:
 	case <-con.stopChan:
@@ -829,7 +831,13 @@ func upstreamErr(con *ProxyConnection, err error) {
 
 // downstreamErr sends the error to downstreamError channel, and return immediately if the connection closed.
 func downstreamErr(con *ProxyConnection, err error) {
-	proxyLog.Errorf("downstream [%d] error: %v", con.conID, err)
+	if istiogrpc.IsExpectedGRPCError(err) {
+		proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
+		metrics.EnvoyConnectionCancellations.Increment()
+	} else {
+		proxyLog.Warnf("downstream [%d] terminated with unexpected error %v", con.conID, err)
+		metrics.EnvoyConnectionErrors.Increment()
+	}
 	select {
 	case con.downstreamError <- err:
 	case <-con.stopChan:

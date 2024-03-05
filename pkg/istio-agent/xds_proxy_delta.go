@@ -17,6 +17,7 @@ package istioagent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -28,11 +29,12 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
-	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/istio-agent/metrics"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/wasm"
 )
 
@@ -118,24 +120,8 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 	for {
 		select {
 		case err := <-con.upstreamError:
-			// error from upstream Istiod.
-			if istiogrpc.IsExpectedGRPCError(err) {
-				proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
-				metrics.IstiodConnectionCancellations.Increment()
-			} else {
-				proxyLog.Warnf("upstream [%d] terminated with unexpected error %v", con.conID, err)
-				metrics.IstiodConnectionErrors.Increment()
-			}
 			return err
 		case err := <-con.downstreamError:
-			// error from downstream Envoy.
-			if istiogrpc.IsExpectedGRPCError(err) {
-				proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
-				metrics.EnvoyConnectionCancellations.Increment()
-			} else {
-				proxyLog.Warnf("downstream [%d] terminated with unexpected error %v", con.conID, err)
-				metrics.EnvoyConnectionErrors.Increment()
-			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
@@ -259,7 +245,11 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 					forwardDeltaToEnvoy(con, resp)
 				}
 			default:
-				forwardDeltaToEnvoy(con, resp)
+				if strings.HasPrefix(resp.TypeUrl, v3.DebugType) {
+					p.forwardDeltaToTap(resp)
+				} else {
+					forwardDeltaToEnvoy(con, resp)
+				}
 			}
 		case resp := <-forwardEnvoyCh:
 			forwardDeltaToEnvoy(con, resp)
@@ -332,4 +322,20 @@ func (p *XdsProxy) sendDeltaHealthRequest(req *discovery.DeltaDiscoveryRequest) 
 	// Otherwise place it as our initial request for new connections
 	p.initialDeltaHealthRequest = req
 	p.connectedMutex.Unlock()
+}
+
+func (p *XdsProxy) forwardDeltaToTap(resp *discovery.DeltaDiscoveryResponse) {
+	select {
+	// Convert back to a SotW response
+	case p.tapResponseChannel <- &discovery.DiscoveryResponse{
+		VersionInfo:  resp.SystemVersionInfo,
+		Resources:    slices.Map(resp.Resources, (*discovery.Resource).GetResource),
+		Canary:       false,
+		TypeUrl:      resp.TypeUrl,
+		Nonce:        resp.Nonce,
+		ControlPlane: resp.ControlPlane,
+	}:
+	default:
+		log.Infof("tap response %q arrived too late; discarding", resp.TypeUrl)
+	}
 }

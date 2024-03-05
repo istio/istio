@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 49004
+releaseNotes:
+- |
+  **Removed** `values.cni.privileged` flag from `istio-cni` node agent chart in favor of feature-specific permissions.

@@ -21,42 +21,30 @@ import (
 	_ "github.com/howardjohn/unshare-go/netns"
 	// Create a new user namespace. This will map the current UID to 0.
 	_ "github.com/howardjohn/unshare-go/userns"
-	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
 
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/util/sets"
 )
 
 func TestRunInSandbox(t *testing.T) {
 	original := file.AsStringOrFail(t, "/etc/nsswitch.conf")
 	var sandboxed string
 
-	originalInterfaces := getInterfaces(t)
-	// We should be in a minimal sandbox with only 'lo'
-	assert.Equal(t, originalInterfaces, sets.New("lo"))
-	var interfaces sets.String
+	originalNetNS, err := netns.Get()
+	assert.NoError(t, err)
+	var sandboxedNetNS netns.NsHandle
 
 	// Due to unshare-go imports above, this can run
 	assert.NoError(t, runInSandbox("", func() error {
 		// We should have overwritten this file with /dev/null
 		sandboxed = file.AsStringOrFail(t, "/etc/nsswitch.conf")
-		// We should still be in the same network namespace, and hence have the same interfaces
-		interfaces = getInterfaces(t)
+		sandboxedNetNS, err = netns.Get()
+		assert.NoError(t, err)
 		return nil
 	}))
 	after := file.AsStringOrFail(t, "/etc/nsswitch.conf")
 	assert.Equal(t, sandboxed, "")
 	assert.Equal(t, original, after)
-	assert.Equal(t, interfaces, originalInterfaces)
-}
-
-func getInterfaces(t *testing.T) sets.String {
-	l, err := netlink.LinkList()
-	assert.NoError(t, err)
-	links := sets.New(slices.Map(l, func(e netlink.Link) string {
-		return e.Attrs().Name
-	})...)
-	return links
+	assert.Equal(t, originalNetNS.Equal(sandboxedNetNS), true)
 }

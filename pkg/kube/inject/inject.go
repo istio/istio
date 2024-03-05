@@ -372,17 +372,8 @@ func updateImageTypeIfPresent(tag string, imageType string) string {
 	return tag + "-" + imageType
 }
 
-// RunTemplate renders the sidecar template
-// Returns the raw string template, as well as the parse pod form
-func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod *corev1.Pod, err error) {
+func extractClusterAndNetwork(params InjectionParameters) (string, string) {
 	metadata := &params.pod.ObjectMeta
-	meshConfig := params.meshConfig
-
-	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
-		log.Errorf("Injection failed due to invalid annotations: %v", err)
-		return nil, nil, err
-	}
-
 	cluster := params.valuesConfig.asStruct.GetGlobal().GetMultiCluster().GetClusterName()
 	// TODO allow overriding the values.global network in injection with the system namespace label
 	network := params.valuesConfig.asStruct.GetGlobal().GetNetwork()
@@ -397,6 +388,21 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	if n, ok := metadata.Labels[label.TopologyNetwork.Name]; ok {
 		network = n
 	}
+	return cluster, network
+}
+
+// RunTemplate renders the sidecar template
+// Returns the raw string template, as well as the parse pod form
+func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod *corev1.Pod, err error) {
+	metadata := &params.pod.ObjectMeta
+	meshConfig := params.meshConfig
+
+	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
+		log.Errorf("Injection failed due to invalid annotations: %v", err)
+		return nil, nil, err
+	}
+
+	cluster, network := extractClusterAndNetwork(params)
 
 	// use network in values for template, and proxy env variables
 	if cluster != "" {

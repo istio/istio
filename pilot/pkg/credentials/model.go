@@ -35,7 +35,6 @@ type Controller interface {
 	GetCaCert(name, namespace string) (certInfo *CertInfo, err error)
 	GetDockerCredential(name, namespace string) (cred []byte, err error)
 	Authorize(serviceAccount, namespace string) error
-	AddEventHandler(func(name, namespace string))
 }
 
 type MulticlusterController interface {
