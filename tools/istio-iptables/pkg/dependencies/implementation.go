@@ -66,6 +66,8 @@ type IptablesVersion struct {
 	Version *utilversion.Version
 	// true if legacy mode, false if nf_tables
 	Legacy bool
+	// true if we detected that existing rules are present for this variant (legacy, nft, v6)
+	ExistingRules bool
 }
 
 func (v IptablesVersion) CmdToString(cmd constants.IptablesCmd) string {
@@ -155,19 +157,22 @@ func (r *RealDependencies) DetectIptablesVersion(overrideVersion string, ipV6 bo
 	// 1. What binaries we have
 	// 2. What binary we should use, based on existing rules defined in our current context.
 	// does the nft binary set exist, and are nft rules present?
-	ver, err := shouldUseBinaryForCurrentContext(nftBin)
-	if err == nil {
-		// if so, use it.
-		return ver, nil
+	nftVer, err := shouldUseBinaryForCurrentContext(nftBin)
+	if err == nil && nftVer.ExistingRules {
+		// if so, immediately use it.
+		return nftVer, nil
 	}
 	// does the legacy binary set exist, and are legacy rules present?
-	ver, err = shouldUseBinaryForCurrentContext(legacyBin)
-	if err == nil {
-		// if so, use it
-		return ver, nil
+	legVer, err := shouldUseBinaryForCurrentContext(legacyBin)
+	if err == nil && legVer.ExistingRules {
+		// if so, immediately use it
+		return legVer, nil
 	}
-	// regular non-suffixed binary set is our last resort - if it's not there,
-	// propagate the error, we can't do anything
+	// regular non-suffixed binary set is our last resort.
+	//
+	// If it's there, and rules do not already exist for a specific variant,
+	// we should use the default non-suffixed binary.
+	// If it's NOT there, just propagate the error, we can't do anything, no iptables here
 	return shouldUseBinaryForCurrentContext(plainBin)
 }
 

@@ -189,6 +189,7 @@ type IptablesError struct {
 func ProgramIptables(cfg *config.Config) error {
 	var ext dep.Dependencies
 	if cfg.DryRun {
+		log.Info("running iptables in dry-run mode, no rule changes will be made")
 		ext = &dep.DependenciesStub{}
 	} else {
 		ext = &dep.RealDependencies{

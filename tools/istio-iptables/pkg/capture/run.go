@@ -282,6 +282,7 @@ func (cfg *IptablesConfigurator) Run() error {
 	var iptVer, ipt6Ver dep.IptablesVersion
 	var err error
 
+	log.Debugf("Detecting iptables versions - using fixed config: %s", cfg.cfg.IPTablesVersion)
 	iptVer, err = cfg.ext.DetectIptablesVersion(cfg.cfg.IPTablesVersion, false)
 	if err != nil {
 		return err

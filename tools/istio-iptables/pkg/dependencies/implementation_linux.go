@@ -60,26 +60,33 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 	// does the "xx-save" binary exist?
 	rawIptablesVer, execErr := exec.Command(iptablesSaveBin, "--version").CombinedOutput()
 	if execErr == nil {
+		// we found the binary - extract the version, then try to detect if rules already exist for that variant
+		parsedVer, err := parseIptablesVer(string(rawIptablesVer))
+		if err != nil {
+			return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", rawIptablesVer, err)
+		}
+		// Legacy will have no marking or 'legacy', so just look for nf_tables
+		isNft := strings.Contains(string(rawIptablesVer), "nf_tables")
+
 		// if it seems to, use it to dump the rules in our netns, and see if any rules exist there
+		// Note that this is highly dependent on context.
+		// new pod netns? probably no rules. Hostnetns? probably rules
+		// So this is mostly just a "hint"/heuristic as to which version we should be using, if more than one binary is present.
 		rulesDump, _ := exec.Command(iptablesSaveBin).CombinedOutput()
 		// `xx-save` should return _no_ output (0 lines) if no rules are defined in this netns for that binary variant.
 		// `xx-save` should return at least 3 output lines if at least one rule is defined in this netns for that binary variant.
+		existingRules := false
 		if strings.Count(string(rulesDump), "\n") >= 3 {
-			// binary exists and rules exist in its tables in this netns -> we should use this binary for this netns.
-			parsedVer, err := parseIptablesVer(string(rawIptablesVer))
-			if err != nil {
-				return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", rawIptablesVer, err)
-			}
-			// Legacy will have no marking or 'legacy', so just look for nf_tables
-			isNft := strings.Contains(string(rawIptablesVer), "nf_tables")
-			return IptablesVersion{
-				DetectedBinary:        iptablesBin,
-				DetectedSaveBinary:    iptablesSaveBin,
-				DetectedRestoreBinary: iptablesRestoreBin,
-				Version:               parsedVer,
-				Legacy:                !isNft,
-			}, nil
+			existingRules = true
 		}
+		return IptablesVersion{
+			DetectedBinary:        iptablesBin,
+			DetectedSaveBinary:    iptablesSaveBin,
+			DetectedRestoreBinary: iptablesRestoreBin,
+			Version:               parsedVer,
+			Legacy:                !isNft,
+			ExistingRules:         existingRules,
+		}, nil
 	}
 	return IptablesVersion{}, fmt.Errorf("iptables save binary: %s either not present, or has no rules defined in current netns", iptablesSaveBin)
 }
