@@ -52,14 +52,15 @@ func (a *index) ServicesCollection(
 		}
 	}, krt.WithName("ServicesInfo"))
 	ServiceEntriesInfo := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
+		waypoint := fetchWaypoint(ctx, Waypoints, s.ObjectMeta)
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		return a.serviceEntriesInfo(s)
+		return a.serviceEntriesInfo(s, waypoint)
 	}, krt.WithName("ServiceEntriesInfo"))
 	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, krt.WithName("WorkloadServices"))
 	return WorkloadServices
 }
 
-func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry) []model.ServiceInfo {
+func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
 	portNames := map[int32]model.ServicePortName{}
 	for _, p := range s.Spec.Ports {
@@ -67,7 +68,7 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry) []model.Ser
 			PortName: p.Name,
 		}
 	}
-	return slices.Map(a.constructServiceEntries(s), func(e *workloadapi.Service) model.ServiceInfo {
+	return slices.Map(a.constructServiceEntries(s, w), func(e *workloadapi.Service) model.ServiceInfo {
 		return model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
@@ -77,7 +78,7 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry) []model.Ser
 	})
 }
 
-func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry) []*workloadapi.Service {
+func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
 	addresses, err := slices.MapErr(svc.Spec.Addresses, a.toNetworkAddressFromCidr)
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
@@ -91,6 +92,12 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry) []*w
 		})
 	}
 
+	// handle svc waypoint scenario
+	var waypointAddress *workloadapi.GatewayAddress
+	if w != nil {
+		waypointAddress = a.getWaypointAddress(w)
+	}
+
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
@@ -100,6 +107,7 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry) []*w
 			Hostname:  h,
 			Addresses: addresses,
 			Ports:     ports,
+			Waypoint:  waypointAddress,
 		})
 	}
 	return res
