@@ -13,6 +13,7 @@ const (
 	CertificateSigningRequest
 	ConfigMap
 	CustomResourceDefinition
+	DNSName
 	DaemonSet
 	Deployment
 	DestinationRule
@@ -66,6 +67,8 @@ func (k Kind) String() string {
 		return "ConfigMap"
 	case CustomResourceDefinition:
 		return "CustomResourceDefinition"
+	case DNSName:
+		return "DNSName"
 	case DaemonSet:
 		return "DaemonSet"
 	case Deployment:
