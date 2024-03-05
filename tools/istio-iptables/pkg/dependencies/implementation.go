@@ -16,7 +16,6 @@ package dependencies
 
 import (
 	"fmt"
-	"io"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -214,11 +213,11 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 }
 
 // Run runs a command
-func (r *RealDependencies) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
-	return r.executeXTables(cmd, iptVer, false, stdin, args...)
+func (r *RealDependencies) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, args ...string) error {
+	return r.executeXTables(cmd, iptVer, false, args...)
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
-func (r *RealDependencies) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
-	_ = r.executeXTables(cmd, iptVer, true, stdin, args...)
+func (r *RealDependencies) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, args ...string) {
+	_ = r.executeXTables(cmd, iptVer, true, args...)
 }

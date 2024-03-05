@@ -49,22 +49,22 @@ func NewIptablesCleaner(cfg *config.Config, iptV, ipt6V *dep.IptablesVersion, ex
 // TODO BML why are these not on the type?
 func flushAndDeleteChains(ext dep.Dependencies, iptV *dep.IptablesVersion, table string, chains []string) {
 	for _, chain := range chains {
-		ext.RunQuietlyAndIgnore(constants.IPTables, iptV, nil, "-t", table, "-F", chain)
-		ext.RunQuietlyAndIgnore(constants.IPTables, iptV, nil, "-t", table, "-X", chain)
+		ext.RunQuietlyAndIgnore(constants.IPTables, iptV, "-t", table, "-F", chain)
+		ext.RunQuietlyAndIgnore(constants.IPTables, iptV, "-t", table, "-X", chain)
 	}
 }
 
 func DeleteRule(ext dep.Dependencies, iptV *dep.IptablesVersion, table string, chain string, rulespec ...string) {
 	args := append([]string{"-t", table, "-D", chain}, rulespec...)
-	ext.RunQuietlyAndIgnore(constants.IPTables, iptV, nil, args...)
+	ext.RunQuietlyAndIgnore(constants.IPTables, iptV, args...)
 }
 
 func removeOldChains(cfg *config.Config, ext dep.Dependencies, iptV *dep.IptablesVersion) {
 	// Remove the old TCP rules
 	for _, table := range []string{constants.NAT, constants.MANGLE} {
-		ext.RunQuietlyAndIgnore(constants.IPTables, iptV, nil, "-t", table, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
+		ext.RunQuietlyAndIgnore(constants.IPTables, iptV, "-t", table, "-D", constants.PREROUTING, "-p", constants.TCP, "-j", constants.ISTIOINBOUND)
 	}
-	ext.RunQuietlyAndIgnore(constants.IPTables, iptV, nil, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
+	ext.RunQuietlyAndIgnore(constants.IPTables, iptV, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
 
 	// Flush and delete the istio chains from NAT table.
 	chains := []string{constants.ISTIOOUTPUT, constants.ISTIOINBOUND}
@@ -102,8 +102,8 @@ func cleanupDNSUDP(cfg *config.Config, ext dep.Dependencies, iptV, ipt6V *dep.Ip
 
 func (c *IptablesCleaner) Run() {
 	defer func() {
-		_ = c.ext.Run(constants.IPTablesSave, c.iptV, nil)
-		_ = c.ext.Run(constants.IPTablesSave, c.ipt6V, nil)
+		_ = c.ext.Run(constants.IPTablesSave, c.iptV)
+		_ = c.ext.Run(constants.IPTablesSave, c.ipt6V)
 	}()
 
 	// clean v4/v6

@@ -16,7 +16,6 @@ package dependencies
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -33,15 +32,15 @@ type DependenciesStub struct {
 	ExecutedAll      []string
 }
 
-func (s *DependenciesStub) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
+func (s *DependenciesStub) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, args ...string) error {
 	s.execute(false /*quietly*/, cmd, iptVer, args...)
-	_ = writeAllToDryRunPath(stdin)
+	_ = s.writeAllToDryRunPath()
 	return nil
 }
 
-func (s *DependenciesStub) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
+func (s *DependenciesStub) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, args ...string) {
 	s.execute(true /*quietly*/, cmd, iptVer, args...)
-	_ = writeAllToDryRunPath(stdin)
+	_ = s.writeAllToDryRunPath()
 }
 
 // TODO BML this stub can be smarter
@@ -62,6 +61,7 @@ func (s *DependenciesStub) DetectIptablesVersion(overrideVersion string, ipV6 bo
 
 func (s *DependenciesStub) execute(quietly bool, cmd constants.IptablesCmd, iptVer *IptablesVersion, args ...string) {
 	cmdline := strings.Join(append([]string{iptVer.CmdToString(cmd)}, args...), " ")
+	fmt.Printf("IPT LOGINFO: cmd: %+v, %s", cmd, cmdline)
 	s.ExecutedAll = append(s.ExecutedAll, cmdline)
 	if quietly {
 		s.ExecutedQuietly = append(s.ExecutedQuietly, cmdline)
@@ -71,7 +71,8 @@ func (s *DependenciesStub) execute(quietly bool, cmd constants.IptablesCmd, iptV
 }
 
 // TODO BML this is more than a stub actually needs to do, we should be able to drop this testing hack
-func writeAllToDryRunPath(stdin io.ReadSeeker) error {
+// and skip writing to a file, but some tests are not *actually* doing unit testing and need this.
+func (s *DependenciesStub) writeAllToDryRunPath() error {
 	path := DryRunFilePath.Get()
 	if path != "" {
 		// Print the input into the given output file.
@@ -81,9 +82,11 @@ func writeAllToDryRunPath(stdin io.ReadSeeker) error {
 		}
 
 		defer f.Close()
-		if stdin != nil {
-			if _, err = io.Copy(f, stdin); err != nil {
-				return fmt.Errorf("unable to write dry run output file: %v", err)
+
+		for _, line := range s.ExecutedAll {
+			_, err := f.WriteString(line + "\n")
+			if err != nil {
+				return fmt.Errorf("unable to write lines to dry run output file %v: %v", path, err)
 			}
 		}
 	}

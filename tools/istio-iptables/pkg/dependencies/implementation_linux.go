@@ -17,7 +17,6 @@ package dependencies
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -169,7 +168,7 @@ func mount(src, dst string) error {
 	return syscall.Mount(src, dst, "", syscall.MS_BIND|syscall.MS_RDONLY, "")
 }
 
-func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
+func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, args ...string) error {
 	mode := "without lock"
 	var c *exec.Cmd
 	needLock := iptVer.IsWriteCmd(cmd) && !iptVer.NoLocks()
@@ -217,7 +216,6 @@ func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *Ipt
 	stderr := &bytes.Buffer{}
 	c.Stdout = stdout
 	c.Stderr = stderr
-	c.Stdin = stdin
 	err := run(c)
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())
