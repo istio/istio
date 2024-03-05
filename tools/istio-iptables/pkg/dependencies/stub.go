@@ -63,8 +63,7 @@ func (s *DependenciesStub) DetectIptablesVersion(overrideVersion string, ipV6 bo
 }
 
 func (s *DependenciesStub) execute(quietly bool, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
-
-	// We are either getting iptables rules as a `stdin` blob (if this is a restore)
+	// We are either getting iptables rules as a `stdin` blob in `iptables-save` format (if this is a restore)
 	if stdin != nil {
 		buf := bufio.NewScanner(stdin)
 		for buf.Scan() {
