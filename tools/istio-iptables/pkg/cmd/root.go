@@ -189,7 +189,7 @@ type IptablesError struct {
 func ProgramIptables(cfg *config.Config) error {
 	var ext dep.Dependencies
 	if cfg.DryRun {
-		ext = &dep.StdoutStubDependencies{}
+		ext = &dep.DependenciesStub{}
 	} else {
 
 		ext = &dep.RealDependencies{

@@ -15,25 +15,64 @@
 package dependencies
 
 import (
-	"fmt"
 	"io"
 	"os"
+	"fmt"
 	"strings"
 
 	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 var DryRunFilePath = env.Register("DRY_RUN_FILE_PATH", "", "If provided, StdoutStubDependencies will write the input from stdin to the given file.")
 
-// StdoutStubDependencies implementation of interface Dependencies, which is used for testing
-type StdoutStubDependencies struct{}
+// TODO BML replace DIY mocks/state with something better
+type DependenciesStub struct {
+	ExecutedNormally     []string
+	ExecutedQuietly      []string
+	ExecutedAll          []string
+}
 
-// Run runs a command
-func (s *StdoutStubDependencies) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
-	log.Infof("%s %s", iptVer.CmdToString(cmd), strings.Join(args, " "))
+func (s *DependenciesStub) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
+	s.execute(false /*quietly*/, cmd, iptVer, args...)
+	_ = writeAllToDryRunPath(stdin)
+	return nil
+}
 
+func (s *DependenciesStub) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
+	s.execute(true /*quietly*/, cmd, iptVer, args...)
+	_ = writeAllToDryRunPath(stdin)
+}
+
+// TODO BML this stub can be smarter
+func (s *DependenciesStub) DetectIptablesVersion(overrideVersion string, ipV6 bool) (IptablesVersion, error) {
+	if ipV6 {
+
+			return IptablesVersion{
+				DetectedBinary:        "ip6tables",
+				DetectedSaveBinary:    "ip6tables-save",
+				DetectedRestoreBinary: "ip6tables-restore",
+			}, nil
+	}
+	return IptablesVersion{
+		DetectedBinary:        "iptables",
+		DetectedSaveBinary:    "iptables-save",
+		DetectedRestoreBinary: "iptables-restore",
+	}, nil
+}
+
+func (s *DependenciesStub) execute(quietly bool, cmd constants.IptablesCmd, iptVer *IptablesVersion, args ...string) {
+	cmdline := strings.Join(append([]string{iptVer.CmdToString(cmd)}, args...), " ")
+	s.ExecutedAll = append(s.ExecutedAll, cmdline)
+	if quietly {
+		s.ExecutedQuietly = append(s.ExecutedQuietly, cmdline)
+	} else {
+		s.ExecutedNormally = append(s.ExecutedNormally, cmdline)
+	}
+}
+
+// TODO BML this is more than a stub actually needs to do, we should be able to drop this testing hack
+func writeAllToDryRunPath(stdin io.ReadSeeker) error {
 	path := DryRunFilePath.Get()
 	if path != "" {
 		// Print the input into the given output file.
@@ -50,14 +89,4 @@ func (s *StdoutStubDependencies) Run(cmd constants.IptablesCmd, iptVer *Iptables
 		}
 	}
 	return nil
-}
-
-// RunQuietlyAndIgnore runs a command quietly and ignores errors
-func (s *StdoutStubDependencies) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
-	_ = s.Run(cmd, iptVer, stdin, args...)
-}
-
-// TODO BML this stub can be smarter
-func (s *StdoutStubDependencies) DetectIptablesVersion(overrideVersion string, ipV6 bool) (IptablesVersion, error) {
-	return IptablesVersion{}, nil
 }

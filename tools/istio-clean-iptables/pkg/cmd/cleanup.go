@@ -25,7 +25,7 @@ import (
 
 func NewDependencies(cfg *config.Config) dep.Dependencies {
 	if cfg.DryRun {
-		return &dep.StdoutStubDependencies{}
+		return &dep.DependenciesStub{}
 	}
 	return &dep.RealDependencies{}
 }
