@@ -451,12 +451,6 @@ func EnableCrdWatcher(c Client) Client {
 
 var NewCrdWatcher func(Client) kubetypes.CrdWatcher
 
-// NewDefaultClient returns a default client, using standard Kubernetes config resolution to determine
-// the cluster to access.
-func NewDefaultClient() (Client, error) {
-	return NewClient(BuildClientCmd("", ""), "")
-}
-
 // NewCLIClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
 // This is appropriate for use in CLI libraries because it exposes functionality unsafe for in-cluster controllers,
