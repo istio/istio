@@ -32,7 +32,8 @@ import (
 )
 
 type Analyzer struct {
-	SkipServiceCheck bool
+	SkipServiceCheck             bool
+	SkipDefaultRevisionedWebhook bool
 }
 
 var _ analysis.Analyzer = &Analyzer{}
@@ -73,6 +74,9 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	resources := map[string]*resource.Instance{}
 	revisions := sets.New[string]()
 	context.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
+		if a.SkipDefaultRevisionedWebhook && isDefaultRevisionedWebhook(resource.Message.(*v1.MutatingWebhookConfiguration)) {
+			return true
+		}
 		wh := resource.Message.(*v1.MutatingWebhookConfiguration)
 		revs := extractRevisions(wh)
 		if len(revs) == 0 && !isIstioWebhook(wh) {
@@ -183,6 +187,14 @@ func extractRevisions(wh *v1.MutatingWebhookConfiguration) []string {
 		}
 	}
 	return revs.UnsortedList()
+}
+
+func isDefaultRevisionedWebhook(wh *v1.MutatingWebhookConfiguration) bool {
+	_, ok := wh.GetLabels()["istio.io/tag"]
+	if !ok && wh.GetLabels()[label.IoIstioRev.Name] == "default" {
+		return true
+	}
+	return false
 }
 
 func selectorMatches(selector *metav1.LabelSelector, labels klabels.Set) bool {
