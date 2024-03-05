@@ -96,11 +96,11 @@ func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDe
 	//
 	// But that's stunningly unlikely (and would still work either way)
 	iptVer, err := ext.DetectIptablesVersion("", false)
-	if err == nil {
+	if err != nil {
 		configurator.iptV = iptVer
 	}
 	ipt6Ver, err := ext.DetectIptablesVersion("", true)
-	if err == nil {
+	if err != nil {
 		configurator.ipt6V = ipt6Ver
 	}
 
@@ -145,11 +145,11 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range deleteCmds {
-			delErrs = append(delErrs, cfg.ext.Run(iptablesconstants.IPTables, &iptVer, cmd...))
+			delErrs = append(delErrs, cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...))
 		}
 
 		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, cmd...)
+			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
 			if err != nil {
 				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
 			}
@@ -390,7 +390,7 @@ func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.Iptabl
 func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, args [][]string) error {
 	var iptErrs []error
 	for _, argSet := range args {
-		iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IPTables, iptVer, argSet...))
+		iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IPTables, iptVer, nil, argSet...))
 	}
 	return errors.Join(iptErrs...)
 }
@@ -407,7 +407,7 @@ func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptablesBuilder *
 
 	log.Infof("Running %s with the following input:\n%v", iptVer.CmdToString(cmd), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(cmd, iptVer, "--noflush", "-v")
+	return cfg.ext.Run(cmd, iptVer, strings.NewReader(data), "--noflush", "-v")
 }
 
 func (cfg *IptablesConfigurator) addLoopbackRoute() error {
@@ -471,7 +471,7 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	}
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, cmd...)
+			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
 			if err != nil {
 				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
 			}
