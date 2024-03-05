@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -144,7 +145,12 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 	}
 
 	var messages diag.Messages = make([]diag.Message, 0)
-
+	if minor <= 21 {
+		// ENHANCED_RESOURCE_SCOPING
+		if err := checkIstiodDeployment(cli, ctx.IstioNamespace(), &messages); err != nil {
+			return nil, err
+		}
+	}
 	if minor <= 20 {
 		// VERIFY_CERTIFICATE_AT_CLIENT and ENABLE_AUTO_SNI
 		if err := checkDestinationRuleTLS(cli, &messages); err != nil {
@@ -203,6 +209,47 @@ func checkExternalNameAlias(cli kube.CLIClient, messages *diag.Messages) error {
 			"ENABLE_EXTERNAL_NAME_ALIAS", "1.20",
 			"ExternalName services now behavior differently; consult upgrade notes for more information", "1.20"))
 
+	}
+	return nil
+}
+
+func checkIstiodDeployment(cli kube.CLIClient, namespace string, messages *diag.Messages) error {
+	deployments, err := cli.Kube().AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "app=istiod",
+	})
+	if err != nil {
+		return err
+	}
+	// Check envs
+	for _, deployment := range deployments.Items {
+		scopingImpacted := true
+		for _, container := range deployment.Spec.Template.Spec.Containers {
+			if container.Name == "discovery" {
+				for _, envVar := range container.Env {
+					if envVar.Name == "ENHANCED_RESOURCE_SCOPING" && envVar.Value == "true" {
+						scopingImpacted = false
+						break
+					}
+				}
+			}
+		}
+		if scopingImpacted {
+			res := &resource.Instance{
+				Origin: &legacykube.Origin{
+					Type: config.GroupVersionKind(deployment.GroupVersionKind()),
+					FullName: resource.FullName{
+						Namespace: resource.Namespace(deployment.GetNamespace()),
+						Name:      resource.LocalName(deployment.GetName()),
+					},
+					ResourceVersion: resource.Version(deployment.GetResourceVersion()),
+					Ref:             nil,
+					FieldsMap:       nil,
+				},
+			}
+			messages.Add(msg.NewUpdateIncompatibility(res,
+				"ENHANCED_RESOURCE_SCOPING", "1.22",
+				"previously, the enhanced scoping of custom resources was disabled by default; now it will be enabled by default", "1.21"))
+		}
 	}
 	return nil
 }

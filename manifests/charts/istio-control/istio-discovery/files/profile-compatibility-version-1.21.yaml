@@ -1,3 +1,6 @@
+pilot:
+  env:
+    ENABLE_ENHANCED_RESOURCE_SCOPING: "false"
 meshConfig:
   defaultConfig:
     tracing:
