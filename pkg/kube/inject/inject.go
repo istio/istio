@@ -419,6 +419,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 
 	proxyUID, proxyGID := GetProxyIDs(params.namespace)
 
+	// When changing this, make sure to change TemplateInput in deploymentcontroller.go
 	data := SidecarTemplateData{
 		TypeMeta:                 params.typeMeta,
 		DeploymentMeta:           params.deployMeta,
