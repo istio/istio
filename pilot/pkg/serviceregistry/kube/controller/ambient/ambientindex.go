@@ -138,6 +138,9 @@ func New(options Options) Index {
 		ObjectTransform: kubeclient.StripPodUnusedFields,
 	}, krt.WithName("Pods"))
 
+	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
+	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, krt.WithName("Namespaces"))
+
 	MeshConfig := MeshConfigCollection(ConfigMaps, options)
 	Waypoints := WaypointsCollection(Gateways)
 	WaypointIndex := krt.CreateIndex[Waypoint, model.WaypointScope](Waypoints, func(w Waypoint) []model.WaypointScope {
@@ -151,7 +154,7 @@ func New(options Options) Index {
 		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 	}), false)
 
-	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints)
+	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
 	ServiceAddressIndex := krt.CreateIndex[model.ServiceInfo, networkAddress](WorkloadServices, networkAddressFromService)
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *workloadapi.Service {

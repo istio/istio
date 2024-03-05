@@ -19,6 +19,7 @@ import (
 	"net/netip"
 	"strings"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -35,14 +36,29 @@ type Waypoint struct {
 	Addresses         []netip.Addr
 }
 
-// TODO: this only handles if use-waypoint exists on o itself, need to handle the full namespace case as well...
-func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], o metav1.ObjectMeta) *Waypoint {
-	wpNamed := getUseWaypoint(o)
-	if wpNamed == nil {
-		return nil
+func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
+	// try fetching the waypoint defined on the object itself
+	wp := getUseWaypoint(o)
+	if wp != nil {
+		// plausible the object has a waypoint defined but that waypoint's underlying gateway is not ready, in this case we'd return nil here even if
+		// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
+		// o was reliant on the namespace waypoint and then get's a use-waypoint annotation added before that gateway is ready.
+		// goes from having a waypoint to having no waypoint and then eventualy gets a waypoint back
+		return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterName(wp.Name, wp.Namespace))
 	}
 
-	return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterName(wpNamed.Name, wpNamed.Namespace))
+	// try fetching the namespace-defined waypoint
+	namespace := krt.FetchOne[*v1.Namespace](ctx, Namespaces, krt.FilterKey(o.Namespace))
+	// this probably should never be nil. How would o exist in a namespace we know nothing about? maybe edge case of starting the controller or ns delete?
+	if namespace != nil && *namespace != nil {
+		wpNamespace := getUseWaypoint((*namespace).ObjectMeta)
+		if wpNamespace != nil {
+			return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterName(wpNamespace.Name, wpNamespace.Namespace))
+		}
+	}
+
+	// neither o nore it's namespace has a use-waypoint annotation
+	return nil
 }
 
 func getUseWaypoint(meta metav1.ObjectMeta) (named *krt.Named) {
