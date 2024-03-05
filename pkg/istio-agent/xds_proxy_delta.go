@@ -29,7 +29,6 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
-	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/channels"
@@ -121,24 +120,8 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 	for {
 		select {
 		case err := <-con.upstreamError:
-			// error from upstream Istiod.
-			if istiogrpc.IsExpectedGRPCError(err) {
-				proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
-				metrics.IstiodConnectionCancellations.Increment()
-			} else {
-				proxyLog.Warnf("upstream [%d] terminated with unexpected error %v", con.conID, err)
-				metrics.IstiodConnectionErrors.Increment()
-			}
 			return err
 		case err := <-con.downstreamError:
-			// error from downstream Envoy.
-			if istiogrpc.IsExpectedGRPCError(err) {
-				proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
-				metrics.EnvoyConnectionCancellations.Increment()
-			} else {
-				proxyLog.Warnf("downstream [%d] terminated with unexpected error %v", con.conID, err)
-				metrics.EnvoyConnectionErrors.Increment()
-			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
