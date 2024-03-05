@@ -82,7 +82,7 @@ func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDe
 	}
 
 	// By detecting iptables versions *here* once-for-all we are
-	// commiting to using the same binary/variant (legacy or nft)
+	// committing to using the same binary/variant (legacy or nft)
 	// within all pods as we do on the host.
 	//
 	// This should be fine, as the host binaries are all we have to work with here anyway,
@@ -145,11 +145,11 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range deleteCmds {
-			delErrs = append(delErrs, cfg.ext.Run(iptablesconstants.IpTables, &iptVer, nil, cmd...))
+			delErrs = append(delErrs, cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...))
 		}
 
 		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptablesconstants.IpTables, &iptVer, nil, cmd...)
+			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
 			if err != nil {
 				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
 			}
@@ -390,13 +390,13 @@ func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.Iptabl
 func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, args [][]string) error {
 	var iptErrs []error
 	for _, argSet := range args {
-		iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IpTables, iptVer, nil, argSet...))
+		iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IPTables, iptVer, nil, argSet...))
 	}
 	return errors.Join(iptErrs...)
 }
 
 func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptablesBuilder *builder.IptablesRuleBuilder, iptVer *dep.IptablesVersion, isIpv4 bool) error {
-	cmd := iptablesconstants.IpTablesRestore
+	cmd := iptablesconstants.IPTablesRestore
 	var data string
 
 	if isIpv4 {
@@ -471,7 +471,7 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	}
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptablesconstants.IpTables, &iptVer, nil, cmd...)
+			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
 			if err != nil {
 				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
 			}

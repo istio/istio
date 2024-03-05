@@ -70,11 +70,11 @@ type IptablesVersion struct {
 
 func (v IptablesVersion) CmdToString(cmd constants.IptablesCmd) string {
 	switch cmd {
-	case constants.IpTables:
+	case constants.IPTables:
 		return v.DetectedBinary
-	case constants.IpTablesSave:
+	case constants.IPTablesSave:
 		return v.DetectedSaveBinary
-	case constants.IpTablesRestore:
+	case constants.IPTablesRestore:
 		return v.DetectedRestoreBinary
 	default:
 		return ""
@@ -84,9 +84,9 @@ func (v IptablesVersion) CmdToString(cmd constants.IptablesCmd) string {
 // IsWriteCmd returns true for all command types that do write actions (and thus need a lock)
 func (v IptablesVersion) IsWriteCmd(cmd constants.IptablesCmd) bool {
 	switch cmd {
-	case constants.IpTables:
+	case constants.IPTables:
 		return true
-	case constants.IpTablesRestore:
+	case constants.IPTablesRestore:
 		return true
 	default:
 		return false
@@ -132,46 +132,43 @@ func (r *RealDependencies) DetectIptablesVersion(overrideVersion string, ipV6 bo
 	if overrideVersion != "" {
 		// Legacy will have no marking or 'legacy', so just look for nf_tables
 		nft := strings.Contains(overrideVersion, "nf_tables")
-		parsedVer, err := parseIptablesVer(string(overrideVersion))
+		parsedVer, err := parseIptablesVer(overrideVersion)
 		if err != nil {
 			return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", overrideVersion, err)
 		}
 		return IptablesVersion{Version: parsedVer, Legacy: !nft}, nil
-	} else {
-		// Begin detecting
-		//
-		// iptables variants all have ipv6 variants, so decide which set we're looking for
-		var nftBin, legacyBin, plainBin string
-		if ipV6 {
-			nftBin = ip6tablesNftBin
-			legacyBin = ip6tablesLegacyBin
-			plainBin = ip6tablesBin
-		} else {
-			nftBin = iptablesNftBin
-			legacyBin = iptablesLegacyBin
-			plainBin = iptablesBin
-		}
-
-		// 1. What binaries we have
-		// 2. What binary we should use, based on existing rules defined in our current context.
-		// does the nft binary set exist?
-		ver, err := shouldUseBinaryForCurrentContext(nftBin)
-		if err == nil {
-			// if so, use it.
-			return ver, nil
-		} else {
-			// does the legacy binary set exist?
-			ver, err := shouldUseBinaryForCurrentContext(legacyBin)
-			if err == nil {
-				// if so, use it
-				return ver, err
-			} else {
-				// regular non-suffixed binary set is our last resort - if it's not there,
-				// propagate the error, we can't do anything
-				return shouldUseBinaryForCurrentContext(plainBin)
-			}
-		}
 	}
+	// Begin detecting
+	//
+	// iptables variants all have ipv6 variants, so decide which set we're looking for
+	var nftBin, legacyBin, plainBin string
+	if ipV6 {
+		nftBin = ip6tablesNftBin
+		legacyBin = ip6tablesLegacyBin
+		plainBin = ip6tablesBin
+	} else {
+		nftBin = iptablesNftBin
+		legacyBin = iptablesLegacyBin
+		plainBin = iptablesBin
+	}
+
+	// 1. What binaries we have
+	// 2. What binary we should use, based on existing rules defined in our current context.
+	// does the nft binary set exist, and are nft rules present?
+	ver, err := shouldUseBinaryForCurrentContext(nftBin)
+	if err == nil {
+		// if so, use it.
+		return ver, nil
+	}
+	// does the legacy binary set exist, and are legacy rules present?
+	ver, err = shouldUseBinaryForCurrentContext(legacyBin)
+	if err == nil {
+		// if so, use it
+		return ver, nil
+	}
+	// regular non-suffixed binary set is our last resort - if it's not there,
+	// propagate the error, we can't do anything
+	return shouldUseBinaryForCurrentContext(plainBin)
 }
 
 // TODO BML verify this won't choke on "-save" binaries having slightly diff. version string prefixes

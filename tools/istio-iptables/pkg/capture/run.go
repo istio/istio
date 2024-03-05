@@ -295,9 +295,9 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		_ = cfg.ext.Run(constants.IpTablesSave, &iptVer, nil)
+		_ = cfg.ext.Run(constants.IPTablesSave, &iptVer, nil)
 		if cfg.cfg.EnableInboundIPv6 {
-			_ = cfg.ext.Run(constants.IpTablesSave, &ipt6Ver, nil)
+			_ = cfg.ext.Run(constants.IPTablesSave, &ipt6Ver, nil)
 		}
 	}()
 
@@ -576,7 +576,7 @@ func (f UDPRuleApplier) RunV4(args ...string) {
 	case DeleteOps:
 		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
 		deleteArgs = append(deleteArgs, args...)
-		f.ext.RunQuietlyAndIgnore(constants.IpTables, f.iptV, nil, deleteArgs...)
+		f.ext.RunQuietlyAndIgnore(constants.IPTables, f.iptV, nil, deleteArgs...)
 	}
 }
 
@@ -587,7 +587,7 @@ func (f UDPRuleApplier) RunV6(args ...string) {
 	case DeleteOps:
 		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
 		deleteArgs = append(deleteArgs, args...)
-		f.ext.RunQuietlyAndIgnore(constants.IpTables, f.ipt6V, nil, deleteArgs...)
+		f.ext.RunQuietlyAndIgnore(constants.IPTables, f.ipt6V, nil, deleteArgs...)
 	}
 }
 
@@ -747,7 +747,7 @@ func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter config.Interce
 
 func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, commands [][]string) error {
 	for _, cmd := range commands {
-		if err := cfg.ext.Run(constants.IpTables, iptVer, nil, cmd...); err != nil {
+		if err := cfg.ext.Run(constants.IPTables, iptVer, nil, cmd...); err != nil {
 			return err
 		}
 	}
@@ -765,9 +765,9 @@ func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptVer, ipt6Ver *
 		iptVersion = ipt6Ver
 	}
 
-	log.Infof("Running %s with the following input:\n%v", iptVersion.CmdToString(constants.IpTablesRestore), strings.TrimSpace(data))
+	log.Infof("Running %s with the following input:\n%v", iptVersion.CmdToString(constants.IPTablesRestore), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(constants.IpTablesRestore, iptVersion, strings.NewReader(data), "--noflush")
+	return cfg.ext.Run(constants.IPTablesRestore, iptVersion, strings.NewReader(data), "--noflush")
 }
 
 func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVersion) error {

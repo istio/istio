@@ -63,6 +63,7 @@ func (rb *IptablesRuleBuilder) InsertRule(command log.Command, chain string, tab
 	return rb
 }
 
+// nolint lll
 func (rb *IptablesRuleBuilder) insertInternal(ipt *[]*Rule, command log.Command, chain string, table string, position int, params ...string) *IptablesRuleBuilder {
 	rules := params
 	*ipt = append(*ipt, &Rule{

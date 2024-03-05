@@ -174,7 +174,7 @@ const (
 type IptablesCmd int
 
 const (
-	IpTables        IptablesCmd = iota
-	IpTablesSave    IptablesCmd = iota
-	IpTablesRestore IptablesCmd = iota
+	IPTables        IptablesCmd = iota
+	IPTablesSave    IptablesCmd = iota
+	IPTablesRestore IptablesCmd = iota
 )
