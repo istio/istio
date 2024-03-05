@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
@@ -382,6 +383,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		ServiceType:               serviceType,
 		ProxyUID:                  proxyUID,
 		ProxyGID:                  proxyGID,
+		CompliancePolicy:          common_features.CompliancePolicy,
 		InfrastructureLabels:      gw.GetLabels(),
 		InfrastructureAnnotations: gw.GetAnnotations(),
 	}
@@ -639,6 +641,7 @@ type TemplateInput struct {
 	Revision                  string
 	ProxyUID                  int64
 	ProxyGID                  int64
+	CompliancePolicy          string
 	InfrastructureLabels      map[string]string
 	InfrastructureAnnotations map[string]string
 	GatewayNameLabel          string
