@@ -23,12 +23,14 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 	authorizationapi "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -147,7 +149,7 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 	var messages diag.Messages = make([]diag.Message, 0)
 	if minor <= 21 {
 		// ENHANCED_RESOURCE_SCOPING
-		if err := checkIstiodDeployment(cli, ctx.IstioNamespace(), &messages); err != nil {
+		if err := checkPilot(cli, ctx.IstioNamespace(), &messages); err != nil {
 			return nil, err
 		}
 	}
@@ -213,16 +215,35 @@ func checkExternalNameAlias(cli kube.CLIClient, messages *diag.Messages) error {
 	return nil
 }
 
-func checkIstiodDeployment(cli kube.CLIClient, namespace string, messages *diag.Messages) error {
+func checkPilot(cli kube.CLIClient, namespace string, messages *diag.Messages) error {
 	deployments, err := cli.Kube().AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "app=istiod",
 	})
 	if err != nil {
 		return err
 	}
-	// Check envs
 	for _, deployment := range deployments.Items {
-		scopingImpacted := true
+		scopingImpacted := false
+
+		// Obtain configmap to verify if affected features are used
+		configMapName := "istio"
+		if rev := deployment.Labels[label.IoIstioRev.Name]; rev != "default" {
+			configMapName += fmt.Sprintf("-%s", rev)
+		}
+		configMap, err := cli.Kube().CoreV1().ConfigMaps(namespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
+		if err != nil {
+			fmt.Printf("Error getting configmap %s: %v\n", configMapName, err)
+		}
+		meshData := make(map[string]interface{})
+		if data, exists := configMap.Data["mesh"]; exists {
+			if err := yaml.Unmarshal([]byte(data), &meshData); err != nil {
+				fmt.Printf("Error parsing meshConfig: %v\n", err)
+				return err
+			}
+		}
+		scopingImpacted = meshData["discoverySelectors"] != nil
+
+		// Check if mitigation is already in place
 		for _, container := range deployment.Spec.Template.Spec.Containers {
 			if container.Name == "discovery" {
 				for _, envVar := range container.Env {
