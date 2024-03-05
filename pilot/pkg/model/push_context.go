@@ -2192,7 +2192,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 			return ifilter.creationTime.Before(jfilter.creationTime)
 		}
 		in := ifilter.Name + "." + ifilter.Namespace
-		jn := ifilter.Name + "." + ifilter.Namespace
+		jn := jfilter.Name + "." + jfilter.Namespace
 		return in < jn
 	})
 	var out *EnvoyFilterWrapper
