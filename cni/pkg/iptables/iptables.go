@@ -390,7 +390,7 @@ func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.Iptabl
 func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, args [][]string) error {
 	var iptErrs []error
 	for _, argSet := range args {
-	  iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IpTables, iptVer, nil, argSet...))
+		iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IpTables, iptVer, nil, argSet...))
 	}
 	return errors.Join(iptErrs...)
 }

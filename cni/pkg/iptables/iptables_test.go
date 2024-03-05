@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	testutil "istio.io/istio/pilot/test/util"
-
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 

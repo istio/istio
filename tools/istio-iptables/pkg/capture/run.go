@@ -58,8 +58,8 @@ type IptablesConfigurator struct {
 func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) *IptablesConfigurator {
 	return &IptablesConfigurator{
 		ruleBuilder: builder.NewIptablesRuleBuilder(cfg),
-		ext:      ext,
-		cfg:      cfg,
+		ext:         ext,
+		cfg:         cfg,
 	}
 }
 
@@ -279,7 +279,6 @@ func configureIPv6Addresses(cfg *config.Config) error {
 }
 
 func (cfg *IptablesConfigurator) Run() error {
-
 	var iptVer, ipt6Ver dep.IptablesVersion
 	var err error
 
@@ -566,8 +565,8 @@ type UDPRuleApplier struct {
 	ops      Ops
 	table    string
 	chain    string
-	iptV *dep.IptablesVersion
-	ipt6V *dep.IptablesVersion
+	iptV     *dep.IptablesVersion
+	ipt6V    *dep.IptablesVersion
 }
 
 func (f UDPRuleApplier) RunV4(args ...string) {
@@ -622,8 +621,8 @@ func HandleDNSUDP(
 		ops:      ops,
 		table:    constants.NAT,
 		chain:    constants.OUTPUT,
-		iptV:	  iptV,
-		ipt6V:	  ipt6V,
+		iptV:     iptV,
+		ipt6V:    ipt6V,
 	}
 	// Make sure that upstream DNS requests from agent/envoy dont get captured.
 	// TODO: add ip6 as well

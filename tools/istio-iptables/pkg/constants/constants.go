@@ -172,8 +172,9 @@ const (
 // the implementation will choose the correct underlying binary,
 // so callers should just use these enums to indicate what they want to do.
 type IptablesCmd int
+
 const (
-	IpTables IptablesCmd = iota
-	IpTablesSave IptablesCmd = iota
+	IpTables        IptablesCmd = iota
+	IpTablesSave    IptablesCmd = iota
 	IpTablesRestore IptablesCmd = iota
 )

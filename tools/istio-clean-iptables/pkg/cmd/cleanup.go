@@ -31,17 +31,17 @@ func NewDependencies(cfg *config.Config) dep.Dependencies {
 }
 
 type IptablesCleaner struct {
-	ext dep.Dependencies
-	cfg *config.Config
-	iptV *dep.IptablesVersion
+	ext   dep.Dependencies
+	cfg   *config.Config
+	iptV  *dep.IptablesVersion
 	ipt6V *dep.IptablesVersion
 }
 
 func NewIptablesCleaner(cfg *config.Config, iptV, ipt6V *dep.IptablesVersion, ext dep.Dependencies) *IptablesCleaner {
 	return &IptablesCleaner{
-		ext: ext,
-		cfg: cfg,
-		iptV: iptV,
+		ext:   ext,
+		cfg:   cfg,
+		iptV:  iptV,
 		ipt6V: ipt6V,
 	}
 }

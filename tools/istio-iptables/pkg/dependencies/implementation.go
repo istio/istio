@@ -95,7 +95,7 @@ func (v IptablesVersion) IsWriteCmd(cmd constants.IptablesCmd) bool {
 
 // Constants for iptables commands
 const (
-	iptablesBin         = "iptables" //TODO check usages, nothing should use this directly but below
+	iptablesBin         = "iptables" // TODO check usages, nothing should use this directly but below
 	iptablesNftBin      = "iptables-nft"
 	iptablesLegacyBin   = "iptables-legacy"
 	ip6tablesBin        = "ip6tables"

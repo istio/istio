@@ -15,9 +15,9 @@
 package dependencies
 
 import (
+	"fmt"
 	"io"
 	"os"
-	"fmt"
 	"strings"
 
 	"istio.io/istio/pkg/env"
@@ -28,9 +28,9 @@ var DryRunFilePath = env.Register("DRY_RUN_FILE_PATH", "", "If provided, StdoutS
 
 // TODO BML replace DIY mocks/state with something better
 type DependenciesStub struct {
-	ExecutedNormally     []string
-	ExecutedQuietly      []string
-	ExecutedAll          []string
+	ExecutedNormally []string
+	ExecutedQuietly  []string
+	ExecutedAll      []string
 }
 
 func (s *DependenciesStub) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
@@ -47,12 +47,11 @@ func (s *DependenciesStub) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer
 // TODO BML this stub can be smarter
 func (s *DependenciesStub) DetectIptablesVersion(overrideVersion string, ipV6 bool) (IptablesVersion, error) {
 	if ipV6 {
-
-			return IptablesVersion{
-				DetectedBinary:        "ip6tables",
-				DetectedSaveBinary:    "ip6tables-save",
-				DetectedRestoreBinary: "ip6tables-restore",
-			}, nil
+		return IptablesVersion{
+			DetectedBinary:        "ip6tables",
+			DetectedSaveBinary:    "ip6tables-save",
+			DetectedRestoreBinary: "ip6tables-restore",
+		}, nil
 	}
 	return IptablesVersion{
 		DetectedBinary:        "iptables",

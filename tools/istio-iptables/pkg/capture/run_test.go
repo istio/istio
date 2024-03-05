@@ -15,7 +15,6 @@
 package capture
 
 import (
-	"io"
 	"net/netip"
 	"path/filepath"
 	"reflect"

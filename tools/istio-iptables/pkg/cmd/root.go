@@ -191,7 +191,6 @@ func ProgramIptables(cfg *config.Config) error {
 	if cfg.DryRun {
 		ext = &dep.DependenciesStub{}
 	} else {
-
 		ext = &dep.RealDependencies{
 			CNIMode:          cfg.CNIMode,
 			NetworkNamespace: cfg.NetworkNamespace,

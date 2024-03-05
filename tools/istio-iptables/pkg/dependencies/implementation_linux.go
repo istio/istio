@@ -73,11 +73,11 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 			// Legacy will have no marking or 'legacy', so just look for nf_tables
 			isNft := strings.Contains(string(rawIptablesVer), "nf_tables")
 			return IptablesVersion{
-				DetectedBinary: iptablesBin,
-				DetectedSaveBinary: iptablesSaveBin,
+				DetectedBinary:        iptablesBin,
+				DetectedSaveBinary:    iptablesSaveBin,
 				DetectedRestoreBinary: iptablesRestoreBin,
-				Version: parsedVer,
-				Legacy: !isNft,
+				Version:               parsedVer,
+				Legacy:                !isNft,
 			}, nil
 		}
 	}
