@@ -59,13 +59,18 @@ func readConfigFile(filename string) ([]byte, error) {
 
 func StableXdsStatusCommand(ctx cli.Context) *cobra.Command {
 	cmd := XdsStatusCommand(ctx)
+	unstableFlags := []string{"xds-via-agents", "xds-via-agents-limit"}
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
-		if flagValue, err := cmd.Flags().GetBool("xds-via-agents"); err != nil || flagValue == true {
-			return fmt.Errorf("--xds-via-agents is experimental. Use `istioctl experimental ps --xds-via-agents`")
+		for _, flag := range unstableFlags {
+			if cmd.PersistentFlags().Changed(flag) {
+				return fmt.Errorf("--%s is experimental. Use `istioctl experimental ps --%s`", flag, flag)
+			}
 		}
 		return nil
 	}
-	cmd.Flags().MarkHidden("xds-via-agents")
+	for _, flag := range unstableFlags {
+		_ = cmd.PersistentFlags().MarkHidden(flag)
+	}
 	return cmd
 }
 
