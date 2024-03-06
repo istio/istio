@@ -275,7 +275,7 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 		out, err := bootstrap.New(bootstrap.Config{
 			Node:             node,
 			CompliancePolicy: common_features.CompliancePolicy,
-			LogAsJson:        a.envoyOpts.LogAsJSON,
+			LogAsJSON:        a.envoyOpts.LogAsJSON,
 		}).CreateFile()
 		if err != nil {
 			return fmt.Errorf("failed to generate bootstrap config: %v", err)
