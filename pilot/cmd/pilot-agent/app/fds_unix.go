@@ -19,9 +19,13 @@ package app
 
 import "golang.org/x/sys/unix"
 
-func getFDLimit() (uint64, error) {
+func raiseFileLimits() (uint64, error) {
 	rlimit := unix.Rlimit{}
 	if err := unix.Getrlimit(unix.RLIMIT_NOFILE, &rlimit); err != nil {
+		return 0, err
+	}
+	rlimit.Cur = rlimit.Max
+	if err := unix.Setrlimit(unix.RLIMIT_NOFILE, &rlimit); err != nil {
 		return 0, err
 	}
 
