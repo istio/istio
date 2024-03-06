@@ -14,6 +14,16 @@
 
 package app
 
-func GetFDLimit() (uint64, error) {
-	return getFDLimit()
+// RaiseFileLimits sets the file limit to the maximum allowed, to avoid exhaustion of file descriptors.
+// This is done by setting soft limit == hard limit.
+// Typical container runtimes already do this, but on VMs, etc this is generally not the case, and a limit of 1024 is common -- this is quite low!
+//
+// Go already sets this (https://github.com/golang/go/issues/46279).
+// However, it will restore the original limit for subprocesses (Envoy):
+// https://github.com/golang/go/blob/f0d1195e13e06acdf8999188decc63306f9903f5/src/syscall/rlimit.go#L14.
+// By explicitly doing it ourselves, we get the limit passed through to Envoy.
+//
+// This function returns the new limit additionally, for convenience.
+func RaiseFileLimits() (uint64, error) {
+	return raiseFileLimits()
 }
