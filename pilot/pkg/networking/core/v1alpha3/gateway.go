@@ -506,7 +506,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 			newVHost := &route.VirtualHost{
 				Name:                       util.DomainName(hostname, port),
-				Domains:                    []string{hostname},
+				Domains:                    []string{strings.ToLower(hostname)},
 				IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
 				RequireTls:                 route.VirtualHost_ALL,
 			}
