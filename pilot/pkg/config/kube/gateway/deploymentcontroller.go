@@ -122,7 +122,7 @@ var builtinClasses = getBuiltinClasses()
 
 func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 	res := map[gateway.ObjectName]gateway.GatewayController{
-		defaultClassName: constants.ManagedGatewayController,
+		gateway.ObjectName(features.GatewayAPIDefaultGatewayClass): gateway.GatewayController(features.ManagedGatewayController),
 	}
 
 	if features.MultiNetworkGatewayAPI {
@@ -137,8 +137,8 @@ func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 
 func getClassInfos() map[gateway.GatewayController]classInfo {
 	m := map[gateway.GatewayController]classInfo{
-		constants.ManagedGatewayController: {
-			controller:         constants.ManagedGatewayController,
+		gateway.GatewayController(features.ManagedGatewayController): {
+			controller:         features.ManagedGatewayController,
 			description:        "The default Istio GatewayClass",
 			templates:          "kube-gateway",
 			defaultServiceType: corev1.ServiceTypeLoadBalancer,
@@ -186,7 +186,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *mode
 			t := true
 			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
 				Force:        &t,
-				FieldManager: constants.ManagedGatewayController,
+				FieldManager: features.ManagedGatewayController,
 			}, subresources...)
 			return err
 		},
