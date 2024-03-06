@@ -72,7 +72,8 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 	// Gather the statuses before printing so they may be sorted
 	var fullStatus []*xdsWriterStatus
 	mappedResp := map[string]string{}
-	var w *tabwriter.Writer
+	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
+	_, _ = fmt.Fprintln(w, "NAME\tCLUSTER\tCDS\tLDS\tEDS\tRDS\tECDS\tISTIOD\tVERSION")
 	for id, dr := range drs {
 		for _, resource := range dr.Resources {
 			switch resource.TypeUrl {
@@ -105,9 +106,6 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 				if len(fullStatus) == 0 {
 					return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
 				}
-
-				w = new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-				_, _ = fmt.Fprintln(w, "NAME\tCLUSTER\tCDS\tLDS\tEDS\tRDS\tECDS\tISTIOD\tVERSION")
 
 				sort.Slice(fullStatus, func(i, j int) bool {
 					return fullStatus[i].proxyID < fullStatus[j].proxyID
