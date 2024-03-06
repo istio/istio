@@ -46,8 +46,7 @@ func (s *DependenciesStub) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer
 	_ = s.writeAllToDryRunPath()
 }
 
-// TODO BML this stub can be smarter
-func (s *DependenciesStub) DetectIptablesVersion(overrideVersion string, ipV6 bool) (IptablesVersion, error) {
+func (s *DependenciesStub) DetectIptablesVersion(ipV6 bool) (IptablesVersion, error) {
 	if ipV6 {
 		return IptablesVersion{
 			DetectedBinary:        "ip6tables",

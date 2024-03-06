@@ -70,11 +70,11 @@ func GetCommand(logOpts *log.Options) *cobra.Command {
 			}
 			ext := NewDependencies(cfg)
 
-			iptVer, err := ext.DetectIptablesVersion("", false)
+			iptVer, err := ext.DetectIptablesVersion(false)
 			if err != nil {
 				return err
 			}
-			ipt6Ver, err := ext.DetectIptablesVersion("", true)
+			ipt6Ver, err := ext.DetectIptablesVersion(true)
 			if err != nil {
 				return err
 			}

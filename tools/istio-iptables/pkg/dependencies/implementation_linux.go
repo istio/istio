@@ -88,7 +88,7 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 			ExistingRules:         existingRules,
 		}, nil
 	}
-	return IptablesVersion{}, fmt.Errorf("iptables save binary: %s either not present, or has no rules defined in current netns", iptablesSaveBin)
+	return IptablesVersion{}, fmt.Errorf("iptables save binary: %s not present", iptablesSaveBin)
 }
 
 // runInSandbox builds a lightweight sandbox ("container") to build a suitable environment to run iptables commands in.
@@ -178,13 +178,17 @@ func mount(src, dst string) error {
 
 func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
 	mode := "without lock"
+	cmdBin := iptVer.CmdToString(cmd)
+	if cmdBin == "" {
+		return fmt.Errorf("called without iptables binary, cannot execute!: %+v", iptVer)
+	}
 	var c *exec.Cmd
 	needLock := iptVer.IsWriteCmd(cmd) && !iptVer.NoLocks()
 	run := func(c *exec.Cmd) error {
 		return c.Run()
 	}
 	if r.CNIMode {
-		c = exec.Command(iptVer.CmdToString(cmd), args...)
+		c = exec.Command(cmdBin, args...)
 		// In CNI, we are running the pod network namespace, but the host filesystem, so we need to do some tricks
 		// Call our binary again, but with <original binary> "unshare (subcommand to trigger mounts)" --lock-file=<network namespace> <original command...>
 		// We do not shell out and call `mount` since this and sh are not available on all systems
@@ -210,16 +214,16 @@ func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *Ipt
 		if needLock {
 			// We want the lock. Wait up to 30s for it.
 			args = append(args, "--wait=30")
-			c = exec.Command(iptVer.CmdToString(cmd), args...)
+			c = exec.Command(cmdBin, args...)
 			log.Debugf("running with lock")
 			mode = "with wait lock"
 		} else {
 			// No locking supported/needed, just run as is. Nothing special
-			c = exec.Command(iptVer.CmdToString(cmd), args...)
+			c = exec.Command(cmdBin, args...)
 		}
 	}
 
-	log.Infof("Running command (%s): %s %s", mode, iptVer.CmdToString(cmd), strings.Join(args, " "))
+	log.Infof("Running command (%s): %s %s", mode, cmdBin, strings.Join(args, " "))
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	c.Stdout = stdout

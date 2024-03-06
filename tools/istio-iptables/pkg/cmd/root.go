@@ -136,8 +136,6 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 		&cfg.NetworkNamespace)
 
 	flag.BindEnv(fs, constants.CNIMode, "", "Whether to run as CNI plugin.", &cfg.CNIMode)
-
-	flag.BindEnv(fs, constants.IptablesVersion, "", "version of iptables command. If not set, this is automatically detected.", &cfg.IPTablesVersion)
 }
 
 func GetCommand(logOpts *log.Options) *cobra.Command {

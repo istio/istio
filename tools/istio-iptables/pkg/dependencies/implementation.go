@@ -96,8 +96,9 @@ func (v IptablesVersion) IsWriteCmd(cmd constants.IptablesCmd) bool {
 }
 
 // Constants for iptables commands
+// These should not be used directly/assumed to be present, but should be contextually detected
 const (
-	iptablesBin         = "iptables" // TODO check usages, nothing should use this directly but below
+	iptablesBin         = "iptables"
 	iptablesNftBin      = "iptables-nft"
 	iptablesLegacyBin   = "iptables-legacy"
 	ip6tablesBin        = "ip6tables"
@@ -127,19 +128,7 @@ const (
 // 3. If so, use `nft` binary set
 // 4. Otherwise, see if we have `legacy` binary set, and use that.
 // 5. Otherwise, see if we have `iptables` binary set, and use that (detecting whether it's nft or legacy).
-// TODO BML FIXME drop overrideVersion
-func (r *RealDependencies) DetectIptablesVersion(overrideVersion string, ipV6 bool) (IptablesVersion, error) {
-	// If an override version string is defined, we effectively use what you tell us, do no really validation,
-	// and assume you are telling us to use something that's actually in $PATH
-	if overrideVersion != "" {
-		// Legacy will have no marking or 'legacy', so just look for nf_tables
-		nft := strings.Contains(overrideVersion, "nf_tables")
-		parsedVer, err := parseIptablesVer(overrideVersion)
-		if err != nil {
-			return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", overrideVersion, err)
-		}
-		return IptablesVersion{Version: parsedVer, Legacy: !nft}, nil
-	}
+func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, error) {
 	// Begin detecting
 	//
 	// iptables variants all have ipv6 variants, so decide which set we're looking for

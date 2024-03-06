@@ -88,8 +88,8 @@ func TestIptables(t *testing.T) {
 			tt.config(cfg)
 
 			ext := &dep.DependenciesStub{}
-			iptStub, _ := ext.DetectIptablesVersion("", false)
-			ip6tStub, _ := ext.DetectIptablesVersion("", true)
+			iptStub, _ := ext.DetectIptablesVersion(false)
+			ip6tStub, _ := ext.DetectIptablesVersion(true)
 			cleaner := NewIptablesCleaner(cfg, &iptStub, &ip6tStub, ext)
 
 			cleaner.Run()

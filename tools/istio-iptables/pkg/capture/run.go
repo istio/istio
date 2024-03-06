@@ -279,17 +279,12 @@ func configureIPv6Addresses(cfg *config.Config) error {
 }
 
 func (cfg *IptablesConfigurator) Run() error {
-	var iptVer, ipt6Ver dep.IptablesVersion
-	var err error
-
-	log.Debugf("Detecting iptables versions - using fixed config: %s", cfg.cfg.IPTablesVersion)
-	iptVer, err = cfg.ext.DetectIptablesVersion(cfg.cfg.IPTablesVersion, false)
+	iptVer, err := cfg.ext.DetectIptablesVersion(false)
 	if err != nil {
 		return err
 	}
-	if cfg.cfg.EnableInboundIPv6 {
-		ipt6Ver, err = cfg.ext.DetectIptablesVersion(cfg.cfg.IPTablesVersion, true)
-	}
+
+	ipt6Ver, err := cfg.ext.DetectIptablesVersion(true)
 	if err != nil {
 		return err
 	}
@@ -755,30 +750,27 @@ func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVer
 	return nil
 }
 
-func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptVer, ipt6Ver *dep.IptablesVersion, isIpv4 bool) error {
+func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptVer *dep.IptablesVersion, isIpv4 bool) error {
 	var data string
-	var iptVersion *dep.IptablesVersion
 	if isIpv4 {
 		data = cfg.ruleBuilder.BuildV4Restore()
-		iptVersion = iptVer
 	} else {
 		data = cfg.ruleBuilder.BuildV6Restore()
-		iptVersion = ipt6Ver
 	}
 
-	log.Infof("Running %s with the following input:\n%v", iptVersion.CmdToString(constants.IPTablesRestore), strings.TrimSpace(data))
+	log.Infof("Running iptables restore with: %s and the following input:\n%v", iptVer.CmdToString(constants.IPTablesRestore), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(constants.IPTablesRestore, iptVersion, strings.NewReader(data), "--noflush")
+	return cfg.ext.Run(constants.IPTablesRestore, iptVer, strings.NewReader(data), "--noflush")
 }
 
 func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVersion) error {
 	if cfg.cfg.RestoreFormat {
 		// Execute iptables-restore
-		if err := cfg.executeIptablesRestoreCommand(iptVer, ipt6Ver, true); err != nil {
+		if err := cfg.executeIptablesRestoreCommand(iptVer, true); err != nil {
 			return err
 		}
 		// Execute ip6tables-restore
-		if err := cfg.executeIptablesRestoreCommand(iptVer, ipt6Ver, false); err != nil {
+		if err := cfg.executeIptablesRestoreCommand(ipt6Ver, false); err != nil {
 			return err
 		}
 	} else {

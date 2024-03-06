@@ -29,5 +29,5 @@ type Dependencies interface {
 
 	// DetectIptablesVersion consults the available binaries and in-use tables to determine
 	// which iptables variant (legacy, nft, v6, v4) we should use in the current context.
-	DetectIptablesVersion(overrideVersion string, ipV6 bool) (IptablesVersion, error)
+	DetectIptablesVersion(ipV6 bool) (IptablesVersion, error)
 }
