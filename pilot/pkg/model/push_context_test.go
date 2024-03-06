@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -463,6 +464,85 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expectedns1, gotns1) {
 		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedns1, gotns1)
+	}
+}
+
+func buildPatchStruct(config string) *structpb.Struct {
+	val := &structpb.Struct{}
+	_ = protomarshal.UnmarshalString(config, val)
+	return val
+}
+
+func TestEnvoyFilterOrderAcrossNamespaces(t *testing.T) {
+	env := &Environment{}
+	store := NewFakeStore()
+
+	proxy := &Proxy{
+		Metadata:        &NodeMetadata{IstioVersion: "foobar"},
+		Labels:          map[string]string{"app": "v1"},
+		ConfigNamespace: "test-ns",
+	}
+
+	envoyFilters := []config.Config{
+		{
+			Meta: config.Meta{Name: "filter-1", Namespace: "test-ns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+						Patch: &networking.EnvoyFilter_Patch{
+							Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+							Value:     buildPatchStruct(`{"name": "filter-1"}`),
+						},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+				Priority: -5,
+			},
+		},
+		{
+			Meta: config.Meta{Name: "filter-2", Namespace: "istio-system", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+						Patch: &networking.EnvoyFilter_Patch{
+							Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+							Value:     buildPatchStruct(`{"name": "filter-2"}`),
+						},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+				Priority: -1,
+			},
+		},
+	}
+
+	expectedFilterOrder := []string{"test-ns/filter-1", "istio-system/filter-2"}
+	for _, cfg := range envoyFilters {
+		_, _ = store.Create(cfg)
+	}
+	env.ConfigStore = store
+	m := mesh.DefaultMeshConfig()
+	m.RootNamespace = "istio-system"
+	env.Watcher = mesh.NewFixedWatcher(m)
+	env.Init()
+
+	// Init a new push context
+	pc := NewPushContext()
+	pc.Mesh = m
+	pc.initEnvoyFilters(env, nil, nil)
+	got := make([]string, 0)
+	efs := pc.EnvoyFilters(proxy)
+	for _, filter := range efs.Patches[networking.EnvoyFilter_HTTP_FILTER] {
+		got = append(got, filter.Namespace+"/"+filter.Name)
+	}
+	if !slices.Equal(expectedFilterOrder, got) {
+		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedFilterOrder, got)
 	}
 }
 
