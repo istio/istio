@@ -9,14 +9,6 @@
             "@type": "type.googleapis.com/envoy.config.cluster.v3.Cluster",
             "name": "inbound-vip|9999|http|ratings.default.svc.cluster.local",
             "type": "EDS",
-            "eds_cluster_config": {
-              "eds_config": {
-                "ads": {},
-                "initial_fetch_timeout": "0s",
-                "resource_api_version": "V3"
-              },
-              "service_name": "inbound-vip|9080|http|ratings.default.svc.cluster.local"
-            },
             "transport_socket": {
               "name": "internal_upstream",
               "typed_config": {
@@ -181,7 +173,6 @@
                           "allow_connect": true
                         },
                         "server_name": "istio-envoy",
-                        "use_remote_address": false,
                         "forward_client_cert_details": "APPEND_FORWARD",
                         "set_current_client_cert_details": {
                           "subject": true,
@@ -1128,7 +1119,6 @@
                       "cluster": "inbound-vip|9080|http|reviews-v3.default.svc.cluster.local",
                       "timeout": "0s",
                       "max_stream_duration": {
-                        "max_stream_duration": "0s",
                         "grpc_timeout_header_max": "0s"
                       }
                     },
