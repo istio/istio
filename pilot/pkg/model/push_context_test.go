@@ -2957,12 +2957,12 @@ func TestInstancesByPort(t *testing.T) {
 				Shards: map[ShardKey][]*IstioEndpoint{
 					{Cluster: "Kubernets", Provider: provider.External}: {
 						&IstioEndpoint{
-							Address:         "1.1.1.1",
+							Addresses:       []string{"1.1.1.1"},
 							EndpointPort:    7000,
 							ServicePortName: "uds",
 						},
 						&IstioEndpoint{
-							Address:         "1.1.1.2",
+							Addresses:       []string{"1.1.1.2", "2001:1::2"},
 							EndpointPort:    8000,
 							ServicePortName: "uds",
 						},
