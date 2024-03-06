@@ -199,7 +199,7 @@ func (a *index) podWorkloadBuilder(
 	WorkloadServices krt.Collection[model.ServiceInfo],
 ) func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
 	return func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
-		if !IsPodRunning(p) || p.Spec.HostNetwork {
+		if (!IsPodRunning(p) && !IsPodPending(p)) || p.Spec.HostNetwork {
 			return nil
 		}
 		podIP, err := netip.ParseAddr(p.Status.PodIP)
