@@ -132,9 +132,6 @@ type Settings struct {
 	// Skip VM related parts for all the tests.
 	SkipVM bool
 
-	// Skip Delta XDS related parts for all the tests.
-	SkipDelta bool
-
 	// Skip TProxy related parts for all the tests.
 	SkipTProxy bool
 

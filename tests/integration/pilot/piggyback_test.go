@@ -40,7 +40,7 @@ func TestPiggyback(t *testing.T) {
 		RequiresLocalControlPlane().
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
-			workloads := []echo.Instances{apps.A, apps.DeltaXDS}
+			workloads := []echo.Instances{apps.A, apps.Sotw}
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 			for _, workload := range workloads {
 				podName := workload[0].WorkloadsOrFail(t)[0].PodName()
