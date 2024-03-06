@@ -48,6 +48,7 @@ func (a *index) WorkloadsCollection(
 	WorkloadEntries krt.Collection[*networkingclient.WorkloadEntry],
 	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
 	AllPolicies krt.Collection[model.WorkloadAuthorization],
+	Namespaces krt.Collection[*v1.Namespace],
 ) krt.Collection[model.WorkloadInfo] {
 	PodWorkloads := krt.NewCollection(
 		Pods,
@@ -65,7 +66,9 @@ func (a *index) WorkloadsCollection(
 		}
 		res := make([]model.WorkloadInfo, 0, len(se.Spec.Endpoints))
 
-		svc := slices.First(a.serviceEntriesInfo(se))
+		wp := fetchWaypoint(ctx, Waypoints, Namespaces, se.ObjectMeta)
+
+		svc := slices.First(a.serviceEntriesInfo(se, wp))
 		if svc == nil {
 			// Not ready yet
 			return nil

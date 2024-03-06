@@ -175,6 +175,7 @@ func New(options Options) Index {
 		WorkloadEntries,
 		ServiceEntries,
 		AllPolicies,
+		Namespaces,
 	)
 	WorkloadAddressIndex := krt.CreateIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
 	WorkloadServiceIndex := krt.CreateIndex[model.WorkloadInfo, string](Workloads, func(o model.WorkloadInfo) []string {
