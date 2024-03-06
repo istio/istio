@@ -19,7 +19,8 @@ package app
 // Typical container runtimes already do this, but on VMs, etc this is generally not the case, and a limit of 1024 is common -- this is quite low!
 //
 // Go already sets this (https://github.com/golang/go/issues/46279).
-// However, it will restore the original limit for subprocesses (Envoy): https://github.com/golang/go/blob/f0d1195e13e06acdf8999188decc63306f9903f5/src/syscall/rlimit.go#L14.
+// However, it will restore the original limit for subprocesses (Envoy):
+// https://github.com/golang/go/blob/f0d1195e13e06acdf8999188decc63306f9903f5/src/syscall/rlimit.go#L14.
 // By explicitly doing it ourselves, we get the limit passed through to Envoy.
 //
 // This function returns the new limit additionally, for convenience.
