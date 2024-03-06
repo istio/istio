@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -386,11 +385,10 @@ func getExcludeInterfaces() sets.String {
 }
 
 func logLimits() {
-	out, err := exec.Command("bash", "-c", "ulimit -n").Output()
-	outStr := strings.TrimSpace(string(out))
+	limit, err := GetFDLimit()
 	if err != nil {
-		log.Warnf("failed running ulimit command: %v", outStr)
+		log.Warnf("failed getting fd limit: %s", err)
 	} else {
-		log.Infof("Maximum file descriptors (ulimit -n): %v", outStr)
+		log.Infof("Maximum file descriptors (ulimit -n): %d", limit)
 	}
 }
