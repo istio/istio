@@ -1,10 +1,6 @@
-version: v1beta1
-deps:
-  - "buf.build/k8s/api"
+version: v1
 build:
-  roots:
-    - operator
-    - pkg
+  excludes:
     - common-protos
 lint:
   allow_comment_ignores: true

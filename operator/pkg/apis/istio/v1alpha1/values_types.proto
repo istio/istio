@@ -106,7 +106,7 @@ message CNIConfig {
   ResourceQuotas resource_quotas = 16;
 
   // The k8s resource requests and limits for the istio-cni Pods.
-  k8s.io.api.core.v1.ResourceRequirements resources = 17;
+  Resources resources = 17;
 
   // No longer used for CNI. See: https://github.com/istio/istio/issues/49004
   google.protobuf.BoolValue privileged = 18 [deprecated = true];
@@ -216,6 +216,18 @@ message TargetUtilizationConfig {
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   int32 targetAverageUtilization = 1;
+}
+
+// Compute resources required by a container.
+message Resources {
+  // The maximum amount of compute resources allowed.
+  // More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+  map<string, string> limits = 1;
+
+  // The minimum amount of compute resources required. If Requests is omitted for a container,
+  // it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value.
+  // More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+  map<string, string> requests = 2;
 }
 
 // Mirrors ServiceAccount for unmarshaling.
