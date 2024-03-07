@@ -106,6 +106,9 @@ spec:
             value: {{ $val | quote }}
           {{- end }}
           volumeMounts:
+          {{- with .Values.global.proxy.volumeMounts }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -122,6 +125,9 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+      {{- with .Values.global.proxy.volumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:
