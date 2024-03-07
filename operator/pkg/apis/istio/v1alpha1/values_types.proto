@@ -1148,6 +1148,12 @@ message ProxyConfig {
 
   // A comma separated list of outbound ports for which traffic is to be redirected to Envoy, regardless of the destination IP.
   string includeOutboundPorts = 39;
+
+  // Additional volumes to add to the istio-proxy container, including side and gateway.
+  repeated google.protobuf.Struct volumes = 40;
+
+  // Additional volumeMounts to add to the istio-proxy container, including side and gateway.
+  repeated google.protobuf.Struct volumeMounts = 42;
 }
 
 message StartupProbe {

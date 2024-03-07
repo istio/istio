@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Added** Provide The ability to spificy the additional volumes to mount to the istio-proxy,including sidecar and gateway. PR: #48047
