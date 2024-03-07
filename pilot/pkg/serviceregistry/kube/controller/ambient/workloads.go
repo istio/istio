@@ -199,6 +199,9 @@ func (a *index) podWorkloadBuilder(
 	WorkloadServices krt.Collection[model.ServiceInfo],
 ) func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
 	return func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
+		// Pod Is Pending but have a pod IP should be a valid workload, we should build it ,
+		// Such as the pod have initContainer which is initialing.
+		// See https://github.com/istio/istio/issues/48854
 		if (!IsPodRunning(p) && !IsPodPending(p)) || p.Spec.HostNetwork {
 			return nil
 		}
