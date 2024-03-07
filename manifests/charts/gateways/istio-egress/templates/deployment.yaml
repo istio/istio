@@ -239,9 +239,9 @@ spec:
             mountPath: /etc/istio/proxy
           - name: config-volume
             mountPath: /etc/istio/config
-{{- with .Values.global.proxy.volumeMounts }}
+          {{- with .Values.global.proxy.volumeMounts }}
           {{- toYaml . | nindent 10 }}
-{{- end }}
+          {{- end }}
 {{- if eq .Values.global.pilotCertProvider "istiod" }}
           - mountPath: /var/run/secrets/istio
             name: istiod-ca-cert

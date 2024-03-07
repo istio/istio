@@ -426,6 +426,9 @@ templates:
           mountPath: /var/run/secrets/workload-spiffe-uds
         - name: credential-socket
           mountPath: /var/run/secrets/credential-uds
+        {{- with .Values.global.proxy.volumeMounts }}
+        {{- toYaml . | nindent 4 }}
+        {{- end }}
         {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
         - name: gke-workload-certificate
           mountPath: /var/run/secrets/workload-spiffe-credentials
@@ -477,6 +480,9 @@ templates:
         name: workload-socket
       - emptyDir:
         name: credential-socket
+      {{- with .Values.global.proxy.volumes }}
+      {{- toYaml . | nindent 2 }}
+      {{- end }}
       {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
       - name: gke-workload-certificate
         csi:
@@ -714,6 +720,9 @@ templates:
           mountPath: /var/run/secrets/workload-spiffe-uds
         - name: credential-socket
           mountPath: /var/run/secrets/credential-uds
+        {{- with .Values.global.proxy.volumeMounts }}
+        {{- toYaml . | nindent 4 }}
+        {{- end }}
         {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
         - name: gke-workload-certificate
           mountPath: /var/run/secrets/workload-spiffe-credentials
@@ -746,6 +755,9 @@ templates:
         name: workload-socket
       - emptyDir: {}
         name: credential-socket
+      {{- with .Values.global.proxy.volumes }}
+      {{- toYaml . | nindent 2 }}
+      {{- end }}
       {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
       - name: gke-workload-certificate
         csi:
@@ -1731,6 +1743,9 @@ templates:
               mountPath: /var/run/secrets/workload-spiffe-uds
             - name: credential-socket
               mountPath: /var/run/secrets/credential-uds
+            {{- with .Values.global.proxy.volumeMounts  }}
+            {{- toYaml . | nindent 8 }}
+            {{- end }}
             {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
             - name: gke-workload-certificate
               mountPath: /var/run/secrets/workload-spiffe-credentials
@@ -1757,6 +1772,9 @@ templates:
             name: workload-socket
           - emptyDir: {}
             name: credential-socket
+          {{- with .Values.global.proxy.volumes  }}
+          {{- toYaml . | nindent 6 }}
+          {{- end }}
           {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
           - name: gke-workload-certificate
             csi:
