@@ -26,6 +26,7 @@ import (
 	authorizationapi "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -93,7 +94,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					outputMsgs = append(outputMsgs, m)
 				}
 			}
-			output, err := formatting.Print(msgs, msgOutputFormat, true)
+			output, err := formatting.Print(outputMsgs, msgOutputFormat, true)
 			if err != nil {
 				return err
 			}
@@ -158,7 +159,34 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 			return nil, err
 		}
 	}
+
+	if minor <= 21 {
+		if err := checkTracing(cli, &messages); err != nil {
+			return nil, err
+		}
+	}
 	return messages, nil
+}
+
+func checkTracing(cli kube.CLIClient, messages *diag.Messages) error {
+	// In 1.22, we remove the default tracing config which points to zipkin.istio-system
+	// This has no effect for users, unless they have this service.
+	svc, err := cli.Kube().CoreV1().Services("istio-system").Get(context.Background(), "zipkin", metav1.GetOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	if err != nil {
+		// not found
+		return nil
+	}
+	// found
+	res := ObjectToInstance(svc)
+	messages.Add(msg.NewUpdateIncompatibility(res,
+		"meshConfig.defaultConfig.tracer", "1.21",
+		"tracing is no longer by default enabled to send to 'zipkin.istio-system.svc'; "+
+			"follow https://istio.io/latest/docs/tasks/observability/distributed-tracing/telemetry-api/",
+		"1.21"))
+	return nil
 }
 
 func checkExternalNameAlias(cli kube.CLIClient, messages *diag.Messages) error {

@@ -1,8 +1,5 @@
 defaultConfig:
   discoveryAddress: istiod.istio-system.svc:15012
-  tracing:
-    zipkin:
-      address: zipkin.istio-system:9411
 defaultProviders:
   metrics:
   - prometheus

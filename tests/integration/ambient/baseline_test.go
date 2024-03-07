@@ -54,9 +54,9 @@ import (
 func IsL7() echo.Checker {
 	return check.Each(func(r echot.Response) error {
 		// TODO: response headers?
-		_, f := r.RequestHeaders[http.CanonicalHeaderKey("x-b3-traceid")]
+		_, f := r.RequestHeaders[http.CanonicalHeaderKey("X-Request-Id")]
 		if !f {
-			return fmt.Errorf("x-b3-traceid not set, is L7 processing enabled?")
+			return fmt.Errorf("X-Request-Id not set, is L7 processing enabled?")
 		}
 		return nil
 	})
@@ -65,9 +65,9 @@ func IsL7() echo.Checker {
 func IsL4() echo.Checker {
 	return check.Each(func(r echot.Response) error {
 		// TODO: response headers?
-		_, f := r.RequestHeaders[http.CanonicalHeaderKey("x-b3-traceid")]
+		_, f := r.RequestHeaders[http.CanonicalHeaderKey("X-Request-Id")]
 		if f {
-			return fmt.Errorf("x-b3-traceid set, is L7 processing enabled unexpectedly?")
+			return fmt.Errorf("X-Request-Id set, is L7 processing enabled unexpectedly?")
 		}
 		return nil
 	})

@@ -1,0 +1,5 @@
+meshConfig:
+  defaultConfig:
+    tracing:
+      zipkin:
+        address: zipkin.istio-system:9411
