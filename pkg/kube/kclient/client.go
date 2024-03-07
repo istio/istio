@@ -291,7 +291,7 @@ func newDelayedInformer[T controllers.ComparableObject](
 			informer:      inf.Informer,
 			startInformer: inf.Start,
 		}
-		applyDynamicFilter(filter, fc)
+		applyDynamicFilter(filter, gvr, fc)
 		inf.Start(stop)
 		log.Infof("%v is now ready, building client", gvr.GroupResource())
 		// Swap out the dummy client with the full one
@@ -310,17 +310,19 @@ func newInformerClient[T controllers.ComparableObject](inf informerfactory.Start
 		informer:      inf.Informer,
 		startInformer: inf.Start,
 	}
-	applyDynamicFilter(filter, ic)
+	if filter.ObjectFilter != nil {
+		applyDynamicFilter(filter, types.GetGVR[T](), ic)
+	}
 	return ic
 }
 
-func applyDynamicFilter[T controllers.ComparableObject](filter Filter, ic *informerClient[T]) {
+func applyDynamicFilter[T controllers.ComparableObject](filter Filter, gvr schema.GroupVersionResource, ic *informerClient[T]) {
 	if filter.ObjectFilter != nil {
 		ic.filter = filter.ObjectFilter.Filter
 		filter.ObjectFilter.AddHandler(func(added, removed sets.String) {
 			ic.handlerMu.RLock()
 			defer ic.handlerMu.RUnlock()
-			if types.GetGVR[T]() == istiogvr.Namespace {
+			if gvr == istiogvr.Namespace {
 				// Namespace is special; we query all namespaces
 				// Note: other cluster-scoped resources should just not use the filter
 				for _, item := range ic.ListUnfiltered(metav1.NamespaceAll, klabels.Everything()) {

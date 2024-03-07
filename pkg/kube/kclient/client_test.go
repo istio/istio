@@ -379,6 +379,13 @@ func TestFilter(t *testing.T) {
 		ObjectFilter: discoveryNamespacesFilter,
 	})
 	deployments.AddEventHandler(clienttest.TrackerHandler(tracker))
+	clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+	crd := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{
+		ObjectFilter: discoveryNamespacesFilter,
+	})
+	wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+	crd.AddEventHandler(clienttest.TrackerHandler(tracker))
+
 	c.RunAndWait(test.NewStop(t))
 	tester := clienttest.Wrap(t, deployments)
 	obj1 := &appsv1.Deployment{
@@ -402,4 +409,12 @@ func TestFilter(t *testing.T) {
 	}}}, time.Second))
 	tracker.WaitOrdered("delete/1")
 	assert.Equal(t, len(tester.List("", klabels.Everything())), 1)
+
+	wt.Create(&istioclient.WasmPlugin{
+		ObjectMeta: metav1.ObjectMeta{Name: "name1", Namespace: "not-selected"},
+	})
+	wt.Create(&istioclient.WasmPlugin{
+		ObjectMeta: metav1.ObjectMeta{Name: "name2", Namespace: "selected"},
+	})
+	tracker.WaitOrdered("add/name2")
 }
