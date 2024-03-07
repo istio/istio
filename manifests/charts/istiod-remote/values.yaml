@@ -133,6 +133,7 @@ defaults:
     # Sidecar injector mutating webhook configuration path value for the clientConfig.service field.
     # Override to pass env variables, for example: /inject/cluster/remote/net/network2
     injectionPath: "/inject"
+    injectionCABundle: ""
   telemetry:
     enabled: false
     v2:

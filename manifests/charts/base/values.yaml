@@ -33,6 +33,8 @@ defaults:
     # Validation webhook configuration url
     # For example: https://$remotePilotAddress:15017/validate
     validationURL: ""
+    # Validation webhook caBundle value. Useful when running pilot with a well known cert
+    validationCABundle: ""
 
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
