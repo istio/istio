@@ -297,6 +297,15 @@ defaults:
       # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
       # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
       tracer: "zipkin"
+
+      # Additional volumes add to the gateway
+      # Can be use to mount the host timezone file or some other volumes to the gateway pod
+      volumes: []
+
+      # Additional volumes add to the gateawy
+      # Can be use to mount the host timezone file or some other volumes to the gateway pod
+      volumesMounts: []
+
     proxy_init:
       # Base name for the proxy_init container, used to configure iptables.
       image: proxyv2

@@ -224,6 +224,14 @@ defaults:
       # Expected values are: trace|debug|info|warning|error|critical|off
       logLevel: warning
 
+      # Additional volumes add to the gateway
+      # Can be use to mount the host timezone file or some other volumes to the gateway pod
+      volumes: []
+
+      # Additional volumes add to the gateawy
+      # Can be use to mount the host timezone file or some other volumes to the gateway pod
+      volumesMounts: []
+
     ##############################################################################################
     # The following values are found in other charts. To effectively modify these values, make   #
     # make sure they are consistent across your Istio helm charts                                #
