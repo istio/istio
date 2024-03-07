@@ -15,42 +15,53 @@
 package compare
 
 import (
+	"bytes"
 	"fmt"
 
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/proto"
+	"github.com/pmezard/go-difflib/difflib"
 
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // ListenerDiff prints a diff between Istiod and Envoy listeners to the passed writer
 func (c *Comparator) ListenerDiff() error {
-	envoyDump, err := c.envoy.GetDynamicListenerDump(true)
+	envoyBytes, istiodBytes := &bytes.Buffer{}, &bytes.Buffer{}
+	envoyListenerDump, err := c.envoy.GetDynamicListenerDump(true)
 	if err != nil {
-		return err
-	}
-	istiodDump, err := c.istiod.GetDynamicListenerDump(true)
-	if err != nil {
-		return err
-	}
-	if !proto.Equal(envoyDump, istiodDump) {
-		// If not equal, marshal both dumps to JSON for diffing
-		envoyJSON, err := protomarshal.ToJSONWithAnyResolver(envoyDump, "    ", &envoyResolver)
-		if err != nil {
-			return fmt.Errorf("error marshaling Envoy dump to JSON: %w", err)
-		}
-
-		istiodJSON, err := protomarshal.ToJSONWithAnyResolver(istiodDump, "    ", &envoyResolver)
-		if err != nil {
-			return fmt.Errorf("error marshaling Istiod dump to JSON: %w", err)
-		}
-
-		// Generate and print the diff
-		diff := cmp.Diff(istiodJSON, envoyJSON)
-		_, _ = fmt.Fprintln(c.w, "Listeners Don't Match. Diff:")
-		_, _ = fmt.Fprintln(c.w, diff)
+		envoyBytes.WriteString(err.Error())
 	} else {
-		_, _ = fmt.Fprintln(c.w, "Listeners Match")
+		envoy, err := protomarshal.ToJSONWithAnyResolver(envoyListenerDump, "    ", &envoyResolver)
+		if err != nil {
+			return err
+		}
+		envoyBytes.WriteString(envoy)
+	}
+	istiodListenerDump, err := c.istiod.GetDynamicListenerDump(true)
+	if err != nil {
+		istiodBytes.WriteString(err.Error())
+	} else {
+		istiod, err := protomarshal.ToJSONWithAnyResolver(istiodListenerDump, "    ", &envoyResolver)
+		if err != nil {
+			return err
+		}
+		istiodBytes.WriteString(istiod)
+	}
+	diff := difflib.UnifiedDiff{
+		FromFile: "Istiod Listeners",
+		A:        difflib.SplitLines(istiodBytes.String()),
+		ToFile:   "Envoy Listeners",
+		B:        difflib.SplitLines(envoyBytes.String()),
+		Context:  c.context,
+	}
+	text, err := difflib.GetUnifiedDiffString(diff)
+	if err != nil {
+		return err
+	}
+	if text != "" {
+		fmt.Fprintln(c.w, "Listeners Don't Match")
+		fmt.Fprintln(c.w, text)
+	} else {
+		fmt.Fprintln(c.w, "Listeners Match")
 	}
 	return nil
 }

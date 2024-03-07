@@ -51,11 +51,11 @@ func TestComparatorMismatchedConfigs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read test data: %v", err)
 	}
-
 	diffCfg, err := os.ReadFile("testdata/configdump_diff.json")
 	if err != nil {
 		t.Fatalf("Failed to read test data: %v", err)
 	}
+
 	var outputBuffer bytes.Buffer
 	comparator, err := NewComparator(&outputBuffer, map[string][]byte{"default": cfg}, diffCfg)
 	if err != nil {
@@ -66,8 +66,8 @@ func TestComparatorMismatchedConfigs(t *testing.T) {
 		t.Errorf("Unexpected error during diff: %v", err)
 	}
 
-	expected := []string{"Clusters Don't Match", "Listeners Don't Match", "Routes Don't Match"}
-	for _, exp := range expected {
+	expectedNotMatch := []string{"Clusters Don't Match", "Listeners Don't Match", "Routes Don't Match"}
+	for _, exp := range expectedNotMatch {
 		if !bytes.Contains(outputBuffer.Bytes(), []byte(exp)) {
 			t.Errorf("Expected %s, but it was not found", exp)
 		}

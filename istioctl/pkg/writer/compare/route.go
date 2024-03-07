@@ -15,22 +15,46 @@
 package compare
 
 import (
+	"bytes"
 	"fmt"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/proto"
+	"github.com/pmezard/go-difflib/difflib"
 
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // RouteDiff prints a diff between Istiod and Envoy routes to the passed writer
 func (c *Comparator) RouteDiff() error {
-	envoyDump, err := c.envoy.GetDynamicRouteDump(true)
+	envoyBytes, istiodBytes := &bytes.Buffer{}, &bytes.Buffer{}
+	envoyRouteDump, err := c.envoy.GetDynamicRouteDump(true)
 	if err != nil {
-		return err
+		envoyBytes.WriteString(err.Error())
+	} else {
+		envoy, err := protomarshal.ToJSONWithAnyResolver(envoyRouteDump, "    ", &envoyResolver)
+		if err != nil {
+			return err
+		}
+		envoyBytes.WriteString(envoy)
 	}
-	istiodDump, err := c.istiod.GetDynamicRouteDump(true)
+	istiodRouteDump, err := c.istiod.GetDynamicRouteDump(true)
+	if err != nil {
+		istiodBytes.WriteString(err.Error())
+	} else {
+		istiod, err := protomarshal.ToJSONWithAnyResolver(istiodRouteDump, "    ", &envoyResolver)
+		if err != nil {
+			return err
+		}
+		istiodBytes.WriteString(istiod)
+	}
+	diff := difflib.UnifiedDiff{
+		FromFile: "Istiod Routes",
+		A:        difflib.SplitLines(istiodBytes.String()),
+		ToFile:   "Envoy Routes",
+		B:        difflib.SplitLines(envoyBytes.String()),
+		Context:  c.context,
+	}
+	text, err := difflib.GetUnifiedDiffString(diff)
 	if err != nil {
 		return err
 	}
@@ -44,25 +68,11 @@ func (c *Comparator) RouteDiff() error {
 		}
 		lastUpdatedStr = fmt.Sprintf(" (RDS last loaded at %s)", lastUpdated.In(loc).Format(time.RFC1123))
 	}
-
-	if !proto.Equal(envoyDump, istiodDump) {
-		// If not equal, marshal both dumps to JSON for diffing
-		envoyJSON, err := protomarshal.ToJSONWithAnyResolver(envoyDump, "    ", &envoyResolver)
-		if err != nil {
-			return fmt.Errorf("error marshaling Envoy dump to JSON: %w", err)
-		}
-
-		istiodJSON, err := protomarshal.ToJSONWithAnyResolver(istiodDump, "    ", &envoyResolver)
-		if err != nil {
-			return fmt.Errorf("error marshaling Istiod dump to JSON: %w", err)
-		}
-
-		// Generate and print the diff
-		diff := cmp.Diff(istiodJSON, envoyJSON)
-		_, _ = fmt.Fprintf(c.w, "Routes Don't Match%s\n", lastUpdatedStr)
-		_, _ = fmt.Fprintln(c.w, diff)
+	if text != "" {
+		fmt.Fprintf(c.w, "Routes Don't Match%s\n", lastUpdatedStr)
+		fmt.Fprintln(c.w, text)
 	} else {
-		_, _ = fmt.Fprintf(c.w, "Routes Match%s\n", lastUpdatedStr)
+		fmt.Fprintf(c.w, "Routes Match%s\n", lastUpdatedStr)
 	}
 	return nil
 }
