@@ -31,7 +31,7 @@ require (
 	github.com/felixge/fgprof v0.9.4
 	github.com/florianl/go-nflog/v2 v2.0.1
 	github.com/fsnotify/fsnotify v1.7.0
-	github.com/go-jose/go-jose/v3 v3.0.2
+	github.com/go-jose/go-jose/v3 v3.0.3
 	github.com/go-logr/logr v1.4.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.3
