@@ -241,8 +241,9 @@ func checkPilot(cli kube.CLIClient, namespace string, messages *diag.Messages) e
 				return err
 			}
 		}
-		scopingImpacted = meshData["discoverySelectors"] != nil
-
+		if scopingImpacted = meshData["discoverySelectors"] != nil; !scopingImpacted {
+			continue
+		}
 		// Check if mitigation is already in place
 		for _, container := range deployment.Spec.Template.Spec.Containers {
 			if container.Name == "discovery" {
