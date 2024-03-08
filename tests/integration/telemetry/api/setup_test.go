@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 )
 
 const (
@@ -71,7 +72,6 @@ spec:
 		}).
 		Setup(testRegistrySetup).
 		Setup(SetupSuite).
-		Setup(setupWasmExtension).
 		Run()
 }
 
@@ -84,6 +84,7 @@ meshConfig:
   accessLogFile: "" # disable from install, we will enable via Telemetry layer
 `
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
+	cfg.Values["global.logging.level"] = "xdsproxy:debug,wasm:debug"
 }
 
 // SetupSuite set up echo app for stats testing.
@@ -153,7 +154,7 @@ proxyMetadata:
 			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
 	}
 	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/registry-secret.yaml").
-		Apply(); err != nil {
+		Apply(apply.CleanupConditionally); err != nil {
 		return err
 	}
 	return nil
