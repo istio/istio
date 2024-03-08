@@ -73,7 +73,6 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, iptV *dep.Iptable
 	chains = []string{constants.ISTIOINBOUND, constants.ISTIODIVERT, constants.ISTIOTPROXY}
 	flushAndDeleteChains(ext, iptV, constants.MANGLE, chains)
 
-	//
 	if cfg.InboundInterceptionMode == constants.TPROXY {
 		DeleteRule(ext, iptV, constants.MANGLE, constants.PREROUTING,
 			"-p", constants.TCP, "-m", "mark", "--mark", cfg.InboundTProxyMark, "-j", "CONNMARK", "--save-mark")
@@ -90,9 +89,8 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, iptV *dep.Iptable
 // TODO BML drop `HandleDSNUDP` and friends, no real need to tread UDP rules specially
 // or create unique abstractions for them
 func cleanupDNSUDP(cfg *config.Config, ext dep.Dependencies, iptV, ipt6V *dep.IptablesVersion) {
-	redirectDNS := cfg.RedirectDNS
 	// Remove the old DNS UDP rules
-	if redirectDNS {
+	if cfg.RedirectDNS {
 		ownerGroupsFilter := types.ParseInterceptFilter(cfg.OwnerGroupsInclude, cfg.OwnerGroupsExclude)
 
 		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesRuleBuilder(nil), ext, iptV, ipt6V, cfg.ProxyUID, cfg.ProxyGID,

@@ -83,7 +83,10 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		RedirectDNS:   args.DNSCapture,
 	}
 
-	iptablesConfigurator := iptables.NewIptablesConfigurator(cfg, realDependencies(), iptables.RealNlDeps())
+	iptablesConfigurator, err := iptables.NewIptablesConfigurator(cfg, realDependencies(), iptables.RealNlDeps())
+	if err != nil {
+		return nil, fmt.Errorf("error configuring iptables: %w", err)
+	}
 
 	// Create hostprobe rules now, in the host netns
 	// Later we will reuse this same configurator inside the pod netns for adding other rules

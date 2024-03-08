@@ -46,7 +46,7 @@ func TestIptables(t *testing.T) {
 				cfg.EnableInboundIPv6 = ipv6
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
-				iptConfigurator := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
+				iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
 				var probeIP *netip.Addr
 				if ipv6 {
 					probeIP = &probeSNATipv6
@@ -85,7 +85,7 @@ func TestIptablesHostRules(t *testing.T) {
 				cfg.EnableInboundIPv6 = ipv6
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
-				iptConfigurator := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
+				iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
 				var probeIP *netip.Addr
 				if ipv6 {
 					probeIP = &probeSNATipv6
@@ -119,7 +119,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 	cfg := constructTestConfig()
 	tt.config(cfg)
 	ext := &dep.DependenciesStub{}
-	iptConfigurator := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
+	iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
 	err := iptConfigurator.CreateInpodRules(&probeSNATipv4)
 	if err != nil {
 		t.Fatal(err)

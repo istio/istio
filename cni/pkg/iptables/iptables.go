@@ -68,7 +68,7 @@ func ipbuildConfig(c *Config) *iptablesconfig.Config {
 	}
 }
 
-func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDependencies) *IptablesConfigurator {
+func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDependencies) (*IptablesConfigurator, error) {
 	if cfg == nil {
 		cfg = &Config{
 			RestoreFormat: true,
@@ -96,15 +96,18 @@ func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDe
 	//
 	// But that's stunningly unlikely (and would still work either way)
 	iptVer, err := ext.DetectIptablesVersion(false)
-	if err == nil {
-		configurator.iptV = iptVer
+	if err != nil {
+		return nil, err
 	}
-	ipt6Ver, err := ext.DetectIptablesVersion(true)
-	if err == nil {
-		configurator.ipt6V = ipt6Ver
-	}
+	configurator.iptV = iptVer
 
-	return configurator
+	ipt6Ver, err := ext.DetectIptablesVersion(true)
+	if err != nil {
+		return nil, err
+	}
+	configurator.ipt6V = ipt6Ver
+
+	return configurator, nil
 }
 
 func (cfg *IptablesConfigurator) DeleteInpodRules() error {
