@@ -91,15 +91,26 @@ func TestPiggyback(t *testing.T) {
 					pf.Start()
 					defer pf.Close()
 
-					args := []string{"x", "proxy-status", "--plaintext", "--xds-address", pf.Address()}
-					output, _, err := istioCtl.Invoke(args)
-					if err != nil {
-						return err
+					argsToTest := []struct {
+						args []string
+					}{
+						{[]string{"x", "proxy-status", "--plaintext", "--xds-address", pf.Address()}},
+						{[]string{"proxy-status", "--plaintext", "--xds-address", pf.Address()}},
 					}
+					for _, args := range argsToTest {
+						istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+						output, _, err := istioCtl.Invoke(args.args)
+						if err != nil {
+							return err
+						}
 
-					// Just verify pod A is known to Pilot; implicitly this verifies that
-					// the printing code printed it.
-					return expectSubstrings(output, fmt.Sprintf("%s.%s", podName, namespace))
+						// Just verify pod A is known to Pilot; implicitly this verifies that
+						// the printing code printed it.
+						if err := expectSubstrings(output, fmt.Sprintf("%s.%s", podName, namespace)); err != nil {
+							return err
+						}
+					}
+					return nil
 				})
 
 				// Test gRPC-based --xds-via-agents
@@ -110,9 +121,6 @@ func TestPiggyback(t *testing.T) {
 					if err != nil {
 						return err
 					}
-
-					// Just verify pod A is known to Pilot; implicitly this verifies that
-					// the printing code printed it.
 					return expectSubstrings(output, fmt.Sprintf("%s.%s", podName, namespace))
 				})
 			}

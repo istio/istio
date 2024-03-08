@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
 	"text/tabwriter"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -27,20 +26,9 @@ import (
 
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/xds"
 	xdsresource "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/log"
 )
-
-// StatusWriter enables printing of sync status using multiple []byte Istiod responses
-type StatusWriter struct {
-	Writer io.Writer
-}
-
-type writerStatus struct {
-	pilot string
-	xds.SyncStatus
-}
 
 // XdsStatusWriter enables printing of sync status using multiple xdsapi.DiscoveryResponse Istiod responses
 type XdsStatusWriter struct {
@@ -61,99 +49,7 @@ type xdsWriterStatus struct {
 	extensionconfigStatus string
 }
 
-// PrintAll takes a slice of Pilot syncz responses and outputs them using a tabwriter
-func (s *StatusWriter) PrintAll(statuses map[string][]byte) error {
-	w, fullStatus, err := s.setupStatusPrint(statuses)
-	if err != nil {
-		return err
-	}
-	for _, status := range fullStatus {
-		if err := statusPrintln(w, status); err != nil {
-			return err
-		}
-	}
-	return w.Flush()
-}
-
-// PrintSingle takes a slice of Pilot syncz responses and outputs them using a tabwriter filtering for a specific pod
-func (s *StatusWriter) PrintSingle(statuses map[string][]byte, proxyName string) error {
-	w, fullStatus, err := s.setupStatusPrint(statuses)
-	if err != nil {
-		return err
-	}
-	for _, status := range fullStatus {
-		if strings.Contains(status.ProxyID, proxyName) {
-			if err := statusPrintln(w, status); err != nil {
-				return err
-			}
-		}
-	}
-	return w.Flush()
-}
-
-func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
-	w := new(tabwriter.Writer).Init(s.Writer, 0, 9, 5, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tCLUSTER\tCDS\tLDS\tEDS\tRDS\tECDS\tISTIOD\tVERSION")
-	fullStatus := make([]*writerStatus, 0, len(statuses))
-	for pilot, status := range statuses {
-		var ss []*writerStatus
-		err := json.Unmarshal(status, &ss)
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, s := range ss {
-			s.pilot = pilot
-		}
-		fullStatus = append(fullStatus, ss...)
-	}
-	sort.Slice(fullStatus, func(i, j int) bool {
-		if fullStatus[i].ClusterID != fullStatus[j].ClusterID {
-			return fullStatus[i].ClusterID < fullStatus[j].ClusterID
-		}
-		return fullStatus[i].ProxyID < fullStatus[j].ProxyID
-	})
-	return w, fullStatus, nil
-}
-
-func statusPrintln(w io.Writer, status *writerStatus) error {
-	clusterSynced := xdsStatus(status.ClusterSent, status.ClusterAcked, status.ProxyType)
-	listenerSynced := xdsStatus(status.ListenerSent, status.ListenerAcked, status.ProxyType)
-	routeSynced := xdsStatus(status.RouteSent, status.RouteAcked, status.ProxyType)
-	endpointSynced := xdsStatus(status.EndpointSent, status.EndpointAcked, status.ProxyType)
-	extensionconfigSynced := xdsStatus(status.ExtensionConfigSent, status.ExtensionConfigAcked, status.ProxyType)
-	version := status.IstioVersion
-	if version == "" {
-		// If we can't find an Istio version (talking to a 1.1 pilot), fallback to the proxy version
-		// This is misleading, as the proxy version isn't always the same as the Istio version,
-		// but it is better than not providing any information.
-		version = status.ProxyVersion + "*"
-	}
-	_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
-		status.ProxyID, status.ClusterID,
-		clusterSynced, listenerSynced, endpointSynced, routeSynced, extensionconfigSynced,
-		status.pilot, version)
-	return nil
-}
-
 const ignoredStatus = "IGNORED"
-
-func xdsStatus(sent, acked string, typ model.NodeType) string {
-	if sent == "" {
-		if typ == model.Ztunnel {
-			return ignoredStatus
-		}
-		return "NOT SENT"
-	}
-	if sent == acked {
-		return "SYNCED"
-	}
-	// acked will be empty string when there is never Acknowledged
-	if acked == "" {
-		return "STALE (Never Acknowledged)"
-	}
-	// Since the Nonce changes to uuid, so there is no more any time diff info
-	return "STALE"
-}
 
 // PrintAll takes a slice of Istiod syncz responses and outputs them using a tabwriter
 func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryResponse) error {
@@ -176,7 +72,8 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 	// Gather the statuses before printing so they may be sorted
 	var fullStatus []*xdsWriterStatus
 	mappedResp := map[string]string{}
-	var w *tabwriter.Writer
+	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
+	_, _ = fmt.Fprintln(w, "NAME\tCLUSTER\tCDS\tLDS\tEDS\tRDS\tECDS\tISTIOD\tVERSION")
 	for id, dr := range drs {
 		for _, resource := range dr.Resources {
 			switch resource.TypeUrl {
@@ -209,9 +106,6 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 				if len(fullStatus) == 0 {
 					return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
 				}
-
-				w = new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-				_, _ = fmt.Fprintln(w, "NAME\tCLUSTER\tCDS\tLDS\tEDS\tRDS\tECDS\tISTIOD\tVERSION")
 
 				sort.Slice(fullStatus, func(i, j int) bool {
 					return fullStatus[i].proxyID < fullStatus[j].proxyID
