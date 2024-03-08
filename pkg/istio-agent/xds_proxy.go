@@ -676,6 +676,7 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 	if connection == nil {
 		return nil, fmt.Errorf("proxy not connected to Istiod")
 	}
+	stop := connection.stopChan
 
 	// Only allow one tap request at a time
 	p.tapMutex.Lock()
@@ -704,6 +705,8 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 			if res.TypeUrl == req.TypeUrl {
 				return res, nil
 			}
+		case <-stop:
+			return nil, nil
 		case <-delay.C:
 			return nil, nil
 		}
