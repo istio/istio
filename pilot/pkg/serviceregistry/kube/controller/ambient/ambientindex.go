@@ -145,7 +145,7 @@ func New(options Options) Index {
 	Waypoints := WaypointsCollection(Gateways)
 	WaypointIndex := krt.CreateIndex[Waypoint, model.WaypointScope](Waypoints, func(w Waypoint) []model.WaypointScope {
 		// We can be a part of a service account waypoint, or a namespace waypoint
-		return []model.WaypointScope{{Namespace: w.Namespace, ServiceAccount: w.ForServiceAccount}}
+		return []model.WaypointScope{{Namespace: w.Namespace}}
 	})
 
 	// AllPolicies includes peer-authentication converted policies
@@ -188,10 +188,6 @@ func New(options Options) Index {
 		}
 		// We can be a part of a service account waypoint, or a namespace waypoint
 		return []model.WaypointScope{
-			{
-				Namespace:      w.Namespace,
-				ServiceAccount: w.ServiceAccount,
-			},
 			{
 				Namespace: w.Namespace,
 			},
@@ -359,17 +355,6 @@ func (a *index) WorkloadsForWaypoint(scope model.WaypointScope) []model.Workload
 	// Lookup scope. If its namespace wide, remove entries that are in SA scope
 	workloads := a.workloads.ByOwningWaypoint.Lookup(scope)
 	workloads = model.SortWorkloadsByCreationTime(workloads)
-	if scope.ServiceAccount == "" {
-		// This is a namespace wide waypoint. Per-SA waypoints have precedence, so we need to filter them out
-		workloads = slices.FilterInPlace(workloads, func(info model.WorkloadInfo) bool {
-			s := model.WaypointScope{
-				Namespace:      info.Namespace,
-				ServiceAccount: info.ServiceAccount,
-			}
-			// If there is a more specific waypoint, skip this
-			return len(a.waypoints.ByScope.Lookup(s)) == 0
-		})
-	}
 	return workloads
 }
 
@@ -378,11 +363,6 @@ func (a *index) WorkloadsForWaypoint(scope model.WaypointScope) []model.Workload
 func (a *index) Waypoint(scope model.WaypointScope) []netip.Addr {
 	res := sets.Set[netip.Addr]{}
 	waypoints := a.waypoints.ByScope.Lookup(scope)
-	if len(waypoints) == 0 {
-		// Now look for namespace-wide
-		scope.ServiceAccount = ""
-		waypoints = a.waypoints.ByScope.Lookup(scope)
-	}
 	for _, waypoint := range waypoints {
 		res.Insert(waypoint.Addresses[0])
 	}

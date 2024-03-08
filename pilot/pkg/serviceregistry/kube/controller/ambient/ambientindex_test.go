@@ -366,10 +366,10 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.200"))[0].Address.GetWorkload().Waypoint,
 		nil)
-	assert.Equal(t, len(s.Waypoint(model.WaypointScope{Namespace: testNS, ServiceAccount: "namespace-wide"})), 1)
-	for _, k := range s.Waypoint(model.WaypointScope{Namespace: testNS, ServiceAccount: "namespace-wide"}) {
-		assert.Equal(t, k.AsSlice(), netip.MustParseAddr("10.0.0.2").AsSlice())
-	}
+	// assert.Equal(t, len(s.Waypoint(model.WaypointScope{Namespace: testNS, ServiceAccount: "namespace-wide"})), 1)
+	// for _, k := range s.Waypoint(model.WaypointScope{Namespace: testNS, ServiceAccount: "namespace-wide"}) {
+	// 	assert.Equal(t, k.AsSlice(), netip.MustParseAddr("10.0.0.2").AsSlice())
+	// }
 
 	s.addService(t, "svc1",
 		map[string]string{},
@@ -1139,21 +1139,18 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"))
 	assertWaypoint(t, model.WaypointScope{Namespace: testNS}, s.podXdsName("pod1"), s.podXdsName("pod2"))
 	// TODO: should this be returned? Or should it be filtered because such a waypoint does not exist
-	assertWaypoint(t, model.WaypointScope{Namespace: testNS, ServiceAccount: "sa1"}, s.podXdsName("pod1"))
 
 	// Add a service account waypoint to the pod
 	s.annotatePod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 
-	assertWaypoint(t, model.WaypointScope{Namespace: testNS}, s.podXdsName("pod2"))
-	assertWaypoint(t, model.WaypointScope{Namespace: testNS, ServiceAccount: "sa1"}, s.podXdsName("pod1"))
+	assertWaypoint(t, model.WaypointScope{Namespace: testNS}, s.podXdsName("pod1"), s.podXdsName("pod2"))
 
 	// Revert back
 	s.annotatePod(t, "pod1", testNS, map[string]string{})
 	s.assertEvent(t, s.podXdsName("pod1"))
 
 	assertWaypoint(t, model.WaypointScope{Namespace: testNS}, s.podXdsName("pod1"), s.podXdsName("pod2"))
-	assertWaypoint(t, model.WaypointScope{Namespace: testNS, ServiceAccount: "sa1"}, s.podXdsName("pod1"))
 }
 
 func TestWorkloadsForWaypointOrder(t *testing.T) {

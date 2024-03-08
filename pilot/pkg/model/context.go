@@ -1320,14 +1320,12 @@ func (node *Proxy) EnableHBONE() bool {
 // strategy, depending on the binding of the waypoints to its backend
 // workloads.
 type WaypointScope struct {
-	Namespace      string
-	ServiceAccount string // optional
+	Namespace string
 }
 
 func (node *Proxy) WaypointScope() WaypointScope {
 	return WaypointScope{
-		Namespace:      node.ConfigNamespace,
-		ServiceAccount: node.Metadata.Annotations[constants.WaypointServiceAccount],
+		Namespace: node.ConfigNamespace,
 	}
 }
 

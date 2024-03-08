@@ -153,14 +153,8 @@ func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push
 	// Restrict upstream SAN to waypoint scope.
 	scope := proxy.WaypointScope()
 	m := &matcher.StringMatcher{}
-	if scope.ServiceAccount != "" {
-		m.MatchPattern = &matcher.StringMatcher_Exact{
-			Exact: spiffe.MustGenSpiffeURI(scope.Namespace, scope.ServiceAccount),
-		}
-	} else {
-		m.MatchPattern = &matcher.StringMatcher_Prefix{
-			Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/ns/" + scope.Namespace + "/sa/",
-		}
+	m.MatchPattern = &matcher.StringMatcher_Prefix{
+		Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/ns/" + scope.Namespace + "/sa/",
 	}
 	return cb.buildConnectOriginate(proxy, push, m)
 }
