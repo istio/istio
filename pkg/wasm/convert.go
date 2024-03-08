@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/util/istiomultierror"
 )
 
 var (
@@ -132,7 +133,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 	}
 
 	wg.Wait()
-	err := multierror.Append(nil, convertErrs...).ErrorOrNil()
+	err := multierror.Append(istiomultierror.New(), convertErrs...).ErrorOrNil()
 	if err != nil {
 		wasmLog.Errorf("convert the wasm config: %v", err)
 	}
