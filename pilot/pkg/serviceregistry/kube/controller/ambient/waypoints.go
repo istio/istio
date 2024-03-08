@@ -39,7 +39,11 @@ type Waypoint struct {
 
 func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
 	// try fetching the waypoint defined on the object itself
-	wp := getUseWaypoint(o)
+	wp, isNone := getUseWaypoint(o)
+	if isNone {
+		// we've got a local override here opting out of waypoint
+		return nil
+	}
 	if wp != nil {
 		// plausible the object has a waypoint defined but that waypoint's underlying gateway is not ready, in this case we'd return nil here even if
 		// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
@@ -53,7 +57,8 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 	namespace := ptr.OrEmpty[*v1.Namespace](krt.FetchOne[*v1.Namespace](ctx, Namespaces, krt.FilterKey(o.Namespace)))
 	// this probably should never be nil. How would o exist in a namespace we know nothing about? maybe edge case of starting the controller or ns delete?
 	if namespace != nil {
-		wpNamespace := getUseWaypoint(namespace.ObjectMeta)
+		// toss isNone, we don't need to know /why/ we got nil
+		wpNamespace, _ := getUseWaypoint(namespace.ObjectMeta)
 		if wpNamespace != nil {
 			return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wpNamespace.ResourceName()))
 		}
@@ -63,34 +68,37 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 	return nil
 }
 
-func getUseWaypoint(meta metav1.ObjectMeta) (named *krt.Named) {
+func getUseWaypoint(meta metav1.ObjectMeta) (named *krt.Named, isNone bool) {
 	if annotationValue, ok := meta.Annotations[constants.AmbientUseWaypoint]; ok {
-		if annotationValue != "#none" && annotationValue != "~" {
-			namespacedName := strings.Split(annotationValue, "/")
-			switch len(namespacedName) {
-			case 1:
-				// TODO: janky logic here... needs to be sorted based on knowing if meta came from a ns vs attempting inference...
-				namespace := meta.Namespace
-				if namespace == "" {
-					// object meta assumed to be from a namespace?
-					namespace = meta.Name
-				}
-				return &krt.Named{
-					Name:      namespacedName[0],
-					Namespace: namespace,
-				}
-			case 2:
-				return &krt.Named{
-					Name:      namespacedName[1],
-					Namespace: namespacedName[0],
-				}
-			default:
-				// malformed annotation error
-				log.Errorf("%s/%s, has a malformed %s annotation, value found: %s", meta.GetNamespace(), meta.GetName(), constants.AmbientUseWaypoint, annotationValue)
-			}
+		if annotationValue == "#none" || annotationValue == "~" {
+			return nil, true
 		}
+		namespacedName := strings.Split(annotationValue, "/")
+		switch len(namespacedName) {
+		case 1:
+			// TODO: janky logic here... needs to be sorted based on knowing if meta came from a ns vs attempting inference...
+			namespace := meta.Namespace
+			if namespace == "" {
+				// object meta assumed to be from a namespace?
+				namespace = meta.Name
+			}
+			return &krt.Named{
+				Name:      namespacedName[0],
+				Namespace: namespace,
+			}, false
+		case 2:
+			return &krt.Named{
+				Name:      namespacedName[1],
+				Namespace: namespacedName[0],
+			}, false
+		default:
+			// malformed annotation error
+			log.Errorf("%s/%s, has a malformed %s annotation, value found: %s", meta.GetNamespace(), meta.GetName(), constants.AmbientUseWaypoint, annotationValue)
+			return nil, false
+		}
+
 	}
-	return nil
+	return nil, false
 }
 
 func (w Waypoint) ResourceName() string {
