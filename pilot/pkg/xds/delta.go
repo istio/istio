@@ -258,8 +258,8 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 				return wr
 			})
 		}
-	} else {
-		deltaLog.Infof("Timeout writing %s", conn.conID)
+	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
+		deltaLog.Infof("Timeout writing %s: %v", conn.conID, v3.GetShortType(res.TypeUrl))
 		xdsResponseWriteTimeouts.Increment()
 	}
 	return err
