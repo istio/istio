@@ -45,7 +45,8 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 		// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
 		// o was reliant on the namespace waypoint and then get's a use-waypoint annotation added before that gateway is ready.
 		// goes from having a waypoint to having no waypoint and then eventualy gets a waypoint back
-		return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterName(wp.Name, wp.Namespace))
+		// return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterName(wp.Name, wp.Namespace))
+		return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wp.ResourceName()))
 	}
 
 	// try fetching the namespace-defined waypoint
@@ -54,7 +55,7 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 	if namespace != nil {
 		wpNamespace := getUseWaypoint(namespace.ObjectMeta)
 		if wpNamespace != nil {
-			return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterName(wpNamespace.Name, wpNamespace.Namespace))
+			return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wpNamespace.ResourceName()))
 		}
 	}
 
@@ -68,9 +69,15 @@ func getUseWaypoint(meta metav1.ObjectMeta) (named *krt.Named) {
 			namespacedName := strings.Split(annotationValue, "/")
 			switch len(namespacedName) {
 			case 1:
+				// TODO: janky logic here... needs to be sorted based on knowing if meta came from a ns vs attempting inference...
+				namespace := meta.Namespace
+				if namespace == "" {
+					// object meta assumed to be from a namespace?
+					namespace = meta.Name
+				}
 				return &krt.Named{
 					Name:      namespacedName[0],
-					Namespace: meta.Namespace,
+					Namespace: namespace,
 				}
 			case 2:
 				return &krt.Named{
@@ -79,7 +86,7 @@ func getUseWaypoint(meta metav1.ObjectMeta) (named *krt.Named) {
 				}
 			default:
 				// malformed annotation error
-				log.Errorf("Service %s/%s, has a malformed istio.io/waypoint annotation, value found: %s", meta.GetNamespace(), meta.GetName(), annotationValue)
+				log.Errorf("%s/%s, has a malformed %s annotation, value found: %s", meta.GetNamespace(), meta.GetName(), constants.AmbientUseWaypoint, annotationValue)
 			}
 		}
 	}
