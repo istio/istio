@@ -909,7 +909,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			})
 		}
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
-		log.Infof("Timeout writing %s: ", conn.conID, v3.GetShortType(res.TypeUrl))
+		log.Infof("Timeout writing %s: %v", conn.conID, v3.GetShortType(res.TypeUrl))
 		xdsResponseWriteTimeouts.Increment()
 	}
 	return err
