@@ -33,6 +33,14 @@ func TestIptables(t *testing.T) {
 			"default",
 			func(cfg *Config) {
 				cfg.RedirectDNS = true
+				cfg.ResetPreviousConnections = true
+			},
+		},
+		{
+			"not_reset_pre_conns",
+			func(cfg *Config) {
+				cfg.RedirectDNS = true
+				cfg.ResetPreviousConnections = false
 			},
 		},
 	}
@@ -104,36 +112,50 @@ func TestIptablesHostRules(t *testing.T) {
 }
 
 func TestInvokedTwiceIsIdempotent(t *testing.T) {
-	tt := struct {
+	cases := []struct {
 		name   string
 		config func(cfg *Config)
 	}{
-		"default",
-		func(cfg *Config) {
-			cfg.RedirectDNS = true
+		{
+			"default",
+			func(cfg *Config) {
+				cfg.RedirectDNS = true
+				cfg.ResetPreviousConnections = true
+			},
+		},
+		{
+			"not_reset_pre_conns",
+			func(cfg *Config) {
+				cfg.RedirectDNS = true
+				cfg.ResetPreviousConnections = false
+			},
 		},
 	}
 
-	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
 
-	cfg := constructTestConfig()
-	tt.config(cfg)
-	ext := &DependenciesStub{}
-	iptConfigurator := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
-	err := iptConfigurator.CreateInpodRules(&probeSNATipv4)
-	if err != nil {
-		t.Fatal(err)
+			cfg := constructTestConfig()
+			tt.config(cfg)
+			ext := &DependenciesStub{}
+			iptConfigurator := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
+			err := iptConfigurator.CreateInpodRules(&probeSNATipv4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareToGolden(t, false, tt.name, ext.ExecutedAll)
+
+			*ext = DependenciesStub{}
+			// run another time to make sure we are idempotent
+			err = iptConfigurator.CreateInpodRules(&probeSNATipv4)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			compareToGolden(t, false, tt.name, ext.ExecutedAll)
+		})
 	}
-	compareToGolden(t, false, tt.name, ext.ExecutedAll)
-
-	*ext = DependenciesStub{}
-	// run another time to make sure we are idempotent
-	err = iptConfigurator.CreateInpodRules(&probeSNATipv4)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	compareToGolden(t, false, tt.name, ext.ExecutedAll)
 }
 
 func ipstr(ipv6 bool) string {

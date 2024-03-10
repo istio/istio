@@ -79,8 +79,9 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 	}
 
 	cfg := &iptables.Config{
-		RestoreFormat: true,
-		RedirectDNS:   args.DNSCapture,
+		RestoreFormat:            true,
+		RedirectDNS:              args.DNSCapture,
+		ResetPreviousConnections: args.ResetPreviousConnections,
 	}
 
 	iptablesConfigurator := iptables.NewIptablesConfigurator(cfg, realDependencies(), iptables.RealNlDeps())

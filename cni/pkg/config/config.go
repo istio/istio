@@ -82,6 +82,9 @@ type InstallConfig struct {
 
 	// Whether ambient DNS capture is enabled
 	AmbientDNSCapture bool
+
+	// Whether reset previous connections when inject redirection iptables rule to pod network namespace
+	AmbientResetPreviousConnections bool
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
