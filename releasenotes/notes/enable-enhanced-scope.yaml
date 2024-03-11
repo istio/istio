@@ -7,9 +7,8 @@ releaseNotes:
 upgradeNotes:
 - title: Default value of the feature flag `ENHANCED_RESOURCE_SCOPING` to true
   content: |
-    `ENHANCED_RESOURCE_SCOPING` is enabled by default. This means that meshConfig.discoverySelectors
-    will limit the CustomResource configurations that can be processed by pilot.
-    root-ca certificate distribution is also affected.
+    `ENHANCED_RESOURCE_SCOPING` is enabled by default. This means that the pilot will processes only the Istio CustomResource configurations that are in 
+    scope of what is specified from meshConfig.discoverySelectors. Root-ca certificate distribution is also affected.
 
     If this is not desired, use the new `compatibilityVersion` feature to fallback to old behavior.
 
