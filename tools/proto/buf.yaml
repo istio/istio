@@ -1,6 +1,8 @@
-version: v1
+version: v1beta1
 build:
-  excludes:
+  roots:
+    - operator
+    - pkg
     - common-protos
 lint:
   allow_comment_ignores: true

@@ -1,1 +1,0 @@
-common-protos/k8s.io/
