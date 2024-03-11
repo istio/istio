@@ -296,7 +296,7 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 		resp.Resources[i].Resource = resources[i]
 	}
 
-	proxyLog.WithLabels("resources", slices.Map(resp.Resources, (*discovery.Resource).GetName), "removals", resp.RemovedResources).Debugf("forward ECDS")
+	proxyLog.WithLabels("resources", slices.Map(resp.Resources, (*discovery.Resource).GetName), "removes", resp.RemovedResources).Debugf("forward ECDS")
 	forward(resp)
 }
 
