@@ -1082,7 +1082,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 		}
 
 		// We need to compute this namespace
-		computed := DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
+		computed := DefaultSidecarScopeForGateway(ps, proxy.ConfigNamespace)
 		ps.sidecarIndex.defaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
 		return computed
 	case SidecarProxy:
