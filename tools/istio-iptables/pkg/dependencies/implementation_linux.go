@@ -57,38 +57,56 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 	// if we find one unless the host OS is badly broken we will find the others.
 	iptablesSaveBin := fmt.Sprintf("%s-save", iptablesBin)
 	iptablesRestoreBin := fmt.Sprintf("%s-restore", iptablesBin)
+	var parsedVer *utilversion.Version
+	var isNft bool
 	// does the "xx-save" binary exist?
+	rulesDump, binExistsErr := exec.Command(iptablesSaveBin).CombinedOutput()
+	if binExistsErr != nil {
+		return IptablesVersion{}, fmt.Errorf("binary %s not found in path: %w", iptablesSaveBin, binExistsErr)
+	}
+
+	// Binary is there, so try to parse version
 	rawIptablesVer, execErr := exec.Command(iptablesSaveBin, "--version").CombinedOutput()
 	if execErr == nil {
+		var parseErr error
 		// we found the binary - extract the version, then try to detect if rules already exist for that variant
-		parsedVer, err := parseIptablesVer(string(rawIptablesVer))
-		if err != nil {
-			return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", rawIptablesVer, err)
+		parsedVer, parseErr = parseIptablesVer(string(rawIptablesVer))
+		if parseErr != nil {
+			return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", rawIptablesVer, parseErr)
 		}
 		// Legacy will have no marking or 'legacy', so just look for nf_tables
-		isNft := strings.Contains(string(rawIptablesVer), "nf_tables")
-
-		// if it seems to, use it to dump the rules in our netns, and see if any rules exist there
-		// Note that this is highly dependent on context.
-		// new pod netns? probably no rules. Hostnetns? probably rules
-		// So this is mostly just a "hint"/heuristic as to which version we should be using, if more than one binary is present.
-		rulesDump, _ := exec.Command(iptablesSaveBin).CombinedOutput()
-		// `xx-save` should return _no_ output (0 lines) if no rules are defined in this netns for that binary variant.
-		// `xx-save` should return at least 3 output lines if at least one rule is defined in this netns for that binary variant.
-		existingRules := false
-		if strings.Count(string(rulesDump), "\n") >= 3 {
-			existingRules = true
-		}
-		return IptablesVersion{
-			DetectedBinary:        iptablesBin,
-			DetectedSaveBinary:    iptablesSaveBin,
-			DetectedRestoreBinary: iptablesRestoreBin,
-			Version:               parsedVer,
-			Legacy:                !isNft,
-			ExistingRules:         existingRules,
-		}, nil
+		isNft = strings.Contains(string(rawIptablesVer), "nf_tables")
+	} else {
+		log.Warnf("found iptables binary %s, but it does not appear to support the '--version' flag, assuming very old legacy version")
+		// Some really old iptables-legacy-save versions (1.6.1, ubuntu bionic) don't support any arguments at all, including `--version`
+		// So if we get here, we found `iptables-save` in PATH, but it's too outdated to understand `--version`.
+		//
+		// We can eventually remove this.
+		//
+		// So assume it's legacy/an unknown version, but assume we can use it since it's in PATH
+		parsedVer = utilversion.MustParseGeneric("0.0.0")
+		isNft = false
 	}
-	return IptablesVersion{}, fmt.Errorf("iptables save binary: %s not present", iptablesSaveBin)
+
+	// if binary seems to exist, check the dump of rules in our netns, and see if any rules exist there
+	// Note that this is highly dependent on context.
+	// new pod netns? probably no rules. Hostnetns? probably rules
+	// So this is mostly just a "hint"/heuristic as to which version we should be using, if more than one binary is present.
+	// `xx-save` should return _no_ output (0 lines) if no rules are defined in this netns for that binary variant.
+	// `xx-save` should return at least 3 output lines if at least one rule is defined in this netns for that binary variant.
+	existingRules := false
+	if strings.Count(string(rulesDump), "\n") >= 3 {
+		existingRules = true
+		log.Debugf("found existing rules for %s", iptablesSaveBin)
+	}
+	return IptablesVersion{
+		DetectedBinary:        iptablesBin,
+		DetectedSaveBinary:    iptablesSaveBin,
+		DetectedRestoreBinary: iptablesRestoreBin,
+		Version:               parsedVer,
+		Legacy:                !isNft,
+		ExistingRules:         existingRules,
+	}, nil
 }
 
 // runInSandbox builds a lightweight sandbox ("container") to build a suitable environment to run iptables commands in.
