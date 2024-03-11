@@ -214,7 +214,7 @@ func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) C
 	inf := kubeclient.GetInformerFiltered[T](c, ToOpts(c, gvr, filter))
 	return &fullClient[T]{
 		writeClient: writeClient[T]{client: c},
-		Informer:    newInformerClient[T](inf, filter),
+		Informer:    newInformerClient[T](gvr, inf, filter),
 	}
 }
 
@@ -246,7 +246,7 @@ func NewDelayedInformer[T controllers.ComparableObject](
 // NewUntypedInformer returns an untyped client for a given GVR. This is read-only.
 func NewUntypedInformer(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
 	inf := kubeclient.GetInformerFilteredFromGVR(c, ToOpts(c, gvr, filter), gvr)
-	return newInformerClient[controllers.Object](inf, filter)
+	return newInformerClient[controllers.Object](gvr, inf, filter)
 }
 
 // NewDynamic returns a dynamic client for a given GVR. This is read-only.
@@ -254,7 +254,7 @@ func NewDynamic(c kube.Client, gvr schema.GroupVersionResource, filter Filter) U
 	opts := ToOpts(c, gvr, filter)
 	opts.InformerType = kubetypes.DynamicInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
-	return newInformerClient[controllers.Object](inf, filter)
+	return newInformerClient[controllers.Object](gvr, inf, filter)
 }
 
 // NewMetadata returns a metadata client for a given GVR. This is read-only.
@@ -262,7 +262,7 @@ func NewMetadata(c kube.Client, gvr schema.GroupVersionResource, filter Filter) 
 	opts := ToOpts(c, gvr, filter)
 	opts.InformerType = kubetypes.MetadataInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
-	return newInformerClient[*metav1.PartialObjectMetadata](inf, filter)
+	return newInformerClient[*metav1.PartialObjectMetadata](gvr, inf, filter)
 }
 
 // NewWriteClient is exposed for testing.
@@ -302,16 +302,20 @@ func newDelayedInformer[T controllers.ComparableObject](
 		return delayedClient
 	}
 	log.Debugf("%v ready now, building client", gvr.GroupResource())
-	return newInformerClient[T](getInf(), filter)
+	return newInformerClient[T](gvr, getInf(), filter)
 }
 
-func newInformerClient[T controllers.ComparableObject](inf informerfactory.StartableInformer, filter Filter) Informer[T] {
+func newInformerClient[T controllers.ComparableObject](
+	gvr schema.GroupVersionResource,
+	inf informerfactory.StartableInformer,
+	filter Filter,
+) Informer[T] {
 	ic := &informerClient[T]{
 		informer:      inf.Informer,
 		startInformer: inf.Start,
 	}
 	if filter.ObjectFilter != nil {
-		applyDynamicFilter(filter, types.GetGVR[T](), ic)
+		applyDynamicFilter(filter, gvr, ic)
 	}
 	return ic
 }
