@@ -45,7 +45,7 @@ type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
 	WorkloadsForWaypoint(scope model.WaypointScope) []model.WorkloadInfo
-	Waypoint(scope model.WaypointScope) []netip.Addr
+	Waypoint(network, address string) []netip.Addr
 	SyncAll()
 	model.AmbientIndexes
 }
@@ -360,11 +360,25 @@ func (a *index) WorkloadsForWaypoint(scope model.WaypointScope) []model.Workload
 
 // Waypoint finds all waypoint IP addresses for a given scope.  Performs first a Namespace+ServiceAccount
 // then falls back to any Namespace wide waypoints
-func (a *index) Waypoint(scope model.WaypointScope) []netip.Addr {
+func (a *index) Waypoint(network, address string) []netip.Addr {
 	res := sets.Set[netip.Addr]{}
-	waypoints := a.waypoints.ByScope.Lookup(scope)
-	for _, waypoint := range waypoints {
-		res.Insert(waypoint.Addresses[0])
+	networkAddr := networkAddress{
+		network: network,
+		ip:      address,
+	}
+	addressInfos := a.Lookup(networkAddr.String())
+	for _, addressInfo := range addressInfos {
+		waypointAddress := addressInfo.GetService().GetWaypoint().GetAddress().GetAddress()
+		if a, ok := netip.AddrFromSlice(waypointAddress); ok {
+			res.Insert(a)
+			// This was a service, therefore it is not a workload and we can just move on
+			continue
+		}
+
+		waypointAddress = addressInfo.GetWorkload().GetWaypoint().GetAddress().GetAddress()
+		if a, ok := netip.AddrFromSlice(waypointAddress); ok {
+			res.Insert(a)
+		}
 	}
 	return res.UnsortedList()
 }

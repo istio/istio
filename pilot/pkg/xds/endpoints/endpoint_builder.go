@@ -739,9 +739,7 @@ func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
 }
 
 func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {
-	ips := push.WaypointsFor(model.WaypointScope{
-		Namespace: e.Namespace,
-	})
+	ips := push.WaypointsFor(e.Network.String(), e.Address)
 	return ips
 }
 

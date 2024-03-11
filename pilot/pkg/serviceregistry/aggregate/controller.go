@@ -54,13 +54,13 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
+func (c *Controller) Waypoint(network, address string) []netip.Addr {
 	if !features.EnableAmbientControllers {
 		return nil
 	}
 	var res []netip.Addr
 	for _, p := range c.GetRegistries() {
-		res = append(res, p.Waypoint(scope)...)
+		res = append(res, p.Waypoint(network, address)...)
 	}
 	return res
 }
