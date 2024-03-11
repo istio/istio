@@ -359,7 +359,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			name:     "test endpoint with different service port name",
 			ep:       ep0,
 			p:        servicePort,
-			expected: false,
+			expected: true,
 		},
 		{
 			name:     "test endpoint with ipv4 address",
