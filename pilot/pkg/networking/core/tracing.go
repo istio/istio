@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 
 	opb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -29,6 +30,8 @@ import (
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+
+	otelsamplers "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/samplers/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	telemetrypb "istio.io/api/telemetry/v1alpha1"
@@ -102,14 +105,16 @@ func configureTracingFromTelemetry(
 	}
 
 	var startChildSpan bool
+	var useCustomSampler bool
 	if spec.Provider != nil {
-		tcfg, child, err := configureFromProviderConfig(push, proxy, spec.Provider)
+		tcfg, child, hasCustomSampler, err := configureFromProviderConfig(push, proxy, spec.Provider)
 		if err != nil {
 			log.Warnf("Not able to configure requested tracing provider %q: %v", spec.Provider.Name, err)
 			return false, nil
 		}
 		h.Tracing = tcfg
 		startChildSpan = child
+		useCustomSampler = hasCustomSampler
 	} else {
 		// TODO: should this `return nil, nil` instead ?
 		log.Warnf("Not able to configure tracing provider. Provider lookup failed.")
@@ -118,8 +123,13 @@ func configureTracingFromTelemetry(
 		// something like: configureFromProxyConfig(tracingCfg, opts.proxy.Metadata.ProxyConfig.Tracing)
 	}
 
+	// provider.sampler > telemetry.RandomSamplingPercentage > defaultConfig.tracing.sampling > PILOT_TRACE_SAMPLING
 	var sampling float64
-	if spec.RandomSamplingPercentage != nil {
+	if useCustomSampler {
+		// If the TracingProvider has a custom sampler (OTel Sampler)
+		// the sampling percentage is set to 100% so all spans arrive at the sampler for its decision.
+		sampling = 100
+	} else if spec.RandomSamplingPercentage != nil {
 		sampling = *spec.RandomSamplingPercentage
 	} else {
 		// gracefully fallback to MeshConfig configuration. It will act as an implicit
@@ -147,8 +157,9 @@ const configureFromProviderConfigHandled = 14
 
 func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider,
-) (*hcm.HttpConnectionManager_Tracing, bool, error) {
+) (*hcm.HttpConnectionManager_Tracing, bool, bool, error) {
 	startChildSpan := false
+	useCustomSampler := false
 	var serviceCluster string
 	var maxTagLength uint32
 	var providerConfig typedConfigGenFn
@@ -223,12 +234,9 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		maxTagLength = provider.Opentelemetry.GetMaxTagLength()
 		providerName = envoyOpenTelemetry
 		providerConfig = func() (*anypb.Any, error) {
-			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Opentelemetry.GetService(), int(provider.Opentelemetry.GetPort()))
-			if err != nil {
-				model.IncLookupClusterFailures("opentelemetry")
-				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
-			}
-			return otelConfig(serviceCluster, hostname, clusterName, provider.Opentelemetry)
+			tracing, hasCustomSampler, err := otelConfig(serviceCluster, provider.Opentelemetry, pushCtx)
+			useCustomSampler = hasCustomSampler
+			return tracing, err
 		}
 		// Providers without any tracing support
 		// Explicitly list to be clear what does and does not support tracing
@@ -239,13 +247,13 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		*meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls,
 		*meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog,
 		*meshconfig.MeshConfig_ExtensionProvider_Prometheus:
-		return nil, false, fmt.Errorf("provider %T does not support tracing", provider)
+		return nil, false, false, fmt.Errorf("provider %T does not support tracing", provider)
 		// Should never happen, but just in case we forget to add one
 	default:
-		return nil, false, fmt.Errorf("provider %T does not support tracing", provider)
+		return nil, false, false, fmt.Errorf("provider %T does not support tracing", provider)
 	}
 	tracing, err := buildHCMTracing(providerName, maxTagLength, providerConfig)
-	return tracing, startChildSpan, err
+	return tracing, startChildSpan, useCustomSampler, err
 }
 
 func zipkinConfig(hostname, cluster string, enable128BitTraceID bool) (*anypb.Any, error) {
@@ -269,7 +277,16 @@ func datadogConfig(serviceName, hostname, cluster string) (*anypb.Any, error) {
 	return protoconv.MessageToAnyWithError(dc)
 }
 
-func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider) (*anypb.Any, error) {
+func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider,
+	pushCtx *model.PushContext) (*anypb.Any, bool, error) {
+
+	hostname, cluster, err := clusterLookupFn(pushCtx, otelProvider.GetService(), int(otelProvider.GetPort()))
+	if err != nil {
+		model.IncLookupClusterFailures("opentelemetry")
+		return nil, false, fmt.Errorf("could not find cluster for tracing provider %q: %v", otelProvider, err)
+	}
+
+	hasCustomSampler := false
 	oc := &tracingcfg.OpenTelemetryConfig{
 		ServiceName: serviceName,
 	}
@@ -289,7 +306,7 @@ func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.
 		httpService := otelProvider.GetHttp()
 		te, err := url.JoinPath(hostname, httpService.GetPath())
 		if err != nil {
-			return nil, fmt.Errorf("could not parse otlp/http traces endpoint: %v", err)
+			return nil, false, fmt.Errorf("could not parse otlp/http traces endpoint: %v", err)
 		}
 		oc.HttpService = &core.HttpService{
 			HttpUri: &core.HttpUri{
@@ -326,7 +343,23 @@ func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.
 		oc.ResourceDetectors = res
 	}
 
-	return anypb.New(oc)
+	// Add configured Sampler
+	if otelProvider.Sampling != nil {
+		switch sampler := otelProvider.Sampling.(type) {
+		case *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_:
+			dts, err := configureDynatraceSampler(hostname, cluster, otelProvider, sampler, pushCtx)
+			if err != nil {
+				return nil, false, err
+			}
+			oc.Sampler = dts
+		}
+
+		// If any sampler is configured for the OpenTelemetryTracingProvider
+		hasCustomSampler = true
+	}
+
+	pb, err := anypb.New(oc)
+	return pb, hasCustomSampler, err
 }
 
 func opencensusConfig(opencensusProvider *meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider) (*anypb.Any, error) {
@@ -460,6 +493,116 @@ func otelLightStepConfig(clusterName, hostname, accessToken string) (*anypb.Any,
 		},
 	}
 	return anypb.New(dc)
+}
+
+func configureDynatraceSampler(hostname, cluster string,
+	otelProvider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider,
+	sampler *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_,
+	pushCtx *model.PushContext) (*core.TypedExtensionConfig, error) {
+
+	dsc := &otelsamplers.DynatraceSamplerConfig{
+		Tenant:             sampler.DynatraceSampler.GetTenant(),
+		ClusterId:          sampler.DynatraceSampler.GetClusterId(),
+		RootSpansPerMinute: sampler.DynatraceSampler.GetRootSpansPerMinute(),
+	}
+
+	if sampler.DynatraceSampler.HttpService == nil {
+		// The Dynatrace sampler can re-use the same Dynatrace service/cluster/auth header
+		// as configured for the HTTP Exporter. In this case users
+		// can achieve a much smaller/simpler config in Istio.
+		var header *meshconfig.MeshConfig_ExtensionProvider_HttpHeader
+
+		// Re-use the Dynatrace API Host + Token from the HTTP exporter
+		httpService := otelProvider.GetHttp()
+		if httpService == nil {
+			return nil, fmt.Errorf("dynatrace sampler could not get http settings. considering using dynatrace_api field")
+		}
+
+		uri, err := url.JoinPath(hostname, "api/v2/samplingConfiguration")
+		if err != nil {
+			return nil, fmt.Errorf("could not parse dynatrace adaptative sampling endpoint %v", err)
+		}
+
+		// Extracts the Authorization header from the HTTP exporter headers
+		for _, h := range httpService.GetHeaders() {
+			if h.Name != "Authorization" {
+				continue
+			}
+			hv := h.GetValue()
+			if !strings.Contains(strings.ToLower(hv), "api-token ") {
+				return nil, fmt.Errorf("could not parse dynatrace token from http header")
+			}
+			if len(strings.Fields(hv)) != 2 {
+				return nil, fmt.Errorf("could not parse dynatrace token from http header")
+			}
+			header = h
+		}
+		if header == nil {
+			return nil, fmt.Errorf("dynatrace sampler missing the authorization header")
+		}
+
+		dsc.HttpService = &core.HttpService{
+			HttpUri: &core.HttpUri{
+				Uri: uri,
+				HttpUpstreamType: &core.HttpUri_Cluster{
+					Cluster: cluster,
+				},
+				Timeout: httpService.GetTimeout(),
+			},
+			RequestHeadersToAdd: []*core.HeaderValueOption{
+				{
+					AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+					Header: &core.HeaderValue{
+						Key:   header.GetName(),
+						Value: header.GetValue(),
+					},
+				},
+			},
+		}
+	} else {
+		// Dynatrace customers may want to export to a OTel collector
+		// but still have the benefits of the Dynatrace Sampler.
+		// In this case, the sampler has its own HTTP configuration
+		var dtapi = sampler.DynatraceSampler.HttpService
+
+		// use Dynatrace API to configure the sampler
+		dtHost, dtCluster, err := clusterLookupFn(pushCtx, dtapi.GetService(), int(dtapi.GetPort()))
+		if err != nil {
+			model.IncLookupClusterFailures("dynatrace")
+			return nil, fmt.Errorf("could not find cluster for dynatrace sampler %v", err)
+		}
+
+		uri, err := url.JoinPath(dtHost, dtapi.GetHttp().Path)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse dynatrace adaptative sampling endpoint %v", err)
+		}
+
+		dsc.HttpService = &core.HttpService{
+			HttpUri: &core.HttpUri{
+				Uri: uri,
+				HttpUpstreamType: &core.HttpUri_Cluster{
+					Cluster: dtCluster,
+				},
+				Timeout: dtapi.Http.GetTimeout(),
+			},
+		}
+
+		for _, h := range dtapi.Http.GetHeaders() {
+			hvo := &core.HeaderValueOption{
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				Header: &core.HeaderValue{
+					Key:   h.GetName(),
+					Value: h.GetValue(),
+				},
+			}
+			dsc.GetHttpService().RequestHeadersToAdd = append(dsc.GetHttpService().GetRequestHeadersToAdd(), hvo)
+		}
+	}
+
+	return &core.TypedExtensionConfig{
+		Name:        "envoy.tracers.opentelemetry.samplers.dynatrace",
+		TypedConfig: protoconv.MessageToAny(dsc),
+	}, nil
 }
 
 func buildHCMTracing(provider string, maxTagLen uint32, anyFn typedConfigGenFn) (*hcm.HttpConnectionManager_Tracing, error) {
@@ -622,9 +765,12 @@ func configureSampling(hcmTracing *hcm.HttpConnectionManager_Tracing, providerPe
 	}
 }
 
+// defaultConfig.tracing.sampling > PILOT_TRACE_SAMPLING
 func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
+	// PILOT_TRACE_SAMPLING
 	sampling := features.TraceSampling
 
+	// Tracing from default_config
 	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
 		sampling = config.Tracing.Sampling
 
