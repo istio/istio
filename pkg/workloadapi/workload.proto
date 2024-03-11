@@ -216,11 +216,11 @@ enum TunnelProtocol {
   // Future options may include things like QUIC/HTTP3, etc.
 }
 
-// NativeTunnel describes how an application or gateway
-// can consume tunnel information directly.
+// NativeTunnel describes how a workload (application or gateway)
+// can consume tunnel connections directly.
 message NativeTunnel {
   // A target natively handles this type of traffic.  
-  GatewayProtocol protocol;
+  GatewayProtocol protocol = 1;
   // optional: if set, traffic should be sent to this port after the last zTunnel hop
   uint32 port;
 }
@@ -229,7 +229,7 @@ enum GatewayProtocol {
   // Bytes are just copied directly.
   NONE = 1;
 
-  // The workload nativley supports HBONE
+  // The workload natively supports HBONE
   // For the zTunnel, this means:
   // * Requests *from* this workload do not need to be tunneled if they already are tunneled by the tunnel_protocol.
   // * Requests *to* this workload, via the tunnel_protocol, do not need to be de-tunneled.
