@@ -316,10 +316,10 @@ message EgressGatewayConfig {
   //  This pod anti-affinity rule says that the pod requires not to be scheduled
   //  onto a node if that node is already running a pod with label having key
   //  “security” and value “S1”.
-  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityLabelSelector = 12 [deprecated=true];
+  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityLabelSelector = 12 [deprecated = true];
 
   // See PodAntiAffinityLabelSelector.
-  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityTermLabelSelector = 13 [deprecated=true];
+  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityTermLabelSelector = 13 [deprecated = true];
 
   // Ports Configuration for the egress gateway service.
   repeated PortsConfig ports = 14;
@@ -343,7 +343,7 @@ message EgressGatewayConfig {
   // Enables cross-cluster access using SNI matching.
   ZeroVPNConfig zvpn = 19;
 
-  repeated k8s.io.api.core.v1.Toleration tolerations = 20 [deprecated=true];
+  repeated k8s.io.api.core.v1.Toleration tolerations = 20 [deprecated = true];
 
   // K8s rolling update strategy
   IntOrString rollingMaxSurge = 21 [deprecated = true];
@@ -433,7 +433,7 @@ message GlobalConfig {
   // and setting the desired values.
   // Configure this field in case that all pods of Istio control plane are expected to
   // be scheduled to particular nodes with specified taints.
-  repeated k8s.io.api.core.v1.Toleration defaultTolerations = 55 [deprecated=true];
+  repeated k8s.io.api.core.v1.Toleration defaultTolerations = 55 [deprecated = true];
 
   // Specifies the docker hub for Istio images.
   string hub = 12;
@@ -689,10 +689,10 @@ message IngressGatewayConfig {
   google.protobuf.Struct podAnnotations = 20 [deprecated = true];
 
   // See EgressGatewayConfig.
-  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityLabelSelector = 21 [deprecated=true];
+  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityLabelSelector = 21 [deprecated = true];
 
   // See EgressGatewayConfig.
-  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityTermLabelSelector = 22 [deprecated=true];
+  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityTermLabelSelector = 22 [deprecated = true];
 
   // Port Configuration for the ingress gateway.
   repeated PortsConfig ports = 23;
@@ -731,7 +731,7 @@ message IngressGatewayConfig {
 
   string externalTrafficPolicy = 34;
 
-  repeated k8s.io.api.core.v1.Toleration tolerations = 35 [deprecated=true];
+  repeated k8s.io.api.core.v1.Toleration tolerations = 35 [deprecated = true];
 
   repeated google.protobuf.Struct ingressPorts = 36;
 
@@ -899,7 +899,7 @@ message PilotConfig {
   // The node tolerations to be applied to the Pilot deployment so that it can be
   // scheduled to particular nodes with matching taints.
   // More info: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling
-  repeated k8s.io.api.core.v1.Toleration tolerations = 26 [deprecated=true];
+  repeated k8s.io.api.core.v1.Toleration tolerations = 26 [deprecated = true];
 
   // Specifies whether protocol sniffing is enabled for outbound traffic.
   google.protobuf.BoolValue enableProtocolSniffingForOutbound = 28 [deprecated = true];
