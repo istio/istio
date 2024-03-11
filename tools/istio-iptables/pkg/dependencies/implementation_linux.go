@@ -60,7 +60,7 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 	var parsedVer *utilversion.Version
 	var isNft bool
 	// does the "xx-save" binary exist?
-	_, binExistsErr := exec.Command(iptablesSaveBin).CombinedOutput()
+	rulesDump, binExistsErr := exec.Command(iptablesSaveBin).CombinedOutput()
 	if binExistsErr != nil {
 		return IptablesVersion{}, fmt.Errorf("binary %s not found in path: %w", iptablesSaveBin, binExistsErr)
 	}
@@ -88,11 +88,10 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 		isNft = false
 	}
 
-	// if binary seems to exist, use it to dump the rules in our netns, and see if any rules exist there
+	// if binary seems to exist, check the dump of rules in our netns, and see if any rules exist there
 	// Note that this is highly dependent on context.
 	// new pod netns? probably no rules. Hostnetns? probably rules
 	// So this is mostly just a "hint"/heuristic as to which version we should be using, if more than one binary is present.
-	rulesDump, _ := exec.Command(iptablesSaveBin).CombinedOutput()
 	// `xx-save` should return _no_ output (0 lines) if no rules are defined in this netns for that binary variant.
 	// `xx-save` should return at least 3 output lines if at least one rule is defined in this netns for that binary variant.
 	existingRules := false
