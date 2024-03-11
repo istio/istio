@@ -145,9 +145,12 @@ func (h *manyCollection[I, O]) augment(a any) any {
 // onPrimaryInputEvent takes a list of I's that changed and reruns the handler over them.
 // This is called either when I directly changes, or if a secondary dependency changed. In this case, we compute which I's depended
 // on the secondary dependency, and call onPrimaryInputEvent with them
-func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
-	h.recomputeMu.Lock()
-	defer h.recomputeMu.Unlock()
+func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I], lock bool) {
+	log.Errorf("howardjohn: onPrimaryInputEvent! %v", lock)
+	if lock {
+		h.recomputeMu.Lock()
+		defer h.recomputeMu.Unlock()
+	}
 	// Between the events being enqueued and now, the input may have changed. Update with latest info.
 	// Note we now have the recomputeMu so this is safe; any futures calls will do the same so always have up-to-date information.
 	for idx, ev := range items {
@@ -171,6 +174,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 // onPrimaryInputEventLocked takes a list of I's that changed and reruns the handler over them.
 // This should be called with recomputeMu acquired.
 func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
+	log.Errorf("howardjohn: onPrimaryInputEventLocked lock 2")
 	var events []Event[O]
 	recomputedResults := make([]map[Key[O]]O, len(items))
 	for idx, a := range items {
@@ -355,14 +359,18 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 			return
 		}
 		// Now, register our handler. This will call Add() for the initial state
+		h.recomputeMu.Lock()
 		h.eventHandlers.MarkInitialized()
+		lock := false
 		handlerReg := c.RegisterBatch(func(events []Event[I]) {
 			if log.DebugEnabled() {
 				h.log.WithLabels("dep", "primary", "batch", len(events)).
 					Debugf("got event")
 			}
-			h.onPrimaryInputEvent(events)
+			h.onPrimaryInputEvent(events, lock)
+			lock = true
 		}, true)
+		h.recomputeMu.Unlock()
 		if !handlerReg.WaitUntilSynced(h.stop) {
 			return
 		}
@@ -483,10 +491,13 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) Syncer {
 }
 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingState bool) Syncer {
-	if !h.eventHandlers.Insert(f) && runExistingState {
+	h.recomputeMu.Lock()
+	defer h.recomputeMu.Unlock()
+	init := h.eventHandlers.Insert(f)
+	log.Errorf("howardjohn: RUN %v/%v", init, runExistingState)
+	if !init && runExistingState {
 		// Already started. Pause everything, and run through the handler.
-		h.recomputeMu.Lock()
-		defer h.recomputeMu.Unlock()
+
 		h.mu.Lock()
 		events := make([]Event[O], 0, len(h.collectionState.outputs))
 		for _, o := range h.collectionState.outputs {
@@ -498,6 +509,9 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingSt
 		}
 		h.mu.Unlock()
 		if len(events) > 0 {
+			if log.DebugEnabled() {
+				h.log.WithLabels("items", len(events)).Debugf("call handler with initial state")
+			}
 			f(events)
 		}
 		// We handle events in sequence here, so its always synced at this point/
