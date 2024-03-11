@@ -422,7 +422,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 				"outbound||example.ns.svc.cluster.local",
 				model.TrafficDirectionOutbound, "", "example.ns.svc.cluster.local", 80,
 				svc, nil)
-			expected := builder.filterIstioEndpoint(tt.ep, tt.p)
+			expected := builder.filterIstioEndpoint(tt.ep)
 			if !reflect.DeepEqual(tt.expected, expected) {
 				t.Fatalf("expected  %v but got %v", tt.expected, expected)
 			}
