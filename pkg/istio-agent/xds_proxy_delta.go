@@ -184,9 +184,10 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 				continue
 			}
 			log.WithLabels(
-				"type", req.TypeUrl,
+				"type", v3.GetShortType(req.TypeUrl),
 				"sub", len(req.ResourceNamesSubscribe),
 				"unsub", len(req.ResourceNamesUnsubscribe),
+				"nonce", req.ResponseNonce,
 				"initial", len(req.InitialResourceVersions),
 			).Debugf("delta request")
 			metrics.XdsProxyRequests.Increment()
@@ -213,7 +214,8 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.WithLabels(
 				"id", con.conID,
-				"type", resp.TypeUrl,
+				"type", v3.GetShortType(resp.TypeUrl),
+				"nonce", resp.Nonce,
 				"resources", len(resp.Resources),
 				"removes", len(resp.RemovedResources),
 			).Debugf("upstream response")

@@ -484,7 +484,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.WithLabels(
 				"id", con.conID,
-				"type", resp.TypeUrl,
+				"type", v3.GetShortType(resp.TypeUrl),
 				"resources", len(resp.Resources),
 			).Debugf("upstream response")
 			metrics.XdsProxyResponses.Increment()
