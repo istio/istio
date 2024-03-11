@@ -55,8 +55,6 @@ type IptablesConfigurator struct {
 	ext    dep.Dependencies
 	nlDeps NetlinkDependencies
 	cfg    *Config
-	iptV   dep.IptablesVersion
-	ipt6V  dep.IptablesVersion
 }
 
 func ipbuildConfig(c *Config) *iptablesconfig.Config {
@@ -68,46 +66,17 @@ func ipbuildConfig(c *Config) *iptablesconfig.Config {
 	}
 }
 
-func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDependencies) (*IptablesConfigurator, error) {
+func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDependencies) *IptablesConfigurator {
 	if cfg == nil {
 		cfg = &Config{
 			RestoreFormat: true,
 		}
 	}
-
-	configurator := &IptablesConfigurator{
+	return &IptablesConfigurator{
 		ext:    ext,
 		nlDeps: nlDeps,
 		cfg:    cfg,
 	}
-
-	// By detecting iptables versions *here* once-for-all we are
-	// committing to using the same binary/variant (legacy or nft)
-	// within all pods as we do on the host.
-	//
-	// This should be fine, as the host binaries are all we have to work with here anyway,
-	// as we are running within a privileged container - and we don't want to take the time to
-	// redetect for each pod anyway.
-	//
-	// Extreme corner case:
-	// If for some reason your host had both binaries, and you were injecting out-of-band
-	// iptables rules within a pod context into `legacy` tables, but your host context preferred
-	// `nft`, we would still inject our rules in-pod into nft tables, which is a bit wonky.
-	//
-	// But that's stunningly unlikely (and would still work either way)
-	iptVer, err := ext.DetectIptablesVersion(false)
-	if err != nil {
-		return nil, err
-	}
-	configurator.iptV = iptVer
-
-	ipt6Ver, err := ext.DetectIptablesVersion(true)
-	if err != nil {
-		return nil, err
-	}
-	configurator.ipt6V = ipt6Ver
-
-	return configurator, nil
 }
 
 func (cfg *IptablesConfigurator) DeleteInpodRules() error {
@@ -138,21 +107,19 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 	}
 
 	var delErrs []error
-
-	iptablesVariant := []dep.IptablesVersion{}
-	iptablesVariant = append(iptablesVariant, cfg.iptV)
-
+	// iptablei seems like a reasonable pluralization of iptables
+	iptablei := []string{iptablesconstants.IPTABLES}
 	if cfg.cfg.EnableInboundIPv6 {
-		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
+		iptablei = append(iptablei, iptablesconstants.IP6TABLES)
 	}
-
-	for _, iptVer := range iptablesVariant {
+	for _, iptables := range iptablei {
 		for _, cmd := range deleteCmds {
-			delErrs = append(delErrs, cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...))
+			delErrs = append(delErrs, cfg.ext.Run(iptables, nil, cmd...))
 		}
-
+	}
+	for _, iptables := range iptablei {
 		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
+			err := cfg.ext.Run(iptables, nil, cmd...)
 			if err != nil {
 				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
 			}
@@ -184,13 +151,13 @@ func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSNAT *netip.Addr) err
 	return nil
 }
 
-func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *builder.IptablesBuilder {
 	redirectDNS := cfg.cfg.RedirectDNS
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodTProxyMask)
 
-	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
+	iptablesBuilder := builder.NewIptablesBuilder(ipbuildConfig(cfg.cfg))
 
 	// Insert jumps to our custom chains
 	// This is mostly just for visual tidiness and cleanup, as we can delete the secondary chains and jumps
@@ -367,50 +334,54 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 	return iptablesBuilder
 }
 
-func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.IptablesRuleBuilder) error {
+func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.IptablesBuilder) error {
 	var execErrs []error
 
 	if cfg.cfg.RestoreFormat {
 		// Execute iptables-restore
-		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, &cfg.iptV, true))
+		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, true))
 		// Execute ip6tables-restore
 		if cfg.cfg.EnableInboundIPv6 {
-			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, &cfg.ipt6V, false))
+			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, false))
 		}
 	} else {
 		// Execute iptables commands
 		execErrs = append(execErrs,
-			cfg.executeIptablesCommands(&cfg.iptV, iptablesBuilder.BuildV4()))
+			cfg.executeIptablesCommands(iptablesBuilder.BuildV4()))
 		// Execute ip6tables commands
 		if cfg.cfg.EnableInboundIPv6 {
 			execErrs = append(execErrs,
-				cfg.executeIptablesCommands(&cfg.ipt6V, iptablesBuilder.BuildV6()))
+				cfg.executeIptablesCommands(iptablesBuilder.BuildV6()))
 		}
 	}
 	return errors.Join(execErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, args [][]string) error {
+func (cfg *IptablesConfigurator) executeIptablesCommands(commands [][]string) error {
 	var iptErrs []error
-	for _, argSet := range args {
-		iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IPTables, iptVer, nil, argSet...))
+	for _, cmd := range commands {
+		if len(cmd) > 1 {
+			iptErrs = append(iptErrs, cfg.ext.Run(cmd[0], nil, cmd[1:]...))
+		} else {
+			iptErrs = append(iptErrs, cfg.ext.Run(cmd[0], nil))
+		}
 	}
 	return errors.Join(iptErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptablesBuilder *builder.IptablesRuleBuilder, iptVer *dep.IptablesVersion, isIpv4 bool) error {
-	cmd := iptablesconstants.IPTablesRestore
-	var data string
-
+func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptablesBuilder *builder.IptablesBuilder, isIpv4 bool) error {
+	var data, cmd string
 	if isIpv4 {
 		data = iptablesBuilder.BuildV4Restore()
+		cmd = iptablesconstants.IPTABLESRESTORE
 	} else {
 		data = iptablesBuilder.BuildV6Restore()
+		cmd = iptablesconstants.IP6TABLESRESTORE
 	}
 
-	log.Infof("Running %s with the following input:\n%v", iptVer.CmdToString(cmd), strings.TrimSpace(data))
+	log.Infof("Running %s with the following input:\n%v", cmd, strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(cmd, iptVer, strings.NewReader(data), "--noflush", "-v")
+	return cfg.ext.Run(cmd, strings.NewReader(data), "--noflush", "-v")
 }
 
 func (cfg *IptablesConfigurator) addLoopbackRoute() error {
@@ -466,15 +437,13 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	}
 
 	// iptablei seems like a reasonable pluralization of iptables
-	iptablesVariant := []dep.IptablesVersion{}
-	iptablesVariant = append(iptablesVariant, cfg.iptV)
-
+	iptablei := []string{iptablesconstants.IPTABLES}
 	if cfg.cfg.EnableInboundIPv6 {
-		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
+		iptablei = append(iptablei, iptablesconstants.IP6TABLES)
 	}
-	for _, iptVer := range iptablesVariant {
+	for _, iptables := range iptablei {
 		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
+			err := cfg.ext.Run(iptables, nil, cmd...)
 			if err != nil {
 				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
 			}
@@ -482,10 +451,10 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	}
 }
 
-func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP *netip.Addr) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP *netip.Addr) *builder.IptablesBuilder {
 	log.Info("configuring host-level iptables rules (healthchecks, etc)")
 
-	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
+	iptablesBuilder := builder.NewIptablesBuilder(ipbuildConfig(cfg.cfg))
 
 	// For easier cleanup, insert a jump into an owned chain
 	// -A POSTROUTING -p tcp -j ISTIO_POSTRT

@@ -38,7 +38,7 @@ func constructTestConfig() *config.Config {
 		InboundTProxyRouteTable: "133",
 		OwnerGroupsInclude:      constants.OwnerGroupsInclude.DefaultValue,
 		HostIPv4LoopbackCidr:    constants.HostIPv4LoopbackCidr.DefaultValue,
-		RestoreFormat:           false,
+		RestoreFormat:           true,
 	}
 }
 
@@ -275,11 +275,13 @@ func TestIptables(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
 			tt.config(cfg)
-
-			ext := &dep.DependenciesStub{}
-			iptConfigurator := NewIptablesConfigurator(cfg, ext)
+			iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 			iptConfigurator.Run()
-			compareToGolden(t, tt.name, ext.ExecutedAll)
+			v4Rules := iptConfigurator.iptables.BuildV4()
+			v6Rules := iptConfigurator.iptables.BuildV6()
+			allRules := append(v4Rules, v6Rules...)
+			actual := FormatIptablesCommands(allRules)
+			compareToGolden(t, tt.name, actual)
 		})
 	}
 }
@@ -322,7 +324,7 @@ func TestSeparateV4V6(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
-			iptConfigurator := NewIptablesConfigurator(cfg, &dep.DependenciesStub{})
+			iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 			v4Range, v6Range, err := iptConfigurator.separateV4V6(tt.cidr)
 			if err != nil {
 				t.Fatal(err)

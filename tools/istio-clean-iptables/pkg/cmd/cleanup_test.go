@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -24,7 +25,6 @@ import (
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 func constructTestConfig() *config.Config {
@@ -87,10 +87,8 @@ func TestIptables(t *testing.T) {
 			cfg := constructTestConfig()
 			tt.config(cfg)
 
-			ext := &dep.DependenciesStub{}
-			iptStub, _ := ext.DetectIptablesVersion(false)
-			ip6tStub, _ := ext.DetectIptablesVersion(true)
-			cleaner := NewIptablesCleaner(cfg, &iptStub, &ip6tStub, ext)
+			ext := &DependenciesStub{}
+			cleaner := NewIptablesCleaner(cfg, ext)
 
 			cleaner.Run()
 
@@ -116,4 +114,29 @@ func compareToGolden(t *testing.T, name string, actual []string) {
 	gotBytes := []byte(strings.Join(actual, "\n"))
 	goldenFile := filepath.Join("testdata", name+".golden")
 	testutil.CompareContent(t, gotBytes, goldenFile)
+}
+
+type DependenciesStub struct {
+	ExecutedNormally []string
+	ExecutedQuietly  []string
+	ExecutedAll      []string
+}
+
+func (s *DependenciesStub) Run(cmd string, stdin io.ReadSeeker, args ...string) error {
+	s.execute(false /*quietly*/, cmd, args...)
+	return nil
+}
+
+func (s *DependenciesStub) RunQuietlyAndIgnore(cmd string, stdin io.ReadSeeker, args ...string) {
+	s.execute(true /*quietly*/, cmd, args...)
+}
+
+func (s *DependenciesStub) execute(quietly bool, cmd string, args ...string) {
+	cmdline := strings.Join(append([]string{cmd}, args...), " ")
+	s.ExecutedAll = append(s.ExecutedAll, cmdline)
+	if quietly {
+		s.ExecutedQuietly = append(s.ExecutedQuietly, cmdline)
+	} else {
+		s.ExecutedNormally = append(s.ExecutedNormally, cmdline)
+	}
 }

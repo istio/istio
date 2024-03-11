@@ -14,20 +14,12 @@
 
 package dependencies
 
-import (
-	"io"
-
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
-)
+import "io"
 
 // Dependencies is used as abstraction for the commands used from the operating system
 type Dependencies interface {
 	// Run runs a command
-	Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error
+	Run(cmd string, stdin io.ReadSeeker, args ...string) error
 	// RunQuietlyAndIgnore runs a command quietly and ignores errors
-	RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string)
-
-	// DetectIptablesVersion consults the available binaries and in-use tables to determine
-	// which iptables variant (legacy, nft, v6, v4) we should use in the current context.
-	DetectIptablesVersion(ipV6 bool) (IptablesVersion, error)
+	RunQuietlyAndIgnore(cmd string, stdin io.ReadSeeker, args ...string)
 }

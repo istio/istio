@@ -37,18 +37,18 @@ type Rules struct {
 	rulesv6 []*Rule
 }
 
-// IptablesRuleBuilder is an implementation for IptablesRuleBuilder interface
-type IptablesRuleBuilder struct {
+// IptablesBuilder is an implementation for IptablesBuilder interface
+type IptablesBuilder struct {
 	rules Rules
 	cfg   *config.Config
 }
 
-// NewIptablesBuilders creates a new IptablesRuleBuilder
-func NewIptablesRuleBuilder(cfg *config.Config) *IptablesRuleBuilder {
+// NewIptablesBuilders creates a new IptablesBuilder
+func NewIptablesBuilder(cfg *config.Config) *IptablesBuilder {
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
-	return &IptablesRuleBuilder{
+	return &IptablesBuilder{
 		rules: Rules{
 			rulesv4: []*Rule{},
 			rulesv6: []*Rule{},
@@ -57,14 +57,13 @@ func NewIptablesRuleBuilder(cfg *config.Config) *IptablesRuleBuilder {
 	}
 }
 
-func (rb *IptablesRuleBuilder) InsertRule(command log.Command, chain string, table string, position int, params ...string) *IptablesRuleBuilder {
+func (rb *IptablesBuilder) InsertRule(command log.Command, chain string, table string, position int, params ...string) *IptablesBuilder {
 	rb.InsertRuleV4(command, chain, table, position, params...)
 	rb.InsertRuleV6(command, chain, table, position, params...)
 	return rb
 }
 
-// nolint lll
-func (rb *IptablesRuleBuilder) insertInternal(ipt *[]*Rule, command log.Command, chain string, table string, position int, params ...string) *IptablesRuleBuilder {
+func (rb *IptablesBuilder) insertInternal(ipt *[]*Rule, command log.Command, chain string, table string, position int, params ...string) *IptablesBuilder {
 	rules := params
 	*ipt = append(*ipt, &Rule{
 		chain:  chain,
@@ -88,11 +87,11 @@ func (rb *IptablesRuleBuilder) insertInternal(ipt *[]*Rule, command log.Command,
 	return rb
 }
 
-func (rb *IptablesRuleBuilder) InsertRuleV4(command log.Command, chain string, table string, position int, params ...string) *IptablesRuleBuilder {
+func (rb *IptablesBuilder) InsertRuleV4(command log.Command, chain string, table string, position int, params ...string) *IptablesBuilder {
 	return rb.insertInternal(&rb.rules.rulesv4, command, chain, table, position, params...)
 }
 
-func (rb *IptablesRuleBuilder) InsertRuleV6(command log.Command, chain string, table string, position int, params ...string) *IptablesRuleBuilder {
+func (rb *IptablesBuilder) InsertRuleV6(command log.Command, chain string, table string, position int, params ...string) *IptablesBuilder {
 	if !rb.cfg.EnableInboundIPv6 {
 		return rb
 	}
@@ -108,7 +107,7 @@ func indexOf(element string, data []string) int {
 	return -1 // not found.
 }
 
-func (rb *IptablesRuleBuilder) appendInternal(ipt *[]*Rule, command log.Command, chain string, table string, params ...string) *IptablesRuleBuilder {
+func (rb *IptablesBuilder) appendInternal(ipt *[]*Rule, command log.Command, chain string, table string, params ...string) *IptablesBuilder {
 	idx := indexOf("-j", params)
 	// We have identified the type of command this is and logging is enabled. Appending a rule to log this chain will be hit
 	if rb.cfg.TraceLogging && idx >= 0 && command != log.UndefinedCommand {
@@ -131,24 +130,24 @@ func (rb *IptablesRuleBuilder) appendInternal(ipt *[]*Rule, command log.Command,
 	return rb
 }
 
-func (rb *IptablesRuleBuilder) AppendRuleV4(command log.Command, chain string, table string, params ...string) *IptablesRuleBuilder {
+func (rb *IptablesBuilder) AppendRuleV4(command log.Command, chain string, table string, params ...string) *IptablesBuilder {
 	return rb.appendInternal(&rb.rules.rulesv4, command, chain, table, params...)
 }
 
-func (rb *IptablesRuleBuilder) AppendRule(command log.Command, chain string, table string, params ...string) *IptablesRuleBuilder {
+func (rb *IptablesBuilder) AppendRule(command log.Command, chain string, table string, params ...string) *IptablesBuilder {
 	rb.AppendRuleV4(command, chain, table, params...)
 	rb.AppendRuleV6(command, chain, table, params...)
 	return rb
 }
 
-func (rb *IptablesRuleBuilder) AppendRuleV6(command log.Command, chain string, table string, params ...string) *IptablesRuleBuilder {
+func (rb *IptablesBuilder) AppendRuleV6(command log.Command, chain string, table string, params ...string) *IptablesBuilder {
 	if !rb.cfg.EnableInboundIPv6 {
 		return rb
 	}
 	return rb.appendInternal(&rb.rules.rulesv6, command, chain, table, params...)
 }
 
-func (rb *IptablesRuleBuilder) buildRules(rules []*Rule) [][]string {
+func (rb *IptablesBuilder) buildRules(command string, rules []*Rule) [][]string {
 	output := make([][]string, 0)
 	chainTableLookupSet := sets.New[string]()
 	for _, r := range rules {
@@ -157,28 +156,28 @@ func (rb *IptablesRuleBuilder) buildRules(rules []*Rule) [][]string {
 		if !chainTableLookupSet.Contains(chainTable) {
 			// Ignore chain creation for built-in chains for iptables
 			if _, present := constants.BuiltInChainsMap[r.chain]; !present {
-				cmd := []string{"-t", r.table, "-N", r.chain}
+				cmd := []string{command, "-t", r.table, "-N", r.chain}
 				output = append(output, cmd)
 				chainTableLookupSet.Insert(chainTable)
 			}
 		}
 	}
 	for _, r := range rules {
-		cmd := append([]string{"-t", r.table}, r.params...)
+		cmd := append([]string{command, "-t", r.table}, r.params...)
 		output = append(output, cmd)
 	}
 	return output
 }
 
-func (rb *IptablesRuleBuilder) BuildV4() [][]string {
-	return rb.buildRules(rb.rules.rulesv4)
+func (rb *IptablesBuilder) BuildV4() [][]string {
+	return rb.buildRules(constants.IPTABLES, rb.rules.rulesv4)
 }
 
-func (rb *IptablesRuleBuilder) BuildV6() [][]string {
-	return rb.buildRules(rb.rules.rulesv6)
+func (rb *IptablesBuilder) BuildV6() [][]string {
+	return rb.buildRules(constants.IP6TABLES, rb.rules.rulesv6)
 }
 
-func (rb *IptablesRuleBuilder) constructIptablesRestoreContents(tableRulesMap map[string][]string) string {
+func (rb *IptablesBuilder) constructIptablesRestoreContents(tableRulesMap map[string][]string) string {
 	var b strings.Builder
 	for table, rules := range tableRulesMap {
 		if len(rules) > 0 {
@@ -192,7 +191,7 @@ func (rb *IptablesRuleBuilder) constructIptablesRestoreContents(tableRulesMap ma
 	return b.String()
 }
 
-func (rb *IptablesRuleBuilder) buildRestore(rules []*Rule) string {
+func (rb *IptablesBuilder) buildRestore(rules []*Rule) string {
 	tableRulesMap := map[string][]string{
 		constants.FILTER: {},
 		constants.NAT:    {},
@@ -218,17 +217,17 @@ func (rb *IptablesRuleBuilder) buildRestore(rules []*Rule) string {
 	return rb.constructIptablesRestoreContents(tableRulesMap)
 }
 
-func (rb *IptablesRuleBuilder) BuildV4Restore() string {
+func (rb *IptablesBuilder) BuildV4Restore() string {
 	return rb.buildRestore(rb.rules.rulesv4)
 }
 
-func (rb *IptablesRuleBuilder) BuildV6Restore() string {
+func (rb *IptablesBuilder) BuildV6Restore() string {
 	return rb.buildRestore(rb.rules.rulesv6)
 }
 
 // AppendVersionedRule is a wrapper around AppendRule that substitutes an ipv4/ipv6 specific value
 // in place in the params. This allows appending a dual-stack rule that has an IP value in it.
-func (rb *IptablesRuleBuilder) AppendVersionedRule(ipv4 string, ipv6 string, command log.Command, chain string, table string, params ...string) {
+func (rb *IptablesBuilder) AppendVersionedRule(ipv4 string, ipv6 string, command log.Command, chain string, table string, params ...string) {
 	rb.AppendRuleV4(command, chain, table, replaceVersionSpecific(ipv4, params...)...)
 	rb.AppendRuleV6(command, chain, table, replaceVersionSpecific(ipv6, params...)...)
 }

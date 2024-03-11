@@ -22,61 +22,62 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestOverrideVersionIsCorrectlyParsed(t *testing.T) {
+func TestDetectIptablesVersion(t *testing.T) {
 	cases := []struct {
 		name string
 		ver  string
-		want *utilversion.Version
+		want IptablesVersion
 	}{
 		{
 			name: "jammy nft",
 			ver:  "iptables v1.8.7 (nf_tables)",
-			want: utilversion.MustParseGeneric("1.8.7"),
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.7"), legacy: false},
 		},
 		{
 			name: "jammy legacy",
 			ver:  "iptables v1.8.7 (legacy)",
 
-			want: utilversion.MustParseGeneric("1.8.7"),
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.7"), legacy: true},
 		},
 		{
 			name: "xenial",
 			ver:  "iptables v1.6.0",
 
-			want: utilversion.MustParseGeneric("1.6.0"),
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.6.0"), legacy: true},
 		},
 		{
 			name: "bionic",
 			ver:  "iptables v1.6.1",
 
-			want: utilversion.MustParseGeneric("1.6.1"),
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.6.1"), legacy: true},
 		},
 		{
 			name: "centos 7",
 			ver:  "iptables v1.4.21",
 
-			want: utilversion.MustParseGeneric("1.4.21"),
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.4.21"), legacy: true},
 		},
 		{
 			name: "centos 8",
 			ver:  "iptables v1.8.4 (nf_tables)",
 
-			want: utilversion.MustParseGeneric("1.8.4"),
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.4"), legacy: false},
 		},
 		{
 			name: "alpine 3.18",
 			ver:  "iptables v1.8.9 (legacy)",
 
-			want: utilversion.MustParseGeneric("1.8.9"),
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.9"), legacy: true},
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseIptablesVer(tt.ver)
+			got, err := DetectIptablesVersion(tt.ver)
 			if err != nil {
 				t.Fatal(err)
 			}
-			assert.Equal(t, got.String(), tt.want.String())
+			assert.Equal(t, got.version.String(), tt.want.version.String())
+			assert.Equal(t, got.legacy, tt.want.legacy)
 		})
 	}
 }
