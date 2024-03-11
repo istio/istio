@@ -565,11 +565,9 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	workloadConfigCmd := &cobra.Command{
-		// Until stabilized
-		Hidden: true,
-		Use:    "workload [<type>/]<name>[.<namespace>]",
-		Short:  "Retrieves workload configuration for the specified ztunnel pod",
-		Long:   `Retrieve information about workload configuration for the ztunnel instance.`,
+		Use:   "workload [<type>/]<name>[.<namespace>]",
+		Short: "Retrieves workload configuration for the specified ztunnel pod",
+		Long:  `Retrieve information about workload configuration for the ztunnel instance.`,
 		Example: `  # Retrieve summary about workload configuration for a given ztunnel.
   istioctl proxy-config workload <ztunnel-name[.namespace]>
 
