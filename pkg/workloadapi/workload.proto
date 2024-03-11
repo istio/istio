@@ -227,20 +227,20 @@ message NativeTunnel {
 
 enum GatewayProtocol {
   // Bytes are just copied directly.
-  NONE = 1;
+  NONE = 0;
 
   // The workload natively supports HBONE
   // For the zTunnel, this means:
   // * Requests *from* this workload do not need to be tunneled if they already are tunneled by the tunnel_protocol.
   // * Requests *to* this workload, via the tunnel_protocol, do not need to be de-tunneled.
-  HBONE = 2;
+  HBONE = 1;
 
   // Prepend PROXY protocol headers before copying bytes
   // Standard PROXY source and destination information
   // is included, along with potential extra TLV headers:
   // 0xD0 - The SPIFFE identity of the source workload
   // 0xD1 - The FQDN or Hostname of the targeted Service
-  PROXY = 3;
+  PROXY = 2;
 }
 
 // GatewayAddress represents the address of a gateway
