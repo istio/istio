@@ -343,6 +343,8 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 	framework.NewTest(t).
 		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
+			// Enable logging for debugging
+			applyTelemetryResource(t, true)
 			badWasmTestHelper(t, "testdata/bad-filter.yaml", false, true)
 		})
 }
@@ -357,6 +359,8 @@ func TestBadWasmWithFailOpen(t *testing.T) {
 	framework.NewTest(t).
 		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
+			// Enable logging for debugging
+			applyTelemetryResource(t, true)
 			// since this case is for "fail_open=true", ecds is not rejected.
 			badWasmTestHelper(t, "testdata/bad-wasm-envoy-filter-fail-open.yaml", true, false)
 		})
