@@ -60,7 +60,7 @@ func (m *Component[T]) clusterAdded(cluster *Cluster) ComponentConstraint {
 	return comp
 }
 
-func (m *Component[T]) clusterUpdated(cluster *Cluster) {
+func (m *Component[T]) clusterUpdated(cluster *Cluster) ComponentConstraint {
 	// Build outside of the lock, in case its slow
 	comp := m.constructor(cluster)
 	old, f := m.clusters[cluster.ID]
@@ -71,6 +71,7 @@ func (m *Component[T]) clusterUpdated(cluster *Cluster) {
 	if f {
 		old.Close()
 	}
+	return comp
 }
 
 func (m *Component[T]) clusterDeleted(cluster cluster.ID) {

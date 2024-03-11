@@ -15,7 +15,6 @@
 package util
 
 import (
-	"errors"
 	"reflect"
 	"testing"
 )
@@ -158,8 +157,8 @@ foo: bar
 			desc:    "blank",
 			base:    `R#)*J#FN`,
 			overlay: `FM#)M#F(*#M`,
-			expect:  "",
-			err:     errors.New("invalid json"),
+			expect:  "FM#)M#F(*#M\n",
+			err:     nil,
 		},
 	}
 	for _, tt := range tests {

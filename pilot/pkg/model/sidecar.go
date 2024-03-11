@@ -236,6 +236,46 @@ type IstioEgressListenerWrapper struct {
 
 const defaultSidecar = "default-sidecar"
 
+// DefaultSidecarScopeForGateway builds a SidecarScope contains services and destinationRules for a given gateway/waypoint.
+func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *SidecarScope {
+	services := ps.servicesExportedToNamespace(configNamespace)
+	out := &SidecarScope{
+		Name:                    defaultSidecar,
+		Namespace:               configNamespace,
+		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
+		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
+		servicesByHostname:      make(map[host.Name]*Service, len(services)),
+		Version:                 ps.PushVersion,
+	}
+
+	servicesAdded := make(map[host.Name]sidecarServiceIndex)
+	for _, s := range services {
+		out.appendSidecarServices(servicesAdded, s)
+	}
+
+	// Now that we have all the services that sidecars using this scope (in
+	// this config namespace) will see, identify all the destinationRules
+	// that these services need
+	for _, s := range out.services {
+		if dr := ps.destinationRule(configNamespace, s); dr != nil {
+			out.destinationRules[s.Hostname] = dr
+			for _, cdr := range dr {
+				for _, from := range cdr.from {
+					out.destinationRulesByNames[from] = cdr.rule
+				}
+			}
+		}
+	}
+
+	// waypoint need to get vses from the egress listener
+	defaultEgressListener := &IstioEgressListenerWrapper{
+		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
+	}
+	out.EgressListeners = []*IstioEgressListenerWrapper{defaultEgressListener}
+
+	return out
+}
+
 // DefaultSidecarScopeForNamespace is a sidecar scope object with a default catch all egress listener
 // that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
 // We use this scope when the user has not set any sidecar Config for a given config namespace.
@@ -245,7 +285,6 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			Hosts: []string{"*/*"},
 		},
 	}
-	// TODO: merge services like sidecar specified using `addService`
 	defaultEgressListener.services = ps.servicesExportedToNamespace(configNamespace)
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
 	defaultEgressListener.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(

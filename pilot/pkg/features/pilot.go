@@ -224,7 +224,13 @@ var (
 		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
 
 	EnableVtprotobuf = env.Register("ENABLE_VTPROTOBUF", false,
-		"If true, will use optimized vtprotobuf based marshaling").Get()
+		"If true, will use optimized vtprotobuf based marshaling. Requires a build with -tags=vtprotobuf.").Get()
+
+	GatewayAPIDefaultGatewayClass = env.Register("PILOT_GATEWAY_API_DEFAULT_GATEWAYCLASS_NAME", "istio",
+		"Name of the default GatewayClass").Get()
+
+	ManagedGatewayController = env.Register("PILOT_GATEWAY_API_CONTROLLER_NAME", "istio.io/gateway-controller",
+		"Gateway API controller name. istiod will only reconcile Gateway API resources referencing a GatewayClass with this controller name").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

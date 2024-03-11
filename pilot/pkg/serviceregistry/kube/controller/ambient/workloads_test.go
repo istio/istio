@@ -44,7 +44,7 @@ func TestPodWorkloads(t *testing.T) {
 		result *workloadapi.Workload
 	}{
 		{
-			name:   "simple pod not running",
+			name:   "simple pod not running and not have podIP",
 			inputs: []any{},
 			pod: &v1.Pod{
 				TypeMeta: metav1.TypeMeta{},
@@ -58,6 +58,35 @@ func TestPodWorkloads(t *testing.T) {
 				},
 			},
 			result: nil,
+		},
+		{
+			name:   "simple pod not running but have podIP",
+			inputs: []any{},
+			pod: &v1.Pod{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: v1.PodSpec{},
+				Status: v1.PodStatus{
+					Phase: v1.PodPending,
+					PodIP: "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/ns/name",
+				Name:              "name",
+				Namespace:         "ns",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "name",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "name",
+				Status:            workloadapi.WorkloadStatus_UNHEALTHY,
+				ClusterId:         testC,
+			},
 		},
 		{
 			name:   "simple pod not ready",

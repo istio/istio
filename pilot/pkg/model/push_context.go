@@ -1082,8 +1082,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 		}
 
 		// We need to compute this namespace
-		computed := DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
-		ps.sidecarIndex.defaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
+		computed := DefaultSidecarScopeForGateway(ps, proxy.ConfigNamespace)
 		return computed
 	case SidecarProxy:
 		if hasSidecar {
@@ -2177,6 +2176,24 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		matchedEnvoyFilters = append(matchedEnvoyFilters, matched...)
 	}
 
+	sort.Slice(matchedEnvoyFilters, func(i, j int) bool {
+		ifilter := matchedEnvoyFilters[i]
+		jfilter := matchedEnvoyFilters[j]
+		if ifilter.Priority != jfilter.Priority {
+			return ifilter.Priority < jfilter.Priority
+		}
+		// Prefer root namespace filters over non-root namespace filters.
+		if ifilter.Namespace != jfilter.Namespace &&
+			(ifilter.Namespace == ps.Mesh.RootNamespace || jfilter.Namespace == ps.Mesh.RootNamespace) {
+			return ifilter.Namespace == ps.Mesh.RootNamespace
+		}
+		if ifilter.creationTime != jfilter.creationTime {
+			return ifilter.creationTime.Before(jfilter.creationTime)
+		}
+		in := ifilter.Name + "." + ifilter.Namespace
+		jn := jfilter.Name + "." + jfilter.Namespace
+		return in < jn
+	})
 	var out *EnvoyFilterWrapper
 	if len(matchedEnvoyFilters) > 0 {
 		out = &EnvoyFilterWrapper{

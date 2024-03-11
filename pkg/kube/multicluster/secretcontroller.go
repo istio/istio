@@ -61,7 +61,7 @@ var (
 
 type handler interface {
 	clusterAdded(cluster *Cluster) ComponentConstraint
-	clusterUpdated(cluster *Cluster)
+	clusterUpdated(cluster *Cluster) ComponentConstraint
 	clusterDeleted(clusterID cluster.ID)
 	HasSynced() bool
 }

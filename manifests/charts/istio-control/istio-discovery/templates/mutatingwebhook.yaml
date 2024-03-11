@@ -5,6 +5,7 @@
   "injectionPath" .Values.istiodRemote.injectionPath
   "injectionURL" .Values.istiodRemote.injectionURL
   "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
+  "caBundle" .Values.istiodRemote.injectionCABundle
   "namespace" .Release.Namespace }}
 {{- define "core" }}
 {{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
@@ -19,6 +20,9 @@ a unique prefix to each. */}}
       namespace: {{ .namespace }}
       path: "{{ .injectionPath }}"
       port: 443
+    {{- end }}
+    {{- if .caBundle }}
+    caBundle: "{{ .caBundle }}"
     {{- end }}
   sideEffects: None
   rules:

@@ -169,10 +169,20 @@ func TestListRemoteClusters(t *testing.T) {
 	})
 	assert.EventuallyEqual(t, func() int { return len(c.component.All()) }, 3)
 
-	// Sync
+	// Sync all but one
 	for _, c := range c.component.All() {
-		c.Synced.Store(true)
+		if c.ID != "c1" {
+			c.Synced.Store(true)
+		}
 	}
+	assert.EventuallyEqual(t, c.controller.ListRemoteClusters, []cluster.DebugInfo{
+		{ID: "config", SyncStatus: "synced"},
+		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: "synced"},
+		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: "syncing"},
+	})
+
+	// Sync the last one
+	c.component.ForCluster("c1").Synced.Store(true)
 	assert.EventuallyEqual(t, c.controller.ListRemoteClusters, []cluster.DebugInfo{
 		{ID: "config", SyncStatus: "synced"},
 		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: "synced"},

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -108,7 +107,7 @@ func newProxyCommand() *cobra.Command {
 			cmd.PrintFlags(c.Flags())
 			log.Infof("Version %s", version.Info.String())
 
-			logLimits()
+			raiseLimits()
 
 			proxy, err := initProxy(args)
 			if err != nil {
@@ -385,12 +384,11 @@ func getExcludeInterfaces() sets.String {
 	return excludeAddrs
 }
 
-func logLimits() {
-	out, err := exec.Command("bash", "-c", "ulimit -n").Output()
-	outStr := strings.TrimSpace(string(out))
+func raiseLimits() {
+	limit, err := RaiseFileLimits()
 	if err != nil {
-		log.Warnf("failed running ulimit command: %v", outStr)
+		log.Warnf("failed setting file limit: %v", err)
 	} else {
-		log.Infof("Maximum file descriptors (ulimit -n): %v", outStr)
+		log.Infof("Set max file descriptors (ulimit -n) to: %d", limit)
 	}
 }
