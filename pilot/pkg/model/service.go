@@ -967,12 +967,6 @@ func serviceResourceName(s *workloadapi.Service) string {
 
 type WorkloadSource string
 
-const (
-	WorkloadSourcePod           WorkloadSource = "pod"
-	WorkloadSourceServiceEntry  WorkloadSource = "serviceentry"
-	WorkloadSourceWorkloadEntry WorkloadSource = "workloadentry"
-)
-
 type WorkloadInfo struct {
 	*workloadapi.Workload
 	// Labels for the workload. Note these are only used internally, not sent over XDS
@@ -1045,7 +1039,7 @@ func ExtractWorkloadsFromAddresses(addrs []AddressInfo) []WorkloadInfo {
 	})
 }
 
-func SortWorkloadsByCreationTime(workloads []*WorkloadInfo) []*WorkloadInfo {
+func SortWorkloadsByCreationTime(workloads []WorkloadInfo) []WorkloadInfo {
 	sort.SliceStable(workloads, func(i, j int) bool {
 		if workloads[i].CreationTime.Equal(workloads[j].CreationTime) {
 			return workloads[i].Uid < workloads[j].Uid

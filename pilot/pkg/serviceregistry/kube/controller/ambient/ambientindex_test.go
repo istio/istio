@@ -51,7 +51,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
@@ -1032,10 +1031,12 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 
 	assertWaypoint := func(t *testing.T, waypoint model.WaypointScope, expected ...string) {
 		t.Helper()
-		wl := sets.New(slices.Map(s.WorkloadsForWaypoint(waypoint), func(e model.WorkloadInfo) string {
-			return e.ResourceName()
-		})...)
-		assert.Equal(t, wl, sets.New(expected...))
+		wls := s.WorkloadsForWaypoint(waypoint)
+		wl := make([]string, len(wls))
+		for i, e := range wls {
+			wl[i] = e.ResourceName()
+		}
+		assert.Equal(t, wl, expected)
 	}
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
@@ -1515,6 +1516,9 @@ func generatePod(ip, name, namespace, saName, node string, labels map[string]str
 			Labels:      labels,
 			Annotations: annotations,
 			Namespace:   namespace,
+			CreationTimestamp: metav1.Time{
+				Time: time.Now(),
+			},
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName:           saName,
