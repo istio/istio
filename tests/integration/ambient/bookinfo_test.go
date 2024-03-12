@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -113,7 +114,7 @@ func TestBookinfo(t *testing.T) {
 			})
 
 			t.NewSubTest("ingress receives waypoint updates").Run(func(t framework.TestContext) {
-				setupWaypoints(t, nsConfig, "bookinfo-productpage")
+				setupWaypoints(t, nsConfig, "productpage")
 				for _, ingressURL := range ingressURLs {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -127,7 +128,7 @@ func TestBookinfo(t *testing.T) {
 						return nil
 					}, retry.Converge(5))
 				}
-				deleteWaypoints(t, nsConfig, "bookinfo-productpage")
+				deleteWaypoints(t, nsConfig, "productpage")
 				for _, ingressURL := range ingressURLs {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -144,7 +145,7 @@ func TestBookinfo(t *testing.T) {
 			})
 
 			t.NewSubTest("waypoint routing").Run(func(t framework.TestContext) {
-				setupWaypoints(t, nsConfig, "bookinfo-reviews")
+				setupWaypoints(t, nsConfig, "reviews")
 
 				t.NewSubTest("productpage reachable").Run(func(t framework.TestContext) {
 					for _, ingressURL := range ingressURLs {
@@ -240,7 +241,7 @@ func TestBookinfo(t *testing.T) {
 			t.NewSubTest("waypoint template change").Run(func(t framework.TestContext) {
 				// Test will modify grace period as an arbitrary change to check we re-deploy the waypoint
 				getGracePeriod := func(want int64) bool {
-					pods, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")()
+					pods, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=namespace")()
 					assert.NoError(t, err)
 					for _, p := range pods {
 						grace := p.Spec.TerminationGracePeriodSeconds
@@ -265,7 +266,8 @@ func TestBookinfo(t *testing.T) {
 					return getGracePeriod(3)
 				})
 			})
-			deleteWaypoints(t, nsConfig, "bookinfo-reviews")
+			time.Sleep(time.Minute)
+			deleteWaypoints(t, nsConfig, "reviews")
 		})
 }
 
@@ -316,31 +318,60 @@ func applyDefaultRouting(t framework.TestContext, nsConfig namespace.Instance) {
 	applyFileOrFail(t, nsConfig.Name(), routingV1)
 }
 
-func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa string) {
+func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, service string) {
 	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 		"x",
 		"waypoint",
 		"apply",
 		"--namespace",
 		nsConfig.Name(),
-		"--service-account",
-		sa,
 		"--wait",
 	})
+	if service != "" {
+		cs := t.AllClusters().Configs()
+		for _, c := range cs {
+			oldSvc, err := c.Kube().CoreV1().Services(nsConfig.Name()).Get(t.Context(), service, metav1.GetOptions{})
+			annotations := oldSvc.ObjectMeta.GetAnnotations()
+			if annotations == nil {
+				annotations = make(map[string]string, 1)
+			}
+			annotations[constants.AmbientUseWaypoint] = "namespace"
+			oldSvc.ObjectMeta.SetAnnotations(annotations)
+			svc, err := c.Kube().CoreV1().Services(nsConfig.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
+			if err != nil {
+				t.Fatalf("error updating svc %s, err %v", service, err)
+			}
+			t.Logf("service updated: %v", svc)
+		}
+	}
 }
 
-func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa string) {
+func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance, service string) {
 	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 		"x",
 		"waypoint",
 		"delete",
 		"--namespace",
 		nsConfig.Name(),
-		"--service-account",
-		sa,
 	})
+	if service != "" {
+		cs := t.AllClusters().Configs()
+		for _, c := range cs {
+			oldSvc, err := c.Kube().CoreV1().Services(nsConfig.Name()).Get(t.Context(), service, metav1.GetOptions{})
+			annotations := oldSvc.ObjectMeta.GetAnnotations()
+			if annotations != nil {
+				delete(annotations, constants.AmbientUseWaypoint)
+				oldSvc.ObjectMeta.SetAnnotations(annotations)
+			}
+			svc, err := c.Kube().CoreV1().Services(nsConfig.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
+			if err != nil {
+				t.Fatalf("error updating svc %s, err %v", service, err)
+			}
+			t.Logf("service updated: %v", svc)
+		}
+	}
 	waypointError := retry.UntilSuccess(func() error {
-		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+sa)
+		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+service)
 		pods, err := kubetest.CheckPodsAreReady(fetch)
 		if err != nil && !errors.Is(err, kubetest.ErrNoPodsFetched) {
 			return fmt.Errorf("cannot fetch pod: %v", err)
