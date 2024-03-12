@@ -983,9 +983,11 @@ func printIngressService(writer io.Writer, ingressSvc *corev1.Service, ingressPo
 	// the most basic output.
 	portsToShow := map[string]bool{
 		"http2": true,
+		"http":  true,
 	}
 	protocolToScheme := map[string]string{
 		"HTTP2": "http",
+		"HTTP":  "http",
 	}
 	schemePortDefault := map[string]int{
 		"http": 80,
