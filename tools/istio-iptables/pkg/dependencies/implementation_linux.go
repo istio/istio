@@ -77,7 +77,7 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 		// Legacy will have no marking or 'legacy', so just look for nf_tables
 		isNft = strings.Contains(string(rawIptablesVer), "nf_tables")
 	} else {
-		log.Warnf("found iptables binary %s, but it does not appear to support the '--version' flag, assuming very old legacy version")
+		log.Warnf("found iptables binary %s, but it does not appear to support the '--version' flag, assuming very old legacy version", iptablesSaveBin)
 		// Some really old iptables-legacy-save versions (1.6.1, ubuntu bionic) don't support any arguments at all, including `--version`
 		// So if we get here, we found `iptables-save` in PATH, but it's too outdated to understand `--version`.
 		//
