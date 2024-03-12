@@ -66,16 +66,25 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 	}
 
 	// Binary is there, so try to parse version
-	rawIptablesVer, execErr := exec.Command(iptablesSaveBin, "--version").CombinedOutput()
-	if execErr == nil {
+	verCmd := exec.Command(iptablesSaveBin, "--version")
+	// shockingly, `iptables-save` returns 0 if you pass it an unrecognized/bad option, so
+	// `os/exec` will return a *nil* error, even if the command fails. So, we must slurp stderr, and check it to
+	// see if the command *actually* failed due to not recognizing the version flag.
+	var verStdOut bytes.Buffer
+	var verStdErr bytes.Buffer
+	verCmd.Stdout = &verStdOut
+	verCmd.Stderr = &verStdErr
+
+	verExec := verCmd.Run()
+	if verExec == nil && !strings.Contains(verStdErr.String(), "unrecognized option") {
 		var parseErr error
 		// we found the binary - extract the version, then try to detect if rules already exist for that variant
-		parsedVer, parseErr = parseIptablesVer(string(rawIptablesVer))
+		parsedVer, parseErr = parseIptablesVer(verStdOut.String())
 		if parseErr != nil {
-			return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", rawIptablesVer, parseErr)
+			return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", verStdOut.Bytes(), parseErr)
 		}
 		// Legacy will have no marking or 'legacy', so just look for nf_tables
-		isNft = strings.Contains(string(rawIptablesVer), "nf_tables")
+		isNft = strings.Contains(verStdOut.String(), "nf_tables")
 	} else {
 		log.Warnf("found iptables binary %s, but it does not appear to support the '--version' flag, assuming very old legacy version", iptablesSaveBin)
 		// Some really old iptables-legacy-save versions (1.6.1, ubuntu bionic) don't support any arguments at all, including `--version`
