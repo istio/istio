@@ -121,6 +121,10 @@ func OutlierLogPath(value string) Instance {
 	return newOptionOrSkipIfZero("outlier_log_path", value)
 }
 
+func ApplicationLogJSON(value bool) Instance {
+	return newOption("log_json", value)
+}
+
 func LightstepAddress(value string) Instance {
 	return newOptionOrSkipIfZero("lightstep", value).withConvert(addressConverter(value))
 }

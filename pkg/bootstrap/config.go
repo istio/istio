@@ -84,6 +84,7 @@ type Config struct {
 	*model.Node
 	// CompliancePolicy to decouple the environment variable dependency.
 	CompliancePolicy string
+	LogAsJSON        bool
 }
 
 // toTemplateParams creates a new template configuration for the given configuration.
@@ -109,6 +110,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.NodeType(cfg.ID),
 		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
+		option.ApplicationLogJSON(cfg.LogAsJSON),
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
 		option.XdsType(xdsType),
