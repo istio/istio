@@ -74,8 +74,6 @@ var (
 
 	configDumpFile string
 
-	workloadsNamespace string
-
 	labelSelector = ""
 	name          string
 )
@@ -179,7 +177,7 @@ func setupPodConfigdumpWriter(kubeClient kube.CLIClient, podName, podNamespace s
 	return setupConfigdumpEnvoyConfigWriter(debug, out)
 }
 
-func readFile(filename string) ([]byte, error) {
+func ReadFile(filename string) ([]byte, error) {
 	file := os.Stdin
 	if filename != "-" {
 		var err error
@@ -197,7 +195,7 @@ func readFile(filename string) ([]byte, error) {
 }
 
 func setupFileZtunnelConfigdumpWriter(filename string, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
-	data, err := readFile(filename)
+	data, err := ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +203,7 @@ func setupFileZtunnelConfigdumpWriter(filename string, out io.Writer) (*ztunnelD
 }
 
 func setupFileConfigdumpWriter(filename string, out io.Writer) (*configdump.ConfigWriter, error) {
-	data, err := readFile(filename)
+	data, err := ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +311,7 @@ func setupPodClustersWriter(kubeClient kube.CLIClient, podName, podNamespace str
 }
 
 func setupFileClustersWriter(filename string, out io.Writer) (*clusters.ConfigWriter, error) {
-	data, err := readFile(filename)
+	data, err := ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -457,7 +455,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 						return err
 					}
 				} else {
-					dump, err = readFile(configDumpFile)
+					dump, err = ReadFile(configDumpFile)
 					if err != nil {
 						return err
 					}
@@ -559,91 +557,6 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 	allConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
 
 	return allConfigCmd
-}
-
-func workloadConfigCmd(ctx cli.Context) *cobra.Command {
-	var podName, podNamespace string
-
-	workloadConfigCmd := &cobra.Command{
-		Use:   "workload [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves workload configuration for the specified ztunnel pod",
-		Long:  `Retrieve information about workload configuration for the ztunnel instance.`,
-		Example: `  # Retrieve summary about workload configuration for a given ztunnel.
-  istioctl proxy-config workload <ztunnel-name[.namespace]>
-
-  # Retrieve summary of workloads on node XXXX for a given ztunnel instance.
-  istioctl proxy-config workload <ztunnel-name[.namespace]> --node ambient-worker
-
-  # Retrieve full workload dump of workloads with address XXXX for a given ztunnel
-  istioctl proxy-config workload <ztunnel-name[.namespace]> --address 0.0.0.0 -o json
-
-  # Retrieve workload summary
-  kubectl exec -it $ZTUNNEL -n istio-system -- curl localhost:15000/config_dump > ztunnel-config.json
-  istioctl proxy-config workloads --file ztunnel-config.json
-
-  # Retrieve workload summary for a specific namespace
-  istioctl proxy-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
-`,
-		Aliases: []string{"workloads", "w"},
-		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
-				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("workload requires pod name or --file parameter")
-			}
-			return nil
-		},
-		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := ctx.CLIClient()
-			if err != nil {
-				return err
-			}
-			var configWriter *ztunnelDump.ConfigWriter
-			if len(args) == 1 {
-				if podName, podNamespace, err = getComponentPodName(ctx, args[0]); err != nil {
-					return err
-				}
-				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
-				if !ztunnelPod {
-					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
-				}
-				configWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
-			} else {
-				configWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
-			}
-			if err != nil {
-				return err
-			}
-			filter := ztunnelDump.WorkloadFilter{
-				Namespace: workloadsNamespace,
-				Address:   address,
-				Node:      node,
-				Verbose:   verboseProxyConfig,
-			}
-
-			switch outputFormat {
-			case summaryOutput:
-				return configWriter.PrintWorkloadSummary(filter)
-			case jsonOutput, yamlOutput:
-				return configWriter.PrintWorkloadDump(filter, outputFormat)
-			default:
-				return fmt.Errorf("output format %q not supported", outputFormat)
-			}
-		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
-	}
-
-	workloadConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	workloadConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter workloads by address field")
-	workloadConfigCmd.PersistentFlags().StringVar(&node, "node", "", "Filter workloads by node field")
-	workloadConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
-	workloadConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
-		"Ztunnel config dump JSON file")
-	workloadConfigCmd.PersistentFlags().StringVar(&workloadsNamespace, "workloads-namespace", "",
-		"Filter workloads by namespace field")
-
-	return workloadConfigCmd
 }
 
 func listenerConfigCmd(ctx cli.Context) *cobra.Command {
@@ -1478,7 +1391,6 @@ func ProxyConfig(ctx cli.Context) *cobra.Command {
 	configCmd.AddCommand(secretConfigCmd(ctx))
 	configCmd.AddCommand(rootCACompareConfigCmd(ctx))
 	configCmd.AddCommand(ecdsConfigCmd(ctx))
-	configCmd.AddCommand(workloadConfigCmd(ctx))
 
 	return configCmd
 }
@@ -1493,21 +1405,16 @@ func getPodNames(ctx cli.Context, podflag, ns string) ([]string, string, error) 
 }
 
 func getPodName(ctx cli.Context, podflag string) (string, string, error) {
-	return getPodNameWithNamespace(ctx, podflag, ctx.Namespace())
+	return GetPodNameWithNamespace(ctx, podflag, ctx.Namespace())
 }
 
-func getPodNameWithNamespace(ctx cli.Context, podflag, ns string) (string, string, error) {
+func GetPodNameWithNamespace(ctx cli.Context, podflag, ns string) (string, string, error) {
 	var podName, podNamespace string
 	podName, podNamespace, err := ctx.InferPodInfoFromTypedResource(podflag, ns)
 	if err != nil {
 		return "", "", err
 	}
 	return podName, podNamespace, nil
-}
-
-// getComponentPodName returns the pod name and namespace of the Istio component
-func getComponentPodName(ctx cli.Context, podflag string) (string, string, error) {
-	return getPodNameWithNamespace(ctx, podflag, ctx.IstioNamespace())
 }
 
 func getPodNameBySelector(ctx cli.Context, kubeClient kube.CLIClient, labelSelector string) ([]string, string, error) {
