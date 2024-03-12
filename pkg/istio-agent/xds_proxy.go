@@ -359,17 +359,18 @@ func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, err
 }
 
 func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
+	log := proxyLog.WithLabels("id", con.conID)
 	upstream, err := xds.StreamAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
 		// Envoy logs errors again, so no need to log beyond debug level
-		proxyLog.Debugf("failed to create upstream grpc client: %v", err)
+		log.Debugf("failed to create upstream grpc client: %v", err)
 		// Increase metric when xds connection error, for example: forgot to restart ingressgateway or sidecar after changing root CA.
 		metrics.IstiodConnectionErrors.Increment()
 		return err
 	}
-	proxyLog.Infof("connected to upstream XDS server[%d]: %s", con.conID, p.istiodAddress)
-	defer proxyLog.Debugf("disconnected from XDS server[%d]: %s", con.conID, p.istiodAddress)
+	log.Infof("connected to upstream XDS server: %s", p.istiodAddress)
+	defer log.Debugf("disconnected from XDS server: %s", p.istiodAddress)
 
 	con.upstream = upstream
 
@@ -402,7 +403,7 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
-			proxyLog.Debugf("stream [%d] stopped", con.conID)
+			log.Debugf("upstream stopped")
 			return nil
 		}
 	}
@@ -481,7 +482,11 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 		select {
 		case resp := <-con.responsesChan:
 			// TODO: separate upstream response handling from requests sending, which are both time costly
-			proxyLog.Debugf("upstream [%d] response for type url %s", con.conID, resp.TypeUrl)
+			proxyLog.WithLabels(
+				"id", con.conID,
+				"type", v3.GetShortType(resp.TypeUrl),
+				"resources", len(resp.Resources),
+			).Debugf("upstream response")
 			metrics.XdsProxyResponses.Increment()
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {
@@ -569,7 +574,7 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 		return
 	}
 	if con.isClosed() {
-		proxyLog.Errorf("downstream [%d] dropped xds push to Envoy, connection already closed", con.conID)
+		proxyLog.WithLabels("id", con.conID).Errorf("downstream dropped xds push to Envoy, connection already closed")
 		return
 	}
 	if err := sendDownstream(con.downstream, resp); err != nil {
@@ -820,10 +825,10 @@ func (p *XdsProxy) initDebugInterface(port int) error {
 // upstreamErr sends the error to upstreamError channel, and return immediately if the connection closed.
 func upstreamErr(con *ProxyConnection, err error) {
 	if istiogrpc.IsExpectedGRPCError(err) {
-		proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
+		proxyLog.WithLabels("id", con.conID).Debugf("upstream terminated with status %v", err)
 		metrics.IstiodConnectionCancellations.Increment()
 	} else {
-		proxyLog.Warnf("upstream [%d] terminated with unexpected error %v", con.conID, err)
+		proxyLog.WithLabels("id", con.conID).Warnf("upstream terminated with unexpected error %v", err)
 		metrics.IstiodConnectionErrors.Increment()
 	}
 	select {
@@ -835,10 +840,10 @@ func upstreamErr(con *ProxyConnection, err error) {
 // downstreamErr sends the error to downstreamError channel, and return immediately if the connection closed.
 func downstreamErr(con *ProxyConnection, err error) {
 	if istiogrpc.IsExpectedGRPCError(err) {
-		proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
+		proxyLog.WithLabels("id", con.conID).Debugf("downstream terminated with status %v", err)
 		metrics.EnvoyConnectionCancellations.Increment()
 	} else {
-		proxyLog.Warnf("downstream [%d] terminated with unexpected error %v", con.conID, err)
+		proxyLog.WithLabels("id", con.conID).Warnf("downstream terminated with unexpected error %v", err)
 		metrics.EnvoyConnectionErrors.Increment()
 	}
 	select {
