@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
@@ -1031,12 +1032,10 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 
 	assertWaypoint := func(t *testing.T, waypoint model.WaypointScope, expected ...string) {
 		t.Helper()
-		wls := s.WorkloadsForWaypoint(waypoint)
-		wl := make([]string, len(wls))
-		for i, e := range wls {
-			wl[i] = e.ResourceName()
-		}
-		assert.Equal(t, wl, expected)
+		wl := sets.New(slices.Map(s.WorkloadsForWaypoint(waypoint), func(e model.WorkloadInfo) string {
+			return e.ResourceName()
+		})...)
+		assert.Equal(t, wl, sets.New(expected...))
 	}
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
@@ -1063,6 +1062,31 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 	s.assertEvent(t, s.podXdsName("pod1"))
 	assertWaypoint(t, model.WaypointScope{Namespace: testNS}, s.podXdsName("pod1"), s.podXdsName("pod2"))
 	assertWaypoint(t, model.WaypointScope{Namespace: testNS, ServiceAccount: "sa1"}, s.podXdsName("pod1"))
+}
+
+func TestWorkloadsForWaypointOrder(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, "", "")
+
+	assertOrderedWaypoint := func(t *testing.T, waypoint model.WaypointScope, expected ...string) {
+		t.Helper()
+		wls := s.WorkloadsForWaypoint(waypoint)
+		wl := make([]string, len(wls))
+		for i, e := range wls {
+			wl[i] = e.ResourceName()
+		}
+		assert.Equal(t, wl, expected)
+	}
+
+	// expected order is pod3, pod1, pod2, which is the order of creation
+	s.addPods(t, "127.0.0.3", "pod3", "sa3", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod3"))
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod2"))
+	assertOrderedWaypoint(t, model.WaypointScope{Namespace: testNS},
+		s.podXdsName("pod3"), s.podXdsName("pod1"), s.podXdsName("pod2"))
 }
 
 // This is a regression test for a case where policies added after pods were not applied when
