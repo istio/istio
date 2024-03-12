@@ -604,13 +604,17 @@ VirtualService: bookinfo
 							},
 						},
 						TrafficPolicy: &v1alpha32.TrafficPolicy{
-							LoadBalancer:     &v1alpha32.LoadBalancerSettings{LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST}},
+							LoadBalancer: &v1alpha32.LoadBalancerSettings{
+								LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST},
+							},
 							ConnectionPool:   &v1alpha32.ConnectionPoolSettings{Tcp: &v1alpha32.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
 							OutlierDetection: &v1alpha32.OutlierDetection{MinHealthPercent: 10},
 							Tls:              &v1alpha32.ClientTLSSettings{Mode: v1alpha32.ClientTLSSettings_ISTIO_MUTUAL},
 							PortLevelSettings: []*v1alpha32.TrafficPolicy_PortTrafficPolicy{
 								{
-									LoadBalancer:     &v1alpha32.LoadBalancerSettings{LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST}},
+									LoadBalancer: &v1alpha32.LoadBalancerSettings{
+										LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST},
+									},
 									Port:             &v1alpha32.PortSelector{Number: 8080},
 									Tls:              &v1alpha32.ClientTLSSettings{Mode: v1alpha32.ClientTLSSettings_DISABLE},
 									ConnectionPool:   &v1alpha32.ConnectionPoolSettings{Tcp: &v1alpha32.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},

@@ -307,7 +307,8 @@ func printSpaces(numSpaces int) string {
 
 func recordShortPolicies(lb *v1alpha3.LoadBalancerSettings,
 	connectionPool *v1alpha3.ConnectionPoolSettings,
-	outlierDetection *v1alpha3.OutlierDetection) string {
+	outlierDetection *v1alpha3.OutlierDetection,
+) string {
 	extra := make([]string, 0)
 	if lb != nil {
 		extra = append(extra, "load balancer")
