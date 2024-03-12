@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
 )
 
 // InsertDataToConfigMap inserts a data to a configmap in a namespace.
@@ -44,6 +45,10 @@ func InsertDataToConfigMap(client kclient.Client[*v1.ConfigMap], meta metav1.Obj
 			// Namespace may be deleted between now... and our previous check. Just skip this, we cannot create into deleted ns
 			// And don't retry a create if the namespace is terminating
 			if errors.IsAlreadyExists(err) || errors.HasStatusCause(err, v1.NamespaceTerminatingCause) {
+				return nil
+			}
+			if errors.IsForbidden(err) {
+				log.Infof("skip writing ConfigMap %v/%v as we do not have permissions to do so", meta.Namespace, meta.Name)
 				return nil
 			}
 			return fmt.Errorf("error when creating configmap %v: %v", meta.Name, err)
