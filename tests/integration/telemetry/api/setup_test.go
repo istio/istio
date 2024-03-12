@@ -91,10 +91,8 @@ meshConfig:
 func SetupSuite(ctx resource.Context) (err error) {
 	echos := (&cdeployment.Config{}).DefaultEchoConfigs(ctx)
 	customBuckets := `{"istio":[1,5,10,50,100,500,1000,5000,10000]}`
-	// TODO(https://github.com/istio/istio/issues/49847): remove the Delta XDS skip
 	proxyMetadata := fmt.Sprintf(`
 proxyMetadata:
-  ISTIO_DELTA_XDS: "false"
   WASM_INSECURE_REGISTRIES: %q`, registry.Address())
 	for _, e := range echos {
 		if e.Subsets[0].Annotations == nil {

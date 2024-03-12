@@ -502,6 +502,9 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		removed := subscribed.DeleteAll(currentResources...)
 		resp.RemovedResources = sets.SortedList(removed)
 	}
+	if neverRemoveDelta(w.TypeUrl) {
+		resp.RemovedResources = nil
+	}
 	if len(resp.RemovedResources) > 0 {
 		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
 	}
@@ -559,6 +562,13 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 // This is used when resources are spontaneously pushed during Delta XDS
 func requiresResourceNamesModification(url string) bool {
 	return url == v3.AddressType || url == v3.WorkloadType
+}
+
+// neverRemoveDelta checks if a type should never remove resources
+func neverRemoveDelta(url string) bool {
+	// https://github.com/envoyproxy/envoy/issues/32823
+	// We want to garbage collect extensions when they are no longer referenced, rather than delete immediately
+	return url == v3.ExtensionConfigurationType
 }
 
 // shouldSetWatchedResources indicates whether we should set the watched resources for a given type.
