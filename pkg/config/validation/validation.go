@@ -625,7 +625,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_PASSTHROUGH || tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
-		if tls.ServerCertificate != "" || tls.PrivateKey != "" || tls.CaCertificates != "" || tls.CredentialName != "" {
+		if tls.CaCrl != "" || tls.ServerCertificate != "" || tls.PrivateKey != "" || tls.CaCertificates != "" || tls.CredentialName != "" {
 			// Warn for backwards compatibility
 			v = appendWarningf(v, "%v mode does not use certificates, they will be ignored", tls.Mode)
 		}
@@ -653,6 +653,14 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		}
 		if tls.CaCertificates == "" {
 			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
+		}
+	}
+	if tls.CaCrl != "" {
+		if tls.CredentialName != "" {
+			v = appendValidation(v, fmt.Errorf("CRL is not supported with credentialName. CRL has to be specified in the credential"))
+		}
+		if tls.Mode == networking.ServerTLSSettings_SIMPLE {
+			v = appendValidation(v, fmt.Errorf("CRL is not supported with SIMPLE TLS"))
 		}
 	}
 	return
@@ -1530,9 +1538,9 @@ func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 
 	if (settings.Mode == networking.ClientTLSSettings_SIMPLE || settings.Mode == networking.ClientTLSSettings_MUTUAL) &&
 		settings.CredentialName != "" {
-		if settings.ClientCertificate != "" || settings.CaCertificates != "" || settings.PrivateKey != "" {
+		if settings.ClientCertificate != "" || settings.CaCertificates != "" || settings.PrivateKey != "" || settings.CaCrl != "" {
 			errs = appendErrors(errs,
-				fmt.Errorf("cannot specify client certificates or CA certificate If credentialName is set"))
+				fmt.Errorf("cannot specify client certificates or CA certificate or CA CRL If credentialName is set"))
 		}
 
 		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
@@ -3522,6 +3530,9 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			if len(serviceEntry.Endpoints) != 0 {
 				errs = appendValidation(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 			}
+			if serviceEntry.WorkloadSelector != nil {
+				errs = appendWarningf(errs, "workloadSelector should not be set when resolution mode is NONE")
+			}
 		case networking.ServiceEntry_STATIC:
 			for _, endpoint := range serviceEntry.Endpoints {
 				if endpoint == nil {
@@ -3566,6 +3577,11 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 						ValidatePort(int(port)))
 				}
 			}
+
+			if serviceEntry.WorkloadSelector != nil {
+				errs = appendWarningf(errs, "workloadSelector should not be set when resolution mode is %v", serviceEntry.Resolution)
+			}
+
 			if len(serviceEntry.Addresses) > 0 {
 				for _, port := range serviceEntry.Ports {
 					if port == nil {

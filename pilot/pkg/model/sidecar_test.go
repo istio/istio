@@ -2344,6 +2344,117 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:          "serviceentry not merge when resolution is different",
+			sidecarConfig: configs22,
+			services: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x[:3],
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+				{
+					Hostname:   "foobar.svc.cluster.local",
+					Ports:      port803x[3:],
+					Resolution: DNSLB,
+					Attributes: ServiceAttributes{
+						Name:      "bar",
+						Namespace: "ns1",
+					},
+				},
+			},
+			expectedServices: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x[:3],
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+			},
+		},
+		{
+			name:          "serviceentry not merge when label selector is different",
+			sidecarConfig: configs22,
+			services: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x[:3],
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+						LabelSelectors: map[string]string{
+							"app": "foo",
+						},
+					},
+				},
+				{
+					Hostname:   "foobar.svc.cluster.local",
+					Ports:      port803x[3:],
+					Resolution: DNSLB,
+					Attributes: ServiceAttributes{
+						Name:      "bar",
+						Namespace: "ns1",
+						LabelSelectors: map[string]string{
+							"app": "bar",
+						},
+					},
+				},
+			},
+			expectedServices: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x[:3],
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+						LabelSelectors: map[string]string{
+							"app": "foo",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:          "serviceentry not merge when exportTo is different",
+			sidecarConfig: configs22,
+			services: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x[:3],
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+						ExportTo:  sets.New(visibility.Public),
+					},
+				},
+				{
+					Hostname:   "foobar.svc.cluster.local",
+					Ports:      port803x[3:],
+					Resolution: DNSLB,
+					Attributes: ServiceAttributes{
+						Name:      "bar",
+						Namespace: "ns1",
+						ExportTo:  sets.New(visibility.Private),
+					},
+				},
+			},
+			expectedServices: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x[:3],
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+						ExportTo:  sets.New(visibility.Public),
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

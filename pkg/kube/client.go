@@ -78,6 +78,7 @@ import (
 	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/informerfactory"
@@ -126,9 +127,14 @@ type Client interface {
 	// CrdWatcher returns the CRD watcher for this client
 	CrdWatcher() kubetypes.CrdWatcher
 
+	// ObjectFilter returns an object filter that can be used to filter out unwanted objects based on configuration.
+	// This must be set on a client with SetObjectFilter.
+	ObjectFilter() kubetypes.DynamicObjectFilter
+
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
-	RunAndWait(stop <-chan struct{})
+	// "false" is returned if this prematurely exited without syncing.
+	RunAndWait(stop <-chan struct{}) bool
 
 	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
 	WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
@@ -340,7 +346,8 @@ type client struct {
 
 	version lazy.Lazy[*kubeVersion.Info]
 
-	crdWatcher kubetypes.CrdWatcher
+	crdWatcher   kubetypes.CrdWatcher
+	objectFilter kubetypes.DynamicObjectFilter
 
 	// http is a client for HTTP requests
 	http *http.Client
@@ -425,6 +432,12 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 	return &c, nil
 }
 
+// SetObjectFilter adds an object filter to the client, which can later be returned with client.ObjectFilter()
+func SetObjectFilter(c Client, filter kubetypes.DynamicObjectFilter) Client {
+	c.(*client).objectFilter = filter
+	return c
+}
+
 // EnableCrdWatcher enables the CRD watcher on the client.
 func EnableCrdWatcher(c Client) Client {
 	if NewCrdWatcher == nil {
@@ -438,12 +451,6 @@ func EnableCrdWatcher(c Client) Client {
 }
 
 var NewCrdWatcher func(Client) kubetypes.CrdWatcher
-
-// NewDefaultClient returns a default client, using standard Kubernetes config resolution to determine
-// the cluster to access.
-func NewDefaultClient() (Client, error) {
-	return NewClient(BuildClientCmd("", ""), "")
-}
 
 // NewCLIClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
@@ -519,19 +526,27 @@ func (c *client) CrdWatcher() kubetypes.CrdWatcher {
 	return c.crdWatcher
 }
 
+func (c *client) ObjectFilter() kubetypes.DynamicObjectFilter {
+	return c.objectFilter
+}
+
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
-func (c *client) RunAndWait(stop <-chan struct{}) {
+func (c *client) RunAndWait(stop <-chan struct{}) bool {
 	c.Run(stop)
 	if c.fastSync {
 		if c.crdWatcher != nil {
-			c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced)
+			if !c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced) {
+				return false
+			}
 		}
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
 		// Instead, we add an aggressive sync polling
-		fastWaitForCacheSync(stop, c.informerFactory)
-		_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
+		if !fastWaitForCacheSync(stop, c.informerFactory) {
+			return false
+		}
+		err := wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
 			select {
 			case <-stop:
 				return false, fmt.Errorf("channel closed")
@@ -542,12 +557,14 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 			}
 			return false, nil
 		})
-	} else {
-		if c.crdWatcher != nil {
-			c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced)
-		}
-		c.informerFactory.WaitForCacheSync(stop)
+		return err == nil
 	}
+	if c.crdWatcher != nil {
+		if !c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced) {
+			return false
+		}
+	}
+	return c.informerFactory.WaitForCacheSync(stop)
 }
 
 func (c *client) Shutdown() {
@@ -577,10 +594,10 @@ func (c *client) ClusterID() cluster.ID {
 
 // Wait for cache sync immediately, rather than with 100ms delay which slows tests
 // See https://github.com/kubernetes/kubernetes/issues/95262#issuecomment-703141573
-func fastWaitForCacheSync(stop <-chan struct{}, informerFactory informerfactory.InformerFactory) {
+func fastWaitForCacheSync(stop <-chan struct{}, informerFactory informerfactory.InformerFactory) bool {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
-	_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
 		select {
 		case <-stop:
 			return false, fmt.Errorf("channel closed")
@@ -588,6 +605,7 @@ func fastWaitForCacheSync(stop <-chan struct{}, informerFactory informerfactory.
 		}
 		return informerFactory.WaitForCacheSync(returnImmediately), nil
 	})
+	return err == nil
 }
 
 // WaitForCacheSync waits until all caches are synced. This will return true only if things synced
@@ -750,7 +768,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		monitoringPort := findIstiodMonitoringPort(&istiod)
+		monitoringPort := FindIstiodMonitoringPort(&istiod)
 		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, monitoringPort)
 		if err != nil {
 			return nil, err
@@ -851,7 +869,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 			Revision:  pod.GetLabels()[label.IoIstioRev.Name],
 		}
 
-		monitoringPort := findIstiodMonitoringPort(&pod)
+		monitoringPort := FindIstiodMonitoringPort(&pod)
 		result, err := c.portForwardRequest(ctx, pod.Name, pod.Namespace, http.MethodGet, "/version", monitoringPort)
 		if err != nil {
 			errs = multierror.Append(errs,
@@ -1221,11 +1239,19 @@ func SetRevisionForTest(c CLIClient, rev string) CLIClient {
 	return tc
 }
 
-func findIstiodMonitoringPort(pod *v1.Pod) int {
+func FindIstiodMonitoringPort(pod *v1.Pod) int {
 	if v, ok := pod.GetAnnotations()["prometheus.io/port"]; ok {
 		if port, err := strconv.Atoi(v); err == nil {
 			return port
 		}
 	}
 	return 15014
+}
+
+// FilterIfEnhancedFilteringEnabled returns the namespace filter if EnhancedResourceScoping is enabled, otherwise a NOP filter.
+func FilterIfEnhancedFilteringEnabled(k Client) kubetypes.DynamicObjectFilter {
+	if features.EnableEnhancedResourceScoping {
+		return k.ObjectFilter()
+	}
+	return nil
 }

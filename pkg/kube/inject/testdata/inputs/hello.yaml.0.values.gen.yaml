@@ -23,7 +23,6 @@
     "istiod": {
       "enableAnalysis": false
     },
-    "jwtPolicy": "third-party-jwt",
     "logAsJson": false,
     "logging": {
       "level": "default:info"
@@ -38,7 +37,6 @@
     "namespace": "istio-system",
     "network": "network1",
     "omitSidecarInjectorConfigMap": false,
-    "oneNamespace": false,
     "operatorManageWebhooks": false,
     "pilotCertProvider": "istiod",
     "priorityClassName": "",
@@ -74,7 +72,7 @@
         "failureThreshold": 600
       },
       "statusPort": 15020,
-      "tracer": "zipkin"
+      "tracer": "none"
     },
     "proxy_init": {
       "image": "proxyv2"
@@ -93,7 +91,14 @@
   },
   "istio_cni": {
     "chained": true,
-    "enabled": true
+    "enabled": true,
+    "provider": "default"
+  },
+  "pilot": {
+    "cni": {
+      "enabled": false,
+      "provider": "default"
+    }
   },
   "revision": "",
   "sidecarInjectorWebhook": {

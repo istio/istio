@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
@@ -101,7 +102,7 @@ func NewController(
 ) *Controller {
 	var ctl *status.Controller
 
-	namespaces := kclient.New[*corev1.Namespace](kc)
+	namespaces := kclient.NewFiltered[*corev1.Namespace](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()})
 	gatewayController := &Controller{
 		client:                kc,
 		cache:                 c,
@@ -115,9 +116,6 @@ func NewController(
 
 	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
 		UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
-			if options.DiscoveryNamespacesFilter != nil && !options.DiscoveryNamespacesFilter.Filter(newNs) {
-				return
-			}
 			if !labels.Instance(oldNs.Labels).Equals(newNs.Labels) {
 				gatewayController.namespaceEvent(oldNs, newNs)
 			}

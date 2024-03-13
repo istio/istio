@@ -1,4 +1,4 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=df978ef82cb654bdfd684489488523b25b093d04"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=f6102784e48833220d538e5a78309b71476529c4"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -131,7 +131,8 @@ spec:
                       If CACertRefs is empty or unspecified, then WellKnownCACerts must be
                       specified. Only one of CACertRefs or WellKnownCACerts may be specified,
                       not both. If CACertRefs is empty or unspecified, the configuration for
-                      WellKnownCACerts MUST be honored instead.
+                      WellKnownCACerts MUST be honored instead if supported by the
+                      implementation.
 
 
                       References to a resource in a different namespace are invalid for the
@@ -211,10 +212,13 @@ spec:
 
                       If WellKnownCACerts is unspecified or empty (""), then CACertRefs must be
                       specified with at least one entry for a valid configuration. Only one of
-                      CACertRefs or WellKnownCACerts may be specified, not both.
+                      CACertRefs or WellKnownCACerts may be specified, not both. If an
+                      implementation does not support the WellKnownCACerts field or the value
+                      supplied is not supported, the Status Conditions on the Policy MUST be
+                      updated to include an Accepted: False Condition with Reason: Invalid.
 
 
-                      Support: Core for "System"
+                      Support: Implementation-specific
                     enum:
                     - System
                     type: string
@@ -1823,13 +1827,14 @@ spec:
                             There are two possible modes:
 
 
-                            - Terminate: The TLS session between the downstream client
-                              and the Gateway is terminated at the Gateway. This mode requires
-                              certificateRefs to be set and contain at least one element.
+                            - Terminate: The TLS session between the downstream client and the
+                              Gateway is terminated at the Gateway. This mode requires certificates
+                              to be specified in some way, such as populating the certificateRefs
+                              field.
                             - Passthrough: The TLS session is NOT terminated by the Gateway. This
                               implies that the Gateway can't decipher the TLS stream except for
-                              the ClientHello message of the TLS protocol.
-                              CertificateRefs field is ignored in this mode.
+                              the ClientHello message of the TLS protocol. The certificateRefs field
+                              is ignored in this mode.
 
 
                             Support: Core
@@ -1864,10 +1869,10 @@ spec:
                           type: object
                       type: object
                       x-kubernetes-validations:
-                      - message: certificateRefs must be specified when TLSModeType
-                          is Terminate
+                      - message: certificateRefs or options must be specified when
+                          mode is Terminate
                         rule: 'self.mode == ''Terminate'' ? size(self.certificateRefs)
-                          > 0 : true'
+                          > 0 || size(self.options) > 0 : true'
                   required:
                   - name
                   - port
@@ -1880,9 +1885,6 @@ spec:
                 - name
                 x-kubernetes-list-type: map
                 x-kubernetes-validations:
-                - message: tls must be specified for protocols ['HTTPS', 'TLS']
-                  rule: 'self.all(l, l.protocol in [''HTTPS'', ''TLS''] ? has(l.tls)
-                    : true)'
                 - message: tls must not be specified for protocols ['HTTP', 'TCP',
                     'UDP']
                   rule: 'self.all(l, l.protocol in [''HTTP'', ''TCP'', ''UDP''] ?
@@ -2914,13 +2916,14 @@ spec:
                             There are two possible modes:
 
 
-                            - Terminate: The TLS session between the downstream client
-                              and the Gateway is terminated at the Gateway. This mode requires
-                              certificateRefs to be set and contain at least one element.
+                            - Terminate: The TLS session between the downstream client and the
+                              Gateway is terminated at the Gateway. This mode requires certificates
+                              to be specified in some way, such as populating the certificateRefs
+                              field.
                             - Passthrough: The TLS session is NOT terminated by the Gateway. This
                               implies that the Gateway can't decipher the TLS stream except for
-                              the ClientHello message of the TLS protocol.
-                              CertificateRefs field is ignored in this mode.
+                              the ClientHello message of the TLS protocol. The certificateRefs field
+                              is ignored in this mode.
 
 
                             Support: Core
@@ -2955,10 +2958,10 @@ spec:
                           type: object
                       type: object
                       x-kubernetes-validations:
-                      - message: certificateRefs must be specified when TLSModeType
-                          is Terminate
+                      - message: certificateRefs or options must be specified when
+                          mode is Terminate
                         rule: 'self.mode == ''Terminate'' ? size(self.certificateRefs)
-                          > 0 : true'
+                          > 0 || size(self.options) > 0 : true'
                   required:
                   - name
                   - port
@@ -2971,9 +2974,6 @@ spec:
                 - name
                 x-kubernetes-list-type: map
                 x-kubernetes-validations:
-                - message: tls must be specified for protocols ['HTTPS', 'TLS']
-                  rule: 'self.all(l, l.protocol in [''HTTPS'', ''TLS''] ? has(l.tls)
-                    : true)'
                 - message: tls must not be specified for protocols ['HTTP', 'TCP',
                     'UDP']
                   rule: 'self.all(l, l.protocol in [''HTTP'', ''TCP'', ''UDP''] ?

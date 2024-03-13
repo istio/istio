@@ -1,4 +1,20 @@
 {
+  "application_log_config": {
+    "log_format": {
+{{- if .log_json }}
+      "json_format": {
+        "time": "%Y-%m-%dT%T.%fZ",
+        "level": "%l",
+        "scope": "envoy %n",
+        "msg": "%j",
+        "caller": "%g:%#",
+        "thread": "%t"
+      }
+{{- else }}
+        "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
+{{- end }}
+    }
+  },
   "node": {
     "id": "{{ .nodeID }}",
     "cluster": "{{ .cluster }}",

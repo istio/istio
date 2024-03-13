@@ -51,9 +51,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
-	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -1180,15 +1178,6 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 	createNamespace(t, controller.client.Kube(), nsA, map[string]string{"pilot-discovery": "enabled"})
 	createNamespace(t, controller.client.Kube(), nsB, map[string]string{})
 
-	// wait for namespaces to be created
-	eventually(t, func() bool {
-		list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			t.Fatalf("error listing namespaces: %v", err)
-		}
-		return len(list.Items) == 2
-	})
-
 	// service event handlers should trigger for svc1 and svc2
 	createServiceWait(controller, "svc1", nsA,
 		map[string]string{}, map[string]string{},
@@ -1303,17 +1292,10 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		})
 	}
 
-	client := kubelib.NewFakeClient()
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
-	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
-		kclient.New[*corev1.Namespace](client),
-		meshWatcher.Mesh().DiscoverySelectors,
-	)
 
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		Client:                    client,
-		MeshWatcher:               meshWatcher,
-		DiscoveryNamespacesFilter: discoveryNamespacesFilter,
+		MeshWatcher: meshWatcher,
 	})
 
 	nsA := "nsA"
@@ -1323,21 +1305,6 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	createNamespace(t, controller.client.Kube(), nsA, map[string]string{"app": "foo"})
 	createNamespace(t, controller.client.Kube(), nsB, map[string]string{"app": "bar"})
 	createNamespace(t, controller.client.Kube(), nsC, map[string]string{"app": "baz"})
-
-	// wait for namespaces to be created
-	eventually(t, func() bool {
-		list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			t.Fatalf("error listing namespaces: %v", err)
-		}
-		return len(list.Items) == 3
-	})
-
-	// assert that namespace membership has been updated
-	eventually(t, func() bool {
-		members := discoveryNamespacesFilter.GetMembers()
-		return members.Contains(nsA) && members.Contains(nsB) && members.Contains(nsC)
-	})
 
 	// service event handlers should trigger for all svcs
 	createServiceWait(controller, "svc1", nsA,
@@ -1430,8 +1397,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	)
 }
 
-func TestControllerEnableResourceScoping(t *testing.T) {
-	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
+func TestControllerResourceScoping(t *testing.T) {
 	svc1 := &model.Service{
 		Hostname:       kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",
@@ -1505,37 +1471,18 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	client := kubelib.NewFakeClient()
 	t.Cleanup(client.Shutdown)
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
-	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
-		kclient.New[*corev1.Namespace](client),
-		meshWatcher.Mesh().DiscoverySelectors,
-	)
 
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		Client:                    client,
-		MeshWatcher:               meshWatcher,
-		DiscoveryNamespacesFilter: discoveryNamespacesFilter,
-	})
 	nsA := "nsA"
 	nsB := "nsB"
 	nsC := "nsC"
 
-	createNamespace(t, controller.client.Kube(), nsA, map[string]string{"app": "foo"})
-	createNamespace(t, controller.client.Kube(), nsB, map[string]string{"app": "bar"})
-	createNamespace(t, controller.client.Kube(), nsC, map[string]string{"app": "baz"})
+	createNamespace(t, client.Kube(), nsA, map[string]string{"app": "foo"})
+	createNamespace(t, client.Kube(), nsB, map[string]string{"app": "bar"})
+	createNamespace(t, client.Kube(), nsC, map[string]string{"app": "baz"})
 
-	// wait for namespaces to be created
-	eventually(t, func() bool {
-		list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			t.Fatalf("error listing namespaces: %v", err)
-		}
-		return len(list.Items) == 3
-	})
-
-	// assert that namespace membership has been updated
-	eventually(t, func() bool {
-		members := discoveryNamespacesFilter.GetMembers()
-		return members.Contains(nsA) && members.Contains(nsB) && members.Contains(nsC)
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		Client:      client,
+		MeshWatcher: meshWatcher,
 	})
 
 	// service event handlers should trigger for all svcs
@@ -1565,6 +1512,8 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 		return servicesEqual(svcList, expectedSvcList)
 	})
 
+	fx.Clear()
+
 	// restrict namespaces to nsA (expect 2 delete events for svc3 and svc4)
 	updateMeshConfig(
 		&meshconfig.MeshConfig{
@@ -1584,7 +1533,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	)
 
 	// namespace nsB, nsC deselected
-	fx.WaitOrFail(t, "xds full")
+	fx.AssertEmpty(t, 0)
 
 	// create vs1 in nsA
 	createVirtualService(controller, "vs1", nsA, map[string]string{}, t)
@@ -1615,7 +1564,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	)
 
 	// namespace nsB selected
-	fx.WaitOrFail(t, "xds full")
+	fx.AssertEmpty(t, 0)
 }
 
 func TestEndpoints_WorkloadInstances(t *testing.T) {
@@ -1988,6 +1937,7 @@ func createServiceWithTargetPorts(controller *FakeController, name, namespace st
 func createServiceWait(controller *FakeController, name, namespace string, labels, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T,
 ) {
+	t.Helper()
 	createService(controller, name, namespace, labels, annotations, ports, selector, t)
 	controller.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "service")
 }

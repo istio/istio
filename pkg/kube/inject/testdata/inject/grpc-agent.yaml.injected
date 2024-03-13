@@ -59,8 +59,6 @@ spec:
           value: grpc
         - name: OUTPUT_CERTS
           value: /var/lib/istio/data
-        - name: JWT_POLICY
-          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
         - name: CA_ADDR

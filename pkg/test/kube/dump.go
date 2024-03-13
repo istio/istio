@@ -150,8 +150,8 @@ func DumpPods(ctx resource.Context, workDir, namespace string, selectors []strin
 			DumpPodState,
 			DumpPodEvents,
 			DumpPodLogs,
-			DumpPodProxies,
-			DumpNdsz,
+			DumpPodEnvoy,
+			DumpPodAgent,
 			DumpCoreDumps,
 		}
 	}
@@ -423,9 +423,9 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 	}
 }
 
-// DumpPodProxies will dump Envoy proxy config and clusters in each of the provided pods
+// DumpPodEnvoy will dump Envoy proxy config and clusters in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodProxies(ctx resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
+func DumpPodEnvoy(ctx resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 	g := errgroup.Group{}
 	for _, pod := range pods {
@@ -442,7 +442,6 @@ func DumpPodProxies(ctx resource.Context, c cluster.Cluster, workDir, namespace 
 			defer fw.Close()
 			dumpProxyCommand(c, fw, pod, workDir, "proxy-config.json", "config_dump?include_eds=true")
 			dumpProxyCommand(c, fw, pod, workDir, "proxy-clusters.txt", "clusters")
-			dumpProxyCommand(c, fw, pod, workDir, "proxy-stats.txt", "stats/prometheus")
 			return nil
 		})
 	}
@@ -625,7 +624,7 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir, endpoint, names
 	}
 }
 
-func DumpNdsz(ctx resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
+func DumpPodAgent(ctx resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
 	g := errgroup.Group{}
 	for _, pod := range pods {
 		pod := pod
@@ -636,6 +635,7 @@ func DumpNdsz(ctx resource.Context, c cluster.Cluster, workDir string, _ string,
 			}
 			defer fw.Close()
 			dumpProxyCommand(c, fw, pod, workDir, "ndsz.json", "debug/ndsz")
+			dumpProxyCommand(c, fw, pod, workDir, "proxy-stats.txt", "stats/prometheus")
 			return nil
 		})
 	}

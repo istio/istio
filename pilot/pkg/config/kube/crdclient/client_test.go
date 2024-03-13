@@ -36,23 +36,23 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func makeClient(t *testing.T, schemas collection.Schemas, f ...func(o Option) Option) (model.ConfigStoreController, kube.CLIClient) {
+func makeClient(t *testing.T, schemas collection.Schemas, f kubetypes.DynamicObjectFilter) (model.ConfigStoreController, kube.CLIClient) {
 	fake := kube.NewFakeClient()
+	if f != nil {
+		kube.SetObjectFilter(fake, f)
+	}
 	for _, s := range schemas.All() {
 		clienttest.MakeCRD(t, fake, s.GroupVersionResource())
 	}
 	stop := test.NewStop(t)
-	var o Option
-	for _, fn := range f {
-		o = fn(o)
-	}
-	config := New(fake, o)
+	config := New(fake, Option{})
 	go config.Run(stop)
 	fake.RunAndWait(stop)
 	kube.WaitForCacheSync("test", stop, config.HasSynced)
@@ -78,7 +78,7 @@ func createResource(t *testing.T, store model.ConfigStoreController, r resource.
 // Ensure that the client can run without CRDs present
 func TestClientNoCRDs(t *testing.T) {
 	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
-	store, _ := makeClient(t, schema)
+	store, _ := makeClient(t, schema, nil)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
 	r := collections.VirtualService
 	configMeta := config.Meta{
@@ -103,20 +103,17 @@ func TestClientNoCRDs(t *testing.T) {
 // Ensure that the client can run without CRDs present, but then added later
 func TestClientDelayedCRDs(t *testing.T) {
 	// ns1 is allowed, ns2 is not
-	applyFilter := func(o Option) Option {
-		o.NamespacesFilter = func(obj interface{}) bool {
-			// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
-			object := controllers.ExtractObject(obj)
-			if object == nil {
-				return false
-			}
-			ns := object.GetNamespace()
-			return ns == "ns1"
+	f := kubetypes.NewStaticObjectFilter(func(obj interface{}) bool {
+		// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
+		object := controllers.ExtractObject(obj)
+		if object == nil {
+			return false
 		}
-		return o
-	}
+		ns := object.GetNamespace()
+		return ns == "ns1"
+	})
 	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
-	store, fake := makeClient(t, schema, applyFilter)
+	store, fake := makeClient(t, schema, f)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
 	r := collections.VirtualService
 
@@ -159,7 +156,7 @@ func TestClientDelayedCRDs(t *testing.T) {
 
 // CheckIstioConfigTypes validates that an empty store can do CRUD operators on all given types
 func TestClient(t *testing.T) {
-	store, _ := makeClient(t, collections.PilotGatewayAPI().Union(collections.Kube))
+	store, _ := makeClient(t, collections.PilotGatewayAPI().Union(collections.Kube), nil)
 	configName := "test"
 	configNamespace := "test-ns"
 	timeout := retry.Timeout(time.Millisecond * 200)

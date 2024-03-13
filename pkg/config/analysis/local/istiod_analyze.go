@@ -345,7 +345,7 @@ func (sa *IstiodAnalyzer) GetFiltersByGVK() map[config.GroupVersionKind]kubetype
 	return map[config.GroupVersionKind]kubetypes.Filter{
 		gvk.ConfigMap: {
 			Namespace:    sa.istioNamespace.String(),
-			ObjectFilter: isIstioConfigMap,
+			ObjectFilter: kubetypes.NewStaticObjectFilter(isIstioConfigMap),
 		},
 		gvk.Secret: {
 			FieldSelector: secretFieldSelector,
@@ -382,7 +382,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
 			gvk.ConfigMap: {
 				Namespace:    sa.istioNamespace.String(),
-				ObjectFilter: isIstioConfigMap,
+				ObjectFilter: kubetypes.NewStaticObjectFilter(isIstioConfigMap),
 			},
 		},
 	}, krs)

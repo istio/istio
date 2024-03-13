@@ -17,17 +17,11 @@ package main
 import (
 	"os"
 
-	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
-
 	"istio.io/istio/pkg/log"
 )
 
 func main() {
 	log.EnableKlogWithCobra()
-	// adding to remove message about the controller-runtime logs not getting displayed
-	scope := log.RegisterScope("controlleruntime", "scope for controller runtime")
-	controllruntimelog.SetLogger(log.NewLogrAdapter(scope))
-
 	rootCmd := getRootCmd(os.Args[1:])
 
 	if err := rootCmd.Execute(); err != nil {

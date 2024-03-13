@@ -28,6 +28,11 @@ defaults:
     # Set to `type: RuntimeDefault` to use the default profile if available.
     seccompProfile: {}
 
+    # Whether to use an existing CNI installation
+    cni:
+      enabled: false
+      provider: default
+
     # Additional container arguments
     extraContainerArgs: []
 
@@ -51,6 +56,7 @@ defaults:
     nodeSelector: {}
     podAnnotations: {}
     serviceAnnotations: {}
+    serviceAccountAnnotations: {}
 
     topologySpreadConstraints: []
 
@@ -156,6 +162,8 @@ defaults:
     # Sidecar injector mutating webhook configuration path value for the clientConfig.service field.
     # Override to pass env variables, for example: /inject/cluster/remote/net/network2
     injectionPath: "/inject"
+
+    injectionCABundle: ""
   telemetry:
     enabled: true
     v2:
@@ -245,10 +253,6 @@ defaults:
       level: "default:info"
 
     omitSidecarInjectorConfigMap: false
-
-    # Whether to restrict the applications namespace the controller manages;
-    # If not set, controller watches all namespaces
-    oneNamespace: false
 
     # Configure whether Operator manages webhook configurations. The current behavior
     # of Istiod is to manage its own webhook configurations.
@@ -350,9 +354,9 @@ defaults:
       # Default port for Pilot agent health checks. A value of 0 will disable health checking.
       statusPort: 15020
 
-      # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
+      # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver, none.
       # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
-      tracer: "zipkin"
+      tracer: "none"
 
     proxy_init:
       # Base name for the proxy_init container, used to configure iptables.
@@ -379,9 +383,8 @@ defaults:
     # Configure a remote cluster as the config cluster for an external istiod.
     configCluster: false
 
-    # Configure the policy for validating JWT.
-    # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
-    jwtPolicy: "third-party-jwt"
+    # configValidation enables the validation webhook for Istio configuration.
+    configValidation: true
 
     # Mesh ID means Mesh Identifier. It should be unique within the scope where
     # meshes will interact with each other, but it is not required to be
@@ -485,7 +488,8 @@ defaults:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
 
-    #  keep in sync with settings used when installing the Istio CNI chart
+  # `istio_cni` has been deprecated and will be removed in a future release. use `pilot.cni` instead
   istio_cni:
-    enabled: false
+    # `chained` has been deprecated and will be removed in a future release. use `provider` instead
     chained: true
+    provider: default

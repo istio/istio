@@ -245,7 +245,6 @@ func setupEnvoyClusterStatsConfig(kubeClient kube.CLIClient, podName, podNamespa
 
 func setupEnvoyServerStatsConfig(kubeClient kube.CLIClient, podName, podNamespace string, outputFormat string) (string, error) {
 	path := "stats"
-	port := 15000
 	if outputFormat == jsonOutput || outputFormat == yamlOutput {
 		// for yaml output we will convert the json to yaml when printed
 		path += "?format=json"
@@ -265,7 +264,7 @@ func setupEnvoyServerStatsConfig(kubeClient kube.CLIClient, podName, podNamespac
 		port = promPort
 	}
 
-	result, err := kubeClient.EnvoyDoWithPort(context.Background(), podName, podNamespace, "GET", path, port)
+	result, err := kubeClient.EnvoyDoWithPort(context.Background(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -745,6 +744,9 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
   # Retrieve Envoy server metrics in prometheus format
   istioctl experimental envoy-stats <pod-name[.namespace]> --output prom
 
+  # Retrieve Envoy server metrics in prometheus format with custom proxy admin port
+  istioctl experimental envoy-stats <pod-name[.namespace]> --output prom --proxy-admin-port 15000
+
   # Retrieve Envoy server metrics in prometheus format with merged application metrics
   istioctl experimental envoy-stats <pod-name[.namespace]> --output prom-merged
 
@@ -802,6 +804,7 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
 	}
 	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short|prom|prom-merged")
 	statsConfigCmd.PersistentFlags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
+	statsConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
 
 	return statsConfigCmd
 }

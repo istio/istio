@@ -23,7 +23,6 @@ import (
 
 	utilversion "k8s.io/apimachinery/pkg/util/version"
 
-	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -51,17 +50,8 @@ var exittypeToString = map[XTablesExittype]string{
 	XTablesResourceProblem:  "xtables resource problem",
 }
 
-// XTablesWriteCmds contains all xtables commands that do write actions (and thus need a lock)
-var XTablesWriteCmds = sets.New(
-	constants.IPTABLES,
-	constants.IP6TABLES,
-	constants.IPTABLESRESTORE,
-	constants.IP6TABLESRESTORE,
-)
-
 // RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct {
-	IptablesVersion  IptablesVersion
 	NetworkNamespace string
 	CNIMode          bool
 }
@@ -69,33 +59,124 @@ type RealDependencies struct {
 const iptablesVersionPattern = `v([0-9]+(\.[0-9]+)+)`
 
 type IptablesVersion struct {
+	DetectedBinary        string
+	DetectedSaveBinary    string
+	DetectedRestoreBinary string
 	// the actual version
-	version *utilversion.Version
+	Version *utilversion.Version
 	// true if legacy mode, false if nf_tables
-	legacy bool
+	Legacy bool
+	// true if we detected that existing rules are present for this variant (legacy, nft, v6)
+	ExistingRules bool
 }
 
-func DetectIptablesVersion(ver string) (IptablesVersion, error) {
-	if ver == "" {
-		var err error
-		verb, err := exec.Command("iptables", "--version").CombinedOutput()
-		if err != nil {
-			return IptablesVersion{}, err
-		}
-		ver = string(verb)
+func (v IptablesVersion) CmdToString(cmd constants.IptablesCmd) string {
+	switch cmd {
+	case constants.IPTables:
+		return v.DetectedBinary
+	case constants.IPTablesSave:
+		return v.DetectedSaveBinary
+	case constants.IPTablesRestore:
+		return v.DetectedRestoreBinary
+	default:
+		return ""
 	}
-	// Legacy will have no marking or 'legacy', so just look for nf_tables
-	nft := strings.Contains(ver, "nf_tables")
+}
+
+// IsWriteCmd returns true for all command types that do write actions (and thus need a lock)
+func (v IptablesVersion) IsWriteCmd(cmd constants.IptablesCmd) bool {
+	switch cmd {
+	case constants.IPTables:
+		return true
+	case constants.IPTablesRestore:
+		return true
+	default:
+		return false
+	}
+}
+
+// Constants for iptables commands
+// These should not be used directly/assumed to be present, but should be contextually detected
+const (
+	iptablesBin         = "iptables"
+	iptablesNftBin      = "iptables-nft"
+	iptablesLegacyBin   = "iptables-legacy"
+	ip6tablesBin        = "ip6tables"
+	ip6tablesNftBin     = "ip6tables-nft"
+	ip6tablesLegacyBin  = "ip6tables-legacy"
+	iptablesRestoreBin  = "iptables-restore"
+	ip6tablesRestoreBin = "ip6tables-restore"
+)
+
+// It is not sufficient to check for the presence of one binary or the other in $PATH -
+// we must choose a binary that is
+// 1. Available in our $PATH
+// 2. Matches where rules are actually defined in the netns we're operating in
+// (legacy or nft, with a preference for the latter if both present)
+//
+// This is designed to handle situations where, for instance, the host has nft-defined rules, and our default container
+// binary is `legacy`, or vice-versa - we must match the binaries we have in our $PATH to what rules are actually defined
+// in our current netns context.
+//
+// Q: Why not simply "use the host default binary" at $PATH/iptables?
+// A: Because we are running in our own container and do not have access to the host default binary.
+// We are using our local binaries to update host rules, and we must pick the right match.
+//
+// Basic selection logic is as follows:
+// 1. see if we have `nft` binary set in our $PATH
+// 2. see if we have existing rules in `nft` in our netns
+// 3. If so, use `nft` binary set
+// 4. Otherwise, see if we have `legacy` binary set, and use that.
+// 5. Otherwise, see if we have `iptables` binary set, and use that (detecting whether it's nft or legacy).
+func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, error) {
+	// Begin detecting
+	//
+	// iptables variants all have ipv6 variants, so decide which set we're looking for
+	var nftBin, legacyBin, plainBin string
+	if ipV6 {
+		nftBin = ip6tablesNftBin
+		legacyBin = ip6tablesLegacyBin
+		plainBin = ip6tablesBin
+	} else {
+		nftBin = iptablesNftBin
+		legacyBin = iptablesLegacyBin
+		plainBin = iptablesBin
+	}
+
+	// 1. What binaries we have
+	// 2. What binary we should use, based on existing rules defined in our current context.
+	// does the nft binary set exist, and are nft rules present?
+	nftVer, err := shouldUseBinaryForCurrentContext(nftBin)
+	if err == nil && nftVer.ExistingRules {
+		// if so, immediately use it.
+		return nftVer, nil
+	}
+	// does the legacy binary set exist, and are legacy rules present?
+	legVer, err := shouldUseBinaryForCurrentContext(legacyBin)
+	if err == nil && legVer.ExistingRules {
+		// if so, immediately use it
+		return legVer, nil
+	}
+	// regular non-suffixed binary set is our last resort.
+	//
+	// If it's there, and rules do not already exist for a specific variant,
+	// we should use the default non-suffixed binary.
+	// If it's NOT there, just propagate the error, we can't do anything, no iptables here
+	return shouldUseBinaryForCurrentContext(plainBin)
+}
+
+// TODO BML verify this won't choke on "-save" binaries having slightly diff. version string prefixes
+func parseIptablesVer(rawVer string) (*utilversion.Version, error) {
 	versionMatcher := regexp.MustCompile(iptablesVersionPattern)
-	match := versionMatcher.FindStringSubmatch(ver)
+	match := versionMatcher.FindStringSubmatch(rawVer)
 	if match == nil {
-		return IptablesVersion{}, fmt.Errorf("no iptables version found: %q", ver)
+		return nil, fmt.Errorf("no iptables version found for: %q", rawVer)
 	}
 	version, err := utilversion.ParseGeneric(match[1])
 	if err != nil {
-		return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", match[1], err)
+		return nil, fmt.Errorf("iptables version %q is not a valid version string: %v", match[1], err)
 	}
-	return IptablesVersion{version: version, legacy: !nft}, nil
+	return version, nil
 }
 
 // transformToXTablesErrorMessage returns an updated error message with explicit xtables error hints, if applicable.
@@ -127,11 +208,11 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 }
 
 // Run runs a command
-func (r *RealDependencies) Run(cmd string, stdin io.ReadSeeker, args ...string) error {
-	return r.executeXTables(cmd, false, stdin, args...)
+func (r *RealDependencies) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
+	return r.executeXTables(cmd, iptVer, false, stdin, args...)
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
-func (r *RealDependencies) RunQuietlyAndIgnore(cmd string, stdin io.ReadSeeker, args ...string) {
-	_ = r.executeXTables(cmd, true, stdin, args...)
+func (r *RealDependencies) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
+	_ = r.executeXTables(cmd, iptVer, true, stdin, args...)
 }

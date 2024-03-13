@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 syntax = 'proto3';
 
+package v1alpha1;
+
 import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/wrappers.proto";
-import "google/protobuf/duration.proto";
-
-package v1alpha1;
+import "k8s.io/api/core/v1/generated.proto";
+import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 
 // Package-wide variables from generator "generated".
 option go_package = "istio.io/istio/operator/pkg/apis/istio/v1alpha1";
@@ -82,10 +83,10 @@ message CNIConfig {
   repeated string excludeNamespaces = 9;
 
   // K8s affinity to set on the istio-cni Pods. Can be used to exclude istio-cni from being scheduled on specified nodes.
-  google.protobuf.Struct affinity = 20;
+  k8s.io.api.core.v1.Affinity affinity = 20;
 
   // Additional annotations to apply to the istio-cni Pods.
-  google.protobuf.Struct podAnnotations = 10 [deprecated=true];
+  google.protobuf.Struct podAnnotations = 10 [deprecated = true];
 
   // PodSecurityPolicy cluster role. No longer used anywhere.
   string psp_cluster_role = 11;
@@ -107,15 +108,13 @@ message CNIConfig {
   // The k8s resource requests and limits for the istio-cni Pods.
   Resources resources = 17;
 
-  // Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift) or features (repairPods).
-  // Note that even if this is false, the `istio-cni` container *requires* root privileges on the node to function,
-  // and setting this to false does not change that, nor will it run the container as non-root or make it "un-privileged".
-  google.protobuf.BoolValue privileged = 18;
+  // No longer used for CNI. See: https://github.com/istio/istio/issues/49004
+  google.protobuf.BoolValue privileged = 18 [deprecated = true];
 
   // The Container seccompProfile
   //
   // See: https://kubernetes.io/docs/tutorials/security/seccomp/
-  google.protobuf.Struct seccompProfile = 19;
+  k8s.io.api.core.v1.SeccompProfile seccompProfile = 19;
 
   // Configuration for Istio Ambient.
   CNIAmbientConfig ambient = 21;
@@ -133,12 +132,15 @@ message CNIConfig {
   IntOrString rollingMaxUnavailable = 23;
 }
 
-// Configures whether to use an existing CNI installation for workloads
 message CNIUsageConfig {
   // Controls whether CNI should be used.
   google.protobuf.BoolValue enabled = 1;
 
-  google.protobuf.BoolValue chained = 2;
+  google.protobuf.BoolValue chained = 2 [deprecated = true];
+
+  // Specifies the CNI provider. Can be either "default" or "multus". When set to "multus", an annotation
+  // `k8s.v1.cni.cncf.io/networks` is set on injected pods to point to a NetworkAttachmentDefinition
+  string provider = 3;
 }
 
 message CNIAmbientConfig {
@@ -177,11 +179,11 @@ message CNIRepairConfig {
   // The mode defines the action the controller will take when a pod is detected as broken.
   // If repairPods is true, the controller will dynamically repair any broken pod by setting up the pod networking configuration even after it has started.
   // Note the pod will be crashlooping, so this may take a few minutes to become fully functional based on when the retry occurs.
-  // This requires no RBAC privilege, but does require `securityContext.privileged`.
+  // This requires no RBAC privilege, but will require the CNI agent to run as a privileged pod.
   bool repairPods = 11;
 
   // No longer used.
-  string createEvents = 6 [deprecated=true];
+  string createEvents = 6 [deprecated = true];
 
   // The Repair controller has 3 modes (labelPods, deletePods, and repairPods). Pick which one meets your use cases. Note only one may be used.
   // The mode defines the action the controller will take when a pod is detected as broken.
@@ -263,12 +265,12 @@ message EgressGatewayConfig {
   // K8s memory utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  TargetUtilizationConfig memory = 4 [deprecated=true];
+  TargetUtilizationConfig memory = 4 [deprecated = true];
 
   // K8s utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  TargetUtilizationConfig cpu = 5 [deprecated=true];
+  TargetUtilizationConfig cpu = 5 [deprecated = true];
 
   google.protobuf.BoolValue customService = 6;
 
@@ -285,12 +287,12 @@ message EgressGatewayConfig {
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  google.protobuf.Struct nodeSelector = 10 [deprecated=true];
+  google.protobuf.Struct nodeSelector = 10 [deprecated = true];
 
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  google.protobuf.Struct podAnnotations = 11 [deprecated=true];
+  google.protobuf.Struct podAnnotations = 11 [deprecated = true];
 
   // Pod anti-affinity label selector.
   //
@@ -314,10 +316,10 @@ message EgressGatewayConfig {
   //  This pod anti-affinity rule says that the pod requires not to be scheduled
   //  onto a node if that node is already running a pod with label having key
   //  “security” and value “S1”.
-  repeated google.protobuf.Struct podAntiAffinityLabelSelector = 12 [deprecated=true];
+  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityLabelSelector = 12 [deprecated = true];
 
   // See PodAntiAffinityLabelSelector.
-  repeated google.protobuf.Struct podAntiAffinityTermLabelSelector = 13 [deprecated=true];
+  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityTermLabelSelector = 13 [deprecated = true];
 
   // Ports Configuration for the egress gateway service.
   repeated PortsConfig ports = 14;
@@ -325,7 +327,7 @@ message EgressGatewayConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 15 [deprecated=true];
+  Resources resources = 15 [deprecated = true];
 
   // Config for secret volume mounts.
   repeated SecretVolume secretVolumes = 16;
@@ -341,17 +343,17 @@ message EgressGatewayConfig {
   // Enables cross-cluster access using SNI matching.
   ZeroVPNConfig zvpn = 19;
 
-  repeated google.protobuf.Struct tolerations = 20 [deprecated=true];
+  repeated k8s.io.api.core.v1.Toleration tolerations = 20 [deprecated = true];
 
   // K8s rolling update strategy
-  IntOrString rollingMaxSurge = 21 [deprecated=true];
+  IntOrString rollingMaxSurge = 21 [deprecated = true];
 
   // The number of pods that can be unavailable during a rolling update (see
   // `strategy.rollingUpdate.maxUnavailable` here:
   // https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
   // May be specified as a number of pods or as a percent of the total number
   // of pods at the start of the update.
-  IntOrString rollingMaxUnavailable = 22 [deprecated=true];
+  IntOrString rollingMaxUnavailable = 22 [deprecated = true];
 
   repeated google.protobuf.Struct configVolumes = 23;
 
@@ -379,13 +381,13 @@ message EgressGatewayConfig {
 // Configuration for gateways.
 message GatewaysConfig {
   // Configuration for an egress gateway.
-  EgressGatewayConfig istio_egressgateway = 1 [json_name="istio-egressgateway"];
+  EgressGatewayConfig istio_egressgateway = 1 [json_name = "istio-egressgateway"];
 
   // Controls whether any gateways are enabled.
   google.protobuf.BoolValue enabled = 2;
 
   // Configuration for an ingress gateway.
-  IngressGatewayConfig istio_ingressgateway = 4 [json_name="istio-ingressgateway"];
+  IngressGatewayConfig istio_ingressgateway = 4 [json_name = "istio-ingressgateway"];
 }
 
 // Global Configuration for Istio components.
@@ -397,7 +399,7 @@ message GlobalConfig {
   //   3 - Most preferred
   //
   // Deprecated: replaced by the affinity k8s settings which allows architecture nodeAffinity configuration of this behavior.
-  ArchConfig arch = 1 [deprecated=true];
+  ArchConfig arch = 1 [deprecated = true];
 
   // List of certSigners to allow "approve" action in the ClusterRole
   repeated string certSigners = 68;
@@ -415,15 +417,15 @@ message GlobalConfig {
   // Default k8s node selector for all the Istio control plane components
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  google.protobuf.Struct defaultNodeSelector = 6 [deprecated=true];
+  google.protobuf.Struct defaultNodeSelector = 6 [deprecated = true];
 
   // Specifies the default pod disruption budget configuration.
-  DefaultPodDisruptionBudgetConfig defaultPodDisruptionBudget = 7 [deprecated=true];
+  DefaultPodDisruptionBudgetConfig defaultPodDisruptionBudget = 7 [deprecated = true];
 
   // Default k8s resources settings for all Istio control plane components.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  DefaultResourcesConfig defaultResources = 9 [deprecated=true];
+  DefaultResourcesConfig defaultResources = 9 [deprecated = true];
 
   // Default node tolerations to be applied to all deployments so that all pods can be
   // scheduled to nodes with matching taints. Each component can overwrite
@@ -431,7 +433,7 @@ message GlobalConfig {
   // and setting the desired values.
   // Configure this field in case that all pods of Istio control plane are expected to
   // be scheduled to particular nodes with specified taints.
-  repeated google.protobuf.Struct defaultTolerations = 55 [deprecated=true];
+  repeated k8s.io.api.core.v1.Toleration defaultTolerations = 55 [deprecated = true];
 
   // Specifies the docker hub for Istio images.
   string hub = 12;
@@ -526,10 +528,6 @@ message GlobalConfig {
   // Defaults to false. When set to true, the sidecar injector ConfigMap will not be created.
   google.protobuf.BoolValue omitSidecarInjectorConfigMap = 38;
 
-  // Controls whether to restrict the applications namespace the controller manages;
-  // If set it to false, the controller watches all namespaces.
-  google.protobuf.BoolValue oneNamespace = 23;
-
   // Controls whether the WebhookConfiguration resource(s) should be created. The current behavior
   // of Istiod is to manage its own webhook configurations.
   // When this option is set to true, Istio Operator, instead of webhooks, manages the
@@ -540,13 +538,13 @@ message GlobalConfig {
   // Specifies the k8s priorityClassName for the istio control plane components.
   //
   // See https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-  string priorityClassName = 27 [deprecated=true];
+  string priorityClassName = 27 [deprecated = true];
 
   // Specifies how proxies are configured within Istio.
   ProxyConfig proxy = 28;
 
   // Specifies the Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
-  ProxyInitConfig proxy_init = 29 [json_name="proxy_init"];
+  ProxyInitConfig proxy_init = 29 [json_name = "proxy_init"];
 
   // Specifies the Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
   SDSConfig sds = 30;
@@ -574,8 +572,8 @@ message GlobalConfig {
   string pilotCertProvider = 56;
 
   // Configure the policy for validating JWT.
-  // Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
-  string jwtPolicy = 57;
+  // This is deprecated and has no effect.
+  string jwtPolicy = 57 [deprecated = true];
 
   // Specifies the configuration for Security Token Service.
   STSConfig sts = 58;
@@ -657,12 +655,12 @@ message IngressGatewayConfig {
   // K8s memory utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  TargetUtilizationConfig memory = 4 [deprecated=true];
+  TargetUtilizationConfig memory = 4 [deprecated = true];
 
   // K8s cpu utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  TargetUtilizationConfig cpu = 5 [deprecated=true];
+  TargetUtilizationConfig cpu = 5 [deprecated = true];
 
   google.protobuf.BoolValue customService = 6;
 
@@ -683,29 +681,29 @@ message IngressGatewayConfig {
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  google.protobuf.Struct nodeSelector = 19 [deprecated=true];
+  google.protobuf.Struct nodeSelector = 19 [deprecated = true];
 
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  google.protobuf.Struct podAnnotations = 20 [deprecated=true];
+  google.protobuf.Struct podAnnotations = 20 [deprecated = true];
 
   // See EgressGatewayConfig.
-  repeated google.protobuf.Struct podAntiAffinityLabelSelector = 21 [deprecated=true];
+  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityLabelSelector = 21 [deprecated = true];
 
   // See EgressGatewayConfig.
-  repeated google.protobuf.Struct podAntiAffinityTermLabelSelector = 22 [deprecated=true];
+  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podAntiAffinityTermLabelSelector = 22 [deprecated = true];
 
   // Port Configuration for the ingress gateway.
   repeated PortsConfig ports = 23;
 
   // Number of replicas for the ingress gateway Deployment.
-  uint32 replicaCount = 24 [deprecated=true];
+  uint32 replicaCount = 24 [deprecated = true];
 
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  google.protobuf.Struct resources = 25 [deprecated=true];
+  google.protobuf.Struct resources = 25 [deprecated = true];
 
   // Config for secret volume mounts.
   repeated SecretVolume secretVolumes = 27;
@@ -722,18 +720,18 @@ message IngressGatewayConfig {
   IngressGatewayZvpnConfig zvpn = 30;
 
   // K8s rolling update strategy
-  IntOrString rollingMaxSurge = 31 [deprecated=true];
+  IntOrString rollingMaxSurge = 31 [deprecated = true];
 
   // The number of pods that can be unavailable during a rolling update (see
   // `strategy.rollingUpdate.maxUnavailable` here:
   // https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
   // May be specified as a number of pods or as a percent of the total number
   // of pods at the start of the update.
-  IntOrString rollingMaxUnavailable = 32 [deprecated=true];
+  IntOrString rollingMaxUnavailable = 32 [deprecated = true];
 
   string externalTrafficPolicy = 34;
 
-  repeated google.protobuf.Struct tolerations = 35 [deprecated=true];
+  repeated k8s.io.api.core.v1.Toleration tolerations = 35 [deprecated = true];
 
   repeated google.protobuf.Struct ingressPorts = 36;
 
@@ -815,7 +813,7 @@ message PilotConfig {
   google.protobuf.Struct autoscaleBehavior = 40;
 
   // Number of replicas in the Pilot Deployment.
-  uint32 replicaCount = 5 [deprecated=true];
+  uint32 replicaCount = 5 [deprecated = true];
 
   // Image name used for Pilot.
   //
@@ -834,7 +832,7 @@ message PilotConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 9 [deprecated=true];
+  Resources resources = 9 [deprecated = true];
 
   // Namespace that the configuration management feature is installed into, if different from Pilot namespace.
   string configNamespace = 10;
@@ -842,12 +840,12 @@ message PilotConfig {
   // Target CPU utilization used in HorizontalPodAutoscaler.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  TargetUtilizationConfig cpu = 11 [deprecated=true];
+  TargetUtilizationConfig cpu = 11 [deprecated = true];
 
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-  google.protobuf.Struct nodeSelector = 12 [deprecated=true];
+  google.protobuf.Struct nodeSelector = 12 [deprecated = true];
 
   // Maximum duration that a sidecar can be connected to a pilot.
   //
@@ -886,37 +884,40 @@ message PilotConfig {
   google.protobuf.Struct env = 21;
 
   // K8s affinity to set on the Pilot Pods.
-  google.protobuf.Struct affinity = 22;
+  k8s.io.api.core.v1.Affinity affinity = 22;
 
   // K8s rolling update strategy
-  IntOrString rollingMaxSurge  = 24 [deprecated=true];
+  IntOrString rollingMaxSurge = 24 [deprecated = true];
 
   // The number of pods that can be unavailable during a rolling update (see
   // `strategy.rollingUpdate.maxUnavailable` here:
   // https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/#DeploymentSpec).
   // May be specified as a number of pods or as a percent of the total number
   // of pods at the start of the update.
-  IntOrString rollingMaxUnavailable = 25 [deprecated=true];
+  IntOrString rollingMaxUnavailable = 25 [deprecated = true];
 
   // The node tolerations to be applied to the Pilot deployment so that it can be
   // scheduled to particular nodes with matching taints.
   // More info: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling
-  repeated google.protobuf.Struct tolerations = 26 [deprecated=true];
+  repeated k8s.io.api.core.v1.Toleration tolerations = 26 [deprecated = true];
 
   // Specifies whether protocol sniffing is enabled for outbound traffic.
-  google.protobuf.BoolValue enableProtocolSniffingForOutbound = 28 [deprecated=true];
+  google.protobuf.BoolValue enableProtocolSniffingForOutbound = 28 [deprecated = true];
   // Specifies whether protocol sniffing is enabled for inbound traffic.
-  google.protobuf.BoolValue enableProtocolSniffingForInbound = 29 [deprecated=true];
+  google.protobuf.BoolValue enableProtocolSniffingForInbound = 29 [deprecated = true];
 
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  google.protobuf.Struct podAnnotations = 30 [deprecated=true];
+  google.protobuf.Struct podAnnotations = 30 [deprecated = true];
 
   // K8s annotations for the Service.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
   google.protobuf.Struct serviceAnnotations = 37;
+
+  // K8s annotations for the service account
+  google.protobuf.Struct serviceAccountAnnotations = 56;
 
   // ConfigSource describes a source of configuration data for networking
   // rules, and other Istio configuration artifacts. Multiple data sources
@@ -939,19 +940,19 @@ message PilotConfig {
   // The seccompProfile for the Pilot container.
   //
   // See: https://kubernetes.io/docs/tutorials/security/seccomp/
-  google.protobuf.Struct seccompProfile = 38;
+  k8s.io.api.core.v1.SeccompProfile seccompProfile = 38;
 
   // The k8s topologySpreadConstraints for the Pilot pods.
-  repeated google.protobuf.Struct topologySpreadConstraints = 41;
+  repeated k8s.io.api.core.v1.TopologySpreadConstraint topologySpreadConstraints = 41;
 
   // Additional container arguments for the Pilot container.
   repeated google.protobuf.Struct extraContainerArgs = 42;
 
   // Additional volumeMounts to add to the Pilot container.
-  repeated google.protobuf.Struct volumeMounts = 49;
+  repeated k8s.io.api.core.v1.VolumeMount volumeMounts = 49;
 
   // Additional volumes to add to the Pilot Pod.
-  repeated google.protobuf.Struct volumes = 51;
+  repeated k8s.io.api.core.v1.Volume volumes = 51;
 
   // Defines which IP family to use for single stack or the order of IP families for dual-stack.
   // Valid list items are "IPv4", "IPv6".
@@ -966,7 +967,10 @@ message PilotConfig {
   // Target memory utilization used in HorizontalPodAutoscaler.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  TargetUtilizationConfig memory = 54 [deprecated=true];
+  TargetUtilizationConfig memory = 54 [deprecated = true];
+
+  // Configures whether to use an existing CNI installation for workloads
+  CNIUsageConfig cni = 55;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -1124,7 +1128,7 @@ message ProxyConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 24 [deprecated=true];
+  Resources resources = 24 [deprecated = true];
 
   // Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
   // If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
@@ -1135,12 +1139,12 @@ message ProxyConfig {
 
   // The k8s lifecycle hooks definition (pod.spec.containers.lifecycle) for the proxy container.
   // More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks
-  google.protobuf.Struct lifecycle = 36;
+  k8s.io.api.core.v1.Lifecycle lifecycle = 36;
 
   // Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready
   //
   // Deprecated: replaced by ProxyConfig setting which allows per-pod configuration of this behavior.
-  google.protobuf.BoolValue holdApplicationUntilProxyStarts = 37 [deprecated=true];
+  google.protobuf.BoolValue holdApplicationUntilProxyStarts = 37 [deprecated = true];
 
   // A comma separated list of inbound ports for which traffic is to be redirected to Envoy.
   // The wildcard character '*' can be used to configure redirection for all ports.
@@ -1183,7 +1187,7 @@ message ProxyInitConfig {
   // K8s resources settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-  Resources resources = 5 [deprecated=true];
+  Resources resources = 5 [deprecated = true];
 }
 
 // Configuration for K8s resource requests.
@@ -1197,7 +1201,7 @@ message ResourcesRequestsConfig {
 
 // Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 message SDSConfig {
-  google.protobuf.Struct token = 5 [deprecated=true];
+  google.protobuf.Struct token = 5 [deprecated = true];
 }
 
 // Configuration for secret volume mounts.
@@ -1224,10 +1228,10 @@ message SidecarInjectorConfig {
   // Annotations in the pods have higher precedence than the label selectors.
   // Order of evaluation: Pod Annotations → NeverInjectSelector → AlwaysInjectSelector → Default Policy.
   // See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
-  repeated google.protobuf.Struct neverInjectSelector = 11;
+  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector neverInjectSelector = 11;
 
   // See NeverInjectSelector.
-  repeated google.protobuf.Struct alwaysInjectSelector = 12;
+  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector alwaysInjectSelector = 12;
 
   //  If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
   google.protobuf.BoolValue rewriteAppHTTPProbe = 16;
@@ -1273,7 +1277,7 @@ message SidecarInjectorConfig {
   // If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
   // requests in Istiod, rather than at the webhook selection level.
   // This is option is intended for migration purposes only and will be removed in Istio 1.10.
-  google.protobuf.BoolValue useLegacySelectors = 4 [deprecated=true];
+  google.protobuf.BoolValue useLegacySelectors = 4 [deprecated = true];
 }
 
 // Configuration for each of the supported tracers.
@@ -1340,6 +1344,9 @@ message BaseConfig {
   google.protobuf.BoolValue enableIstioConfigCRDs = 3;
 
   google.protobuf.BoolValue validateGateway = 4;
+
+  // validation webhook CA bundle
+  string validationCABundle = 5;
 }
 
 message IstiodRemoteConfig {
@@ -1347,6 +1354,9 @@ message IstiodRemoteConfig {
   string injectionURL = 1;
   // Path to use for the sidecar injector webhook service.
   string injectionPath = 2;
+  // injector ca bundle
+  string injectionCABundle = 3;
+
 }
 
 message Values {
@@ -1372,7 +1382,7 @@ message Values {
   SidecarInjectorConfig sidecarInjectorWebhook = 13;
 
   // Configuration for the Istio CNI plugin.
-  CNIUsageConfig istio_cni = 19;
+  CNIUsageConfig istio_cni = 19 [deprecated = true];
 
   // Identifies the revision this installation is associated with.
   string revision = 21;
@@ -1405,7 +1415,6 @@ message Values {
   // be configured with the same defaults as the specified version.
   string compatibilityVersion = 43;
 }
-
 
 // ZeroVPNConfig enables cross-cluster access using SNI matching.
 message ZeroVPNConfig {

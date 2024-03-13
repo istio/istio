@@ -91,6 +91,8 @@ func RequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions
 	return mergeShards(responses)
 }
 
+var GetXdsResponse = xds.GetXdsResponse
+
 // nolint: lll
 func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient, centralOpts clioptions.CentralControlPlaneOptions) ([]*discovery.DiscoveryResponse, error) {
 	labelSelector := centralOpts.XdsPodLabel
@@ -130,7 +132,7 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 		}
 		defer fw.Close()
 		xdsOpts.Xds = fw.Address()
-		response, err := xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, xdsOpts, dialOpts)
+		response, err := GetXdsResponse(dr, istioNamespace, tokenServiceAccount, xdsOpts, dialOpts)
 		if err != nil {
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
 		}

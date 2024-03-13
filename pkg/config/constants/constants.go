@@ -141,8 +141,8 @@ const (
 	InternalGatewaySemantics = "internal.istio.io/gateway-semantics"
 	GatewaySemanticsGateway  = "gateway"
 
-	// TrustworthyJWTPath is the default 3P token to authenticate with third party services
-	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
+	// ThirdPartyJwtPath is the default 3P token to authenticate with third party services
+	ThirdPartyJwtPath = "./var/run/secrets/tokens/istio-token"
 
 	// CertProviderIstiod uses istiod self signed DNS certificates for the control plane
 	CertProviderIstiod = "istiod"
@@ -163,7 +163,6 @@ const (
 	WaypointServiceAccount = "istio.io/for-service-account"
 
 	ManagedGatewayLabel               = "gateway.istio.io/managed"
-	ManagedGatewayController          = "istio.io/gateway-controller"
 	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
 	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
 	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"

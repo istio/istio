@@ -403,7 +403,7 @@ function install_calico {
 function install_metallb() {
   KUBECONFIG="${1}"
   kubectl --kubeconfig="$KUBECONFIG" apply -f "${COMMON_SCRIPTS}/metallb-native.yaml"
-  kubectl --kubeconfig="$KUBECONFIG" wait -n metallb-system pod -l app=metallb --for=condition=Ready
+  kubectl --kubeconfig="$KUBECONFIG" wait -n metallb-system pod --timeout=120s -l app=metallb --for=condition=Ready
 
   if [ -z "${METALLB_IPS4+x}" ]; then
     # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs

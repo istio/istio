@@ -15,6 +15,7 @@
 package model
 
 import (
+	gotls "crypto/tls"
 	"strings"
 	"time"
 
@@ -26,6 +27,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
+	common_features "istio.io/istio/pkg/features"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -40,15 +43,8 @@ const (
 	// SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
 	SDSRootResourceName = "ROOTCA"
 
-	// K8sSAJwtFileName is the token volume mount file name for k8s jwt token.
-	K8sSAJwtFileName = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-
-	// K8sSATrustworthyJwtFileName is the token volume mount file name for k8s trustworthy jwt token.
-	K8sSATrustworthyJwtFileName = "/var/run/secrets/tokens/istio-token"
-
-	// K8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
-	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
-	K8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
+	// ThirdPartyJwtPath is the token volume mount file name for k8s trustworthy jwt token.
+	ThirdPartyJwtPath = "/var/run/secrets/tokens/istio-token"
 
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = credentials.SdsCaSuffix
@@ -210,9 +206,83 @@ func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 	return res
 }
 
+var fipsCiphers = []string{
+	"ECDHE-ECDSA-AES128-GCM-SHA256",
+	"ECDHE-RSA-AES128-GCM-SHA256",
+	"ECDHE-ECDSA-AES256-GCM-SHA384",
+	"ECDHE-RSA-AES256-GCM-SHA384",
+}
+
+var fipsGoCiphers = []uint16{
+	gotls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+	gotls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	gotls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+	gotls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+}
+
+func index(ciphers []string) map[string]struct{} {
+	out := make(map[string]struct{})
+	for _, cipher := range ciphers {
+		out[cipher] = struct{}{}
+	}
+	return out
+}
+
+var fipsCipherIndex = index(fipsCiphers)
+
+// EnforceGoCompliance limits the TLS settings to the compliant values.
+// This should be called as the last policy.
+func EnforceGoCompliance(ctx *gotls.Config) {
+	switch common_features.CompliancePolicy {
+	case "":
+		return
+	case common_features.FIPS_140_2:
+		ctx.MinVersion = gotls.VersionTLS12
+		ctx.MaxVersion = gotls.VersionTLS12
+		ctx.CipherSuites = fipsGoCiphers
+		ctx.CurvePreferences = []gotls.CurveID{gotls.CurveP256}
+		return
+	default:
+		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
+		return
+	}
+}
+
+// EnforceCompliance limits the TLS settings to the compliant values.
+// This should be called as the last policy.
+func EnforceCompliance(ctx *tls.CommonTlsContext) {
+	switch common_features.CompliancePolicy {
+	case "":
+		return
+	case common_features.FIPS_140_2:
+		if ctx.TlsParams == nil {
+			ctx.TlsParams = &tls.TlsParameters{}
+		}
+		ctx.TlsParams.TlsMinimumProtocolVersion = tls.TlsParameters_TLSv1_2
+		ctx.TlsParams.TlsMaximumProtocolVersion = tls.TlsParameters_TLSv1_2
+		// Default (unset) cipher suites field in the FIPS build of Envoy uses only the FIPS ciphers.
+		// Therefore, we only filter this field when it is set.
+		if len(ctx.TlsParams.CipherSuites) > 0 {
+			ciphers := []string{}
+			for _, cipher := range ctx.TlsParams.CipherSuites {
+				if _, ok := fipsCipherIndex[cipher]; ok {
+					ciphers = append(ciphers, cipher)
+				}
+			}
+			ctx.TlsParams.CipherSuites = ciphers
+		}
+		// Default (unset) is P-256
+		ctx.TlsParams.EcdhCurves = nil
+		return
+	default:
+		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
+		return
+	}
+}
+
 // ApplyToCommonTLSContext completes the commonTlsContext
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
-	subjectAltNames []string, trustDomainAliases []string, validateClient bool,
+	subjectAltNames []string, crl string, trustDomainAliases []string, validateClient bool,
 ) {
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
@@ -232,12 +302,23 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 
 	// configure server listeners with SDS.
 	if validateClient {
+		defaultValidationContext := &tls.CertificateValidationContext{
+			MatchSubjectAltNames: matchSAN,
+		}
+		if crl != "" {
+			defaultValidationContext.Crl = &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: crl,
+				},
+			}
+		}
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
+				DefaultValidationContext:         defaultValidationContext,
 				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
 			},
 		}
+
 	}
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),

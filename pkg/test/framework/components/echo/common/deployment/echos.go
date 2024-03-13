@@ -302,18 +302,18 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		defaultConfigs = append(defaultConfigs, dSvc, eSvc)
 	}
 
-	if !skipDeltaXDS(t) {
-		delta := echo.Config{
-			Service:        DeltaSvc,
+	if !t.Settings().Skip(echo.Sotw) {
+		sotw := echo.Config{
+			Service:        SotwSvc,
 			ServiceAccount: true,
 			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{{
 				Labels: map[string]string{label.SidecarInject.Name: "true"},
 				Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
-ISTIO_DELTA_XDS: "true"`),
+ISTIO_DELTA_XDS: "false"`),
 			}},
 		}
-		defaultConfigs = append(defaultConfigs, delta)
+		defaultConfigs = append(defaultConfigs, sotw)
 	}
 
 	if !t.Clusters().IsMulticluster() {
@@ -587,9 +587,4 @@ func Setup(apps *Echos, cfg Config) resource.SetupFn {
 
 		return nil
 	}
-}
-
-// TODO(nmittler): should ctx.Settings().Skip(echo.Delta) do all of this?
-func skipDeltaXDS(ctx resource.Context) bool {
-	return ctx.Settings().Skip(echo.Delta) || !ctx.Settings().Revisions.AtLeast("1.12")
 }

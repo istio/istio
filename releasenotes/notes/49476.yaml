@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issues:
+- 49476
+releaseNotes:
+- |
+  **Fixed** a bug for IPv6 only clusters that prevented ServiceEntry-based listeners from having correct SNI matches

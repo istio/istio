@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/ledger"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
@@ -1341,6 +1342,59 @@ func (node *Proxy) WorkloadEntry() (string, bool) {
 	node.RLock()
 	defer node.RUnlock()
 	return node.workloadEntryName, node.workloadEntryAutoCreated
+}
+
+// CloneWatchedResources clones the watched resources, both the keys and values are shallow copy.
+func (node *Proxy) CloneWatchedResources() map[string]*WatchedResource {
+	node.RLock()
+	defer node.RUnlock()
+	return maps.Clone(node.WatchedResources)
+}
+
+func (node *Proxy) GetWatchedResourceTypes() sets.String {
+	node.RLock()
+	defer node.RUnlock()
+
+	ret := sets.NewWithLength[string](len(node.WatchedResources))
+	for typeURL := range node.WatchedResources {
+		ret.Insert(typeURL)
+	}
+	return ret
+}
+
+func (node *Proxy) GetWatchedResource(typeURL string) *WatchedResource {
+	node.RLock()
+	defer node.RUnlock()
+
+	return node.WatchedResources[typeURL]
+}
+
+func (node *Proxy) AddOrUpdateWatchedResource(r *WatchedResource) {
+	if r == nil {
+		return
+	}
+	node.Lock()
+	defer node.Unlock()
+	node.WatchedResources[r.TypeUrl] = r
+}
+
+func (node *Proxy) UpdateWatchedResource(typeURL string, updateFn func(*WatchedResource) *WatchedResource) {
+	node.Lock()
+	defer node.Unlock()
+	r := node.WatchedResources[typeURL]
+	r = updateFn(r)
+	if r != nil {
+		node.WatchedResources[typeURL] = r
+	} else {
+		delete(node.WatchedResources, typeURL)
+	}
+}
+
+func (node *Proxy) DeleteWatchedResource(typeURL string) {
+	node.Lock()
+	defer node.Unlock()
+
+	delete(node.WatchedResources, typeURL)
 }
 
 // SupportsEnvoyExtendedJwt indicates that the proxy JWT extension is capable of

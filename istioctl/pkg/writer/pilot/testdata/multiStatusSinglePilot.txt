@@ -1,3 +1,0 @@
-NAME       CLUSTER      CDS       LDS        EDS        RDS          ECDS         ISTIOD      VERSION
-proxy1     cluster1     STALE     SYNCED     SYNCED     NOT SENT     NOT SENT     istiod1     1.1
-proxy2     cluster2     STALE     SYNCED     STALE      SYNCED       NOT SENT     istiod1     1.1

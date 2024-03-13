@@ -346,8 +346,8 @@ func (c Config) IsVM() bool {
 	return c.DeployAsVM
 }
 
-func (c Config) IsDelta() bool {
-	// TODO this doesn't hold if delta is on by default
+func (c Config) IsSotw() bool {
+	// TODO this doesn't hold if delta is off by default
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.Contains(c.Subsets[0].Annotations.Get(SidecarProxyConfig), "ISTIO_DELTA_XDS")
 }
 
@@ -560,9 +560,8 @@ func (c Config) WorkloadClass() WorkloadClass {
 		return External
 	} else if c.IsStatefulSet() {
 		return StatefulSet
-	} else if c.IsDelta() {
-		// TODO remove if delta is on by default
-		return Delta
+	} else if c.IsSotw() {
+		return Sotw
 	} else if c.ZTunnelCaptured() && !c.HasWaypointProxy() {
 		return Captured
 	}

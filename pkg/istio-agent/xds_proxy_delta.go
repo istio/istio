@@ -17,6 +17,7 @@ package istioagent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -28,11 +29,12 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
-	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/istio-agent/metrics"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/wasm"
 )
 
@@ -83,17 +85,18 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream)
 }
 
 func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
+	log := proxyLog.WithLabels("id", con.conID)
 	deltaUpstream, err := xds.DeltaAggregatedResources(ctx,
 		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
 		// Envoy logs errors again, so no need to log beyond debug level
-		proxyLog.Debugf("failed to create delta upstream grpc client: %v", err)
+		log.Debugf("failed to create delta upstream grpc client: %v", err)
 		// Increase metric when xds connection error, for example: forgot to restart ingressgateway or sidecar after changing root CA.
 		metrics.IstiodConnectionErrors.Increment()
 		return err
 	}
-	proxyLog.Infof("connected to delta upstream XDS server[%d]: %s", con.conID, p.istiodAddress)
-	defer proxyLog.Debugf("disconnected from delta XDS server[%d]: %s", con.conID, p.istiodAddress)
+	log.Infof("connected to delta upstream XDS server: %s", p.istiodAddress)
+	defer log.Debugf("disconnected from delta XDS server: %s", p.istiodAddress)
 
 	con.upstreamDeltas = deltaUpstream
 
@@ -118,34 +121,19 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 	for {
 		select {
 		case err := <-con.upstreamError:
-			// error from upstream Istiod.
-			if istiogrpc.IsExpectedGRPCError(err) {
-				proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
-				metrics.IstiodConnectionCancellations.Increment()
-			} else {
-				proxyLog.Warnf("upstream [%d] terminated with unexpected error %v", con.conID, err)
-				metrics.IstiodConnectionErrors.Increment()
-			}
 			return err
 		case err := <-con.downstreamError:
-			// error from downstream Envoy.
-			if istiogrpc.IsExpectedGRPCError(err) {
-				proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
-				metrics.EnvoyConnectionCancellations.Increment()
-			} else {
-				proxyLog.Warnf("downstream [%d] terminated with unexpected error %v", con.conID, err)
-				metrics.EnvoyConnectionErrors.Increment()
-			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
-			proxyLog.Debugf("stream [%d] stopped", con.conID)
+			log.Debugf("upstream stopped")
 			return nil
 		}
 	}
 }
 
 func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
+	log := proxyLog.WithLabels("id", con.conID)
 	initialRequestsSent := atomic.NewBool(false)
 	go func() {
 		for {
@@ -195,7 +183,13 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 				// only send healthcheck probe after LDS request has been sent
 				continue
 			}
-			proxyLog.Debugf("delta request for type url %s", req.TypeUrl)
+			log.WithLabels(
+				"type", v3.GetShortType(req.TypeUrl),
+				"sub", len(req.ResourceNamesSubscribe),
+				"unsub", len(req.ResourceNamesUnsubscribe),
+				"nonce", req.ResponseNonce,
+				"initial", len(req.InitialResourceVersions),
+			).Debugf("delta request")
 			metrics.XdsProxyRequests.Increment()
 			if req.TypeUrl == v3.ExtensionConfigurationType {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
@@ -218,7 +212,13 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 		select {
 		case resp := <-con.deltaResponsesChan:
 			// TODO: separate upstream response handling from requests sending, which are both time costly
-			proxyLog.Debugf("upstream [%d] response for type url %s", con.conID, resp.TypeUrl)
+			proxyLog.WithLabels(
+				"id", con.conID,
+				"type", v3.GetShortType(resp.TypeUrl),
+				"nonce", resp.Nonce,
+				"resources", len(resp.Resources),
+				"removes", len(resp.RemovedResources),
+			).Debugf("upstream response")
 			metrics.XdsProxyResponses.Increment()
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {
@@ -259,7 +259,11 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 					forwardDeltaToEnvoy(con, resp)
 				}
 			default:
-				forwardDeltaToEnvoy(con, resp)
+				if strings.HasPrefix(resp.TypeUrl, v3.DebugType) {
+					p.forwardDeltaToTap(resp)
+				} else {
+					forwardDeltaToEnvoy(con, resp)
+				}
 			}
 		case resp := <-forwardEnvoyCh:
 			forwardDeltaToEnvoy(con, resp)
@@ -292,7 +296,7 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 		resp.Resources[i].Resource = resources[i]
 	}
 
-	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
+	proxyLog.WithLabels("resources", slices.Map(resp.Resources, (*discovery.Resource).GetName), "removes", resp.RemovedResources).Debugf("forward ECDS")
 	forward(resp)
 }
 
@@ -302,7 +306,7 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 		return
 	}
 	if con.isClosed() {
-		proxyLog.Errorf("downstream [%d] dropped delta xds push to Envoy, connection already closed", con.conID)
+		proxyLog.WithLabels("id", con.conID).Errorf("downstream dropped delta xds push to Envoy, connection already closed")
 		return
 	}
 	if err := sendDownstreamDelta(con.downstreamDeltas, resp); err != nil {
@@ -332,4 +336,20 @@ func (p *XdsProxy) sendDeltaHealthRequest(req *discovery.DeltaDiscoveryRequest) 
 	// Otherwise place it as our initial request for new connections
 	p.initialDeltaHealthRequest = req
 	p.connectedMutex.Unlock()
+}
+
+func (p *XdsProxy) forwardDeltaToTap(resp *discovery.DeltaDiscoveryResponse) {
+	select {
+	// Convert back to a SotW response
+	case p.tapResponseChannel <- &discovery.DiscoveryResponse{
+		VersionInfo:  resp.SystemVersionInfo,
+		Resources:    slices.Map(resp.Resources, (*discovery.Resource).GetResource),
+		Canary:       false,
+		TypeUrl:      resp.TypeUrl,
+		Nonce:        resp.Nonce,
+		ControlPlane: resp.ControlPlane,
+	}:
+	default:
+		log.Infof("tap response %q arrived too late; discarding", resp.TypeUrl)
+	}
 }

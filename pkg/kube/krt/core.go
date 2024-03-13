@@ -32,6 +32,10 @@ type Collection[T any] interface {
 	// Note: not all T types have a "Namespace"; a non-empty namespace is only valid for types that do have a namespace.
 	List(namespace string) []T
 
+	EventStream[T]
+}
+
+type EventStream[T any] interface {
 	// Register adds an event watcher to the collection. Any time an item in the collection changes, the handler will be
 	// called. Typically, usage of Register is done internally in krt via composition of Collections with Transformations
 	// (NewCollection, NewManyCollection, NewSingleton); however, at boundaries of the system (connecting to something not
@@ -167,8 +171,4 @@ type Namer interface {
 // If implemented, this will be used to determine an objects' Namespace.
 type Namespacer interface {
 	GetNamespace() string
-}
-
-type labeler interface {
-	GetLabels() map[string]string
 }

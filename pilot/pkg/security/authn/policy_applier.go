@@ -264,6 +264,11 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 
 		authnLog.Debugf("JwksFetchMode is set to: %v", features.JwksFetchMode)
 
+		timeout := &durationpb.Duration{Seconds: 5}
+		if jwtRule.Timeout != nil {
+			timeout = jwtRule.Timeout
+		}
+
 		// Use Envoy remote jwks if jwksUri is not empty and JwksFetchMode not Istiod. Parse the jwksUri to get the
 		// cluster name, generate the jwt filter config using remote Jwks.
 		// If failed to parse the cluster name, only fallback to let istiod to fetch the jwksUri when
@@ -285,13 +290,13 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 							HttpUpstreamType: &core.HttpUri_Cluster{
 								Cluster: cluster,
 							},
-							Timeout: &durationpb.Duration{Seconds: 5},
+							Timeout: timeout,
 						},
 						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 					},
 				}
 			} else if features.JwksFetchMode == jwt.Hybrid {
-				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
+				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "", timeout.AsDuration())
 			} else {
 				model.IncLookupClusterFailures("jwks")
 				// Log error and create remote JWKs with fake cluster
@@ -305,7 +310,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 							HttpUpstreamType: &core.HttpUri_Cluster{
 								Cluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", jwksInfo.Hostname, jwksInfo.Port),
 							},
-							Timeout: &durationpb.Duration{Seconds: 5},
+							Timeout: timeout,
 						},
 						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 					},
@@ -313,7 +318,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			}
 		} else {
 			// Use inline jwks as existing flow, either jwtRule.jwks is empty or let istiod to fetch the jwtRule.jwksUri
-			provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks)
+			provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks, timeout.AsDuration())
 		}
 
 		name := fmt.Sprintf("origins-%d", i)

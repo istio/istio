@@ -23,6 +23,10 @@ defaults:
         memory: 2048Mi
     # Set to `type: RuntimeDefault` to use the default profile if available.
     seccompProfile: {}
+    # Whether to use an existing CNI installation
+    cni:
+      enabled: false
+      provider: default
     # Additional container arguments
     extraContainerArgs: []
     env: {}
@@ -40,6 +44,7 @@ defaults:
     nodeSelector: {}
     podAnnotations: {}
     serviceAnnotations: {}
+    serviceAccountAnnotations: {}
     topologySpreadConstraints: []
     # You can use jwksResolverExtraRootCA to provide a root certificate
     # in PEM format. This will then be trusted by pilot when resolving
@@ -129,6 +134,7 @@ defaults:
     # Sidecar injector mutating webhook configuration path value for the clientConfig.service field.
     # Override to pass env variables, for example: /inject/cluster/remote/net/network2
     injectionPath: "/inject"
+    injectionCABundle: ""
   telemetry:
     enabled: false
     v2:
@@ -207,9 +213,6 @@ defaults:
     logging:
       level: "default:info"
     omitSidecarInjectorConfigMap: true
-    # Whether to restrict the applications namespace the controller manages;
-    # If not set, controller watches all namespaces
-    oneNamespace: false
     # Configure whether Operator manages webhook configurations. The current behavior
     # of Istiod is to manage its own webhook configurations.
     # When this option is set as true, Istio Operator, instead of webhooks, manages the
@@ -293,9 +296,9 @@ defaults:
           memory: 1024Mi
       # Default port for Pilot agent health checks. A value of 0 will disable health checking.
       statusPort: 15020
-      # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
+      # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver, none.
       # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
-      tracer: "zipkin"
+      tracer: "none"
     proxy_init:
       # Base name for the proxy_init container, used to configure iptables.
       image: proxyv2
@@ -316,9 +319,8 @@ defaults:
     externalIstiod: true
     # Configure a remote cluster as the config cluster for an external istiod.
     configCluster: false
-    # Configure the policy for validating JWT.
-    # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
-    jwtPolicy: "third-party-jwt"
+    # configValidation enables the validation webhook for Istio configuration.
+    configValidation: true
     # Mesh ID means Mesh Identifier. It should be unique within the scope where
     # meshes will interact with each other, but it is not required to be
     # globally/universally unique. For example, if any of the following are true,
@@ -410,7 +412,8 @@ defaults:
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
-    #  keep in sync with settings used when installing the Istio CNI chart
+  # `istio_cni` has been deprecated and will be removed in a future release. use `pilot.cni` instead
   istio_cni:
-    enabled: false
+    # `chained` has been deprecated and will be removed in a future release. use `provider` instead
     chained: true
+    provider: default

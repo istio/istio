@@ -56,8 +56,8 @@ templates:
         kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
         {{- end }}
         {{- end }}
-    {{- if .Values.istio_cni.enabled }}
-        {{- if not .Values.istio_cni.chained }}
+    {{- if or .Values.pilot.cni.enabled .Values.istio_cni.enabled }}
+        {{- if or (eq .Values.pilot.cni.provider "multus") (eq .Values.istio_cni.provider "multus") (not .Values.istio_cni.chained)}}
         k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `default/istio-cni` }}',
         {{- end }}
         sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}",
@@ -81,7 +81,7 @@ templates:
           (not $nativeSidecar) }}
       initContainers:
       {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-      {{ if .Values.istio_cni.enabled -}}
+      {{ if or .Values.pilot.cni.enabled .Values.istio_cni.enabled -}}
       - name: istio-validation
       {{ else -}}
       - name: istio-init
@@ -133,7 +133,7 @@ templates:
         {{ if .Values.global.logAsJson -}}
         - "--log_as_json"
         {{ end -}}
-        {{ if .Values.istio_cni.enabled -}}
+        {{ if or .Values.pilot.cni.enabled .Values.istio_cni.enabled -}}
         - "--run-validation"
         - "--skip-rule-apply"
         {{ end -}}
@@ -151,14 +151,14 @@ templates:
           allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
           privileged: {{ .Values.global.proxy.privileged }}
           capabilities:
-        {{- if not .Values.istio_cni.enabled }}
+        {{- if not (or .Values.pilot.cni.enabled .Values.istio_cni.enabled) }}
             add:
             - NET_ADMIN
             - NET_RAW
         {{- end }}
             drop:
             - ALL
-        {{- if not .Values.istio_cni.enabled }}
+        {{- if not (or .Values.pilot.cni.enabled .Values.istio_cni.enabled) }}
           readOnlyRootFilesystem: false
           runAsGroup: 0
           runAsNonRoot: false
@@ -253,8 +253,6 @@ templates:
         - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
           value: "true"
         {{- end }}
-        - name: JWT_POLICY
-          value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
         - name: CA_ADDR
@@ -313,6 +311,10 @@ templates:
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+        {{- if .CompliancePolicy }}
+        - name: COMPLIANCE_POLICY
+          value: "{{ .CompliancePolicy }}"
+        {{- end }}
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
         - name: ISTIO_META_NODE_NAME
@@ -449,10 +451,8 @@ templates:
         # SDS channel between istioagent and Envoy
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        {{- end }}
         {{- if .Values.global.mountMtlsCerts }}
         # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
         - mountPath: /etc/certs/
@@ -505,7 +505,6 @@ templates:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -513,7 +512,6 @@ templates:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
-      {{- end }}
       {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
         configMap:
@@ -605,8 +603,6 @@ templates:
           runAsUser: {{ .ProxyUID | default "1337" }}
           runAsGroup: {{ .ProxyGID | default "1337" }}
         env:
-        - name: JWT_POLICY
-          value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
         - name: CA_ADDR
@@ -663,6 +659,10 @@ templates:
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+        {{- if .CompliancePolicy }}
+        - name: COMPLIANCE_POLICY
+          value: "{{ .CompliancePolicy }}"
+        {{- end }}
         - name: ISTIO_META_APP_CONTAINERS
           value: "{{ $containers | join "," }}"
         - name: ISTIO_META_CLUSTER_ID
@@ -731,10 +731,8 @@ templates:
         # SDS channel between istioagent and Envoy
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        {{- end }}
         {{- if .Values.global.mountMtlsCerts }}
         # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
         - mountPath: /etc/certs/
@@ -771,7 +769,6 @@ templates:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -779,7 +776,6 @@ templates:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
-      {{- end }}
       {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
         configMap:
@@ -956,8 +952,6 @@ templates:
         - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
           value: "true"
         {{- end }}
-        - name: JWT_POLICY
-          value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
         - name: CA_ADDR
@@ -1074,10 +1068,8 @@ templates:
         # UDS channel between istioagent and gRPC client for XDS/SDS
         - mountPath: /etc/istio/proxy
           name: istio-xds
-        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        {{- end }}
         {{- if .Values.global.mountMtlsCerts }}
         # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
         - mountPath: /etc/certs/
@@ -1148,7 +1140,6 @@ templates:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -1156,7 +1147,6 @@ templates:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
-      {{- end }}
       {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
         configMap:
@@ -1301,8 +1291,6 @@ templates:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            - name: JWT_POLICY
-              value: {{ .Values.global.jwtPolicy }}
             - name: PILOT_CERT_PROVIDER
               value: {{ .Values.global.pilotCertProvider }}
             - name: CA_ADDR
@@ -1636,8 +1624,6 @@ templates:
               {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}
           {{- end }}
             env:
-            - name: JWT_POLICY
-              value: {{ .Values.global.jwtPolicy }}
             - name: PILOT_CERT_PROVIDER
               value: {{ .Values.global.pilotCertProvider }}
             - name: CA_ADDR
@@ -1762,10 +1748,8 @@ templates:
             # SDS channel between istioagent and Envoy
             - mountPath: /etc/istio/proxy
               name: istio-envoy
-            {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
             - mountPath: /var/run/secrets/tokens
               name: istio-token
-            {{- end }}
             - name: istio-podinfo
               mountPath: /etc/istio/pod
           volumes:
@@ -1796,7 +1780,6 @@ templates:
                 - path: "annotations"
                   fieldRef:
                     fieldPath: metadata.annotations
-          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             projected:
               sources:
@@ -1804,7 +1787,6 @@ templates:
                   path: istio-token
                   expirationSeconds: 43200
                   audience: {{ .Values.global.sds.token.aud }}
-          {{- end }}
           {{- if eq .Values.global.pilotCertProvider "istiod" }}
           - name: istiod-ca-cert
             configMap:

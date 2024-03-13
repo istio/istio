@@ -49,8 +49,6 @@ spec:
       runAsUser: {{ .ProxyUID | default "1337" }}
       runAsGroup: {{ .ProxyGID | default "1337" }}
     env:
-    - name: JWT_POLICY
-      value: {{ .Values.global.jwtPolicy }}
     - name: PILOT_CERT_PROVIDER
       value: {{ .Values.global.pilotCertProvider }}
     - name: CA_ADDR
@@ -107,6 +105,10 @@ spec:
       valueFrom:
         resourceFieldRef:
           resource: limits.cpu
+    {{- if .CompliancePolicy }}
+    - name: COMPLIANCE_POLICY
+      value: "{{ .CompliancePolicy }}"
+    {{- end }}
     - name: ISTIO_META_APP_CONTAINERS
       value: "{{ $containers | join "," }}"
     - name: ISTIO_META_CLUSTER_ID
@@ -175,10 +177,8 @@ spec:
     # SDS channel between istioagent and Envoy
     - mountPath: /etc/istio/proxy
       name: istio-envoy
-    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
-    {{- end }}
     {{- if .Values.global.mountMtlsCerts }}
     # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
     - mountPath: /etc/certs/
@@ -215,7 +215,6 @@ spec:
         - path: "annotations"
           fieldRef:
             fieldPath: metadata.annotations
-  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:
       sources:
@@ -223,7 +222,6 @@ spec:
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
-  {{- end }}
   {{- if eq .Values.global.pilotCertProvider "istiod" }}
   - name: istiod-ca-cert
     configMap:

@@ -64,6 +64,14 @@ const (
 			{ "kid": "fakeKey1_2", "alg": "RS256", "kty": "RSA", "n": "123", "e": "456", "bla": "blah" } ] }`
 )
 
+// Wrap the original handler with a delay
+func withDelay(handler http.Handler, delay time.Duration) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(delay)
+		handler.ServeHTTP(w, r)
+	})
+}
+
 // MockOpenIDDiscoveryServer is the in-memory openID discovery server.
 type MockOpenIDDiscoveryServer struct {
 	Port   int
@@ -97,6 +105,9 @@ type MockOpenIDDiscoveryServer struct {
 	// If both TLSKeyFile and TLSCertFile are set, Start() will attempt to start a HTTPS server.
 	TLSKeyFile  string
 	TLSCertFile string
+
+	// Artificious delay added by the mock server on handling requests
+	timeout time.Duration
 }
 
 // StartNewServer creates a mock openID discovery server and starts it
@@ -108,6 +119,21 @@ func StartNewServer() (*MockOpenIDDiscoveryServer, error) {
 		// 0 means the mock server always return the success result.
 		ReturnErrorForFirstNumHits:   0,
 		ReturnErrorAfterFirstNumHits: 0,
+	}
+
+	return server, server.Start()
+}
+
+// StartNewServer creates a mock openID discovery server with an artificious timeout on handling requests and starts it
+func StartNewServerWithHandlerDelay(timeout time.Duration) (*MockOpenIDDiscoveryServer, error) {
+	serverMutex.Lock()
+	defer serverMutex.Unlock()
+
+	server := &MockOpenIDDiscoveryServer{
+		// 0 means the mock server always return the success result.
+		ReturnErrorForFirstNumHits:   0,
+		ReturnErrorAfterFirstNumHits: 0,
+		timeout:                      timeout,
 	}
 
 	return server, server.Start()
@@ -132,13 +158,17 @@ func StartNewTLSServer(tlsCert, tlsKey string) (*MockOpenIDDiscoveryServer, erro
 
 // Start starts the mock server.
 func (ms *MockOpenIDDiscoveryServer) Start() error {
+	var handler http.Handler
 	router := mux.NewRouter()
 	router.HandleFunc("/.well-known/openid-configuration", ms.openIDCfg).Methods("GET")
 	router.HandleFunc("/oauth2/v3/certs", ms.jwtPubKey).Methods("GET")
-
+	handler = router
+	if ms.timeout != 0 {
+		handler = withDelay(router, ms.timeout)
+	}
 	server := &http.Server{
 		Addr:    ":" + strconv.Itoa(ms.Port),
-		Handler: router,
+		Handler: handler,
 	}
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {

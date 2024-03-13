@@ -54,9 +54,9 @@ import (
 func IsL7() echo.Checker {
 	return check.Each(func(r echot.Response) error {
 		// TODO: response headers?
-		_, f := r.RequestHeaders[http.CanonicalHeaderKey("x-b3-traceid")]
+		_, f := r.RequestHeaders[http.CanonicalHeaderKey("X-Request-Id")]
 		if !f {
-			return fmt.Errorf("x-b3-traceid not set, is L7 processing enabled?")
+			return fmt.Errorf("X-Request-Id not set, is L7 processing enabled?")
 		}
 		return nil
 	})
@@ -65,9 +65,9 @@ func IsL7() echo.Checker {
 func IsL4() echo.Checker {
 	return check.Each(func(r echot.Response) error {
 		// TODO: response headers?
-		_, f := r.RequestHeaders[http.CanonicalHeaderKey("x-b3-traceid")]
+		_, f := r.RequestHeaders[http.CanonicalHeaderKey("X-Request-Id")]
 		if f {
-			return fmt.Errorf("x-b3-traceid set, is L7 processing enabled unexpectedly?")
+			return fmt.Errorf("X-Request-Id set, is L7 processing enabled unexpectedly?")
 		}
 		return nil
 	})
@@ -1652,31 +1652,33 @@ spec:
       http: {{.IngressHttpPort}}`).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
-			ip, port := istio.DefaultIngressOrFail(t, t).HTTPAddress()
+			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
 				tc := tc
-				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
-					echotest.
-						New(t, apps.All).
-						// TODO eventually we can do this for uncaptured -> l7
-						FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
-							Name:      "uncaptured",
-							Namespace: apps.Namespace,
-						}))).
-						Config(cfg.WithParams(param.Params{
-							"Resolution":      tc.resolution.String(),
-							"Location":        tc.location.String(),
-							"IngressIp":       ip,
-							"IngressHttpPort": port,
-						})).
-						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
-							from.CallOrFail(t, echo.CallOptions{
-								Address: "111.111.222.222",
-								Port:    to.PortForName("http"),
+				for i, ip := range ips {
+					t.NewSubTestf("%s %s %s", tc.location, tc.resolution, ip).Run(func(t framework.TestContext) {
+						echotest.
+							New(t, apps.All).
+							// TODO eventually we can do this for uncaptured -> l7
+							FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
+								Name:      "uncaptured",
+								Namespace: apps.Namespace,
+							}))).
+							Config(cfg.WithParams(param.Params{
+								"Resolution":      tc.resolution.String(),
+								"Location":        tc.location.String(),
+								"IngressIp":       ip,
+								"IngressHttpPort": ports[i],
+							})).
+							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+								from.CallOrFail(t, echo.CallOptions{
+									Address: "111.111.222.222",
+									Port:    to.PortForName("http"),
+								})
 							})
-						})
-				})
+					})
+				}
 			}
 		})
 }
@@ -1768,31 +1770,34 @@ spec:
       app: selected`).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
-			ip, port := istio.DefaultIngressOrFail(t, t).HTTPAddress()
+			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
 				tc := tc
-				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
-					echotest.
-						New(t, apps.All).
-						// TODO eventually we can do this for uncaptured -> l7
-						FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
-							Name:      "uncaptured",
-							Namespace: apps.Namespace,
-						}))).
-						Config(cfg.WithParams(param.Params{
-							"Resolution":      tc.resolution.String(),
-							"Location":        tc.location.String(),
-							"IngressIp":       ip,
-							"IngressHttpPort": port,
-						})).
-						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
-							from.CallOrFail(t, echo.CallOptions{
-								Address: "111.111.222.222",
-								Port:    to.PortForName("http"),
+				for i, ip := range ips {
+					t.NewSubTestf("%s %s %s", tc.location, tc.resolution, ip).Run(func(t framework.TestContext) {
+						echotest.
+							New(t, apps.All).
+							// TODO eventually we can do this for uncaptured -> l7
+							FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
+								Name:      "uncaptured",
+								Namespace: apps.Namespace,
+							}))).
+							Config(cfg.WithParams(param.Params{
+								"Resolution":      tc.resolution.String(),
+								"Location":        tc.location.String(),
+								"IngressIp":       ip,
+								"IngressHttpPort": ports[i],
+							})).
+							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+								from.CallOrFail(t, echo.CallOptions{
+									Address: "111.111.222.222",
+									Port:    to.PortForName("http"),
+								})
 							})
-						})
-				})
+					})
+				}
+
 			}
 		})
 }

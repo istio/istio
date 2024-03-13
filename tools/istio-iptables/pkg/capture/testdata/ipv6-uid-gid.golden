@@ -57,3 +57,5 @@ ip6tables -t nat -I PREROUTING 1 -i eth0 -d 2001:db8::/32 -j ISTIO_REDIRECT
 ip6tables -t nat -I PREROUTING 1 -i eth1 -d 2001:db8::/32 -j ISTIO_REDIRECT
 ip6tables -t nat -A ISTIO_OUTPUT -d 2001:db8::/32 -j ISTIO_REDIRECT
 ip6tables -t nat -A ISTIO_OUTPUT -j RETURN
+iptables-save
+ip6tables-save

@@ -562,7 +562,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		format = negotiateMetricsFormat(contentType)
 	} else {
 		// Without app metrics format use a default
-		format = expfmt.FmtText
+		format = FmtText
 	}
 
 	w.Header().Set("Content-Type", string(format))
@@ -592,22 +592,30 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+const (
+	// nolint: revive, stylecheck
+	FmtOpenMetrics_0_0_1 = expfmt.OpenMetricsType + `; version=` + expfmt.OpenMetricsVersion_0_0_1 + `; charset=utf-8`
+	// nolint: revive, stylecheck
+	FmtOpenMetrics_1_0_0 = expfmt.OpenMetricsType + `; version=` + expfmt.OpenMetricsVersion_1_0_0 + `; charset=utf-8`
+	FmtText              = `text/plain; version=` + expfmt.TextVersion + `; charset=utf-8`
+)
+
 func negotiateMetricsFormat(contentType string) expfmt.Format {
 	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err == nil && mediaType == expfmt.OpenMetricsType {
 		switch params["version"] {
 		case expfmt.OpenMetricsVersion_1_0_0:
-			return expfmt.FmtOpenMetrics_1_0_0
+			return FmtOpenMetrics_1_0_0
 		case expfmt.OpenMetricsVersion_0_0_1, "":
-			return expfmt.FmtOpenMetrics_0_0_1
+			return FmtOpenMetrics_0_0_1
 		}
 	}
-	return expfmt.FmtText
+	return FmtText
 }
 
 func scrapeAndWriteAgentMetrics(registry prometheus.Gatherer, w io.Writer) error {
 	mfs, err := registry.Gather()
-	enc := expfmt.NewEncoder(w, expfmt.FmtText)
+	enc := expfmt.NewEncoder(w, FmtText)
 	if err != nil {
 		return err
 	}

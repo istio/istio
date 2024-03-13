@@ -1082,8 +1082,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 		}
 
 		// We need to compute this namespace
-		computed := DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
-		ps.sidecarIndex.defaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
+		computed := DefaultSidecarScopeForGateway(ps, proxy.ConfigNamespace)
 		return computed
 	case SidecarProxy:
 		if hasSidecar {
@@ -1305,7 +1304,7 @@ func (ps *PushContext) updateContext(
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
-		case kind.ServiceEntry:
+		case kind.ServiceEntry, kind.DNSName:
 			servicesChanged = true
 		case kind.DestinationRule:
 			destinationRulesChanged = true
@@ -1446,7 +1445,11 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		}
 		shards, ok := env.EndpointIndex.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
 		if ok {
-			ps.ServiceIndex.instancesByPort[svcKey] = shards.CopyEndpoints(portMap)
+			instancesByPort := shards.CopyEndpoints(portMap)
+			// Iterate over the instances and add them to the service index to avoid overiding the existing port instances.
+			for port, instances := range instancesByPort {
+				ps.ServiceIndex.instancesByPort[svcKey][port] = instances
+			}
 		}
 		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
@@ -1671,12 +1674,6 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 	}
 
 	totalVirtualServices.Record(float64(len(virtualServices)))
-
-	// TODO(rshriram): parse each virtual service and maintain a map of the
-	// virtualservice name, the list of registry hosts in the VS and non
-	// registry DNS names in the VS.  This should cut down processing in
-	// the RDS code. See separateVSHostsAndServices in route/route.go
-	sortConfigByCreationTime(vservices)
 
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
@@ -2179,6 +2176,24 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		matchedEnvoyFilters = append(matchedEnvoyFilters, matched...)
 	}
 
+	sort.Slice(matchedEnvoyFilters, func(i, j int) bool {
+		ifilter := matchedEnvoyFilters[i]
+		jfilter := matchedEnvoyFilters[j]
+		if ifilter.Priority != jfilter.Priority {
+			return ifilter.Priority < jfilter.Priority
+		}
+		// Prefer root namespace filters over non-root namespace filters.
+		if ifilter.Namespace != jfilter.Namespace &&
+			(ifilter.Namespace == ps.Mesh.RootNamespace || jfilter.Namespace == ps.Mesh.RootNamespace) {
+			return ifilter.Namespace == ps.Mesh.RootNamespace
+		}
+		if ifilter.creationTime != jfilter.creationTime {
+			return ifilter.creationTime.Before(jfilter.creationTime)
+		}
+		in := ifilter.Name + "." + ifilter.Namespace
+		jn := jfilter.Name + "." + jfilter.Namespace
+		return in < jn
+	})
 	var out *EnvoyFilterWrapper
 	if len(matchedEnvoyFilters) > 0 {
 		out = &EnvoyFilterWrapper{
@@ -2431,6 +2446,6 @@ func (ps *PushContext) WaypointsFor(scope WaypointScope) []netip.Addr {
 }
 
 // WorkloadsForWaypoint returns all workloads associated with a given WaypointScope
-func (ps *PushContext) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
+func (ps *PushContext) WorkloadsForWaypoint(scope WaypointScope) []WorkloadInfo {
 	return ps.ambientIndex.WorkloadsForWaypoint(scope)
 }

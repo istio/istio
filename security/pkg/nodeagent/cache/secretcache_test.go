@@ -670,7 +670,7 @@ func TestProxyConfigAnchorsTriggerWorkloadCertUpdate(t *testing.T) {
 	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
 	u.Reset()
 
-	rotateTime = func(item security.SecretItem, gracePeriodRatio float64) time.Duration {
+	rotateTime = func(_ security.SecretItem, _ float64) time.Duration {
 		return time.Millisecond * 200
 	}
 	fakeCACli, err = mock.NewMockCAClient(time.Millisecond*200, false)

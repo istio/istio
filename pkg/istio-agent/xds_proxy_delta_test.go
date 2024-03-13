@@ -105,6 +105,7 @@ func sendDeltaDownstreamWithNode(t *testing.T, downstream discovery.AggregatedDi
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if res == nil || res.TypeUrl != v3.ClusterType {
 		t.Fatalf("Expected to get cluster response but got %v", res)
 	}

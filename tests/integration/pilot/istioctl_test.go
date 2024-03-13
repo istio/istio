@@ -292,6 +292,7 @@ func TestProxyStatus(t *testing.T) {
 		RequiresSingleCluster().
 		RequiresLocalControlPlane(). // https://github.com/istio/istio/issues/37051
 		Run(func(t framework.TestContext) {
+			const timeoutFlag = "--timeout=10s"
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
 			podID, err := getPodID(apps.A[0])
@@ -311,14 +312,14 @@ func TestProxyStatus(t *testing.T) {
 				return nil
 			}
 			retry.UntilSuccessOrFail(t, func() error {
-				args = []string{"proxy-status"}
+				args = []string{"proxy-status", timeoutFlag}
 				output, _ = istioCtl.InvokeOrFail(t, args)
 				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
 			})
 
 			retry.UntilSuccessOrFail(t, func() error {
 				args = []string{
-					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
+					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), timeoutFlag,
 				}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
@@ -341,7 +342,7 @@ func TestProxyStatus(t *testing.T) {
 					return err
 				}
 				args = []string{
-					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename,
+					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename, timeoutFlag,
 				}
 				output, _, err = istioCtl.Invoke(args)
 				if err != nil {
@@ -352,86 +353,8 @@ func TestProxyStatus(t *testing.T) {
 
 			// test namespace filtering
 			retry.UntilSuccessOrFail(t, func() error {
-				args = []string{"proxy-status", "-n", apps.Namespace.Name()}
+				args = []string{"proxy-status", "-n", apps.Namespace.Name(), timeoutFlag}
 				output, _ = istioCtl.InvokeOrFail(t, args)
-				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
-			})
-		})
-}
-
-// This is the same as TestProxyStatus, except we do the experimental version
-func TestXdsProxyStatus(t *testing.T) {
-	// nolint: staticcheck
-	framework.NewTest(t).Features("usability.observability.proxy-status").
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			const timeoutFlag = "--timeout=10s"
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
-
-			podID, err := getPodID(apps.A[0])
-			if err != nil {
-				t.Fatalf("Could not get Pod ID: %v", err)
-			}
-
-			g := NewWithT(t)
-
-			expectSubstrings := func(have string, wants ...string) error {
-				for _, want := range wants {
-					if !strings.Contains(have, want) {
-						return fmt.Errorf("substring %q not found; have %q", want, have)
-					}
-				}
-				return nil
-			}
-
-			retry.UntilSuccessOrFail(t, func() error {
-				args := []string{"x", "proxy-status", timeoutFlag}
-				output, _, err := istioCtl.Invoke(args)
-				if err != nil {
-					return err
-				}
-				// Just verify pod A is known to Pilot; implicitly this verifies that
-				// the printing code printed it.
-				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
-			})
-
-			retry.UntilSuccessOrFail(t, func() error {
-				args := []string{
-					"x", "proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), timeoutFlag,
-				}
-				output, _, err := istioCtl.Invoke(args)
-				if err != nil {
-					return err
-				}
-				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
-			})
-
-			// test the --file param
-			retry.UntilSuccessOrFail(t, func() error {
-				d := t.TempDir()
-				filename := filepath.Join(d, "ps-configdump.json")
-				cs := t.Clusters().Default()
-				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump")
-				g.Expect(err).ShouldNot(HaveOccurred())
-				err = os.WriteFile(filename, dump, os.ModePerm)
-				g.Expect(err).ShouldNot(HaveOccurred())
-				args := []string{
-					"x", "proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename, timeoutFlag,
-				}
-				output, _, err := istioCtl.Invoke(args)
-				if err != nil {
-					return err
-				}
-				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
-			})
-
-			// test namespace filtering
-			retry.UntilSuccessOrFail(t, func() error {
-				args := []string{"x", "proxy-status", "-n", apps.Namespace.Name()}
-				output, _, err := istioCtl.Invoke(args)
-				if err != nil {
-					return err
-				}
 				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
 			})
 		})

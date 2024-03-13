@@ -56,7 +56,7 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 		return nil
 	}))
 	p.webhooks = kclient.NewFiltered[*admissionregistrationv1.MutatingWebhookConfiguration](client, kubetypes.Filter{
-		ObjectFilter: isTagWebhook,
+		ObjectFilter: kubetypes.NewStaticObjectFilter(isTagWebhook),
 	})
 	p.index = kclient.CreateIndexWithDelegate[string, *admissionregistrationv1.MutatingWebhookConfiguration](p.webhooks,
 		func(o *admissionregistrationv1.MutatingWebhookConfiguration) []string {
