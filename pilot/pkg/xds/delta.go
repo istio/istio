@@ -468,6 +468,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	switch g := gen.(type) {
 	case model.XdsDeltaResourceGenerator:
 		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, req, w)
+		log.Errorf("howardjohn: %v %v", res, deletedRes)
 		if features.EnableUnsafeDeltaTest {
 			fullRes, l, _ := g.Generate(con.proxy, originalW, req)
 			s.compareDiff(con, originalW, fullRes, res, deletedRes, usedDelta, req.Delta, l.Incremental)
@@ -502,17 +503,19 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		removed := subscribed.DeleteAll(currentResources...)
 		resp.RemovedResources = sets.SortedList(removed)
 	}
+	if shouldSetWatchedResources(w) {
+		// this is probably a bad idea...
+		con.proxy.Lock()
+		log.Errorf("howardjohn:\n%v\n%v", w.ResourceNames, sets.SortedList(sets.New(w.ResourceNames...).DeleteAll(resp.RemovedResources...).InsertAll(currentResources...)))
+		// TODO is locking here right?? can't be
+		w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).DeleteAll(resp.RemovedResources...).InsertAll(currentResources...))
+		con.proxy.Unlock()
+	}
 	if neverRemoveDelta(w.TypeUrl) {
 		resp.RemovedResources = nil
 	}
 	if len(resp.RemovedResources) > 0 {
 		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
-	}
-	if shouldSetWatchedResources(w) {
-		// this is probably a bad idea...
-		con.proxy.Lock()
-		w.ResourceNames = currentResources
-		con.proxy.Unlock()
 	}
 
 	configSize := ResourceSize(res)
