@@ -4693,13 +4693,13 @@ func TestValidateEnvoyFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			warn, err := ValidateEnvoyFilter(config.Config{
+			warn, err := validateEnvoyFilter(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
 				},
 				Spec: tt.in,
-			})
+			}, Validation{})
 			checkValidationMessage(t, warn, err, tt.warning, tt.error)
 		})
 	}
