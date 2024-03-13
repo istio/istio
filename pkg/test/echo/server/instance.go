@@ -275,7 +275,9 @@ func (s *Instance) startMetricsServer() {
 		log.Errorf("could not set up prometheus exporter: %v", err)
 		return
 	}
-	mux.Handle("/metrics", LogRequests(exporter))
+	if exporter != nil {
+		mux.Handle("/metrics", LogRequests(exporter))
+	}
 	s.metricsServer = &http.Server{
 		Handler: mux,
 	}

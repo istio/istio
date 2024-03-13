@@ -60,7 +60,9 @@ func addMonitor(mux *http.ServeMux) error {
 	if err != nil {
 		return fmt.Errorf("could not set up prometheus exporter: %v", err)
 	}
-	mux.Handle(metricsPath, exporter)
+	if exporter != nil {
+		mux.Handle(metricsPath, exporter)
+	}
 
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, err := out.Write([]byte(version.Info.String())); err != nil {

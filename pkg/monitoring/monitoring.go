@@ -15,14 +15,10 @@
 package monitoring
 
 import (
-	"net/http"
 	"sync"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
 	api "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
 
@@ -41,36 +37,6 @@ var (
 
 func init() {
 	otel.SetLogger(log.NewLogrAdapter(monitoringLogger))
-}
-
-// RegisterPrometheusExporter sets the global metrics handler to the provided Prometheus registerer and gatherer.
-// Returned is an HTTP handler that can be used to read metrics from.
-func RegisterPrometheusExporter(reg prometheus.Registerer, gatherer prometheus.Gatherer) (http.Handler, error) {
-	if reg == nil {
-		reg = prometheus.DefaultRegisterer
-	}
-	if gatherer == nil {
-		gatherer = prometheus.DefaultGatherer
-	}
-	promOpts := []otelprom.Option{
-		otelprom.WithoutScopeInfo(),
-		otelprom.WithoutTargetInfo(),
-		otelprom.WithoutUnits(),
-		otelprom.WithRegisterer(reg),
-		otelprom.WithoutCounterSuffixes(),
-	}
-
-	prom, err := otelprom.New(promOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	opts := []metric.Option{metric.WithReader(prom)}
-	opts = append(opts, knownMetrics.toHistogramViews()...)
-	mp := metric.NewMeterProvider(opts...)
-	otel.SetMeterProvider(mp)
-	handler := promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{})
-	return handler, nil
 }
 
 // A Metric collects numerical observations.

@@ -40,7 +40,9 @@ func SetupMonitoring(port int, path string, stop <-chan struct{}) {
 		log.Errorf("could not set up prometheus exporter: %v", err)
 		return
 	}
-	mux.Handle(path, exporter)
+	if exporter != nil {
+		mux.Handle(path, exporter)
+	}
 	monitoringServer := &http.Server{
 		Handler: mux,
 	}
