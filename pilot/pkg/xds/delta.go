@@ -432,9 +432,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 }
 
 // Push a Delta XDS resource for the given connection.
-func (s *DiscoveryServer) pushDeltaXds(con *Connection,
-	w *model.WatchedResource, req *model.PushRequest,
-) error {
+func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource, req *model.PushRequest) error {
 	if w == nil {
 		return nil
 	}
@@ -503,11 +501,14 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		resp.RemovedResources = sets.SortedList(removed)
 	}
 	if shouldSetWatchedResources(w) {
-		// this is probably a bad idea...
-		con.proxy.Lock()
-		// TODO is locking here right?? can't be
-		w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).DeleteAll(resp.RemovedResources...).InsertAll(currentResources...))
-		con.proxy.Unlock()
+		if usedDelta {
+			// Apply the delta
+			w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).
+				DeleteAll(resp.RemovedResources...).
+				InsertAll(currentResources...))
+		} else {
+			w.ResourceNames = currentResources
+		}
 	}
 	if neverRemoveDelta(w.TypeUrl) {
 		resp.RemovedResources = nil
