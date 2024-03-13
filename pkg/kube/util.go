@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" //  allow out of cluster authentication
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -245,16 +246,14 @@ func CheckPodReady(pod *corev1.Pod) error {
 }
 
 // GetDeployMetaFromPod heuristically derives deployment metadata from the pod spec.
-func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) {
+func GetDeployMetaFromPod(pod *corev1.Pod) (types.NamespacedName, metav1.TypeMeta) {
 	if pod == nil {
-		return metav1.ObjectMeta{}, metav1.TypeMeta{}
+		return types.NamespacedName{}, metav1.TypeMeta{}
 	}
 	// try to capture more useful namespace/name info for deployments, etc.
 	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
 
-	deployMeta := pod.ObjectMeta
-	deployMeta.ManagedFields = nil
-	deployMeta.OwnerReferences = nil
+	deployMeta := types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}
 
 	typeMetadata := metav1.TypeMeta{
 		Kind:       "Pod",
@@ -300,14 +299,6 @@ func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) 
 				// https://github.com/openshift/library-go/blob/7a65fdb398e28782ee1650959a5e0419121e97ae/pkg/apps/appsutil/const.go#L25
 				deployMeta.Name = pod.Labels["deploymentconfig"]
 				typeMetadata.Kind = "DeploymentConfig"
-
-				// Deep copy the labels except the 'deploymentconfig' one
-				deployMeta.Labels = make(map[string]string, len(pod.Labels))
-				for k, v := range pod.Labels {
-					if k != "deploymentconfig" {
-						deployMeta.Labels[k] = v
-					}
-				}
 			} else if typeMetadata.Kind == "Job" {
 				// If job name suffixed with `-<digit-timestamp>`, where the length of digit timestamp is 8~10,
 				// trim the suffix and set kind to cron job.
