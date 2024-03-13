@@ -468,7 +468,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	switch g := gen.(type) {
 	case model.XdsDeltaResourceGenerator:
 		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, req, w)
-		log.Errorf("howardjohn: %v %v", res, deletedRes)
 		if features.EnableUnsafeDeltaTest {
 			fullRes, l, _ := g.Generate(con.proxy, originalW, req)
 			s.compareDiff(con, originalW, fullRes, res, deletedRes, usedDelta, req.Delta, l.Incremental)
@@ -506,7 +505,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	if shouldSetWatchedResources(w) {
 		// this is probably a bad idea...
 		con.proxy.Lock()
-		log.Errorf("howardjohn:\n%v\n%v", w.ResourceNames, sets.SortedList(sets.New(w.ResourceNames...).DeleteAll(resp.RemovedResources...).InsertAll(currentResources...)))
 		// TODO is locking here right?? can't be
 		w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).DeleteAll(resp.RemovedResources...).InsertAll(currentResources...))
 		con.proxy.Unlock()

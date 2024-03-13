@@ -72,13 +72,12 @@ func TestDeltaAdsClusterUpdate(t *testing.T) {
 func TestDeltaCDS(t *testing.T) {
 	base := sets.New("BlackHoleCluster", "PassthroughCluster", "InboundPassthroughClusterIpv4")
 	assertResources := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
+		t.Helper()
 		got := slices.Map(resp.Resources, (*discovery.Resource).GetName)
 
 		assert.Equal(t, sets.New(got...), sets.New(names...).Merge(base))
 	}
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml"),
-	})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addTestClientEndpoints(s.MemRegistry)
 	s.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 	s.MemRegistry.SetEndpoints(edsIncSvc, "",
@@ -86,27 +85,27 @@ func TestDeltaCDS(t *testing.T) {
 	// Wait until the above debounce, to ensure we can precisely check XDS responses without spurious pushes
 	s.EnsureSynced(t)
 
-	ads := s.ConnectDeltaADS()
+	ads := s.ConnectDeltaADS().WithID("sidecar~127.0.0.1~test.default~default.svc.cluster.local")
 
 	// Initially we get everything
 	ads.Request(&discovery.DeltaDiscoveryRequest{
 		ResourceNamesSubscribe: []string{},
 	})
 	resp := ads.ExpectResponse()
-	assertResources(resp, "outbound|80||test-1.default", "outbound|8080||eds.test.svc.cluster.local")
+	assertResources(resp, "outbound|80||test-1.default", "outbound|8080||eds.test.svc.cluster.local", "inbound|80||")
 	assert.Equal(t, resp.RemovedResources, nil)
 
 	// On remove, just get the removal
 	s.MemRegistry.RemoveService("test-1.default")
 	resp = ads.ExpectResponse()
-	assertResources(resp)
+	assertResources(resp, "inbound|80||") // currently we always send the inbound stuff. Not ideal, but acceptable
 	assert.Equal(t, resp.RemovedResources, []string{"outbound|80||test-1.default"})
 
 	// Another removal should behave the same
 	s.MemRegistry.RemoveService("eds.test.svc.cluster.local")
 	resp = ads.ExpectResponse()
 	assertResources(resp)
-	assert.Equal(t, resp.RemovedResources, []string{"outbound|8080||eds.test.svc.cluster.local"})
+	assert.Equal(t, resp.RemovedResources, []string{"inbound|80||", "outbound|8080||eds.test.svc.cluster.local"})
 }
 
 func TestDeltaEDS(t *testing.T) {

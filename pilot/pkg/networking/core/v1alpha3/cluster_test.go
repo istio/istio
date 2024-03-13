@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -3048,8 +3049,6 @@ func TestVerifyCertAtClient(t *testing.T) {
 }
 
 func TestBuildDeltaClusters(t *testing.T) {
-	g := NewWithT(t)
-
 	testService1 := &model.Service{
 		Hostname: host.Name("test.com"),
 		Ports: []*model.Port{
@@ -3495,8 +3494,8 @@ func TestBuildDeltaClusters(t *testing.T) {
 			if delta != tc.usedDelta {
 				t.Errorf("un expected delta, want %v got %v", tc.usedDelta, delta)
 			}
-			g.Expect(removed).To(Equal(tc.removedClusters))
-			g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal(tc.expectedClusters))
+			assert.Equal(t, removed, tc.removedClusters)
+			assert.Equal(t, xdstest.MapKeys(xdstest.ExtractClusters(clusters)), tc.expectedClusters)
 		})
 	}
 }
