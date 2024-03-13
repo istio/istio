@@ -216,3 +216,26 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 	// Assert expected calls actually made
 	fs.AssertExpectations(t)
 }
+
+type retryableHandler struct {
+	counter chan struct{}
+}
+
+func (r retryableHandler) GetPodIfAmbient(podName, podNamespace string) (*corev1.Pod, error) {
+	r.counter <- struct{}{}
+	return nil, nil
+}
+func (r retryableHandler) GetAmbientPods() []*corev1.Pod { return nil }
+func (r retryableHandler) Start()                        {}
+
+func TestReconcileCNIAddEventGetPodIfAmbientShouldRetryable(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "retry_ns"}}
+	client := kube.NewFakeClient(ns)
+	retryableHandler := retryableHandler{counter: make(chan struct{}, 20)}
+	meshDataplane := &meshDataplane{kubeClient: client.Kube()}
+	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", retryableHandler, meshDataplane)
+	_ = pluginServer.ReconcileCNIAddEvent(ctx, CNIPluginAddEvent{})
+	assert.Equal(t, len(retryableHandler.counter) > 1, true, "GetPodIfAmbient should not be executed only once due to the retry policy.")
+}
