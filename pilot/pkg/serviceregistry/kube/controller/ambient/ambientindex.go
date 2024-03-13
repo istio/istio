@@ -354,7 +354,7 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 func (a *index) WorkloadsForWaypoint(scope model.WaypointScope) []model.WorkloadInfo {
 	// Lookup scope. If its namespace wide, remove entries that are in SA scope
 	workloads := a.workloads.ByOwningWaypoint.Lookup(scope)
-
+	workloads = model.SortWorkloadsByCreationTime(workloads)
 	if scope.ServiceAccount == "" {
 		// This is a namespace wide waypoint. Per-SA waypoints have precedence, so we need to filter them out
 		workloads = slices.FilterInPlace(workloads, func(info model.WorkloadInfo) bool {
