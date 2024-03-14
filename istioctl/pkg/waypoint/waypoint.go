@@ -49,6 +49,8 @@ var (
 	allNamespaces bool
 
 	deleteAll bool
+
+	addressType string
 )
 
 const (
@@ -133,8 +135,32 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 			gw := makeGateway(true)
-			if err != nil {
-				return fmt.Errorf("failed to create Kubernetes client: %v", err)
+			// Determine which address type to apply the waypoint to.
+			validAddressTypes := map[string]bool{
+				"service":  true,
+				"workload": true,
+				"all":      true,
+				"none":     true,
+			}
+			if addressType != "" {
+				if _, ok := validAddressTypes[addressType]; !ok {
+					return fmt.Errorf("invalid traffic address type: %s. Valid options are: service, workload, all, none", addressType)
+				}
+			}
+			gw.Annotations = map[string]string{}
+			switch addressType {
+			case "service":
+				gw.Annotations[constants.WaypointForAddressType] = "service"
+			case "workload":
+				gw.Annotations[constants.WaypointForAddressType] = "workload"
+			case "all":
+				gw.Annotations[constants.WaypointForAddressType] = "all"
+			case "none":
+				gw.Annotations[constants.WaypointForAddressType] = "none"
+			default:
+				// If a value is not declared on a Gateway or its associated GatewayClass
+				// then the network layer should default to service when redirecting traffic.
+				gw.Annotations[constants.WaypointForAddressType] = "service"
 			}
 			gwc := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace()))
 			b, err := yaml.Marshal(gw)
@@ -183,6 +209,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 	}
+	waypointApplyCmd.PersistentFlags().StringVar(&addressType, "for", "service", "Specify the traffic address type (service, workload, all, or none) for the waypoint.")
 
 	waypointDeleteCmd := &cobra.Command{
 		Use:   "delete",

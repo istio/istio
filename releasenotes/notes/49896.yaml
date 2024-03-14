@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 49896
+releaseNotes:
+- |
+  **Added** Allow user to define the traffic address type (service, workload, all or none) for their waypoint via the --for flag on the waypoint apply cmd. 

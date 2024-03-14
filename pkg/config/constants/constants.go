@@ -161,6 +161,7 @@ const (
 	AlwaysReject = "internal.istio.io/webhook-always-reject"
 
 	WaypointServiceAccount = "istio.io/for-service-account"
+	WaypointForAddressType = "istio.io/waypoint-for"
 
 	ManagedGatewayLabel               = "gateway.istio.io/managed"
 	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
