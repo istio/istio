@@ -27,7 +27,7 @@ func NetnsSet(n NetnsFd) error {
 	return errors.New("not implemented")
 }
 
-func OpenNetns(nspath string) (Netns, error) {
+func OpenNetns(nspath string) (NetnsCloser, error) {
 	return nil, errors.New("not implemented")
 }
 
