@@ -169,7 +169,6 @@ func (c *Controller) onNetworkChange() {
 func (n *networkManager) reloadMeshNetworks() {
 	n.Lock()
 	defer n.Unlock()
-	n.networkFromMeshConfig = ""
 	ranger := cidranger.NewPCTrieRanger()
 
 	n.networkFromMeshConfig = ""
