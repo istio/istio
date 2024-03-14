@@ -400,8 +400,6 @@ func (a *index) WorkloadsForWaypoint(network, address string) []model.WorkloadIn
 	return workloads
 }
 
-// Waypoint finds all waypoint IP addresses for a given scope.  Performs first a Namespace+ServiceAccount
-// then falls back to any Namespace wide waypoints
 func (a *index) Waypoint(network, address string) []netip.Addr {
 	res := sets.Set[netip.Addr]{}
 	networkAddr := networkAddress{

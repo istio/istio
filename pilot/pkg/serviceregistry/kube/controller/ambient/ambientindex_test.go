@@ -276,9 +276,8 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	s.assertEvent(t, s.podXdsName("pod1"),
 		s.podXdsName("pod2"),
 		s.podXdsName("pod3"),
-		// pod4 explicitly declared to use a different waypoint now
-		// s.podXdsName("pod4"),
 	)
+
 	// Add a waypoint proxy pod for namespace
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
@@ -366,10 +365,12 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.200"))[0].Address.GetWorkload().Waypoint,
 		nil)
-	// assert.Equal(t, len(s.Waypoint(model.WaypointScope{Namespace: testNS, ServiceAccount: "namespace-wide"})), 1)
-	// for _, k := range s.Waypoint(model.WaypointScope{Namespace: testNS, ServiceAccount: "namespace-wide"}) {
-	// 	assert.Equal(t, k.AsSlice(), netip.MustParseAddr("10.0.0.2").AsSlice())
-	// }
+
+	// make sure looking up the waypoint for a wl by network and adcdress functions correctly
+	assert.Equal(t, len(s.Waypoint(testNW, "127.0.0.1")), 1)
+	for _, k := range s.Waypoint(testNW, "127.0.0.1") {
+		assert.Equal(t, k.AsSlice(), netip.MustParseAddr("10.0.0.2").AsSlice())
+	}
 
 	s.addService(t, "svc1",
 		map[string]string{},
@@ -1002,6 +1003,7 @@ func TestEmptyVIPsExcluded(t *testing.T) {
 // assertWaypointAddressForPod takes a pod name for key and the expected waypoint IP Address
 // if the IP is empty we assume you're asserting that the pod's waypoint address is nil
 // will assert that the GW address for the pod's waypoint is the expected address
+// nolint: unparam
 func (s *ambientTestServer) assertWaypointAddressForPod(t *testing.T, key, expectedIP string) {
 	t.Helper()
 	var expectedAddress *workloadapi.GatewayAddress
@@ -1170,11 +1172,32 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 	s.addWaypoint(t, "10.0.0.1", "waypoint", "", true)
 
 	// expected order is pod3, pod1, pod2, which is the order of creation
-	s.addPods(t, "127.0.0.3", "pod3", "sa3", map[string]string{"app": "a"}, map[string]string{constants.AmbientUseWaypoint: "waypoint"}, true, corev1.PodRunning)
+	s.addPods(t,
+		"127.0.0.3",
+		"pod3",
+		"sa3",
+		map[string]string{"app": "a"},
+		map[string]string{constants.AmbientUseWaypoint: "waypoint"},
+		true,
+		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod3"))
-	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, map[string]string{constants.AmbientUseWaypoint: "waypoint"}, true, corev1.PodRunning)
+	s.addPods(t,
+		"127.0.0.1",
+		"pod1",
+		"sa1",
+		map[string]string{"app": "a"},
+		map[string]string{constants.AmbientUseWaypoint: "waypoint"},
+		true,
+		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
-	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "a"}, map[string]string{constants.AmbientUseWaypoint: "waypoint"}, true, corev1.PodRunning)
+	s.addPods(t,
+		"127.0.0.2",
+		"pod2",
+		"sa2",
+		map[string]string{"app": "a"},
+		map[string]string{constants.AmbientUseWaypoint: "waypoint"},
+		true,
+		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod2"))
 	assertOrderedWaypoint(t, testNW, "10.0.0.1",
 		s.podXdsName("pod3"), s.podXdsName("pod1"), s.podXdsName("pod2"))

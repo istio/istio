@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/env"
@@ -43,7 +45,6 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
