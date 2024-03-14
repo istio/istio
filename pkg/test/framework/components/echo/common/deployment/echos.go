@@ -310,7 +310,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Subsets: []echo.SubsetConfig{{
 				Labels: map[string]string{label.SidecarInject.Name: "true"},
 				Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
-ISTIO_DELTA_XDS: "false"`),
+  ISTIO_DELTA_XDS: "false"`),
 			}},
 		}
 		defaultConfigs = append(defaultConfigs, sotw)
