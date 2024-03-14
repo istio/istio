@@ -349,7 +349,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
 	waypointCmd.PersistentFlags().StringVarP(&waypointServiceAccount, "service-account", "s", "", "service account to create a waypoint for")
-	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "n", "", "name of the waypoint")
+	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "wn", "", "name of the waypoint")
 
 	_ = waypointCmd.RegisterFlagCompletionFunc("service-account", func(
 		cmd *cobra.Command, args []string, toComplete string,
