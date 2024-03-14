@@ -54,7 +54,11 @@ var (
 )
 
 const (
-	waitTimeout = 90 * time.Second
+	waitTimeout     = 90 * time.Second
+	serviceTraffic  = "service"
+	workloadTraffic = "workload"
+	allTraffic      = "all"
+	noTraffic       = "none"
 )
 
 func Cmd(ctx cli.Context) *cobra.Command {
@@ -91,31 +95,33 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		}
 		// Determine which traffic address type to apply the waypoint to, if none
 		// then default to "service" as the waypoint-for traffic address type.
-		validAddressTypes := map[string]bool{
-			"service":  true,
-			"workload": true,
-			"all":      true,
-			"none":     true,
+		validAddressTypes := map[string]struct{}{
+			serviceTraffic:  {},
+			workloadTraffic: {},
+			allTraffic:      {},
+			noTraffic:       {},
 		}
 		if addressType != "" {
 			if _, ok := validAddressTypes[addressType]; !ok {
 				return nil, fmt.Errorf("invalid traffic address type: %s. Valid options are: service, workload, all, none", addressType)
 			}
 		}
-		gw.Annotations = map[string]string{}
+		if gw.Annotations == nil {
+			gw.Annotations = map[string]string{}
+		}
 		switch addressType {
 		case "service":
-			gw.Annotations[constants.WaypointForAddressType] = "service"
+			gw.Annotations[constants.WaypointForAddressType] = serviceTraffic
 		case "workload":
-			gw.Annotations[constants.WaypointForAddressType] = "workload"
+			gw.Annotations[constants.WaypointForAddressType] = workloadTraffic
 		case "all":
-			gw.Annotations[constants.WaypointForAddressType] = "all"
+			gw.Annotations[constants.WaypointForAddressType] = allTraffic
 		case "none":
-			gw.Annotations[constants.WaypointForAddressType] = "none"
+			gw.Annotations[constants.WaypointForAddressType] = noTraffic
 		default:
 			// If a value is not declared on a Gateway or its associated GatewayClass
 			// then the network layer should default to service when redirecting traffic.
-			gw.Annotations[constants.WaypointForAddressType] = "service"
+			gw.Annotations[constants.WaypointForAddressType] = serviceTraffic
 		}
 		if waypointServiceAccount != "" {
 			gw.Annotations = map[string]string{
