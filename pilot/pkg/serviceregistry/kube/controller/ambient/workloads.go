@@ -69,7 +69,7 @@ func (a *index) WorkloadsCollection(
 		wp := fetchWaypoint(ctx, Waypoints, Namespaces, se.ObjectMeta)
 
 		// this is some partial object meta we can pass through so that WL found in the Endpoints
-		// may inherrit the namespace scope waypoint from the SE... the Endpoints do not have real object meta
+		// may inherit the namespace scope waypoint from the SE... the Endpoints do not have real object meta
 		// and therefore they can't be annotated with wl scope waypoints right now
 		someObjectMeta := metav1.ObjectMeta{
 			Namespace: se.Namespace,
@@ -166,7 +166,6 @@ func (a *index) workloadEntryWorkloadBuilder(
 		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
 		var waypoint *Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-			// waypoints = fetchWaypoints(ctx, Waypoints, p.Namespace, p.Spec.ServiceAccount)
 			waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, p.ObjectMeta)
 		}
 		var waypointAddress *workloadapi.GatewayAddress
@@ -249,7 +248,6 @@ func (a *index) podWorkloadBuilder(
 		var waypoint *Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			// Waypoints do not have waypoints, but anything else does
-			// waypoints = fetchWaypoints(ctx, Waypoints, p.Namespace, p.Spec.ServiceAccountName)
 			waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, p.ObjectMeta)
 		}
 		var waypointAddress *workloadapi.GatewayAddress
@@ -312,27 +310,6 @@ func pickTrustDomain() string {
 	return ""
 }
 
-// func (a *index) pickWaypoint(waypoints []Waypoint) *workloadapi.GatewayAddress {
-// 	if len(waypoints) > 0 {
-// 		// Pick the best waypoint. One scoped to a SA is higher precedence
-// 		wp := ptr.OrDefault(
-// 			slices.FindFunc(waypoints, func(waypoint Waypoint) bool {
-// 				return waypoint.ForServiceAccount != ""
-// 			}),
-// 			waypoints[0],
-// 		)
-// 		// TODO: should we support multiple addresses?
-// 		return &workloadapi.GatewayAddress{
-// 			Destination: &workloadapi.GatewayAddress_Address{
-// 				Address: a.toNetworkAddressFromIP(wp.Addresses[0]),
-// 			},
-// 			// TODO: look up the HBONE port instead of hardcoding it
-// 			HboneMtlsPort: 15008,
-// 		}
-// 	}
-// 	return nil
-// }
-
 func fetchPeerAuthentications(
 	ctx krt.HandlerContext,
 	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
@@ -355,14 +332,6 @@ func fetchPeerAuthentications(
 		return labels.Instance(sel.MatchLabels).SubsetOf(matchLabels)
 	}))
 }
-
-// func fetchWaypoints(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], ns, sa string) []Waypoint {
-// 	return krt.Fetch(ctx, Waypoints,
-// 		krt.FilterNamespace(ns), krt.FilterGeneric(func(a any) bool {
-// 			w := a.(Waypoint)
-// 			return w.ForServiceAccount == "" || w.ForServiceAccount == sa
-// 		}))
-// }
 
 func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, services []model.ServiceInfo) map[string]*workloadapi.PortList {
 	res := map[string]*workloadapi.PortList{}

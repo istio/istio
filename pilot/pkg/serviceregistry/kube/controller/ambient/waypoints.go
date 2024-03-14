@@ -50,7 +50,6 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 		// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
 		// o was reliant on the namespace waypoint and then get's a use-waypoint annotation added before that gateway is ready.
 		// goes from having a waypoint to having no waypoint and then eventually gets a waypoint back
-		// return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterName(wp.Name, wp.Namespace))
 		return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wp.ResourceName()))
 	}
 
@@ -65,7 +64,7 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 		}
 	}
 
-	// neither o nore it's namespace has a use-waypoint annotation
+	// neither o nor it's namespace has a use-waypoint annotation
 	return nil
 }
 

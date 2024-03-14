@@ -388,7 +388,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 		s.lookup(s.addrXdsName("127.0.0.200"))[0].Address.GetWorkload().Waypoint,
 		nil)
 
-	// make sure looking up the waypoint for a wl by network and adcdress functions correctly
+	// make sure looking up the waypoint for a wl by network and address functions correctly
 	assert.Equal(t, len(s.Waypoint(testNW, "127.0.0.1")), 1)
 	for _, k := range s.Waypoint(testNW, "127.0.0.1") {
 		assert.Equal(t, k.AsSlice(), netip.MustParseAddr("10.0.0.2").AsSlice())
@@ -1423,12 +1423,6 @@ func (s *ambientTestServer) annotatePod(t *testing.T, name, ns string, annotatio
 
 func (s *ambientTestServer) addWorkloadEntries(t *testing.T, ip string, name, sa string, labels map[string]string) {
 	t.Helper()
-
-	// hmmmm.... this causes some issues
-	// s.ns.CreateOrUpdate(&corev1.Namespace{
-	// 	ObjectMeta: metav1.ObjectMeta{Name: "ns1", Labels: map[string]string{"istio.io/dataplane-mode": "ambient"}},
-	// })
-
 	s.we.CreateOrUpdate(generateWorkloadEntry(ip, name, "ns1", sa, labels, nil))
 }
 
