@@ -8069,6 +8069,79 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            description: 'Peer authentication configuration for workloads. See more
+              details at: https://istio.io/docs/reference/config/security/peer_authentication.html'
+            properties:
+              mtls:
+                description: Mutual TLS settings for workload.
+                properties:
+                  mode:
+                    description: |-
+                      Defines the mTLS mode used for peer authentication.
+
+                      Valid Options: DISABLE, PERMISSIVE, STRICT
+                    enum:
+                    - UNSET
+                    - DISABLE
+                    - PERMISSIVE
+                    - STRICT
+                    type: string
+                type: object
+              portLevelMtls:
+                additionalProperties:
+                  properties:
+                    mode:
+                      description: |-
+                        Defines the mTLS mode used for peer authentication.
+
+                        Valid Options: DISABLE, PERMISSIVE, STRICT
+                      enum:
+                      - UNSET
+                      - DISABLE
+                      - PERMISSIVE
+                      - STRICT
+                      type: string
+                  type: object
+                description: Port specific mutual TLS settings.
+                type: object
+              selector:
+                description: The selector determines the workloads to apply the PeerAuthentication
+                  on.
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: One or more labels that indicate a specific set of
+                      pods/VMs on which a policy should be applied.
+                    type: object
+                type: object
+            type: object
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - description: Defines the mTLS mode used for peer authentication.
+      jsonPath: .spec.mtls.mode
+      name: Mode
+      type: string
+    - description: 'CreationTimestamp is a timestamp representing the server time
+        when this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1beta1
     schema:
       openAPIV3Schema:
