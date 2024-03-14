@@ -216,7 +216,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 	}
-	waypointApplyCmd.PersistentFlags().StringVar(&addressType, "for", "service", "Specify the traffic address type (service, workload, all, or none) for the waypoint.")
+	waypointApplyCmd.PersistentFlags().StringVar(&addressType,
+		"for",
+		"service",
+		"Specify the traffic address type (service, workload, all, or none) for the waypoint.",
+	)
 
 	waypointDeleteCmd := &cobra.Command{
 		Use:   "delete",
