@@ -3256,6 +3256,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 	testCases := []struct {
 		name                 string
 		services             []*model.Service
+		instances            []*model.ServiceInstance
 		configs              []config.Config
 		prevConfigs          []config.Config
 		configUpdated        sets.Set[model.ConfigKey]
@@ -3283,13 +3284,18 @@ func TestBuildDeltaClusters(t *testing.T) {
 			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster"},
 		},
 		{
-			name:                 "service port is removed",
-			services:             []*model.Service{testService1},
-			configUpdated:        sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}),
-			watchedResourceNames: []string{"outbound|7070||test.com"},
+			name:          "service port is removed",
+			services:      []*model.Service{testService1},
+			configUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}),
+			instances: []*model.ServiceInstance{{
+				Service:     testService1,
+				ServicePort: &model.Port{Port: 8080},
+				Endpoint:    &model.IstioEndpoint{Address: "127.0.0.1", ServicePortName: "8080", EndpointPort: 8080},
+			}},
+			watchedResourceNames: []string{"outbound|7070||test.com", "inbound|7070||", "inbound|8080||"},
 			usedDelta:            true,
-			removedClusters:      []string{"outbound|7070||test.com"},
-			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com"},
+			removedClusters:      []string{"inbound|7070||", "outbound|7070||test.com"},
+			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "inbound|8080||", "outbound|8080||test.com"},
 		},
 		{
 			name:     "destination rule with no subsets is updated",
@@ -3481,10 +3487,11 @@ func TestBuildDeltaClusters(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
-				Services: tc.services,
-				Configs:  tc.configs,
+				Services:  tc.services,
+				Instances: tc.instances,
+				Configs:   tc.configs,
 			})
-			proxy := cg.SetupProxy(nil)
+			proxy := cg.SetupProxy(&model.Proxy{IPAddresses: []string{"127.0.0.1"}})
 			if tc.prevConfigs != nil {
 				proxy.PrevSidecarScope = &model.SidecarScope{}
 				proxy.PrevSidecarScope.SetDestinationRulesForTesting(tc.prevConfigs)

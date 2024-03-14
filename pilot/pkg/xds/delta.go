@@ -238,7 +238,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 	}
 }
 
-func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
+func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newResourceNames []string) error {
 	sendResonse := func() error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
@@ -250,6 +250,10 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 			conn.proxy.UpdateWatchedResource(res.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
 				if wr == nil {
 					wr = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				}
+				// some resources dynamically update ResourceNames. Most don't though
+				if newResourceNames != nil {
+					wr.ResourceNames = newResourceNames
 				}
 				wr.NonceSent = res.Nonce
 				if features.EnableUnsafeDeltaTest {
@@ -500,14 +504,16 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		removed := subscribed.DeleteAll(currentResources...)
 		resp.RemovedResources = sets.SortedList(removed)
 	}
+	var newResourceNames []string
 	if shouldSetWatchedResources(w) {
+		// Set the new watched resources. Do not write to w directly, as it can be a copy from the 'filtered' logic above
 		if usedDelta {
 			// Apply the delta
-			w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).
+			newResourceNames = sets.SortedList(sets.New(w.ResourceNames...).
 				DeleteAll(resp.RemovedResources...).
 				InsertAll(currentResources...))
 		} else {
-			w.ResourceNames = currentResources
+			newResourceNames = currentResources
 		}
 	}
 	if neverRemoveDelta(w.TypeUrl) {
@@ -532,11 +538,13 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		info += logFiltered
 	}
 
-	if err := con.sendDelta(resp); err != nil {
+	if err := con.sendDelta(resp, newResourceNames); err != nil {
+		logger := deltaLog.Debugf
 		if recordSendError(w.TypeUrl, err) {
-			deltaLog.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
+			logger = deltaLog.Warnf
 		}
+		logger("%s: Send failure for node:%s resources:%d size:%s%s: %v",
+			v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
 		return err
 	}
 
@@ -576,7 +584,8 @@ func neverRemoveDelta(url string) bool {
 // shouldSetWatchedResources indicates whether we should set the watched resources for a given type.
 // for some type like `Address` we customly handle it in the generator
 func shouldSetWatchedResources(w *model.WatchedResource) bool {
-	if w.TypeUrl == v3.AddressType || w.TypeUrl == v3.WorkloadType {
+	if requiresResourceNamesModification(w.TypeUrl) {
+		// These handle it directly in the generator
 		return false
 	}
 	// Else fallback based on type
