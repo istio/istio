@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 	proxyinfo "istio.io/istio/pkg/proxy"
 )
 
@@ -81,7 +80,7 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 }
 
 // UninstallCmd command uninstalls Istio from a cluster
-func UninstallCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
+func UninstallCmd(ctx cli.Context) *cobra.Command {
 	rootArgs := &RootArgs{}
 	uiArgs := &uninstallArgs{}
 	uicmd := &cobra.Command{
@@ -106,7 +105,7 @@ func UninstallCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return uninstall(cmd, ctx, rootArgs, uiArgs, logOpts)
+			return uninstall(cmd, ctx, rootArgs, uiArgs)
 		},
 	}
 	addFlags(uicmd, rootArgs)
@@ -115,11 +114,8 @@ func UninstallCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 }
 
 // uninstall uninstalls control plane by either pruning by target revision or deleting specified manifests.
-func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *uninstallArgs, logOpts *log.Options) error {
+func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *uninstallArgs) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-	if err := configLogs(logOpts); err != nil {
-		return fmt.Errorf("could not configure logs: %s", err)
-	}
 	cliClient, err := ctx.CLIClient()
 	if err != nil {
 		return err

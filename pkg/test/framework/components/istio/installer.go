@@ -95,6 +95,10 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 		return fmt.Errorf("create Kubernetes client: %v", err)
 	}
 
+	if mesh.ConfigLogs(cmdLogOptions()) != nil {
+		return fmt.Errorf("failed to configure logs")
+	}
+
 	// Generate the manifest YAML, so that we can uninstall it in Close.
 	var stdOut, stdErr bytes.Buffer
 	if err := mesh.ManifestGenerate(kubeClient, &mesh.RootArgs{}, &mesh.ManifestGenerateArgs{
@@ -103,7 +107,7 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 		Force:         iArgs.Force,
 		ManifestsPath: iArgs.ManifestsPath,
 		Revision:      iArgs.Revision,
-	}, cmdLogOptions(), cmdLogger(&stdOut, &stdErr)); err != nil {
+	}, cmdLogger(&stdOut, &stdErr)); err != nil {
 		return err
 	}
 	yaml := stdOut.String()
@@ -124,7 +128,7 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 	scopes.Framework.Infof("Installing %s on cluster %s: %s", componentName, c.Name(), iArgs)
 	stdOut.Reset()
 	stdErr.Reset()
-	if err := mesh.Install(kubeClient, &mesh.RootArgs{}, iArgs, cmdLogOptions(), &stdOut,
+	if err := mesh.Install(kubeClient, &mesh.RootArgs{}, iArgs, &stdOut,
 		cmdLogger(&stdOut, &stdErr),
 		mesh.NewPrinterForWriter(&stdOut)); err != nil {
 		return fmt.Errorf("failed installing %s on cluster %s: %v. Details: %s", componentName, c.Name(), err, &stdErr)
@@ -169,12 +173,7 @@ func cmdLogOptions() *log.Options {
 	// These scopes are, at the default "INFO" level, too chatty for command line use
 	o.SetOutputLevel("validation", log.ErrorLevel)
 	o.SetOutputLevel("processing", log.ErrorLevel)
-	o.SetOutputLevel("analysis", log.WarnLevel)
-	o.SetOutputLevel("installer", log.WarnLevel)
-	o.SetOutputLevel("translator", log.WarnLevel)
-	o.SetOutputLevel("adsc", log.WarnLevel)
 	o.SetOutputLevel("default", log.WarnLevel)
-	o.SetOutputLevel("klog", log.WarnLevel)
 	o.SetOutputLevel("kube", log.ErrorLevel)
 
 	return o

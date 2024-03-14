@@ -32,22 +32,20 @@ func addProfileListFlags(cmd *cobra.Command, args *profileListArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
-func profileListCmd(rootArgs *RootArgs, plArgs *profileListArgs) *cobra.Command {
+func profileListCmd(plArgs *profileListArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "Lists available Istio configuration profiles",
 		Long:  "The list subcommand lists the available Istio configuration profiles.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return profileList(cmd, rootArgs, plArgs)
+			return profileList(cmd, plArgs)
 		},
 	}
 }
 
 // profileList list all the builtin profiles.
-func profileList(cmd *cobra.Command, args *RootArgs, plArgs *profileListArgs) error {
-	initLogsOrExit(args)
-
+func profileList(cmd *cobra.Command, plArgs *profileListArgs) error {
 	profiles, err := helm.ListProfiles(plArgs.manifestsPath)
 	if err != nil {
 		return err
