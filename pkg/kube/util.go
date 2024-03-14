@@ -220,6 +220,7 @@ func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) 
 	}
 	// try to capture more useful namespace/name info for deployments, etc.
 	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
+
 	deployMeta := pod.ObjectMeta
 	deployMeta.ManagedFields = nil
 	deployMeta.OwnerReferences = nil
@@ -261,7 +262,14 @@ func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) 
 				// https://github.com/openshift/library-go/blob/7a65fdb398e28782ee1650959a5e0419121e97ae/pkg/apps/appsutil/const.go#L25
 				deployMeta.Name = pod.Labels["deploymentconfig"]
 				typeMetadata.Kind = "DeploymentConfig"
-				delete(deployMeta.Labels, "deploymentconfig")
+
+				// Deep copy the labels except the 'deploymentconfig' one
+				deployMeta.Labels = make(map[string]string, len(pod.Labels))
+				for k, v := range pod.Labels {
+					if k != "deploymentconfig" {
+						deployMeta.Labels[k] = v
+					}
+				}
 			} else if typeMetadata.Kind == "Job" {
 				// If job name suffixed with `-<digit-timestamp>`, where the length of digit timestamp is 8~10,
 				// trim the suffix and set kind to cron job.
