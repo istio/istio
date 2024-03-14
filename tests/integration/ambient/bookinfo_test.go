@@ -335,6 +335,9 @@ func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, servic
 		cs := t.AllClusters().Configs()
 		for _, c := range cs {
 			oldSvc, err := c.Kube().CoreV1().Services(nsConfig.Name()).Get(t.Context(), service, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("error getting svc %s, err %v", service, err)
+			}
 			annotations := oldSvc.ObjectMeta.GetAnnotations()
 			if annotations == nil {
 				annotations = make(map[string]string, 1)
@@ -365,6 +368,9 @@ func teardownWaypoints(t framework.TestContext, nsConfig namespace.Instance, ser
 		cs := t.AllClusters().Configs()
 		for _, c := range cs {
 			oldSvc, err := c.Kube().CoreV1().Services(nsConfig.Name()).Get(t.Context(), service, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("error getting svc %s, err %v", service, err)
+			}
 			annotations := oldSvc.ObjectMeta.GetAnnotations()
 			if annotations != nil {
 				delete(annotations, constants.AmbientUseWaypoint)

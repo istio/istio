@@ -1002,14 +1002,14 @@ func TestEmptyVIPsExcluded(t *testing.T) {
 // assertWaypointAddressForPod takes a pod name for key and the expected waypoint IP Address
 // if the IP is empty we assume you're asserting that the pod's waypoint address is nil
 // will assert that the GW address for the pod's waypoint is the expected address
-func (s *ambientTestServer) assertWaypointAddressForPod(t *testing.T, key, expectedIp string) {
+func (s *ambientTestServer) assertWaypointAddressForPod(t *testing.T, key, expectedIP string) {
 	t.Helper()
 	var expectedAddress *workloadapi.GatewayAddress
-	if expectedIp != "" { // "" is assumed to mean a nil address
+	if expectedIP != "" { // "" is assumed to mean a nil address
 		expectedAddress = &workloadapi.GatewayAddress{
 			Destination: &workloadapi.GatewayAddress_Address{
 				Address: &workloadapi.NetworkAddress{
-					Address: netip.MustParseAddr(expectedIp).AsSlice(),
+					Address: netip.MustParseAddr(expectedIP).AsSlice(),
 				},
 			},
 			HboneMtlsPort: 15008,
@@ -1363,16 +1363,16 @@ func (s *ambientTestServer) addPods(t *testing.T, ip string, name, sa string, la
 }
 
 // just overwrites the annotations
+// nolint: unparam
 func (s *ambientTestServer) annotatePod(t *testing.T, name, ns string, annotations map[string]string) {
 	t.Helper()
 
 	p := s.pc.Get(name, ns)
 	if p == nil {
 		return
-	} else {
-		p.ObjectMeta.Annotations = annotations
-		s.pc.Update(p)
 	}
+	p.ObjectMeta.Annotations = annotations
+	s.pc.Update(p)
 }
 
 func (s *ambientTestServer) addWorkloadEntries(t *testing.T, ip string, name, sa string, labels map[string]string) {
