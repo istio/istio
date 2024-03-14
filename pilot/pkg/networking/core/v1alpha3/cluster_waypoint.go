@@ -148,6 +148,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 	return clusters
 }
 
+// TODO(ilrudie) this is a bit broken by removing sa scoping as a concept. need to rework it
+// we now calculate a list of all sa's that are served by a waypoint based on waypoint network address, consider using that
 // CONNECT origination cluster
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	// Restrict upstream SAN to waypoint scope.
@@ -159,14 +161,16 @@ func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push
 	return cb.buildConnectOriginate(proxy, push, m)
 }
 
-func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.PushContext, uriSanMatcher *matcher.StringMatcher) *cluster.Cluster {
+func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.PushContext, uriSanMatchers ...*matcher.StringMatcher) *cluster.Cluster {
 	ctx := buildCommonConnectTLSContext(proxy, push)
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
-	if uriSanMatcher != nil {
-		validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
-			SanType: tls.SubjectAltNameMatcher_URI,
-			Matcher: uriSanMatcher,
-		})
+	for _, uriSanMatcher := range uriSanMatchers {
+		if uriSanMatcher != nil {
+			validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
+				SanType: tls.SubjectAltNameMatcher_URI,
+				Matcher: uriSanMatcher,
+			})
+		}
 	}
 	// Compliance for Envoy tunnel upstreams.
 	sec_model.EnforceCompliance(ctx)

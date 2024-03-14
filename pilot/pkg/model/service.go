@@ -867,7 +867,7 @@ type AmbientIndexes interface {
 	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
 	Waypoint(network, address string) []netip.Addr
-	WorkloadsForWaypoint(scope WaypointScope) []WorkloadInfo
+	WorkloadsForWaypoint(network, address string) []WorkloadInfo
 }
 
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
@@ -893,7 +893,7 @@ func (u NoopAmbientIndexes) Waypoint(string, string) []netip.Addr {
 	return nil
 }
 
-func (u NoopAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []WorkloadInfo {
+func (u NoopAmbientIndexes) WorkloadsForWaypoint(string, string) []WorkloadInfo {
 	return nil
 }
 

@@ -58,6 +58,7 @@ func (a *index) ServicesCollection(
 		return a.serviceEntriesInfo(s, waypoint)
 	}, krt.WithName("ServiceEntriesInfo"))
 	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, krt.WithName("WorkloadServices"))
+	// workloadapi services NOT workloads x services somehow
 	return WorkloadServices
 }
 

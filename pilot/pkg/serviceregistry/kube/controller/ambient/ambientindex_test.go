@@ -1109,11 +1109,11 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 
 func TestWorkloadsForWaypoint(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
-	s := newAmbientTestServer(t, "", "")
+	s := newAmbientTestServer(t, "", testNW)
 
-	assertWaypoint := func(t *testing.T, waypoint model.WaypointScope, expected ...string) {
+	assertWaypoint := func(t *testing.T, waypointNetwork string, waypointAddress string, expected ...string) {
 		t.Helper()
-		wl := sets.New(slices.Map(s.WorkloadsForWaypoint(waypoint), func(e model.WorkloadInfo) string {
+		wl := sets.New(slices.Map(s.WorkloadsForWaypoint(waypointNetwork, waypointAddress), func(e model.WorkloadInfo) string {
 			return e.ResourceName()
 		})...)
 		assert.Equal(t, wl, sets.New(expected...))
@@ -1137,20 +1137,21 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 	})
 
 	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"))
-	assertWaypoint(t, model.WaypointScope{Namespace: testNS}, s.podXdsName("pod1"), s.podXdsName("pod2"))
+	assertWaypoint(t, testNW, "10.0.0.1", s.podXdsName("pod1"), s.podXdsName("pod2"))
 	// TODO: should this be returned? Or should it be filtered because such a waypoint does not exist
 
 	// Add a service account waypoint to the pod
 	s.annotatePod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 
-	assertWaypoint(t, model.WaypointScope{Namespace: testNS}, s.podXdsName("pod1"), s.podXdsName("pod2"))
+	assertWaypoint(t, testNW, "10.0.0.2", s.podXdsName("pod1"))
+	assertWaypoint(t, testNW, "10.0.0.1", s.podXdsName("pod2"))
 
 	// Revert back
 	s.annotatePod(t, "pod1", testNS, map[string]string{})
 	s.assertEvent(t, s.podXdsName("pod1"))
 
-	assertWaypoint(t, model.WaypointScope{Namespace: testNS}, s.podXdsName("pod1"), s.podXdsName("pod2"))
+	assertWaypoint(t, testNW, "10.0.0.1", s.podXdsName("pod1"), s.podXdsName("pod2"))
 }
 
 func TestWorkloadsForWaypointOrder(t *testing.T) {

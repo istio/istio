@@ -33,8 +33,7 @@ import (
 type Waypoint struct {
 	krt.Named
 
-	ForServiceAccount string
-	Addresses         []netip.Addr
+	Addresses []netip.Addr
 }
 
 func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
@@ -116,11 +115,9 @@ func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway]) krt.Collecti
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
-		sa := gateway.Annotations[constants.WaypointServiceAccount]
 		return &Waypoint{
-			Named:             krt.NewNamed(gateway),
-			ForServiceAccount: sa,
-			Addresses:         getGatewayAddrs(gateway),
+			Named:     krt.NewNamed(gateway),
+			Addresses: getGatewayAddrs(gateway),
 		}
 	}, krt.WithName("Waypoints"))
 }

@@ -44,7 +44,7 @@ import (
 type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
-	WorkloadsForWaypoint(scope model.WaypointScope) []model.WorkloadInfo
+	WorkloadsForWaypoint(network, address string) []model.WorkloadInfo
 	Waypoint(network, address string) []netip.Addr
 	SyncAll()
 	model.AmbientIndexes
@@ -56,17 +56,17 @@ type workloadsCollection struct {
 	krt.Collection[model.WorkloadInfo]
 	ByAddress        *krt.Index[model.WorkloadInfo, networkAddress]
 	ByServiceKey     *krt.Index[model.WorkloadInfo, string]
-	ByOwningWaypoint *krt.Index[model.WorkloadInfo, model.WaypointScope]
+	ByOwningWaypoint *krt.Index[model.WorkloadInfo, networkAddress]
 }
 
 type waypointsCollection struct {
 	krt.Collection[Waypoint]
-	ByScope *krt.Index[Waypoint, model.WaypointScope]
 }
 
 type servicesCollection struct {
 	krt.Collection[model.ServiceInfo]
-	ByAddress *krt.Index[model.ServiceInfo, networkAddress]
+	ByAddress        *krt.Index[model.ServiceInfo, networkAddress]
+	ByOwningWaypoint *krt.Index[model.ServiceInfo, networkAddress]
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -143,10 +143,6 @@ func New(options Options) Index {
 
 	MeshConfig := MeshConfigCollection(ConfigMaps, options)
 	Waypoints := WaypointsCollection(Gateways)
-	WaypointIndex := krt.CreateIndex[Waypoint, model.WaypointScope](Waypoints, func(w Waypoint) []model.WaypointScope {
-		// We can be a part of a service account waypoint, or a namespace waypoint
-		return []model.WaypointScope{{Namespace: w.Namespace}}
-	})
 
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig)
@@ -154,8 +150,31 @@ func New(options Options) Index {
 		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 	}), false)
 
+	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
 	ServiceAddressIndex := krt.CreateIndex[model.ServiceInfo, networkAddress](WorkloadServices, networkAddressFromService)
+	ServiceInfosByOwningWaypoint := krt.CreateIndex[model.ServiceInfo, networkAddress](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
+		// Filter out waypoint services
+		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		waypoint := s.Waypoint
+		if waypoint == nil {
+			return nil
+		}
+		waypointAddress := waypoint.GetAddress()
+		if waypointAddress == nil {
+			return nil
+		}
+
+		ip := waypointAddress.GetAddress()
+		netip, _ := netip.AddrFromSlice(ip)
+		netaddr := networkAddress{
+			network: waypointAddress.GetNetwork(),
+			ip:      netip.String(),
+		}
+		return append(make([]networkAddress, 1), netaddr)
+	})
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *workloadapi.Service {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
@@ -181,17 +200,30 @@ func New(options Options) Index {
 	WorkloadServiceIndex := krt.CreateIndex[model.WorkloadInfo, string](Workloads, func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Services)
 	})
-	WorkloadWaypointIndex := krt.CreateIndex[model.WorkloadInfo, model.WaypointScope](Workloads, func(w model.WorkloadInfo) []model.WaypointScope {
+	WorkloadWaypointIndex := krt.CreateIndex[model.WorkloadInfo, networkAddress](Workloads, func(w model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		// We can be a part of a service account waypoint, or a namespace waypoint
-		return []model.WaypointScope{
-			{
-				Namespace: w.Namespace,
-			},
+		waypoint := w.Waypoint
+		if waypoint == nil {
+			return nil
 		}
+		log.Errorf("waypoint found for %v in %v\n", w.Name, w.Namespace)
+		waypointAddress := waypoint.GetAddress()
+		if waypointAddress == nil {
+			return nil
+		}
+
+		log.Errorf("waypoint had address %v, for %v in %v\n", waypointAddress, w.Name, w.Namespace)
+		ip := waypointAddress.GetAddress()
+		netip, _ := netip.AddrFromSlice(ip)
+		netaddr := networkAddress{
+			network: waypointAddress.GetNetwork(),
+			ip:      netip.String(),
+		}
+		log.Errorf("indexed waypoint{%v, %v} for %v\n", netaddr, waypointAddress, w.Name)
+		return append(make([]networkAddress, 1), netaddr)
 	})
 	// Subtle: make sure we register the event after the Index are created. This ensures when we get the event, the index is populated.
 	Workloads.RegisterBatch(krt.BatchedEventFilter(
@@ -210,12 +242,12 @@ func New(options Options) Index {
 		ByOwningWaypoint: WorkloadWaypointIndex,
 	}
 	a.services = servicesCollection{
-		Collection: WorkloadServices,
-		ByAddress:  ServiceAddressIndex,
+		Collection:       WorkloadServices,
+		ByAddress:        ServiceAddressIndex,
+		ByOwningWaypoint: ServiceInfosByOwningWaypoint,
 	}
 	a.waypoints = waypointsCollection{
 		Collection: Waypoints,
-		ByScope:    WaypointIndex,
 	}
 	a.authorizationPolicies = AllPolicies
 
@@ -351,9 +383,22 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 	return res, sets.New(removed...)
 }
 
-func (a *index) WorkloadsForWaypoint(scope model.WaypointScope) []model.WorkloadInfo {
-	// Lookup scope. If its namespace wide, remove entries that are in SA scope
-	workloads := a.workloads.ByOwningWaypoint.Lookup(scope)
+func (a *index) WorkloadsForWaypoint(network, address string) []model.WorkloadInfo {
+	workloads := a.workloads.ByOwningWaypoint.Lookup(networkAddress{
+		network: network,
+		ip:      address,
+	})
+	services := a.services.ByOwningWaypoint.Lookup(networkAddress{
+		network: network,
+		ip:      address,
+	})
+	workloadsFromServices := make([]model.WorkloadInfo, 0)
+	for _, s := range services {
+		svcWls := a.workloads.ByServiceKey.Lookup(namespacedHostname(s.Namespace, s.Hostname))
+		workloadsFromServices = append(workloadsFromServices, svcWls...)
+	}
+	// this is not deduplicated...
+	workloads = append(workloads, workloadsFromServices...)
 	workloads = model.SortWorkloadsByCreationTime(workloads)
 	return workloads
 }

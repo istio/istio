@@ -128,7 +128,7 @@ func TestBookinfo(t *testing.T) {
 						return nil
 					}, retry.Converge(5))
 				}
-				deleteWaypoints(t, nsConfig, "productpage")
+				teardownWaypoints(t, nsConfig, "productpage")
 				for _, ingressURL := range ingressURLs {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -267,7 +267,7 @@ func TestBookinfo(t *testing.T) {
 				})
 			})
 			time.Sleep(time.Minute)
-			deleteWaypoints(t, nsConfig, "reviews")
+			teardownWaypoints(t, nsConfig, "reviews")
 		})
 }
 
@@ -318,15 +318,19 @@ func applyDefaultRouting(t framework.TestContext, nsConfig namespace.Instance) {
 	applyFileOrFail(t, nsConfig.Name(), routingV1)
 }
 
-func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, service string) {
+func applyWaypoint(t framework.TestContext, ns namespace.Instance) {
 	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 		"x",
 		"waypoint",
 		"apply",
 		"--namespace",
-		nsConfig.Name(),
+		ns.Name(),
 		"--wait",
 	})
+}
+
+func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, service string) {
+	applyWaypoint(t, nsConfig)
 	if service != "" {
 		cs := t.AllClusters().Configs()
 		for _, c := range cs {
@@ -346,14 +350,18 @@ func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, servic
 	}
 }
 
-func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance, service string) {
+func deleteWaypoint(t framework.TestContext, ns namespace.Instance) {
 	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 		"x",
 		"waypoint",
 		"delete",
 		"--namespace",
-		nsConfig.Name(),
+		ns.Name(),
 	})
+}
+
+func teardownWaypoints(t framework.TestContext, nsConfig namespace.Instance, service string) {
+	deleteWaypoint(t, nsConfig)
 	if service != "" {
 		cs := t.AllClusters().Configs()
 		for _, c := range cs {
