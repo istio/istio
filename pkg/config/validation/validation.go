@@ -784,141 +784,146 @@ func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) (Warni
 var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 	func(cfg config.Config) (Warning, error) {
 		errs := Validation{}
-		rule, ok := cfg.Spec.(*networking.EnvoyFilter)
-		if !ok {
-			return nil, fmt.Errorf("cannot cast to Envoy filter")
+		errs = appendWarningf(errs, "EnvoyFilter exposes internal implementation details that may change at any time. "+
+			"Prefer other APIs if possible, and exercise extreme caution, especially around upgrades.")
+		return validateEnvoyFilter(cfg, errs)
+	})
+
+func validateEnvoyFilter(cfg config.Config, errs Validation) (Warning, error) {
+	rule, ok := cfg.Spec.(*networking.EnvoyFilter)
+	if !ok {
+		return nil, fmt.Errorf("cannot cast to Envoy filter")
+	}
+	warning, err := validateAlphaWorkloadSelector(rule.WorkloadSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	// If workloadSelector is defined and labels are not set, it is most likely
+	// an user error. Marking it as a warning to keep it backwards compatible.
+	if warning != nil {
+		errs = appendValidation(errs, WrapWarning(fmt.Errorf("Envoy filter: %s, will be applied to all services in namespace", warning))) // nolint: stylecheck
+	}
+
+	for _, cp := range rule.ConfigPatches {
+		if cp == nil {
+			errs = appendValidation(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: stylecheck
+			continue
+		}
+		if cp.ApplyTo == networking.EnvoyFilter_INVALID {
+			errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: stylecheck
+			continue
+		}
+		if cp.Patch == nil {
+			errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch")) // nolint: stylecheck
+			continue
+		}
+		if cp.Patch.Operation == networking.EnvoyFilter_Patch_INVALID {
+			errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch operation")) // nolint: stylecheck
+			continue
+		}
+		if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
+			errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) // nolint: stylecheck
+			continue
 		}
 
-		warning, err := validateAlphaWorkloadSelector(rule.WorkloadSelector)
-		if err != nil {
-			return nil, err
+		// ensure that the supplied regex for proxy version compiles
+		if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
+			if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) // nolint: stylecheck
+				continue
+			}
 		}
-
-		// If workloadSelector is defined and labels are not set, it is most likely
-		// an user error. Marking it as a warning to keep it backwards compatible.
-		if warning != nil {
-			errs = appendValidation(errs, WrapWarning(fmt.Errorf("Envoy filter: %s, will be applied to all services in namespace", warning))) // nolint: stylecheck
-		}
-
-		for _, cp := range rule.ConfigPatches {
-			if cp == nil {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: stylecheck
-				continue
-			}
-			if cp.ApplyTo == networking.EnvoyFilter_INVALID {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: stylecheck
-				continue
-			}
-			if cp.Patch == nil {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch")) // nolint: stylecheck
-				continue
-			}
-			if cp.Patch.Operation == networking.EnvoyFilter_Patch_INVALID {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch operation")) // nolint: stylecheck
-				continue
-			}
-			if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) // nolint: stylecheck
-				continue
-			}
-
-			// ensure that the supplied regex for proxy version compiles
-			if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
-				if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
-					errs = appendValidation(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) // nolint: stylecheck
+		// ensure that applyTo, match and patch all line up
+		switch cp.ApplyTo {
+		case networking.EnvoyFilter_LISTENER,
+			networking.EnvoyFilter_FILTER_CHAIN,
+			networking.EnvoyFilter_NETWORK_FILTER,
+			networking.EnvoyFilter_HTTP_FILTER:
+			if cp.Match != nil && cp.Match.ObjectTypes != nil {
+				if cp.Match.GetListener() == nil {
+					errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: stylecheck
 					continue
 				}
-			}
-			// ensure that applyTo, match and patch all line up
-			switch cp.ApplyTo {
-			case networking.EnvoyFilter_LISTENER,
-				networking.EnvoyFilter_FILTER_CHAIN,
-				networking.EnvoyFilter_NETWORK_FILTER,
-				networking.EnvoyFilter_HTTP_FILTER:
-				if cp.Match != nil && cp.Match.ObjectTypes != nil {
-					if cp.Match.GetListener() == nil {
-						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: stylecheck
-						continue
-					}
-					listenerMatch := cp.Match.GetListener()
-					if listenerMatch.FilterChain != nil {
-						if listenerMatch.FilterChain.Filter != nil {
-							if cp.ApplyTo == networking.EnvoyFilter_LISTENER || cp.ApplyTo == networking.EnvoyFilter_FILTER_CHAIN {
-								// This would be an error but is a warning for backwards compatibility
-								errs = appendValidation(errs, WrapWarning(
-									fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) // nolint: stylecheck
-							}
-							// filter names are required if network filter matches are being made
-							if listenerMatch.FilterChain.Filter.Name == "" {
-								errs = appendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: stylecheck
-								continue
-							} else if listenerMatch.FilterChain.Filter.SubFilter != nil {
-								// sub filter match is supported only for applyTo HTTP_FILTER
-								if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
-									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: stylecheck
-									continue
-								}
-								// sub filter match requires the network filter to match to envoy http connection manager
-								if listenerMatch.FilterChain.Filter.Name != wellknown.HTTPConnectionManager &&
-									listenerMatch.FilterChain.Filter.Name != "envoy.http_connection_manager" {
-									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: stylecheck
-										wellknown.HTTPConnectionManager))
-									continue
-								}
-								if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
-									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: stylecheck
-									continue
-								}
-							}
-							errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetName()))
-							errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetSubFilter().GetName()))
+				listenerMatch := cp.Match.GetListener()
+				if listenerMatch.FilterChain != nil {
+					if listenerMatch.FilterChain.Filter != nil {
+						if cp.ApplyTo == networking.EnvoyFilter_LISTENER || cp.ApplyTo == networking.EnvoyFilter_FILTER_CHAIN {
+							// This would be an error but is a warning for backwards compatibility
+							errs = appendValidation(errs, WrapWarning(
+								fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) // nolint: stylecheck
 						}
-					}
-				}
-			case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST, networking.EnvoyFilter_HTTP_ROUTE:
-				if cp.Match != nil && cp.Match.ObjectTypes != nil {
-					if cp.Match.GetRouteConfiguration() == nil {
-						errs = appendValidation(errs,
-							fmt.Errorf("Envoy filter: applyTo for http route class objects cannot have non route configuration match")) // nolint: stylecheck
-					}
-				}
-
-			case networking.EnvoyFilter_CLUSTER:
-				if cp.Match != nil && cp.Match.ObjectTypes != nil {
-					if cp.Match.GetCluster() == nil {
-						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: stylecheck
+						// filter names are required if network filter matches are being made
+						if listenerMatch.FilterChain.Filter.Name == "" {
+							errs = appendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: stylecheck
+							continue
+						} else if listenerMatch.FilterChain.Filter.SubFilter != nil {
+							// sub filter match is supported only for applyTo HTTP_FILTER
+							if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
+								errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: stylecheck
+								continue
+							}
+							// sub filter match requires the network filter to match to envoy http connection manager
+							if listenerMatch.FilterChain.Filter.Name != wellknown.HTTPConnectionManager &&
+								listenerMatch.FilterChain.Filter.Name != "envoy.http_connection_manager" {
+								errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: stylecheck
+									wellknown.HTTPConnectionManager))
+								continue
+							}
+							if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
+								errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: stylecheck
+								continue
+							}
+						}
+						errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetName()))
+						errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetSubFilter().GetName()))
 					}
 				}
 			}
-			// ensure that the struct is valid
-			if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false); err != nil {
-				if strings.Contains(err.Error(), "could not resolve Any message type") {
-					if strings.Contains(err.Error(), ".v2.") {
-						err = fmt.Errorf("referenced type unknown (hint: try using the v3 XDS API): %v", err)
-					} else {
-						err = fmt.Errorf("referenced type unknown: %v", err)
-					}
+		case networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST, networking.EnvoyFilter_HTTP_ROUTE:
+			if cp.Match != nil && cp.Match.ObjectTypes != nil {
+				if cp.Match.GetRouteConfiguration() == nil {
+					errs = appendValidation(errs,
+						fmt.Errorf("Envoy filter: applyTo for http route class objects cannot have non route configuration match")) // nolint: stylecheck
 				}
-				errs = appendValidation(errs, err)
-			} else {
-				// Run with strict validation, and emit warnings. This helps capture cases like unknown fields
-				// We do not want to reject in case the proto is valid but our libraries are outdated
-				obj, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, true)
-				if err != nil {
-					errs = appendValidation(errs, WrapWarning(err))
-				}
+			}
 
-				// Append any deprecation notices
-				if obj != nil {
-					// Note: since we no longer import v2 protos, v2 references will fail during BuildXDSObjectFromStruct.
-					errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
-					errs = appendValidation(errs, validateMissingTypedConfigFilterTypes(obj))
+		case networking.EnvoyFilter_CLUSTER:
+			if cp.Match != nil && cp.Match.ObjectTypes != nil {
+				if cp.Match.GetCluster() == nil {
+					errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: stylecheck
 				}
 			}
 		}
+		// ensure that the struct is valid
+		if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false); err != nil {
+			if strings.Contains(err.Error(), "could not resolve Any message type") {
+				if strings.Contains(err.Error(), ".v2.") {
+					err = fmt.Errorf("referenced type unknown (hint: try using the v3 XDS API): %v", err)
+				} else {
+					err = fmt.Errorf("referenced type unknown: %v", err)
+				}
+			}
+			errs = appendValidation(errs, err)
+		} else {
+			// Run with strict validation, and emit warnings. This helps capture cases like unknown fields
+			// We do not want to reject in case the proto is valid but our libraries are outdated
+			obj, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, true)
+			if err != nil {
+				errs = appendValidation(errs, WrapWarning(err))
+			}
 
-		return errs.Unwrap()
-	})
+			// Append any deprecation notices
+			if obj != nil {
+				// Note: since we no longer import v2 protos, v2 references will fail during BuildXDSObjectFromStruct.
+				errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
+				errs = appendValidation(errs, validateMissingTypedConfigFilterTypes(obj))
+			}
+		}
+	}
+
+	return errs.Unwrap()
+}
 
 func validateListenerMatchName(name string) error {
 	if newName, f := xds.ReverseDeprecatedFilterNames[name]; f {
