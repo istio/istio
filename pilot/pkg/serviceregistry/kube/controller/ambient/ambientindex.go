@@ -209,20 +209,17 @@ func New(options Options) Index {
 		if waypoint == nil {
 			return nil
 		}
-		log.Errorf("waypoint found for %v in %v\n", w.Name, w.Namespace)
 		waypointAddress := waypoint.GetAddress()
 		if waypointAddress == nil {
 			return nil
 		}
 
-		log.Errorf("waypoint had address %v, for %v in %v\n", waypointAddress, w.Name, w.Namespace)
 		ip := waypointAddress.GetAddress()
 		netip, _ := netip.AddrFromSlice(ip)
 		netaddr := networkAddress{
 			network: waypointAddress.GetNetwork(),
 			ip:      netip.String(),
 		}
-		log.Errorf("indexed waypoint{%v, %v} for %v\n", netaddr, waypointAddress, w.Name)
 		return append(make([]networkAddress, 1), netaddr)
 	})
 	// Subtle: make sure we register the event after the Index are created. This ensures when we get the event, the index is populated.

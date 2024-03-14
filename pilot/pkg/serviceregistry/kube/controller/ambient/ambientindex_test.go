@@ -1156,26 +1156,27 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 
 func TestWorkloadsForWaypointOrder(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
-	s := newAmbientTestServer(t, "", "")
+	s := newAmbientTestServer(t, "", testNW)
 
-	assertOrderedWaypoint := func(t *testing.T, waypoint model.WaypointScope, expected ...string) {
+	assertOrderedWaypoint := func(t *testing.T, network, address string, expected ...string) {
 		t.Helper()
-		wls := s.WorkloadsForWaypoint(waypoint)
+		wls := s.WorkloadsForWaypoint(network, address)
 		wl := make([]string, len(wls))
 		for i, e := range wls {
 			wl[i] = e.ResourceName()
 		}
 		assert.Equal(t, wl, expected)
 	}
+	s.addWaypoint(t, "10.0.0.1", "waypoint", "", true)
 
 	// expected order is pod3, pod1, pod2, which is the order of creation
-	s.addPods(t, "127.0.0.3", "pod3", "sa3", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.addPods(t, "127.0.0.3", "pod3", "sa3", map[string]string{"app": "a"}, map[string]string{constants.AmbientUseWaypoint: "waypoint"}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod3"))
-	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, map[string]string{constants.AmbientUseWaypoint: "waypoint"}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
-	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "a"}, map[string]string{constants.AmbientUseWaypoint: "waypoint"}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod2"))
-	assertOrderedWaypoint(t, model.WaypointScope{Namespace: testNS},
+	assertOrderedWaypoint(t, testNW, "10.0.0.1",
 		s.podXdsName("pod3"), s.podXdsName("pod1"), s.podXdsName("pod2"))
 }
 
