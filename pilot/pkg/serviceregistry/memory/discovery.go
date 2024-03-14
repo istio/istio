@@ -135,6 +135,13 @@ func (sd *ServiceDiscovery) RemoveService(name host.Name) {
 	svc := sd.services[name]
 	delete(sd.services, name)
 
+	// remove old entries
+	for k, v := range sd.ip2instance {
+		sd.ip2instance[k] = slices.FilterInPlace(v, func(instance *model.ServiceInstance) bool {
+			return instance.Service == nil || instance.Service.Hostname != name
+		})
+	}
+
 	if sd.XdsUpdater != nil {
 		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
 	}
