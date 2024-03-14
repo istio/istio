@@ -57,16 +57,13 @@ const (
 
 func Cmd(ctx cli.Context) *cobra.Command {
 	var waypointServiceAccount, waypointName string
-	makeGatewayName := func(name string) string {
-		if name == "" {
-			name = "namespace"
-		}
-		return name
-	}
-	makeGateway := func(forApply bool) *gateway.Gateway {
+	makeGateway := func(forApply bool) (*gateway.Gateway, error) {
 		ns := ctx.NamespaceOrDefault(ctx.Namespace())
 		if ctx.Namespace() == "" && !forApply {
 			ns = ""
+		}
+		if waypointName == "" {
+			return nil, fmt.Errorf("waypoint name is required, please declare one with the --name flag")
 		}
 		gw := gateway.Gateway{
 			TypeMeta: metav1.TypeMeta{
@@ -74,7 +71,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				APIVersion: gvk.KubernetesGateway.GroupVersion(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      makeGatewayName(waypointName),
+				Name:      waypointName,
 				Namespace: ns,
 			},
 			Spec: gateway.GatewaySpec{
@@ -94,7 +91,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		if revision != "" {
 			gw.Labels = map[string]string{label.IoIstioRev.Name: revision}
 		}
-		return &gw
+		return &gw, nil
 	}
 	waypointGenerateCmd := &cobra.Command{
 		Use:   "generate",
@@ -349,7 +346,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
 	waypointCmd.PersistentFlags().StringVarP(&waypointServiceAccount, "service-account", "s", "", "service account to create a waypoint for")
-	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "wn", "", "name of the waypoint")
+	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", "", "name of the waypoint")
 
 	_ = waypointCmd.RegisterFlagCompletionFunc("service-account", func(
 		cmd *cobra.Command, args []string, toComplete string,
