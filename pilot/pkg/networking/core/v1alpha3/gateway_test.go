@@ -1909,6 +1909,22 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	httpCaseInSensitiveGateway := config.Config{
+		Meta: config.Meta{
+			Name:             "case-insensitive-gateway",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"Example.org"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+				},
+			},
+		},
+	}
 	httpsGateway := config.Config{
 		Meta: config.Meta{
 			Name:             "gateway-https",
@@ -1987,6 +2003,24 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceCaseInsensitiveSpec := &networking.VirtualService{
+		Hosts:    []string{"Example.org"},
+		Gateways: []string{"case-insensitive-gateway", "gateway-redirect"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example.org",
+							Port: &networking.PortSelector{
+								Number: 80,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 	virtualServiceHTTPSMatchSpec := &networking.VirtualService{
 		Hosts:    []string{"example.org"},
 		Gateways: []string{"gateway-https"},
@@ -2017,6 +2051,14 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			Namespace:        "default",
 		},
 		Spec: virtualServiceSpec,
+	}
+	virtualServiceCaseInsensitive := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "virtual-service-case-insensitive",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceCaseInsensitiveSpec,
 	}
 	virtualServiceHTTPS := config.Config{
 		Meta: config.Meta{
@@ -2202,6 +2244,21 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			name:            "duplicate virtual service should merge",
 			virtualServices: []config.Config{virtualService, virtualServiceCopy},
 			gateways:        []config.Config{httpGateway},
+			routeName:       "http.80",
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {
+					"example.org",
+				},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
+				"example.org:80": {"example.org"},
+			},
+			expectedHTTPRoutes: map[string]int{"example.org:80": 2},
+		},
+		{
+			name:            "duplicate virtual service case insensitive",
+			virtualServices: []config.Config{virtualService, virtualServiceCaseInsensitive},
+			gateways:        []config.Config{httpGateway, httpCaseInSensitiveGateway},
 			routeName:       "http.80",
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {

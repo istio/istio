@@ -467,6 +467,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 
 			for _, hostname := range intersectingHosts {
+				hostname = host.Name(strings.ToLower(hostname.String()))
 				if vHost, exists := vHostDedupMap[hostname]; exists {
 					vHost.Routes = append(vHost.Routes, routes...)
 					if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -512,7 +513,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 			newVHost := &route.VirtualHost{
 				Name:                       util.DomainName(hostname, port),
-				Domains:                    []string{hostname},
+				Domains:                    []string{strings.ToLower(hostname)},
 				IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
 				RequireTls:                 route.VirtualHost_ALL,
 			}
