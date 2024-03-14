@@ -34,7 +34,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/go-logr/logr v1.4.1
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	github.com/google/cel-go v0.17.7
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-containerregistry v0.17.0
