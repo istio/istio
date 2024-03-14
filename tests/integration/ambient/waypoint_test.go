@@ -161,7 +161,7 @@ func TestWaypoint(t *testing.T) {
 						if !errors.Is(err, kubetest.ErrNoPodsFetched) {
 							return fmt.Errorf("failed to check gateway status: %v", err)
 						}
-					} else if err == nil {
+					} else {
 						return fmt.Errorf("failed to delete multiple gateways: %s not cleaned up", sa)
 					}
 				}
