@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config"
@@ -129,7 +129,7 @@ func TestListGatewayResourceType(t *testing.T) {
 		Spec: httpRouteSpec,
 	})
 
-	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+	cg := core.NewConfigGenTest(t, core.TestOptions{})
 	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(HaveOccurred())
 	cfg := controller.List(gvk.Gateway, "ns1")
 	g.Expect(cfg).To(HaveLen(1))
