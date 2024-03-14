@@ -232,9 +232,23 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
-	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"}, true, corev1.PodRunning)
+	s.addPods(t,
+		"127.0.0.1",
+		"pod1",
+		"sa1",
+		map[string]string{"app": "a"},
+		map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"},
+		true,
+		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
-	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "b"}, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa2"}, true, corev1.PodRunning)
+	s.addPods(t,
+		"127.0.0.2",
+		"pod2",
+		"sa2",
+		map[string]string{"app": "b"},
+		map[string]string{constants.AmbientUseWaypoint: "waypoint-sa2"},
+		true,
+		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod2"))
 
 	s.addWaypoint(t, "10.0.0.1", "waypoint-sa1", "sa1", false)
@@ -268,7 +282,14 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	s.addPods(t, "127.0.0.3", "pod3", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod3"))
 	// Add pods for app "b".
-	s.addPods(t, "127.0.0.4", "pod4", "sa2", map[string]string{"app": "b"}, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa2"}, true, corev1.PodRunning)
+	s.addPods(t,
+		"127.0.0.4",
+		"pod4",
+		"sa2",
+		map[string]string{"app": "b"},
+		map[string]string{constants.AmbientUseWaypoint: "waypoint-sa2"},
+		true,
+		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod4"))
 
 	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", true)
@@ -360,7 +381,8 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 		}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-ns-pod"))
 	assert.Equal(t,
-		s.lookup(s.addrXdsName("127.0.0.3"))[0].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.2").AsSlice())
+		s.lookup(s.addrXdsName("127.0.0.3"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
+		netip.MustParseAddr("10.0.0.2").AsSlice())
 	// Waypoints do not have waypoints
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.200"))[0].Address.GetWorkload().Waypoint,
@@ -385,7 +407,8 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	)
 	// Make sure Service sees waypoints as well
 	assert.Equal(t,
-		s.lookup(s.addrXdsName("10.0.0.1"))[1].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.2").AsSlice())
+		s.lookup(s.addrXdsName("10.0.0.1"))[1].Address.GetWorkload().Waypoint.GetAddress().Address,
+		netip.MustParseAddr("10.0.0.2").AsSlice())
 
 	// Delete a waypoint
 	s.deletePod(t, "waypoint2-ns-pod")
@@ -1430,12 +1453,15 @@ func (s *ambientTestServer) deleteWorkloadEntry(t *testing.T, name string) {
 	s.we.Delete(name, "ns1")
 }
 
-func (s *ambientTestServer) addServiceEntry(t *testing.T, hostStr string, addresses []string, name, ns string, labels map[string]string, epAddresses []string) {
+func (s *ambientTestServer) addServiceEntry(t *testing.T,
+	hostStr string,
+	addresses []string,
+	name,
+	ns string,
+	labels map[string]string,
+	epAddresses []string,
+) {
 	t.Helper()
-
-	// s.ns.CreateOrUpdate(&corev1.Namespace{
-	// 	ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{"istio.io/dataplane-mode": "ambient"}},
-	// })
 
 	se := &apiv1alpha3.ServiceEntry{
 		ObjectMeta: metav1.ObjectMeta{
