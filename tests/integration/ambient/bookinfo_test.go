@@ -341,11 +341,10 @@ func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, servic
 			}
 			annotations[constants.AmbientUseWaypoint] = "namespace"
 			oldSvc.ObjectMeta.SetAnnotations(annotations)
-			svc, err := c.Kube().CoreV1().Services(nsConfig.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
+			_, err = c.Kube().CoreV1().Services(nsConfig.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
 			if err != nil {
 				t.Fatalf("error updating svc %s, err %v", service, err)
 			}
-			t.Logf("service updated: %v", svc)
 		}
 	}
 }
@@ -371,11 +370,10 @@ func teardownWaypoints(t framework.TestContext, nsConfig namespace.Instance, ser
 				delete(annotations, constants.AmbientUseWaypoint)
 				oldSvc.ObjectMeta.SetAnnotations(annotations)
 			}
-			svc, err := c.Kube().CoreV1().Services(nsConfig.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
+			_, err = c.Kube().CoreV1().Services(nsConfig.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
 			if err != nil {
 				t.Fatalf("error updating svc %s, err %v", service, err)
 			}
-			t.Logf("service updated: %v", svc)
 		}
 	}
 	waypointError := retry.UntilSuccess(func() error {
