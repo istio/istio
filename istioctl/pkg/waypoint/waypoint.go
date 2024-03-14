@@ -56,9 +56,8 @@ const (
 )
 
 func Cmd(ctx cli.Context) *cobra.Command {
-	var waypointServiceAccount string
-	makeGatewayName := func(sa string) string {
-		name := sa
+	var waypointServiceAccount, waypointName string
+	makeGatewayName := func(name string) string {
 		if name == "" {
 			name = "namespace"
 		}
@@ -75,7 +74,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				APIVersion: gvk.KubernetesGateway.GroupVersion(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      makeGatewayName(waypointServiceAccount),
+				Name:      makeGatewayName(waypointName),
 				Namespace: ns,
 			},
 			Spec: gateway.GatewaySpec{
@@ -350,6 +349,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
 	waypointCmd.PersistentFlags().StringVarP(&waypointServiceAccount, "service-account", "s", "", "service account to create a waypoint for")
+	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "n", "", "name of the waypoint")
 
 	_ = waypointCmd.RegisterFlagCompletionFunc("service-account", func(
 		cmd *cobra.Command, args []string, toComplete string,
