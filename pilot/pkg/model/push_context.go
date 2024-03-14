@@ -159,16 +159,22 @@ type sidecarIndex struct {
 	// for all services in the mesh. This will be used if there is no sidecar specified in root namespace.
 	// These are lazy-loaded. Access protected by derivedSidecarMutex.
 	defaultSidecarsByNamespace map[string]*SidecarScope
+	// sidecarsForGatewayByNamespace contains the default sidecar for gateways and waypoints,
+	// These are *always* computed from DefaultSidecarScopeForGateway.
+	// These are lazy-loaded. Access protected by derivedSidecarMutex.
+	sidecarsForGatewayByNamespace map[string]*SidecarScope
+
 	// mutex to protect derived sidecars i.e. not specified by user.
 	derivedSidecarMutex *sync.RWMutex
 }
 
 func newSidecarIndex() sidecarIndex {
 	return sidecarIndex{
-		sidecarsByNamespace:         map[string][]*SidecarScope{},
-		meshRootSidecarsByNamespace: map[string]*SidecarScope{},
-		defaultSidecarsByNamespace:  map[string]*SidecarScope{},
-		derivedSidecarMutex:         &sync.RWMutex{},
+		sidecarsByNamespace:           map[string][]*SidecarScope{},
+		meshRootSidecarsByNamespace:   map[string]*SidecarScope{},
+		defaultSidecarsByNamespace:    map[string]*SidecarScope{},
+		sidecarsForGatewayByNamespace: map[string]*SidecarScope{},
+		derivedSidecarMutex:           &sync.RWMutex{},
 	}
 }
 
@@ -1081,8 +1087,13 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 			return sc
 		}
 
+		if sc, f := ps.sidecarIndex.sidecarsForGatewayByNamespace[proxy.ConfigNamespace]; f {
+			return sc
+		}
+
 		// We need to compute this namespace
 		computed := DefaultSidecarScopeForGateway(ps, proxy.ConfigNamespace)
+		ps.sidecarIndex.sidecarsForGatewayByNamespace[proxy.ConfigNamespace] = computed
 		return computed
 	case SidecarProxy:
 		if hasSidecar {
