@@ -37,8 +37,10 @@ type Waypoint struct {
 }
 
 func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
+	// namespace to be used when the annotation doesn't include a namespace
+	fallbackNamespace := o.Namespace
 	// try fetching the waypoint defined on the object itself
-	wp, isNone := getUseWaypoint(o)
+	wp, isNone := getUseWaypoint(o, fallbackNamespace)
 	if isNone {
 		// we've got a local override here opting out of waypoint
 		return nil
@@ -57,7 +59,7 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 	// this probably should never be nil. How would o exist in a namespace we know nothing about? maybe edge case of starting the controller or ns delete?
 	if namespace != nil {
 		// toss isNone, we don't need to know /why/ we got nil
-		wpNamespace, _ := getUseWaypoint(namespace.ObjectMeta)
+		wpNamespace, _ := getUseWaypoint(namespace.ObjectMeta, fallbackNamespace)
 		if wpNamespace != nil {
 			return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wpNamespace.ResourceName()))
 		}
@@ -67,7 +69,11 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 	return nil
 }
 
-func getUseWaypoint(meta metav1.ObjectMeta) (named *krt.Named, isNone bool) {
+// getUseWaypoint takes objectMeta and a defaultNamespace
+// it looks for the istio.io/use-waypoint annotation and parses it
+// if there is no namespace provided in the annotation the default namespace will be used
+// defaultNamespace avoids the need to infer when object meta from a namespace was given
+func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
 	if annotationValue, ok := meta.Annotations[constants.AmbientUseWaypoint]; ok {
 		if annotationValue == "#none" || annotationValue == "~" {
 			return nil, true
@@ -75,15 +81,9 @@ func getUseWaypoint(meta metav1.ObjectMeta) (named *krt.Named, isNone bool) {
 		namespacedName := strings.Split(annotationValue, "/")
 		switch len(namespacedName) {
 		case 1:
-			// TODO: janky logic here... needs to be sorted based on knowing if meta came from a ns vs attempting inference...
-			namespace := meta.Namespace
-			if namespace == "" {
-				// object meta assumed to be from a namespace?
-				namespace = meta.Name
-			}
 			return &krt.Named{
 				Name:      namespacedName[0],
-				Namespace: namespace,
+				Namespace: defaultNamespace,
 			}, false
 		case 2:
 			return &krt.Named{
