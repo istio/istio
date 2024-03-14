@@ -56,18 +56,14 @@ const (
 )
 
 func Cmd(ctx cli.Context) *cobra.Command {
-	var waypointServiceAccount string
-	makeGatewayName := func(sa string) string {
-		name := sa
-		if name == "" {
-			name = "namespace"
-		}
-		return name
-	}
-	makeGateway := func(forApply bool) *gateway.Gateway {
+	var waypointServiceAccount, waypointName string
+	makeGateway := func(forApply bool) (*gateway.Gateway, error) {
 		ns := ctx.NamespaceOrDefault(ctx.Namespace())
 		if ctx.Namespace() == "" && !forApply {
 			ns = ""
+		}
+		if waypointName == "" {
+			return nil, fmt.Errorf("waypoint name is required, please declare one with the --name flag")
 		}
 		gw := gateway.Gateway{
 			TypeMeta: metav1.TypeMeta{
@@ -75,7 +71,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				APIVersion: gvk.KubernetesGateway.GroupVersion(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      makeGatewayName(waypointServiceAccount),
+				Name:      waypointName,
 				Namespace: ns,
 			},
 			Spec: gateway.GatewaySpec{
@@ -95,7 +91,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		if revision != "" {
 			gw.Labels = map[string]string{label.IoIstioRev.Name: revision}
 		}
-		return &gw
+		return &gw, nil
 	}
 	waypointGenerateCmd := &cobra.Command{
 		Use:   "generate",
@@ -104,7 +100,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Example: `  # Generate a waypoint as yaml
   istioctl x waypoint generate --service-account something --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			gw := makeGateway(false)
+			gw, err := makeGateway(false)
+			if err != nil {
+				return fmt.Errorf("failed to create gateway: %v", err)
+			}
 			b, err := yaml.Marshal(gw)
 			if err != nil {
 				return err
@@ -132,9 +131,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			gw := makeGateway(true)
+			gw, err := makeGateway(true)
 			if err != nil {
-				return fmt.Errorf("failed to create Kubernetes client: %v", err)
+				return fmt.Errorf("failed to create gateway: %v", err)
 			}
 			gwc := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace()))
 			b, err := yaml.Marshal(gw)
@@ -228,7 +227,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 
 			// Delete waypoints by service account if provided
 			if len(args) == 0 {
-				gw := makeGateway(true)
+				gw, err := makeGateway(true)
+				if err != nil {
+					return fmt.Errorf("failed to create gateway: %v", err)
+				}
 				if err = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
 					Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
 					return err
@@ -350,6 +352,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
 	waypointCmd.PersistentFlags().StringVarP(&waypointServiceAccount, "service-account", "s", "", "service account to create a waypoint for")
+	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", "", "name of the waypoint")
 
 	_ = waypointCmd.RegisterFlagCompletionFunc("service-account", func(
 		cmd *cobra.Command, args []string, toComplete string,

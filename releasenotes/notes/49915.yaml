@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 49915
+releaseNotes:
+- |
+  **Added** Allow user to name their waypoint throught istioctl via --name flag on the waypoint cmd.
