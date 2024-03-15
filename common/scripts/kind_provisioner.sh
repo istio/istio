@@ -196,7 +196,7 @@ EOF
     return 9
   fi
   # Workaround kind issue causing taints to not be removed in 1.24
-  kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- || true
+  kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- 2>/dev/null || true
 
   # Determine what CNI to install
   case "${KUBERNETES_CNI:-}" in 
