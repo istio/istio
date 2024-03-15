@@ -90,17 +90,19 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
 		// check with the name of our service (cluster names are in the format outbound|<port>|<subset>|<hostname>).
 		dir, subset, svcHost, port := model.ParseSubsetKey(cluster)
-		if subset == "" {
-			sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
-		} else {
-			sets.InsertOrNew(subsetClusters, string(svcHost), cluster)
-		}
-		if servicePortClusters[string(svcHost)] == nil {
-			servicePortClusters[string(svcHost)] = make(map[int]string)
-		}
-		servicePortClusters[string(svcHost)][port] = cluster
+		// Inbound clusters don't have svchost in its format. So don't add it to serviceClusters.
 		if dir == model.TrafficDirectionInbound {
 			inboundClusters.Insert(cluster)
+		} else {
+			if subset == "" {
+				sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
+			} else {
+				sets.InsertOrNew(subsetClusters, string(svcHost), cluster)
+			}
+			if servicePortClusters[string(svcHost)] == nil {
+				servicePortClusters[string(svcHost)] = make(map[int]string)
+			}
+			servicePortClusters[string(svcHost)][port] = cluster
 		}
 	}
 
@@ -120,7 +122,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
-	// When clusters are rebuilt, it rebuilt the subset clusters as well. So, we know what
+	// When clusters are rebuilt, we rebuild the subset clusters as well. So, we know what
 	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
 	builtClusters := sets.New[string]()
 	for _, c := range clusters {
