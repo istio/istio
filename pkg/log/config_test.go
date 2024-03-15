@@ -126,8 +126,8 @@ func TestGrpc(t *testing.T) {
 	o.outputLevels = "grpc:info"
 	if err := Configure(o); err != nil {
 		t.Errorf("Expecting success, got %v", err)
-	} else if !o.LogGrpc {
-		t.Errorf("Expecting LogGrpc, got %v", o.LogGrpc)
+	} else if !o.logGRPC {
+		t.Errorf("Expecting LogGrpc, got %v", o.logGRPC)
 	}
 }
 
@@ -326,9 +326,9 @@ func TestRotateMaxBackups(t *testing.T) {
 func TestCapture(t *testing.T) {
 	lines, _ := captureStdout(func() {
 		o := DefaultOptions()
-		o.SetLogCallers(DefaultScopeName, true)
-		o.SetOutputLevel(DefaultScopeName, DebugLevel)
-		o.LogGrpc = true
+		o.logCallers = "default"
+		o.SetDefaultOutputLevel(DefaultScopeName, DebugLevel)
+		o.SetDefaultOutputLevel(GrpcScopeName, DebugLevel)
 		_ = Configure(o)
 
 		// output to the plain golang "log" package
@@ -355,6 +355,7 @@ func TestCapture(t *testing.T) {
 		_ = zap.L().Core().Write(entry, nil)
 
 		defaultScope.SetOutputLevel(NoneLevel)
+		grpcScope.SetOutputLevel(NoneLevel)
 
 		// all these get thrown out since the level is set to none
 		log.Println("golang-2")
@@ -369,8 +370,8 @@ func TestCapture(t *testing.T) {
 
 	patterns := []string{
 		timePattern + "\tinfo\tlog/config_test.go:.*\tgolang",
-		timePattern + "\tinfo\tlog/config_test.go:.*\tgrpc-error", // gRPC errors and warnings come out as info
-		timePattern + "\tinfo\tlog/config_test.go:.*\tgrpc-warn",
+		timePattern + "\terror\tlog/config_test.go:.*\tgrpc-error", // gRPC errors and warnings come out as info
+		timePattern + "\twarn\tlog/config_test.go:.*\tgrpc-warn",
 		timePattern + "\tinfo\tlog/config_test.go:.*\tgrpc-info",
 		timePattern + "\terror\tlog/config_test.go:.*\tzap-error",
 		timePattern + "\twarn\tlog/config_test.go:.*\tzap-warn",
@@ -400,8 +401,8 @@ func TestCapture(t *testing.T) {
 
 	lines, _ = captureStdout(func() {
 		o := DefaultOptions()
-		o.SetStackTraceLevel(DefaultScopeName, DebugLevel)
-		o.SetOutputLevel(DefaultScopeName, DebugLevel)
+		o.stackTraceLevels = "default:debug"
+		o.SetDefaultOutputLevel(DefaultScopeName, DebugLevel)
 		_ = Configure(o)
 		log.Println("golang")
 	})
@@ -445,5 +446,5 @@ func captureStdout(f func()) ([]string, error) {
 
 func resetGlobals() {
 	scopes = make(map[string]*Scope, 1)
-	defaultScope = registerDefaultScope()
+	defaultScope, grpcScope = registerDefaultScopes()
 }

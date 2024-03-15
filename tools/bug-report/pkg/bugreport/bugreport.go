@@ -576,7 +576,7 @@ func configLogs(opt *log.Options) error {
 	opt2 := *opt
 	opt2.OutputPaths = op
 	opt2.ErrorOutputPaths = op
-	opt2.SetOutputLevel("default", log.InfoLevel)
+	opt2.SetDefaultOutputLevel("default", log.InfoLevel)
 
 	return log.Configure(&opt2)
 }
