@@ -285,7 +285,6 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			Hosts: []string{"*/*"},
 		},
 	}
-	defaultEgressListener.services = ps.servicesExportedToNamespace(configNamespace)
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
 	defaultEgressListener.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(
 		defaultEgressListener.virtualServices, defaultEgressListener.services)
@@ -302,21 +301,21 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 
 	servicesAdded := make(map[host.Name]sidecarServiceIndex)
-	for _, listener := range out.EgressListeners {
-		for _, s := range listener.services {
-			out.appendSidecarServices(servicesAdded, s)
-		}
-		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServices(listener.virtualServices)
-		for _, delegate := range delegates {
-			out.AddConfigDependencies(delegate)
-		}
-		for _, vs := range listener.virtualServices {
-			for _, cfg := range VirtualServiceDependencies(vs) {
-				out.AddConfigDependencies(cfg.HashCode())
-			}
+	services := ps.servicesExportedToNamespace(configNamespace)
+	for _, s := range services {
+		out.appendSidecarServices(servicesAdded, s)
+	}
+	// add dependencies on delegate virtual services
+	delegates := ps.DelegateVirtualServices(defaultEgressListener.virtualServices)
+	for _, delegate := range delegates {
+		out.AddConfigDependencies(delegate)
+	}
+	for _, vs := range defaultEgressListener.virtualServices {
+		for _, cfg := range VirtualServiceDependencies(vs) {
+			out.AddConfigDependencies(cfg.HashCode())
 		}
 	}
+	defaultEgressListener.services = services
 
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
@@ -740,6 +739,7 @@ func (sc *SidecarScope) ServicesForHostname(hostname host.Name) []*Service {
 
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
+// TODO: support merging services within this egress listener to align with SidecarScope's behavior.
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string, hostsByNamespace map[string]hostClassification) []*Service {
 	importedServices := make([]*Service, 0)
 	wildcardHosts, wnsFound := hostsByNamespace[wildcardNamespace]
