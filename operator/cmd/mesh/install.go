@@ -152,11 +152,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		return err
 	}
 
-	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
-	if err != nil {
-		return fmt.Errorf("fetch Istio version: %v", err)
-	}
-
 	// return warning if current date is near the EOL date
 	if operatorVer.IsEOL() {
 		warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
@@ -174,6 +169,11 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	profile, ns, enabledComponents, err := getProfileNSAndEnabledComponents(iop)
 	if err != nil {
 		return fmt.Errorf("failed to get profile, namespace or enabled components: %v", err)
+	}
+
+	tag, err := getTagFromIstioOperator(iop)
+	if err != nil {
+		return fmt.Errorf("fetch Istio version: %v", err)
 	}
 
 	// Ignore the err because we don't want to show
@@ -332,6 +332,21 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 		}
 	}
 	return nil
+}
+
+func getTagFromIstioOperator(iop *v1alpha12.IstioOperator) (string, error) {
+	tagInfo := iop.Spec.Tag.GetStringValue()
+	if iop.Spec.GetComponents().GetPilot().GetTag() != nil {
+		tagInfo = iop.Spec.GetComponents().GetPilot().GetTag().GetStringValue()
+	}
+	if m := iop.Spec.GetValues().AsMap()["pilot"]; m != nil {
+		if image := m.(map[string]any)["image"]; image != nil {
+			imageStr := image.(string)
+			parts := strings.Split(imageStr, ":")
+			tagInfo = parts[len(parts)-1]
+		}
+	}
+	return GetTagVersion(tagInfo)
 }
 
 // GetTagVersion returns istio tag version
