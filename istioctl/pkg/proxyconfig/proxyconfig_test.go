@@ -40,7 +40,6 @@ type execTestCase struct {
 	// Typically use one of the three
 	expectedOutput string // Expected constant output
 	expectedString string // String output is expected to contain
-	goldenFilename string // Expected output stored in golden file
 
 	wantException bool
 }
@@ -213,10 +212,6 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 
 	if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
 		t.Fatalf("Output didn't match for '%s %s'\n got %v\nwant: %v", cmd.Name(), strings.Join(c.args, " "), output, c.expectedString)
-	}
-
-	if c.goldenFilename != "" {
-		util.CompareContent(t, []byte(output), c.goldenFilename)
 	}
 
 	if c.wantException {
