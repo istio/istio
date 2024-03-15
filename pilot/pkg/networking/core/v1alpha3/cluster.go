@@ -85,14 +85,16 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	// Holds subset clusters per service, keyed by hostname.
 	subsetClusters := make(map[string]sets.String)
 
-	inboundClusters := sets.New[string]()
 	for _, cluster := range watched.ResourceNames {
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
 		// check with the name of our service (cluster names are in the format outbound|<port>|<subset>|<hostname>).
 		dir, subset, svcHost, port := model.ParseSubsetKey(cluster)
 		// Inbound clusters don't have svchost in its format. So don't add it to serviceClusters.
 		if dir == model.TrafficDirectionInbound {
-			inboundClusters.Insert(cluster)
+			// Append all inbound clusters because in both stow/delta we always build all inbound clusters.
+			// In reality, the delta building is only for outbound clusters. We need to revist here once we support delta for inbound.
+			// So deletedClusters.Difference(builtClusters) would give us the correct deleted inbound clusters.
+			deletedClusters.Insert(cluster)
 		} else {
 			if subset == "" {
 				sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
@@ -130,12 +132,6 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	// Remove anything we built from the deleted list
 	deletedClusters = deletedClusters.Difference(builtClusters)
-	// Inbound is not handled above. Remove anything that we had before and no longer have
-	for c := range inboundClusters {
-		if !builtClusters.Contains(c) {
-			deletedClusters.Insert(c)
-		}
-	}
 	return clusters, sets.SortedList(deletedClusters), log, true
 }
 
