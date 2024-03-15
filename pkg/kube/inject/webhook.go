@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/yaml"
@@ -377,7 +378,7 @@ func NewValuesConfig(v string) (ValuesConfig, error) {
 
 type InjectionParameters struct {
 	pod                 *corev1.Pod
-	deployMeta          metav1.ObjectMeta
+	deployMeta          types.NamespacedName
 	namespace           *corev1.Namespace
 	typeMeta            metav1.TypeMeta
 	templates           map[string]*template.Template
