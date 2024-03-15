@@ -395,7 +395,7 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 			opts.policy = &networking.TrafficPolicy{}
 		} else {
 			// copy policy to prevent mutating the original destinationRule trafficPolicy
-			opts.policy = util.ShallowcopyTrafficPolicy(opts.policy)
+			opts.policy = util.ShallowCopyTrafficPolicy(opts.policy)
 		}
 		opts.policy.ConnectionPool = sidecarConnPool
 	}
