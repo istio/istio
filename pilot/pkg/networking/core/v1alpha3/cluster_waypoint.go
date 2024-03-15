@@ -148,9 +148,6 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 	return clusters
 }
 
-// TODO(ilrudie) this is a bit broken by removing sa scoping as a concept. need to rework it
-// we now calculate a list of all sa's that are served by a waypoint based on waypoint network address, consider using that
-// CONNECT origination cluster
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	m := &matcher.StringMatcher{}
 	m.MatchPattern = &matcher.StringMatcher_Prefix{
