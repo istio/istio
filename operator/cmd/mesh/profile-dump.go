@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/log"
 )
 
 type profileDumpArgs struct {
@@ -64,7 +63,7 @@ func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
-func profileDumpCmd(rootArgs *RootArgs, pdArgs *profileDumpArgs, logOpts *log.Options) *cobra.Command {
+func profileDumpCmd(pdArgs *profileDumpArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "dump [<profile>]",
 		Short: "Dumps an Istio configuration profile",
@@ -77,7 +76,7 @@ func profileDumpCmd(rootArgs *RootArgs, pdArgs *profileDumpArgs, logOpts *log.Op
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-			return profileDump(args, rootArgs, pdArgs, l, logOpts)
+			return profileDump(args, pdArgs, l)
 		},
 	}
 }
@@ -119,9 +118,7 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	return string(prettyJSON), nil
 }
 
-func profileDump(args []string, rootArgs *RootArgs, pdArgs *profileDumpArgs, l clog.Logger, logOpts *log.Options) error {
-	initLogsOrExit(rootArgs)
-
+func profileDump(args []string, pdArgs *profileDumpArgs, l clog.Logger) error {
 	if len(args) == 1 && pdArgs.inFilenames != nil {
 		return fmt.Errorf("cannot specify both profile name and filename flag")
 	}
@@ -133,10 +130,6 @@ func profileDump(args []string, rootArgs *RootArgs, pdArgs *profileDumpArgs, l c
 	setFlags := applyFlagAliases(make([]string, 0), pdArgs.manifestsPath, "")
 	if len(args) == 1 {
 		setFlags = append(setFlags, "profile="+args[0])
-	}
-
-	if err := configLogs(logOpts); err != nil {
-		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
 	y, _, err := manifest.GenerateConfig(pdArgs.inFilenames, setFlags, true, nil, l)

@@ -86,8 +86,6 @@ func operatorInitCmd(ctx cli.Context, rootArgs *RootArgs, oiArgs *operatorInitAr
 
 // operatorInit installs the Istio operator controller into the cluster.
 func operatorInit(cliClient kube.CLIClient, args *RootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
-	initLogsOrExit(args)
-
 	kubeClient, client, err := kubeClients(cliClient, l)
 	if err != nil {
 		l.LogAndFatal(err)

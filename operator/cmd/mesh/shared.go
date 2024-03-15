@@ -68,16 +68,9 @@ func (w *writerPrinter) Println(str string) {
 	_, _ = fmt.Fprintln(w.writer, str)
 }
 
-func initLogsOrExit(_ *RootArgs) {
-	if err := configLogs(log.DefaultOptions()); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
-		os.Exit(1)
-	}
-}
-
 var logMutex = sync.Mutex{}
 
-func configLogs(opt *log.Options) error {
+func ConfigLogs(opt *log.Options) error {
 	logMutex.Lock()
 	defer logMutex.Unlock()
 	op := []string{"stderr"}

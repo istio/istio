@@ -257,6 +257,23 @@ func updateScopes(options *Options) error {
 	// snapshot what's there
 	allScopes := Scopes()
 
+	// set default if exists
+	levels := strings.Split(options.outputLevels, ",")
+	for _, sl := range levels {
+		s, l, err := convertScopedLevel(sl)
+		if err != nil {
+			return err
+		}
+		if s == DefaultScopeName {
+			for _, scope := range allScopes {
+				if scope.GetOutputLevel() == defaultOutputLevel {
+					scope.SetOutputLevel(l)
+				}
+			}
+			break
+		}
+	}
+
 	// update the output levels of all listed scopes
 	if err := processLevels(allScopes, options.outputLevels, func(s *Scope, l Level) { s.SetOutputLevel(l) }); err != nil {
 		return err
