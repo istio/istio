@@ -731,8 +731,7 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 
 // waypointInScope computes whether the endpoint is owned by the waypoint
 func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
-	scope := waypoint.WaypointScope()
-	return scope.Namespace == e.Namespace
+	return waypoint.GetNamespace() == e.Namespace
 }
 
 func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {

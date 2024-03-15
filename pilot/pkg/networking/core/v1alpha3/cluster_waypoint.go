@@ -152,11 +152,9 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 // we now calculate a list of all sa's that are served by a waypoint based on waypoint network address, consider using that
 // CONNECT origination cluster
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
-	// Restrict upstream SAN to waypoint scope.
-	scope := proxy.WaypointScope()
 	m := &matcher.StringMatcher{}
 	m.MatchPattern = &matcher.StringMatcher_Prefix{
-		Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/ns/" + scope.Namespace + "/sa/",
+		Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/ns/" + proxy.Metadata.Namespace + "/sa/",
 	}
 	return cb.buildConnectOriginate(proxy, push, m)
 }
