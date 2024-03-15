@@ -15,6 +15,7 @@
 package util
 
 import (
+	"encoding/json"
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -22,10 +23,40 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func FuzzShallowcopyTrafficPolicy(f *testing.F) {
+func FuzzShallowCopyTrafficPolicy(f *testing.F) {
 	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		r := fuzz.Struct[*networking.TrafficPolicy](fg)
-		copied := ShallowcopyTrafficPolicy(r)
+		copied := ShallowCopyTrafficPolicy(r)
 		assert.Equal(fg.T(), r, copied)
+	})
+}
+
+func FuzzShallowCopyPortTrafficPolicy(f *testing.F) {
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
+		r := fuzz.Struct[*networking.TrafficPolicy_PortTrafficPolicy](fg)
+
+		// The port does not need to be copied.
+		r.Port = nil
+
+		// The type has changed and cannot be compared directly.
+		// Convert to []byte for comparison.
+		copied := shadowCopyPortTrafficPolicy(r)
+		rjs, _ := json.Marshal(r)
+		cjs, _ := json.Marshal(copied)
+		assert.Equal(fg.T(), rjs, cjs)
+	})
+}
+
+func FuzzMergeTrafficPolicy(f *testing.F) {
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
+		copyFrom := fuzz.Struct[*networking.TrafficPolicy](fg)
+
+		empty1 := &networking.TrafficPolicy{}
+		copied := mergeTrafficPolicy(empty1, copyFrom, true)
+		assert.Equal(fg.T(), copyFrom, copied)
+
+		empty2 := &networking.TrafficPolicy{}
+		copied = mergeTrafficPolicy(empty2, copied, true)
+		assert.Equal(fg.T(), copyFrom, copied)
 	})
 }
