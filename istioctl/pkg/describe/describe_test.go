@@ -51,7 +51,6 @@ type execAndK8sConfigTestCase struct {
 	// Typically use one of the three
 	expectedOutput string // Expected constant output
 	expectedString string // String output is expected to contain
-	goldenFilename string // Expected output stored in golden file
 
 	wantException bool
 }
@@ -816,10 +815,6 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 
 	if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
 		t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v", strings.Join(c.args, " "), output, c.expectedString)
-	}
-
-	if c.goldenFilename != "" {
-		util.CompareContent(t, []byte(output), c.goldenFilename)
 	}
 
 	if c.wantException {
