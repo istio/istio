@@ -17,7 +17,6 @@
 package ambient
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,12 +27,11 @@ import (
 	"testing"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	ambientComponent "istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -115,7 +113,7 @@ func TestBookinfo(t *testing.T) {
 			})
 
 			t.NewSubTest("ingress receives waypoint updates").Run(func(t framework.TestContext) {
-				setupWaypoints(t, nsConfig, "productpage")
+				ambientComponent.SetupWaypoints(t, nsConfig, "productpage")
 				for _, ingressURL := range ingressURLs {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -129,7 +127,7 @@ func TestBookinfo(t *testing.T) {
 						return nil
 					}, retry.Converge(5))
 				}
-				teardownWaypoints(t, nsConfig, "productpage")
+				ambientComponent.TeardownWaypoints(t, nsConfig, "productpage")
 				for _, ingressURL := range ingressURLs {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -146,7 +144,7 @@ func TestBookinfo(t *testing.T) {
 			})
 
 			t.NewSubTest("waypoint routing").Run(func(t framework.TestContext) {
-				setupWaypoints(t, nsConfig, "reviews")
+				ambientComponent.SetupWaypoints(t, nsConfig, "reviews")
 
 				t.NewSubTest("productpage reachable").Run(func(t framework.TestContext) {
 					for _, ingressURL := range ingressURLs {
@@ -268,7 +266,7 @@ func TestBookinfo(t *testing.T) {
 				})
 			})
 			time.Sleep(time.Minute)
-			teardownWaypoints(t, nsConfig, "reviews")
+			ambientComponent.TeardownWaypoints(t, nsConfig, "reviews")
 		})
 }
 
@@ -317,85 +315,6 @@ func applyDefaultRouting(t framework.TestContext, nsConfig namespace.Instance) {
 	applyFileOrFail(t, nsConfig.Name(), defaultDestRule)
 	applyFileOrFail(t, nsConfig.Name(), bookinfoGateway)
 	applyFileOrFail(t, nsConfig.Name(), routingV1)
-}
-
-func applyWaypoint(t framework.TestContext, ns namespace.Instance) {
-	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-		"x",
-		"waypoint",
-		"apply",
-		"--namespace",
-		ns.Name(),
-		"--wait",
-	})
-}
-
-func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, service string) {
-	applyWaypoint(t, nsConfig)
-	if service != "" {
-		cs := t.AllClusters().Configs()
-		for _, c := range cs {
-			oldSvc, err := c.Kube().CoreV1().Services(nsConfig.Name()).Get(t.Context(), service, metav1.GetOptions{})
-			if err != nil {
-				t.Fatalf("error getting svc %s, err %v", service, err)
-			}
-			annotations := oldSvc.ObjectMeta.GetAnnotations()
-			if annotations == nil {
-				annotations = make(map[string]string, 1)
-			}
-			annotations[constants.AmbientUseWaypoint] = "namespace"
-			oldSvc.ObjectMeta.SetAnnotations(annotations)
-			_, err = c.Kube().CoreV1().Services(nsConfig.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
-			if err != nil {
-				t.Fatalf("error updating svc %s, err %v", service, err)
-			}
-		}
-	}
-}
-
-func deleteWaypoint(t framework.TestContext, ns namespace.Instance) {
-	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-		"x",
-		"waypoint",
-		"delete",
-		"--namespace",
-		ns.Name(),
-	})
-}
-
-func teardownWaypoints(t framework.TestContext, nsConfig namespace.Instance, service string) {
-	deleteWaypoint(t, nsConfig)
-	if service != "" {
-		cs := t.AllClusters().Configs()
-		for _, c := range cs {
-			oldSvc, err := c.Kube().CoreV1().Services(nsConfig.Name()).Get(t.Context(), service, metav1.GetOptions{})
-			if err != nil {
-				t.Fatalf("error getting svc %s, err %v", service, err)
-			}
-			annotations := oldSvc.ObjectMeta.GetAnnotations()
-			if annotations != nil {
-				delete(annotations, constants.AmbientUseWaypoint)
-				oldSvc.ObjectMeta.SetAnnotations(annotations)
-			}
-			_, err = c.Kube().CoreV1().Services(nsConfig.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
-			if err != nil {
-				t.Fatalf("error updating svc %s, err %v", service, err)
-			}
-		}
-	}
-	waypointError := retry.UntilSuccess(func() error {
-		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+service)
-		pods, err := kubetest.CheckPodsAreReady(fetch)
-		if err != nil && !errors.Is(err, kubetest.ErrNoPodsFetched) {
-			return fmt.Errorf("cannot fetch pod: %v", err)
-		} else if len(pods) != 0 {
-			return fmt.Errorf("waypoint pod is not deleted")
-		}
-		return nil
-	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
-	if waypointError != nil {
-		t.Fatal(waypointError)
-	}
 }
 
 func setupBookinfo(t framework.TestContext, nsConfig namespace.Instance) {

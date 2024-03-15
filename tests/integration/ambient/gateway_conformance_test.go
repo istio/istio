@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
+	ambientComponent "istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -119,7 +120,7 @@ func TestGatewayConformance(t *testing.T) {
 
 			// create a waypoint for mesh conformance
 			meshNS := namespace.Static("gateway-conformance-mesh")
-			applyWaypoint(ctx, meshNS)
+			ambientComponent.NewWaypointProxyOrFail(ctx, meshNS, "namespace")
 			for _, k := range ctx.AllClusters() {
 				ns, err := k.Kube().CoreV1().Namespaces().Get(ctx.Context(), meshNS.Name(), v1.GetOptions{})
 				if err != nil {
