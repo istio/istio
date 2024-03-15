@@ -9,9 +9,6 @@ defaults:
     # Used to locate istiod.
     istioNamespace: istio-system
 
-    istiod:
-      enableAnalysis: false
-
     externalIstiod: false
     remotePilotAddress: ""
 
