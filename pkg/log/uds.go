@@ -46,7 +46,7 @@ func teeToUDSServer(baseCore zapcore.Core, address, path string) zapcore.Core {
 				return net.Dial("unix", address)
 			},
 		},
-		Timeout: 100 * time.Millisecond,
+		Timeout: time.Second,
 	}
 	uc := &udsCore{
 		client:  c,
