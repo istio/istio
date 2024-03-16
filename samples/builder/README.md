@@ -1,4 +1,4 @@
-# Sample builder
+ # Sample builder
 
 This folder contains docker image building logic for various samples, to consolidate things.
 Note some images still user per-folder config, so this is not complete.
@@ -7,7 +7,7 @@ Note some images still user per-folder config, so this is not complete.
 
 To build all images and push them:
 
-```
+```bash
 docker buildx bake --push
 ```
 
@@ -15,7 +15,8 @@ This will push to `localhost:5000` by default, which you can override with `HUB=
 It will also build `linux/amd64,linux/arm64` which you can override with `PLATFORMS`.
 
 You can also build a set of images instead of all of them:
-```
+
+```bash
 docker buildx bake --push examples-helloworld-v1 tcp-echo-server
 ```
 
