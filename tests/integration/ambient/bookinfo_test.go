@@ -265,7 +265,6 @@ func TestBookinfo(t *testing.T) {
 					return getGracePeriod(3)
 				})
 			})
-			time.Sleep(time.Minute)
 			ambientComponent.TeardownWaypoints(t, nsConfig, "reviews")
 		})
 }
