@@ -316,7 +316,7 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 	}
 	selector = selector.Add(*componentRequirement)
 
-	resources := append(NamespacedResources(), ClusterResources...)
+	resources := PrunedResourcesSchemas()
 	for _, gvk := range resources {
 		// First, we collect all objects for the provided GVK
 		objects := &unstructured.UnstructuredList{}
@@ -335,6 +335,10 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		errs = util.AppendErr(errs, callback(labels, objects))
 	}
 	return errs.ToError()
+}
+
+func PrunedResourcesSchemas() []schema.GroupVersionKind {
+	return append(NamespacedResources(), ClusterResources...)
 }
 
 // deleteResources delete any resources from the given component that are not in the excluded map. Resource
