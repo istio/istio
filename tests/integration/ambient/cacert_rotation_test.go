@@ -46,7 +46,6 @@ func TestIntermediateCertificateRefresh(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.cacert-rotation").
 		Run(func(t framework.TestContext) {
-			// t.Skip("arg...")
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
