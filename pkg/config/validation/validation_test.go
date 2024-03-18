@@ -3584,6 +3584,14 @@ func TestValidateDestinationRule(t *testing.T) {
 			},
 		}, valid: false},
 
+		{name: "duplicate subset names", in: &networking.DestinationRule{
+			Host: "reviews",
+			Subsets: []*networking.Subset{
+				{Name: "foo", Labels: map[string]string{"version": "v1"}},
+				{Name: "foo", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: false},
+
 		{name: "valid traffic policy, top level", in: &networking.DestinationRule{
 			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
