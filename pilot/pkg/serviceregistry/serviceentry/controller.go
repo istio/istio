@@ -927,24 +927,23 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	x := 0
 	hnMap := make(map[string]octetPair)
 	for _, svc := range hashedServices {
+		x++
 		if svc == nil {
 			// There is no service in the slot. Just increment x and move forward.
-			x++
 			continue
 		}
 		n := makeServiceKey(svc)
+		// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
+		// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
+		// So we bump X to 511, so that the resulting IP is 240.240.2.1
+		if x%255 == 0 {
+			x++
+		}
 		if v, ok := hnMap[n]; ok {
 			log.Debugf("Reuse IP for domain %s", n)
 			setAutoAllocatedIPs(svc, v)
 		} else {
 			var thirdOctect, fourthOctect int
-			// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
-			// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
-			// So we bump X to 511, so that the resulting IP is 240.240.2.1
-			x++
-			if x%255 == 0 {
-				x++
-			}
 			thirdOctect = x / 255
 			fourthOctect = x % 255
 			pair := octetPair{thirdOctect, fourthOctect}
