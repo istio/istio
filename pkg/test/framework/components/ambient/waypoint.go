@@ -227,7 +227,6 @@ func DeleteWaypoint(t framework.TestContext, ns namespace.Instance) {
 }
 
 func TeardownWaypoints(t framework.TestContext, nsConfig namespace.Instance, service string) {
-	DeleteWaypoint(t, nsConfig)
 	if service != "" {
 		cs := t.AllClusters().Configs()
 		for _, c := range cs {
@@ -246,6 +245,7 @@ func TeardownWaypoints(t framework.TestContext, nsConfig namespace.Instance, ser
 			}
 		}
 	}
+	DeleteWaypoint(t, nsConfig)
 	waypointError := retry.UntilSuccess(func() error {
 		fetch := testKube.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+service)
 		pods, err := testKube.CheckPodsAreReady(fetch)
