@@ -223,6 +223,8 @@ func DeleteWaypoint(t framework.TestContext, ns namespace.Instance) {
 		"delete",
 		"--namespace",
 		ns.Name(),
+		"--service-account",
+		"namespace",
 	})
 }
 
@@ -247,7 +249,7 @@ func TeardownWaypoints(t framework.TestContext, nsConfig namespace.Instance, ser
 	}
 	DeleteWaypoint(t, nsConfig)
 	waypointError := retry.UntilSuccess(func() error {
-		fetch := testKube.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+service)
+		fetch := testKube.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=namespace")
 		pods, err := testKube.CheckPodsAreReady(fetch)
 		if err != nil && !errors.Is(err, testKube.ErrNoPodsFetched) {
 			return fmt.Errorf("cannot fetch pod: %v", err)
