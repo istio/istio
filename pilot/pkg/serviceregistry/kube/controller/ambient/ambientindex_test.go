@@ -1138,7 +1138,10 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 
 	assertWaypoint := func(t *testing.T, waypointNetwork string, waypointAddress string, expected ...string) {
 		t.Helper()
-		wl := sets.New(slices.Map(s.WorkloadsForWaypoint(waypointNetwork, waypointAddress), func(e model.WorkloadInfo) string {
+		wl := sets.New(slices.Map(s.WorkloadsForWaypoint(model.WaypointKey{
+			Network:   waypointNetwork,
+			Addresses: []string{waypointAddress},
+		}), func(e model.WorkloadInfo) string {
 			return e.ResourceName()
 		})...)
 		assert.Equal(t, wl, sets.New(expected...))
@@ -1185,7 +1188,10 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 
 	assertOrderedWaypoint := func(t *testing.T, network, address string, expected ...string) {
 		t.Helper()
-		wls := s.WorkloadsForWaypoint(network, address)
+		wls := s.WorkloadsForWaypoint(model.WaypointKey{
+			Network:   network,
+			Addresses: []string{address},
+		})
 		wl := make([]string, len(wls))
 		for i, e := range wls {
 			wl[i] = e.ResourceName()

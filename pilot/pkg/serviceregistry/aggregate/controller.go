@@ -65,13 +65,13 @@ func (c *Controller) Waypoint(network, address string) []netip.Addr {
 	return res
 }
 
-func (c *Controller) WorkloadsForWaypoint(network, address string) []model.WorkloadInfo {
+func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
 	if !features.EnableAmbientControllers {
 		return nil
 	}
 	var res []model.WorkloadInfo
 	for _, p := range c.GetRegistries() {
-		res = append(res, p.WorkloadsForWaypoint(network, address)...)
+		res = append(res, p.WorkloadsForWaypoint(key)...)
 	}
 	return res
 }

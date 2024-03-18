@@ -376,7 +376,7 @@ func (sd *ServiceDiscovery) Waypoint(string, string) []netip.Addr {
 	return nil
 }
 
-func (sd *ServiceDiscovery) WorkloadsForWaypoint(string, string) []model.WorkloadInfo {
+func (sd *ServiceDiscovery) WorkloadsForWaypoint(model.WaypointKey) []model.WorkloadInfo {
 	return nil
 }
 

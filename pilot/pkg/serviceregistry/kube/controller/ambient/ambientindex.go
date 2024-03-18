@@ -44,7 +44,7 @@ import (
 type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
-	WorkloadsForWaypoint(network, address string) []model.WorkloadInfo
+	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	Waypoint(network, address string) []netip.Addr
 	SyncAll()
 	model.AmbientIndexes
@@ -380,14 +380,18 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 	return res, sets.New(removed...)
 }
 
-func (a *index) WorkloadsForWaypoint(network, address string) []model.WorkloadInfo {
+func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
+	// TODO: we should be able to handle multiple IPs or a hostname
+	if len(key.Addresses) == 0 {
+		return nil
+	}
 	workloads := a.workloads.ByOwningWaypoint.Lookup(networkAddress{
-		network: network,
-		ip:      address,
+		network: key.Network,
+		ip:      key.Addresses[0],
 	})
 	services := a.services.ByOwningWaypoint.Lookup(networkAddress{
-		network: network,
-		ip:      address,
+		network: key.Network,
+		ip:      key.Addresses[0],
 	})
 	workloadsFromServices := make([]model.WorkloadInfo, 0)
 	for _, s := range services {

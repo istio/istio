@@ -49,8 +49,11 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 	network := node.Metadata.Network.String()
 	workloads := make([]model.WorkloadInfo, 0)
 	for _, svct := range node.ServiceTargets {
-		ip := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())[0]
-		wl := push.WorkloadsForWaypoint(network, ip)
+		ips := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
+		wl := push.WorkloadsForWaypoint(model.WaypointKey{
+			Network:   network,
+			Addresses: ips,
+		})
 		workloads = append(workloads, wl...)
 	}
 
