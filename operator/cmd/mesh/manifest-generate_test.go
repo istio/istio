@@ -30,6 +30,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
+
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
@@ -44,9 +48,6 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/version"
-	v1 "k8s.io/api/admissionregistration/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -418,7 +419,7 @@ func TestPrune(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs, err := fakeControllerReconcile("default", tmpCharts, &helmreconciler.Options{
+	_, err = fakeControllerReconcile("default", tmpCharts, &helmreconciler.Options{
 		Force:     false,
 		SkipPrune: false,
 		Log:       clog.NewDefaultLogger(),
@@ -426,7 +427,7 @@ func TestPrune(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Install a default revision should not cause any error
-	objs, err = fakeControllerReconcile("empty", tmpCharts, &helmreconciler.Options{
+	objs, err := fakeControllerReconcile("empty", tmpCharts, &helmreconciler.Options{
 		Force:     false,
 		SkipPrune: false,
 		Log:       clog.NewDefaultLogger(),
