@@ -770,7 +770,7 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		return cache.NewSecretManagerClient(caClient, a.secOpts)
 	} else if a.secOpts.CAProviderName == security.GoogleCASProvider {
 		// Use a plugin
-		tlsConfig := &tls.Config{}
+		tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
 		sec_model.EnforceGoCompliance(tlsConfig)
 		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint,
 			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(caclient.NewCATokenProvider(a.secOpts))),

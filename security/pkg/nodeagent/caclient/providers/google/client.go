@@ -137,7 +137,7 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 		googleCAClientLog.Errorf("could not get SystemCertPool: %v", err)
 		return nil, errors.New("could not get SystemCertPool")
 	}
-	tlsConfig := &tls.Config{RootCAs: pool}
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: pool}
 	sec_model.EnforceGoCompliance(tlsConfig)
 	creds := credentials.NewTLS(tlsConfig)
 	return grpc.WithTransportCredentials(creds), nil
