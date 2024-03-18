@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
@@ -108,7 +109,9 @@ type Webhook struct {
 	Config       *Config
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig ValuesConfig
-	namespaces   *multicluster.KclientComponent[*corev1.Namespace]
+
+	namespaces                   *multicluster.KclientComponent[*corev1.Namespace]
+	singleClusterNamespaceClient kclient.Client[*corev1.Namespace]
 
 	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
 	watcher   Watcher
@@ -189,6 +192,8 @@ type WebhookParameters struct {
 	// The istio.io/rev this injector is responsible for
 	Revision string
 
+	KubeClient kube.Client
+
 	// MultiCluster is used to access namespaces across clusters
 	MultiCluster multicluster.ComponentBuilder
 }
@@ -206,9 +211,12 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		revision:   p.Revision,
 	}
 
-	if p.MultiCluster != nil {
-		if platform.IsOpenShift() {
+	if platform.IsOpenShift() {
+		if p.MultiCluster != nil {
 			wh.namespaces = multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](p.MultiCluster, kubetypes.Filter{})
+		}
+		if p.KubeClient != nil {
+			wh.singleClusterNamespaceClient = kclient.New[*corev1.Namespace](p.KubeClient)
 		}
 	}
 
@@ -1075,15 +1083,23 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
 	}
-	clusterID, _ := extractClusterAndNetwork(params)
-	if wh.namespaces != nil {
-		client := wh.namespaces.ForCluster(cluster.ID(clusterID))
-		if client != nil {
-			params.namespace = client.Get(pod.Namespace, "")
+
+	if platform.IsOpenShift() {
+		var nsClient kclient.Client[*corev1.Namespace]
+		clusterID, _ := extractClusterAndNetwork(params)
+		if clusterID == "" {
+			nsClient = wh.singleClusterNamespaceClient
+		} else {
+			nsClient = wh.namespaces.ForCluster(cluster.ID(clusterID))
+		}
+
+		if nsClient != nil {
+			params.namespace = nsClient.Get(pod.Namespace, "")
 		} else {
 			log.Warnf("unable to fetch namespace, failed to get client for %q", clusterID)
 		}
 	}
+
 	wh.mu.RUnlock()
 
 	patchBytes, err := injectPod(params)

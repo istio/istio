@@ -80,6 +80,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		Env:          s.environment,
 		Mux:          s.httpsMux,
 		Revision:     args.Revision,
+		KubeClient:   s.kubeClient,
 		MultiCluster: s.multiclusterController,
 	}
 
