@@ -92,8 +92,6 @@ spec:
             ]
         - name: ISTIO_META_APP_CONTAINERS
           value: traffic
-        - name: ISTIO_META_CLUSTER_ID
-          value: Kubernetes
         - name: ISTIO_META_NODE_NAME
           valueFrom:
             fieldRef:
@@ -110,6 +108,8 @@ spec:
           value: "false"
         - name: DISABLE_ENVOY
           value: "true"
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         image: gcr.io/istio-testing/proxyv2:latest
         lifecycle:
           postStart:

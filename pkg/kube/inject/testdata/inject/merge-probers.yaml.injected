@@ -93,8 +93,6 @@ spec:
             resourceFieldRef:
               divisor: "0"
               resource: limits.cpu
-        - name: ISTIO_META_CLUSTER_ID
-          value: Kubernetes
         - name: ISTIO_META_NODE_NAME
           valueFrom:
             fieldRef:
@@ -111,6 +109,8 @@ spec:
           value: cluster.local
         - name: ISTIO_KUBE_APP_PROBERS
           value: '{"/app-health/hello/livez":{"httpGet":{"port":80}},"/app-health/hello/readyz":{"httpGet":{"port":3333}},"/app-health/new/livez":{"httpGet":{"path":"/testLive","port":8008}},"/app-health/world/livez":{"httpGet":{"port":90}}}'
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         image: gcr.io/istio-testing/proxyv2:latest
         lifecycle:
           postStart:

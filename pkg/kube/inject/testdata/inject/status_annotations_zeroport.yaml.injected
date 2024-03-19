@@ -96,8 +96,6 @@ spec:
             resourceFieldRef:
               divisor: "0"
               resource: limits.cpu
-        - name: ISTIO_META_CLUSTER_ID
-          value: Kubernetes
         - name: ISTIO_META_NODE_NAME
           valueFrom:
             fieldRef:
@@ -112,6 +110,8 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:

@@ -103,8 +103,6 @@ spec:
             resourceFieldRef:
               divisor: "0"
               resource: limits.cpu
-        - name: ISTIO_META_CLUSTER_ID
-          value: Kubernetes
         - name: ISTIO_META_NODE_NAME
           valueFrom:
             fieldRef:
@@ -123,6 +121,8 @@ spec:
           value: bar
         - name: ISTIO_META_TLS_CLIENT_KEY
           value: /etc/identity2/client/keys/client-key.pem
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:

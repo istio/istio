@@ -31,7 +31,7 @@
     "meshNetworks": {},
     "mountMtlsCerts": false,
     "multiCluster": {
-      "clusterName": "",
+      "clusterName": "Kubernetes",
       "enabled": false
     },
     "namespace": "istio-system",
