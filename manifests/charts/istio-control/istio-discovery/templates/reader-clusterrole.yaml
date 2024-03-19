@@ -6,6 +6,7 @@ metadata:
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
 rules:
   - apiGroups:
       - "config.istio.io"
@@ -16,7 +17,7 @@ rules:
     resources: ["*"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
-    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces", "secrets"]
+    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.istio.io"]
     verbs: [ "get", "watch", "list" ]
