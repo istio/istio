@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 49965
+releaseNotes:
+- |
+  **Fixed** an issue with massive Virtual IPs reshuffling when add/remove duplicated host
