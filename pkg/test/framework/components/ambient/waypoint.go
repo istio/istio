@@ -193,7 +193,7 @@ func WaypointForInstanceOrFail(t framework.TestContext, instance echo.Instance) 
 // moved from bookinfo_test.go
 // ------------------------------
 
-func SetupWaypoints(t framework.TestContext, ns namespace.Instance, service string) {
+func AddWaypointToService(t framework.TestContext, ns namespace.Instance, service, waypoint string) {
 	if service != "" {
 		cs := t.AllClusters().Configs()
 		for _, c := range cs {
@@ -205,7 +205,7 @@ func SetupWaypoints(t framework.TestContext, ns namespace.Instance, service stri
 			if annotations == nil {
 				annotations = make(map[string]string, 1)
 			}
-			annotations[constants.AmbientUseWaypoint] = "namespace"
+			annotations[constants.AmbientUseWaypoint] = waypoint
 			oldSvc.ObjectMeta.SetAnnotations(annotations)
 			_, err = c.Kube().CoreV1().Services(ns.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
 			if err != nil {
@@ -213,10 +213,9 @@ func SetupWaypoints(t framework.TestContext, ns namespace.Instance, service stri
 			}
 		}
 	}
-	NewWaypointProxyOrFail(t, ns, "namespace")
 }
 
-func DeleteWaypoint(t framework.TestContext, ns namespace.Instance) {
+func DeleteWaypoint(t framework.TestContext, ns namespace.Instance, waypoint string) {
 	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 		"x",
 		"waypoint",
@@ -224,32 +223,10 @@ func DeleteWaypoint(t framework.TestContext, ns namespace.Instance) {
 		"--namespace",
 		ns.Name(),
 		"--service-account",
-		"namespace",
+		waypoint,
 	})
-}
-
-func TeardownWaypoints(t framework.TestContext, nsConfig namespace.Instance, service string) {
-	if service != "" {
-		cs := t.AllClusters().Configs()
-		for _, c := range cs {
-			oldSvc, err := c.Kube().CoreV1().Services(nsConfig.Name()).Get(t.Context(), service, metav1.GetOptions{})
-			if err != nil {
-				t.Fatalf("error getting svc %s, err %v", service, err)
-			}
-			annotations := oldSvc.ObjectMeta.GetAnnotations()
-			if annotations != nil {
-				delete(annotations, constants.AmbientUseWaypoint)
-				oldSvc.ObjectMeta.SetAnnotations(annotations)
-			}
-			_, err = c.Kube().CoreV1().Services(nsConfig.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
-			if err != nil {
-				t.Fatalf("error updating svc %s, err %v", service, err)
-			}
-		}
-	}
-	DeleteWaypoint(t, nsConfig)
 	waypointError := retry.UntilSuccess(func() error {
-		fetch := testKube.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=namespace")
+		fetch := testKube.NewPodFetch(t.AllClusters()[0], ns.Name(), constants.GatewayNameLabel+"="+waypoint)
 		pods, err := testKube.CheckPodsAreReady(fetch)
 		if err != nil && !errors.Is(err, testKube.ErrNoPodsFetched) {
 			return fmt.Errorf("cannot fetch pod: %v", err)
@@ -260,5 +237,26 @@ func TeardownWaypoints(t framework.TestContext, nsConfig namespace.Instance, ser
 	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
 	if waypointError != nil {
 		t.Fatal(waypointError)
+	}
+}
+
+func RemoveWaypointFromService(t framework.TestContext, ns namespace.Instance, service, waypoint string) {
+	if service != "" {
+		cs := t.AllClusters().Configs()
+		for _, c := range cs {
+			oldSvc, err := c.Kube().CoreV1().Services(ns.Name()).Get(t.Context(), service, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("error getting svc %s, err %v", service, err)
+			}
+			annotations := oldSvc.ObjectMeta.GetAnnotations()
+			if annotations != nil {
+				delete(annotations, constants.AmbientUseWaypoint)
+				oldSvc.ObjectMeta.SetAnnotations(annotations)
+			}
+			_, err = c.Kube().CoreV1().Services(ns.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
+			if err != nil {
+				t.Fatalf("error updating svc %s, err %v", service, err)
+			}
+		}
 	}
 }

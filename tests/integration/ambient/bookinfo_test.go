@@ -62,7 +62,7 @@ func TestBookinfo(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			skipsForTest(t)
 			nsConfig, err := namespace.New(t, namespace.Config{
-				Prefix: "bookinfo",
+				Prefix: "book",
 				Inject: false,
 				Labels: map[string]string{
 					constants.DataplaneMode: "ambient",
@@ -112,8 +112,10 @@ func TestBookinfo(t *testing.T) {
 				})
 			})
 
+			ambientComponent.NewWaypointProxyOrFail(t, nsConfig, "namespace")
+
 			t.NewSubTest("ingress receives waypoint updates").Run(func(t framework.TestContext) {
-				ambientComponent.SetupWaypoints(t, nsConfig, "productpage")
+				ambientComponent.AddWaypointToService(t, nsConfig, "productpage", "namespace")
 				for _, ingressURL := range ingressURLs {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -127,7 +129,7 @@ func TestBookinfo(t *testing.T) {
 						return nil
 					}, retry.Converge(5))
 				}
-				ambientComponent.TeardownWaypoints(t, nsConfig, "productpage")
+				ambientComponent.RemoveWaypointFromService(t, nsConfig, "productpage", "namespace")
 				for _, ingressURL := range ingressURLs {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -144,8 +146,6 @@ func TestBookinfo(t *testing.T) {
 			})
 
 			t.NewSubTest("waypoint routing").Run(func(t framework.TestContext) {
-				ambientComponent.SetupWaypoints(t, nsConfig, "reviews")
-
 				t.NewSubTest("productpage reachable").Run(func(t framework.TestContext) {
 					for _, ingressURL := range ingressURLs {
 						retry.UntilSuccessOrFail(t, func() error {
@@ -171,8 +171,12 @@ func TestBookinfo(t *testing.T) {
 					}
 				})
 
+				ambientComponent.AddWaypointToService(t, nsConfig, "reviews", "namespace")
+				// time.Sleep(time.Second * 45)
+
 				t.NewSubTest("reviews v1").Run(func(t framework.TestContext) {
 					applyFileOrFail(t, nsConfig.Name(), routingV1)
+					// time.Sleep(time.Minute * 30)
 					for _, ingressURL := range ingressURLs {
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -197,6 +201,7 @@ func TestBookinfo(t *testing.T) {
 						}, retry.Converge(5))
 					}
 				})
+
 				t.NewSubTest("reviews v2").Run(func(t framework.TestContext) {
 					applyFileOrFail(t, nsConfig.Name(), headerRouting)
 					cookieClient := http.Client{
@@ -265,7 +270,7 @@ func TestBookinfo(t *testing.T) {
 					return getGracePeriod(3)
 				})
 			})
-			ambientComponent.TeardownWaypoints(t, nsConfig, "reviews")
+			// ambientComponent.RemoveWaypointFromService(t, nsConfig, "reviews", "namespace")
 		})
 }
 
