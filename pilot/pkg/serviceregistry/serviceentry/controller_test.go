@@ -2120,6 +2120,13 @@ func Test_autoAllocateIP_with_duplicated_host(t *testing.T) {
 	originalServices := map[string]string{
 		"a.com": "240.240.109.8",
 		"c.com": "240.240.234.51",
+		"e.com": "240.240.85.60",
+		"g.com": "240.240.23.172",
+		"i.com": "240.240.15.2",
+		"k.com": "240.240.160.161",
+		"l.com": "240.240.42.96",
+		"n.com": "240.240.121.61",
+		"o.com": "240.240.122.71",
 	}
 
 	allocateAndValidate := func() {
@@ -2157,7 +2164,7 @@ func Test_autoAllocateIP_with_duplicated_host(t *testing.T) {
 
 	// Now add service with duplicated hostname validate that IPs are retained for original services and duplicated reuse the same IP
 	addServices := map[string]bool{
-		"a.com": true,
+		"i.com": true,
 	}
 
 	for k := range addServices {
