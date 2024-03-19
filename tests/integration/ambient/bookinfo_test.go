@@ -172,11 +172,9 @@ func TestBookinfo(t *testing.T) {
 				})
 
 				ambientComponent.AddWaypointToService(t, nsConfig, "reviews", "namespace")
-				// time.Sleep(time.Second * 45)
 
 				t.NewSubTest("reviews v1").Run(func(t framework.TestContext) {
 					applyFileOrFail(t, nsConfig.Name(), routingV1)
-					// time.Sleep(time.Minute * 30)
 					for _, ingressURL := range ingressURLs {
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -270,7 +268,10 @@ func TestBookinfo(t *testing.T) {
 					return getGracePeriod(3)
 				})
 			})
-			// ambientComponent.RemoveWaypointFromService(t, nsConfig, "reviews", "namespace")
+			t.CleanupConditionally(func() {
+				ambientComponent.RemoveWaypointFromService(t, nsConfig, "reviews", "namespace")
+				ambientComponent.DeleteWaypoint(t, nsConfig, "namespace")
+			})
 		})
 }
 
