@@ -109,6 +109,7 @@ type Webhook struct {
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig ValuesConfig
 	namespaces   *multicluster.KclientComponent[*corev1.Namespace]
+	clusterID    cluster.ID
 
 	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
 	watcher   Watcher
@@ -190,7 +191,7 @@ type WebhookParameters struct {
 	Revision string
 
 	// MultiCluster is used to access namespaces across clusters
-	MultiCluster multicluster.ComponentBuilder
+	MultiCluster *multicluster.Controller
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -206,10 +207,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		revision:   p.Revision,
 	}
 
-	if p.MultiCluster != nil {
-		if platform.IsOpenShift() {
-			wh.namespaces = multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](p.MultiCluster, kubetypes.Filter{})
-		}
+	if platform.IsOpenShift() && p.MultiCluster != nil {
+		wh.clusterID = p.MultiCluster.GetClusterID()
+		wh.namespaces = multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](p.MultiCluster, kubetypes.Filter{})
 	}
 
 	mc := NewMulticast(p.Watcher, wh.GetConfig)
@@ -1075,13 +1075,13 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
 	}
-	clusterID, _ := extractClusterAndNetwork(params)
+
 	if wh.namespaces != nil {
-		client := wh.namespaces.ForCluster(cluster.ID(clusterID))
+		client := wh.namespaces.ForCluster(wh.clusterID)
 		if client != nil {
 			params.namespace = client.Get(pod.Namespace, "")
 		} else {
-			log.Warnf("unable to fetch namespace, failed to get client for %q", clusterID)
+			log.Warnf("unable to fetch namespace, failed to get client for %q", wh.clusterID)
 		}
 	}
 	wh.mu.RUnlock()

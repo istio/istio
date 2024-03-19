@@ -383,3 +383,7 @@ func (c *Controller) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Interf
 	}
 	return nil
 }
+
+func (c *Controller) GetClusterID() cluster.ID {
+	return c.configClusterID
+}
