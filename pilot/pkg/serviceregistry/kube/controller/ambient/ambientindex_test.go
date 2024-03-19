@@ -152,6 +152,35 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 	s.assertEvent(t, s.podXdsName("pod3"))
 }
 
+func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, testC, testNW)
+
+	s.addWaypoint(t, "10.0.0.10", "test-wp", "default", true)
+
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
+
+	// Now add a service that will select pods with label "a".
+	s.addService(t, "svc1",
+		map[string]string{},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.assertEvent(t, s.podXdsName("pod1"), s.svcXdsName("svc1"))
+
+	s.addService(t, "svc1",
+		map[string]string{},
+		map[string]string{constants.AmbientUseWaypoint: "test-wp"},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.assertEvent(t, s.svcXdsName("svc1"))
+	s.assertNoEvent(t)
+
+	// We should now see the waypoint service IP when we look up the annotated svc
+	assert.Equal(t,
+		s.lookup(s.addrXdsName("10.0.0.1"))[0].Address.GetService().Waypoint.GetAddress().Address,
+		netip.MustParseAddr("10.0.0.10").AsSlice())
+}
+
 func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
