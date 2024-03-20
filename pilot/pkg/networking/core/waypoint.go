@@ -48,16 +48,37 @@ type waypointServices struct {
 func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.WorkloadInfo, *waypointServices) {
 	network := node.Metadata.Network.String()
 	workloads := make([]model.WorkloadInfo, 0)
+	serviceInfos := make([]model.ServiceInfo, 0)
 	for _, svct := range node.ServiceTargets {
 		ips := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
-		wl := push.WorkloadsForWaypoint(model.WaypointKey{
+		key := model.WaypointKey{
 			Network:   network,
 			Addresses: ips,
-		})
+		}
+		wl := push.WorkloadsForWaypoint(key)
 		workloads = append(workloads, wl...)
+		svcs := push.ServicesForWaypoint(key)
+		serviceInfos = append(serviceInfos, svcs...)
 	}
 
-	return workloads, findWorkloadServices(workloads, push)
+	waypointServices := &waypointServices{}
+	for _, s := range serviceInfos {
+		hostName := host.Name(s.Service.Hostname)
+		svc, ok := push.ServiceIndex.HostnameAndNamespace[hostName][s.Namespace]
+		if !ok {
+			continue
+		}
+		if waypointServices.services == nil {
+			waypointServices.services = map[host.Name]*model.Service{}
+		}
+		waypointServices.services[hostName] = svc
+	}
+
+	unorderedServices := maps.Values(waypointServices.services)
+	if len(serviceInfos) > 0 {
+		waypointServices.orderedServices = model.SortServicesByCreationTime(unorderedServices)
+	}
+	return workloads, waypointServices
 }
 
 func findWorkloadServices(workloads []model.WorkloadInfo, push *model.PushContext) *waypointServices {

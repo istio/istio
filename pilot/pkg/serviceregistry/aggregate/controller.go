@@ -54,6 +54,17 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
+func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	if !features.EnableAmbientControllers {
+		return nil
+	}
+	var res []model.ServiceInfo
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.ServicesForWaypoint(key)...)
+	}
+	return res
+}
+
 func (c *Controller) Waypoint(network, address string) []netip.Addr {
 	if !features.EnableAmbientWaypoints {
 		return nil
