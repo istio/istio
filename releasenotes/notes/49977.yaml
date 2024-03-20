@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 49977
+releaseNotes:
+- |
+  **Added** Ability to aggregate the istio reader role with the kubernetes viewer role and remove secrets view from reader role because it give too much elevated permissions.
