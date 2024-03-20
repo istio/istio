@@ -4,4 +4,4 @@ area: traffic-management
 
 releaseNotes:
 - |
-  **Added** rejecting duplicate DestinationRule subset names in the validating webhook.
+  **Added** rejecting DestinationRules with duplicate subset names.
