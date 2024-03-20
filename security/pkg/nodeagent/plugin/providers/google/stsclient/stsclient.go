@@ -17,12 +17,14 @@ package stsclient
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
+	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
@@ -66,9 +68,16 @@ func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher, trustDomai
 	if err != nil {
 		return nil, err
 	}
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+	sec_model.EnforceGoCompliance(tlsConfig)
 	return &SecureTokenServiceExchanger{
 		httpClient: &http.Client{
 			Timeout: httpTimeout,
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConfig,
+			},
 		},
 		backoff:     time.Millisecond * 50,
 		credFetcher: credFetcher,

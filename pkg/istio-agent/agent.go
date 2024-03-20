@@ -16,6 +16,7 @@ package istioagent
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -28,6 +29,7 @@ import (
 
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
@@ -35,6 +37,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
+	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -768,8 +771,11 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		return cache.NewSecretManagerClient(caClient, a.secOpts)
 	} else if a.secOpts.CAProviderName == security.GoogleCASProvider {
 		// Use a plugin
+		tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+		sec_model.EnforceGoCompliance(tlsConfig)
 		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint,
-			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(caclient.NewCATokenProvider(a.secOpts))))
+			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(caclient.NewCATokenProvider(a.secOpts))),
+			option.WithGRPCDialOption(grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))))
 		if err != nil {
 			return nil, err
 		}
