@@ -678,10 +678,14 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			ValidateWildcardDomain(rule.Host),
 			validateTrafficPolicy(rule.TrafficPolicy))
 
+		subsets := sets.String{}
 		for _, subset := range rule.Subsets {
 			if subset == nil {
 				v = appendValidation(v, errors.New("subset may not be null"))
 				continue
+			}
+			if subsets.InsertContains(subset.Name) {
+				v = appendValidation(v, fmt.Errorf("duplicate subset names: %s", subset.Name))
 			}
 			v = appendValidation(v, validateSubset(subset))
 		}
