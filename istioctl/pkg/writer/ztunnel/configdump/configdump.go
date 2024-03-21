@@ -86,15 +86,9 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 		if strings.Contains(secret.State, "Unavailable") {
 			secret.State = "Unavailable"
 		}
-		if len(secret.CaCert) == 0 && len(secret.CertChain) == 0 {
+		if len(secret.CertChain) == 0 {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 				secret.Identity, valueOrNA(""), secret.State, false, valueOrNA(""), valueOrNA(""), valueOrNA(""))
-		}
-		for _, ca := range secret.CaCert {
-			n := new(big.Int)
-			n, _ = n.SetString(ca.SerialNumber, 10)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n",
-				secret.Identity, "CA", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
 		}
 		for _, ca := range secret.CertChain {
 			n := new(big.Int)
