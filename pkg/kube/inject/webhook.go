@@ -69,6 +69,9 @@ var (
 		"cluster": "ISTIO_META_CLUSTER_ID",
 		"net":     "ISTIO_META_NETWORK",
 	}
+
+	// Used in unit tests for mocking a namespace in order to cover injection on OpenShift
+	openShiftNamespaceTest *corev1.Namespace
 )
 
 func init() {
@@ -1076,7 +1079,10 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		proxyEnvs:           parseInjectEnvs(path),
 	}
 
-	if wh.namespaces != nil {
+	if openShiftNamespaceTest != nil {
+		// Mocked namespace to cover unit tests
+		params.namespace = openShiftNamespaceTest
+	} else if wh.namespaces != nil {
 		client := wh.namespaces.ForCluster(wh.clusterID)
 		if client != nil {
 			params.namespace = client.Get(pod.Namespace, "")

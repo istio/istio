@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	securityv1 "github.com/openshift/api/security/v1"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -42,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/platform"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -56,6 +58,7 @@ func TestInjection(t *testing.T) {
 		inFilePath    string
 		mesh          func(m *meshapi.MeshConfig)
 		skipWebhook   bool
+		skipInjection bool
 		expectedError string
 		expectedLog   string
 		setup         func(t test.Failer)
@@ -341,6 +344,27 @@ func TestInjection(t *testing.T) {
 			in:   "truncate-canonical-name-custom-controller-pod.yaml",
 			want: "truncate-canonical-name-custom-controller-pod.yaml.injected",
 		},
+		{
+			// Test injection on OpenShift. Currently kube-inject does not work, only test webhook
+			in:   "hello.yaml",
+			want: "hello.yaml.openshift.injected",
+			setFlags: []string{
+				"components.cni.enabled=true",
+			},
+			skipInjection: true,
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, platform.Platform.Name, platform.OpenShift)
+				test.SetForTest(t, &openShiftNamespaceTest, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "openshift-ns",
+						Annotations: map[string]string{
+							securityv1.UIDRangeAnnotation:           "1000620000/10000",
+							securityv1.SupplementalGroupsAnnotation: "1000620000/10000",
+						},
+					},
+				})
+			},
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
@@ -430,44 +454,46 @@ func TestInjection(t *testing.T) {
 			})
 
 			// First we test kube-inject. This will run exactly what kube-inject does, and write output to the golden files
-			t.Run("kube-inject", func(t *testing.T) {
-				var got bytes.Buffer
-				logs := make([]string, 0)
-				warn := func(s string) {
-					logs = append(logs, s)
-					t.Log(s)
-				}
-				if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn); err != nil {
+			if !c.skipInjection {
+				t.Run("kube-inject", func(t *testing.T) {
+					var got bytes.Buffer
+					logs := make([]string, 0)
+					warn := func(s string) {
+						logs = append(logs, s)
+						t.Log(s)
+					}
+					if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn); err != nil {
+						if c.expectedError != "" {
+							if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
+								t.Fatalf("expected error %q got %q", c.expectedError, err)
+							}
+							return
+						}
+						t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
+					}
 					if c.expectedError != "" {
-						if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
-							t.Fatalf("expected error %q got %q", c.expectedError, err)
-						}
-						return
+						t.Fatalf("expected error but got none")
 					}
-					t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
-				}
-				if c.expectedError != "" {
-					t.Fatalf("expected error but got none")
-				}
-				if c.expectedLog != "" {
-					hasExpectedLog := false
-					for _, log := range logs {
-						if strings.Contains(log, c.expectedLog) {
-							hasExpectedLog = true
-							break
+					if c.expectedLog != "" {
+						hasExpectedLog := false
+						for _, log := range logs {
+							if strings.Contains(log, c.expectedLog) {
+								hasExpectedLog = true
+								break
+							}
+						}
+						if !hasExpectedLog {
+							t.Fatal("expected log but got none")
 						}
 					}
-					if !hasExpectedLog {
-						t.Fatal("expected log but got none")
-					}
-				}
 
-				// The version string is a maintenance pain for this test. Strip the version string before comparing.
-				gotBytes := util.StripVersion(got.Bytes())
-				wantBytes := util.ReadGoldenFile(t, gotBytes, wantFilePath)
+					// The version string is a maintenance pain for this test. Strip the version string before comparing.
+					gotBytes := util.StripVersion(got.Bytes())
+					wantBytes := util.ReadGoldenFile(t, gotBytes, wantFilePath)
 
-				util.CompareBytes(t, gotBytes, wantBytes, wantFilePath)
-			})
+					util.CompareBytes(t, gotBytes, wantBytes, wantFilePath)
+				})
+			}
 
 			// Exit early if we don't need to test webhook. We can skip errors since its redundant
 			// and painful to test here.
