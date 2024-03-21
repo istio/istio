@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -311,8 +312,8 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 		}
 		for _, nie := range istioEndpoints {
 			if oie, exists := emap[nie.Address]; exists {
-				// If endpoint exists already, we should push if it's health status changes.
-				if oie.HealthStatus != nie.HealthStatus {
+				// If endpoint exists already, we should push if it's health status changes or labels change.
+				if oie.HealthStatus != nie.HealthStatus || !maps.Equal(oie.Labels, nie.Labels) {
 					needPush = true
 				}
 				newIstioEndpoints = append(newIstioEndpoints, nie)
