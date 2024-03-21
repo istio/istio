@@ -26,4 +26,4 @@ area: istioctl
 # release notes.
 releaseNotes:
   - |
-    Fixed `istioctl describe` command not displaying Ingress information under non `istio-system` namespaces.
+    **Fixed** `istioctl describe` command not displaying Ingress information under non `istio-system` namespaces.
