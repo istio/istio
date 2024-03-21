@@ -30,6 +30,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson" // nolint: depguard
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/log"
@@ -52,15 +53,16 @@ func UnmarshalAllowUnknown(b []byte, m proto.Message) error {
 	return unmarshaler.Unmarshal(bytes.NewReader(b), legacyproto.MessageV1(m))
 }
 
-func UnmarshalAllowUnknownWithAnyResolver(anyResolver jsonpb.AnyResolver, b []byte, m proto.Message) error {
-	return (&jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
-		AnyResolver:        anyResolver,
-	}).Unmarshal(bytes.NewReader(b), legacyproto.MessageV1(m))
+type resolver interface {
+	protoregistry.MessageTypeResolver
+	protoregistry.ExtensionTypeResolver
 }
 
-func UnmarshalWithGlobalTypesResolver(b []byte, m proto.Message) error {
-	return protojson.Unmarshal(b, m)
+func UnmarshalAllowUnknownWithAnyResolver(anyResolver resolver, b []byte, m proto.Message) error {
+	return (&protojson.UnmarshalOptions{
+		DiscardUnknown: true,
+		Resolver:       anyResolver,
+	}).Unmarshal(b, m)
 }
 
 // ToJSON marshals a proto to canonical JSON
