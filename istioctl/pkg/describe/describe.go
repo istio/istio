@@ -982,13 +982,6 @@ func (ingress *ingressInfo) getIngressIP() string {
 	return "unknown"
 }
 
-type gatewayIngressInfo struct {
-	name     string
-	ingress  *ingressInfo
-	gw       *clientnetworking.Gateway
-	allMatch bool
-}
-
 func printIngressInfo(
 	writer io.Writer,
 	matchingServices []corev1.Service,
