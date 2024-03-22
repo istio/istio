@@ -69,6 +69,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -944,6 +945,50 @@ func isSubsetOf(sub map[string]string, parent map[string]string) bool {
 	return true
 }
 
+type ingressInfo struct {
+	service *corev1.Service
+	pods    []*corev1.Pod
+}
+
+func (ingress *ingressInfo) match(gw *clientnetworking.Gateway) bool {
+	if ingress == nil || gw == nil || gw.Spec.Selector == nil {
+		return false
+	}
+
+	for _, p := range ingress.pods {
+		if isSubsetOf(gw.Spec.Selector, p.GetLabels()) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ingress *ingressInfo) getIngressIP() string {
+	if ingress == nil || ingress.service == nil || len(ingress.pods) == 0 {
+		return "unknown"
+	}
+
+	if len(ingress.service.Status.LoadBalancer.Ingress) > 0 {
+		return ingress.service.Status.LoadBalancer.Ingress[0].IP
+	}
+
+	if hIP := ingress.pods[0].Status.HostIP; hIP != "" {
+		return hIP
+	}
+
+	// The scope of this function is to get the IP from Kubernetes, we do not
+	// ask Docker or minikube for an IP.
+	// See https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/#determining-the-ingress-ip-and-ports
+	return "unknown"
+}
+
+type gatewayIngressInfo struct {
+	name     string
+	ingress  *ingressInfo
+	gw       *clientnetworking.Gateway
+	allMatch bool
+}
+
 func printIngressInfo(
 	writer io.Writer,
 	matchingServices []corev1.Service,
@@ -963,9 +1008,50 @@ func printIngressInfo(
 		fmt.Fprintf(writer, "Skipping Gateway information (no ingress gateway pods)\n")
 		return nil
 	}
+	// key: namespace
+	ingressPods := map[string][]*corev1.Pod{}
+	ingressNss := sets.New[string]()
+	for i, pod := range pods.Items {
+		ns := pod.GetNamespace()
+		ingressNss.Insert(ns)
+		ingressPods[ns] = append(ingressPods[ns], pods.Items[i].DeepCopy())
+	}
+
+	filterIngressServices := map[string][]*ingressInfo{}
+	for _, ns := range ingressNss.UnsortedList() {
+		// Currently no support for non-standard gateways selecting non ingressgateway pods
+		serviceList, err := kubeClient.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
+		if err == nil {
+			for i, s := range serviceList.Items {
+				sns := s.GetNamespace()
+				iInfo := &ingressInfo{
+					service: serviceList.Items[i].DeepCopy(),
+				}
+				for j, p := range ingressPods[ns] {
+					if p.GetLabels() == nil {
+						continue
+					}
+					if isSubsetOf(s.Spec.Selector, p.GetLabels()) {
+						iInfo.pods = append(iInfo.pods, ingressPods[ns][j])
+					}
+				}
+				if len(iInfo.pods) > 0 {
+					filterIngressServices[sns] = append(filterIngressServices[sns], iInfo)
+				}
+			}
+		}
+	}
+
+	if len(filterIngressServices) == 0 {
+		fmt.Fprintf(writer, "Skipping Gateway information (no ingress gateway service)\n")
+	}
 
 	haveGateways := false
-	findVss := map[string]bool{}
+	recordVSResources := map[string]*clientnetworking.VirtualService{}
+	recordDRResources := map[string]*clientnetworking.DestinationRule{}
+	buildKey := func(ns, name string) string { return fmt.Sprintf("%s/%s", ns, name) }
+	recordGateways := map[string]bool{}
+
 	for _, pod := range pods.Items {
 		byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump")
 		if err != nil {
@@ -984,24 +1070,37 @@ func printIngressInfo(
 				drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 				var dr *clientnetworking.DestinationRule
 				if err == nil && drName != "" && drNamespace != "" {
-					dr, _ = configClient.NetworkingV1alpha3().DestinationRules(drNamespace).Get(context.Background(), drName, metav1.GetOptions{})
-					if dr != nil {
-						matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
-					} else {
-						fmt.Fprintf(writer,
-							"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
-							drName, drNamespace)
+					exist := false
+					dr, exist = recordDRResources[buildKey(drNamespace, drName)]
+					if !exist {
+						dr, _ = configClient.NetworkingV1alpha3().DestinationRules(drNamespace).Get(context.Background(), drName, metav1.GetOptions{})
+						if dr == nil {
+							fmt.Fprintf(writer,
+								"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
+								drName, drNamespace)
+						}
+						recordDRResources[buildKey(drNamespace, drName)] = dr.DeepCopy()
 					}
+				}
+				if dr != nil {
+					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
 				}
 
 				vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
+				var vs *clientnetworking.VirtualService
 				if err == nil && vsName != "" && vsNamespace != "" {
-					key := fmt.Sprintf("%s/%s", vsName, vsNamespace)
-					if findVss[key] {
-						continue
+					exist := false
+					vs, exist = recordVSResources[buildKey(vsNamespace, vsName)]
+					if !exist {
+						vs, _ = configClient.NetworkingV1alpha3().VirtualServices(vsNamespace).Get(context.Background(), vsName, metav1.GetOptions{})
+						if vs == nil {
+							fmt.Fprintf(writer,
+								"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
+								vsName, vsNamespace)
+						}
+						recordVSResources[buildKey(vsNamespace, vsName)] = vs.DeepCopy()
 					}
-					findVss[key] = true
-					vs, _ := configClient.NetworkingV1alpha3().VirtualServices(vsNamespace).Get(context.Background(), vsName, metav1.GetOptions{})
+
 					if vs != nil {
 						// get gateways service
 						for _, gatewayName := range vs.Spec.Gateways {
@@ -1014,53 +1113,44 @@ func printIngressInfo(
 								gatewayName = parts[1]
 								gns = parts[0]
 							}
-							gw, _ := configClient.NetworkingV1alpha3().Gateways(gns).Get(context.Background(), gatewayName, metav1.GetOptions{})
-							if gw != nil {
-								if gw.Spec.Selector == nil {
-									fmt.Fprintf(writer,
-										"Ingress Gateway %s/%s be applyed all workloads",
-										gns, gatewayName)
-								} else {
-									// match pods
-									gwPods, err := kubeClient.CoreV1().Pods(gns).List(context.TODO(), metav1.ListOptions{
-										LabelSelector: klabels.Set(gw.Spec.GetSelector()).String(),
-										FieldSelector: "status.phase=Running",
-									})
-									if err != nil {
+
+							if _, ok := filterIngressServices[gns]; !ok {
+								continue
+							}
+
+							gwID := buildKey(gns, gatewayName)
+							if gok := recordGateways[gwID]; !gok {
+								gw, _ := configClient.NetworkingV1alpha3().Gateways(gns).Get(context.Background(), gatewayName, metav1.GetOptions{})
+								if gw != nil {
+									recordGateways[gwID] = true
+									if gw.Spec.Selector == nil {
+										fmt.Fprintf(writer,
+											"Ingress Gateway %s/%s be applyed all workloads",
+											gns, gatewayName)
 										continue
 									}
-									// match services
-									gwSvcs, err := kubeClient.CoreV1().Services(gns).List(context.TODO(), metav1.ListOptions{})
-									if err != nil {
-										continue
-									}
-									for i, s := range gwSvcs.Items {
-										for j, p := range gwPods.Items {
-											if p.GetLabels() == nil {
-												continue
-											}
-											if isSubsetOf(s.Spec.Selector, p.GetLabels()) {
-												if !haveGateways {
-													fmt.Fprintf(writer, "--------------------\n")
-												}
-												haveGateways = true
-												printIngressService(writer, printLevel0, &gwSvcs.Items[i], &gwPods.Items[j])
-												printVirtualService(writer, printLevel1, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
-												break
-											}
+									var matchIngressInfo *ingressInfo
+									for i, ingress := range filterIngressServices[gns] {
+										if ingress.match(gw) {
+											matchIngressInfo = filterIngressServices[gns][i]
+											break
 										}
 									}
+									if matchIngressInfo != nil {
+										if !haveGateways {
+											fmt.Fprintf(writer, "--------------------\n")
+										}
+										haveGateways = true
+										printIngressService(writer, printLevel0, matchIngressInfo)
+										printVirtualService(writer, printLevel1, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+									}
+								} else {
+									fmt.Fprintf(writer,
+										"WARNING: Proxy is stale; it references to non-existent gateway %s/%s\n",
+										gns, gatewayName)
 								}
-							} else {
-								fmt.Fprintf(writer,
-									"WARNING: Proxy is stale; it references to non-existent gateway %s/%s\n",
-									gns, gatewayName)
 							}
 						}
-					} else {
-						fmt.Fprintf(writer,
-							"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
-							vsName, vsNamespace)
 					}
 				}
 			}
@@ -1071,8 +1161,11 @@ func printIngressInfo(
 }
 
 func printIngressService(writer io.Writer, initPrintNum int,
-	ingressSvc *corev1.Service, ingressPod *corev1.Pod,
+	ingress *ingressInfo,
 ) {
+	if ingress == nil || ingress.service == nil || len(ingress.pods) == 0 {
+		return
+	}
 	// The ingressgateway service offers a lot of ports but the pod doesn't listen to all
 	// of them.  For example, it doesn't listen on 443 without additional setup.  This prints
 	// the most basic output.
@@ -1088,13 +1181,13 @@ func printIngressService(writer io.Writer, initPrintNum int,
 		"http": 80,
 	}
 
-	for _, port := range ingressSvc.Spec.Ports {
+	for _, port := range ingress.service.Spec.Ports {
 		if port.Protocol != "TCP" || !portsToShow[port.Name] {
 			continue
 		}
 
 		// Get port number
-		_, err := pilotcontroller.FindPort(ingressPod, &port)
+		_, err := pilotcontroller.FindPort(ingress.pods[0], &port)
 		if err == nil {
 			nport := int(port.Port)
 			protocol := string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
@@ -1104,26 +1197,10 @@ func printIngressService(writer io.Writer, initPrintNum int,
 			if schemePortDefault[scheme] != nport {
 				portSuffix = fmt.Sprintf(":%d", nport)
 			}
-			ip := getIngressIP(ingressSvc, ingressPod)
+			ip := ingress.getIngressIP()
 			fmt.Fprintf(writer, "%sExposed on Ingress Gateway %s://%s%s\n", printSpaces(initPrintNum), scheme, ip, portSuffix)
 		}
 	}
-}
-
-func getIngressIP(service *corev1.Service, pod *corev1.Pod) string {
-	if len(service.Status.LoadBalancer.Ingress) > 0 {
-		return service.Status.LoadBalancer.Ingress[0].IP
-	}
-
-	if pod.Status.HostIP != "" {
-		return pod.Status.HostIP
-	}
-
-	// The scope of this function is to get the IP from Kubernetes, we do not
-	// ask Docker or minikube for an IP.
-	// See https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/#determining-the-ingress-ip-and-ports
-
-	return "unknown"
 }
 
 func svcDescribeCmd(ctx cli.Context) *cobra.Command {
