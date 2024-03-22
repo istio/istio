@@ -34,7 +34,6 @@ func StringOrMatcher(vs []string) *matcher.ValueMatcher {
 				StringMatch: StringMatcher(v),
 			},
 		})
-
 	}
 	return &matcher.ValueMatcher{
 		MatchPattern: &matcher.ValueMatcher_OrMatch{

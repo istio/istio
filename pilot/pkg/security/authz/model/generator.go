@@ -129,7 +129,8 @@ func (efg envoyFilterGenerator) extendedPermission(key string, values []string, 
 		}
 	}
 	m := matcher.MetadataValueMatcher(parts[0], parts[1], &matcherpb.ValueMatcher{
-		MatchPattern: &matcherpb.ValueMatcher_OrMatch{OrMatch: &matcherpb.OrMatcher{ValueMatchers: matchers}}})
+		MatchPattern: &matcherpb.ValueMatcher_OrMatch{OrMatch: &matcherpb.OrMatcher{ValueMatchers: matchers}},
+	})
 	return permissionMetadata(m), nil
 }
 
@@ -192,8 +193,7 @@ func (srcPrincipalGenerator) principal(key, value string, _ bool, useAuthenticat
 	return principalAuthenticated(m, useAuthenticated), nil
 }
 
-type requestPrincipalGenerator struct {
-}
+type requestPrincipalGenerator struct{}
 
 func (requestPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
@@ -273,8 +273,7 @@ func (rpg requestPrincipalGenerator) extendedPrincipal(key string, values []stri
 	return nil, nil
 }
 
-type requestAudiencesGenerator struct {
-}
+type requestAudiencesGenerator struct{}
 
 func (requestAudiencesGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	return requestPrincipalGenerator{}.permission(key, value, forTCP)
@@ -299,8 +298,7 @@ func (rag requestAudiencesGenerator) extendedPrincipal(key string, values []stri
 	return principalMetadata(MetadataValueMatcherForJWTClaim("aud", matcher.StringOrMatcher(values))), nil
 }
 
-type requestPresenterGenerator struct {
-}
+type requestPresenterGenerator struct{}
 
 func (requestPresenterGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	return requestPrincipalGenerator{}.permission(key, value, forTCP)
