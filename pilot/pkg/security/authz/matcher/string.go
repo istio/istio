@@ -35,6 +35,14 @@ func StringOrMatcher(vs []string) *matcher.ValueMatcher {
 			},
 		})
 	}
+	return OrMatcher(matchers)
+}
+
+// OrMatcher creates an OR matcher for a list of matchers.
+func OrMatcher(matchers []*matcher.ValueMatcher) *matcher.ValueMatcher {
+	if len(matchers) == 1 {
+		return matchers[0]
+	}
 	return &matcher.ValueMatcher{
 		MatchPattern: &matcher.ValueMatcher_OrMatch{
 			OrMatch: &matcher.OrMatcher{
@@ -42,6 +50,7 @@ func StringOrMatcher(vs []string) *matcher.ValueMatcher {
 			},
 		},
 	}
+
 }
 
 // StringMatcherRegex creates a regex string matcher for regex.
