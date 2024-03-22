@@ -40,7 +40,6 @@ import (
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/hash"
 )
 
@@ -732,23 +731,11 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 
 // waypointInScope computes whether the endpoint is owned by the waypoint
 func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
-	scope := waypoint.WaypointScope()
-	if scope.Namespace != e.Namespace {
-		return false
-	}
-	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
-	if scope.ServiceAccount != "" && (scope.ServiceAccount != ident.ServiceAccount) {
-		return false
-	}
-	return true
+	return waypoint.GetNamespace() == e.Namespace
 }
 
 func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {
-	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
-	ips := push.WaypointsFor(model.WaypointScope{
-		Namespace:      e.Namespace,
-		ServiceAccount: ident.ServiceAccount,
-	})
+	ips := push.WaypointsFor(e.Network.String(), e.Address)
 	return ips
 }
 

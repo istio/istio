@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -135,6 +136,14 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns-pod")
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
 	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", true)
+	s.ns.CreateOrUpdate(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNS,
+			Annotations: map[string]string{
+				constants.AmbientUseWaypoint: "waypoint-ns",
+			},
+		},
+	})
 	// All these workloads updated, so push them
 	s.assertEvent(t,
 		s.wleXdsName("name1"),
@@ -202,8 +211,18 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.assertEvent(t, s.wleXdsName("name6"))
 
 	s.deleteWaypoint(t, "waypoint-ns")
+	s.ns.Update(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNS,
+			Annotations: map[string]string{
+				constants.AmbientUseWaypoint: "#none",
+			},
+		},
+	})
 	// all affected addresses with the waypoint should be updated
 	s.assertEvent(t,
+		s.svcXdsName("svc1"),
+		s.svcXdsName("waypoint-ns"),
 		s.wleXdsName("name1"),
 		s.wleXdsName("name2"),
 		s.wleXdsName("name3"))

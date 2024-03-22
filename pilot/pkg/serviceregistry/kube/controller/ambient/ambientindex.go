@@ -44,8 +44,8 @@ import (
 type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
-	WorkloadsForWaypoint(scope model.WaypointScope) []model.WorkloadInfo
-	Waypoint(scope model.WaypointScope) []netip.Addr
+	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
+	Waypoint(network, address string) []netip.Addr
 	SyncAll()
 	model.AmbientIndexes
 }
@@ -56,17 +56,17 @@ type workloadsCollection struct {
 	krt.Collection[model.WorkloadInfo]
 	ByAddress        *krt.Index[model.WorkloadInfo, networkAddress]
 	ByServiceKey     *krt.Index[model.WorkloadInfo, string]
-	ByOwningWaypoint *krt.Index[model.WorkloadInfo, model.WaypointScope]
+	ByOwningWaypoint *krt.Index[model.WorkloadInfo, networkAddress]
 }
 
 type waypointsCollection struct {
 	krt.Collection[Waypoint]
-	ByScope *krt.Index[Waypoint, model.WaypointScope]
 }
 
 type servicesCollection struct {
 	krt.Collection[model.ServiceInfo]
-	ByAddress *krt.Index[model.ServiceInfo, networkAddress]
+	ByAddress        *krt.Index[model.ServiceInfo, networkAddress]
+	ByOwningWaypoint *krt.Index[model.ServiceInfo, networkAddress]
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -138,12 +138,11 @@ func New(options Options) Index {
 		ObjectTransform: kubeclient.StripPodUnusedFields,
 	}, krt.WithName("Pods"))
 
+	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
+	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, krt.WithName("Namespaces"))
+
 	MeshConfig := MeshConfigCollection(ConfigMaps, options)
 	Waypoints := WaypointsCollection(Gateways)
-	WaypointIndex := krt.CreateIndex[Waypoint, model.WaypointScope](Waypoints, func(w Waypoint) []model.WaypointScope {
-		// We can be a part of a service account waypoint, or a namespace waypoint
-		return []model.WaypointScope{{Namespace: w.Namespace, ServiceAccount: w.ForServiceAccount}}
-	})
 
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig)
@@ -151,8 +150,31 @@ func New(options Options) Index {
 		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 	}), false)
 
-	WorkloadServices := a.ServicesCollection(Services, ServiceEntries)
+	// these are workloadapi-style services combined from kube services and service entries
+	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
 	ServiceAddressIndex := krt.CreateIndex[model.ServiceInfo, networkAddress](WorkloadServices, networkAddressFromService)
+	ServiceInfosByOwningWaypoint := krt.CreateIndex[model.ServiceInfo, networkAddress](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
+		// Filter out waypoint services
+		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		waypoint := s.Waypoint
+		if waypoint == nil {
+			return nil
+		}
+		waypointAddress := waypoint.GetAddress()
+		if waypointAddress == nil {
+			return nil
+		}
+
+		ip := waypointAddress.GetAddress()
+		netip, _ := netip.AddrFromSlice(ip)
+		netaddr := networkAddress{
+			network: waypointAddress.GetNetwork(),
+			ip:      netip.String(),
+		}
+		return append(make([]networkAddress, 1), netaddr)
+	})
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *workloadapi.Service {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
@@ -172,26 +194,33 @@ func New(options Options) Index {
 		WorkloadEntries,
 		ServiceEntries,
 		AllPolicies,
+		Namespaces,
 	)
 	WorkloadAddressIndex := krt.CreateIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
 	WorkloadServiceIndex := krt.CreateIndex[model.WorkloadInfo, string](Workloads, func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Services)
 	})
-	WorkloadWaypointIndex := krt.CreateIndex[model.WorkloadInfo, model.WaypointScope](Workloads, func(w model.WorkloadInfo) []model.WaypointScope {
+	WorkloadWaypointIndex := krt.CreateIndex[model.WorkloadInfo, networkAddress](Workloads, func(w model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		// We can be a part of a service account waypoint, or a namespace waypoint
-		return []model.WaypointScope{
-			{
-				Namespace:      w.Namespace,
-				ServiceAccount: w.ServiceAccount,
-			},
-			{
-				Namespace: w.Namespace,
-			},
+		waypoint := w.Waypoint
+		if waypoint == nil {
+			return nil
 		}
+		waypointAddress := waypoint.GetAddress()
+		if waypointAddress == nil {
+			return nil
+		}
+
+		ip := waypointAddress.GetAddress()
+		netip, _ := netip.AddrFromSlice(ip)
+		netaddr := networkAddress{
+			network: waypointAddress.GetNetwork(),
+			ip:      netip.String(),
+		}
+		return append(make([]networkAddress, 1), netaddr)
 	})
 	// Subtle: make sure we register the event after the Index are created. This ensures when we get the event, the index is populated.
 	Workloads.RegisterBatch(krt.BatchedEventFilter(
@@ -210,12 +239,12 @@ func New(options Options) Index {
 		ByOwningWaypoint: WorkloadWaypointIndex,
 	}
 	a.services = servicesCollection{
-		Collection: WorkloadServices,
-		ByAddress:  ServiceAddressIndex,
+		Collection:       WorkloadServices,
+		ByAddress:        ServiceAddressIndex,
+		ByOwningWaypoint: ServiceInfosByOwningWaypoint,
 	}
 	a.waypoints = waypointsCollection{
 		Collection: Waypoints,
-		ByScope:    WaypointIndex,
 	}
 	a.authorizationPolicies = AllPolicies
 
@@ -351,36 +380,49 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 	return res, sets.New(removed...)
 }
 
-func (a *index) WorkloadsForWaypoint(scope model.WaypointScope) []model.WorkloadInfo {
-	// Lookup scope. If its namespace wide, remove entries that are in SA scope
-	workloads := a.workloads.ByOwningWaypoint.Lookup(scope)
-	workloads = model.SortWorkloadsByCreationTime(workloads)
-	if scope.ServiceAccount == "" {
-		// This is a namespace wide waypoint. Per-SA waypoints have precedence, so we need to filter them out
-		workloads = slices.FilterInPlace(workloads, func(info model.WorkloadInfo) bool {
-			s := model.WaypointScope{
-				Namespace:      info.Namespace,
-				ServiceAccount: info.ServiceAccount,
-			}
-			// If there is a more specific waypoint, skip this
-			return len(a.waypoints.ByScope.Lookup(s)) == 0
-		})
+func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
+	// TODO: we should be able to handle multiple IPs or a hostname
+	if len(key.Addresses) == 0 {
+		return nil
 	}
+	workloads := a.workloads.ByOwningWaypoint.Lookup(networkAddress{
+		network: key.Network,
+		ip:      key.Addresses[0],
+	})
+	services := a.services.ByOwningWaypoint.Lookup(networkAddress{
+		network: key.Network,
+		ip:      key.Addresses[0],
+	})
+	workloadsFromServices := make([]model.WorkloadInfo, 0)
+	for _, s := range services {
+		svcWls := a.workloads.ByServiceKey.Lookup(namespacedHostname(s.Namespace, s.Hostname))
+		workloadsFromServices = append(workloadsFromServices, svcWls...)
+	}
+	// this is not deduplicated...
+	workloads = append(workloads, workloadsFromServices...)
+	workloads = model.SortWorkloadsByCreationTime(workloads)
 	return workloads
 }
 
-// Waypoint finds all waypoint IP addresses for a given scope.  Performs first a Namespace+ServiceAccount
-// then falls back to any Namespace wide waypoints
-func (a *index) Waypoint(scope model.WaypointScope) []netip.Addr {
+func (a *index) Waypoint(network, address string) []netip.Addr {
 	res := sets.Set[netip.Addr]{}
-	waypoints := a.waypoints.ByScope.Lookup(scope)
-	if len(waypoints) == 0 {
-		// Now look for namespace-wide
-		scope.ServiceAccount = ""
-		waypoints = a.waypoints.ByScope.Lookup(scope)
+	networkAddr := networkAddress{
+		network: network,
+		ip:      address,
 	}
-	for _, waypoint := range waypoints {
-		res.Insert(waypoint.Addresses[0])
+	addressInfos := a.Lookup(networkAddr.String())
+	for _, addressInfo := range addressInfos {
+		waypointAddress := addressInfo.GetService().GetWaypoint().GetAddress().GetAddress()
+		if a, ok := netip.AddrFromSlice(waypointAddress); ok {
+			res.Insert(a)
+			// This was a service, therefore it is not a workload and we can just move on
+			continue
+		}
+
+		waypointAddress = addressInfo.GetWorkload().GetWaypoint().GetAddress().GetAddress()
+		if a, ok := netip.AddrFromSlice(waypointAddress); ok {
+			res.Insert(a)
+		}
 	}
 	return res.UnsortedList()
 }

@@ -54,24 +54,24 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
+func (c *Controller) Waypoint(network, address string) []netip.Addr {
 	if !features.EnableAmbientControllers {
 		return nil
 	}
 	var res []netip.Addr
 	for _, p := range c.GetRegistries() {
-		res = append(res, p.Waypoint(scope)...)
+		res = append(res, p.Waypoint(network, address)...)
 	}
 	return res
 }
 
-func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []model.WorkloadInfo {
+func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
 	if !features.EnableAmbientControllers {
 		return nil
 	}
 	var res []model.WorkloadInfo
 	for _, p := range c.GetRegistries() {
-		res = append(res, p.WorkloadsForWaypoint(scope)...)
+		res = append(res, p.WorkloadsForWaypoint(key)...)
 	}
 	return res
 }

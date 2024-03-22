@@ -193,4 +193,7 @@ const (
 	AmbientRedirectionEnabled = "enabled"
 	// AmbientRedirectionDisabled is an opt-out, configured by user.
 	AmbientRedirectionDisabled = "disabled"
+
+	// AmbientUseWaypoint is the annotation used to specify which waypoint should be used for a given pod, service, etc...
+	AmbientUseWaypoint = "istio.io/use-waypoint"
 )

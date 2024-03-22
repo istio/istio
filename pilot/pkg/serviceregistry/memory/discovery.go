@@ -372,11 +372,11 @@ func (sd *ServiceDiscovery) Policies(sets.Set[model.ConfigKey]) []model.Workload
 	return nil
 }
 
-func (sd *ServiceDiscovery) Waypoint(model.WaypointScope) []netip.Addr {
+func (sd *ServiceDiscovery) Waypoint(string, string) []netip.Addr {
 	return nil
 }
 
-func (sd *ServiceDiscovery) WorkloadsForWaypoint(scope model.WaypointScope) []model.WorkloadInfo {
+func (sd *ServiceDiscovery) WorkloadsForWaypoint(model.WaypointKey) []model.WorkloadInfo {
 	return nil
 }
 

@@ -264,8 +264,9 @@ func TestPodWorkloads(t *testing.T) {
 			Waypoints := krt.NewStaticCollection(extractType[Waypoint](&inputs))
 			WorkloadServices := krt.NewStaticCollection(extractType[model.ServiceInfo](&inputs))
 			MeshConfig := krt.NewStatic(&MeshConfig{slices.First(extractType[meshapi.MeshConfig](&inputs))})
+			Namespaces := krt.NewStaticCollection(extractType[*v1.Namespace](&inputs))
 			assert.Equal(t, len(inputs), 0, fmt.Sprintf("some inputs were not consumed: %v", inputs))
-			builder := a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices)
+			builder := a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, Namespaces)
 			wrapper := builder(krt.TestingDummyContext{}, tt.pod)
 			var res *workloadapi.Workload
 			if wrapper != nil {
@@ -512,9 +513,10 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			PeerAuths := krt.NewStaticCollection(extractType[*securityclient.PeerAuthentication](&inputs))
 			Waypoints := krt.NewStaticCollection(extractType[Waypoint](&inputs))
 			WorkloadServices := krt.NewStaticCollection(extractType[model.ServiceInfo](&inputs))
+			Namespaces := krt.NewStaticCollection(extractType[*v1.Namespace](&inputs))
 			MeshConfig := krt.NewStatic(&MeshConfig{slices.First(extractType[meshapi.MeshConfig](&inputs))})
 			assert.Equal(t, len(inputs), 0, fmt.Sprintf("some inputs were not consumed: %v", inputs))
-			builder := a.workloadEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices)
+			builder := a.workloadEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, Namespaces)
 			wrapper := builder(krt.TestingDummyContext{}, tt.we)
 			var res *workloadapi.Workload
 			if wrapper != nil {

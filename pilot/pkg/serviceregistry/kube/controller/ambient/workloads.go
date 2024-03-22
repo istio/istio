@@ -19,6 +19,7 @@ import (
 	"net/netip"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -32,7 +33,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/workloadapi"
@@ -48,15 +48,16 @@ func (a *index) WorkloadsCollection(
 	WorkloadEntries krt.Collection[*networkingclient.WorkloadEntry],
 	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
 	AllPolicies krt.Collection[model.WorkloadAuthorization],
+	Namespaces krt.Collection[*v1.Namespace],
 ) krt.Collection[model.WorkloadInfo] {
 	PodWorkloads := krt.NewCollection(
 		Pods,
-		a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices),
+		a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, Namespaces),
 		krt.WithName("PodWorkloads"),
 	)
 	WorkloadEntryWorkloads := krt.NewCollection(
 		WorkloadEntries,
-		a.workloadEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices),
+		a.workloadEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, Namespaces),
 		krt.WithName("WorkloadEntryWorkloads"),
 	)
 	ServiceEntryWorkloads := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
@@ -65,7 +66,16 @@ func (a *index) WorkloadsCollection(
 		}
 		res := make([]model.WorkloadInfo, 0, len(se.Spec.Endpoints))
 
-		svc := slices.First(a.serviceEntriesInfo(se))
+		wp := fetchWaypoint(ctx, Waypoints, Namespaces, se.ObjectMeta)
+
+		// this is some partial object meta we can pass through so that WL found in the Endpoints
+		// may inherit the namespace scope waypoint from the SE... the Endpoints do not have real object meta
+		// and therefore they can't be annotated with wl scope waypoints right now
+		someObjectMeta := metav1.ObjectMeta{
+			Namespace: se.Namespace,
+		}
+
+		svc := slices.First(a.serviceEntriesInfo(se, wp))
 		if svc == nil {
 			// Not ready yet
 			return nil
@@ -84,10 +94,16 @@ func (a *index) WorkloadsCollection(
 			// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
 			auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, se.Namespace, p.Labels)
 			policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
-			var waypoints []Waypoint
+			var waypoint *Waypoint
 			if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 				// Waypoints do not have waypoints, but anything else does
-				waypoints = fetchWaypoints(ctx, Waypoints, se.Namespace, p.ServiceAccount)
+
+				// this is using object meta which simply defines the namespace since the endpoint doesn't have it's own object meta
+				waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, someObjectMeta)
+			}
+			var waypointAddress *workloadapi.GatewayAddress
+			if waypoint != nil {
+				waypointAddress = a.getWaypointAddress(waypoint)
 			}
 			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 			network := a.Network(p.Address, p.Labels).String()
@@ -104,7 +120,7 @@ func (a *index) WorkloadsCollection(
 				Services:              constructServicesFromWorkloadEntry(p, []model.ServiceInfo{*svc}),
 				AuthorizationPolicies: policies,
 				Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
-				Waypoint:              a.pickWaypoint(waypoints),
+				Waypoint:              waypointAddress,
 				TrustDomain:           pickTrustDomain(),
 			}
 
@@ -132,6 +148,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
 	Waypoints krt.Collection[Waypoint],
 	WorkloadServices krt.Collection[model.ServiceInfo],
+	Namespaces krt.Collection[*v1.Namespace],
 ) func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
 	return func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
 		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
@@ -147,9 +164,13 @@ func (a *index) workloadEntryWorkloadBuilder(
 		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
 		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
 		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
-		var waypoints []Waypoint
+		var waypoint *Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-			waypoints = fetchWaypoints(ctx, Waypoints, p.Namespace, p.Spec.ServiceAccount)
+			waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, p.ObjectMeta)
+		}
+		var waypointAddress *workloadapi.GatewayAddress
+		if waypoint != nil {
+			waypointAddress = a.getWaypointAddress(waypoint)
 		}
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableK8SServiceSelectWorkloadEntries {
@@ -173,7 +194,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 			Services:              constructServicesFromWorkloadEntry(&p.Spec, services),
 			AuthorizationPolicies: policies,
 			Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
-			Waypoint:              a.pickWaypoint(waypoints),
+			Waypoint:              waypointAddress,
 			TrustDomain:           pickTrustDomain(),
 		}
 
@@ -197,6 +218,7 @@ func (a *index) podWorkloadBuilder(
 	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
 	Waypoints krt.Collection[Waypoint],
 	WorkloadServices krt.Collection[model.ServiceInfo],
+	Namespaces krt.Collection[*v1.Namespace],
 ) func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
 	return func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
 		// Pod Is Pending but have a pod IP should be a valid workload, we should build it ,
@@ -223,10 +245,14 @@ func (a *index) podWorkloadBuilder(
 		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
 		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
 		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
-		var waypoints []Waypoint
+		var waypoint *Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			// Waypoints do not have waypoints, but anything else does
-			waypoints = fetchWaypoints(ctx, Waypoints, p.Namespace, p.Spec.ServiceAccountName)
+			waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, p.ObjectMeta)
+		}
+		var waypointAddress *workloadapi.GatewayAddress
+		if waypoint != nil {
+			waypointAddress = a.getWaypointAddress(waypoint)
 		}
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableServiceEntrySelectPods {
@@ -253,7 +279,7 @@ func (a *index) podWorkloadBuilder(
 			Services:              constructServices(p, services),
 			AuthorizationPolicies: policies,
 			Status:                status,
-			Waypoint:              a.pickWaypoint(waypoints),
+			Waypoint:              waypointAddress,
 			TrustDomain:           pickTrustDomain(),
 		}
 
@@ -284,27 +310,6 @@ func pickTrustDomain() string {
 	return ""
 }
 
-func (a *index) pickWaypoint(waypoints []Waypoint) *workloadapi.GatewayAddress {
-	if len(waypoints) > 0 {
-		// Pick the best waypoint. One scoped to a SA is higher precedence
-		wp := ptr.OrDefault(
-			slices.FindFunc(waypoints, func(waypoint Waypoint) bool {
-				return waypoint.ForServiceAccount != ""
-			}),
-			waypoints[0],
-		)
-		// TODO: should we support multiple addresses?
-		return &workloadapi.GatewayAddress{
-			Destination: &workloadapi.GatewayAddress_Address{
-				Address: a.toNetworkAddressFromIP(wp.Addresses[0]),
-			},
-			// TODO: look up the HBONE port instead of hardcoding it
-			HboneMtlsPort: 15008,
-		}
-	}
-	return nil
-}
-
 func fetchPeerAuthentications(
 	ctx krt.HandlerContext,
 	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
@@ -326,14 +331,6 @@ func fetchPeerAuthentications(
 		}
 		return labels.Instance(sel.MatchLabels).SubsetOf(matchLabels)
 	}))
-}
-
-func fetchWaypoints(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], ns, sa string) []Waypoint {
-	return krt.Fetch(ctx, Waypoints,
-		krt.FilterNamespace(ns), krt.FilterGeneric(func(a any) bool {
-			w := a.(Waypoint)
-			return w.ForServiceAccount == "" || w.ForServiceAccount == sa
-		}))
 }
 
 func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, services []model.ServiceInfo) map[string]*workloadapi.PortList {

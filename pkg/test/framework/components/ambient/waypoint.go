@@ -15,10 +15,13 @@
 package ambient
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/constants"
 	istioKube "istio.io/istio/pkg/kube"
@@ -29,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 var _ io.Closer = &kubeComponent{}
@@ -183,4 +187,76 @@ func WaypointForInstanceOrFail(t framework.TestContext, instance echo.Instance) 
 		t.Fatal(err)
 	}
 	return out
+}
+
+// ------------------------------
+// moved from bookinfo_test.go
+// ------------------------------
+
+func AddWaypointToService(t framework.TestContext, ns namespace.Instance, service, waypoint string) {
+	if service != "" {
+		cs := t.AllClusters().Configs()
+		for _, c := range cs {
+			oldSvc, err := c.Kube().CoreV1().Services(ns.Name()).Get(t.Context(), service, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("error getting svc %s, err %v", service, err)
+			}
+			annotations := oldSvc.ObjectMeta.GetAnnotations()
+			if annotations == nil {
+				annotations = make(map[string]string, 1)
+			}
+			annotations[constants.AmbientUseWaypoint] = waypoint
+			oldSvc.ObjectMeta.SetAnnotations(annotations)
+			_, err = c.Kube().CoreV1().Services(ns.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
+			if err != nil {
+				t.Fatalf("error updating svc %s, err %v", service, err)
+			}
+		}
+	}
+}
+
+func DeleteWaypoint(t framework.TestContext, ns namespace.Instance, waypoint string) {
+	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+		"x",
+		"waypoint",
+		"delete",
+		"--namespace",
+		ns.Name(),
+		"--service-account",
+		waypoint,
+	})
+	waypointError := retry.UntilSuccess(func() error {
+		fetch := testKube.NewPodFetch(t.AllClusters()[0], ns.Name(), constants.GatewayNameLabel+"="+waypoint)
+		pods, err := testKube.CheckPodsAreReady(fetch)
+		if err != nil && !errors.Is(err, testKube.ErrNoPodsFetched) {
+			return fmt.Errorf("cannot fetch pod: %v", err)
+		} else if len(pods) != 0 {
+			return fmt.Errorf("waypoint pod is not deleted")
+		}
+		return nil
+	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
+	if waypointError != nil {
+		t.Fatal(waypointError)
+	}
+}
+
+func RemoveWaypointFromService(t framework.TestContext, ns namespace.Instance, service, waypoint string) {
+	if service != "" {
+		cs := t.AllClusters().Configs()
+		for _, c := range cs {
+			oldSvc, err := c.Kube().CoreV1().Services(ns.Name()).Get(t.Context(), service, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("error getting svc %s, err %v", service, err)
+			}
+			annotations := oldSvc.ObjectMeta.GetAnnotations()
+			if annotations != nil {
+				delete(annotations, constants.AmbientUseWaypoint)
+				oldSvc.ObjectMeta.SetAnnotations(annotations)
+			}
+			_, err = c.Kube().CoreV1().Services(ns.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
+			if err != nil {
+				t.Fatalf("error updating svc %s, err %v", service, err)
+			}
+		}
+	}
 }
