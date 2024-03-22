@@ -193,7 +193,6 @@ func (srcPrincipalGenerator) principal(key, value string, _ bool, useAuthenticat
 }
 
 type requestPrincipalGenerator struct {
-	useExtendedJwt bool
 }
 
 func (requestPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
@@ -204,14 +203,31 @@ func (requestPrincipalGenerator) extendedPermission(_ string, _ []string, _ bool
 	return nil, fmt.Errorf("unimplemented")
 }
 
-var matchAny = matcher.StringMatcherRegex(".+")
-
 func (rpg requestPrincipalGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
-	if rpg.useExtendedJwt {
-		iss, sub, found := strings.Cut(value, "/")
+	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
+	return principalMetadata(m), nil
+}
+
+var matchAny = matcher.StringMatcherRegex(".+")
+
+func (rpg requestPrincipalGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {
+	if forTCP {
+		return nil, fmt.Errorf("%q is HTTP only", key)
+	}
+	var or []*rbacpb.Principal
+	for _, value := range values {
+		// Use the last index of "/" since issuer may be an URL
+		idx := strings.LastIndex(value, "/")
+		found := idx >= 0
+		iss, sub := "", ""
+		if found {
+			iss, sub = value[:idx], value[idx+1:]
+		} else {
+			iss = value
+		}
 		var matchIss, matchSub *matcherpb.StringMatcher
 		switch {
 		case value == "*":
@@ -247,10 +263,14 @@ func (rpg requestPrincipalGenerator) principal(key, value string, forTCP bool, _
 		}
 		im := MetadataStringMatcherForJWTClaim("iss", matchIss)
 		sm := MetadataStringMatcherForJWTClaim("sub", matchSub)
-		return principalAnd([]*rbacpb.Principal{principalMetadata(im), principalMetadata(sm)}), nil
+		or = append(or, principalAnd([]*rbacpb.Principal{principalMetadata(im), principalMetadata(sm)}))
 	}
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(m), nil
+	if len(or) == 1 {
+		return or[0], nil
+	} else if len(or) > 0 {
+		return principalOr(or), nil
+	}
+	return nil, nil
 }
 
 type requestAudiencesGenerator struct {

@@ -48,7 +48,7 @@ spec:
           values: ["principal", "principal-prefix-*", "*-suffix-principal", "*"]
           notValues: ["not-principal", "not-principal-prefix-*", "*-not-suffix-principal", "*"]
         - key: "request.auth.principal"
-          values: ["requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*"]
+          values: ["requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*", "https://example.com/*"]
           notValues: ["not-requestPrincipals", "not-requestPrincipals-prefix-*", "*-not-suffix-requestPrincipals", "*"]
         - key: "request.auth.audiences"
           values: ["audiences", "audiences-prefix-*", "*-suffix-audiences", "*"]
