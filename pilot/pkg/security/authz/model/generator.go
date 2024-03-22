@@ -128,9 +128,7 @@ func (efg envoyFilterGenerator) extendedPermission(key string, values []string, 
 			})
 		}
 	}
-	m := matcher.MetadataValueMatcher(parts[0], parts[1], &matcherpb.ValueMatcher{
-		MatchPattern: &matcherpb.ValueMatcher_OrMatch{OrMatch: &matcherpb.OrMatcher{ValueMatchers: matchers}},
-	})
+	m := matcher.MetadataValueMatcher(parts[0], parts[1], matcher.OrMatcher(matchers))
 	return permissionMetadata(m), nil
 }
 
