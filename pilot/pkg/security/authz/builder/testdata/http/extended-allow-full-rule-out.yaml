@@ -686,6 +686,25 @@ typedConfig:
                           stringMatch:
                             safeRegex:
                               regex: .+
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
+                          stringMatch:
+                            exact: https://example.com
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              regex: .+
             - notId:
                 orIds:
                   ids:

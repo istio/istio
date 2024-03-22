@@ -104,14 +104,17 @@ func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
 		case k == attrSrcPrincipal:
 			basePrincipal.appendLast(srcPrincipalGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestPrincipal:
-			basePrincipal.appendLast(requestPrincipalGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
+			if useExtendedJwt {
+				basePrincipal.appendLastExtended(requestPrincipalGenerator{}, k, when.Values, when.NotValues)
+			} else {
+				basePrincipal.appendLast(requestPrincipalGenerator{}, k, when.Values, when.NotValues)
+			}
 		case k == attrRequestAudiences:
 			if useExtendedJwt {
 				basePrincipal.appendLastExtended(requestAudiencesGenerator{}, k, when.Values, when.NotValues)
 			} else {
 				basePrincipal.appendLast(requestAudiencesGenerator{}, k, when.Values, when.NotValues)
 			}
-
 		case k == attrRequestPresenter:
 			if useExtendedJwt {
 				basePrincipal.appendLastExtended(requestPresenterGenerator{}, k, when.Values, when.NotValues)
@@ -137,7 +140,11 @@ func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
 			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
-			merged.insertFront(requestPrincipalGenerator{useExtendedJwt: useExtendedJwt}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
+			if useExtendedJwt {
+				merged.insertFrontExtended(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
+			} else {
+				merged.insertFront(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
+			}
 			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
 		}
 		m.principals = append(m.principals, merged)
@@ -372,6 +379,20 @@ func (p *ruleList) insertFront(g generator, key string, values, notValues []stri
 		values:    values,
 		notValues: notValues,
 		g:         g,
+	}
+
+	p.rules = append([]*rule{r}, p.rules...)
+}
+
+func (p *ruleList) insertFrontExtended(g extendedGenerator, key string, values, notValues []string) {
+	if len(values) == 0 && len(notValues) == 0 {
+		return
+	}
+	r := &rule{
+		key:       key,
+		values:    values,
+		notValues: notValues,
+		extended:  g,
 	}
 
 	p.rules = append([]*rule{r}, p.rules...)
