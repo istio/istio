@@ -173,8 +173,11 @@ type Config struct {
 
 	DualStack bool
 
-	// WaypointProxy specifies if this workload should have an associated Waypoint
-	WaypointProxy bool
+	// ServiceWaypointProxy  specifies if this workload should have an associated Waypoint for service-addressed traffic
+	ServiceWaypointProxy bool
+
+	// WorkloadWaypointProxy  specifies if this workload should have an associated Waypoint for workload-addressed traffic
+	WorkloadWaypointProxy bool
 }
 
 // Getter for a custom echo deployment
@@ -334,8 +337,16 @@ func (c Config) IsTProxy() bool {
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(SidecarInterceptionMode) == "TPROXY"
 }
 
-func (c Config) HasWaypointProxy() bool {
-	return c.WaypointProxy
+func (c Config) HasAnyWaypointProxy() bool {
+	return c.ServiceWaypointProxy || c.WorkloadWaypointProxy
+}
+
+func (c Config) HasServiceAddressedWaypointProxy() bool {
+	return c.ServiceWaypointProxy
+}
+
+func (c Config) HasWorkloadAddressedWaypointProxy() bool {
+	return c.WorkloadWaypointProxy
 }
 
 func (c Config) HasSidecar() bool {
@@ -381,15 +392,20 @@ func (c Config) IsRegularPod() bool {
 		!c.IsHeadless() &&
 		!c.IsStatefulSet() &&
 		!c.IsProxylessGRPC() &&
-		!c.HasWaypointProxy() &&
+		!c.HasServiceAddressedWaypointProxy() &&
+		!c.HasWorkloadAddressedWaypointProxy() &&
 		!c.ZTunnelCaptured() &&
 		!c.DualStack
 }
 
 // ZTunnelCaptured returns true in ambient enabled namespaces where there is no sidecar
 func (c Config) ZTunnelCaptured() bool {
-	return c.Namespace.IsAmbient() && len(c.Subsets) > 0 &&
-		c.Subsets[0].Annotations.GetByName("ambient.istio.io/redirection") == "enabled"
+	haveSubsets := len(c.Subsets) > 0
+	if c.Namespace.IsAmbient() && haveSubsets &&
+		c.Subsets[0].Annotations.GetByName(constants.AmbientRedirection) != constants.AmbientRedirectionDisabled {
+		return true
+	}
+	return haveSubsets && c.Subsets[0].Annotations.GetByName(constants.AmbientRedirection) == constants.AmbientRedirectionEnabled
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
@@ -577,7 +593,8 @@ func (c Config) WorkloadClass() WorkloadClass {
 		return StatefulSet
 	} else if c.IsSotw() {
 		return Sotw
-	} else if c.ZTunnelCaptured() && !c.HasWaypointProxy() {
+	} else if c.ZTunnelCaptured() &&
+		!(c.HasServiceAddressedWaypointProxy() || c.HasWorkloadAddressedWaypointProxy()) {
 		return Captured
 	}
 	if c.IsHeadless() {

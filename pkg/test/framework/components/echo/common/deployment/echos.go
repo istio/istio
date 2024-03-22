@@ -341,15 +341,15 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			for i, config := range defaultConfigs {
 				if !config.HasSidecar() && !config.IsProxylessGRPC() {
 					scopes.Framework.Infof("adding waypoint to %s", config.NamespacedName())
-					defaultConfigs[i].WaypointProxy = true
+					defaultConfigs[i].ServiceWaypointProxy = true
 				}
 			}
 		} else {
 			waypointed := echo.Config{
-				Service:        WaypointSvc,
-				ServiceAccount: true,
-				Ports:          ports.All(),
-				WaypointProxy:  true,
+				Service:              WaypointSvc,
+				ServiceAccount:       true,
+				Ports:                ports.All(),
+				ServiceWaypointProxy: true,
 				Subsets: []echo.SubsetConfig{{
 					Labels: map[string]string{label.SidecarInject.Name: "false"},
 				}},
