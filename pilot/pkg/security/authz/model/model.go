@@ -57,6 +57,8 @@ type rule struct {
 	values    []string
 	notValues []string
 	g         generator
+	// This generator aggregates value predicates
+	extended extendedGenerator
 }
 
 type ruleList struct {
@@ -88,7 +90,11 @@ func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
 		case k == attrConnSNI:
 			basePermission.appendLast(connSNIGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrEnvoyFilter):
-			basePermission.appendLast(envoyFilterGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
+			if useExtendedJwt {
+				basePermission.appendLastExtended(envoyFilterGenerator{}, k, when.Values, when.NotValues)
+			} else {
+				basePermission.appendLast(envoyFilterGenerator{}, k, when.Values, when.NotValues)
+			}
 		case k == attrSrcIP:
 			basePrincipal.appendLast(srcIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRemoteIP:
@@ -100,13 +106,26 @@ func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
 		case k == attrRequestPrincipal:
 			basePrincipal.appendLast(requestPrincipalGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
 		case k == attrRequestAudiences:
-			basePrincipal.appendLast(requestAudiencesGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
+			if useExtendedJwt {
+				basePrincipal.appendLastExtended(requestAudiencesGenerator{}, k, when.Values, when.NotValues)
+			} else {
+				basePrincipal.appendLast(requestAudiencesGenerator{}, k, when.Values, when.NotValues)
+			}
+
 		case k == attrRequestPresenter:
-			basePrincipal.appendLast(requestPresenterGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
+			if useExtendedJwt {
+				basePrincipal.appendLastExtended(requestPresenterGenerator{}, k, when.Values, when.NotValues)
+			} else {
+				basePrincipal.appendLast(requestPresenterGenerator{}, k, when.Values, when.NotValues)
+			}
 		case strings.HasPrefix(k, attrRequestHeader):
 			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestClaims):
-			basePrincipal.appendLast(requestClaimGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
+			if useExtendedJwt {
+				basePrincipal.appendLastExtended(requestClaimGenerator{}, k, when.Values, when.NotValues)
+			} else {
+				basePrincipal.appendLast(requestClaimGenerator{}, k, when.Values, when.NotValues)
+			}
 		default:
 			return nil, fmt.Errorf("unknown attribute %s", when.Key)
 		}
@@ -224,64 +243,104 @@ func generatePrincipal(rl ruleList, forTCP bool, useAuthenticated bool, action r
 
 func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Permission, error) {
 	var permissions []*rbacpb.Permission
-	var or []*rbacpb.Permission
-	for _, value := range r.values {
-		p, err := r.g.permission(r.key, value, forTCP)
+	if r.extended != nil {
+		p, err := r.extended.extendedPermission(r.key, r.values, forTCP)
 		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
-			or = append(or, p)
+			permissions = append(permissions, p)
 		}
-	}
-	if len(or) > 0 {
-		permissions = append(permissions, permissionOr(or))
+	} else {
+		var or []*rbacpb.Permission
+		for _, value := range r.values {
+			p, err := r.g.permission(r.key, value, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				or = append(or, p)
+			}
+		}
+		if len(or) > 0 {
+			permissions = append(permissions, permissionOr(or))
+		}
 	}
 
-	or = nil
-	for _, notValue := range r.notValues {
-		p, err := r.g.permission(r.key, notValue, forTCP)
+	if r.extended != nil {
+		p, err := r.extended.extendedPermission(r.key, r.notValues, forTCP)
 		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
-			or = append(or, p)
+			permissions = append(permissions, permissionNot(p))
 		}
-	}
-	if len(or) > 0 {
-		permissions = append(permissions, permissionNot(permissionOr(or)))
+	} else {
+		var or []*rbacpb.Permission
+		for _, notValue := range r.notValues {
+			p, err := r.g.permission(r.key, notValue, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				or = append(or, p)
+			}
+		}
+		if len(or) > 0 {
+			permissions = append(permissions, permissionNot(permissionOr(or)))
+		}
 	}
 	return permissions, nil
 }
 
 func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
 	var principals []*rbacpb.Principal
-	var or []*rbacpb.Principal
-	for _, value := range r.values {
-		p, err := r.g.principal(r.key, value, forTCP, useAuthenticated)
+	if r.extended != nil {
+		p, err := r.extended.extendedPrincipal(r.key, r.values, forTCP)
 		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
-			or = append(or, p)
+			principals = append(principals, p)
 		}
-	}
-	if len(or) > 0 {
-		principals = append(principals, principalOr(or))
+	} else {
+		var or []*rbacpb.Principal
+		for _, value := range r.values {
+			p, err := r.g.principal(r.key, value, forTCP, useAuthenticated)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				or = append(or, p)
+			}
+		}
+		if len(or) > 0 {
+			principals = append(principals, principalOr(or))
+		}
 	}
 
-	or = nil
-	for _, notValue := range r.notValues {
-		p, err := r.g.principal(r.key, notValue, forTCP, useAuthenticated)
+	if r.extended != nil {
+		p, err := r.extended.extendedPrincipal(r.key, r.notValues, forTCP)
 		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
-			or = append(or, p)
+			principals = append(principals, principalNot(p))
 		}
-	}
-	if len(or) > 0 {
-		principals = append(principals, principalNot(principalOr(or)))
+	} else {
+		var or []*rbacpb.Principal
+		for _, notValue := range r.notValues {
+			p, err := r.g.principal(r.key, notValue, forTCP, useAuthenticated)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				or = append(or, p)
+			}
+		}
+		if len(or) > 0 {
+			principals = append(principals, principalNot(principalOr(or)))
+		}
 	}
 	return principals, nil
 }
@@ -329,5 +388,18 @@ func (p *ruleList) appendLast(g generator, key string, values, notValues []strin
 		g:         g,
 	}
 
+	p.rules = append(p.rules, r)
+}
+
+func (p *ruleList) appendLastExtended(g extendedGenerator, key string, values, notValues []string) {
+	if len(values) == 0 && len(notValues) == 0 {
+		return
+	}
+	r := &rule{
+		key:       key,
+		values:    values,
+		notValues: notValues,
+		extended:  g,
+	}
 	p.rules = append(p.rules, r)
 }

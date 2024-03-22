@@ -25,6 +25,26 @@ func StringMatcher(v string) *matcher.StringMatcher {
 	return StringMatcherWithPrefix(v, "")
 }
 
+// StringOrMatcher creates an OR string matcher for a list of values.
+func StringOrMatcher(vs []string) *matcher.ValueMatcher {
+	matchers := []*matcher.ValueMatcher{}
+	for _, v := range vs {
+		matchers = append(matchers, &matcher.ValueMatcher{
+			MatchPattern: &matcher.ValueMatcher_StringMatch{
+				StringMatch: StringMatcher(v),
+			},
+		})
+
+	}
+	return &matcher.ValueMatcher{
+		MatchPattern: &matcher.ValueMatcher_OrMatch{
+			OrMatch: &matcher.OrMatcher{
+				ValueMatchers: matchers,
+			},
+		},
+	}
+}
+
 // StringMatcherRegex creates a regex string matcher for regex.
 func StringMatcherRegex(regex string) *matcher.StringMatcher {
 	return &matcher.StringMatcher{
