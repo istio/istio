@@ -16,6 +16,7 @@ package caclient
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
@@ -135,7 +137,9 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 		googleCAClientLog.Errorf("could not get SystemCertPool: %v", err)
 		return nil, errors.New("could not get SystemCertPool")
 	}
-	creds := credentials.NewClientTLSFromCert(pool, "")
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: pool}
+	sec_model.EnforceGoCompliance(tlsConfig)
+	creds := credentials.NewTLS(tlsConfig)
 	return grpc.WithTransportCredentials(creds), nil
 }
 
