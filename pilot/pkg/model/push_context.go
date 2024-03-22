@@ -2452,11 +2452,23 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 	return false
 }
 
+func (ps *PushContext) AddressInfo(n network.ID, ip string) *WorkloadInfo {
+	// There should be a 1:1 relationship between IP and Workload but the interface doesn't allow this lookup.
+	// We should get 0 or 1 workloads, so just return the first.
+	infos, _ := ps.ambientIndex.AddressInformation(sets.New(n.String() + "/" + ip))
+	wlInfos := ExtractWorkloadsFromAddresses(infos)
+	if len(wlInfos) == 0 {
+		return nil
+	}
+	return &wlInfos[0]
+}
+
+// WaypointsFor finds waypoints that capture some address.
 func (ps *PushContext) WaypointsFor(network, address string) []netip.Addr {
 	return ps.ambientIndex.Waypoint(network, address)
 }
 
-// WorkloadsForWaypoint returns all workloads associated with a given waypoint identified by it's network address
+// WorkloadsForWaypoint returns all workloads served by a given waypoint identified by it's network address
 func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []WorkloadInfo {
 	return ps.ambientIndex.WorkloadsForWaypoint(key)
 }

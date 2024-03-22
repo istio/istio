@@ -94,6 +94,17 @@ func (a *index) WorkloadsCollection(
 			// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
 			auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, se.Namespace, p.Labels)
 			policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+
+			// Information about the Waypoint can be propagated to the Waypoint instance
+			// TODO seems unlikely we'd use an SE to define the waypoint's Workload.
+			var appTunnel *workloadapi.ApplicationTunnel
+			if gatewayName, ok := p.Labels["gateway.networking.k8s.io/gateway-name"]; ok {
+				wp := krt.FetchOne(ctx, Waypoints, krt.FilterKey(se.Namespace+"/"+gatewayName))
+				if wp != nil {
+					appTunnel = wp.ApplicationTunnel
+				}
+			}
+
 			var waypoint *Waypoint
 			if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 				// Waypoints do not have waypoints, but anything else does
@@ -117,6 +128,7 @@ func (a *index) WorkloadsCollection(
 				Network:               network,
 				ClusterId:             string(a.ClusterID),
 				ServiceAccount:        p.ServiceAccount,
+				ApplicationTunnel:     appTunnel,
 				Services:              constructServicesFromWorkloadEntry(p, []model.ServiceInfo{*svc}),
 				AuthorizationPolicies: policies,
 				Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
@@ -164,6 +176,17 @@ func (a *index) workloadEntryWorkloadBuilder(
 		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
 		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
 		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+
+		// Information about the Waypoint can be propagated to the Waypoint instance
+		// TODO seems unlikely we'd use a WE to define the waypoint's Workload.
+		var appTunnel *workloadapi.ApplicationTunnel
+		if gatewayName, ok := p.Labels["gateway.networking.k8s.io/gateway-name"]; ok {
+			wp := krt.FetchOne(ctx, Waypoints, krt.FilterKey(p.Namespace+"/"+gatewayName))
+			if wp != nil {
+				appTunnel = wp.ApplicationTunnel
+			}
+		}
+
 		var waypoint *Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, p.ObjectMeta)
@@ -192,6 +215,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 			ClusterId:             string(a.ClusterID),
 			ServiceAccount:        p.Spec.ServiceAccount,
 			Services:              constructServicesFromWorkloadEntry(&p.Spec, services),
+			ApplicationTunnel:     appTunnel,
 			AuthorizationPolicies: policies,
 			Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
 			Waypoint:              waypointAddress,
@@ -245,6 +269,16 @@ func (a *index) podWorkloadBuilder(
 		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
 		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
 		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+
+		// Information about the Waypoint can be propagated to the Waypoint instance
+		var appTunnel *workloadapi.ApplicationTunnel
+		if gatewayName, ok := p.Labels["gateway.networking.k8s.io/gateway-name"]; ok {
+			wp := krt.FetchOne(ctx, Waypoints, krt.FilterKey(p.Namespace+"/"+gatewayName))
+			if wp != nil {
+				appTunnel = wp.ApplicationTunnel
+			}
+		}
+
 		var waypoint *Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			// Waypoints do not have waypoints, but anything else does
@@ -254,6 +288,7 @@ func (a *index) podWorkloadBuilder(
 		if waypoint != nil {
 			waypointAddress = a.getWaypointAddress(waypoint)
 		}
+
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableServiceEntrySelectPods {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
@@ -276,6 +311,7 @@ func (a *index) podWorkloadBuilder(
 			Addresses:             [][]byte{podIP.AsSlice()},
 			ServiceAccount:        p.Spec.ServiceAccountName,
 			Node:                  p.Spec.NodeName,
+			ApplicationTunnel:     appTunnel,
 			Services:              constructServices(p, services),
 			AuthorizationPolicies: policies,
 			Status:                status,

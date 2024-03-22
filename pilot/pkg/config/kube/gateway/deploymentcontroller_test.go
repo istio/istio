@@ -236,6 +236,34 @@ func TestConfigureIstioGateway(t *testing.T) {
   network: network-2`,
 		},
 		{
+			name: "waypoint-captured",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+					Labels: map[string]string{
+						"topology.istio.io/network": "network-1", // explicitly set network won't be overwritten
+					},
+          Annotations: map[string]string{
+            "ambient.istio.io/redirection": "enabled",
+          },
+				},
+				Spec: v1beta1.GatewaySpec{
+					GatewayClassName: constants.WaypointGatewayClassName,
+					Listeners: []v1beta1.Listener{{
+						Name:     "mesh",
+						Port:     v1beta1.PortNumber(15008),
+						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  network: network-2`,
+		},
+		{
 			name: "waypoint-no-network-label",
 			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{

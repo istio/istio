@@ -40,6 +40,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
@@ -105,6 +106,7 @@ type ClusterBuilder struct {
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
 func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
+	captured := proxy.Metadata.Annotations[constants.AmbientRedirection] == "enabled"
 	cb := &ClusterBuilder{
 		serviceTargets:     proxy.ServiceTargets,
 		proxyID:            proxy.ID,
@@ -114,7 +116,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		passThroughBindIPs: getPassthroughBindIPs(proxy.GetIPMode()),
 		supportsIPv4:       proxy.SupportsIPv4(),
 		supportsIPv6:       proxy.SupportsIPv6(),
-		hbone:              proxy.EnableHBONE() || proxy.IsWaypointProxy(),
+		hbone:              !captured && (proxy.EnableHBONE() || proxy.IsWaypointProxy()),
 		locality:           proxy.Locality,
 		proxyLabels:        proxy.Labels,
 		proxyView:          proxy.GetView(),

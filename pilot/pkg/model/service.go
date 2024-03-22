@@ -1004,6 +1004,10 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 	}
 }
 
+func (i *WorkloadInfo) Captured() bool {
+  return !i.NativeTunnel && i.TunnelProtocol != workloadapi.TunnelProtocol_NONE
+}
+
 func (i *WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
 }

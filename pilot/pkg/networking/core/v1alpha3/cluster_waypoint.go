@@ -73,9 +73,11 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	svcs map[host.Name]*model.Service,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	// Creates "main_internal" cluster to route to the main internal listener.
-	// Creates "encap" cluster to route to the encap listener.
-	clusters = append(clusters, MainInternalCluster, EncapCluster)
+	if cb.hbone {
+		// Creates "main_internal" cluster to route to the main internal listener.
+		// Creates "encap" cluster to route to the encap listener.
+		clusters = append(clusters, MainInternalCluster, EncapCluster)
+	}
 	// Creates per-VIP load balancing upstreams.
 	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs)...)
 	// Upstream of the "encap" listener.
@@ -109,9 +111,11 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, por
 	svcMetaList := im.Fields["services"].GetListValue()
 	svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc))
 
-	// no TLS, we are just going to internal address
+	// no TLS, we are just going to internal address or using sandwich
 	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = util.TunnelHostInternalUpstreamTransportSocket
+	if cb.hbone {
+		localCluster.cluster.TransportSocket = util.TunnelHostInternalUpstreamTransportSocket
+	}
 	maybeApplyEdsConfig(localCluster.cluster)
 	return localCluster
 }

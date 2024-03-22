@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/wellknown"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
@@ -64,10 +65,19 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// 3. Encapsulation CONNECT listener, originating the tunnel
 	wls, wps := findWaypointResources(lb.node, lb.push)
 
-	listeners = append(listeners,
-		lb.buildWaypointInboundConnectTerminate(),
-		lb.buildWaypointInternal(wls, wps.orderedServices),
-		buildWaypointConnectOriginateListener())
+	proxyWorkload := findProxyWorkload(lb.node, lb.push)
+  if proxyWorkload == nil {
+    log.Warnf("failed to find workload info for ", lb.node.ID)
+    // assume no sandwich
+    proxyWorkload = &model.WorkloadInfo{Workload: &workloadapi.Workload{NativeTunnel: true}}
+  }
+
+	if proxyWorkload.NativeTunnel {
+		listeners = append(listeners,
+			lb.buildWaypointInboundConnectTerminate(),
+			buildWaypointConnectOriginateListener())
+	}
+	listeners = append(listeners, lb.buildWaypointInternal(*proxyWorkload, wls, wps.orderedServices))
 
 	return listeners
 }
@@ -166,7 +176,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 	return lb.buildConnectTerminateListener(routes)
 }
 
-func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInternal(proxyWorkload model.WorkloadInfo, wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
 	chains := []*listener.FilterChain{}
 	pre, post := lb.buildWaypointHTTPFilters()
@@ -184,7 +194,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					TargetPort:  uint32(port.Port),
 				},
 				bind:  "0.0.0.0",
-				hbone: true,
+				hbone: !proxyWorkload.Captured() && lb.node.EnableHBONE(),
 			}
 			name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "", svc.Hostname, port.Port)
 			tcpName := name + "-tcp"
@@ -197,6 +207,11 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			httpChain := &listener.FilterChain{
 				Filters: lb.buildWaypointInboundHTTPFilters(svc, cc, pre, post),
 				Name:    httpName,
+			}
+			// Sandwich prepends the Proxy Protocl TLV filter to extract identity
+			if proxyWorkload.GetApplicationTunnel().Protocol == workloadapi.ApplicationTunnel_PROXY {
+				tcpChain.Filters = append([]*listener.Filter{xdsfilters.ProxyProtocolTLVAuthorityNetworkFilter}, httpChain.Filters...)
+				httpChain.Filters = append([]*listener.Filter{xdsfilters.ProxyProtocolTLVAuthorityNetworkFilter}, tcpChain.Filters...)
 			}
 			if port.Protocol.IsUnsupported() {
 				// If we need to sniff, insert two chains and the protocol detector
@@ -238,11 +253,15 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				},
 			},
 			bind:  "0.0.0.0",
-			hbone: true,
+			hbone: !proxyWorkload.Captured() && lb.node.EnableHBONE(),
+		}
+		authorityFilter := xdsfilters.ConnectAuthorityNetworkFilter
+    if proxyWorkload.GetApplicationTunnel().Protocol == workloadapi.ApplicationTunnel_PROXY {
+			authorityFilter = xdsfilters.ProxyProtocolTLVAuthorityNetworkFilter
 		}
 		tcpChain := &listener.FilterChain{
 			Filters: append([]*listener.Filter{
-				xdsfilters.ConnectAuthorityNetworkFilter,
+				authorityFilter,
 			},
 				lb.buildInboundNetworkFilters(cc)...),
 			Name: "direct-tcp",
@@ -250,7 +269,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		// TODO: maintains undesirable persistent HTTP connections to "encap"
 		httpChain := &listener.FilterChain{
 			Filters: append([]*listener.Filter{
-				xdsfilters.ConnectAuthorityNetworkFilter,
+				authorityFilter,
 			},
 				lb.buildWaypointInboundHTTPFilters(nil, cc, pre, post)...),
 			Name: "direct-http",
@@ -279,6 +298,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				})
 		}
 	}
+
 	l := &listener.Listener{
 		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
@@ -303,6 +323,26 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			},
 		},
 	}
+
+	// If we're not natively handling HBONE we should bind to a port here.
+	if proxyWorkload.Captured() {
+		// Sandwich uses ProxyProtocol (with TLV carrying auth info)
+		// Use that instead of original dst.
+		var listenerFilters []*listener.ListenerFilter
+		if proxyWorkload.GetApplicationTunnel().Protocol == workloadapi.ApplicationTunnel_PROXY {
+			listenerFilters = append(listenerFilters, xdsfilters.ProxyProtocolTLV)
+		}
+		listenerFilters = append(listenerFilters, xdsfilters.HTTPInspector)
+
+		port := uint32(model.SandwichInboundListenPort)
+		if portOverride := proxyWorkload.GetApplicationTunnel().Port; portOverride != 0 {
+			port = portOverride
+		}
+		actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
+		l.Address = util.BuildAddress(actualWildcard, port)
+		l.ListenerSpecifier = nil
+	}
+
 	return l
 }
 

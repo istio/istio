@@ -28,12 +28,15 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 type Waypoint struct {
 	krt.Named
 
-	Addresses []netip.Addr
+	Addresses         []netip.Addr
+	HBONEPort         uint16
+	ApplicationTunnel *workloadapi.ApplicationTunnel
 }
 
 func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
@@ -114,9 +117,29 @@ func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway]) krt.Collecti
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
+
+		var (
+			appTunnel *workloadapi.ApplicationTunnel
+			hbonePort uint16 = 15008
+		)
+
+		for _, l := range gateway.Spec.Listeners {
+			if l.Protocol == "HBONE" {
+				hbonePort = uint16(l.Port)
+			}
+			if l.Protocol == "PROXY" {
+				appTunnel = &workloadapi.ApplicationTunnel{
+					Protocol: workloadapi.ApplicationTunnel_PROXY,
+					Port:     uint32(l.Port),
+				}
+			}
+		}
+
 		return &Waypoint{
-			Named:     krt.NewNamed(gateway),
-			Addresses: getGatewayAddrs(gateway),
+			Named:             krt.NewNamed(gateway),
+			Addresses:         getGatewayAddrs(gateway),
+			HBONEPort:         hbonePort,
+			ApplicationTunnel: appTunnel,
 		}
 	}, krt.WithName("Waypoints"))
 }

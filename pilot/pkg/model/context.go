@@ -1312,7 +1312,7 @@ func (node *Proxy) FuzzValidate() bool {
 }
 
 func (node *Proxy) EnableHBONE() bool {
-	return node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE))
+	return (node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE)))
 }
 
 func (node *Proxy) SetWorkloadEntry(name string, create bool) {

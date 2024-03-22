@@ -85,8 +85,7 @@ func (a index) getWaypointAddress(w *Waypoint) *workloadapi.GatewayAddress {
 				// probably use from Cidr instead?
 				Address: a.toNetworkAddressFromIP(w.Addresses[0]),
 			},
-			// TODO: look up the HBONE port instead of hardcoding it
-			HboneMtlsPort: 15008,
+			HboneMtlsPort: uint32(w.HBONEPort),
 		}
 	}
 	return nil
