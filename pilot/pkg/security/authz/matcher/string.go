@@ -50,7 +50,6 @@ func OrMatcher(matchers []*matcher.ValueMatcher) *matcher.ValueMatcher {
 			},
 		},
 	}
-
 }
 
 // StringMatcherRegex creates a regex string matcher for regex.
