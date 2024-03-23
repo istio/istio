@@ -4,5 +4,5 @@ area: traffic-management
 
 releaseNotes:
 - |
-  **Added** support for skipping the intial installation of CNI entirely.
+  **Added** support for skipping the initial installation of CNI entirely.
 
