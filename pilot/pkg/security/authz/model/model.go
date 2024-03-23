@@ -251,12 +251,14 @@ func generatePrincipal(rl ruleList, forTCP bool, useAuthenticated bool, action r
 func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Permission, error) {
 	var permissions []*rbacpb.Permission
 	if r.extended != nil {
-		p, err := r.extended.extendedPermission(r.key, r.values, forTCP)
-		if err := r.checkError(action, err); err != nil {
-			return nil, err
-		}
-		if p != nil {
-			permissions = append(permissions, p)
+		if len(r.values) > 0 {
+			p, err := r.extended.extendedPermission(r.key, r.values, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				permissions = append(permissions, p)
+			}
 		}
 	} else {
 		var or []*rbacpb.Permission
@@ -275,12 +277,14 @@ func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Perm
 	}
 
 	if r.extended != nil {
-		p, err := r.extended.extendedPermission(r.key, r.notValues, forTCP)
-		if err := r.checkError(action, err); err != nil {
-			return nil, err
-		}
-		if p != nil {
-			permissions = append(permissions, permissionNot(p))
+		if len(r.notValues) > 0 {
+			p, err := r.extended.extendedPermission(r.key, r.notValues, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				permissions = append(permissions, permissionNot(p))
+			}
 		}
 	} else {
 		var or []*rbacpb.Permission
@@ -303,12 +307,14 @@ func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Perm
 func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
 	var principals []*rbacpb.Principal
 	if r.extended != nil {
-		p, err := r.extended.extendedPrincipal(r.key, r.values, forTCP)
-		if err := r.checkError(action, err); err != nil {
-			return nil, err
-		}
-		if p != nil {
-			principals = append(principals, p)
+		if len(r.values) > 0 {
+			p, err := r.extended.extendedPrincipal(r.key, r.values, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				principals = append(principals, p)
+			}
 		}
 	} else {
 		var or []*rbacpb.Principal
@@ -327,12 +333,14 @@ func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_A
 	}
 
 	if r.extended != nil {
-		p, err := r.extended.extendedPrincipal(r.key, r.notValues, forTCP)
-		if err := r.checkError(action, err); err != nil {
-			return nil, err
-		}
-		if p != nil {
-			principals = append(principals, principalNot(p))
+		if len(r.notValues) > 0 {
+			p, err := r.extended.extendedPrincipal(r.key, r.notValues, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				principals = append(principals, principalNot(p))
+			}
 		}
 	} else {
 		var or []*rbacpb.Principal
