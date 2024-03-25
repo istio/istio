@@ -1312,7 +1312,9 @@ func (node *Proxy) FuzzValidate() bool {
 }
 
 func (node *Proxy) EnableHBONE() bool {
-	return node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE))
+  // don't make assumptions about HBONE based on node type
+  // a proxy that want's HBONE XDS needs to request it
+	return features.EnableHBONE && bool(node.Metadata.EnableHBONE)
 }
 
 func (node *Proxy) SetWorkloadEntry(name string, create bool) {
