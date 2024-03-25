@@ -679,6 +679,7 @@ VirtualService: bookinfo
 						Namespace: "default",
 						Labels: map[string]string{
 							"istio": "ingressgateway",
+							"app":   "ingress",
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -698,6 +699,35 @@ VirtualService: bookinfo
 						LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{
 							{
 								IP: "2.2.2.2",
+							},
+						}},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ingress",
+						Namespace: "istio-ingress",
+						Labels: map[string]string{
+							"istio": "ingressgateway",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"istio": "ingressgateway",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Name:       "http",
+								Port:       80,
+								TargetPort: intstr.FromInt32(80),
+								Protocol:   corev1.ProtocolTCP,
+							},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{
+							{
+								IP: "1.1.1.1",
 							},
 						}},
 					},
@@ -740,6 +770,31 @@ VirtualService: bookinfo
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "ingress",
 						Namespace: "default",
+						Labels: map[string]string{
+							"istio": "ingressgateway",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "istio-proxy",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "istio-proxy",
+								Ready: true,
+							},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ingress",
+						Namespace: "istio-ingress",
 						Labels: map[string]string{
 							"istio": "ingressgateway",
 						},
@@ -895,11 +950,12 @@ VirtualService: bookinfo
    Match: /prefix*
 --------------------
 Exposed on Ingress Gateway http://2.2.2.2
-   VirtualService: bookinfo
-      Route to host "productpage" with weight 30%
-      Route to host "productpage2" with weight 20%
-      Route to host "productpage3" with weight 50%
-      Match: /prefix*
+Exposed on Ingress Gateway http://1.1.1.1
+VirtualService: bookinfo
+   Route to host "productpage" with weight 30%
+   Route to host "productpage2" with weight 20%
+   Route to host "productpage3" with weight 50%
+   Match: /prefix*
 `,
 		},
 	}
@@ -1025,19 +1081,19 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	for i := range c.istioConfigs {
 		switch t := c.istioConfigs[i].(type) {
 		case *v1alpha3.DestinationRule:
-			client.Istio().NetworkingV1alpha3().DestinationRules(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			client.Istio().NetworkingV1alpha3().DestinationRules(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
 		case *v1alpha3.Gateway:
-			client.Istio().NetworkingV1alpha3().Gateways(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			client.Istio().NetworkingV1alpha3().Gateways(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
 		case *v1alpha3.VirtualService:
-			client.Istio().NetworkingV1alpha3().VirtualServices(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			client.Istio().NetworkingV1alpha3().VirtualServices(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
 		}
 	}
 	for i := range c.k8sConfigs {
 		switch t := c.k8sConfigs[i].(type) {
 		case *corev1.Service:
-			client.Kube().CoreV1().Services(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			client.Kube().CoreV1().Services(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
 		case *corev1.Pod:
-			client.Kube().CoreV1().Pods(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			client.Kube().CoreV1().Pods(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
 		}
 	}
 

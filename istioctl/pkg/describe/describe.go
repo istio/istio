@@ -67,6 +67,7 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/sets"
@@ -936,15 +937,6 @@ func printVirtualService(writer io.Writer, initPrintNum int,
 	}
 }
 
-func isSubsetOf(sub map[string]string, parent map[string]string) bool {
-	for k, v := range sub {
-		if vv, ok := parent[k]; !ok || vv != v {
-			return false
-		}
-	}
-	return true
-}
-
 type ingressInfo struct {
 	service *corev1.Service
 	pods    []*corev1.Pod
@@ -956,7 +948,7 @@ func (ingress *ingressInfo) match(gw *clientnetworking.Gateway) bool {
 	}
 
 	for _, p := range ingress.pods {
-		if isSubsetOf(gw.Spec.Selector, p.GetLabels()) {
+		if maps.Contains(p.GetLabels(), gw.Spec.Selector) {
 			return true
 		}
 	}
@@ -1010,13 +1002,12 @@ func printIngressInfo(
 		ingressPods[ns] = append(ingressPods[ns], pods.Items[i].DeepCopy())
 	}
 
-	filterIngressServices := map[string][]*ingressInfo{}
+	filterIngressServices := []*ingressInfo{}
 	for _, ns := range ingressNss.UnsortedList() {
 		// Currently no support for non-standard gateways selecting non ingressgateway pods
 		serviceList, err := kubeClient.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 		if err == nil {
 			for i, s := range serviceList.Items {
-				sns := s.GetNamespace()
 				iInfo := &ingressInfo{
 					service: serviceList.Items[i].DeepCopy(),
 				}
@@ -1024,12 +1015,12 @@ func printIngressInfo(
 					if p.GetLabels() == nil {
 						continue
 					}
-					if isSubsetOf(s.Spec.Selector, p.GetLabels()) {
+					if maps.Contains(p.GetLabels(), s.Spec.Selector) {
 						iInfo.pods = append(iInfo.pods, ingressPods[ns][j])
 					}
 				}
 				if len(iInfo.pods) > 0 {
-					filterIngressServices[sns] = append(filterIngressServices[sns], iInfo)
+					filterIngressServices = append(filterIngressServices, iInfo)
 				}
 			}
 		}
@@ -1039,7 +1030,6 @@ func printIngressInfo(
 		fmt.Fprintf(writer, "Skipping Gateway information (no ingress gateway service)\n")
 	}
 
-	haveGateways := false
 	recordVSResources := map[string]*clientnetworking.VirtualService{}
 	recordDRResources := map[string]*clientnetworking.DestinationRule{}
 	buildKey := func(ns, name string) string { return fmt.Sprintf("%s/%s", ns, name) }
@@ -1107,9 +1097,8 @@ func printIngressInfo(
 								gns = parts[0]
 							}
 
-							if _, ok := filterIngressServices[gns]; !ok {
-								continue
-							}
+							// todo: check istiod env `PILOT_SCOPE_GATEWAY_TO_NAMESPACE`
+							// if true, need to match gateway namespace
 
 							gwID := buildKey(gns, gatewayName)
 							if gok := recordGateways[gwID]; !gok {
@@ -1122,20 +1111,19 @@ func printIngressInfo(
 											gns, gatewayName)
 										continue
 									}
-									var matchIngressInfo *ingressInfo
-									for i, ingress := range filterIngressServices[gns] {
+
+									var matchIngressInfos []*ingressInfo
+									for i, ingress := range filterIngressServices {
 										if ingress.match(gw) {
-											matchIngressInfo = filterIngressServices[gns][i]
-											break
+											matchIngressInfos = append(matchIngressInfos, filterIngressServices[i])
 										}
 									}
-									if matchIngressInfo != nil {
-										if !haveGateways {
-											fmt.Fprintf(writer, "--------------------\n")
+									if len(matchIngressInfos) > 0 {
+										fmt.Fprintf(writer, "--------------------\n")
+										for _, ingress := range matchIngressInfos {
+											printIngressService(writer, printLevel0, ingress)
 										}
-										haveGateways = true
-										printIngressService(writer, printLevel0, matchIngressInfo)
-										printVirtualService(writer, printLevel1, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+										printVirtualService(writer, printLevel0, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
 									}
 								} else {
 									fmt.Fprintf(writer,
