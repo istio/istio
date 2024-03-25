@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -358,7 +359,7 @@ func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
 }
 
 // serviceEntryHandler defines the handler for service entries
-func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Event) {
+func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Event) {
 	log.Debugf("Handle event %s for service entry %s/%s", event, curr.Namespace, curr.Name)
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
@@ -372,6 +373,15 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	switch event {
 	case model.EventUpdate:
 		addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs = servicesDiff(s.services.getServices(key), cs)
+		oldServiceEntry := old.Spec.(*networking.ServiceEntry)
+		// Also check if target ports are changed since they are not included in `model.Service`
+		if !slices.EqualFunc(oldServiceEntry.Ports, currentServiceEntry.Ports, func(a, b *networking.ServicePort) bool {
+			return a.TargetPort == b.TargetPort
+		}) {
+			// Note: If the length of ports is changed, unchangedSvcs will be nil, this is an no-op
+			updatedSvcs = append(updatedSvcs, unchangedSvcs...)
+			unchangedSvcs = nil
+		}
 		s.services.updateServices(key, cs)
 	case model.EventDelete:
 		deletedSvcs = cs
