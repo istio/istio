@@ -27,6 +27,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -309,6 +310,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		}
 		c.DnsRefreshRate = cb.req.Push.Mesh.DnsRefreshRate
 		c.RespectDnsTtl = true
+		// we want to run all the STATIC parts as well to build the load assignment
 		fallthrough
 	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
@@ -320,6 +322,16 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		c.LoadAssignment = &endpoint.ClusterLoadAssignment{
 			ClusterName: name,
 			Endpoints:   localityLbEndpoints,
+		}
+	case cluster.Cluster_ORIGINAL_DST:
+		if features.PassthroughTargetPort {
+			if override, f := service.Attributes.PassthroughTargetPorts[uint32(port.Port)]; f {
+				c.LbConfig = &cluster.Cluster_OriginalDstLbConfig_{
+					OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+						UpstreamPortOverride: wrappers.UInt32(override),
+					},
+				}
+			}
 		}
 	}
 

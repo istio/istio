@@ -3519,7 +3519,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			servicePortNumbers[port.Number] = true
 			if port.TargetPort != 0 {
 				errs = appendValidation(errs, ValidatePort(int(port.TargetPort)))
-				if serviceEntry.Resolution == networking.ServiceEntry_NONE {
+				if serviceEntry.Resolution == networking.ServiceEntry_NONE && !features.PassthroughTargetPort {
 					errs = appendWarningf(errs, "targetPort has no effect when resolution mode is NONE")
 				}
 			}

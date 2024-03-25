@@ -703,6 +703,8 @@ type ServiceAttributes struct {
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
 
+	PassthroughTargetPorts map[uint32]uint32
+
 	K8sAttributes
 }
 
