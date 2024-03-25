@@ -949,8 +949,8 @@ VirtualService: bookinfo
    Route to host "productpage3" with weight 50%
    Match: /prefix*
 --------------------
-Exposed on Ingress Gateway http://2.2.2.2
 Exposed on Ingress Gateway http://1.1.1.1
+Exposed on Ingress Gateway http://2.2.2.2
 VirtualService: bookinfo
    Route to host "productpage" with weight 30%
    Route to host "productpage2" with weight 20%

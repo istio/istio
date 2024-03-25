@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -1119,6 +1120,9 @@ func printIngressInfo(
 										}
 									}
 									if len(matchIngressInfos) > 0 {
+										sort.Slice(matchIngressInfos, func(i, j int) bool {
+											return matchIngressInfos[i].getIngressIP() < matchIngressInfos[j].getIngressIP()
+										})
 										fmt.Fprintf(writer, "--------------------\n")
 										for _, ingress := range matchIngressInfos {
 											printIngressService(writer, printLevel0, ingress)
