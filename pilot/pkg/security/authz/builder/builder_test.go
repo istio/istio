@@ -251,25 +251,34 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 	}
 
 	baseDir := "http/"
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			option := Option{
-				IsCustomBuilder: tc.meshConfig != nil,
-			}
-			push := push(t, baseDir+tc.input, tc.meshConfig)
-			proxy := node(tc.version)
-			selectionOpts := model.WorkloadSelectionOpts{
-				Namespace:      proxy.ConfigNamespace,
-				WorkloadLabels: proxy.Labels,
-			}
-			policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
-			g := New(tc.tdBundle, push, policies, option)
-			if g == nil {
-				t.Fatalf("failed to create generator")
-			}
-			got := g.BuildHTTP()
-			verify(t, convertHTTP(got), baseDir, tc.want, false /* forTCP */)
-		})
+	for _, extended := range []bool{false, true} {
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				option := Option{
+					IsCustomBuilder: tc.meshConfig != nil,
+					UseExtendedJwt:  extended,
+				}
+				push := push(t, baseDir+tc.input, tc.meshConfig)
+				proxy := node(tc.version)
+				selectionOpts := model.WorkloadSelectionOpts{
+					Namespace:      proxy.ConfigNamespace,
+					WorkloadLabels: proxy.Labels,
+				}
+				policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
+				g := New(tc.tdBundle, push, policies, option)
+				if g == nil {
+					t.Fatalf("failed to create generator")
+				}
+				got := g.BuildHTTP()
+				wants := tc.want
+				if extended {
+					for i := range wants {
+						wants[i] = "extended-" + wants[i]
+					}
+				}
+				verify(t, convertHTTP(got), baseDir, tc.want, false /* forTCP */)
+			})
+		}
 	}
 }
 
@@ -356,13 +365,13 @@ func verify(t *testing.T, gots []proto.Message, baseDir string, wants []string, 
 		}
 
 		wantFile := basePath + baseDir + wants[i]
+		util.RefreshGoldenFile(t, []byte(gotYaml), wantFile)
 		want := yamlConfig(t, wantFile, forTCP)
 		wantYaml, err := protomarshal.ToYAML(want)
 		if err != nil {
 			t.Fatalf("failed to convert to YAML: %v", err)
 		}
 
-		util.RefreshGoldenFile(t, []byte(gotYaml), wantFile)
 		if err := util.Compare([]byte(gotYaml), []byte(wantYaml)); err != nil {
 			t.Error(err)
 		}
