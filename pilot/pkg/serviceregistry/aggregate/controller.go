@@ -76,6 +76,17 @@ func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.Workloa
 	return res
 }
 
+func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	if !features.EnableAmbientControllers {
+		return nil
+	}
+	var res []model.ServiceInfo
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.ServicesForWaypoint(key)...)
+	}
+	return res
+}
+
 func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.String) sets.String {
 	if !features.EnableAmbientControllers {
 		return nil

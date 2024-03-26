@@ -870,6 +870,7 @@ type AmbientIndexes interface {
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
 	Waypoint(network, address string) []netip.Addr
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
+	ServicesForWaypoint(WaypointKey) []ServiceInfo
 }
 
 type WaypointKey struct {
@@ -901,6 +902,10 @@ func (u NoopAmbientIndexes) Waypoint(string, string) []netip.Addr {
 }
 
 func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
+	return nil
+}
+
+func (u NoopAmbientIndexes) ServicesForWaypoint(WaypointKey) []ServiceInfo {
 	return nil
 }
 

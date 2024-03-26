@@ -45,6 +45,7 @@ type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
+	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	Waypoint(network, address string) []netip.Addr
 	SyncAll()
 	model.AmbientIndexes
@@ -389,19 +390,19 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 		network: key.Network,
 		ip:      key.Addresses[0],
 	})
-	services := a.services.ByOwningWaypoint.Lookup(networkAddress{
+	workloads = model.SortWorkloadsByCreationTime(workloads)
+	return workloads
+}
+
+func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	if len(key.Addresses) == 0 {
+		return nil
+	}
+	// TODO sort by creation time (currently done by caller)
+	return a.services.ByOwningWaypoint.Lookup(networkAddress{
 		network: key.Network,
 		ip:      key.Addresses[0],
 	})
-	workloadsFromServices := make([]model.WorkloadInfo, 0)
-	for _, s := range services {
-		svcWls := a.workloads.ByServiceKey.Lookup(namespacedHostname(s.Namespace, s.Hostname))
-		workloadsFromServices = append(workloadsFromServices, svcWls...)
-	}
-	// this is not deduplicated...
-	workloads = append(workloads, workloadsFromServices...)
-	workloads = model.SortWorkloadsByCreationTime(workloads)
-	return workloads
 }
 
 func (a *index) Waypoint(network, address string) []netip.Addr {

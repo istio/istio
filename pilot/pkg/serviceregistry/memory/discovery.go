@@ -380,6 +380,10 @@ func (sd *ServiceDiscovery) WorkloadsForWaypoint(model.WaypointKey) []model.Work
 	return nil
 }
 
+func (sd *ServiceDiscovery) ServicesForWaypoint(model.WaypointKey) []model.ServiceInfo {
+	return nil
+}
+
 func (sd *ServiceDiscovery) AddWorkloadInfo(infos ...*model.WorkloadInfo) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()

@@ -17,8 +17,6 @@ package v1alpha3
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -39,6 +37,7 @@ const (
 	ConnectUpgradeType = "CONNECT"
 )
 
+// TODO we seem to only use one field of this result which is a little wasteful
 type waypointServices struct {
 	services        map[host.Name]*model.Service
 	orderedServices []*model.Service
@@ -46,6 +45,12 @@ type waypointServices struct {
 
 // findWaypointResources returns workloads and services associated with the waypoint proxy
 func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.WorkloadInfo, *waypointServices) {
+	workloads := findWaypointWorkloads(node, push)
+	services := findWaypointServices(node, push)
+	return workloads, services
+}
+
+func findWaypointWorkloads(node *model.Proxy, push *model.PushContext) []model.WorkloadInfo {
 	network := node.Metadata.Network.String()
 	workloads := make([]model.WorkloadInfo, 0)
 	for _, svct := range node.ServiceTargets {
@@ -56,31 +61,38 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 		})
 		workloads = append(workloads, wl...)
 	}
-
-	return workloads, findWorkloadServices(workloads, push)
+	return workloads
 }
 
-func findWorkloadServices(workloads []model.WorkloadInfo, push *model.PushContext) *waypointServices {
-	wps := &waypointServices{}
-	for _, wl := range workloads {
-		for _, ns := range push.ServiceIndex.HostnameAndNamespace {
-			svc := ns[wl.Namespace]
-			if svc == nil {
-				continue
-			}
-			if labels.Instance(svc.Attributes.LabelSelectors).Match(wl.Labels) {
-				if wps.services == nil {
-					wps.services = map[host.Name]*model.Service{}
-				}
-				wps.services[svc.Hostname] = svc
-			}
+func findWaypointServices(node *model.Proxy, push *model.PushContext) *waypointServices {
+	res := &waypointServices{services: map[host.Name]*model.Service{}}
+	network := node.Metadata.Network.String()
+
+  // fetch
+	var serviceInfos []model.ServiceInfo
+	for _, svct := range node.ServiceTargets {
+		ips := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
+		serviceInfos = append(serviceInfos, push.ServicesForWaypoint(model.WaypointKey{
+			Network:   network,
+			Addresses: ips,
+		})...)
+	}
+
+  // index and sort
+	for _, si := range serviceInfos {
+		ns, ok := push.ServiceIndex.HostnameAndNamespace[host.Name(si.Hostname)]
+		if !ok {
+			continue
 		}
+		svc, ok := ns[si.Namespace]
+		if !ok {
+			continue
+		}
+		res.services[svc.Hostname] = svc
+		res.orderedServices = append(res.orderedServices, svc)
 	}
-	services := maps.Values(wps.services)
-	if len(services) > 0 {
-		wps.orderedServices = model.SortServicesByCreationTime(services)
-	}
-	return wps
+	res.orderedServices = model.SortServicesByCreationTime(res.orderedServices)
+	return res
 }
 
 // filterWaypointOutboundServices is used to determine the set of outbound clusters we need to build for waypoints.

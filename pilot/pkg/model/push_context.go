@@ -2460,3 +2460,7 @@ func (ps *PushContext) WaypointsFor(network, address string) []netip.Addr {
 func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []WorkloadInfo {
 	return ps.ambientIndex.WorkloadsForWaypoint(key)
 }
+
+func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
+	return ps.ambientIndex.ServicesForWaypoint(key)
+}
