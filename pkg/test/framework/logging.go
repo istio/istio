@@ -16,9 +16,6 @@ package framework
 
 import (
 	"flag"
-	"io"
-
-	"google.golang.org/grpc/grpclog"
 
 	"istio.io/istio/pkg/log"
 )
@@ -37,9 +34,6 @@ func init() {
 
 func configureLogging() error {
 	o := *logOptionsFromCommandline
-
-	o.LogGrpc = false
-	grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
 
 	return log.Configure(&o)
 }

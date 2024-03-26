@@ -171,10 +171,10 @@ func cmdLogOptions() *log.Options {
 	o := log.DefaultOptions()
 
 	// These scopes are, at the default "INFO" level, too chatty for command line use
-	o.SetOutputLevel("validation", log.ErrorLevel)
-	o.SetOutputLevel("processing", log.ErrorLevel)
-	o.SetOutputLevel("default", log.WarnLevel)
-	o.SetOutputLevel("kube", log.ErrorLevel)
+	o.SetDefaultOutputLevel("validation", log.ErrorLevel)
+	o.SetDefaultOutputLevel("processing", log.ErrorLevel)
+	o.SetDefaultOutputLevel("default", log.WarnLevel)
+	o.SetDefaultOutputLevel("kube", log.ErrorLevel)
 
 	return o
 }

@@ -128,7 +128,7 @@ func resolverForTest(t test.Failer, xdsPort int, ns string) resolver.Builder {
 func init() {
 	// Setup gRPC logging. Do it once in init to avoid races
 	o := log.DefaultOptions()
-	o.LogGrpc = true
+	o.SetDefaultOutputLevel(log.GrpcScopeName, log.DebugLevel)
 	log.Configure(o)
 }
 

@@ -37,10 +37,11 @@ var (
 
 func defaultLogOptions() *log.Options {
 	o := log.DefaultOptions()
-	o.SetOutputLevel(log.DefaultScopeName, log.WarnLevel)
-	// These scopes are, at the default "WARN" level, too chatty for command line use
-	o.SetOutputLevel("validation", log.ErrorLevel)
-	o.SetOutputLevel("processing", log.ErrorLevel)
-	o.SetOutputLevel("kube", log.ErrorLevel)
+	// Default to warning for everything; we usually don't want logs in istioctl
+	o.SetDefaultOutputLevel("all", log.WarnLevel)
+	// These scopes are too noisy even at warning level
+	o.SetDefaultOutputLevel("validation", log.ErrorLevel)
+	o.SetDefaultOutputLevel("processing", log.ErrorLevel)
+	o.SetDefaultOutputLevel("kube", log.ErrorLevel)
 	return o
 }

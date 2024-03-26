@@ -38,7 +38,7 @@ import (
 
 func setupLogging() {
 	opts := istiolog.DefaultOptions()
-	opts.SetOutputLevel(istiolog.OverrideScopeName, istiolog.DebugLevel)
+	opts.SetDefaultOutputLevel(istiolog.OverrideScopeName, istiolog.DebugLevel)
 	istiolog.Configure(opts)
 	for _, scope := range istiolog.Scopes() {
 		scope.SetOutputLevel(istiolog.DebugLevel)
