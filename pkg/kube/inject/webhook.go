@@ -108,7 +108,7 @@ type Webhook struct {
 	Config       *Config
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig ValuesConfig
-	namespaces   *multicluster.KclientComponent[*corev1.Namespace]
+	namespaces   multicluster.ComponentForCluster[*corev1.Namespace]
 
 	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
 	watcher   Watcher
@@ -1075,8 +1075,12 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
 	}
-	clusterID, _ := extractClusterAndNetwork(params)
-	if wh.namespaces != nil {
+
+	if platform.IsOpenShift() && wh.namespaces != nil {
+		clusterID, _ := extractClusterAndNetwork(params)
+		if clusterID == "" {
+			clusterID = "Kubernetes"
+		}
 		client := wh.namespaces.ForCluster(cluster.ID(clusterID))
 		if client != nil {
 			params.namespace = client.Get(pod.Namespace, "")
