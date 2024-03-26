@@ -359,6 +359,7 @@ func setupDashboardTest(done <-chan struct{}) {
 // extractQueries pulls all prometheus queries out of a grafana dashboard
 // Rather than importing the entire grafana API just for this test, do some shoddy json parsing
 // Equivalent to jq command: '.panels[].targets[]?.expr'
+// '.panels[].panels[]?.targets[]?.expr'
 func extractQueries(dash string) ([]string, error) {
 	var queries []string
 	js := map[string]any{}
@@ -375,7 +376,18 @@ func extractQueries(dash string) ([]string, error) {
 	}
 	for _, p := range panelsList {
 		pm := p.(map[string]any)
-		targets, f := pm["targets"]
+		if pm["type"] == "row" {
+			continue
+		}
+		subPanels, exist := pm["panels"]
+		var targets any
+		var f bool
+		if exist {
+			subpm := subPanels.(map[string]any)
+			targets, f = subpm["targets"]
+		} else {
+			targets, f = pm["targets"]
+		}
 		if !f {
 			continue
 		}
