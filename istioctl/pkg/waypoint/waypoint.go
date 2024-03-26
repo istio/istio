@@ -25,6 +25,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"istio.io/istio/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -61,6 +62,8 @@ const (
 	noTraffic       = "none"
 )
 
+var validAddressTypes = sets.New(serviceTraffic, workloadTraffic, allTraffic, noTraffic)
+
 func Cmd(ctx cli.Context) *cobra.Command {
 	var waypointServiceAccount string
 	makeGatewayName := func(sa string) string {
@@ -93,36 +96,22 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}},
 			},
 		}
-		// Determine which traffic address type to apply the waypoint to, if none
+
+		// Determine which traffic address type to apply the waypoint to, if none,
 		// then default to "service" as the waypoint-for traffic address type.
-		validAddressTypes := map[string]struct{}{
-			serviceTraffic:  {},
-			workloadTraffic: {},
-			allTraffic:      {},
-			noTraffic:       {},
-		}
-		if addressType != "" {
-			if _, ok := validAddressTypes[addressType]; !ok {
-				return nil, fmt.Errorf("invalid traffic address type: %s. Valid options are: service, workload, all, none", addressType)
+		if addressType == "" {
+			addressType = serviceTraffic
+		} else {
+			if !validAddressTypes.Contains(addressType) {
+				return nil, fmt.Errorf("invalid traffic address type: %s. Valid options are: %s", addressType, validAddressTypes.String())
 			}
 		}
+
 		if gw.Annotations == nil {
 			gw.Annotations = map[string]string{}
 		}
-		switch addressType {
-		case "service":
-			gw.Annotations[constants.WaypointForAddressType] = serviceTraffic
-		case "workload":
-			gw.Annotations[constants.WaypointForAddressType] = workloadTraffic
-		case "all":
-			gw.Annotations[constants.WaypointForAddressType] = allTraffic
-		case "none":
-			gw.Annotations[constants.WaypointForAddressType] = noTraffic
-		default:
-			// If a value is not declared on a Gateway or its associated GatewayClass
-			// then the network layer should default to service when redirecting traffic.
-			gw.Annotations[constants.WaypointForAddressType] = serviceTraffic
-		}
+		gw.Annotations[constants.WaypointForAddressType] = addressType
+
 		if waypointServiceAccount != "" {
 			gw.Annotations = map[string]string{
 				constants.WaypointServiceAccount: waypointServiceAccount,
