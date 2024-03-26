@@ -33,6 +33,7 @@ import (
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -46,6 +47,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/version"
 )
 
@@ -360,6 +362,54 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 		g.Expect(ep).Should(HavePathValueContain(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
 
 		checkClusterRoleBindingsReferenceRoles(g, objs)
+	}
+}
+
+func TestPrune(t *testing.T) {
+	recreateSimpleTestEnv()
+	tmpDir := t.TempDir()
+	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
+	err := copyDir(string(liveCharts), string(tmpCharts))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", "envoyfilter"+".yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writeFile(filepath.Join(tmpDir, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+"default.yaml"), []byte(rs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fakeControllerReconcile("default", tmpCharts, &helmreconciler.Options{
+		Force:     true,
+		SkipPrune: false,
+		Log:       clog.NewDefaultLogger(),
+	})
+	assert.NoError(t, err)
+
+	// Install a default revision should not cause any error
+	objs, err := fakeControllerReconcile("empty", tmpCharts, &helmreconciler.Options{
+		Force:     true,
+		SkipPrune: false,
+		Log:       clog.NewDefaultLogger(),
+	})
+	assert.NoError(t, err)
+
+	for _, s := range append(helmreconciler.NamespacedResources(&k8sversion.Info{}), helmreconciler.ClusterResources...) {
+		remainedObjs := objs.kind(s.Kind)
+		if remainedObjs.size() == 0 {
+			continue
+		}
+		for _, v := range remainedObjs.objMap {
+			// exclude operator objects, which will not be pruned
+			if strings.Contains(v.Name, "istio-operator") {
+				continue
+			}
+			t.Fatalf("obj %s/%s is not pruned", v.Namespace, v.Name)
+		}
 	}
 }
 

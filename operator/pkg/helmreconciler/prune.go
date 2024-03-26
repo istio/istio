@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/proxy"
 )
@@ -84,6 +85,8 @@ func NamespacedResources(version *version.Info) []schema.GroupVersionKind {
 		{Group: "", Version: "v1", Kind: name.SAStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
+		{Group: "policy", Version: "v1", Kind: name.PDBStr},
+		gvk.EnvoyFilter.Kubernetes(),
 	}
 	// autoscaling v2 API is available on >=1.23
 	if kube.IsKubeAtLeastOrLessThanVersion(version, autoscalingV2MinK8SVersion, true) {
@@ -390,16 +393,17 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		return err
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
+	componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)
+	if err != nil {
+		return err
+	}
+	selector = selector.Add(*componentRequirement)
+
 	resources := append(h.NamespacedResources(), ClusterResources...)
 	for _, gvk := range resources {
 		// First, we collect all objects for the provided GVK
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
-		componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)
-		if err != nil {
-			return err
-		}
-		selector = selector.Add(*componentRequirement)
 		if err := h.client.List(context.TODO(), objects, client.MatchingLabelsSelector{Selector: selector}); err != nil {
 			// we only want to retrieve resources clusters
 			if !(h.opts.DryRun && meta.IsNoMatchError(err)) {
