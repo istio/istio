@@ -1,8 +1,27 @@
 {{- if .Values.global.configCluster }}
-{{- if and .Values.base.enableCRDTemplates (eq .Values.base.releaseChannel "stable") }}
-{{ .Files.Get "files/stable.gen.yaml" }}
-{{- end }}
-{{- if and .Values.base.enableCRDTemplates (or (eq .Values.base.releaseChannel "standard") (not .Values.base.releaseChannel)) }}
-{{ .Files.Get "files/standard.gen.yaml" }}
-{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: install-crd-job
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      containers:
+      - name: install-crd
+        image: appropriate/curl:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          cat <<EOF | kubectl apply -f -
+          {{- if and .Values.base.enableCRDTemplates (eq .Values.base.releaseChannel "stable") }}
+          {{ .Files.Get "files/stable.gen.yaml" | nindent 10 }}
+          {{- end }}
+          {{- if and .Values.base.enableCRDTemplates (or (eq .Values.base.releaseChannel "standard") (not .Values.base.releaseChannel)) }}
+          {{ .Files.Get "files/standard.gen.yaml" | nindent 10 }}
+          {{- end }}
+          EOF
+      restartPolicy: OnFailure
 {{- end }}
