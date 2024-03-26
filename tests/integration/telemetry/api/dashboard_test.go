@@ -399,7 +399,7 @@ func extractQueries(dash string) ([]string, error) {
 			tm := t.(map[string]any)
 			expr, f := tm["expr"]
 			if !f {
-				return nil, fmt.Errorf("failed to find expr in %v", t)
+				continue
 			}
 			queries = append(queries, expr.(string))
 		}
