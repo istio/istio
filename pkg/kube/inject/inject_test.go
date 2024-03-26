@@ -39,11 +39,11 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/kube/multicluster"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/platform"
 	"istio.io/istio/pkg/test"
@@ -449,7 +449,7 @@ func TestInjection(t *testing.T) {
 			// First we test kube-inject. This will run exactly what kube-inject does, and write output to the golden files
 			t.Run("kube-inject", func(t *testing.T) {
 				if c.skipInjection {
-					t.Skip()
+					return
 				}
 
 				var got bytes.Buffer
@@ -505,14 +505,32 @@ func TestInjection(t *testing.T) {
 				env.SetPushContext(&model.PushContext{
 					ProxyConfigs: &model.ProxyConfigs{},
 				})
+
+				multi := multicluster.NewFakeController()
+				client := kube.NewFakeClient(
+					&corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-ns",
+							Annotations: map[string]string{
+								securityv1.UIDRangeAnnotation:           "1000620000/10000",
+								securityv1.SupplementalGroupsAnnotation: "1000620000/10000",
+							},
+						},
+					})
+
 				webhook := &Webhook{
 					Config:       sidecarTemplate,
 					meshConfig:   mc,
 					env:          env,
 					valuesConfig: valuesConfig,
 					revision:     "default",
-					namespaces:   &fakeForClusterOpenShift{},
+					namespaces:   multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](multi, kubetypes.Filter{}),
 				}
+
+				stop := test.NewStop(t)
+				multi.Add("Kubernetes", client, stop)
+				client.RunAndWait(stop)
+
 				// Split multi-part yaml documents. Input and output will have the same number of parts.
 				inputYAMLs := splitYamlFile(inputFilePath, t)
 				wantYAMLs := splitYamlFile(wantFilePath, t)
@@ -1171,26 +1189,4 @@ func BenchmarkInjection(b *testing.B) {
 			}
 		})
 	}
-}
-
-type fakeForClusterOpenShift struct{}
-
-func (f *fakeForClusterOpenShift) ForCluster(clusterID cluster.ID) kclient.Client[*corev1.Namespace] {
-	client := kube.NewFakeClient(
-		&corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-ns",
-				Annotations: map[string]string{
-					securityv1.UIDRangeAnnotation:           "1000620000/10000",
-					securityv1.SupplementalGroupsAnnotation: "1000620000/10000",
-				},
-			},
-		})
-
-	result := kclient.New[*corev1.Namespace](client)
-	stop := make(chan struct{})
-	result.Start(stop)
-	kube.WaitForCacheSync("test", stop, result.HasSynced)
-
-	return result
 }

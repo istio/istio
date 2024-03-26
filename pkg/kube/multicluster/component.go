@@ -117,11 +117,6 @@ func BuildMultiClusterKclientComponent[T controllers.ComparableObject](c Compone
 	return &KclientComponent[T]{res}
 }
 
-// Implemented by KclientComponent below and used for mocking in unit tests
-type ComponentForCluster[T controllers.ComparableObject] interface {
-	ForCluster(clusterID cluster.ID) kclient.Client[T]
-}
-
 // ForCluster returns the client for the requests cluster
 // Note: this may return nil.
 func (m *KclientComponent[T]) ForCluster(clusterID cluster.ID) kclient.Client[T] {
