@@ -51,6 +51,8 @@ spec:
   - match:
     - uri:
         prefix: /foo/bar
+    - uri:
+        prefix: /bar
     name: allowed-2.http.0
     route:
     - destination:
@@ -67,15 +69,6 @@ spec:
     route:
     - destination:
         host: svc1.allowed-1.svc.domain.suffix
-        port:
-          number: 80
-  - match:
-    - uri:
-        prefix: /bar
-    name: allowed-2.http.0
-    route:
-    - destination:
-        host: svc2.allowed-2.svc.domain.suffix
         port:
           number: 80
   - match:
@@ -252,13 +245,6 @@ spec:
   - match:
     - uri:
         prefix: /foo/bar
-    name: allowed-2.http.0
-    route:
-    - destination:
-        host: svc2.allowed-2.svc.domain.suffix
-        port:
-          number: 80
-  - match:
     - uri:
         prefix: /bar
     name: allowed-2.http.0
