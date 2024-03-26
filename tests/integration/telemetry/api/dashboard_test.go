@@ -101,6 +101,9 @@ var dashboards = []struct {
 		"istio-workload-dashboard.json",
 		[]string{
 			"istio_tcp_",
+			// there is no non-mtls traffic generated so the test flakes for the split query on
+			// "Outgoing Requests By Destination And Response Code"
+			"spiffe.*",
 		},
 		false,
 	},
