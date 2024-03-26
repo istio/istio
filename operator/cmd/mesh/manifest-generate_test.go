@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/version"
 )
 
@@ -383,7 +384,7 @@ func TestPrune(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = fakeControllerReconcile("default", tmpCharts, &helmreconciler.Options{
-		Force:     false,
+		Force:     true,
 		SkipPrune: false,
 		Log:       clog.NewDefaultLogger(),
 	})
@@ -391,7 +392,7 @@ func TestPrune(t *testing.T) {
 
 	// Install a default revision should not cause any error
 	objs, err := fakeControllerReconcile("empty", tmpCharts, &helmreconciler.Options{
-		Force:     false,
+		Force:     true,
 		SkipPrune: false,
 		Log:       clog.NewDefaultLogger(),
 	})
