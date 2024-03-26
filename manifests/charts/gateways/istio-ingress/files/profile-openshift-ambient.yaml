@@ -2,8 +2,7 @@ meshConfig:
   defaultConfig:
     proxyMetadata:
       ISTIO_META_ENABLE_HBONE: "true"
-global:
-  platform: openshift
+platform: openshift
 cni:
   ambient:
     enabled: true

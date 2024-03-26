@@ -10,8 +10,7 @@ cni:
     - kube-system
   logLevel: info
   provider: "multus"
-global:
-  platform: openshift
+platform: openshift
 pilot:
   cni:
     enabled: true
