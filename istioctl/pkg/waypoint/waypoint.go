@@ -25,7 +25,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"istio.io/istio/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -97,7 +97,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			},
 		}
 
-		// Determine which traffic address type to apply the waypoint to, if none,
+		// Determine which traffic address type to apply the waypoint to, if none
 		// then default to "service" as the waypoint-for traffic address type.
 		if addressType == "" {
 			addressType = serviceTraffic
