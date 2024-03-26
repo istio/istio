@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -50,16 +51,11 @@ var (
 
 	deleteAll bool
 
-	addressType string
+	trafficType       string
+	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 )
 
-const (
-	waitTimeout     = 90 * time.Second
-	serviceTraffic  = "service"
-	workloadTraffic = "workload"
-	allTraffic      = "all"
-	noTraffic       = "none"
-)
+const waitTimeout = 90 * time.Second
 
 func Cmd(ctx cli.Context) *cobra.Command {
 	var waypointServiceAccount string
@@ -93,35 +89,33 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}},
 			},
 		}
-		// Determine which traffic address type to apply the waypoint to, if none
-		// then default to "service" as the waypoint-for traffic address type.
-		validAddressTypes := map[string]struct{}{
-			serviceTraffic:  {},
-			workloadTraffic: {},
-			allTraffic:      {},
-			noTraffic:       {},
+		if trafficType == "" {
+			trafficType = constants.ServiceTraffic
 		}
-		if addressType != "" {
-			if _, ok := validAddressTypes[addressType]; !ok {
-				return nil, fmt.Errorf("invalid traffic address type: %s. Valid options are: service, workload, all, none", addressType)
-			}
+		if !validTrafficTypes.Contains(trafficType) {
+			return nil, fmt.Errorf("invalid traffic type: %s. Valid options are: %s", trafficType, validTrafficTypes.String())
 		}
 		if gw.Annotations == nil {
 			gw.Annotations = map[string]string{}
 		}
-		switch addressType {
+		// Determine which traffic address type to apply the waypoint to, if none
+		// then default to "service" as the waypoint-for traffic address type.
+		switch trafficType {
 		case "service":
-			gw.Annotations[constants.WaypointForAddressType] = serviceTraffic
+			gw.Annotations[constants.AmbientWaypointForTrafficType] = constants.ServiceTraffic
 		case "workload":
-			gw.Annotations[constants.WaypointForAddressType] = workloadTraffic
+			gw.Annotations[constants.AmbientWaypointForTrafficType] = constants.WorkloadTraffic
 		case "all":
-			gw.Annotations[constants.WaypointForAddressType] = allTraffic
+			gw.Annotations[constants.AmbientWaypointForTrafficType] = constants.AllTraffic
 		case "none":
-			gw.Annotations[constants.WaypointForAddressType] = noTraffic
+			gw.Annotations[constants.AmbientWaypointForTrafficType] = constants.NoTraffic
 		default:
 			// If a value is not declared on a Gateway or its associated GatewayClass
 			// then the network layer should default to service when redirecting traffic.
-			gw.Annotations[constants.WaypointForAddressType] = serviceTraffic
+			//
+			// This is a safety measure to ensure that the Gateway is not misconfigured, but
+			// we will likely not hit this case as the CLI will validate the traffic type.
+			gw.Annotations[constants.AmbientWaypointForTrafficType] = constants.ServiceTraffic
 		}
 		if waypointServiceAccount != "" {
 			gw.Annotations = map[string]string{
@@ -222,10 +216,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 	}
-	waypointApplyCmd.PersistentFlags().StringVar(&addressType,
+	waypointApplyCmd.PersistentFlags().StringVar(&trafficType,
 		"for",
 		"service",
-		"Specify the traffic address type (service, workload, all, or none) for the waypoint",
+		fmt.Sprintf("Specify the traffic type %s for the waypoint", validTrafficTypes.String()),
 	)
 
 	waypointDeleteCmd := &cobra.Command{
