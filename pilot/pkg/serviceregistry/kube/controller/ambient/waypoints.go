@@ -23,7 +23,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
@@ -33,6 +35,7 @@ import (
 type Waypoint struct {
 	krt.Named
 
+	model.WaypointInfo
 	Addresses []netip.Addr
 }
 
@@ -114,11 +117,50 @@ func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway]) krt.Collecti
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
+
 		return &Waypoint{
 			Named:     krt.NewNamed(gateway),
 			Addresses: getGatewayAddrs(gateway),
+			WaypointInfo: model.WaypointInfo{
+				ListenersByHost: detectListenerProtocols(gateway),
+			},
 		}
 	}, krt.WithName("Waypoints"))
+}
+
+func detectListenerProtocols(gateway *v1beta1.Gateway) map[string]model.WaypointListener {
+	byHost := map[string]model.WaypointListener{}
+	for _, listener := range gateway.Spec.Listeners {
+		host := "*"
+		proto := protocol.Instance(listener.Protocol)
+		if listener.Hostname != nil && *listener.Hostname != "*" {
+			host = string(*listener.Hostname)
+		}
+
+		// application protocols become irrelevant when we have an HBONE listener
+		if proto == protocol.HBONE {
+			if host != "*" {
+				// we can't do per-host HBONE listeners (well.. maybe someone can, but our Waypoint can't)
+				log.Warnf("waypoint: ignoring non-wildcard HBONE listener %s on %s/%s", listener.Name, gateway.Namespace, gateway.Name)
+				continue
+			}
+			byHost = map[string]model.WaypointListener{
+				host: {
+					Port: uint32(listener.Port),
+					// TODO validate protocol IN {HTTP, PROXY, HBONE}; should non * listeners be allowed to specify HBONE?
+					Protocol: protocol.HBONE,
+				},
+			}
+			break
+		}
+
+		byHost[host] = model.WaypointListener{
+			Port: uint32(listener.Port),
+			// TODO validate protocol IN {HTTP, PROXY, HBONE}; should non * listeners be allowed to specify HBONE?
+			Protocol: proto,
+		}
+	}
+	return byHost
 }
 
 func getGatewayAddrs(gw *v1beta1.Gateway) []netip.Addr {

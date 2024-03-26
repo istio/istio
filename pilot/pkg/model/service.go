@@ -977,7 +977,34 @@ func serviceResourceName(s *workloadapi.Service) string {
 	return s.Namespace + "/" + s.Hostname
 }
 
-type WorkloadSource string
+type WaypointListener struct {
+	Port     uint32
+	Protocol protocol.Instance
+}
+
+type WaypointInfo struct {
+	Cluster cluster.ID
+
+	// ListenersByHost keeps track of host specific protocols. 
+  // Native HBONE waypoints will only have '*' -> HBONE.
+  // Sandwiched waypionts may desire additional information from their inbound zTunnel.
+  // See ApplicationProtocol for zTunnel implications.
+	ListenersByHost map[string]WaypointListener
+}
+
+func (w *WaypointInfo) GetListener(host string) *WaypointListener {
+	if w.ListenersByHost == nil {
+		// shouldn't happen
+		return nil
+	}
+	if byHost, ok := w.ListenersByHost[host]; ok {
+		return &byHost
+	}
+	if wildcard, ok := w.ListenersByHost["*"]; ok {
+		return &wildcard
+	}
+	return nil
+}
 
 type WorkloadInfo struct {
 	*workloadapi.Workload

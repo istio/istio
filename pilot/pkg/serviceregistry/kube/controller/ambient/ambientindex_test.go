@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -180,6 +181,83 @@ func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("10.0.0.1"))[0].Address.GetService().Waypoint.GetAddress().Address,
 		netip.MustParseAddr("10.0.0.10").AsSlice())
+}
+
+func TestAmbientIndex_WaypointSandwich(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, testC, testNW)
+
+	gatewaySpec := k8sbeta.GatewaySpec{
+		GatewayClassName: constants.WaypointGatewayClassName,
+		Listeners: []k8sv1.Listener{
+			{
+				Name:     "to-specific-service",
+				Hostname: ptr.Of(k8sbeta.Hostname("svc1.ns1.svc.company.com")),
+				Port:     8080,
+				Protocol: "HTTP",
+				AllowedRoutes: &k8sbeta.AllowedRoutes{
+					Namespaces: &k8sbeta.RouteNamespaces{
+						From: ptr.Of(k8sv1.NamespacesFromSame),
+					},
+				},
+			},
+			{
+				Name:     "catchall",
+				Hostname: ptr.Of(k8sbeta.Hostname("*")),
+				Port:     15088,
+				Protocol: "PROXY",
+				AllowedRoutes: &k8sbeta.AllowedRoutes{
+					Namespaces: &k8sbeta.RouteNamespaces{
+						From: ptr.Of(k8sv1.NamespacesFromSame),
+					},
+				},
+			},
+		},
+		Addresses:      []k8sv1.GatewayAddress{},
+		Infrastructure: &k8sv1.GatewayInfrastructure{},
+	}
+	s.addCustomWaypoint(t, "10.0.0.10", "test-wp", "default", gatewaySpec, true)
+	assertWaypoint := func(
+		gwAddress *workloadapi.GatewayAddress,
+		tunnelProtocol workloadapi.ApplicationTunnel_Protocol,
+		tunnelPort uint32) {
+      assert.Equal(t, gwAddress.GetAddress().GetAddress(), netip.MustParseAddr("10.0.0.10").AsSlice())
+      assert.Equal(t, gwAddress.GetApplicationTunnel().GetProtocol(), tunnelProtocol)
+      assert.Equal(t, gwAddress.GetApplicationTunnel().GetPort(), tunnelPort)
+      assert.Equal(t, gwAddress.HboneMtlsPort, 15008)
+	}
+
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
+
+	// Now add a service that will select pods with label "a".
+	s.addService(t, "svc1",
+		map[string]string{},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.assertEvent(t, s.podXdsName("pod1"), s.svcXdsName("svc1"))
+
+	// attach the waypoint to the service
+	s.addService(t, "svc1",
+		map[string]string{},
+		map[string]string{constants.AmbientUseWaypoint: "test-wp"},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.assertEvent(t, s.svcXdsName("svc1"))
+	s.assertNoEvent(t)
+
+	// the service should have an HTTP sandwiched waypoint on 8080
+	wdsSvc := s.lookup(s.addrXdsName("10.0.0.1"))[0].GetService()
+  assertWaypoint(wdsSvc.GetWaypoint(), workloadapi.ApplicationTunnel_NONE, 8080)
+
+	// attach the waypoint to the pod
+	s.addPods(t, "127.0.0.1", "pod1", "sa1",
+		map[string]string{"app": "a"},
+		map[string]string{constants.AmbientUseWaypoint: "test-wp"},
+		true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	// We should now see the waypoint service IP when we look up the annotated pod
+	wdsPod := s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload()
+  assertWaypoint(wdsPod.GetWaypoint(), workloadapi.ApplicationTunnel_PROXY, 15088)
 }
 
 func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
@@ -1362,25 +1440,8 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	return a
 }
 
-func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready bool) {
+func (s *ambientTestServer) addCustomWaypoint(t *testing.T, ip, name, sa string, gatewaySpec k8sbeta.GatewaySpec, ready bool) {
 	t.Helper()
-
-	fromSame := k8sv1.NamespacesFromSame
-	gatewaySpec := k8sbeta.GatewaySpec{
-		GatewayClassName: constants.WaypointGatewayClassName,
-		Listeners: []k8sbeta.Listener{
-			{
-				Name:     "mesh",
-				Port:     15008,
-				Protocol: "HBONE",
-				AllowedRoutes: &k8sbeta.AllowedRoutes{
-					Namespaces: &k8sbeta.RouteNamespaces{
-						From: &fromSame,
-					},
-				},
-			},
-		},
-	}
 
 	gateway := k8sbeta.Gateway{
 		TypeMeta: metav1.TypeMeta{
@@ -1414,6 +1475,26 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready
 		}
 	}
 	s.grc.CreateOrUpdate(&gateway)
+}
+
+func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready bool) {
+	fromSame := k8sv1.NamespacesFromSame
+	gatewaySpec := k8sbeta.GatewaySpec{
+		GatewayClassName: constants.WaypointGatewayClassName,
+		Listeners: []k8sbeta.Listener{
+			{
+				Name:     "mesh",
+				Port:     15008,
+				Protocol: "HBONE",
+				AllowedRoutes: &k8sbeta.AllowedRoutes{
+					Namespaces: &k8sbeta.RouteNamespaces{
+						From: &fromSame,
+					},
+				},
+			},
+		},
+	}
+	s.addCustomWaypoint(t, ip, name, sa, gatewaySpec, ready)
 }
 
 func (s *ambientTestServer) deleteWaypoint(t *testing.T, name string) {

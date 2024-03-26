@@ -223,12 +223,35 @@ message GatewayAddress {
     NamespacedHostname hostname = 1;
     NetworkAddress address = 2;
   }
+
   // port to reach the gateway at for mTLS HBONE connections
   uint32 hbone_mtls_port = 3;
   // port to reach the gateway at for single tls HBONE connections
   // used for sending unauthenticated traffic originating outside the mesh to a waypoint-enabled destination
   // A value of 0 = unset
   uint32 hbone_single_tls_port = 4;
+
+  // (Optional) augment the inner stream upon decapsulation
+  ApplicationTunnel application_tunnel = 5;
+}
+
+// ApplicationProtocol specifies a workload  (application or gateway) can
+// consume tunnel information.
+message ApplicationTunnel {
+  enum Protocol {
+    // Bytes are copied from the inner stream without modification.
+    NONE = 0;
+
+    // Prepend PROXY protocol headers before copying bytes
+    // Standard PROXY source and destination information
+    // is included, along with potential extra TLV headers:
+    // 0xD0 - The SPIFFE identity of the source workload
+    // 0xD1 - The FQDN or Hostname of the targeted Service
+    PROXY = 1;
+  }
+
+  Protocol protocol = 1;
+  uint32 port = 2;
 }
 
 // NetworkAddress represents an address bound to a specific network.

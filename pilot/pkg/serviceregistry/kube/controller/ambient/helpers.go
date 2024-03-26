@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -78,18 +79,49 @@ func byteIPToAddr(b []byte) netip.Addr {
 }
 
 func (a index) getWaypointAddress(w *Waypoint) *workloadapi.GatewayAddress {
+	return a.getWaypointAddressForHost(w, "*")
+}
+
+func (a index) getWaypointAddressForHost(w *Waypoint, hostname string) *workloadapi.GatewayAddress {
 	// probably overly cautious... I don't think the ambient index impl counts something with zero addresses as waypoint
-	if w != nil && len(w.Addresses) >= 1 {
-		return &workloadapi.GatewayAddress{
-			Destination: &workloadapi.GatewayAddress_Address{
-				// probably use from Cidr instead?
-				Address: a.toNetworkAddressFromIP(w.Addresses[0]),
-			},
-			// TODO: look up the HBONE port instead of hardcoding it
-			HboneMtlsPort: 15008,
-		}
+	if w == nil && len(w.Addresses) == 0 {
+		return nil
 	}
-	return nil
+
+	// assume we're using the zTunnel's port unless the Gateway has it's own HBONE
+	// TODO: look up the HBONE port instead of hardcoding it
+	var (
+		hbonePort   uint32 = 15008
+		innerTunnel *workloadapi.ApplicationTunnel
+	)
+
+	l := w.GetListener(hostname)
+	if l == nil {
+		// use-waypoint pointed here, but excluded by hostname matching
+		return nil
+	}
+
+	if l.Protocol == protocol.HBONE {
+		hbonePort = l.Port
+	} else {
+    proto := workloadapi.ApplicationTunnel_NONE
+    if l.Protocol == protocol.PROXY {
+      proto = workloadapi.ApplicationTunnel_PROXY
+    }
+    innerTunnel = &workloadapi.ApplicationTunnel{
+      Port: l.Port,
+      Protocol: proto,
+    }
+	}
+
+	return &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Address{
+			// probably use from Cidr instead?
+			Address: a.toNetworkAddressFromIP(w.Addresses[0]),
+		},
+		HboneMtlsPort: uint32(hbonePort),
+    ApplicationTunnel: innerTunnel,
+	}
 }
 
 func (a *index) toNetworkAddress(vip string) (*workloadapi.NetworkAddress, error) {
