@@ -101,10 +101,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		// then default to "service" as the waypoint-for traffic address type.
 		if addressType == "" {
 			addressType = serviceTraffic
-		} else {
-			if !validAddressTypes.Contains(addressType) {
-				return nil, fmt.Errorf("invalid traffic address type: %s. Valid options are: %s", addressType, validAddressTypes.String())
-			}
+		}
+		if !validAddressTypes.Contains(addressType) {
+			return nil, fmt.Errorf("invalid traffic address type: %s. Valid options are: %s", addressType, validAddressTypes.String())
 		}
 
 		if gw.Annotations == nil {
