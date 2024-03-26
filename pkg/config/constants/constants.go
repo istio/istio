@@ -196,4 +196,13 @@ const (
 
 	// AmbientUseWaypoint is the annotation used to specify which waypoint should be used for a given pod, service, etc...
 	AmbientUseWaypoint = "istio.io/use-waypoint"
+
+	// ServiceTraffic indicates that service traffic should go through the intended waypoint.
+	ServiceTraffic = "service"
+	// WorkloadTraffic indicates that workload traffic should go through the intended waypoint.
+	WorkloadTraffic = "workload"
+	// AllTraffic indicates that all traffic should go through the intended waypoint.
+	AllTraffic = "all"
+	// NoTraffic indicates that no traffic should go through the intended waypoint.
+	NoTraffic = "none"
 )
