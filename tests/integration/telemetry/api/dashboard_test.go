@@ -93,6 +93,7 @@ var dashboards = []struct {
 		"istio-service-dashboard.json",
 		[]string{
 			"istio_tcp_",
+			"istio_requests_total",
 		},
 		false,
 	},
@@ -101,6 +102,7 @@ var dashboards = []struct {
 		"istio-workload-dashboard.json",
 		[]string{
 			"istio_tcp_",
+			"istio_requests_total",
 		},
 		false,
 	},
@@ -358,8 +360,8 @@ func setupDashboardTest(done <-chan struct{}) {
 
 // extractQueries pulls all prometheus queries out of a grafana dashboard
 // Rather than importing the entire grafana API just for this test, do some shoddy json parsing
-// Equivalent to jq command: '.panels[].targets[]?.expr'
-// '.panels[].panels[]?.targets[]?.expr'
+// Equivalent to the union of the jq commands:
+// '.panels[].targets[]?.expr' and '.panels[].panels[]?.targets[]?.expr'
 func extractQueries(dash string) ([]string, error) {
 	var queries []string
 	js := map[string]any{}
