@@ -437,5 +437,5 @@ func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*work
 }
 
 func waypointForWorkload(w *Waypoint) bool {
-	return w.TrafficType != constants.WorkloadTraffic && w.TrafficType != constants.AllTraffic
+	return w.TrafficType == constants.WorkloadTraffic || w.TrafficType == constants.AllTraffic
 }

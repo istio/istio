@@ -172,5 +172,5 @@ func getVIPs(svc *v1.Service) []string {
 }
 
 func waypointForService(w *Waypoint) bool {
-	return w.TrafficType != constants.ServiceTraffic && w.TrafficType != constants.AllTraffic
+	return w.TrafficType == constants.ServiceTraffic || w.TrafficType == constants.AllTraffic
 }
