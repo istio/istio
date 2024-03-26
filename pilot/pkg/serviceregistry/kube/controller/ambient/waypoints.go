@@ -16,6 +16,7 @@
 package ambient
 
 import (
+	"fmt"
 	"net/netip"
 	"strings"
 
@@ -118,6 +119,7 @@ func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway]) krt.Collecti
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
+		fmt.Printf("GATEWAY ANNOTATION: %v\n", gateway.Annotations[constants.AmbientWaypointForTrafficType])
 		// Derive the traffic type that is allowed to pass through the Waypoint and set that on the Waypoint
 		switch gateway.Annotations[constants.AmbientWaypointForTrafficType] {
 		case constants.ServiceTraffic:
@@ -140,6 +142,7 @@ func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway]) krt.Collecti
 }
 
 func makeWaypoint(gateway *v1beta1.Gateway, trafficType string) *Waypoint {
+	fmt.Printf("TRAFFIC TYPE: %v\n", trafficType)
 	return &Waypoint{
 		Named:       krt.NewNamed(gateway),
 		Addresses:   getGatewayAddrs(gateway),
