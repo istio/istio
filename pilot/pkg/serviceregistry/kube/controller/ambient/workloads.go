@@ -67,6 +67,11 @@ func (a *index) WorkloadsCollection(
 		res := make([]model.WorkloadInfo, 0, len(se.Spec.Endpoints))
 
 		wp := fetchWaypoint(ctx, Waypoints, Namespaces, se.ObjectMeta)
+		if wp != nil && !waypointForWorkload(wp) {
+			// Waypoint does not support Workload traffic, no more work to do
+			log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", wp.Namespace, wp.Name, wp.TrafficType)
+			return nil
+		}
 
 		// this is some partial object meta we can pass through so that WL found in the Endpoints
 		// may inherit the namespace scope waypoint from the SE... the Endpoints do not have real object meta
@@ -103,6 +108,10 @@ func (a *index) WorkloadsCollection(
 			}
 			var waypointAddress *workloadapi.GatewayAddress
 			if waypoint != nil {
+				if !waypointForWorkload(waypoint) {
+					// Waypoint does not support Workload traffic, no more work to do
+					log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+				}
 				waypointAddress = a.getWaypointAddress(waypoint)
 			}
 			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
@@ -170,6 +179,10 @@ func (a *index) workloadEntryWorkloadBuilder(
 		}
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {
+			if !waypointForWorkload(waypoint) {
+				// Waypoint does not support Workload traffic, no more work to do
+				log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+			}
 			waypointAddress = a.getWaypointAddress(waypoint)
 		}
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
@@ -252,6 +265,10 @@ func (a *index) podWorkloadBuilder(
 		}
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {
+			if !waypointForWorkload(waypoint) {
+				// Waypoint does not support Workload traffic, no more work to do
+				log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+			}
 			waypointAddress = a.getWaypointAddress(waypoint)
 		}
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
@@ -417,4 +434,8 @@ func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*work
 		}
 	}
 	return res
+}
+
+func waypointForWorkload(w *Waypoint) bool {
+	return w.TrafficType != constants.WorkloadTraffic && w.TrafficType != constants.AllTraffic
 }
