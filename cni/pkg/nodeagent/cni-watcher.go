@@ -161,21 +161,20 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 
 	// The CNI node plugin should have already checked the pod against the k8s API before forwarding us the event,
 	// but we have to invoke the K8S client anyway, so to be safe we check it again here to make sure we get the same result.
-	maxStaleRetries := 10
-	msInterval := 10
-	retries := 0
 	var ambientPod *corev1.Pod
 	var err error
 
 	log.Debugf("Checking pod: %s in ns: %s is enabled for ambient", addCmd.PodName, addCmd.PodNamespace)
 	// The plugin already consulted the k8s API - but on this end handler caches may be stale, so retry a few times if we get no pod.
-	for ambientPod, err = s.handlers.GetPodIfAmbient(addCmd.PodName, addCmd.PodNamespace); (ambientPod == nil) && (retries < maxStaleRetries); retries++ {
-		if err != nil {
+	for retries, maxStaleRetries, msInterval := 0, 10, 10; (ambientPod == nil) && (retries <= maxStaleRetries); retries++ {
+		if ambientPod, err = s.handlers.GetPodIfAmbient(addCmd.PodName, addCmd.PodNamespace); err != nil {
 			return err
 		}
-		log.Warnf("got an event for pod %s in namespace %s not found in current pod cache, retry %d of %d",
-			addCmd.PodName, addCmd.PodNamespace, retries, maxStaleRetries)
-		time.Sleep(time.Duration(msInterval) * time.Millisecond)
+		if retries > 0 {
+			log.Warnf("got an event for pod %s in namespace %s not found in current pod cache, retry %d of %d",
+				addCmd.PodName, addCmd.PodNamespace, retries, maxStaleRetries)
+			time.Sleep(time.Duration(msInterval) * time.Millisecond)
+		}
 	}
 
 	if ambientPod == nil {
