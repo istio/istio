@@ -173,11 +173,11 @@ type Config struct {
 
 	DualStack bool
 
-	// ServiceWaypointProxy  specifies if this workload should have an associated Waypoint for service-addressed traffic
-	ServiceWaypointProxy bool
+	// ServiceWaypointProxy specifies if this workload should have an associated Waypoint for service-addressed traffic
+	ServiceWaypointProxy string
 
-	// WorkloadWaypointProxy  specifies if this workload should have an associated Waypoint for workload-addressed traffic
-	WorkloadWaypointProxy bool
+	// WorkloadWaypointProxy specifies if this workload should have an associated Waypoint for workload-addressed traffic
+	WorkloadWaypointProxy string
 }
 
 // Getter for a custom echo deployment
@@ -338,15 +338,15 @@ func (c Config) IsTProxy() bool {
 }
 
 func (c Config) HasAnyWaypointProxy() bool {
-	return c.ServiceWaypointProxy || c.WorkloadWaypointProxy
+	return c.ServiceWaypointProxy != "" || c.WorkloadWaypointProxy != ""
 }
 
 func (c Config) HasServiceAddressedWaypointProxy() bool {
-	return c.ServiceWaypointProxy
+	return c.ServiceWaypointProxy != ""
 }
 
 func (c Config) HasWorkloadAddressedWaypointProxy() bool {
-	return c.WorkloadWaypointProxy
+	return c.WorkloadWaypointProxy != ""
 }
 
 func (c Config) HasSidecar() bool {
@@ -402,7 +402,8 @@ func (c Config) IsRegularPod() bool {
 func (c Config) ZTunnelCaptured() bool {
 	haveSubsets := len(c.Subsets) > 0
 	if c.Namespace.IsAmbient() && haveSubsets &&
-		c.Subsets[0].Annotations.GetByName(constants.AmbientRedirection) != constants.AmbientRedirectionDisabled {
+		c.Subsets[0].Annotations.GetByName(constants.AmbientRedirection) != constants.AmbientRedirectionDisabled &&
+		!c.HasSidecar() {
 		return true
 	}
 	return haveSubsets && c.Subsets[0].Annotations.GetByName(constants.AmbientRedirection) == constants.AmbientRedirectionEnabled

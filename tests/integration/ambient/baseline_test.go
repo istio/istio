@@ -1155,7 +1155,7 @@ spec:
 				t.Skip("https://github.com/istio/istio/issues/43238")
 			}
 
-			if !dst.Config().ServiceWaypointProxy {
+			if !dst.Config().HasServiceAddressedWaypointProxy() {
 				t.Skip("L7 JWT is only for waypoints")
 			}
 
@@ -2313,8 +2313,17 @@ func TestDirect(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			hb := echo.HBONE{
-				Address:            apps.WaypointProxy.Inbound(),
+			// this is real odd but we're going to assume for now that we've just got the one waypoint I guess?
+			hbwl := echo.HBONE{
+				Address:            apps.WaypointProxies[apps.WorkloadAddressedWaypoint.Config().WorkloadWaypointProxy].Inbound(),
+				Headers:            nil,
+				Cert:               string(cert.ClientCert),
+				Key:                string(cert.Key),
+				CaCert:             string(cert.RootCert),
+				InsecureSkipVerify: true,
+			}
+			hbsvc := echo.HBONE{
+				Address:            apps.WaypointProxies[apps.ServiceAddressedWaypoint.Config().ServiceWaypointProxy].Inbound(),
 				Headers:            nil,
 				Cert:               string(cert.ClientCert),
 				Key:                string(cert.Key),
@@ -2333,7 +2342,7 @@ func TestDirect(t *testing.T) {
 				To:    apps.WorkloadAddressedWaypoint, // TODO: not sure how this is actually addressed?
 				Count: 1,
 				Port:  echo.Port{Name: ports.HTTP.Name},
-				HBONE: hb,
+				HBONE: hbwl,
 				// This is not supported now, discussion in https://github.com/istio/istio/issues/43241
 				Check: check.Error(),
 			})
@@ -2342,7 +2351,7 @@ func TestDirect(t *testing.T) {
 				Count:   1,
 				Address: apps.ServiceAddressedWaypoint[0].Address(),
 				Port:    echo.Port{Name: ports.HTTP.Name},
-				HBONE:   hb,
+				HBONE:   hbsvc,
 				Check:   check.OK(),
 			})
 			run("VIP destination, unknown port", echo.CallOptions{
@@ -2351,7 +2360,7 @@ func TestDirect(t *testing.T) {
 				Address: apps.ServiceAddressedWaypoint[0].Address(),
 				Port:    echo.Port{ServicePort: 12345},
 				Scheme:  scheme.HTTP,
-				HBONE:   hb,
+				HBONE:   hbsvc,
 				// TODO: VIP:* should error sooner for undeclared ports
 				Check: check.Error(),
 			})
@@ -2361,7 +2370,7 @@ func TestDirect(t *testing.T) {
 				Address: apps.WorkloadAddressedWaypoint[0].WorkloadsOrFail(t)[0].Address(),
 				Port:    echo.Port{ServicePort: ports.HTTP.WorkloadPort},
 				Scheme:  scheme.HTTP,
-				HBONE:   hb,
+				HBONE:   hbwl,
 				Check:   check.OK(),
 			})
 			run("Unserved VIP destination", echo.CallOptions{
@@ -2370,7 +2379,7 @@ func TestDirect(t *testing.T) {
 				Address: apps.Captured[0].Address(),
 				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
 				Scheme:  scheme.HTTP,
-				HBONE:   hb,
+				HBONE:   hbsvc,
 				Check:   check.Error(),
 			})
 			run("Unserved pod destination", echo.CallOptions{
@@ -2379,16 +2388,16 @@ func TestDirect(t *testing.T) {
 				Address: apps.Captured[0].WorkloadsOrFail(t)[0].Address(),
 				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
 				Scheme:  scheme.HTTP,
-				HBONE:   hb,
+				HBONE:   hbwl,
 				Check:   check.Error(),
 			})
 			run("Waypoint destination", echo.CallOptions{
 				To:      apps.ServiceAddressedWaypoint,
 				Count:   1,
-				Address: apps.WaypointProxy.PodIP(),
+				Address: apps.WaypointProxies[apps.ServiceAddressedWaypoint.Config().ServiceWaypointProxy].PodIP(),
 				Port:    echo.Port{ServicePort: 15000},
 				Scheme:  scheme.HTTP,
-				HBONE:   hb,
+				HBONE:   hbsvc,
 				Check:   check.Error(),
 			})
 		})

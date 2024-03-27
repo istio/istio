@@ -68,7 +68,7 @@ type EchoDeployments struct {
 	Mesh                      echo.Instances
 	MeshExternal              echo.Instances
 
-	WaypointProxy ambient.WaypointProxy
+	WaypointProxies map[string]ambient.WaypointProxy
 }
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -163,7 +163,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Namespace:             apps.Namespace,
 			Ports:                 ports.All(),
 			ServiceAccount:        true,
-			WorkloadWaypointProxy: true,
+			WorkloadWaypointProxy: "waypoint",
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
@@ -199,7 +199,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Ports:                ports.All(),
 			ServiceAnnotations:   echo.NewAnnotations().Set(echo.AmbientUseWaypoint, "waypoint"),
 			ServiceAccount:       true,
-			ServiceWaypointProxy: true,
+			ServiceWaypointProxy: "waypoint",
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
@@ -365,10 +365,31 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Mesh = inMesh.GetMatches(echos)
 	apps.MeshExternal = match.Not(inMesh).GetMatches(echos)
 
-	// apps.WaypointProxy, err = ambient.WaypointForInstance(t, apps.Waypoint.Instances()[0])
-	apps.WaypointProxy, err = ambient.NewWaypointProxy(t, apps.Namespace, "waypoint")
-	if err != nil {
-		return err
+	if apps.WaypointProxies == nil {
+		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
 	}
+
+	for _, echo := range echos {
+		svcwp := echo.Config().ServiceWaypointProxy
+		wlwp := echo.Config().WorkloadWaypointProxy
+		if svcwp != "" {
+			if _, found := apps.WaypointProxies[svcwp]; !found {
+				apps.WaypointProxies[svcwp], err = ambient.NewWaypointProxy(t, apps.Namespace, svcwp)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		if wlwp != "" {
+			if _, found := apps.WaypointProxies[wlwp]; !found {
+				apps.WaypointProxies[wlwp], err = ambient.NewWaypointProxy(t, apps.Namespace, wlwp)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+	}
+
 	return nil
 }
