@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/http/headers"
 	echot "istio.io/istio/pkg/test/echo"
