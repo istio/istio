@@ -1280,6 +1280,13 @@ func (node *Proxy) GetNamespace() string {
 	return node.Metadata.Namespace
 }
 
+func (node *Proxy) GetLabel(label string) string {
+	if node == nil || node.Metadata == nil || node.Metadata.Labels == nil {
+		return ""
+	}
+	return node.Metadata.Labels[label]
+}
+
 func (node *Proxy) GetIstioVersion() string {
 	if node == nil || node.Metadata == nil {
 		return ""

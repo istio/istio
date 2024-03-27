@@ -58,16 +58,50 @@ func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 
 func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	listeners := []*listener.Listener{}
-	// We create 3 listeners:
-	// 1. Decapsulation CONNECT listener.
-	// 2. IP dispatch listener, handling both VIPs and direct pod IPs.
-	// 3. Encapsulation CONNECT listener, originating the tunnel
-	wls, wps := findWaypointResources(lb.node, lb.push)
 
-	listeners = append(listeners,
-		lb.buildWaypointInboundConnectTerminate(),
-		lb.buildWaypointInternal(wls, wps.orderedServices),
-		buildWaypointConnectOriginateListener())
+	services := findWaypointServices(lb.node, lb.push)
+	workloads := findWaypointWorkloads(lb.node, lb.push)
+
+	// TODO use ServiceInfo and WorkloadInfo instead of using GetListener
+	waypoint := findWaypointInfo(lb.node, lb.push)
+
+	catchall := waypoint.GetBinding("*")
+	if catchall != nil && catchall.Protocol == protocol.HBONE {
+		// This is a native HBONE gatway, all services/workloads are handled in one internal listener.
+		// We create 3 listeners:
+		// 1. Decapsulation CONNECT listener.
+		// 2. IP dispatch listener, handling both VIPs and direct pod IPs.
+		// 3. Encapsulation CONNECT listener, originating the tunnel
+		return []*listener.Listener{
+			lb.buildWaypointInboundConnectTerminate(),
+			lb.buildWaypointInternal(workloads, services.orderedServices),
+			buildWaypointConnectOriginateListener(),
+		}
+	}
+
+	servicesByListener := map[model.WaypointBinding][]*model.Service{}
+	for _, svc := range services.orderedServices {
+		l := waypoint.GetBinding(svc.Hostname.String())
+		if l == nil || l.Protocol == protocol.HBONE {
+			// should never be null
+			// ambient index only allowd HBONE on *
+			continue
+		}
+		servicesByListener[*l] = append(servicesByListener[*l], svc)
+	}
+
+	for binding, svcs := range servicesByListener {
+		if catchall != nil && *catchall == binding {
+			// this is handled later along with workloads
+			continue
+		}
+		listeners = append(listeners, lb.buildWaypointInboundInner(nil, svcs, binding.Protocol, binding.Port))
+	}
+
+	if catchall != nil {
+		svcs := servicesByListener[*catchall]
+		listeners = append(listeners, lb.buildWaypointInboundInner(nil, svcs, catchall.Protocol, catchall.Port))
+	}
 
 	return listeners
 }
@@ -167,6 +201,21 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 }
 
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
+	return lb.buildWaypointInboundInner(wls, svcs, protocol.HBONE, 0)
+}
+
+// TODO name..
+func (lb *ListenerBuilder) buildWaypointInboundInner(wls []model.WorkloadInfo, svcs []*model.Service, bindProtocol protocol.Instance, bindPort uint32) *listener.Listener {
+	if bindProtocol.IsHTTP() {
+		// TODO support Plain HTTP (it's already possible by using `istio` gatewayclass; PROXY still needs to be implemented there)
+		return nil
+	}
+	return lb.buildWaypointTCPInboundVIP(wls, svcs, bindProtocol, bindPort)
+}
+
+func (lb *ListenerBuilder) buildWaypointTCPInboundVIP(wls []model.WorkloadInfo, svcs []*model.Service, bindProtocol protocol.Instance, bindPort uint32) *listener.Listener {
+	internal := bindPort == 0
+
 	ipMatcher := &matcher.IPMatcher{}
 	chains := []*listener.FilterChain{}
 	pre, post := lb.buildWaypointHTTPFilters()
@@ -184,18 +233,24 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					TargetPort:  uint32(port.Port),
 				},
 				bind:  "0.0.0.0",
-				hbone: true,
+				hbone: internal,
 			}
+
+			var networkFilters []*listener.Filter
+			if bindProtocol == protocol.PROXY {
+				networkFilters = append(networkFilters, xdsfilters.ProxyProtocolTLVAuthorityNetworkFilter)
+			}
+
 			name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "", svc.Hostname, port.Port)
 			tcpName := name + "-tcp"
 			tcpChain := &listener.FilterChain{
-				Filters: lb.buildInboundNetworkFilters(cc),
+				Filters: append(networkFilters, lb.buildInboundNetworkFilters(cc)...),
 				Name:    tcpName,
 			}
 			cc.clusterName = model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
 			httpName := name + "-http"
 			httpChain := &listener.FilterChain{
-				Filters: lb.buildWaypointInboundHTTPFilters(svc, cc, pre, post),
+				Filters: append(networkFilters, lb.buildWaypointInboundHTTPFilters(svc, cc, pre, post)...),
 				Name:    httpName,
 			}
 			if port.Protocol.IsUnsupported() {
@@ -238,22 +293,22 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				},
 			},
 			bind:  "0.0.0.0",
-			hbone: true,
+			hbone: internal,
 		}
+
+		networkFilters := []*listener.Filter{xdsfilters.ConnectAuthorityNetworkFilter}
+		if bindProtocol == protocol.PROXY {
+			networkFilters = []*listener.Filter{xdsfilters.ProxyProtocolTLVAuthorityNetworkFilter}
+		}
+
 		tcpChain := &listener.FilterChain{
-			Filters: append([]*listener.Filter{
-				xdsfilters.ConnectAuthorityNetworkFilter,
-			},
-				lb.buildInboundNetworkFilters(cc)...),
-			Name: "direct-tcp",
+			Filters: append(networkFilters, lb.buildInboundNetworkFilters(cc)...),
+			Name:    "direct-tcp",
 		}
 		// TODO: maintains undesirable persistent HTTP connections to "encap"
 		httpChain := &listener.FilterChain{
-			Filters: append([]*listener.Filter{
-				xdsfilters.ConnectAuthorityNetworkFilter,
-			},
-				lb.buildWaypointInboundHTTPFilters(nil, cc, pre, post)...),
-			Name: "direct-http",
+			Filters: append(networkFilters, lb.buildWaypointInboundHTTPFilters(nil, cc, pre, post)...),
+			Name:    "direct-http",
 		}
 		chains = append(chains, tcpChain, httpChain)
 		if len(wls) > 0 {
@@ -279,14 +334,35 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				})
 		}
 	}
+
+	// decide whether we're internal or bound to a port
+	var (
+		internalSpecifier *listener.Listener_InternalListener
+		bindAddress       *core.Address
+	)
+	if internal {
+		internalSpecifier = &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}}
+	} else {
+		actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
+		bindAddress = util.BuildAddress(actualWildcard, bindPort)
+	}
+
+	// PROXY protocol supersedes original dst
+	listenerFilters := []*listener.ListenerFilter{xdsfilters.OriginalDestination}
+	if bindProtocol == protocol.PROXY {
+		listenerFilters = []*listener.ListenerFilter{xdsfilters.ProxyProtocolTLV}
+	}
+
+	name := fmt.Sprintf("inbound_%s_%d", bindProtocol, bindPort)
+	if internal {
+		name = MainInternalName
+	}
 	l := &listener.Listener{
-		Name:              MainInternalName,
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		ListenerFilters: []*listener.ListenerFilter{
-			xdsfilters.OriginalDestination,
-			// TODO: This may affect the data path due to the server-first protocols triggering a time-out. Need exception filter.
-			xdsfilters.HTTPInspector,
-		},
+		Name:              name,
+		ListenerSpecifier: internalSpecifier,
+		Address:           bindAddress,
+		// TODO: This may affect the data path due to the server-first protocols triggering a time-out. Need exception filter.
+		ListenerFilters:  append(listenerFilters, xdsfilters.HTTPInspector),
 		TrafficDirection: core.TrafficDirection_INBOUND,
 		FilterChains:     chains,
 		FilterChainMatcher: &matcher.Matcher{
@@ -303,6 +379,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			},
 		},
 	}
+
 	return l
 }
 

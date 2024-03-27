@@ -250,6 +250,7 @@ message ApplicationTunnel {
     PROXY = 1;
   }
 
+  // A target natively handles this type of traffic.  
   Protocol protocol = 1;
   uint32 port = 2;
 }

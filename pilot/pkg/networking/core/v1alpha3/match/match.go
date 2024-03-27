@@ -18,6 +18,7 @@ import (
 	xds "github.com/cncf/xds/go/xds/core/v3"
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	network "github.com/envoyproxy/go-control-plane/envoy/extensions/matching/common_inputs/network/v3"
+	envoymatcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -49,6 +50,10 @@ var (
 	TransportProtocolInput = &xds.TypedExtensionConfig{
 		Name:        "transport-protocol",
 		TypedConfig: protoconv.MessageToAny(&network.TransportProtocolInput{}),
+	}
+	HTTPHostname = &xds.TypedExtensionConfig{
+		Name:        "http-header",
+		TypedConfig: protoconv.MessageToAny(&envoymatcher.HttpRequestHeaderMatchInput{HeaderName: "Host"}),
 	}
 )
 

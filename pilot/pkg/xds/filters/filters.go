@@ -387,6 +387,59 @@ var (
 			}),
 		},
 	}
+
+	ProxyProtocolPeerTLV uint32 = 0xD0
+
+  // ProxyProtocolTLV requires proxy protocol headers to be sent, and extracts
+  // the header used by ProxyProtocolTLVAuthorityNetworkFilter to set the peer
+  // identity in a later network filter.
+	ProxyProtocolTLV = &listener.ListenerFilter{
+		Name: wellknown.ProxyProtocol,
+		ConfigType: &listener.ListenerFilter_TypedConfig{
+			// TODO don't need both Rules and PassThroughTlvs
+			TypedConfig: protoconv.MessageToAny(&proxy_proto.ProxyProtocol{
+				AllowRequestsWithoutProxyProtocol: false,
+				Rules: []*proxy_proto.ProxyProtocol_Rule{{
+					TlvType: ProxyProtocolPeerTLV,
+					OnTlvPresent: &proxy_proto.ProxyProtocol_KeyValuePair{
+						Key: "peer_principal",
+					},
+				}},
+				PassThroughTlvs: &core.ProxyProtocolPassThroughTLVs{
+					MatchType: core.ProxyProtocolPassThroughTLVs_INCLUDE_ALL,
+					TlvType:   []uint32{ProxyProtocolPeerTLV},
+				},
+			}),
+		},
+	}
+
+  // ProxyProtocolTLVAuthorityNetworkFilter moves the dynamic metadata
+  // extracted from PROXY TLVs into well-known filter state.
+	ProxyProtocolTLVAuthorityNetworkFilter = &listener.Filter{
+		Name: "proxy_protocol_authority",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&sfsnetwork.Config{
+				OnNewConnection: []*sfsvalue.FilterStateValue{{
+					Key: &sfsvalue.FilterStateValue_ObjectKey{
+						ObjectKey: "io.istio.peer_principal",
+					},
+					FactoryKey: "envoy.string",
+					Value: &sfsvalue.FilterStateValue_FormatString{
+						FormatString: &core.SubstitutionFormatString{
+							Format: &core.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &core.DataSource{
+									Specifier: &core.DataSource_InlineString{
+										InlineString: "%DYNAMIC_METADATA(envoy.filters.listener.proxy_protocol:peer_principal)%",
+									},
+								},
+							},
+						},
+					},
+					SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+				}},
+			}),
+		},
+	}
 )
 
 // Router is used a bunch, so its worth precomputing even though we have a few options.

@@ -122,14 +122,14 @@ func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway]) krt.Collecti
 			Named:     krt.NewNamed(gateway),
 			Addresses: getGatewayAddrs(gateway),
 			WaypointInfo: model.WaypointInfo{
-				ListenersByHost: detectListenerProtocols(gateway),
+				BindingsByHost: detectListenerProtocols(gateway),
 			},
 		}
 	}, krt.WithName("Waypoints"))
 }
 
-func detectListenerProtocols(gateway *v1beta1.Gateway) map[string]model.WaypointListener {
-	byHost := map[string]model.WaypointListener{}
+func detectListenerProtocols(gateway *v1beta1.Gateway) map[string]model.WaypointBinding {
+	byHost := map[string]model.WaypointBinding{}
 	for _, listener := range gateway.Spec.Listeners {
 		host := "*"
 		proto := protocol.Instance(listener.Protocol)
@@ -144,7 +144,7 @@ func detectListenerProtocols(gateway *v1beta1.Gateway) map[string]model.Waypoint
 				log.Warnf("waypoint: ignoring non-wildcard HBONE listener %s on %s/%s", listener.Name, gateway.Namespace, gateway.Name)
 				continue
 			}
-			byHost = map[string]model.WaypointListener{
+			byHost = map[string]model.WaypointBinding{
 				host: {
 					Port: uint32(listener.Port),
 					// TODO validate protocol IN {HTTP, PROXY, HBONE}; should non * listeners be allowed to specify HBONE?
@@ -154,7 +154,7 @@ func detectListenerProtocols(gateway *v1beta1.Gateway) map[string]model.Waypoint
 			break
 		}
 
-		byHost[host] = model.WaypointListener{
+		byHost[host] = model.WaypointBinding{
 			Port: uint32(listener.Port),
 			// TODO validate protocol IN {HTTP, PROXY, HBONE}; should non * listeners be allowed to specify HBONE?
 			Protocol: proto,

@@ -868,7 +868,8 @@ type AmbientIndexes interface {
 		currentSubs sets.String,
 	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
-	Waypoint(network, address string) []netip.Addr
+	WaypointsFor(network, address string) []netip.Addr
+	WaypointInfo(name, namespace string, clusterID cluster.ID) *WaypointInfo
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
 	ServicesForWaypoint(WaypointKey) []ServiceInfo
 }
@@ -897,7 +898,11 @@ func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []WorkloadAuthorizatio
 	return nil
 }
 
-func (u NoopAmbientIndexes) Waypoint(string, string) []netip.Addr {
+func (u NoopAmbientIndexes) WaypointsFor(string, string) []netip.Addr {
+	return nil
+}
+
+func (u NoopAmbientIndexes) WaypointInfo(name, namespace string, clusterID cluster.ID) *WaypointInfo {
 	return nil
 }
 
@@ -977,7 +982,7 @@ func serviceResourceName(s *workloadapi.Service) string {
 	return s.Namespace + "/" + s.Hostname
 }
 
-type WaypointListener struct {
+type WaypointBinding struct {
 	Port     uint32
 	Protocol protocol.Instance
 }
@@ -985,22 +990,23 @@ type WaypointListener struct {
 type WaypointInfo struct {
 	Cluster cluster.ID
 
-	// ListenersByHost keeps track of host specific protocols. 
-  // Native HBONE waypoints will only have '*' -> HBONE.
-  // Sandwiched waypionts may desire additional information from their inbound zTunnel.
-  // See ApplicationProtocol for zTunnel implications.
-	ListenersByHost map[string]WaypointListener
+	// BindingsByHost keeps track of host specific protocols.
+	// Native HBONE waypoints will only have '*' -> HBONE.
+	// Sandwiched waypionts may desire additional information from their inbound zTunnel.
+	// See ApplicationProtocol for zTunnel implications.
+	BindingsByHost map[string]WaypointBinding
 }
 
-func (w *WaypointInfo) GetListener(host string) *WaypointListener {
-	if w.ListenersByHost == nil {
+func (w *WaypointInfo) GetBinding(host string) *WaypointBinding {
+	if w.BindingsByHost == nil {
 		// shouldn't happen
 		return nil
 	}
-	if byHost, ok := w.ListenersByHost[host]; ok {
+  // TODO proper wildcard matching instead of all or nothing
+	if byHost, ok := w.BindingsByHost[host]; ok {
 		return &byHost
 	}
-	if wildcard, ok := w.ListenersByHost["*"]; ok {
+	if wildcard, ok := w.BindingsByHost["*"]; ok {
 		return &wildcard
 	}
 	return nil

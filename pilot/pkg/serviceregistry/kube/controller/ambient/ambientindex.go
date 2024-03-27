@@ -46,7 +46,8 @@ type Index interface {
 	All() []model.AddressInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
-	Waypoint(network, address string) []netip.Addr
+	WaypointsFor(network, address string) []netip.Addr
+	WaypointInfo(name, namespace string, cluster cluster.ID) *model.WaypointInfo
 	SyncAll()
 	model.AmbientIndexes
 }
@@ -405,7 +406,19 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 	})
 }
 
-func (a *index) Waypoint(network, address string) []netip.Addr {
+func (a *index) WaypointInfo(name, namespace string, cluster cluster.ID) *model.WaypointInfo {
+	if a.ClusterID != cluster {
+		return nil
+	}
+	key := krt.Named{Name: name, Namespace: namespace}
+	wp := a.waypoints.Collection.GetKey(krt.Key[Waypoint](key.ResourceName()))
+	if wp == nil {
+		return nil
+	}
+	return &wp.WaypointInfo
+}
+
+func (a *index) WaypointsFor(network, address string) []netip.Addr {
 	res := sets.Set[netip.Addr]{}
 	networkAddr := networkAddress{
 		network: network,

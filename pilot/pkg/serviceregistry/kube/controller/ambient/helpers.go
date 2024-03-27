@@ -95,21 +95,21 @@ func (a index) getWaypointAddressForHost(w *Waypoint, hostname string) *workload
 		innerTunnel *workloadapi.ApplicationTunnel
 	)
 
-	l := w.GetListener(hostname)
-	if l == nil {
+	binding := w.GetBinding(hostname)
+	if binding == nil {
 		// use-waypoint pointed here, but excluded by hostname matching
 		return nil
 	}
 
-	if l.Protocol == protocol.HBONE {
-		hbonePort = l.Port
+	if binding.Protocol == protocol.HBONE {
+		hbonePort = binding.Port
 	} else {
     proto := workloadapi.ApplicationTunnel_NONE
-    if l.Protocol == protocol.PROXY {
+    if binding.Protocol == protocol.PROXY {
       proto = workloadapi.ApplicationTunnel_PROXY
     }
     innerTunnel = &workloadapi.ApplicationTunnel{
-      Port: l.Port,
+      Port: binding.Port,
       Protocol: proto,
     }
 	}

@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -48,6 +49,11 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 	workloads := findWaypointWorkloads(node, push)
 	services := findWaypointServices(node, push)
 	return workloads, services
+}
+
+func findWaypointInfo(node *model.Proxy, push *model.PushContext) *model.WaypointInfo {
+  name, ns := node.GetLabel(constants.GatewayNameLabel), node.GetNamespace()
+  return push.WaypointInfo(name, ns, node.GetClusterID())
 }
 
 func findWaypointWorkloads(node *model.Proxy, push *model.PushContext) []model.WorkloadInfo {
