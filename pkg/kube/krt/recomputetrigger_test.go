@@ -15,6 +15,8 @@
 package krt_test
 
 import (
+	"istio.io/istio/pkg/log"
+	"runtime/debug"
 	"testing"
 
 	"istio.io/istio/pkg/kube/krt"
@@ -23,6 +25,7 @@ import (
 )
 
 func TestRecomputeTrigger(t *testing.T) {
+	log.FindScope("krt").SetOutputLevel(log.DebugLevel)
 	rt := krt.NewRecomputeTrigger()
 	col1 := krt.NewStatic(ptr.Of("foo")).AsCollection()
 	response := "foo"
@@ -31,7 +34,10 @@ func TestRecomputeTrigger(t *testing.T) {
 		return ptr.Of(response)
 	})
 	tt := assert.NewTracker[string](t)
-	col2.Register(TrackerHandler[string](tt))
+	col2.Register(func(o krt.Event[string]) {
+		log.Errorf("howardjohn: %v", string(debug.Stack()))
+		TrackerHandler[string](tt)(o)
+	})
 	tt.WaitOrdered("add/foo")
 
 	response = "bar"

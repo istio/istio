@@ -60,6 +60,7 @@ func (t *Tracker[T]) WaitOrdered(events ...T) {
 		retry.UntilSuccessOrFail(t.t, func() error {
 			t.mu.Lock()
 			defer t.mu.Unlock()
+			t.t.Log(t.events)
 			if len(t.events) == 0 {
 				return fmt.Errorf("no events")
 			}
