@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	crdvalidation "istio.io/istio/pkg/config/crd"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
@@ -74,7 +75,7 @@ var services = []*model.Service{
 			Namespace: "istio-system",
 			ClusterExternalAddresses: &model.AddressMap{
 				Addresses: map[cluster.ID][]string{
-					"Kubernetes": {"1.2.3.4"},
+					constants.DefaultClusterName: {"1.2.3.4"},
 				},
 			},
 		},
@@ -1323,7 +1324,7 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 			Namespace: "istio-system",
 			ClusterExternalAddresses: &model.AddressMap{
 				Addresses: map[cluster.ID][]string{
-					"Kubernetes": {"1.2.3.4"},
+					constants.DefaultClusterName: {"1.2.3.4"},
 				},
 			},
 		},

@@ -30,6 +30,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -260,7 +261,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
 				"--internalIP", testCases[dir.Name()]["internalIP"],
 				"--ingressIP", testCases[dir.Name()]["ingressIP"],
-				"--clusterID", "Kubernetes",
+				"--clusterID", constants.DefaultClusterName,
 				"--revision", "rev-1",
 				"-o", testdir,
 			}
@@ -358,7 +359,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 		"entry", "configure",
 		"-f", path.Join(testdir, "workloadgroup.yaml"),
 		"--internalIP", "10.10.10.10",
-		"--clusterID", "Kubernetes",
+		"--clusterID", constants.DefaultClusterName,
 		"-o", testdir,
 	}
 	if output, err := runTestCmd(t, createClientFunc, "", cmdWithClusterID); err != nil {

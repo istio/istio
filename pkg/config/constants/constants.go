@@ -77,6 +77,9 @@ const (
 	// used for load balancing requests against endpoints across the ClusterSet (i.e. mesh).
 	DefaultClusterSetLocalDomain = "clusterset.local"
 
+	// DefaultClusterName is the default cluster name
+	DefaultClusterName = "Kubernetes"
+
 	// IstioLabel indicates that a workload is part of a named Istio system component.
 	IstioLabel = "istio"
 
