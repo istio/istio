@@ -305,7 +305,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	for _, s := range services {
 		out.appendSidecarServices(servicesAdded, s)
 	}
-	defaultEgressListener.services = services
+	defaultEgressListener.services = out.services
 
 	// add dependencies on delegate virtual services
 	delegates := ps.DelegateVirtualServices(defaultEgressListener.virtualServices)
@@ -913,6 +913,7 @@ type sidecarServiceIndex struct {
 	index int // index record the position of the svc in slice
 }
 
+// append services to the sidecar scope, and merge services with the same hostname.
 func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sidecarServiceIndex, s *Service) {
 	if s == nil {
 		return
