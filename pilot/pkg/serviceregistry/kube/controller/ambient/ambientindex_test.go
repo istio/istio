@@ -929,6 +929,19 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		nil)
+
+	s.clearEvents()
+	s.addPolicy(t, "gateway-targeted", testNS, nil, gvk.AuthorizationPolicy, func(o controllers.Object) {
+		p := o.(*clientsecurityv1beta1.AuthorizationPolicy)
+		p.Spec.TargetRef = &v1beta1.PolicyTargetReference{
+			Group: gvk.KubernetesGateway.Group,
+			Kind:  gvk.KubernetesGateway.Kind,
+			Name:  "dummy-waypoint",
+		}
+	})
+	// there should be no event for creation of a gateway-targeted policy because we should not configure WDS with a policy
+	// when expressed user intent is specifically to have that policy enforced by a gateway
+	s.assertNoEvent(t)
 }
 
 func TestPodLifecycleWorkloadGates(t *testing.T) {
