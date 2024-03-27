@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: installation
+area: traffic-management
 issue:
   - 50108
 releaseNotes:
