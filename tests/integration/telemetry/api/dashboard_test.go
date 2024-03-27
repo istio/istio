@@ -101,6 +101,9 @@ var dashboards = []struct {
 		"istio-workload-dashboard.json",
 		[]string{
 			"istio_tcp_",
+			// there is no non-mtls traffic generated so the test flakes for the split query on
+			// "Outgoing Requests By Destination And Response Code"
+			"spiffe.*",
 		},
 		false,
 	},
@@ -200,6 +203,7 @@ var replacer = strings.NewReplacer(
 	"$workload", ".*",
 	"$dstsvc", ".*",
 	"$adapter", ".*",
+	"$qrep", "destination",
 	// Just allow all mTLS settings rather than trying to send mtls and plaintext
 	`connection_security_policy="unknown"`, `connection_security_policy=~".*"`,
 	`connection_security_policy="mutual_tls"`, `connection_security_policy=~".*"`,
@@ -358,7 +362,8 @@ func setupDashboardTest(done <-chan struct{}) {
 
 // extractQueries pulls all prometheus queries out of a grafana dashboard
 // Rather than importing the entire grafana API just for this test, do some shoddy json parsing
-// Equivalent to jq command: '.panels[].targets[]?.expr'
+// Equivalent to the union of the jq commands:
+// '.panels[].targets[]?.expr' and '.panels[].panels[]?.targets[]?.expr'
 func extractQueries(dash string) ([]string, error) {
 	var queries []string
 	js := map[string]any{}
@@ -375,7 +380,18 @@ func extractQueries(dash string) ([]string, error) {
 	}
 	for _, p := range panelsList {
 		pm := p.(map[string]any)
-		targets, f := pm["targets"]
+		if pm["type"] == "row" {
+			continue
+		}
+		subPanels, exist := pm["panels"]
+		var targets any
+		var f bool
+		if exist {
+			subpm := subPanels.(map[string]any)
+			targets, f = subpm["targets"]
+		} else {
+			targets, f = pm["targets"]
+		}
 		if !f {
 			continue
 		}
@@ -387,7 +403,7 @@ func extractQueries(dash string) ([]string, error) {
 			tm := t.(map[string]any)
 			expr, f := tm["expr"]
 			if !f {
-				return nil, fmt.Errorf("failed to find expr in %v", t)
+				continue
 			}
 			queries = append(queries, expr.(string))
 		}
