@@ -405,7 +405,6 @@ func buildHTTPVirtualServices(
 	convertRules := func(mesh bool) conversionResult {
 		res := conversionResult{}
 		for n, r := range route.Rules {
-			// split the rule to make sure each rule has up to one match
 			matches := slices.Reference(r.Matches)
 			if len(matches) == 0 {
 				matches = append(matches, nil)
