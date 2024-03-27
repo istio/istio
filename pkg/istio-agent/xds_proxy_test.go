@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/envoy"
@@ -297,7 +298,7 @@ func setDialOptions(p *XdsProxy, l *bufconn.Listener) {
 	}
 }
 
-var ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", "Kubernetes")
+var ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", constants.DefaultClusterName)
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestXdsProxyReconnects(t *testing.T) {
@@ -463,7 +464,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	node := model.NodeMetadata{
 		Namespace:   "default",
 		InstanceIPs: []string{"1.1.1.1"},
-		ClusterID:   "Kubernetes",
+		ClusterID:   constants.DefaultClusterName,
 	}
 	proxy := setupXdsProxy(t)
 	// Reset wasm cache to a fake ACK cache.

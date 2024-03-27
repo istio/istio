@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -143,7 +144,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	if opts.DefaultClusterName == "" {
-		opts.DefaultClusterName = "Kubernetes"
+		opts.DefaultClusterName = constants.DefaultClusterName
 	}
 	k8sObjects := getKubernetesObjects(t, opts)
 	var defaultKubeClient kubelib.Client

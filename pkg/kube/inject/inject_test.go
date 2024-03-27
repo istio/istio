@@ -528,7 +528,7 @@ func TestInjection(t *testing.T) {
 				}
 
 				stop := test.NewStop(t)
-				multi.Add("Kubernetes", client, stop)
+				multi.Add(constants.DefaultClusterName, client, stop)
 				client.RunAndWait(stop)
 
 				// Split multi-part yaml documents. Input and output will have the same number of parts.

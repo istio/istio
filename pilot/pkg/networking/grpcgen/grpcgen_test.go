@@ -51,6 +51,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -98,7 +99,7 @@ func GRPCBootstrap(app, namespace, ip string, xdsPort int) []byte {
 				NodeMetadata: model.NodeMetadata{
 					Namespace: namespace,
 					Generator: "grpc",
-					ClusterID: "Kubernetes",
+					ClusterID: constants.DefaultClusterName,
 				},
 			},
 		},
