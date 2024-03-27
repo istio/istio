@@ -264,6 +264,21 @@ func (c Config) ClusterSetLocalFQDN() string {
 	return out
 }
 
+// HostnameVariants for a Kubernetes service.
+// Results may be invalid for non k8s.
+func (c Config) HostnameVariants() []string {
+	ns := c.NamespaceName()
+	if ns == "" {
+		ns = "default"
+	}
+	return []string{
+		c.Service,
+		c.Service + "." + ns,
+		c.Service + "." + ns + ".svc",
+		c.ClusterLocalFQDN(),
+	}
+}
+
 // HostHeader returns the Host header that will be used for calls to this service.
 func (c Config) HostHeader() string {
 	if c.DefaultHostHeader != "" {
