@@ -120,6 +120,9 @@ func CreateCustomCASecret(ctx resource.Context, caCertFile, caKeyFile, certChain
 				if _, err := cluster.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
+				if err := istio.ReloadMounts(cluster, systemNs.Name()); err != nil {
+					return err
+				}
 			} else {
 				return err
 			}

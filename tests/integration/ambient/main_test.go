@@ -97,7 +97,7 @@ values:
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
-      SECRET_TTL: 5m
+      SECRET_TTL: 1m
 `
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {

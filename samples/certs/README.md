@@ -34,5 +34,4 @@ To generate certs signed by the alternative root `root-cert-alt.pem`
 
 ```shell script
 ./generate-workload.sh name namespace serviceAccount tmpDir use-alternative-root
-./generate-workload.sh name namespace serviceAccount tmpDir use-alternative-root
 ```
