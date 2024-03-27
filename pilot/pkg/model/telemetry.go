@@ -23,6 +23,7 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -376,6 +377,26 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 // HTTPFilters computes the HttpFilter for a given proxy/class
 func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
 	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
+		if features.EnableECDSForStats.Get() {
+			filters := res.([]*core.TypedExtensionConfig)
+			result := make([]*hcm.HttpFilter, 0, len(filters))
+			for _, f := range filters {
+				// TODO: This could work better with a filter chain as the payload for ECDS instead of multiple filters.
+				result = append(result, &hcm.HttpFilter{
+					Name: f.Name,
+					ConfigType: &hcm.HttpFilter_ConfigDiscovery{
+						ConfigDiscovery: &core.ExtensionConfigSource{
+							ConfigSource: defaultConfigSource,
+							TypeUrls: []string{
+								xds.StatsFilterType,
+								xds.WasmHTTPFilterType, // for stackdriver
+							},
+						},
+					},
+				})
+			}
+			return result
+		}
 		return res.([]*hcm.HttpFilter)
 	}
 	return nil
@@ -384,6 +405,26 @@ func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) 
 // TCPFilters computes the TCPFilters for a given proxy/class
 func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass) []*listener.Filter {
 	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
+		if features.EnableECDSForStats.Get() {
+			filters := res.([]*core.TypedExtensionConfig)
+			result := make([]*listener.Filter, 0, len(filters))
+			for _, f := range filters {
+				result = append(result, &listener.Filter{
+					Name: f.Name,
+					ConfigType: &listener.Filter_ConfigDiscovery{
+						ConfigDiscovery: &core.ExtensionConfigSource{
+							ConfigSource: defaultConfigSource,
+							TypeUrls: []string{
+								xds.StatsFilterType,
+								xds.WasmNetworkFilterType, // for stackdriver
+							},
+						},
+					},
+				})
+			}
+			return result
+		}
+
 		return res.([]*listener.Filter)
 	}
 	return nil
@@ -556,12 +597,21 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	}
 
 	var res any
-	// Finally, compute the actual filters based on the protoc
-	switch protocol {
-	case networking.ListenerProtocolHTTP:
-		res = buildHTTPTelemetryFilter(class, m)
-	default:
-		res = buildTCPTelemetryFilter(class, m)
+	if features.EnableECDSForStats.Get() {
+		switch protocol {
+		case networking.ListenerProtocolHTTP:
+			res = buildHTTPTypedExtensionConfig(class, m)
+		default:
+			res = buildTCPTypedExtensionConfig(class, m)
+		}
+	} else {
+		// Finally, compute the actual filters based on the protoc
+		switch protocol {
+		case networking.ListenerProtocolHTTP:
+			res = buildHTTPTelemetryFilter(class, m)
+		default:
+			res = buildTCPTelemetryFilter(class, m)
+		}
 	}
 
 	// Update cache

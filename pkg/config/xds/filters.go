@@ -29,4 +29,6 @@ const (
 
 	StatsFilterName       = "istio.stats"
 	StackdriverFilterName = "istio.stackdriver"
+
+	StatsFilterType = resource.APITypePrefix + "stats.PluginConfig"
 )

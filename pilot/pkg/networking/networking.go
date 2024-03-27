@@ -23,6 +23,19 @@ import (
 // ListenerProtocol is the protocol associated with the listener.
 type ListenerProtocol int
 
+func (lp ListenerProtocol) String() string {
+	switch lp {
+	case ListenerProtocolTCP:
+		return "TCP"
+	case ListenerProtocolHTTP:
+		return "HTTP"
+	case ListenerProtocolAuto:
+		return "Auto"
+	default:
+		return "Unknown"
+	}
+}
+
 const (
 	// ListenerProtocolUnknown is an unknown type of listener.
 	ListenerProtocolUnknown = iota
@@ -80,6 +93,19 @@ func (tp TransportProtocol) ToEnvoySocketProtocol() core.SocketAddress_Protocol 
 
 // ListenerClass defines the class of the listener
 type ListenerClass int
+
+func (lc ListenerClass) String() string {
+	switch lc {
+	case ListenerClassSidecarInbound:
+		return "Inbound"
+	case ListenerClassSidecarOutbound:
+		return "Outbound"
+	case ListenerClassGateway:
+		return "Gateway"
+	default:
+		return "Undefined"
+	}
+}
 
 const (
 	ListenerClassUndefined ListenerClass = iota

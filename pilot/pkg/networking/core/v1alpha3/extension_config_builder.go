@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/telemetry"
 )
 
 // BuildExtensionConfiguration returns the list of extension configuration for the given proxy and list of names.
@@ -29,7 +30,10 @@ func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
 ) []*core.TypedExtensionConfig {
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	extensions := envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
+
 	wasmPlugins := push.WasmPlugins(proxy)
 	extensions = append(extensions, extension.InsertedExtensionConfigurations(wasmPlugins, extensionConfigNames, pullSecrets)...)
+
+	extensions = append(extensions, telemetry.InsertedExtensionConfigurations(proxy, push, extensionConfigNames)...)
 	return extensions
 }

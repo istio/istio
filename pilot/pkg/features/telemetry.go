@@ -66,4 +66,9 @@ var (
 
 	StackdriverAuditLog = env.Register("STACKDRIVER_AUDIT_LOG", false, ""+
 		"If enabled, StackDriver audit logging will be enabled.").Get()
+
+	// EnableECDSForStats is an experimental feature flag to enable ECDS for stats filter,
+	// istio will use ECDS to send stats filter as default in the future.
+	EnableECDSForStats = env.Register("EXPERIMENTAL_ENABLE_ECDS_FOR_STATS", false,
+		"if enabled, Istio will use ECDS send stats filter")
 )
