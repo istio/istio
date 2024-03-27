@@ -105,9 +105,6 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 
 	cfgYaml := tmpl.MustEvaluate(`
 values:
-  pilot:
-    env:
-      ISTIO_MULTIROOT_MESH: true
   meshConfig:
     defaultConfig:
       proxyMetadata:
