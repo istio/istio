@@ -69,9 +69,12 @@ const (
 	testC    = "cluster0"
 )
 
-func TestAmbientIndex_NetworkAndClusterIDs(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
+func init() {
+	features.EnableAmbientWaypoints = true
+	features.EnableAmbientControllers = true
+}
 
+func TestAmbientIndex_NetworkAndClusterIDs(t *testing.T) {
 	cases := []struct {
 		name    string
 		cluster cluster.ID
@@ -100,7 +103,6 @@ func TestAmbientIndex_NetworkAndClusterIDs(t *testing.T) {
 }
 
 func TestAmbientIndex_WorkloadNotFound(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	// Add a pod.
@@ -111,7 +113,6 @@ func TestAmbientIndex_WorkloadNotFound(t *testing.T) {
 }
 
 func TestAmbientIndex_LookupWorkloads(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
@@ -182,7 +183,6 @@ func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
 }
 
 func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	// Add 2 pods with the "a" label, and one without.
@@ -258,7 +258,6 @@ func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
 }
 
 func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addPods(t,
@@ -291,7 +290,6 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 }
 
 func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.ns.Update(&corev1.Namespace{
@@ -497,7 +495,6 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 
 // TODO(nmittler): Consider splitting this into multiple, smaller tests.
 func TestAmbientIndex_Policy(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
@@ -935,7 +932,6 @@ func TestAmbientIndex_Policy(t *testing.T) {
 }
 
 func TestPodLifecycleWorkloadGates(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, "", "")
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
@@ -955,7 +951,6 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 }
 
 func TestAddressInformation(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	// Add 2 pods with the "a" label, and one without.
@@ -1080,7 +1075,6 @@ func (s *ambientTestServer) assertWaypointAddressForPod(t *testing.T, key, expec
 }
 
 func TestUpdateWaypointForWorkload(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, "", "")
 
 	// add our waypoints but they won't be used until annotations are added
@@ -1162,7 +1156,6 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 }
 
 func TestWorkloadsForWaypoint(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, "", testNW)
 
 	assertWaypoint := func(t *testing.T, waypointNetwork string, waypointAddress string, expected ...string) {
@@ -1264,7 +1257,6 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 // This is a regression test for a case where policies added after pods were not applied when
 // querying by service
 func TestPolicyAfterPod(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addService(t, "svc1",

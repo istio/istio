@@ -1757,7 +1757,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		}
 
 		// For mesh virtual services, build a map of host -> referenced destinations
-		if features.EnableAmbientControllers && (len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway)) {
+		if features.EnableAmbientWaypoints && (len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway)) {
 			for host := range virtualServiceDestinations(rule) {
 				for _, rhost := range rule.Hosts {
 					if _, f := ps.virtualServiceIndex.referencedDestinations[rhost]; !f {

@@ -180,6 +180,17 @@ var (
 		false,
 		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
 
+	EnableAmbientWaypoints = func() bool {
+		v := env.Register(
+			"PILOT_ENABLE_AMBIENT_WAYPOINTS",
+			false,
+			"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
+		if v && !EnableAmbientControllers {
+			log.Fatalf("PILOT_ENABLE_AMBIENT_WAYPOINTS requires PILOT_ENABLE_AMBIENT_CONTROLLERS")
+		}
+		return v
+	}()
+
 	DeltaXds = env.Register("ISTIO_DELTA_XDS", true,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()

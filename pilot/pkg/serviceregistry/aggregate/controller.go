@@ -55,7 +55,7 @@ type Controller struct {
 }
 
 func (c *Controller) Waypoint(network, address string) []netip.Addr {
-	if !features.EnableAmbientControllers {
+	if !features.EnableAmbientWaypoints {
 		return nil
 	}
 	var res []netip.Addr
@@ -66,7 +66,7 @@ func (c *Controller) Waypoint(network, address string) []netip.Addr {
 }
 
 func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
-	if !features.EnableAmbientControllers {
+	if !features.EnableAmbientWaypoints {
 		return nil
 	}
 	var res []model.WorkloadInfo
