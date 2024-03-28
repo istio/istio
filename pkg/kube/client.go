@@ -354,7 +354,7 @@ type client struct {
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
-func newClientInternal(clientFactory *clientFactory, revision string, cluster cluster.ID) (*client, error) {
+func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*client, error) {
 	var c client
 	var err error
 
@@ -365,8 +365,9 @@ func newClientInternal(clientFactory *clientFactory, revision string, cluster cl
 		return nil, err
 	}
 
-	c.clusterID = cluster
-	c.revision = revision
+	for _, opt := range opts {
+		opt(&c)
+	}
 
 	c.restClient, err = clientFactory.RESTClient()
 	if err != nil {
@@ -455,13 +456,34 @@ var NewCrdWatcher func(Client) kubetypes.CrdWatcher
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
 // This is appropriate for use in CLI libraries because it exposes functionality unsafe for in-cluster controllers,
 // and uses standard CLI (kubectl) caching.
-func NewCLIClient(clientConfig clientcmd.ClientConfig, revision string) (CLIClient, error) {
-	return newClientInternal(newClientFactory(clientConfig, true), revision, "")
+func NewCLIClient(clientConfig clientcmd.ClientConfig, opts ...ClientOption) (CLIClient, error) {
+	return newClientInternal(newClientFactory(clientConfig, true), opts...)
+}
+
+// ClientOption defines an option for configuring the CLIClient.
+type ClientOption func(CLIClient) CLIClient
+
+// WithCluster creates a ClientOption to set the cluster ID on the CLIClient.
+func WithCluster(id cluster.ID) ClientOption {
+	return func(c CLIClient) CLIClient {
+		client := c.(*client)
+		client.clusterID = id
+		return client
+	}
+}
+
+// WithRevision creates a ClientOption to set the revision on the CLIClient.
+func WithRevision(revision string) ClientOption {
+	return func(c CLIClient) CLIClient {
+		client := c.(*client)
+		client.revision = revision
+		return client
+	}
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
 func NewClient(clientConfig clientcmd.ClientConfig, cluster cluster.ID) (Client, error) {
-	return newClientInternal(newClientFactory(clientConfig, false), "", cluster)
+	return newClientInternal(newClientFactory(clientConfig, false), WithCluster(cluster))
 }
 
 func (c *client) RESTConfig() *rest.Config {

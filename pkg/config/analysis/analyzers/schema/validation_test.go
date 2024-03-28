@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/analysis/testing/fixtures"
@@ -162,6 +163,9 @@ func (fakeOrigin) Comparator() string            { return "myFriendlyName" }
 func (fakeOrigin) Namespace() resource.Namespace { return "myNamespace" }
 func (fakeOrigin) Reference() resource.Reference { return fakeReference{} }
 func (fakeOrigin) FieldMap() map[string]int      { return make(map[string]int) }
+func (fakeOrigin) ClusterName() cluster.ID {
+	return "cluster"
+}
 
 type fakeReference struct{}
 

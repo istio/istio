@@ -128,7 +128,7 @@ func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}
-	client, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(restConfig), "")
+	client, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(restConfig))
 	if err != nil {
 		return err
 	}
@@ -297,7 +297,7 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
 	beginTime := time.Now()
 
-	client, err := kube.NewCLIClient(kube.BuildClientCmd(config.KubeConfigPath, config.Context), "")
+	client, err := kube.NewCLIClient(kube.BuildClientCmd(config.KubeConfigPath, config.Context))
 	if err != nil {
 		appendGlobalErr(err)
 	}

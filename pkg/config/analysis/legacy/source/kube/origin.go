@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -33,6 +34,7 @@ type Origin struct {
 	ResourceVersion resource.Version
 	Ref             resource.Reference
 	FieldsMap       map[string]int
+	Cluster         cluster.ID
 }
 
 var (
@@ -73,6 +75,11 @@ func (o *Origin) Reference() resource.Reference {
 // FieldMap implements resource.Origin
 func (o *Origin) FieldMap() map[string]int {
 	return o.FieldsMap
+}
+
+// ClusterName implements resource.Origin
+func (o *Origin) ClusterName() cluster.ID {
+	return o.Cluster
 }
 
 // Position is a representation of the location of a source.
