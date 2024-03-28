@@ -31,11 +31,9 @@ import (
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -102,11 +100,11 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: model.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.CommonTlsContext.AlpnProtocols = model.ALPNH2Only
 		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_MUTUAL:
 		res := security.SdsCertificateConfig{
@@ -116,28 +114,28 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		}
 		if len(res.GetResourceName()) > 0 {
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
+				model.ConstructSdsSecretConfig(res.GetResourceName()))
 		}
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: model.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.CommonTlsContext.AlpnProtocols = model.ALPNH2Only
 		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
+			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName))
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: model.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+		tlsContext.CommonTlsContext.AlpnProtocols = model.ALPNInMeshH2
 		tlsContext.Sni = tls.Sni
 		// For ISTIO_MUTUAL if custom SNI is not provided, use the default SNI name.
 		if len(tls.Sni) == 0 {

@@ -31,8 +31,6 @@ import (
 	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -41,6 +39,7 @@ import (
 	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -688,7 +687,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 			// override the label with the sanitized value
 			meta.Labels[model.LocalityLabel] = localityString
 		}
-		l = util.ConvertLocality(localityString)
+		l = model.ConvertLocality(localityString)
 	}
 
 	meta.PilotSubjectAltName = options.PilotSubjectAltName
