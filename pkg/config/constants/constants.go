@@ -175,6 +175,11 @@ const (
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
 
+	// GatewayAddressTypeOverride allows overriding the address type for a Gateway
+	// to be IPAddress rather than Hostname. One usecase would be `istio` class Gateways
+	// being used internally to the cluster.
+	GatewayAddressTypeOverride = "gateway.istio.io/address-type"
+
 	// DeprecatedGatewayNameLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
 	DeprecatedGatewayNameLabel = "istio.io/gateway-name"
 	// GatewayNameLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
