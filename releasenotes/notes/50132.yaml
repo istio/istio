@@ -5,7 +5,7 @@ issue:
   - 48362
 releaseNotes:
   - |
-    **Added** the annotation `gateway.istio.io/address-type` to allow `istio` class Gateways to use `ClusterIP` for status addresses.
+    **Added** the annotation `networking.istio.io/address-type` to allow `istio` class Gateways to use `ClusterIP` for status addresses.
     **Added** the ability to annotate workloads or services with `istio.io/use-waypoint` pointing to Gateways of arbitrary gateway classes.
 
     These changes allow configuring a standard `istio` gateway as a Waypoint.
