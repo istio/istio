@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 49841
+releaseNotes:
+- |
+  **Added** `istioctl experimental ztunnel-config workload` command to display ztunnel workloads information, and **Removed** the temporary command `istioctl proxy-config workload`.
