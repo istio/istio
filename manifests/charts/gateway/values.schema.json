@@ -290,6 +290,12 @@
         },
         "priorityClassName": {
           "type": "string"
+        },
+        "rollingMaxSurge": {
+          "type": ["integer", "string"]
+        },
+        "rollingMaxUnavailable": {
+          "type": ["integer", "string"]
         }
       }
     }
