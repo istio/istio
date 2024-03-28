@@ -56,9 +56,11 @@ import (
 type (
 	Node                    = pm.Node
 	NodeMetadata            = pm.NodeMetadata
+	NodeMetaProxyConfig     = pm.NodeMetaProxyConfig
 	BootstrapNodeMetadata   = pm.BootstrapNodeMetadata
 	TrafficInterceptionMode = pm.TrafficInterceptionMode
 	PodPort                 = pm.PodPort
+	StringBool              = pm.StringBool
 )
 
 var _ mesh.Holder = &Environment{}

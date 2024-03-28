@@ -257,3 +257,40 @@ func TestStringBool(t *testing.T) {
 		})
 	}
 }
+
+const (
+	k8sSeparator = "."
+)
+
+func TestGetLocalityLabel(t *testing.T) {
+	cases := []struct {
+		name     string
+		label    string
+		expected string
+	}{
+		{
+			name:     "with label",
+			label:    "region/zone/subzone-1",
+			expected: "region/zone/subzone-1",
+		},
+		{
+			name:     "label with k8s label separator",
+			label:    "region" + k8sSeparator + "zone" + k8sSeparator + "subzone-2",
+			expected: "region/zone/subzone-2",
+		},
+		{
+			name:     "label with both k8s label separators and slashes",
+			label:    "region/zone/subzone.2",
+			expected: "region/zone/subzone.2",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got := model.GetLocalityLabel(testCase.label)
+			if got != testCase.expected {
+				t.Errorf("expected locality %s, but got %s", testCase.expected, got)
+			}
+		})
+	}
+}
