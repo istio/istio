@@ -58,6 +58,10 @@ spec:
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
         {{- end }}
     spec:
+{{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{- toYaml . | nindent 8 }}
+{{- end }}
 {{- if .Values.pilot.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.pilot.nodeSelector | indent 8 }}
