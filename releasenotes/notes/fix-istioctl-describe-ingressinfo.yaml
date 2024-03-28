@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 50074
+releaseNotes:
+  - |
+    **Fixed** `istioctl describe` command not displaying Ingress information under non `istio-system` namespaces.

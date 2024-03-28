@@ -47,9 +47,10 @@ var (
 	describeSvcAOutput = regexp.MustCompile(`(?s)Service: a\..*
    Port: http 80/HTTP targets pod port 18080
 .*
-80 DestinationRule: a\..* for "a"
-   Matching subsets: v1
-   No Traffic Policy
+80:
+   DestinationRule: a\..* for "a"
+      Matching subsets: v1
+      No Traffic Policy
 `)
 
 	describePodAOutput = describeSvcAOutput
