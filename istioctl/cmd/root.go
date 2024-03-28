@@ -98,13 +98,6 @@ func init() {
 	viper.SetDefault("xds-port", 15012)
 }
 
-func ConfigureLogging(cmd *cobra.Command, args []string) error {
-	if err := configureLogging(cmd, args); err != nil {
-		return err
-	}
-	return nil
-}
-
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string) *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -297,11 +290,8 @@ func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
 	})
 }
 
-func configureLogging(_ *cobra.Command, _ []string) error {
-	if err := log.Configure(root.LoggingOptions); err != nil {
-		return err
-	}
-	return nil
+func ConfigureLogging(_ *cobra.Command, _ []string) error {
+	return log.Configure(root.LoggingOptions)
 }
 
 // seeExperimentalCmd is used for commands that have been around for a release but not graduated from
