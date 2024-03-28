@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoycore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -33,7 +33,7 @@ import (
 	"github.com/yl2chen/cidranger"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
@@ -233,7 +233,7 @@ type Simulation struct {
 	Routes    []*route.RouteConfiguration
 }
 
-func NewSimulationFromConfigGen(t *testing.T, s *v1alpha3.ConfigGenTest, proxy *model.Proxy) *Simulation {
+func NewSimulationFromConfigGen(t *testing.T, s *core.ConfigGenTest, proxy *model.Proxy) *Simulation {
 	l := s.Listeners(proxy)
 	sim := &Simulation{
 		t:         t,
@@ -680,7 +680,7 @@ func matchListener(listeners []*listener.Listener, input Call) *listener.Listene
 	return nil
 }
 
-func matchAddress(a *core.Address, address string, port int) bool {
+func matchAddress(a *envoycore.Address, address string, port int) bool {
 	if a.GetSocketAddress().GetAddress() != address {
 		return false
 	}
