@@ -2179,14 +2179,16 @@ func reportGatewayStatus(
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
 		addressesToReport := external
-		addrType := k8s.IPAddressType
 		if len(addressesToReport) == 0 {
+			wantAddressType := classInfo.addressType
+			if override, ok := obj.Annotations[addressTypeOverride]; ok {
+				wantAddressType = k8s.AddressType(override)
+			}
 			// There are no external addresses, so report the internal ones
 			// TODO: should we always report both?
-			if classInfo.addressType == k8s.IPAddressType {
+			if wantAddressType == k8s.IPAddressType {
 				addressesToReport = internalIP
 			} else {
-				addrType = k8s.HostnameAddressType
 				for _, hostport := range internal {
 					svchost, _, _ := net.SplitHostPort(hostport)
 					if !slices.Contains(pending, svchost) && !slices.Contains(addressesToReport, svchost) {
@@ -2199,6 +2201,7 @@ func reportGatewayStatus(
 		if len(addressesToReport) > 0 {
 			gs.Addresses = make([]k8sv1.GatewayStatusAddress, 0, len(addressesToReport))
 			for _, addr := range addressesToReport {
+				var addrType k8s.AddressType
 				if _, err := netip.ParseAddr(addr); err == nil {
 					addrType = k8s.IPAddressType
 				} else {

@@ -25,14 +25,20 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	kubetest "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -193,4 +199,150 @@ func checkWaypointIsReady(t framework.TestContext, ns, name string) error {
 	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, constants.GatewayNameLabel+"="+name)
 	_, err := kubetest.CheckPodsAreReady(fetch)
 	return err
+}
+
+func TestSimpleHTTPSandwich(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ambient").
+		Run(func(t framework.TestContext) {
+			config := `
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: {{.Service}}-gateway
+  namespace: {{.Namespace}}
+  annotations:
+    networking.istio.io/address-type: IPAddress
+    networking.istio.io/service-type: ClusterIP
+    ambient.istio.io/redirection: enabled
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: {{.Service}}-fqdn
+    hostname: {{.Service}}.{{.Namespace}}.svc.cluster.local
+    port: {{.Port}}
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+  - name: {{.Service}}-svc
+    hostname: {{.Service}}.{{.Namespace}}.svc
+    port: {{.Port}}
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+  - name: {{.Service}}-namespace
+    hostname: {{.Service}}.{{.Namespace}}
+    port: {{.Port}}
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+  - name: {{.Service}}-short
+    hostname: {{.Service}}
+    port: {{.Port}}
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+  # HACK:zTunnel currently expects the HBONE port to always be on the Waypoint's Service 
+  # This will be fixed in future PRs to both istio and zTunnel. 
+  - name: fake-hbone-port
+    port: 15008
+    protocol: TCP
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: {{.Service}}-httproute
+spec:
+  parentRefs:
+  - name: {{.Service}}-gateway
+  hostnames:
+  - {{.Service}}.{{.Namespace}}.svc.cluster.local
+  - {{.Service}}.{{.Namespace}}.svc
+  - {{.Service}}.{{.Namespace}}
+  - {{.Service}}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        add:
+        - name: traversed-waypoint
+          value: {{.Service}}-gateway
+    backendRefs:
+    - name: {{.Service}}
+      port: {{.Port}}
+      `
+
+			t.ConfigKube().
+				New().
+				Eval(
+					apps.Namespace.Name(),
+					map[string]any{
+						"Service":   Captured,
+						"Namespace": apps.Namespace.Name(),
+						"Port":      apps.Captured.PortForName("http").ServicePort,
+					},
+					config).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+				// Update use-waypoint for Captured service
+			for _, c := range t.Clusters().Kube() {
+				client := c.Kube().CoreV1().Services(apps.Namespace.Name())
+				setWaypoint := func(waypoint string) error {
+					annotation := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%s"}}}`,
+						constants.AmbientUseWaypoint, waypoint))
+					_, err := client.Patch(context.TODO(), Captured, types.MergePatchType, annotation, metav1.PatchOptions{})
+					return err
+				}
+
+				if err := setWaypoint("captured-gateway"); err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() {
+					if err := setWaypoint(""); err != nil {
+						scopes.Framework.Errorf("failed resetting waypoint for %s", Captured)
+					}
+				})
+
+			}
+
+			// ensure HTTP traffic works with all hostname variants
+			for _, src := range apps.All {
+				src := src
+				if !hboneClient(src) {
+					// TODO if we hairpinning, don't skip here
+					continue
+				}
+				t.NewSubTestf("from %s", src.ServiceName()).Run(func(t framework.TestContext) {
+					if src.Config().HasSidecar() {
+						t.Skip("TODO: sidecars don't properly handle use-waypoint")
+					}
+					for _, host := range apps.Captured.Config().HostnameVariants() {
+						host := host
+						t.NewSubTestf("to %s", host).Run(func(t framework.TestContext) {
+							src.CallOrFail(t, echo.CallOptions{
+								To:      apps.Captured,
+								Address: host,
+								Port:    echo.Port{Name: "http"},
+								Scheme:  scheme.HTTP,
+								Count:   10,
+								Check: check.And(
+									check.OK(),
+									check.ResponseHeader("traversed-waypoint", "captured-gateway"),
+								),
+							})
+						})
+					}
+					apps.Captured.ServiceName()
+				})
+			}
+		})
 }

@@ -105,10 +105,6 @@ func (w Waypoint) ResourceName() string {
 
 func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway]) krt.Collection[Waypoint] {
 	return krt.NewCollection(Gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
-		if gateway.Spec.GatewayClassName != constants.WaypointGatewayClassName {
-			// Not a gateway
-			return nil
-		}
 		if len(gateway.Status.Addresses) == 0 {
 			// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 			// ignore Kubernetes Gateways which aren't waypoints
