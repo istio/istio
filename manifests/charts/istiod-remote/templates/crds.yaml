@@ -1,3 +1,4 @@
+{{- if .Values.global.configCluster }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -23,3 +24,4 @@ spec:
           {{- end }}
           EOF
       restartPolicy: OnFailure
+{{- end }}

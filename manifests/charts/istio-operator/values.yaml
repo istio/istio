@@ -14,8 +14,12 @@ defaults:
   watchedNamespaces: istio-system
   waitForResourcesTimeout: 300s
 
-  # Used for helm2 to add the CRDs to templates.
-  enableCRDTemplates: false
+  # Used in Helm3 and Helm2 for selecting the CRDs based on Release Channel
+  enableCRDTemplates: true
+
+  # Used for choosing the stability level of CRDs istalled
+  # Standard channel is the default release channel
+  releaseChannel: "standard"
 
   # revision for the operator resources
   revision: ""
