@@ -45,7 +45,9 @@ type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
-	Waypoint(network, address string) []netip.Addr
+	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
+	WaypointsFor(network, address string) []netip.Addr
+	WaypointInfo(name, namespace string, cluster cluster.ID) *model.WaypointInfo
 	SyncAll()
 	model.AmbientIndexes
 }
@@ -389,22 +391,34 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 		network: key.Network,
 		ip:      key.Addresses[0],
 	})
-	services := a.services.ByOwningWaypoint.Lookup(networkAddress{
-		network: key.Network,
-		ip:      key.Addresses[0],
-	})
-	workloadsFromServices := make([]model.WorkloadInfo, 0)
-	for _, s := range services {
-		svcWls := a.workloads.ByServiceKey.Lookup(namespacedHostname(s.Namespace, s.Hostname))
-		workloadsFromServices = append(workloadsFromServices, svcWls...)
-	}
-	// this is not deduplicated...
-	workloads = append(workloads, workloadsFromServices...)
 	workloads = model.SortWorkloadsByCreationTime(workloads)
 	return workloads
 }
 
-func (a *index) Waypoint(network, address string) []netip.Addr {
+func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	if len(key.Addresses) == 0 {
+		return nil
+	}
+	// TODO sort by creation time (currently done by caller)
+	return a.services.ByOwningWaypoint.Lookup(networkAddress{
+		network: key.Network,
+		ip:      key.Addresses[0],
+	})
+}
+
+func (a *index) WaypointInfo(name, namespace string, cluster cluster.ID) *model.WaypointInfo {
+	if a.ClusterID != cluster {
+		return nil
+	}
+	key := krt.Named{Name: name, Namespace: namespace}
+	wp := a.waypoints.Collection.GetKey(krt.Key[Waypoint](key.ResourceName()))
+	if wp == nil {
+		return nil
+	}
+	return &wp.WaypointInfo
+}
+
+func (a *index) WaypointsFor(network, address string) []netip.Addr {
 	res := sets.Set[netip.Addr]{}
 	networkAddr := networkAddress{
 		network: network,

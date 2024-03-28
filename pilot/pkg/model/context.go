@@ -1280,6 +1280,13 @@ func (node *Proxy) GetNamespace() string {
 	return node.Metadata.Namespace
 }
 
+func (node *Proxy) GetLabel(label string) string {
+	if node == nil || node.Metadata == nil || node.Metadata.Labels == nil {
+		return ""
+	}
+	return node.Metadata.Labels[label]
+}
+
 func (node *Proxy) GetIstioVersion() string {
 	if node == nil || node.Metadata == nil {
 		return ""
@@ -1312,7 +1319,9 @@ func (node *Proxy) FuzzValidate() bool {
 }
 
 func (node *Proxy) EnableHBONE() bool {
-	return node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE))
+  // don't make assumptions about HBONE based on node type
+  // a proxy that want's HBONE XDS needs to request it
+	return features.EnableHBONE && bool(node.Metadata.EnableHBONE)
 }
 
 func (node *Proxy) SetWorkloadEntry(name string, create bool) {

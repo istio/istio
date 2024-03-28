@@ -54,15 +54,31 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (c *Controller) Waypoint(network, address string) []netip.Addr {
+func (c *Controller) WaypointsFor(network, address string) []netip.Addr {
 	if !features.EnableAmbientWaypoints {
 		return nil
 	}
 	var res []netip.Addr
 	for _, p := range c.GetRegistries() {
-		res = append(res, p.Waypoint(network, address)...)
+		res = append(res, p.WaypointsFor(network, address)...)
 	}
 	return res
+}
+
+func (c *Controller) WaypointInfo(name, namespace string, cluster cluster.ID) *model.WaypointInfo {
+  if !features.EnableAmbientControllers {
+    return nil
+  }
+  for _, r := range c.registries {
+    if r.Cluster() != cluster {
+      continue
+    }
+    wi := r.WaypointInfo(name, namespace, cluster)
+    if wi != nil {
+      return wi
+    }
+  }
+  return nil
 }
 
 func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
@@ -72,6 +88,17 @@ func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.Workloa
 	var res []model.WorkloadInfo
 	for _, p := range c.GetRegistries() {
 		res = append(res, p.WorkloadsForWaypoint(key)...)
+	}
+	return res
+}
+
+func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	if !features.EnableAmbientControllers {
+		return nil
+	}
+	var res []model.ServiceInfo
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.ServicesForWaypoint(key)...)
 	}
 	return res
 }

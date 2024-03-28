@@ -868,8 +868,10 @@ type AmbientIndexes interface {
 		currentSubs sets.String,
 	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
-	Waypoint(network, address string) []netip.Addr
+	WaypointsFor(network, address string) []netip.Addr
+	WaypointInfo(name, namespace string, clusterID cluster.ID) *WaypointInfo
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
+	ServicesForWaypoint(WaypointKey) []ServiceInfo
 }
 
 type WaypointKey struct {
@@ -896,11 +898,19 @@ func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []WorkloadAuthorizatio
 	return nil
 }
 
-func (u NoopAmbientIndexes) Waypoint(string, string) []netip.Addr {
+func (u NoopAmbientIndexes) WaypointsFor(string, string) []netip.Addr {
+	return nil
+}
+
+func (u NoopAmbientIndexes) WaypointInfo(name, namespace string, clusterID cluster.ID) *WaypointInfo {
 	return nil
 }
 
 func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
+	return nil
+}
+
+func (u NoopAmbientIndexes) ServicesForWaypoint(WaypointKey) []ServiceInfo {
 	return nil
 }
 
@@ -972,7 +982,35 @@ func serviceResourceName(s *workloadapi.Service) string {
 	return s.Namespace + "/" + s.Hostname
 }
 
-type WorkloadSource string
+type WaypointBinding struct {
+	Port     uint32
+	Protocol protocol.Instance
+}
+
+type WaypointInfo struct {
+	Cluster cluster.ID
+
+	// BindingsByHost keeps track of host specific protocols.
+	// Native HBONE waypoints will only have '*' -> HBONE.
+	// Sandwiched waypionts may desire additional information from their inbound zTunnel.
+	// See ApplicationProtocol for zTunnel implications.
+	BindingsByHost map[string]WaypointBinding
+}
+
+func (w *WaypointInfo) GetBinding(host string) *WaypointBinding {
+	if w.BindingsByHost == nil {
+		// shouldn't happen
+		return nil
+	}
+  // TODO proper wildcard matching instead of all or nothing
+	if byHost, ok := w.BindingsByHost[host]; ok {
+		return &byHost
+	}
+	if wildcard, ok := w.BindingsByHost["*"]; ok {
+		return &wildcard
+	}
+	return nil
+}
 
 type WorkloadInfo struct {
 	*workloadapi.Workload

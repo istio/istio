@@ -1,3 +1,4 @@
+{{- $redirection := (index .InfrastructureAnnotations "ambient.istio.io/redirection") | default "disabled" }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -52,12 +53,13 @@ spec:
           (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version")
           (strdict "istio.io/rev" (.Revision | default "default"))
           (strdict
-            "ambient.istio.io/redirection" "disabled"
+            "ambient.istio.io/redirection" ($redirection)
             "prometheus.io/path" "/stats/prometheus"
             "prometheus.io/port" "15020"
             "prometheus.io/scrape" "true"
           ) | nindent 8 }}
       labels:
+        {{- $TunnelLabel := or (and (ne $redirection "enabled") (strdict "networking.istio.io/tunnel" "http")) (strdict) }}
         {{- toJsonMap
           (strdict
             "sidecar.istio.io/inject" "false"
@@ -65,6 +67,7 @@ spec:
             "service.istio.io/canonical-revision" "latest"
            )
           .InfrastructureLabels
+          $TunnelLabel
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
             "istio.io/gateway-name" .Name
@@ -181,6 +184,10 @@ spec:
         {{- else if (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}
         - name: ISTIO_META_MESH_ID
           value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
+        {{- end }}
+        {{- if eq $redirection "enabled" }}
+        - name: ISTIO_META_ENABLE_HBONE
+          value: "false"
         {{- end }}
         resources:
           limits:

@@ -2453,10 +2453,18 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 }
 
 func (ps *PushContext) WaypointsFor(network, address string) []netip.Addr {
-	return ps.ambientIndex.Waypoint(network, address)
+	return ps.ambientIndex.WaypointsFor(network, address)
+}
+
+func (ps *PushContext) WaypointInfo(name, namespace string, cluster cluster.ID) *WaypointInfo {
+	return ps.ambientIndex.WaypointInfo(name, namespace, cluster)
 }
 
 // WorkloadsForWaypoint returns all workloads associated with a given waypoint identified by it's network address
 func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []WorkloadInfo {
 	return ps.ambientIndex.WorkloadsForWaypoint(key)
+}
+
+func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
+	return ps.ambientIndex.ServicesForWaypoint(key)
 }
