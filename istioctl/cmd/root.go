@@ -98,6 +98,13 @@ func init() {
 	viper.SetDefault("xds-port", 15012)
 }
 
+func ConfigureLogging(cmd *cobra.Command, args []string) error {
+	if err := configureLogging(cmd, args); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string) *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -105,6 +112,7 @@ func GetRootCmd(args []string) *cobra.Command {
 		Short:             "Istio control interface.",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
+		PersistentPreRunE: ConfigureLogging,
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
@@ -116,13 +124,6 @@ debug and diagnose their Istio mesh.
 	rootOptions := cli.AddRootFlags(flags)
 
 	ctx := cli.NewCLIContext(rootOptions)
-
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if err := configureLogging(cmd, args); err != nil {
-			return err
-		}
-		return nil
-	}
 
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagIstioNamespace, func(
 		cmd *cobra.Command, args []string, toComplete string,
