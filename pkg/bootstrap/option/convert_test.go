@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	networkingAPI "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/model"
 )
 
 // nolint: lll

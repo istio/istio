@@ -21,7 +21,7 @@ import (
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/model"
 )
 
 type (
