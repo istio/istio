@@ -859,10 +859,15 @@ type AmbientIndexes interface {
 		currentSubs sets.String,
 	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
+	ServicesForWaypoint(WaypointKey) []ServiceInfo
 	Waypoint(network, address string) []netip.Addr
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
 }
 
+// WaypointKey is a multi-address extension of NetworkAddress which is commonly used for lookups in AmbientIndex
+// We likely need to consider alternative keying options internally such as hostname as we look to expand beyong istio-waypoint
+// This extension can ideally support that type of lookup in the interface without introducing scope creep into things
+// like NetworkAddress
 type WaypointKey struct {
 	Network   string
 	Addresses []string
@@ -884,6 +889,10 @@ func (u NoopAmbientIndexes) AdditionalPodSubscriptions(
 }
 
 func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []WorkloadAuthorization {
+	return nil
+}
+
+func (u NoopAmbientIndexes) ServicesForWaypoint(WaypointKey) []ServiceInfo {
 	return nil
 }
 

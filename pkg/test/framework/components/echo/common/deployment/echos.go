@@ -26,6 +26,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -341,15 +342,17 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			for i, config := range defaultConfigs {
 				if !config.HasSidecar() && !config.IsProxylessGRPC() {
 					scopes.Framework.Infof("adding waypoint to %s", config.NamespacedName())
-					defaultConfigs[i].WaypointProxy = true
+					defaultConfigs[i].ServiceWaypointProxy = "shared"
+					defaultConfigs[i].WorkloadWaypointProxy = "shared"
 				}
 			}
 		} else {
 			waypointed := echo.Config{
-				Service:        WaypointSvc,
-				ServiceAccount: true,
-				Ports:          ports.All(),
-				WaypointProxy:  true,
+				Service:               WaypointSvc,
+				ServiceAccount:        true,
+				Ports:                 ports.All(),
+				ServiceWaypointProxy:  "shared",
+				WorkloadWaypointProxy: "shared",
 				Subsets: []echo.SubsetConfig{{
 					Labels: map[string]string{label.SidecarInject.Name: "false"},
 				}},
@@ -471,6 +474,34 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 	echos, err := builder.Build()
 	if err != nil {
 		return nil, err
+	}
+
+	if ctx.Settings().Ambient {
+
+		waypointProxies := make(map[string]ambient.WaypointProxy)
+
+		for _, echo := range echos {
+			svcwp := echo.Config().ServiceWaypointProxy
+			wlwp := echo.Config().WorkloadWaypointProxy
+			var err error
+			if svcwp != "" {
+				if _, found := waypointProxies[svcwp]; !found {
+					waypointProxies[svcwp], err = ambient.NewWaypointProxy(ctx, echo.Config().Namespace, svcwp)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+			if wlwp != "" {
+				if _, found := waypointProxies[wlwp]; !found {
+					waypointProxies[wlwp], err = ambient.NewWaypointProxy(ctx, echo.Config().Namespace, wlwp)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+
+		}
 	}
 
 	apps.All = echos.Services()

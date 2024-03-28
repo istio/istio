@@ -17,7 +17,6 @@ package core
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -48,39 +47,37 @@ type waypointServices struct {
 func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.WorkloadInfo, *waypointServices) {
 	network := node.Metadata.Network.String()
 	workloads := make([]model.WorkloadInfo, 0)
+	serviceInfos := make([]model.ServiceInfo, 0)
 	for _, svct := range node.ServiceTargets {
 		ips := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
-		wl := push.WorkloadsForWaypoint(model.WaypointKey{
+		key := model.WaypointKey{
 			Network:   network,
 			Addresses: ips,
-		})
-		workloads = append(workloads, wl...)
-	}
-
-	return workloads, findWorkloadServices(workloads, push)
-}
-
-func findWorkloadServices(workloads []model.WorkloadInfo, push *model.PushContext) *waypointServices {
-	wps := &waypointServices{}
-	for _, wl := range workloads {
-		for _, ns := range push.ServiceIndex.HostnameAndNamespace {
-			svc := ns[wl.Namespace]
-			if svc == nil {
-				continue
-			}
-			if labels.Instance(svc.Attributes.LabelSelectors).Match(wl.Labels) {
-				if wps.services == nil {
-					wps.services = map[host.Name]*model.Service{}
-				}
-				wps.services[svc.Hostname] = svc
-			}
 		}
+		wl := push.WorkloadsForWaypoint(key)
+		workloads = append(workloads, wl...)
+		svcs := push.ServicesForWaypoint(key)
+		serviceInfos = append(serviceInfos, svcs...)
 	}
-	services := maps.Values(wps.services)
-	if len(services) > 0 {
-		wps.orderedServices = model.SortServicesByCreationTime(services)
+
+	waypointServices := &waypointServices{}
+	for _, s := range serviceInfos {
+		hostName := host.Name(s.Service.Hostname)
+		svc, ok := push.ServiceIndex.HostnameAndNamespace[hostName][s.Namespace]
+		if !ok {
+			continue
+		}
+		if waypointServices.services == nil {
+			waypointServices.services = map[host.Name]*model.Service{}
+		}
+		waypointServices.services[hostName] = svc
 	}
-	return wps
+
+	unorderedServices := maps.Values(waypointServices.services)
+	if len(serviceInfos) > 0 {
+		waypointServices.orderedServices = model.SortServicesByCreationTime(unorderedServices)
+	}
+	return workloads, waypointServices
 }
 
 // filterWaypointOutboundServices is used to determine the set of outbound clusters we need to build for waypoints.
