@@ -17,10 +17,10 @@ package model
 import (
 	gotls "crypto/tls"
 
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+
 	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/log"
-
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 )
 
 var fipsCiphers = []string{
