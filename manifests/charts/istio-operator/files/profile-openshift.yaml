@@ -16,3 +16,11 @@ pilot:
   cni:
     enabled: true
     provider: "multus"
+containerSecurityContext:
+  capabilities:
+    drop:
+    - ALL
+  allowPrivilegeEscalation: false
+  privileged: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
