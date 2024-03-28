@@ -369,6 +369,18 @@ func runRevisionedWebhookTest(t *testing.T, testResourceFile, whSource string) {
 	assert.NoError(t, err)
 }
 
+func TestManifestGenerateWithOnlyIOPSpec(t *testing.T) {
+	objss, err := runManifestCommands("only_spec", "", liveCharts, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dobjss, err := runManifestCommands("default", "", liveCharts, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, len(objss), len(dobjss))
+}
+
 func TestManifestGenerateIstiodRemote(t *testing.T) {
 	g := NewWithT(t)
 
