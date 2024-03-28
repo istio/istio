@@ -25,18 +25,20 @@ var (
 	configDumpFile string
 
 	workloadsNamespace string
-
-	name          string
 )
 
 
-func Ztunnel(ctx cli.Context) *cobra.Command {
+func Cmd(ctx cli.Context) *cobra.Command {
 	configCmd := &cobra.Command{
 		Use:   "ztunnel-config",
 		Short: "Retrieve proxy configuration information from ztunnel [kube only]",
 		Long:  `A group of commands used to retrieve information about proxy configuration from the ztunnel`,
 		Example: `  # Retrieve information about proxy configuration from a ztunnel instance.
-  istioctl ztunnel <workload> <pod-name[.namespace]>`,
+  istioctl ztunnel-config <workload> <pod-name[.namespace]>
+
+  # Retrieve information about proxy configuration from a ztunnel instance with aliases.
+  istioctl zc <workload> <pod-name[.namespace]>
+`,
 		Aliases: []string{"zc"},
 	}
 

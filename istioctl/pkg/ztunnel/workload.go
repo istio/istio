@@ -6,37 +6,35 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/proxyconfig"
-	"istio.io/istio/pkg/kube"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/completion"
+	"istio.io/istio/istioctl/pkg/proxyconfig"
 	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
+	"istio.io/istio/pkg/kube"
 )
 
 func workloadConfigCmd(ctx cli.Context) *cobra.Command {
-	var podName, podNamespace string
-
 	workloadConfigCmd := &cobra.Command{
 		Use:   "workload [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves workload configuration for the specified ztunnel pod",
 		Long:  `Retrieve information about workload configuration for the ztunnel instance.`,
 		Example: `  # Retrieve summary about workload configuration for a given ztunnel.
-  istioctl proxy-config workload <ztunnel-name[.namespace]>
+  istioctl ztunnel-config workload <ztunnel-name[.namespace]>
 
   # Retrieve summary of workloads on node XXXX for a given ztunnel instance.
-  istioctl proxy-config workload <ztunnel-name[.namespace]> --node ambient-worker
+  istioctl ztunnel-config workload <ztunnel-name[.namespace]> --node ambient-worker
 
   # Retrieve full workload dump of workloads with address XXXX for a given ztunnel
-  istioctl proxy-config workload <ztunnel-name[.namespace]> --address 0.0.0.0 -o json
+  istioctl ztunnel-config workload <ztunnel-name[.namespace]> --address 0.0.0.0 -o json
 
   # Retrieve workload summary
   kubectl exec -it $ZTUNNEL -n istio-system -- curl localhost:15000/config_dump > ztunnel-config.json
-  istioctl proxy-config workloads --file ztunnel-config.json
+  istioctl ztunnel-config workloads --file ztunnel-config.json
 
   # Retrieve workload summary for a specific namespace
-  istioctl proxy-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
+  istioctl ztunnel-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
 `,
 		Aliases: []string{"workloads", "w"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -51,6 +49,8 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			var podName, podNamespace string
 			var configWriter *ztunnelDump.ConfigWriter
 			if len(args) == 1 {
 				if podName, podNamespace, err = getComponentPodName(ctx, args[0]); err != nil {
@@ -102,7 +102,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 
 func extractZtunnelConfigDump(kubeClient kube.CLIClient, podName, podNamespace string) ([]byte, error) {
 	path := "config_dump"
-	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, 15000)
+	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s ztunnel: %v", podName, podNamespace, err)
 	}
