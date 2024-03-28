@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/istioctl/pkg/wait"
 	"istio.io/istio/istioctl/pkg/waypoint"
 	"istio.io/istio/istioctl/pkg/workload"
+	"istio.io/istio/istioctl/pkg/ztunnel"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
@@ -208,6 +209,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
 	experimentalCmd.AddCommand(checkinject.Cmd(ctx))
 	experimentalCmd.AddCommand(waypoint.Cmd(ctx))
+	experimentalCmd.AddCommand(ztunnel.Cmd(ctx))
 
 	analyzeCmd := analyze.Analyze(ctx)
 	hideInheritedFlags(analyzeCmd, cli.FlagIstioNamespace)
