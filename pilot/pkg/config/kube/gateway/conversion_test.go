@@ -440,7 +440,7 @@ func TestConvertResources(t *testing.T) {
 				Instances: instances,
 			})
 			kr := splitInput(t, input)
-			kr.Context = NewGatewayContext(cg.PushContext())
+			kr.Context = NewGatewayContext(cg.PushContext(), "Kubernetes")
 			output := convertResources(kr)
 			output.AllowedReferences = AllowedReferences{} // Not tested here
 			output.ReferencedNamespaceKeys = nil           // Not tested here
@@ -1115,7 +1115,7 @@ spec:
 			input := readConfigString(t, tt.config, validator, nil)
 			cg := core.NewConfigGenTest(t, core.TestOptions{})
 			kr := splitInput(t, input)
-			kr.Context = NewGatewayContext(cg.PushContext())
+			kr.Context = NewGatewayContext(cg.PushContext(), "Kubernetes")
 			output := convertResources(kr)
 			c := &Controller{
 				state: output,
@@ -1351,7 +1351,7 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 	validator := crdvalidation.NewIstioValidator(b)
 	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator, nil)
 	kr := splitInput(b, input)
-	kr.Context = NewGatewayContext(cg.PushContext())
+	kr.Context = NewGatewayContext(cg.PushContext(), "Kubernetes")
 	ctx := configContext{
 		GatewayResources:  kr,
 		AllowedReferences: convertReferencePolicies(kr),
