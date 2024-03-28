@@ -405,28 +405,29 @@ func buildHTTPVirtualServices(
 	convertRules := func(mesh bool) conversionResult {
 		res := conversionResult{}
 		for n, r := range route.Rules {
-			// split the rule to make sure each rule has up to one match
 			matches := slices.Reference(r.Matches)
 			if len(matches) == 0 {
 				matches = append(matches, nil)
 			}
+			r.Matches = make([]k8s.HTTPRouteMatch, 0, len(matches))
 			for _, m := range matches {
 				if m != nil {
-					r.Matches = []k8s.HTTPRouteMatch{*m}
+					r.Matches = append(r.Matches, *m)
 				}
-				vs, err := convertHTTPRoute(r, ctx, obj, n, !mesh)
-				// This was a hard error
-				if vs == nil {
-					res.error = err
-					return conversionResult{error: err}
-				}
-				// Got an error but also routes
-				if err != nil {
-					res.error = err
-				}
-
-				res.routes = append(res.routes, vs)
 			}
+
+			vs, err := convertHTTPRoute(r, ctx, obj, n, !mesh)
+			// This was a hard error
+			if vs == nil {
+				res.error = err
+				return conversionResult{error: err}
+			}
+			// Got an error but also routes
+			if err != nil {
+				res.error = err
+			}
+
+			res.routes = append(res.routes, vs)
 		}
 		return res
 	}
