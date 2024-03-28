@@ -1022,19 +1022,19 @@
           },
           "mappings": [],
           "thresholds": {
-            "mode": "percentage",
+            "mode": "absolute",
             "steps": [
               {
-                "color": "dark-red",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "#EAB839",
-                "value": 95
+                "color": "yellow",
+                "value": 0.95
               },
               {
                 "color": "green",
-                "value": 100
+                "value": 1
               }
             ]
           }
@@ -1043,9 +1043,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Time"
+              "options": "destination_workload"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "Workload"
+              },
               {
                 "id": "unit",
                 "value": "short"
@@ -1057,6 +1061,18 @@
               {
                 "id": "custom.align"
               },
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
               {
                 "id": "custom.hidden",
                 "value": true
@@ -1188,7 +1204,7 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "dark-red",
+                      "color": "red",
                       "value": null
                     },
                     {
@@ -1267,6 +1283,10 @@
               },
               {
                 "id": "custom.align"
+              },
+              {
+                "id": "custom.minWidth",
+                "value": 400
               }
             ]
           },
@@ -1287,18 +1307,6 @@
               {
                 "id": "custom.align"
               },
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "destination_workload"
-            },
-            "properties": [
               {
                 "id": "custom.hidden",
                 "value": true
@@ -1411,14 +1419,62 @@
     },
     {
       "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "${datasource}",
+        "type": "prometheus"
+      },
+      "gridPos": {
+        "h": 18,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "id": 109,
+      "links": [],
+      "repeatDirection": "v",
+      "targets": [
+        {
+          "expr": "label_join(sum(rate(istio_tcp_received_bytes_total{reporter=\"source\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "intervalFactor": 1,
+          "legendFormat": "{{ destination_workload }}",
+          "refId": "A",
+          "datasource": {
+            "uid": "${datasource}",
+            "type": "prometheus"
+          }
+        },
+        {
+          "expr": "label_join(sum(rate(istio_tcp_sent_bytes_total{reporter=\"source\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "intervalFactor": 1,
+          "legendFormat": "{{ destination_workload }}",
+          "refId": "B",
+          "datasource": {
+            "uid": "${datasource}",
+            "type": "prometheus"
+          }
+        }
+      ],
+      "title": "TCP Workloads",
+      "type": "table",
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
           "custom": {
             "align": "auto",
             "cellOptions": {
@@ -1431,14 +1487,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "red",
-                "value": 80
+                "value": 80,
+                "color": "red"
               }
             ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
         },
         "overrides": [
@@ -1461,7 +1520,12 @@
                 "value": 2
               },
               {
-                "id": "custom.align"
+                "id": "custom.align",
+                "value": null
+              },
+              {
+                "id": "custom.hidden",
+                "value": true
               }
             ]
           },
@@ -1484,7 +1548,8 @@
                 "value": 2
               },
               {
-                "id": "custom.align"
+                "id": "custom.align",
+                "value": null
               },
               {
                 "id": "thresholds",
@@ -1523,7 +1588,8 @@
                 "value": 2
               },
               {
-                "id": "custom.align"
+                "id": "custom.align",
+                "value": null
               }
             ]
           },
@@ -1542,7 +1608,8 @@
                 "value": 2
               },
               {
-                "id": "custom.align"
+                "id": "custom.align",
+                "value": null
               },
               {
                 "id": "custom.hidden",
@@ -1572,14 +1639,15 @@
                 "id": "links",
                 "value": [
                   {
-                    "targetBlank": false,
                     "title": "$__cell dashboard",
-                    "url": "/dashboard/db/istio-workload-dashboard?var-namespace=${__cell_3:raw}&var-workload=${__cell_2:raw}"
+                    "url": "/dashboard/db/istio-workload-dashboard?var-namespace=${__cell_3:raw}&var-workload=${__cell_2:raw}",
+                    "targetBlank": false
                   }
                 ]
               },
               {
-                "id": "custom.align"
+                "id": "custom.align",
+                "value": null
               }
             ]
           },
@@ -1598,7 +1666,8 @@
                 "value": 2
               },
               {
-                "id": "custom.align"
+                "id": "custom.align",
+                "value": null
               },
               {
                 "id": "custom.hidden",
@@ -1628,113 +1697,42 @@
                 "id": "links",
                 "value": [
                   {
-                    "targetBlank": false,
                     "title": "$__cell dashboard",
-                    "url": "/dashboard/db/istio-service-dashboard?var-service=${__cell_1:raw}"
+                    "url": "/dashboard/db/istio-service-dashboard?var-service=${__cell_1:raw}",
+                    "targetBlank": false
                   }
                 ]
               },
               {
-                "id": "custom.align"
-              },
-              {
-                "id": "custom.hidden",
-                "value": false
+                "id": "custom.align",
+                "value": null
               }
             ]
           }
         ]
       },
-      "gridPos": {
-        "h": 18,
-        "w": 24,
-        "x": 0,
-        "y": 33
-      },
       "hideTimeOverride": false,
-      "id": 109,
-      "links": [],
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "10.1.5",
-      "repeatDirection": "v",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "label_join(sum(rate(istio_tcp_received_bytes_total{reporter=\"source\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
-          "format": "table",
-          "hide": false,
-          "instant": true,
-          "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload }}",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "label_join(sum(rate(istio_tcp_sent_bytes_total{reporter=\"source\"}[1m])) by (destination_workload, destination_workload_namespace, destination_service), \"destination_workload_var\", \".\", \"destination_workload\", \"destination_workload_namespace\")",
-          "format": "table",
-          "hide": false,
-          "instant": true,
-          "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload }}",
-          "refId": "B"
-        }
-      ],
-      "title": "TCP Workloads",
+      "timeFrom": null,
       "transformations": [
         {
-          "id": "seriesToRows",
+          "id": "merge",
           "options": {
             "reducers": []
           }
         }
       ],
-      "type": "table"
+      "pluginVersion": "10.1.5"
     },
     {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
+      "fill": 1,
       "gridPos": {
         "h": 9,
         "w": 24,
@@ -1742,22 +1740,29 @@
         "y": 51
       },
       "id": 111,
-      "links": [],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": false
       },
-      "pluginVersion": "10.1.5",
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
       "targets": [
         {
           "datasource": {
@@ -1771,11 +1776,37 @@
           "refId": "A"
         }
       ],
+      "thresholds": [],
+      "timeRegions": [],
       "title": "Istio Components by Version",
-      "type": "stat"
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "mode": "time",
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false
+      }
     }
   ],
-  "refresh": false,
   "schemaVersion": 38,
   "style": "dark",
   "tags": [],
