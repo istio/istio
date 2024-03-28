@@ -58,14 +58,14 @@ kind: Service
 metadata:
   name: custom-gateway
   labels:
-    istio: ingressgateway
+    istio: custom-gateway
 spec:
   ports:
   - port: 80
     targetPort: 8080
     name: http
   selector:
-    istio: ingressgateway
+    istio: custom-gateway
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -74,7 +74,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio: ingressgateway
+      istio: custom-gateway
   template:
     metadata:
       annotations:
@@ -83,7 +83,7 @@ spec:
           gatewayTopology:
             numTrustedProxies: 2
       labels:
-        istio: ingressgateway
+        istio: custom-gateway
         {{ .injectLabel }}
     spec:
       {{- if ne .imagePullSecret "" }}
@@ -98,7 +98,7 @@ spec:
 `).ApplyOrFail(t, apply.NoCleanup)
 			cs := t.Clusters().Default().(*kubecluster.Cluster)
 			retry.UntilSuccessOrFail(t, func() error {
-				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=ingressgateway"))
+				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway"))
 				return err
 			}, retry.Timeout(time.Minute*2), retry.Delay(time.Second))
 			for _, tt := range common.XFFGatewayCase(&apps, fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name())) {
@@ -139,14 +139,14 @@ kind: Service
 metadata:
   name: custom-gateway
   labels:
-    istio: ingressgateway
+    istio: custom-gateway
 spec:
   ports:
   - port: 80
     targetPort: 8080
     name: tcp
   selector:
-    istio: ingressgateway
+    istio: custom-gateway
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -155,7 +155,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio: ingressgateway
+      istio: custom-gateway
   template:
     metadata:
       annotations:
@@ -166,7 +166,7 @@ spec:
             numTrustedProxies: 1
             proxyProtocol: {}
       labels:
-        istio: ingressgateway
+        istio: custom-gateway
         {{ .injectLabel }}
     spec:
       {{- if ne .imagePullSecret "" }}
@@ -182,7 +182,7 @@ spec:
 			// Wait for gateway readiness
 			cs := t.Clusters().Default().(*kubecluster.Cluster)
 			retry.UntilSuccessOrFail(t, func() error {
-				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=ingressgateway"))
+				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway"))
 				return err
 			}, retry.Timeout(time.Minute*2), retry.Delay(time.Second))
 
@@ -220,14 +220,14 @@ kind: Service
 metadata:
   name: custom-gateway
   labels:
-    istio: ingressgateway
+    istio: custom-gateway
 spec:
   ports:
   - port: 80
     targetPort: 8080
     name: tcp
   selector:
-    istio: ingressgateway
+    istio: custom-gateway
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -236,7 +236,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio: ingressgateway
+      istio: custom-gateway
   template:
     metadata:
       annotations:
@@ -247,7 +247,7 @@ spec:
             numTrustedProxies: 1
             proxyProtocol: {}
       labels:
-        istio: ingressgateway
+        istio: custom-gateway
         {{ .injectLabel }}
     spec:
       {{- if ne .imagePullSecret "" }}
@@ -263,7 +263,7 @@ spec:
 			// Wait for gateway readiness
 			cs := t.Clusters().Default().(*kubecluster.Cluster)
 			retry.UntilSuccessOrFail(t, func() error {
-				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=ingressgateway"))
+				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway"))
 				return err
 			}, retry.Timeout(time.Minute*2), retry.Delay(time.Second))
 			for _, tt := range common.UpstreamProxyProtocolCase(&apps, fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name())) {

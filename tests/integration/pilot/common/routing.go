@@ -144,7 +144,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+    istio: {{.GatewayIstioLabel | default "custom-gateway"}}
   servers:
   - port:
       number: {{.GatewayPort}}
@@ -1602,7 +1602,7 @@ metadata:
   namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+    istio: {{.GatewayIstioLabel | default "custom-gateway"}}
   servers:
     - port:
         number: 443
@@ -1700,7 +1700,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+    istio: {{.GatewayIstioLabel | default "custom-gateway"}}
   servers:
   - port:
       number: 80
@@ -1738,7 +1738,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+    istio: {{.GatewayIstioLabel | default "custom-gateway"}}
   servers:
   - port:
       number: 80
@@ -1772,7 +1772,7 @@ spec:
           normalize_path: true
   workloadSelector:
     labels:
-      istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+      istio: {{.GatewayIstioLabel | default "custom-gateway"}}
 ---
 ` + httpVirtualServiceTmpl,
 		opts: echo.CallOptions{
@@ -1856,7 +1856,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+    istio: {{.GatewayIstioLabel | default "custom-gateway"}}
   servers:
   - port:
       number: 80
@@ -1899,7 +1899,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+    istio: {{.GatewayIstioLabel | default "custom-gateway"}}
   servers:
   - port:
       number: 80
@@ -1933,7 +1933,7 @@ spec:
           normalize_path: true
   workloadSelector:
     labels:
-      istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+      istio: {{.GatewayIstioLabel | default "custom-gateway"}}
 ---
 ` + httpVirtualServiceTmpl,
 		opts: echo.CallOptions{
@@ -1975,7 +1975,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+    istio: {{.GatewayIstioLabel | default "custom-gateway"}}
   servers:
   - port:
       number: 80
@@ -2018,7 +2018,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+    istio: {{.GatewayIstioLabel | default "custom-gateway"}}
   servers:
   - port:
       number: 80
@@ -2070,7 +2070,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+    istio: {{.GatewayIstioLabel | default "custom-gateway"}}
   servers:
   - port:
       number: 80
@@ -2159,7 +2159,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+    istio: {{.GatewayIstioLabel | default "custom-gateway"}}
   servers:
   - port:
       number: 80
@@ -4002,7 +4002,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
+    istio: {{.GatewayIstioLabel | default "custom-gateway"}}
   servers:
   - port:
       number: 80
