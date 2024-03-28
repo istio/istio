@@ -195,7 +195,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 		ReferenceGrant: referenceGrant,
 		ServiceEntry:   serviceEntry,
 		Domain:         c.domain,
-		Context:        NewGatewayContext(ps),
+		Context:        NewGatewayContext(ps, c.cluster),
 	}
 
 	if !input.hasResources() {
