@@ -290,7 +290,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 	labels := labelutil.AugmentLabels(wle.Labels, clusterID, locality, "", networkID)
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         addr,
+			Addresses:       []string{addr},
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
 			Network:         network.ID(wle.Network),
@@ -350,7 +350,7 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 				}
 				out = append(out, &model.ServiceInstance{
 					Endpoint: &model.IstioEndpoint{
-						Address:         string(service.Hostname),
+						Addresses:       []string{string(service.Hostname)},
 						EndpointPort:    endpointPort,
 						ServicePortName: serviceEntryPort.Name,
 						Labels:          nil,
@@ -443,7 +443,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 	labels := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address: addr,
+			Addresses: []string{addr},
 			// Not setting ports here as its done by k8s controller
 			Network: network.ID(we.Network),
 			Locality: model.Locality{

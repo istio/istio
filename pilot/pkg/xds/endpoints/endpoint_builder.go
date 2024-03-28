@@ -493,7 +493,7 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 		return false
 	}
 	// If we don't know the address we must eventually use a gateway address
-	if ep.Address == "" && (!b.gateways().IsMultiNetworkEnabled() || b.proxy.InNetwork(ep.Network)) {
+	if len(ep.Addresses) == 0 && (!b.gateways().IsMultiNetworkEnabled() || b.proxy.InNetwork(ep.Network)) {
 		return false
 	}
 	// Filter out unhealthy endpoints
@@ -605,7 +605,29 @@ func ExtractEnvoyEndpoints(locEps []*LocalityEndpoints) []*endpoint.LocalityLbEn
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnabled bool) *endpoint.LbEndpoint {
-	addr := util.BuildAddress(e.Address, e.EndpointPort)
+	addr := util.BuildAddress(e.Addresses[0], e.EndpointPort)
+
+	// This change can support multiple addresses for an endpoint, then there are some use cases for it, such as
+	// 1. An endpoint can have both ipv4 or ipv6
+	// 2. An endpoint can be represented a serviceentry/workload instance with multiple IP addresses
+	// When the additional_addresses field is populated for EDS in Envoy configuration, there would be a Happy Eyeballs
+	// algorithm to instantiate for the Endpoint, first attempt connecting to the IP address in the address field.
+	// Thereafter it will interleave IP addresses in the `additional_addresses` field based on IP version, as described in rfc8305,
+	// and attempt connections with them with a delay of 300ms each. The first connection to succeed will be used.
+	// Note: it uses Hash Based Load Balancing Policies for multiple addresses support Endpoint, and only the first address of the
+	// endpoint will be used as the hash key for the ring or maglev list, however, the upstream address that load balancer ends up
+	// connecting to will depend on the one that ends up "winning" using the Happy Eyeballs algorithm.
+	// Please refer to https://docs.google.com/document/d/1AjmTcMWwb7nia4rAgqE-iqIbSbfiXCI4h1vk-FONFdM/ for more details.
+	var additionalAddrs []*endpoint.Endpoint_AdditionalAddress
+	if features.EnableDualStack {
+		for _, itemAddr := range e.Addresses[1:] {
+			coreAddr := util.BuildAddress(itemAddr, e.EndpointPort)
+			additionalAddr := &endpoint.Endpoint_AdditionalAddress{
+				Address: coreAddr,
+			}
+			additionalAddrs = append(additionalAddrs, additionalAddr)
+		}
+	}
 	healthStatus := e.HealthStatus
 	if features.DrainingLabel != "" && e.Labels[features.DrainingLabel] != "" {
 		healthStatus = model.Draining
@@ -618,7 +640,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
-				Address: addr,
+				Address:             addr,
+				AdditionalAddresses: additionalAddrs,
 			},
 		},
 		Metadata: &corev3.Metadata{},
@@ -653,8 +676,17 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
 	waypoint := ""
-	address, port := e.Address, int(e.EndpointPort)
-	tunnel := supportTunnel(b, e)
+	addresses, port := e.Addresses, int(e.EndpointPort)
+	// If Dual Stack feature is enable, the `e.Addresses` has both IPv4 and IPv6
+	// `supportTunnel` returns the IP address which supports Tunnel based on `e`'s
+	// networkID and IP address information.
+	// Note: Waypoint is not deployed in Dual Stack mode, so it still keeps the single
+	// stack behaviors, so `supportTunnel` returns the first IP here if `e` is waypoint`
+	// because it does support Tunnel
+	tunnel, supportTunnelAddr := supportTunnel(b, e)
+	if supportTunnelAddr == "" {
+		supportTunnelAddr = addresses[0]
+	}
 	// Setup tunnel information, if needed
 	// This is for waypoint
 	if b.dir == model.TrafficDirectionInboundVIP {
@@ -670,7 +702,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		if tunnel {
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
-			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
+			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(supportTunnelAddr, port, waypoint)
 			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
 			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
 				Value: e.GetLoadBalancingWeight(),
@@ -687,9 +719,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		}
 		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(port))),
+			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(supportTunnelAddr, strconv.Itoa(port))),
 		}}
-		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(supportTunnelAddr, port, waypoint)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
@@ -700,33 +732,36 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	return ep
 }
 
-func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
+func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) (bool, string) {
 	if b.proxy.IsProxylessGrpc() {
 		// Proxyless client cannot handle tunneling, even if the server can
-		return false
+		return false, ""
 	}
 
 	if !b.proxy.EnableHBONE() {
-		return false
+		return false, ""
 	}
 
 	// Other side is a waypoint proxy.
 	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
-		return true
+		return true, e.Addresses[0]
 	}
 
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	if b.push.SupportsTunnel(e.Network, e.Address) {
-		return true
+	// Checking all addresses and return true if there is any IP address support tunneling with currenct endpoint has multiple addresses
+	for _, addr := range e.Addresses {
+		if b.push.SupportsTunnel(e.Network, addr) {
+			return true, addr
+		}
 	}
 	// Otherwise supports tunnel
 	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
 	// need to pick the right one based on our support overlap.
 	if e.SupportsTunnel(model.TunnelHTTP) {
-		return true
+		return true, ""
 	}
 
-	return false
+	return false, ""
 }
 
 // waypointInScope computes whether the endpoint is owned by the waypoint

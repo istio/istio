@@ -152,7 +152,7 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 	exampleInstance := &WorkloadInstance{
 		Endpoint: &IstioEndpoint{
 			Labels:          labels.Instance{"app": "prod-app"},
-			Address:         "an-address",
+			Addresses:       []string{"an-address"},
 			ServicePortName: "service-port-name",
 			ServiceAccount:  "service-account",
 			Network:         "Network",
@@ -166,7 +166,7 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 		},
 	}
 	differingAddr := exampleInstance.DeepCopy()
-	differingAddr.Endpoint.Address = "another-address"
+	differingAddr.Endpoint.Addresses = []string{"another-address"}
 	differingNetwork := exampleInstance.DeepCopy()
 	differingNetwork.Endpoint.Network = "AnotherNetwork"
 	differingTLSMode := exampleInstance.DeepCopy()

@@ -48,7 +48,7 @@ func MakeServiceInstance(service *model.Service, port *model.Port, version int, 
 
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         MakeIP(service, version),
+			Addresses:       []string{MakeIP(service, version)},
 			EndpointPort:    uint32(target),
 			ServicePortName: port.Name,
 			Labels:          map[string]string{"version": fmt.Sprintf("v%d", version)},

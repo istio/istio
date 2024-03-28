@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - 40394
+
+releaseNotes:
+- |
+        **Added** There are 2 stages for this change. Stage 1 is that support multiple addresses for an IstioEndpoint in Istio. Stage 2 is that one IstioEndpointcan instance can represent one dual stack pod. One dual stack pod is originally represented by 2 istioEndpoints instances(an IPv4 one and an IPv6 one). And only one istioEndpoint is needed for this dual stack pod after this change.
