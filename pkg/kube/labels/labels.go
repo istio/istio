@@ -16,7 +16,7 @@
 // from Kubernetes resources.
 package labels
 
-import "istio.io/istio/pilot/pkg/model"
+import "istio.io/istio/pkg/model"
 
 var (
 	// These are the labels that are checked for canonical service name and revision.

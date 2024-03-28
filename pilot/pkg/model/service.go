@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -172,9 +173,7 @@ const (
 	// registry's value.
 	//
 	// Note: because k8s labels does not support `/`, so we use `.` instead in k8s.
-	LocalityLabel = "istio-locality"
-	// k8s istio-locality label separator
-	k8sSeparator = "."
+	LocalityLabel = pm.LocalityLabel
 )
 
 const (
@@ -207,10 +206,10 @@ const (
 	IstioMutualTLSModeLabel = "istio"
 
 	// IstioCanonicalServiceLabelName is the name of label for the Istio Canonical Service for a workload instance.
-	IstioCanonicalServiceLabelName = "service.istio.io/canonical-name"
+	IstioCanonicalServiceLabelName = pm.IstioCanonicalServiceLabelName
 
 	// IstioCanonicalServiceRevisionLabelName is the name of label for the Istio Canonical Service revision for a workload instance.
-	IstioCanonicalServiceRevisionLabelName = "service.istio.io/canonical-revision"
+	IstioCanonicalServiceRevisionLabelName = pm.IstioCanonicalServiceRevisionLabelName
 )
 
 func SupportsTunnel(labels map[string]string, tunnelType string) bool {
@@ -427,15 +426,7 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 // GetLocalityLabel returns the locality from the supplied label. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
 func GetLocalityLabel(label string) string {
-	if len(label) > 0 {
-		// if there are /'s present we don't need to replace
-		if strings.Contains(label, "/") {
-			return label
-		}
-		// replace "." with "/"
-		return strings.Replace(label, k8sSeparator, "/", -1)
-	}
-	return ""
+	return pm.GetLocalityLabel(label)
 }
 
 // Locality information for an IstioEndpoint
