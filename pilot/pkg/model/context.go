@@ -54,6 +54,7 @@ import (
 )
 
 type (
+	Node                    = pm.Node
 	NodeMetadata            = pm.NodeMetadata
 	BootstrapNodeMetadata   = pm.BootstrapNodeMetadata
 	TrafficInterceptionMode = pm.TrafficInterceptionMode
