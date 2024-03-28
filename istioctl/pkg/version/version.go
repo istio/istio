@@ -33,13 +33,12 @@ import (
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proxy"
 	istioVersion "istio.io/istio/pkg/version"
 )
 
 func NewVersionCommand(ctx cli.Context) *cobra.Command {
-	profileCmd := mesh.ProfileCmd(ctx, log.DefaultOptions())
+	profileCmd := mesh.ProfileCmd(ctx)
 	var opts clioptions.ControlPlaneOptions
 	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
 		GetRemoteVersion: getRemoteInfoWrapper(ctx, &profileCmd, &opts),

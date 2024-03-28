@@ -169,6 +169,11 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 						"app":     "waypoint",
 						"version": "v1",
 					},
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.AmbientUseWaypoint: {
+							Value: "waypoint",
+						},
+					},
 				},
 				{
 					Replicas: 1,
@@ -176,6 +181,11 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Labels: map[string]string{
 						"app":     "waypoint",
 						"version": "v2",
+					},
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.AmbientUseWaypoint: {
+							Value: "waypoint",
+						},
 					},
 				},
 			},

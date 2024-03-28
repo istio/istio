@@ -16,11 +16,12 @@ package log
 
 // These functions enable logging using a global Scope. See scope.go for usage information.
 
-func registerDefaultScope() *Scope {
-	return registerScope(DefaultScopeName, "Unscoped logging messages.", 1)
+func registerDefaultScopes() (defaults *Scope, grpc *Scope) {
+	return registerScope(DefaultScopeName, "Unscoped logging messages.", 1),
+		registerScope(GrpcScopeName, "logs from gRPC", 3)
 }
 
-var defaultScope = registerDefaultScope()
+var defaultScope, grpcScope = registerDefaultScopes()
 
 // Fatal outputs a message at fatal level.
 func Fatal(fields any) {

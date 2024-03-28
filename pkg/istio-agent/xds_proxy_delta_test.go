@@ -33,6 +33,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -126,7 +127,7 @@ func TestDeltaECDSWasmConversion(t *testing.T) {
 	node := model.NodeMetadata{
 		Namespace:   "default",
 		InstanceIPs: []string{"1.1.1.1"},
-		ClusterID:   "Kubernetes",
+		ClusterID:   constants.DefaultClusterName,
 	}
 	proxy := setupXdsProxy(t)
 	// Reset wasm cache to a fake ACK cache.

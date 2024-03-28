@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 )
 
 type InstallArgs struct {
@@ -99,7 +98,7 @@ func addInstallFlags(cmd *cobra.Command, args *InstallArgs) {
 }
 
 // InstallCmdWithArgs generates an Istio install manifest and applies it to a cluster
-func InstallCmdWithArgs(ctx cli.Context, rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options) *cobra.Command {
+func InstallCmdWithArgs(ctx cli.Context, rootArgs *RootArgs, iArgs *InstallArgs) *cobra.Command {
 	ic := &cobra.Command{
 		Use:     "install",
 		Short:   "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
@@ -132,7 +131,7 @@ func InstallCmdWithArgs(ctx cli.Context, rootArgs *RootArgs, iArgs *InstallArgs,
 			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			p := NewPrinterForWriter(cmd.OutOrStderr())
-			return Install(kubeClient, rootArgs, iArgs, logOpts, cmd.OutOrStdout(), l, p)
+			return Install(kubeClient, rootArgs, iArgs, cmd.OutOrStdout(), l, p)
 		},
 	}
 
@@ -142,11 +141,11 @@ func InstallCmdWithArgs(ctx cli.Context, rootArgs *RootArgs, iArgs *InstallArgs,
 }
 
 // InstallCmd generates an Istio install manifest and applies it to a cluster
-func InstallCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
-	return InstallCmdWithArgs(ctx, &RootArgs{}, &InstallArgs{}, logOpts)
+func InstallCmd(ctx cli.Context) *cobra.Command {
+	return InstallCmdWithArgs(ctx, &RootArgs{}, &InstallArgs{})
 }
 
-func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOut io.Writer, l clog.Logger, p Printer,
+func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, stdOut io.Writer, l clog.Logger, p Printer,
 ) error {
 	kubeClient, client, err := KubernetesClients(kubeClient, l)
 	if err != nil {
@@ -194,9 +193,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 			p.Println("Cancelled.")
 			os.Exit(1)
 		}
-	}
-	if err := configLogs(logOpts); err != nil {
-		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
 	iop.Name = savedIOPName(iop)

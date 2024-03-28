@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -76,7 +75,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		return cl, nil, lg, false
 	}
 
-	var deletedClusters []string
+	deletedClusters := sets.New[string]()
 	var services []*model.Service
 	// Holds clusters per service, keyed by hostname.
 	serviceClusters := make(map[string]sets.String)
@@ -89,16 +88,24 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	for _, cluster := range watched.ResourceNames {
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
 		// check with the name of our service (cluster names are in the format outbound|<port>|<subset>|<hostname>).
-		_, subset, svcHost, port := model.ParseSubsetKey(cluster)
-		if subset == "" {
-			sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
+		dir, subset, svcHost, port := model.ParseSubsetKey(cluster)
+		// Inbound clusters don't have svchost in its format. So don't add it to serviceClusters.
+		if dir == model.TrafficDirectionInbound {
+			// Append all inbound clusters because in both stow/delta we always build all inbound clusters.
+			// In reality, the delta building is only for outbound clusters. We need to revist here once we support delta for inbound.
+			// So deletedClusters.Difference(builtClusters) would give us the correct deleted inbound clusters.
+			deletedClusters.Insert(cluster)
 		} else {
-			sets.InsertOrNew(subsetClusters, string(svcHost), cluster)
+			if subset == "" {
+				sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
+			} else {
+				sets.InsertOrNew(subsetClusters, string(svcHost), cluster)
+			}
+			if servicePortClusters[string(svcHost)] == nil {
+				servicePortClusters[string(svcHost)] = make(map[int]string)
+			}
+			servicePortClusters[string(svcHost)][port] = cluster
 		}
-		if servicePortClusters[string(svcHost)] == nil {
-			servicePortClusters[string(svcHost)] = make(map[int]string)
-		}
-		servicePortClusters[string(svcHost)][port] = cluster
 	}
 
 	for key := range updates.ConfigsUpdated {
@@ -113,20 +120,19 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
 		}
 		services = append(services, svcs...)
-		deletedClusters = append(deletedClusters, deleted...)
+		deletedClusters.InsertAll(deleted...)
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
-	// When clusters are rebuilt, it rebuilt the subset clusters as well. So, we know what
+	// When clusters are rebuilt, we rebuild the subset clusters as well. So, we know what
 	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
 	builtClusters := sets.New[string]()
 	for _, c := range clusters {
 		builtClusters.Insert(c.Name)
 	}
-	finalDeletedClusters := slices.FilterInPlace(deletedClusters, func(cluster string) bool {
-		return !builtClusters.Contains(cluster)
-	})
-	return clusters, finalDeletedClusters, log, true
+	// Remove anything we built from the deleted list
+	deletedClusters = deletedClusters.Difference(builtClusters)
+	return clusters, sets.SortedList(deletedClusters), log, true
 }
 
 // deltaFromServices computes the delta clusters from the updated services.

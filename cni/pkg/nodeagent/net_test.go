@@ -38,7 +38,7 @@ import (
 
 func setupLogging() {
 	opts := istiolog.DefaultOptions()
-	opts.SetOutputLevel(istiolog.OverrideScopeName, istiolog.DebugLevel)
+	opts.SetDefaultOutputLevel(istiolog.OverrideScopeName, istiolog.DebugLevel)
 	istiolog.Configure(opts)
 	for _, scope := range istiolog.Scopes() {
 		scope.SetOutputLevel(istiolog.DebugLevel)
@@ -57,7 +57,7 @@ type netTestFixture struct {
 func getTestFixure(ctx context.Context) netTestFixture {
 	podNsMap := newPodNetnsCache(openNsTestOverride)
 	nlDeps := &fakeIptablesDeps{}
-	iptablesConfigurator := iptables.NewIptablesConfigurator(nil, &dependencies.StdoutStubDependencies{}, nlDeps)
+	iptablesConfigurator, _ := iptables.NewIptablesConfigurator(nil, &dependencies.DependenciesStub{}, nlDeps)
 
 	ztunnelServer := &fakeZtunnel{}
 

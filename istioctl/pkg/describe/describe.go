@@ -267,7 +267,7 @@ func printDestinationRule(writer io.Writer, dr *clientnetworking.DestinationRule
 		}
 	}
 
-	// Ignore LoadBalancer, ConnectionPool, OutlierDetection, and PortLevelSettings
+	// Ignore LoadBalancer, ConnectionPool, OutlierDetection
 	trafficPolicy := dr.Spec.TrafficPolicy
 	if trafficPolicy == nil {
 		fmt.Fprintf(writer, "   No Traffic Policy\n")
@@ -275,23 +275,54 @@ func printDestinationRule(writer io.Writer, dr *clientnetworking.DestinationRule
 		if trafficPolicy.Tls != nil {
 			fmt.Fprintf(writer, "   Traffic Policy TLS Mode: %s\n", dr.Spec.TrafficPolicy.Tls.Mode.String())
 		}
-		extra := []string{}
-		if trafficPolicy.LoadBalancer != nil {
-			extra = append(extra, "load balancer")
+		shortPolicies := recordShortPolicies(
+			trafficPolicy.LoadBalancer,
+			trafficPolicy.ConnectionPool,
+			trafficPolicy.OutlierDetection)
+		if shortPolicies != "" {
+			fmt.Fprintf(writer, "%s%s", printSpaces(3), shortPolicies)
 		}
-		if trafficPolicy.ConnectionPool != nil {
-			extra = append(extra, "connection pool")
-		}
-		if trafficPolicy.OutlierDetection != nil {
-			extra = append(extra, "outlier detection")
-		}
+
 		if trafficPolicy.PortLevelSettings != nil {
-			extra = append(extra, "port level settings")
-		}
-		if len(extra) > 0 {
-			fmt.Fprintf(writer, "   %s\n", strings.Join(extra, "/"))
+			fmt.Fprintf(writer, "%sPort Level Settings:\n", printSpaces(3))
+			for _, ps := range trafficPolicy.PortLevelSettings {
+				fmt.Fprintf(writer, "%s%d:\n", printSpaces(4), ps.GetPort().GetNumber())
+				if ps.Tls != nil {
+					fmt.Fprintf(writer, "%sTLS Mode: %s\n", printSpaces(6), ps.Tls.Mode.String())
+				}
+				if sp := recordShortPolicies(
+					ps.LoadBalancer,
+					ps.ConnectionPool,
+					ps.OutlierDetection); sp != "" {
+					fmt.Fprintf(writer, "%s%s", printSpaces(6), sp)
+				}
+			}
 		}
 	}
+}
+
+func printSpaces(numSpaces int) string {
+	return strings.Repeat(" ", numSpaces)
+}
+
+func recordShortPolicies(lb *v1alpha3.LoadBalancerSettings,
+	connectionPool *v1alpha3.ConnectionPoolSettings,
+	outlierDetection *v1alpha3.OutlierDetection,
+) string {
+	extra := make([]string, 0)
+	if lb != nil {
+		extra = append(extra, "load balancer")
+	}
+	if connectionPool != nil {
+		extra = append(extra, "connection pool")
+	}
+	if outlierDetection != nil {
+		extra = append(extra, "outlier detection")
+	}
+	if len(extra) > 0 {
+		return fmt.Sprintf("Policies: %s\n", strings.Join(extra, "/"))
+	}
+	return ""
 }
 
 // httpRouteMatchSvc returns true if it matches and a slice of facts about the match
@@ -983,9 +1014,11 @@ func printIngressService(writer io.Writer, ingressSvc *corev1.Service, ingressPo
 	// the most basic output.
 	portsToShow := map[string]bool{
 		"http2": true,
+		"http":  true,
 	}
 	protocolToScheme := map[string]string{
 		"HTTP2": "http",
+		"HTTP":  "http",
 	}
 	schemePortDefault := map[string]int{
 		"http": 80,

@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
@@ -72,7 +73,7 @@ func CreateCertificate(t framework.TestContext, i Instance, serviceAccount, name
 		Csr:              string(csrPEM),
 		ValidityDuration: int64((time.Hour * 24 * 7).Seconds()),
 	}
-	rctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+token, "ClusterID", "Kubernetes"))
+	rctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+token, "ClusterID", constants.DefaultClusterName))
 	resp, err := client.CreateCertificate(rctx, req)
 	if err != nil {
 		return Cert{}, fmt.Errorf("send CSR: %v", err)

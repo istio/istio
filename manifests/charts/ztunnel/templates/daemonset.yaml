@@ -135,6 +135,8 @@ spec:
           name: istio-token
         - mountPath: /var/run/ztunnel
           name: cni-ztunnel-sock-dir
+        - mountPath: /tmp
+          name: tmp
         {{- with .Values.volumeMounts }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -155,6 +157,9 @@ spec:
         hostPath:
           path: /var/run/ztunnel
           type: DirectoryOrCreate # ideally this would be a socket, but ztunnel may not have started yet.
+      # pprof needs a writable /tmp, and we don't have that thanks to `readOnlyRootFilesystem: true`, so mount one
+      - name: tmp
+        emptyDir: {}
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 6}}
       {{- end }}

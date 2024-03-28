@@ -20,6 +20,8 @@ package dependencies
 import (
 	"errors"
 	"io"
+
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 // ErrNotImplemented is returned when a requested feature is not implemented.
@@ -29,6 +31,10 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reade
 	return ErrNotImplemented
 }
 
-func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin io.Reader, args ...string) error {
+func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
 	return ErrNotImplemented
+}
+
+func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, error) {
+	return IptablesVersion{}, ErrNotImplemented
 }

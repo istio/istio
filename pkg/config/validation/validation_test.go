@@ -3584,6 +3584,14 @@ func TestValidateDestinationRule(t *testing.T) {
 			},
 		}, valid: false},
 
+		{name: "duplicate subset names", in: &networking.DestinationRule{
+			Host: "reviews",
+			Subsets: []*networking.Subset{
+				{Name: "foo", Labels: map[string]string{"version": "v1"}},
+				{Name: "foo", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: false},
+
 		{name: "valid traffic policy, top level", in: &networking.DestinationRule{
 			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
@@ -4693,13 +4701,13 @@ func TestValidateEnvoyFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			warn, err := ValidateEnvoyFilter(config.Config{
+			warn, err := validateEnvoyFilter(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
 				},
 				Spec: tt.in,
-			})
+			}, Validation{})
 			checkValidationMessage(t, warn, err, tt.warning, tt.error)
 		})
 	}

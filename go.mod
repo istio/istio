@@ -25,7 +25,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.9.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v25.0.3+incompatible
-	github.com/envoyproxy/go-control-plane v0.12.1-0.20240229170157-f82c59662ea6
+	github.com/envoyproxy/go-control-plane v0.12.1-0.20240314184636-e9cf4c9cda6d
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/fatih/color v1.16.0
 	github.com/felixge/fgprof v0.9.4
@@ -106,8 +106,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.14.2
-	istio.io/api v1.19.0-alpha.1.0.20240305222620-e799e9291a3f
-	istio.io/client-go v1.19.0-alpha.1.0.20240305223320-dd3067392a51
+	istio.io/api v1.19.0-alpha.1.0.20240325173917-35fefa2d2903
+	istio.io/client-go v1.19.0-alpha.1.0.20240325174217-6067be7adc24
 	k8s.io/api v0.29.2
 	k8s.io/apiextensions-apiserver v0.29.2
 	k8s.io/apimachinery v0.29.2
@@ -146,7 +146,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
-	github.com/docker/docker v25.0.0+incompatible // indirect
+	github.com/docker/docker v25.0.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.0.4 // indirect

@@ -1,4 +1,9 @@
 {
+  "application_log_config": {
+    "log_format": {
+        "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
+    }
+  },
   "node": {
     "id": "sidecar~1.2.3.4~foo~bar",
     "cluster": "istio-proxy",

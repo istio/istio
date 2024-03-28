@@ -26,6 +26,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
@@ -82,7 +83,7 @@ func TestStatsFilter(t *testing.T) {
 							return err
 						}
 						c := cltInstance.Config().Cluster
-						sourceCluster := "Kubernetes"
+						sourceCluster := constants.DefaultClusterName
 						if len(t.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}
@@ -165,7 +166,7 @@ func TestStatsTCPFilter(t *testing.T) {
 							return err
 						}
 						c := cltInstance.Config().Cluster
-						sourceCluster := "Kubernetes"
+						sourceCluster := constants.DefaultClusterName
 						if len(t.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}
@@ -239,7 +240,7 @@ spec:
 						}
 
 						c := cltInstance.Config().Cluster
-						sourceCluster := "Kubernetes"
+						sourceCluster := constants.DefaultClusterName
 						if len(t.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}

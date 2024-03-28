@@ -148,31 +148,24 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 	return clusters
 }
 
-// CONNECT origination cluster
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
-	// Restrict upstream SAN to waypoint scope.
-	scope := proxy.WaypointScope()
 	m := &matcher.StringMatcher{}
-	if scope.ServiceAccount != "" {
-		m.MatchPattern = &matcher.StringMatcher_Exact{
-			Exact: spiffe.MustGenSpiffeURI(scope.Namespace, scope.ServiceAccount),
-		}
-	} else {
-		m.MatchPattern = &matcher.StringMatcher_Prefix{
-			Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/ns/" + scope.Namespace + "/sa/",
-		}
+	m.MatchPattern = &matcher.StringMatcher_Prefix{
+		Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/ns/" + proxy.Metadata.Namespace + "/sa/",
 	}
 	return cb.buildConnectOriginate(proxy, push, m)
 }
 
-func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.PushContext, uriSanMatcher *matcher.StringMatcher) *cluster.Cluster {
+func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.PushContext, uriSanMatchers ...*matcher.StringMatcher) *cluster.Cluster {
 	ctx := buildCommonConnectTLSContext(proxy, push)
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
-	if uriSanMatcher != nil {
-		validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
-			SanType: tls.SubjectAltNameMatcher_URI,
-			Matcher: uriSanMatcher,
-		})
+	for _, uriSanMatcher := range uriSanMatchers {
+		if uriSanMatcher != nil {
+			validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
+				SanType: tls.SubjectAltNameMatcher_URI,
+				Matcher: uriSanMatcher,
+			})
+		}
 	}
 	// Compliance for Envoy tunnel upstreams.
 	sec_model.EnforceCompliance(ctx)

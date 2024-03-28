@@ -703,6 +703,8 @@ type ServiceAttributes struct {
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
 
+	PassthroughTargetPorts map[uint32]uint32
+
 	K8sAttributes
 }
 
@@ -866,8 +868,13 @@ type AmbientIndexes interface {
 		currentSubs sets.String,
 	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
-	Waypoint(scope WaypointScope) []netip.Addr
-	WorkloadsForWaypoint(scope WaypointScope) []WorkloadInfo
+	Waypoint(network, address string) []netip.Addr
+	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
+}
+
+type WaypointKey struct {
+	Network   string
+	Addresses []string
 }
 
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
@@ -889,11 +896,11 @@ func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []WorkloadAuthorizatio
 	return nil
 }
 
-func (u NoopAmbientIndexes) Waypoint(WaypointScope) []netip.Addr {
+func (u NoopAmbientIndexes) Waypoint(string, string) []netip.Addr {
 	return nil
 }
 
-func (u NoopAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []WorkloadInfo {
+func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
 	return nil
 }
 
@@ -967,12 +974,6 @@ func serviceResourceName(s *workloadapi.Service) string {
 
 type WorkloadSource string
 
-const (
-	WorkloadSourcePod           WorkloadSource = "pod"
-	WorkloadSourceServiceEntry  WorkloadSource = "serviceentry"
-	WorkloadSourceWorkloadEntry WorkloadSource = "workloadentry"
-)
-
 type WorkloadInfo struct {
 	*workloadapi.Workload
 	// Labels for the workload. Note these are only used internally, not sent over XDS
@@ -1045,7 +1046,7 @@ func ExtractWorkloadsFromAddresses(addrs []AddressInfo) []WorkloadInfo {
 	})
 }
 
-func SortWorkloadsByCreationTime(workloads []*WorkloadInfo) []*WorkloadInfo {
+func SortWorkloadsByCreationTime(workloads []WorkloadInfo) []WorkloadInfo {
 	sort.SliceStable(workloads, func(i, j int) bool {
 		if workloads[i].CreationTime.Equal(workloads[j].CreationTime) {
 			return workloads[i].Uid < workloads[j].Uid
