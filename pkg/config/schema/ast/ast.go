@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/validation"
+	_ "istio.io/istio/pkg/config/validation/envoyfilter"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/util/strcase"
 )
@@ -79,7 +80,13 @@ func (m *Metadata) UnmarshalJSON(data []byte) error {
 		if r.Validate == "" {
 			validateFn := "Validate" + asResourceVariableName(r.Kind)
 			if !validation.IsValidateFunc(validateFn) {
-				validateFn = "EmptyValidate"
+				validateFn = "validation.EmptyValidate"
+			} else {
+				if r.Kind == "EnvoyFilter" {
+					validateFn = "envoyfilter." + validateFn
+				} else {
+					validateFn = "validation." + validateFn
+				}
 			}
 			m.Resources[i].Validate = validateFn
 		}

@@ -7,6 +7,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+{{ .CustomImport }}
   "reflect"
 {{- range .Packages}}
 	{{.ImportName}} "{{.PackageName}}"
@@ -37,7 +38,7 @@ var (
 			ClusterScoped: {{ .Resource.ClusterScoped }},
 			Synthetic: {{ .Resource.Synthetic }},
 			Builtin: {{ .Resource.Builtin }},
-			ValidateProto: validation.{{ .Resource.Validate }},
+			ValidateProto: {{ .Resource.Validate }},
 		}.MustBuild()
 {{ end }}
 

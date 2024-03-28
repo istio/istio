@@ -6,6 +6,10 @@
 package collections
 
 import (
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/validation"
+
 	"reflect"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
@@ -15,9 +19,6 @@ import (
 	istioioapinetworkingv1beta1 "istio.io/api/networking/v1beta1"
 	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
 	istioioapitelemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/config/validation"
 )
 
 var (
@@ -277,7 +278,6 @@ var (
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
 		MustAdd(DestinationRule).
-		MustAdd(EnvoyFilter).
 		MustAdd(Gateway).
 		MustAdd(MeshConfig).
 		MustAdd(MeshNetworks).
@@ -301,7 +301,6 @@ var (
 	Pilot = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
 		MustAdd(DestinationRule).
-		MustAdd(EnvoyFilter).
 		MustAdd(Gateway).
 		MustAdd(PeerAuthentication).
 		MustAdd(ProxyConfig).
@@ -319,7 +318,6 @@ var (
 	pilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(AuthorizationPolicy).
 			MustAdd(DestinationRule).
-			MustAdd(EnvoyFilter).
 			MustAdd(Gateway).
 			MustAdd(PeerAuthentication).
 			MustAdd(ProxyConfig).
@@ -337,7 +335,6 @@ var (
 	pilotStableGatewayAPI = collection.NewSchemasBuilder().
 				MustAdd(AuthorizationPolicy).
 				MustAdd(DestinationRule).
-				MustAdd(EnvoyFilter).
 				MustAdd(Gateway).
 				MustAdd(PeerAuthentication).
 				MustAdd(ProxyConfig).
