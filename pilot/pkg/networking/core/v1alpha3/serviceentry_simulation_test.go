@@ -91,8 +91,8 @@ func TestServiceEntry(t *testing.T) {
 			}},
 		},
 		{
-			// TODO(https://github.com/istio/istio/issues/29197) we should probably drop these too
-			name:       "overlapping CIDR causes multiple filter chain match",
+			name: "overlapping CIDR causes multiple filter chain match",
+			// One address will be ignorred
 			config:     fmt.Sprintf(se, "1234:1f1:123:123:f816:3eff:feb8:2287/16", "1234:1f1:123:123:f816:3eff:febf:57ce/32"),
 			kubeConfig: "",
 			calls: []simulation.Expect{{
@@ -105,8 +105,9 @@ func TestServiceEntry(t *testing.T) {
 					Protocol:   simulation.HTTP,
 				},
 				Result: simulation.Result{
-					Error:           simulation.ErrMultipleFilterChain,
+					Error:           nil,
 					ListenerMatched: "0.0.0.0_9999",
+					ClusterMatched:  "outbound|9999||blah.somedomain",
 				},
 			}},
 		},
