@@ -155,16 +155,20 @@ var TProxy Matcher = func(i echo.Instance) bool {
 
 var NotTProxy = Not(TProxy)
 
-var Waypoint Matcher = func(i echo.Instance) bool {
-	return i.Config().HasWaypointProxy()
+var ServiceAddressedWaypoint Matcher = func(i echo.Instance) bool {
+	return i.Config().HasServiceAddressedWaypointProxy()
 }
 
-var NotWaypoint = Not(Waypoint)
+var WorkloadAddressedWaypoint Matcher = func(i echo.Instance) bool {
+	return i.Config().HasWorkloadAddressedWaypointProxy()
+}
+
+var NotWaypoint = And(Not(ServiceAddressedWaypoint), Not(WorkloadAddressedWaypoint))
 
 // add a "waypointed service" matcher
 func WaypointService() Matcher {
 	return func(i echo.Instance) bool {
-		return Waypoint(i)
+		return ServiceAddressedWaypoint(i)
 	}
 }
 

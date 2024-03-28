@@ -45,6 +45,7 @@ type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
+	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	Waypoint(network, address string) []netip.Addr
 	SyncAll()
 	model.AmbientIndexes
@@ -380,6 +381,13 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 	return res, sets.New(removed...)
 }
 
+func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	return a.services.ByOwningWaypoint.Lookup(networkAddress{
+		network: key.Network,
+		ip:      key.Addresses[0],
+	})
+}
+
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
 	// TODO: we should be able to handle multiple IPs or a hostname
 	if len(key.Addresses) == 0 {
@@ -389,17 +397,6 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 		network: key.Network,
 		ip:      key.Addresses[0],
 	})
-	services := a.services.ByOwningWaypoint.Lookup(networkAddress{
-		network: key.Network,
-		ip:      key.Addresses[0],
-	})
-	workloadsFromServices := make([]model.WorkloadInfo, 0)
-	for _, s := range services {
-		svcWls := a.workloads.ByServiceKey.Lookup(namespacedHostname(s.Namespace, s.Hostname))
-		workloadsFromServices = append(workloadsFromServices, svcWls...)
-	}
-	// this is not deduplicated...
-	workloads = append(workloads, workloadsFromServices...)
 	workloads = model.SortWorkloadsByCreationTime(workloads)
 	return workloads
 }
