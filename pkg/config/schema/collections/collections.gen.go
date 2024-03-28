@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/config/validation/envoyfilter"
 )
 
 var (
@@ -185,7 +186,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateEnvoyFilter,
+		ValidateProto: envoyfilter.ValidateEnvoyFilter,
 	}.MustBuild()
 
 	GRPCRoute = resource.Builder{

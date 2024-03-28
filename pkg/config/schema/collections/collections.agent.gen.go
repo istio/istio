@@ -57,21 +57,6 @@ var (
 		ValidateProto: validation.ValidateDestinationRule,
 	}.MustBuild()
 
-	EnvoyFilter = resource.Builder{
-		Identifier: "EnvoyFilter",
-		Group:      "networking.istio.io",
-		Kind:       "EnvoyFilter",
-		Plural:     "envoyfilters",
-		Version:    "v1alpha3",
-		Proto:      "istio.networking.v1alpha3.EnvoyFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.EnvoyFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-		ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
-		ClusterScoped: false,
-		Synthetic:     false,
-		Builtin:       false,
-		ValidateProto: validation.ValidateEnvoyFilter,
-	}.MustBuild()
-
 	Gateway = resource.Builder{
 		Identifier: "Gateway",
 		Group:      "networking.istio.io",

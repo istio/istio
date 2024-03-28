@@ -25,9 +25,9 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
