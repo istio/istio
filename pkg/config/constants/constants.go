@@ -164,7 +164,6 @@ const (
 	AlwaysReject = "internal.istio.io/webhook-always-reject"
 
 	WaypointServiceAccount = "istio.io/for-service-account"
-	WaypointForAddressType = "istio.io/waypoint-for"
 
 	ManagedGatewayLabel               = "gateway.istio.io/managed"
 	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
@@ -199,6 +198,8 @@ const (
 
 	// AmbientUseWaypoint is the annotation used to specify which waypoint should be used for a given pod, service, etc...
 	AmbientUseWaypoint = "istio.io/use-waypoint"
+	// AmbientWaypointForTrafficType is the annotation used to specify which traffic should go through the intended waypoint.
+	AmbientWaypointForTrafficType = "istio.io/waypoint-for"
 
 	// ServiceTraffic indicates that service traffic should go through the intended waypoint.
 	ServiceTraffic = "service"

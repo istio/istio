@@ -50,14 +50,11 @@ var (
 
 	deleteAll bool
 
-	trafficType string
+	trafficType       string
+	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 )
 
-const (
-	waitTimeout = 90 * time.Second
-)
-
-var validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
+const waitTimeout = 90 * time.Second
 
 func Cmd(ctx cli.Context) *cobra.Command {
 	var waypointServiceAccount string
@@ -91,7 +88,6 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}},
 			},
 		}
-
 		// Determine which traffic address type to apply the waypoint to, if none
 		// then default to "service" as the waypoint-for traffic type.
 		if trafficType == "" {
@@ -104,7 +100,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		if gw.Annotations == nil {
 			gw.Annotations = map[string]string{}
 		}
-		gw.Annotations[constants.WaypointForAddressType] = trafficType
+		gw.Annotations[constants.AmbientWaypointForTrafficType] = trafficType
 
 		if waypointServiceAccount != "" {
 			gw.Annotations = map[string]string{

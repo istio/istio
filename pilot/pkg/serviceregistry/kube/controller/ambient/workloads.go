@@ -67,6 +67,11 @@ func (a *index) WorkloadsCollection(
 		res := make([]model.WorkloadInfo, 0, len(se.Spec.Endpoints))
 
 		wp := fetchWaypoint(ctx, Waypoints, Namespaces, se.ObjectMeta)
+		if wp != nil && !waypointForWorkload(wp) {
+			// Waypoint does not support Workload traffic, no more work to do
+			log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", wp.Namespace, wp.Name, wp.TrafficType)
+			return nil
+		}
 
 		// this is some partial object meta we can pass through so that WL found in the Endpoints
 		// may inherit the namespace scope waypoint from the SE... the Endpoints do not have real object meta
@@ -100,9 +105,19 @@ func (a *index) WorkloadsCollection(
 
 				// this is using object meta which simply defines the namespace since the endpoint doesn't have it's own object meta
 				waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, someObjectMeta)
+				if waypoint != nil && !waypointForWorkload(waypoint) {
+					// Waypoint does not support Workload traffic, no more work to do
+					log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+					return nil
+				}
 			}
 			var waypointAddress *workloadapi.GatewayAddress
 			if waypoint != nil {
+				if !waypointForWorkload(waypoint) {
+					// Waypoint does not support Workload traffic, no more work to do
+					log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+					return nil
+				}
 				waypointAddress = a.getWaypointAddress(waypoint)
 			}
 			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
@@ -167,9 +182,19 @@ func (a *index) workloadEntryWorkloadBuilder(
 		var waypoint *Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, p.ObjectMeta)
+			if waypoint != nil && !waypointForWorkload(waypoint) {
+				// Waypoint does not support Workload traffic, no more work to do
+				log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+				return nil
+			}
 		}
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {
+			if !waypointForWorkload(waypoint) {
+				// Waypoint does not support Workload traffic, no more work to do
+				log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+				return nil
+			}
 			waypointAddress = a.getWaypointAddress(waypoint)
 		}
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
@@ -249,9 +274,19 @@ func (a *index) podWorkloadBuilder(
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			// Waypoints do not have waypoints, but anything else does
 			waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, p.ObjectMeta)
+			if waypoint != nil && !waypointForWorkload(waypoint) {
+				// Waypoint does not support Workload traffic, no more work to do
+				log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+				return nil
+			}
 		}
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {
+			if !waypointForWorkload(waypoint) {
+				// Waypoint does not support Workload traffic, no more work to do
+				log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+				return nil
+			}
 			waypointAddress = a.getWaypointAddress(waypoint)
 		}
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
@@ -417,4 +452,8 @@ func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*work
 		}
 	}
 	return res
+}
+
+func waypointForWorkload(w *Waypoint) bool {
+	return w.TrafficType == constants.WorkloadTraffic || w.TrafficType == constants.AllTraffic
 }

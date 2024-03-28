@@ -34,6 +34,8 @@ type Waypoint struct {
 	krt.Named
 
 	Addresses []netip.Addr
+
+	TrafficType string
 }
 
 func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
@@ -110,11 +112,33 @@ func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway]) krt.Collecti
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
-		return &Waypoint{
-			Named:     krt.NewNamed(gateway),
-			Addresses: getGatewayAddrs(gateway),
+		// Derive the traffic type that is allowed to pass through the Waypoint and set that on the Waypoint
+		switch gateway.Annotations[constants.AmbientWaypointForTrafficType] {
+		case constants.ServiceTraffic:
+			return makeWaypoint(gateway, constants.ServiceTraffic)
+		case constants.WorkloadTraffic:
+			return makeWaypoint(gateway, constants.WorkloadTraffic)
+		case constants.AllTraffic:
+			return makeWaypoint(gateway, constants.AllTraffic)
+		case constants.NoTraffic:
+			return makeWaypoint(gateway, constants.NoTraffic)
+		default:
+			// If a value is not declared on a Gateway or its associated GatewayClass
+			// then the network layer should default to service when redirecting traffic.
+			//
+			// This is a safety measure to ensure that the Gateway is not misconfigured, but
+			// we will likely not hit this case as the CLI will validate the traffic type.
+			return makeWaypoint(gateway, constants.ServiceTraffic)
 		}
 	}, krt.WithName("Waypoints"))
+}
+
+func makeWaypoint(gateway *v1beta1.Gateway, trafficType string) *Waypoint {
+	return &Waypoint{
+		Named:       krt.NewNamed(gateway),
+		Addresses:   getGatewayAddrs(gateway),
+		TrafficType: trafficType,
+	}
 }
 
 func getGatewayAddrs(gw *v1beta1.Gateway) []netip.Addr {
