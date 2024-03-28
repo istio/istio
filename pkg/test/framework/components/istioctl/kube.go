@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -92,6 +93,13 @@ func (c *kubeComponent) Invoke(args []string) (string, string, error) {
 	rootCmd := cmd.GetRootCmd(cmdArgs)
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&err)
+	// istioctl will overwrite logs which we don't want.
+	// It happens to do this via PersistentPreRunE, which we can disable.
+	// We add an additional check in case someone refactors this away, to ensure we don't wipe out non-logging code.
+	if fmt.Sprintf("%p", rootCmd.PersistentPreRunE) != fmt.Sprintf("%p", cmd.ConfigureLogging) {
+		log.Fatalf("istioctl PersistentPreRunE is not configuring logging")
+	}
+	rootCmd.PersistentPreRunE = nil
 	fErr := rootCmd.Execute()
 	invokeMutex.Unlock()
 
