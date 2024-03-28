@@ -24,7 +24,6 @@
     {{- end }}
   {{- end }}
 {{- end }}
-{{ $nativeSidecar := (eq (env "ENABLE_NATIVE_SIDECARS" "false") "true") }}
 {{- $containers := list }}
 {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
 metadata:
@@ -67,7 +66,7 @@ metadata:
 spec:
   {{- $holdProxy := and
       (or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts)
-      (not $nativeSidecar) }}
+      (not .NativeSidecars) }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
   {{ if or .Values.pilot.cni.enabled .Values.istio_cni.enabled -}}
@@ -187,7 +186,7 @@ spec:
       runAsNonRoot: false
       runAsUser: 0
   {{ end }}
-  {{ if not $nativeSidecar }}
+  {{ if not .NativeSidecars }}
   containers:
   {{ end }}
   - name: istio-proxy
@@ -196,7 +195,7 @@ spec:
   {{- else }}
     image: "{{ .ProxyImage }}"
   {{- end }}
-    {{ if $nativeSidecar }}restartPolicy: Always{{end}}
+    {{ if .NativeSidecars }}restartPolicy: Always{{end}}
     ports:
     - containerPort: 15090
       protocol: TCP
@@ -225,7 +224,7 @@ spec:
           command:
           - pilot-agent
           - wait
-  {{- else if $nativeSidecar }}
+  {{- else if .NativeSidecars }}
     {{- /* preStop is called when the pod starts shutdown. Initialize drain. We will get SIGTERM once applications are torn down. */}}
     lifecycle:
       preStop:
