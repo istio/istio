@@ -27,9 +27,9 @@ import (
 	"sync"
 	"time"
 
-	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
+	sec_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/util"

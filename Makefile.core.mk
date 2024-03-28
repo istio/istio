@@ -293,8 +293,13 @@ lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles li
 
 .PHONY: check-agent-deps
 check-agent-deps:
-	@go list -f '{{ join .Deps "\n" }}' ./pkg/bootstrap |\
-		(! grep -P 'k8s.io/api/|k8s.io/apiextensions-apiserver|k8s.io/client-go|sigs.k8s.io/gateway-api')
+	@go list -f '{{ join .Deps "\n" }}' \
+			./security/pkg/nodeagent/caclient/... \
+			./security/pkg/nodeagent/plugin/... \
+			./security/pkg/nodeagent/cache/... \
+			./pkg/bootstrap/... \
+			./pkg/envoy/... |\
+		(! grep -P 'k8s.io/api/|k8s.io/apiextensions-apiserver|k8s.io/client-go|sigs.k8s.io/gateway-api|cel|antlr|go-control-plane/envoy/extensions/filters')
 
 go-gen:
 	@mkdir -p /tmp/bin
