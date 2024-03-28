@@ -214,7 +214,6 @@ metadata:
   namespace: {{.Namespace}}
   annotations:
     networking.istio.io/address-type: IPAddress
-    networking.istio.io/service-type: ClusterIP
     ambient.istio.io/redirection: enabled
 spec:
   gatewayClassName: istio

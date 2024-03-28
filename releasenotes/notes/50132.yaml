@@ -5,10 +5,8 @@ issue:
   - 48362
 releaseNotes:
   - |
-    **Added** the annotation `gateway.istio.io/address-type` to allow `istio` class Gateways to use `ClusterIP` for status addresses.
     **Added** the ability to annotate workloads or services with `istio.io/use-waypoint` pointing to Gateways of arbitrary gateway classes.
 
-    These changes allow configuring a standard `istio` gateway as a Waypoint.
-    For this to work, it must be configured as a `ClusterIP` Service with
-    redirection enabled. This is colloquially referred to as a "gateway
-    sandwich" where the zTunnel layer handles mTLS.
+    These changes allow configuring a standard `istio` class gateway via Gateway API as a Waypoint.  For this to work, it must be 
+    configured as a `ClusterIP` Service (using the `networking.istio.io/service-type` annotation) redirection enabled. This is 
+    colloquially referred to as a "gateway sandwich" where the zTunnel layer handles mTLS.
