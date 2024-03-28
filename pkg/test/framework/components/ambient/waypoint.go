@@ -159,35 +159,6 @@ func NewWaypointProxyOrFail(t framework.TestContext, ns namespace.Instance, sa s
 	return s
 }
 
-// func WaypointForInstance(ctx resource.Context, instance echo.Instance) (WaypointProxy, error) {
-// 	if !instance.Config().HasWaypointProxy() {
-// 		return nil, fmt.Errorf("%s does not have a WaypointProxy", instance.NamespaceName())
-// 	}
-
-// 	var waypoints []WaypointProxy
-// 	if err := ctx.GetResource(&waypoints); err != nil {
-// 		return nil, err
-// 	}
-
-// 	// TODO match the cluster of instance
-// 	ns := instance.NamespaceName()
-// 	sa := instance.Config().AccountName()
-// 	for _, waypoint := range waypoints {
-// 		if waypoint.Namespace().Name() == ns && waypoint.ServiceAccount() == sa {
-// 			return waypoint, nil
-// 		}
-// 	}
-// 	return nil, fmt.Errorf("could not find Waypoint %s/%s in test context", ns, sa)
-// }
-
-// func WaypointForInstanceOrFail(t framework.TestContext, instance echo.Instance) WaypointProxy {
-// 	out, err := WaypointForInstance(t, instance)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	return out
-// }
-
 // ------------------------------
 // moved from bookinfo_test.go
 // ------------------------------

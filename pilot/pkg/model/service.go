@@ -873,6 +873,10 @@ type AmbientIndexes interface {
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
 }
 
+// WaypointKey is a multi-address extension of NetworkAddress which is commonly used for lookups in AmbientIndex
+// We likely need to consider alternative keying options internally such as hostname as we look to expand beyong istio-waypoint
+// This extension can ideally support that type of lookup in the interface without introducing scope creep into things
+// like NetworkAddress
 type WaypointKey struct {
 	Network   string
 	Addresses []string
