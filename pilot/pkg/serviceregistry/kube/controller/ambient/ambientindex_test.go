@@ -74,10 +74,7 @@ func init() {
 	features.EnableAmbientControllers = true
 }
 
-var (
-	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
-	testAnnotation    = func(wpName string) map[string]string { return map[string]string{constants.AmbientUseWaypoint: wpName} }
-)
+var validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 
 func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
@@ -110,17 +107,23 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			// Create waypoint with test specified traffic type
 			s.addWaypoint(t, "10.0.0.10", "test-wp", "default", c.trafficType, true)
 			// Create workloads with the waypoint annotation
-			s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, testAnnotation("test-wp"), true, corev1.PodRunning)
-			s.addPods(t, "127.0.0.2", "pod2", "sa1", map[string]string{"app": "a", "other": "label"}, testAnnotation("test-wp"), true, corev1.PodRunning)
-			s.addPods(t, "127.0.0.3", "pod3", "sa1", map[string]string{"app": "other"}, testAnnotation("test-wp"), true, corev1.PodRunning)
+			s.addPods(t, "127.0.0.1", "pod1", "sa1",
+				map[string]string{"app": "a"},
+				map[string]string{constants.AmbientUseWaypoint: "test-wp"}, true, corev1.PodRunning)
+			s.addPods(t, "127.0.0.2", "pod2", "sa1",
+				map[string]string{"app": "a", "other": "label"},
+				map[string]string{constants.AmbientUseWaypoint: "test-wp"}, true, corev1.PodRunning)
+			s.addPods(t, "127.0.0.3", "pod3", "sa1",
+				map[string]string{"app": "other"},
+				map[string]string{constants.AmbientUseWaypoint: "test-wp"}, true, corev1.PodRunning)
 			// Create services with the waypoint annotation
 			s.addService(t, "svc1",
 				map[string]string{},
-				testAnnotation("test-wp"),
+				map[string]string{constants.AmbientUseWaypoint: "test-wp"},
 				[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 			s.addService(t, "svc2",
 				map[string]string{},
-				testAnnotation("test-wp"),
+				map[string]string{constants.AmbientUseWaypoint: "test-wp"},
 				[]int32{80}, map[string]string{"app": "other"}, "10.0.0.2")
 			// Run the test based on the traffic type
 			switch c.trafficType {
