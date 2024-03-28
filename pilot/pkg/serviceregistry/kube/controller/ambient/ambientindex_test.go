@@ -74,7 +74,10 @@ func init() {
 	features.EnableAmbientControllers = true
 }
 
-var validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
+var (
+	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
+	testAnnotation    = func(wpName string) map[string]string { return map[string]string{constants.AmbientUseWaypoint: wpName} }
+)
 
 func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
@@ -107,18 +110,17 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			// Create waypoint with test specified traffic type
 			s.addWaypoint(t, "10.0.0.10", "test-wp", "default", c.trafficType, true)
 			// Create workloads with the waypoint annotation
-			waypointForAnnotation := map[string]string{constants.AmbientUseWaypoint: "test-wp"}
-			s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, waypointForAnnotation, true, corev1.PodRunning)
-			s.addPods(t, "127.0.0.2", "pod2", "sa1", map[string]string{"app": "a", "other": "label"}, waypointForAnnotation, true, corev1.PodRunning)
-			s.addPods(t, "127.0.0.3", "pod3", "sa1", map[string]string{"app": "other"}, waypointForAnnotation, true, corev1.PodRunning)
+			s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, testAnnotation("test-wp"), true, corev1.PodRunning)
+			s.addPods(t, "127.0.0.2", "pod2", "sa1", map[string]string{"app": "a", "other": "label"}, testAnnotation("test-wp"), true, corev1.PodRunning)
+			s.addPods(t, "127.0.0.3", "pod3", "sa1", map[string]string{"app": "other"}, testAnnotation("test-wp"), true, corev1.PodRunning)
 			// Create services with the waypoint annotation
 			s.addService(t, "svc1",
 				map[string]string{},
-				waypointForAnnotation,
+				testAnnotation("test-wp"),
 				[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 			s.addService(t, "svc2",
 				map[string]string{},
-				waypointForAnnotation,
+				testAnnotation("test-wp"),
 				[]int32{80}, map[string]string{"app": "other"}, "10.0.0.2")
 			// Run the test based on the traffic type
 			switch c.trafficType {
@@ -443,7 +445,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod4"))
 
-	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", "", true)
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", constants.AllTraffic, true)
 	// All these workloads updated, so push them
 	s.assertEvent(t, s.podXdsName("pod1"),
 		s.podXdsName("pod2"),
@@ -468,7 +470,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	)
 	s.assertAddresses(t, "", "pod1", "pod2", "pod3", "pod4", "waypoint-ns", "waypoint-ns-pod")
 
-	s.addWaypoint(t, "10.0.0.3", "waypoint-sa2", "sa2", "", true)
+	s.addWaypoint(t, "10.0.0.3", "waypoint-sa2", "sa2", constants.AllTraffic, true)
 	s.assertEvent(t, s.podXdsName("pod4"))
 	// Add a waypoint proxy pod for sa2
 	s.addPods(t, "127.0.0.250", "waypoint-sa2-pod", "service-account",
@@ -644,7 +646,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{constants.WaypointServiceAccount: "sa2"}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
-	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", "", true)
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", constants.AllTraffic, true)
 	s.ns.Update(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
@@ -1223,9 +1225,9 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 
 	// add our waypoints but they won't be used until annotations are added
 	// add a new waypoint
-	s.addWaypoint(t, "10.0.0.2", "waypoint-sa1", "sa1", "", true)
+	s.addWaypoint(t, "10.0.0.2", "waypoint-sa1", "sa1", constants.WorkloadTraffic, true)
 	// Add a namespace waypoint to the pod
-	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", "", "", true)
+	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", "", constants.WorkloadTraffic, true)
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, "", "pod1")
@@ -1313,8 +1315,8 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 		assert.Equal(t, wl, sets.New(expected...))
 	}
 	// Add a namespace waypoint to the pod
-	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", "", "", true)
-	s.addWaypoint(t, "10.0.0.2", "waypoint-sa1", "sa1", "", true)
+	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", "", constants.WorkloadTraffic, true)
+	s.addWaypoint(t, "10.0.0.2", "waypoint-sa1", "sa1", constants.WorkloadTraffic, true)
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
@@ -1364,7 +1366,7 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 		}
 		assert.Equal(t, wl, expected)
 	}
-	s.addWaypoint(t, "10.0.0.1", "waypoint", "", "", true)
+	s.addWaypoint(t, "10.0.0.1", "waypoint", "", constants.WorkloadTraffic, true)
 	// Wait until waypoint is available
 	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List("")) }, 1)
 
