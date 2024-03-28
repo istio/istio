@@ -134,8 +134,8 @@ func TestParseMetadata(t *testing.T) {
 						"POD_PORTS": `[{"name":"http","containerPort":8080,"protocol":"TCP"},{"name":"grpc","containerPort":8079,"protocol":"TCP"}]`,
 					},
 					PodPorts: []model.PodPort{
-						{"http", 8080, "TCP"},
-						{"grpc", 8079, "TCP"},
+						{Name: "http", ContainerPort: 8080, Protocol: "TCP"},
+						{Name: "grpc", ContainerPort: 8079, Protocol: "TCP"},
 					},
 				},
 			},
