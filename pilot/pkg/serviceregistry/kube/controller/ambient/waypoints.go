@@ -112,24 +112,16 @@ func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway]) krt.Collecti
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
-		// Derive the traffic type that is allowed to pass through the Waypoint and set that on the Waypoint
-		switch gateway.Annotations[constants.AmbientWaypointForTrafficType] {
-		case constants.ServiceTraffic:
-			return makeWaypoint(gateway, constants.ServiceTraffic)
-		case constants.WorkloadTraffic:
-			return makeWaypoint(gateway, constants.WorkloadTraffic)
-		case constants.AllTraffic:
-			return makeWaypoint(gateway, constants.AllTraffic)
-		case constants.NoTraffic:
-			return makeWaypoint(gateway, constants.NoTraffic)
-		default:
-			// If a value is not declared on a Gateway or its associated GatewayClass
-			// then the network layer should default to service when redirecting traffic.
-			//
-			// This is a safety measure to ensure that the Gateway is not misconfigured, but
-			// we will likely not hit this case as the CLI will validate the traffic type.
-			return makeWaypoint(gateway, constants.ServiceTraffic)
+		// Check for a declared traffic type that is allowed to pass through the Waypoint
+		if tt, found := gateway.Annotations[constants.AmbientWaypointForTrafficType]; found {
+			return makeWaypoint(gateway, tt)
 		}
+		// If a value is not declared on a Gateway or its associated GatewayClass
+		// then the network layer should default to service when redirecting traffic.
+		//
+		// This is a safety measure to ensure that the Gateway is not misconfigured, but
+		// we will likely not hit this case as the CLI will validate the traffic type.
+		return makeWaypoint(gateway, constants.ServiceTraffic)
 	}, krt.WithName("Waypoints"))
 }
 
