@@ -192,12 +192,12 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 					s.lookup(s.addrXdsName("127.0.0.3")), nil)
 			}
 			// Clean up before next test
-			s.clearEvents()
 			s.deletePod(t, "pod1")
 			s.deletePod(t, "pod2")
 			s.deletePod(t, "pod3")
 			s.deleteService(t, "svc1")
 			s.deleteService(t, "svc2")
+			s.clearEvents()
 		})
 	}
 }
