@@ -54,7 +54,7 @@ func (d *Debouncer[T]) Run(ch chan T, stopCh <-chan struct{}, debounceMinInterva
 				debouncedEvents = 0
 			} else {
 				// For no combined events to process, we can also do nothing here and wait for the config change to trigger
-				// the next debounce, but I think it's better to set it's to the defined analysis interval.
+				// the next debounce, but I think it's better to set it's to the debounce max interval.
 				timeChan = time.After(debounceMaxInterval)
 			}
 		} else {
