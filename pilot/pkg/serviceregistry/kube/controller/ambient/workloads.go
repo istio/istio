@@ -68,9 +68,9 @@ func (a *index) WorkloadsCollection(
 
 		wp := fetchWaypoint(ctx, Waypoints, Namespaces, se.ObjectMeta)
 		if wp != nil && !waypointForWorkload(wp) {
-			// Waypoint does not support Workload traffic, no more work to do
-			log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", wp.Namespace, wp.Name, wp.TrafficType)
-			return nil
+			// Waypoint does not support Workload traffic, log issue then nullify waypoint
+			log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", wp.Namespace, wp.Name, wp.TrafficType)
+			wp = nil
 		}
 
 		// this is some partial object meta we can pass through so that WL found in the Endpoints
@@ -106,17 +106,17 @@ func (a *index) WorkloadsCollection(
 				// this is using object meta which simply defines the namespace since the endpoint doesn't have it's own object meta
 				waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, someObjectMeta)
 				if waypoint != nil && !waypointForWorkload(waypoint) {
-					// Waypoint does not support Workload traffic, no more work to do
-					log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-					return nil
+					// Waypoint does not support Workload traffic, log issue then nullify waypoint
+					log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+					waypoint = nil
 				}
 			}
 			var waypointAddress *workloadapi.GatewayAddress
 			if waypoint != nil {
 				if !waypointForWorkload(waypoint) {
-					// Waypoint does not support Workload traffic, no more work to do
-					log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-					return nil
+					// Waypoint does not support Workload traffic, log issue then nullify waypoint
+					log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+					waypoint = nil
 				}
 				waypointAddress = a.getWaypointAddress(waypoint)
 			}
@@ -183,17 +183,17 @@ func (a *index) workloadEntryWorkloadBuilder(
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, p.ObjectMeta)
 			if waypoint != nil && !waypointForWorkload(waypoint) {
-				// Waypoint does not support Workload traffic, no more work to do
-				log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-				return nil
+				// Waypoint does not support Workload traffic, log issue then nullify waypoint
+				log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+				waypoint = nil
 			}
 		}
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {
 			if !waypointForWorkload(waypoint) {
-				// Waypoint does not support Workload traffic, no more work to do
-				log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-				return nil
+				// Waypoint does not support Workload traffic, log issue then nullify waypoint
+				log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+				waypoint = nil
 			}
 			waypointAddress = a.getWaypointAddress(waypoint)
 		}
@@ -275,17 +275,17 @@ func (a *index) podWorkloadBuilder(
 			// Waypoints do not have waypoints, but anything else does
 			waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, p.ObjectMeta)
 			if waypoint != nil && !waypointForWorkload(waypoint) {
-				// Waypoint does not support Workload traffic, no more work to do
-				log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-				return nil
+				// Waypoint does not support Workload traffic, log issue then nullify waypoint
+				log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+				waypoint = nil
 			}
 		}
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {
 			if !waypointForWorkload(waypoint) {
-				// Waypoint does not support Workload traffic, no more work to do
-				log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-				return nil
+				// Waypoint does not support Workload traffic, log issue then nullify waypoint
+				log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+				waypoint = nil
 			}
 			waypointAddress = a.getWaypointAddress(waypoint)
 		}
