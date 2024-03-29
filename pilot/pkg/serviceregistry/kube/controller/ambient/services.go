@@ -44,29 +44,34 @@ func (a *index) ServicesCollection(
 				TargetPortName: p.TargetPort.StrVal,
 			}
 		}
+		var constructSvc *workloadapi.Service
 		waypoint := fetchWaypoint(ctx, Waypoints, Namespaces, s.ObjectMeta)
 		if waypoint != nil && !waypointForService(waypoint) {
 			// Waypoint does not support Service traffic, no more work to do
-			log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-			return nil
+			log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+			constructSvc = a.constructService(s, nil)
+		} else {
+			constructSvc = a.constructService(s, waypoint)
 		}
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		return &model.ServiceInfo{
-			Service:       a.constructService(s, waypoint),
+			Service:       constructSvc,
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(s.Spec.Selector),
 			Source:        kind.Service,
 		}
 	}, krt.WithName("ServicesInfo"))
 	ServiceEntriesInfo := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
+		var svcEntriesInfo []model.ServiceInfo
 		waypoint := fetchWaypoint(ctx, Waypoints, Namespaces, s.ObjectMeta)
 		if waypoint != nil && !waypointForService(waypoint) {
-			// Waypoint does not support Service traffic, no more work to do
-			log.Debugf("Skipping waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-			return nil
+			log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
+			svcEntriesInfo = a.serviceEntriesInfo(s, nil)
+		} else {
+			svcEntriesInfo = a.serviceEntriesInfo(s, waypoint)
 		}
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		return a.serviceEntriesInfo(s, waypoint)
+		return svcEntriesInfo
 	}, krt.WithName("ServiceEntriesInfo"))
 	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, krt.WithName("WorkloadServices"))
 	// workloadapi services NOT workloads x services somehow
