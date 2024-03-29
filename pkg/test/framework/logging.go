@@ -34,6 +34,7 @@ func init() {
 
 func configureLogging() error {
 	o := *logOptionsFromCommandline
-
+	// This is spammy at info level, even for tests, so set to warn level
+	o.SetDefaultOutputLevel("installer", log.WarnLevel)
 	return log.Configure(&o)
 }

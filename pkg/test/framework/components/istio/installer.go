@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -93,10 +92,6 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 	kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), "")
 	if err != nil {
 		return fmt.Errorf("create Kubernetes client: %v", err)
-	}
-
-	if mesh.ConfigLogs(cmdLogOptions()) != nil {
-		return fmt.Errorf("failed to configure logs")
 	}
 
 	// Generate the manifest YAML, so that we can uninstall it in Close.
@@ -165,18 +160,6 @@ func (i *installer) Dump(resource.Context) {
 			}
 		}
 	}
-}
-
-func cmdLogOptions() *log.Options {
-	o := log.DefaultOptions()
-
-	// These scopes are, at the default "INFO" level, too chatty for command line use
-	o.SetDefaultOutputLevel("validation", log.ErrorLevel)
-	o.SetDefaultOutputLevel("processing", log.ErrorLevel)
-	o.SetDefaultOutputLevel("default", log.WarnLevel)
-	o.SetDefaultOutputLevel("kube", log.ErrorLevel)
-
-	return o
 }
 
 func cmdLogger(stdOut, stdErr io.Writer) clog.Logger {

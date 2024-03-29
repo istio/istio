@@ -105,6 +105,7 @@ func GetRootCmd(args []string) *cobra.Command {
 		Short:             "Istio control interface.",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
+		PersistentPreRunE: ConfigureLogging,
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
@@ -116,13 +117,6 @@ debug and diagnose their Istio mesh.
 	rootOptions := cli.AddRootFlags(flags)
 
 	ctx := cli.NewCLIContext(rootOptions)
-
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if err := configureLogging(cmd, args); err != nil {
-			return err
-		}
-		return nil
-	}
 
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagIstioNamespace, func(
 		cmd *cobra.Command, args []string, toComplete string,
@@ -296,11 +290,8 @@ func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
 	})
 }
 
-func configureLogging(_ *cobra.Command, _ []string) error {
-	if err := log.Configure(root.LoggingOptions); err != nil {
-		return err
-	}
-	return nil
+func ConfigureLogging(_ *cobra.Command, _ []string) error {
+	return log.Configure(root.LoggingOptions)
 }
 
 // seeExperimentalCmd is used for commands that have been around for a release but not graduated from
