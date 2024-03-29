@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/validation"
+	// Force-import a function.
 	_ "istio.io/istio/pkg/config/validation/envoyfilter"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/util/strcase"

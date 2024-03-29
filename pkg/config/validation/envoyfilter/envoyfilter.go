@@ -60,7 +60,8 @@ func validateEnvoyFilter(cfg config.Config, errs Validation) (Warning, error) {
 	// If workloadSelector is defined and labels are not set, it is most likely
 	// an user error. Marking it as a warning to keep it backwards compatible.
 	if warning != nil {
-		errs = validation.AppendValidation(errs, validation.WrapWarning(fmt.Errorf("Envoy filter: %s, will be applied to all services in namespace", warning))) // nolint: stylecheck
+		errs = validation.AppendValidation(errs,
+			validation.WrapWarning(fmt.Errorf("Envoy filter: %s, will be applied to all services in namespace", warning))) // nolint: stylecheck
 	}
 
 	for _, cp := range rule.ConfigPatches {
@@ -100,7 +101,8 @@ func validateEnvoyFilter(cfg config.Config, errs Validation) (Warning, error) {
 			networking.EnvoyFilter_HTTP_FILTER:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetListener() == nil {
-					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: stylecheck
+					errs = validation.AppendValidation(errs,
+						fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: stylecheck
 					continue
 				}
 				listenerMatch := cp.Match.GetListener()
