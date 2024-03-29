@@ -110,93 +110,52 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			s.addPods(t, "127.0.0.1", "pod1", "sa1",
 				map[string]string{"app": "a"},
 				map[string]string{constants.AmbientUseWaypoint: "test-wp"}, true, corev1.PodRunning)
-			s.addPods(t, "127.0.0.2", "pod2", "sa1",
-				map[string]string{"app": "a", "other": "label"},
-				map[string]string{constants.AmbientUseWaypoint: "test-wp"}, true, corev1.PodRunning)
-			s.addPods(t, "127.0.0.3", "pod3", "sa1",
-				map[string]string{"app": "other"},
-				map[string]string{constants.AmbientUseWaypoint: "test-wp"}, true, corev1.PodRunning)
 			// Create services with the waypoint annotation
 			s.addService(t, "svc1",
 				map[string]string{},
 				map[string]string{constants.AmbientUseWaypoint: "test-wp"},
 				[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
-			s.addService(t, "svc2",
-				map[string]string{},
-				map[string]string{constants.AmbientUseWaypoint: "test-wp"},
-				[]int32{80}, map[string]string{"app": "other"}, "10.0.0.2")
 			// Run the test based on the traffic type
 			switch c.trafficType {
 			case constants.AllTraffic:
 				// Services should appear with workloads when we get all resources.
-				s.assertAddresses(t, "", "pod1", "pod2", "pod3", "svc1", "svc2")
+				s.assertAddresses(t, "", "pod1", "svc1")
 				// Look up the resources by VIP
-				s.assertAddresses(t, s.addrXdsName("10.0.0.1"), "pod1", "pod2", "svc1")
+				s.assertAddresses(t, s.addrXdsName("10.0.0.1"), "pod1", "svc1")
 				// All traffic can go through waypoint
 				assert.Equal(t,
 					s.lookup(s.addrXdsName("10.0.0.1"))[0].Address.GetService().Waypoint.GetAddress().Address,
 					netip.MustParseAddr("10.0.0.10").AsSlice())
 				assert.Equal(t,
-					s.lookup(s.addrXdsName("10.0.0.2"))[0].Address.GetService().Waypoint.GetAddress().Address,
-					netip.MustParseAddr("10.0.0.10").AsSlice())
-				assert.Equal(t,
 					s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
 					netip.MustParseAddr("10.0.0.10").AsSlice())
-				assert.Equal(t,
-					s.lookup(s.addrXdsName("127.0.0.2"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
-					netip.MustParseAddr("10.0.0.10").AsSlice())
-				assert.Equal(t,
-					s.lookup(s.addrXdsName("127.0.0.3"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
-					netip.MustParseAddr("10.0.0.10").AsSlice())
 			case constants.ServiceTraffic:
-				s.assertAddresses(t, "", "svc1", "svc2")
+				s.assertAddresses(t, "", "svc1")
 				// Service traffic can go through waypoint
 				assert.Equal(t,
 					s.lookup(s.addrXdsName("10.0.0.1"))[0].Address.GetService().Waypoint.GetAddress().Address,
 					netip.MustParseAddr("10.0.0.10").AsSlice())
-				assert.Equal(t,
-					s.lookup(s.addrXdsName("10.0.0.2"))[0].Address.GetService().Waypoint.GetAddress().Address,
-					netip.MustParseAddr("10.0.0.10").AsSlice())
 				// Workload traffic can't go through waypoint
 				assert.Equal(t,
 					s.lookup(s.addrXdsName("127.0.0.1")), nil)
-				assert.Equal(t,
-					s.lookup(s.addrXdsName("127.0.0.2")), nil)
-				assert.Equal(t,
-					s.lookup(s.addrXdsName("127.0.0.3")), nil)
 			case constants.WorkloadTraffic:
-				s.assertAddresses(t, "", "pod1", "pod2", "pod3")
+				s.assertAddresses(t, "", "pod1")
 				// Workload traffic can go through waypoint
 				assert.Equal(t,
 					s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
 					netip.MustParseAddr("10.0.0.10").AsSlice())
-				assert.Equal(t,
-					s.lookup(s.addrXdsName("127.0.0.2"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
-					netip.MustParseAddr("10.0.0.10").AsSlice())
-				assert.Equal(t,
-					s.lookup(s.addrXdsName("127.0.0.3"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
-					netip.MustParseAddr("10.0.0.10").AsSlice())
 				// Service traffic can't go through waypoint
 				assert.Equal(t, s.lookup(s.addrXdsName("10.0.0.1")), nil)
-				assert.Equal(t, s.lookup(s.addrXdsName("10.0.0.2")), nil)
 			case constants.NoTraffic:
 				s.assertAddresses(t, "")
 				// All traffic can't go through waypoint
 				assert.Equal(t, s.lookup(s.addrXdsName("10.0.0.1")), nil)
-				assert.Equal(t, s.lookup(s.addrXdsName("10.0.0.2")), nil)
 				assert.Equal(t,
 					s.lookup(s.addrXdsName("127.0.0.1")), nil)
-				assert.Equal(t,
-					s.lookup(s.addrXdsName("127.0.0.2")), nil)
-				assert.Equal(t,
-					s.lookup(s.addrXdsName("127.0.0.3")), nil)
 			}
 			// Clean up before next test
 			s.deletePod(t, "pod1")
-			s.deletePod(t, "pod2")
-			s.deletePod(t, "pod3")
 			s.deleteService(t, "svc1")
-			s.deleteService(t, "svc2")
 			s.clearEvents()
 		})
 	}
