@@ -446,11 +446,15 @@ func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks(hostSNATIP *neti
 	builder := cfg.appendHostRules(hostSNATIP)
 
 	log.Info("Adding host netnamespace iptables rules")
+
+	// TODO BML work around no ipv6 ipset
+	hackGrab := cfg.cfg.EnableInboundIPv6
+	cfg.cfg.EnableInboundIPv6 = false
 	if err := cfg.executeCommands(builder); err != nil {
 		log.Errorf("failed to add host netnamespace iptables rules: %v", err)
 		return err
 	}
-
+	cfg.cfg.EnableInboundIPv6 = hackGrab
 	return nil
 }
 
