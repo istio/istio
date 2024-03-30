@@ -197,7 +197,7 @@ func (l *lruCache[K]) clearConfigIndex(k K, dependentConfigs []ConfigHash) {
 	if exists {
 		newDependents := c.dependentConfigs
 		// we only need to clear configs {old difference new}
-		dependents := sets.New(dependentConfigs...).Difference(sets.New(newDependents...))
+		dependents := sets.New(dependentConfigs...).DifferenceInPlace(sets.New(newDependents...))
 		for cfg := range dependents {
 			sets.DeleteCleanupLast(l.configIndex, cfg, k)
 		}

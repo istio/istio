@@ -131,7 +131,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		builtClusters.Insert(c.Name)
 	}
 	// Remove anything we built from the deleted list
-	deletedClusters = deletedClusters.Difference(builtClusters)
+	deletedClusters = deletedClusters.DifferenceInPlace(builtClusters)
 	return clusters, sets.SortedList(deletedClusters), log, true
 }
 

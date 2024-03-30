@@ -81,7 +81,7 @@ func (s Set[T]) Merge(s2 Set[T]) Set[T] {
 
 // Copy this set.
 func (s Set[T]) Copy() Set[T] {
-	result := New[T]()
+	result := NewWithLength[T](s.Len())
 	for key := range s {
 		result.Insert(key)
 	}
@@ -117,6 +117,17 @@ func (s Set[T]) Difference(s2 Set[T]) Set[T] {
 	return result
 }
 
+// DifferenceInPlace similar to Difference, but has better performance.
+// Note: This function modifies s in place.
+func (s Set[T]) DifferenceInPlace(s2 Set[T]) Set[T] {
+	for key := range s {
+		if s2.Contains(key) {
+			delete(s, key)
+		}
+	}
+	return s
+}
+
 // Diff takes a pair of Sets, and returns the elements that occur only on the left and right set.
 func (s Set[T]) Diff(other Set[T]) (left []T, right []T) {
 	for k := range s {
@@ -145,6 +156,17 @@ func (s Set[T]) Intersection(s2 Set[T]) Set[T] {
 		}
 	}
 	return result
+}
+
+// IntersectInPlace similar to Intersection, but has better performance.
+// Note: This function modifies s in place.
+func (s Set[T]) IntersectInPlace(s2 Set[T]) Set[T] {
+	for key := range s {
+		if !s2.Contains(key) {
+			delete(s, key)
+		}
+	}
+	return s
 }
 
 // SupersetOf returns true if s contains all elements of s2
