@@ -47,7 +47,7 @@ resources:
 						Version:      "v1alpha3",
 						Proto:        "istio.networking.v1alpha3.VirtualService",
 						ProtoPackage: "istio.io/api/networking/v1alpha3",
-						Validate:     "ValidateVirtualService",
+						Validate:     "validation.ValidateVirtualService",
 					},
 				},
 			},

@@ -463,3 +463,20 @@ const (
 	// IstioCanonicalServiceRevisionLabelName is the name of label for the Istio Canonical Service revision for a workload instance.
 	IstioCanonicalServiceRevisionLabelName = "service.istio.io/canonical-revision"
 )
+
+// NodeType decides the responsibility of the proxy serves in the mesh
+type NodeType string
+
+const (
+	// SidecarProxy type is used for sidecar proxies in the application containers
+	SidecarProxy NodeType = "sidecar"
+
+	// Router type is used for standalone proxies acting as L7/L4 routers
+	Router NodeType = "router"
+
+	// Waypoint type is used for waypoint proxies
+	Waypoint NodeType = "waypoint"
+
+	// Ztunnel type is used for node proxies (ztunnel)
+	Ztunnel NodeType = "ztunnel"
+)

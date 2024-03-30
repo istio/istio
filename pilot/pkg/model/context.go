@@ -57,10 +57,18 @@ type (
 	Node                    = pm.Node
 	NodeMetadata            = pm.NodeMetadata
 	NodeMetaProxyConfig     = pm.NodeMetaProxyConfig
+	NodeType                = pm.NodeType
 	BootstrapNodeMetadata   = pm.BootstrapNodeMetadata
 	TrafficInterceptionMode = pm.TrafficInterceptionMode
 	PodPort                 = pm.PodPort
 	StringBool              = pm.StringBool
+)
+
+const (
+	SidecarProxy = pm.SidecarProxy
+	Router       = pm.Router
+	Waypoint     = pm.Waypoint
+	Ztunnel      = pm.Ztunnel
 )
 
 var _ mesh.Holder = &Environment{}
@@ -512,23 +520,6 @@ func compareVersion(ov, nv int) int {
 	}
 	return 1
 }
-
-// NodeType decides the responsibility of the proxy serves in the mesh
-type NodeType string
-
-const (
-	// SidecarProxy type is used for sidecar proxies in the application containers
-	SidecarProxy NodeType = "sidecar"
-
-	// Router type is used for standalone proxies acting as L7/L4 routers
-	Router NodeType = "router"
-
-	// Waypoint type is used for waypoint proxies
-	Waypoint NodeType = "waypoint"
-
-	// Ztunnel type is used for node proxies (ztunnel)
-	Ztunnel NodeType = "ztunnel"
-)
 
 var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
 

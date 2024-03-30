@@ -199,7 +199,7 @@ resources:
     - "v1"
     protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.GatewaySpec"
-    validate: "EmptyValidate"
+    validate: "validation.EmptyValidate"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayStatus"
     statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
 

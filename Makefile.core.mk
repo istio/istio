@@ -291,15 +291,31 @@ lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles li
 	@testlinter
 	@envvarlinter istioctl pilot security
 
+# Allow-list:
+# (k8s) Machinery, utils, klog
+# (proto) TLS for SDS
+# (proto) Wasm/RBAC for wasm xDS proxy
 .PHONY: check-agent-deps
 check-agent-deps:
-	@go list -f '{{ join .Deps "\n" }}' \
+	@go list -f '{{ join .Deps "\n" }}' -tags=agent \
 			./security/pkg/nodeagent/caclient/... \
 			./security/pkg/nodeagent/plugin/... \
 			./security/pkg/nodeagent/cache/... \
+			./pilot/cmd/pilot-agent/metrics \
+			./pilot/cmd/pilot-agent/status \
+			./pilot/cmd/pilot-agent/status/ready \
+			./pilot/cmd/pilot-agent/status/grpcready \
+			./pilot/cmd/pilot-agent/config \
+			./pkg/dns/client/... \
+			./pkg/security/... \
 			./pkg/bootstrap/... \
-			./pkg/envoy/... |\
-		(! grep -P 'k8s.io/api/|k8s.io/apiextensions-apiserver|k8s.io/client-go|sigs.k8s.io/gateway-api|cel|antlr|go-control-plane/envoy/extensions/filters')
+			./pkg/wasm/... \
+			./pkg/envoy/... | sort | uniq |\
+		grep -Pv 'k8s.io/(utils|klog|apimachinery)/' |\
+		grep -Pv 'envoy/extensions/transport_sockets/tls/' |\
+		grep -Pv 'envoy/extensions/wasm/' |\
+		grep -Pv 'envoy/extensions/filters/(http|network)/(rbac|wasm)/' |\
+		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|envoy/extensions')
 
 go-gen:
 	@mkdir -p /tmp/bin

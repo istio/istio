@@ -53,7 +53,8 @@ func Run() error {
 	// filter to only types agent needs (to keep binary small)
 	agentEntries := []colEntry{}
 	for _, e := range inp.Entries {
-		if strings.Contains(e.Resource.ProtoPackage, "istio.io") {
+		if strings.Contains(e.Resource.ProtoPackage, "istio.io") &&
+			e.Resource.Kind != "EnvoyFilter" {
 			agentEntries = append(agentEntries, e)
 		}
 	}
@@ -98,16 +99,18 @@ func Run() error {
 			"PackageName": "kind",
 		}),
 		writeTemplate("pkg/config/schema/collections/collections.gen.go", collectionsTemplate, map[string]any{
-			"Entries":     inp.Entries,
-			"Packages":    inp.Packages,
-			"PackageName": "collections",
-			"FilePrefix":  "// +build !agent",
+			"Entries":      inp.Entries,
+			"Packages":     inp.Packages,
+			"PackageName":  "collections",
+			"FilePrefix":   "// +build !agent",
+			"CustomImport": `  "istio.io/istio/pkg/config/validation/envoyfilter"`,
 		}),
 		writeTemplate("pkg/config/schema/collections/collections.agent.gen.go", collectionsTemplate, map[string]any{
-			"Entries":     agentEntries,
-			"Packages":    inp.Packages,
-			"PackageName": "collections",
-			"FilePrefix":  "// +build agent",
+			"Entries":      agentEntries,
+			"Packages":     inp.Packages,
+			"PackageName":  "collections",
+			"FilePrefix":   "// +build agent",
+			"CustomImport": "",
 		}),
 	)
 }

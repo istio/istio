@@ -6,6 +6,10 @@
 package collections
 
 import (
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/validation"
+
 	"reflect"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
@@ -15,9 +19,6 @@ import (
 	istioioapinetworkingv1beta1 "istio.io/api/networking/v1beta1"
 	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
 	istioioapitelemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/config/validation"
 )
 
 var (
@@ -55,21 +56,6 @@ var (
 		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateDestinationRule,
-	}.MustBuild()
-
-	EnvoyFilter = resource.Builder{
-		Identifier: "EnvoyFilter",
-		Group:      "networking.istio.io",
-		Kind:       "EnvoyFilter",
-		Plural:     "envoyfilters",
-		Version:    "v1alpha3",
-		Proto:      "istio.networking.v1alpha3.EnvoyFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.EnvoyFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-		ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
-		ClusterScoped: false,
-		Synthetic:     false,
-		Builtin:       false,
-		ValidateProto: validation.ValidateEnvoyFilter,
 	}.MustBuild()
 
 	Gateway = resource.Builder{
@@ -292,7 +278,6 @@ var (
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
 		MustAdd(DestinationRule).
-		MustAdd(EnvoyFilter).
 		MustAdd(Gateway).
 		MustAdd(MeshConfig).
 		MustAdd(MeshNetworks).
@@ -316,7 +301,6 @@ var (
 	Pilot = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
 		MustAdd(DestinationRule).
-		MustAdd(EnvoyFilter).
 		MustAdd(Gateway).
 		MustAdd(PeerAuthentication).
 		MustAdd(ProxyConfig).
@@ -334,7 +318,6 @@ var (
 	pilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(AuthorizationPolicy).
 			MustAdd(DestinationRule).
-			MustAdd(EnvoyFilter).
 			MustAdd(Gateway).
 			MustAdd(PeerAuthentication).
 			MustAdd(ProxyConfig).
@@ -352,7 +335,6 @@ var (
 	pilotStableGatewayAPI = collection.NewSchemasBuilder().
 				MustAdd(AuthorizationPolicy).
 				MustAdd(DestinationRule).
-				MustAdd(EnvoyFilter).
 				MustAdd(Gateway).
 				MustAdd(PeerAuthentication).
 				MustAdd(ProxyConfig).
