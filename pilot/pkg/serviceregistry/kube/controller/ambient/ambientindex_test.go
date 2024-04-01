@@ -1508,22 +1508,17 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa, trafficType 
 		Spec:   gatewaySpec,
 		Status: k8sbeta.GatewayStatus{},
 	}
+	annotations := make(map[string]string, 2)
 	if sa != "" {
-		annotations := make(map[string]string, 1)
 		annotations[constants.WaypointServiceAccount] = sa
-		gateway.Annotations = annotations
 	}
-	// Get the traffic type annotation defining what is allowed to pass through the Waypoint
-	// and set that on the Waypoint.
-	if validTrafficTypes.Contains(trafficType) {
-		gateway.Annotations = map[string]string{
-			constants.AmbientWaypointForTrafficType: trafficType,
-		}
+	if trafficType != "" && validTrafficTypes.Contains(trafficType) {
+		annotations[constants.AmbientWaypointForTrafficType] = trafficType
 	} else {
-		gateway.Annotations = map[string]string{
-			constants.AmbientWaypointForTrafficType: constants.ServiceTraffic,
-		}
+		annotations[constants.AmbientWaypointForTrafficType] = constants.ServiceTraffic
 	}
+	gateway.Annotations = annotations
+
 	if ready {
 		addrType := k8sbeta.IPAddressType
 		gateway.Status = k8sbeta.GatewayStatus{
