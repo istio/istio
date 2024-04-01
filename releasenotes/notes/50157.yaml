@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 49340
+releaseNotes:
+- |
+  **Fixed** an issue where pilot CPU consumption was abnormally high when the in-cluster analysis was enabled.
