@@ -134,6 +134,7 @@ var (
 		Version:    "v1alpha3",
 		VersionAliases: []string{
 			"v1beta1",
+			"v1",
 		},
 		Proto: "istio.networking.v1alpha3.DestinationRule", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.DestinationRule{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
@@ -212,6 +213,7 @@ var (
 		Version:    "v1alpha3",
 		VersionAliases: []string{
 			"v1beta1",
+			"v1",
 		},
 		Proto: "istio.networking.v1alpha3.Gateway", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.Gateway{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
@@ -533,6 +535,7 @@ var (
 		Version:    "v1alpha3",
 		VersionAliases: []string{
 			"v1beta1",
+			"v1",
 		},
 		Proto: "istio.networking.v1alpha3.ServiceEntry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.ServiceEntry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
@@ -551,6 +554,7 @@ var (
 		Version:    "v1alpha3",
 		VersionAliases: []string{
 			"v1beta1",
+			"v1",
 		},
 		Proto: "istio.networking.v1alpha3.Sidecar", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.Sidecar{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
