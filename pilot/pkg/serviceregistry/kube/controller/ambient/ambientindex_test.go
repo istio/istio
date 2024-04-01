@@ -63,10 +63,11 @@ import (
 )
 
 const (
-	testNS   = "ns1"
-	systemNS = "istio-system"
-	testNW   = "testnetwork"
-	testC    = "cluster0"
+	testNS      = "ns1"
+	systemNS    = "istio-system"
+	testNW      = "testnetwork"
+	testC       = "cluster0"
+	trafficType = "service"
 )
 
 func init() {
@@ -104,101 +105,76 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			// Run the test based on the traffic type
+			// These steps happen for every test regardless of traffic type.
+			// It involves creating a waypoint for the specified traffic type
+			// then creating a workload and a service with no annotations set
+			// on these objects yet.
+			s.addWaypoint(t, "10.0.0.10", "test-wp", "default", c.trafficType, true)
+			s.addPods(t, "127.0.0.1", "pod1", "sa1",
+				map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+			s.assertEvent(t, s.podXdsName("pod1"))
+			s.addService(t, "svc1",
+				map[string]string{},
+				map[string]string{},
+				[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+			s.assertEvent(t, s.svcXdsName("svc1"))
+			s.assertEvent(t, s.podXdsName("pod1"))
+
+			// The following test assertions depend on the traffic type that
+			// gets specified.
 			switch c.trafficType {
 			case constants.AllTraffic:
-				// Create waypoint capable of handling all traffic
-				s.addWaypoint(t, "10.0.0.10", "test-wp", "default", c.trafficType, true)
-				// Create workload with the waypoint annotation; should produce an event
-				s.addPods(t, "127.0.0.1", "pod1", "sa1",
-					map[string]string{"app": "a"},
-					map[string]string{constants.AmbientUseWaypoint: "test-wp"}, true, corev1.PodRunning)
+				// Annotate the pod and service with the waypoint annotation. This should
+				// produce events for both actions since all traffic is allowed through
+				// the waypoint.
+				s.annotatePod(t, "pod1", testNS,
+					map[string]string{constants.AmbientUseWaypoint: "test-wp"})
 				s.assertEvent(t, s.podXdsName("pod1"))
-				// Create service with the waypoint annotation; should produce an event
-				s.addService(t, "svc1",
-					map[string]string{},
+				s.annotateService(t, "svc1", nil,
 					map[string]string{constants.AmbientUseWaypoint: "test-wp"},
 					[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 				s.assertEvent(t, s.svcXdsName("svc1"))
-				// clean up resources
-				s.deletePod(t, "pod1")
-				s.deleteService(t, "svc1")
-				s.clearEvents()
 			case constants.ServiceTraffic:
-				// Create waypoint capable of handling Service traffic only
-				s.addWaypoint(t, "10.0.0.10", "test-wp", "default", c.trafficType, true)
-				// Create workload with no annotation; should produce an event.
-				s.addPods(t, "127.0.0.1", "pod1", "sa1",
-					map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
-				s.assertEvent(t, s.podXdsName("pod1"))
-				// Add annotation for waypoint; should not produce an event.
-				s.annotatePod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "test-wp"})
+				// Annotate the pod and service with the waypoint annotation. This should
+				// only produce an event for the service since the waypoint is only configured
+				// for service traffic.
+				s.annotatePod(t, "pod1", testNS,
+					map[string]string{constants.AmbientUseWaypoint: "test-wp"})
 				s.assertNoEvent(t)
-				// Create service; should produce an event
-				s.addService(t, "svc1",
-					map[string]string{},
-					map[string]string{},
-					[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
-				s.assertEvent(t, s.svcXdsName("svc1"))
-				// Create service with waypoint annotation; should produce an event.
-				s.addService(t, "svc1",
-					map[string]string{},
+				s.annotateService(t, "svc1", nil,
 					map[string]string{constants.AmbientUseWaypoint: "test-wp"},
 					[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 				s.assertEvent(t, s.svcXdsName("svc1"))
-				// clean up resources
-				s.deletePod(t, "pod1")
-				s.deleteService(t, "svc1")
-				s.clearEvents()
 			case constants.WorkloadTraffic:
-				// Create waypoint capable of handling Workload traffic only
-				s.addWaypoint(t, "10.0.0.10", "test-wp", "default", c.trafficType, true)
-				// Create workload with no annotation; should produce an event.
-				s.addPods(t, "127.0.0.1", "pod1", "sa1",
-					map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+				// Annotate the pod and service with the waypoint annotation. This should
+				// only produce an event for the pod since the waypoint is only configured
+				// for workload traffic.
+				s.annotatePod(t, "pod1", testNS,
+					map[string]string{constants.AmbientUseWaypoint: "test-wp"})
 				s.assertEvent(t, s.podXdsName("pod1"))
-				// Add annotation for waypoint; should produce an event.
-				s.annotatePod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "test-wp"})
-				s.assertEvent(t, s.podXdsName("pod1"))
-				// Create service; should produce an event
-				s.addService(t, "svc1",
-					map[string]string{},
-					map[string]string{},
-					[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
-				s.assertEvent(t, s.svcXdsName("svc1"))
-				// Create service with the waypoint annotation; should not produce an event
-				s.addService(t, "svc1",
-					map[string]string{},
+				s.annotateService(t, "svc1", nil,
 					map[string]string{constants.AmbientUseWaypoint: "test-wp"},
 					[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 				s.assertNoEvent(t)
-				// clean up resources
-				s.deletePod(t, "pod1")
-				s.deleteService(t, "svc1")
-				s.clearEvents()
 			case constants.NoTraffic:
-				// Create waypoint capable of handling no traffic
-				s.addWaypoint(t, "10.0.0.10", "test-wp", "default", c.trafficType, true)
-				// Create workload with no annotation; should produce an event.
-				s.addPods(t, "127.0.0.1", "pod1", "sa1",
-					map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
-				s.assertEvent(t, s.podXdsName("pod1"))
-				// Add annotation for waypoint; should not produce an event.
-				s.annotatePod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "test-wp"})
+				// Annotate the pod and service with the waypoint annotation. This should not
+				// produce any events since the waypoint is not configured to allow any traffic.
+				s.annotatePod(t, "pod1", testNS,
+					map[string]string{constants.AmbientUseWaypoint: "test-wp"})
 				s.assertNoEvent(t)
-				// Create service; should produce an event
-				s.addService(t, "svc1", nil, nil, []int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
-				s.assertEvent(t, s.svcXdsName("svc1"))
-				// Create service with the waypoint annotation; should not produce an event.
-				s.addService(t, "svc1", nil,
+				s.annotateService(t, "svc1", nil,
 					map[string]string{constants.AmbientUseWaypoint: "test-wp"},
 					[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 				s.assertNoEvent(t)
-				// clean up resources
-				s.deletePod(t, "pod1")
-				s.deleteService(t, "svc1")
-				s.clearEvents()
 			}
+
+			// clean up resources
+			s.deleteService(t, "svc1")
+			s.assertEvent(t, s.podXdsName("pod1"), s.svcXdsName("svc1"))
+			s.deletePod(t, "pod1")
+			s.assertEvent(t, s.podXdsName("pod1"))
+			s.deleteWaypoint(t, "test-wp")
+			s.clearEvents()
 		})
 	}
 }
@@ -1623,6 +1599,22 @@ func (s *ambientTestServer) annotatePod(t *testing.T, name, ns string, annotatio
 	}
 	p.ObjectMeta.Annotations = annotations
 	s.pc.Update(p)
+}
+
+// just overwrites the annotations
+// nolint: unparam
+func (s *ambientTestServer) annotateService(t *testing.T, name string, labels, annotations map[string]string,
+	ports []int32, selector map[string]string, ip string,
+) {
+	t.Helper()
+
+	// there isn't a way to just get the service, so we have to recreate it
+	svc := generateService(name, testNS, labels, annotations, ports, selector, ip)
+	if svc == nil {
+		return
+	}
+	svc.ObjectMeta.Annotations = annotations
+	s.sc.Update(svc)
 }
 
 func (s *ambientTestServer) addWorkloadEntries(t *testing.T, ip string, name, sa string, labels map[string]string) {
