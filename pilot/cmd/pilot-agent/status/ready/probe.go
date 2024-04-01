@@ -90,7 +90,7 @@ func (p *Probe) isEnvoyReady() error {
 	}
 	select {
 	case <-p.Context.Done():
-		return fmt.Errorf("server is not live, current state is: %s", StateString(ServerInfo_DRAINING))
+		return fmt.Errorf("server is not live, current state is: %s", StateString(Draining))
 	default:
 		return p.checkEnvoyReadiness()
 	}
@@ -115,28 +115,28 @@ func (p *Probe) checkEnvoyReadiness() error {
 	return err
 }
 
-type ServerInfo_State int32
+type ServerInfoState int32
 
 const (
 	// Server is live and serving traffic.
-	ServerInfo_LIVE ServerInfo_State = 0
+	Live ServerInfoState = 0
 	// Server is draining listeners in response to external health checks failing.
-	ServerInfo_DRAINING ServerInfo_State = 1
+	Draining ServerInfoState = 1
 	// Server has not yet completed cluster manager initialization.
-	ServerInfo_PRE_INITIALIZING ServerInfo_State = 2
+	PreInitializing ServerInfoState = 2
 	// Server is running the cluster manager initialization callbacks (e.g., RDS).
-	ServerInfo_INITIALIZING ServerInfo_State = 3
+	Initializing ServerInfoState = 3
 )
 
-func StateString(state ServerInfo_State) string {
+func StateString(state ServerInfoState) string {
 	switch state {
-	case ServerInfo_LIVE:
+	case Live:
 		return "LIVE"
-	case ServerInfo_DRAINING:
+	case Draining:
 		return "DRAINING"
-	case ServerInfo_PRE_INITIALIZING:
+	case PreInitializing:
 		return "PRE_INITIALIZING"
-	case ServerInfo_INITIALIZING:
+	case Initializing:
 		return "INITIALIZING"
 	}
 	return "UNKNOWN"
@@ -149,8 +149,8 @@ func checkEnvoyStats(host string, port uint16) error {
 		return fmt.Errorf("failed to get readiness stats: %v", err)
 	}
 
-	if state != nil && ServerInfo_State(*state) != ServerInfo_LIVE {
-		return fmt.Errorf("server is not live, current state is: %v", StateString(ServerInfo_State(*state)))
+	if state != nil && ServerInfoState(*state) != Live {
+		return fmt.Errorf("server is not live, current state is: %v", StateString(ServerInfoState(*state)))
 	}
 
 	if !ws {
