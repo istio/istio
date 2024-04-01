@@ -61,9 +61,7 @@ func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Context) {
 	svc := r.Message.(*v1.ServiceSpec)
 	// Skip gateway managed services, which are not created by users
-	if v, ok := r.Metadata.Labels[constants.ManagedGatewayLabel]; ok &&
-		v == constants.ManagedGatewayControllerLabel ||
-		v == constants.ManagedGatewayMeshControllerLabel {
+	if _, ok := r.Metadata.Labels[constants.ManagedGatewayLabel]; ok {
 		return
 	}
 	for i, port := range svc.Ports {

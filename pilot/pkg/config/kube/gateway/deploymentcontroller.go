@@ -125,10 +125,6 @@ func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 		gateway.ObjectName(features.GatewayAPIDefaultGatewayClass): gateway.GatewayController(features.ManagedGatewayController),
 	}
 
-	if features.MultiNetworkGatewayAPI {
-		res[constants.RemoteGatewayClassName] = constants.UnmanagedGatewayController
-	}
-
 	if features.EnableAmbientWaypoints {
 		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
 	}
@@ -146,16 +142,6 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 		},
 	}
 
-	if features.MultiNetworkGatewayAPI {
-		m[constants.UnmanagedGatewayController] = classInfo{
-			// This represents a gateway that our control plane cannot discover directly via the API server.
-			// We shouldn't generate Istio resources for it. We aren't programming this gateway.
-			controller:             constants.UnmanagedGatewayController,
-			description:            "Remote to this cluster. Does not deploy or affect configuration.",
-			disableRouteGeneration: true,
-			addressType:            gateway.HostnameAddressType,
-		}
-	}
 	if features.EnableAmbientWaypoints {
 		m[constants.ManagedGatewayMeshController] = classInfo{
 			controller:         constants.ManagedGatewayMeshController,

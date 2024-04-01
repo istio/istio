@@ -166,11 +166,13 @@ const (
 	// testing the validation webhook.
 	AlwaysReject = "internal.istio.io/webhook-always-reject"
 
-	ManagedGatewayLabel               = "gateway.istio.io/managed"
-	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
-	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
+	ManagedGatewayLabel = "gateway.istio.io/managed"
+	// ManagedGatewayMeshControllerLabel is the label value applied on waypoint resources, deployment, pod, service, etc.
+	// e.g. `gateway.istio.io/managed: istio.io-mesh-controller`
 	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
-	ManagedGatewayMeshController      = "istio.io/mesh-controller"
+
+	// controller name of built-in `istio-waypoint` gatewayClass
+	ManagedGatewayMeshController = "istio.io/mesh-controller"
 
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
