@@ -46,12 +46,16 @@ func (d *Debouncer[T]) Run(ch chan T, stopCh <-chan struct{}, debounceMinInterva
 		quietTime := time.Since(lastConfigUpdateTime)
 		// it has been too long or quiet enough
 		if eventDelay >= debounceMaxInterval || quietTime >= debounceMinInterval {
-			if combinedEvents != nil {
+			if combinedEvents.Len() > 0 {
 				pushCounter++
 				free = false
 				go push(combinedEvents, debouncedEvents, startDebounce)
 				combinedEvents = sets.New[T]()
 				debouncedEvents = 0
+			} else {
+				// For no combined events to process, we can also do nothing here and wait for the config change to trigger
+				// the next debounce, but I think it's better to set it's to the debounce max interval.
+				timeChan = time.After(debounceMaxInterval)
 			}
 		} else {
 			timeChan = time.After(debounceMinInterval - quietTime)
