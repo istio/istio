@@ -43,6 +43,7 @@ var (
 	Namespace                      = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"}
 	Node                           = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Node"}
 	PeerAuthentication             = config.GroupVersionKind{Group: "security.istio.io", Version: "v1beta1", Kind: "PeerAuthentication"}
+	PeerAuthentication_v1          = config.GroupVersionKind{Group: "security.istio.io", Version: "v1", Kind: "PeerAuthentication"}
 	Pod                            = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 	ProxyConfig                    = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "ProxyConfig"}
 	ReferenceGrant                 = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "ReferenceGrant"}
@@ -140,6 +141,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.Node, true
 	case PeerAuthentication:
 		return gvr.PeerAuthentication, true
+	case PeerAuthentication_v1:
+		return gvr.PeerAuthentication_v1, true
 	case Pod:
 		return gvr.Pod, true
 	case ProxyConfig:
