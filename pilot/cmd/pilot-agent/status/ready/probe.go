@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 )
@@ -92,7 +90,7 @@ func (p *Probe) isEnvoyReady() error {
 	}
 	select {
 	case <-p.Context.Done():
-		return fmt.Errorf("server is not live, current state is: %s", admin.ServerInfo_DRAINING.String())
+		return fmt.Errorf("server is not live, current state is: %s", StateString(ServerInfo_DRAINING))
 	default:
 		return p.checkEnvoyReadiness()
 	}
@@ -117,6 +115,33 @@ func (p *Probe) checkEnvoyReadiness() error {
 	return err
 }
 
+type ServerInfo_State int32
+
+const (
+	// Server is live and serving traffic.
+	ServerInfo_LIVE ServerInfo_State = 0
+	// Server is draining listeners in response to external health checks failing.
+	ServerInfo_DRAINING ServerInfo_State = 1
+	// Server has not yet completed cluster manager initialization.
+	ServerInfo_PRE_INITIALIZING ServerInfo_State = 2
+	// Server is running the cluster manager initialization callbacks (e.g., RDS).
+	ServerInfo_INITIALIZING ServerInfo_State = 3
+)
+
+func StateString(state ServerInfo_State) string {
+	switch state {
+	case ServerInfo_LIVE:
+		return "LIVE"
+	case ServerInfo_DRAINING:
+		return "DRAINING"
+	case ServerInfo_PRE_INITIALIZING:
+		return "PRE_INITIALIZING"
+	case ServerInfo_INITIALIZING:
+		return "INITIALIZING"
+	}
+	return "UNKNOWN"
+}
+
 // checkEnvoyStats actually executes the Stats Query on Envoy admin endpoint.
 func checkEnvoyStats(host string, port uint16) error {
 	state, ws, err := util.GetReadinessStats(host, port)
@@ -124,8 +149,8 @@ func checkEnvoyStats(host string, port uint16) error {
 		return fmt.Errorf("failed to get readiness stats: %v", err)
 	}
 
-	if state != nil && admin.ServerInfo_State(*state) != admin.ServerInfo_LIVE {
-		return fmt.Errorf("server is not live, current state is: %v", admin.ServerInfo_State(*state).String())
+	if state != nil && ServerInfo_State(*state) != ServerInfo_LIVE {
+		return fmt.Errorf("server is not live, current state is: %v", StateString(ServerInfo_State(*state)))
 	}
 
 	if !ws {

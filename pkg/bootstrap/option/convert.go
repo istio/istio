@@ -21,12 +21,11 @@ import (
 	"os"
 	"strings"
 
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"google.golang.org/protobuf/types/known/durationpb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -44,10 +43,22 @@ type TransportSocket struct {
 	TypedConfig *pstruct.Struct `json:"typed_config,omitempty"`
 }
 
+// TcpKeepalive wraps is a thin JSON for xDS proto
+type TcpKeepalive struct {
+	KeepaliveProbes   *wrapperspb.UInt32Value `json:"keepalive_probes,omitempty"`
+	KeepaliveTime     *wrapperspb.UInt32Value `json:"keepalive_time,omitempty"`
+	KeepaliveInterval *wrapperspb.UInt32Value `json:"keepalive_interval,omitempty"`
+}
+
+// UpstreamConnectionOptions wraps is a thin JSON for xDS proto
+type UpstreamConnectionOptions struct {
+	TcpKeepalive *TcpKeepalive `json:"tcp_keepalive,omitempty"`
+}
+
 func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) convertFunc {
 	return func(*instance) (any, error) {
-		upstreamConnectionOptions := &cluster.UpstreamConnectionOptions{
-			TcpKeepalive: &core.TcpKeepalive{},
+		upstreamConnectionOptions := &UpstreamConnectionOptions{
+			TcpKeepalive: &TcpKeepalive{},
 		}
 
 		if value.Probes > 0 {
