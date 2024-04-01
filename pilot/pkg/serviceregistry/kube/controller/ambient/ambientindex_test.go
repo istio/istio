@@ -1514,28 +1514,14 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa, trafficType 
 		gateway.Annotations = annotations
 	}
 	// Derive the traffic type that is allowed to pass through the Waypoint and set that on the Waypoint
+	// Check for a declared traffic type that is allowed to pass through the Waypoint
 	if validTrafficTypes.Contains(trafficType) {
-		switch trafficType {
-		case constants.ServiceTraffic:
-			gateway.Annotations = map[string]string{
-				constants.AmbientWaypointForTrafficType: constants.ServiceTraffic,
-			}
-		case constants.WorkloadTraffic:
-			gateway.Annotations = map[string]string{
-				constants.AmbientWaypointForTrafficType: constants.WorkloadTraffic,
-			}
-		case constants.AllTraffic:
-			gateway.Annotations = map[string]string{
-				constants.AmbientWaypointForTrafficType: constants.AllTraffic,
-			}
-		case constants.NoTraffic:
-			gateway.Annotations = map[string]string{
-				constants.AmbientWaypointForTrafficType: constants.NoTraffic,
-			}
-		default:
-			gateway.Annotations = map[string]string{
-				constants.AmbientWaypointForTrafficType: constants.ServiceTraffic,
-			}
+		gateway.Annotations = map[string]string{
+			constants.AmbientWaypointForTrafficType: trafficType,
+		}
+	} else {
+		gateway.Annotations = map[string]string{
+			constants.AmbientWaypointForTrafficType: constants.ServiceTraffic,
 		}
 	}
 	if ready {
