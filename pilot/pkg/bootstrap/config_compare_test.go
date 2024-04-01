@@ -87,7 +87,6 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
-					// Labels:           map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			expected: true,
@@ -99,7 +98,6 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
-					// Labels:           map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			curr: config.Config{
@@ -125,7 +123,6 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
-					// Annotations:      map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			expected: true,
@@ -137,7 +134,6 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
-					// Annotations:      map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			curr: config.Config{
@@ -169,7 +165,7 @@ func TestNeedsPush(t *testing.T) {
 				},
 				Spec: &networking.VirtualService{},
 			},
-			expected: false,
+			expected: true,
 		},
 	}
 
