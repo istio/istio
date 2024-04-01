@@ -63,11 +63,10 @@ import (
 )
 
 const (
-	testNS      = "ns1"
-	systemNS    = "istio-system"
-	testNW      = "testnetwork"
-	testC       = "cluster0"
-	trafficType = "service"
+	testNS   = "ns1"
+	systemNS = "istio-system"
+	testNW   = "testnetwork"
+	testC    = "cluster0"
 )
 
 func init() {
