@@ -510,7 +510,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
 
-	labelToMatch := map[string]string{constants.GatewayNameLabel: mi.Name, constants.DeprecatedGatewayNameLabel: mi.Name}
+	labelToMatch := map[string]string{constants.GatewayNameLabel: mi.Name}
 	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
@@ -618,16 +618,6 @@ func (d *DeploymentController) setGatewayNameLabel(ti *TemplateInput) {
 		log.Debugf("deployment %s/%s not found in store; using to the new gateway name label", ti.DeploymentName, ti.Namespace)
 		return
 	}
-
-	// Base label choice on the deployment's selector
-	_, exists := dep.(*appsv1.Deployment).Spec.Selector.MatchLabels[constants.DeprecatedGatewayNameLabel]
-	if !exists {
-		// The old label doesn't already exist on the deployment; use the new label
-		return
-	}
-
-	// The old label exists on the deployment; use the old label
-	ti.GatewayNameLabel = constants.DeprecatedGatewayNameLabel
 }
 
 type TemplateInput struct {

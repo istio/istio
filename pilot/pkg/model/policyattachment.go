@@ -49,11 +49,6 @@ const (
 
 func KubernetesGatewayNameAndExists(l labels.Instance) (string, bool) {
 	gwName, exists := l[constants.GatewayNameLabel]
-	if !exists {
-		// TODO: Remove deprecated gateway name label (1.22 or 1.23)
-		gwName, exists = l[constants.DeprecatedGatewayNameLabel]
-	}
-
 	return gwName, exists
 }
 
