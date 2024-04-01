@@ -405,6 +405,8 @@ resources:
     plural: "peerauthentications"
     group: "security.istio.io"
     version: "v1beta1"
+    versionAliases:
+    - "v1"
     proto: "istio.security.v1beta1.PeerAuthentication"
     protoPackage: "istio.io/api/security/v1beta1"
     statusProto: "istio.meta.v1alpha1.IstioStatus"

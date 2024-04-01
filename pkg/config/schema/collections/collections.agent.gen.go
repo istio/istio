@@ -114,7 +114,10 @@ var (
 		Kind:       "PeerAuthentication",
 		Plural:     "peerauthentications",
 		Version:    "v1beta1",
-		Proto:      "istio.security.v1beta1.PeerAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+		VersionAliases: []string{
+			"v1",
+		},
+		Proto: "istio.security.v1beta1.PeerAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 		ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.PeerAuthentication{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
