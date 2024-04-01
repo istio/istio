@@ -663,6 +663,7 @@ var (
 		Version:    "v1alpha3",
 		VersionAliases: []string{
 			"v1beta1",
+			"v1",
 		},
 		Proto: "istio.networking.v1alpha3.VirtualService", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.VirtualService{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
@@ -696,6 +697,7 @@ var (
 		Version:    "v1alpha3",
 		VersionAliases: []string{
 			"v1beta1",
+			"v1",
 		},
 		Proto: "istio.networking.v1alpha3.WorkloadEntry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadEntry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
@@ -714,6 +716,7 @@ var (
 		Version:    "v1alpha3",
 		VersionAliases: []string{
 			"v1beta1",
+			"v1",
 		},
 		Proto: "istio.networking.v1alpha3.WorkloadGroup", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadGroup{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
