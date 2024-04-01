@@ -5,4 +5,4 @@ issue:
 - 49340
 releaseNotes:
 - |
-  **Fixed** an issue that pilot CPU consumption is abnormally high when the in-cluster analysis is enabled.
+  **Fixed** an issue where pilot CPU consumption was abnormally high when the in-cluster analysis was enabled.
