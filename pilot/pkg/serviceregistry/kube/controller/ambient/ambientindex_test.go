@@ -385,11 +385,11 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 	s.assertEvent(t, s.podXdsName("pod2"))
 
 	s.addWaypoint(t, "10.0.0.1", "waypoint-sa1", "sa1", "", false)
-	s.addWaypoint(t, "10.0.0.2", "waypoint-sa2", "sa2", "", true)
+	s.addWaypoint(t, "10.0.0.2", "waypoint-sa2", "sa2", constants.WorkloadTraffic, true)
 	s.assertEvent(t, s.podXdsName("pod2"))
 
 	// make waypoint-sa1 ready
-	s.addWaypoint(t, "10.0.0.1", "waypoint-sa1", "sa1", "", true)
+	s.addWaypoint(t, "10.0.0.1", "waypoint-sa1", "sa1", constants.WorkloadTraffic, true)
 	// if waypoint-sa1 was configured when not ready "pod2" assertions should skip the "pod1" xds event and this should fail
 	s.assertEvent(t, s.podXdsName("pod1"))
 }
