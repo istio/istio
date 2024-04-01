@@ -27,11 +27,8 @@ import (
 // to be triggered. This is to avoid unnecessary pushes only when labels have changed
 // for example.
 func needsPush(prev config.Config, curr config.Config) bool {
-	if prev.GroupVersionKind != curr.GroupVersionKind {
-		// This should never happen.
-		return true
-	}
 	// If the config is not Istio, let us just push.
+	// Used for gateway api reconcile.
 	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") {
 		return true
 	}

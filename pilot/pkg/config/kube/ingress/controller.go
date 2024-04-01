@@ -196,15 +196,11 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 		Name:             item.Name + "-" + "virtualservice",
 		Namespace:        item.Namespace,
 		GroupVersionKind: gvk.VirtualService,
-		// Set this label so that we do not compare configs and just push.
-		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
 	}
 	gatewaymetadata := config.Meta{
 		Name:             item.Name + "-" + "gateway",
 		Namespace:        item.Namespace,
 		GroupVersionKind: gvk.Gateway,
-		// Set this label so that we do not compare configs and just push.
-		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
 	}
 
 	// Trigger updates for Gateway and VirtualService

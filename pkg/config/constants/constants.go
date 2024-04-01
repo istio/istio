@@ -134,9 +134,6 @@ const (
 
 	TestVMVersionLabel = "istio.io/test-vm-version"
 
-	// Label to skip config comparison.
-	AlwaysPushLabel = "internal.istio.io/always-push"
-
 	// InternalParentNames declares the original resources of an internally-generated config.
 	// This is used by k8s gateway-api.
 	// It is a comma separated list. For example, "HTTPRoute/foo.default,HTTPRoute/bar.default"
