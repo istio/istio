@@ -47,6 +47,11 @@ var (
 		kind.VirtualService,
 		kind.DestinationRule,
 		kind.Sidecar,
+
+		kind.HTTPRoute,
+		kind.TCPRoute,
+		kind.TLSRoute,
+		kind.GRPCRoute,
 	)
 
 	// clusterScopedKnownConfigTypes includes configs when they are in root namespace,
