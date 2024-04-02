@@ -21,6 +21,7 @@ import (
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	resourcedetectors "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/resource_detectors/v3"
+	otelsamplers "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/samplers/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
@@ -237,6 +238,271 @@ func TestConfigureTracing(t *testing.T) {
 			assert.Equal(t, tc.wantReqIDExtCtx, gotReqIDExtCtx)
 		})
 	}
+}
+
+func TestConfigureDynatraceSampler(t *testing.T) {
+	clusterName := "testcluster"
+	authority := "testhost"
+	dtTenant := "abc"
+	var dtClusterID int32 = 123
+	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
+		return authority, clusterName, nil
+	}
+	defer func() {
+		clusterLookupFn = model.LookupCluster
+	}()
+
+	testcases := []struct {
+		name        string
+		dtTenant    string
+		dtClusterID int32
+		spansPerMin uint32
+		expectedURI string
+	}{
+		{
+			name:        "re-use otlp http headers",
+			dtTenant:    dtTenant,
+			dtClusterID: dtClusterID,
+			expectedURI: authority + "/api/v2/samplingConfiguration",
+		},
+		{
+			name:        "custom root spans per minute fallback",
+			dtTenant:    dtTenant,
+			dtClusterID: dtClusterID,
+			expectedURI: authority + "/api/v2/samplingConfiguration",
+			spansPerMin: 9999,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			httpProvider := fakeOpenTelemetryHTTP()
+			httpProvider.GetOpentelemetry().Sampling = &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_{
+				DynatraceSampler: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler{
+					Tenant:             tc.dtTenant,
+					ClusterId:          tc.dtClusterID,
+					RootSpansPerMinute: tc.spansPerMin,
+				},
+			}
+
+			// Use a different value for RandomSamplingPercentage to ensure it is changed to 100%
+			// when a custom sampler is used for the OTel tracing provider
+			inSpec := &model.TracingConfig{
+				ClientSpec: tracingSpec(httpProvider, 50, false, false),
+				ServerSpec: tracingSpec(httpProvider, 50, false, false),
+			}
+
+			opts := fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI()
+			ep := opts.push.Mesh.ExtensionProviders[0]
+			ep.GetOpentelemetry().Sampling = &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_{
+				DynatraceSampler: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler{
+					Tenant:             tc.dtTenant,
+					ClusterId:          tc.dtClusterID,
+					RootSpansPerMinute: tc.spansPerMin,
+				},
+			}
+
+			// Envoy expected config
+			fakeOTelHTTPProviderConfig := &tracingcfg.OpenTelemetryConfig{
+				HttpService: &core.HttpService{
+					HttpUri: &core.HttpUri{
+						Uri: authority + "/v1/traces",
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: clusterName,
+						},
+						Timeout: &durationpb.Duration{Seconds: 3},
+					},
+					RequestHeadersToAdd: []*core.HeaderValueOption{
+						{
+							Header: &core.HeaderValue{
+								Key:   "custom-header",
+								Value: "custom-value",
+							},
+							AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+						},
+					},
+				},
+				Sampler: &core.TypedExtensionConfig{
+					Name: "envoy.tracers.opentelemetry.samplers.dynatrace",
+					TypedConfig: protoconv.MessageToAny(&otelsamplers.DynatraceSamplerConfig{
+						Tenant:             tc.dtTenant,
+						ClusterId:          tc.dtClusterID,
+						RootSpansPerMinute: tc.spansPerMin,
+						HttpService: &core.HttpService{
+							HttpUri: &core.HttpUri{
+								Uri: tc.expectedURI,
+								HttpUpstreamType: &core.HttpUri_Cluster{
+									Cluster: clusterName,
+								},
+								Timeout: &durationpb.Duration{Seconds: 3},
+							},
+							RequestHeadersToAdd: []*core.HeaderValueOption{
+								{
+									Header: &core.HeaderValue{
+										Key:   "custom-header",
+										Value: "custom-value",
+									},
+									AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+								},
+							},
+						},
+					}),
+				},
+			}
+
+			fakeOtelHTTPAny := &tracingcfg.Tracing_Http{
+				Name:       envoyOpenTelemetry,
+				ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: protoconv.MessageToAny(fakeOTelHTTPProviderConfig)},
+			}
+			want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
+
+			hcm := &hcm.HttpConnectionManager{}
+			configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
+
+			if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
+				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
+			}
+			assert.Equal(t, want, hcm.Tracing)
+		})
+	}
+}
+
+func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
+	clusterName := "testcluster"
+	authority := "testhost"
+
+	dtClusterName := "dtcluster"
+	dtAuthority := "dthost"
+	expectedTenant := "abc"
+	var expectedClusterID int32 = 123
+	expectedHeader := "sampler-custom"
+	expectedToken := "sampler-value"
+
+	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
+		if service == dtAuthority {
+			return dtAuthority, dtClusterName, nil
+		}
+		return authority, clusterName, nil
+	}
+	defer func() {
+		clusterLookupFn = model.LookupCluster
+	}()
+
+	httpProvider := fakeOpenTelemetryHTTP()
+	httpProvider.GetOpentelemetry().Sampling = &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_{
+		DynatraceSampler: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler{
+			Tenant:             expectedTenant,
+			ClusterId:          expectedClusterID,
+			RootSpansPerMinute: 2000,
+			HttpService: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_DynatraceApi{
+				Service: dtAuthority,
+				Port:    123,
+				Http: &meshconfig.MeshConfig_ExtensionProvider_HttpService{
+					Path:    "api/v2/samplingConfiguration",
+					Timeout: &durationpb.Duration{Seconds: 3},
+					Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+						{
+							Name:  expectedHeader,
+							Value: expectedToken,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Use a different value for RandomSamplingPercentage to ensure it is changed to 100%
+	// when a custom sampler is used for the OTel tracing provider
+	inSpec := &model.TracingConfig{
+		ClientSpec: tracingSpec(httpProvider, 50, false, false),
+		ServerSpec: tracingSpec(httpProvider, 50, false, false),
+	}
+
+	opts := fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI()
+	ep := opts.push.Mesh.ExtensionProviders[0]
+	ep.GetOpentelemetry().Sampling = &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_{
+		DynatraceSampler: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler{
+			Tenant:             expectedTenant,
+			ClusterId:          expectedClusterID,
+			RootSpansPerMinute: 2000,
+			HttpService: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_DynatraceApi{
+				Service: dtAuthority,
+				Port:    123,
+				Http: &meshconfig.MeshConfig_ExtensionProvider_HttpService{
+					Path:    "api/v2/samplingConfiguration",
+					Timeout: &durationpb.Duration{Seconds: 3},
+					Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+						{
+							Name:  expectedHeader,
+							Value: expectedToken,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Envoy expected config
+	fakeOTelHTTPProviderConfig := &tracingcfg.OpenTelemetryConfig{
+		HttpService: &core.HttpService{
+			HttpUri: &core.HttpUri{
+				Uri: authority + "/v1/traces",
+				HttpUpstreamType: &core.HttpUri_Cluster{
+					Cluster: clusterName,
+				},
+				Timeout: &durationpb.Duration{Seconds: 3},
+			},
+			RequestHeadersToAdd: []*core.HeaderValueOption{
+				{
+					Header: &core.HeaderValue{
+						Key:   "custom-header",
+						Value: "custom-value",
+					},
+					AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				},
+			},
+		},
+		Sampler: &core.TypedExtensionConfig{
+			Name: "envoy.tracers.opentelemetry.samplers.dynatrace",
+			TypedConfig: protoconv.MessageToAny(&otelsamplers.DynatraceSamplerConfig{
+				Tenant:             expectedTenant,
+				ClusterId:          expectedClusterID,
+				RootSpansPerMinute: 2000,
+				HttpService: &core.HttpService{
+					HttpUri: &core.HttpUri{
+						Uri: dtAuthority + "/api/v2/samplingConfiguration",
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: dtClusterName,
+						},
+						Timeout: &durationpb.Duration{Seconds: 3},
+					},
+					RequestHeadersToAdd: []*core.HeaderValueOption{
+						{
+							Header: &core.HeaderValue{
+								Key:   expectedHeader,
+								Value: expectedToken,
+							},
+							AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+						},
+					},
+				},
+			}),
+		},
+	}
+
+	fakeOtelHTTPAny := &tracingcfg.Tracing_Http{
+		Name:       envoyOpenTelemetry,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: protoconv.MessageToAny(fakeOTelHTTPProviderConfig)},
+	}
+	want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
+
+	hcm := &hcm.HttpConnectionManager{}
+	configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
+
+	if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
+		t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
+	}
+	assert.Equal(t, want, hcm.Tracing)
 }
 
 func defaultTracingTags() []*tracing.CustomTag {
