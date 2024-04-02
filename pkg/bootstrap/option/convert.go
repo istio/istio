@@ -21,8 +21,6 @@ import (
 	"os"
 	"strings"
 
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -44,22 +42,34 @@ type TransportSocket struct {
 	TypedConfig *pstruct.Struct `json:"typed_config,omitempty"`
 }
 
+// TCPKeepalive wraps is a thin JSON for xDS proto
+type TCPKeepalive struct {
+	KeepaliveProbes   *wrappers.UInt32Value `json:"keepalive_probes,omitempty"`
+	KeepaliveTime     *wrappers.UInt32Value `json:"keepalive_time,omitempty"`
+	KeepaliveInterval *wrappers.UInt32Value `json:"keepalive_interval,omitempty"`
+}
+
+// UpstreamConnectionOptions wraps is a thin JSON for xDS proto
+type UpstreamConnectionOptions struct {
+	TCPKeepalive *TCPKeepalive `json:"tcp_keepalive,omitempty"`
+}
+
 func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) convertFunc {
 	return func(*instance) (any, error) {
-		upstreamConnectionOptions := &cluster.UpstreamConnectionOptions{
-			TcpKeepalive: &core.TcpKeepalive{},
+		upstreamConnectionOptions := &UpstreamConnectionOptions{
+			TCPKeepalive: &TCPKeepalive{},
 		}
 
 		if value.Probes > 0 {
-			upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: value.Probes}
+			upstreamConnectionOptions.TCPKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: value.Probes}
 		}
 
 		if value.Time != nil && value.Time.Seconds > 0 {
-			upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(value.Time.Seconds)}
+			upstreamConnectionOptions.TCPKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(value.Time.Seconds)}
 		}
 
 		if value.Interval != nil && value.Interval.Seconds > 0 {
-			upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(value.Interval.Seconds)}
+			upstreamConnectionOptions.TCPKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(value.Interval.Seconds)}
 		}
 		return convertToJSON(upstreamConnectionOptions), nil
 	}
