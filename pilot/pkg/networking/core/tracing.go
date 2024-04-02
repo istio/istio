@@ -315,16 +315,7 @@ func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_Extensio
 				},
 				Timeout: httpService.GetTimeout(),
 			},
-		}
-		for _, h := range httpService.GetHeaders() {
-			hvo := &core.HeaderValueOption{
-				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
-				Header: &core.HeaderValue{
-					Key:   h.GetName(),
-					Value: h.GetValue(),
-				},
-			}
-			oc.GetHttpService().RequestHeadersToAdd = append(oc.GetHttpService().GetRequestHeadersToAdd(), hvo)
+			RequestHeadersToAdd: buildHttpHeaders(httpService.GetHeaders()),
 		}
 	}
 
@@ -513,7 +504,7 @@ func configureDynatraceSampler(hostname, cluster string,
 		// Re-use the Dynatrace API Host from the OTLP HTTP exporter
 		otlpHttpService := otelProvider.GetHttp()
 		if otlpHttpService == nil {
-			return nil, fmt.Errorf("dynatrace sampler could not get http settings. considering using dynatrace_api field")
+			return nil, fmt.Errorf("dynatrace sampler could not get http settings. considering setting the http_service field on the dynatrace sampler")
 		}
 
 		uri, err := url.JoinPath(hostname, "api/v2/samplingConfiguration")
@@ -529,18 +520,8 @@ func configureDynatraceSampler(hostname, cluster string,
 				},
 				Timeout: otlpHttpService.GetTimeout(),
 			},
-		}
-
-		// Re-use the headers from the OTLP HTTP Exporter
-		for _, h := range otlpHttpService.GetHeaders() {
-			hvo := &core.HeaderValueOption{
-				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
-				Header: &core.HeaderValue{
-					Key:   h.GetName(),
-					Value: h.GetValue(),
-				},
-			}
-			dsc.GetHttpService().RequestHeadersToAdd = append(dsc.GetHttpService().GetRequestHeadersToAdd(), hvo)
+			// Re-use the headers from the OTLP HTTP Exporter
+			RequestHeadersToAdd: buildHttpHeaders(otlpHttpService.GetHeaders()),
 		}
 	} else {
 		// Dynatrace customers may want to export to a OTel collector
@@ -568,17 +549,7 @@ func configureDynatraceSampler(hostname, cluster string,
 				},
 				Timeout: dtapi.Http.GetTimeout(),
 			},
-		}
-
-		for _, h := range dtapi.Http.GetHeaders() {
-			hvo := &core.HeaderValueOption{
-				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
-				Header: &core.HeaderValue{
-					Key:   h.GetName(),
-					Value: h.GetValue(),
-				},
-			}
-			dsc.GetHttpService().RequestHeadersToAdd = append(dsc.GetHttpService().GetRequestHeadersToAdd(), hvo)
+			RequestHeadersToAdd: buildHttpHeaders(dtapi.Http.GetHeaders()),
 		}
 	}
 
@@ -873,4 +844,19 @@ func buildCustomTagsFromProxyConfig(customTags map[string]*meshconfig.Tracing_Cu
 		}
 	}
 	return tags
+}
+
+func buildHttpHeaders(headers []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader) []*core.HeaderValueOption {
+	target := make([]*core.HeaderValueOption, 0, len(headers))
+	for _, h := range headers {
+		hvo := &core.HeaderValueOption{
+			AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+			Header: &core.HeaderValue{
+				Key:   h.GetName(),
+				Value: h.GetValue(),
+			},
+		}
+		target = append(target, hvo)
+	}
+	return target
 }
