@@ -61,6 +61,8 @@ func (n Named) GetNamespace() string {
 	return n.Namespace
 }
 
+// GetApplyConfigKey returns the key for the ApplyConfig.
+// If there is none, this will return nil.
 func GetApplyConfigKey[O any](a O) *Key[O] {
 	val := reflect.ValueOf(a)
 
