@@ -176,7 +176,8 @@ var HasL7 CombinationFilter = func(from echo.Instance, to echo.Instances) echo.I
 	}
 	// otherwise give only serverside l7 endpoints
 	return match.Matcher(func(instance echo.Instance) bool {
-		return instance.Config().HasWaypointProxy()
+		return instance.Config().HasServiceAddressedWaypointProxy() ||
+			instance.Config().HasWorkloadAddressedWaypointProxy()
 	}).GetMatches(to)
 }
 

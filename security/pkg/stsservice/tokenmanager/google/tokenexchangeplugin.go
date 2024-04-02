@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
+	sec_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/util"
@@ -83,14 +84,16 @@ func CreateTokenManagerPlugin(credFetcher security.CredFetcher, trustDomain, gcp
 		pluginLog.Errorf("Failed to get SystemCertPool: %v", err)
 		return nil, err
 	}
+	tlsConfig := &tls.Config{
+		RootCAs:    caCertPool,
+		MinVersion: tls.VersionTLS12,
+	}
+	sec_model.EnforceGoCompliance(tlsConfig)
 	p := &Plugin{
 		httpClient: &http.Client{
 			Timeout: httpTimeOutInSec * time.Second,
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					RootCAs:    caCertPool,
-					MinVersion: tls.VersionTLS12,
-				},
+				TLSClientConfig: tlsConfig,
 			},
 		},
 		credFetcher:      credFetcher,

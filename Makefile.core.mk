@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2024-02-16T19-00-50
+BASE_VERSION ?= master-2024-03-28T19-01-22
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -286,10 +286,37 @@ MARKDOWN_LINT_ALLOWLIST=localhost:8080,storage.googleapis.com/istio-artifacts/pi
 lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint
 
-lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
+lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global check-agent-deps ## Runs all linters.
 	@bin/check_samples.sh
 	@testlinter
 	@envvarlinter istioctl pilot security
+
+# Allow-list:
+# (k8s) Machinery, utils, klog
+# (proto) TLS for SDS
+# (proto) Wasm for wasm xDS proxy
+.PHONY: check-agent-deps
+check-agent-deps:
+	@go list -f '{{ join .Deps "\n" }}' -tags=agent \
+			./security/pkg/nodeagent/caclient/... \
+			./security/pkg/nodeagent/plugin/... \
+			./security/pkg/nodeagent/cache/... \
+			./pilot/cmd/pilot-agent/metrics \
+			./pilot/cmd/pilot-agent/status \
+			./pilot/cmd/pilot-agent/status/ready \
+			./pilot/cmd/pilot-agent/status/grpcready \
+			./pilot/cmd/pilot-agent/config \
+			./pkg/dns/client/... \
+			./pkg/security/... \
+			./pkg/bootstrap/... \
+			./pkg/wasm/... \
+			./pkg/envoy/... | sort | uniq |\
+		grep -Pv '^k8s.io/(utils|klog|apimachinery)/' |\
+		grep -Pv 'envoy/type/|envoy/annotations|envoy/config/core/' |\
+		grep -Pv 'envoy/extensions/transport_sockets/tls/' |\
+		grep -Pv 'envoy/extensions/wasm/' |\
+		grep -Pv 'envoy/extensions/filters/(http|network)/wasm/' |\
+		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|envoy/')
 
 go-gen:
 	@mkdir -p /tmp/bin

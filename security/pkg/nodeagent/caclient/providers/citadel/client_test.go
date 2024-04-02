@@ -359,7 +359,7 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 				}
 			}()
 
-			opts := &security.Options{CAEndpoint: lis.Addr().String(), ClusterID: "Kubernetes", CredFetcher: plugin.CreateMockPlugin(tc.token)}
+			opts := &security.Options{CAEndpoint: lis.Addr().String(), ClusterID: constants.DefaultClusterName, CredFetcher: plugin.CreateMockPlugin(tc.token)}
 			err = retry.UntilSuccess(func() error {
 				cli, err := NewCitadelClient(opts, nil)
 				if err != nil {

@@ -626,7 +626,7 @@ It's best to do kube-inject when the resource is initially created.
 			if root != nil {
 				_ = c.Root().PersistentFlags().Set("log_target", "stderr")
 			}
-			if c.Parent() != nil {
+			if c.Parent() != nil && c.Parent().PersistentPreRunE != nil {
 				return c.Parent().PersistentPreRunE(c, args)
 			}
 

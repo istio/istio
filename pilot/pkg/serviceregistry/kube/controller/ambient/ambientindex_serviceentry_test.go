@@ -28,7 +28,6 @@ import (
 )
 
 func TestAmbientIndex_ServiceEntry(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	// test code path where service entry creates a workload entry via `ServiceEntry.endpoints`
@@ -323,7 +322,6 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 }
 
 func TestAmbientIndex_ServiceEntry_DisableK8SServiceSelectWorkloadEntries(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	test.SetForTest(t, &features.EnableK8SServiceSelectWorkloadEntries, false)
 	s := newAmbientTestServer(t, testC, testNW)
 

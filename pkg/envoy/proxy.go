@@ -139,16 +139,6 @@ func (e *envoy) args(fname string, overrideFname string) []string {
 		"--disable-hot-restart", // We don't use it, so disable it to simplify Envoy's logic
 		"--allow-unknown-static-fields",
 	}
-	if e.ProxyConfig.LogAsJSON {
-		startupArgs = append(startupArgs,
-			"--log-format",
-			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"envoy %n","msg":"%j","caller":"%g:%#","thread":%t}`,
-		)
-	} else {
-		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
-		// this matches Istio log format
-		startupArgs = append(startupArgs, "--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t")
-	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
 

@@ -17,31 +17,28 @@ package model
 import (
 	gotls "crypto/tls"
 	"strings"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
-	common_features "istio.io/istio/pkg/features"
-	"istio.io/istio/pkg/log"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
 
 const (
 	// SDSClusterName is the name of the cluster for SDS connections
-	SDSClusterName = "sds-grpc"
+	SDSClusterName = pm.SDSClusterName
 
 	// SDSDefaultResourceName is the default name in sdsconfig, used for fetching normal key/cert.
-	SDSDefaultResourceName = "default"
+	SDSDefaultResourceName = pm.SDSDefaultResourceName
 
 	// SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
-	SDSRootResourceName = "ROOTCA"
+	SDSRootResourceName = pm.SDSRootResourceName
 
 	// ThirdPartyJwtPath is the token volume mount file name for k8s trustworthy jwt token.
 	ThirdPartyJwtPath = "/var/run/secrets/tokens/istio-token"
@@ -115,87 +112,9 @@ func ConstructSdsSecretConfigForCredentialSocket(name string) *tls.SdsSecretConf
 	}
 }
 
-// Preconfigured SDS configs to avoid excessive memory allocations
-var (
-	defaultSDSConfig = &tls.SdsSecretConfig{
-		Name: SDSDefaultResourceName,
-		SdsConfig: &core.ConfigSource{
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType:                   core.ApiConfigSource_GRPC,
-					SetNodeOnFirstMessageOnly: true,
-					TransportApiVersion:       core.ApiVersion_V3,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
-							},
-						},
-					},
-				},
-			},
-			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: durationpb.New(time.Second * 0),
-		},
-	}
-	rootSDSConfig = &tls.SdsSecretConfig{
-		Name: SDSRootResourceName,
-		SdsConfig: &core.ConfigSource{
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType:                   core.ApiConfigSource_GRPC,
-					SetNodeOnFirstMessageOnly: true,
-					TransportApiVersion:       core.ApiVersion_V3,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
-							},
-						},
-					},
-				},
-			},
-			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: durationpb.New(time.Second * 0),
-		},
-	}
-)
-
 // ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
 func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
-	if name == "" {
-		return nil
-	}
-
-	if name == SDSDefaultResourceName {
-		return defaultSDSConfig
-	}
-	if name == SDSRootResourceName {
-		return rootSDSConfig
-	}
-
-	cfg := &tls.SdsSecretConfig{
-		Name: name,
-		SdsConfig: &core.ConfigSource{
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					SetNodeOnFirstMessageOnly: true,
-					ApiType:                   core.ApiConfigSource_GRPC,
-					TransportApiVersion:       core.ApiVersion_V3,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
-							},
-						},
-					},
-				},
-			},
-			ResourceApiVersion: core.ApiVersion_V3,
-		},
-	}
-
-	return cfg
+	return pm.ConstructSdsSecretConfig(name)
 }
 
 func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
@@ -204,80 +123,6 @@ func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 		res = append(res, spiffe.URIPrefix+td+"/")
 	}
 	return res
-}
-
-var fipsCiphers = []string{
-	"ECDHE-ECDSA-AES128-GCM-SHA256",
-	"ECDHE-RSA-AES128-GCM-SHA256",
-	"ECDHE-ECDSA-AES256-GCM-SHA384",
-	"ECDHE-RSA-AES256-GCM-SHA384",
-}
-
-var fipsGoCiphers = []uint16{
-	gotls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-	gotls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-	gotls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-	gotls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-}
-
-func index(ciphers []string) map[string]struct{} {
-	out := make(map[string]struct{})
-	for _, cipher := range ciphers {
-		out[cipher] = struct{}{}
-	}
-	return out
-}
-
-var fipsCipherIndex = index(fipsCiphers)
-
-// EnforceGoCompliance limits the TLS settings to the compliant values.
-// This should be called as the last policy.
-func EnforceGoCompliance(ctx *gotls.Config) {
-	switch common_features.CompliancePolicy {
-	case "":
-		return
-	case common_features.FIPS_140_2:
-		ctx.MinVersion = gotls.VersionTLS12
-		ctx.MaxVersion = gotls.VersionTLS12
-		ctx.CipherSuites = fipsGoCiphers
-		ctx.CurvePreferences = []gotls.CurveID{gotls.CurveP256}
-		return
-	default:
-		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
-		return
-	}
-}
-
-// EnforceCompliance limits the TLS settings to the compliant values.
-// This should be called as the last policy.
-func EnforceCompliance(ctx *tls.CommonTlsContext) {
-	switch common_features.CompliancePolicy {
-	case "":
-		return
-	case common_features.FIPS_140_2:
-		if ctx.TlsParams == nil {
-			ctx.TlsParams = &tls.TlsParameters{}
-		}
-		ctx.TlsParams.TlsMinimumProtocolVersion = tls.TlsParameters_TLSv1_2
-		ctx.TlsParams.TlsMaximumProtocolVersion = tls.TlsParameters_TLSv1_2
-		// Default (unset) cipher suites field in the FIPS build of Envoy uses only the FIPS ciphers.
-		// Therefore, we only filter this field when it is set.
-		if len(ctx.TlsParams.CipherSuites) > 0 {
-			ciphers := []string{}
-			for _, cipher := range ctx.TlsParams.CipherSuites {
-				if _, ok := fipsCipherIndex[cipher]; ok {
-					ciphers = append(ciphers, cipher)
-				}
-			}
-			ctx.TlsParams.CipherSuites = ciphers
-		}
-		// Default (unset) is P-256
-		ctx.TlsParams.EcdhCurves = nil
-		return
-	default:
-		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
-		return
-	}
 }
 
 // ApplyToCommonTLSContext completes the commonTlsContext
@@ -387,4 +232,12 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 			},
 		}
 	}
+}
+
+func EnforceGoCompliance(ctx *gotls.Config) {
+	pm.EnforceGoCompliance(ctx)
+}
+
+func EnforceCompliance(ctx *tls.CommonTlsContext) {
+	pm.EnforceCompliance(ctx)
 }

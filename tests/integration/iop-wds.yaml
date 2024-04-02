@@ -12,4 +12,5 @@ spec:
     pilot:
       env:
         PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
+        PILOT_ENABLE_AMBIENT_WAYPOINTS: "true"
         PILOT_DISABLE_MX_ALPN: "true"

@@ -41,7 +41,7 @@ import (
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -108,7 +109,7 @@ type FakeOptions struct {
 }
 
 type FakeDiscoveryServer struct {
-	*v1alpha3.ConfigGenTest
+	*core.ConfigGenTest
 	t            test.Failer
 	Discovery    *xds.DiscoveryServer
 	Listener     net.Listener
@@ -143,7 +144,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	if opts.DefaultClusterName == "" {
-		opts.DefaultClusterName = "Kubernetes"
+		opts.DefaultClusterName = constants.DefaultClusterName
 	}
 	k8sObjects := getKubernetesObjects(t, opts)
 	var defaultKubeClient kubelib.Client
@@ -210,7 +211,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	defaultKubeClient.RunAndWait(stop)
 
 	var gwc *gateway.Controller
-	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+	cg := core.NewConfigGenTest(t, core.TestOptions{
 		Configs:             opts.Configs,
 		ConfigString:        opts.ConfigString,
 		ConfigTemplateInput: opts.ConfigTemplateInput,
@@ -241,7 +242,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		t.Fatal(err)
 	}
 
-	bootstrap.InitGenerators(s, v1alpha3.NewConfigGenerator(s.Cache), "istio-system", "", nil)
+	bootstrap.InitGenerators(s, core.NewConfigGenerator(s.Cache), "istio-system", "", nil)
 	s.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*xds.EcdsGenerator).SetCredController(creds)
 

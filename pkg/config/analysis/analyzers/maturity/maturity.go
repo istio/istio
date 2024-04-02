@@ -74,6 +74,7 @@ var AlwaysIgnoredAnnotations = map[string]bool{
 	// Delete these related annotations once they are stable.
 	// Ref: https://github.com/istio/api/pull/2695
 	constants.WaypointServiceAccount: true,
+	constants.WaypointForAddressType: true,
 	constants.AmbientRedirection:     true,
 }
 

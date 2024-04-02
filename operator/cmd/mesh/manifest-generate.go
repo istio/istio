@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 )
 
 type ManifestGenerateArgs struct {
@@ -88,7 +87,7 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
 		"If enabled, the current cluster will be checked for cluster-specific setting detection.")
 }
 
-func ManifestGenerateCmd(ctx cli.Context, rootArgs *RootArgs, mgArgs *ManifestGenerateArgs, logOpts *log.Options) *cobra.Command {
+func ManifestGenerateCmd(ctx cli.Context, rootArgs *RootArgs, mgArgs *ManifestGenerateArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "generate",
 		Short: "Generates an Istio install manifest",
@@ -125,16 +124,12 @@ func ManifestGenerateCmd(ctx cli.Context, rootArgs *RootArgs, mgArgs *ManifestGe
 				kubeClient = kc
 			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-			return ManifestGenerate(kubeClient, rootArgs, mgArgs, logOpts, l)
+			return ManifestGenerate(kubeClient, rootArgs, mgArgs, l)
 		},
 	}
 }
 
-func ManifestGenerate(kubeClient kube.CLIClient, args *RootArgs, mgArgs *ManifestGenerateArgs, logopts *log.Options, l clog.Logger) error {
-	if err := configLogs(logopts); err != nil {
-		return fmt.Errorf("could not configure logs: %s", err)
-	}
-
+func ManifestGenerate(kubeClient kube.CLIClient, args *RootArgs, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
 	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
 		mgArgs.Force, mgArgs.Filter, kubeClient, l)
 	if err != nil {

@@ -109,7 +109,6 @@ var (
 	// controls whether all output is JSON or CLI style. This makes it easier to query how the zap encoder is configured
 	// vs. reading it's internal state.
 	useJSON atomic.Value
-	logGrpc bool
 )
 
 func init() {
@@ -132,8 +131,8 @@ func encodeStackdriverLevel(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) 
 	enc.AppendString(stackdriverSeverityMapping[l])
 }
 
-// prepZap is a utility function used by the Configure function.
-func prepZap(options *Options) (zapcore.Core, zapcore.Core, zapcore.WriteSyncer, error) {
+// prepZap sets up the core Zap loggers
+func prepZap(options *Options) (zapcore.Core, func(string) zapcore.Core, zapcore.WriteSyncer, error) {
 	var enc zapcore.Encoder
 	if options.useStackdriverFormat {
 		// See also: https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry
@@ -197,20 +196,24 @@ func prepZap(options *Options) (zapcore.Core, zapcore.Core, zapcore.WriteSyncer,
 		sink = outputSink
 	}
 
-	var enabler zap.LevelEnablerFunc = func(lvl zapcore.Level) bool {
-		switch lvl {
-		case zapcore.ErrorLevel:
-			return defaultScope.ErrorEnabled()
-		case zapcore.WarnLevel:
-			return defaultScope.WarnEnabled()
-		case zapcore.InfoLevel:
-			return defaultScope.InfoEnabled()
+	alwaysOn := zapcore.NewCore(enc, sink, zap.NewAtomicLevelAt(zapcore.DebugLevel))
+	conditionallyOn := func(scopeName string) zapcore.Core {
+		scope := FindScope(scopeName)
+		enabler := func(lvl zapcore.Level) bool {
+			switch lvl {
+			case zapcore.ErrorLevel:
+				return scope.ErrorEnabled()
+			case zapcore.WarnLevel:
+				return scope.WarnEnabled()
+			case zapcore.InfoLevel:
+				return scope.InfoEnabled()
+			}
+			return scope.DebugEnabled()
 		}
-		return defaultScope.DebugEnabled()
+		return zapcore.NewCore(enc, sink, zap.LevelEnablerFunc(enabler))
 	}
-
-	return zapcore.NewCore(enc, sink, zap.NewAtomicLevelAt(zapcore.DebugLevel)),
-		zapcore.NewCore(enc, sink, enabler),
+	return alwaysOn,
+		conditionallyOn,
 		errSink, nil
 }
 
@@ -257,8 +260,16 @@ func updateScopes(options *Options) error {
 	// snapshot what's there
 	allScopes := Scopes()
 
+	// Join defaultOutputLevels and outputLevels
+	levels := options.defaultOutputLevels
+	if levels == "" {
+		levels = options.outputLevels
+	} else if options.outputLevels != "" {
+		levels = levels + "," + options.outputLevels
+	}
+
 	// update the output levels of all listed scopes
-	if err := processLevels(allScopes, options.outputLevels, func(s *Scope, l Level) { s.SetOutputLevel(l) }); err != nil {
+	if err := processLevels(allScopes, levels, func(s *Scope, l Level) { s.SetOutputLevel(l) }); err != nil {
 		return err
 	}
 
@@ -279,8 +290,6 @@ func updateScopes(options *Options) error {
 			for _, scope := range allScopes {
 				scope.SetLogCallers(true)
 			}
-
-			return nil
 		}
 
 		if scope, ok := allScopes[s]; ok {
@@ -288,9 +297,9 @@ func updateScopes(options *Options) error {
 		}
 	}
 
-	// update LogGrpc if necessary
-	if logGrpc {
-		options.LogGrpc = true
+	// If gRPC logging is enabled, turn on gRPC logging automatically
+	if grpcScope.GetOutputLevel() != NoneLevel {
+		options.logGRPC = true
 	}
 
 	return nil
@@ -313,12 +322,6 @@ func processLevels(allScopes map[string]*Scope, arg string, setter func(*Scope, 
 			for _, scope := range allScopes {
 				setter(scope, l)
 			}
-			return nil
-		} else if s == GrpcScopeName {
-			grpcScope := registerScope(GrpcScopeName, "", 3)
-			logGrpc = true
-			setter(grpcScope, l)
-			return nil
 		}
 	}
 
@@ -331,46 +334,50 @@ func processLevels(allScopes map[string]*Scope, arg string, setter func(*Scope, 
 // Once this call returns, the logging system is ready to accept data.
 // nolint: staticcheck
 func Configure(options *Options) error {
-	core, captureCore, errSink, err := prepZap(options)
+	if err := updateScopes(options); err != nil {
+		return err
+	}
+	baseLogger, logBuilder, errSink, err := prepZap(options)
 	if err != nil {
 		return err
 	}
+	defaultLogger := logBuilder(DefaultScopeName)
+	allLoggers := []*zapcore.Core{&baseLogger, &defaultLogger}
 
-	if err := updateScopes(options); err != nil {
-		return err
+	var grpcLogger zapcore.Core
+	if options.logGRPC {
+		grpcLogger = logBuilder(GrpcScopeName)
+		allLoggers = append(allLoggers, &grpcLogger)
 	}
 
 	closeFns := make([]func() error, 0)
 
 	for _, ext := range options.extensions {
-		var closeFn, captureCloseFn func() error
-		var err error
-		core, closeFn, err = ext(core)
-		if err != nil {
-			return err
+		for _, logger := range allLoggers {
+			newLogger, closeFn, err := ext(*logger)
+			if err != nil {
+				return err
+			}
+			*logger = newLogger
+			closeFns = append(closeFns, closeFn)
 		}
-		captureCore, captureCloseFn, err = ext(captureCore)
-		if err != nil {
-			return err
-		}
-		closeFns = append(closeFns, closeFn, captureCloseFn)
 	}
 
 	pt := patchTable{
 		write: func(ent zapcore.Entry, fields []zapcore.Field) error {
-			err := core.Write(ent, fields)
+			err := baseLogger.Write(ent, fields)
 			if ent.Level == zapcore.FatalLevel {
 				funcs.Load().(patchTable).exitProcess(1)
 			}
 
 			return err
 		},
-		sync:        core.Sync,
+		sync:        baseLogger.Sync,
 		exitProcess: os.Exit,
 		errorSink:   errSink,
 		close: func() error {
 			// best-effort to sync
-			core.Sync() // nolint: errcheck
+			baseLogger.Sync() // nolint: errcheck
 			for _, f := range closeFns {
 				if err := f(); err != nil {
 					return err
@@ -395,17 +402,17 @@ func Configure(options *Options) error {
 		opts = append(opts, zap.AddStacktrace(levelToZap[l]))
 	}
 
-	captureLogger := zap.New(captureCore, opts...)
+	defaultZapLogger := zap.New(defaultLogger, opts...)
 
 	// capture global zap logging and force it through our logger
-	_ = zap.ReplaceGlobals(captureLogger)
+	_ = zap.ReplaceGlobals(defaultZapLogger)
 
 	// capture standard golang "log" package output and force it through our logger
-	_ = zap.RedirectStdLog(captureLogger)
+	_ = zap.RedirectStdLog(defaultZapLogger)
 
 	// capture gRPC logging
-	if options.LogGrpc {
-		grpclog.SetLogger(zapgrpc.NewLogger(captureLogger.WithOptions(zap.AddCallerSkip(3))))
+	if options.logGRPC {
+		grpclog.SetLoggerV2(zapgrpc.NewLogger(zap.New(grpcLogger, opts...).WithOptions(zap.AddCallerSkip(3))))
 	}
 
 	// capture klog (Kubernetes logging) through our logging

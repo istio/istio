@@ -94,6 +94,7 @@ pilot:
     PILOT_ENABLE_HBONE: "true"
     CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
     PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
+    PILOT_ENABLE_AMBIENT_WAYPOINTS: "true"
 cni:
   logLevel: info
   privileged: true

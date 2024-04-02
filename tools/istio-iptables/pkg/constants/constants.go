@@ -146,16 +146,6 @@ const (
 	EnvoyUser = "ENVOY_USER"
 )
 
-// Constants for iptables commands
-const (
-	IPTABLES         = "iptables"
-	IPTABLESRESTORE  = "iptables-restore"
-	IPTABLESSAVE     = "iptables-save"
-	IP6TABLES        = "ip6tables"
-	IP6TABLESRESTORE = "ip6tables-restore"
-	IP6TABLESSAVE    = "ip6tables-save"
-)
-
 // Constants for syscall
 const (
 	// sys/socket.h
@@ -176,4 +166,15 @@ const (
 // DNS ports
 const (
 	IstioAgentDNSListenerPort = "15053"
+)
+
+// type of iptables operation/command to run, as an enum
+// the implementation will choose the correct underlying binary,
+// so callers should just use these enums to indicate what they want to do.
+type IptablesCmd int
+
+const (
+	IPTables        IptablesCmd = iota
+	IPTablesSave    IptablesCmd = iota
+	IPTablesRestore IptablesCmd = iota
 )

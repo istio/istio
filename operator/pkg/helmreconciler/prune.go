@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/proxy"
 )
@@ -80,6 +81,7 @@ func NamespacedResources() []schema.GroupVersionKind {
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
 		{Group: "policy", Version: "v1", Kind: name.PDBStr},
 		{Group: "autoscaling", Version: "v2", Kind: name.HPAStr},
+		gvk.EnvoyFilter.Kubernetes(),
 	}
 	return res
 }
@@ -124,7 +126,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 	// If istiod is enabled, check if it has any proxies connected.
 	if pilotEnabled {
 		cfg := h.kubeClient.RESTConfig()
-		kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(cfg), iopSpec.Revision)
+		kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(cfg), kube.WithRevision(iopSpec.Revision))
 		if err != nil {
 			return errStatus, err
 		}
@@ -308,16 +310,17 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		return err
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
-	resources := append(NamespacedResources(), ClusterResources...)
+	componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)
+	if err != nil {
+		return err
+	}
+	selector = selector.Add(*componentRequirement)
+
+	resources := PrunedResourcesSchemas()
 	for _, gvk := range resources {
 		// First, we collect all objects for the provided GVK
 		objects := &unstructured.UnstructuredList{}
 		objects.SetGroupVersionKind(gvk)
-		componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)
-		if err != nil {
-			return err
-		}
-		selector = selector.Add(*componentRequirement)
 		if err := h.client.List(context.TODO(), objects, client.MatchingLabelsSelector{Selector: selector}); err != nil {
 			// we only want to retrieve resources clusters
 			if !(h.opts.DryRun && meta.IsNoMatchError(err)) {
@@ -332,6 +335,10 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		errs = util.AppendErr(errs, callback(labels, objects))
 	}
 	return errs.ToError()
+}
+
+func PrunedResourcesSchemas() []schema.GroupVersionKind {
+	return append(NamespacedResources(), ClusterResources...)
 }
 
 // deleteResources delete any resources from the given component that are not in the excluded map. Resource

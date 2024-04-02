@@ -135,6 +135,13 @@ func (sd *ServiceDiscovery) RemoveService(name host.Name) {
 	svc := sd.services[name]
 	delete(sd.services, name)
 
+	// remove old entries
+	for k, v := range sd.ip2instance {
+		sd.ip2instance[k] = slices.FilterInPlace(v, func(instance *model.ServiceInstance) bool {
+			return instance.Service == nil || instance.Service.Hostname != name
+		})
+	}
+
 	if sd.XdsUpdater != nil {
 		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
 	}
@@ -365,11 +372,15 @@ func (sd *ServiceDiscovery) Policies(sets.Set[model.ConfigKey]) []model.Workload
 	return nil
 }
 
-func (sd *ServiceDiscovery) Waypoint(model.WaypointScope) []netip.Addr {
+func (sd *ServiceDiscovery) ServicesForWaypoint(model.WaypointKey) []model.ServiceInfo {
 	return nil
 }
 
-func (sd *ServiceDiscovery) WorkloadsForWaypoint(scope model.WaypointScope) []model.WorkloadInfo {
+func (sd *ServiceDiscovery) Waypoint(string, string) []netip.Addr {
+	return nil
+}
+
+func (sd *ServiceDiscovery) WorkloadsForWaypoint(model.WaypointKey) []model.WorkloadInfo {
 	return nil
 }
 

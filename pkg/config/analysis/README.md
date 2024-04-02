@@ -86,6 +86,12 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 }
 ```
 
+If you are writing a multi-cluster analyzer, you can obtain the cluster name from the resource metadata:
+
+```go
+clusterID := r.Origin.ClusterName()
+```
+
 ### 2. Add the Analyzer to All()
 
 In order to be run, analyzers need to be registered in the [analyzers.All()](https://github.com/istio/istio/blob/master/pkg/config/analysis/analyzers/all.go) function. Add your analyzer as an entry there.

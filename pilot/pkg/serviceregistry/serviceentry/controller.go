@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -358,7 +359,7 @@ func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
 }
 
 // serviceEntryHandler defines the handler for service entries
-func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Event) {
+func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Event) {
 	log.Debugf("Handle event %s for service entry %s/%s", event, curr.Namespace, curr.Name)
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
@@ -372,6 +373,15 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	switch event {
 	case model.EventUpdate:
 		addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs = servicesDiff(s.services.getServices(key), cs)
+		oldServiceEntry := old.Spec.(*networking.ServiceEntry)
+		// Also check if target ports are changed since they are not included in `model.Service`
+		if !slices.EqualFunc(oldServiceEntry.Ports, currentServiceEntry.Ports, func(a, b *networking.ServicePort) bool {
+			return a.TargetPort == b.TargetPort
+		}) {
+			// Note: If the length of ports is changed, unchangedSvcs will be nil, this is an no-op
+			updatedSvcs = append(updatedSvcs, unchangedSvcs...)
+			unchangedSvcs = nil
+		}
 		s.services.updateServices(key, cs)
 	case model.EventDelete:
 		deletedSvcs = cs
@@ -927,24 +937,23 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	x := 0
 	hnMap := make(map[string]octetPair)
 	for _, svc := range hashedServices {
+		x++
 		if svc == nil {
 			// There is no service in the slot. Just increment x and move forward.
-			x++
 			continue
 		}
 		n := makeServiceKey(svc)
+		// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
+		// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
+		// So we bump X to 511, so that the resulting IP is 240.240.2.1
+		if x%255 == 0 {
+			x++
+		}
 		if v, ok := hnMap[n]; ok {
 			log.Debugf("Reuse IP for domain %s", n)
 			setAutoAllocatedIPs(svc, v)
 		} else {
 			var thirdOctect, fourthOctect int
-			// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
-			// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
-			// So we bump X to 511, so that the resulting IP is 240.240.2.1
-			x++
-			if x%255 == 0 {
-				x++
-			}
 			thirdOctect = x / 255
 			fourthOctect = x % 255
 			pair := octetPair{thirdOctect, fourthOctect}

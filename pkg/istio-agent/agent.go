@@ -16,6 +16,7 @@ package istioagent
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -28,6 +29,7 @@ import (
 
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
@@ -46,6 +48,7 @@ import (
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/log"
+	sec_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -275,6 +278,7 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 		out, err := bootstrap.New(bootstrap.Config{
 			Node:             node,
 			CompliancePolicy: common_features.CompliancePolicy,
+			LogAsJSON:        a.envoyOpts.LogAsJSON,
 		}).CreateFile()
 		if err != nil {
 			return fmt.Errorf("failed to generate bootstrap config: %v", err)
@@ -767,8 +771,11 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		return cache.NewSecretManagerClient(caClient, a.secOpts)
 	} else if a.secOpts.CAProviderName == security.GoogleCASProvider {
 		// Use a plugin
+		tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+		sec_model.EnforceGoCompliance(tlsConfig)
 		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint,
-			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(caclient.NewCATokenProvider(a.secOpts))))
+			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(caclient.NewCATokenProvider(a.secOpts))),
+			option.WithGRPCDialOption(grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))))
 		if err != nil {
 			return nil, err
 		}

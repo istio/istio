@@ -37,7 +37,7 @@ spec:
     spec:
       containers:
       - name: helloworld
-        image: docker.io/istio/examples-helloworld-v1
+        image: docker.io/istio/examples-helloworld-v1:1.0
         resources:
           requests:
             cpu: "100m"
@@ -66,7 +66,7 @@ spec:
     spec:
       containers:
       - name: helloworld
-        image: docker.io/istio/examples-helloworld-v2
+        image: docker.io/istio/examples-helloworld-v2:1.0
         resources:
           requests:
             cpu: "100m"

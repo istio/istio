@@ -159,16 +159,22 @@ type sidecarIndex struct {
 	// for all services in the mesh. This will be used if there is no sidecar specified in root namespace.
 	// These are lazy-loaded. Access protected by derivedSidecarMutex.
 	defaultSidecarsByNamespace map[string]*SidecarScope
+	// sidecarsForGatewayByNamespace contains the default sidecar for gateways and waypoints,
+	// These are *always* computed from DefaultSidecarScopeForGateway.
+	// These are lazy-loaded. Access protected by derivedSidecarMutex.
+	sidecarsForGatewayByNamespace map[string]*SidecarScope
+
 	// mutex to protect derived sidecars i.e. not specified by user.
 	derivedSidecarMutex *sync.RWMutex
 }
 
 func newSidecarIndex() sidecarIndex {
 	return sidecarIndex{
-		sidecarsByNamespace:         map[string][]*SidecarScope{},
-		meshRootSidecarsByNamespace: map[string]*SidecarScope{},
-		defaultSidecarsByNamespace:  map[string]*SidecarScope{},
-		derivedSidecarMutex:         &sync.RWMutex{},
+		sidecarsByNamespace:           map[string][]*SidecarScope{},
+		meshRootSidecarsByNamespace:   map[string]*SidecarScope{},
+		defaultSidecarsByNamespace:    map[string]*SidecarScope{},
+		sidecarsForGatewayByNamespace: map[string]*SidecarScope{},
+		derivedSidecarMutex:           &sync.RWMutex{},
 	}
 }
 
@@ -1081,8 +1087,13 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 			return sc
 		}
 
+		if sc, f := ps.sidecarIndex.sidecarsForGatewayByNamespace[proxy.ConfigNamespace]; f {
+			return sc
+		}
+
 		// We need to compute this namespace
 		computed := DefaultSidecarScopeForGateway(ps, proxy.ConfigNamespace)
+		ps.sidecarIndex.sidecarsForGatewayByNamespace[proxy.ConfigNamespace] = computed
 		return computed
 	case SidecarProxy:
 		if hasSidecar {
@@ -1746,7 +1757,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		}
 
 		// For mesh virtual services, build a map of host -> referenced destinations
-		if features.EnableAmbientControllers && (len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway)) {
+		if features.EnableAmbientWaypoints && (len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway)) {
 			for host := range virtualServiceDestinations(rule) {
 				for _, rhost := range rule.Hosts {
 					if _, f := ps.virtualServiceIndex.referencedDestinations[rhost]; !f {
@@ -2441,11 +2452,18 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 	return false
 }
 
-func (ps *PushContext) WaypointsFor(scope WaypointScope) []netip.Addr {
-	return ps.ambientIndex.Waypoint(scope)
+func (ps *PushContext) WaypointsFor(network, address string) []netip.Addr {
+	return ps.ambientIndex.Waypoint(network, address)
 }
 
-// WorkloadsForWaypoint returns all workloads associated with a given WaypointScope
-func (ps *PushContext) WorkloadsForWaypoint(scope WaypointScope) []WorkloadInfo {
-	return ps.ambientIndex.WorkloadsForWaypoint(scope)
+// WorkloadsForWaypoint returns all workloads associated with a given waypoint identified by it's WaypointKey
+// Used when calculating the workloads which should be configured for a specific waypoint proxy
+func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []WorkloadInfo {
+	return ps.ambientIndex.WorkloadsForWaypoint(key)
+}
+
+// ServicesForWaypoint returns all services associated with a given waypoint identified by it's WaypointKey
+// Used when calculating the services which should be configured for a specific waypoint proxy
+func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
+	return ps.ambientIndex.ServicesForWaypoint(key)
 }

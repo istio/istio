@@ -32,41 +32,11 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
-	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
-
-// TestXdsLeak is a regression test for https://github.com/istio/istio/issues/34097
-func TestDeltaXdsLeak(t *testing.T) {
-	proxy := setupXdsProxyWithDownstreamOptions(t, []grpc.ServerOption{grpc.StreamInterceptor(xdstest.SlowServerInterceptor(time.Second, time.Second))})
-	f := xdstest.NewMockServer(t)
-	setDialOptions(proxy, f.Listener)
-	proxy.dialOptions = append(proxy.dialOptions, grpc.WithStreamInterceptor(xdstest.SlowClientInterceptor(0, time.Second*10)))
-	conn := setupDownstreamConnection(t, proxy)
-	downstream := deltaStream(t, conn)
-	sendDeltaDownstreamWithoutResponse(t, downstream)
-	for i := 0; i < 15; i++ {
-		// Send a bunch of responses from Istiod. These should not block, even though there are more sends than responseChan can hold
-		f.SendDeltaResponse(&discovery.DeltaDiscoveryResponse{TypeUrl: v3.ClusterType})
-	}
-	// Exit test, closing the connections. We should not have any goroutine leaks (checked by leak.CheckMain)
-}
-
-// sendDownstreamWithoutResponse sends a response without waiting for a response
-func sendDeltaDownstreamWithoutResponse(t *testing.T, downstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient) {
-	t.Helper()
-	err := downstream.Send(&discovery.DeltaDiscoveryRequest{
-		TypeUrl: v3.ClusterType,
-		Node: &core.Node{
-			Id: "sidecar~0.0.0.0~debug~cluster.local",
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestDeltaXdsProxyBasicFlow(t *testing.T) {
@@ -126,7 +96,7 @@ func TestDeltaECDSWasmConversion(t *testing.T) {
 	node := model.NodeMetadata{
 		Namespace:   "default",
 		InstanceIPs: []string{"1.1.1.1"},
-		ClusterID:   "Kubernetes",
+		ClusterID:   constants.DefaultClusterName,
 	}
 	proxy := setupXdsProxy(t)
 	// Reset wasm cache to a fake ACK cache.

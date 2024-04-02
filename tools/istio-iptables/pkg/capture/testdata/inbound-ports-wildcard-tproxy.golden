@@ -31,3 +31,4 @@ iptables -t mangle -A OUTPUT -p tcp -m connmark --mark 1337 -j CONNMARK --restor
 iptables -t mangle -I ISTIO_INBOUND 1 -p tcp -m mark --mark 1337 -j RETURN
 iptables -t mangle -I ISTIO_INBOUND 2 -p tcp -s 127.0.0.6/32 -i lo -j RETURN
 iptables -t mangle -I ISTIO_INBOUND 3 -p tcp -i lo -m mark ! --mark 1338 -j RETURN
+iptables-save

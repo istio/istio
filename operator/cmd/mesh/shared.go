@@ -20,7 +20,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -66,26 +65,6 @@ func (w *writerPrinter) Printf(format string, a ...any) {
 
 func (w *writerPrinter) Println(str string) {
 	_, _ = fmt.Fprintln(w.writer, str)
-}
-
-func initLogsOrExit(_ *RootArgs) {
-	if err := configLogs(log.DefaultOptions()); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
-		os.Exit(1)
-	}
-}
-
-var logMutex = sync.Mutex{}
-
-func configLogs(opt *log.Options) error {
-	logMutex.Lock()
-	defer logMutex.Unlock()
-	op := []string{"stderr"}
-	opt2 := *opt
-	opt2.OutputPaths = op
-	opt2.ErrorOutputPaths = op
-
-	return log.Configure(&opt2)
 }
 
 func refreshGoldenFiles() bool {

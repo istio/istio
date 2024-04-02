@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** support for multi-cluster analysis in `istioctl analyze` command when there are remote cluster secrets set up through [Install Multicluster](https://istio.io/latest/docs/setup/install/multicluster/).

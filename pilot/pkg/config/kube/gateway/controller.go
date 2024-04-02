@@ -195,7 +195,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 		ReferenceGrant: referenceGrant,
 		ServiceEntry:   serviceEntry,
 		Domain:         c.domain,
-		Context:        NewGatewayContext(ps),
+		Context:        NewGatewayContext(ps, c.cluster),
 	}
 
 	if !input.hasResources() {
@@ -321,7 +321,7 @@ func (c *Controller) namespaceEvent(oldNs, newNs *corev1.Namespace) {
 
 	// Next, we find all keys our Gateways actually reference.
 	c.stateMu.RLock()
-	intersection := touchedNamespaceLabels.Intersection(c.state.ReferencedNamespaceKeys)
+	intersection := touchedNamespaceLabels.IntersectInPlace(c.state.ReferencedNamespaceKeys)
 	c.stateMu.RUnlock()
 
 	// If there was any overlap, then a relevant namespace label may have changed, and we trigger a

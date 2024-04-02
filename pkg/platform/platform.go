@@ -26,19 +26,19 @@ var Platform = env.Register(
 	"PLATFORM",
 	Default,
 	"Platform where Istio is deployed. Possible values are \"openshift\" and \"gcp\"",
-).Get()
+)
 
 // IsDefault returns true if the platform is the Default one
 func IsDefault() bool {
-	return Platform == Default
+	return Platform.Get() == Default
 }
 
 // IsOpenShift returns true if the platform is OpenShift
 func IsOpenShift() bool {
-	return Platform == OpenShift
+	return Platform.Get() == OpenShift
 }
 
 // IsGCP returns true if the platform is GCP
 func IsGCP() bool {
-	return Platform == GCP
+	return Platform.Get() == GCP
 }

@@ -105,6 +105,7 @@ func GetRootCmd(args []string) *cobra.Command {
 		Short:             "Istio control interface.",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
+		PersistentPreRunE: ConfigureLogging,
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
@@ -116,13 +117,6 @@ debug and diagnose their Istio mesh.
 	rootOptions := cli.AddRootFlags(flags)
 
 	ctx := cli.NewCLIContext(rootOptions)
-
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if err := configureLogging(cmd, args); err != nil {
-			return err
-		}
-		return nil
-	}
 
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagIstioNamespace, func(
 		cmd *cobra.Command, args []string, toComplete string,
@@ -194,7 +188,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
 	rootCmd.AddCommand(mesh.NewVerifyCommand(ctx))
-	rootCmd.AddCommand(mesh.UninstallCmd(ctx, root.LoggingOptions))
+	rootCmd.AddCommand(mesh.UninstallCmd(ctx))
 
 	experimentalCmd.AddCommand(authz.AuthZ(ctx))
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
@@ -217,7 +211,7 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(dashboardCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
 
-	manifestCmd := mesh.ManifestCmd(ctx, root.LoggingOptions)
+	manifestCmd := mesh.ManifestCmd(ctx)
 	hideInheritedFlags(manifestCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(manifestCmd)
 
@@ -225,15 +219,15 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(operatorCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(operatorCmd)
 
-	installCmd := mesh.InstallCmd(ctx, root.LoggingOptions)
+	installCmd := mesh.InstallCmd(ctx)
 	hideInheritedFlags(installCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(installCmd)
 
-	profileCmd := mesh.ProfileCmd(ctx, root.LoggingOptions)
+	profileCmd := mesh.ProfileCmd(ctx)
 	hideInheritedFlags(profileCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(profileCmd)
 
-	upgradeCmd := mesh.UpgradeCmd(ctx, root.LoggingOptions)
+	upgradeCmd := mesh.UpgradeCmd(ctx)
 	hideInheritedFlags(upgradeCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
@@ -296,11 +290,8 @@ func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
 	})
 }
 
-func configureLogging(_ *cobra.Command, _ []string) error {
-	if err := log.Configure(root.LoggingOptions); err != nil {
-		return err
-	}
-	return nil
+func ConfigureLogging(_ *cobra.Command, _ []string) error {
+	return log.Configure(root.LoggingOptions)
 }
 
 // seeExperimentalCmd is used for commands that have been around for a release but not graduated from

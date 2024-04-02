@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 50060
+releaseNotes:
+- |
+  **Fixed** Gathering `pprof` data from the local ztunnel admin endpoint would fail due to lack of writable in-container `/tmp`

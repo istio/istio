@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -557,8 +558,8 @@ spec:
 					runMeshNetworkingTest(t, meshNetworkingTest{
 						workloads:       []*workload{client},
 						configYAML:      configObjects,
-						kubeObjectsYAML: map[cluster.ID]string{"Kubernetes": sc.k8s},
-						kubeObjects: map[cluster.ID][]runtime.Object{"Kubernetes": {
+						kubeObjectsYAML: map[cluster.ID]string{constants.DefaultClusterName: sc.k8s},
+						kubeObjects: map[cluster.ID][]runtime.Object{constants.DefaultClusterName: {
 							gatewaySvc("gateway-1", "1.1.1.1", "network-1"),
 							gatewaySvc("gateway-2", "2.2.2.2", "network-2"),
 						}},

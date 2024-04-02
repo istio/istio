@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
+	"istio.io/istio/pilot/pkg/networking/core/envoyfilter"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/maps"
@@ -568,25 +568,6 @@ func (s *DiscoveryServer) AllClients() []*Connection {
 	s.adsClientsMutex.RLock()
 	defer s.adsClientsMutex.RUnlock()
 	return maps.Values(s.adsClients)
-}
-
-// SendResponse will immediately send the response to all connections.
-// TODO: additional filters can be added, for example namespace.
-func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery.DiscoveryResponse) {
-	for _, p := range connections {
-		// p.send() waits for an ACK - which is reasonable for normal push,
-		// but in this case we want to sync fast and not bother with stuck connections.
-		// This is expecting a relatively small number of watchers - each other istiod
-		// plus few admin tools or bridges to real message brokers. The normal
-		// push expects 1000s of envoy connections.
-		con := p
-		go func() {
-			err := con.stream.Send(res)
-			if err != nil {
-				log.Errorf("Failed to send internal event %s: %v", con.conID, err)
-			}
-		}()
-	}
 }
 
 func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {

@@ -55,18 +55,20 @@ var (
 
 type EchoDeployments struct {
 	// Namespace echo apps will be deployed
-	Namespace         namespace.Instance
-	Waypoint          echo.Instances
-	Captured          echo.Instances
-	Uncaptured        echo.Instances
-	SidecarWaypoint   echo.Instances
-	SidecarCaptured   echo.Instances
-	SidecarUncaptured echo.Instances
-	All               echo.Instances
-	Mesh              echo.Instances
-	MeshExternal      echo.Instances
+	Namespace                 namespace.Instance
+	AllWaypoint               echo.Instances
+	WorkloadAddressedWaypoint echo.Instances
+	ServiceAddressedWaypoint  echo.Instances
+	Captured                  echo.Instances
+	Uncaptured                echo.Instances
+	SidecarWaypoint           echo.Instances
+	SidecarCaptured           echo.Instances
+	SidecarUncaptured         echo.Instances
+	All                       echo.Instances
+	Mesh                      echo.Instances
+	MeshExternal              echo.Instances
 
-	WaypointProxy ambient.WaypointProxy
+	WaypointProxies map[string]ambient.WaypointProxy
 }
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -111,12 +113,13 @@ values:
 }
 
 const (
-	Waypoint          = "waypoint"
-	Captured          = "captured"
-	Uncaptured        = "uncaptured"
-	SidecarWaypoint   = "sidecar-waypoint"
-	SidecarCaptured   = "sidecar-captured"
-	SidecarUncaptured = "sidecar-uncaptured"
+	WorkloadAddressedWaypoint = "workload-addressed-waypoint"
+	ServiceAddressedWaypoint  = "service-addressed-waypoint"
+	Captured                  = "captured"
+	Uncaptured                = "uncaptured"
+	SidecarWaypoint           = "sidecar-waypoint"
+	SidecarCaptured           = "sidecar-captured"
+	SidecarUncaptured         = "sidecar-uncaptured"
 )
 
 var inMesh = match.Matcher(func(instance echo.Instance) bool {
@@ -156,26 +159,72 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	builder := deployment.New(t).
 		WithClusters(t.Clusters()...).
 		WithConfig(echo.Config{
-			Service:        Waypoint,
-			Namespace:      apps.Namespace,
-			Ports:          ports.All(),
-			ServiceAccount: true,
-			WaypointProxy:  true,
+			Service:               WorkloadAddressedWaypoint,
+			Namespace:             apps.Namespace,
+			Ports:                 ports.All(),
+			ServiceAccount:        true,
+			WorkloadWaypointProxy: "waypoint",
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":     "waypoint",
+						"app":     WorkloadAddressedWaypoint,
 						"version": "v1",
+					},
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.AmbientUseWaypoint: {
+							Value: "waypoint",
+						},
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":     "waypoint",
+						"app":     WorkloadAddressedWaypoint,
 						"version": "v2",
+					},
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.AmbientUseWaypoint: {
+							Value: "waypoint",
+						},
+					},
+				},
+			},
+		}).
+		WithConfig(echo.Config{
+			Service:              ServiceAddressedWaypoint,
+			Namespace:            apps.Namespace,
+			Ports:                ports.All(),
+			ServiceAnnotations:   echo.NewAnnotations().Set(echo.AmbientUseWaypoint, "waypoint"),
+			ServiceAccount:       true,
+			ServiceWaypointProxy: "waypoint",
+			Subsets: []echo.SubsetConfig{
+				{
+					Replicas: 1,
+					Version:  "v1",
+					Labels: map[string]string{
+						"app":     ServiceAddressedWaypoint,
+						"version": "v1",
+					},
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.AmbientUseWaypoint: {
+							Value: "waypoint",
+						},
+					},
+				},
+				{
+					Replicas: 1,
+					Version:  "v2",
+					Labels: map[string]string{
+						"app":     ServiceAddressedWaypoint,
+						"version": "v2",
+					},
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.AmbientUseWaypoint: {
+							Value: "waypoint",
+						},
 					},
 				},
 			},
@@ -304,7 +353,10 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		scopes.Framework.Infof("built %v", b.Config().Service)
 	}
 	apps.All = echos
-	apps.Waypoint = match.ServiceName(echo.NamespacedName{Name: Waypoint, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.WorkloadAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: WorkloadAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.ServiceAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: ServiceAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.AllWaypoint = apps.AllWaypoint.Append(apps.WorkloadAddressedWaypoint)
+	apps.AllWaypoint = apps.AllWaypoint.Append(apps.ServiceAddressedWaypoint)
 	apps.Uncaptured = match.ServiceName(echo.NamespacedName{Name: Uncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Captured = match.ServiceName(echo.NamespacedName{Name: Captured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.SidecarWaypoint = match.ServiceName(echo.NamespacedName{Name: SidecarWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
@@ -313,9 +365,31 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Mesh = inMesh.GetMatches(echos)
 	apps.MeshExternal = match.Not(inMesh).GetMatches(echos)
 
-	apps.WaypointProxy, err = ambient.WaypointForInstance(t, apps.Waypoint.Instances()[0])
-	if err != nil {
-		return err
+	if apps.WaypointProxies == nil {
+		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
 	}
+
+	for _, echo := range echos {
+		svcwp := echo.Config().ServiceWaypointProxy
+		wlwp := echo.Config().WorkloadWaypointProxy
+		if svcwp != "" {
+			if _, found := apps.WaypointProxies[svcwp]; !found {
+				apps.WaypointProxies[svcwp], err = ambient.NewWaypointProxy(t, apps.Namespace, svcwp)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		if wlwp != "" {
+			if _, found := apps.WaypointProxies[wlwp]; !found {
+				apps.WaypointProxies[wlwp], err = ambient.NewWaypointProxy(t, apps.Namespace, wlwp)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+	}
+
 	return nil
 }

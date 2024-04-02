@@ -81,8 +81,6 @@ func operatorRemoveCmd(ctx cli.Context, rootArgs *RootArgs, orArgs *operatorRemo
 
 // operatorRemove removes the Istio operator controller from the cluster.
 func operatorRemove(cmd *cobra.Command, cliClient kube.CLIClient, args *RootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
-	initLogsOrExit(args)
-
 	kubeClient, client, err := KubernetesClients(cliClient, l)
 	if err != nil {
 		l.LogAndFatal(err)

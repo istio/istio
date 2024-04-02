@@ -77,6 +77,9 @@ const (
 	// used for load balancing requests against endpoints across the ClusterSet (i.e. mesh).
 	DefaultClusterSetLocalDomain = "clusterset.local"
 
+	// DefaultClusterName is the default cluster name
+	DefaultClusterName = "Kubernetes"
+
 	// IstioLabel indicates that a workload is part of a named Istio system component.
 	IstioLabel = "istio"
 
@@ -161,6 +164,7 @@ const (
 	AlwaysReject = "internal.istio.io/webhook-always-reject"
 
 	WaypointServiceAccount = "istio.io/for-service-account"
+	WaypointForAddressType = "istio.io/waypoint-for"
 
 	ManagedGatewayLabel               = "gateway.istio.io/managed"
 	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
@@ -192,4 +196,16 @@ const (
 	AmbientRedirectionEnabled = "enabled"
 	// AmbientRedirectionDisabled is an opt-out, configured by user.
 	AmbientRedirectionDisabled = "disabled"
+
+	// AmbientUseWaypoint is the annotation used to specify which waypoint should be used for a given pod, service, etc...
+	AmbientUseWaypoint = "istio.io/use-waypoint"
+
+	// ServiceTraffic indicates that service traffic should go through the intended waypoint.
+	ServiceTraffic = "service"
+	// WorkloadTraffic indicates that workload traffic should go through the intended waypoint.
+	WorkloadTraffic = "workload"
+	// AllTraffic indicates that all traffic should go through the intended waypoint.
+	AllTraffic = "all"
+	// NoTraffic indicates that no traffic should go through the intended waypoint.
+	NoTraffic = "none"
 )

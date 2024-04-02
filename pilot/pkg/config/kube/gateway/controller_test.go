@@ -22,14 +22,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
-	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config"
@@ -44,7 +43,7 @@ import (
 
 var (
 	gatewayClassSpec = &k8s.GatewayClassSpec{
-		ControllerName: k8sv1.GatewayController(features.ManagedGatewayController),
+		ControllerName: k8s.GatewayController(features.ManagedGatewayController),
 	}
 	gatewaySpec = &k8s.GatewaySpec{
 		GatewayClassName: "gwclass",
@@ -53,7 +52,7 @@ var (
 				Name:          "default",
 				Port:          9009,
 				Protocol:      "HTTP",
-				AllowedRoutes: &k8s.AllowedRoutes{Namespaces: &k8s.RouteNamespaces{From: func() *k8s.FromNamespaces { x := k8sv1.NamespacesFromAll; return &x }()}},
+				AllowedRoutes: &k8s.AllowedRoutes{Namespaces: &k8s.RouteNamespaces{From: func() *k8s.FromNamespaces { x := k8s.NamespacesFromAll; return &x }()}},
 			},
 		},
 	}
@@ -129,7 +128,7 @@ func TestListGatewayResourceType(t *testing.T) {
 		Spec: httpRouteSpec,
 	})
 
-	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+	cg := core.NewConfigGenTest(t, core.TestOptions{})
 	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(HaveOccurred())
 	cfg := controller.List(gvk.Gateway, "ns1")
 	g.Expect(cfg).To(HaveLen(1))
