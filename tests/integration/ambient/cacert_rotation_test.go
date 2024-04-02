@@ -50,7 +50,7 @@ func TestIntermediateCertificateRefresh(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
-			newX509 := getX509FromFile(t, "ca-cert.pem")
+			newX509 := getX509FromFile(t, "ca-cert-alt-2.pem")
 
 			sa := apps.Captured[0].ServiceAccountName()
 
@@ -65,8 +65,8 @@ func TestIntermediateCertificateRefresh(t *testing.T) {
 
 			// Update CA with new intermediate cert
 			if err := cert.CreateCustomCASecret(t,
-				"ca-cert.pem", "ca-key.pem",
-				"cert-chain.pem", "root-cert.pem"); err != nil {
+				"ca-cert-alt-2.pem", "ca-key-alt-2.pem",
+				"cert-chain-alt-2.pem", "root-cert-alt.pem"); err != nil {
 				t.Errorf("failed to update CA secret: %v", err)
 			}
 
