@@ -26,7 +26,6 @@ const (
 	// name of environment variable at Wasm VM, which will carry the resource version of WasmPlugin.
 	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
 
-	APITypePrefix         = "type.googleapis.com/"
 	WasmHTTPFilterType    = APITypePrefix + wellknown.HTTPWasm
 	WasmNetworkFilterType = APITypePrefix + "envoy.extensions.filters.network.wasm.v3.Wasm"
 	TypedStructType       = APITypePrefix + "udpa.type.v1.TypedStruct"

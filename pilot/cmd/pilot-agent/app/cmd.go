@@ -222,7 +222,7 @@ func initStatusServer(
 	agent *istio_agent.Agent,
 	shutdown context.CancelFunc,
 ) error {
-	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
+	o := options.NewStatusServerOptions(proxy.IsIPv6(), proxy.Type, proxyConfig, agent)
 	o.EnvoyPrometheusPort = envoyPrometheusPort
 	o.EnableProfiling = enableProfiling
 	o.Context = ctx

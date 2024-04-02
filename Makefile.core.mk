@@ -295,6 +295,7 @@ lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles li
 # (k8s) Machinery, utils, klog
 # (proto) TLS for SDS
 # (proto) Wasm for wasm xDS proxy
+# (proto) xDS discovery service for xDS proxy
 .PHONY: check-agent-deps
 check-agent-deps:
 	@go list -f '{{ join .Deps "\n" }}' -tags=agent \
@@ -306,14 +307,11 @@ check-agent-deps:
 			./pilot/cmd/pilot-agent/status/ready \
 			./pilot/cmd/pilot-agent/status/grpcready \
 			./pilot/cmd/pilot-agent/config \
-			./pkg/dns/client/... \
-			./pkg/security/... \
-			./pkg/bootstrap/... \
-			./pkg/wasm/... \
-			./pkg/envoy/... | sort | uniq |\
+			./pkg/istio-agent/... | sort | uniq |\
 		grep -Pv '^k8s.io/(utils|klog|apimachinery)/' |\
 		grep -Pv 'envoy/type/|envoy/annotations|envoy/config/core/' |\
 		grep -Pv 'envoy/extensions/transport_sockets/tls/' |\
+		grep -Pv 'envoy/service/discovery/v3' |\
 		grep -Pv 'envoy/extensions/wasm/' |\
 		grep -Pv 'envoy/extensions/filters/(http|network)/wasm/' |\
 		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|envoy/')
