@@ -510,7 +510,7 @@ func configureDynatraceSampler(hostname, cluster string,
 		// as configured for the HTTP Exporter. In this case users
 		// can achieve a much smaller/simpler config in Istio.
 
-		// Re-use the Dynatrace API Host + Token from the OTLP HTTP exporter
+		// Re-use the Dynatrace API Host from the OTLP HTTP exporter
 		otlpHttpService := otelProvider.GetHttp()
 		if otlpHttpService == nil {
 			return nil, fmt.Errorf("dynatrace sampler could not get http settings. considering using dynatrace_api field")
@@ -748,7 +748,6 @@ func configureSampling(hcmTracing *hcm.HttpConnectionManager_Tracing, providerPe
 	}
 }
 
-// defaultConfig.tracing.sampling > PILOT_TRACE_SAMPLING
 func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 	// PILOT_TRACE_SAMPLING
 	sampling := features.TraceSampling
