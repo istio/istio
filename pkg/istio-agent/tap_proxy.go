@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
-	"istio.io/istio/pilot/pkg/xds"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/log"
 )
@@ -43,14 +42,18 @@ func NewTapGrpcHandler(xdsProxy *XdsProxy) (*grpc.Server, error) {
 	return grpcs, nil
 }
 
-func (p *tapProxy) StreamAggregatedResources(downstream xds.DiscoveryStream) error {
+const (
+	TypeDebugPrefix = "istio.io/debug/"
+)
+
+func (p *tapProxy) StreamAggregatedResources(downstream DiscoveryStream) error {
 	timeout := time.Second * 15
 	req, err := downstream.Recv()
 	if err != nil {
 		log.Errorf("failed to recv: %v", err)
 		return err
 	}
-	if strings.HasPrefix(req.TypeUrl, xds.TypeDebugPrefix) {
+	if strings.HasPrefix(req.TypeUrl, TypeDebugPrefix) {
 		if resp, err := p.xdsProxy.tapRequest(req, timeout); err == nil {
 			err := downstream.Send(resp)
 			if err != nil {
@@ -65,6 +68,6 @@ func (p *tapProxy) StreamAggregatedResources(downstream xds.DiscoveryStream) err
 	return nil
 }
 
-func (p *tapProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream) error {
+func (p *tapProxy) DeltaAggregatedResources(downstream DeltaDiscoveryStream) error {
 	return fmt.Errorf("not implemented")
 }
