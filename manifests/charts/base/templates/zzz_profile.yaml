@@ -1,4 +1,8 @@
 {{/*
+WARNING: DO NOT EDIT, THIS FILE IS A PROBABLY COPY.
+The original version of this file is located at /manifests directory.
+If you want to make a change in this file, edit the original one and run "make gen".
+
 Complex logic ahead...
 We have three sets of values, in order of precedence (last wins):
 1. The builtin values.yaml defaults

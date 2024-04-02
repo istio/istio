@@ -387,9 +387,10 @@ copy-templates:
 	# copy istio-discovery values, but apply some local customizations
 	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
 	yq -i '.defaults.telemetry.enabled=false | .defaults.global.externalIstiod=true | .defaults.global.omitSidecarInjectorConfigMap=true | .defaults.pilot.configMap=false' manifests/charts/istiod-remote/values.yaml
+	warning=$$(cat manifests/helm-profiles/warning-edit.txt | sed ':a;N;$$!ba;s/\n/\\n/g') ; \
 	for chart in $(CHARTS) ; do \
 		for profile in manifests/helm-profiles/*.yaml ; do \
-			cp $$profile manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
+			sed "1s|^|$${warning}\n\n|" $$profile > manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
 		done; \
 		cp manifests/zzz_profile.yaml manifests/charts/$$chart/templates ; \
 	done
