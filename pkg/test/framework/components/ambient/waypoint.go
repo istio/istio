@@ -114,6 +114,8 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (W
 		ns.Name(),
 		"--service-account",
 		sa,
+		"--for",
+		constants.AllTraffic,
 	})
 	if err != nil {
 		return nil, err
