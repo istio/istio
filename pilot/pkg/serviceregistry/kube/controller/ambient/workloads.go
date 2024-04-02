@@ -103,11 +103,6 @@ func (a *index) WorkloadsCollection(
 			}
 			var waypointAddress *workloadapi.GatewayAddress
 			if waypoint != nil {
-				if !waypointForWorkload(waypoint) {
-					// Waypoint does not support Workload traffic, log issue then nullify waypoint
-					log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-					waypoint = nil
-				}
 				waypointAddress = a.getWaypointAddress(waypoint)
 			}
 			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
@@ -175,11 +170,6 @@ func (a *index) workloadEntryWorkloadBuilder(
 		}
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {
-			if !waypointForWorkload(waypoint) {
-				// Waypoint does not support Workload traffic, log issue then nullify waypoint
-				log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-				waypoint = nil
-			}
 			waypointAddress = a.getWaypointAddress(waypoint)
 		}
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
@@ -262,11 +252,6 @@ func (a *index) podWorkloadBuilder(
 		}
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {
-			if !waypointForWorkload(waypoint) {
-				// Waypoint does not support Workload traffic, log issue then nullify waypoint
-				log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-				waypoint = nil
-			}
 			waypointAddress = a.getWaypointAddress(waypoint)
 		}
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
@@ -432,8 +417,4 @@ func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*work
 		}
 	}
 	return res
-}
-
-func waypointForWorkload(w *Waypoint) bool {
-	return w.TrafficType == constants.WorkloadTraffic || w.TrafficType == constants.AllTraffic
 }
