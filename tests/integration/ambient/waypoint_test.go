@@ -305,9 +305,6 @@ spec:
 					continue
 				}
 				t.NewSubTestf("from %s", src.ServiceName()).Run(func(t framework.TestContext) {
-					if src.Config().HasSidecar() {
-						t.Skip("TODO: sidecars don't properly handle use-waypoint")
-					}
 					for _, host := range apps.Captured.Config().HostnameVariants() {
 						host := host
 						t.NewSubTestf("to %s", host).Run(func(t framework.TestContext) {
