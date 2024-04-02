@@ -24,13 +24,12 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	otelsamplers "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/samplers/v3"
 	envoy_type_metadata_v3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-
-	otelsamplers "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/samplers/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	telemetrypb "istio.io/api/telemetry/v1alpha1"
@@ -277,8 +276,8 @@ func datadogConfig(serviceName, hostname, cluster string) (*anypb.Any, error) {
 }
 
 func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider,
-	pushCtx *model.PushContext) (*anypb.Any, bool, error) {
-
+	pushCtx *model.PushContext,
+) (*anypb.Any, bool, error) {
 	hostname, cluster, err := clusterLookupFn(pushCtx, otelProvider.GetService(), int(otelProvider.GetPort()))
 	if err != nil {
 		model.IncLookupClusterFailures("opentelemetry")
@@ -315,7 +314,7 @@ func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_Extensio
 				},
 				Timeout: httpService.GetTimeout(),
 			},
-			RequestHeadersToAdd: buildHttpHeaders(httpService.GetHeaders()),
+			RequestHeadersToAdd: buildHTTPHeaders(httpService.GetHeaders()),
 		}
 	}
 
@@ -488,8 +487,8 @@ func otelLightStepConfig(clusterName, hostname, accessToken string) (*anypb.Any,
 func configureDynatraceSampler(hostname, cluster string,
 	otelProvider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider,
 	sampler *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_,
-	pushCtx *model.PushContext) (*core.TypedExtensionConfig, error) {
-
+	pushCtx *model.PushContext,
+) (*core.TypedExtensionConfig, error) {
 	dsc := &otelsamplers.DynatraceSamplerConfig{
 		Tenant:             sampler.DynatraceSampler.GetTenant(),
 		ClusterId:          sampler.DynatraceSampler.GetClusterId(),
@@ -502,8 +501,8 @@ func configureDynatraceSampler(hostname, cluster string,
 		// can achieve a much smaller/simpler config in Istio.
 
 		// Re-use the Dynatrace API Host from the OTLP HTTP exporter
-		otlpHttpService := otelProvider.GetHttp()
-		if otlpHttpService == nil {
+		otlpHTTPService := otelProvider.GetHttp()
+		if otlpHTTPService == nil {
 			return nil, fmt.Errorf("dynatrace sampler could not get http settings. considering setting the http_service field on the dynatrace sampler")
 		}
 
@@ -518,16 +517,16 @@ func configureDynatraceSampler(hostname, cluster string,
 				HttpUpstreamType: &core.HttpUri_Cluster{
 					Cluster: cluster,
 				},
-				Timeout: otlpHttpService.GetTimeout(),
+				Timeout: otlpHTTPService.GetTimeout(),
 			},
 			// Re-use the headers from the OTLP HTTP Exporter
-			RequestHeadersToAdd: buildHttpHeaders(otlpHttpService.GetHeaders()),
+			RequestHeadersToAdd: buildHTTPHeaders(otlpHTTPService.GetHeaders()),
 		}
 	} else {
 		// Dynatrace customers may want to export to a OTel collector
 		// but still have the benefits of the Dynatrace Sampler.
 		// In this case, the sampler has its own HTTP configuration
-		var dtapi = sampler.DynatraceSampler.HttpService
+		dtapi := sampler.DynatraceSampler.HttpService
 
 		// use Dynatrace API to configure the sampler
 		dtHost, dtCluster, err := clusterLookupFn(pushCtx, dtapi.GetService(), int(dtapi.GetPort()))
@@ -549,7 +548,7 @@ func configureDynatraceSampler(hostname, cluster string,
 				},
 				Timeout: dtapi.Http.GetTimeout(),
 			},
-			RequestHeadersToAdd: buildHttpHeaders(dtapi.Http.GetHeaders()),
+			RequestHeadersToAdd: buildHTTPHeaders(dtapi.Http.GetHeaders()),
 		}
 	}
 
@@ -846,7 +845,7 @@ func buildCustomTagsFromProxyConfig(customTags map[string]*meshconfig.Tracing_Cu
 	return tags
 }
 
-func buildHttpHeaders(headers []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader) []*core.HeaderValueOption {
+func buildHTTPHeaders(headers []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader) []*core.HeaderValueOption {
 	target := make([]*core.HeaderValueOption, 0, len(headers))
 	for _, h := range headers {
 		hvo := &core.HeaderValueOption{

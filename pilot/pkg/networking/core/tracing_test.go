@@ -244,7 +244,7 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 	clusterName := "testcluster"
 	authority := "testhost"
 	dtTenant := "abc"
-	var dtClusterId int32 = 123
+	var dtClusterID int32 = 123
 	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
 		return authority, clusterName, nil
 	}
@@ -255,21 +255,21 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 	testcases := []struct {
 		name        string
 		dtTenant    string
-		dtClusterId int32
+		dtClusterID int32
 		spansPerMin uint32
-		expectedUri string
+		expectedURI string
 	}{
 		{
 			name:        "re-use otlp http headers",
 			dtTenant:    dtTenant,
-			dtClusterId: dtClusterId,
-			expectedUri: authority + "/api/v2/samplingConfiguration",
+			dtClusterID: dtClusterID,
+			expectedURI: authority + "/api/v2/samplingConfiguration",
 		},
 		{
 			name:        "custom root spans per minute fallback",
 			dtTenant:    dtTenant,
-			dtClusterId: dtClusterId,
-			expectedUri: authority + "/api/v2/samplingConfiguration",
+			dtClusterID: dtClusterID,
+			expectedURI: authority + "/api/v2/samplingConfiguration",
 			spansPerMin: 9999,
 		},
 	}
@@ -280,7 +280,7 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 			httpProvider.GetOpentelemetry().Sampling = &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_{
 				DynatraceSampler: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler{
 					Tenant:             tc.dtTenant,
-					ClusterId:          tc.dtClusterId,
+					ClusterId:          tc.dtClusterID,
 					RootSpansPerMinute: tc.spansPerMin,
 				},
 			}
@@ -297,7 +297,7 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 			ep.GetOpentelemetry().Sampling = &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_{
 				DynatraceSampler: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler{
 					Tenant:             tc.dtTenant,
-					ClusterId:          tc.dtClusterId,
+					ClusterId:          tc.dtClusterID,
 					RootSpansPerMinute: tc.spansPerMin,
 				},
 			}
@@ -326,11 +326,11 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 					Name: "envoy.tracers.opentelemetry.samplers.dynatrace",
 					TypedConfig: protoconv.MessageToAny(&otelsamplers.DynatraceSamplerConfig{
 						Tenant:             tc.dtTenant,
-						ClusterId:          tc.dtClusterId,
+						ClusterId:          tc.dtClusterID,
 						RootSpansPerMinute: tc.spansPerMin,
 						HttpService: &core.HttpService{
 							HttpUri: &core.HttpUri{
-								Uri: tc.expectedUri,
+								Uri: tc.expectedURI,
 								HttpUpstreamType: &core.HttpUri_Cluster{
 									Cluster: clusterName,
 								},
@@ -374,7 +374,7 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 	dtClusterName := "dtcluster"
 	dtAuthority := "dthost"
 	expectedTenant := "abc"
-	var expectedClusterId int32 = 123
+	var expectedClusterID int32 = 123
 	expectedHeader := "sampler-custom"
 	expectedToken := "sampler-value"
 
@@ -392,7 +392,7 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 	httpProvider.GetOpentelemetry().Sampling = &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_{
 		DynatraceSampler: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler{
 			Tenant:             expectedTenant,
-			ClusterId:          expectedClusterId,
+			ClusterId:          expectedClusterID,
 			RootSpansPerMinute: 2000,
 			HttpService: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_DynatraceApi{
 				Service: dtAuthority,
@@ -423,7 +423,7 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 	ep.GetOpentelemetry().Sampling = &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_{
 		DynatraceSampler: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler{
 			Tenant:             expectedTenant,
-			ClusterId:          expectedClusterId,
+			ClusterId:          expectedClusterID,
 			RootSpansPerMinute: 2000,
 			HttpService: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_DynatraceSampler_DynatraceApi{
 				Service: dtAuthority,
@@ -466,7 +466,7 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 			Name: "envoy.tracers.opentelemetry.samplers.dynatrace",
 			TypedConfig: protoconv.MessageToAny(&otelsamplers.DynatraceSamplerConfig{
 				Tenant:             expectedTenant,
-				ClusterId:          expectedClusterId,
+				ClusterId:          expectedClusterID,
 				RootSpansPerMinute: 2000,
 				HttpService: &core.HttpService{
 					HttpUri: &core.HttpUri{
@@ -503,7 +503,6 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 		t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 	}
 	assert.Equal(t, want, hcm.Tracing)
-
 }
 
 func defaultTracingTags() []*tracing.CustomTag {
