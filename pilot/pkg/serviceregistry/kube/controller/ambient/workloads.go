@@ -66,12 +66,7 @@ func (a *index) WorkloadsCollection(
 		}
 		res := make([]model.WorkloadInfo, 0, len(se.Spec.Endpoints))
 
-		wp := fetchWaypoint(ctx, Waypoints, Namespaces, se.ObjectMeta)
-		if wp != nil && !waypointForWorkload(wp) {
-			// Waypoint does not support Workload traffic, log issue then nullify waypoint
-			log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", wp.Namespace, wp.Name, wp.TrafficType)
-			wp = nil
-		}
+		wp := fetchWaypointForWorkload(ctx, Waypoints, Namespaces, se.ObjectMeta)
 
 		// this is some partial object meta we can pass through so that WL found in the Endpoints
 		// may inherit the namespace scope waypoint from the SE... the Endpoints do not have real object meta
@@ -104,12 +99,7 @@ func (a *index) WorkloadsCollection(
 				// Waypoints do not have waypoints, but anything else does
 
 				// this is using object meta which simply defines the namespace since the endpoint doesn't have it's own object meta
-				waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, someObjectMeta)
-				if waypoint != nil && !waypointForWorkload(waypoint) {
-					// Waypoint does not support Workload traffic, log issue then nullify waypoint
-					log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-					waypoint = nil
-				}
+				waypoint = fetchWaypointForWorkload(ctx, Waypoints, Namespaces, someObjectMeta)
 			}
 			var waypointAddress *workloadapi.GatewayAddress
 			if waypoint != nil {
@@ -181,12 +171,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
 		var waypoint *Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-			waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, p.ObjectMeta)
-			if waypoint != nil && !waypointForWorkload(waypoint) {
-				// Waypoint does not support Workload traffic, log issue then nullify waypoint
-				log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-				waypoint = nil
-			}
+			waypoint = fetchWaypointForWorkload(ctx, Waypoints, Namespaces, p.ObjectMeta)
 		}
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {
@@ -273,12 +258,7 @@ func (a *index) podWorkloadBuilder(
 		var waypoint *Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			// Waypoints do not have waypoints, but anything else does
-			waypoint = fetchWaypoint(ctx, Waypoints, Namespaces, p.ObjectMeta)
-			if waypoint != nil && !waypointForWorkload(waypoint) {
-				// Waypoint does not support Workload traffic, log issue then nullify waypoint
-				log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-				waypoint = nil
-			}
+			waypoint = fetchWaypointForWorkload(ctx, Waypoints, Namespaces, p.ObjectMeta)
 		}
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {

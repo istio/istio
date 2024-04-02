@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
@@ -44,12 +43,7 @@ func (a *index) ServicesCollection(
 				TargetPortName: p.TargetPort.StrVal,
 			}
 		}
-		waypoint := fetchWaypoint(ctx, Waypoints, Namespaces, s.ObjectMeta)
-		if waypoint != nil && !waypointForService(waypoint) {
-			// Waypoint does not support Service traffic, log the issue and nullify the waypoint
-			log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-			waypoint = nil
-		}
+		waypoint := fetchWaypointForService(ctx, Waypoints, Namespaces, s.ObjectMeta)
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		return &model.ServiceInfo{
 			Service:       a.constructService(s, waypoint),
@@ -59,12 +53,7 @@ func (a *index) ServicesCollection(
 		}
 	}, krt.WithName("ServicesInfo"))
 	ServiceEntriesInfo := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
-		waypoint := fetchWaypoint(ctx, Waypoints, Namespaces, s.ObjectMeta)
-		if waypoint != nil && !waypointForService(waypoint) {
-			// Waypoint does not support Service traffic, log the issue and nullify the waypoint
-			log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", waypoint.Namespace, waypoint.Name, waypoint.TrafficType)
-			waypoint = nil
-		}
+		waypoint := fetchWaypointForService(ctx, Waypoints, Namespaces, s.ObjectMeta)
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		return a.serviceEntriesInfo(s, waypoint)
 	}, krt.WithName("ServiceEntriesInfo"))
@@ -169,8 +158,4 @@ func getVIPs(svc *v1.Service) []string {
 		}
 	}
 	return res
-}
-
-func waypointForService(w *Waypoint) bool {
-	return w.TrafficType == constants.ServiceTraffic || w.TrafficType == constants.AllTraffic
 }
