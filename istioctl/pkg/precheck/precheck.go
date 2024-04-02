@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	istiocluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
@@ -599,6 +600,10 @@ func checkServerVersion(cli kube.CLIClient) (diag.Messages, error) {
 
 // clusterOrigin defines an Origin that refers to the cluster
 type clusterOrigin struct{}
+
+func (o clusterOrigin) ClusterName() istiocluster.ID {
+	return "Cluster"
+}
 
 func (o clusterOrigin) String() string {
 	return ""

@@ -126,7 +126,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 	// If istiod is enabled, check if it has any proxies connected.
 	if pilotEnabled {
 		cfg := h.kubeClient.RESTConfig()
-		kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(cfg), iopSpec.Revision)
+		kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(cfg), kube.WithRevision(iopSpec.Revision))
 		if err != nil {
 			return errStatus, err
 		}

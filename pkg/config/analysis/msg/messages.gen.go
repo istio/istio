@@ -251,6 +251,10 @@ var (
 	// UpdateIncompatibility defines a diag.MessageType for message "UpdateIncompatibility".
 	// Description: The provided configuration object may be incompatible due to an upgrade
 	UpdateIncompatibility = diag.NewMessageType(diag.Warning, "IST0169", "The configuration %q changed in release %s: %s. Or, install with `--set compatibilityVersion=%s` to retain the old default.")
+
+	// MultiClusterInconsistentService defines a diag.MessageType for message "MultiClusterInconsistentService".
+	// Description: The services live in different clusters under multi-cluster deployment model are inconsistent
+	MultiClusterInconsistentService = diag.NewMessageType(diag.Warning, "IST0170", "The service %v in namespace %q is inconsistent across clusters %q, which can lead to undefined behaviors. The inconsistent behaviors are: %v.")
 )
 
 // All returns a list of all known message types.
@@ -317,6 +321,7 @@ func All() []*diag.MessageType {
 		IneffectivePolicy,
 		UnknownUpgradeCompatibility,
 		UpdateIncompatibility,
+		MultiClusterInconsistentService,
 	}
 }
 
@@ -916,5 +921,17 @@ func NewUpdateIncompatibility(r *resource.Instance, field string, release string
 		release,
 		info,
 		compatVersion,
+	)
+}
+
+// NewMultiClusterInconsistentService returns a new diag.Message based on MultiClusterInconsistentService.
+func NewMultiClusterInconsistentService(r *resource.Instance, serviceName string, namespace string, clusters []string, error string) diag.Message {
+	return diag.NewMessage(
+		MultiClusterInconsistentService,
+		r,
+		serviceName,
+		namespace,
+		clusters,
+		error,
 	)
 }

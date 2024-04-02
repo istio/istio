@@ -89,7 +89,7 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 	if err != nil {
 		return err
 	}
-	kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), "")
+	kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc))
 	if err != nil {
 		return fmt.Errorf("create Kubernetes client: %v", err)
 	}
