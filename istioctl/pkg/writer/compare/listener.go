@@ -20,6 +20,8 @@ import (
 
 	"github.com/pmezard/go-difflib/difflib"
 
+	// Force import protos
+	_ "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
