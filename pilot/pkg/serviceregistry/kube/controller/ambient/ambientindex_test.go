@@ -495,13 +495,13 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 
 // define constants for the different types of XDS events which occur during policy unit tests
 const (
-	XDS_CONVERTED_STATIC_STRICT             = "istio_converted_static_strict"
-	XDS_CONVERTED_PEER_AUTH_SELECTOR        = "converted_peer_authentication_selector"
-	XDS_CONVERTED_PEER_AUTH_SELECTOR_STRICT = "converted_peer_authentication_selector-strict"
-	XDS_GLOBAL                              = "global"
-	XDS_NAMESPACE                           = "namespace"
-	XDS_SELECTOR                            = "selector"
-	XDS_GLOBAL_SELECTOR                     = "global-selector"
+	xdsConvertedPeerAuthSelector       = "converted_peer_authentication_selector"
+	xdsConvertedPeerAuthSelectorStrict = "converted_peer_authentication_selector-strict"
+	xdsConvertedStaticStrict           = "istio_converted_static_strict"
+	xdsGlobal                          = "global"
+	xdsGlobalSelector                  = "global-selector"
+	xdsNamespace                       = "namespace"
+	xdsSelector                        = "selector"
 )
 
 // TODO(nmittler): Consider splitting this into multiple, smaller tests.
@@ -544,7 +544,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 			Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
 		}
 	})
-	s.assertEvent(t, XDS_CONVERTED_STATIC_STRICT)
+	s.assertEvent(t, xdsConvertedStaticStrict)
 
 	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
 		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
@@ -593,7 +593,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 			},
 		}
 	})
-	s.assertEvent(t, s.podXdsName("pod1"), XDS_CONVERTED_PEER_AUTH_SELECTOR) // Selector policy should be added back since there is now a STRICT exception
+	s.assertEvent(t, s.podXdsName("pod1"), xdsConvertedPeerAuthSelector) // Selector policy should be added back since there is now a STRICT exception
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
@@ -651,7 +651,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}
 	})
 	// There should be an event since effective policy moves to PERMISSIVE
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), XDS_CONVERTED_PEER_AUTH_SELECTOR)
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), xdsConvertedPeerAuthSelector)
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		nil)
@@ -697,7 +697,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 			},
 		}
 	})
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), XDS_CONVERTED_PEER_AUTH_SELECTOR) // Matching pods receive an event
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), xdsConvertedPeerAuthSelector) // Matching pods receive an event
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
@@ -717,7 +717,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}
 	})
 	// The policy should still be added since the effective policy is PERMISSIVE
-	s.assertEvent(t, XDS_CONVERTED_PEER_AUTH_SELECTOR)
+	s.assertEvent(t, xdsConvertedPeerAuthSelector)
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
@@ -749,7 +749,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 			},
 		}
 	})
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), XDS_CONVERTED_PEER_AUTH_SELECTOR) // Matching pods receive an event
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), xdsConvertedPeerAuthSelector) // Matching pods receive an event
 	// The policy should still be added since the effective policy is STRICT
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -761,7 +761,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 
 	// Clear PeerAuthentication from workload
 	s.pa.Delete("selector", testNS)
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), XDS_CONVERTED_PEER_AUTH_SELECTOR)
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), xdsConvertedPeerAuthSelector)
 	// Effective policy is still STRICT so the static policy should still be set
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -771,18 +771,18 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	s.pa.Delete("namespace", testNS)
 	s.pa.Delete("global", systemNS)
 	s.deletePod(t, "pod2")
-	s.assertEvent(t, s.podXdsName("pod2"), s.podXdsName("pod1"), XDS_CONVERTED_STATIC_STRICT, s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"))
+	s.assertEvent(t, s.podXdsName("pod2"), s.podXdsName("pod1"), xdsConvertedStaticStrict, s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"))
 
 	// Test AuthorizationPolicies
 	s.addPolicy(t, "global", systemNS, nil, gvk.AuthorizationPolicy, nil)
 	s.addPolicy(t, "namespace", testNS, nil, gvk.AuthorizationPolicy, nil)
-	s.assertEvent(t, XDS_GLOBAL, XDS_NAMESPACE)
+	s.assertEvent(t, xdsGlobal, xdsNamespace)
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		nil)
 
 	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, nil)
-	s.assertEvent(t, s.podXdsName("pod1"), XDS_SELECTOR)
+	s.assertEvent(t, s.podXdsName("pod1"), xdsSelector)
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{"ns1/selector"})
@@ -802,7 +802,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{"ns1/selector"})
 
 	s.addPolicy(t, "global-selector", systemNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, nil)
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), XDS_GLOBAL_SELECTOR)
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), xdsGlobalSelector)
 
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -810,7 +810,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 
 	// Update selector to not select
 	s.addPolicy(t, "global-selector", systemNS, map[string]string{"app": "not-a"}, gvk.AuthorizationPolicy, nil)
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), XDS_GLOBAL_SELECTOR)
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), xdsGlobalSelector)
 
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -824,7 +824,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}
 	})
 	// Every workload should receive an event
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"), XDS_CONVERTED_STATIC_STRICT)
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"), xdsConvertedStaticStrict)
 	// Static STRICT policy should be sent
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -880,7 +880,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 			},
 		}
 	})
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), XDS_CONVERTED_PEER_AUTH_SELECTOR_STRICT) // Matching workloads should receive an event
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), xdsConvertedPeerAuthSelectorStrict) // Matching workloads should receive an event
 	// Workload policy should be added since there's a port level exclusion
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -909,10 +909,10 @@ func TestAmbientIndex_Policy(t *testing.T) {
 			Name:      "selector-strict",
 			Namespace: "ns1",
 		}))})
-	s.assertEvent(t, XDS_SELECTOR)
+	s.assertEvent(t, xdsSelector)
 
 	s.authz.Delete("selector", testNS)
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), XDS_SELECTOR)
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), xdsSelector)
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
@@ -923,7 +923,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 
 	// Delete selector policy
 	s.pa.Delete("selector-strict", testNS)
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), XDS_CONVERTED_PEER_AUTH_SELECTOR_STRICT) // Matching workloads should receive an event
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), xdsConvertedPeerAuthSelectorStrict) // Matching workloads should receive an event
 	// Static STRICT policy should now be sent because of the global policy
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -932,7 +932,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	// Delete global policy
 	s.pa.Delete("strict", systemNS)
 	// Every workload should receive an event
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"), XDS_CONVERTED_STATIC_STRICT)
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"), xdsConvertedStaticStrict)
 	// Now no policies are in effect
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
