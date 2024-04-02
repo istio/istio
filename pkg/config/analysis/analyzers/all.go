@@ -87,11 +87,11 @@ func AllMultiCluster() []analysis.Analyzer {
 }
 
 // AllCombined returns all analyzers combined as one
-func AllCombined() *analysis.CombinedAnalyzer {
+func AllCombined() analysis.CombinedAnalyzer {
 	return analysis.Combine("all", All()...)
 }
 
 // AllMultiClusterCombined returns all multi-cluster analyzers combined as one
-func AllMultiClusterCombined() *analysis.CombinedAnalyzer {
+func AllMultiClusterCombined() analysis.CombinedAnalyzer {
 	return analysis.Combine("all-multi-cluster", AllMultiCluster()...)
 }
