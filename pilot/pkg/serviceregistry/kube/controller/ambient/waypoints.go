@@ -70,28 +70,28 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 	return nil
 }
 
-func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
+func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
+	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
 	w := fetchWaypoint(ctx, Waypoints, Namespaces, o)
 	if w != nil {
 		if w.TrafficType == constants.ServiceTraffic || w.TrafficType == constants.AllTraffic {
 			return w
-		} else {
-			// Waypoint does not support Service traffic
-			log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", w.Namespace, w.Name, w.TrafficType)
 		}
+		// Waypoint does not support Service traffic
+		log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", w.Namespace, w.Name, w.TrafficType)
 	}
 	return nil
 }
 
-func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
+func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
+	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
 	w := fetchWaypoint(ctx, Waypoints, Namespaces, o)
 	if w != nil {
 		if w.TrafficType == constants.WorkloadTraffic || w.TrafficType == constants.AllTraffic {
 			return w
-		} else {
-			// Waypoint does not support Workload traffic
-			log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", w.Namespace, w.Name, w.TrafficType)
 		}
+		// Waypoint does not support Workload traffic
+		log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported", w.Namespace, w.Name, w.TrafficType)
 	}
 	return nil
 }

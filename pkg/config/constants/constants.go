@@ -198,7 +198,7 @@ const (
 
 	// AmbientUseWaypoint is the annotation used to specify which waypoint should be used for a given pod, service, etc...
 	AmbientUseWaypoint = "istio.io/use-waypoint"
-	// AmbientWaypointForTrafficType is the annotation used to specify which traffic is allowed throught the Waypoint.
+	// AmbientWaypointForTrafficType is the annotation used to specify which traffic is allowed through the Waypoint.
 	// This annotation is applied to the Waypoint. Valid traffic types are "service", "workload", "all", and "none".
 	AmbientWaypointForTrafficType = "istio.io/waypoint-for"
 
