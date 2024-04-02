@@ -16,10 +16,7 @@ package istio
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -459,14 +456,6 @@ func ReloadMounts(c cluster.Cluster, systemNamespace string) error {
 		}
 	}
 	return nil
-}
-
-func hash(s string) string {
-	// nolint: gosec
-	// Test only code
-	h := md5.New()
-	_, _ = io.WriteString(h, s)
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 func getMeshConfigData(c cluster.Cluster, cm *corev1.ConfigMap) (string, error) {
