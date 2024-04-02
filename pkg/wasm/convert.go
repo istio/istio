@@ -22,9 +22,7 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	httprbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
-	networkrbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
@@ -32,15 +30,18 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/istiomultierror"
 )
 
 var (
-	allowHTTPTypedConfig    = protoconv.MessageToAny(&httprbac.RBAC{})
-	allowNetworkTypedConfig = protoconv.MessageToAny(&networkrbac.RBAC{})
+	allowHTTPTypedConfig = &anypb.Any{
+		TypeUrl: "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
+	}
+	allowNetworkTypedConfig = &anypb.Any{
+		TypeUrl: "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC",
+	}
 )
 
 func createHTTPAllowAllFilter(name string) (*anypb.Any, error) {
