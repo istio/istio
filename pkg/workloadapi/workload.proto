@@ -76,6 +76,52 @@ message Service {
   // Waypoint is the waypoint proxy for this service. When set, all incoming requests must go
   // through the waypoint.
   GatewayAddress waypoint = 7;
+
+  // Load balancing policy for selecting endpoints.
+  // Note: this applies only to connecting directly to the workload; when waypoints are used, the waypoint's load_balancing
+  // configuration is used.
+  LoadBalancing load_balancing = 8;
+}
+
+message LoadBalancing {
+  enum Scope {
+    UNSPECIFIED_SCOPE = 0;
+    // Prefer traffic in the same region.
+    REGION = 1;
+    // Prefer traffic in the same zone.
+    ZONE = 2;
+    // Prefer traffic in the same subzone.
+    SUBZONE = 3;
+    // Prefer traffic on the same node.
+    NODE = 4;
+    // Prefer traffic in the same cluster.
+    CLUSTER = 5;
+    // Prefer traffic in the same network.
+    NETWORK = 6;
+  }
+  enum Mode {
+    UNSPECIFIED_MODE = 0;
+
+    // In STRICT mode, only endpoints that meets all of the routing preferences will be considered.
+    // This can be used, for instance, to keep traffic ONLY within the same cluster/node/region.
+    // This should be used with caution, as it can result in all traffic being dropped if there is no matching endpoints,
+    // even if there are endpoints outside of the preferences.
+    STRICT = 1;
+    // In FAILOVER mode, endpoint selection will prefer endpoints that match all preferences, but failover to groups of endpoints
+    // that match less (or, eventually, none) preferences.
+    // For instance, with `[NETWORK, REGION, ZONE]`, we will send to:
+    // 1. Endpoints matching `[NETWORK, REGION, ZONE]`
+    // 2. Endpoints matching `[NETWORK, REGION]`
+    // 3. Endpoints matching `[NETWORK]`
+    // 4. Any endpoints
+    FAILOVER = 2;
+  }
+
+  // routing_preference defines what scopes we want to keep traffic within.
+  // The `mode` determines how these routing preferences are handled
+  repeated Scope routing_preference = 1;
+  // mode defines how we should handle the routing preferences.
+  Mode mode = 2;
 }
 
 // Workload represents a workload - an endpoint (or collection behind a hostname).
@@ -179,8 +225,17 @@ message Workload {
   // The cluster ID that the workload instance belongs to
   string cluster_id = 18;
 
+  // The Locality defines information about where a workload is geographically deployed
+  Locality locality = 24;
+
   // Reservations for deleted fields.
   reserved 15;
+}
+
+message Locality {
+  string region = 1;
+  string zone = 2;
+  string subzone = 3;
 }
 
 enum WorkloadStatus {

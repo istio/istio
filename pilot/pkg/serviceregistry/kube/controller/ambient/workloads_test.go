@@ -254,6 +254,50 @@ func TestPodWorkloads(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "simple pod with locality",
+			inputs: []any{
+				&v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node",
+						Labels: map[string]string{
+							v1.LabelTopologyRegion: "region",
+							v1.LabelTopologyZone:   "zone",
+						},
+					},
+				},
+			},
+			pod: &v1.Pod{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: v1.PodSpec{NodeName: "node"},
+				Status: v1.PodStatus{
+					Phase: v1.PodPending,
+					PodIP: "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/ns/name",
+				Name:              "name",
+				Namespace:         "ns",
+				Node:              "node",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "name",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "name",
+				Status:            workloadapi.WorkloadStatus_UNHEALTHY,
+				ClusterId:         testC,
+				Locality: &workloadapi.Locality{
+					Region: "region",
+					Zone:   "zone",
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -265,8 +309,9 @@ func TestPodWorkloads(t *testing.T) {
 			WorkloadServices := krt.NewStaticCollection(extractType[model.ServiceInfo](&inputs))
 			MeshConfig := krt.NewStatic(&MeshConfig{slices.First(extractType[meshapi.MeshConfig](&inputs))})
 			Namespaces := krt.NewStaticCollection(extractType[*v1.Namespace](&inputs))
+			Nodes := krt.NewStaticCollection(extractType[*v1.Node](&inputs))
 			assert.Equal(t, len(inputs), 0, fmt.Sprintf("some inputs were not consumed: %v", inputs))
-			builder := a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, Namespaces)
+			builder := a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, Namespaces, Nodes)
 			wrapper := builder(krt.TestingDummyContext{}, tt.pod)
 			var res *workloadapi.Workload
 			if wrapper != nil {
