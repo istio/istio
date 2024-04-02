@@ -27,22 +27,30 @@ type Analyzer interface {
 	Analyze(c Context)
 }
 
-// CombinedAnalyzer is a special Analyzer that combines multiple analyzers into one
-type CombinedAnalyzer struct {
+// CombinedAnalyzer is an interface used to combine and run multiple analyzers into one
+type CombinedAnalyzer interface {
+	Analyzer
+	RelevantSubset(kinds sets.Set[config.GroupVersionKind]) CombinedAnalyzer
+	RemoveSkipped(schemas collection.Schemas) []string
+	AnalyzerNames() []string
+}
+
+// InternalCombinedAnalyzer is an implementation of CombinedAnalyzer, a special analyzer that combines multiple analyzers into one
+type InternalCombinedAnalyzer struct {
 	name      string
 	analyzers []Analyzer
 }
 
 // Combine multiple analyzers into a single one.
 // For input metadata, use the union of the component analyzers
-func Combine(name string, analyzers ...Analyzer) *CombinedAnalyzer {
-	return &CombinedAnalyzer{
+func Combine(name string, analyzers ...Analyzer) CombinedAnalyzer {
+	return &InternalCombinedAnalyzer{
 		name:      name,
 		analyzers: analyzers,
 	}
 }
 
-func (c *CombinedAnalyzer) RelevantSubset(kinds sets.Set[config.GroupVersionKind]) *CombinedAnalyzer {
+func (c *InternalCombinedAnalyzer) RelevantSubset(kinds sets.Set[config.GroupVersionKind]) CombinedAnalyzer {
 	var selected []Analyzer
 	for _, a := range c.analyzers {
 		for _, inputKind := range a.Metadata().Inputs {
@@ -56,7 +64,7 @@ func (c *CombinedAnalyzer) RelevantSubset(kinds sets.Set[config.GroupVersionKind
 }
 
 // Metadata implements Analyzer
-func (c *CombinedAnalyzer) Metadata() Metadata {
+func (c *InternalCombinedAnalyzer) Metadata() Metadata {
 	return Metadata{
 		Name:   c.name,
 		Inputs: combineInputs(c.analyzers),
@@ -64,7 +72,7 @@ func (c *CombinedAnalyzer) Metadata() Metadata {
 }
 
 // Analyze implements Analyzer
-func (c *CombinedAnalyzer) Analyze(ctx Context) {
+func (c *InternalCombinedAnalyzer) Analyze(ctx Context) {
 	for _, a := range c.analyzers {
 		scope.Analysis.Debugf("Started analyzer %q...", a.Metadata().Name)
 		if ctx.Canceled() {
@@ -82,7 +90,7 @@ func (c *CombinedAnalyzer) Analyze(ctx Context) {
 // Transformer information is used to determine, based on the disabled input collections, which output collections
 // should be disabled. Any analyzers that require those output collections will be removed.
 // 2. The analyzer requires a collection not available in the current snapshot(s)
-func (c *CombinedAnalyzer) RemoveSkipped(schemas collection.Schemas) []string {
+func (c *InternalCombinedAnalyzer) RemoveSkipped(schemas collection.Schemas) []string {
 	allSchemas := schemas.All()
 	s := sets.NewWithLength[config.GroupVersionKind](len(allSchemas))
 	for _, sc := range allSchemas {
@@ -109,7 +117,7 @@ mainloop:
 }
 
 // AnalyzerNames returns the names of analyzers in this combined analyzer
-func (c *CombinedAnalyzer) AnalyzerNames() []string {
+func (c *InternalCombinedAnalyzer) AnalyzerNames() []string {
 	result := make([]string, 0, len(c.analyzers))
 	for _, a := range c.analyzers {
 		result = append(result, a.Metadata().Name)
