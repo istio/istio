@@ -103,9 +103,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		gw.Annotations[constants.AmbientWaypointForTrafficType] = trafficType
 
 		if waypointServiceAccount != "" {
-			gw.Annotations = map[string]string{
-				constants.WaypointServiceAccount: waypointServiceAccount,
-			}
+			gw.Annotations[constants.WaypointServiceAccount] = waypointServiceAccount
 		}
 		if revision != "" {
 			gw.Labels = map[string]string{label.IoIstioRev.Name: revision}
