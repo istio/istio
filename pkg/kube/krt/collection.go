@@ -117,6 +117,8 @@ func (h *manyCollection[I, O]) Synced() Syncer {
 
 // nolint: unused // (not true, its to implement an interface)
 func (h *manyCollection[I, O]) dump() {
+	h.recomputeMu.Lock()
+	defer h.recomputeMu.Unlock()
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.log.Errorf(">>> BEGIN DUMP")
