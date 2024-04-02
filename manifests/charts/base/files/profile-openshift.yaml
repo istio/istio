@@ -16,3 +16,4 @@ pilot:
   cni:
     enabled: true
     provider: "multus"
+platform: openshift
