@@ -19,7 +19,6 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
-	"strings"
 
 	opb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -507,14 +506,13 @@ func configureDynatraceSampler(hostname, cluster string,
 	}
 
 	if sampler.DynatraceSampler.HttpService == nil {
-		// The Dynatrace sampler can re-use the same Dynatrace service/cluster/auth header
+		// The Dynatrace sampler can re-use the same Dynatrace service/cluster/headers
 		// as configured for the HTTP Exporter. In this case users
 		// can achieve a much smaller/simpler config in Istio.
-		var header *meshconfig.MeshConfig_ExtensionProvider_HttpHeader
 
-		// Re-use the Dynatrace API Host + Token from the HTTP exporter
-		httpService := otelProvider.GetHttp()
-		if httpService == nil {
+		// Re-use the Dynatrace API Host + Token from the OTLP HTTP exporter
+		otlpHttpService := otelProvider.GetHttp()
+		if otlpHttpService == nil {
 			return nil, fmt.Errorf("dynatrace sampler could not get http settings. considering using dynatrace_api field")
 		}
 
@@ -523,41 +521,26 @@ func configureDynatraceSampler(hostname, cluster string,
 			return nil, fmt.Errorf("could not parse dynatrace adaptative sampling endpoint %v", err)
 		}
 
-		// Extracts the Authorization header from the HTTP exporter headers
-		for _, h := range httpService.GetHeaders() {
-			if h.Name != "Authorization" {
-				continue
-			}
-			hv := h.GetValue()
-			if !strings.Contains(strings.ToLower(hv), "api-token ") {
-				return nil, fmt.Errorf("could not parse dynatrace token from http header")
-			}
-			if len(strings.Fields(hv)) != 2 {
-				return nil, fmt.Errorf("could not parse dynatrace token from http header")
-			}
-			header = h
-		}
-		if header == nil {
-			return nil, fmt.Errorf("dynatrace sampler missing the authorization header")
-		}
-
 		dsc.HttpService = &core.HttpService{
 			HttpUri: &core.HttpUri{
 				Uri: uri,
 				HttpUpstreamType: &core.HttpUri_Cluster{
 					Cluster: cluster,
 				},
-				Timeout: httpService.GetTimeout(),
+				Timeout: otlpHttpService.GetTimeout(),
 			},
-			RequestHeadersToAdd: []*core.HeaderValueOption{
-				{
-					AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
-					Header: &core.HeaderValue{
-						Key:   header.GetName(),
-						Value: header.GetValue(),
-					},
+		}
+
+		// Re-use the headers from the OTLP HTTP Exporter
+		for _, h := range otlpHttpService.GetHeaders() {
+			hvo := &core.HeaderValueOption{
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				Header: &core.HeaderValue{
+					Key:   h.GetName(),
+					Value: h.GetValue(),
 				},
-			},
+			}
+			dsc.GetHttpService().RequestHeadersToAdd = append(dsc.GetHttpService().GetRequestHeadersToAdd(), hvo)
 		}
 	} else {
 		// Dynatrace customers may want to export to a OTel collector
