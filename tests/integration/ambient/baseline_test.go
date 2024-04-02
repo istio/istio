@@ -163,15 +163,9 @@ func TestServices(t *testing.T) {
 			opt.Check = check.And(opt.Check, OriginalSourceCheck(t, src))
 		}
 
-		if src.Config().ZTunnelCaptured() && dst.Config().HasWorkloadAddressedWaypointProxy() {
-			// ztunnel is going to send to a waypoint which won't accept this traffic
-			t.Skip("https://github.com/istio/ztunnel/pull/855")
-		}
-
-		if src.Config().HasSidecar() && dst.Config().HasWorkloadAddressedWaypointProxy() {
-			// We are testing to svc traffic but presently sidecar has not been updated to know that to svc traffic should not
-			// go to a workload-attached waypoint
-			t.Skip("TODO: open issue")
+		// The actuall traffic is to Service; don't go through the waypoint.
+		if dst.Config().HasWorkloadAddressedWaypointProxy() {
+			opt.Check = tcpValidator
 		}
 
 		// TODO test from all source workloads as well

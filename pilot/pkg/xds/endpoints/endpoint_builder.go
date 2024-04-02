@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/hash"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 var (
@@ -318,14 +318,108 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	if b == nil {
 		return nil
 	}
-	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
-	// don't use the pre-computed endpoints for CDS to preserve previous behavior
-	return ExtractEnvoyEndpoints(b.generate(svcEps, true))
+	var locLbEps []*LocalityEndpoints
+	if waypointEps := b.findServiceWaypoint(); len(waypointEps) > 0 {
+		// don't use pre-computed since they're different for each cluster
+		locLbEps = b.generate(waypointEps, false, true)
+	} else {
+		// don't use the pre-computed endpoints for CDS to preserve previous behavior
+		// TODO this comment is backwards?
+		locLbEps = b.generate(b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels), true, false)
+	}
+	return ExtractEnvoyEndpoints(locLbEps)
+}
+
+func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
+	if b.proxy.IsWaypointProxy() {
+		// waypoints don't chain to eachother
+		return nil
+	}
+
+	// TODO pre-index this in PushContext or compute in constructor to invalidate cache?
+
+	// find waypoints in any cluster
+	var waypoints []netip.Addr
+	b.service.ClusterVIPs.ForEach(func(_ cluster.ID, vips []string) {
+		for _, vip := range vips {
+			// TODO looking up by vip in a multicluster index without specifying
+			// which cluster is wrong. instead we should lookup by hostname.
+			waypoints = append(waypoints, b.push.WaypointsFor(b.network.String(), vip)...)
+		}
+	})
+
+	// service isn't captured by a waypoint in any cluster
+	if len(waypoints) == 0 {
+		return nil
+	}
+
+	// attempt to resolve waypoint ips into workloads or services
+	addressInfos := make(map[netip.Addr]model.AddressInfo, len(waypoints))
+	for _, waypoint := range waypoints {
+		infos := b.push.AddressInformation(b.network, waypoint.String())
+		if len(infos) == 0 {
+			// workloads are 1:1; if there are multiple, it's because two clusters had the same VIP
+			// TODO when we add hostname, we could get duplicate Address_Service. We can probably use any?
+			continue
+		}
+		addressInfos[waypoint] = infos[0]
+	}
+
+	// it's possible the waypoint is something external to istio; assume it's on 15008 and healthy
+	if len(addressInfos) == 0 {
+		return slices.Map(waypoints, func(e netip.Addr) *model.IstioEndpoint {
+			return &model.IstioEndpoint{
+				Address:               e.String(),
+				EndpointPort:          model.HBoneInboundListenPort,
+				LbWeight:              1,
+				DiscoverabilityPolicy: model.AlwaysDiscoverable,
+				HealthStatus:          model.Healthy,
+			}
+		})
+	}
+
+	// TODO maybe just add a ByVIP index to PushContext?
+	var eps []*model.IstioEndpoint
+	for wp, ai := range addressInfos {
+		switch ai := ai.Type.(type) {
+		case *workloadapi.Address_Service:
+			// expand waypiont service into it's endpoints
+			waypointSvc := b.push.ServiceForHostname(b.proxy, host.Name(ai.Service.GetHostname()))
+			if waypointSvc == nil {
+				// shouldn't find it in ambient indexes but not here
+				continue
+			}
+			hbonePort := model.HBoneInboundListenPort
+			log.Infof("stevenctl hbone port %d", hbonePort)
+			// TODO should we lookup by appProtocol?
+			if port, ok := waypointSvc.Ports.Get("mesh"); ok {
+				hbonePort = port.Port
+			}
+			eps = append(eps, b.push.ServiceEndpointsByPort(waypointSvc, hbonePort, waypointSvc.Attributes.LabelSelectors)...)
+		case *workloadapi.Address_Workload:
+			// TODO use whatever info we have available (health, etc)
+			eps = append(eps, &model.IstioEndpoint{
+				Address:               wp.String(),
+				EndpointPort:          model.HBoneInboundListenPort,
+				LbWeight:              1,
+				DiscoverabilityPolicy: model.AlwaysDiscoverable,
+				HealthStatus:          model.Healthy,
+			})
+		}
+	}
+
+	return eps
 }
 
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
 // into a ClusterLoadAssignment. Used for EDS.
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
+	if waypointEps := b.findServiceWaypoint(); len(waypointEps) > 0 {
+		// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
+		locLbEps := b.generate(waypointEps, false, true)
+		return b.createClusterLoadAssignment(locLbEps)
+	}
+
 	svcPort := b.servicePort(b.port)
 	if svcPort == nil {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
@@ -343,7 +437,9 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		return true
 	})
 
-	localityLbEndpoints := b.generate(svcEps, false)
+	// TODO we can probably pre-compute here
+	localityLbEndpoints := b.generate(svcEps, false, false)
+
 	if len(localityLbEndpoints) == 0 {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
@@ -372,7 +468,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 
 // generate endpoints with applies weights, multi-network mapping and other filtering
 // noCache means we will not use or update the IstioEndpoint's precomputedEnvoyEndpoint
-func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed bool) []*LocalityEndpoints {
+func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed bool, toServiceWaypoint bool) []*LocalityEndpoints {
 	// shouldn't happen here
 	if !b.ServiceFound() {
 		return nil
@@ -399,7 +495,7 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed 
 			needToCompute = true
 		}
 		if needToCompute || !allowPrecomputed {
-			eep = buildEnvoyLbEndpoint(b, ep, mtlsEnabled)
+			eep = buildEnvoyLbEndpoint(b, ep, mtlsEnabled, toServiceWaypoint)
 			if eep == nil {
 				continue
 			}
@@ -604,7 +700,7 @@ func ExtractEnvoyEndpoints(locEps []*LocalityEndpoints) []*endpoint.LocalityLbEn
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnabled bool) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnabled, toServiceWaypoint bool) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
 	healthStatus := e.HealthStatus
 	if features.DrainingLabel != "" && e.Labels[features.DrainingLabel] != "" {
@@ -652,9 +748,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
-	waypoint := ""
 	address, port := e.Address, int(e.EndpointPort)
 	tunnel := supportTunnel(b, e)
+
 	// Setup tunnel information, if needed
 	// This is for waypoint
 	if b.dir == model.TrafficDirectionInboundVIP {
@@ -670,26 +766,46 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		if tunnel {
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
-			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
+			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, "")
 			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
 			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
 				Value: e.GetLoadBalancingWeight(),
 			}
 		}
-	} else if tunnel {
-		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
-		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() {
-			workloads := findWaypoints(b.push, e)
-			if len(workloads) > 0 {
-				// TODO: load balance
-				waypoint = net.JoinHostPort(workloads[0].String(), strconv.Itoa(model.HBoneInboundListenPort))
-			}
+	} else if toServiceWaypoint {
+		waypoint := net.JoinHostPort(address, strconv.Itoa(port))
+		// TODO multicluster: this should be the Waypoint's cluster, not the
+		// proxy's. Using hostname would be a better fix.
+		serviceVIPs := b.service.ClusterVIPs.GetAddressesFor(b.proxy.GetClusterID())
+		if len(serviceVIPs) == 0 {
+			// headless shouldn't use EDS
+			return nil
 		}
-		// Setup tunnel metadata so requests will go through the tunnel
+		serviceVIP := serviceVIPs[0]
+
+		log.Infof("stevenctl waypoint %s vip %s", waypoint, serviceVIP)
+
+		// set the upstream to connectOriginate listener using the waypoint address for disambiguation
+		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
+			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, waypoint),
+		}}
+
+		// inner CONNECT target is the service VIP (TODO support hostnames)
+		// override original_dst to use the waypoint endpoint's address
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(serviceVIP, b.port, waypoint)
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+			},
+		}
+	} else if tunnel {
+		// set the upstream to connectOriginate listener using the endpoint address for disambiguation
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(port))),
 		}}
-		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
+
+		// inner CONNECT target is the endpoint's address
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, "")
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
@@ -708,11 +824,6 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 
 	if !b.proxy.EnableHBONE() {
 		return false
-	}
-
-	// Other side is a waypoint proxy.
-	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
-		return true
 	}
 
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
