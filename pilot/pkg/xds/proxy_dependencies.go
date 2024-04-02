@@ -27,7 +27,7 @@ var UnAffectedConfigKinds = map[model.NodeType]sets.Set[kind.Kind]{
 	// For Gateways, we do not care about the following configs for example Sidecar.
 	model.Router: sets.New(kind.Sidecar),
 	// For Sidecar, we do not care about the following configs for example Gateway.
-	model.SidecarProxy: sets.New(kind.Gateway),
+	model.SidecarProxy: sets.New(kind.Gateway, kind.KubernetesGateway),
 }
 
 // ConfigAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
