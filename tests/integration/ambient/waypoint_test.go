@@ -96,16 +96,16 @@ func TestWaypoint(t *testing.T) {
 				"--wait",
 			})
 
-			saSet := []string{"sa1", "sa2", "sa3"}
-			for _, sa := range saSet {
+			nameSet := []string{"w1", "w2", "w3"}
+			for _, name := range nameSet {
 				istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 					"x",
 					"waypoint",
 					"apply",
 					"--namespace",
 					nsConfig.Name(),
-					"--service-account",
-					sa,
+					"--name",
+					name,
 					"--wait",
 				})
 			}
@@ -117,8 +117,8 @@ func TestWaypoint(t *testing.T) {
 				"--namespace",
 				nsConfig.Name(),
 			})
-			for _, sa := range saSet {
-				if !strings.Contains(output, sa) {
+			for _, name := range nameSet {
+				if !strings.Contains(output, name) {
 					t.Fatalf("expect to find %s in output: %s", sa, output)
 				}
 			}
