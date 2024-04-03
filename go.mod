@@ -90,7 +90,7 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20240318143956-a85f2c67cd81
-	golang.org/x/net v0.22.0
+	golang.org/x/net v0.23.0
 	golang.org/x/oauth2 v0.18.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.18.0
@@ -100,7 +100,7 @@ require (
 	google.golang.org/genproto v0.0.0-20240304212257-790db918fca8
 	google.golang.org/genproto/googleapis/api v0.0.0-20240318140521-94a12d6c2237
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240314234333-6e1732d8331c
-	google.golang.org/grpc v1.62.1
+	google.golang.org/grpc v1.62.2
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
