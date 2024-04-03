@@ -298,8 +298,6 @@ func TestOtherRevisionIgnored(t *testing.T) {
 				"apply",
 				"--namespace",
 				nsConfig.Name(),
-				"--service-account",
-				"sa",
 				"--revision",
 				"foo",
 			})

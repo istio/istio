@@ -134,7 +134,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns-pod")
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
-	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", constants.AllTraffic, true)
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", constants.AllTraffic, true)
 	s.ns.CreateOrUpdate(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,

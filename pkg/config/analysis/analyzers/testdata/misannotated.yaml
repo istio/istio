@@ -170,7 +170,6 @@ metadata:
   annotations:
     # annotations not set by user, should not warn
     istio.io/rev: rev
-    istio.io/for-service-account: sa
     ambient.istio.io/redirection: enabled
 spec:
   containers:

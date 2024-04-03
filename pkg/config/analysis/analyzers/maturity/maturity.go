@@ -73,7 +73,6 @@ var AlwaysIgnoredAnnotations = map[string]bool{
 	// They are added automatically, and should not be alerted on.
 	// Delete these related annotations once they are stable.
 	// Ref: https://github.com/istio/api/pull/2695
-	constants.WaypointServiceAccount:        true,
 	constants.AmbientWaypointForTrafficType: true,
 	constants.AmbientRedirection:            true,
 }

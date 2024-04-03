@@ -96,16 +96,16 @@ func TestWaypoint(t *testing.T) {
 				"--wait",
 			})
 
-			saSet := []string{"sa1", "sa2", "sa3"}
-			for _, sa := range saSet {
+			nameSet := []string{"w1", "w2", "w3"}
+			for _, name := range nameSet {
 				istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 					"x",
 					"waypoint",
 					"apply",
 					"--namespace",
 					nsConfig.Name(),
-					"--service-account",
-					sa,
+					"--name",
+					name,
 					"--wait",
 				})
 			}
@@ -117,9 +117,9 @@ func TestWaypoint(t *testing.T) {
 				"--namespace",
 				nsConfig.Name(),
 			})
-			for _, sa := range saSet {
-				if !strings.Contains(output, sa) {
-					t.Fatalf("expect to find %s in output: %s", sa, output)
+			for _, name := range nameSet {
+				if !strings.Contains(output, name) {
+					t.Fatalf("expect to find %s in output: %s", name, output)
 				}
 			}
 
@@ -129,9 +129,9 @@ func TestWaypoint(t *testing.T) {
 				"list",
 				"-A",
 			})
-			for _, sa := range saSet {
-				if !strings.Contains(output, sa) {
-					t.Fatalf("expect to find %s in output: %s", sa, output)
+			for _, name := range nameSet {
+				if !strings.Contains(output, name) {
+					t.Fatalf("expect to find %s in output: %s", name, output)
 				}
 			}
 
@@ -141,40 +141,23 @@ func TestWaypoint(t *testing.T) {
 				"-n",
 				nsConfig.Name(),
 				"delete",
+				"w1",
+				"w2",
 			})
 			retry.UntilSuccessOrFail(t, func() error {
-				if err := checkWaypointIsReady(t, nsConfig.Name(), "namespace"); err != nil {
-					if errors.Is(err, kubetest.ErrNoPodsFetched) {
-						return nil
-					}
-					return fmt.Errorf("failed to check gateway status: %v", err)
-				}
-				return fmt.Errorf("failed to clean up gateway in namespace: %s", nsConfig.Name())
-			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
-
-			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
-				"waypoint",
-				"-n",
-				nsConfig.Name(),
-				"delete",
-				"sa1",
-				"sa2",
-			})
-			retry.UntilSuccessOrFail(t, func() error {
-				for _, sa := range []string{"sa1", "sa2"} {
-					if err := checkWaypointIsReady(t, nsConfig.Name(), sa); err != nil {
+				for _, name := range []string{"w1", "w2"} {
+					if err := checkWaypointIsReady(t, nsConfig.Name(), name); err != nil {
 						if !errors.Is(err, kubetest.ErrNoPodsFetched) {
 							return fmt.Errorf("failed to check gateway status: %v", err)
 						}
 					} else {
-						return fmt.Errorf("failed to delete multiple gateways: %s not cleaned up", sa)
+						return fmt.Errorf("failed to delete multiple gateways: %s not cleaned up", name)
 					}
 				}
 				return nil
 			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
 
-			// delete all waypoints in namespace, so sa3 should be deleted
+			// delete all waypoints in namespace, so w3 should be deleted
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"x",
 				"waypoint",
@@ -184,7 +167,7 @@ func TestWaypoint(t *testing.T) {
 				"--all",
 			})
 			retry.UntilSuccessOrFail(t, func() error {
-				if err := checkWaypointIsReady(t, nsConfig.Name(), "sa3"); err != nil {
+				if err := checkWaypointIsReady(t, nsConfig.Name(), "w3"); err != nil {
 					if errors.Is(err, kubetest.ErrNoPodsFetched) {
 						return nil
 					}
