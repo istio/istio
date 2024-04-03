@@ -51,4 +51,8 @@ webhooks:
     {{- end }}
     sideEffects: None
     admissionReviewVersions: ["v1beta1", "v1"]
+    objectSelector:
+      matchExpressions:
+        - key: admission.istio.io/ignore
+          operator: DoesNotExist
 {{- end }}
