@@ -203,6 +203,11 @@ const (
 	// This annotation is applied to the Waypoint. Valid traffic types are "service", "workload", "all", and "none".
 	AmbientWaypointForTrafficType = "istio.io/waypoint-for"
 
+	// AmbientWaypointInboundBinding has the format `<protocol>` or `<protocol>/<port>`. If the waypoint is
+	// captured by a zTunnel, the zTunnel  will send traffic to the specified port with tunnel information
+	// such as source/destination addresses, identity and HBONE target host using the specified protocol.
+	AmbientWaypointInboundBinding = "ambient.istio.io/waypoint-inbound-binding"
+
 	// ServiceTraffic indicates that service traffic should go through the intended waypoint.
 	ServiceTraffic = "service"
 	// WorkloadTraffic indicates that workload traffic should go through the intended waypoint.

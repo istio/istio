@@ -17,6 +17,7 @@ package ambient
 
 import (
 	"net/netip"
+	"strconv"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -28,17 +29,49 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/workloadapi"
 )
+
+type InboundBinding struct {
+	Port     uint32
+	Protocol workloadapi.ApplicationTunnel_Protocol
+}
 
 type Waypoint struct {
 	krt.Named
 
+	// Addresses this Waypoint is reachable by. For stock Istio waypoints, this
+	// is is usually the VIP. Tere will always be at least one address in this
+	// list.
 	Addresses []netip.Addr
 
+	// DefaultBinding for an inbound zTunnel to use to connect to a Waypoint it captures.
+	// This is applied to the Workloads that are instances of the current Waypoint.
+	DefaultBinding InboundBinding
+
+	// TrafficType controls whether Service or Workload can reference this
+	// waypoint. Must be one of "all", "service", "workload".
 	TrafficType string
 }
 
-func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
+// fetchWaypointForInstance attempts to find a Waypoint a given object is an instance of.
+// TODO should this also lookup waypoints by workload.addresses + workload.services[].vip?
+// ServiceEntry and WorkloadEntry likely won't have the gateway-name label.
+func fetchWaypointForInstance(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], o metav1.ObjectMeta) *Waypoint {
+	name, namespace := o.GetLabels()[constants.GatewayNameLabel], o.Namespace
+	if name == "" {
+		return nil
+	}
+	return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(namespace+"/"+name))
+}
+
+// fetchWaypointForTarget attempts to find the Waypoit that should handle traffic for a given service or workload
+func fetchWaypointForTarget(
+	ctx krt.HandlerContext,
+	Waypoints krt.Collection[Waypoint],
+	Namespaces krt.Collection[*v1.Namespace],
+	o metav1.ObjectMeta,
+) *Waypoint {
 	// namespace to be used when the annotation doesn't include a namespace
 	fallbackNamespace := o.Namespace
 	// try fetching the waypoint defined on the object itself
@@ -73,7 +106,7 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
 	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
 ) *Waypoint {
-	w := fetchWaypoint(ctx, Waypoints, Namespaces, o)
+	w := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
 	if w != nil {
 		if w.TrafficType == constants.ServiceTraffic || w.TrafficType == constants.AllTraffic {
 			return w
@@ -88,7 +121,7 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
 	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
 ) *Waypoint {
-	w := fetchWaypoint(ctx, Waypoints, Namespaces, o)
+	w := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
 	if w != nil {
 		if w.TrafficType == constants.WorkloadTraffic || w.TrafficType == constants.AllTraffic {
 			return w
@@ -135,31 +168,84 @@ func (w Waypoint) ResourceName() string {
 	return w.GetNamespace() + "/" + w.GetName()
 }
 
-func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway]) krt.Collection[Waypoint] {
+func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway], GatewayClasses krt.Collection[*v1beta1.GatewayClass]) krt.Collection[Waypoint] {
 	return krt.NewCollection(Gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
 		if len(gateway.Status.Addresses) == 0 {
 			// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
+
+		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
+		if gatewayClass == nil {
+			log.Warnf("could not find GatewayClass %s for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
+		}
+
 		// Check for a declared traffic type that is allowed to pass through the Waypoint
 		if tt, found := gateway.Annotations[constants.AmbientWaypointForTrafficType]; found {
-			return makeWaypoint(gateway, tt)
+			return makeWaypoint(gateway, gatewayClass, tt)
 		}
 		// If a value is not declared on a Gateway or its associated GatewayClass
 		// then the network layer should default to service when redirecting traffic.
 		//
 		// This is a safety measure to ensure that the Gateway is not misconfigured, but
 		// we will likely not hit this case as the CLI will validate the traffic type.
-		return makeWaypoint(gateway, constants.ServiceTraffic)
+		return makeWaypoint(gateway, gatewayClass, constants.ServiceTraffic)
 	}, krt.WithName("Waypoints"))
 }
 
-func makeWaypoint(gateway *v1beta1.Gateway, trafficType string) *Waypoint {
+func makeInboundBinding(gatewayClass *v1beta1.GatewayClass) InboundBinding {
+	if gatewayClass == nil {
+		// zero-value has no dataplane effect
+		return InboundBinding{}
+	}
+	annotation, ok := gatewayClass.Annotations[constants.AmbientWaypointInboundBinding]
+	if !ok {
+		return InboundBinding{}
+	}
+
+	// format is either `protocol` or `protocol/port`
+	parts := strings.Split(annotation, "/")
+	if len(parts) == 0 || len(parts) > 2 {
+		log.Warnf("invalid value %q for %s. Must be of the format \"<protocol>\" or \"<protocol>/<port>\".", annotation, constants.AmbientWaypointInboundBinding)
+		return InboundBinding{}
+	}
+
+	// parse protocol
+	var protocol workloadapi.ApplicationTunnel_Protocol
+	switch parts[0] {
+	case "NONE":
+		protocol = workloadapi.ApplicationTunnel_NONE
+	case "PROXY":
+		protocol = workloadapi.ApplicationTunnel_PROXY
+	default:
+		// Only PROXY is supported for now.
+		log.Warnf("invalid protocol %s for %s. Only NONE or PROXY are supported.", parts[0], constants.AmbientWaypointInboundBinding)
+		return InboundBinding{}
+	}
+
+	// parse port
+	port := uint32(0)
+	if len(parts) == 2 {
+		parsed, err := strconv.ParseUint(parts[1], 10, 32)
+		if err != nil {
+			log.Warnf("invalid port %s for %s.", parts[1], constants.AmbientWaypointInboundBinding)
+		}
+		port = uint32(parsed)
+	}
+
+	return InboundBinding{
+		Port:     port,
+		Protocol: protocol,
+	}
+}
+
+func makeWaypoint(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayClass, trafficType string) *Waypoint {
 	return &Waypoint{
-		Named:       krt.NewNamed(gateway),
-		Addresses:   getGatewayAddrs(gateway),
-		TrafficType: trafficType,
+		Named:          krt.NewNamed(gateway),
+		Addresses:      getGatewayAddrs(gateway),
+		DefaultBinding: makeInboundBinding(gatewayClass),
+		TrafficType:    trafficType,
 	}
 }
 
