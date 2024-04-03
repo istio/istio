@@ -41,4 +41,6 @@ webhooks:
       matchExpressions:
         - key: istio.io/rev
           operator: DoesNotExist
+        - key: admission.istio.io/ignore
+          operator: DoesNotExist
 ---

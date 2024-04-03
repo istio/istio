@@ -59,5 +59,7 @@ webhooks:
           {{- else }}
           - "{{ .Values.revision }}"
           {{- end }}
+        - key: admission.istio.io/ignore
+          operator: DoesNotExist
 ---
 {{- end }}
