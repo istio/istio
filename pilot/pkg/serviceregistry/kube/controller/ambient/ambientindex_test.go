@@ -81,24 +81,50 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 	s := newAmbientTestServer(t, testC, testNW)
 
 	cases := []struct {
-		name        string
-		trafficType string
+		name         string
+		trafficType  string
+		podAssertion func(t *testing.T)
+		svcAssertion func(t *testing.T)
 	}{
 		{
 			name:        "service traffic",
 			trafficType: constants.ServiceTraffic,
+			podAssertion: func(t *testing.T) {
+				s.assertNoEvent(t)
+			},
+			svcAssertion: func(t *testing.T) {
+				s.assertEvent(t, s.svcXdsName("svc1"))
+			},
 		},
 		{
 			name:        "all traffic",
 			trafficType: constants.AllTraffic,
+			podAssertion: func(t *testing.T) {
+				s.assertEvent(t, s.podXdsName("pod1"))
+			},
+			svcAssertion: func(t *testing.T) {
+				s.assertEvent(t, s.svcXdsName("svc1"))
+			},
 		},
 		{
 			name:        "workload traffic",
 			trafficType: constants.WorkloadTraffic,
+			podAssertion: func(t *testing.T) {
+				s.assertEvent(t, s.podXdsName("pod1"))
+			},
+			svcAssertion: func(t *testing.T) {
+				s.assertNoEvent(t)
+			},
 		},
 		{
 			name:        "no traffic",
 			trafficType: constants.NoTraffic,
+			podAssertion: func(t *testing.T) {
+				s.assertNoEvent(t)
+			},
+			svcAssertion: func(t *testing.T) {
+				s.assertNoEvent(t)
+			},
 		},
 	}
 
@@ -119,53 +145,16 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			s.assertEvent(t, s.svcXdsName("svc1"))
 			s.assertEvent(t, s.podXdsName("pod1"))
 
-			// The following test assertions depend on the traffic type that
-			// gets specified.
-			switch c.trafficType {
-			case constants.AllTraffic:
-				// Annotate the pod and service with the waypoint annotation. This should
-				// produce events for both actions since all traffic is allowed through
-				// the waypoint.
-				s.annotatePod(t, "pod1", testNS,
-					map[string]string{constants.AmbientUseWaypoint: "test-wp"})
-				s.assertEvent(t, s.podXdsName("pod1"))
-				s.annotateService(t, "svc1", nil,
-					map[string]string{constants.AmbientUseWaypoint: "test-wp"},
-					[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
-				s.assertEvent(t, s.svcXdsName("svc1"))
-			case constants.ServiceTraffic:
-				// Annotate the pod and service with the waypoint annotation. This should
-				// only produce an event for the service since the waypoint is only configured
-				// for service traffic.
-				s.annotatePod(t, "pod1", testNS,
-					map[string]string{constants.AmbientUseWaypoint: "test-wp"})
-				s.assertNoEvent(t)
-				s.annotateService(t, "svc1", nil,
-					map[string]string{constants.AmbientUseWaypoint: "test-wp"},
-					[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
-				s.assertEvent(t, s.svcXdsName("svc1"))
-			case constants.WorkloadTraffic:
-				// Annotate the pod and service with the waypoint annotation. This should
-				// only produce an event for the pod since the waypoint is only configured
-				// for workload traffic.
-				s.annotatePod(t, "pod1", testNS,
-					map[string]string{constants.AmbientUseWaypoint: "test-wp"})
-				s.assertEvent(t, s.podXdsName("pod1"))
-				s.annotateService(t, "svc1", nil,
-					map[string]string{constants.AmbientUseWaypoint: "test-wp"},
-					[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
-				s.assertNoEvent(t)
-			case constants.NoTraffic:
-				// Annotate the pod and service with the waypoint annotation. This should not
-				// produce any events since the waypoint is not configured to allow any traffic.
-				s.annotatePod(t, "pod1", testNS,
-					map[string]string{constants.AmbientUseWaypoint: "test-wp"})
-				s.assertNoEvent(t)
-				s.annotateService(t, "svc1", nil,
-					map[string]string{constants.AmbientUseWaypoint: "test-wp"},
-					[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
-				s.assertNoEvent(t)
-			}
+			// Annotate the pod and check that the correct event is produced.
+			s.annotatePod(t, "pod1", testNS,
+				map[string]string{constants.AmbientUseWaypoint: "test-wp"})
+			c.podAssertion(t)
+
+			// Annotate the service and check that the correct event is produced.
+			s.annotateService(t, "svc1", nil,
+				map[string]string{constants.AmbientUseWaypoint: "test-wp"},
+				[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+			c.svcAssertion(t)
 
 			// clean up resources
 			s.deleteService(t, "svc1")
