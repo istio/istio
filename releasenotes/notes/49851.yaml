@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 49851
+releaseNotes:
+- |
+  **Added** Implement support in waypoint for istio.io/waypoint-for annotation.

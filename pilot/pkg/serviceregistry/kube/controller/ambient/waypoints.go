@@ -34,6 +34,8 @@ type Waypoint struct {
 	krt.Named
 
 	Addresses []netip.Addr
+
+	TrafficType string
 }
 
 func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta) *Waypoint {
@@ -65,6 +67,36 @@ func fetchWaypoint(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], N
 	}
 
 	// neither o nor it's namespace has a use-waypoint annotation
+	return nil
+}
+
+func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
+	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
+) *Waypoint {
+	w := fetchWaypoint(ctx, Waypoints, Namespaces, o)
+	if w != nil {
+		if w.TrafficType == constants.ServiceTraffic || w.TrafficType == constants.AllTraffic {
+			return w
+		}
+		// Waypoint does not support Service traffic
+		log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported for %s/%s",
+			w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
+	}
+	return nil
+}
+
+func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
+	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
+) *Waypoint {
+	w := fetchWaypoint(ctx, Waypoints, Namespaces, o)
+	if w != nil {
+		if w.TrafficType == constants.WorkloadTraffic || w.TrafficType == constants.AllTraffic {
+			return w
+		}
+		// Waypoint does not support Workload traffic
+		log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported for %s/%s",
+			w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
+	}
 	return nil
 }
 
@@ -110,11 +142,25 @@ func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway]) krt.Collecti
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
-		return &Waypoint{
-			Named:     krt.NewNamed(gateway),
-			Addresses: getGatewayAddrs(gateway),
+		// Check for a declared traffic type that is allowed to pass through the Waypoint
+		if tt, found := gateway.Annotations[constants.AmbientWaypointForTrafficType]; found {
+			return makeWaypoint(gateway, tt)
 		}
+		// If a value is not declared on a Gateway or its associated GatewayClass
+		// then the network layer should default to service when redirecting traffic.
+		//
+		// This is a safety measure to ensure that the Gateway is not misconfigured, but
+		// we will likely not hit this case as the CLI will validate the traffic type.
+		return makeWaypoint(gateway, constants.ServiceTraffic)
 	}, krt.WithName("Waypoints"))
+}
+
+func makeWaypoint(gateway *v1beta1.Gateway, trafficType string) *Waypoint {
+	return &Waypoint{
+		Named:       krt.NewNamed(gateway),
+		Addresses:   getGatewayAddrs(gateway),
+		TrafficType: trafficType,
+	}
 }
 
 func getGatewayAddrs(gw *v1beta1.Gateway) []netip.Addr {
