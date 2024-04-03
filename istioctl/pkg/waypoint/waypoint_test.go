@@ -48,8 +48,8 @@ func TestWaypointList(t *testing.T) {
 			name: "default namespace gateway",
 			args: strings.Split("list", " "),
 			gateways: []*gateway.Gateway{
-				makeGateway("namespace", "default", "", true, true),
-				makeGateway("namespace", "fake", "", true, true),
+				makeGateway("namespace", "default", true, true),
+				makeGateway("namespace", "fake", true, true),
 			},
 			expectedOutFile: "default-gateway",
 		},
@@ -57,8 +57,8 @@ func TestWaypointList(t *testing.T) {
 			name: "all namespaces gateways",
 			args: strings.Split("list -A", " "),
 			gateways: []*gateway.Gateway{
-				makeGateway("namespace", "default", "", true, true),
-				makeGateway("namespace", "fake", "", true, true),
+				makeGateway("namespace", "default", true, true),
+				makeGateway("namespace", "fake", true, true),
 			},
 			expectedOutFile: "all-gateway",
 		},
@@ -66,12 +66,12 @@ func TestWaypointList(t *testing.T) {
 			name: "have both managed and unmanaged gateways",
 			args: strings.Split("list -A", " "),
 			gateways: []*gateway.Gateway{
-				makeGateway("bookinfo", "default", "bookinfo", false, true),
-				makeGateway("bookinfo-invalid", "fake", "bookinfo", true, false),
-				makeGateway("namespace", "default", "", false, true),
-				makeGateway("bookinfo-valid", "bookinfo", "bookinfo-valid", true, true),
-				makeGateway("no-name-convention", "default", "sa", true, true),
-				makeGatewayWithRevision("bookinfo-rev", "bookinfo", "bookinfo-rev", true, true, "rev1"),
+				makeGateway("bookinfo", "default", false, true),
+				makeGateway("bookinfo-invalid", "fake", true, false),
+				makeGateway("namespace", "default", false, true),
+				makeGateway("bookinfo-valid", "bookinfo", true, true),
+				makeGateway("no-name-convention", "default", true, true),
+				makeGatewayWithRevision("bookinfo-rev", "bookinfo", true, true, "rev1"),
 			},
 			expectedOutFile: "combined-gateway",
 		},
@@ -116,7 +116,7 @@ func TestWaypointList(t *testing.T) {
 	}
 }
 
-func makeGateway(name, namespace, sa string, programmed, isWaypoint bool) *gateway.Gateway {
+func makeGateway(name, namespace string, programmed, isWaypoint bool) *gateway.Gateway {
 	conditions := make([]metav1.Condition, 0)
 	if programmed {
 		conditions = append(conditions, metav1.Condition{
@@ -137,9 +137,6 @@ func makeGateway(name, namespace, sa string, programmed, isWaypoint bool) *gatew
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Annotations: map[string]string{
-				constants.WaypointServiceAccount: sa,
-			},
 		},
 		Spec: gateway.GatewaySpec{
 			GatewayClassName: gateway.ObjectName(className),
@@ -150,8 +147,8 @@ func makeGateway(name, namespace, sa string, programmed, isWaypoint bool) *gatew
 	}
 }
 
-func makeGatewayWithRevision(name, namespace, sa string, programmed, isWaypoint bool, rev string) *gateway.Gateway {
-	gw := makeGateway(name, namespace, sa, programmed, isWaypoint)
+func makeGatewayWithRevision(name, namespace string, programmed, isWaypoint bool, rev string) *gateway.Gateway {
+	gw := makeGateway(name, namespace, programmed, isWaypoint)
 	if gw.Labels == nil {
 		gw.Labels = make(map[string]string)
 	}
