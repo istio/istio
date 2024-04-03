@@ -23,8 +23,7 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
@@ -88,7 +87,7 @@ func TestWaypointList(t *testing.T) {
 			}
 
 			for _, gw := range tt.gateways {
-				_, _ = client.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).Create(context.Background(), gw, metav1.CreateOptions{})
+				_, _ = client.GatewayAPI().GatewayV1().Gateways(gw.Namespace).Create(context.Background(), gw, metav1.CreateOptions{})
 			}
 			defaultFile, err := os.ReadFile(fmt.Sprintf("testdata/waypoint/%s", tt.expectedOutFile))
 			if err != nil {
@@ -121,12 +120,12 @@ func makeGateway(name, namespace, sa string, programmed, isWaypoint bool) *gatew
 	conditions := make([]metav1.Condition, 0)
 	if programmed {
 		conditions = append(conditions, metav1.Condition{
-			Type:   string(gatewayv1.GatewayConditionProgrammed),
+			Type:   string(gateway.GatewayConditionProgrammed),
 			Status: kstatus.StatusTrue,
 		})
 	} else {
 		conditions = append(conditions, metav1.Condition{
-			Type:   string(gatewayv1.GatewayConditionProgrammed),
+			Type:   string(gateway.GatewayConditionProgrammed),
 			Status: kstatus.StatusFalse,
 		})
 	}
