@@ -28,8 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
@@ -76,8 +75,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		}
 		gw := gateway.Gateway{
 			TypeMeta: metav1.TypeMeta{
-				Kind:       gvk.KubernetesGateway.Kind,
-				APIVersion: gvk.KubernetesGateway.GroupVersion(),
+				Kind:       gvk.KubernetesGateway_v1.Kind,
+				APIVersion: gvk.KubernetesGateway_v1.GroupVersion(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      makeGatewayName(waypointServiceAccount),
@@ -159,7 +158,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			gwc := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace()))
+			gwc := kubeClient.GatewayAPI().GatewayV1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace()))
 			b, err := yaml.Marshal(gw)
 			if err != nil {
 				return err
@@ -180,11 +179,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				defer ticker.Stop()
 				for range ticker.C {
 					programmed := false
-					gwc, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), gw.Name, metav1.GetOptions{})
+					gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), gw.Name, metav1.GetOptions{})
 					if err == nil {
 						// Check if gateway has Programmed condition set to true
 						for _, cond := range gwc.Status.Conditions {
-							if cond.Type == string(gatewayv1.GatewayConditionProgrammed) && string(cond.Status) == "True" {
+							if cond.Type == string(gateway.GatewayConditionProgrammed) && string(cond.Status) == "True" {
 								programmed = true
 								break
 							}
@@ -260,7 +259,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if err = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
+				if err = kubeClient.GatewayAPI().GatewayV1().Gateways(gw.Namespace).
 					Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
 					return err
 				}
@@ -295,7 +294,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			} else {
 				ns = ctx.NamespaceOrDefault(ctx.Namespace())
 			}
-			gws, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).
+			gws, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).
 				List(context.Background(), metav1.ListOptions{})
 			if err != nil {
 				return err
@@ -331,7 +330,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					rev = "default"
 				}
 				for _, cond := range gw.Status.Conditions {
-					if cond.Type == string(gatewayv1.GatewayConditionProgrammed) {
+					if cond.Type == string(gateway.GatewayConditionProgrammed) {
 						programmed = string(cond.Status)
 					}
 				}
@@ -396,7 +395,7 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 	var multiErr *multierror.Error
 	if names == nil {
 		// If names is nil, delete all waypoints
-		waypoints, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(namespace).
+		waypoints, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).
 			List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return err
@@ -412,7 +411,7 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
-			if err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(namespace).
+			if err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).
 				Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
 				if errors.IsNotFound(err) {
 					fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
