@@ -151,9 +151,8 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			c.podAssertion(t)
 
 			// Annotate the service and check that the correct event is produced.
-			s.annotateService(t, "svc1", nil,
-				map[string]string{constants.AmbientUseWaypoint: "test-wp"},
-				[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+			s.annotateService(t, "svc1", testNS,
+				map[string]string{constants.AmbientUseWaypoint: "test-wp"})
 			c.svcAssertion(t)
 
 			// clean up resources
@@ -1393,7 +1392,7 @@ type ambientTestServer struct {
 	network   network.ID
 	fx        *xdsfake.Updater
 	pc        clienttest.TestClient[*corev1.Pod]
-	sc        clienttest.TestWriter[*corev1.Service]
+	sc        clienttest.TestClient[*corev1.Service]
 	ns        clienttest.TestWriter[*corev1.Namespace]
 	grc       clienttest.TestWriter[*k8sbeta.Gateway]
 	se        clienttest.TestWriter[*apiv1alpha3.ServiceEntry]
@@ -1444,7 +1443,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		index:     idx.(*index),
 		fx:        up,
 		pc:        clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
-		sc:        clienttest.NewWriter[*corev1.Service](t, cl),
+		sc:        clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
 		ns:        clienttest.NewWriter[*corev1.Namespace](t, cl),
 		grc:       clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
 		se:        clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
@@ -1572,13 +1571,10 @@ func (s *ambientTestServer) annotatePod(t *testing.T, name, ns string, annotatio
 
 // just overwrites the annotations
 // nolint: unparam
-func (s *ambientTestServer) annotateService(t *testing.T, name string, labels, annotations map[string]string,
-	ports []int32, selector map[string]string, ip string,
-) {
+func (s *ambientTestServer) annotateService(t *testing.T, name, ns string, annotations map[string]string) {
 	t.Helper()
 
-	// there isn't a way to just get the service, so we have to recreate it
-	svc := generateService(name, testNS, labels, annotations, ports, selector, ip)
+	svc := s.sc.Get(name, testNS)
 	if svc == nil {
 		return
 	}
