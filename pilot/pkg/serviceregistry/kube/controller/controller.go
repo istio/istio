@@ -578,6 +578,9 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) informersSynced() bool {
+	if c.ambientIndex != nil && !c.ambientIndex.HasSynced() {
+		return false
+	}
 	return c.namespaces.HasSynced() &&
 		c.services.HasSynced() &&
 		c.endpoints.slices.HasSynced() &&

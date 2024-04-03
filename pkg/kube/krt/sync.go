@@ -18,6 +18,7 @@ import "istio.io/istio/pkg/kube"
 
 type Syncer interface {
 	WaitUntilSynced(stop <-chan struct{}) bool
+	HasSynced() bool
 }
 
 var (
@@ -34,6 +35,15 @@ func (c channelSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
 	return waitForCacheSync(c.name, stop, c.synced)
 }
 
+func (c channelSyncer) HasSynced() bool {
+	select {
+	case <-c.synced:
+		return true
+	default:
+		return false
+	}
+}
+
 type pollSyncer struct {
 	name string
 	f    func() bool
@@ -43,9 +53,17 @@ func (c pollSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
 	return kube.WaitForCacheSync(c.name, stop, c.f)
 }
 
+func (c pollSyncer) HasSynced() bool {
+	return c.f()
+}
+
 type alwaysSynced struct{}
 
 func (c alwaysSynced) WaitUntilSynced(stop <-chan struct{}) bool {
+	return true
+}
+
+func (c alwaysSynced) HasSynced() bool {
 	return true
 }
 
@@ -56,6 +74,15 @@ type multiSyncer struct {
 func (c multiSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
 	for _, s := range c.syncers {
 		if !s.WaitUntilSynced(stop) {
+			return false
+		}
+	}
+	return true
+}
+
+func (c multiSyncer) HasSynced() bool {
+	for _, s := range c.syncers {
+		if !s.HasSynced() {
 			return false
 		}
 	}
