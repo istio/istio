@@ -1241,7 +1241,8 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 		assert.Equal(t, wl, expected)
 	}
 	s.addWaypoint(t, "10.0.0.1", "waypoint", "", true)
-
+	// Wait until waypoint is available
+	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List("")) }, 1)
 	// expected order is pod3, pod1, pod2, which is the order of creation
 	s.addPods(t,
 		"127.0.0.3",

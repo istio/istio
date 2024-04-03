@@ -48,6 +48,7 @@ type Index interface {
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	Waypoint(network, address string) []netip.Addr
 	SyncAll()
+	HasSynced() bool
 	model.AmbientIndexes
 }
 
@@ -466,6 +467,13 @@ func (a *index) AdditionalPodSubscriptions(
 
 func (a *index) SyncAll() {
 	a.networkUpdateTrigger.TriggerRecomputation()
+}
+
+func (a *index) HasSynced() bool {
+	return a.services.Synced().HasSynced() &&
+		a.workloads.Synced().HasSynced() &&
+		a.waypoints.Synced().HasSynced() &&
+		a.authorizationPolicies.Synced().HasSynced()
 }
 
 type LookupNetwork func(endpointIP string, labels labels.Instance) network.ID
