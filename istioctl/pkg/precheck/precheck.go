@@ -93,7 +93,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					outputMsgs = append(outputMsgs, m)
 				}
 			}
-			output, err := formatting.Print(msgs, msgOutputFormat, true)
+			output, err := formatting.Print(outputMsgs, msgOutputFormat, true)
 			if err != nil {
 				return err
 			}
