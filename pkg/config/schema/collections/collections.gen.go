@@ -619,7 +619,10 @@ var (
 		Kind:       "Telemetry",
 		Plural:     "telemetries",
 		Version:    "v1alpha1",
-		Proto:      "istio.telemetry.v1alpha1.Telemetry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+		VersionAliases: []string{
+			"v1",
+		},
+		Proto: "istio.telemetry.v1alpha1.Telemetry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
 		ReflectType: reflect.TypeOf(&istioioapitelemetryv1alpha1.Telemetry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/telemetry/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
