@@ -597,6 +597,9 @@ func TestAmbientIndex_WaypointInboundBinding(t *testing.T) {
 		},
 	})
 	s.addWaypoint(t, "1.2.3.4", "proxy-sandwich", constants.AllTraffic, true)
+	// TODO needing this check seems suspicious. We should really wait for up to 2 pod events.
+	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List("")) }, 1)
+
 	s.addPods(t, "10.0.0.1", "proxy-sandwich-instance", "", map[string]string{constants.GatewayNameLabel: "proxy-sandwich"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("proxy-sandwich-instance"))
 	appTunnel := s.lookup(s.podXdsName("proxy-sandwich-instance"))[0].GetWorkload().GetApplicationTunnel()
