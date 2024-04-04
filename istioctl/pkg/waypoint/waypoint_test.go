@@ -48,8 +48,8 @@ func TestWaypointList(t *testing.T) {
 			name: "default namespace gateway",
 			args: strings.Split("list", " "),
 			gateways: []*gateway.Gateway{
-				makeGateway("namespace", "default", true, true),
-				makeGateway("namespace", "fake", true, true),
+				makeGateway(constants.DefaultNamespaceWaypoint, "default", true, true),
+				makeGateway(constants.DefaultNamespaceWaypoint, "fake", true, true),
 			},
 			expectedOutFile: "default-gateway",
 		},
@@ -57,8 +57,8 @@ func TestWaypointList(t *testing.T) {
 			name: "all namespaces gateways",
 			args: strings.Split("list -A", " "),
 			gateways: []*gateway.Gateway{
-				makeGateway("namespace", "default", true, true),
-				makeGateway("namespace", "fake", true, true),
+				makeGateway(constants.DefaultNamespaceWaypoint, "default", true, true),
+				makeGateway(constants.DefaultNamespaceWaypoint, "fake", true, true),
 			},
 			expectedOutFile: "all-gateway",
 		},
@@ -68,7 +68,7 @@ func TestWaypointList(t *testing.T) {
 			gateways: []*gateway.Gateway{
 				makeGateway("bookinfo", "default", false, true),
 				makeGateway("bookinfo-invalid", "fake", true, false),
-				makeGateway("namespace", "default", false, true),
+				makeGateway(constants.DefaultNamespaceWaypoint, "default", false, true),
 				makeGateway("bookinfo-valid", "bookinfo", true, true),
 				makeGateway("no-name-convention", "default", true, true),
 				makeGatewayWithRevision("bookinfo-rev", "bookinfo", true, true, "rev1"),
