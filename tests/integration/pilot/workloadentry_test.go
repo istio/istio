@@ -40,7 +40,6 @@ func TestWorkloadEntryGateway(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresMinClusters(2).
-		Features("traffic.reachability").
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
 			i := istio.GetOrFail(t, t)

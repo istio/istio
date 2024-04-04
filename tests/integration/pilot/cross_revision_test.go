@@ -46,7 +46,6 @@ func TestRevisionTraffic(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
-		Features("installation.upgrade").
 		Run(func(t framework.TestContext) {
 			namespaces := make([]revisionedNamespace, 0, len(extraRevs))
 			for _, rev := range extraRevs {

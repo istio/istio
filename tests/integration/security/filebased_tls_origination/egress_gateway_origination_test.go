@@ -44,7 +44,6 @@ import (
 // are routed securely through the egress gateway and that the TLS origination happens at the gateway.
 func TestEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.egress.tls.filebased").
 		Run(func(t framework.TestContext) {
 			// Apply Egress Gateway for service namespace to originate external traffic
 

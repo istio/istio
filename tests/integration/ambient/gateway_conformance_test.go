@@ -60,7 +60,6 @@ var skippedTests = map[string]string{
 func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ambient.gateway").
 		Run(func(ctx framework.TestContext) {
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
 			if ctx.Settings().Image.PullSecret != "" {

@@ -168,15 +168,6 @@ func NewSuite(m *testing.M) Suite {
 	_, f, _, _ := goruntime.Caller(1)
 	suiteName := deriveSuiteName(f)
 
-	if analyze() {
-		return newSuiteAnalyzer(
-			suiteName,
-			func(_ *suiteContext) int {
-				return m.Run()
-			},
-			os.Exit)
-	}
-
 	return newSuite(suiteName,
 		func(_ *suiteContext) int {
 			return m.Run()

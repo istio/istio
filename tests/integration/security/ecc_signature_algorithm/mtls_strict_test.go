@@ -59,7 +59,6 @@ spec:
 func TestStrictMTLS(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.peer.ecc-signature-algorithm").
 		Run(func(t framework.TestContext) {
 			ns := apps.EchoNamespace.Namespace.Name()
 			args := map[string]string{"AppNamespace": ns}

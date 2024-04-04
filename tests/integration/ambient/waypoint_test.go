@@ -45,7 +45,6 @@ import (
 func TestWaypointStatus(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
 			client := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
 
@@ -77,7 +76,6 @@ func TestWaypointStatus(t *testing.T) {
 func TestWaypoint(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
 			nsConfig := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "waypoint",
@@ -187,7 +185,6 @@ func checkWaypointIsReady(t framework.TestContext, ns, name string) error {
 func TestSimpleHTTPSandwich(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
 			config := `
 apiVersion: gateway.networking.k8s.io/v1beta1
@@ -276,7 +273,7 @@ spec:
 					config).
 				ApplyOrFail(t, apply.CleanupConditionally)
 
-				// Update use-waypoint for Captured service
+			// Update use-waypoint for Captured service
 			for _, c := range t.Clusters().Kube() {
 				client := c.Kube().CoreV1().Services(apps.Namespace.Name())
 				setWaypoint := func(waypoint string) error {

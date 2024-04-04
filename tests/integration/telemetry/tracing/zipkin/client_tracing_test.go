@@ -36,7 +36,6 @@ import (
 // are generated and that they are all a part of the same distributed trace with correct hierarchy and name.
 func TestClientTracing(t *testing.T) {
 	framework.NewTest(t).
-		Features("observability.telemetry.tracing.client").
 		Run(func(t framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {

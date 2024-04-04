@@ -36,7 +36,6 @@ import (
 func TestRemoteJwks(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	framework.NewTest(t).
-		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
 			ns := apps.EchoNamespace.Namespace
 

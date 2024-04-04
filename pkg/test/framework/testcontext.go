@@ -263,12 +263,11 @@ func (c *testContext) NewSubTest(name string) Test {
 	tc, span := tracing.Start(c.test.tc, name)
 
 	return &testImpl{
-		tc:            tc,
-		ts:            span,
-		name:          name,
-		parent:        c.test,
-		s:             c.test.s,
-		featureLabels: c.test.featureLabels,
+		tc:     tc,
+		ts:     span,
+		name:   name,
+		parent: c.test,
+		s:      c.test.s,
 	}
 }
 

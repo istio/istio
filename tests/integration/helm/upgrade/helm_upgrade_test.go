@@ -74,7 +74,6 @@ func initVersions(ctx resource.Context) error {
 func TestDefaultInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.upgrade").
 		Run(performInPlaceUpgradeFunc(previousSupportedVersion, false))
 }
 
@@ -82,7 +81,6 @@ func TestDefaultInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 func TestCanaryUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.upgrade").
 		Run(performCanaryUpgradeFunc(previousSupportedVersion))
 }
 
@@ -90,7 +88,6 @@ func TestCanaryUpgradeFromPreviousMinorRelease(t *testing.T) {
 func TestCanaryUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.upgrade").
 		Run(performCanaryUpgradeFunc(nMinusTwoVersion))
 }
 
@@ -98,7 +95,6 @@ func TestCanaryUpgradeFromTwoMinorRelease(t *testing.T) {
 func TestStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.upgrade").
 		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion))
 }
 
@@ -106,7 +102,6 @@ func TestStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
 func TestStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.upgrade").
 		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion))
 }
 
@@ -114,6 +109,5 @@ func TestStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
 func TestAmbientInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.ambient.upgrade").
 		Run(performInPlaceUpgradeFunc(previousSupportedVersion, true))
 }

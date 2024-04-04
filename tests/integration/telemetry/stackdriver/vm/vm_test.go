@@ -40,7 +40,6 @@ import (
 func TestVMTelemetry(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("observability.telemetry.stackdriver").
 		Run(func(t framework.TestContext) {
 			// Set up strict mTLS. This gives a bit more assurance the calls are actually going through envoy,
 			// and certs are set up correctly.

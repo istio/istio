@@ -30,7 +30,6 @@ import (
 
 func TestGRPCProbe(t *testing.T) {
 	framework.NewTest(t).
-		Features("usability.observability.grpc-probe").
 		Run(func(t framework.TestContext) {
 			if !t.Clusters().Default().MinKubeVersion(23) {
 				t.Skip("gRPC probe not supported")

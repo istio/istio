@@ -22,8 +22,6 @@ import (
 
 	traceapi "go.opentelemetry.io/otel/trace"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -34,8 +32,6 @@ type Test interface {
 	// Label applies the given labels to this test.
 	Label(labels ...label.Instance) Test
 	// Label applies the given labels to this test.
-	Features(feats ...features.Feature) Test
-	NotImplementedYet(features ...features.Feature) Test
 	// RequireIstioVersion ensures that all installed versions of Istio are at least the
 	// required version for the annotated test to pass
 	RequireIstioVersion(version string) Test
@@ -118,7 +114,6 @@ type testImpl struct {
 	goTest *testing.T
 	labels []label.Instance
 	// featureLabels maps features to the scenarios they cover.
-	featureLabels        map[features.Feature][]string
 	notImplemented       bool
 	s                    *suiteContext
 	requiredMinClusters  int
@@ -135,9 +130,6 @@ type testImpl struct {
 
 // NewTest returns a new test wrapper for running a single test.
 func NewTest(t *testing.T) Test {
-	if analyze() {
-		return newTestAnalyzer(t)
-	}
 	rtMu.Lock()
 	defer rtMu.Unlock()
 
@@ -148,11 +140,10 @@ func NewTest(t *testing.T) Test {
 	ctx, span := tracing.Start(rt.suiteContext().traceContext, t.Name())
 
 	runner := &testImpl{
-		tc:            ctx,
-		ts:            span,
-		s:             rt.suiteContext(),
-		goTest:        t,
-		featureLabels: make(map[features.Feature][]string),
+		tc:     ctx,
+		ts:     span,
+		s:      rt.suiteContext(),
+		goTest: t,
 	}
 
 	return runner
@@ -163,23 +154,8 @@ func (t *testImpl) Label(labels ...label.Instance) Test {
 	return t
 }
 
-func (t *testImpl) Features(feats ...features.Feature) Test {
-	if err := addFeatureLabels(t.featureLabels, feats...); err != nil {
-		// test runs shouldn't fail
-		log.Error(err)
-	}
-	return t
-}
-
 func (t *testImpl) TopLevel() Test {
 	t.topLevel = true
-	return t
-}
-
-func (t *testImpl) NotImplementedYet(features ...features.Feature) Test {
-	t.notImplemented = true
-	t.Features(features...).
-		Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Implemented") })
 	return t
 }
 

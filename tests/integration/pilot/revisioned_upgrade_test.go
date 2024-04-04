@@ -50,7 +50,6 @@ func TestRevisionedUpgrade(t *testing.T) {
 		// Requires installation of CPs from manifests, won't succeed
 		// if existing CPs have different root cert
 		Label(label.CustomSetup).
-		Features("installation.upgrade").
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/pull/46213")
 			// Kubernetes 1.22 drops support for a number of legacy resources, so we cannot install the old versions

@@ -106,7 +106,6 @@ var testCases = []tunnelingTestCase{
 func TestTunnelingOutboundTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.tunneling").
 		RequireIstioVersion("1.15.0").
 		Run(func(ctx framework.TestContext) {
 			meshNs := apps.A.NamespaceName()

@@ -44,7 +44,6 @@ func TestRequestAuthentication(t *testing.T) {
 	payload3 := strings.Split(jwt.TokenIssuer1WithNestedClaims2, ".")[1]
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
 			type testCase struct {
 				name          string
@@ -414,7 +413,6 @@ func TestRequestAuthentication(t *testing.T) {
 func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authentication.ingressjwt").
 		Run(func(t framework.TestContext) {
 			config.New(t).
 				Source(config.File("testdata/requestauthn/global-jwt.yaml.tmpl").WithParams(param.Params{
@@ -597,7 +595,6 @@ func TestIngressRequestAuthentication(t *testing.T) {
 func TestGatewayAPIRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authentication.ingressjwt").
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
 			config.New(t).

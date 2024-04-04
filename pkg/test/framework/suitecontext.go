@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config"
@@ -248,10 +247,9 @@ const (
 )
 
 type TestOutcome struct {
-	Name          string
-	Type          string
-	Outcome       Outcome
-	FeatureLabels map[features.Feature][]string
+	Name    string
+	Type    string
+	Outcome Outcome
 }
 
 func (c *suiteContext) registerOutcome(test *testImpl) {
@@ -264,10 +262,9 @@ func (c *suiteContext) registerOutcome(test *testImpl) {
 		o = Skipped
 	}
 	newOutcome := TestOutcome{
-		Name:          test.goTest.Name(),
-		Type:          "integration",
-		Outcome:       o,
-		FeatureLabels: test.featureLabels,
+		Name:    test.goTest.Name(),
+		Type:    "integration",
+		Outcome: o,
 	}
 	c.contextMu.Lock()
 	defer c.contextMu.Unlock()

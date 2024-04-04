@@ -93,7 +93,6 @@ func TestMain(m *testing.M) {
 
 func TestClusterLocal(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.mcs.servicediscovery").
 		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
 			serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
@@ -121,7 +120,6 @@ func TestClusterLocal(t *testing.T) {
 
 func TestMeshWide(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.mcs.servicediscovery").
 		Run(func(t framework.TestContext) {
 			// Export service B in all clusters.
 			createAndCleanupServiceExport(t, common.ServiceB, t.Clusters())
@@ -148,7 +146,6 @@ func TestMeshWide(t *testing.T) {
 
 func TestServiceExportedInOneCluster(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.mcs.servicediscovery").
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/34051")
 			// Get all the clusters where service B resides.

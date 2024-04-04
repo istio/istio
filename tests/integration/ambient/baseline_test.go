@@ -174,7 +174,7 @@ func TestServices(t *testing.T) {
 }
 
 func TestPodIP(t *testing.T) {
-	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
 		for _, src := range apps.All {
 			for _, srcWl := range src.WorkloadsOrFail(t) {
 				srcWl := srcWl
@@ -533,7 +533,7 @@ spec:
 }
 
 func TestPeerAuthentication(t *testing.T) {
-	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
 		// Workaround https://github.com/istio/istio/issues/43239
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -636,7 +636,7 @@ spec:
 }
 
 func TestAuthorizationL4(t *testing.T) {
-	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
 		// Workaround https://github.com/istio/istio/issues/43239
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -774,7 +774,7 @@ func TestAuthorizationGateway(t *testing.T) {
 			})
 		}
 	}
-	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
 		// Workaround https://github.com/istio/istio/issues/43239
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -927,7 +927,7 @@ spec:
 }
 
 func TestAuthorizationL7(t *testing.T) {
-	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
 		// Workaround https://github.com/istio/istio/issues/43239
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -1131,8 +1131,7 @@ spec:
 
 func TestL7JWT(t *testing.T) {
 	// Workaround https://github.com/istio/istio/issues/43239
-
-	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -1224,7 +1223,6 @@ spec:
 // Relies on the suite running in a cluster with a CNI which enforces K8s netpol but presently has no check
 func TestK8sNetPol(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.reachability").
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/49301")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
@@ -1294,7 +1292,6 @@ func TestK8sNetPol(t *testing.T) {
 
 func TestMTLS(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.reachability").
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/42696")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
@@ -1471,7 +1468,6 @@ func TestMTLS(t *testing.T) {
 
 func TestOutboundPolicyAllowAny(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
 			skipOnNativeZtunnel(t, "TODO? not sure why this is broken")
 			svcs := apps.All
@@ -1497,7 +1493,6 @@ func TestOutboundPolicyAllowAny(t *testing.T) {
 
 func TestServiceEntryDNS(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
 			skipOnNativeZtunnel(t, "ServiceEntry not supported")
 			svcs := apps.All
@@ -1539,7 +1534,6 @@ spec:
 
 func TestServiceEntryInlinedWorkloadEntry(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
 			testCases := []struct {
 				location   v1alpha3.ServiceEntry_Location
@@ -1648,7 +1642,6 @@ spec:
 
 func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
 			testCases := []struct {
 				location   v1alpha3.ServiceEntry_Location
@@ -1767,7 +1760,6 @@ spec:
 
 func TestServiceEntrySelectsUncapturedPod(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
 			testCases := []struct {
 				location   v1alpha3.ServiceEntry_Location
@@ -1859,7 +1851,6 @@ spec:
 // for more, see https://github.com/istio/istio/pull/45621#discussion_r1254970579
 func TestServiceEntryDNSWithAutoAssign(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
 			t.Skip("this will work once we resolve https://github.com/istio/ztunnel/issues/582")
 			yaml := `apiVersion: networking.istio.io/v1beta1
@@ -2050,7 +2041,7 @@ var CheckDeny = check.Or(
 )
 
 func runTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
-	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
 		runTestContext(t, f)
 	})
 }
@@ -2077,7 +2068,7 @@ func runTestContext(t framework.TestContext, f func(t framework.TestContext, src
 }
 
 func runIngressTest(t *testing.T, f func(t framework.TestContext, src ingress.Instance, dst echo.Instance, opt echo.CallOptions)) {
-	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
 		svcs := apps.All
 		for _, dst := range svcs {
 			t.NewSubTestf("to %v", dst.Config().Service).Run(func(t framework.TestContext) {
@@ -2104,7 +2095,6 @@ func skipOnNativeZtunnel(tc framework.TestContext, reason string) {
 
 func TestL7Telemetry(t *testing.T) {
 	framework.NewTest(t).
-		Features("observability.telemetry.stats.prometheus.ambient").
 		Run(func(tc framework.TestContext) {
 			// ensure that some traffic from each captured workload is
 			// sent to each waypoint proxy. This will likely have happened in
@@ -2156,7 +2146,6 @@ func TestL7Telemetry(t *testing.T) {
 
 func TestL4Telemetry(t *testing.T) {
 	framework.NewTest(t).
-		Features("observability.telemetry.stats.prometheus.ambient").
 		Run(func(tc framework.TestContext) {
 			// ensure that some traffic from each captured workload is
 			// sent to each waypoint proxy. This will likely have happened in
@@ -2276,7 +2265,7 @@ func deployName(inst echo.Instance) string {
 }
 
 func TestMetadataServer(t *testing.T) {
-	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
 		ver, _ := t.Clusters().Default().GetKubernetesVersion()
 		if !strings.Contains(ver.GitVersion, "-gke") {
 			t.Skip("requires GKE cluster")
@@ -2306,7 +2295,7 @@ func TestMetadataServer(t *testing.T) {
 }
 
 func TestDirect(t *testing.T) {
-	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
 			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
