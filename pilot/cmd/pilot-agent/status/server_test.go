@@ -32,6 +32,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/textparse"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -526,7 +527,7 @@ my_other_metric{} 0
 					t.Fatalf("failed to parse text metrics: %v", err)
 				}
 			} else {
-				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes())
+				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes(), labels.NewSymbolTable())
 				for {
 					_, err := omParser.Next()
 					if err == io.EOF {
