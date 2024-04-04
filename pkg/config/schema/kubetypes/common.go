@@ -48,6 +48,15 @@ func GetGVK[T runtime.Object]() (cfg config.GroupVersionKind) {
 	return getGvk(ptr.Empty[T]())
 }
 
+func MustToGVR[T runtime.Object](cfg config.GroupVersionKind) schema.GroupVersionResource {
+	for _, k := range registeredTypes {
+		if t, ok := k.(RegisterType[T]); ok {
+			return t.GetGVR()
+		}
+	}
+	return gvk.MustToGVR(cfg)
+}
+
 func GvkFromObject(obj runtime.Object) config.GroupVersionKind {
 	return getGvk(obj)
 }
@@ -61,4 +70,5 @@ func Register[T runtime.Object](reg RegisterType[T]) {
 type RegisterType[T runtime.Object] interface {
 	GetGVK() config.GroupVersionKind
 	GetGVR() schema.GroupVersionResource
+	Object() T
 }

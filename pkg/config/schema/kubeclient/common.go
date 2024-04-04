@@ -187,9 +187,6 @@ type TypeRegistration[T runtime.Object] interface {
 	// ListWatchFunc provides the necessary methods for list and
 	// watch for the informer
 	ListWatch(c ClientGetter, opts ktypes.InformerOptions) cache.ListerWatcher
-
-	// Object provides the runtime.Object for this TypeRegistration
-	Object() T
 }
 
 type gvrMatch interface {

@@ -27,7 +27,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/schema/gvk"
 	istiogvr "istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kubeclient"
 	types "istio.io/istio/pkg/config/schema/kubetypes"
@@ -210,7 +209,7 @@ func New[T controllers.ComparableObject](c kube.Client) Client[T] {
 // This means there must only be one filter configuration for a given type using the same kube.Client.
 // Use with caution.
 func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) Client[T] {
-	gvr := gvk.MustToGVR(types.GetGVK[T]())
+	gvr := types.MustToGVR[T](types.GetGVK[T]())
 	inf := kubeclient.GetInformerFiltered[T](c, ToOpts(c, gvr, filter))
 	return &fullClient[T]{
 		writeClient: writeClient[T]{client: c},
