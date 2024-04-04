@@ -56,6 +56,9 @@ type Test interface {
 	//
 	// Deprecated: Tests should not make assumptions regarding number of networks.
 	RequiresSingleNetwork() Test
+	// TopLevel marks a test as a "top-level test" meaning a container test that has many subtests.
+	// Resources created at this level will be in-scope for dumping when any descendant test fails.
+	TopLevel() Test
 	// Run the test, supplied as a lambda.
 	Run(fn func(t TestContext))
 	// RunParallel runs this test in parallel with other children of the same parent test/suite. Under the hood,
@@ -123,6 +126,7 @@ type testImpl struct {
 	requireLocalIstiod   bool
 	requireSingleNetwork bool
 	minIstioVersion      string
+	topLevel             bool
 
 	ctx *testContext
 	tc  context2.Context
@@ -164,6 +168,11 @@ func (t *testImpl) Features(feats ...features.Feature) Test {
 		// test runs shouldn't fail
 		log.Error(err)
 	}
+	return t
+}
+
+func (t *testImpl) TopLevel() Test {
+	t.topLevel = true
 	return t
 }
 

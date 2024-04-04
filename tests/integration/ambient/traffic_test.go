@@ -27,6 +27,7 @@ import (
 
 func TestTraffic(t *testing.T) {
 	framework.NewTest(t).
+		TopLevel().
 		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
 		Run(func(t framework.TestContext) {
 			apps := deployment.NewOrFail(t, t, deployment.Config{

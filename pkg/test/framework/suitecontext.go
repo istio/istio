@@ -87,6 +87,7 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 		contextNames: sets.New[string](),
 		dumpCount:    atomic.NewUint64(0),
 	}
+	c.globalScope.markTopLevel()
 
 	env, err := envFn(c)
 	if err != nil {
