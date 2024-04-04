@@ -15,30 +15,24 @@
 package v3
 
 import (
-	"strings"
-
-	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"istio.io/istio/pkg/model"
 )
 
 const (
-	envoyTypePrefix = resource.APITypePrefix + "envoy."
-
-	ClusterType                = resource.ClusterType
-	EndpointType               = resource.EndpointType
-	ListenerType               = resource.ListenerType
-	RouteType                  = resource.RouteType
-	SecretType                 = resource.SecretType
-	ExtensionConfigurationType = resource.ExtensionConfigType
-
-	NameTableType   = resource.APITypePrefix + "istio.networking.nds.v1.NameTable"
-	HealthInfoType  = resource.APITypePrefix + "istio.v1.HealthInformation"
-	ProxyConfigType = resource.APITypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
-	// DebugType requests debug info from istio, a secured implementation for istio debug interface.
-	DebugType                 = "istio.io/debug"
-	BootstrapType             = resource.APITypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
-	AddressType               = resource.APITypePrefix + "istio.workload.Address"
-	WorkloadType              = resource.APITypePrefix + "istio.workload.Workload"
-	WorkloadAuthorizationType = resource.APITypePrefix + "istio.security.Authorization"
+	ClusterType                = model.ClusterType
+	EndpointType               = model.EndpointType
+	ListenerType               = model.ListenerType
+	RouteType                  = model.RouteType
+	SecretType                 = model.SecretType
+	ExtensionConfigurationType = model.ExtensionConfigurationType
+	NameTableType              = model.NameTableType
+	HealthInfoType             = model.HealthInfoType
+	ProxyConfigType            = model.ProxyConfigType
+	DebugType                  = model.DebugType
+	BootstrapType              = model.BootstrapType
+	AddressType                = model.AddressType
+	WorkloadType               = model.WorkloadType
+	WorkloadAuthorizationType  = model.WorkloadAuthorizationType
 
 	// nolint
 	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
@@ -46,92 +40,20 @@ const (
 
 // GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages
 func GetShortType(typeURL string) string {
-	switch typeURL {
-	case ClusterType:
-		return "CDS"
-	case ListenerType:
-		return "LDS"
-	case RouteType:
-		return "RDS"
-	case EndpointType:
-		return "EDS"
-	case SecretType:
-		return "SDS"
-	case NameTableType:
-		return "NDS"
-	case ProxyConfigType:
-		return "PCDS"
-	case ExtensionConfigurationType:
-		return "ECDS"
-	case AddressType, WorkloadType:
-		return "WDS"
-	case WorkloadAuthorizationType:
-		return "WADS"
-	default:
-		return typeURL
-	}
+	return model.GetShortType(typeURL)
 }
 
 // GetMetricType returns the form of a type reported for metrics
 func GetMetricType(typeURL string) string {
-	switch typeURL {
-	case ClusterType:
-		return "cds"
-	case ListenerType:
-		return "lds"
-	case RouteType:
-		return "rds"
-	case EndpointType:
-		return "eds"
-	case SecretType:
-		return "sds"
-	case NameTableType:
-		return "nds"
-	case ProxyConfigType:
-		return "pcds"
-	case ExtensionConfigurationType:
-		return "ecds"
-	case BootstrapType:
-		return "bds"
-	case AddressType, WorkloadType:
-		return "wds"
-	case WorkloadAuthorizationType:
-		return "wads"
-	default:
-		return typeURL
-	}
+	return model.GetMetricType(typeURL)
 }
 
 // GetResourceType returns resource form of an abbreviated form
 func GetResourceType(shortType string) string {
-	s := strings.ToUpper(shortType)
-	switch s {
-	case "CDS":
-		return ClusterType
-	case "LDS":
-		return ListenerType
-	case "RDS":
-		return RouteType
-	case "EDS":
-		return EndpointType
-	case "SDS":
-		return SecretType
-	case "NDS":
-		return NameTableType
-	case "PCDS":
-		return ProxyConfigType
-	case "ECDS":
-		return ExtensionConfigurationType
-	case "WDS":
-		return AddressType
-	case "WADS":
-		return WorkloadAuthorizationType
-	default:
-		return shortType
-	}
+	return model.GetResourceType(shortType)
 }
 
 // IsEnvoyType checks whether the typeURL is a valid Envoy type.
 func IsEnvoyType(typeURL string) bool {
-	return strings.HasPrefix(typeURL, envoyTypePrefix)
+	return model.IsEnvoyType(typeURL)
 }

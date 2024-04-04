@@ -24,8 +24,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	istioagent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wasm"
+	"istio.io/istio/security/pkg/nodeagent/sds"
 )
 
 // Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra header.
@@ -71,6 +73,9 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		DualStack:                   features.EnableDualStack,
 		UseExternalWorkloadSDS:      useExternalWorkloadSDSEnv,
 		MetadataDiscovery:           enableWDSEnv,
+		SDSFactory: func(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *meshconfig.PrivateKeyProvider) istioagent.SDSService {
+			return sds.NewServer(options, workloadSecretCache, pkpConf)
+		},
 	}
 	extractXDSHeadersFromEnv(o)
 	return o

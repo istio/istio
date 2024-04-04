@@ -40,8 +40,6 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
-	"istio.io/istio/pilot/pkg/xds"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
@@ -50,6 +48,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -60,6 +59,13 @@ import (
 
 const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
+)
+
+type (
+	DiscoveryStream      = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+	DeltaDiscoveryStream = discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
+	DiscoveryClient      = discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	DeltaDiscoveryClient = discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 )
 
 var connectionNumber = atomic.NewUint32(0)
@@ -154,7 +160,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	if ia.localDNSServer != nil {
-		proxy.handlers[v3.NameTableType] = func(resp *anypb.Any) error {
+		proxy.handlers[model.NameTableType] = func(resp *anypb.Any) error {
 			var nt dnsProto.NameTable
 			if err := resp.UnmarshalTo(&nt); err != nil {
 				log.Errorf("failed to unmarshal name table: %v", err)
@@ -165,7 +171,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
-		proxy.handlers[v3.ProxyConfigType] = func(resp *anypb.Any) error {
+		proxy.handlers[model.ProxyConfigType] = func(resp *anypb.Any) error {
 			pc := &meshconfig.ProxyConfig{}
 			if err := resp.UnmarshalTo(pc); err != nil {
 				log.Errorf("failed to unmarshal proxy config: %v", err)
@@ -199,7 +205,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 
 	go proxy.healthChecker.PerformApplicationHealthCheck(func(healthEvent *health.ProbeEvent) {
 		// Store the same response as Delta and SotW. Depending on how Envoy connects we will use one or the other.
-		req := &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
+		req := &discovery.DiscoveryRequest{TypeUrl: model.HealthInfoType}
 		if !healthEvent.Healthy {
 			req.ErrorDetail = &google_rpc.Status{
 				Code:    int32(codes.Internal),
@@ -207,7 +213,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			}
 		}
 		proxy.sendHealthCheckRequest(req)
-		deltaReq := &discovery.DeltaDiscoveryRequest{TypeUrl: v3.HealthInfoType}
+		deltaReq := &discovery.DeltaDiscoveryRequest{TypeUrl: model.HealthInfoType}
 		if !healthEvent.Healthy {
 			deltaReq.ErrorDetail = &google_rpc.Status{
 				Code:    int32(codes.Internal),
@@ -263,9 +269,9 @@ type ProxyConnection struct {
 	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
 	stopChan           chan struct{}
 	downstream         adsStream
-	upstream           xds.DiscoveryClient
-	downstreamDeltas   xds.DeltaDiscoveryStream
-	upstreamDeltas     xds.DeltaDiscoveryClient
+	upstream           DiscoveryClient
+	downstreamDeltas   DeltaDiscoveryStream
+	upstreamDeltas     DeltaDiscoveryClient
 }
 
 // sendRequest is a small wrapper around sending to con.requestsChan. This ensures that we do not
@@ -293,7 +299,7 @@ type adsStream interface {
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
-func (p *XdsProxy) StreamAggregatedResources(downstream xds.DiscoveryStream) error {
+func (p *XdsProxy) StreamAggregatedResources(downstream DiscoveryStream) error {
 	proxyLog.Debugf("accepted XDS connection from Envoy, forwarding to upstream XDS server")
 	return p.handleStream(downstream)
 }
@@ -422,17 +428,17 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 
 			// forward to istiod
 			con.sendRequest(req)
-			if !initialRequestsSent.Load() && req.TypeUrl == v3.ListenerType {
+			if !initialRequestsSent.Load() && req.TypeUrl == model.ListenerType {
 				// fire off an initial NDS request
-				if _, f := p.handlers[v3.NameTableType]; f {
+				if _, f := p.handlers[model.NameTableType]; f {
 					con.sendRequest(&discovery.DiscoveryRequest{
-						TypeUrl: v3.NameTableType,
+						TypeUrl: model.NameTableType,
 					})
 				}
 				// fire off an initial PCDS request
-				if _, f := p.handlers[v3.ProxyConfigType]; f {
+				if _, f := p.handlers[model.ProxyConfigType]; f {
 					con.sendRequest(&discovery.DiscoveryRequest{
-						TypeUrl: v3.ProxyConfigType,
+						TypeUrl: model.ProxyConfigType,
 					})
 				}
 				// set flag before sending the initial request to prevent race.
@@ -453,13 +459,13 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 		select {
 		case req := <-con.requestsChan.Get():
 			con.requestsChan.Load()
-			if req.TypeUrl == v3.HealthInfoType && !initialRequestsSent.Load() {
+			if req.TypeUrl == model.HealthInfoType && !initialRequestsSent.Load() {
 				// only send healthcheck probe after LDS request has been sent
 				continue
 			}
 			proxyLog.Debugf("request for type url %s", req.TypeUrl)
 			metrics.XdsProxyRequests.Increment()
-			if req.TypeUrl == v3.ExtensionConfigurationType {
+			if req.TypeUrl == model.ExtensionConfigurationType {
 				if req.VersionInfo != "" {
 					p.ecdsLastAckVersion.Store(req.VersionInfo)
 				}
@@ -484,7 +490,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.WithLabels(
 				"id", con.conID,
-				"type", v3.GetShortType(resp.TypeUrl),
+				"type", model.GetShortType(resp.TypeUrl),
 				"resources", len(resp.Resources),
 			).Debugf("upstream response")
 			metrics.XdsProxyResponses.Increment()
@@ -512,7 +518,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 				continue
 			}
 			switch resp.TypeUrl {
-			case v3.ExtensionConfigurationType:
+			case model.ExtensionConfigurationType:
 				if features.WasmRemoteLoadConversion {
 					// If Wasm remote load conversion feature is enabled, rewrite and send.
 					go p.rewriteAndForward(con, resp, func(resp *discovery.DiscoveryResponse) {
@@ -528,7 +534,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					forwardToEnvoy(con, resp)
 				}
 			default:
-				if strings.HasPrefix(resp.TypeUrl, v3.DebugType) {
+				if strings.HasPrefix(resp.TypeUrl, model.DebugType) {
 					p.forwardToTap(resp)
 				} else {
 					forwardToEnvoy(con, resp)
@@ -569,7 +575,7 @@ func (p *XdsProxy) forwardToTap(resp *discovery.DiscoveryResponse) {
 }
 
 func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
-	if !v3.IsEnvoyType(resp.TypeUrl) && resp.TypeUrl != v3.WorkloadType {
+	if !model.IsEnvoyType(resp.TypeUrl) && resp.TypeUrl != model.WorkloadType {
 		proxyLog.Errorf("Skipping forwarding type url %s to Envoy as is not a valid Envoy type", resp.TypeUrl)
 		return
 	}

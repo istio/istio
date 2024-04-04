@@ -659,6 +659,9 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		XDSRootCerts:          rootCert,
 		XdsUdsPath:            filepath.Join(d, "XDS"),
 		ServiceNode:           proxy.ServiceNode(),
+		SDSFactory: func(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *meshconfig.PrivateKeyProvider) SDSService {
+			return sds.NewServer(options, workloadSecretCache, pkpConf)
+		},
 	}
 
 	// Set-up envoy defaults

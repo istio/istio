@@ -29,11 +29,10 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/xds"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/wasm"
 )
@@ -48,7 +47,7 @@ func (con *ProxyConnection) sendDeltaRequest(req *discovery.DeltaDiscoveryReques
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
-func (p *XdsProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream) error {
+func (p *XdsProxy) DeltaAggregatedResources(downstream DeltaDiscoveryStream) error {
 	proxyLog.Debugf("accepted delta xds connection from envoy, forwarding to upstream")
 
 	con := &ProxyConnection{
@@ -146,17 +145,17 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 
 			// forward to istiod
 			con.sendDeltaRequest(req)
-			if !initialRequestsSent.Load() && req.TypeUrl == v3.ListenerType {
+			if !initialRequestsSent.Load() && req.TypeUrl == model.ListenerType {
 				// fire off an initial NDS request
-				if _, f := p.handlers[v3.NameTableType]; f {
+				if _, f := p.handlers[model.NameTableType]; f {
 					con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
-						TypeUrl: v3.NameTableType,
+						TypeUrl: model.NameTableType,
 					})
 				}
 				// fire off an initial PCDS request
-				if _, f := p.handlers[v3.ProxyConfigType]; f {
+				if _, f := p.handlers[model.ProxyConfigType]; f {
 					con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
-						TypeUrl: v3.ProxyConfigType,
+						TypeUrl: model.ProxyConfigType,
 					})
 				}
 				// set flag before sending the initial request to prevent race.
@@ -179,19 +178,19 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 		select {
 		case req := <-con.deltaRequestsChan.Get():
 			con.deltaRequestsChan.Load()
-			if req.TypeUrl == v3.HealthInfoType && !initialRequestsSent.Load() {
+			if req.TypeUrl == model.HealthInfoType && !initialRequestsSent.Load() {
 				// only send healthcheck probe after LDS request has been sent
 				continue
 			}
 			log.WithLabels(
-				"type", v3.GetShortType(req.TypeUrl),
+				"type", model.GetShortType(req.TypeUrl),
 				"sub", len(req.ResourceNamesSubscribe),
 				"unsub", len(req.ResourceNamesUnsubscribe),
 				"nonce", req.ResponseNonce,
 				"initial", len(req.InitialResourceVersions),
 			).Debugf("delta request")
 			metrics.XdsProxyRequests.Increment()
-			if req.TypeUrl == v3.ExtensionConfigurationType {
+			if req.TypeUrl == model.ExtensionConfigurationType {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
 
@@ -214,7 +213,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.WithLabels(
 				"id", con.conID,
-				"type", v3.GetShortType(resp.TypeUrl),
+				"type", model.GetShortType(resp.TypeUrl),
 				"nonce", resp.Nonce,
 				"resources", len(resp.Resources),
 				"removes", len(resp.RemovedResources),
@@ -243,7 +242,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 				continue
 			}
 			switch resp.TypeUrl {
-			case v3.ExtensionConfigurationType:
+			case model.ExtensionConfigurationType:
 				if features.WasmRemoteLoadConversion {
 					// If Wasm remote load conversion feature is enabled, rewrite and send.
 					go p.deltaRewriteAndForward(con, resp, func(resp *discovery.DeltaDiscoveryResponse) {
@@ -259,7 +258,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 					forwardDeltaToEnvoy(con, resp)
 				}
 			default:
-				if strings.HasPrefix(resp.TypeUrl, v3.DebugType) {
+				if strings.HasPrefix(resp.TypeUrl, model.DebugType) {
 					p.forwardDeltaToTap(resp)
 				} else {
 					forwardDeltaToEnvoy(con, resp)
@@ -301,7 +300,7 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 }
 
 func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse) {
-	if !v3.IsEnvoyType(resp.TypeUrl) && resp.TypeUrl != v3.WorkloadType {
+	if !model.IsEnvoyType(resp.TypeUrl) && resp.TypeUrl != model.WorkloadType {
 		proxyLog.Errorf("Skipping forwarding type url %s to Envoy as is not a valid Envoy type", resp.TypeUrl)
 		return
 	}
@@ -316,7 +315,7 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 	}
 }
 
-func sendDownstreamDelta(deltaDownstream xds.DeltaDiscoveryStream, res *discovery.DeltaDiscoveryResponse) error {
+func sendDownstreamDelta(deltaDownstream DeltaDiscoveryStream, res *discovery.DeltaDiscoveryResponse) error {
 	tStart := time.Now()
 	defer func() {
 		// This is a hint to help debug slow responses.
