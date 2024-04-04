@@ -22,17 +22,18 @@ func TestCustomRegistration(t *testing.T) {
 		schema.GroupVersionResource{},
 		config.GroupVersionKind{},
 		&v1.NetworkPolicy{},
-		func(c ClientGetter, o ktypes.InformerOptions) cache.ListWatch {
-			return cache.ListWatch{
+		func(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher {
+			np := c.Kube().NetworkingV1().NetworkPolicies(o.Namespace)
+			return &cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = o.FieldSelector
 					options.LabelSelector = o.LabelSelector
-					return c.Kube().NetworkingV1().NetworkPolicies(o.Namespace).List(context.Background(), options)
+					return np.List(context.Background(), options)
 				},
 				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 					options.FieldSelector = o.FieldSelector
 					options.LabelSelector = o.LabelSelector
-					return c.Kube().NetworkingV1().NetworkPolicies(o.Namespace).Watch(context.Background(), options)
+					return np.Watch(context.Background(), options)
 				},
 				DisableChunking: true,
 			}

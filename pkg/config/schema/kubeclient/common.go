@@ -66,10 +66,7 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		if tr, ok := reg.(TypeRegistration[T]); ok {
 			return c.Informers().InformerFor(tr.GetGVR(), opts, func() cache.SharedIndexInformer {
 				inf := cache.NewSharedIndexInformer(
-					&cache.ListWatch{
-						ListFunc:  tr.ListWatchFunc(c, opts).ListFunc,
-						WatchFunc: tr.ListWatchFunc(c, opts).WatchFunc,
-					},
+					tr.ListWatch(c, opts),
 					tr.Object(),
 					0,
 					cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
@@ -189,7 +186,7 @@ type TypeRegistration[T runtime.Object] interface {
 
 	// ListWatchFunc provides the necessary methods for list and
 	// watch for the informer
-	ListWatchFunc(c ClientGetter, opts ktypes.InformerOptions) cache.ListWatch
+	ListWatch(c ClientGetter, opts ktypes.InformerOptions) cache.ListerWatcher
 
 	// Object provides the runtime.Object for this TypeRegistration
 	Object() T
@@ -199,7 +196,7 @@ type gvrMatch interface {
 	GetGVR() schema.GroupVersionResource
 }
 
-func NewTypeRegistration[T runtime.Object](gvr schema.GroupVersionResource, gvk config.GroupVersionKind, obj T, lw func(c ClientGetter, o ktypes.InformerOptions) cache.ListWatch) TypeRegistration[T] {
+func NewTypeRegistration[T runtime.Object](gvr schema.GroupVersionResource, gvk config.GroupVersionKind, obj T, lw func(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher) TypeRegistration[T] {
 	return &internalTypeReg[T]{
 		gvr: gvr,
 		gvk: gvk,
@@ -209,7 +206,7 @@ func NewTypeRegistration[T runtime.Object](gvr schema.GroupVersionResource, gvk 
 }
 
 type internalTypeReg[T runtime.Object] struct {
-	lw  func(c ClientGetter, o ktypes.InformerOptions) cache.ListWatch
+	lw  func(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher
 	gvr schema.GroupVersionResource
 	gvk config.GroupVersionKind
 	obj T
@@ -223,7 +220,7 @@ func (t *internalTypeReg[T]) GetGVR() schema.GroupVersionResource {
 	return t.gvr
 }
 
-func (t *internalTypeReg[T]) ListWatchFunc(c ClientGetter, o ktypes.InformerOptions) cache.ListWatch {
+func (t *internalTypeReg[T]) ListWatch(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher {
 	return t.lw(c, o)
 }
 
