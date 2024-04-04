@@ -685,6 +685,15 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
+	clientLogging := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_CLIENT,
+				},
+			},
+		},
+	}
 	emptyLogging := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{},
@@ -1148,6 +1157,17 @@ func TestTelemetryFilters(t *testing.T) {
 			map[string]string{
 				"istio.stackdriver": `{"access_logging":"ERRORS_ONLY","metric_expiry_duration":"3600s"}`,
 			},
+		},
+		{
+			"stackdriver client logging",
+			[]config.Config{
+				newTelemetry("default", clientLogging),
+			},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{},
 		},
 		{
 			"stackdriver logging default provider",
