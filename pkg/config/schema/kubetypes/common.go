@@ -23,48 +23,54 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/typemap"
 )
 
-func GetGVR[T runtime.Object]() schema.GroupVersionResource {
-	for _, reg := range registeredTypes {
-		if m, ok := reg.(RegisterType[T]); ok {
-			return m.GetGVR()
+func MustGVRFromType[T runtime.Object]() schema.GroupVersionResource {
+	if gk, ok := getGvk(ptr.Empty[T]()); ok {
+		gr, ok := gvk.ToGVR(gk)
+		if !ok {
+			panic(fmt.Sprintf("unknown GVR for GVK %v", gk))
 		}
+		return gr
 	}
-	gk := GetGVK[T]()
-	gr, ok := gvk.ToGVR(gk)
-	if !ok {
-		panic(fmt.Sprintf("unknown GVR for GVK %v", gk))
+	if rp := typemap.Get[RegisterType[T]](registeredTypes); rp != nil {
+		return (*rp).GetGVR()
 	}
-	return gr
+	panic("unknown kind: " + ptr.TypeName[T]())
 }
 
-func GetGVK[T runtime.Object]() (cfg config.GroupVersionKind) {
-	for _, k := range registeredTypes {
-		if t, ok := k.(RegisterType[T]); ok {
-			return t.GetGVK()
-		}
+func MustGVKFromType[T runtime.Object]() (cfg config.GroupVersionKind) {
+	if gvk, ok := getGvk(ptr.Empty[T]()); ok {
+		return gvk
 	}
-	return getGvk(ptr.Empty[T]())
+	if rp := typemap.Get[RegisterType[T]](registeredTypes); rp != nil {
+		return (*rp).GetGVK()
+	}
+	panic("unknown kind: " + cfg.String())
 }
 
 func MustToGVR[T runtime.Object](cfg config.GroupVersionKind) schema.GroupVersionResource {
-	for _, k := range registeredTypes {
-		if t, ok := k.(RegisterType[T]); ok {
-			return t.GetGVR()
-		}
+	if r, ok := gvk.ToGVR(cfg); ok {
+		return r
 	}
-	return gvk.MustToGVR(cfg)
+	if rp := typemap.Get[RegisterType[T]](registeredTypes); rp != nil {
+		return (*rp).GetGVR()
+	}
+	panic("unknown kind: " + cfg.String())
 }
 
 func GvkFromObject(obj runtime.Object) config.GroupVersionKind {
-	return getGvk(obj)
+	if gvk, ok := getGvk(obj); ok {
+		return gvk
+	}
+	panic("unknown kind: " + obj.GetObjectKind().GroupVersionKind().String())
 }
 
-var registeredTypes = make([]any, 0)
+var registeredTypes = typemap.NewTypeMap()
 
 func Register[T runtime.Object](reg RegisterType[T]) {
-	registeredTypes = append(registeredTypes, reg)
+	typemap.Set[RegisterType[T]](registeredTypes, reg)
 }
 
 type RegisterType[T runtime.Object] interface {

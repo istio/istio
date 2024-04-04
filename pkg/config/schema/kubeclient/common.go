@@ -36,6 +36,8 @@ import (
 	"istio.io/istio/pkg/kube/informerfactory"
 	ktypes "istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/typemap"
 )
 
 type ClientGetter interface {
@@ -62,21 +64,22 @@ type ClientGetter interface {
 }
 
 func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerOptions) informerfactory.StartableInformer {
-	for _, reg := range registerType {
-		if tr, ok := reg.(TypeRegistration[T]); ok {
-			return c.Informers().InformerFor(tr.GetGVR(), opts, func() cache.SharedIndexInformer {
-				inf := cache.NewSharedIndexInformer(
-					tr.ListWatch(c, opts),
-					tr.Object(),
-					0,
-					cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
-				)
-				setupInformer(opts, inf)
-				return inf
-			})
-		}
+	reg := typemap.Get[TypeRegistration[T]](registerTypes)
+	if reg != nil {
+		// This is registered type
+		tr := *reg
+		return c.Informers().InformerFor(tr.GetGVR(), opts, func() cache.SharedIndexInformer {
+			inf := cache.NewSharedIndexInformer(
+				tr.ListWatch(c, opts),
+				tr.Object(),
+				0,
+				cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+			)
+			setupInformer(opts, inf)
+			return inf
+		})
 	}
-	return GetInformerFilteredFromGVR(c, opts, kubetypes.GetGVR[T]())
+	return GetInformerFilteredFromGVR(c, opts, kubetypes.MustGVRFromType[T]())
 }
 
 func GetInformerFilteredFromGVR(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) informerfactory.StartableInformer {
@@ -170,13 +173,24 @@ func stripUnusedFields(obj any) (any, error) {
 	return obj, nil
 }
 
-var registerType = make([]any, 0)
+var registerTypes = typemap.NewTypeMap()
 
 // Register provides the TypeRegistration to the underlying
 // store to enable dynamic object translation
-func Register[T runtime.Object](reg TypeRegistration[T]) {
+func Register[T runtime.Object](
+	gvr schema.GroupVersionResource,
+	gvk schema.GroupVersionKind,
+	list func(c ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error),
+	watch func(c ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error),
+) {
+	reg := &internalTypeReg[T]{
+		gvr:   gvr,
+		gvk:   config.FromKubernetesGVK(gvk),
+		list:  list,
+		watch: watch,
+	}
 	kubetypes.Register[T](reg)
-	registerType = append(registerType, reg)
+	typemap.Set[TypeRegistration[T]](registerTypes, reg)
 }
 
 // TypeRegistration represents the necessary methods
@@ -189,25 +203,11 @@ type TypeRegistration[T runtime.Object] interface {
 	ListWatch(c ClientGetter, opts ktypes.InformerOptions) cache.ListerWatcher
 }
 
-func NewTypeRegistration[T runtime.Object](
-	gvr schema.GroupVersionResource,
-	gvk config.GroupVersionKind,
-	obj T,
-	lw func(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher,
-) TypeRegistration[T] {
-	return &internalTypeReg[T]{
-		gvr: gvr,
-		gvk: gvk,
-		obj: obj,
-		lw:  lw,
-	}
-}
-
 type internalTypeReg[T runtime.Object] struct {
-	lw  func(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher
-	gvr schema.GroupVersionResource
-	gvk config.GroupVersionKind
-	obj T
+	list  func(c ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error)
+	watch func(c ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error)
+	gvr   schema.GroupVersionResource
+	gvk   config.GroupVersionKind
 }
 
 func (t *internalTypeReg[T]) GetGVK() config.GroupVersionKind {
@@ -219,9 +219,20 @@ func (t *internalTypeReg[T]) GetGVR() schema.GroupVersionResource {
 }
 
 func (t *internalTypeReg[T]) ListWatch(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher {
-	return t.lw(c, o)
+	return &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			options.FieldSelector = o.FieldSelector
+			options.LabelSelector = o.LabelSelector
+			return t.list(c, o.Namespace, options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.FieldSelector = o.FieldSelector
+			options.LabelSelector = o.LabelSelector
+			return t.watch(c, o.Namespace, options)
+		},
+	}
 }
 
 func (t *internalTypeReg[T]) Object() T {
-	return t.obj
+	return ptr.Empty[T]()
 }
