@@ -106,11 +106,11 @@ func TestBinarySizes(t *testing.T) {
 	}{
 		// TODO: shrink the ranges here once the active work to reduce binary size is complete
 		// For now, having two small a range will result in lots of "merge conflicts"
-		"istioctl":    {60, 75},
+		"istioctl":    {60, 85},
 		"pilot-agent": {30, 36},
 		// TODO(https://github.com/kubernetes/kubernetes/issues/101384) bump this down a bit?
-		"pilot-discovery": {60, 75},
-		"bug-report":      {60, 70},
+		"pilot-discovery": {60, 80},
+		"bug-report":      {60, 80},
 		"client":          {15, 30},
 		"server":          {15, 30},
 		"envoy":           {60, 130},

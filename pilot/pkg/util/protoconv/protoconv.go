@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/log"
 )
 
@@ -40,10 +41,12 @@ func MessageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
 }
 
 func marshal(msg proto.Message) ([]byte, error) {
-	if vt, ok := msg.(vtStrictMarshal); ok {
-		// Attempt to use more efficient implementation
-		// "Strict" is the equivalent to Deterministic=true below
-		return vt.MarshalVTStrict()
+	if features.EnableVtprotobuf {
+		if vt, ok := msg.(vtStrictMarshal); ok {
+			// Attempt to use more efficient implementation
+			// "Strict" is the equivalent to Deterministic=true below
+			return vt.MarshalVTStrict()
+		}
 	}
 	// If not available, fallback to normal implementation
 	return proto.MarshalOptions{Deterministic: true}.Marshal(msg)

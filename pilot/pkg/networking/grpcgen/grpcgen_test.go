@@ -173,7 +173,9 @@ func TestGRPC(t *testing.T) {
 			Scheme: "xds",
 			Path:   "/" + net.JoinHostPort(testSvcHost, xdsPorts),
 		}},
-			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
+			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{
+				Authority: testSvcHost,
+			})
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
 		}
