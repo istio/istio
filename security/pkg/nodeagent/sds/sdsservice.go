@@ -217,9 +217,48 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)
 }
 
+func generateVersion() string {
+	return time.Now().Format(time.RFC3339)
+}
+
 // StreamSecrets serves SDS discovery requests and SDS push requests
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	return s.XdsServer.Stream(stream)
+	nonce, first := "", true
+	for {
+		// We rely on Envoy well-behaved client behavior for SDS.
+		req, err := stream.Recv()
+		if err != nil {
+			sdsServiceLog.Infof("SDS request stream terminated: %v", err)
+			return nil
+		}
+		// Check nonce for non-first requests to skip racey requests.
+		if !first && req.GetResponseNonce() != nonce {
+			continue
+		}
+		if first {
+			first = false
+		}
+		// Generate response
+		res, err := s.generate(req.ResourceNames)
+		if err != nil {
+			sdsServiceLog.Infof("SDS failed to generate response, closing: %v", err)
+			return nil
+		}
+		nonce = generateVersion()
+		resp := discovery.DiscoveryResponse{
+			VersionInfo: nonce,
+			Nonce:       nonce,
+			TypeUrl:     req.GetTypeUrl(),
+			Resources:   model.ResourcesToAny(res),
+		}
+		err = stream.Send(&resp)
+		if err != nil {
+			sdsServiceLog.Infof("SDS failed to send response, closing: %v", err)
+			return nil
+		}
+		sdsServiceLog.Infof("SDS responded with version: %v", nonce)
+	}
+	//return s.XdsServer.Stream(stream)
 }
 
 func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {
