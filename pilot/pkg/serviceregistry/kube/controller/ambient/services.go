@@ -150,6 +150,15 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 			Mode: workloadapi.LoadBalancing_FAILOVER,
 		}
 	}
+	if itp := svc.Spec.InternalTrafficPolicy; itp != nil && *itp == v1.ServiceInternalTrafficPolicyLocal {
+		lb = &workloadapi.LoadBalancing{
+			// Only allow endpoints on the same node.
+			RoutingPreference: []workloadapi.LoadBalancing_Scope{
+				workloadapi.LoadBalancing_NODE,
+			},
+			Mode: workloadapi.LoadBalancing_STRICT,
+		}
+	}
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	return &workloadapi.Service{
 		Name:          svc.Name,
