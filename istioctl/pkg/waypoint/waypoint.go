@@ -33,7 +33,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -52,12 +51,19 @@ var (
 
 	trafficType       string
 	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
+
+	waypointName string
 )
 
 const waitTimeout = 90 * time.Second
 
 func Cmd(ctx cli.Context) *cobra.Command {
-	var waypointName string
+	makeGatewayName := func(name string) string {
+		if name == "" {
+			name = constants.DefaultNamespaceWaypoint
+		}
+		return name
+	}
 	makeGateway := func(forApply bool) (*gateway.Gateway, error) {
 		ns := ctx.NamespaceOrDefault(ctx.Namespace())
 		if ctx.Namespace() == "" && !forApply {
@@ -69,7 +75,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				APIVersion: gvk.KubernetesGateway_v1.GroupVersion(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      waypointName,
+				Name:      makeGatewayName(waypointName),
 				Namespace: ns,
 			},
 			Spec: gateway.GatewaySpec{
@@ -340,12 +346,6 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
 	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", "default", "name of the waypoint")
-
-	_ = waypointCmd.RegisterFlagCompletionFunc("service-account", func(
-		cmd *cobra.Command, args []string, toComplete string,
-	) ([]string, cobra.ShellCompDirective) {
-		return completion.ValidServiceAccountArgs(cmd, ctx, args, toComplete)
-	})
 
 	return waypointCmd
 }
