@@ -11919,6 +11919,315 @@ spec:
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            description: 'Telemetry configuration for workloads. See more details
+              at: https://istio.io/docs/reference/config/telemetry.html'
+            properties:
+              accessLogging:
+                description: Optional.
+                items:
+                  properties:
+                    disabled:
+                      description: Controls logging.
+                      nullable: true
+                      type: boolean
+                    filter:
+                      description: Optional.
+                      properties:
+                        expression:
+                          description: CEL expression for selecting when requests/connections
+                            should be logged.
+                          type: string
+                      type: object
+                    match:
+                      description: Allows tailoring of logging behavior to specific
+                        conditions.
+                      properties:
+                        mode:
+                          description: |-
+                            This determines whether or not to apply the access logging configuration based on the direction of traffic relative to the proxied workload.
+
+                            Valid Options: CLIENT_AND_SERVER, CLIENT, SERVER
+                          enum:
+                          - CLIENT_AND_SERVER
+                          - CLIENT
+                          - SERVER
+                          type: string
+                      type: object
+                    providers:
+                      description: Optional.
+                      items:
+                        properties:
+                          name:
+                            description: Required.
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      type: array
+                  type: object
+                type: array
+              metrics:
+                description: Optional.
+                items:
+                  properties:
+                    overrides:
+                      description: Optional.
+                      items:
+                        properties:
+                          disabled:
+                            description: Optional.
+                            nullable: true
+                            type: boolean
+                          match:
+                            description: Match allows providing the scope of the override.
+                            oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - metric
+                                - required:
+                                  - customMetric
+                            - required:
+                              - metric
+                            - required:
+                              - customMetric
+                            properties:
+                              customMetric:
+                                description: Allows free-form specification of a metric.
+                                minLength: 1
+                                type: string
+                              metric:
+                                description: |-
+                                  One of the well-known [Istio Standard Metrics](https://istio.io/latest/docs/reference/config/metrics/).
+
+                                  Valid Options: ALL_METRICS, REQUEST_COUNT, REQUEST_DURATION, REQUEST_SIZE, RESPONSE_SIZE, TCP_OPENED_CONNECTIONS, TCP_CLOSED_CONNECTIONS, TCP_SENT_BYTES, TCP_RECEIVED_BYTES, GRPC_REQUEST_MESSAGES, GRPC_RESPONSE_MESSAGES
+                                enum:
+                                - ALL_METRICS
+                                - REQUEST_COUNT
+                                - REQUEST_DURATION
+                                - REQUEST_SIZE
+                                - RESPONSE_SIZE
+                                - TCP_OPENED_CONNECTIONS
+                                - TCP_CLOSED_CONNECTIONS
+                                - TCP_SENT_BYTES
+                                - TCP_RECEIVED_BYTES
+                                - GRPC_REQUEST_MESSAGES
+                                - GRPC_RESPONSE_MESSAGES
+                                type: string
+                              mode:
+                                description: |-
+                                  Controls which mode of metrics generation is selected: `CLIENT`, `SERVER`, or `CLIENT_AND_SERVER`.
+
+                                  Valid Options: CLIENT_AND_SERVER, CLIENT, SERVER
+                                enum:
+                                - CLIENT_AND_SERVER
+                                - CLIENT
+                                - SERVER
+                                type: string
+                            type: object
+                          tagOverrides:
+                            additionalProperties:
+                              properties:
+                                operation:
+                                  description: |-
+                                    Operation controls whether or not to update/add a tag, or to remove it.
+
+                                    Valid Options: UPSERT, REMOVE
+                                  enum:
+                                  - UPSERT
+                                  - REMOVE
+                                  type: string
+                                value:
+                                  description: Value is only considered if the operation
+                                    is `UPSERT`.
+                                  type: string
+                              type: object
+                              x-kubernetes-validations:
+                              - message: value must be set when operation is UPSERT
+                                rule: '((has(self.operation) ? self.operation : '''')
+                                  == ''UPSERT'') ? self.value != '''' : true'
+                              - message: value must not be set when operation is REMOVE
+                                rule: '((has(self.operation) ? self.operation : '''')
+                                  == ''REMOVE'') ? !has(self.value) : true'
+                            description: Optional.
+                            type: object
+                        type: object
+                      type: array
+                    providers:
+                      description: Optional.
+                      items:
+                        properties:
+                          name:
+                            description: Required.
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      type: array
+                    reportingInterval:
+                      description: Optional.
+                      type: string
+                  type: object
+                type: array
+              selector:
+                description: Optional.
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: One or more labels that indicate a specific set of
+                      pods/VMs on which a policy should be applied.
+                    type: object
+                type: object
+              targetRef:
+                description: Optional.
+                properties:
+                  group:
+                    description: group is the group of the target resource.
+                    type: string
+                  kind:
+                    description: kind is kind of the target resource.
+                    type: string
+                  name:
+                    description: name is the name of the target resource.
+                    type: string
+                  namespace:
+                    description: namespace is the namespace of the referent.
+                    type: string
+                type: object
+              tracing:
+                description: Optional.
+                items:
+                  properties:
+                    customTags:
+                      additionalProperties:
+                        oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - literal
+                            - required:
+                              - environment
+                            - required:
+                              - header
+                        - required:
+                          - literal
+                        - required:
+                          - environment
+                        - required:
+                          - header
+                        properties:
+                          environment:
+                            description: Environment adds the value of an environment
+                              variable to each span.
+                            properties:
+                              defaultValue:
+                                description: Optional.
+                                type: string
+                              name:
+                                description: Name of the environment variable from
+                                  which to extract the tag value.
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          header:
+                            description: RequestHeader adds the value of an header
+                              from the request to each span.
+                            properties:
+                              defaultValue:
+                                description: Optional.
+                                type: string
+                              name:
+                                description: Name of the header from which to extract
+                                  the tag value.
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          literal:
+                            description: Literal adds the same, hard-coded value to
+                              each span.
+                            properties:
+                              value:
+                                description: The tag value to use.
+                                minLength: 1
+                                type: string
+                            required:
+                            - value
+                            type: object
+                        type: object
+                      description: Optional.
+                      type: object
+                    disableSpanReporting:
+                      description: Controls span reporting.
+                      nullable: true
+                      type: boolean
+                    match:
+                      description: Allows tailoring of behavior to specific conditions.
+                      properties:
+                        mode:
+                          description: |-
+                            This determines whether or not to apply the tracing configuration based on the direction of traffic relative to the proxied workload.
+
+                            Valid Options: CLIENT_AND_SERVER, CLIENT, SERVER
+                          enum:
+                          - CLIENT_AND_SERVER
+                          - CLIENT
+                          - SERVER
+                          type: string
+                      type: object
+                    providers:
+                      description: Optional.
+                      items:
+                        properties:
+                          name:
+                            description: Required.
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      type: array
+                    randomSamplingPercentage:
+                      description: Controls the rate at which traffic will be selected
+                        for tracing if no prior sampling decision has been made.
+                      maximum: 100
+                      minimum: 0
+                      nullable: true
+                      type: number
+                    useRequestIdForTraceSampling:
+                      nullable: true
+                      type: boolean
+                  type: object
+                type: array
+            type: object
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - description: 'CreationTimestamp is a timestamp representing the server time
+        when this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
