@@ -96,7 +96,7 @@ func TestWaypoint(t *testing.T) {
 				"--wait",
 			})
 
-			nameSet := []string{"w1", "w2", "w3"}
+			nameSet := []string{"", "w1", "w2", "w3"}
 			for _, name := range nameSet {
 				istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 					"x",

@@ -98,7 +98,7 @@ const (
 	IstioMeshGateway = "mesh"
 
 	// DefaultNamespaceWaypoint is the default name for a waypoint in a namespace.
-	DefaultNamespaceWaypoint = "default-namespace-waypoint"
+	DefaultNamespaceWaypoint = "default-namespace"
 
 	// The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMapDataName = "root-cert.pem"
