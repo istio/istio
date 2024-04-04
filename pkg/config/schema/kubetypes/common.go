@@ -61,7 +61,7 @@ func GvkFromObject(obj runtime.Object) config.GroupVersionKind {
 	return getGvk(obj)
 }
 
-var registeredTypes []any = make([]any, 0)
+var registeredTypes = make([]any, 0)
 
 func Register[T runtime.Object](reg RegisterType[T]) {
 	registeredTypes = append(registeredTypes, reg)

@@ -170,7 +170,7 @@ func stripUnusedFields(obj any) (any, error) {
 	return obj, nil
 }
 
-var registerType []any = make([]any, 0)
+var registerType = make([]any, 0)
 
 // Register provides the TypeRegistration to the underlying
 // store to enable dynamic object translation
@@ -189,11 +189,12 @@ type TypeRegistration[T runtime.Object] interface {
 	ListWatch(c ClientGetter, opts ktypes.InformerOptions) cache.ListerWatcher
 }
 
-type gvrMatch interface {
-	GetGVR() schema.GroupVersionResource
-}
-
-func NewTypeRegistration[T runtime.Object](gvr schema.GroupVersionResource, gvk config.GroupVersionKind, obj T, lw func(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher) TypeRegistration[T] {
+func NewTypeRegistration[T runtime.Object](
+	gvr schema.GroupVersionResource,
+	gvk config.GroupVersionKind,
+	obj T,
+	lw func(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher,
+) TypeRegistration[T] {
 	return &internalTypeReg[T]{
 		gvr: gvr,
 		gvk: gvk,
