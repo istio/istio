@@ -109,12 +109,10 @@ type Test interface {
 // Test allows the test author to specify test-related metadata in a fluent-style, before commencing execution.
 type testImpl struct {
 	// name to be used when creating a Golang test. Only used for subtests.
-	name   string
-	parent *testImpl
-	goTest *testing.T
-	labels []label.Instance
-	// featureLabels maps features to the scenarios they cover.
-	notImplemented       bool
+	name                 string
+	parent               *testImpl
+	goTest               *testing.T
+	labels               []label.Instance
 	s                    *suiteContext
 	requiredMinClusters  int
 	requiredMaxClusters  int
@@ -289,7 +287,6 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 			t.goTest.Name(),
 			time.Since(start))
 		t.ts.End()
-		rt.suiteContext().registerOutcome(t)
 	})
 
 	// Run the user's test function.

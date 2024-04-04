@@ -61,9 +61,6 @@ type suiteContext struct {
 
 	suiteLabels label.Set
 
-	outcomeMu    sync.RWMutex
-	testOutcomes []TestOutcome
-
 	dumpCount *atomic.Uint64
 
 	traceContext context.Context
@@ -235,40 +232,6 @@ func (c *suiteContext) RequestTestDump() bool {
 
 func (c *suiteContext) ID() string {
 	return c.globalScope.id
-}
-
-type Outcome string
-
-const (
-	Passed         Outcome = "Passed"
-	Failed         Outcome = "Failed"
-	Skipped        Outcome = "Skipped"
-	NotImplemented Outcome = "NotImplemented"
-)
-
-type TestOutcome struct {
-	Name    string
-	Type    string
-	Outcome Outcome
-}
-
-func (c *suiteContext) registerOutcome(test *testImpl) {
-	o := Passed
-	if test.notImplemented {
-		o = NotImplemented
-	} else if test.goTest.Failed() {
-		o = Failed
-	} else if test.goTest.Skipped() {
-		o = Skipped
-	}
-	newOutcome := TestOutcome{
-		Name:    test.goTest.Name(),
-		Type:    "integration",
-		Outcome: o,
-	}
-	c.contextMu.Lock()
-	defer c.contextMu.Unlock()
-	c.testOutcomes = append(c.testOutcomes, newOutcome)
 }
 
 func (c *suiteContext) RecordTraceEvent(key string, value any) {
