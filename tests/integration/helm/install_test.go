@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pkg/test/framework"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -40,17 +42,52 @@ global:
 `
 	framework.
 		NewTest(t).
-		Run(setupInstallation(overrideValuesStr, false))
+		Run(setupInstallation(overrideValuesStr, false, DefaultNamespaceConfig))
 }
 
 // TestAmbientInstall tests Istio ambient profile installation using Helm
 func TestAmbientInstall(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(setupInstallation(ambientProfileOverride, true))
+		Run(setupInstallation(ambientProfileOverride, true, DefaultNamespaceConfig))
 }
 
-func setupInstallation(overrideValuesStr string, isAmbient bool) func(t framework.TestContext) {
+func TestAmbientInstallMultiNamespace(t *testing.T) {
+	tests := []struct {
+		name     string
+		nsConfig NamespaceConfig
+	}{{
+		name: "istio-cni",
+		nsConfig: NewNamespaceConfig(types.NamespacedName{
+			Name: CniReleaseName, Namespace: "istio-cni",
+		}),
+	}, {
+		name: "istio-cni-ztunnel",
+		nsConfig: NewNamespaceConfig(types.NamespacedName{
+			Name: CniReleaseName, Namespace: "istio-cni",
+		}, types.NamespacedName{
+			Name: ZtunnelReleaseName, Namespace: "kube-system",
+		}),
+	}, {
+		name: "istio-cni-foo",
+		nsConfig: NewNamespaceConfig(types.NamespacedName{
+			Name: CniReleaseName, Namespace: "istio-cni",
+		}, types.NamespacedName{
+			Name: ZtunnelReleaseName, Namespace: "ztunnel",
+		}, types.NamespacedName{
+			Name: IngressReleaseName, Namespace: "ingress-release",
+		}),
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			framework.
+				NewTest(t).
+				Run(setupInstallation(ambientProfileOverride, true, tt.nsConfig))
+		})
+	}
+}
+
+func setupInstallation(overrideValuesStr string, isAmbient bool, config NamespaceConfig) func(t framework.TestContext) {
 	return func(t framework.TestContext) {
 		workDir, err := t.CreateTmpDirectory("helm-install-test")
 		if err != nil {
@@ -69,17 +106,19 @@ func setupInstallation(overrideValuesStr string, isAmbient bool) func(t framewor
 				return
 			}
 			if t.Settings().CIMode {
-				namespace.Dump(t, IstioNamespace)
+				for _, ns := range config.AllNamespaces() {
+					namespace.Dump(t, ns)
+				}
 			}
 		})
-		InstallIstio(t, cs, h, overrideValuesFile, "", true, isAmbient)
+		InstallIstio(t, cs, h, overrideValuesFile, "", true, isAmbient, config)
 
-		VerifyInstallation(t, cs, true, isAmbient)
+		VerifyInstallation(t, cs, config, true, isAmbient)
 		verifyValidation(t)
 
 		sanitycheck.RunTrafficTest(t, t)
 		t.Cleanup(func() {
-			DeleteIstio(t, h, cs, isAmbient)
+			DeleteIstio(t, h, cs, config, isAmbient)
 		})
 	}
 }

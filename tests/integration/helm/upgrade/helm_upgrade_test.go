@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/util/image"
+	helmtest "istio.io/istio/tests/integration/helm"
 )
 
 var (
@@ -81,14 +82,14 @@ func TestDefaultInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 func TestCanaryUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performCanaryUpgradeFunc(previousSupportedVersion))
+		Run(performCanaryUpgradeFunc(helmtest.DefaultNamespaceConfig, previousSupportedVersion))
 }
 
 // TestCanaryUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
 func TestCanaryUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performCanaryUpgradeFunc(nMinusTwoVersion))
+		Run(performCanaryUpgradeFunc(helmtest.DefaultNamespaceConfig, nMinusTwoVersion))
 }
 
 // TestStableRevisionLabelsUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
