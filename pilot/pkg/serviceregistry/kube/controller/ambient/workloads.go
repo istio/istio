@@ -245,15 +245,6 @@ func (a *index) podWorkloadBuilder(
 		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
 		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
 		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
-		var waypoint *Waypoint
-		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-			// Waypoints do not have waypoints, but anything else does
-			waypoint = fetchWaypointForWorkload(ctx, Waypoints, Namespaces, p.ObjectMeta)
-		}
-		var waypointAddress *workloadapi.GatewayAddress
-		if waypoint != nil {
-			waypointAddress = a.getWaypointAddress(waypoint)
-		}
 		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableServiceEntrySelectPods {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
@@ -279,10 +270,19 @@ func (a *index) podWorkloadBuilder(
 			Services:              constructServices(p, services),
 			AuthorizationPolicies: policies,
 			Status:                status,
-			Waypoint:              waypointAddress,
 			TrustDomain:           pickTrustDomain(),
 		}
 
+		if instancedWaypoint := fetchWaypointForInstance(ctx, Waypoints, p.ObjectMeta); instancedWaypoint != nil {
+			// we're an instance of a waypoint, set inbound tunnel info
+			w.ApplicationTunnel = &workloadapi.ApplicationTunnel{
+				Protocol: instancedWaypoint.DefaultBinding.Protocol,
+				Port:     instancedWaypoint.DefaultBinding.Port,
+			}
+		} else if waypoint := fetchWaypointForWorkload(ctx, Waypoints, Namespaces, p.ObjectMeta); waypoint != nil {
+			// there is a workload-attached waypoint, point there with a GatewayAddress
+			w.Waypoint = a.getWaypointAddress(waypoint)
+		}
 		w.WorkloadName, w.WorkloadType = workloadNameAndType(p)
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 

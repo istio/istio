@@ -130,7 +130,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "namespace-wide",
+			constants.GatewayNameLabel:    "waypoint-ns",
 		}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns-pod")
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
@@ -154,7 +154,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel}, // labels
 		map[string]string{}, // annotations
 		[]int32{80},
-		map[string]string{constants.GatewayNameLabel: "namespace-wide"}, // selector
+		map[string]string{constants.GatewayNameLabel: "waypoint-ns"}, // selector
 		"10.0.0.2",
 	)
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
@@ -170,7 +170,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.addPods(t, "127.0.0.201", "waypoint2-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "namespace-wide",
+			constants.GatewayNameLabel:    "waypoint-ns",
 		}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns", "waypoint-ns-pod", "waypoint2-ns-pod")
 	// all these workloads already have a waypoint, only expect the new waypoint pod
