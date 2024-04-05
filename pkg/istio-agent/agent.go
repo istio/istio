@@ -93,6 +93,44 @@ type SDSService interface {
 	Stop()
 }
 
+type SDSServiceFactory = func(_ *security.Options, _ security.SecretManager, _ *mesh.PrivateKeyProvider) SDSService
+
+// Shared properties with Pilot Proxy struct.
+type Proxy struct {
+	ID          string
+	IPAddresses []string
+	Type        model.NodeType
+	ipMode      model.IPMode
+	DNSDomain   string
+}
+
+func (node *Proxy) DiscoverIPMode() {
+	node.ipMode = model.DiscoverIPMode(node.IPAddresses)
+}
+
+// IsIPv6 returns true if proxy only supports IPv6 addresses.
+func (node *Proxy) IsIPv6() bool {
+	return node.ipMode == model.IPv6
+}
+
+func (node *Proxy) SupportsIPv6() bool {
+	return node.ipMode == model.IPv6 || node.ipMode == model.Dual
+}
+
+const (
+	serviceNodeSeparator = "~"
+)
+
+func (node *Proxy) ServiceNode() string {
+	ip := ""
+	if len(node.IPAddresses) > 0 {
+		ip = node.IPAddresses[0]
+	}
+	return strings.Join([]string{
+		string(node.Type), ip, node.ID, node.DNSDomain,
+	}, serviceNodeSeparator)
+}
+
 // Agent contains the configuration of the agent, based on the injected
 // environment:
 // - SDS hostPath if node-agent was used

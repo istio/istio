@@ -71,6 +71,48 @@ import (
 	"istio.io/istio/tests/util/leak"
 )
 
+func TestServiceNode(t *testing.T) {
+	cases := []struct {
+		in  *Proxy
+		out string
+	}{
+		{
+			in: &Proxy{
+				Type:        model.SidecarProxy,
+				IPAddresses: []string{"10.1.1.0"},
+				ID:          "v0.default",
+				DNSDomain:   "default.svc.cluster.local",
+			},
+			out: "sidecar~10.1.1.0~v0.default~default.svc.cluster.local",
+		},
+		{
+			in: &Proxy{
+				Type:        model.Router,
+				ID:          "random",
+				IPAddresses: []string{"10.3.3.3"},
+				DNSDomain:   "local",
+			},
+			out: "router~10.3.3.3~random~local",
+		},
+		{
+			in: &Proxy{
+				Type:        model.SidecarProxy,
+				ID:          "random",
+				IPAddresses: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"},
+				DNSDomain:   "local",
+			},
+			out: "sidecar~10.3.3.3~random~local",
+		},
+	}
+
+	for _, node := range cases {
+		out := node.in.ServiceNode()
+		if out != node.out {
+			t.Errorf("%#v.ServiceNode() => Got %s, want %s", node.in, out, node.out)
+		}
+	}
+}
+
 func TestAgent(t *testing.T) {
 	test.SetForTest(t, &version.Info.Version, "version")
 
@@ -644,7 +686,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		ECCSigAlg:  string(pkiutil.EcdsaSigAlg),
 		CARootPath: cafile.CACertFilePath,
 	}
-	proxy := &model.Proxy{
+	proxy := &Proxy{
 		ID:          "pod1.fake-namespace",
 		DNSDomain:   "fake-namespace.svc.cluster.local",
 		Type:        model.SidecarProxy,

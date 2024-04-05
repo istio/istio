@@ -66,10 +66,6 @@ func TestServiceNode(t *testing.T) {
 	}
 
 	for _, node := range cases {
-		out := node.in.ServiceNode()
-		if out != node.out {
-			t.Errorf("%#v.ServiceNode() => Got %s, want %s", node.in, out, node.out)
-		}
 		in, err := model.ParseServiceNodeWithMetadata(node.out, node.in.Metadata)
 		if err != nil {
 			t.Errorf("ParseServiceNode(%q) => Got error %v", node.out, err)

@@ -62,6 +62,7 @@ type (
 	TrafficInterceptionMode = pm.TrafficInterceptionMode
 	PodPort                 = pm.PodPort
 	StringBool              = pm.StringBool
+	IPMode                  = pm.IPMode
 )
 
 const (
@@ -69,6 +70,10 @@ const (
 	Router       = pm.Router
 	Waypoint     = pm.Waypoint
 	Ztunnel      = pm.Ztunnel
+
+	IPv4 = pm.IPv4
+	IPv6 = pm.IPv6
+	Dual = pm.Dual
 )
 
 var _ mesh.Holder = &Environment{}
@@ -523,37 +528,6 @@ func compareVersion(ov, nv int) int {
 
 var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
 
-// IPMode represents the IP mode of proxy.
-type IPMode int
-
-// IPMode constants starting with index 1.
-const (
-	IPv4 IPMode = iota + 1
-	IPv6
-	Dual
-)
-
-// IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
-func IsApplicationNodeType(nType NodeType) bool {
-	switch nType {
-	case SidecarProxy, Router, Waypoint, Ztunnel:
-		return true
-	default:
-		return false
-	}
-}
-
-// ServiceNode encodes the proxy node attributes into a URI-acceptable string
-func (node *Proxy) ServiceNode() string {
-	ip := ""
-	if len(node.IPAddresses) > 0 {
-		ip = node.IPAddresses[0]
-	}
-	return strings.Join([]string{
-		string(node.Type), ip, node.ID, node.DNSDomain,
-	}, serviceNodeSeparator)
-}
-
 // SetSidecarScope identifies the sidecar scope object associated with this
 // proxy and updates the proxy Node. This is a convenience hack so that
 // callers can simply call push.Services(node) while the implementation of
@@ -635,13 +609,7 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) {
 
 // DiscoverIPMode discovers the IP Versions supported by Proxy based on its IP addresses.
 func (node *Proxy) DiscoverIPMode() {
-	if networkutil.AllIPv4(node.IPAddresses) {
-		node.ipMode = IPv4
-	} else if networkutil.AllIPv6(node.IPAddresses) {
-		node.ipMode = IPv6
-	} else {
-		node.ipMode = Dual
-	}
+	node.ipMode = pm.DiscoverIPMode(node.IPAddresses)
 	node.GlobalUnicastIP = networkutil.GlobalUnicastIP(node.IPAddresses)
 }
 
@@ -712,7 +680,7 @@ func ParseServiceNodeWithMetadata(nodeID string, metadata *NodeMetadata) (*Proxy
 		return out, fmt.Errorf("missing parts in the service node %q", nodeID)
 	}
 
-	if !IsApplicationNodeType(NodeType(parts[0])) {
+	if !pm.IsApplicationNodeType(NodeType(parts[0])) {
 		return out, fmt.Errorf("invalid node type (valid types: %v) in the service node %q", NodeTypes, nodeID)
 	}
 	out.Type = NodeType(parts[0])
