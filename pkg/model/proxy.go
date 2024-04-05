@@ -507,7 +507,6 @@ func DiscoverIPMode(addrs []string) IPMode {
 		return IPv4
 	} else if networkutil.AllIPv6(addrs) {
 		return IPv6
-	} else {
-		return Dual
 	}
+	return Dual
 }
