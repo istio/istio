@@ -84,14 +84,12 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		if waypointName == "" {
 			waypointName = constants.DefaultNamespaceWaypoint
 		}
-		// If a user decides to enroll their namespace with a waypoint, annotate the namespace with the waypoint name
+		// If a user decides to enroll their namespace with a waypoint, annotate the namespace with the waypoint name.
 		if enrollNamespace {
 			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			// If waypoint should be enrolled into specific namespace, annotate that namespace with the waypoint;
-			// otherwise, the default is to enroll the waypoint into the default namespace.
 			err = annotateNamespaceWithWaypoint(kubeClient, ns)
 			if err != nil {
 				return nil, fmt.Errorf("failed to annotate namespace with waypoint: %v", err)
