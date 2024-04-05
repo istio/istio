@@ -250,6 +250,10 @@ func (t *testAnalyzer) Features(feats ...features.Feature) Test {
 	return t
 }
 
+func (t *testAnalyzer) TopLevel() Test {
+	return t
+}
+
 func addFeatureLabels(featureLabels map[features.Feature][]string, feats ...features.Feature) error {
 	c, err := features.BuildChecker(env.IstioSrc + "/pkg/test/framework/features/features.yaml")
 	if err != nil {
