@@ -15,14 +15,13 @@
 package options
 
 import (
-	"strings"
-
-	"istio.io/istio/pkg/model"
+	istioagent "istio.io/istio/pkg/istio-agent"
 )
 
 // ProxyArgs provides all of the configuration parameters for the Pilot proxy.
 type ProxyArgs struct {
-	DNSDomain          string
+	istioagent.Proxy
+
 	StsPort            int
 	TokenManagerPlugin string
 
@@ -41,12 +40,6 @@ type ProxyArgs struct {
 
 	// enableProfiling enables profiling via web interface host:port/debug/pprof/
 	EnableProfiling bool
-
-	// Shared properties with Pilot Proxy struct.
-	ID          string
-	IPAddresses []string
-	Type        model.NodeType
-	ipMode      model.IPMode
 }
 
 // NewProxyArgs constructs proxyArgs with default values.
@@ -63,31 +56,4 @@ func NewProxyArgs() ProxyArgs {
 func (node *ProxyArgs) applyDefaults() {
 	node.PodName = PodNameVar.Get()
 	node.PodNamespace = PodNamespaceVar.Get()
-}
-
-func (node *ProxyArgs) DiscoverIPMode() {
-	node.ipMode = model.DiscoverIPMode(node.IPAddresses)
-}
-
-// IsIPv6 returns true if proxy only supports IPv6 addresses.
-func (node *ProxyArgs) IsIPv6() bool {
-	return node.ipMode == model.IPv6
-}
-
-func (node *ProxyArgs) SupportsIPv6() bool {
-	return node.ipMode == model.IPv6 || node.ipMode == model.Dual
-}
-
-const (
-	serviceNodeSeparator = "~"
-)
-
-func (node *ProxyArgs) ServiceNode() string {
-	ip := ""
-	if len(node.IPAddresses) > 0 {
-		ip = node.IPAddresses[0]
-	}
-	return strings.Join([]string{
-		string(node.Type), ip, node.ID, node.DNSDomain,
-	}, serviceNodeSeparator)
 }
