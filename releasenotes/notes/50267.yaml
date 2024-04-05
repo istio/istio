@@ -5,4 +5,4 @@ issue:
   - 50248
 releaseNotes:
 - |
-  **Added** Allow user to enroll their waypoint in a specific namespace through istioctl via --enroll-namespace flag on the waypoint cmd.
+  **Added** Allow user to enroll their waypoint in the waypoint's namespace through istioctl via --enroll-namespace flag on the waypoint cmd.

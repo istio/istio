@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -53,27 +52,27 @@ var (
 	trafficType       = constants.ServiceTraffic
 	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 
-	waypointName      = constants.DefaultNamespaceWaypoint
-	enrolledNamespace = constants.DefaultEnrolledNamespace
+	waypointName    = constants.DefaultNamespaceWaypoint
+	enrollNamespace bool
 )
 
 const waitTimeout = 90 * time.Second
 
 func Cmd(ctx cli.Context) *cobra.Command {
-	annotateNamespaceWithWaypoint := func(kubeClient kube.CLIClient) error {
-		nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.Background(), enrolledNamespace, metav1.GetOptions{})
+	annotateNamespaceWithWaypoint := func(kubeClient kube.CLIClient, ns string) error {
+		nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
-			return fmt.Errorf("namespace: %s not found", enrolledNamespace)
+			return fmt.Errorf("namespace: %s not found", ns)
 		} else if err != nil {
-			return fmt.Errorf("failed to get namespace %s: %v", enrolledNamespace, err)
+			return fmt.Errorf("failed to get namespace %s: %v", ns, err)
 		}
 		if nsObj.Annotations == nil {
 			nsObj.Annotations = map[string]string{}
-		} else if _, exists := nsObj.Annotations[constants.AmbientUseWaypoint]; exists && enrolledNamespace == constants.DefaultEnrolledNamespace {
-			// If the namespace is already annotated with a Waypoint name and the user did not specify a Waypoint name, return early.
-			return nil
 		}
-		nsObj.Annotations[constants.AmbientUseWaypoint] = waypointName
+		nsObj.Annotations[constants.AmbientUseWaypoint] = constants.WaypointGatewayClassName
+		if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(context.Background(), nsObj, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("failed to update namespace %s: %v", ns, err)
+		}
 		return nil
 	}
 	makeGateway := func(forApply bool) (*gateway.Gateway, error) {
@@ -85,19 +84,18 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		if waypointName == "" {
 			waypointName = constants.DefaultNamespaceWaypoint
 		}
-		// If a user sets the enrolled namespace to an empty string, set it to the default enrolled namespace.
-		if enrolledNamespace == "" {
-			enrolledNamespace = constants.DefaultEnrolledNamespace
-		}
-		kubeClient, err := ctx.CLIClient()
-		if err != nil {
-			return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
-		}
-		// If waypoint should be enrolled into specific namespace, annotate that namespace with the waypoint;
-		// otherwise, the default is to enroll the waypoint into the default namespace.
-		err = annotateNamespaceWithWaypoint(kubeClient)
-		if err != nil {
-			log.Errorf("failed to annotate namespace with waypoint: %v", err)
+		// If a user decides to enroll their namespace with a waypoint, annotate the namespace with the waypoint name
+		if enrollNamespace {
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
+			}
+			// If waypoint should be enrolled into specific namespace, annotate that namespace with the waypoint;
+			// otherwise, the default is to enroll the waypoint into the default namespace.
+			err = annotateNamespaceWithWaypoint(kubeClient, ns)
+			if err != nil {
+				return nil, fmt.Errorf("failed to annotate namespace with waypoint: %v", err)
+			}
 		}
 
 		gw := gateway.Gateway{
@@ -229,11 +227,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		fmt.Sprintf("Specify the traffic type %s for the waypoint", validTrafficTypes.String()),
 	)
 
-	waypointApplyCmd.PersistentFlags().StringVar(&enrolledNamespace,
-		"enroll-namespace",
-		"default",
-		"Namespace to enroll the waypoint in",
-	)
+	waypointApplyCmd.PersistentFlags().BoolVarP(&enrollNamespace, "enroll-namespace", "", false,
+		"If set, the namespace will be annotated with the waypoint name")
 
 	waypointDeleteCmd := &cobra.Command{
 		Use:   "delete",

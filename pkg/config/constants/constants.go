@@ -100,9 +100,6 @@ const (
 	// DefaultNamespaceWaypoint is the default name for a waypoint in a namespace.
 	DefaultNamespaceWaypoint = "default-namespace"
 
-	// DefaultEnrolledNamespace is the default namespace for waypoint enrollment.
-	DefaultEnrolledNamespace = "default"
-
 	// The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMapDataName = "root-cert.pem"
 
