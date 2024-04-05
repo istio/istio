@@ -1337,6 +1337,9 @@ message BaseConfig {
   // For Helm2 use, adds the CRDs to templates.
   google.protobuf.BoolValue enableCRDTemplates = 1;
 
+  // Used for choosing the stability level of CRDs istalled
+  string releaseChannel = 72;
+
   // URL to use for validating webhook.
   string validationURL = 2;
 

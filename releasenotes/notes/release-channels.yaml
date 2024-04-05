@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: 
+- https://github.com/istio/enhancements/issues/173 
+releaseNotes:
+- |
+  **Enabled** the Istio APIs to be installed as part of the Extended or Stable release channel.

@@ -49,12 +49,19 @@ fi
 
 git clone  "https://${REPO}" "${API_TMP}" && cd "${API_TMP}"
 git checkout "${SHA}"
-if [ ! -f "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" ]; then
-  echo "Generated Custom Resource Definitions file does not exist in the commit SHA ${SHA}. Not updating the CRD file."
+if [ ! -f "${API_TMP}/kubernetes/stable.gen.yaml" ]; then
+  echo "Generated Custom Resource Definitions file for Stable Release Channel does not exist in the commit SHA ${SHA}. Not updating the CRD file."
   exit
 fi
-rm -f "${ROOTDIR}/manifests/charts/base/crds/crd-all.gen.yaml"
-cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/manifests/charts/base/crds/crd-all.gen.yaml"
+rm -f "${ROOTDIR}/manifests/charts/base/files/stable.gen.yaml"
+cp "${API_TMP}/kubernetes/stable.gen.yaml" "${ROOTDIR}/manifests/charts/base/files/stable.gen.yaml"
+
+if [ ! -f "${API_TMP}/kubernetes/extended.gen.yaml" ]; then
+  echo "Generated Custom Resource Definitions file for Extended Release Channel does not exist in the commit SHA ${SHA}. Not updating the CRD file."
+  exit
+fi
+rm -f "${ROOTDIR}/manifests/charts/base/files/extended.gen.yaml"
+cp "${API_TMP}/kubernetes/extended.gen.yaml" "${ROOTDIR}/manifests/charts/base/files/extended.gen.yaml"
 
 cd "${ROOTDIR}"
 

@@ -30,7 +30,7 @@ import (
 // FieldAnalyzer checks for deprecated Istio types and fields
 type FieldAnalyzer struct{}
 
-// Tracks Istio CRDs removed from manifests/charts/base/crds/crd-all.gen.yaml
+// Tracks Istio CRDs removed from manifests/charts/base/files/extended.gen.yaml
 var deprecatedCRDs = []k8sext.CustomResourceDefinitionSpec{
 	{
 		Group: "rbac.istio.io",

@@ -488,6 +488,10 @@ defaults:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
 
+    # Used for choosing the stability level of CRDs istalled
+    # Extended channel is the default release channel
+    releaseChannel: "extended"
+
   # `istio_cni` has been deprecated and will be removed in a future release. use `pilot.cni` instead
   istio_cni:
     # `chained` has been deprecated and will be removed in a future release. use `provider` instead

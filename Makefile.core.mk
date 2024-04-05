@@ -366,7 +366,9 @@ copy-templates:
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/_helpers.tpl manifests/charts/istiod-remote/templates
-	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-all.gen.yaml > manifests/charts/istiod-remote/templates/crd-all.gen.yaml
+	sed -e '1 i {{- if and .Values.global.configCluster (eq .Values.base.releaseChannel "stable") }}' -e '$$ a {{- end }}' manifests/charts/base/files/stable.gen.yaml > manifests/charts/istiod-remote/files/stable.gen.yaml
+	sed -e '1 i {{- if and .Values.global.configCluster (or (not .Values.base.ReleaseChannel) (eq .Values.base.ReleaseChannel "extended")) }}' -e '$$ a {{- end }}' manifests/charts/base/files/extended.gen.yaml > manifests/charts/istiod-remote/files/extended.gen.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/templates/crds.yaml > manifests/charts/istiod-remote/templates/crds.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/templates/default.yaml > manifests/charts/istiod-remote/templates/default.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml > manifests/charts/istiod-remote/templates/validatingwebhookconfiguration.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/serviceaccount.yaml > manifests/charts/istiod-remote/templates/serviceaccount.yaml

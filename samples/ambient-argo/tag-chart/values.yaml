@@ -19,6 +19,10 @@ base:
   # Used for helm2 to add the CRDs to templates.
   enableCRDTemplates: false
 
+  # Used for choosing the stability level of CRDs istalled
+  # Extended channel is the default release channel
+  releaseChannel: "extended"
+
   # Validation webhook configuration url
   # For example: https://$remotePilotAddress:15017/validate
   validationURL: ""

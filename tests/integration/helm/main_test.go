@@ -27,6 +27,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		// Deprecated: All new tests should support multiple clusters.
 		RequireSingleCluster().
 		Run()
 }

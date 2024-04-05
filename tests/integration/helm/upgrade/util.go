@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	helmtest "istio.io/istio/tests/integration/helm"
 	"istio.io/istio/tests/util/sanitycheck"
@@ -48,18 +47,9 @@ const (
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
 func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string, isAmbient bool) {
-	execCmd := fmt.Sprintf(
-		"kubectl apply -n %v -f %v",
-		helmtest.IstioNamespace,
-		filepath.Join(helmtest.ManifestsChartPath, helmtest.BaseChart, helmtest.CRDsFolder))
-	_, err := shell.Execute(false, execCmd)
-	if err != nil {
-		ctx.Fatalf("couldn't run kubectl apply on crds folder: %v", err)
-	}
-
 	// Upgrade base chart
-	err = h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.BaseChart),
-		helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout, "--skip-crds")
+	err := h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.BaseChart),
+		helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout)
 	if err != nil {
 		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.BaseReleaseName)
 	}
