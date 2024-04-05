@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -49,33 +50,63 @@ var (
 
 	deleteAll bool
 
-	trafficType       string
+	trafficType       = constants.ServiceTraffic
 	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 
-	waypointName string
+	waypointName      = constants.DefaultNamespaceWaypoint
+	enrolledNamespace = constants.DefaultEnrolledNamespace
 )
 
 const waitTimeout = 90 * time.Second
 
 func Cmd(ctx cli.Context) *cobra.Command {
-	makeGatewayName := func(name string) string {
-		if name == "" {
-			name = constants.DefaultNamespaceWaypoint
+	annotateNamespaceWithWaypoint := func(kubeClient kube.CLIClient) error {
+		nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.Background(), enrolledNamespace, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return fmt.Errorf("namespace: %s not found", enrolledNamespace)
+		} else if err != nil {
+			return fmt.Errorf("failed to get namespace %s: %v", enrolledNamespace, err)
 		}
-		return name
+		if nsObj.Annotations == nil {
+			nsObj.Annotations = map[string]string{}
+		} else if _, exists := nsObj.Annotations[constants.AmbientUseWaypoint]; exists && enrolledNamespace == constants.DefaultEnrolledNamespace {
+			// If the namespace is already annotated with a Waypoint name and the user did not specify a Waypoint name, return early.
+			return nil
+		}
+		nsObj.Annotations[constants.AmbientUseWaypoint] = waypointName
+		return nil
 	}
 	makeGateway := func(forApply bool) (*gateway.Gateway, error) {
 		ns := ctx.NamespaceOrDefault(ctx.Namespace())
 		if ctx.Namespace() == "" && !forApply {
 			ns = ""
 		}
+		// If a user sets the waypoint name to an empty string, set it to the default namespace waypoint name.
+		if waypointName == "" {
+			waypointName = constants.DefaultNamespaceWaypoint
+		}
+		// If a user sets the enrolled namespace to an empty string, set it to the default enrolled namespace.
+		if enrolledNamespace == "" {
+			enrolledNamespace = constants.DefaultEnrolledNamespace
+		}
+		kubeClient, err := ctx.CLIClient()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
+		}
+		// If waypoint should be enrolled into specific namespace, annotate that namespace with the waypoint;
+		// otherwise, the default is to enroll the waypoint into the default namespace.
+		err = annotateNamespaceWithWaypoint(kubeClient)
+		if err != nil {
+			log.Errorf("failed to annotate namespace with waypoint: %v", err)
+		}
+
 		gw := gateway.Gateway{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       gvk.KubernetesGateway_v1.Kind,
 				APIVersion: gvk.KubernetesGateway_v1.GroupVersion(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      makeGatewayName(waypointName),
+				Name:      waypointName,
 				Namespace: ns,
 			},
 			Spec: gateway.GatewaySpec{
@@ -87,11 +118,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}},
 			},
 		}
-		// Determine which traffic address type to apply the waypoint to, if none
-		// then default to "service" as the waypoint-for traffic type.
-		if trafficType == "" {
-			trafficType = constants.ServiceTraffic
-		}
+		// Determine which traffic address type to apply the waypoint to, if none is provided it will default to "service"
+		// as the waypoint-for traffic type.
 		if !validTrafficTypes.Contains(trafficType) {
 			return nil, fmt.Errorf("invalid traffic type: %s. Valid options are: %s", trafficType, validTrafficTypes.String())
 		}
@@ -199,6 +227,12 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		"for",
 		"service",
 		fmt.Sprintf("Specify the traffic type %s for the waypoint", validTrafficTypes.String()),
+	)
+
+	waypointApplyCmd.PersistentFlags().StringVar(&enrolledNamespace,
+		"enroll-namespace",
+		"default",
+		"Namespace to enroll the waypoint in",
 	)
 
 	waypointDeleteCmd := &cobra.Command{
@@ -345,7 +379,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	waypointCmd.AddCommand(waypointGenerateCmd)
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
-	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", "default", "name of the waypoint")
+	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", constants.DefaultNamespaceWaypoint, "name of the waypoint")
 
 	return waypointCmd
 }
