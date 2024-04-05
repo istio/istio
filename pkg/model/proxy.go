@@ -27,6 +27,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
+	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -480,3 +481,33 @@ const (
 	// Ztunnel type is used for node proxies (ztunnel)
 	Ztunnel NodeType = "ztunnel"
 )
+
+// IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
+func IsApplicationNodeType(nType NodeType) bool {
+	switch nType {
+	case SidecarProxy, Router, Waypoint, Ztunnel:
+		return true
+	default:
+		return false
+	}
+}
+
+// IPMode represents the IP mode of proxy.
+type IPMode int
+
+// IPMode constants starting with index 1.
+const (
+	IPv4 IPMode = iota + 1
+	IPv6
+	Dual
+)
+
+func DiscoverIPMode(addrs []string) IPMode {
+	if networkutil.AllIPv4(addrs) {
+		return IPv4
+	} else if networkutil.AllIPv6(addrs) {
+		return IPv6
+	} else {
+		return Dual
+	}
+}

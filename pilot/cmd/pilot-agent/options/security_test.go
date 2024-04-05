@@ -18,6 +18,7 @@ import (
 	"os"
 	"testing"
 
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 )
 
@@ -56,6 +57,48 @@ func TestCheckGkeWorkloadCertificate(t *testing.T) {
 		result := security.CheckWorkloadCertificate(tt.paths[0], tt.paths[1], tt.paths[2])
 		if result != tt.expected {
 			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
+		}
+	}
+}
+
+func TestServiceNode(t *testing.T) {
+	cases := []struct {
+		in  *ProxyArgs
+		out string
+	}{
+		{
+			in: &ProxyArgs{
+				Type:        model.SidecarProxy,
+				IPAddresses: []string{"10.1.1.0"},
+				ID:          "v0.default",
+				DNSDomain:   "default.svc.cluster.local",
+			},
+			out: "sidecar~10.1.1.0~v0.default~default.svc.cluster.local",
+		},
+		{
+			in: &ProxyArgs{
+				Type:        model.Router,
+				ID:          "random",
+				IPAddresses: []string{"10.3.3.3"},
+				DNSDomain:   "local",
+			},
+			out: "router~10.3.3.3~random~local",
+		},
+		{
+			in: &ProxyArgs{
+				Type:        model.SidecarProxy,
+				ID:          "random",
+				IPAddresses: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"},
+				DNSDomain:   "local",
+			},
+			out: "sidecar~10.3.3.3~random~local",
+		},
+	}
+
+	for _, node := range cases {
+		out := node.in.ServiceNode()
+		if out != node.out {
+			t.Errorf("%#v.ServiceNode() => Got %s, want %s", node.in, out, node.out)
 		}
 	}
 }

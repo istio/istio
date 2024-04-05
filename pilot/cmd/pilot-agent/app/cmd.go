@@ -28,15 +28,15 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
-	istio_agent "istio.io/istio/pkg/istio-agent"
+	istioagent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -59,7 +59,7 @@ var (
 	proxyArgs      options.ProxyArgs
 )
 
-func NewRootCommand() *cobra.Command {
+func NewRootCommand(sds istioagent.SDSServiceFactory) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "pilot-agent",
 		Short:        "Istio Pilot agent.",
@@ -76,7 +76,7 @@ func NewRootCommand() *cobra.Command {
 
 	cmd.AddFlags(rootCmd)
 
-	proxyCmd := newProxyCommand()
+	proxyCmd := newProxyCommand(sds)
 	addFlags(proxyCmd)
 	rootCmd.AddCommand(proxyCmd)
 	rootCmd.AddCommand(requestCmd)
@@ -94,7 +94,7 @@ func NewRootCommand() *cobra.Command {
 	return rootCmd
 }
 
-func newProxyCommand() *cobra.Command {
+func newProxyCommand(sds istioagent.SDSServiceFactory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "proxy",
 		Short: "XDS proxy agent",
@@ -109,7 +109,7 @@ func newProxyCommand() *cobra.Command {
 
 			raiseLimits()
 
-			proxy, err := initProxy(args)
+			err := initProxy(args)
 			if err != nil {
 				return err
 			}
@@ -133,7 +133,7 @@ func newProxyCommand() *cobra.Command {
 			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
 			// STS is used for stackdriver or other Envoy services using google gRPC.
 			if proxyArgs.StsPort > 0 {
-				stsServer, err := initStsServer(proxy, secOpts.TokenManager)
+				stsServer, err := initStsServer(secOpts.TokenManager)
 				if err != nil {
 					return err
 				}
@@ -149,19 +149,19 @@ func newProxyCommand() *cobra.Command {
 				LogLevel:          proxyArgs.ProxyLogLevel,
 				ComponentLogLevel: proxyArgs.ProxyComponentLogLevel,
 				LogAsJSON:         loggingOptions.JSONEncoding,
-				NodeIPs:           proxy.IPAddresses,
-				Sidecar:           proxy.Type == model.SidecarProxy,
+				NodeIPs:           proxyArgs.IPAddresses,
+				Sidecar:           proxyArgs.Type == model.SidecarProxy,
 				OutlierLogPath:    proxyArgs.OutlierLogPath,
 			}
-			agentOptions := options.NewAgentOptions(proxy, proxyConfig)
-			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
+			agentOptions := options.NewAgentOptions(&proxyArgs, proxyConfig, sds)
+			agent := istioagent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			defer agent.Close()
 
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
-				if err := initStatusServer(ctx, proxy, proxyConfig,
+				if err := initStatusServer(ctx, proxyConfig,
 					agentOptions.EnvoyPrometheusPort, proxyArgs.EnableProfiling, agent, cancel); err != nil {
 					return err
 				}
@@ -215,14 +215,13 @@ func addFlags(proxyCmd *cobra.Command) {
 
 func initStatusServer(
 	ctx context.Context,
-	proxy *model.Proxy,
 	proxyConfig *meshconfig.ProxyConfig,
 	envoyPrometheusPort int,
 	enableProfiling bool,
-	agent *istio_agent.Agent,
+	agent *istioagent.Agent,
 	shutdown context.CancelFunc,
 ) error {
-	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
+	o := options.NewStatusServerOptions(proxyArgs.IsIPv6(), proxyArgs.Type, proxyConfig, agent)
 	o.EnvoyPrometheusPort = envoyPrometheusPort
 	o.EnableProfiling = enableProfiling
 	o.Context = ctx
@@ -235,9 +234,9 @@ func initStatusServer(
 	return nil
 }
 
-func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*stsserver.Server, error) {
+func initStsServer(tokenManager security.TokenManager) (*stsserver.Server, error) {
 	localHostAddr := localHostIPv4
-	if proxy.IsIPv6() {
+	if proxyArgs.IsIPv6() {
 		localHostAddr = localHostIPv6
 	} else {
 		// if not ipv6-only, it can be ipv4-only or dual-stack
@@ -271,21 +270,19 @@ func configureLogging(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-func initProxy(args []string) (*model.Proxy, error) {
-	proxy := &model.Proxy{
-		Type: model.SidecarProxy,
-	}
+func initProxy(args []string) error {
+	proxyArgs.Type = model.SidecarProxy
 	if len(args) > 0 {
-		proxy.Type = model.NodeType(args[0])
-		if !model.IsApplicationNodeType(proxy.Type) {
-			return nil, fmt.Errorf("Invalid proxy Type: " + string(proxy.Type))
+		proxyArgs.Type = model.NodeType(args[0])
+		if !model.IsApplicationNodeType(proxyArgs.Type) {
+			return fmt.Errorf("Invalid proxy Type: " + string(proxyArgs.Type))
 		}
 	}
 
 	podIP, _ := netip.ParseAddr(options.InstanceIPVar.Get()) // protobuf encoding of IP_ADDRESS type
 	if podIP.IsValid() {
 		// The first one must be the pod ip as we pick the first ip as pod ip in istiod.
-		proxy.IPAddresses = []string{podIP.String()}
+		proxyArgs.IPAddresses = []string{podIP.String()}
 	}
 
 	// Obtain all the IPs from the node
@@ -301,26 +298,26 @@ func initProxy(args []string) (*model.Proxy, error) {
 
 	// Get exclusions from traffic.sidecar.istio.io/excludeInterfaces
 	excludeAddrs := getExcludeInterfaces()
-	excludeAddrs.InsertAll(proxy.IPAddresses...) // prevent duplicate IPs
+	excludeAddrs.InsertAll(proxyArgs.IPAddresses...) // prevent duplicate IPs
 	proxyAddrs = slices.FilterInPlace(proxyAddrs, func(s string) bool {
 		return !excludeAddrs.Contains(s)
 	})
 
-	proxy.IPAddresses = append(proxy.IPAddresses, proxyAddrs...)
-	log.Debugf("proxy IPAddresses: %v", proxy.IPAddresses)
+	proxyArgs.IPAddresses = append(proxyArgs.IPAddresses, proxyAddrs...)
+	log.Debugf("proxy IPAddresses: %v", proxyArgs.IPAddresses)
 
 	// After IP addresses are set, let us discover IPMode.
-	proxy.DiscoverIPMode()
+	proxyArgs.DiscoverIPMode()
 
 	// Extract pod variables.
-	proxy.ID = proxyArgs.PodName + "." + proxyArgs.PodNamespace
+	proxyArgs.ID = proxyArgs.PodName + "." + proxyArgs.PodNamespace
 
 	// If not set, set a default based on platform - podNamespace.svc.cluster.local for
 	// K8S
-	proxy.DNSDomain = getDNSDomain(proxyArgs.PodNamespace, proxyArgs.DNSDomain)
-	log.WithLabels("ips", proxy.IPAddresses, "type", proxy.Type, "id", proxy.ID, "domain", proxy.DNSDomain).Info("Proxy role")
+	proxyArgs.DNSDomain = getDNSDomain(proxyArgs.PodNamespace, proxyArgs.DNSDomain)
+	log.WithLabels("ips", proxyArgs.IPAddresses, "type", proxyArgs.Type, "id", proxyArgs.ID, "domain", proxyArgs.DNSDomain).Info("Proxy role")
 
-	return proxy, nil
+	return nil
 }
 
 func getExcludeInterfaces() sets.String {

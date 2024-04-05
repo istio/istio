@@ -21,19 +21,16 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	istioagent "istio.io/istio/pkg/istio-agent"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wasm"
-	"istio.io/istio/security/pkg/nodeagent/sds"
 )
 
 // Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra header.
 const xdsHeaderPrefix = "XDS_HEADER_"
 
-func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagent.AgentOptions {
+func NewAgentOptions(proxy *ProxyArgs, cfg *meshconfig.ProxyConfig, sds istioagent.SDSServiceFactory) *istioagent.AgentOptions {
 	var insecureRegistries []string
 	if wasmInsecureRegistries != "" {
 		insecureRegistries = strings.Split(wasmInsecureRegistries, ",")
@@ -73,9 +70,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		DualStack:                   features.EnableDualStack,
 		UseExternalWorkloadSDS:      useExternalWorkloadSDSEnv,
 		MetadataDiscovery:           enableWDSEnv,
-		SDSFactory: func(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *meshconfig.PrivateKeyProvider) istioagent.SDSService {
-			return sds.NewServer(options, workloadSecretCache, pkpConf)
-		},
+		SDSFactory:                  sds,
 	}
 	extractXDSHeadersFromEnv(o)
 	return o
