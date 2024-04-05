@@ -2612,6 +2612,18 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	return
 }
 
+func validateStringMatch(sm *networking.StringMatch, where string) error {
+	switch sm.GetMatchType().(type) {
+	case *networking.StringMatch_Prefix:
+		if sm.GetPrefix() == "" {
+			return fmt.Errorf("%q: prefix string match should not be empty", where)
+		}
+	case *networking.StringMatch_Regex:
+		return validateStringMatchRegexp(sm, where)
+	}
+	return nil
+}
+
 func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
 	switch sm.GetMatchType().(type) {
 	case *networking.StringMatch_Regex:
