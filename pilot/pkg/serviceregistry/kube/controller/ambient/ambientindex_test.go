@@ -1406,6 +1406,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	up := xdsfake.NewFakeXDS()
 	up.SplitEvents = true
 	cl := kubeclient.NewFakeClient()
+	t.Cleanup(cl.Shutdown)
 	for _, crd := range []schema.GroupVersionResource{
 		gvr.AuthorizationPolicy,
 		gvr.PeerAuthentication,
