@@ -1307,6 +1307,8 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 	// Add a namespace waypoint to the pod
 	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", constants.WorkloadTraffic, true)
 	s.addWaypoint(t, "10.0.0.2", "waypoint-sa1", constants.WorkloadTraffic, true)
+	// Wait until waypoints are available
+	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List("")) }, 2)
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
