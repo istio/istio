@@ -391,6 +391,17 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: true},
+		{name: "empty prefix match in method", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Method: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{Prefix: ""},
+				},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				Uri:       "/",
+				Authority: "foo.biz",
+			},
+		}, valid: false},
 		{name: "empty regex match in method", route: &networking.HTTPRoute{
 			Match: []*networking.HTTPMatchRequest{{
 				Method: &networking.StringMatch{
@@ -402,6 +413,17 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 				Authority: "foo.biz",
 			},
 		}, valid: false},
+		{name: "empty prefix match in uri", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{Prefix: ""},
+				},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				Uri:       "/",
+				Authority: "foo.biz",
+			},
+		}, valid: true},
 		{name: "empty regex match in uri", route: &networking.HTTPRoute{
 			Match: []*networking.HTTPMatchRequest{{
 				Uri: &networking.StringMatch{
@@ -430,6 +452,17 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 			Match: []*networking.HTTPMatchRequest{{
 				Scheme: &networking.StringMatch{
 					MatchType: &networking.StringMatch_Regex{Regex: ""},
+				},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				Uri:       "/",
+				Authority: "foo.biz",
+			},
+		}, valid: false},
+		{name: "empty prefix match in scheme", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Scheme: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{Prefix: ""},
 				},
 			}},
 			Redirect: &networking.HTTPRedirect{
