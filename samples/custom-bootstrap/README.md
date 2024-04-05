@@ -47,7 +47,7 @@ For reference, [the default bootstrap configuration](../../tools/packaging/commo
 ## Outside of Kubernetes
 
 The annotation above configures a volume mount and configures Istio to use it.
-When running outside of Kubernetes, or in custom setups similar functionality can be achieved by setting the `ISTIO_BOOTSTRAP_OVERRIDE` variable pointing to a file containing the custom bootstrap.
+When running outside of Kubernetes or in custom setups, similar functionality can be achieved by setting the `ISTIO_BOOTSTRAP_OVERRIDE` variable pointing to a file containing the custom bootstrap.
 
 ## Cleanup
 
