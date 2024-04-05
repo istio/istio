@@ -388,12 +388,24 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 		}()
 
 		out, err := f(params)
-		appendGlobalErr(err)
+		appendGlobalErr(filterUnknownBinaryErrors(err))
 		if err == nil {
 			writeFiles(dir, out, params.DryRun)
 		}
 		log.Infof("Done with %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	}()
+}
+
+// filterUnknownBinaryErrors ignores errors about not finding a binary
+// This is expected behavior on distroless
+func filterUnknownBinaryErrors(err error) error {
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(err.Error(), "executable file not found in $PATH") {
+		return nil
+	}
+	return err
 }
 
 // getProxyLogs fetches proxy logs for the given namespace/pod/container and stores the output in global structs.
