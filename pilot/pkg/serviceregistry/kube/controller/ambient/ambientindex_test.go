@@ -78,58 +78,66 @@ var validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTra
 
 func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
-	s := newAmbientTestServer(t, testC, testNW)
 
 	cases := []struct {
 		name         string
 		trafficType  string
-		podAssertion func(t *testing.T)
-		svcAssertion func(t *testing.T)
+		podAssertion func(s *ambientTestServer)
+		svcAssertion func(s *ambientTestServer)
 	}{
 		{
 			name:        "service traffic",
 			trafficType: constants.ServiceTraffic,
-			podAssertion: func(t *testing.T) {
-				s.assertNoEvent(t)
+			podAssertion: func(s *ambientTestServer) {
+				s.t.Helper()
+				s.assertNoEvent(s.t)
 			},
-			svcAssertion: func(t *testing.T) {
-				s.assertEvent(t, s.svcXdsName("svc1"))
+			svcAssertion: func(s *ambientTestServer) {
+				s.t.Helper()
+				s.assertEvent(s.t, s.svcXdsName("svc1"))
 			},
 		},
 		{
 			name:        "all traffic",
 			trafficType: constants.AllTraffic,
-			podAssertion: func(t *testing.T) {
-				s.assertEvent(t, s.podXdsName("pod1"))
+			podAssertion: func(s *ambientTestServer) {
+				s.t.Helper()
+				s.assertEvent(s.t, s.podXdsName("pod1"))
 			},
-			svcAssertion: func(t *testing.T) {
-				s.assertEvent(t, s.svcXdsName("svc1"))
+			svcAssertion: func(s *ambientTestServer) {
+				s.t.Helper()
+				s.assertEvent(s.t, s.svcXdsName("svc1"))
 			},
 		},
 		{
 			name:        "workload traffic",
 			trafficType: constants.WorkloadTraffic,
-			podAssertion: func(t *testing.T) {
-				s.assertEvent(t, s.podXdsName("pod1"))
+			podAssertion: func(s *ambientTestServer) {
+				s.t.Helper()
+				s.assertEvent(s.t, s.podXdsName("pod1"))
 			},
-			svcAssertion: func(t *testing.T) {
-				s.assertNoEvent(t)
+			svcAssertion: func(s *ambientTestServer) {
+				s.t.Helper()
+				s.assertNoEvent(s.t)
 			},
 		},
 		{
 			name:        "no traffic",
 			trafficType: constants.NoTraffic,
-			podAssertion: func(t *testing.T) {
-				s.assertNoEvent(t)
+			podAssertion: func(s *ambientTestServer) {
+				s.t.Helper()
+				s.assertNoEvent(s.t)
 			},
-			svcAssertion: func(t *testing.T) {
-				s.assertNoEvent(t)
+			svcAssertion: func(s *ambientTestServer) {
+				s.t.Helper()
+				s.assertNoEvent(s.t)
 			},
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			s := newAmbientTestServer(t, testC, testNW)
 			// These steps happen for every test regardless of traffic type.
 			// It involves creating a waypoint for the specified traffic type
 			// then creating a workload and a service with no annotations set
@@ -142,18 +150,17 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				map[string]string{},
 				map[string]string{},
 				[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
-			s.assertEvent(t, s.svcXdsName("svc1"))
-			s.assertEvent(t, s.podXdsName("pod1"))
+			s.assertEvent(t, s.svcXdsName("svc1"), s.podXdsName("pod1"))
 
 			// Annotate the pod and check that the correct event is produced.
 			s.annotatePod(t, "pod1", testNS,
 				map[string]string{constants.AmbientUseWaypoint: "test-wp"})
-			c.podAssertion(t)
+			c.podAssertion(s)
 
 			// Annotate the service and check that the correct event is produced.
 			s.annotateService(t, "svc1", testNS,
 				map[string]string{constants.AmbientUseWaypoint: "test-wp"})
-			c.svcAssertion(t)
+			c.svcAssertion(s)
 
 			// clean up resources
 			s.deleteService(t, "svc1")
