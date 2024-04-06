@@ -1049,6 +1049,7 @@ func fakeTracingConfig(provider *tracingcfg.Tracing_Http, randomSampling float64
 	return t
 }
 
+// nolint: lll
 func fakeTracingConfigForSkywalking(provider *tracingcfg.Tracing_Http, randomSampling float64, maxLen uint32, tags []*tracing.CustomTag) *hcm.HttpConnectionManager_Tracing {
 	cfg := fakeTracingConfig(provider, randomSampling, maxLen, tags)
 	cfg.SpawnUpstreamSpan = wrapperspb.Bool(true)
