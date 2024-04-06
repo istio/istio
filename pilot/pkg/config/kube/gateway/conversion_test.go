@@ -413,6 +413,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "mcs"},
 		{name: "route-precedence"},
 		{name: "waypoint"},
+		{name: "http-match-order"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -528,7 +529,7 @@ func TestSortHTTPRoutes(t *testing.T) {
 						{
 							Uri: &istio.StringMatch{
 								MatchType: &istio.StringMatch_Prefix{
-									Prefix: "/",
+									Prefix: "/foo",
 								},
 							},
 						},
@@ -574,6 +575,33 @@ func TestSortHTTPRoutes(t *testing.T) {
 						{
 							Uri: &istio.StringMatch{
 								MatchType: &istio.StringMatch_Prefix{
+									Prefix: "/foo",
+								},
+							},
+						},
+					},
+				},
+				{
+					Match: []*istio.HTTPMatchRequest{
+						{
+							Uri: &istio.StringMatch{
+								MatchType: &istio.StringMatch_Regex{
+									Regex: ".*foo",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"path matching exact > prefix  > regex with catch all",
+			[]*istio.HTTPRoute{
+				{
+					Match: []*istio.HTTPMatchRequest{
+						{
+							Uri: &istio.StringMatch{
+								MatchType: &istio.StringMatch_Prefix{
 									Prefix: "/",
 								},
 							},
@@ -586,6 +614,52 @@ func TestSortHTTPRoutes(t *testing.T) {
 							Uri: &istio.StringMatch{
 								MatchType: &istio.StringMatch_Regex{
 									Regex: ".*foo",
+								},
+							},
+						},
+					},
+				},
+				{
+					Match: []*istio.HTTPMatchRequest{
+						{
+							Uri: &istio.StringMatch{
+								MatchType: &istio.StringMatch_Exact{
+									Exact: "/foo",
+								},
+							},
+						},
+					},
+				},
+			},
+			[]*istio.HTTPRoute{
+				{
+					Match: []*istio.HTTPMatchRequest{
+						{
+							Uri: &istio.StringMatch{
+								MatchType: &istio.StringMatch_Exact{
+									Exact: "/foo",
+								},
+							},
+						},
+					},
+				},
+				{
+					Match: []*istio.HTTPMatchRequest{
+						{
+							Uri: &istio.StringMatch{
+								MatchType: &istio.StringMatch_Regex{
+									Regex: ".*foo",
+								},
+							},
+						},
+					},
+				},
+				{
+					Match: []*istio.HTTPMatchRequest{
+						{
+							Uri: &istio.StringMatch{
+								MatchType: &istio.StringMatch_Prefix{
+									Prefix: "/",
 								},
 							},
 						},

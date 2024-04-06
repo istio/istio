@@ -91,20 +91,20 @@ spec:
           number: 80
   - match:
     - uri:
-        prefix: /
-    name: allowed-2.http.2
-    route:
-    - destination:
-        host: svc3.allowed-2.svc.domain.suffix
-        port:
-          number: 80
-  - match:
-    - uri:
         regex: /foo((\/).*)?
     name: allowed-1.http.1
     route:
     - destination:
         host: svc2.allowed-1.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - uri:
+        prefix: /
+    name: allowed-2.http.2
+    route:
+    - destination:
+        host: svc3.allowed-2.svc.domain.suffix
         port:
           number: 80
 ---
