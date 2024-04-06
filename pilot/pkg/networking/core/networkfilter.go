@@ -109,6 +109,7 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 		Class: class,
 	}, model.WasmPluginTypeNetwork)
 
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_INITIAL)
 	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066
 	if features.MetadataExchange && includeMx {
 		filters = append(filters, xdsfilters.TCPListenerMx)

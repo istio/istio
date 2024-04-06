@@ -801,6 +801,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	}, model.WasmPluginTypeNetwork)
 
 	var filters []*listener.Filter
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_INITIAL)
 	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066
 	if !cc.hbone {
 		filters = append(filters, buildMetadataExchangeNetworkFilters()...)

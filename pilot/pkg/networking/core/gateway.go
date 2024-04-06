@@ -252,6 +252,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 		httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, serversForPort.RouteName,
 			proxyConfig, istionetworking.ListenerProtocolTCP, builder.push)
 		// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_INITIAL)
 		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
 		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
 		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)
@@ -270,6 +271,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
 					routeName, proxyConfig, istionetworking.TransportProtocolTCP, builder.push)
 				// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_INITIAL)
 				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
 				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
 				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)

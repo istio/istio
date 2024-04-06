@@ -376,6 +376,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 			Class: httpOpts.class,
 		}, model.WasmPluginTypeHTTP)
 
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_INITIAL)
 		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
 		filters = appendMxFilter(httpOpts, filters)

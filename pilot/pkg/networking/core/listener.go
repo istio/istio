@@ -612,6 +612,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 			}
+			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_INITIAL)
 			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHN)
 			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
 			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_STATS)
