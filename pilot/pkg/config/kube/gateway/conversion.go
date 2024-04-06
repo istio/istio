@@ -804,6 +804,12 @@ func getURIRank(match *istio.HTTPMatchRequest) int {
 	if match.Uri == nil {
 		return -1
 	}
+
+	// catch all route should be the lowest priority
+	if isCatchAll(match) {
+		return 0
+	}
+
 	switch match.Uri.MatchType.(type) {
 	case *istio.StringMatch_Exact:
 		return 3
@@ -814,6 +820,24 @@ func getURIRank(match *istio.HTTPMatchRequest) int {
 	}
 	// should not happen
 	return -1
+}
+
+func isCatchAll(match *istio.HTTPMatchRequest) bool {
+	if match.Uri == nil {
+		return false
+	}
+	if match.Method != nil || len(match.Headers) > 0 || len(match.QueryParams) > 0 {
+		return false
+	}
+	switch match.Uri.MatchType.(type) {
+	case *istio.StringMatch_Prefix:
+		return match.Uri.GetPrefix() == "/"
+	case *istio.StringMatch_Exact:
+		return match.Uri.GetExact() == "/"
+	case *istio.StringMatch_Regex:
+		return match.Uri.GetRegex() == ".*"
+	}
+	return false
 }
 
 func getURILength(match *istio.HTTPMatchRequest) int {

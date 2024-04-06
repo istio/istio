@@ -316,6 +316,7 @@ refresh-goldens:
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/... \
 		./pkg/bootstrap/... \
 		./pkg/kube/inject/... \
+		./pilot/pkg/config/... \
 		./pilot/pkg/security/authz/builder/... \
 		./cni/pkg/plugin/...
 
