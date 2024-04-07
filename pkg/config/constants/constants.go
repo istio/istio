@@ -169,10 +169,15 @@ const (
 	ManagedGatewayLabel = "gateway.istio.io/managed"
 	// ManagedGatewayMeshControllerLabel is the label value applied on waypoint resources, deployment, pod, service, etc.
 	// e.g. `gateway.istio.io/managed: istio.io-mesh-controller`
+	// Not because k8s label value cannot contain `/`, so this is only diff with ManagedGatewayMeshController
 	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
+	// ManagedGatewayControllerLabel is the label value applied on gateway resources, deployment, pod, service, etc.
+	// e.g. `gateway.istio.io/managed: istio.io-gateway-controller`
+	ManagedGatewayControllerLabel = "istio.io-gateway-controller"
 
 	// controller name of built-in `istio-waypoint` gatewayClass
 	ManagedGatewayMeshController = "istio.io/mesh-controller"
+	// ManagedGatewayController is defined with features.ManagedGatewayController, default to `istio.io/gateway-controller`
 
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
