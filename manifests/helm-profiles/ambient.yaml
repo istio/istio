@@ -3,9 +3,9 @@ meshConfig:
   defaultConfig:
     proxyMetadata:
       ISTIO_META_ENABLE_HBONE: "true"
-variant: distroless
-pilot:
+global:
   variant: distroless
+pilot:
   env:
     # Setup more secure default that is off in 'default' only for backwards compatibility
     VERIFY_CERTIFICATE_AT_CLIENT: "true"
@@ -23,3 +23,6 @@ cni:
   # Default excludes istio-system; its actually fine to redirect there since we opt-out istiod, ztunnel, and istio-cni
   excludeNamespaces:
     - kube-system
+
+# Ztunnel doesn't use a namespace, so everything here is mostly for ztunnel
+variant: distroless
