@@ -3307,7 +3307,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 			instances: []*model.ServiceInstance{{
 				Service:     testService1,
 				ServicePort: &model.Port{Port: 8080},
-				Endpoint:    &model.IstioEndpoint{Address: "127.0.0.1", ServicePortName: "8080", EndpointPort: 8080},
+				Endpoint:    &model.IstioEndpoint{Addresses: []string{"127.0.0.1"}, ServicePortName: "8080", EndpointPort: 8080},
 			}},
 			watchedResourceNames: []string{"outbound|7070||test.com", "inbound|7070||", "inbound|8080||"},
 			usedDelta:            true,

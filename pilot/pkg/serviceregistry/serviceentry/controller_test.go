@@ -382,8 +382,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 
 		// Endpoint ports should be changed
 		instances := append(baseInstances,
-			makeInstance(httpStaticOverlay, "5.5.5.5", 33333, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
-			makeInstance(httpStaticOverlay, "6.6.6.6", 33333, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+			makeInstance(httpStaticOverlay, []string{"5.5.5.5"}, 33333, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, []string{"6.6.6.6"}, 33333, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, targetPortChanged, 0, instances)
 
 		// Expect a full push, as the target port has changed
@@ -397,8 +397,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 
 		// Endpoint ports should be changed
 		instances = append(baseInstances,
-			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
-			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+			makeInstance(httpStaticOverlay, []string{"5.5.5.5"}, 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, []string{"6.6.6.6"}, 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, targetPortChanged, 0, instances)
 		// Expect a full push, as the target port has changed
 		expectEvents(t, events,
