@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
@@ -135,14 +136,38 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 		waypointAddress = a.getWaypointAddress(w)
 	}
 
+	var lb *workloadapi.LoadBalancing
+	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+		// This is waypoint. Enable locality routing
+		lb = &workloadapi.LoadBalancing{
+			// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
+			RoutingPreference: []workloadapi.LoadBalancing_Scope{
+				workloadapi.LoadBalancing_NETWORK,
+				workloadapi.LoadBalancing_REGION,
+				workloadapi.LoadBalancing_ZONE,
+				workloadapi.LoadBalancing_SUBZONE,
+			},
+			Mode: workloadapi.LoadBalancing_FAILOVER,
+		}
+	}
+	if itp := svc.Spec.InternalTrafficPolicy; itp != nil && *itp == v1.ServiceInternalTrafficPolicyLocal {
+		lb = &workloadapi.LoadBalancing{
+			// Only allow endpoints on the same node.
+			RoutingPreference: []workloadapi.LoadBalancing_Scope{
+				workloadapi.LoadBalancing_NODE,
+			},
+			Mode: workloadapi.LoadBalancing_STRICT,
+		}
+	}
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	return &workloadapi.Service{
-		Name:      svc.Name,
-		Namespace: svc.Namespace,
-		Hostname:  string(kube.ServiceHostname(svc.Name, svc.Namespace, a.DomainSuffix)),
-		Addresses: addresses,
-		Ports:     ports,
-		Waypoint:  waypointAddress,
+		Name:          svc.Name,
+		Namespace:     svc.Namespace,
+		Hostname:      string(kube.ServiceHostname(svc.Name, svc.Namespace, a.DomainSuffix)),
+		Addresses:     addresses,
+		Ports:         ports,
+		Waypoint:      waypointAddress,
+		LoadBalancing: lb,
 	}
 }
 

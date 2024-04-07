@@ -21,11 +21,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -33,6 +35,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/workloadapi"
@@ -40,6 +43,7 @@ import (
 
 func (a *index) WorkloadsCollection(
 	Pods krt.Collection[*v1.Pod],
+	Nodes krt.Collection[*v1.Node],
 	MeshConfig krt.Singleton[MeshConfig],
 	AuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
 	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
@@ -52,7 +56,7 @@ func (a *index) WorkloadsCollection(
 ) krt.Collection[model.WorkloadInfo] {
 	PodWorkloads := krt.NewCollection(
 		Pods,
-		a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, Namespaces),
+		a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, Namespaces, Nodes),
 		krt.WithName("PodWorkloads"),
 	)
 	WorkloadEntryWorkloads := krt.NewCollection(
@@ -122,6 +126,7 @@ func (a *index) WorkloadsCollection(
 				Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
 				Waypoint:              waypointAddress,
 				TrustDomain:           pickTrustDomain(),
+				Locality:              getWorkloadEntryLocality(p),
 			}
 
 			if addr, err := netip.ParseAddr(p.Address); err == nil {
@@ -196,6 +201,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 			Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
 			Waypoint:              waypointAddress,
 			TrustDomain:           pickTrustDomain(),
+			Locality:              getWorkloadEntryLocality(&p.Spec),
 		}
 
 		if addr, err := netip.ParseAddr(p.Spec.Address); err == nil {
@@ -219,6 +225,7 @@ func (a *index) podWorkloadBuilder(
 	Waypoints krt.Collection[Waypoint],
 	WorkloadServices krt.Collection[model.ServiceInfo],
 	Namespaces krt.Collection[*v1.Namespace],
+	Nodes krt.Collection[*v1.Node],
 ) func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
 	return func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
 		// Pod Is Pending but have a pod IP should be a valid workload, we should build it ,
@@ -271,6 +278,7 @@ func (a *index) podWorkloadBuilder(
 			AuthorizationPolicies: policies,
 			Status:                status,
 			TrustDomain:           pickTrustDomain(),
+			Locality:              getPodLocality(ctx, Nodes, p),
 		}
 
 		if instancedWaypoint := fetchWaypointForInstance(ctx, Waypoints, p.ObjectMeta); instancedWaypoint != nil {
@@ -417,4 +425,42 @@ func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*work
 		}
 	}
 	return res
+}
+
+func getPodLocality(ctx krt.HandlerContext, Nodes krt.Collection[*v1.Node], pod *v1.Pod) *workloadapi.Locality {
+	// NodeName is set by the scheduler after the pod is created
+	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#late-initialization
+	node := ptr.Flatten(krt.FetchOne(ctx, Nodes, krt.FilterKey(pod.Spec.NodeName)))
+	if node == nil {
+		if pod.Spec.NodeName != "" {
+			log.Warnf("unable to get node %q for pod %q/%q", pod.Spec.NodeName, pod.Namespace, pod.Name)
+		}
+		return nil
+	}
+
+	region := node.GetLabels()[v1.LabelTopologyRegion]
+	zone := node.GetLabels()[v1.LabelTopologyZone]
+	subzone := node.GetLabels()[label.TopologySubzone.Name]
+
+	if region == "" && zone == "" && subzone == "" {
+		return nil
+	}
+
+	return &workloadapi.Locality{
+		Region:  region,
+		Zone:    zone,
+		Subzone: subzone,
+	}
+}
+
+func getWorkloadEntryLocality(p *networkingv1alpha3.WorkloadEntry) *workloadapi.Locality {
+	region, zone, subzone := labelutil.SplitLocalityLabel(p.GetLocality())
+	if region == "" && zone == "" && subzone == "" {
+		return nil
+	}
+	return &workloadapi.Locality{
+		Region:  region,
+		Zone:    zone,
+		Subzone: subzone,
+	}
 }
