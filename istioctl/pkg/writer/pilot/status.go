@@ -74,53 +74,40 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 	mappedResp := map[string]string{}
 	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
 	_, _ = fmt.Fprintln(w, "NAME\tCLUSTER\tCDS\tLDS\tEDS\tRDS\tECDS\tISTIOD\tVERSION")
-	for id, dr := range drs {
+	for _, dr := range drs {
 		for _, resource := range dr.Resources {
-			switch resource.TypeUrl {
-			case "type.googleapis.com/envoy.service.status.v3.ClientConfig":
-				clientConfig := xdsstatus.ClientConfig{}
-				err := resource.UnmarshalTo(&clientConfig)
-				if err != nil {
-					return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
-				}
-				meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
-				if err != nil {
-					return nil, nil, fmt.Errorf("could not parse node metadata: %w", err)
-				}
-				if s.Namespace != "" && meta.Namespace != s.Namespace {
-					continue
-				}
-				cds, lds, eds, rds, ecds := getSyncStatus(&clientConfig)
-				cp := multixds.CpInfo(dr)
-				fullStatus = append(fullStatus, &xdsWriterStatus{
-					proxyID:               clientConfig.GetNode().GetId(),
-					clusterID:             meta.ClusterID.String(),
-					istiodID:              cp.ID,
-					istiodVersion:         meta.IstioVersion,
-					clusterStatus:         cds,
-					listenerStatus:        lds,
-					routeStatus:           rds,
-					endpointStatus:        eds,
-					extensionconfigStatus: ecds,
-				})
-				if len(fullStatus) == 0 {
-					return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
-				}
-
-				sort.Slice(fullStatus, func(i, j int) bool {
-					return fullStatus[i].proxyID < fullStatus[j].proxyID
-				})
-			default:
-				for _, resource := range dr.Resources {
-					if s.InternalDebugAllIstiod {
-						mappedResp[id] = string(resource.Value) + "\n"
-					} else {
-						_, _ = s.Writer.Write(resource.Value)
-						_, _ = s.Writer.Write([]byte("\n"))
-					}
-				}
-				fullStatus = nil
+			clientConfig := xdsstatus.ClientConfig{}
+			err := resource.UnmarshalTo(&clientConfig)
+			if err != nil {
+				return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 			}
+			meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
+			if err != nil {
+				return nil, nil, fmt.Errorf("could not parse node metadata: %w", err)
+			}
+			if s.Namespace != "" && meta.Namespace != s.Namespace {
+				continue
+			}
+			cds, lds, eds, rds, ecds := getSyncStatus(&clientConfig)
+			cp := multixds.CpInfo(dr)
+			fullStatus = append(fullStatus, &xdsWriterStatus{
+				proxyID:               clientConfig.GetNode().GetId(),
+				clusterID:             meta.ClusterID.String(),
+				istiodID:              cp.ID,
+				istiodVersion:         meta.IstioVersion,
+				clusterStatus:         cds,
+				listenerStatus:        lds,
+				routeStatus:           rds,
+				endpointStatus:        eds,
+				extensionconfigStatus: ecds,
+			})
+			if len(fullStatus) == 0 {
+				return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
+			}
+
+			sort.Slice(fullStatus, func(i, j int) bool {
+				return fullStatus[i].proxyID < fullStatus[j].proxyID
+			})
 		}
 	}
 	if len(mappedResp) > 0 {

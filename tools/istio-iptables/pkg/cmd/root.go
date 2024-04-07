@@ -136,8 +136,6 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 		&cfg.NetworkNamespace)
 
 	flag.BindEnv(fs, constants.CNIMode, "", "Whether to run as CNI plugin.", &cfg.CNIMode)
-
-	flag.BindEnv(fs, constants.IptablesVersion, "", "version of iptables command. If not set, this is automatically detected.", &cfg.IPTablesVersion)
 }
 
 func GetCommand(logOpts *log.Options) *cobra.Command {
@@ -189,16 +187,12 @@ type IptablesError struct {
 func ProgramIptables(cfg *config.Config) error {
 	var ext dep.Dependencies
 	if cfg.DryRun {
-		ext = &dep.StdoutStubDependencies{}
+		log.Info("running iptables in dry-run mode, no rule changes will be made")
+		ext = &dep.DependenciesStub{}
 	} else {
-		ipv, err := dep.DetectIptablesVersion(cfg.IPTablesVersion)
-		if err != nil {
-			return err
-		}
 		ext = &dep.RealDependencies{
 			CNIMode:          cfg.CNIMode,
 			NetworkNamespace: cfg.NetworkNamespace,
-			IptablesVersion:  ipv,
 		}
 	}
 

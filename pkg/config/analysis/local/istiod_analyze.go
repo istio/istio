@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -58,14 +59,16 @@ type IstiodAnalyzer struct {
 	internalStore model.ConfigStore
 	// stores contains all the (non file) config sources to analyze
 	stores []model.ConfigStoreController
+	// multiClusterStores contains all the multi-cluster config sources to analyze
+	multiClusterStores map[cluster.ID]model.ConfigStoreController
+	// cluster is the cluster ID for the environment we are analyzing
+	cluster cluster.ID
 	// fileSource contains all file bases sources
 	fileSource *file.KubeSource
 
-	analyzer       *analysis.CombinedAnalyzer
+	analyzer       analysis.CombinedAnalyzer
 	namespace      resource.Namespace
 	istioNamespace resource.Namespace
-
-	initializedStore model.ConfigStoreController
 
 	// List of code and resource suppressions to exclude messages on
 	suppressions []AnalysisSuppression
@@ -87,14 +90,14 @@ type IstiodAnalyzer struct {
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
-func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace, cr CollectionReporterFn) *IstiodAnalyzer {
+func NewSourceAnalyzer(analyzer analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace, cr CollectionReporterFn) *IstiodAnalyzer {
 	return NewIstiodAnalyzer(analyzer, namespace, istioNamespace, cr)
 }
 
 // NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
+func NewIstiodAnalyzer(analyzer analysis.CombinedAnalyzer, namespace,
 	istioNamespace resource.Namespace, cr CollectionReporterFn,
 ) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
@@ -105,16 +108,21 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
 	kubeResources := kuberesource.ConvertInputsToSchemas(analyzer.Metadata().Inputs)
 
+	kubeResources = kubeResources.Union(kuberesource.DefaultExcludedSchemas())
+
 	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
 		meshCfg:            mcfg,
 		meshNetworks:       mesh.DefaultMeshNetworks(),
 		analyzer:           analyzer,
 		namespace:          namespace,
+		cluster:            "default",
 		internalStore:      memory.Make(collection.SchemasFor(collections.MeshNetworks, collections.MeshConfig)),
 		istioNamespace:     istioNamespace,
 		kubeResources:      kubeResources,
 		collectionReporter: cr,
+		clientsToRun:       []kubelib.Client{},
+		multiClusterStores: make(map[cluster.ID]model.ConfigStoreController),
 	}
 
 	return sa
@@ -130,17 +138,26 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 	return sa.internalAnalyze(sa.analyzer, cancel)
 }
 
-func (sa *IstiodAnalyzer) internalAnalyze(a *analysis.CombinedAnalyzer, cancel <-chan struct{}) (AnalysisResult, error) {
-	store := sa.initializedStore
+func (sa *IstiodAnalyzer) internalAnalyze(a analysis.CombinedAnalyzer, cancel <-chan struct{}) (AnalysisResult, error) {
+	var schemas collection.Schemas
+	for _, store := range sa.multiClusterStores {
+		schemas = schemas.Union(store.Schemas())
+	}
 
 	var result AnalysisResult
 	result.ExecutedAnalyzers = a.AnalyzerNames()
-	result.SkippedAnalyzers = a.RemoveSkipped(store.Schemas())
+	result.SkippedAnalyzers = a.RemoveSkipped(schemas)
 	result.MappedMessages = make(map[string]diag.Messages, len(result.ExecutedAnalyzers))
 
-	kubelib.WaitForCacheSync("istiod analyzer", cancel, store.HasSynced)
+	for _, store := range sa.multiClusterStores {
+		kubelib.WaitForCacheSync("istiod analyzer", cancel, store.HasSynced)
+	}
 
-	ctx := NewContext(store, cancel, sa.collectionReporter)
+	stores := map[cluster.ID]model.ConfigStore{}
+	for k, v := range sa.multiClusterStores {
+		stores[k] = v
+	}
+	ctx := NewContext(stores, cancel, sa.collectionReporter)
 
 	a.Analyze(ctx)
 
@@ -180,8 +197,9 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	// Create a store containing mesh config. There should be exactly one.
 	_, err := sa.internalStore.Create(config.Config{
 		Meta: config.Meta{
-			Name:             "meshconfig",
-			Namespace:        sa.istioNamespace.String(),
+			Name:      "meshconfig",
+			Namespace: sa.istioNamespace.String(),
+
 			GroupVersionKind: gvk.MeshConfig,
 		},
 		Spec: sa.meshCfg,
@@ -217,8 +235,10 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	go store.Run(cancel)
-	sa.initializedStore = store
+	sa.multiClusterStores[sa.cluster] = store
+	for _, mcs := range sa.multiClusterStores {
+		go mcs.Run(cancel)
+	}
 	return nil
 }
 
@@ -304,7 +324,7 @@ func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, in
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
-	sa.AddRunningKubeSourceWithRevision(c, "default")
+	sa.AddRunningKubeSourceWithRevision(c, "default", false)
 }
 
 func isIstioConfigMap(obj any) bool {
@@ -334,7 +354,7 @@ func (sa *IstiodAnalyzer) GetFiltersByGVK() map[config.GroupVersionKind]kubetype
 	}
 }
 
-func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
+func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string, remote bool) {
 	// This makes the assumption we don't care about Helm secrets or SA token secrets - two common
 	// large secrets in clusters.
 	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
@@ -352,6 +372,10 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 
 	// TODO: are either of these string constants intended to vary?
 	// We gets Istio CRD resources with a specific revision.
+	krs := sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...)
+	if remote {
+		krs = krs.Remove(kuberesource.DefaultRemoteClusterExcludedSchemas().All()...)
+	}
 	store := crdclient.NewForSchemas(c, crdclient.Option{
 		Revision:     revision,
 		DomainSuffix: "cluster.local",
@@ -362,10 +386,14 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 				ObjectFilter: kubetypes.NewStaticObjectFilter(isIstioConfigMap),
 			},
 		},
-	}, sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...))
+	}, krs)
 	sa.stores = append(sa.stores, store)
 
 	// We gets service discovery resources without a specific revision.
+	krs = sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas())
+	if remote {
+		krs = krs.Remove(kuberesource.DefaultRemoteClusterExcludedSchemas().All()...)
+	}
 	store = crdclient.NewForSchemas(c, crdclient.Option{
 		DomainSuffix: "cluster.local",
 		Identifier:   "analysis-controller",
@@ -386,10 +414,17 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 				FieldSelector: generalSelectors,
 			},
 		},
-	}, sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas()))
-	sa.stores = append(sa.stores, store)
-
+	}, krs)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
+	if remote {
+		clusterID := c.ClusterID()
+		if clusterID == "" {
+			clusterID = "default"
+		}
+		sa.multiClusterStores[clusterID] = store
+	} else {
+		sa.stores = append(sa.stores, store)
+	}
 	sa.clientsToRun = append(sa.clientsToRun, c)
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
@@ -507,6 +542,12 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 
 	sa.meshNetworks = mn
 	return nil
+}
+
+// AddSourceForCluster adds a source based on user supplied configstore to the current IstiodAnalyzer with cluster specified.
+// It functions like the same as AddSource, but it adds the source to the specified cluster.
+func (sa *IstiodAnalyzer) AddSourceForCluster(src model.ConfigStoreController, clusterName cluster.ID) {
+	sa.multiClusterStores[clusterName] = src
 }
 
 // CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context

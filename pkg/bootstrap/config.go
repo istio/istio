@@ -31,8 +31,6 @@ import (
 	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -41,6 +39,7 @@ import (
 	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -84,6 +83,7 @@ type Config struct {
 	*model.Node
 	// CompliancePolicy to decouple the environment variable dependency.
 	CompliancePolicy string
+	LogAsJSON        bool
 }
 
 // toTemplateParams creates a new template configuration for the given configuration.
@@ -109,6 +109,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.NodeType(cfg.ID),
 		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
+		option.ApplicationLogJSON(cfg.LogAsJSON),
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
 		option.XdsType(xdsType),
@@ -686,7 +687,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 			// override the label with the sanitized value
 			meta.Labels[model.LocalityLabel] = localityString
 		}
-		l = util.ConvertLocality(localityString)
+		l = model.ConvertLocality(localityString)
 	}
 
 	meta.PilotSubjectAltName = options.PilotSubjectAltName

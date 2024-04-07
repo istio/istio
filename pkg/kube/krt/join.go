@@ -93,6 +93,9 @@ func (j *join[T]) Synced() Syncer {
 	}
 }
 
+// JoinCollection combines multiple Collection[T] into a single
+// Collection[T] merging equal objects into one record
+// in the resulting Collection
 func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {

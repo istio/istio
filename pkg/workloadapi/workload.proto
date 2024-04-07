@@ -160,6 +160,10 @@ message Workload {
   // * Requests *to* this workload, via the tunnel_protocol, do not need to be de-tunneled.
   bool native_tunnel = 14;
 
+  // If an application, such as a sandwiched waypoint proxy, supports directly
+  // receiving information from zTunnel they can set application_protocol.
+  ApplicationTunnel application_tunnel = 23;
+
   // The services for which this workload is an endpoint.
   // The key is the NamespacedHostname string of the format namespace/hostname.
   map<string, PortList> services = 22;
@@ -213,6 +217,28 @@ enum TunnelProtocol {
   // This does not dictate HTTP/1.1 vs HTTP/2; ALPN should be used for that purpose.
   HBONE = 1;
   // Future options may include things like QUIC/HTTP3, etc.
+}
+
+// ApplicationProtocol specifies a workload  (application or gateway) can
+// consume tunnel information.
+message ApplicationTunnel {
+  enum Protocol {
+    // Bytes are copied from the inner stream without modification.
+    NONE = 0;
+
+    // Prepend PROXY protocol headers before copying bytes
+    // Standard PROXY source and destination information
+    // is included, along with potential extra TLV headers:
+    // 0xD0 - The SPIFFE identity of the source workload
+    // 0xD1 - The FQDN or Hostname of the targeted Service
+    PROXY = 1;
+  }
+
+  // A target natively handles this type of traffic.  
+  Protocol protocol = 1;
+
+  // optional: if set, traffic should be sent to this port after the last zTunnel hop
+  uint32 port = 2;
 }
 
 // GatewayAddress represents the address of a gateway

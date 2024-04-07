@@ -1,4 +1,11 @@
+pilot:
+  env:
+    # 1.22 behavioral changes
+    ENABLE_RESOLUTION_NONE_TARGET_PORT: "false"
 meshConfig:
+  # 1.22 behavioral changes
+  proxyMetadata:
+    ISTIO_DELTA_XDS: "false"
   defaultConfig:
     tracing:
       zipkin:

@@ -13,6 +13,8 @@ rules:
       - "networking.istio.io"
       - "authentication.istio.io"
       - "rbac.istio.io"
+      - "telemetry.istio.io"
+      - "extensions.istio.io"
     resources: ["*"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]

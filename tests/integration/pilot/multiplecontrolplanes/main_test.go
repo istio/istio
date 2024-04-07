@@ -82,11 +82,7 @@ meshConfig:
         usergroup: usergroup-1
 values:
   global:
-    istioNamespace: %s
-  pilot:
-    env:
-      # CR scoping is guarded by the feature flag
-      ENABLE_ENHANCED_RESOURCE_SCOPING: true`,
+    istioNamespace: %s`,
 				userGroup1NS.Name(), userGroup1NS.Name())
 		})).
 		Setup(istio.Setup(nil, func(ctx resource.Context, cfg *istio.Config) {
@@ -106,11 +102,7 @@ meshConfig:
         usergroup: usergroup-2
 values:
   global:
-    istioNamespace: %s
-  pilot:
-    env:
-      # CR scoping is guarded by the feature flag
-      ENABLE_ENHANCED_RESOURCE_SCOPING: true`,
+    istioNamespace: %s`,
 				userGroup2NS.Name(), userGroup2NS.Name())
 		})).
 		SetupParallel(

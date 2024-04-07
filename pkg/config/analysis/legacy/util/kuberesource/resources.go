@@ -47,6 +47,17 @@ func DefaultExcludedSchemas() collection.Schemas {
 	return resultBuilder.Build()
 }
 
+func DefaultRemoteClusterExcludedSchemas() collection.Schemas {
+	resultBuilder := collection.NewSchemasBuilder()
+	// Pods are the most common resource type exists in the remote cluster.
+	_ = resultBuilder.Add(collections.Deployment)
+	// We don't need to analyze injection config in the multi-cluster scenario.
+	_ = resultBuilder.Add(collections.ConfigMap)
+	_ = resultBuilder.Add(collections.ValidatingWebhookConfiguration)
+	_ = resultBuilder.Add(collections.MutatingWebhookConfiguration)
+	return resultBuilder.Build()
+}
+
 // the following code minimally duplicates logic from galley/pkg/config/source/kube/rt/known.go
 // without propagating the many dependencies it comes with.
 

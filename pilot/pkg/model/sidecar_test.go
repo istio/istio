@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -2487,7 +2489,6 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			sidecarConfig := tt.sidecarConfig
-			sidecarScope := convertToSidecarScope(ps, sidecarConfig, "mynamespace")
 			configuredListeneres := 1
 			if sidecarConfig != nil {
 				r := sidecarConfig.Spec.(*networking.Sidecar)
@@ -2496,9 +2497,19 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 
+			sidecarScope := convertToSidecarScope(ps, sidecarConfig, "mynamespace")
+
 			numberListeners := len(sidecarScope.EgressListeners)
 			if numberListeners != configuredListeneres {
 				t.Errorf("Expected %d listeners, Got: %d", configuredListeneres, numberListeners)
+			}
+
+			if sidecarConfig == nil {
+				services := sidecarScope.EgressListeners[0].services
+				if !reflect.DeepEqual(services, sidecarScope.services) {
+					t.Errorf("services in default egress listener not equals sidecar scope services: %v",
+						cmp.Diff(services, sidecarScope.services, cmpopts.IgnoreFields(AddressMap{}, "mutex")))
+				}
 			}
 
 			for _, s1 := range sidecarScope.services {

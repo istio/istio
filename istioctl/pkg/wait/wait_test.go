@@ -33,7 +33,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/pkg/xds"
-	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 )
@@ -167,7 +166,6 @@ type execTestCase struct {
 
 	// Typically use one of the three
 	expectedOutput string // Expected constant output
-	goldenFilename string // Expected output stored in golden file
 
 	wantException bool
 }
@@ -188,10 +186,6 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 
 	if c.expectedOutput != "" && !strings.Contains(output, c.expectedOutput) {
 		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q", strings.Join(c.args, " "), output, c.expectedOutput)
-	}
-
-	if c.goldenFilename != "" {
-		util.CompareContent(t, []byte(output), c.goldenFilename)
 	}
 
 	if c.wantException {

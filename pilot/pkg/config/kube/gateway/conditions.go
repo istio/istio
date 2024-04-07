@@ -19,8 +19,7 @@ import (
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
-	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/kstatus"
@@ -48,7 +47,7 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
 	// removing gateway references when they are removed), without mangling other Controller's status.
 	for _, r := range currentParents {
-		if r.ControllerName != k8sv1.GatewayController(features.ManagedGatewayController) {
+		if r.ControllerName != k8s.GatewayController(features.ManagedGatewayController) {
 			// We don't own this status, so keep it around
 			parents = append(parents, r)
 		}
@@ -152,7 +151,7 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 		}
 
 		var currentConditions []metav1.Condition
-		currentStatus := slices.FindFunc(currentParents, func(s k8sv1.RouteParentStatus) bool {
+		currentStatus := slices.FindFunc(currentParents, func(s k8s.RouteParentStatus) bool {
 			return parentRefString(s.ParentRef) == parentRefString(gw.OriginalReference)
 		})
 		if currentStatus != nil {
@@ -160,7 +159,7 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 		}
 		parents = append(parents, k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
-			ControllerName: k8sv1.GatewayController(features.ManagedGatewayController),
+			ControllerName: k8s.GatewayController(features.ManagedGatewayController),
 			Conditions:     setConditions(obj.Generation, currentConditions, conds),
 		})
 	}
@@ -175,7 +174,7 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 type ParentErrorReason string
 
 const (
-	ParentErrorNotAccepted       = ParentErrorReason(k8sv1.RouteReasonNoMatchingParent)
+	ParentErrorNotAccepted       = ParentErrorReason(k8s.RouteReasonNoMatchingParent)
 	ParentErrorNotAllowed        = ParentErrorReason(k8s.RouteReasonNotAllowedByListeners)
 	ParentErrorNoHostname        = ParentErrorReason(k8s.RouteReasonNoMatchingListenerHostname)
 	ParentErrorParentRefConflict = ParentErrorReason("ParentRefConflict")
@@ -189,7 +188,7 @@ const (
 	InvalidRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestination indicates an issue with the destination
 	InvalidDestination ConfigErrorReason = "InvalidDestination"
-	InvalidAddress     ConfigErrorReason = ConfigErrorReason(k8sv1.GatewayReasonUnsupportedAddress)
+	InvalidAddress     ConfigErrorReason = ConfigErrorReason(k8s.GatewayReasonUnsupportedAddress)
 	// InvalidDestinationPermit indicates a destination was not permitted
 	InvalidDestinationPermit ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestinationKind indicates an issue with the destination kind
@@ -201,12 +200,12 @@ const (
 	// InvalidFilter indicates an issue with the filters
 	InvalidFilter ConfigErrorReason = "InvalidFilter"
 	// InvalidTLS indicates an issue with TLS settings
-	InvalidTLS ConfigErrorReason = ConfigErrorReason(k8sv1.ListenerReasonInvalidCertificateRef)
+	InvalidTLS ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonInvalidCertificateRef)
 	// InvalidListenerRefNotPermitted indicates a listener reference was not permitted
-	InvalidListenerRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8sv1.ListenerReasonRefNotPermitted)
+	InvalidListenerRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonRefNotPermitted)
 	// InvalidConfiguration indicates a generic error for all other invalid configurations
 	InvalidConfiguration ConfigErrorReason = "InvalidConfiguration"
-	InvalidResources     ConfigErrorReason = ConfigErrorReason(k8sv1.GatewayReasonNoResources)
+	InvalidResources     ConfigErrorReason = ConfigErrorReason(k8s.GatewayReasonNoResources)
 	DeprecateFieldUsage                    = "DeprecatedField"
 )
 
@@ -304,8 +303,8 @@ func reportListenerCondition(index int, l k8s.Listener, obj config.Config, condi
 		cond := gs.Listeners[index].Conditions
 		supported, valid := generateSupportedKinds(l)
 		if !valid {
-			conditions[string(k8sv1.ListenerConditionResolvedRefs)] = &condition{
-				reason:  string(k8sv1.ListenerReasonInvalidRouteKinds),
+			conditions[string(k8s.ListenerConditionResolvedRefs)] = &condition{
+				reason:  string(k8s.ListenerReasonInvalidRouteKinds),
 				status:  metav1.ConditionFalse,
 				message: "Invalid route kinds",
 			}
@@ -323,16 +322,16 @@ func reportListenerCondition(index int, l k8s.Listener, obj config.Config, condi
 func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	supported := []k8s.RouteGroupKind{}
 	switch l.Protocol {
-	case k8sv1.HTTPProtocolType, k8sv1.HTTPSProtocolType:
+	case k8s.HTTPProtocolType, k8s.HTTPSProtocolType:
 		// Only terminate allowed, so its always HTTP
 		supported = []k8s.RouteGroupKind{
 			{Group: (*k8s.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)},
 			{Group: (*k8s.Group)(ptr.Of(gvk.GRPCRoute.Group)), Kind: k8s.Kind(gvk.GRPCRoute.Kind)},
 		}
-	case k8sv1.TCPProtocolType:
+	case k8s.TCPProtocolType:
 		supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
-	case k8sv1.TLSProtocolType:
-		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8sv1.TLSModePassthrough {
+	case k8s.TLSProtocolType:
+		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModePassthrough {
 			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: k8s.Kind(gvk.TLSRoute.Kind)}}
 		} else {
 			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** an issue where the `istioctl experimental proxy-status <pod>` compare command was not working due to unknown configs.

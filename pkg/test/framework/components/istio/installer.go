@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -90,7 +89,7 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 	if err != nil {
 		return err
 	}
-	kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), "")
+	kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc))
 	if err != nil {
 		return fmt.Errorf("create Kubernetes client: %v", err)
 	}
@@ -103,7 +102,7 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 		Force:         iArgs.Force,
 		ManifestsPath: iArgs.ManifestsPath,
 		Revision:      iArgs.Revision,
-	}, cmdLogOptions(), cmdLogger(&stdOut, &stdErr)); err != nil {
+	}, cmdLogger(&stdOut, &stdErr)); err != nil {
 		return err
 	}
 	yaml := stdOut.String()
@@ -124,7 +123,7 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 	scopes.Framework.Infof("Installing %s on cluster %s: %s", componentName, c.Name(), iArgs)
 	stdOut.Reset()
 	stdErr.Reset()
-	if err := mesh.Install(kubeClient, &mesh.RootArgs{}, iArgs, cmdLogOptions(), &stdOut,
+	if err := mesh.Install(kubeClient, &mesh.RootArgs{}, iArgs, &stdOut,
 		cmdLogger(&stdOut, &stdErr),
 		mesh.NewPrinterForWriter(&stdOut)); err != nil {
 		return fmt.Errorf("failed installing %s on cluster %s: %v. Details: %s", componentName, c.Name(), err, &stdErr)
@@ -161,23 +160,6 @@ func (i *installer) Dump(resource.Context) {
 			}
 		}
 	}
-}
-
-func cmdLogOptions() *log.Options {
-	o := log.DefaultOptions()
-
-	// These scopes are, at the default "INFO" level, too chatty for command line use
-	o.SetOutputLevel("validation", log.ErrorLevel)
-	o.SetOutputLevel("processing", log.ErrorLevel)
-	o.SetOutputLevel("analysis", log.WarnLevel)
-	o.SetOutputLevel("installer", log.WarnLevel)
-	o.SetOutputLevel("translator", log.WarnLevel)
-	o.SetOutputLevel("adsc", log.WarnLevel)
-	o.SetOutputLevel("default", log.WarnLevel)
-	o.SetOutputLevel("klog", log.WarnLevel)
-	o.SetOutputLevel("kube", log.ErrorLevel)
-
-	return o
 }
 
 func cmdLogger(stdOut, stdErr io.Writer) clog.Logger {

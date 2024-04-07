@@ -129,7 +129,7 @@ func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 		res[constants.RemoteGatewayClassName] = constants.UnmanagedGatewayController
 	}
 
-	if features.EnableAmbientControllers {
+	if features.EnableAmbientWaypoints {
 		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
 	}
 	return res
@@ -156,7 +156,7 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			addressType:            gateway.HostnameAddressType,
 		}
 	}
-	if features.EnableAmbientControllers {
+	if features.EnableAmbientWaypoints {
 		m[constants.ManagedGatewayMeshController] = classInfo{
 			controller:         constants.ManagedGatewayMeshController,
 			description:        "The default Istio waypoint GatewayClass",
@@ -364,7 +364,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 			hasAmbientAnnotation = true
 		}
 	}
-	if features.EnableAmbientControllers && !isWaypointGateway && !hasAmbientAnnotation {
+	if features.EnableAmbientWaypoints && !isWaypointGateway && !hasAmbientAnnotation {
 		if gw.Annotations == nil {
 			gw.Annotations = make(map[string]string)
 		}

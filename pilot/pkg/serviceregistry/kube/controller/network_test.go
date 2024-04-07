@@ -46,7 +46,7 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
 	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		ClusterID:       "Kubernetes",
+		ClusterID:       constants.DefaultClusterName,
 		NetworksWatcher: meshNetworks,
 		DomainSuffix:    "cluster.local",
 		CRDs:            []schema.GroupVersionResource{gvr.KubernetesGateway},

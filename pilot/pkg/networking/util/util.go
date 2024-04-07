@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/istio/pkg/wellknown"
@@ -92,12 +93,12 @@ const (
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
-var ALPNH2Only = []string{"h2"}
+var ALPNH2Only = pm.ALPNH2Only
 
 // ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 // Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
-var ALPNInMeshH2 = []string{"istio", "h2"}
+var ALPNInMeshH2 = pm.ALPNInMeshH2
 
 // ALPNInMeshH2WithMxc advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
@@ -235,16 +236,7 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *core.Locality {
-	if locality == "" {
-		return &core.Locality{}
-	}
-
-	region, zone, subzone := label.SplitLocalityLabel(locality)
-	return &core.Locality{
-		Region:  region,
-		Zone:    zone,
-		SubZone: subzone,
-	}
+	return pm.ConvertLocality(locality)
 }
 
 // LocalityToString converts Locality struct to '/' separated locality string.
@@ -521,16 +513,7 @@ func IsAllowAnyOutbound(node *model.Proxy) bool {
 }
 
 func StringToExactMatch(in []string) []*matcher.StringMatcher {
-	if len(in) == 0 {
-		return nil
-	}
-	res := make([]*matcher.StringMatcher, 0, len(in))
-	for _, s := range in {
-		res = append(res, &matcher.StringMatcher{
-			MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
-		})
-	}
-	return res
+	return pm.StringToExactMatch(in)
 }
 
 func StringToPrefixMatch(in []string) []*matcher.StringMatcher {
@@ -777,15 +760,10 @@ func GetPortLevelTrafficPolicy(policy *networking.TrafficPolicy, port *model.Por
 		return policy, false
 	}
 
-	// settings specified at the destination-level will not be inherited when
-	// overridden by port-level settings, i.e. default values will be applied
-	// to fields omitted in port-level traffic policies.
-	ret := &networking.TrafficPolicy{}
-	ret.ConnectionPool = portTrafficPolicy.ConnectionPool
-	ret.LoadBalancer = portTrafficPolicy.LoadBalancer
-	ret.OutlierDetection = portTrafficPolicy.OutlierDetection
-	ret.Tls = portTrafficPolicy.Tls
-	return ret, true
+	// Note that port-level settings will override the destination-level settings.
+	// Traffic settings specified at the destination-level will not be inherited when overridden by port-level settings,
+	// i.e. default values will be applied to fields omitted in port-level traffic policies.
+	return shadowCopyPortTrafficPolicy(portTrafficPolicy), true
 }
 
 // MergeSubsetTrafficPolicy merges the destination and subset level traffic policy for the given port.
@@ -802,10 +780,15 @@ func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, 
 
 	// merge DR with subset traffic policy
 	// Override with subset values.
-	mergedPolicy := ShallowcopyTrafficPolicy(original)
-	// settings specified at the destination-level will not be inherited when
-	// overridden by port-level settings, i.e. default values will be applied
-	// to fields omitted in port-level traffic policies.
+	mergedPolicy := ShallowCopyTrafficPolicy(original)
+
+	return mergeTrafficPolicy(mergedPolicy, subsetPolicy, hasPortLevel)
+}
+
+// Note that port-level settings will override the destination-level settings.
+// Traffic settings specified at the destination-level will not be inherited when overridden by port-level settings,
+// i.e. default values will be applied to fields omitted in port-level traffic policies.
+func mergeTrafficPolicy(mergedPolicy, subsetPolicy *networking.TrafficPolicy, hasPortLevel bool) *networking.TrafficPolicy {
 	if subsetPolicy.ConnectionPool != nil || hasPortLevel {
 		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
 	}
@@ -828,8 +811,20 @@ func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, 
 	return mergedPolicy
 }
 
-// Shallowcopy a traffic policy, portLevelSettings are ignorred.
-func ShallowcopyTrafficPolicy(original *networking.TrafficPolicy) *networking.TrafficPolicy {
+func shadowCopyPortTrafficPolicy(portTrafficPolicy *networking.TrafficPolicy_PortTrafficPolicy) *networking.TrafficPolicy {
+	if portTrafficPolicy == nil {
+		return nil
+	}
+	ret := &networking.TrafficPolicy{}
+	ret.ConnectionPool = portTrafficPolicy.ConnectionPool
+	ret.LoadBalancer = portTrafficPolicy.LoadBalancer
+	ret.OutlierDetection = portTrafficPolicy.OutlierDetection
+	ret.Tls = portTrafficPolicy.Tls
+	return ret
+}
+
+// ShallowCopyTrafficPolicy shallow copy a traffic policy, portLevelSettings are ignored.
+func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.TrafficPolicy {
 	if original == nil {
 		return nil
 	}

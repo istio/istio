@@ -30,6 +30,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
@@ -44,7 +45,7 @@ func TestECDS(t *testing.T) {
 	ads := s.ConnectADS().WithType(v3.ExtensionConfigurationType)
 	wantExtensionConfigName := "extension-config"
 	md := model.NodeMetadata{
-		ClusterID: "Kubernetes",
+		ClusterID: constants.DefaultClusterName,
 	}
 	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		Node: &core.Node{
@@ -279,7 +280,7 @@ func TestECDSGenerate(t *testing.T) {
 				VerifiedIdentity: &spiffe.Identity{Namespace: tt.proxyNamespace},
 				Type:             model.Router,
 				Metadata: &model.NodeMetadata{
-					ClusterID: "Kubernetes",
+					ClusterID: constants.DefaultClusterName,
 				},
 			}
 			tt.request.Push = s.PushContext()

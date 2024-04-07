@@ -87,14 +87,4 @@ func (f *MockDiscovery) DeltaAggregatedResources(server discovery.AggregatedDisc
 	}
 }
 
-// SendResponse sends a response to a (random) client. This can block if sends are blocked.
-func (f *MockDiscovery) SendResponse(dr *discovery.DiscoveryResponse) {
-	f.responses <- dr
-}
-
-// SendDeltaResponse sends a response to a (random) client. This can block if sends are blocked.
-func (f *MockDiscovery) SendDeltaResponse(dr *discovery.DeltaDiscoveryResponse) {
-	f.deltaResponses <- dr
-}
-
 var _ discovery.AggregatedDiscoveryServiceServer = &MockDiscovery{}

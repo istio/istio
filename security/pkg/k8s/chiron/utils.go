@@ -66,7 +66,7 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 		cert.UsageServerAuth,
 	}
 	if signerName == "" {
-		signerName = "kubernetes.io/legacy-unknown"
+		return nil, nil, nil, fmt.Errorf("signerName is required for Kubernetes CA")
 	}
 	certChain, caCert, err := SignCSRK8s(client, csrPEM, signerName, usages, dnsName, caFilePath, approveCsr, true, requestedLifetime)
 

@@ -5,10 +5,7 @@ package {{.PackageName}}
 import (
 	"reflect"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 	"k8s.io/client-go/informers"
-	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-	kubeextinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	ktypes "istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pilot/pkg/util/informermetric"

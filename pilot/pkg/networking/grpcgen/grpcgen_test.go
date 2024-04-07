@@ -51,6 +51,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -98,7 +99,7 @@ func GRPCBootstrap(app, namespace, ip string, xdsPort int) []byte {
 				NodeMetadata: model.NodeMetadata{
 					Namespace: namespace,
 					Generator: "grpc",
-					ClusterID: "Kubernetes",
+					ClusterID: constants.DefaultClusterName,
 				},
 			},
 		},
@@ -128,7 +129,7 @@ func resolverForTest(t test.Failer, xdsPort int, ns string) resolver.Builder {
 func init() {
 	// Setup gRPC logging. Do it once in init to avoid races
 	o := log.DefaultOptions()
-	o.LogGrpc = true
+	o.SetDefaultOutputLevel(log.GrpcScopeName, log.DebugLevel)
 	log.Configure(o)
 }
 
@@ -173,7 +174,9 @@ func TestGRPC(t *testing.T) {
 			Scheme: "xds",
 			Path:   "/" + net.JoinHostPort(testSvcHost, xdsPorts),
 		}},
-			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
+			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{
+				Authority: testSvcHost,
+			})
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
 		}

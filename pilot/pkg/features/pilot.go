@@ -60,7 +60,7 @@ var (
 	PilotCertProvider = env.Register("PILOT_CERT_PROVIDER", constants.CertProviderIstiod,
 		"The provider of Pilot DNS certificate.").Get()
 
-	ClusterName = env.Register("CLUSTER_ID", "Kubernetes",
+	ClusterName = env.Register("CLUSTER_ID", constants.DefaultClusterName,
 		"Defines the cluster and service registry that this Istiod instance belongs to").Get()
 
 	ExternalIstiod = env.Register("EXTERNAL_ISTIOD", false,

@@ -27,7 +27,6 @@ import (
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -103,7 +102,6 @@ func TestClientNoCRDs(t *testing.T) {
 
 // Ensure that the client can run without CRDs present, but then added later
 func TestClientDelayedCRDs(t *testing.T) {
-	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	// ns1 is allowed, ns2 is not
 	f := kubetypes.NewStaticObjectFilter(func(obj interface{}) bool {
 		// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.

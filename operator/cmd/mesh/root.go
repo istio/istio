@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	binversion "istio.io/istio/operator/version"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/version"
 )
@@ -80,12 +79,12 @@ func GetRootCmd(ctx cli.Context, args []string) *cobra.Command {
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	rootCmd.AddCommand(ManifestCmd(ctx, log.DefaultOptions()))
-	rootCmd.AddCommand(InstallCmd(ctx, log.DefaultOptions()))
-	rootCmd.AddCommand(ProfileCmd(ctx, log.DefaultOptions()))
+	rootCmd.AddCommand(ManifestCmd(ctx))
+	rootCmd.AddCommand(InstallCmd(ctx))
+	rootCmd.AddCommand(ProfileCmd(ctx))
 	rootCmd.AddCommand(OperatorCmd(ctx))
 	rootCmd.AddCommand(version.CobraCommand())
-	rootCmd.AddCommand(UpgradeCmd(ctx, log.DefaultOptions()))
+	rootCmd.AddCommand(UpgradeCmd(ctx))
 
 	return rootCmd
 }

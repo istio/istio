@@ -16,3 +16,4 @@ iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 888 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner ftp -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
+iptables-save

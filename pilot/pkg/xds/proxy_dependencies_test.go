@@ -24,7 +24,7 @@ import (
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -172,7 +172,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	}
 
 	// test for gateway proxy dependencies.
-	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+	cg := core.NewConfigGenTest(t, core.TestOptions{
 		Services: []*model.Service{
 			{
 				Hostname: svcName,
@@ -200,7 +200,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	gateway.SetSidecarScope(cg.PushContext())
 
 	// service visibility updated
-	cg = v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+	cg = core.NewConfigGenTest(t, core.TestOptions{
 		Services: []*model.Service{
 			{
 				Hostname: svcName,
@@ -269,7 +269,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		jwksSvc      = "jwks"
 	)
 
-	cg = v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+	cg = core.NewConfigGenTest(t, core.TestOptions{
 		Services: []*model.Service{
 			{
 				Hostname: fooSvc,

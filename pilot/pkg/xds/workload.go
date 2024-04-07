@@ -65,7 +65,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 		} else {
 			// this is from the external triggers instead of request
 			// send response for all the subscribed intersect with the updated
-			addresses = updatedAddresses.Intersection(subs)
+			addresses = updatedAddresses.IntersectInPlace(subs)
 		}
 	}
 

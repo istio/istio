@@ -17,7 +17,6 @@
 package ambient
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	ambientComponent "istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -62,7 +62,7 @@ func TestBookinfo(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			skipsForTest(t)
 			nsConfig, err := namespace.New(t, namespace.Config{
-				Prefix: "bookinfo",
+				Prefix: "book",
 				Inject: false,
 				Labels: map[string]string{
 					constants.DataplaneMode: "ambient",
@@ -112,8 +112,10 @@ func TestBookinfo(t *testing.T) {
 				})
 			})
 
+			ambientComponent.NewWaypointProxyOrFail(t, nsConfig, "namespace")
+
 			t.NewSubTest("ingress receives waypoint updates").Run(func(t framework.TestContext) {
-				setupWaypoints(t, nsConfig, "bookinfo-productpage")
+				ambientComponent.AddWaypointToService(t, nsConfig, "productpage", "namespace")
 				for _, ingressURL := range ingressURLs {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -127,7 +129,7 @@ func TestBookinfo(t *testing.T) {
 						return nil
 					}, retry.Converge(5))
 				}
-				deleteWaypoints(t, nsConfig, "bookinfo-productpage")
+				ambientComponent.RemoveWaypointFromService(t, nsConfig, "productpage", "namespace")
 				for _, ingressURL := range ingressURLs {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -144,8 +146,6 @@ func TestBookinfo(t *testing.T) {
 			})
 
 			t.NewSubTest("waypoint routing").Run(func(t framework.TestContext) {
-				setupWaypoints(t, nsConfig, "bookinfo-reviews")
-
 				t.NewSubTest("productpage reachable").Run(func(t framework.TestContext) {
 					for _, ingressURL := range ingressURLs {
 						retry.UntilSuccessOrFail(t, func() error {
@@ -170,6 +170,8 @@ func TestBookinfo(t *testing.T) {
 						})
 					}
 				})
+
+				ambientComponent.AddWaypointToService(t, nsConfig, "reviews", "namespace")
 
 				t.NewSubTest("reviews v1").Run(func(t framework.TestContext) {
 					applyFileOrFail(t, nsConfig.Name(), routingV1)
@@ -197,6 +199,7 @@ func TestBookinfo(t *testing.T) {
 						}, retry.Converge(5))
 					}
 				})
+
 				t.NewSubTest("reviews v2").Run(func(t framework.TestContext) {
 					applyFileOrFail(t, nsConfig.Name(), headerRouting)
 					cookieClient := http.Client{
@@ -240,7 +243,7 @@ func TestBookinfo(t *testing.T) {
 			t.NewSubTest("waypoint template change").Run(func(t framework.TestContext) {
 				// Test will modify grace period as an arbitrary change to check we re-deploy the waypoint
 				getGracePeriod := func(want int64) bool {
-					pods, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")()
+					pods, err := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=namespace")()
 					assert.NoError(t, err)
 					for _, p := range pods {
 						grace := p.Spec.TerminationGracePeriodSeconds
@@ -265,7 +268,10 @@ func TestBookinfo(t *testing.T) {
 					return getGracePeriod(3)
 				})
 			})
-			deleteWaypoints(t, nsConfig, "bookinfo-reviews")
+			t.CleanupConditionally(func() {
+				ambientComponent.RemoveWaypointFromService(t, nsConfig, "reviews", "namespace")
+				ambientComponent.DeleteWaypoint(t, nsConfig, "namespace")
+			})
 		})
 }
 
@@ -292,8 +298,6 @@ func TestOtherRevisionIgnored(t *testing.T) {
 				"apply",
 				"--namespace",
 				nsConfig.Name(),
-				"--service-account",
-				"sa",
 				"--revision",
 				"foo",
 			})
@@ -314,44 +318,6 @@ func applyDefaultRouting(t framework.TestContext, nsConfig namespace.Instance) {
 	applyFileOrFail(t, nsConfig.Name(), defaultDestRule)
 	applyFileOrFail(t, nsConfig.Name(), bookinfoGateway)
 	applyFileOrFail(t, nsConfig.Name(), routingV1)
-}
-
-func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa string) {
-	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-		"x",
-		"waypoint",
-		"apply",
-		"--namespace",
-		nsConfig.Name(),
-		"--service-account",
-		sa,
-		"--wait",
-	})
-}
-
-func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa string) {
-	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-		"x",
-		"waypoint",
-		"delete",
-		"--namespace",
-		nsConfig.Name(),
-		"--service-account",
-		sa,
-	})
-	waypointError := retry.UntilSuccess(func() error {
-		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+sa)
-		pods, err := kubetest.CheckPodsAreReady(fetch)
-		if err != nil && !errors.Is(err, kubetest.ErrNoPodsFetched) {
-			return fmt.Errorf("cannot fetch pod: %v", err)
-		} else if len(pods) != 0 {
-			return fmt.Errorf("waypoint pod is not deleted")
-		}
-		return nil
-	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
-	if waypointError != nil {
-		t.Fatal(waypointError)
-	}
 }
 
 func setupBookinfo(t framework.TestContext, nsConfig namespace.Instance) {

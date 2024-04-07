@@ -1,3 +1,7 @@
+# WARNING: DO NOT EDIT, THIS FILE IS A COPY.
+# The original version of this file is located at /manifests/helm-profiles directory.
+# If you want to make a change in this file, edit the original one and run "make gen".
+
 # The OpenShift profile provides a basic set of settings to run Istio on OpenShift
 # CNI must be installed.
 cni:
@@ -16,3 +20,4 @@ pilot:
   cni:
     enabled: true
     provider: "multus"
+platform: openshift

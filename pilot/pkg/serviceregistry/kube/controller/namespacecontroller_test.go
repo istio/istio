@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -39,7 +38,6 @@ import (
 )
 
 func TestNamespaceController(t *testing.T) {
-	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	client := kube.NewFakeClient()
 	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
@@ -89,7 +87,6 @@ func TestNamespaceController(t *testing.T) {
 }
 
 func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
-	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	client := kube.NewFakeClient()
 	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
@@ -133,7 +130,6 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 }
 
 func TestNamespaceControllerDiscovery(t *testing.T) {
-	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	client := kube.NewFakeClient()
 	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()

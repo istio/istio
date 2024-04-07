@@ -1,6 +1,6 @@
-NAMESPACE     NAME                   SERVICE ACCOUNT     REVISION     PROGRAMMED
-bookinfo      bookinfo-rev           bookinfo-rev        rev1         True
-bookinfo      bookinfo-valid         bookinfo-valid      default      True
-default       bookinfo               bookinfo            default      False
-default       namespace                                  default      False
-default       no-name-convention     sa                  default      True
+NAMESPACE     NAME                   REVISION     PROGRAMMED
+bookinfo      bookinfo-rev           rev1         True
+bookinfo      bookinfo-valid         default      True
+default       bookinfo               default      False
+default       default-namespace      default      False
+default       no-name-convention     default      True

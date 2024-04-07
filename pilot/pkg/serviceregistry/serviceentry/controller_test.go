@@ -371,6 +371,42 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			Event{Type: "xds full", ID: "*.google.com"})
 	})
 
+	t.Run("change target port", func(t *testing.T) {
+		// Change the target port
+		targetPortChanged := func() *config.Config {
+			c := httpStaticOverlayUpdated.DeepCopy()
+			c.Spec.(*networking.ServiceEntry).Ports[0].TargetPort = 33333
+			return &c
+		}()
+		createConfigs([]*config.Config{targetPortChanged}, store, t)
+
+		// Endpoint ports should be changed
+		instances := append(baseInstances,
+			makeInstance(httpStaticOverlay, "5.5.5.5", 33333, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 33333, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+		expectServiceInstances(t, sd, targetPortChanged, 0, instances)
+
+		// Expect a full push, as the target port has changed
+		expectEvents(t, events,
+			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
+			Event{Type: "xds full", ID: "*.google.com"})
+
+		// Restore the target port
+		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
+
+		// Endpoint ports should be changed
+		instances = append(baseInstances,
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+		expectServiceInstances(t, sd, targetPortChanged, 0, instances)
+		// Expect a full push, as the target port has changed
+		expectEvents(t, events,
+			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
+			Event{Type: "xds full", ID: "*.google.com"})
+	})
+
 	t.Run("change host", func(t *testing.T) {
 		// same as httpStaticOverlayUpdated but with an additional host
 		httpStaticHost := func() *config.Config {
@@ -2234,6 +2270,68 @@ func Test_autoAllocateIP_deterministic(t *testing.T) {
 		deleteServices = append(deleteServices, svc)
 	}
 	inServices = deleteServices
+	allocateAndValidate()
+}
+
+func Test_autoAllocateIP_with_duplicated_host(t *testing.T) {
+	inServices := make([]*model.Service, 0)
+	originalServices := map[string]string{
+		"a.com": "240.240.109.8",
+		"c.com": "240.240.234.51",
+		"e.com": "240.240.85.60",
+		"g.com": "240.240.23.172",
+		"i.com": "240.240.15.2",
+		"k.com": "240.240.160.161",
+		"l.com": "240.240.42.96",
+		"n.com": "240.240.121.61",
+		"o.com": "240.240.122.71",
+	}
+
+	allocateAndValidate := func() {
+		gotServices := autoAllocateIPs(model.SortServicesByCreationTime(inServices))
+		gotIPMap := make(map[string]string)
+		serviceIPMap := make(map[string]string)
+		for _, svc := range gotServices {
+			if v, ok := gotIPMap[svc.AutoAllocatedIPv4Address]; ok && v != svc.Hostname.String() {
+				t.Errorf("multiple allocations of same IP address to different services with different hostname: %s", svc.AutoAllocatedIPv4Address)
+			}
+			gotIPMap[svc.AutoAllocatedIPv4Address] = svc.Hostname.String()
+			serviceIPMap[svc.Hostname.String()] = svc.AutoAllocatedIPv4Address
+		}
+		for k, v := range originalServices {
+			if gotIPMap[v] != k {
+				t.Errorf("ipaddress changed for service %s. expected: %s, got: %s", k, v, serviceIPMap[k])
+			}
+		}
+		for k, v := range gotIPMap {
+			if net.ParseIP(k) == nil {
+				t.Errorf("invalid ipaddress for service %s. got: %s", v, k)
+			}
+		}
+	}
+
+	// Validate that IP addresses are allocated for original list of services.
+	for k := range originalServices {
+		inServices = append(inServices, &model.Service{
+			Hostname:       host.Name(k),
+			Resolution:     model.ClientSideLB,
+			DefaultAddress: constants.UnspecifiedIP,
+		})
+	}
+	allocateAndValidate()
+
+	// Now add service with duplicated hostname validate that IPs are retained for original services and duplicated reuse the same IP
+	addServices := map[string]bool{
+		"i.com": true,
+	}
+
+	for k := range addServices {
+		inServices = append(inServices, &model.Service{
+			Hostname:       host.Name(k),
+			Resolution:     model.ClientSideLB,
+			DefaultAddress: constants.UnspecifiedIP,
+		})
+	}
 	allocateAndValidate()
 }
 

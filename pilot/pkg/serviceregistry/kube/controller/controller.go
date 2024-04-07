@@ -578,6 +578,9 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) informersSynced() bool {
+	if c.ambientIndex != nil && !c.ambientIndex.HasSynced() {
+		return false
+	}
 	return c.namespaces.HasSynced() &&
 		c.services.HasSynced() &&
 		c.endpoints.slices.HasSynced() &&
@@ -1168,10 +1171,10 @@ func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Ser
 	// Also check if target ports are changed since they are not included in `model.Service`
 	// `preConv.Equals(currConv)` already makes sure the length of ports is not changed
 	if prev != nil && curr != nil {
-		for i := 0; i < len(prev.Spec.Ports); i++ {
-			if prev.Spec.Ports[i].TargetPort != curr.Spec.Ports[i].TargetPort {
-				return true
-			}
+		if !slices.EqualFunc(prev.Spec.Ports, curr.Spec.Ports, func(a, b v1.ServicePort) bool {
+			return a.TargetPort == b.TargetPort
+		}) {
+			return true
 		}
 	}
 	return false

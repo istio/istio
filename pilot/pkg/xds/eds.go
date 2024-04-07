@@ -89,7 +89,7 @@ type EdsGenerator struct {
 var _ model.XdsDeltaResourceGenerator = &EdsGenerator{}
 
 // Map of all configs that do not impact EDS
-var skippedEdsConfigs = sets.New[kind.Kind](
+var skippedEdsConfigs = sets.New(
 	kind.Gateway,
 	kind.VirtualService,
 	kind.WorkloadGroup,
@@ -100,6 +100,12 @@ var skippedEdsConfigs = sets.New[kind.Kind](
 	kind.WasmPlugin,
 	kind.ProxyConfig,
 	kind.DNSName,
+
+	kind.KubernetesGateway,
+	kind.HTTPRoute,
+	kind.TCPRoute,
+	kind.TLSRoute,
+	kind.GRPCRoute,
 )
 
 func edsNeedsPush(updates model.XdsUpdates) bool {

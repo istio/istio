@@ -48,63 +48,63 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate, gatewaySemantics bo
 	errs = WrapError(validateHTTPRouteConflict(http, routeType))
 
 	// check http route match requests
-	errs = appendValidation(errs, validateHTTPRouteMatchRequest(http, routeType))
+	errs = AppendValidation(errs, validateHTTPRouteMatchRequest(http, routeType))
 
 	// header manipulation
 	for name, val := range http.Headers.GetRequest().GetAdd() {
-		errs = appendValidation(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
-		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+		errs = AppendValidation(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for name, val := range http.Headers.GetRequest().GetSet() {
-		errs = appendValidation(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
-		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+		errs = AppendValidation(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetRequest().GetRemove() {
-		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderOperationName(name))
 	}
 	for name, val := range http.Headers.GetResponse().GetAdd() {
-		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
-		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+		errs = AppendValidation(errs, ValidateHTTPHeaderOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for name, val := range http.Headers.GetResponse().GetSet() {
-		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
-		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+		errs = AppendValidation(errs, ValidateHTTPHeaderOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetResponse().GetRemove() {
-		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderOperationName(name))
 	}
 
-	errs = appendValidation(errs, validateCORSPolicy(http.CorsPolicy))
-	errs = appendValidation(errs, validateHTTPFaultInjection(http.Fault))
+	errs = AppendValidation(errs, validateCORSPolicy(http.CorsPolicy))
+	errs = AppendValidation(errs, validateHTTPFaultInjection(http.Fault))
 
 	// nolint: staticcheck
 	if http.MirrorPercent != nil {
 		if value := http.MirrorPercent.GetValue(); value > 100 {
-			errs = appendValidation(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))
+			errs = AppendValidation(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))
 		}
-		errs = appendValidation(errs, WrapWarning(errors.New(`using deprecated setting "mirrorPercent", use "mirrorPercentage" instead`)))
+		errs = AppendValidation(errs, WrapWarning(errors.New(`using deprecated setting "mirrorPercent", use "mirrorPercentage" instead`)))
 	}
 
 	if http.MirrorPercentage != nil {
 		value := http.MirrorPercentage.GetValue()
 		if value > 100 {
-			errs = appendValidation(errs, fmt.Errorf("mirror_percentage must have a max value of 100 (it has %f)", value))
+			errs = AppendValidation(errs, fmt.Errorf("mirror_percentage must have a max value of 100 (it has %f)", value))
 		}
 		if value < 0 {
-			errs = appendValidation(errs, fmt.Errorf("mirror_percentage must have a min value of 0 (it has %f)", value))
+			errs = AppendValidation(errs, fmt.Errorf("mirror_percentage must have a min value of 0 (it has %f)", value))
 		}
 	}
 
-	errs = appendValidation(errs, validateDestination(http.Mirror))
-	errs = appendValidation(errs, validateHTTPMirrors(http.Mirrors))
-	errs = appendValidation(errs, validateHTTPRedirect(http.Redirect))
-	errs = appendValidation(errs, validateHTTPDirectResponse(http.DirectResponse))
-	errs = appendValidation(errs, validateHTTPRetry(http.Retries))
-	errs = appendValidation(errs, validateHTTPRewrite(http.Rewrite))
-	errs = appendValidation(errs, validateAuthorityRewrite(http.Rewrite, http.Headers))
-	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route, gatewaySemantics))
+	errs = AppendValidation(errs, validateDestination(http.Mirror))
+	errs = AppendValidation(errs, validateHTTPMirrors(http.Mirrors))
+	errs = AppendValidation(errs, validateHTTPRedirect(http.Redirect))
+	errs = AppendValidation(errs, validateHTTPDirectResponse(http.DirectResponse))
+	errs = AppendValidation(errs, validateHTTPRetry(http.Retries))
+	errs = AppendValidation(errs, validateHTTPRewrite(http.Rewrite))
+	errs = AppendValidation(errs, validateAuthorityRewrite(http.Rewrite, http.Headers))
+	errs = AppendValidation(errs, validateHTTPRouteDestinations(http.Route, gatewaySemantics))
 	if http.Timeout != nil {
-		errs = appendValidation(errs, ValidateDuration(http.Timeout))
+		errs = AppendValidation(errs, ValidateDuration(http.Timeout))
 	}
 
 	return

@@ -401,6 +401,54 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 	}
 }
 
+func TestPrune(t *testing.T) {
+	recreateSimpleTestEnv()
+	tmpDir := t.TempDir()
+	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
+	err := copyDir(string(liveCharts), string(tmpCharts))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", "envoyfilter"+".yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writeFile(filepath.Join(tmpDir, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+"default.yaml"), []byte(rs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fakeControllerReconcile("default", tmpCharts, &helmreconciler.Options{
+		Force:     false,
+		SkipPrune: false,
+		Log:       clog.NewDefaultLogger(),
+	})
+	assert.NoError(t, err)
+
+	// Install a default revision should not cause any error
+	objs, err := fakeControllerReconcile("empty", tmpCharts, &helmreconciler.Options{
+		Force:     false,
+		SkipPrune: false,
+		Log:       clog.NewDefaultLogger(),
+	})
+	assert.NoError(t, err)
+
+	for _, s := range helmreconciler.PrunedResourcesSchemas() {
+		remainedObjs := objs.kind(s.Kind)
+		if remainedObjs.size() == 0 {
+			continue
+		}
+		for _, v := range remainedObjs.objMap {
+			// exclude operator objects, which will not be pruned
+			if strings.Contains(v.Name, "istio-operator") {
+				continue
+			}
+			t.Fatalf("obj %s/%s is not pruned", v.Namespace, v.Name)
+		}
+	}
+}
+
 func TestManifestGenerateAllOff(t *testing.T) {
 	g := NewWithT(t)
 	m, _, err := generateManifest("all_off", "", liveCharts, nil)

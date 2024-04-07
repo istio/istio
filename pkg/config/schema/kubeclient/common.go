@@ -31,6 +31,7 @@ import (
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/pilot/pkg/util/informermetric"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/informerfactory"
 	ktypes "istio.io/istio/pkg/kube/kubetypes"
@@ -61,6 +62,20 @@ type ClientGetter interface {
 }
 
 func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerOptions) informerfactory.StartableInformer {
+	for _, reg := range registerType {
+		if tr, ok := reg.(TypeRegistration[T]); ok {
+			return c.Informers().InformerFor(tr.GetGVR(), opts, func() cache.SharedIndexInformer {
+				inf := cache.NewSharedIndexInformer(
+					tr.ListWatch(c, opts),
+					tr.Object(),
+					0,
+					cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+				)
+				setupInformer(opts, inf)
+				return inf
+			})
+		}
+	}
 	return GetInformerFilteredFromGVR(c, opts, kubetypes.GetGVR[T]())
 }
 
@@ -153,4 +168,60 @@ func stripUnusedFields(obj any) (any, error) {
 	// ManagedFields is large and we never use it
 	t.GetObjectMeta().SetManagedFields(nil)
 	return obj, nil
+}
+
+var registerType = make([]any, 0)
+
+// Register provides the TypeRegistration to the underlying
+// store to enable dynamic object translation
+func Register[T runtime.Object](reg TypeRegistration[T]) {
+	kubetypes.Register[T](reg)
+	registerType = append(registerType, reg)
+}
+
+// TypeRegistration represents the necessary methods
+// to provide a custom type to the kubeclient informer mechanism
+type TypeRegistration[T runtime.Object] interface {
+	kubetypes.RegisterType[T]
+
+	// ListWatchFunc provides the necessary methods for list and
+	// watch for the informer
+	ListWatch(c ClientGetter, opts ktypes.InformerOptions) cache.ListerWatcher
+}
+
+func NewTypeRegistration[T runtime.Object](
+	gvr schema.GroupVersionResource,
+	gvk config.GroupVersionKind,
+	obj T,
+	lw func(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher,
+) TypeRegistration[T] {
+	return &internalTypeReg[T]{
+		gvr: gvr,
+		gvk: gvk,
+		obj: obj,
+		lw:  lw,
+	}
+}
+
+type internalTypeReg[T runtime.Object] struct {
+	lw  func(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher
+	gvr schema.GroupVersionResource
+	gvk config.GroupVersionKind
+	obj T
+}
+
+func (t *internalTypeReg[T]) GetGVK() config.GroupVersionKind {
+	return t.gvk
+}
+
+func (t *internalTypeReg[T]) GetGVR() schema.GroupVersionResource {
+	return t.gvr
+}
+
+func (t *internalTypeReg[T]) ListWatch(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher {
+	return t.lw(c, o)
+}
+
+func (t *internalTypeReg[T]) Object() T {
+	return t.obj
 }

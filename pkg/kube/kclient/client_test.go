@@ -32,6 +32,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istioclient "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	istionetclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -379,7 +380,26 @@ func TestFilter(t *testing.T) {
 		ObjectFilter: discoveryNamespacesFilter,
 	})
 	deployments.AddEventHandler(clienttest.TrackerHandler(tracker))
+
+	// Create two dynamic informers: one with CRD initially ready, one later
+	// Ready now
+	clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+	c.RunAndWait(test.NewStop(t)) // Run now to run CRDs
+	crd := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{
+		ObjectFilter: discoveryNamespacesFilter,
+	})
+	wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+	crd.AddEventHandler(clienttest.TrackerHandler(tracker))
+
+	// Ready later
+	vscrd := kclient.NewDelayedInformer[controllers.Object](c, gvr.VirtualService, kubetypes.StandardInformer, kubetypes.Filter{
+		ObjectFilter: discoveryNamespacesFilter,
+	})
+	vst := clienttest.NewWriter[*istionetclient.VirtualService](t, c)
+	vscrd.AddEventHandler(clienttest.TrackerHandler(tracker))
 	c.RunAndWait(test.NewStop(t))
+
+	clienttest.MakeCRD(t, c, gvr.VirtualService)
 	tester := clienttest.Wrap(t, deployments)
 	obj1 := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "1", Namespace: "default"},
@@ -402,4 +422,20 @@ func TestFilter(t *testing.T) {
 	}}}, time.Second))
 	tracker.WaitOrdered("delete/1")
 	assert.Equal(t, len(tester.List("", klabels.Everything())), 1)
+
+	wt.Create(&istioclient.WasmPlugin{
+		ObjectMeta: metav1.ObjectMeta{Name: "name1", Namespace: "not-selected"},
+	})
+	wt.Create(&istioclient.WasmPlugin{
+		ObjectMeta: metav1.ObjectMeta{Name: "name2", Namespace: "selected"},
+	})
+	tracker.WaitOrdered("add/name2")
+
+	vst.Create(&istionetclient.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{Name: "name3", Namespace: "not-selected"},
+	})
+	vst.Create(&istionetclient.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{Name: "name4", Namespace: "selected"},
+	})
+	tracker.WaitOrdered("add/name4")
 }

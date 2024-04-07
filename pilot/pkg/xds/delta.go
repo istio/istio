@@ -238,7 +238,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 	}
 }
 
-func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
+func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newResourceNames []string) error {
 	sendResonse := func() error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
@@ -250,6 +250,10 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 			conn.proxy.UpdateWatchedResource(res.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
 				if wr == nil {
 					wr = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				}
+				// some resources dynamically update ResourceNames. Most don't though
+				if newResourceNames != nil {
+					wr.ResourceNames = newResourceNames
 				}
 				wr.NonceSent = res.Nonce
 				if features.EnableUnsafeDeltaTest {
@@ -432,9 +436,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 }
 
 // Push a Delta XDS resource for the given connection.
-func (s *DiscoveryServer) pushDeltaXds(con *Connection,
-	w *model.WatchedResource, req *model.PushRequest,
-) error {
+func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource, req *model.PushRequest) error {
 	if w == nil {
 		return nil
 	}
@@ -502,14 +504,23 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		removed := subscribed.DeleteAll(currentResources...)
 		resp.RemovedResources = sets.SortedList(removed)
 	}
+	var newResourceNames []string
+	if shouldSetWatchedResources(w) {
+		// Set the new watched resources. Do not write to w directly, as it can be a copy from the 'filtered' logic above
+		if usedDelta {
+			// Apply the delta
+			newResourceNames = sets.SortedList(sets.New(w.ResourceNames...).
+				DeleteAll(resp.RemovedResources...).
+				InsertAll(currentResources...))
+		} else {
+			newResourceNames = currentResources
+		}
+	}
+	if neverRemoveDelta(w.TypeUrl) {
+		resp.RemovedResources = nil
+	}
 	if len(resp.RemovedResources) > 0 {
 		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
-	}
-	if shouldSetWatchedResources(w) {
-		// this is probably a bad idea...
-		con.proxy.Lock()
-		w.ResourceNames = currentResources
-		con.proxy.Unlock()
 	}
 
 	configSize := ResourceSize(res)
@@ -527,11 +538,13 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		info += logFiltered
 	}
 
-	if err := con.sendDelta(resp); err != nil {
+	if err := con.sendDelta(resp, newResourceNames); err != nil {
+		logger := deltaLog.Debugf
 		if recordSendError(w.TypeUrl, err) {
-			deltaLog.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
+			logger = deltaLog.Warnf
 		}
+		logger("%s: Send failure for node:%s resources:%d size:%s%s: %v",
+			v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
 		return err
 	}
 
@@ -561,10 +574,18 @@ func requiresResourceNamesModification(url string) bool {
 	return url == v3.AddressType || url == v3.WorkloadType
 }
 
+// neverRemoveDelta checks if a type should never remove resources
+func neverRemoveDelta(url string) bool {
+	// https://github.com/envoyproxy/envoy/issues/32823
+	// We want to garbage collect extensions when they are no longer referenced, rather than delete immediately
+	return url == v3.ExtensionConfigurationType
+}
+
 // shouldSetWatchedResources indicates whether we should set the watched resources for a given type.
 // for some type like `Address` we customly handle it in the generator
 func shouldSetWatchedResources(w *model.WatchedResource) bool {
-	if w.TypeUrl == v3.AddressType || w.TypeUrl == v3.WorkloadType {
+	if requiresResourceNamesModification(w.TypeUrl) {
+		// These handle it directly in the generator
 		return false
 	}
 	// Else fallback based on type

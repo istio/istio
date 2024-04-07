@@ -47,6 +47,11 @@ var (
 		kind.VirtualService,
 		kind.DestinationRule,
 		kind.Sidecar,
+
+		kind.HTTPRoute,
+		kind.TCPRoute,
+		kind.TLSRoute,
+		kind.GRPCRoute,
 	)
 
 	// clusterScopedKnownConfigTypes includes configs when they are in root namespace,
@@ -285,10 +290,10 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			Hosts: []string{"*/*"},
 		},
 	}
-	defaultEgressListener.services = ps.servicesExportedToNamespace(configNamespace)
+	services := ps.servicesExportedToNamespace(configNamespace)
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
 	defaultEgressListener.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(
-		defaultEgressListener.virtualServices, defaultEgressListener.services)
+		defaultEgressListener.virtualServices, services)
 
 	out := &SidecarScope{
 		Name:                    defaultSidecar,
@@ -302,19 +307,19 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 
 	servicesAdded := make(map[host.Name]sidecarServiceIndex)
-	for _, listener := range out.EgressListeners {
-		for _, s := range listener.services {
-			out.appendSidecarServices(servicesAdded, s)
-		}
-		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServices(listener.virtualServices)
-		for _, delegate := range delegates {
-			out.AddConfigDependencies(delegate)
-		}
-		for _, vs := range listener.virtualServices {
-			for _, cfg := range VirtualServiceDependencies(vs) {
-				out.AddConfigDependencies(cfg.HashCode())
-			}
+	for _, s := range services {
+		out.appendSidecarServices(servicesAdded, s)
+	}
+	defaultEgressListener.services = out.services
+
+	// add dependencies on delegate virtual services
+	delegates := ps.DelegateVirtualServices(defaultEgressListener.virtualServices)
+	for _, delegate := range delegates {
+		out.AddConfigDependencies(delegate)
+	}
+	for _, vs := range defaultEgressListener.virtualServices {
+		for _, cfg := range VirtualServiceDependencies(vs) {
+			out.AddConfigDependencies(cfg.HashCode())
 		}
 	}
 
@@ -740,6 +745,7 @@ func (sc *SidecarScope) ServicesForHostname(hostname host.Name) []*Service {
 
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
+// TODO: support merging services within this egress listener to align with SidecarScope's behavior.
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string, hostsByNamespace map[string]hostClassification) []*Service {
 	importedServices := make([]*Service, 0)
 	wildcardHosts, wnsFound := hostsByNamespace[wildcardNamespace]
@@ -912,6 +918,7 @@ type sidecarServiceIndex struct {
 	index int // index record the position of the svc in slice
 }
 
+// append services to the sidecar scope, and merge services with the same hostname.
 func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sidecarServiceIndex, s *Service) {
 	if s == nil {
 		return

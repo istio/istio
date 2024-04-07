@@ -130,6 +130,18 @@ func ToJSONWithOptions(msg proto.Message, indent string, enumsAsInts bool) (stri
 	return m.MarshalToString(legacyproto.MessageV1(msg))
 }
 
+func ToJSONWithAnyResolver(msg proto.Message, indent string, anyResolver jsonpb.AnyResolver) (string, error) {
+	if msg == nil {
+		return "", errors.New("unexpected nil message")
+	}
+
+	m := jsonpb.Marshaler{
+		Indent:      indent,
+		AnyResolver: anyResolver,
+	}
+	return m.MarshalToString(legacyproto.MessageV1(msg))
+}
+
 // ToYAML marshals a proto to canonical YAML
 func ToYAML(msg proto.Message) (string, error) {
 	js, err := ToJSON(msg)

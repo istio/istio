@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 48634
+releaseNotes:
+- |
+  **Removed** deprecated `external` profile, use `remote` profile instead for installation.

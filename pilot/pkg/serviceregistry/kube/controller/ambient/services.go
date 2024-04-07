@@ -32,6 +32,8 @@ import (
 func (a *index) ServicesCollection(
 	Services krt.Collection[*v1.Service],
 	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
+	Waypoints krt.Collection[Waypoint],
+	Namespaces krt.Collection[*v1.Namespace],
 ) krt.Collection[model.ServiceInfo] {
 	ServicesInfo := krt.NewCollection(Services, func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
 		portNames := map[int32]model.ServicePortName{}
@@ -41,23 +43,26 @@ func (a *index) ServicesCollection(
 				TargetPortName: p.TargetPort.StrVal,
 			}
 		}
+		waypoint := fetchWaypointForService(ctx, Waypoints, Namespaces, s.ObjectMeta)
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		return &model.ServiceInfo{
-			Service:       a.constructService(s),
+			Service:       a.constructService(s, waypoint),
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(s.Spec.Selector),
 			Source:        kind.Service,
 		}
 	}, krt.WithName("ServicesInfo"))
 	ServiceEntriesInfo := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
+		waypoint := fetchWaypointForService(ctx, Waypoints, Namespaces, s.ObjectMeta)
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		return a.serviceEntriesInfo(s)
+		return a.serviceEntriesInfo(s, waypoint)
 	}, krt.WithName("ServiceEntriesInfo"))
 	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, krt.WithName("WorkloadServices"))
+	// workloadapi services NOT workloads x services somehow
 	return WorkloadServices
 }
 
-func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry) []model.ServiceInfo {
+func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
 	portNames := map[int32]model.ServicePortName{}
 	for _, p := range s.Spec.Ports {
@@ -65,7 +70,7 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry) []model.Ser
 			PortName: p.Name,
 		}
 	}
-	return slices.Map(a.constructServiceEntries(s), func(e *workloadapi.Service) model.ServiceInfo {
+	return slices.Map(a.constructServiceEntries(s, w), func(e *workloadapi.Service) model.ServiceInfo {
 		return model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
@@ -75,7 +80,7 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry) []model.Ser
 	})
 }
 
-func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry) []*workloadapi.Service {
+func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
 	addresses, err := slices.MapErr(svc.Spec.Addresses, a.toNetworkAddressFromCidr)
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
@@ -89,6 +94,12 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry) []*w
 		})
 	}
 
+	// handle svc waypoint scenario
+	var waypointAddress *workloadapi.GatewayAddress
+	if w != nil {
+		waypointAddress = a.getWaypointAddress(w)
+	}
+
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
@@ -98,12 +109,13 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry) []*w
 			Hostname:  h,
 			Addresses: addresses,
 			Ports:     ports,
+			Waypoint:  waypointAddress,
 		})
 	}
 	return res
 }
 
-func (a *index) constructService(svc *v1.Service) *workloadapi.Service {
+func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
 		ports = append(ports, &workloadapi.Port{
@@ -117,6 +129,12 @@ func (a *index) constructService(svc *v1.Service) *workloadapi.Service {
 		log.Warnf("fail to parse service %v: %v", config.NamespacedName(svc), err)
 		return nil
 	}
+	// handle svc waypoint scenario
+	var waypointAddress *workloadapi.GatewayAddress
+	if w != nil {
+		waypointAddress = a.getWaypointAddress(w)
+	}
+
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	return &workloadapi.Service{
 		Name:      svc.Name,
@@ -124,6 +142,7 @@ func (a *index) constructService(svc *v1.Service) *workloadapi.Service {
 		Hostname:  string(kube.ServiceHostname(svc.Name, svc.Namespace, a.DomainSuffix)),
 		Addresses: addresses,
 		Ports:     ports,
+		Waypoint:  waypointAddress,
 	}
 }
 

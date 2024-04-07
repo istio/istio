@@ -575,6 +575,13 @@ typedConfig:
                       stringMatch:
                         safeRegex:
                           regex: .+
+                - metadata:
+                    filter: istio_authn
+                    path:
+                    - key: request.auth.principal
+                    value:
+                      stringMatch:
+                        prefix: https://example.com/
             - notId:
                 orIds:
                   ids:

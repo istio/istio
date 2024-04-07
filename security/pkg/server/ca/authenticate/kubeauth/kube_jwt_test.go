@@ -28,6 +28,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/util/assert"
@@ -45,10 +46,10 @@ func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
 
 func TestNewKubeJWTAuthenticator(t *testing.T) {
 	meshHolder := mockMeshConfigHolder{"testdomain.com"}
-	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, "kubernetes", nil)
+	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, constants.DefaultClusterName, nil)
 	expectedAuthenticator := &KubeJWTAuthenticator{
 		meshHolder: meshHolder,
-		clusterID:  "kubernetes",
+		clusterID:  constants.DefaultClusterName,
 	}
 	if !reflect.DeepEqual(authenticator, expectedAuthenticator) {
 		t.Errorf("Unexpected authentication result: want %v but got %v",
@@ -57,7 +58,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 }
 
 func TestAuthenticate(t *testing.T) {
-	primaryCluster := "Kubernetes"
+	primaryCluster := constants.DefaultClusterName
 	remoteCluster := cluster.ID("remote")
 	invlidToken := "invalid-token"
 	meshHolder := mockMeshConfigHolder{"example.com"}
@@ -158,7 +159,7 @@ func TestAuthenticate(t *testing.T) {
 				return nil
 			}
 
-			authenticator := NewKubeJWTAuthenticator(meshHolder, client, "Kubernetes", remoteKubeClientGetter)
+			authenticator := NewKubeJWTAuthenticator(meshHolder, client, constants.DefaultClusterName, remoteKubeClientGetter)
 			actualCaller, err := authenticator.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tc.expectedErrMsg) > 0 {
 				if err == nil {

@@ -319,6 +319,8 @@ defaults:
     externalIstiod: true
     # Configure a remote cluster as the config cluster for an external istiod.
     configCluster: false
+    # configValidation enables the validation webhook for Istio configuration.
+    configValidation: true
     # Mesh ID means Mesh Identifier. It should be unique within the scope where
     # meshes will interact with each other, but it is not required to be
     # globally/universally unique. For example, if any of the following are true,

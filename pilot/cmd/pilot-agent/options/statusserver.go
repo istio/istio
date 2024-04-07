@@ -18,18 +18,18 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
-	"istio.io/istio/pilot/pkg/model"
 	istioagent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/model"
 )
 
-func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig, agent *istioagent.Agent) *status.Options {
+func NewStatusServerOptions(ipv6 bool, t model.NodeType, proxyConfig *meshconfig.ProxyConfig, agent *istioagent.Agent) *status.Options {
 	return &status.Options{
-		IPv6:           proxy.IsIPv6(),
+		IPv6:           ipv6,
 		PodIP:          InstanceIPVar.Get(),
 		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
 		StatusPort:     uint16(proxyConfig.StatusPort),
 		KubeAppProbers: kubeAppProberNameVar.Get(),
-		NodeType:       proxy.Type,
+		NodeType:       t,
 		Probes:         []ready.Prober{agent},
 		NoEnvoy:        agent.EnvoyDisabled(),
 		FetchDNS:       agent.GetDNSTable,

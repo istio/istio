@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -172,9 +173,7 @@ const (
 	// registry's value.
 	//
 	// Note: because k8s labels does not support `/`, so we use `.` instead in k8s.
-	LocalityLabel = "istio-locality"
-	// k8s istio-locality label separator
-	k8sSeparator = "."
+	LocalityLabel = pm.LocalityLabel
 )
 
 const (
@@ -207,10 +206,10 @@ const (
 	IstioMutualTLSModeLabel = "istio"
 
 	// IstioCanonicalServiceLabelName is the name of label for the Istio Canonical Service for a workload instance.
-	IstioCanonicalServiceLabelName = "service.istio.io/canonical-name"
+	IstioCanonicalServiceLabelName = pm.IstioCanonicalServiceLabelName
 
 	// IstioCanonicalServiceRevisionLabelName is the name of label for the Istio Canonical Service revision for a workload instance.
-	IstioCanonicalServiceRevisionLabelName = "service.istio.io/canonical-revision"
+	IstioCanonicalServiceRevisionLabelName = pm.IstioCanonicalServiceRevisionLabelName
 )
 
 func SupportsTunnel(labels map[string]string, tunnelType string) bool {
@@ -429,15 +428,7 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 // GetLocalityLabel returns the locality from the supplied label. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
 func GetLocalityLabel(label string) string {
-	if len(label) > 0 {
-		// if there are /'s present we don't need to replace
-		if strings.Contains(label, "/") {
-			return label
-		}
-		// replace "." with "/"
-		return strings.Replace(label, k8sSeparator, "/", -1)
-	}
-	return ""
+	return pm.GetLocalityLabel(label)
 }
 
 // Locality information for an IstioEndpoint
@@ -750,6 +741,8 @@ type ServiceAttributes struct {
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
 
+	PassthroughTargetPorts map[uint32]uint32
+
 	K8sAttributes
 }
 
@@ -913,8 +906,18 @@ type AmbientIndexes interface {
 		currentSubs sets.String,
 	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
-	Waypoint(scope WaypointScope) []netip.Addr
-	WorkloadsForWaypoint(scope WaypointScope) []WorkloadInfo
+	ServicesForWaypoint(WaypointKey) []ServiceInfo
+	Waypoint(network, address string) []netip.Addr
+	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
+}
+
+// WaypointKey is a multi-address extension of NetworkAddress which is commonly used for lookups in AmbientIndex
+// We likely need to consider alternative keying options internally such as hostname as we look to expand beyong istio-waypoint
+// This extension can ideally support that type of lookup in the interface without introducing scope creep into things
+// like NetworkAddress
+type WaypointKey struct {
+	Network   string
+	Addresses []string
 }
 
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
@@ -936,11 +939,15 @@ func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []WorkloadAuthorizatio
 	return nil
 }
 
-func (u NoopAmbientIndexes) Waypoint(WaypointScope) []netip.Addr {
+func (u NoopAmbientIndexes) ServicesForWaypoint(WaypointKey) []ServiceInfo {
 	return nil
 }
 
-func (u NoopAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []WorkloadInfo {
+func (u NoopAmbientIndexes) Waypoint(string, string) []netip.Addr {
+	return nil
+}
+
+func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
 	return nil
 }
 
@@ -1014,12 +1021,6 @@ func serviceResourceName(s *workloadapi.Service) string {
 
 type WorkloadSource string
 
-const (
-	WorkloadSourcePod           WorkloadSource = "pod"
-	WorkloadSourceServiceEntry  WorkloadSource = "serviceentry"
-	WorkloadSourceWorkloadEntry WorkloadSource = "workloadentry"
-)
-
 type WorkloadInfo struct {
 	*workloadapi.Workload
 	// Labels for the workload. Note these are only used internally, not sent over XDS
@@ -1092,7 +1093,7 @@ func ExtractWorkloadsFromAddresses(addrs []AddressInfo) []WorkloadInfo {
 	})
 }
 
-func SortWorkloadsByCreationTime(workloads []*WorkloadInfo) []*WorkloadInfo {
+func SortWorkloadsByCreationTime(workloads []WorkloadInfo) []WorkloadInfo {
 	sort.SliceStable(workloads, func(i, j int) bool {
 		if workloads[i].CreationTime.Equal(workloads[j].CreationTime) {
 			return workloads[i].Uid < workloads[j].Uid

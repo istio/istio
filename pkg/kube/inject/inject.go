@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
@@ -44,6 +45,7 @@ import (
 	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube"
@@ -99,7 +101,7 @@ const (
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
 	TypeMeta                 metav1.TypeMeta
-	DeploymentMeta           metav1.ObjectMeta
+	DeploymentMeta           types.NamespacedName
 	ObjectMeta               metav1.ObjectMeta
 	Spec                     corev1.PodSpec
 	ProxyConfig              *meshconfig.ProxyConfig
@@ -314,7 +316,7 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
 	}
 
-	imageType := ""
+	imageType := global.GetVariant()
 	if image != nil {
 		imageType = image.ImageType
 	}
@@ -643,7 +645,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 ) (any, error) {
 	out := in.DeepCopyObject()
 
-	var deploymentMetadata metav1.ObjectMeta
+	var deploymentMetadata types.NamespacedName
 	var metadata *metav1.ObjectMeta
 	var podSpec *corev1.PodSpec
 	var typeMeta metav1.TypeMeta
@@ -680,7 +682,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 		job := v
 		typeMeta = job.TypeMeta
 		metadata = &job.Spec.JobTemplate.ObjectMeta
-		deploymentMetadata = job.ObjectMeta
+		deploymentMetadata = config.NamespacedName(job)
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
 	case *corev1.Pod:
 		pod := v
@@ -691,7 +693,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	case *appsv1.Deployment: // Added to be explicit about the most expected case
 		deploy := v
 		typeMeta = deploy.TypeMeta
-		deploymentMetadata = deploy.ObjectMeta
+		deploymentMetadata = config.NamespacedName(deploy)
 		metadata = &deploy.Spec.Template.ObjectMeta
 		podSpec = &deploy.Spec.Template.Spec
 	default:
@@ -700,7 +702,8 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 
 		typeMeta = outValue.FieldByName("TypeMeta").Interface().(metav1.TypeMeta)
 
-		deploymentMetadata = outValue.FieldByName("ObjectMeta").Interface().(metav1.ObjectMeta)
+		om := outValue.FieldByName("ObjectMeta").Interface().(metav1.ObjectMeta)
+		deploymentMetadata = types.NamespacedName{Name: om.GetName(), Namespace: om.GetNamespace()}
 
 		templateValue := outValue.FieldByName("Spec").FieldByName("Template")
 		// `Template` is defined as a pointer in some older API

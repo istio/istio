@@ -37,7 +37,7 @@ type NdsGenerator struct {
 var _ model.XdsResourceGenerator = &NdsGenerator{}
 
 // Map of all configs that do not impact NDS
-var skippedNdsConfigs = sets.New[kind.Kind](
+var skippedNdsConfigs = sets.New(
 	kind.Gateway,
 	kind.VirtualService,
 	kind.DestinationRule,
@@ -52,6 +52,12 @@ var skippedNdsConfigs = sets.New[kind.Kind](
 	kind.WasmPlugin,
 	kind.ProxyConfig,
 	kind.MeshConfig,
+
+	kind.KubernetesGateway,
+	kind.HTTPRoute,
+	kind.TCPRoute,
+	kind.TLSRoute,
+	kind.GRPCRoute,
 )
 
 func ndsNeedsPush(req *model.PushRequest) bool {

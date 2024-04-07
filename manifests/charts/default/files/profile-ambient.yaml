@@ -1,3 +1,7 @@
+# WARNING: DO NOT EDIT, THIS FILE IS A COPY.
+# The original version of this file is located at /manifests/helm-profiles directory.
+# If you want to make a change in this file, edit the original one and run "make gen".
+
 # The ambient profile enables ambient mode. The Istiod, CNI, and ztunnel charts must be deployed
 meshConfig:
   defaultConfig:
@@ -14,6 +18,7 @@ pilot:
     PILOT_ENABLE_HBONE: "true"
     CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
     PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
+    PILOT_ENABLE_AMBIENT_WAYPOINTS: "true"
 cni:
   logLevel: info
   ambient:

@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/config/validation/envoyfilter"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -145,7 +146,7 @@ func FuzzConfigValidation3(data []byte) int {
 			return 0
 		}
 		c.Spec = in
-		_, _ = validation.ValidateEnvoyFilter(c)
+		_, _ = envoyfilter.ValidateEnvoyFilter(c)
 	case 3:
 		in := &networking.Sidecar{}
 		err = f.GenerateStruct(in)

@@ -35,6 +35,14 @@ type Collection[T any] interface {
 	EventStream[T]
 }
 
+// EventStream provides a link between the underlying collection
+// and its clients.
+// The EventStream does not publish events for retrigger operations
+// where the resultant object of type T is equal to an existing
+// object in the collection.
+//
+// On initial sync, events will be published to registered clients
+// as the Collection is populated.
 type EventStream[T any] interface {
 	// Register adds an event watcher to the collection. Any time an item in the collection changes, the handler will be
 	// called. Typically, usage of Register is done internally in krt via composition of Collections with Transformations

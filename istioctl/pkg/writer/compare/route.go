@@ -31,7 +31,7 @@ func (c *Comparator) RouteDiff() error {
 	if err != nil {
 		envoyBytes.WriteString(err.Error())
 	} else {
-		envoy, err := protomarshal.ToJSONWithIndent(envoyRouteDump, "    ")
+		envoy, err := protomarshal.ToJSONWithAnyResolver(envoyRouteDump, "    ", &envoyResolver)
 		if err != nil {
 			return err
 		}
@@ -41,7 +41,7 @@ func (c *Comparator) RouteDiff() error {
 	if err != nil {
 		istiodBytes.WriteString(err.Error())
 	} else {
-		istiod, err := protomarshal.ToJSONWithIndent(istiodRouteDump, "    ")
+		istiod, err := protomarshal.ToJSONWithAnyResolver(istiodRouteDump, "    ", &envoyResolver)
 		if err != nil {
 			return err
 		}

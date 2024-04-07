@@ -1249,7 +1249,7 @@ func HostHeader(header string) http.Header {
 // tlsOriginationCases contains tests TLS origination from DestinationRule
 func tlsOriginationCases(t TrafficContext) {
 	tc := TrafficTestCase{
-		name: "",
+		name: "DNS",
 		config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -1279,11 +1279,168 @@ spec:
 			tc.children = append(tc.children, TrafficCall{
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
-					Port:    echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
-					Count:   1,
+					Port:  echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count: 1,
+					// Failed requests will go to non-existent port which hangs forever
+					// Set a low timeout to fail faster
+					Timeout: time.Millisecond * 500,
 					Address: t.Apps.External.All[0].Address(),
 					HTTP: echo.HTTP{
 						Headers: HostHeader(t.Apps.External.All[0].Config().DefaultHostHeader),
+					},
+					Scheme: scheme.HTTP,
+					Check: check.And(
+						check.OK(),
+						check.Alpn(e.alpn)),
+				},
+				call: c.CallOrFail,
+			})
+		}
+	}
+	t.RunTraffic(tc)
+
+	tc = TrafficTestCase{
+		name: "NONE",
+		config: fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: external
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: alt-external-service
+spec:
+  exportTo: [.]
+  hosts:
+  - %s
+  resolution: NONE
+  ports:
+  - name: http-tls-origination
+    number: 8888
+    protocol: http
+    targetPort: 443
+  - name: http2-tls-origination
+    number: 8882
+    protocol: http2
+    targetPort: 443`,
+			"external."+t.Apps.External.Namespace.Name()+".svc.cluster.local",
+			"external."+t.Apps.External.Namespace.Name()+".svc.cluster.local",
+		),
+		children: []TrafficCall{},
+	}
+	for _, c := range t.Apps.A {
+		for _, e := range expects {
+			c := c
+			e := e
+
+			tc.children = append(tc.children, TrafficCall{
+				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
+				opts: echo.CallOptions{
+					Port:  echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count: 1,
+					// Failed requests will go to non-existent port which hangs forever
+					// Set a low timeout to fail faster
+					Timeout: time.Millisecond * 500,
+					Address: t.Apps.External.All.ForCluster(c.Config().Cluster.Name())[0].Address(),
+					HTTP: echo.HTTP{
+						Headers: HostHeader(t.Apps.External.All[0].Config().ClusterLocalFQDN()),
+					},
+					Scheme: scheme.HTTP,
+					Check: check.And(
+						check.OK(),
+						check.Alpn(e.alpn)),
+				},
+				call: c.CallOrFail,
+			})
+		}
+	}
+	t.RunTraffic(tc)
+
+	tc = TrafficTestCase{
+		name: "Redirect NONE",
+		config: tmpl.MustEvaluate(`
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: external
+spec:
+  host: {{.}}
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: httpbin.org
+spec:
+  hosts:
+  - {{.}}
+  http:
+  - route:
+    - destination:
+        host: {{.}}
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: alt-external-service
+spec:
+  exportTo: [.]
+  hosts:
+  - {{.}}
+  resolution: NONE
+  ports:
+  - name: http
+    number: 8888
+    protocol: http
+  - name: http2
+    number: 8882
+    protocol: http2
+  - name: https
+    number: 443
+    targetPort: 443
+    protocol: https
+    `,
+			"external."+t.Apps.External.Namespace.Name()+".svc.cluster.local",
+		),
+		children: []TrafficCall{},
+	}
+	expects = []struct {
+		port int
+		alpn string
+	}{
+		{8888, "http/1.1"},
+		// Note: here we expect HTTP/1.1, because the 443 port is not configured to be HTTP2!
+		{8882, "http/1.1"},
+	}
+	for _, c := range t.Apps.A {
+		for _, e := range expects {
+			c := c
+			e := e
+
+			tc.children = append(tc.children, TrafficCall{
+				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
+				opts: echo.CallOptions{
+					Port:  echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count: 1,
+					// Failed requests will go to non-existent port which hangs forever
+					// Set a low timeout to fail faster
+					Timeout: time.Millisecond * 500,
+					Address: t.Apps.External.All.ForCluster(c.Config().Cluster.Name())[0].Address(),
+					HTTP: echo.HTTP{
+						Headers: HostHeader(t.Apps.External.All[0].Config().ClusterLocalFQDN()),
 					},
 					Scheme: scheme.HTTP,
 					Check: check.And(

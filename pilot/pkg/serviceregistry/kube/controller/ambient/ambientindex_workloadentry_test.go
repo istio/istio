@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -30,7 +31,6 @@ import (
 )
 
 func TestAmbientIndex_WorkloadEntries(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addWorkloadEntries(t, "127.0.0.1", "name1", "sa1", map[string]string{"app": "a"})
@@ -130,11 +130,19 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "namespace-wide",
+			constants.GatewayNameLabel:    "waypoint-ns",
 		}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns-pod")
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
-	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", true)
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", constants.AllTraffic, true)
+	s.ns.CreateOrUpdate(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNS,
+			Annotations: map[string]string{
+				constants.AmbientUseWaypoint: "waypoint-ns",
+			},
+		},
+	})
 	// All these workloads updated, so push them
 	s.assertEvent(t,
 		s.wleXdsName("name1"),
@@ -146,7 +154,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel}, // labels
 		map[string]string{}, // annotations
 		[]int32{80},
-		map[string]string{constants.GatewayNameLabel: "namespace-wide"}, // selector
+		map[string]string{constants.GatewayNameLabel: "waypoint-ns"}, // selector
 		"10.0.0.2",
 	)
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
@@ -162,7 +170,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.addPods(t, "127.0.0.201", "waypoint2-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "namespace-wide",
+			constants.GatewayNameLabel:    "waypoint-ns",
 		}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns", "waypoint-ns-pod", "waypoint2-ns-pod")
 	// all these workloads already have a waypoint, only expect the new waypoint pod
@@ -202,8 +210,18 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.assertEvent(t, s.wleXdsName("name6"))
 
 	s.deleteWaypoint(t, "waypoint-ns")
+	s.ns.Update(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNS,
+			Annotations: map[string]string{
+				constants.AmbientUseWaypoint: "#none",
+			},
+		},
+	})
 	// all affected addresses with the waypoint should be updated
 	s.assertEvent(t,
+		s.svcXdsName("svc1"),
+		s.svcXdsName("waypoint-ns"),
 		s.wleXdsName("name1"),
 		s.wleXdsName("name2"),
 		s.wleXdsName("name3"))
@@ -265,7 +283,6 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 }
 
 func TestAmbientIndex_EmptyAddrWorkloadEntries(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 	s.addWorkloadEntries(t, "", "emptyaddr1", "sa1", map[string]string{"app": "a"})
 	s.assertEvent(t, s.wleXdsName("emptyaddr1"))
@@ -289,7 +306,6 @@ func TestAmbientIndex_EmptyAddrWorkloadEntries(t *testing.T) {
 }
 
 func TestAmbientIndex_UpdateExistingWorkloadEntry(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 	s.addWorkloadEntries(t, "", "emptyaddr1", "sa1", map[string]string{"app": "a"})
 	s.assertEvent(t, s.wleXdsName("emptyaddr1"))
@@ -302,7 +318,6 @@ func TestAmbientIndex_UpdateExistingWorkloadEntry(t *testing.T) {
 }
 
 func TestAmbientIndex_InlinedWorkloadEntries(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "se1", testNS, map[string]string{"app": "a"}, []string{"127.0.0.1", "127.0.0.2"})
@@ -332,7 +347,6 @@ func TestAmbientIndex_InlinedWorkloadEntries(t *testing.T) {
 }
 
 func TestAmbientIndex_WorkloadEntries_DisableK8SServiceSelectWorkloadEntries(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	test.SetForTest(t, &features.EnableK8SServiceSelectWorkloadEntries, false)
 	s := newAmbientTestServer(t, testC, testNW)
 

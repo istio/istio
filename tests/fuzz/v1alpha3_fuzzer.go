@@ -21,7 +21,7 @@ import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/tests/fuzz/utils"
 )
 
@@ -29,7 +29,7 @@ func init() {
 	testing.Init()
 }
 
-func ValidateTestOptions(to v1alpha3.TestOptions) error {
+func ValidateTestOptions(to core.TestOptions) error {
 	for _, csc := range to.ConfigStoreCaches {
 		if csc == nil {
 			return errors.New("a ConfigStoreController was nil")
@@ -46,7 +46,7 @@ func ValidateTestOptions(to v1alpha3.TestOptions) error {
 func FuzzValidateClusters(data []byte) int {
 	proxy := model.Proxy{}
 	f := fuzz.NewConsumer(data)
-	to := v1alpha3.TestOptions{}
+	to := core.TestOptions{}
 	err := f.GenerateStruct(&to)
 	if err != nil {
 		return 0
@@ -59,7 +59,7 @@ func FuzzValidateClusters(data []byte) int {
 	if err != nil || !proxy.FuzzValidate() {
 		return 0
 	}
-	cg := v1alpha3.NewConfigGenTest(utils.NopTester{}, to)
+	cg := core.NewConfigGenTest(utils.NopTester{}, to)
 	p := cg.SetupProxy(&proxy)
 	_ = cg.Clusters(p)
 	_ = cg.Routes(p)

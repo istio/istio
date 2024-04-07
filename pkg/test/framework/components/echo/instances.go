@@ -94,6 +94,17 @@ func (i Instances) Clusters() cluster.Clusters {
 	return out
 }
 
+// ForCluster returns a list of instances that match the cluster name
+func (i Instances) ForCluster(name string) Instances {
+	out := make(Instances, 0, len(i))
+	for _, c := range i {
+		if c.Config().Cluster.Name() == name {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func (i Instances) Workloads() (Workloads, error) {
 	var out Workloads
 	for _, inst := range i {
