@@ -94,6 +94,10 @@ func IsPodRunning(pod *v1.Pod) bool {
 	return pod.Status.Phase == v1.PodRunning
 }
 
+func IsPodPending(pod *v1.Pod) bool {
+	return pod.Status.Phase == v1.PodPending
+}
+
 // IsPodReady is copied from kubernetes/pkg/api/v1/pod/utils.go
 func IsPodReady(pod *v1.Pod) bool {
 	return IsPodReadyConditionTrue(pod.Status)
