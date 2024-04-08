@@ -59,22 +59,6 @@ var (
 const waitTimeout = 90 * time.Second
 
 func Cmd(ctx cli.Context) *cobra.Command {
-	annotateNamespaceWithWaypoint := func(kubeClient kube.CLIClient, ns string) error {
-		nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return fmt.Errorf("namespace: %s not found", ns)
-		} else if err != nil {
-			return fmt.Errorf("failed to get namespace %s: %v", ns, err)
-		}
-		if nsObj.Annotations == nil {
-			nsObj.Annotations = map[string]string{}
-		}
-		nsObj.Annotations[constants.AmbientUseWaypoint] = constants.WaypointGatewayClassName
-		if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(context.Background(), nsObj, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("failed to update namespace %s: %v", ns, err)
-		}
-		return nil
-	}
 	makeGateway := func(forApply bool) (*gateway.Gateway, error) {
 		ns := ctx.NamespaceOrDefault(ctx.Namespace())
 		if ctx.Namespace() == "" && !forApply {
@@ -84,18 +68,6 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		if waypointName == "" {
 			waypointName = constants.DefaultNamespaceWaypoint
 		}
-		// If a user decides to enroll their namespace with a waypoint, annotate the namespace with the waypoint name.
-		if enrollNamespace {
-			kubeClient, err := ctx.CLIClient()
-			if err != nil {
-				return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
-			}
-			err = annotateNamespaceWithWaypoint(kubeClient, ns)
-			if err != nil {
-				return nil, fmt.Errorf("failed to annotate namespace with waypoint: %v", err)
-			}
-		}
-
 		gw := gateway.Gateway{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       gvk.KubernetesGateway_v1.Kind,
@@ -216,6 +188,15 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v applied\n", gw.Namespace, gw.Name)
+			// If a user decides to enroll their namespace with a waypoint, annotate the namespace with the waypoint name.
+			if enrollNamespace {
+				ns := ctx.NamespaceOrDefault(ctx.Namespace())
+				err = annotateNamespaceWithWaypoint(kubeClient, ns)
+				if err != nil {
+					return fmt.Errorf("failed to annotate namespace with waypoint: %v", err)
+				}
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "namespace %v annotated with waypoint %v\n", ctx.NamespaceOrDefault(ctx.Namespace()), gw.Name)
 			return nil
 		},
 	}
@@ -415,4 +396,21 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 
 	wg.Wait()
 	return multiErr.ErrorOrNil()
+}
+
+func annotateNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
+	nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return fmt.Errorf("namespace: %s not found", ns)
+	} else if err != nil {
+		return fmt.Errorf("failed to get namespace %s: %v", ns, err)
+	}
+	if nsObj.Annotations == nil {
+		nsObj.Annotations = map[string]string{}
+	}
+	nsObj.Annotations[constants.AmbientUseWaypoint] = constants.WaypointGatewayClassName
+	if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(context.Background(), nsObj, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to update namespace %s: %v", ns, err)
+	}
+	return nil
 }
