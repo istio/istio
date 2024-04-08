@@ -350,7 +350,10 @@ func namespacedHostname(namespace, hostname string) string {
 
 // NOTE: Mutex is locked prior to being called.
 func (a *AmbientIndexImpl) extractWorkload(p *v1.Pod, c *Controller) *model.WorkloadInfo {
-	if p == nil || !IsPodRunning(p) || p.Spec.HostNetwork {
+	// If the pod is pending, but has an IP, it should be a valid workload and we should extract it.
+	// An example of this is a pod having an initContainer.
+	// See https://github.com/istio/istio/issues/48854
+	if p == nil || (!IsPodRunning(p) && !IsPodPending(p)) || p.Spec.HostNetwork {
 		return nil
 	}
 	var waypoint *workloadapi.GatewayAddress

@@ -879,12 +879,14 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 
 	s.addPods(t, "127.0.0.2", "pod2", "sa1", map[string]string{"app": "a", "other": "label"}, nil, false, corev1.PodRunning)
 	s.addPods(t, "127.0.0.3", "pod3", "sa1", map[string]string{"app": "other"}, nil, false, corev1.PodPending)
+	s.addPods(t, "", "pod4", "sa1", map[string]string{"app": "another"}, nil, false, corev1.PodPending)
 	s.assertEvent(t, "//Pod/ns1/pod2")
 	// Still healthy
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1")
 	// Unhealthy
-	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_UNHEALTHY, "pod2")
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_UNHEALTHY, "pod2", "pod3", "pod4")
 	// pod3 isn't running at all
+	// pod4 isn't running, and also has no IP assigned
 }
 
 func TestAddressInformation(t *testing.T) {
