@@ -195,8 +195,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("failed to annotate namespace with waypoint: %v", err)
 				}
+				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v annotated with waypoint %v\n", ctx.NamespaceOrDefault(ctx.Namespace()), gw.Name)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "namespace %v annotated with waypoint %v\n", ctx.NamespaceOrDefault(ctx.Namespace()), gw.Name)
 			return nil
 		},
 	}
