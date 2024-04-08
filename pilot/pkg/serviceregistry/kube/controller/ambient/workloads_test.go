@@ -563,14 +563,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			MeshConfig := krt.NewStatic(&MeshConfig{slices.First(extractType[meshapi.MeshConfig](&inputs))})
 			assert.Equal(t, len(inputs), 0, fmt.Sprintf("some inputs were not consumed: %v", inputs))
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
-			builder := a.workloadEntryWorkloadBuilder(
-				MeshConfig,
-				AuthorizationPolicies,
-				PeerAuths,
-				Waypoints,
-				WorkloadServices,
-				WorkloadServicesNamespaceIndex,
-				Namespaces,
+			builder := a.workloadEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, WorkloadServicesNamespaceIndex, Namespaces,
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.we)
 			var res *workloadapi.Workload
