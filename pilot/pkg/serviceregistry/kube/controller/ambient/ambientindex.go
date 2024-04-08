@@ -138,7 +138,10 @@ func New(options Options) Index {
 	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, krt.WithName("GatewayClasses"))
 
 	Services := krt.NewInformerFiltered[*v1.Service](options.Client, filter, krt.WithName("Services"))
-	Nodes := krt.NewInformerFiltered[*v1.Node](options.Client, filter, krt.WithName("Nodes"))
+	Nodes := krt.NewInformerFiltered[*v1.Node](options.Client, kclient.Filter{
+		ObjectFilter:    options.Client.ObjectFilter(),
+		ObjectTransform: kubeclient.StripNodeUnusedFields,
+	}, krt.WithName("Nodes"))
 	Pods := krt.NewInformerFiltered[*v1.Pod](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
