@@ -61,6 +61,7 @@ func (fx *Updater) ConfigUpdate(req *model.PushRequest) {
 			names = append(names, key.Name)
 		}
 	}
+	log.Errorf("howardjohn: %+v", req.ConfigsUpdated)
 	sort.Strings(names)
 	if fx.SplitEvents {
 		for _, n := range names {

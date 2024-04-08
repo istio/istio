@@ -1821,6 +1821,7 @@ func (s *ambientTestServer) deletePod(t *testing.T, name string) {
 
 func (s *ambientTestServer) assertEvent(t *testing.T, ip ...string) {
 	t.Helper()
+	t.Log(ip)
 	s.assertUnorderedEvent(t, ip...)
 }
 

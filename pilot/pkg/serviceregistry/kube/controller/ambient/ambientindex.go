@@ -155,9 +155,10 @@ func New(options Options) Index {
 
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig)
-	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater, func(i model.WorkloadAuthorization) model.ConfigKey {
-		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
-	}), false)
+	AllPolicies.RegisterBatch(
+		PushXds(a.XDSUpdater, func(i model.WorkloadAuthorization, updates sets.Set[model.ConfigKey]) {
+			updates.Insert(model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace})
+		}), false)
 
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
@@ -189,8 +190,9 @@ func New(options Options) Index {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Service
 		},
-		PushXds(a.XDSUpdater, func(i model.ServiceInfo) model.ConfigKey {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
+		PushXds(a.XDSUpdater, func(i model.ServiceInfo, updates sets.Set[model.ConfigKey]) {
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()})
+			updates.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: i.Hostname, Namespace: i.Namespace})
 		})), false)
 
 	Workloads := a.WorkloadsCollection(
@@ -238,8 +240,12 @@ func New(options Options) Index {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
-		PushXds(a.XDSUpdater, func(i model.WorkloadInfo) model.ConfigKey {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
+		PushXds(a.XDSUpdater, func(i model.WorkloadInfo, updates sets.Set[model.ConfigKey]) {
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()})
+			for svc := range i.Services {
+				ns, hostname, _ := strings.Cut(svc, "/")
+				updates.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: ns})
+			}
 		})), false)
 
 	a.workloads = workloadsCollection{
@@ -486,12 +492,12 @@ func (a *index) HasSynced() bool {
 
 type LookupNetwork func(endpointIP string, labels labels.Instance) network.ID
 
-func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {
+func PushXds[T any](xds model.XDSUpdater, f func(T, sets.Set[model.ConfigKey])) func(events []krt.Event[T]) {
 	return func(events []krt.Event[T]) {
 		cu := sets.New[model.ConfigKey]()
 		for _, e := range events {
 			for _, i := range e.Items() {
-				cu.Insert(f(i))
+				f(i, cu)
 			}
 		}
 		xds.ConfigUpdate(&model.PushRequest{

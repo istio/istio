@@ -332,11 +332,12 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 		return nil
 	}
 
+	log := log.WithLabels("proxy", b.proxy.ID, "cluster", b.clusterName)
+
 	// TODO pre-index this in PushContext or compute in constructor to invalidate cache?
 
 	// find waypoints in any cluster
 	var waypoints []netip.Addr
-	log.Errorf("howardjohn: %v %v", b.service, b.service.ClusterVIPs)
 	b.service.ClusterVIPs.ForEach(func(_ cluster.ID, vips []string) {
 		for _, vip := range vips {
 			// TODO looking up by vip in a multicluster index without specifying
@@ -345,6 +346,7 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 		}
 	})
 
+	log.Errorf("howardjohn: waypoints: %v", waypoints)
 	// service isn't captured by a waypoint in any cluster
 	if len(waypoints) == 0 {
 		return nil
@@ -364,6 +366,7 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 
 	// it's possible the waypoint is something external to istio; assume it's on 15008 and healthy
 	if len(addressInfos) == 0 {
+		log.Errorf("howardjohn: no addresses waypoints: %v", waypoints)
 		return slices.Map(waypoints, func(e netip.Addr) *model.IstioEndpoint {
 			return &model.IstioEndpoint{
 				Address:               e.String(),
@@ -383,6 +386,7 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 			// expand waypiont service into it's endpoints
 			waypointSvc := b.push.ServiceForHostname(b.proxy, host.Name(ai.Service.GetHostname()))
 			if waypointSvc == nil {
+				log.Errorf("howardjohn: no waypoints svc: %v", waypoints)
 				// shouldn't find it in ambient indexes but not here
 				continue
 			}
@@ -405,6 +409,7 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 		}
 	}
 
+	log.Errorf("howardjohn: new eps: %v", eps)
 	return eps
 }
 
@@ -413,7 +418,7 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
 	if !b.ServiceFound() {
 		log.Debugf("can not find the service %s for cluster %s", b.hostname, b.clusterName)
-		return nil
+		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
 	if waypointEps := b.findServiceWaypoint(); len(waypointEps) > 0 {
@@ -801,6 +806,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			},
 		}
 	} else if tunnel {
+		log.Errorf("howardjohn: tunnel %v %v", b.clusterName, b.hostname)
 		// set the upstream to connectOriginate listener using the endpoint address for disambiguation
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(port))),
