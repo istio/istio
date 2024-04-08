@@ -48,7 +48,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate, gatewaySemantics bo
 	errs = WrapError(validateHTTPRouteConflict(http, routeType))
 
 	// check http route match requests
-	errs = AppendValidation(errs, validateHTTPRouteMatchRequest(http, routeType))
+	errs = AppendValidation(errs, validateHTTPRouteMatchRequest(http))
 
 	// header manipulation
 	for name, val := range http.Headers.GetRequest().GetAdd() {
@@ -134,73 +134,35 @@ func validateAuthorityRewrite(rewrite *networking.HTTPRewrite, headers *networki
 	return nil
 }
 
-func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRouteType) (errs error) {
-	if routeType == IndependentRoute {
-		for _, match := range http.Match {
-			if match != nil {
-				for name, header := range match.Headers {
-					if header == nil {
-						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
-					}
-					if _, ok := header.GetMatchType().(*networking.StringMatch_Prefix); ok {
-						if header.GetPrefix() == "" {
-							errs = appendErrors(errs, fmt.Errorf("header prefix match %v may not be empty", name))
-						}
-					}
-					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-					errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
+func validateHTTPRouteMatchRequest(http *networking.HTTPRoute) (errs error) {
+	for _, match := range http.Match {
+		if match != nil {
+			for name, header := range match.Headers {
+				if header == nil {
+					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 				}
+				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				errs = appendErrors(errs, validateStringMatch(header, "headers"))
+			}
 
-				for name, header := range match.WithoutHeaders {
-					if _, ok := header.GetMatchType().(*networking.StringMatch_Prefix); ok {
-						if header.GetPrefix() == "" {
-							errs = appendErrors(errs, fmt.Errorf("withoutHeaders prefix match %v may not be empty", name))
-						}
-					}
-					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-					// `*` is NOT a RE2 style regex, it will be translated as present_match.
-					if header != nil && header.GetRegex() != "*" {
-						errs = appendErrors(errs, validateStringMatchRegexp(header, "withoutHeaders"))
-					}
-				}
-
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
-				for _, qp := range match.GetQueryParams() {
-					errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
+			for name, header := range match.WithoutHeaders {
+				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				// `*` is NOT a RE2 style regex, it will be translated as present_match.
+				if header != nil && header.GetRegex() != "*" {
+					errs = appendErrors(errs, validateStringMatch(header, "withoutHeaders"))
 				}
 			}
-		}
-	} else {
-		for _, match := range http.Match {
-			if match != nil {
-				for name, header := range match.Headers {
-					if header == nil {
-						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
-					}
 
-					if _, ok := header.GetMatchType().(*networking.StringMatch_Prefix); ok {
-						if header.GetPrefix() == "" {
-							errs = appendErrors(errs, fmt.Errorf("header prefix match %v may not be empty", name))
-						}
-					}
-
-					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-				}
-				for name, param := range match.QueryParams {
-					if param == nil {
-						errs = appendErrors(errs, fmt.Errorf("query param match %v cannot be null", name))
-					}
-				}
-				for name, header := range match.WithoutHeaders {
-					if header == nil {
-						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v cannot be null", name))
-					}
-					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-				}
-
+			// uri allows empty prefix match:
+			// https://github.com/envoyproxy/envoy/blob/v1.29.2/api/envoy/config/route/v3/route_components.proto#L560
+			// whereas scheme/method/authority does not:
+			// https://github.com/envoyproxy/envoy/blob/v1.29.2/api/envoy/type/matcher/string.proto#L38
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
+			errs = appendErrors(errs, validateStringMatch(match.GetScheme(), "scheme"))
+			errs = appendErrors(errs, validateStringMatch(match.GetMethod(), "method"))
+			errs = appendErrors(errs, validateStringMatch(match.GetAuthority(), "authority"))
+			for _, qp := range match.GetQueryParams() {
+				errs = appendErrors(errs, validateStringMatch(qp, "queryParams"))
 			}
 		}
 	}
