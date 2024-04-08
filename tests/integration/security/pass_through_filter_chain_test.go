@@ -36,7 +36,6 @@ import (
 func TestPassThroughFilterChain(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.filterchain").
 		Run(func(t framework.TestContext) {
 			type expect struct {
 				port echo.Port

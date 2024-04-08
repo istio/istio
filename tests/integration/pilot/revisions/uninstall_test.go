@@ -55,7 +55,6 @@ var allGVKs = append(helmreconciler.NamespacedResources(), helmreconciler.Cluste
 func TestUninstallByRevision(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_revision").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
@@ -77,7 +76,6 @@ func TestUninstallByRevision(t *testing.T) {
 func TestUninstallByNotFoundRevision(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_revision").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision_notfound").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
@@ -96,7 +94,6 @@ func TestUninstallByNotFoundRevision(t *testing.T) {
 func TestUninstallWithSetFlag(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_revision").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
@@ -117,7 +114,6 @@ func TestUninstallWithSetFlag(t *testing.T) {
 
 func TestUninstallCustomFile(t *testing.T) {
 	framework.NewTest(t).
-		Features("installation.istioctl.uninstall_file").
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -179,7 +175,6 @@ spec:
 func TestUninstallPurge(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_purge").
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			uninstallCmd := []string{

@@ -39,7 +39,6 @@ global:
 `
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.install").
 		Run(setupInstallation(overrideValuesStr, false))
 }
 
@@ -47,7 +46,6 @@ global:
 func TestAmbientInstall(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.ambient.install").
 		Run(setupInstallation(ambientProfileOverride, true))
 }
 

@@ -34,7 +34,6 @@ import (
 func TestXFFGateway(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ingress.topology").
 		Run(func(t framework.TestContext) {
 			inject := false
 			if t.Settings().Compatibility {
@@ -115,7 +114,6 @@ spec:
 func TestProxyProtocolTCPGateway(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ingress.topology").
 		Run(func(t framework.TestContext) {
 			inject := false
 			if t.Settings().Compatibility {
@@ -198,7 +196,6 @@ spec:
 func TestUpstreamProxyProtocol(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ingress.topology").
 		Run(func(t framework.TestContext) {
 			injectLabel := `sidecar.istio.io/inject: "true"`
 			if len(t.Settings().Revisions.Default()) > 0 {

@@ -84,14 +84,6 @@ $(GO) test -exec=true -toolexec=$(REPO_ROOT)/tools/go-compile-without-link -vet=
 $(GO) test -p 1 ${T} -tags=integ -vet=off -timeout 30m $2 $1 ${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 endef
 
-test.integration.analyze: test.integration...analyze
-
-test.integration.%.analyze: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test ${T} -tags=integ -vet=off ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} \
-	--istio.test.analyze \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
 # Ensure that all test files are tagged properly. This ensures that we don't accidentally skip tests
 # and that integration tests are not run as part of the unit test suite.
 check-go-tag:

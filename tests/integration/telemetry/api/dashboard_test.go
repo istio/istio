@@ -138,7 +138,6 @@ func TestDashboard(t *testing.T) {
 	c, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	framework.NewTest(t).
-		Features("observability.telemetry.dashboard").
 		Run(func(t framework.TestContext) {
 			p := promInst
 

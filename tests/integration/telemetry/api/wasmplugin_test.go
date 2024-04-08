@@ -105,8 +105,6 @@ func resetCustomWasmConfig(ctx framework.TestContext, pluginName, path string) {
 
 func TestImagePullPolicy(t *testing.T) {
 	framework.NewTest(t).
-		Features("extensibility.wasm.image-pull-policy").
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
 			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
 			applyAndTestWasmWithOCI(t, wasmTestConfigs{
@@ -265,7 +263,6 @@ func applyAndTestCustomWasmConfigWithHTTP(ctx framework.TestContext, c wasmTestC
 // TestTargetRef vs workloadSelector for gateways
 func TestGatewaySelection(t *testing.T) {
 	framework.NewTest(t).
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
 			args := map[string]any{
@@ -289,8 +286,6 @@ func TestGatewaySelection(t *testing.T) {
 // TestImagePullPolicyWithHTTP tests pulling Wasm Binary via HTTP and ImagePullPolicy.
 func TestImagePullPolicyWithHTTP(t *testing.T) {
 	framework.NewTest(t).
-		Features("extensibility.wasm.image-pull-policy").
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
 			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
 			applyAndTestWasmWithHTTP(t, wasmTestConfigs{
@@ -341,7 +336,6 @@ func TestImagePullPolicyWithHTTP(t *testing.T) {
 // recorded for module downloading failure and nack on ECDS update.
 func TestBadWasmRemoteLoad(t *testing.T) {
 	framework.NewTest(t).
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
 			// Enable logging for debugging
 			applyTelemetryResource(t, true)
@@ -357,7 +351,6 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 // this test to use the WasmPlugin API
 func TestBadWasmWithFailOpen(t *testing.T) {
 	framework.NewTest(t).
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
 			// Enable logging for debugging
 			applyTelemetryResource(t, true)

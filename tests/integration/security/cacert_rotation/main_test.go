@@ -76,7 +76,6 @@ values:
 
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.peer.cacert-rotation").
 		Run(func(t framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})

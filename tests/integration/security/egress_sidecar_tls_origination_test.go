@@ -41,7 +41,6 @@ import (
 func TestSidecarMutualTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
-		Features("security.egress.mtls.sds").
 		Run(func(t framework.TestContext) {
 			var (
 				credNameGeneric  = "mtls-credential-generic"

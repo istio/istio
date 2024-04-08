@@ -69,7 +69,6 @@ spec:
 // "server-naked-foo" succeeds, and requests to "server-naked-bar" fails.
 func TestTrustDomainAliasSecureNaming(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.peer.trust-domain-alias-secure-naming").
 		Run(func(t framework.TestContext) {
 			testNS := apps.EchoNamespace.Namespace
 

@@ -450,7 +450,6 @@ spec:
 func TestCustomGateway(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ingress.custom").
 		Run(func(t framework.TestContext) {
 			inject := false
 			if t.Settings().Compatibility {
