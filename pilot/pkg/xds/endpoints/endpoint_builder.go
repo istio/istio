@@ -127,10 +127,6 @@ func NewCDSEndpointBuilder(
 }
 
 func (b *EndpointBuilder) servicePort(port int) *model.Port {
-	if !b.ServiceFound() {
-		log.Debugf("can not find the service %s for cluster %s", b.hostname, b.clusterName)
-		return nil
-	}
 	svcPort, f := b.service.Ports.GetByPort(port)
 	if !f {
 		log.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
@@ -340,6 +336,7 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 
 	// find waypoints in any cluster
 	var waypoints []netip.Addr
+	log.Errorf("howardjohn: %v %v", b.service, b.service.ClusterVIPs)
 	b.service.ClusterVIPs.ForEach(func(_ cluster.ID, vips []string) {
 		for _, vip := range vips {
 			// TODO looking up by vip in a multicluster index without specifying
@@ -414,6 +411,11 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
 // into a ClusterLoadAssignment. Used for EDS.
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
+	if !b.ServiceFound() {
+		log.Debugf("can not find the service %s for cluster %s", b.hostname, b.clusterName)
+		return nil
+	}
+
 	if waypointEps := b.findServiceWaypoint(); len(waypointEps) > 0 {
 		// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 		locLbEps := b.generate(waypointEps, false, true)
