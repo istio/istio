@@ -408,7 +408,7 @@ func annotateNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
 	if nsObj.Annotations == nil {
 		nsObj.Annotations = map[string]string{}
 	}
-	nsObj.Annotations[constants.AmbientUseWaypoint] = constants.WaypointGatewayClassName
+	nsObj.Annotations[constants.AmbientUseWaypoint] = waypointName
 	if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(context.Background(), nsObj, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update namespace %s: %v", ns, err)
 	}
