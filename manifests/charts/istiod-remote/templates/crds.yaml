@@ -1,9 +1,7 @@
 {{- if .Values.global.configCluster }}
-{{- if .Values.global.configCluster }}
 {{- if eq .Values.base.releaseChannel "stable" }}
 {{ .Files.Get "files/stable.gen.yaml"  }}
 {{- else if (or (eq .Values.base.releaseChannel "extended") (not .Values.base.releaseChannel)) }}
 {{ .Files.Get "files/extended.gen.yaml"  }}
-{{- end }}
 {{- end }}
 {{- end }}
