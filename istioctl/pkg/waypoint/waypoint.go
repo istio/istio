@@ -49,25 +49,24 @@ var (
 
 	deleteAll bool
 
-	trafficType       string
+	trafficType       = constants.ServiceTraffic
 	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 
-	waypointName string
+	waypointName    = constants.DefaultNamespaceWaypoint
+	enrollNamespace bool
 )
 
 const waitTimeout = 90 * time.Second
 
 func Cmd(ctx cli.Context) *cobra.Command {
-	makeGatewayName := func(name string) string {
-		if name == "" {
-			name = constants.DefaultNamespaceWaypoint
-		}
-		return name
-	}
 	makeGateway := func(forApply bool) (*gateway.Gateway, error) {
 		ns := ctx.NamespaceOrDefault(ctx.Namespace())
 		if ctx.Namespace() == "" && !forApply {
 			ns = ""
+		}
+		// If a user sets the waypoint name to an empty string, set it to the default namespace waypoint name.
+		if waypointName == "" {
+			waypointName = constants.DefaultNamespaceWaypoint
 		}
 		gw := gateway.Gateway{
 			TypeMeta: metav1.TypeMeta{
@@ -75,7 +74,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				APIVersion: gvk.KubernetesGateway_v1.GroupVersion(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      makeGatewayName(waypointName),
+				Name:      waypointName,
 				Namespace: ns,
 			},
 			Spec: gateway.GatewaySpec{
@@ -87,11 +86,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}},
 			},
 		}
-		// Determine which traffic address type to apply the waypoint to, if none
-		// then default to "service" as the waypoint-for traffic type.
-		if trafficType == "" {
-			trafficType = constants.ServiceTraffic
-		}
+		// Determine which traffic address type to apply the waypoint to, if none is provided it will default to "service"
+		// as the waypoint-for traffic type.
 		if !validTrafficTypes.Contains(trafficType) {
 			return nil, fmt.Errorf("invalid traffic type: %s. Valid options are: %s", trafficType, validTrafficTypes.String())
 		}
@@ -192,6 +188,15 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v applied\n", gw.Namespace, gw.Name)
+			// If a user decides to enroll their namespace with a waypoint, annotate the namespace with the waypoint name.
+			if enrollNamespace {
+				ns := ctx.NamespaceOrDefault(ctx.Namespace())
+				err = annotateNamespaceWithWaypoint(kubeClient, ns)
+				if err != nil {
+					return fmt.Errorf("failed to annotate namespace with waypoint: %v", err)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v annotated with waypoint %v\n", ctx.NamespaceOrDefault(ctx.Namespace()), gw.Name)
+			}
 			return nil
 		},
 	}
@@ -200,6 +205,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		"service",
 		fmt.Sprintf("Specify the traffic type %s for the waypoint", validTrafficTypes.String()),
 	)
+
+	waypointApplyCmd.PersistentFlags().BoolVarP(&enrollNamespace, "enroll-namespace", "", false,
+		"If set, the namespace will be annotated with the waypoint name")
 
 	waypointDeleteCmd := &cobra.Command{
 		Use:   "delete",
@@ -345,7 +353,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	waypointCmd.AddCommand(waypointGenerateCmd)
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
-	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", "default", "name of the waypoint")
+	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", constants.DefaultNamespaceWaypoint, "name of the waypoint")
 
 	return waypointCmd
 }
@@ -388,4 +396,21 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 
 	wg.Wait()
 	return multiErr.ErrorOrNil()
+}
+
+func annotateNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
+	nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return fmt.Errorf("namespace: %s not found", ns)
+	} else if err != nil {
+		return fmt.Errorf("failed to get namespace %s: %v", ns, err)
+	}
+	if nsObj.Annotations == nil {
+		nsObj.Annotations = map[string]string{}
+	}
+	nsObj.Annotations[constants.AmbientUseWaypoint] = waypointName
+	if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(context.Background(), nsObj, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to update namespace %s: %v", ns, err)
+	}
+	return nil
 }

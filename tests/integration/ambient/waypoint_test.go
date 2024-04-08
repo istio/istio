@@ -96,7 +96,7 @@ func TestWaypoint(t *testing.T) {
 				"--wait",
 			})
 
-			nameSet := []string{"", "w1", "w2", "w3"}
+			nameSet := []string{"", "w1", "w2"}
 			for _, name := range nameSet {
 				istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 					"x",
@@ -109,6 +109,20 @@ func TestWaypoint(t *testing.T) {
 					"--wait",
 				})
 			}
+
+			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+				"x",
+				"waypoint",
+				"apply",
+				"--namespace",
+				nsConfig.Name(),
+				"--name",
+				"w3",
+				"--enroll-namespace",
+				"true",
+				"--wait",
+			})
+			nameSet = append(nameSet, "w3")
 
 			output, _ := istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"x",
