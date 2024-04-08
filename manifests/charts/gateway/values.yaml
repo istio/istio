@@ -10,6 +10,9 @@ defaults:
 
   kind: Deployment
 
+  # Automounting API credentials for the pods.
+  automountServiceAccountToken: true
+
   rbac:
     # If enabled, roles will be created to enable accessing certificates from Gateways. This is not needed
     # when using http://gateway-api.org/.
@@ -18,6 +21,8 @@ defaults:
   serviceAccount:
     # If set, a service account will be created. Otherwise, the default is used
     create: true
+    # Automount API credentials for a Service Account, defaults to true.
+    automountServiceAccountToken: true
     # Annotations to add to the service account
     annotations: {}
     # The name of the service account to use.

@@ -34,6 +34,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "gateway.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
       securityContext:
       {{- if .Values.securityContext }}
         {{- toYaml .Values.securityContext | nindent 8 }}

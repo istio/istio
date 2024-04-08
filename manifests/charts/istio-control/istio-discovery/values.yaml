@@ -53,10 +53,14 @@ defaults:
     # Additional volumes to the istiod pod
     volumes: []
 
+    # Configurable automountServiceAccountToken field for the deployment
+    automountServiceAccountToken: true
     nodeSelector: {}
     podAnnotations: {}
     serviceAnnotations: {}
     serviceAccountAnnotations: {}
+    # Automount the ServiceAccount token, defaults to true
+    serviceAccountAutomountServiceAccountToken: true
 
     topologySpreadConstraints: []
 

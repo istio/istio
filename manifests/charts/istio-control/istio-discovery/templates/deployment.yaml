@@ -75,6 +75,7 @@ spec:
 {{- toYaml . | nindent 8 }}
 {{- end }}
       serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+      automountServiceAccountToken: {{ .Values.pilot.automountServiceAccountToken | default true }}
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
