@@ -435,7 +435,7 @@ func CompareUnordered(wants ...string) func(s string) bool {
 
 func fetcherSorted[T krt.ResourceNamer](c krt.Collection[T]) func() []T {
 	return func() []T {
-		return slices.SortBy(c.List(""), func(t T) string {
+		return slices.SortBy(c.List(), func(t T) string {
 			return t.ResourceName()
 		})
 	}

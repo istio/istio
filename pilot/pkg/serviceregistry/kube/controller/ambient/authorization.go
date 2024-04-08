@@ -20,8 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"istio.io/api/security/v1beta1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
@@ -38,7 +36,7 @@ const (
 
 func (a *index) Policies(requested sets.Set[model.ConfigKey]) []model.WorkloadAuthorization {
 	// TODO: use many Gets instead of List?
-	cfgs := a.authorizationPolicies.List(metav1.NamespaceAll)
+	cfgs := a.authorizationPolicies.List()
 	l := len(cfgs)
 	if len(requested) > 0 {
 		l = len(requested)

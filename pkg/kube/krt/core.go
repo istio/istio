@@ -24,13 +24,12 @@ var log = istiolog.RegisterScope("krt", "")
 // Collection is the core resource type for krt, representing a collection of objects. Items can be listed, or fetched
 // directly. Most importantly, consumers can subscribe to events when objects change.
 type Collection[T any] interface {
-	// GetKey returns an object by it's key, if present. Otherwise, nil is returned.
+	// GetKey returns an object by its key, if present. Otherwise, nil is returned.
 	GetKey(k Key[T]) *T
 
-	// List returns all objects in the queried namespace.
+	// List returns all objects in the collection.
 	// Order of the list is undefined.
-	// Note: not all T types have a "Namespace"; a non-empty namespace is only valid for types that do have a namespace.
-	List(namespace string) []T
+	List() []T
 
 	EventStream[T]
 }

@@ -120,16 +120,6 @@ type registerDependency interface {
 	name() string
 }
 
-// getName returns the name for an object, if possible.
-// Warning: this will panic if the name is not available.
-func getName(a any) string {
-	ak, ok := a.(Namer)
-	if ok {
-		return ak.GetName()
-	}
-	panic(fmt.Sprintf("No Name, got %T %+v", a, a))
-}
-
 // tryGetKey returns the Key for an object. If not possible, returns false
 func tryGetKey[O any](a O) (Key[O], bool) {
 	as, ok := any(a).(string)
@@ -154,20 +144,6 @@ func tryGetKey[O any](a O) (Key[O], bool) {
 		return *ack, true
 	}
 	return "", false
-}
-
-// getNamespace returns the namespace for an object, if possible.
-// Warning: this will panic if the namespace is not available.
-func getNamespace(a any) string {
-	ak, ok := a.(Namespacer)
-	if ok {
-		return ak.GetNamespace()
-	}
-	pk, ok := any(&a).(Namespacer)
-	if ok {
-		return pk.GetNamespace()
-	}
-	panic(fmt.Sprintf("No Namespace, got %T", a))
 }
 
 // getLabels returns the labels for an object, if possible.

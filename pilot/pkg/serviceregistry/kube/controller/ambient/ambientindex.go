@@ -158,8 +158,8 @@ func New(options Options) Index {
 
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
-	ServiceAddressIndex := krt.CreateIndex[model.ServiceInfo, networkAddress](WorkloadServices, networkAddressFromService)
-	ServiceInfosByOwningWaypoint := krt.CreateIndex[model.ServiceInfo, networkAddress](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
+	ServiceAddressIndex := krt.NewIndex[model.ServiceInfo, networkAddress](WorkloadServices, networkAddressFromService)
+	ServiceInfosByOwningWaypoint := krt.NewIndex[model.ServiceInfo, networkAddress](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -203,11 +203,11 @@ func New(options Options) Index {
 		AllPolicies,
 		Namespaces,
 	)
-	WorkloadAddressIndex := krt.CreateIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
-	WorkloadServiceIndex := krt.CreateIndex[model.WorkloadInfo, string](Workloads, func(o model.WorkloadInfo) []string {
+	WorkloadAddressIndex := krt.NewIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
+	WorkloadServiceIndex := krt.NewIndex[model.WorkloadInfo, string](Workloads, func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Services)
 	})
-	WorkloadWaypointIndex := krt.CreateIndex[model.WorkloadInfo, networkAddress](Workloads, func(w model.WorkloadInfo) []networkAddress {
+	WorkloadWaypointIndex := krt.NewIndex[model.WorkloadInfo, networkAddress](Workloads, func(w model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -324,7 +324,7 @@ func (a *index) All() []model.AddressInfo {
 		index int
 	}
 	addrm := map[netip.Addr]kindindex{}
-	for _, wl := range a.workloads.List("") {
+	for _, wl := range a.workloads.List() {
 		overwrite := -1
 		write := true
 		for _, addr := range wl.Addresses {
@@ -356,7 +356,7 @@ func (a *index) All() []model.AddressInfo {
 			}
 		}
 	}
-	for _, s := range a.services.List("") {
+	for _, s := range a.services.List() {
 		res = append(res, serviceToAddressInfo(s.Service))
 	}
 	return res

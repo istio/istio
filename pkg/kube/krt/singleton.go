@@ -53,7 +53,7 @@ func (d *static[T]) GetKey(k Key[T]) *T {
 	return d.val.Load()
 }
 
-func (d *static[T]) List(namespace string) []T {
+func (d *static[T]) List() []T {
 	v := d.val.Load()
 	if v == nil {
 		return nil
@@ -140,7 +140,7 @@ func (c collectionAdapter[T]) Set(t *T) {
 
 func (c collectionAdapter[T]) Get() *T {
 	// Guaranteed to be 0 or 1 len
-	res := c.c.List("")
+	res := c.c.List()
 	if len(res) == 0 {
 		return nil
 	}
