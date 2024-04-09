@@ -163,8 +163,8 @@ func TestServices(t *testing.T) {
 			opt.Check = check.And(opt.Check, OriginalSourceCheck(t, src))
 		}
 
-		// The actuall traffic is to Service; don't go through the waypoint.
-		if dst.Config().HasWorkloadAddressedWaypointProxy() {
+		// The actual traffic is to Service; don't go through the waypoint.
+		if dst.Config().HasWorkloadAddressedWaypointProxy() && !src.Config().HasSidecar() {
 			opt.Check = tcpValidator
 		}
 

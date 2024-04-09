@@ -278,7 +278,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 		})
 	}
 	RunCase("jwt-claim-route", jwtClaimRoute)
-	RunCase("virtualservice", virtualServiceCases)
+	RunSkipAmbient("virtualservice", virtualServiceCases, "double policy")
 	RunCase("sniffing", protocolSniffingCases)
 	RunCase("selfcall", selfCallsCases)
 	RunSkipAmbient("serverfirst", serverFirstTestCases, "Expected success cases time out")

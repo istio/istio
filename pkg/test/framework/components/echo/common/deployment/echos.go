@@ -45,6 +45,9 @@ type Config struct {
 	// Ignored if Namespaces is non-empty. Defaults to 1.
 	NamespaceCount int
 
+	// NamespaceName indicates the name of the namespace. Defaults to 'echo'
+	NamespaceName string
+
 	// Namespaces is the user-provided list of echo namespaces. If empty, NamespaceCount
 	// namespaces will be generated.
 	Namespaces []namespace.Getter
@@ -127,6 +130,10 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 	if ctx.Settings().Ambient {
 		nsLabels["istio.io/dataplane-mode"] = "ambient"
 	}
+	namespaceName := c.NamespaceName
+	if namespaceName == "" {
+		namespaceName = "echo"
+	}
 
 	// Create the echo namespaces.
 	if len(c.Namespaces) == 0 {
@@ -136,7 +143,7 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 			g.Go(func() error {
 				ns, err := namespace.New(ctx, namespace.Config{
 					Inject: !ctx.Settings().AmbientEverywhere,
-					Prefix: "echo",
+					Prefix: namespaceName,
 					Labels: nsLabels,
 				})
 				if err != nil {
@@ -150,7 +157,7 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 				i := i
 				g.Go(func() error {
 					ns, err := namespace.New(ctx, namespace.Config{
-						Prefix: fmt.Sprintf("echo%d", i+1),
+						Prefix: fmt.Sprintf("%s%d", namespaceName, i+1),
 						Inject: true,
 					})
 					if err != nil {

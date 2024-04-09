@@ -2451,11 +2451,6 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 	return false
 }
 
-func (ps *PushContext) AddressInformation(n network.ID, ip string) []AddressInfo {
-	out, _ := ps.ambientIndex.AddressInformation(sets.New(n.String() + "/" + ip))
-	return out
-}
-
 func (ps *PushContext) WaypointForService(hostname host.Name, namespace string) (host.Name, uint32, bool) {
 	return ps.ambientIndex.WaypointForService(hostname, namespace)
 }

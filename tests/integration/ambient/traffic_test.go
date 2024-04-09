@@ -30,6 +30,7 @@ func TestTraffic(t *testing.T) {
 		TopLevel().
 		Run(func(t framework.TestContext) {
 			apps := deployment.NewOrFail(t, t, deployment.Config{
+				NamespaceName:       "ambient-trafic-test",
 				NoExternalNamespace: true,
 				IncludeExtAuthz:     false,
 			})
