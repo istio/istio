@@ -315,11 +315,9 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	var locLbEps []*LocalityEndpoints
 	if waypointEps := b.findServiceWaypoint(nil); len(waypointEps) > 0 {
 		// don't use pre-computed since they're different for each cluster
-		locLbEps = b.generate(waypointEps, false, true)
+		locLbEps = b.generate(waypointEps, true)
 	} else {
-		// don't use the pre-computed endpoints for CDS to preserve previous behavior
-		// TODO this comment is backwards?
-		locLbEps = b.generate(b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels), true, false)
+		locLbEps = b.generate(b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels), false)
 	}
 	return ExtractEnvoyEndpoints(locLbEps)
 }
@@ -350,9 +348,8 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	}
 
 	if waypointEps := b.findServiceWaypoint(endpointIndex); len(waypointEps) > 0 {
-		log.Errorf("howardjohn: waypoint %v for %v", len(waypointEps), b.clusterName)
 		// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
-		locLbEps := b.generate(waypointEps, false, true)
+		locLbEps := b.generate(waypointEps, true)
 		return b.createClusterLoadAssignment(locLbEps)
 	}
 	svcEps, ok := b.snapshotEndpointsForPort(endpointIndex)
@@ -360,8 +357,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
-	// TODO we can probably pre-compute here
-	localityLbEndpoints := b.generate(svcEps, false, false)
+	localityLbEndpoints := b.generate(svcEps, false)
 
 	if len(localityLbEndpoints) == 0 {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
@@ -411,7 +407,7 @@ func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.Endpoint
 
 // generate endpoints with applies weights, multi-network mapping and other filtering
 // noCache means we will not use or update the IstioEndpoint's precomputedEnvoyEndpoint
-func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed bool, toServiceWaypoint bool) []*LocalityEndpoints {
+func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, toServiceWaypoint bool) []*LocalityEndpoints {
 	// shouldn't happen here
 	if !b.ServiceFound() {
 		return nil
@@ -425,27 +421,11 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed 
 	for _, ep := range eps {
 		eep := ep.EnvoyEndpoint()
 		mtlsEnabled := b.mtlsChecker.checkMtlsEnabled(ep, b.proxy.IsWaypointProxy())
-		// Determine if we need to build the endpoint. We try to cache it for performance reasons
-		needToCompute := eep == nil
-		if features.EnableHBONE {
-			// Currently the HBONE implementation leads to different endpoint generation depending on if the
-			// client proxy supports HBONE or not. This breaks the cache.
-			// For now, just disable caching if the global HBONE flag is enabled.
-			needToCompute = true
+		eep = buildEnvoyLbEndpoint(b, ep, mtlsEnabled, toServiceWaypoint)
+		if eep == nil {
+			continue
 		}
-		if eep != nil && mtlsEnabled != isMtlsEnabled(eep) {
-			// The mTLS settings may have changed, invalidating the cache endpoint. Rebuild it
-			needToCompute = true
-		}
-		if needToCompute || !allowPrecomputed {
-			eep = buildEnvoyLbEndpoint(b, ep, mtlsEnabled, toServiceWaypoint)
-			if eep == nil {
-				continue
-			}
-			if allowPrecomputed {
-				ep.ComputeEnvoyEndpoint(eep)
-			}
-		}
+		ep.ComputeEnvoyEndpoint(eep)
 		locLbEps, found := localityEpMap[ep.Locality.Label]
 		if !found {
 			locLbEps = &LocalityEndpoints{
@@ -695,8 +675,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	tunnel := supportTunnel(b, e)
 
 	// Setup tunnel information, if needed
-	// This is for waypoint
 	if b.dir == model.TrafficDirectionInboundVIP {
+		// Case 1: we are a waypoint proxy, and are building our endpoint. Add tunnel info, if needed.
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
 		if tunnel {
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
@@ -708,14 +688,17 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			}
 		}
 	} else if toServiceWaypoint {
+		// Case 2: we are sending to a service with a waypoint (from sidecar/ingress)
 		waypoint := net.JoinHostPort(address, strconv.Itoa(port))
-		// TODO multicluster: this should be the Waypoint's cluster, not the
-		// proxy's. Using hostname would be a better fix.
-		serviceVIPs := b.service.ClusterVIPs.GetAddressesFor(b.proxy.GetClusterID())
+
+		// Use VIP of the waypoint's cluster, not our own.
+		// Using hostname would be a better fix, but will need changes on the waypoint matching logic.
+		serviceVIPs := b.service.ClusterVIPs.GetAddressesFor(e.Locality.ClusterID)
 		if len(serviceVIPs) == 0 {
-			// headless shouldn't use EDS
+			// No VIPs. Nothing we can do here
 			return nil
 		}
+		// If there are multiple VIPs, we just use one. Again, hostname would fit better here.
 		serviceVIP := serviceVIPs[0]
 
 		// set the upstream to connectOriginate listener using the waypoint address for disambiguation
@@ -732,6 +715,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			},
 		}
 	} else if tunnel {
+		// Case 3: we are sending tunnel, but it's not to a waypoint. sidecar/ingress -> sidecar.
+
 		// set the upstream to connectOriginate listener using the endpoint address for disambiguation
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(port))),
