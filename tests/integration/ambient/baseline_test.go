@@ -164,14 +164,17 @@ func TestServices(t *testing.T) {
 		}
 
 		if src.Config().ZTunnelCaptured() && dst.Config().HasWorkloadAddressedWaypointProxy() {
-			// ztunnel is going to send to a waypoint which won't accept this traffic
-			t.Skip("https://github.com/istio/ztunnel/pull/855")
+			// this is to svc traffic on a wl with only a workload addressed waypoint, it is going to bypass the waypoint by design
+			// we can't check http because we bypass the waypoint
+			// I don't think it makes sense to change the supportsL7 function for this case since it requires contect
+			// about how the traffic will be addressed
+			opt.Check = tcpValidator
 		}
 
 		if src.Config().HasSidecar() && dst.Config().HasWorkloadAddressedWaypointProxy() {
 			// We are testing to svc traffic but presently sidecar has not been updated to know that to svc traffic should not
 			// go to a workload-attached waypoint
-			t.Skip("TODO: open issue")
+			t.Skip("https://github.com/istio/istio/pull/50182")
 		}
 
 		// TODO test from all source workloads as well
@@ -692,12 +695,13 @@ spec:
   rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}"]
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}", "cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}-istio-waypoint"]
 `
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-					"Destination": dst.Config().Service,
-					"Source":      src.Config().Service,
-					"Namespace":   apps.Namespace.Name(),
+					"Destination":  dst.Config().Service,
+					"Source":       src.Config().Service,
+					"Namespace":    apps.Namespace.Name(),
+					"WaypointName": dst.Config().ServiceWaypointProxy,
 				}, `
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -816,6 +820,13 @@ spec:
 			// due to draining.
 			opt.NewConnectionPerRequest = true
 
+			// for svc addressed traffic we want the WL policy to allow Waypoint -> Workload
+			policySpecWL := `
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}-istio-waypoint"]
+`
 			policySpec := `
   rules:
   - to:
@@ -837,10 +848,15 @@ spec:
         paths: ["/denied-identity"]
         methods: ["GET"]
 `
+			if !dst.Config().HasServiceAddressedWaypointProxy() {
+				// just use the normal policySpec for anything without a svc waypoint
+				policySpecWL = policySpec
+			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": dst.Config().Service,
-				"Source":      "istio-ingressgateway-service-account",
-				"Namespace":   apps.Namespace.Name(),
+				"Destination":  dst.Config().Service,
+				"Source":       "istio-ingressgateway-service-account",
+				"Namespace":    apps.Namespace.Name(),
+				"WaypointName": dst.Config().ServiceWaypointProxy,
 			}, `
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -850,7 +866,7 @@ spec:
   selector:
     matchLabels:
       app: "{{ .Destination }}"
-`+policySpec+`
+`+policySpecWL+`
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -964,6 +980,14 @@ spec:
 				// should have gone through a waypoint.
 				t.Skip("TODO: open an issue to address this ztunnel issue")
 			}
+
+			// for svc addressed traffic we want the WL policy to allow Waypoint -> Workload
+			policySpecWL := `
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}-istio-waypoint"]
+`
 			policySpec := `
   rules:
   - to:
@@ -1007,10 +1031,15 @@ spec:
     - operation:
         paths: ["/explicit-deny"]
 `
+			if !dst.Config().HasServiceAddressedWaypointProxy() {
+				// just use the normal policySpec for anything without a svc waypoint
+				policySpecWL = policySpec
+			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": dst.Config().Service,
-				"Source":      src.Config().Service,
-				"Namespace":   apps.Namespace.Name(),
+				"Destination":  dst.Config().Service,
+				"Source":       src.Config().Service,
+				"Namespace":    apps.Namespace.Name(),
+				"WaypointName": dst.Config().ServiceWaypointProxy,
 			}, `
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -1020,7 +1049,7 @@ spec:
   selector:
     matchLabels:
       app: "{{ .Destination }}"
-`+policySpec+`
+`+policySpecWL+`
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
