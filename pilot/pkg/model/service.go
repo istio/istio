@@ -860,7 +860,7 @@ type AmbientIndexes interface {
 	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
 	ServicesForWaypoint(WaypointKey) []ServiceInfo
-	Waypoint(network, address string) []netip.Addr
+	WaypointForService(hostname host.Name, namespace string) (host.Name, uint32, bool)
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
 }
 
@@ -896,8 +896,8 @@ func (u NoopAmbientIndexes) ServicesForWaypoint(WaypointKey) []ServiceInfo {
 	return nil
 }
 
-func (u NoopAmbientIndexes) Waypoint(string, string) []netip.Addr {
-	return nil
+func (u NoopAmbientIndexes) WaypointForService(hostname host.Name, namespace string) (host.Name, uint32, bool) {
+	return "", 0, false
 }
 
 func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {

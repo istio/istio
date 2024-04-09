@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -46,7 +47,7 @@ type Index interface {
 	All() []model.AddressInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
-	Waypoint(network, address string) []netip.Addr
+	WaypointForService(hostname host.Name, namespace string) (host.Name, uint32, bool)
 	SyncAll()
 	HasSynced() bool
 	model.AmbientIndexes
@@ -192,7 +193,6 @@ func New(options Options) Index {
 		},
 		PushXds(a.XDSUpdater, func(i model.ServiceInfo, updates sets.Set[model.ConfigKey]) {
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()})
-			// updates.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: i.Hostname, Namespace: i.Namespace})
 		})), false)
 
 	Workloads := a.WorkloadsCollection(
@@ -242,11 +242,8 @@ func New(options Options) Index {
 		},
 		PushXds(a.XDSUpdater, func(i model.WorkloadInfo, updates sets.Set[model.ConfigKey]) {
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()})
-			//for svc := range i.Services {
-			//	ns, hostname, _ := strings.Cut(svc, "/")
-			//	updates.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: ns})
-			//}
 		})), false)
+
 	RegisterEdsShim(
 		a.XDSUpdater,
 		Workloads,
@@ -424,28 +421,22 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	return workloads
 }
 
-func (a *index) Waypoint(network, address string) []netip.Addr {
-	res := sets.Set[netip.Addr]{}
-	networkAddr := networkAddress{
-		network: network,
-		ip:      address,
+func (a *index) WaypointForService(hostname host.Name, namespace string) (host.Name, uint32, bool) {
+	svc := a.services.GetKey(krt.Key[model.ServiceInfo](namespace + "/" + hostname.String()))
+	if svc.Waypoint == nil {
+		return "", 0, false
 	}
-
-	addressInfos := a.Lookup(networkAddr.String())
-	for _, addressInfo := range addressInfos {
-		waypointAddress := addressInfo.GetService().GetWaypoint().GetAddress().GetAddress()
-		if a, ok := netip.AddrFromSlice(waypointAddress); ok {
-			res.Insert(a)
-			// This was a service, therefore it is not a workload and we can just move on
-			continue
-		}
-
-		waypointAddress = addressInfo.GetWorkload().GetWaypoint().GetAddress().GetAddress()
-		if a, ok := netip.AddrFromSlice(waypointAddress); ok {
-			res.Insert(a)
-		}
+	port := svc.Waypoint.HboneMtlsPort
+	addr := svc.Waypoint.GetAddress()
+	serviceKey := networkAddress{
+		network: addr.Network,
+		ip:      mustByteIPToString(addr.Address),
 	}
-	return res.UnsortedList()
+	waypointService := a.services.ByAddress.Lookup(serviceKey)
+	if len(waypointService) == 0 {
+		return "", 0, false
+	}
+	return host.Name(waypointService[0].Hostname), port, true
 }
 
 func (a *index) AdditionalPodSubscriptions(

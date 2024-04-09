@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -2457,8 +2456,8 @@ func (ps *PushContext) AddressInformation(n network.ID, ip string) []AddressInfo
 	return out
 }
 
-func (ps *PushContext) WaypointsFor(network, address string) []netip.Addr {
-	return ps.ambientIndex.Waypoint(network, address)
+func (ps *PushContext) WaypointForService(hostname host.Name, namespace string) (host.Name, uint32, bool) {
+	return ps.ambientIndex.WaypointForService(hostname, namespace)
 }
 
 // WorkloadsForWaypoint returns all workloads associated with a given waypoint identified by it's WaypointKey

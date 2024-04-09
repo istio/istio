@@ -33,6 +33,12 @@ func (w workloadEDS) ResourceName() string {
 	return w.WorkloadKey
 }
 
+// RegisterEdsShim handles triggering xDS events when Envoy EDS needs to change.
+// Most of ambient index works to build `workloadapi` types - Workload, Service, etc.
+// Envoy uses a different API, with different relationships between types.
+// To ensure Envoy are updated properly on changes, we compute this information.
+// Currently, this is only used to trigger events.
+// Ideally, the information we are using in Envoy and the event trigger are using the same data directly.
 func RegisterEdsShim(
 	xdsUpdater model.XDSUpdater,
 	Workloads krt.Collection[model.WorkloadInfo],
@@ -41,6 +47,11 @@ func RegisterEdsShim(
 	ServicesByAddress *krt.Index[model.ServiceInfo, networkAddress],
 	Waypoints krt.Collection[Waypoint],
 ) {
+	// When sending information to a workload, we need two bits of information:
+	// * Does it support tunnel? If so, we will need to use HBONE
+	// * Does it have a waypoint? if so, we will need to send to the waypoint
+	// Record both of these.
+	// Note: currently, EDS uses the waypoint VIP for workload waypoints. This is probably something that will change.
 	WorkloadEds := krt.NewCollection(
 		Workloads,
 		func(ctx krt.HandlerContext, wl model.WorkloadInfo) *workloadEDS {

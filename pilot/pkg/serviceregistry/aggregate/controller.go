@@ -15,7 +15,6 @@
 package aggregate
 
 import (
-	"net/netip"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -65,15 +64,17 @@ func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceI
 	return res
 }
 
-func (c *Controller) Waypoint(network, address string) []netip.Addr {
+func (c *Controller) WaypointForService(hostname host.Name, namespace string) (host.Name, uint32, bool) {
 	if !features.EnableAmbientWaypoints {
-		return nil
+		return "", 0, false
 	}
-	var res []netip.Addr
+	// Find the first registry. A service can only have one waypoint.
 	for _, p := range c.GetRegistries() {
-		res = append(res, p.Waypoint(network, address)...)
+		if hn, port, ok := p.WaypointForService(hostname, namespace); ok {
+			return hn, port, true
+		}
 	}
-	return res
+	return "", 0, false
 }
 
 func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {

@@ -17,7 +17,6 @@ package endpoints
 import (
 	"math"
 	"net"
-	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -40,7 +39,6 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/hash"
-	"istio.io/istio/pkg/workloadapi"
 )
 
 var (
@@ -328,50 +326,18 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 
 func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) []*model.IstioEndpoint {
 	if b.proxy.IsWaypointProxy() {
-		// waypoints don't chain to eachother
+		// waypoints don't chain to each-other
 		return nil
 	}
 
-	// find waypoints in any cluster
-	var waypoints []netip.Addr
-	// Find service VIP, lookup waypoints. We will get back VIP of the waypoint.
-	b.service.ClusterVIPs.ForEach(func(_ cluster.ID, vips []string) {
-		for _, vip := range vips {
-			// TODO looking up by vip in a multicluster index without specifying
-			// which cluster is wrong. instead we should lookup by hostname.
-			waypoints = append(waypoints, b.push.WaypointsFor(b.network.String(), vip)...)
-		}
-	})
-
-	// Service isn't captured by a waypoint in any cluster
-	if len(waypoints) == 0 {
+	// Service isn't captured by a waypoint
+	hostname, port, ok := b.push.WaypointForService(b.hostname, b.service.Attributes.Namespace)
+	if !ok {
 		return nil
 	}
-
-	// attempt to resolve waypoint ips into workloads or services
-	addressInfos := make(map[netip.Addr]model.AddressInfo, len(waypoints))
-
-	var waypointEndpoints []*model.IstioEndpoint
-	for _, waypoint := range waypoints {
-		infos := b.push.AddressInformation(b.network, waypoint.String())
-		if len(infos) == 0 {
-			// workloads are 1:1; if there are multiple, it's because two clusters had the same VIP
-			// TODO when we add hostname, we could get duplicate Address_Service. We can probably use any?
-			continue
-		}
-		for _, ai := range infos {
-			switch ai := ai.Type.(type) {
-			case *workloadapi.Address_Service:
-				clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(ai.Service.Hostname), model.HBoneInboundListenPort)
-				endpointBuilder := NewEndpointBuilder(clusterName, b.proxy, b.push)
-				waypointEndpoints, _ = endpointBuilder.snapshotEndpointsForPort(endpointIndex)
-				if len(waypointEndpoints) > 0 {
-					break
-				}
-			}
-		}
-		addressInfos[waypoint] = infos[0]
-	}
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", hostname, int(port))
+	endpointBuilder := NewEndpointBuilder(clusterName, b.proxy, b.push)
+	waypointEndpoints, _ := endpointBuilder.snapshotEndpointsForPort(endpointIndex)
 	return waypointEndpoints
 }
 
@@ -384,6 +350,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	}
 
 	if waypointEps := b.findServiceWaypoint(endpointIndex); len(waypointEps) > 0 {
+		log.Errorf("howardjohn: waypoint %v for %v", len(waypointEps), b.clusterName)
 		// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 		locLbEps := b.generate(waypointEps, false, true)
 		return b.createClusterLoadAssignment(locLbEps)
@@ -817,11 +784,6 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 // waypointInScope computes whether the endpoint is owned by the waypoint
 func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
 	return waypoint.GetNamespace() == e.Namespace
-}
-
-func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {
-	ips := push.WaypointsFor(e.Network.String(), e.Address)
-	return ips
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

@@ -102,19 +102,20 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 					},
 				},
 				// Mutual TLS origination from an unauthorized sidecar to https endpoint
-				// This will result in `TLS ERROR Secret is not supplied by SDS`
+				// This will result in a 503 with the UH flag because the cluster will
+				// stay warming until a valid secret is sent.
 				{
 					name:            "unauthorized sidecar",
 					credentialToUse: credNameGeneric,
 					from:            apps.Ns1.B,
 					drSelector:      "b",
 					expectedResponse: ingressutil.ExpectedResponse{
-						StatusCode:   http.StatusServiceUnavailable,
-						ErrorMessage: "Secret is not supplied by SDS",
+						StatusCode: http.StatusServiceUnavailable,
 					},
 				},
 				// Mutual TLS origination using an invalid client certificate
-				// This will result in `TLS ERROR: Secret is not supplied by SDS`
+				// This will result in a 503 with the UH flag because the cluster will
+				// stay warming until a valid secret is sent.
 				{
 					name:             "invalid client cert",
 					credentialToUse:  fakeCredName,
@@ -122,8 +123,7 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 					drSelector:       "c",
 					authorizeSidecar: true,
 					expectedResponse: ingressutil.ExpectedResponse{
-						StatusCode:   http.StatusServiceUnavailable,
-						ErrorMessage: "Secret is not supplied by SDS",
+						StatusCode: http.StatusServiceUnavailable,
 					},
 				},
 				// Mutual TLS origination from an authorized sidecar to https endpoint with a CRL specifying the server certificate as revoked.

@@ -16,7 +16,6 @@ package memory
 
 import (
 	"fmt"
-	"net/netip"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -376,8 +375,8 @@ func (sd *ServiceDiscovery) ServicesForWaypoint(model.WaypointKey) []model.Servi
 	return nil
 }
 
-func (sd *ServiceDiscovery) Waypoint(string, string) []netip.Addr {
-	return nil
+func (sd *ServiceDiscovery) WaypointForService(hostname host.Name, namespace string) (host.Name, uint32, bool) {
+	return "", 0, false
 }
 
 func (sd *ServiceDiscovery) WorkloadsForWaypoint(model.WaypointKey) []model.WorkloadInfo {
