@@ -44,28 +44,31 @@ func RegisterEdsShim(
 	WorkloadEds := krt.NewCollection(
 		Workloads,
 		func(ctx krt.HandlerContext, wl model.WorkloadInfo) *workloadEDS {
-			if wl.Waypoint == nil {
+			if wl.Waypoint == nil && wl.TunnelProtocol == workloadapi.TunnelProtocol_NONE {
 				return nil
 			}
-			wAddress := wl.Waypoint.GetAddress()
-			serviceKey := networkAddress{
-				network: wAddress.Network,
-				ip:      mustByteIPToString(wAddress.Address),
-			}
-			svc := krt.FetchOne(ctx, Services, krt.FilterIndex(ServicesByAddress, serviceKey))
-			if svc == nil {
-				log.Fatalf("howardjohn: UNEXPECTED")
-				return nil
-			}
-			workloads := krt.Fetch(ctx, Workloads, krt.FilterIndex(WorkloadsByServiceKey, svc.ResourceName()))
-			return &workloadEDS{
-				WorkloadKey:    wl.ResourceName(),
-				TunnelProtocol: wl.TunnelProtocol,
-				WaypointInstance: slices.Map(workloads, func(e model.WorkloadInfo) *workloadapi.Workload {
-					return e.Workload
-				}),
+			res := &workloadEDS{
+				WorkloadKey:      wl.ResourceName(),
+				TunnelProtocol:   wl.TunnelProtocol,
 				ServiceHostnames: slices.Sort(maps.Keys(wl.Services)),
 			}
+			if wl.Waypoint != nil {
+				wAddress := wl.Waypoint.GetAddress()
+				serviceKey := networkAddress{
+					network: wAddress.Network,
+					ip:      mustByteIPToString(wAddress.Address),
+				}
+				svc := krt.FetchOne(ctx, Services, krt.FilterIndex(ServicesByAddress, serviceKey))
+				if svc == nil {
+					log.Fatalf("howardjohn: UNEXPECTED")
+				} else {
+					workloads := krt.Fetch(ctx, Workloads, krt.FilterIndex(WorkloadsByServiceKey, svc.ResourceName()))
+					res.WaypointInstance = slices.Map(workloads, func(e model.WorkloadInfo) *workloadapi.Workload {
+						return e.Workload
+					})
+				}
+			}
+			return res
 		},
 		krt.WithName("WorkloadEds"))
 	ServiceEds := krt.NewCollection(

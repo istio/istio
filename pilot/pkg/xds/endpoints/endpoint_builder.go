@@ -374,7 +374,7 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 			case *workloadapi.Address_Service:
 				clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(ai.Service.Hostname), model.HBoneInboundListenPort)
 				endpointBuilder := NewEndpointBuilder(clusterName, b.proxy, b.push)
-				waypointEndpoints = endpointBuilder.snapshotShards(endpointIndex)
+				waypointEndpoints, _ = endpointBuilder.snapshotEndpointsForPort(endpointIndex)
 				if len(waypointEndpoints) > 0 {
 
 					break
@@ -458,22 +458,10 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		log.Errorf("howardjohn: waypoint %v: %+v", b.clusterName, locLbEps[0].istioEndpoints)
 		return b.createClusterLoadAssignment(locLbEps)
 	}
-	svcPort := b.servicePort(b.port)
-	if svcPort == nil {
+	svcEps, ok := b.snapshotEndpointsForPort(endpointIndex)
+	if !ok {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
-	svcEps := b.snapshotShards(endpointIndex)
-	svcEps = slices.FilterInPlace(svcEps, func(ep *model.IstioEndpoint) bool {
-		// filter out endpoints that don't match the service port
-		if svcPort.Name != ep.ServicePortName {
-			return false
-		}
-		// filter out endpoints that don't match the subset
-		if !b.subsetLabels.SubsetOf(ep.Labels) {
-			return false
-		}
-		return true
-	})
 
 	// TODO we can probably pre-compute here
 	localityLbEndpoints := b.generate(svcEps, false, false)
@@ -502,6 +490,26 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		loadbalancer.ApplyLocalityLBSetting(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, lbSetting, enableFailover)
 	}
 	return l
+}
+
+func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.EndpointIndex) ([]*model.IstioEndpoint, bool) {
+	svcPort := b.servicePort(b.port)
+	if svcPort == nil {
+		return nil, false
+	}
+	svcEps := b.snapshotShards(endpointIndex)
+	svcEps = slices.FilterInPlace(svcEps, func(ep *model.IstioEndpoint) bool {
+		// filter out endpoints that don't match the service port
+		if svcPort.Name != ep.ServicePortName {
+			return false
+		}
+		// filter out endpoints that don't match the subset
+		if !b.subsetLabels.SubsetOf(ep.Labels) {
+			return false
+		}
+		return true
+	})
+	return svcEps, true
 }
 
 // generate endpoints with applies weights, multi-network mapping and other filtering
