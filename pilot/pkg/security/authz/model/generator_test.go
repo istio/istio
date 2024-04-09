@@ -472,6 +472,16 @@ func TestGenerator(t *testing.T) {
             exact: /abc`),
 		},
 		{
+			name:  "pathGenerator-template",
+			g:     pathGenerator{},
+			value: "/abc/{*}",
+			want: yamlPermission(t, `
+         uriTemplate:
+           typedConfig:
+            '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
+            pathTemplate: /abc/*`),
+		},
+		{
 			name:  "methodGenerator",
 			g:     methodGenerator{},
 			value: "GET",
@@ -514,6 +524,10 @@ func TestGenerator(t *testing.T) {
 				}
 				if gotYaml, err = protomarshal.ToYAML(gotProto); err != nil {
 					t.Fatalf("%s: failed to parse yaml: %s", tc.name, err)
+				}
+				p := &rbacpb.Permission{}
+				if err := protomarshal.ApplyYAML(gotYaml, p); err != nil {
+					t.Fatalf("failed to parse yaml: %s", err)
 				}
 				t.Errorf("got:\n %v\n but want:\n %v", gotYaml, tc.want)
 			}

@@ -399,6 +399,17 @@ func (g pathGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permi
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
+	// TODO(jaellio): Should we interpret the path as a PathMatcher if it is an invalid or unsupported by Istio PathTemplate?
+	// Or should we error?
+	// Ex: "/foo/{*" is not a valid PathTemplate.
+	// Ex: "/foo/{bar}" is an unsupported PathTemplate.
+	//
+	// Should we disallow the use of `*` and `**` in the path if it is a PathTemplate (the path contains `{*}` or `{**}`, and `*` or `**`)?
+	if matcher.IsPathTemplate(value) {
+		m := matcher.PathTemplateMatcher(value)
+		return permissionPathTemplate(m), nil
+	}
+
 	m := matcher.PathMatcher(value)
 	return permissionPath(m), nil
 }
