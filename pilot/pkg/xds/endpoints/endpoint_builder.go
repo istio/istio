@@ -314,7 +314,7 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 		return nil
 	}
 	var locLbEps []*LocalityEndpoints
-	if waypointEps := b.findServiceWaypoint(nil); len(waypointEps) > 0 {
+	if waypointEps, f := b.findServiceWaypoint(nil); f {
 		// don't use pre-computed since they're different for each cluster
 		locLbEps = b.generate(waypointEps, true)
 	} else {
@@ -323,21 +323,23 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	return ExtractEnvoyEndpoints(locLbEps)
 }
 
-func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) []*model.IstioEndpoint {
+// For services that have a waypoint, we want to send to the waypoints rather than the service endpoints.
+// Lookup the
+func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) ([]*model.IstioEndpoint, bool) {
 	if b.proxy.IsWaypointProxy() {
 		// waypoints don't chain to each-other
-		return nil
+		return nil, false
 	}
 
 	// Service isn't captured by a waypoint
 	hostname, port, ok := b.push.WaypointForService(b.hostname, b.service.Attributes.Namespace)
 	if !ok {
-		return nil
+		return nil, false
 	}
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", hostname, int(port))
 	endpointBuilder := NewEndpointBuilder(clusterName, b.proxy, b.push)
 	waypointEndpoints, _ := endpointBuilder.snapshotEndpointsForPort(endpointIndex)
-	return waypointEndpoints
+	return waypointEndpoints, true
 }
 
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
