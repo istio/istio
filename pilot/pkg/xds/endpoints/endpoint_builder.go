@@ -697,14 +697,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	// Setup tunnel information, if needed
 	// This is for waypoint
 	if b.dir == model.TrafficDirectionInboundVIP {
-		// This is only used in waypoint proxy
-		inScope := waypointInScope(b.proxy, e)
-		if !inScope {
-			// A waypoint can *partially* select a Service in edge cases. In this case, some % of requests will
-			// go through the waypoint, and the rest direct. Since these have already been load balanced across,
-			// we want to make sure we only send to workloads behind our waypoint
-			return nil
-		}
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
 		if tunnel {
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
@@ -779,11 +771,6 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 	}
 
 	return false
-}
-
-// waypointInScope computes whether the endpoint is owned by the waypoint
-func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
-	return waypoint.GetNamespace() == e.Namespace
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(
