@@ -192,7 +192,7 @@ func New(options Options) Index {
 		},
 		PushXds(a.XDSUpdater, func(i model.ServiceInfo, updates sets.Set[model.ConfigKey]) {
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()})
-			//updates.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: i.Hostname, Namespace: i.Namespace})
+			// updates.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: i.Hostname, Namespace: i.Namespace})
 		})), false)
 
 	Workloads := a.WorkloadsCollection(
@@ -508,6 +508,9 @@ func PushXds[T any](xds model.XDSUpdater, f func(T, sets.Set[model.ConfigKey])) 
 			for _, i := range e.Items() {
 				f(i, cu)
 			}
+		}
+		if len(cu) == 0 {
+			return
 		}
 		xds.ConfigUpdate(&model.PushRequest{
 			Full:           false,

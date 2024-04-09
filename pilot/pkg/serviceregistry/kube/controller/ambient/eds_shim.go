@@ -2,15 +2,15 @@
 package ambient
 
 import (
+	"strings"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
-	"strings"
 )
 
 type serviceEDS struct {
@@ -59,9 +59,7 @@ func RegisterEdsShim(
 					ip:      mustByteIPToString(wAddress.Address),
 				}
 				svc := krt.FetchOne(ctx, Services, krt.FilterIndex(ServicesByAddress, serviceKey))
-				if svc == nil {
-					log.Fatalf("howardjohn: UNEXPECTED")
-				} else {
+				if svc != nil {
 					workloads := krt.Fetch(ctx, Workloads, krt.FilterIndex(WorkloadsByServiceKey, svc.ResourceName()))
 					res.WaypointInstance = slices.Map(workloads, func(e model.WorkloadInfo) *workloadapi.Workload {
 						return e.Workload
@@ -84,7 +82,6 @@ func RegisterEdsShim(
 			}
 			waypointSvc := krt.FetchOne(ctx, Services, krt.FilterIndex(ServicesByAddress, serviceKey))
 			if waypointSvc == nil {
-				log.Fatalf("howardjohn: UNEXPECTED")
 				return nil
 			}
 			workloads := krt.Fetch(ctx, Workloads, krt.FilterIndex(WorkloadsByServiceKey, waypointSvc.ResourceName()))

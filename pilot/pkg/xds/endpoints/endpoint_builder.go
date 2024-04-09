@@ -327,19 +327,10 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 }
 
 func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) []*model.IstioEndpoint {
-	// TODO:
-	// Before we have a waypoint VIP as the IP, and do not change meta
-	// Now we have ep per waypoint, with waypoint as meta.
-	// This seems right actually. But metrics show requests from dest->waypoint, seems opposite. look into that.
-	// we are looking up from push context, need to actually looks from our shard index.
 	if b.proxy.IsWaypointProxy() {
 		// waypoints don't chain to eachother
 		return nil
 	}
-
-	log := log.WithLabels("proxy", b.proxy.ID, "cluster", b.clusterName)
-
-	// TODO pre-index this in PushContext or compute in constructor to invalidate cache?
 
 	// find waypoints in any cluster
 	var waypoints []netip.Addr
@@ -352,7 +343,6 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 		}
 	})
 
-	log.Errorf("howardjohn: waypoints: %v", waypoints)
 	// Service isn't captured by a waypoint in any cluster
 	if len(waypoints) == 0 {
 		return nil
@@ -376,7 +366,6 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 				endpointBuilder := NewEndpointBuilder(clusterName, b.proxy, b.push)
 				waypointEndpoints, _ = endpointBuilder.snapshotEndpointsForPort(endpointIndex)
 				if len(waypointEndpoints) > 0 {
-
 					break
 				}
 			}
@@ -384,64 +373,6 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 		addressInfos[waypoint] = infos[0]
 	}
 	return waypointEndpoints
-
-	log.Errorf("howardjohn: got %v waypoints", len(waypoints))
-	// it's possible the waypoint is something external to istio; assume it's on 15008 and healthy
-	if len(addressInfos) == 0 {
-		log.Errorf("howardjohn: no addresses waypoints: %v", waypoints)
-		return slices.Map(waypoints, func(e netip.Addr) *model.IstioEndpoint {
-			return &model.IstioEndpoint{
-				Address:               e.String(),
-				EndpointPort:          model.HBoneInboundListenPort,
-				LbWeight:              1,
-				DiscoverabilityPolicy: model.AlwaysDiscoverable,
-				HealthStatus:          model.Healthy,
-			}
-		})
-	}
-
-	// TODO maybe just add a ByVIP index to PushContext?
-	var eps []*model.IstioEndpoint
-	for wp, ai := range addressInfos {
-		switch ai := ai.Type.(type) {
-		case *workloadapi.Address_Service:
-			// expand waypiont service into it's endpoints
-			waypointSvc := b.push.ServiceForHostname(b.proxy, host.Name(ai.Service.GetHostname()))
-			if waypointSvc == nil {
-				log.Errorf("howardjohn: no waypoints svc: %v", waypoints)
-				// shouldn't find it in ambient indexes but not here
-				continue
-			}
-			hbonePort := model.HBoneInboundListenPort
-			log.Infof("stevenctl hbone port %d", hbonePort)
-			// TODO should we lookup by appProtocol?
-			if port, ok := waypointSvc.Ports.Get("mesh"); ok {
-				hbonePort = port.Port
-			}
-
-			// TODO: this uses the cached push context one. we need the dynamic one
-			ress := b.push.ServiceEndpointsByPort(waypointSvc, hbonePort, waypointSvc.Attributes.LabelSelectors)
-			if false {
-			} else {
-
-			}
-			log.Errorf("howardjohn: add from service, got %v", len(ress))
-			eps = append(eps, ress...)
-		case *workloadapi.Address_Workload:
-			log.Errorf("howardjohn: add workload directly: %v", wp.String())
-			// TODO use whatever info we have available (health, etc)
-			eps = append(eps, &model.IstioEndpoint{
-				Address:               wp.String(),
-				EndpointPort:          model.HBoneInboundListenPort,
-				LbWeight:              1,
-				DiscoverabilityPolicy: model.AlwaysDiscoverable,
-				HealthStatus:          model.Healthy,
-			})
-		}
-	}
-
-	log.Errorf("howardjohn: new eps: %v", eps)
-	return eps
 }
 
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
@@ -455,7 +386,6 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	if waypointEps := b.findServiceWaypoint(endpointIndex); len(waypointEps) > 0 {
 		// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 		locLbEps := b.generate(waypointEps, false, true)
-		log.Errorf("howardjohn: waypoint %v: %+v", b.clusterName, locLbEps[0].istioEndpoints)
 		return b.createClusterLoadAssignment(locLbEps)
 	}
 	svcEps, ok := b.snapshotEndpointsForPort(endpointIndex)
@@ -829,8 +759,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		}
 		serviceVIP := serviceVIPs[0]
 
-		log.Infof("stevenctl waypoint %s vip %s", waypoint, serviceVIP)
-
 		// set the upstream to connectOriginate listener using the waypoint address for disambiguation
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, waypoint),
@@ -845,7 +773,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			},
 		}
 	} else if tunnel {
-		log.Errorf("howardjohn: tunnel %v %v", b.clusterName, b.hostname)
 		// set the upstream to connectOriginate listener using the endpoint address for disambiguation
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(port))),

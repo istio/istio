@@ -114,7 +114,7 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			trafficType: constants.WorkloadTraffic,
 			podAssertion: func(s *ambientTestServer) {
 				s.t.Helper()
-				s.assertEvent(s.t, s.podXdsName("pod1"))
+				s.assertEvent(s.t, s.podXdsName("pod1"), s.edsName("svc1.ns1.svc.company.com"))
 			},
 			svcAssertion: func(s *ambientTestServer) {
 				s.t.Helper()
@@ -1055,7 +1055,15 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	// Delete global policy
 	s.pa.Delete("strict", systemNS)
 	// Every workload should receive an event
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"), xdsConvertedStaticStrict)
+	s.assertEvent(
+		t,
+		s.podXdsName("pod1"),
+		s.podXdsName("pod3"),
+		s.podXdsName("waypoint-ns-pod"),
+		s.podXdsName("waypoint2-sa"),
+		xdsConvertedStaticStrict,
+		s.edsName("waypoint-ns.ns1.svc.company.com"),
+	)
 	// Now no policies are in effect
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -1867,6 +1875,10 @@ func (s *ambientTestServer) clearEvents() {
 func (s *ambientTestServer) podXdsName(name string) string {
 	return fmt.Sprintf("%s//Pod/%s/%s",
 		s.clusterID, testNS, name)
+}
+
+func (s *ambientTestServer) edsName(name string) string {
+	return name
 }
 
 // Returns the XDS resource name for the given address.
