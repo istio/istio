@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/hash"
 )
@@ -674,56 +675,27 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	address, port := e.Address, int(e.EndpointPort)
 	tunnel := supportTunnel(b, e)
 
-	// Setup tunnel information, if needed
-	if b.dir == model.TrafficDirectionInboundVIP {
-		// Case 1: we are a waypoint proxy, and are building our endpoint. Add tunnel info, if needed.
-		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
-		if tunnel {
-			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
-			// and add some detunnel metadata that had the original port.
-			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, "")
-			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
-			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
-				Value: e.GetLoadBalancingWeight(),
+	if tunnel || toServiceWaypoint {
+		waypoint := ""
+		if toServiceWaypoint {
+			waypoint = net.JoinHostPort(address, strconv.Itoa(port))
+			serviceVIPs := b.service.ClusterVIPs.GetAddressesFor(e.Locality.ClusterID)
+			if len(serviceVIPs) == 0 {
+				// No VIPs. Nothing we can do here
+				return nil
 			}
+			// If there are multiple VIPs, we just use one. Again, hostname would fit better here.
+			address = serviceVIPs[0]
+			port = b.port
 		}
-	} else if toServiceWaypoint {
-		// Case 2: we are sending to a service with a waypoint (from sidecar/ingress)
-		waypoint := net.JoinHostPort(address, strconv.Itoa(port))
 
-		// Use VIP of the waypoint's cluster, not our own.
-		// Using hostname would be a better fix, but will need changes on the waypoint matching logic.
-		serviceVIPs := b.service.ClusterVIPs.GetAddressesFor(e.Locality.ClusterID)
-		if len(serviceVIPs) == 0 {
-			// No VIPs. Nothing we can do here
-			return nil
-		}
-		// If there are multiple VIPs, we just use one. Again, hostname would fit better here.
-		serviceVIP := serviceVIPs[0]
-
-		// set the upstream to connectOriginate listener using the waypoint address for disambiguation
+		target := ptr.NonEmptyOrDefault(waypoint, net.JoinHostPort(address, strconv.Itoa(port)))
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, waypoint),
-		}}
-
-		// inner CONNECT target is the service VIP (TODO support hostnames)
-		// override original_dst to use the waypoint endpoint's address
-		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(serviceVIP, b.port, waypoint)
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
-			},
-		}
-	} else if tunnel {
-		// Case 3: we are sending tunnel, but it's not to a waypoint. sidecar/ingress -> sidecar.
-
-		// set the upstream to connectOriginate listener using the endpoint address for disambiguation
-		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(port))),
+			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, target),
 		}}
 
 		// inner CONNECT target is the endpoint's address
-		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, "")
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},

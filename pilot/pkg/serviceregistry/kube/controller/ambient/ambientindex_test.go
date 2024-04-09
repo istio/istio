@@ -515,12 +515,6 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 		s.lookup(s.addrXdsName("127.0.0.200"))[0].Address.GetWorkload().Waypoint,
 		nil)
 
-	// make sure looking up the waypoint for a wl by network and address functions correctly
-	assert.Equal(t, len(s.Waypoint(testNW, "127.0.0.1")), 1)
-	for _, k := range s.Waypoint(testNW, "127.0.0.1") {
-		assert.Equal(t, k.AsSlice(), netip.MustParseAddr("10.0.0.2").AsSlice())
-	}
-
 	s.addService(t, "svc1",
 		map[string]string{},
 		map[string]string{},
