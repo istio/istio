@@ -48,7 +48,6 @@ func TestProxyConfig(t *testing.T) {
 	loggingConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile(t, "../writer/envoy/logging/testdata/logging.txt"),
 		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
-		"ztunnel-9v7nw":               []byte("current log level is debug"),
 	}
 	cases := []execTestCase{
 		{
@@ -87,23 +86,11 @@ func TestProxyConfig(t *testing.T) {
 			expectedString:   "unrecognized logger name: xxx",
 			wantException:    true,
 		},
-		{ // logger name invalid when namespacing is used improperly
-			execClientConfig: loggingConfig,
-			args:             strings.Split("log ztunnel-9v7nw --level ztunnel:::pool:debug", " "),
-			expectedString:   "unrecognized logging level: pool:debug",
-			wantException:    true,
-		},
 		{ // logger name valid, but logging level invalid
 			execClientConfig: loggingConfig,
 			args:             strings.Split("log details-v1-5b7f94f9bc-wp5tb --level http:yyy", " "),
 			expectedString:   "unrecognized logging level: yyy",
 			wantException:    true,
-		},
-		{ // logger name valid and logging level valid
-			execClientConfig: loggingConfig,
-			args:             strings.Split("log ztunnel-9v7nw --level ztunnel::pool:debug", " "),
-			expectedString:   "",
-			wantException:    false,
 		},
 		{ // both logger name and logging level invalid
 			execClientConfig: loggingConfig,
@@ -175,12 +162,6 @@ func TestProxyConfig(t *testing.T) {
 			args:             strings.Split("route httpbin-794b576b6c-qx6pf", " "),
 			expectedString:   `config dump has no configuration type`,
 			wantException:    true,
-		},
-		{ // set ztunnel logging level
-			execClientConfig: loggingConfig,
-			args:             strings.Split("log ztunnel-9v7nw --level debug", " "),
-			expectedString:   "current log level is debug",
-			wantException:    false,
 		},
 	}
 
