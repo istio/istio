@@ -26,8 +26,10 @@ import (
 
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/zdsapi"
 )
 
@@ -42,7 +44,7 @@ var ztunnelConnected = monitoring.NewGauge("ztunnel_connected",
 type ZtunnelServer interface {
 	Run(ctx context.Context)
 	PodDeleted(ctx context.Context, uid string) error
-	PodAdded(ctx context.Context, uid string, netns Netns) error
+	PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) error
 	Close() error
 }
 
@@ -272,14 +274,29 @@ func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 	return errors.Join(delErr...)
 }
 
-func (z *ztunnelServer) PodAdded(ctx context.Context, uid string, netns Netns) error {
+func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) error {
 	latestConn := z.conns.LatestConn()
 	if latestConn == nil {
 		return fmt.Errorf("no ztunnel connection")
 	}
+	uid := string(pod.ObjectMeta.UID)
+	namespace := pod.ObjectMeta.Namespace
+	name := pod.ObjectMeta.Name
+	svcAccount := pod.Spec.ServiceAccountName
+	trustDomain := ""
+	if td := spiffe.GetTrustDomain(); td != "cluster.local" {
+		trustDomain = td
+	}
+
 	r := &zdsapi.WorkloadRequest{
 		Payload: &zdsapi.WorkloadRequest_Add{
 			Add: &zdsapi.AddWorkload{
+				WorkloadInfo: &zdsapi.WorkloadInfo{
+					Namespace:      namespace,
+					Name:           name,
+					ServiceAccount: svcAccount,
+					TrustDomain:    trustDomain,
+				},
 				Uid: uid,
 			},
 		},

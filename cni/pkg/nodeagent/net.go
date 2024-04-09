@@ -159,7 +159,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	}
 
 	log.Debug("notifying subscribed node proxies")
-	if err := s.sendPodToZtunnelAndWaitForAck(ctx, &pod.ObjectMeta, openNetns); err != nil {
+	if err := s.sendPodToZtunnelAndWaitForAck(ctx, pod, openNetns); err != nil {
 		// we must return PartialAdd error here. the pod was injected with iptables rules,
 		// so it should be annotated, so if it is removed from the mesh, the rules will be removed.
 		// alternatively, we may not return an error at all, but we want this to fail on tests.
@@ -168,8 +168,8 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	return nil
 }
 
-func (s *NetServer) sendPodToZtunnelAndWaitForAck(ctx context.Context, pod *metav1.ObjectMeta, netns Netns) error {
-	return s.ztunnelServer.PodAdded(ctx, string(pod.UID), netns)
+func (s *NetServer) sendPodToZtunnelAndWaitForAck(ctx context.Context, pod *corev1.Pod, netns Netns) error {
+	return s.ztunnelServer.PodAdded(ctx, pod, netns)
 }
 
 // ConstructInitialSnapshot takes a "snapshot" of current ambient pods and

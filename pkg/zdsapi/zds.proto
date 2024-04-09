@@ -25,16 +25,22 @@ enum Version {
   V1 = 1;
 }
 
-// Sent by the ztunnel client on first connect, as an announce message.
-// Until the server sees this announce message, the client cannot be considered connected
 message ZdsHello {
   Version version = 1;
 }
 
-// Add a workload to the ztunnel. Contains the UID of the workload.
-// This will be accompanied by ancillary data containing the workload's netns file descriptor.
+message WorkloadInfo {
+  string name = 1;
+  string namespace = 2;
+  string service_account = 3;
+  string trust_domain = 4;
+}
+
+// Add a workload to the ztunnel. this will be accompanied by ancillary data contianing
+// the workload's netns file descriptor.
 message AddWorkload {
   string uid = 1;
+  WorkloadInfo workload_info = 2;
 }
 
 // Keep workload that we can't find in the fd cache. This can only be sent before SnapshotSent is sent
