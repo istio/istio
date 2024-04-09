@@ -5,9 +5,6 @@ cni:
   cniConfDir: /etc/cni/multus/net.d
   chained: false
   cniConfFileName: "istio-cni.conf"
-  excludeNamespaces:
-    - istio-system
-    - kube-system
   logLevel: info
   provider: "multus"
 global:
