@@ -7,16 +7,13 @@ global:
   variant: distroless
 pilot:
   env:
-    # Setup more secure default that is off in 'default' only for backwards compatibility
-    VERIFY_CERTIFICATE_AT_CLIENT: "true"
-    ENABLE_AUTO_SNI: "true"
-
-    PILOT_ENABLE_HBONE: "true"
+    # Allow sidecars/ingress to send/receive HBONE. This is required for interop.
+    PILOT_ENABLE_SENDING_HBONE: "true"
+    PILOT_ENABLE_LISTENING_HBONE: "true"
     CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
     PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
     PILOT_ENABLE_AMBIENT_WAYPOINTS: "true"
 cni:
-  logLevel: info
   ambient:
     enabled: true
 

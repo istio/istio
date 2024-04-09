@@ -106,7 +106,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(
 	}
 	istioAutodetectedMtls := tls != nil && tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL &&
 		mtlsCtxType == autoDetected
-	if cb.hbone {
+	if cb.sendHbone {
 		cb.applyHBONETransportSocketMatches(c.cluster, tls, istioAutodetectedMtls)
 	} else if c.cluster.GetType() != cluster.Cluster_ORIGINAL_DST {
 		// For headless service, discovery type will be `Cluster_ORIGINAL_DST`

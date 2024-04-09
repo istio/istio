@@ -920,8 +920,8 @@ func (node *Proxy) FuzzValidate() bool {
 	return len(node.IPAddresses) != 0
 }
 
-func (node *Proxy) EnableHBONE() bool {
-	return node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE))
+func (node *Proxy) EnableHBONEListen() bool {
+	return node.IsAmbient() || (features.EnableHBONEListening && bool(node.Metadata.EnableHBONE))
 }
 
 func (node *Proxy) SetWorkloadEntry(name string, create bool) {

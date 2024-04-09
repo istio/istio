@@ -224,7 +224,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
-		if proxy.EnableHBONE() {
+		if proxy.EnableHBONEListen() {
 			clusters = append(clusters, configgen.buildInboundHBONEClusters())
 		}
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
@@ -256,7 +256,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	}
 
 	// OutboundTunnel cluster is needed for sidecar and gateway.
-	if proxy.EnableHBONE() && proxy.Type != model.Waypoint {
+	if features.EnableHBONESend && proxy.Type != model.Waypoint {
 		clusters = append(clusters, cb.buildConnectOriginate(proxy, req.Push, nil))
 	}
 

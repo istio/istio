@@ -165,15 +165,23 @@ var (
 	EnableGatewayAPIGatewayClassController = env.Register("PILOT_ENABLE_GATEWAY_API_GATEWAYCLASS_CONTROLLER", true,
 		"If this is set to true, istiod will create and manage its default GatewayClasses").Get()
 
-	// EnableHBONE provides a global Pilot flag for enabling HBONE.
-	// Generally, this could be a per-proxy setting (and is, via ENABLE_HBONE node metadata).
-	// However, there are some code paths that impact all clients, hence the global flag.
-	// Warning: do not enable by default until endpoint_builder.go caching is fixed (and possibly other locations).
-	EnableHBONE = env.Register(
-		"PILOT_ENABLE_HBONE",
+	// EnableHBONEListening provides a global Pilot flag for enabling listening on HBONE.
+	EnableHBONEListening = env.Register(
+		"PILOT_ENABLE_LISTENING_HBONE",
 		false,
 		"If enabled, HBONE support can be configured for proxies. "+
 			"Note: proxies must opt in on a per-proxy basis with ENABLE_HBONE to actually get HBONE config, in addition to this flag.").Get()
+	// PreferHBONESend controls whether HBONE is preferred. If not, if an endpoint supports mTLS and HBONE, mTLS will be used
+	PreferHBONESend = env.Register(
+		"PILOT_PREFER_SENDING_HBONE",
+		false,
+		"If enabled, HBONE will be preferred when sending to destinations. ").Get()
+	// PreferHBONESend controls whether HBONE sending HBONE is allowed.
+	// This is required for ambient to function.
+	EnableHBONESend = env.Register(
+		"PILOT_ENABLE_SENDING_HBONE",
+		false,
+		"If enabled, HBONE will be preferred when sending to destinations. ").Get()
 
 	EnableAmbientControllers = env.Register(
 		"PILOT_ENABLE_AMBIENT_CONTROLLERS",
