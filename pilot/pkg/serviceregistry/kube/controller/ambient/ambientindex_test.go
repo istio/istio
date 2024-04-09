@@ -605,7 +605,7 @@ func TestAmbientIndex_WaypointInboundBinding(t *testing.T) {
 	})
 	s.addWaypoint(t, "1.2.3.4", "proxy-sandwich", constants.AllTraffic, true)
 	// TODO needing this check seems suspicious. We should really wait for up to 2 pod events.
-	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List("")) }, 1)
+	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List()) }, 1)
 
 	s.addPods(t, "10.0.0.1", "proxy-sandwich-instance", "", map[string]string{constants.GatewayNameLabel: "proxy-sandwich"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("proxy-sandwich-instance"))
@@ -1315,7 +1315,7 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", constants.WorkloadTraffic, true)
 	s.addWaypoint(t, "10.0.0.2", "waypoint-sa1", constants.WorkloadTraffic, true)
 	// Wait until waypoints are available
-	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List("")) }, 2)
+	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List()) }, 2)
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
@@ -1367,7 +1367,7 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 	}
 	s.addWaypoint(t, "10.0.0.1", "waypoint", constants.WorkloadTraffic, true)
 	// Wait until waypoint is available
-	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List("")) }, 1)
+	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List()) }, 1)
 
 	// expected order is pod3, pod1, pod2, which is the order of creation
 	s.addPods(t,

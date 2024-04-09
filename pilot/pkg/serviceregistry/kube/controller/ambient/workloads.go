@@ -54,14 +54,15 @@ func (a *index) WorkloadsCollection(
 	AllPolicies krt.Collection[model.WorkloadAuthorization],
 	Namespaces krt.Collection[*v1.Namespace],
 ) krt.Collection[model.WorkloadInfo] {
+	WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 	PodWorkloads := krt.NewCollection(
 		Pods,
-		a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, Namespaces, Nodes),
+		a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, WorkloadServicesNamespaceIndex, Namespaces, Nodes),
 		krt.WithName("PodWorkloads"),
 	)
 	WorkloadEntryWorkloads := krt.NewCollection(
 		WorkloadEntries,
-		a.workloadEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, Namespaces),
+		a.workloadEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, WorkloadServicesNamespaceIndex, Namespaces),
 		krt.WithName("WorkloadEntryWorkloads"),
 	)
 	ServiceEntryWorkloads := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
@@ -153,6 +154,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
 	Waypoints krt.Collection[Waypoint],
 	WorkloadServices krt.Collection[model.ServiceInfo],
+	WorkloadServicesNamespaceIndex *krt.Index[model.ServiceInfo, string],
 	Namespaces krt.Collection[*v1.Namespace],
 ) func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
 	return func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
@@ -177,7 +179,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 		if waypoint != nil {
 			waypointAddress = a.getWaypointAddress(waypoint)
 		}
-		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
+		fo := []krt.FetchOption{krt.FilterIndex(WorkloadServicesNamespaceIndex, p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableK8SServiceSelectWorkloadEntries {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
 				return a.(model.ServiceInfo).Source == kind.ServiceEntry
@@ -224,6 +226,7 @@ func (a *index) podWorkloadBuilder(
 	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
 	Waypoints krt.Collection[Waypoint],
 	WorkloadServices krt.Collection[model.ServiceInfo],
+	WorkloadServicesNamespaceIndex *krt.Index[model.ServiceInfo, string],
 	Namespaces krt.Collection[*v1.Namespace],
 	Nodes krt.Collection[*v1.Node],
 ) func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
@@ -252,7 +255,7 @@ func (a *index) podWorkloadBuilder(
 		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
 		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
 		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
-		fo := []krt.FetchOption{krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
+		fo := []krt.FetchOption{krt.FilterIndex(WorkloadServicesNamespaceIndex, p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableServiceEntrySelectPods {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
 				return a.(model.ServiceInfo).Source == kind.Service

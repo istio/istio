@@ -437,7 +437,7 @@ func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []depende
 		// For each input, we will check if it depends on this event.
 		// We use Items() to check both the old and new object; we will recompute if either matched
 		for _, item := range ev.Items() {
-			match := dep.filter.Matches(item)
+			match := dep.filter.Matches(item, false)
 			if h.log.DebugEnabled() {
 				h.log.WithLabels("item", iKey, "match", match).Debugf("dependency change for collection %T", sourceCollection)
 			}
@@ -463,21 +463,10 @@ func (h *manyCollection[I, O]) GetKey(k Key[O]) (res *O) {
 	return nil
 }
 
-func (h *manyCollection[I, O]) List(namespace string) (res []O) {
+func (h *manyCollection[I, O]) List() (res []O) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if namespace == "" {
-		res = maps.Values(h.collectionState.outputs)
-	} else {
-		// Future improvement: shard outputs by namespace so we can query more efficiently
-		for _, v := range h.collectionState.outputs {
-			if getNamespace(v) == namespace {
-				res = append(res, v)
-			}
-		}
-		return
-	}
-	return
+	return maps.Values(h.collectionState.outputs)
 }
 
 func (h *manyCollection[I, O]) Register(f func(o Event[O])) Syncer {

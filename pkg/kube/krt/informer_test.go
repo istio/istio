@@ -44,7 +44,7 @@ func TestNewInformer(t *testing.T) {
 	tt := assert.NewTracker[string](t)
 	ConfigMaps.Register(TrackerHandler[*corev1.ConfigMap](tt))
 
-	assert.Equal(t, ConfigMaps.List(""), nil)
+	assert.Equal(t, ConfigMaps.List(), nil)
 
 	cmA := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -67,15 +67,15 @@ func TestNewInformer(t *testing.T) {
 	}
 	cmt.Create(cmA)
 	tt.WaitOrdered("add/ns/a")
-	assert.Equal(t, ConfigMaps.List(""), []*corev1.ConfigMap{cmA})
+	assert.Equal(t, ConfigMaps.List(), []*corev1.ConfigMap{cmA})
 
 	cmt.Update(cmA2)
 	tt.WaitOrdered("update/ns/a")
-	assert.Equal(t, ConfigMaps.List(""), []*corev1.ConfigMap{cmA2})
+	assert.Equal(t, ConfigMaps.List(), []*corev1.ConfigMap{cmA2})
 
 	cmt.Create(cmB)
 	tt.WaitOrdered("add/ns/b")
-	assert.Equal(t, slices.SortBy(ConfigMaps.List(""), func(a *corev1.ConfigMap) string { return a.Name }), []*corev1.ConfigMap{cmA2, cmB})
+	assert.Equal(t, slices.SortBy(ConfigMaps.List(), func(a *corev1.ConfigMap) string { return a.Name }), []*corev1.ConfigMap{cmA2, cmB})
 
 	assert.Equal(t, ConfigMaps.GetKey("ns/b"), &cmB)
 	assert.Equal(t, ConfigMaps.GetKey("ns/a"), &cmA2)
@@ -124,5 +124,5 @@ func TestUnregisteredTypeCollection(t *testing.T) {
 	))
 	npcoll := krt.NewInformer[*v1.NetworkPolicy](c)
 	c.RunAndWait(test.NewStop(t))
-	assert.Equal(t, npcoll.List(""), []*v1.NetworkPolicy{np})
+	assert.Equal(t, npcoll.List(), []*v1.NetworkPolicy{np})
 }

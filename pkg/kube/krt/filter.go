@@ -18,31 +18,28 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pkg/config/labels"
 )
 
 type filter struct {
-	key       string
-	name      string
-	namespace string
+	key string
 
 	// selectsNonEmpty is like selects, but it treats an empty selector as not matching
 	selectsNonEmpty map[string]string
 	selects         map[string]string
 	labels          map[string]string
 	generic         func(any) bool
+
+	listFromIndex func() any
+	indexMatches  func(any) bool
 }
 
 func (f filter) String() string {
 	attrs := []string{}
 	if f.key != "" {
 		attrs = append(attrs, "key="+f.key)
-	}
-	if f.name != "" {
-		attrs = append(attrs, "name="+f.name)
-	}
-	if f.namespace != "" {
-		attrs = append(attrs, "namespace="+f.namespace)
 	}
 	if f.selectsNonEmpty != nil {
 		attrs = append(attrs, fmt.Sprintf("selectsNonEmpty=%v", f.selectsNonEmpty))
@@ -60,10 +57,11 @@ func (f filter) String() string {
 	return fmt.Sprintf("{%s}", res)
 }
 
-func FilterName(name, namespace string) FetchOption {
+// FilterObjectName selects a Kubernetes object by name.
+func FilterObjectName(name types.NamespacedName) FetchOption {
 	return func(h *dependency) {
-		h.filter.name = name
-		h.filter.namespace = namespace
+		// Translate to a key lookup
+		h.filter.key = keyFunc(name.Name, name.Namespace)
 	}
 }
 
@@ -73,16 +71,23 @@ func FilterKey(k string) FetchOption {
 	}
 }
 
-func FilterNamespace(namespace string) FetchOption {
-	return func(h *dependency) {
-		h.filter.namespace = namespace
-	}
-}
-
 // FilterSelects only includes objects that select this label. If the selector is empty, it is a match.
 func FilterSelects(lbls map[string]string) FetchOption {
 	return func(h *dependency) {
 		h.filter.selects = lbls
+	}
+}
+
+// FilterIndex selects only objects matching a key in an index.
+func FilterIndex[I any, K comparable](idx *Index[I, K], k K) FetchOption {
+	return func(h *dependency) {
+		// Index is used to pre-filter on the List, and also to match in Matches. Provide type-erased methods for both
+		h.filter.listFromIndex = func() any {
+			return idx.Lookup(k)
+		}
+		h.filter.indexMatches = func(a any) bool {
+			return idx.objectHasKey(a.(I), k)
+		}
 	}
 }
 
@@ -105,22 +110,10 @@ func FilterGeneric(f func(any) bool) FetchOption {
 	}
 }
 
-func (f filter) Matches(object any) bool {
+func (f filter) Matches(object any, forList bool) bool {
 	if f.key != "" && f.key != string(GetKey[any](object)) {
 		if log.DebugEnabled() {
 			log.Debugf("no match key: %q vs %q", f.key, string(GetKey[any](object)))
-		}
-		return false
-	}
-	if f.name != "" && f.name != getName(object) {
-		if log.DebugEnabled() {
-			log.Debugf("no match name: %q vs %q", f.name, getName(object))
-		}
-		return false
-	}
-	if f.namespace != "" && f.namespace != getNamespace(object) {
-		if log.DebugEnabled() {
-			log.Debugf("no match namespace: %q vs %q", f.namespace, getNamespace(object))
 		}
 		return false
 	}
@@ -147,6 +140,15 @@ func (f filter) Matches(object any) bool {
 			log.Debugf("no match generic")
 		}
 		return false
+	}
+	// If we are listing, we already did this. Do not redundantly check
+	if !forList {
+		if f.indexMatches != nil && !f.indexMatches(object) {
+			if log.DebugEnabled() {
+				log.Debugf("no match index")
+			}
+			return false
+		}
 	}
 	return true
 }
