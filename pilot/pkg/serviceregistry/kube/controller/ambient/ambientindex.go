@@ -192,7 +192,7 @@ func New(options Options) Index {
 		},
 		PushXds(a.XDSUpdater, func(i model.ServiceInfo, updates sets.Set[model.ConfigKey]) {
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()})
-			updates.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: i.Hostname, Namespace: i.Namespace})
+			//updates.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: i.Hostname, Namespace: i.Namespace})
 		})), false)
 
 	Workloads := a.WorkloadsCollection(
@@ -242,11 +242,19 @@ func New(options Options) Index {
 		},
 		PushXds(a.XDSUpdater, func(i model.WorkloadInfo, updates sets.Set[model.ConfigKey]) {
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()})
-			for svc := range i.Services {
-				ns, hostname, _ := strings.Cut(svc, "/")
-				updates.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: ns})
-			}
+			//for svc := range i.Services {
+			//	ns, hostname, _ := strings.Cut(svc, "/")
+			//	updates.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: ns})
+			//}
 		})), false)
+	RegisterEdsShim(
+		a.XDSUpdater,
+		Workloads,
+		WorkloadServiceIndex,
+		WorkloadServices,
+		ServiceAddressIndex,
+		Waypoints,
+	)
 
 	a.workloads = workloadsCollection{
 		Collection:       Workloads,

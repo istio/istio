@@ -33,8 +33,8 @@ GRAFANA_VERSION=${GRAFANA_VERSION:-"6.61.1"}
 {
 helm3 template kiali-server \
   --namespace istio-system \
-  --version 1.79.0 \
-  --set deployment.image_version=v1.79 \
+  --version 1.82.0 \
+  --set deployment.image_version=v1.82 \
   --include-crds \
   --set nameOverride=kiali \
   --set fullnameOverride=kiali \

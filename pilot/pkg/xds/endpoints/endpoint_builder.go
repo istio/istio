@@ -327,6 +327,11 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 }
 
 func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
+	// TODO:
+	// Before we have a waypoint VIP as the IP, and do not change meta
+	// Now we have ep per waypoint, with waypoint as meta.
+	// This seems right actually. But metrics show requests from dest->waypoint, seems opposite. look into that.
+	// we are looking up from push context, need to actually looks from our shard index.
 	if b.proxy.IsWaypointProxy() {
 		// waypoints don't chain to eachother
 		return nil
@@ -364,6 +369,7 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 		addressInfos[waypoint] = infos[0]
 	}
 
+	log.Errorf("howardjohn: got %v waypoints", len(waypoints))
 	// it's possible the waypoint is something external to istio; assume it's on 15008 and healthy
 	if len(addressInfos) == 0 {
 		log.Errorf("howardjohn: no addresses waypoints: %v", waypoints)
@@ -396,8 +402,17 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 			if port, ok := waypointSvc.Ports.Get("mesh"); ok {
 				hbonePort = port.Port
 			}
-			eps = append(eps, b.push.ServiceEndpointsByPort(waypointSvc, hbonePort, waypointSvc.Attributes.LabelSelectors)...)
+
+			// TODO: this uses the cached push context one. we need the dynamic one
+			ress := b.push.ServiceEndpointsByPort(waypointSvc, hbonePort, waypointSvc.Attributes.LabelSelectors)
+			if false {
+			} else {
+
+			}
+			log.Errorf("howardjohn: add from service, got %v", len(ress))
+			eps = append(eps, ress...)
 		case *workloadapi.Address_Workload:
+			log.Errorf("howardjohn: add workload directly: %v", wp.String())
 			// TODO use whatever info we have available (health, etc)
 			eps = append(eps, &model.IstioEndpoint{
 				Address:               wp.String(),
@@ -424,9 +439,9 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	if waypointEps := b.findServiceWaypoint(); len(waypointEps) > 0 {
 		// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 		locLbEps := b.generate(waypointEps, false, true)
+		log.Errorf("howardjohn: waypoint %v: %+v", b.clusterName, locLbEps[0].istioEndpoints)
 		return b.createClusterLoadAssignment(locLbEps)
 	}
-
 	svcPort := b.servicePort(b.port)
 	if svcPort == nil {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
