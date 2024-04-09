@@ -315,7 +315,7 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 		return nil
 	}
 	var locLbEps []*LocalityEndpoints
-	if waypointEps := b.findServiceWaypoint(); len(waypointEps) > 0 {
+	if waypointEps := b.findServiceWaypoint(nil); len(waypointEps) > 0 {
 		// don't use pre-computed since they're different for each cluster
 		locLbEps = b.generate(waypointEps, false, true)
 	} else {
@@ -326,7 +326,7 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	return ExtractEnvoyEndpoints(locLbEps)
 }
 
-func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
+func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) []*model.IstioEndpoint {
 	// TODO:
 	// Before we have a waypoint VIP as the IP, and do not change meta
 	// Now we have ep per waypoint, with waypoint as meta.
@@ -343,6 +343,7 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 
 	// find waypoints in any cluster
 	var waypoints []netip.Addr
+	// Find service VIP, lookup waypoints. We will get back VIP of the waypoint.
 	b.service.ClusterVIPs.ForEach(func(_ cluster.ID, vips []string) {
 		for _, vip := range vips {
 			// TODO looking up by vip in a multicluster index without specifying
@@ -352,13 +353,15 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 	})
 
 	log.Errorf("howardjohn: waypoints: %v", waypoints)
-	// service isn't captured by a waypoint in any cluster
+	// Service isn't captured by a waypoint in any cluster
 	if len(waypoints) == 0 {
 		return nil
 	}
 
 	// attempt to resolve waypoint ips into workloads or services
 	addressInfos := make(map[netip.Addr]model.AddressInfo, len(waypoints))
+
+	var waypointEndpoints []*model.IstioEndpoint
 	for _, waypoint := range waypoints {
 		infos := b.push.AddressInformation(b.network, waypoint.String())
 		if len(infos) == 0 {
@@ -366,8 +369,21 @@ func (b *EndpointBuilder) findServiceWaypoint() []*model.IstioEndpoint {
 			// TODO when we add hostname, we could get duplicate Address_Service. We can probably use any?
 			continue
 		}
+		for _, ai := range infos {
+			switch ai := ai.Type.(type) {
+			case *workloadapi.Address_Service:
+				clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(ai.Service.Hostname), model.HBoneInboundListenPort)
+				endpointBuilder := NewEndpointBuilder(clusterName, b.proxy, b.push)
+				waypointEndpoints = endpointBuilder.snapshotShards(endpointIndex)
+				if len(waypointEndpoints) > 0 {
+
+					break
+				}
+			}
+		}
 		addressInfos[waypoint] = infos[0]
 	}
+	return waypointEndpoints
 
 	log.Errorf("howardjohn: got %v waypoints", len(waypoints))
 	// it's possible the waypoint is something external to istio; assume it's on 15008 and healthy
@@ -436,7 +452,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
-	if waypointEps := b.findServiceWaypoint(); len(waypointEps) > 0 {
+	if waypointEps := b.findServiceWaypoint(endpointIndex); len(waypointEps) > 0 {
 		// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 		locLbEps := b.generate(waypointEps, false, true)
 		log.Errorf("howardjohn: waypoint %v: %+v", b.clusterName, locLbEps[0].istioEndpoints)

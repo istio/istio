@@ -430,6 +430,7 @@ func (a *index) Waypoint(network, address string) []netip.Addr {
 		network: network,
 		ip:      address,
 	}
+
 	addressInfos := a.Lookup(networkAddr.String())
 	for _, addressInfo := range addressInfos {
 		waypointAddress := addressInfo.GetService().GetWaypoint().GetAddress().GetAddress()
