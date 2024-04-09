@@ -73,31 +73,11 @@ global:
   tag: %s
 revision: "%s"
 `
-	// TODO: Remove this once the previous release version for the ambient upgrade test becomes 1.21, and start using --set profile=ambient
-	// refer: https://github.com/istio/istio/issues/49242
 	ambientProfileOverride = `
 global:
   hub: %s
   tag: %s
-meshConfig:
-  defaultConfig:
-    proxyMetadata:
-      ISTIO_META_ENABLE_HBONE: "true"
-pilot:
-  env:
-    # Setup more secure default that is off in 'default' only for backwards compatibility
-    VERIFY_CERTIFICATE_AT_CLIENT: "true"
-    ENABLE_AUTO_SNI: "true"
-
-    PILOT_ENABLE_HBONE: "true"
-    CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
-    PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
-    PILOT_ENABLE_AMBIENT_WAYPOINTS: "true"
-cni:
-  logLevel: info
-  privileged: true
-  ambient:
-    enabled: true
+profile: ambient
 `
 )
 
