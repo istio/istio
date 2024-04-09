@@ -79,13 +79,11 @@ revision: "%s"
 global:
   hub: %s
   tag: %s
-variant: ""
 meshConfig:
   defaultConfig:
     proxyMetadata:
       ISTIO_META_ENABLE_HBONE: "true"
 pilot:
-  variant: ""
   env:
     # Setup more secure default that is off in 'default' only for backwards compatibility
     VERIFY_CERTIFICATE_AT_CLIENT: "true"

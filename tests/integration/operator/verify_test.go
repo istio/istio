@@ -40,6 +40,7 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 				"install",
 				"--set", "hub=" + s.Image.Hub,
 				"--set", "tag=" + s.Image.Tag,
+				"--set", "values.global.variant=" + s.Image.Variant,
 				"--manifests=" + ManifestPath,
 				"-y",
 			}

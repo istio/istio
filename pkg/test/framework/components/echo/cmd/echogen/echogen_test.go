@@ -37,6 +37,8 @@ func TestGenerate(t *testing.T) {
 		switch f.Name {
 		case "istio.test.tag":
 			_ = f.Value.Set("testtag")
+		case "istio.test.variant":
+			_ = f.Value.Set("testvariant")
 		case "istio.test.hub":
 			_ = f.Value.Set("testhub")
 		case "istio.test.pullpolicy":

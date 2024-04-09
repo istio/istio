@@ -71,6 +71,10 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		s.Image.Tag = env.TAG.ValueOrDefault("latest")
 	}
 
+	if s.Image.Variant == "" {
+		s.Image.Variant = env.VARIANT.ValueOrDefault("")
+	}
+
 	if s.Image.PullPolicy == "" {
 		s.Image.PullPolicy = env.PULL_POLICY.ValueOrDefault("Always")
 	}
@@ -189,6 +193,8 @@ func init() {
 		"Container registry hub to use")
 	flag.StringVar(&settingsFromCommandLine.Image.Tag, "istio.test.tag", settingsFromCommandLine.Image.Tag,
 		"Common Container tag to use when deploying container images")
+	flag.StringVar(&settingsFromCommandLine.Image.Variant, "istio.test.variant", settingsFromCommandLine.Image.Variant,
+		"Common Container variant to use when deploying container images")
 	flag.StringVar(&settingsFromCommandLine.Image.PullPolicy, "istio.test.pullpolicy", settingsFromCommandLine.Image.PullPolicy,
 		"Common image pull policy to use when deploying container images")
 	flag.StringVar(&settingsFromCommandLine.Image.PullSecret, "istio.test.imagePullSecret", settingsFromCommandLine.Image.PullSecret,

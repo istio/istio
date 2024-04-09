@@ -59,10 +59,15 @@ func TestReconcileDelete(t *testing.T) {
 					cleanupIstioResources(t, cs, istioCtl)
 				})
 				s := t.Settings()
+				// Operator has no --variant flag, hack it with --tag
+				tag := s.Image.Tag
+				if v := s.Image.Variant; v != "" {
+					tag += "-" + v
+				}
 				initCmd := []string{
 					"operator", "init",
 					"--hub=" + s.Image.Hub,
-					"--tag=" + s.Image.Tag,
+					"--tag=" + tag,
 					"--manifests=" + ManifestPath,
 				}
 				// install istio with default config for the first time by running operator init command
@@ -125,10 +130,15 @@ func TestReconcileDelete(t *testing.T) {
 					cleanupIstioResources(t, cs, istioCtl)
 				})
 				s := t.Settings()
+				// Operator has no --variant flag, hack it with --tag
+				tag := s.Image.Tag
+				if v := s.Image.Variant; v != "" {
+					tag += "-" + v
+				}
 				initCmd := []string{
 					"operator", "init",
 					"--hub=" + s.Image.Hub,
-					"--tag=" + s.Image.Tag,
+					"--tag=" + tag,
 					"--manifests=" + ManifestPath,
 				}
 				// install istio with default config for the first time by running operator init command
@@ -202,11 +212,12 @@ spec:
   tag: %s
   values:
     global:
+      variant: %q
       imagePullPolicy: %s
 `
 	s := ctx.Settings()
 	overlayYAML := fmt.Sprintf(metadataYAML, revName("test-istiocontrolplane", revision), profileName, ManifestPathContainer,
-		s.Image.Hub, s.Image.Tag, s.Image.PullPolicy)
+		s.Image.Hub, s.Image.Tag, s.Image.Variant, s.Image.PullPolicy)
 
 	scopes.Framework.Infof("=== installing with IOP: ===\n%s\n", overlayYAML)
 
