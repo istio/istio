@@ -7,7 +7,9 @@ deployment:
   accessible_namespaces:
   - '**'
   ingress_enabled: false
-  hpa:
-    api_version: autoscaling/v2
 login_token:
   signing_key: CHANGEME00000000
+external_services:
+  # Kiali will not start up without tracing service. We don't want to require it.
+  tracing:
+    enabled: false
