@@ -18,6 +18,7 @@
 package ambient
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -25,9 +26,13 @@ import (
 	"testing"
 	"time"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/http/headers"
+	"istio.io/istio/pkg/ptr"
 	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
@@ -43,6 +48,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tests/common/jwt"
@@ -2287,6 +2293,38 @@ func TestMetadataServer(t *testing.T) {
 					// Test that we see our own identity -- not the ztunnel (istio-system/ztunnel).
 					// TODO: if the test SA actually had workload identity enabled the result is probably different
 					Check: check.BodyContains(fmt.Sprintf(`Your Kubernetes service account (%s/%s)`, src.NamespaceName(), src.Config().AccountName())),
+				}
+				src.CallOrFail(t, opts)
+			})
+		}
+	})
+}
+
+func TestAPIServer(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		svcs := apps.All
+		token, err := t.Clusters().Default().Kube().CoreV1().ServiceAccounts(apps.Namespace.Name()).CreateToken(context.Background(), "default",
+			&authenticationv1.TokenRequest{
+				Spec: authenticationv1.TokenRequestSpec{
+					Audiences:         []string{"kubernetes.default.svc"},
+					ExpirationSeconds: ptr.Of(int64(600)),
+				},
+			}, metav1.CreateOptions{})
+		assert.NoError(t, err)
+
+		for _, src := range svcs {
+			src := src
+			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+				opts := echo.CallOptions{
+					Address: "kubernetes.default.svc",
+					Port:    echo.Port{ServicePort: 443},
+					Scheme:  scheme.HTTPS,
+					HTTP: echo.HTTP{
+						Headers: headers.New().With("Authorization", "Bearer "+token.Status.Token).Build(),
+						Path:    "/",
+					},
+					// Test that we see our own identity -- not the ztunnel (istio-system/ztunnel).
+					Check: check.BodyContains(fmt.Sprintf(`system:serviceaccount:%v:default`, apps.Namespace.Name())),
 				}
 				src.CallOrFail(t, opts)
 			})
