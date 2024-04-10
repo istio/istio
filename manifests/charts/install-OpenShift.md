@@ -8,24 +8,26 @@ To install with Helm, you must first create the namespace that you wish to insta
 kubectl create namespace istio-system
 ```
 
+Istio's helm charts come with a common `openshift` profile that can be used during installation.
+
 The installation process using the Helm charts is as follows:
 
 1) `base` chart creates cluster-wide CRDs, cluster bindings and cluster resources. It is possible to change the namespace from `istio-system` but it is not recommended.
 
 ```console
-helm install istio-base -n istio-system manifests/charts/base
+helm install istio-base -n istio-system manifests/charts/base --set profile=openshift
 ```
 
 2) `istio-cni` chart installs the CNI plugin. This should be installed after the `base` chart and prior to `istiod` chart. Need to add `--set pilot.cnienabled=true` to the `istiod` install to enable its usage.
 
 ```console
-helm install istio-cni -n kube-system manifests/charts/istio-cni --set cni.cniBinDir="/var/lib/cni/bin" --set cni.cniConfDir="/etc/cni/multus/net.d" --set cni.chained=false --set cni.cniConfFileName="istio-cni.conf" --set cni.excludeNamespaces[0]="istio-system" --set cni.excludeNamespaces[1]="kube-system" --set cni.provider=multus --set cni.logLevel=info
+helm install istio-cni -n kube-system manifests/charts/istio-cni --set profile=openshift
 ```
 
 3) `istio-control/istio-discovery` chart installs a revision of istiod.
 
 ```console
- helm install -n istio-system istiod manifests/charts/istio-control/istio-discovery --set pilot.cni.enabled=true --set pilot.cni.provider=multus --set global.platform=openshift
+ helm install -n istio-system istiod manifests/charts/istio-control/istio-discovery --set profile=openshift
 ```
 
 4) `gateways` charts install a load balancer with `ingress` and `egress`.
@@ -33,11 +35,11 @@ helm install istio-cni -n kube-system manifests/charts/istio-cni --set cni.cniBi
 Ingress secrets and access should be separated from the control plane.
 
 ```console
-helm install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress
+helm install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress --set profile=openshift
 ```
 
 Egress secrets and access should be separated from the control plane.
 
 ```console
-helm install -n istio-system istio-egress manifests/charts/gateways/istio-egress
+helm install -n istio-system istio-egress manifests/charts/gateways/istio-egress --set profile=openshift
 ```
