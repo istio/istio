@@ -490,8 +490,8 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bo
 		h.recomputeMu.Lock()
 		defer h.recomputeMu.Unlock()
 	}
-	init := h.eventHandlers.Insert(f)
-	if !init && runExistingState {
+	initialized := !h.eventHandlers.Insert(f)
+	if initialized && runExistingState {
 		// Already started. Pause everything, and run through the handler.
 		h.mu.Lock()
 		events := make([]Event[O], 0, len(h.collectionState.outputs))
