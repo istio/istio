@@ -152,7 +152,7 @@ func readDeploymentYAML(ctx resource.Context) (string, error) {
 	}
 
 	oldImage := "gcr.io/istio-testing/ext-authz:latest"
-	newImage := fmt.Sprintf("%s/ext-authz:%s", s.Hub, strings.TrimSuffix(s.Tag, "-distroless"))
+	newImage := fmt.Sprintf("%s/ext-authz:%s", s.Hub, s.Tag)
 	yamlText = strings.ReplaceAll(yamlText, oldImage, newImage)
 
 	// Replace the image pull policy

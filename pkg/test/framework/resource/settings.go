@@ -42,6 +42,9 @@ type ImageSettings struct {
 	// Tag value to use in Helm templates
 	Tag string
 
+	// Variant value to use in Helm templates
+	Variant string
+
 	// Image pull policy to use for deployments. If not specified, the defaults of each deployment will be used.
 	PullPolicy string
 
@@ -252,6 +255,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("Revisions:         						 %v\n", s.Revisions.String())
 	result += fmt.Sprintf("Hub:               						 %s\n", s.Image.Hub)
 	result += fmt.Sprintf("Tag:               						 %s\n", s.Image.Tag)
+	result += fmt.Sprintf("Variant:           						 %s\n", s.Image.Variant)
 	result += fmt.Sprintf("PullPolicy:        						 %s\n", s.Image.PullPolicy)
 	result += fmt.Sprintf("PullSecret:        						 %s\n", s.Image.PullSecret)
 	result += fmt.Sprintf("MaxDumps:          						 %d\n", s.MaxDumps)

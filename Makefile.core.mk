@@ -135,13 +135,6 @@ ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif
 
-VARIANT :=
-ifeq ($(VARIANT),)
-  TAG_VARIANT:=${TAG}
-else
-  TAG_VARIANT:=${TAG}-${VARIANT}
-endif
-
 PULL_POLICY ?= IfNotPresent
 ifeq ($(TAG),latest)
   PULL_POLICY = Always

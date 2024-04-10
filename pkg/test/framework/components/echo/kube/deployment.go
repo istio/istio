@@ -367,7 +367,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 
 	params := map[string]any{
 		"ImageHub":                settings.Image.Hub,
-		"ImageTag":                strings.TrimSuffix(settings.Image.Tag, "-distroless"),
+		"ImageTag":                settings.Image.Tag,
 		"ImagePullPolicy":         settings.Image.PullPolicy,
 		"ImagePullSecretName":     imagePullSecretName,
 		"Service":                 cfg.Service,

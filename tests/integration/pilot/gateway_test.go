@@ -20,7 +20,6 @@ package pilot
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -59,7 +58,7 @@ func TestGateway(t *testing.T) {
 }
 
 func ManagedOwnerGatewayTest(t framework.TestContext) {
-	image := fmt.Sprintf("%s/app:%s", t.Settings().Image.Hub, strings.TrimSuffix(t.Settings().Image.Tag, "-distroless"))
+	image := fmt.Sprintf("%s/app:%s", t.Settings().Image.Hub, t.Settings().Image.Tag)
 	t.ConfigIstio().YAML(apps.Namespace.Name(), fmt.Sprintf(`
 apiVersion: v1
 kind: Service

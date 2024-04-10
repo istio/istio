@@ -411,12 +411,15 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	return i, nil
 }
 
-func initIOPFile(ctx resource.Context, cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOperatorSpec, error) {
-	operatorYaml := cfg.IstioOperatorConfigYAML(ctx.Settings(), valuesYaml)
+func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOperatorSpec, error) {
+	operatorYaml := cfg.IstioOperatorConfigYAML(valuesYaml)
 
 	operatorCfg := &iopv1alpha1.IstioOperator{}
 	if err := yaml.Unmarshal([]byte(operatorYaml), operatorCfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
+	}
+	if operatorCfg.Spec == nil {
+		operatorCfg.Spec = &opAPI.IstioOperatorSpec{}
 	}
 
 	// marshaling entire operatorCfg causes panic because of *time.Time in ObjectMeta
@@ -603,7 +606,10 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 			iopFile,
 		},
 		Set: []string{
+			"hub=" + ctx.Settings().Image.Hub,
+			"tag=" + ctx.Settings().Image.Tag,
 			"values.global.imagePullPolicy=" + ctx.Settings().Image.PullPolicy,
+			"values.global.variant=" + ctx.Settings().Image.Variant,
 		},
 	}
 
@@ -875,20 +881,20 @@ func (i *istioImpl) InjectionConfig() (*inject.Config, error) {
 func genCommonOperatorFiles(ctx resource.Context, cfg Config, workDir string) (i iopFiles, err error) {
 	// Generate the istioctl config file for primary clusters
 	i.primaryIOP.file = filepath.Join(workDir, "iop.yaml")
-	if i.primaryIOP.spec, err = initIOPFile(ctx, cfg, i.primaryIOP.file, cfg.ControlPlaneValues); err != nil {
+	if i.primaryIOP.spec, err = initIOPFile(cfg, i.primaryIOP.file, cfg.ControlPlaneValues); err != nil {
 		return iopFiles{}, err
 	}
 
 	// Generate the istioctl config file for remote cluster
 	i.remoteIOP.file = filepath.Join(workDir, "remote.yaml")
-	if i.remoteIOP.spec, err = initIOPFile(ctx, cfg, i.remoteIOP.file, cfg.RemoteClusterValues); err != nil {
+	if i.remoteIOP.spec, err = initIOPFile(cfg, i.remoteIOP.file, cfg.RemoteClusterValues); err != nil {
 		return iopFiles{}, err
 	}
 
 	// Generate the istioctl config file for config cluster
 	if ctx.AllClusters().IsExternalControlPlane() {
 		i.configIOP.file = filepath.Join(workDir, "config.yaml")
-		if i.configIOP.spec, err = initIOPFile(ctx, cfg, i.configIOP.file, cfg.ConfigClusterValues); err != nil {
+		if i.configIOP.spec, err = initIOPFile(cfg, i.configIOP.file, cfg.ConfigClusterValues); err != nil {
 			return iopFiles{}, err
 		}
 	} else {
@@ -897,14 +903,14 @@ func genCommonOperatorFiles(ctx resource.Context, cfg Config, workDir string) (i
 
 	if cfg.GatewayValues != "" {
 		i.gatewayIOP.file = filepath.Join(workDir, "custom_gateways.yaml")
-		_, err = initIOPFile(ctx, cfg, i.gatewayIOP.file, cfg.GatewayValues)
+		_, err = initIOPFile(cfg, i.gatewayIOP.file, cfg.GatewayValues)
 		if err != nil {
 			return iopFiles{}, err
 		}
 	}
 	if cfg.EastWestGatewayValues != "" {
 		i.eastwestIOP.file = filepath.Join(workDir, "eastwest.yaml")
-		_, err = initIOPFile(ctx, cfg, i.eastwestIOP.file, cfg.EastWestGatewayValues)
+		_, err = initIOPFile(cfg, i.eastwestIOP.file, cfg.EastWestGatewayValues)
 		if err != nil {
 			return iopFiles{}, err
 		}

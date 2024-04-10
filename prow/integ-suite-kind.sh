@@ -126,6 +126,7 @@ export KIND_REGISTRY="localhost:${KIND_REGISTRY_PORT}"
 
 export HUB=${HUB:-"istio-testing"}
 export TAG="${TAG:-"istio-testing"}"
+export VARIANT
 
 # If we're not intending to pull from an actual remote registry, use the local kind registry
 if [[ -z "${SKIP_BUILD:-}" ]]; then
@@ -170,11 +171,6 @@ fi
 if [[ -z "${SKIP_BUILD:-}" ]]; then
   trace "setup kind registry" setup_kind_registry
   trace "build images" build_images "${PARAMS[*]}"
-fi
-
-# If a variant is defined, update the tag accordingly
-if [[ -n "${VARIANT:-}" ]]; then
-  export TAG="${TAG}-${VARIANT}"
 fi
 
 # Run the test target if provided.
