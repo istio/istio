@@ -1,0 +1,61 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "stable-channel-policy.istio.io"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+        - security.istio.io
+        - networking.istio.io
+        - telemetry.istio.io
+        - extensions.istio.io
+      apiVersions: ["*"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["*"]
+  variables:
+    - name: isVirtualService
+      expression: "object.kind == 'VirtualService'"
+    - name: isDestinationRule
+      expression: "object.kind == 'DestinationRule'"
+    - name: isIstioGateway
+      expression: "object.kind == 'Gateway'"
+    - name: isServiceEntry
+      expression: "object.kind == 'ServiceEntry'"
+    - name: isEnvoyFilter
+      expression: "object.kind == 'EnvoyFilter'"
+    - name: isAuthorizationPolicy
+      expression: "object.kind == 'AuthorizationPolicy'"
+    - name: isPeerAuthentication
+      expression: "object.kind == 'PeerAuthentication'"
+    - name: isRequestAuthentication
+      expression: "object.kind == 'RequestAuthentication'"
+    - name: isWorkloadEntry
+      expression: "object.kind == 'WorkloadEntry'"
+    - name: isWorkloadGroup
+      expression: "object.kind == 'WorkloadGroup'"
+    - name: isSidecar
+      expression: "object.kind == 'Sidecar'"
+    - name: isWasmPlugin
+      expression: "object.kind == 'WasmPlugin'"
+    - name: isTelemetry
+      expression: "object.kind == 'Telemetry'"
+    - name: isProxyConfig
+      expression: "object.kind == 'ProxyConfig'"
+  validations:
+    - expression: |
+      isTelemetry &&
+        (
+          object.spec.tracing.exists(t, has(t.useRequestIdForTraceSampling)) ||
+          object.spec.metrics.exists(m, has(m.reportingInterval)) ||
+          object.spec.accessLogging.exists(l, has(l.filter))
+        )
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "stable-channel-policy-binding.istio.io"
+spec:
+  policyName: "stable-channel-policy.istio.io"
+  validationActions: [Deny]
