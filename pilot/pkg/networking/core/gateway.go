@@ -17,7 +17,6 @@ package core
 import (
 	"encoding/binary"
 	"fmt"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -51,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/hash"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/util/sets"
