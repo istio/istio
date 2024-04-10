@@ -482,7 +482,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					newVHost := &route.VirtualHost{
 						Name:                       util.DomainName(string(hostname), port),
 						Domains:                    []string{hostname.String()},
-						Routes:                     routes,
+						Routes:                     append([]*route.Route{}, routes...),
 						TypedPerFilterConfig:       perRouteFilters,
 						IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
 					}
