@@ -195,15 +195,19 @@ func TestPodIP(t *testing.T) {
 								if src.Config().HasSidecar() {
 									t.Skip("not supported yet")
 								}
-								if src.Config().IsUncaptured() && dst.Config().HasWorkloadAddressedWaypointProxy() {
-									t.Skip("https://github.com/istio/istio/issues/44530")
-								}
 								for _, opt := range callOptions {
 									opt := opt.DeepCopy()
 									selfSend := dstWl.Address() == srcWl.Address()
 									if supportsL7(opt, src, dst) {
 										opt.Check = httpValidator
 									} else {
+										opt.Check = tcpValidator
+									}
+
+									if src.Config().IsUncaptured() && dst.Config().HasAnyWaypointProxy() {
+										// hairpinning isn't going to be implemented AND
+										// waypoint requirements are expressed via L4 policy which is not in place for this test:
+										// expected result is a plaintext passthrough by ztunnel
 										opt.Check = tcpValidator
 									}
 
