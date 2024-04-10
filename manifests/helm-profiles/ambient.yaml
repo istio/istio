@@ -20,9 +20,5 @@ cni:
   ambient:
     enabled: true
 
-  # Default excludes istio-system; its actually fine to redirect there since we opt-out istiod, ztunnel, and istio-cni
-  excludeNamespaces:
-    - kube-system
-
 # Ztunnel doesn't use a namespace, so everything here is mostly for ztunnel
 variant: distroless

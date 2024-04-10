@@ -100,10 +100,6 @@ cni:
   privileged: true
   ambient:
     enabled: true
-
-  # Default excludes istio-system; its actually fine to redirect there since we opt-out istiod, ztunnel, and istio-cni
-  excludeNamespaces:
-    - kube-system
 `
 )
 
