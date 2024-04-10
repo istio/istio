@@ -20,8 +20,10 @@ import (
 	uri_template "github.com/envoyproxy/go-control-plane/envoy/extensions/path/match/uri_template/v3"
 )
 
-var matchOneTemplate = "{*}"
-var matchAnyTemplate = "{**}"
+var (
+	matchOneTemplate = "{*}"
+	matchAnyTemplate = "{**}"
+)
 
 // PatherTemplateMatcher creates a URI template matcher for path.
 func PathTemplateMatcher(path string) *uri_template.UriTemplateMatchConfig {

@@ -25,11 +25,11 @@ typedConfig:
                 - uriTemplate:
                     typedConfig:
                       '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
-                      pathTemplate: "/path/template/*"
+                      pathTemplate: /path/template/*
                 - uriTemplate:
                     typedConfig:
                       '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
-                      pathTemplate: "**/path/template"
+                      pathTemplate: '**/path/template'
             - notRule:
                 orRules:
                   rules:
@@ -49,11 +49,11 @@ typedConfig:
                   - uriTemplate:
                       typedConfig:
                         '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
-                        pathTemplate: "/not-path/template/*"
+                        pathTemplate: /not-path/template/*
                   - uriTemplate:
                       typedConfig:
                         '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
-                        pathTemplate: "**/not-path/template"
+                        pathTemplate: '**/not-path/template'
         principals:
         - andIds:
             ids:

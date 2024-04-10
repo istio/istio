@@ -22,6 +22,14 @@ typedConfig:
                     path:
                       safeRegex:
                         regex: .+
+                - uriTemplate:
+                    typedConfig:
+                      '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
+                      pathTemplate: /path/template/*
+                - uriTemplate:
+                    typedConfig:
+                      '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
+                      pathTemplate: '**/path/template'
             - notRule:
                 orRules:
                   rules:
@@ -38,6 +46,14 @@ typedConfig:
                       path:
                         safeRegex:
                           regex: .+
+                  - uriTemplate:
+                      typedConfig:
+                        '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
+                        pathTemplate: /not-path/template/*
+                  - uriTemplate:
+                      typedConfig:
+                        '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
+                        pathTemplate: '**/not-path/template'
         principals:
         - andIds:
             ids:
