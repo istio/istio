@@ -859,6 +859,140 @@ spec:
 				},
 			},
 		},
+		simulationTest{
+			name: "multiple virtual services that should become separate vhosts",
+			config: `
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: public-gw
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - foo.example.com
+        - bar.example.com
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: foobar-vs
+  namespace: default
+  creationTimestamp: 2010-01-01T00:00:00Z
+spec:
+  hosts:
+    - foo.example.com
+    - bar.example.com
+  gateways:
+    - istio-system/public-gw
+  http:
+    - name: foobar
+      match:
+        - uri:
+            prefix: /1
+        - uri:
+            prefix: /2
+        - uri:
+            prefix: /3
+      route:
+        - destination:
+            host: echo-foobar
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: foo-vs
+  namespace: default
+  creationTimestamp: 2015-01-01T00:00:00Z
+spec:
+  gateways:
+    - istio-system/public-gw
+  hosts:
+    - foo.example.com
+  http:
+    - name: foo
+      match:
+        - uri:
+            prefix: /foo
+      route:
+        - destination:
+            host: echo-foo
+            port:
+              number: 80
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: bar-vs
+  namespace: default
+  creationTimestamp: 2020-01-01T00:00:00Z
+spec:
+  gateways:
+    - istio-system/public-gw
+  hosts:
+    - bar.example.com
+  http:
+    - name: bar
+      match:
+        - uri:
+            prefix: /bar
+      route:
+        - destination:
+            host: echo-bar
+            port:
+              number: 80
+`,
+			calls: []simulation.Expect{
+				{
+					Name: "foobar",
+					Call: simulation.Call{
+						Port:       80,
+						HostHeader: "foo.example.com",
+						Protocol:   simulation.HTTP,
+						Path:       "/1",
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_80",
+						RouteConfigMatched: "http.80",
+						ClusterMatched:     "outbound|80||echo-foobar.default",
+					},
+				},
+				{
+					Name: "foo",
+					Call: simulation.Call{
+						Port:       80,
+						HostHeader: "foo.example.com",
+						Protocol:   simulation.HTTP,
+						Path:       "/foo",
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_80",
+						RouteConfigMatched: "http.80",
+						ClusterMatched:     "outbound|80||echo-foo.default",
+					},
+				},
+				{
+					Name: "bar",
+					Call: simulation.Call{
+						Port:       80,
+						HostHeader: "bar.example.com",
+						Protocol:   simulation.HTTP,
+						Path:       "/bar",
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_80",
+						RouteConfigMatched: "http.80",
+						ClusterMatched:     "outbound|80||echo-bar.default",
+					},
+				},
+			},
+		},
 	)
 }
 
