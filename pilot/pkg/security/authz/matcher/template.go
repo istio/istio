@@ -20,18 +20,18 @@ import (
 	uri_template "github.com/envoyproxy/go-control-plane/envoy/extensions/path/match/uri_template/v3"
 )
 
-// TODO(jaellio): Define elsewhere? In utils?
 var matchOneTemplate = "{*}"
 var matchAnyTemplate = "{**}"
 
-// PatherTemplateMatcher creates a URI path matcher for path.
+// PatherTemplateMatcher creates a URI template matcher for path.
 func PathTemplateMatcher(path string) *uri_template.UriTemplateMatchConfig {
 	return &uri_template.UriTemplateMatchConfig{
 		PathTemplate: sanitizePathTemplate(path),
 	}
 }
 
-// TODO(jaellio): add description
+// sanitizePathTemplate converts the path template into a valid envoy uri template.
+// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/path/match/uri_template/v3/uri_template_match.proto
 // If path contains "{*}", it will be replaced with "*".
 // If path contains "{**}", it will be replaced with "**".
 // If the path already contained "*" or "**", they will be left as is.
@@ -45,7 +45,7 @@ func sanitizePathTemplate(path string) string {
 	return path
 }
 
-// TODO(jaellio): should this go in util and be exported? Need a comment?
+// IsPathTemplate returns true if the path contains a valid path template.
 func IsPathTemplate(value string) bool {
 	return strings.Contains(value, matchOneTemplate) || strings.Contains(value, matchAnyTemplate)
 }
