@@ -820,13 +820,6 @@ spec:
 			// due to draining.
 			opt.NewConnectionPerRequest = true
 
-			// for svc addressed traffic we want the WL policy to allow Waypoint -> Workload
-			policySpecWL := `
-  rules:
-  - from:
-    - source:
-        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}-istio-waypoint"]
-`
 			policySpec := `
   rules:
   - to:
@@ -848,9 +841,16 @@ spec:
         paths: ["/denied-identity"]
         methods: ["GET"]
 `
-			if !dst.Config().HasServiceAddressedWaypointProxy() {
-				// just use the normal policySpec for anything without a svc waypoint
-				policySpecWL = policySpec
+			// for most cases just use the normal policy spec
+			policySpecWL := policySpec
+			if dst.Config().HasServiceAddressedWaypointProxy() {
+				// for svc addressed traffic we want the WL policy to allow Waypoint -> Workload
+				policySpecWL = `
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}-istio-waypoint"]
+`
 			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination":  dst.Config().Service,
@@ -981,13 +981,6 @@ spec:
 				t.Skip("TODO: open an issue to address this ztunnel issue")
 			}
 
-			// for svc addressed traffic we want the WL policy to allow Waypoint -> Workload
-			policySpecWL := `
-  rules:
-  - from:
-    - source:
-        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}-istio-waypoint"]
-`
 			policySpec := `
   rules:
   - to:
@@ -1031,9 +1024,16 @@ spec:
     - operation:
         paths: ["/explicit-deny"]
 `
-			if !dst.Config().HasServiceAddressedWaypointProxy() {
-				// just use the normal policySpec for anything without a svc waypoint
-				policySpecWL = policySpec
+			// for most cases just use the normal policy spec
+			policySpecWL := policySpec
+			if dst.Config().HasServiceAddressedWaypointProxy() {
+				// for svc addressed traffic we want the WL policy to allow Waypoint -> Workload
+				policySpecWL = `
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}-istio-waypoint"]
+`
 			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination":  dst.Config().Service,
