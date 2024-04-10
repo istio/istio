@@ -670,13 +670,10 @@ func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
 	}
 }
 
-func BuildTunnelMetadataStruct(address string, port int, waypoint string) *structpb.Struct {
+func BuildTunnelMetadataStruct(address string, port int) *structpb.Struct {
 	m := map[string]interface{}{
 		// logical destination behind the tunnel, on which policy and telemetry will be applied
 		"local": net.JoinHostPort(address, strconv.Itoa(port)),
-	}
-	if waypoint != "" {
-		m["waypoint"] = waypoint
 	}
 	st, _ := structpb.NewStruct(m)
 	return st
