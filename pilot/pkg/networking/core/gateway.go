@@ -17,6 +17,7 @@ package core
 import (
 	"encoding/binary"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -480,8 +481,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						}
 					}
 					newVHost := &route.VirtualHost{
-						Name:                       util.DomainName(string(hostname), port),
-						Domains:                    []string{hostname.String()},
+						Name:    util.DomainName(string(hostname), port),
+						Domains: []string{hostname.String()},
 						// Route will be appended to during deduplication, so make sure we are operating on a copy
 						Routes:                     slices.Clone(routes),
 						TypedPerFilterConfig:       perRouteFilters,
