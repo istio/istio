@@ -49,7 +49,7 @@ func TestProxyConfig(t *testing.T) {
 	cases := []execTestCase{
 		{
 			args:           []string{},
-			expectedString: "A group of commands used to retrieve information about",
+			expectedString: "A group of commands used to update or retrieve Ztunnel",
 		},
 		{ // logger name invalid when namespacing is used improperly
 			execClientConfig: loggingConfig,

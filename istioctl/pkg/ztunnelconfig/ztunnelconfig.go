@@ -25,11 +25,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/completion"
-	"istio.io/istio/istioctl/pkg/kubeinject"
 	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
 	"istio.io/istio/pkg/kube"
@@ -63,15 +61,15 @@ var (
 func ZtunnelConfig(ctx cli.Context) *cobra.Command {
 	configCmd := &cobra.Command{
 		Use:   "ztunnel-config",
-		Short: "Retrieve information about ztunnel configuration.",
-		Long:  "A group of commands used to retrieve information about Ztunnel configuration from a Ztunnel instance.",
-		Example: `  # Retrieve summary about workload configuration for a given ztunnel.
+		Short: "Update or retrieve current Ztunnel configuration.",
+		Long:  "A group of commands used to update or retrieve Ztunnel configuration from a Ztunnel instance.",
+		Example: `  # Retrieve summary about workload configuration for a given Ztunnel instance.
 	istioctl ztunnel-config <workload> <ztunnel-name[.namespace]>`,
 		Aliases: []string{"zc"},
 	}
 
 	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
+	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Ztunnel proxy admin port")
 
 	configCmd.AddCommand(logCmd(ctx))
 	configCmd.AddCommand(workloadConfigCmd(ctx))
@@ -84,23 +82,23 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 
 	workloadConfigCmd := &cobra.Command{
 		Use:   "workload [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves workload configuration for the specified ztunnel pod",
-		Long:  `Retrieve information about workload configuration for the ztunnel instance.`,
-		Example: `  # Retrieve summary about workload configuration for a given ztunnel.
-  istioctl proxy-config workload <ztunnel-name[.namespace]>
+		Short: "Retrieves workload configuration for the specified Ztunnel pod.",
+		Long:  `Retrieve information about workload configuration for the Ztunnel instance.`,
+		Example: `  # Retrieve summary about workload configuration for a given Ztunnel instance.
+  istioctl ztunnel-config workload <ztunnel-name[.namespace]>
 
-  # Retrieve summary of workloads on node XXXX for a given ztunnel instance.
-  istioctl proxy-config workload <ztunnel-name[.namespace]> --node ambient-worker
+  # Retrieve summary of workloads on node XXXX for a given Ztunnel instance.
+  istioctl ztunnel-config workload <ztunnel-name[.namespace]> --node ambient-worker
 
-  # Retrieve full workload dump of workloads with address XXXX for a given ztunnel
-  istioctl proxy-config workload <ztunnel-name[.namespace]> --address 0.0.0.0 -o json
+  # Retrieve full workload dump of workloads with address XXXX for a given Ztunnel instance.
+  istioctl ztunnel-config workload <ztunnel-name[.namespace]> --address 0.0.0.0 -o json
 
-  # Retrieve workload summary
+  # Retrieve Ztunnel config dump separately and inspect from file.
   kubectl exec -it $ZTUNNEL -n istio-system -- curl localhost:15000/config_dump > ztunnel-config.json
-  istioctl proxy-config workloads --file ztunnel-config.json
+  istioctl ztunnel-config workloads --file ztunnel-config.json
 
   # Retrieve workload summary for a specific namespace
-  istioctl proxy-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
+  istioctl ztunnel-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
 `,
 		Aliases: []string{"workloads", "w"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -122,7 +120,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
 				if !ztunnelPod {
-					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
+					return fmt.Errorf("workloads command is only supported by Ztunnel proxies: %v", podName)
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
 			} else {
@@ -158,7 +156,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 	workloadConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 	workloadConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Ztunnel config dump JSON file")
-	workloadConfigCmd.PersistentFlags().StringVar(&workloadsNamespace, "workloads-namespace", "",
+	workloadConfigCmd.PersistentFlags().StringVar(&workloadsNamespace, "workload-namespace", "",
 		"Filter workloads by namespace field")
 
 	return workloadConfigCmd
@@ -232,26 +230,22 @@ func logCmd(ctx cli.Context) *cobra.Command {
 
 	logCmd := &cobra.Command{
 		Use:   "log [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves logging levels of the Envoy in the specified pod",
-		Long:  "Retrieve information about logging levels of the Envoy instance in the specified pod, and update optionally",
-		Example: `  # Retrieve information about logging levels for a given pod from Envoy.
-  istioctl proxy-config log <pod-name[.namespace]>
+		Short: "Retrieves logging levels of the Ztunnel instance in the specified pod.",
+		Long:  "Retrieve information about logging levels of the Ztunnel instance in the specified pod, and update optionally.",
+		Example: `  # Retrieve information about logging levels for a given pod from Ztunnel.
+  istioctl ztunnel-config log <pod-name[.namespace]>
 
   # Update levels of the all loggers
-  istioctl proxy-config log <pod-name[.namespace]> --level none
+  istioctl ztunnel-config log <pod-name[.namespace]> --level none
 
   # Update levels of the specified loggers.
-  istioctl proxy-config log <pod-name[.namespace]> --level http:debug,redis:debug
+  istioctl ztunnel-config log <pod-name[.namespace]> --level http:debug,redis:debug
 
   # Reset levels of all the loggers to default value (warning).
-  istioctl proxy-config log <pod-name[.namespace]> -r
+  istioctl ztunnel-config log <pod-name[.namespace]> -r
 `,
 		Aliases: []string{"o"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if labelSelector == "" && len(args) < 1 {
-				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("log requires pod name or --selector")
-			}
 			if reset && loggerLevelString != "" {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("--level cannot be combined with --reset")
@@ -284,14 +278,8 @@ func logCmd(ctx cli.Context) *cobra.Command {
 
 			destLoggerLevels := map[string]Level{}
 			if reset {
-				// reset logging level to `defaultOutputLevel`, and ignore the `level` option
-				levelString, _ := getLogLevelFromConfigMap(ctx)
-				level, ok := stringToLevel[levelString]
-				if ok {
-					destLoggerLevels[defaultLoggerName] = level
-				} else {
-					log.Warn("unable to get logLevel from ConfigMap istio-sidecar-injector, using default value \"info\" for ztunnel")
-				}
+				log.Warn("logLevel reset; using default value \"info\" for Ztunnel")
+				loggerLevelString = "info"
 			} else if loggerLevelString != "" {
 				levels := strings.Split(loggerLevelString, ",")
 				for _, ol := range levels {
@@ -355,8 +343,8 @@ func logCmd(ctx cli.Context) *cobra.Command {
 	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
 			" [<logger>:]<level>,[<logger>:]<level>,... or <level> to change all active loggers, "+
-			"where logger components can be listed by running \"istioctl proxy-config log <pod-name[.namespace]>\""+
-			"or referred from https://github.com/envoyproxy/envoy/blob/main/source/common/common/logger.h, and level can be one of %s", levelListString))
+			"where logger components can be listed by running \"istioctl ztunnel-config log <pod-name[.namespace]>\""+
+			", and level can be one of %s", levelListString))
 	return logCmd
 }
 
@@ -367,29 +355,9 @@ func setupEnvoyLogConfig(kubeClient kube.CLIClient, param, podName, podNamespace
 	}
 	result, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "POST", path, proxyAdminPort)
 	if err != nil {
-		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
+		return "", fmt.Errorf("failed to execute command on Ztunnel: %v", err)
 	}
 	return string(result), nil
-}
-
-func getLogLevelFromConfigMap(ctx cli.Context) (string, error) {
-	valuesConfig, err := kubeinject.GetValuesFromConfigMap(ctx, "")
-	if err != nil {
-		return "", err
-	}
-	var values struct {
-		SidecarInjectorWebhook struct {
-			Global struct {
-				Proxy struct {
-					LogLevel string `json:"logLevel"`
-				} `json:"proxy"`
-			} `json:"global"`
-		} `json:"sidecarInjectorWebhook"`
-	}
-	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
-		return "", fmt.Errorf("failed to parse values config: %v [%v]", err, valuesConfig)
-	}
-	return values.SidecarInjectorWebhook.Global.Proxy.LogLevel, nil
 }
 
 func getPodNames(ctx cli.Context, podflag, ns string) ([]string, string, error) {
@@ -463,7 +431,7 @@ func extractZtunnelConfigDump(kubeClient kube.CLIClient, podName, podNamespace s
 	path := "config_dump"
 	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, 15000)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute command on %s.%s ztunnel: %v", podName, podNamespace, err)
+		return nil, fmt.Errorf("failed to execute command on %s.%s Ztunnel: %v", podName, podNamespace, err)
 	}
 	return debug, err
 }
