@@ -21,6 +21,8 @@ import (
 	"sync/atomic"
 	"syscall"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/cni/pkg/iptables"
 )
 
@@ -41,7 +43,7 @@ func (f *fakeZtunnel) PodDeleted(ctx context.Context, uid string) error {
 	return nil
 }
 
-func (f *fakeZtunnel) PodAdded(ctx context.Context, uid string, netns Netns) error {
+func (f *fakeZtunnel) PodAdded(ctx context.Context, pod *corev1.Pod, netns Netns) error {
 	f.addedPods.Add(1)
 	return f.addError
 }

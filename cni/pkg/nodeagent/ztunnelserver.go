@@ -274,34 +274,35 @@ func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 	return errors.Join(delErr...)
 }
 
+func podToWorkload(pod *v1.Pod) *zdsapi.WorkloadInfo {
+	namespace := pod.ObjectMeta.Namespace
+	name := pod.ObjectMeta.Name
+	svcAccount := pod.Spec.ServiceAccountName
+	trustDomain := spiffe.GetTrustDomain()
+	return &zdsapi.WorkloadInfo{
+		Namespace:      namespace,
+		Name:           name,
+		ServiceAccount: svcAccount,
+		TrustDomain:    trustDomain,
+	}
+}
+
 func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) error {
 	latestConn := z.conns.LatestConn()
 	if latestConn == nil {
 		return fmt.Errorf("no ztunnel connection")
 	}
 	uid := string(pod.ObjectMeta.UID)
-	namespace := pod.ObjectMeta.Namespace
-	name := pod.ObjectMeta.Name
-	svcAccount := pod.Spec.ServiceAccountName
-	trustDomain := ""
-	if td := spiffe.GetTrustDomain(); td != "cluster.local" {
-		trustDomain = td
-	}
 
 	r := &zdsapi.WorkloadRequest{
 		Payload: &zdsapi.WorkloadRequest_Add{
 			Add: &zdsapi.AddWorkload{
-				WorkloadInfo: &zdsapi.WorkloadInfo{
-					Namespace:      namespace,
-					Name:           name,
-					ServiceAccount: svcAccount,
-					TrustDomain:    trustDomain,
-				},
-				Uid: uid,
+				WorkloadInfo: podToWorkload(pod),
+				Uid:          uid,
 			},
 		},
 	}
-	log.Debugf("About to send added pod: %s to ztunnel: %v", uid, r)
+	log.Infof("About to send added pod: %s to ztunnel: %+v", uid, r)
 	data, err := proto.Marshal(r)
 	if err != nil {
 		return err
@@ -324,16 +325,17 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 // nolint: unparam
 func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn *ZtunnelConnection) error {
 	snap := z.pods.ReadCurrentPodSnapshot()
-	for uid, netns := range snap {
+	for uid, wl := range snap {
 		var resp *zdsapi.WorkloadResponse
 		var err error
-		if netns != nil {
-			fd := int(netns.Fd())
-			log.Debugf("Sending local pod %s ztunnel", uid)
+		if wl.Netns != nil {
+			fd := int(wl.Netns.Fd())
+			log.Infof("Sending local pod %s ztunnel", uid)
 			resp, err = conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 				Payload: &zdsapi.WorkloadRequest_Add{
 					Add: &zdsapi.AddWorkload{
-						Uid: uid,
+						Uid:          uid,
+						WorkloadInfo: wl.Workload,
 					},
 				},
 			}, &fd)
