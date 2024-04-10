@@ -2,7 +2,7 @@ apiVersion: release-notes/v2
 kind: feature
 area: istioctl
 issue:
-  - 50347
+  - 49841
 releaseNotes:
 - |
   **Added** Add ztunnel-config istioctl command. Allow users to view Ztunnel configuration information through istioctl via ztunnel-config workload flag. 
