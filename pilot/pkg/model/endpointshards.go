@@ -299,18 +299,18 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 		// we do not unnecessarily push that config to Envoy.
 		// Please note that address is not a unique key. So this may not accurately
 		// identify based on health status and push too many times - which is ok since its an optimization.
-		emap := make(map[string]*IstioEndpoint, len(oldIstioEndpoints))
+		omap := make(map[string]*IstioEndpoint, len(oldIstioEndpoints))
 		nmap := make(map[string]*IstioEndpoint, len(newIstioEndpoints))
 		// Add new endpoints only if they are ever ready once to shards
 		// so that full push does not send them from shards.
 		for _, oie := range oldIstioEndpoints {
-			emap[oie.Address] = oie
+			omap[oie.Address] = oie
 		}
 		for _, nie := range istioEndpoints {
 			nmap[nie.Address] = nie
 		}
 		for _, nie := range istioEndpoints {
-			if oie, exists := emap[nie.Address]; exists {
+			if oie, exists := omap[nie.Address]; exists {
 				// If endpoint exists already, we should push if it's health status changes.
 				if oie.HealthStatus != nie.HealthStatus {
 					needPush = true
@@ -329,9 +329,12 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 		}
 		// Next, check for endpoints that were in old but no longer exist. If there are any, there is a
 		// removal so we need to push an update.
-		for _, oie := range oldIstioEndpoints {
-			if _, f := nmap[oie.Address]; !f {
-				needPush = true
+		if !needPush {
+			for _, oie := range oldIstioEndpoints {
+				if _, f := nmap[oie.Address]; !f {
+					needPush = true
+					break
+				}
 			}
 		}
 	}

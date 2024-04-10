@@ -16,8 +16,8 @@ package krt
 
 import (
 	"fmt"
-	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
@@ -67,14 +67,18 @@ func (i *informer[I]) name() string {
 	return i.collectionName
 }
 
-func (i *informer[I]) List(namespace string) []I {
-	res := i.inf.List(namespace, klabels.Everything())
+func (i *informer[I]) List() []I {
+	res := i.inf.List(metav1.NamespaceAll, klabels.Everything())
 	return res
 }
 
 func (i *informer[I]) GetKey(k Key[I]) *I {
-	ns, n := splitKeyFunc(string(k))
-	if got := i.inf.Get(n, ns); !controllers.IsNil(got) {
+	// ns, n := splitKeyFunc(string(k))
+	// Internal optimization: we know kclient will eventually lookup "ns/name"
+	// We also have a key in this format.
+	// Rather than split and rejoin it later, just pass it as the name
+	// This is depending on "unstable" implementation details, but we own both libraries and tests would catch any issues.
+	if got := i.inf.Get(string(k), ""); !controllers.IsNil(got) {
 		return &got
 	}
 	return nil
@@ -124,6 +128,11 @@ func EventHandler[I controllers.ComparableObject](handler func(o Event[I])) cach
 	}
 }
 
+// WrapClient is the base entrypoint that enables the creation
+// of a collection from an API Server client.
+//
+// Generic types can use kclient.NewDynamic to create an
+// informer for a Collection of type controllers.Object
 func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...CollectionOption) Collection[I] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
@@ -161,24 +170,20 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 	return h
 }
 
+// NewInformer creates a Collection[I] sourced from
+// the results of kube.Client querying resources of type I
+// from the API Server.
+//
+// Resources must have their GVR and GVK registered in the
+// kube.Client before this method is called, otherwise
+// NewInformer will panic.
 func NewInformer[I controllers.ComparableObject](c kube.Client, opts ...CollectionOption) Collection[I] {
 	return NewInformerFiltered[I](c, kubetypes.Filter{}, opts...)
 }
 
+// NewInformerFiltered takes an argument that filters the
+// results from the kube.Client. Otherwise, behaves
+// the same as NewInformer
 func NewInformerFiltered[I controllers.ComparableObject](c kube.Client, filter kubetypes.Filter, opts ...CollectionOption) Collection[I] {
 	return WrapClient[I](kclient.NewFiltered[I](c, filter), opts...)
-}
-
-func splitKeyFunc(key string) (namespace, name string) {
-	parts := strings.Split(key, "/")
-	switch len(parts) {
-	case 1:
-		// name only, no namespace
-		return "", parts[0]
-	case 2:
-		// namespace and name
-		return parts[0], parts[1]
-	}
-
-	return "", ""
 }

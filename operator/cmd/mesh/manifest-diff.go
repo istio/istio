@@ -66,7 +66,7 @@ func addManifestDiffFlags(cmd *cobra.Command, diffArgs *manifestDiffArgs) {
 			"e.g. Service:*:istiod->Service:*:istio-control - rename istiod service into istio-control")
 }
 
-func manifestDiffCmd(rootArgs *RootArgs, diffArgs *manifestDiffArgs) *cobra.Command {
+func manifestDiffCmd(diffArgs *manifestDiffArgs) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff <file|dir> <file|dir>",
 		Short: "Compare manifests and generate diff",
@@ -84,7 +84,7 @@ func manifestDiffCmd(rootArgs *RootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 			var err error
 			var equal bool
 			if diffArgs.compareDir {
-				equal, err = compareManifestsFromDirs(rootArgs, diffArgs.verbose, args[0], args[1],
+				equal, err = compareManifestsFromDirs(diffArgs.verbose, args[0], args[1],
 					diffArgs.renameResources, diffArgs.selectResources, diffArgs.ignoreResources)
 				if err != nil {
 					return err
@@ -95,7 +95,7 @@ func manifestDiffCmd(rootArgs *RootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 				return nil
 			}
 
-			equal, err = compareManifestsFromFiles(rootArgs, args, diffArgs.verbose,
+			equal, err = compareManifestsFromFiles(args, diffArgs.verbose,
 				diffArgs.renameResources, diffArgs.selectResources, diffArgs.ignoreResources)
 			if err != nil {
 				return err
@@ -110,11 +110,9 @@ func manifestDiffCmd(rootArgs *RootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 }
 
 // compareManifestsFromFiles compares two manifest files
-func compareManifestsFromFiles(rootArgs *RootArgs, args []string, verbose bool,
+func compareManifestsFromFiles(args []string, verbose bool,
 	renameResources, selectResources, ignoreResources string,
 ) (bool, error) {
-	initLogsOrExit(rootArgs)
-
 	a, err := os.ReadFile(args[0])
 	if err != nil {
 		return false, fmt.Errorf("could not read %q: %v", args[0], err)
@@ -143,11 +141,9 @@ func yamlFileFilter(path string) bool {
 }
 
 // compareManifestsFromDirs compares manifests from two directories
-func compareManifestsFromDirs(rootArgs *RootArgs, verbose bool, dirName1, dirName2,
+func compareManifestsFromDirs(verbose bool, dirName1, dirName2,
 	renameResources, selectResources, ignoreResources string,
 ) (bool, error) {
-	initLogsOrExit(rootArgs)
-
 	mf1, err := util.ReadFilesWithFilter(dirName1, yamlFileFilter)
 	if err != nil {
 		return false, err

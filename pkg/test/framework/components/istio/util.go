@@ -73,9 +73,9 @@ func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg
 	}, retry.Timeout(time.Minute))
 }
 
-func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, label, svcName string,
+func getRemoteServiceAddresses(s *kube.Settings, cluster cluster.Cluster, ns, label, svcName string,
 	port int,
-) (any, bool, error) {
+) ([]any, bool, error) {
 	if !s.LoadBalancerSupported {
 		pods, err := cluster.PodsForSelector(context.TODO(), ns, label)
 		if err != nil {
@@ -121,7 +121,7 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 		if err != nil {
 			return nil, false, err
 		}
-		return netip.AddrPortFrom(ipAddr, uint16(nodePort)), true, nil
+		return []any{netip.AddrPortFrom(ipAddr, uint16(nodePort))}, true, nil
 	}
 
 	// Otherwise, get the load balancer IP.
@@ -133,18 +133,22 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 	if len(svc.Status.LoadBalancer.Ingress) == 0 {
 		return nil, false, fmt.Errorf("service %s/%s is not available yet: no ingress", svc.Namespace, svc.Name)
 	}
-	ingr := svc.Status.LoadBalancer.Ingress[0]
-	if ingr.IP == "" && ingr.Hostname == "" {
-		return nil, false, fmt.Errorf("service %s/%s is not available yet: no ingress", svc.Namespace, svc.Name)
-	}
-	if ingr.IP != "" {
-		ipaddr, err := netip.ParseAddr(ingr.IP)
-		if err != nil {
-			return nil, false, err
+	var addrs []any
+	for _, ingr := range svc.Status.LoadBalancer.Ingress {
+		if ingr.IP == "" && ingr.Hostname == "" {
+			return nil, false, fmt.Errorf("service %s/%s is not available yet: no ingress", svc.Namespace, svc.Name)
 		}
-		return netip.AddrPortFrom(ipaddr, uint16(port)), true, nil
+		if ingr.IP != "" {
+			ipaddr, err := netip.ParseAddr(ingr.IP)
+			if err != nil {
+				return nil, false, err
+			}
+			addrs = append(addrs, netip.AddrPortFrom(ipaddr, uint16(port)))
+		} else {
+			addrs = append(addrs, net.JoinHostPort(ingr.Hostname, strconv.Itoa(port)))
+		}
 	}
-	return net.JoinHostPort(ingr.Hostname, strconv.Itoa(port)), true, nil
+	return addrs, true, nil
 }
 
 func removeCRDsSlice(raw []string) string {

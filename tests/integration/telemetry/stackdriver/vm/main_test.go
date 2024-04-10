@@ -29,6 +29,7 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -184,7 +185,7 @@ func testSetup(ctx resource.Context) error {
 		"ISTIO_META_INSECURE_STACKDRIVER_ENDPOINT":               sdInst.Address(),
 		"ISTIO_META_STACKDRIVER_MONITORING_EXPORT_INTERVAL_SECS": "10",
 		"ISTIO_META_MESH_ID":                                     "proj-test-mesh",
-		"ISTIO_META_CLUSTER_ID":                                  "Kubernetes",
+		"ISTIO_META_CLUSTER_ID":                                  constants.DefaultClusterName,
 		"ISTIO_META_WORKLOAD_NAME":                               "vm-server-v1",
 		"ISTIO_METAJSON_LABELS":                                  vmLabelsJSON,
 		"CANONICAL_SERVICE":                                      "vm-server",

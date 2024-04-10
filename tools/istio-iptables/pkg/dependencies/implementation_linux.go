@@ -28,13 +28,17 @@ import (
 	utilversion "k8s.io/apimachinery/pkg/util/version"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
+
+// TODO the entire `istio-iptables` package is linux-specific, I'm not sure we really need
+// platform-differentiators for the `dependencies` package itself.
 
 // NoLocks returns true if this version does not use or support locks
 func (v IptablesVersion) NoLocks() bool {
 	// nf_tables does not use locks
 	// legacy added locks in 1.6.2
-	return !v.legacy || v.version.LessThan(IptablesRestoreLocking)
+	return !v.Legacy || v.Version.LessThan(IptablesRestoreLocking)
 }
 
 var (
@@ -43,6 +47,76 @@ var (
 	// IptablesLockfileEnv is the version where XTABLES_LOCKFILE is added to iptables.
 	IptablesLockfileEnv = utilversion.MustParseGeneric("1.8.6")
 )
+
+func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, error) {
+	// We assume that whatever `iptablesXXX` binary you pass us also has a `iptablesXXX-save` and `iptablesXXX-restore`
+	// binary - which should always be true for any valid iptables installation
+	// (we use both in our iptables code later on anyway)
+	//
+	// We could explicitly check for all 3 every time to be sure, but that's likely not necessary,
+	// if we find one unless the host OS is badly broken we will find the others.
+	iptablesSaveBin := fmt.Sprintf("%s-save", iptablesBin)
+	iptablesRestoreBin := fmt.Sprintf("%s-restore", iptablesBin)
+	var parsedVer *utilversion.Version
+	var isNft bool
+	// does the "xx-save" binary exist?
+	rulesDump, binExistsErr := exec.Command(iptablesSaveBin).CombinedOutput()
+	if binExistsErr != nil {
+		return IptablesVersion{}, fmt.Errorf("binary %s not found in path: %w", iptablesSaveBin, binExistsErr)
+	}
+
+	// Binary is there, so try to parse version
+	verCmd := exec.Command(iptablesSaveBin, "--version")
+	// shockingly, `iptables-save` returns 0 if you pass it an unrecognized/bad option, so
+	// `os/exec` will return a *nil* error, even if the command fails. So, we must slurp stderr, and check it to
+	// see if the command *actually* failed due to not recognizing the version flag.
+	var verStdOut bytes.Buffer
+	var verStdErr bytes.Buffer
+	verCmd.Stdout = &verStdOut
+	verCmd.Stderr = &verStdErr
+
+	verExec := verCmd.Run()
+	if verExec == nil && !strings.Contains(verStdErr.String(), "unrecognized option") {
+		var parseErr error
+		// we found the binary - extract the version, then try to detect if rules already exist for that variant
+		parsedVer, parseErr = parseIptablesVer(verStdOut.String())
+		if parseErr != nil {
+			return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", verStdOut.Bytes(), parseErr)
+		}
+		// Legacy will have no marking or 'legacy', so just look for nf_tables
+		isNft = strings.Contains(verStdOut.String(), "nf_tables")
+	} else {
+		log.Warnf("found iptables binary %s, but it does not appear to support the '--version' flag, assuming very old legacy version", iptablesSaveBin)
+		// Some really old iptables-legacy-save versions (1.6.1, ubuntu bionic) don't support any arguments at all, including `--version`
+		// So if we get here, we found `iptables-save` in PATH, but it's too outdated to understand `--version`.
+		//
+		// We can eventually remove this.
+		//
+		// So assume it's legacy/an unknown version, but assume we can use it since it's in PATH
+		parsedVer = utilversion.MustParseGeneric("0.0.0")
+		isNft = false
+	}
+
+	// if binary seems to exist, check the dump of rules in our netns, and see if any rules exist there
+	// Note that this is highly dependent on context.
+	// new pod netns? probably no rules. Hostnetns? probably rules
+	// So this is mostly just a "hint"/heuristic as to which version we should be using, if more than one binary is present.
+	// `xx-save` should return _no_ output (0 lines) if no rules are defined in this netns for that binary variant.
+	// `xx-save` should return at least 3 output lines if at least one rule is defined in this netns for that binary variant.
+	existingRules := false
+	if strings.Count(string(rulesDump), "\n") >= 3 {
+		existingRules = true
+		log.Debugf("found existing rules for %s", iptablesSaveBin)
+	}
+	return IptablesVersion{
+		DetectedBinary:        iptablesBin,
+		DetectedSaveBinary:    iptablesSaveBin,
+		DetectedRestoreBinary: iptablesRestoreBin,
+		Version:               parsedVer,
+		Legacy:                !isNft,
+		ExistingRules:         existingRules,
+	}, nil
+}
 
 // runInSandbox builds a lightweight sandbox ("container") to build a suitable environment to run iptables commands in.
 // This is used in CNI, where commands are executed from the host but from within the container network namespace.
@@ -129,22 +203,25 @@ func mount(src, dst string) error {
 	return syscall.Mount(src, dst, "", syscall.MS_BIND|syscall.MS_RDONLY, "")
 }
 
-func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
+func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
 	mode := "without lock"
+	cmdBin := iptVer.CmdToString(cmd)
+	if cmdBin == "" {
+		return fmt.Errorf("called without iptables binary, cannot execute!: %+v", iptVer)
+	}
 	var c *exec.Cmd
-	_, isWriteCommand := XTablesWriteCmds[cmd]
-	needLock := isWriteCommand && !r.IptablesVersion.NoLocks()
+	needLock := iptVer.IsWriteCmd(cmd) && !iptVer.NoLocks()
 	run := func(c *exec.Cmd) error {
 		return c.Run()
 	}
 	if r.CNIMode {
-		c = exec.Command(cmd, args...)
+		c = exec.Command(cmdBin, args...)
 		// In CNI, we are running the pod network namespace, but the host filesystem, so we need to do some tricks
 		// Call our binary again, but with <original binary> "unshare (subcommand to trigger mounts)" --lock-file=<network namespace> <original command...>
 		// We do not shell out and call `mount` since this and sh are not available on all systems
 		var lockFile string
 		if needLock {
-			if r.IptablesVersion.version.LessThan(IptablesLockfileEnv) {
+			if iptVer.Version.LessThan(IptablesLockfileEnv) {
 				mode = "without lock by mount and nss"
 				lockFile = r.NetworkNamespace
 			} else {
@@ -164,16 +241,16 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin i
 		if needLock {
 			// We want the lock. Wait up to 30s for it.
 			args = append(args, "--wait=30")
-			c = exec.Command(cmd, args...)
+			c = exec.Command(cmdBin, args...)
 			log.Debugf("running with lock")
 			mode = "with wait lock"
 		} else {
 			// No locking supported/needed, just run as is. Nothing special
-			c = exec.Command(cmd, args...)
+			c = exec.Command(cmdBin, args...)
 		}
 	}
 
-	log.Infof("Running command (%s): %s %s", mode, cmd, strings.Join(args, " "))
+	log.Infof("Running command (%s): %s %s", mode, cmdBin, strings.Join(args, " "))
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	c.Stdout = stdout

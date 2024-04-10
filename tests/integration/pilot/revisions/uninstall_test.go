@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/version"
 
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
@@ -51,12 +50,11 @@ const (
 	revisionNotFound = "could not find target revision"
 )
 
-var allGVKs = append(helmreconciler.NamespacedResources(&version.Info{Major: "1", Minor: "24"}), helmreconciler.ClusterCPResources...)
+var allGVKs = append(helmreconciler.NamespacedResources(), helmreconciler.ClusterCPResources...)
 
 func TestUninstallByRevision(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_revision").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
@@ -78,7 +76,6 @@ func TestUninstallByRevision(t *testing.T) {
 func TestUninstallByNotFoundRevision(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_revision").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision_notfound").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
@@ -97,7 +94,6 @@ func TestUninstallByNotFoundRevision(t *testing.T) {
 func TestUninstallWithSetFlag(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_revision").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
@@ -118,7 +114,6 @@ func TestUninstallWithSetFlag(t *testing.T) {
 
 func TestUninstallCustomFile(t *testing.T) {
 	framework.NewTest(t).
-		Features("installation.istioctl.uninstall_file").
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -180,7 +175,6 @@ spec:
 func TestUninstallPurge(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_purge").
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			uninstallCmd := []string{

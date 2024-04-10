@@ -28,7 +28,9 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -65,6 +67,101 @@ func TestDeltaAdsClusterUpdate(t *testing.T) {
 		ResourceNamesUnsubscribe: []string{"outbound|81||local.default.svc.cluster.local"},
 	})
 	ads.ExpectNoResponse()
+}
+
+func TestDeltaCDS(t *testing.T) {
+	base := sets.New("BlackHoleCluster", "PassthroughCluster", "InboundPassthroughClusterIpv4")
+	assertResources := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
+		t.Helper()
+		got := slices.Map(resp.Resources, (*discovery.Resource).GetName)
+
+		assert.Equal(t, sets.New(got...), sets.New(names...).Merge(base))
+	}
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	addTestClientEndpoints(s.MemRegistry)
+	s.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
+	s.MemRegistry.SetEndpoints(edsIncSvc, "",
+		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
+	// Wait until the above debounce, to ensure we can precisely check XDS responses without spurious pushes
+	s.EnsureSynced(t)
+
+	ads := s.ConnectDeltaADS().WithID("sidecar~127.0.0.1~test.default~default.svc.cluster.local")
+
+	// Initially we get everything
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{},
+	})
+	resp := ads.ExpectResponse()
+	assertResources(resp, "outbound|80||test-1.default", "outbound|8080||eds.test.svc.cluster.local", "inbound|80||")
+	assert.Equal(t, resp.RemovedResources, nil)
+
+	// On remove, just get the removal
+	s.MemRegistry.RemoveService("test-1.default")
+	resp = ads.ExpectResponse()
+	assertResources(resp, "inbound|80||") // currently we always send the inbound stuff. Not ideal, but acceptable
+	assert.Equal(t, resp.RemovedResources, []string{"outbound|80||test-1.default"})
+
+	// Another removal should behave the same
+	s.MemRegistry.RemoveService("eds.test.svc.cluster.local")
+	resp = ads.ExpectResponse()
+	assertResources(resp)
+	assert.Equal(t, resp.RemovedResources, []string{"inbound|80||", "outbound|8080||eds.test.svc.cluster.local"})
+}
+
+func TestDeltaCDSReconnect(t *testing.T) {
+	base := sets.New("BlackHoleCluster", "PassthroughCluster", "InboundPassthroughClusterIpv4")
+	assertResources := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
+		t.Helper()
+		got := slices.Map(resp.Resources, (*discovery.Resource).GetName)
+
+		assert.Equal(t, sets.New(got...), sets.New(names...).Merge(base))
+	}
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	addTestClientEndpoints(s.MemRegistry)
+	s.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
+	s.MemRegistry.SetEndpoints(edsIncSvc, "",
+		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
+	// Wait until the above debounce, to ensure we can precisely check XDS responses without spurious pushes
+	s.EnsureSynced(t)
+
+	ads := s.ConnectDeltaADS()
+
+	// Initially we get everything
+	resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+	assertResources(resp, "outbound|80||test-1.default", "outbound|8080||eds.test.svc.cluster.local")
+	assert.Equal(t, resp.RemovedResources, nil)
+
+	// Disconnect and remove a service
+	ads.Cleanup()
+	s.MemRegistry.RemoveService("test-1.default")
+	s.MemRegistry.AddHTTPService("eds2.test.svc.cluster.local", "10.10.1.3", 8080)
+	s.EnsureSynced(t)
+	ads = s.ConnectDeltaADS()
+	resp = ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+		InitialResourceVersions: map[string]string{
+			"outbound|80||test-1.default":               "",
+			"outbound|8080||eds.test.svc.cluster.local": "",
+		},
+	})
+	assertResources(resp, "outbound|8080||eds.test.svc.cluster.local", "outbound|8080||eds2.test.svc.cluster.local")
+	assert.Equal(t, resp.RemovedResources, []string{"outbound|80||test-1.default"})
+
+	// Another removal should behave the same
+	s.MemRegistry.RemoveService("eds.test.svc.cluster.local")
+	resp = ads.ExpectResponse()
+	// ACK
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		TypeUrl:       resp.TypeUrl,
+		ResponseNonce: resp.Nonce,
+	})
+	assertResources(resp)
+	assert.Equal(t, resp.RemovedResources, []string{"outbound|8080||eds.test.svc.cluster.local"})
+
+	// Another removal should behave the same
+	s.MemRegistry.RemoveService("eds2.test.svc.cluster.local")
+	resp = ads.ExpectResponse()
+	assertResources(resp)
+	assert.Equal(t, resp.RemovedResources, []string{"outbound|8080||eds2.test.svc.cluster.local"})
 }
 
 func TestDeltaEDS(t *testing.T) {

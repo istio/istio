@@ -41,10 +41,10 @@ func (j *join[T]) GetKey(k Key[T]) *T {
 	return ptr.Of(j.merge(found))
 }
 
-func (j *join[T]) List(namespace string) []T {
+func (j *join[T]) List() []T {
 	res := map[Key[T]][]T{}
 	for _, c := range j.collections {
-		for _, i := range c.List(namespace) {
+		for _, i := range c.List() {
 			key := GetKey(i)
 			res[key] = append(res[key], i)
 		}
@@ -93,6 +93,9 @@ func (j *join[T]) Synced() Syncer {
 	}
 }
 
+// JoinCollection combines multiple Collection[T] into a single
+// Collection[T] merging equal objects into one record
+// in the resulting Collection
 func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {

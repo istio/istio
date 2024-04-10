@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,7 +46,7 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
 	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		ClusterID:       "Kubernetes",
+		ClusterID:       constants.DefaultClusterName,
 		NetworksWatcher: meshNetworks,
 		DomainSuffix:    "cluster.local",
 		CRDs:            []schema.GroupVersionResource{gvr.KubernetesGateway},
@@ -227,20 +228,26 @@ func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher
 
 func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	testNS := "test"
+	systemNS := "istio-system"
 
-	s := newAmbientTestServer(t, testC, "")
+	s, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		SystemNamespace: systemNS,
+		NetworksWatcher: mesh.NewFixedNetworksWatcher(nil),
+	})
 
 	tracker := assert.NewTracker[string](t)
 
-	s.controller.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+	s.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		tracker.Record(o.GetName())
 	}))
 
 	expectNetwork := func(t *testing.T, c *FakeController, network string) {
+		t.Helper()
 		retry.UntilSuccessOrFail(t, func() error {
 			t.Helper()
 			if c.networkFromSystemNamespace().String() != network {
-				return fmt.Errorf("no network notify")
+				return fmt.Errorf("no network system notify")
 			}
 			podNames := sets.New[string]("pod1", "pod2")
 			svcNames := sets.New[string]("svc1")
@@ -252,7 +259,7 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 						continue
 					}
 					if addr.GetWorkload().Network != network {
-						return fmt.Errorf("no network notify")
+						return fmt.Errorf("no network workload notify")
 					}
 				}
 				svc := addr.GetService()
@@ -262,48 +269,52 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 					}
 					for _, saddr := range svc.GetAddresses() {
 						if saddr.GetNetwork() != network {
-							return fmt.Errorf("no network notify")
+							return fmt.Errorf("no network service notify")
 						}
 					}
 				}
 			}
 			return nil
-		})
+		}, retry.Timeout(time.Second*5))
 	}
 
-	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
-	s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
+	pc := clienttest.NewWriter[*corev1.Pod](t, s.client)
+	sc := clienttest.NewWriter[*corev1.Service](t, s.client)
+	pod1 := generatePod("127.0.0.1", "pod1", testNS, "sa1", "node1", map[string]string{"app": "a"}, nil)
+	pc.CreateOrUpdateStatus(pod1)
+	fx.WaitOrFail(t, "xds")
 
-	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
-	s.assertAddresses(t, s.addrXdsName("127.0.0.2"), "pod2")
+	pod2 := generatePod("127.0.0.2", "pod2", testNS, "sa2", "node1", map[string]string{"app": "a"}, nil)
+	pc.CreateOrUpdateStatus(pod2)
+	fx.WaitOrFail(t, "xds")
 
-	s.addService(t, "svc1", map[string]string{}, // labels
+	sc.CreateOrUpdate(generateService("svc1", testNS, map[string]string{}, // labels
 		map[string]string{}, // annotations
 		[]int32{80},
 		map[string]string{"app": "a"}, // selector
 		"10.0.0.1",
-	)
-	s.assertAddresses(t, "", "pod1", "pod2", "svc1")
+	))
+	fx.WaitOrFail(t, "xds")
 
-	createOrUpdateNamespace(t, s.controller, testNS, "")
-	createOrUpdateNamespace(t, s.controller, systemNS, "")
+	createOrUpdateNamespace(t, s, testNS, "")
+	createOrUpdateNamespace(t, s, systemNS, "")
 
 	tracker.WaitOrdered(testNS, systemNS)
 
 	t.Run("change namespace network to nw1", func(t *testing.T) {
-		createOrUpdateNamespace(t, s.controller, systemNS, "nw1")
+		createOrUpdateNamespace(t, s, systemNS, "nw1")
 		tracker.WaitOrdered(systemNS)
-		expectNetwork(t, s.controller, "nw1")
+		expectNetwork(t, s, "nw1")
 	})
 
 	t.Run("change namespace network to nw2", func(t *testing.T) {
-		createOrUpdateNamespace(t, s.controller, systemNS, "nw2")
+		createOrUpdateNamespace(t, s, systemNS, "nw2")
 		tracker.WaitOrdered(systemNS)
-		expectNetwork(t, s.controller, "nw2")
+		expectNetwork(t, s, "nw2")
 	})
 
 	t.Run("manually change namespace network to nw3, and update meshNetworks", func(t *testing.T) {
-		s.controller.setNetworkFromNamespace(&corev1.Namespace{
+		s.setNetworkFromNamespace(&corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: systemNS,
 				Labels: map[string]string{
@@ -311,10 +322,10 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 				},
 			},
 		})
-		createOrUpdateNamespace(t, s.controller, systemNS, "nw3")
+		createOrUpdateNamespace(t, s, systemNS, "nw3")
 		tracker.WaitOrdered(systemNS)
-		addMeshNetworksFromRegistryGateway(t, s.controller, s.controller.meshNetworksWatcher)
-		expectNetwork(t, s.controller, "nw3")
+		addMeshNetworksFromRegistryGateway(t, s, s.meshNetworksWatcher)
+		expectNetwork(t, s, "nw3")
 	})
 }
 

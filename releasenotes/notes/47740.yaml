@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Updated** `istioctl experimental proxy-stauts` has been promoted to `istioctl proxy-status`. The old `istioctl proxy-status` command has been removed.
+  This promotion should not result in any loss of functionality. However, the request is now sent based on xDS instead of HTTP, and we have introduced a 
+  set of new xDS-based flags to target the control plane.

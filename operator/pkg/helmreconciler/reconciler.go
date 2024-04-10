@@ -519,7 +519,8 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	}
 
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
-		SkipServiceCheck: true,
+		SkipServiceCheck:             true,
+		SkipDefaultRevisionedWebhook: DetectIfTagWebhookIsNeeded(h.iop, exists),
 	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil)
 
 	// Add in-cluster webhooks

@@ -9,10 +9,11 @@ cni:
     - istio-system
     - kube-system
   logLevel: info
-  privileged: true
   provider: "multus"
 global:
   platform: openshift
-istio_cni:
-  enabled: true
-  chained: false
+pilot:
+  cni:
+    enabled: true
+    provider: "multus"
+platform: openshift

@@ -107,7 +107,7 @@ After the local build is successful, you will need to push the images to Docker 
 
 ```bash
 cd samples/bookinfo
-BOOKINFO_TAG=$TAG BOOKINFO_HUB=$HUB src/build-services.sh --push
+BOOKINFO_LATEST=true BOOKINFO_TAG=$TAG BOOKINFO_HUB=$HUB src/build-services.sh --push
 ```
 
 For example:

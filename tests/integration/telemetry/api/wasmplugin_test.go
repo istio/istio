@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apiserver/pkg/storage/names"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/framework"
@@ -103,63 +105,32 @@ func resetCustomWasmConfig(ctx framework.TestContext, pluginName, path string) {
 
 func TestImagePullPolicy(t *testing.T) {
 	framework.NewTest(t).
-		Features("extensibility.wasm.image-pull-policy").
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
-			applyAndTestWasmWithOCI(t, wasmTestConfigs{
-				desc:            "initial creation with latest",
-				name:            "wasm-test-module",
-				tag:             "latest",
-				policy:          "",
-				upstreamVersion: "0.0.1",
-				expectedVersion: "0.0.1",
-			})
-
-			resetWasm(t, "wasm-test-module")
-			applyAndTestWasmWithOCI(t, wasmTestConfigs{
-				desc:            "upstream is upgraded to 0.0.2. 0.0.1 is already present and policy is IfNotPresent, so should not pull",
-				name:            "wasm-test-module",
-				tag:             "latest",
-				policy:          "IfNotPresent",
-				upstreamVersion: "0.0.2",
-				expectedVersion: "0.0.1",
-			})
-
-			// Intentionally, do not reset here to see the upgrade from 0.0.1.
-			applyAndTestWasmWithOCI(t, wasmTestConfigs{
-				desc:            "upstream is upgraded to 0.0.2. 0.0.1 is already present. But policy is default and tag is latest, so pull the image",
-				name:            "wasm-test-module",
-				tag:             "latest",
-				policy:          "",
-				upstreamVersion: "0.0.2",
-				expectedVersion: "0.0.2",
-			})
-			resetWasm(t, "wasm-test-module")
-
+			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
 			applyAndTestWasmWithOCI(t, wasmTestConfigs{
 				desc:            "initial creation with 0.0.1",
-				name:            "wasm-test-module-test-tag-1",
-				tag:             "test-tag-1",
+				name:            "wasm-test-module",
+				tag:             tag,
 				policy:          "",
 				upstreamVersion: "0.0.1",
 				expectedVersion: "0.0.1",
 			})
 
-			resetWasm(t, "wasm-test-module-test-tag-1")
+			resetWasm(t, "wasm-test-module")
 			applyAndTestWasmWithOCI(t, wasmTestConfigs{
 				desc:            "upstream is upgraded to 0.0.2, but 0.0.1 is already present and policy is IfNotPresent",
-				name:            "wasm-test-module-test-tag-1",
-				tag:             "test-tag-1",
+				name:            "wasm-test-module",
+				tag:             tag,
 				policy:          "IfNotPresent",
 				upstreamVersion: "0.0.2",
 				expectedVersion: "0.0.1",
 			})
 
-			resetWasm(t, "wasm-test-module-test-tag-1")
+			resetWasm(t, "wasm-test-module")
 			applyAndTestWasmWithOCI(t, wasmTestConfigs{
 				desc:            "upstream is upgraded to 0.0.2, but 0.0.1 is already present and policy is default",
-				name:            "wasm-test-module-test-tag-1",
-				tag:             "test-tag-1",
+				name:            "wasm-test-module",
+				tag:             tag,
 				policy:          "",
 				upstreamVersion: "0.0.2",
 				expectedVersion: "0.0.1",
@@ -168,8 +139,8 @@ func TestImagePullPolicy(t *testing.T) {
 			// Intentionally, do not reset here to see the upgrade from 0.0.1.
 			applyAndTestWasmWithOCI(t, wasmTestConfigs{
 				desc:            "upstream is upgraded to 0.0.2. 0.0.1 is already present but policy is Always, so pull 0.0.2",
-				name:            "wasm-test-module-test-tag-1",
-				tag:             "test-tag-1",
+				name:            "wasm-test-module",
+				tag:             tag,
 				policy:          "Always",
 				upstreamVersion: "0.0.2",
 				expectedVersion: "0.0.2",
@@ -292,7 +263,6 @@ func applyAndTestCustomWasmConfigWithHTTP(ctx framework.TestContext, c wasmTestC
 // TestTargetRef vs workloadSelector for gateways
 func TestGatewaySelection(t *testing.T) {
 	framework.NewTest(t).
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
 			args := map[string]any{
@@ -316,13 +286,12 @@ func TestGatewaySelection(t *testing.T) {
 // TestImagePullPolicyWithHTTP tests pulling Wasm Binary via HTTP and ImagePullPolicy.
 func TestImagePullPolicyWithHTTP(t *testing.T) {
 	framework.NewTest(t).
-		Features("extensibility.wasm.image-pull-policy").
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
+			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
 			applyAndTestWasmWithHTTP(t, wasmTestConfigs{
 				desc:            "initial creation with 0.0.1",
 				name:            "wasm-test-module-http",
-				tag:             "test-tag-http",
+				tag:             tag,
 				policy:          "",
 				upstreamVersion: "0.0.1",
 				expectedVersion: "0.0.1",
@@ -332,7 +301,7 @@ func TestImagePullPolicyWithHTTP(t *testing.T) {
 			applyAndTestWasmWithHTTP(t, wasmTestConfigs{
 				desc:            "upstream is upgraded to 0.0.2, but 0.0.1 is already present and policy is IfNotPresent",
 				name:            "wasm-test-module-http",
-				tag:             "test-tag-http",
+				tag:             tag,
 				policy:          "IfNotPresent",
 				upstreamVersion: "0.0.2",
 				expectedVersion: "0.0.1",
@@ -342,7 +311,7 @@ func TestImagePullPolicyWithHTTP(t *testing.T) {
 			applyAndTestWasmWithHTTP(t, wasmTestConfigs{
 				desc:            "upstream is upgraded to 0.0.2, but 0.0.1 is already present and policy is default",
 				name:            "wasm-test-module-http",
-				tag:             "test-tag-http",
+				tag:             tag,
 				policy:          "",
 				upstreamVersion: "0.0.2",
 				expectedVersion: "0.0.1",
@@ -352,7 +321,7 @@ func TestImagePullPolicyWithHTTP(t *testing.T) {
 			applyAndTestWasmWithHTTP(t, wasmTestConfigs{
 				desc:            "upstream is upgraded to 0.0.2. 0.0.1 is already present but policy is Always, so pull 0.0.2",
 				name:            "wasm-test-module-http",
-				tag:             "test-tag-http",
+				tag:             tag,
 				policy:          "Always",
 				upstreamVersion: "0.0.2",
 				expectedVersion: "0.0.2",
@@ -367,8 +336,9 @@ func TestImagePullPolicyWithHTTP(t *testing.T) {
 // recorded for module downloading failure and nack on ECDS update.
 func TestBadWasmRemoteLoad(t *testing.T) {
 	framework.NewTest(t).
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
+			// Enable logging for debugging
+			applyTelemetryResource(t, true)
 			badWasmTestHelper(t, "testdata/bad-filter.yaml", false, true)
 		})
 }
@@ -381,8 +351,9 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 // this test to use the WasmPlugin API
 func TestBadWasmWithFailOpen(t *testing.T) {
 	framework.NewTest(t).
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
+			// Enable logging for debugging
+			applyTelemetryResource(t, true)
 			// since this case is for "fail_open=true", ecds is not rejected.
 			badWasmTestHelper(t, "testdata/bad-wasm-envoy-filter-fail-open.yaml", true, false)
 		})

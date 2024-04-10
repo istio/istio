@@ -1,0 +1,45 @@
+apiVersion: release-notes/v2
+
+# This YAML file describes the format for specifying a release notes entry for Istio.
+# This should be filled in for all user facing changes.
+
+# kind describes the type of change that this represents.
+# Valid Values are:
+# - bug-fix -- Used to specify that this change represents a bug fix.
+# - security-fix -- Used to specify that this change represents a vulnerability fix.
+# - feature -- Used to specify a new feature that has been added.
+# - test -- Used to describe additional testing added. This file is optional for
+#   tests, but included for completeness.
+kind: feature
+
+# area describes the area that this change affects.
+# Valid values are:
+# - traffic-management
+# - security
+# - telemetry
+# - installation
+# - istioctl
+# - documentation
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue:
+- 49436
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Added** capability to annotate pods, services, namespaces and other similar kinds with an annotation, `istio.io/use-waypoint`, to specify a waypoint in the form `[<namespace name>]/<waypoint name>`. This replaces the old requirement for waypoints either being scoped to the entire namespace or to a single service account. Opting out of a waypoint can also be done with a value of `#none` to allow a namespace-wide waypoint where specific pods or services are not guarded by a waypoint allowing greater flexibility in waypoint specification and use.
+     
+
+# upgradeNotes is a markdown listing of any changes that will affect the upgrade
+# process. This will appear in the release notes.
+upgradeNotes:
+  - title: New ambient mode waypoint attachment method
+    content: |
+      Waypoints in Istio's ambient mode no longer use the original service account or namespace attachment semantics. If you were using a namespace-scope waypoint previously migration should be fairly straight forward. Annotate your namespace with the appropriate waypoint and it should function in a similar way.
+
+      If you were using service account attachment there will be more to understand. Under the old waypoint logic all types of traffic, both addressed to a service as well as addressed to a workload, were treated similarly because there wasn't a good way to properly associate a waypoint to a service. With the new attachment this limitation has been resolved. This includes adding a distinction between service addressed and workload addressed traffic. Annotating a service, or service-like kind, will redirect traffic which is service addressed to your waypoint. Likewise annotating a workload will redirect workload addressed traffic. It is therefore important to understand how consumers address your providers and select a waypoint attachment method which corresponds to this method of access. 
+

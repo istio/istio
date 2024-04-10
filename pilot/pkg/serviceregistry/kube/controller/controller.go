@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
@@ -46,7 +47,6 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/kube/namespace"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
@@ -139,18 +139,10 @@ type Options struct {
 	// SyncTimeout, if set, causes HasSynced to be returned when timeout.
 	SyncTimeout time.Duration
 
-	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
-	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
+	// Revision of this Istiod instance
+	Revision string
 
-	ConfigController model.ConfigStoreController
-	ConfigCluster    bool
-}
-
-func (o *Options) GetFilter() namespace.DiscoveryFilter {
-	if o.DiscoveryNamespacesFilter != nil {
-		return o.DiscoveryNamespacesFilter.Filter
-	}
-	return nil
+	ConfigCluster bool
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -170,6 +162,8 @@ var (
 	_ controllerInterface      = &Controller{}
 	_ serviceregistry.Instance = &Controller{}
 )
+
+type ambientIndex = ambient.Index
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
@@ -217,15 +211,15 @@ type Controller struct {
 
 	*networkManager
 
+	ambientIndex
+
 	// initialSyncTimedout is set to true after performing an initial processing timed out.
 	initialSyncTimedout *atomic.Bool
 	meshWatcher         mesh.Watcher
 
 	podsClient kclient.Client[*v1.Pod]
 
-	ambientIndex     AmbientIndex
-	configController model.ConfigStoreController
-	configCluster    bool
+	configCluster bool
 
 	networksHandlerRegistration *mesh.WatcherHandlerRegistration
 	meshHandlerRegistration     *mesh.WatcherHandlerRegistration
@@ -248,7 +242,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 	c.networkManager = initNetworkManager(c, options)
 
-	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
+	c.namespaces = kclient.NewFiltered[*v1.Namespace](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
 
 	if c.opts.SystemNamespace != "" {
 		registerHandlers[*v1.Namespace](
@@ -265,14 +259,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		)
 	}
 
-	// always init for each cluster, otherwise different ns labels in different cluster may not take effect,
-	// but we skip it for configCluster which has been initiated before
-	if !c.opts.ConfigCluster || c.opts.DiscoveryNamespacesFilter == nil {
-		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
-	}
-	c.initDiscoveryHandlers(c.opts.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
-
-	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
+	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
 
 	registerHandlers[*v1.Service](c, c.services, "Services", c.onServiceEvent, nil)
 
@@ -283,7 +270,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	registerHandlers[*v1.Node](c, c.nodes, "Nodes", c.onNodeEvent, nil)
 
 	c.podsClient = kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
-		ObjectFilter:    c.opts.DiscoveryNamespacesFilter.Filter,
+		ObjectFilter:    kubeClient.ObjectFilter(),
 		ObjectTransform: kubelib.StripPodUnusedFields,
 	})
 	c.pods = newPodCache(c, c.podsClient, func(key types.NamespacedName) {
@@ -294,8 +281,15 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
 	if features.EnableAmbientControllers {
-		c.configController = options.ConfigController
-		c.ambientIndex = c.setupIndex()
+		c.ambientIndex = ambient.New(ambient.Options{
+			Client:          kubeClient,
+			SystemNamespace: options.SystemNamespace,
+			DomainSuffix:    options.DomainSuffix,
+			ClusterID:       options.ClusterID,
+			Revision:        options.Revision,
+			XDSUpdater:      options.XDSUpdater,
+			LookupNetwork:   c.Network,
+		})
 	}
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
@@ -584,6 +578,9 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) informersSynced() bool {
+	if c.ambientIndex != nil && !c.ambientIndex.HasSynced() {
+		return false
+	}
 	return c.namespaces.HasSynced() &&
 		c.services.HasSynced() &&
 		c.endpoints.slices.HasSynced() &&
@@ -1174,10 +1171,10 @@ func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Ser
 	// Also check if target ports are changed since they are not included in `model.Service`
 	// `preConv.Equals(currConv)` already makes sure the length of ports is not changed
 	if prev != nil && curr != nil {
-		for i := 0; i < len(prev.Spec.Ports); i++ {
-			if prev.Spec.Ports[i].TargetPort != curr.Spec.Ports[i].TargetPort {
-				return true
-			}
+		if !slices.EqualFunc(prev.Spec.Ports, curr.Spec.Ports, func(a, b v1.ServicePort) bool {
+			return a.TargetPort == b.TargetPort
+		}) {
+			return true
 		}
 	}
 	return false

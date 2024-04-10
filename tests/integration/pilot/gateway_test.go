@@ -632,7 +632,6 @@ func TestGatewayReadinessProbes(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
-		Features("traffic.gateway.readiness").
 		Run(func(t framework.TestContext) {
 			c := t.Clusters().Default()
 			var svc *corev1.Service
@@ -666,7 +665,6 @@ func TestGatewayMetricsEndpoints(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
-		Features("traffic.gateway.metrics").
 		Run(func(t framework.TestContext) {
 			c := t.Clusters().Default()
 			podIPs, err := i.PodIPsFor(c, i.Settings().SystemNamespace, "app=istio-ingressgateway")

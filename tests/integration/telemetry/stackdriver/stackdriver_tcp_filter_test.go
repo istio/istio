@@ -41,7 +41,6 @@ const (
 // TestTCPStackdriverMonitoring verifies that stackdriver TCP filter works.
 func TestTCPStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
-		Features("observability.telemetry.stackdriver").
 		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range Clt {

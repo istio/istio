@@ -91,3 +91,5 @@ ip6tables -t mangle -A OUTPUT -p tcp -m connmark --mark 1337 -j CONNMARK --resto
 ip6tables -t mangle -I ISTIO_INBOUND 1 -p tcp -m mark --mark 1337 -j RETURN
 ip6tables -t mangle -I ISTIO_INBOUND 2 -p tcp -s ::6/128 -i lo -j RETURN
 ip6tables -t mangle -I ISTIO_INBOUND 3 -p tcp -i lo -m mark ! --mark 1338 -j RETURN
+iptables-save
+ip6tables-save

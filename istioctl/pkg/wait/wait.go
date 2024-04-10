@@ -25,7 +25,6 @@ import (
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/dynamic"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -46,7 +45,6 @@ var (
 	generation   string
 	verbose      bool
 	targetSchema resource.Schema
-	clientGetter func(cli.Context) (dynamic.Interface, error)
 )
 
 const pollInterval = time.Second
@@ -247,16 +245,6 @@ func poll(ctx cli.Context,
 	return present, notpresent, sdcnum, nil
 }
 
-func init() {
-	clientGetter = func(ctx cli.Context) (dynamic.Interface, error) {
-		client, err := ctx.CLIClient()
-		if err != nil {
-			return nil, err
-		}
-		return client.Dynamic(), nil
-	}
-}
-
 // getAndWatchResource ensures that Generations always contains
 // the current generation of the targetResource, adding new versions
 // as they are created.
@@ -266,10 +254,11 @@ func getAndWatchResource(ictx context.Context, cliCtx cli.Context) *watcher {
 	nf := nameflag
 	g.Go(func(result chan string) error {
 		// retrieve latest generation from Kubernetes
-		dclient, err := clientGetter(cliCtx)
+		kc, err := cliCtx.CLIClient()
 		if err != nil {
 			return err
 		}
+		dclient := kc.Dynamic()
 		r := dclient.Resource(targetSchema.GroupVersionResource()).Namespace(cliCtx.Namespace())
 		watch, err := r.Watch(context.TODO(), metav1.ListOptions{FieldSelector: "metadata.name=" + nf})
 		if err != nil {

@@ -215,7 +215,7 @@ func TestEnabled(t *testing.T) {
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			o := testOptions()
-			o.SetOutputLevel(DefaultScopeName, c.level)
+			o.SetDefaultOutputLevel(DefaultScopeName, c.level)
 
 			_ = Configure(o)
 

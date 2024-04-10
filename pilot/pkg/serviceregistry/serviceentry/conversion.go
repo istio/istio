@@ -165,8 +165,15 @@ func convertServices(cfg config.Config) []*model.Service {
 	}
 
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
+	var portOverrides map[uint32]uint32
 	for _, port := range serviceEntry.Ports {
 		svcPorts = append(svcPorts, convertPort(port))
+		if resolution == model.Passthrough && port.TargetPort != 0 {
+			if portOverrides == nil {
+				portOverrides = map[uint32]uint32{}
+			}
+			portOverrides[port.Number] = port.TargetPort
+		}
 	}
 
 	var exportTo sets.Set[visibility.Instance]
@@ -203,12 +210,12 @@ func convertServices(cfg config.Config) []*model.Service {
 	}
 
 	return buildServices(hostAddresses, cfg.Name, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels, portOverrides)
 }
 
 func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo sets.Set[visibility.Instance], selectors map[string]string, saccounts []string,
-	ctime time.Time, labels map[string]string,
+	ctime time.Time, labels map[string]string, overrides map[uint32]uint32,
 ) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
 	lbls := labels
@@ -224,12 +231,13 @@ func buildServices(hostAddresses []*HostAddress, name, namespace string, ports m
 			Ports:          ports,
 			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: provider.External,
-				Name:            ha.host,
-				Namespace:       namespace,
-				Labels:          lbls,
-				ExportTo:        exportTo,
-				LabelSelectors:  selectors,
+				ServiceRegistry:        provider.External,
+				PassthroughTargetPorts: overrides,
+				Name:                   ha.host,
+				Namespace:              namespace,
+				Labels:                 lbls,
+				ExportTo:               exportTo,
+				LabelSelectors:         selectors,
 			},
 			ServiceAccounts: saccounts,
 		})

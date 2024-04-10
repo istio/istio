@@ -40,7 +40,6 @@ const (
 
 func TestClientToServiceTls(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.peer.file-mounted-certs").
 		Run(func(t framework.TestContext) {
 			createObject(t, echo1NS.Name(), DestinationRuleConfigMutual)
 			createObject(t, "istio-system", PeerAuthenticationConfig)

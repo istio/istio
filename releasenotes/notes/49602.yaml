@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 44352
+releaseNotes:
+- |
+  **Fixed** an issue where `--log_as_json` option doesn't work for Istio init container.

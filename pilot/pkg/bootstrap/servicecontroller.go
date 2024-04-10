@@ -70,6 +70,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 // initKubeRegistry creates all the k8s service controllers under this pilot
 func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.ClusterID = s.clusterID
+	args.RegistryOptions.KubeOptions.Revision = args.Revision
 	args.RegistryOptions.KubeOptions.Metrics = s.environment
 	args.RegistryOptions.KubeOptions.XDSUpdater = s.XDSServer
 	args.RegistryOptions.KubeOptions.MeshNetworksWatcher = s.environment.NetworksWatcher
@@ -77,8 +78,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
 	// pass namespace to k8s service registry
-	args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter = s.multiclusterController.DiscoveryNamespacesFilter
-	s.multiclusterController.AddHandler(kubecontroller.NewMulticluster(args.PodName,
+	kubecontroller.NewMulticluster(args.PodName,
 		s.kubeClient.Kube(),
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
@@ -88,7 +88,8 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		args.Revision,
 		s.shouldStartNsController(),
 		s.environment.ClusterLocal(),
-		s.server))
+		s.server,
+		s.multiclusterController)
 
 	return
 }

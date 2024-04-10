@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 48126
+releaseNotes:
+- |
+  **Fixed** an issue where telemetry `EnvoyFilter` resources are not correctly pruned during the installation process.

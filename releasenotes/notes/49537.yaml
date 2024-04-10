@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 49537
+releaseNotes:
+  - |
+    **Fixed** an issue that when using `withoutHeaders` to configure route matching rules in VirtualService,
+    if the fields specified in `withoutHeaders` do not exist in the request header, istio cannot match the request.

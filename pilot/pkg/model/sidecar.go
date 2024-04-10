@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -46,6 +47,11 @@ var (
 		kind.VirtualService,
 		kind.DestinationRule,
 		kind.Sidecar,
+
+		kind.HTTPRoute,
+		kind.TCPRoute,
+		kind.TLSRoute,
+		kind.GRPCRoute,
 	)
 
 	// clusterScopedKnownConfigTypes includes configs when they are in root namespace,
@@ -235,6 +241,46 @@ type IstioEgressListenerWrapper struct {
 
 const defaultSidecar = "default-sidecar"
 
+// DefaultSidecarScopeForGateway builds a SidecarScope contains services and destinationRules for a given gateway/waypoint.
+func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *SidecarScope {
+	services := ps.servicesExportedToNamespace(configNamespace)
+	out := &SidecarScope{
+		Name:                    defaultSidecar,
+		Namespace:               configNamespace,
+		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
+		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
+		servicesByHostname:      make(map[host.Name]*Service, len(services)),
+		Version:                 ps.PushVersion,
+	}
+
+	servicesAdded := make(map[host.Name]sidecarServiceIndex)
+	for _, s := range services {
+		out.appendSidecarServices(servicesAdded, s)
+	}
+
+	// Now that we have all the services that sidecars using this scope (in
+	// this config namespace) will see, identify all the destinationRules
+	// that these services need
+	for _, s := range out.services {
+		if dr := ps.destinationRule(configNamespace, s); dr != nil {
+			out.destinationRules[s.Hostname] = dr
+			for _, cdr := range dr {
+				for _, from := range cdr.from {
+					out.destinationRulesByNames[from] = cdr.rule
+				}
+			}
+		}
+	}
+
+	// waypoint need to get vses from the egress listener
+	defaultEgressListener := &IstioEgressListenerWrapper{
+		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
+	}
+	out.EgressListeners = []*IstioEgressListenerWrapper{defaultEgressListener}
+
+	return out
+}
+
 // DefaultSidecarScopeForNamespace is a sidecar scope object with a default catch all egress listener
 // that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
 // We use this scope when the user has not set any sidecar Config for a given config namespace.
@@ -244,11 +290,10 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			Hosts: []string{"*/*"},
 		},
 	}
-	// TODO: merge services like sidecar specified using `addService`
-	defaultEgressListener.services = ps.servicesExportedToNamespace(configNamespace)
+	services := ps.servicesExportedToNamespace(configNamespace)
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
 	defaultEgressListener.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(
-		defaultEgressListener.virtualServices, defaultEgressListener.services)
+		defaultEgressListener.virtualServices, services)
 
 	out := &SidecarScope{
 		Name:                    defaultSidecar,
@@ -262,19 +307,19 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 
 	servicesAdded := make(map[host.Name]sidecarServiceIndex)
-	for _, listener := range out.EgressListeners {
-		for _, s := range listener.services {
-			out.appendSidecarServices(servicesAdded, s)
-		}
-		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServices(listener.virtualServices)
-		for _, delegate := range delegates {
-			out.AddConfigDependencies(delegate)
-		}
-		for _, vs := range listener.virtualServices {
-			for _, cfg := range VirtualServiceDependencies(vs) {
-				out.AddConfigDependencies(cfg.HashCode())
-			}
+	for _, s := range services {
+		out.appendSidecarServices(servicesAdded, s)
+	}
+	defaultEgressListener.services = out.services
+
+	// add dependencies on delegate virtual services
+	delegates := ps.DelegateVirtualServices(defaultEgressListener.virtualServices)
+	for _, delegate := range delegates {
+		out.AddConfigDependencies(delegate)
+	}
+	for _, vs := range defaultEgressListener.virtualServices {
+		for _, cfg := range VirtualServiceDependencies(vs) {
+			out.AddConfigDependencies(cfg.HashCode())
 		}
 	}
 
@@ -573,9 +618,9 @@ func (ilw *IstioEgressListenerWrapper) VirtualServices() []config.Config {
 	return ilw.virtualServices
 }
 
-// WildcardHostVirtualServiceIndex returns the the wildcardHostVirtualServiceIndex for this egress
+// MostSpecificWildcardVirtualServiceIndex returns the mostSpecificWildcardVsIndex for this egress
 // listener.
-func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardServiceIndex() map[host.Name]types.NamespacedName {
+func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardVirtualServiceIndex() map[host.Name]types.NamespacedName {
 	return ilw.mostSpecificWildcardVsIndex
 }
 
@@ -700,6 +745,7 @@ func (sc *SidecarScope) ServicesForHostname(hostname host.Name) []*Service {
 
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
+// TODO: support merging services within this egress listener to align with SidecarScope's behavior.
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string, hostsByNamespace map[string]hostClassification) []*Service {
 	importedServices := make([]*Service, 0)
 	wildcardHosts, wnsFound := hostsByNamespace[wildcardNamespace]
@@ -872,6 +918,7 @@ type sidecarServiceIndex struct {
 	index int // index record the position of the svc in slice
 }
 
+// append services to the sidecar scope, and merge services with the same hostname.
 func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sidecarServiceIndex, s *Service) {
 	if s == nil {
 		return
@@ -884,6 +931,8 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 		existing := foundSvc.svc
 		// We donot merge k8s service with any other services from other registries
 		if existing.Attributes.ServiceRegistry == provider.Kubernetes {
+			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
+				existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
 			return
 		}
 		// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
@@ -903,31 +952,67 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 			return
 		}
 
+		if !canMergeServices(existing, s) {
+			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
+				existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
+			return
+		}
+
 		// we merge ports for services both defined by ServiceEntry in same namespace
-		if existing.Attributes.Namespace == s.Attributes.Namespace {
-			// merge the ports to service when each listener generates partial service
-			// we only merge if the found service is in the same namespace as the one we're trying to add
-			copied := foundSvc.svc.DeepCopy()
-			for _, p := range s.Ports {
-				found := false
-				for _, osp := range copied.Ports {
-					if p.Port == osp.Port {
-						found = true
-						break
-					}
-				}
-				if !found {
-					copied.Ports = append(copied.Ports, p)
+
+		// merge the ports to service when each listener generates partial service
+		// we only merge if the found service is in the same namespace as the one we're trying to add
+		copied := foundSvc.svc.DeepCopy()
+		for _, p := range s.Ports {
+			found := false
+			for _, osp := range copied.Ports {
+				if p.Port == osp.Port {
+					found = true
+					break
 				}
 			}
-			// replace service in slice
-			sc.services[foundSvc.index] = copied
-			// Update index as well, so that future reads will merge into the new service
-			foundSvc.svc = copied
-			servicesAdded[foundSvc.svc.Hostname] = foundSvc
-			sc.servicesByHostname[s.Hostname] = s
+			if !found {
+				copied.Ports = append(copied.Ports, p)
+			}
 		}
+		// replace service in slice
+		sc.services[foundSvc.index] = copied
+		// Update index as well, so that future reads will merge into the new service
+		foundSvc.svc = copied
+		servicesAdded[foundSvc.svc.Hostname] = foundSvc
+		sc.servicesByHostname[s.Hostname] = s
 	}
+}
+
+func canMergeServices(s1, s2 *Service) bool {
+	// Hostname has been compared in the caller `appendSidecarServices`, so we donot need to compare again.
+
+	if s1.Attributes.Namespace != s2.Attributes.Namespace {
+		return false
+	}
+
+	if s1.Resolution != s2.Resolution {
+		return false
+	}
+
+	// kuberneres service registry has been checked before
+	if s1.Attributes.ServiceRegistry != s2.Attributes.ServiceRegistry {
+		return false
+	}
+
+	if !maps.Equal(s1.Attributes.Labels, s2.Attributes.Labels) {
+		return false
+	}
+
+	if !maps.Equal(s1.Attributes.LabelSelectors, s2.Attributes.LabelSelectors) {
+		return false
+	}
+
+	if !maps.Equal(s1.Attributes.ExportTo, s2.Attributes.ExportTo) {
+		return false
+	}
+
+	return true
 }
 
 // Pick the Service namespace visible to the configNamespace namespace.

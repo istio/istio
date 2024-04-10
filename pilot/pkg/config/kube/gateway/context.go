@@ -32,11 +32,12 @@ import (
 
 // GatewayContext contains a minimal subset of push context functionality to be exposed to GatewayAPIControllers
 type GatewayContext struct {
-	ps *model.PushContext
+	ps      *model.PushContext
+	cluster cluster.ID
 }
 
-func NewGatewayContext(ps *model.PushContext) GatewayContext {
-	return GatewayContext{ps}
+func NewGatewayContext(ps *model.PushContext, cluster cluster.ID) GatewayContext {
+	return GatewayContext{ps, cluster}
 }
 
 // ResolveGatewayInstances attempts to resolve all instances that a gateway will be exposed on.
@@ -87,7 +88,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 			instances := gc.ps.ServiceEndpointsByPort(svc, port, nil)
 			if len(instances) > 0 {
 				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
-				foundInternalIP.InsertAll(svc.GetAddresses(&model.Proxy{})...)
+				foundInternalIP.InsertAll(svc.GetAddresses(&model.Proxy{Metadata: &model.NodeMetadata{ClusterID: gc.cluster}})...)
 				if svc.Attributes.ClusterExternalAddresses.Len() > 0 {
 					// Fetch external IPs from all clusters
 					svc.Attributes.ClusterExternalAddresses.ForEach(func(c cluster.ID, externalIPs []string) {

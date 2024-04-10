@@ -15,36 +15,31 @@
 #   limitations under the License.
 
 
-from __future__ import print_function
+from flask import Flask, request, session, render_template, redirect
 from flask_bootstrap import Bootstrap
-from flask import Flask, request, session, render_template, redirect, url_for
-from flask import _request_ctx_stack as stack
-from jaeger_client import Tracer, ConstSampler
-from jaeger_client.reporter import NullReporter
-from jaeger_client.codecs import B3Codec
-from opentracing.ext import tags
-from opentracing.propagation import Format
-from opentracing_instrumentation.request_context import get_current_span, span_in_context
+from json2html import json2html
+from opentelemetry import trace
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.propagate import set_global_textmap
+from opentelemetry.propagators.b3 import B3MultiFormat
+from opentelemetry.sdk.trace import TracerProvider
 from prometheus_client import Counter, generate_latest
-import simplejson as json
-import requests
-import sys
-from json2html import *
+import asyncio
 import logging
 import os
-import asyncio
+import requests
+import simplejson as json
+import sys
+
 
 # These two lines enable debugging at httplib level (requests->urllib3->http.client)
 # You will see the REQUEST, including HEADERS and DATA, and RESPONSE with HEADERS but without DATA.
 # The only thing missing will be the response.body which is not logged.
-try:
-    import http.client as http_client
-except ImportError:
-    # Python 2
-    import httplib as http_client
+import http.client as http_client
 http_client.HTTPConnection.debuglevel = 1
 
 app = Flask(__name__)
+FlaskInstrumentor().instrument_app(app)
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 requests_log = logging.getLogger("requests.packages.urllib3")
 requests_log.setLevel(logging.DEBUG)
@@ -111,72 +106,31 @@ request_result_counter = Counter('request_result', 'Results of requests', ['dest
 # is determined by the trace configuration used. See getForwardHeaders for
 # the different header options.
 #
-# This example code uses OpenTracing (http://opentracing.io/) to propagate
-# the 'b3' (zipkin) headers. Using OpenTracing for this is not a requirement.
-# Using OpenTracing allows you to add application-specific tracing later on,
+# This example code uses OpenTelemetry (http://opentelemetry.io/) to propagate
+# the 'b3' (zipkin) headers. Using OpenTelemetry for this is not a requirement.
+# Using OpenTelemetry allows you to add application-specific tracing later on,
 # but you can just manually forward the headers if you prefer.
 #
-# The OpenTracing example here is very basic. It only forwards headers. It is
+# The OpenTelemetry example here is very basic. It only forwards headers. It is
 # intended as a reference to help people get started, eg how to create spans,
 # extract/inject context, etc.
 
-# A very basic OpenTracing tracer (with null reporter)
-tracer = Tracer(
-    one_span_per_rpc=True,
-    service_name='productpage',
-    reporter=NullReporter(),
-    sampler=ConstSampler(decision=True),
-    extra_codecs={Format.HTTP_HEADERS: B3Codec()}
-)
 
+propagator = B3MultiFormat()
+set_global_textmap(B3MultiFormat())
+provider = TracerProvider()
+# Sets the global default tracer provider
+trace.set_tracer_provider(provider)
 
-def trace():
-    '''
-    Function decorator that creates opentracing span from incoming b3 headers
-    '''
-    def decorator(f):
-        def wrapper(*args, **kwargs):
-            request = stack.top.request
-            try:
-                # Create a new span context, reading in values (traceid,
-                # spanid, etc) from the incoming x-b3-*** headers.
-                span_ctx = tracer.extract(
-                    Format.HTTP_HEADERS,
-                    dict(request.headers)
-                )
-                # Note: this tag means that the span will *not* be
-                # a child span. It will use the incoming traceid and
-                # spanid. We do this to propagate the headers verbatim.
-                rpc_tag = {tags.SPAN_KIND: tags.SPAN_KIND_RPC_SERVER}
-                span = tracer.start_span(
-                    operation_name='op', child_of=span_ctx, tags=rpc_tag
-                )
-            except Exception as e:
-                # We failed to create a context, possibly due to no
-                # incoming x-b3-*** headers. Start a fresh span.
-                # Note: This is a fallback only, and will create fresh headers,
-                # not propagate headers.
-                span = tracer.start_span('op')
-            with span_in_context(span):
-                r = f(*args, **kwargs)
-                return r
-        wrapper.__name__ = f.__name__
-        return wrapper
-    return decorator
+tracer = trace.get_tracer(__name__)
 
 
 def getForwardHeaders(request):
     headers = {}
 
-    # x-b3-*** headers can be populated using the opentracing span
-    span = get_current_span()
-    carrier = {}
-    tracer.inject(
-        span_context=span.context,
-        format=Format.HTTP_HEADERS,
-        carrier=carrier)
-
-    headers.update(carrier)
+    # x-b3-*** headers can be populated using the OpenTelemetry span
+    ctx = propagator.extract(carrier={k.lower(): v for k, v in request.headers})
+    propagator.inject(headers, ctx)
 
     # We handle other (non x-b3-***) headers manually
     if 'user' in session:
@@ -217,8 +171,8 @@ def getForwardHeaders(request):
         'grpc-trace-bin',
 
         # b3 trace headers. Compatible with Zipkin, OpenCensusAgent, and
-        # Stackdriver Istio configurations. Commented out since they are
-        # propagated by the OpenTracing tracer above.
+        # Stackdriver Istio configurations.
+        # This is handled by opentelemetry above
         # 'x-b3-traceid',
         # 'x-b3-spanid',
         # 'x-b3-parentspanid',
@@ -308,7 +262,6 @@ def floodReviews(product_id, headers):
 
 
 @app.route('/productpage')
-@trace()
 def front():
     product_id = 0  # TODO: replace default value
     headers = getForwardHeaders(request)
@@ -337,7 +290,6 @@ def productsRoute():
 
 
 @app.route('/api/v1/products/<product_id>')
-@trace()
 def productRoute(product_id):
     headers = getForwardHeaders(request)
     status, details = getProductDetails(product_id, headers)
@@ -345,7 +297,6 @@ def productRoute(product_id):
 
 
 @app.route('/api/v1/products/<product_id>/reviews')
-@trace()
 def reviewsRoute(product_id):
     headers = getForwardHeaders(request)
     status, reviews = getProductReviews(product_id, headers)
@@ -353,7 +304,6 @@ def reviewsRoute(product_id):
 
 
 @app.route('/api/v1/products/<product_id>/ratings')
-@trace()
 def ratingsRoute(product_id):
     headers = getForwardHeaders(request)
     status, ratings = getProductRatings(product_id, headers)

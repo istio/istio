@@ -8,6 +8,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   annotations:
+    ambient.istio.io/redirection: disabled
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
@@ -25,6 +26,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
+    ambient.istio.io/redirection: disabled
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
@@ -44,6 +46,7 @@ spec:
   template:
     metadata:
       annotations:
+        ambient.istio.io/redirection: disabled
         istio.io/rev: default
         networking.istio.io/service-type: ClusterIP
         prometheus.io/path: /stats/prometheus
@@ -69,8 +72,6 @@ spec:
         - --log_output_level
         - <nil>
         env:
-        - name: JWT_POLICY
-          value: <no value>
         - name: PILOT_CERT_PROVIDER
           value: <no value>
         - name: CA_ADDR
@@ -180,6 +181,8 @@ spec:
           name: istio-data
         - mountPath: /etc/istio/proxy
           name: istio-envoy
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
       securityContext:
@@ -208,11 +211,19 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: istio-podinfo
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: <no value>
+              expirationSeconds: 43200
+              path: istio-token
 ---
 apiVersion: v1
 kind: Service
 metadata:
   annotations:
+    ambient.istio.io/redirection: disabled
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller

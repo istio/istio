@@ -51,21 +51,32 @@ func (e WorkloadGenerator) GenerateDeltas(
 		// Nothing changed..
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
+
 	subs := sets.New(w.ResourceNames...)
-	addresses := updatedAddresses
-	// If it is not a wildcard, filter out resources we are not subscribed to
-	if !w.Wildcard {
-		addresses = addresses.Intersection(subs)
+	var addresses sets.String
+	if isReq {
+		// this is from request, we only send response for the subscribed address
+		// At t0, a client request A, we only send A and aditional resources back to the client.
+		// At t1, a client request B, we only send B and aditional resources back to the client, no A here.
+		addresses = req.Delta.Subscribed
+	} else {
+		if w.Wildcard {
+			addresses = updatedAddresses
+		} else {
+			// this is from the external triggers instead of request
+			// send response for all the subscribed intersect with the updated
+			addresses = updatedAddresses.IntersectInPlace(subs)
+		}
 	}
-	// Specific requested resource: always include
-	addresses = addresses.Merge(req.Delta.Subscribed)
-	addresses = addresses.Difference(req.Delta.Unsubscribed)
+
 	if !w.Wildcard {
 		// We only need this for on-demand. This allows us to subscribe the client to resources they
 		// didn't explicitly request.
 		// For wildcard, they subscribe to everything already.
-		// TODO: optimize me
 		additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
+		if addresses == nil {
+			addresses = sets.New[string]()
+		}
 		addresses.Merge(additional)
 	}
 
@@ -183,11 +194,11 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 
 	removed := expected
 	for _, p := range policies {
-		n := p.Namespace + "/" + p.Name
+		n := p.ResourceName()
 		removed.Delete(n) // We found it, so it isn't a removal
 		resources = append(resources, &discovery.Resource{
 			Name:     n,
-			Resource: protoconv.MessageToAny(p),
+			Resource: protoconv.MessageToAny(p.Authorization),
 		})
 	}
 

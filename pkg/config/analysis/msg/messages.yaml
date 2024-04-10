@@ -654,3 +654,18 @@ messages:
         type: string
       - name: compatVersion
         type: string
+
+  - name: "MultiClusterInconsistentService"
+    code: IST0170
+    level: Warning
+    description: "The services live in different clusters under multi-cluster deployment model are inconsistent"
+    template: "The service %v in namespace %q is inconsistent across clusters %q, which can lead to undefined behaviors. The inconsistent behaviors are: %v."
+    args:
+    - name: serviceName
+      type: string
+    - name: namespace
+      type: string
+    - name: clusters
+      type: "[]string"
+    - name: error
+      type: string

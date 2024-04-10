@@ -39,34 +39,13 @@ global:
 `
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.install").
 		Run(setupInstallation(overrideValuesStr, false))
-}
-
-// TestInstallWithFirstPartyJwt tests Istio installation using Helm
-// with first-party-jwt enabled
-// (TODO) remove this test when Istio no longer supports first-party-jwt
-func TestInstallWithFirstPartyJwt(t *testing.T) {
-	overrideValuesStr := `
-global:
-  hub: %s
-  tag: %s
-  jwtPolicy: first-party-jwt
-`
-
-	framework.
-		NewTest(t).
-		Features("installation.helm.firstpartyjwt.install").
-		Run(func(t framework.TestContext) {
-			setupInstallation(overrideValuesStr, false)(t)
-		})
 }
 
 // TestAmbientInstall tests Istio ambient profile installation using Helm
 func TestAmbientInstall(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.ambient.install").
 		Run(setupInstallation(ambientProfileOverride, true))
 }
 

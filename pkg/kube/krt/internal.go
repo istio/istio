@@ -120,16 +120,6 @@ type registerDependency interface {
 	name() string
 }
 
-// getName returns the name for an object, if possible.
-// Warning: this will panic if the name is not available.
-func getName(a any) string {
-	ak, ok := a.(Namer)
-	if ok {
-		return ak.GetName()
-	}
-	panic(fmt.Sprintf("No Name, got %T %+v", a, a))
-}
-
 // tryGetKey returns the Key for an object. If not possible, returns false
 func tryGetKey[O any](a O) (Key[O], bool) {
 	as, ok := any(a).(string)
@@ -156,22 +146,16 @@ func tryGetKey[O any](a O) (Key[O], bool) {
 	return "", false
 }
 
-// getNamespace returns the namespace for an object, if possible.
-// Warning: this will panic if the namespace is not available.
-func getNamespace(a any) string {
-	ak, ok := a.(Namespacer)
-	if ok {
-		return ak.GetNamespace()
-	}
-	panic(fmt.Sprintf("No Namespace, got %T", a))
-}
-
 // getLabels returns the labels for an object, if possible.
 // Warning: this will panic if the labels is not available.
 func getLabels(a any) map[string]string {
-	al, ok := a.(labeler)
+	al, ok := a.(Labeler)
 	if ok {
 		return al.GetLabels()
+	}
+	pal, ok := any(&a).(Labeler)
+	if ok {
+		return pal.GetLabels()
 	}
 	ak, ok := a.(metav1.Object)
 	if ok {
@@ -222,6 +206,10 @@ func equal[O any](a, b O) bool {
 	ak, ok := any(a).(Equaler[O])
 	if ok {
 		return ak.Equals(b)
+	}
+	pk, ok := any(&a).(Equaler[O])
+	if ok {
+		return pk.Equals(b)
 	}
 	// Future improvement: add a default Kubernetes object implementation
 	// ResourceVersion is tempting but probably not safe. If we are comparing objects from the API server its fine,

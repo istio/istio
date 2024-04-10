@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/yaml"
@@ -46,15 +47,18 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/platform"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	iptablesConstants "istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 var (
@@ -105,7 +109,7 @@ type Webhook struct {
 	Config       *Config
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig ValuesConfig
-	namespaces   kclient.Client[*corev1.Namespace]
+	namespaces   *multicluster.KclientComponent[*corev1.Namespace]
 
 	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
 	watcher   Watcher
@@ -186,7 +190,8 @@ type WebhookParameters struct {
 	// The istio.io/rev this injector is responsible for
 	Revision string
 
-	KubeClient kube.Client
+	// MultiCluster is used to access namespaces across clusters
+	MultiCluster multicluster.ComponentBuilder
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -202,9 +207,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		revision:   p.Revision,
 	}
 
-	if p.KubeClient != nil {
+	if p.MultiCluster != nil {
 		if platform.IsOpenShift() {
-			wh.namespaces = kclient.New[*corev1.Namespace](p.KubeClient)
+			wh.namespaces = multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](p.MultiCluster, kubetypes.Filter{})
 		}
 	}
 
@@ -234,14 +239,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
 	go wh.watcher.Run(stop)
-}
-
-func (wh *Webhook) HasSynced() bool {
-	if wh.namespaces != nil {
-		return wh.namespaces.HasSynced()
-	}
-
-	return true
 }
 
 func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) error {
@@ -382,7 +379,7 @@ func NewValuesConfig(v string) (ValuesConfig, error) {
 
 type InjectionParameters struct {
 	pod                 *corev1.Pod
-	deployMeta          metav1.ObjectMeta
+	deployMeta          types.NamespacedName
 	namespace           *corev1.Namespace
 	typeMeta            metav1.TypeMeta
 	templates           map[string]*template.Template
@@ -585,7 +582,7 @@ func resetFieldsInAutoImageContainer(original *corev1.Container, template *corev
 	// does not exist, OpenShift automatically assigns a value which is based on an annotation in the namespace. Regardless if the user
 	// provided that value or if it was assigned by OpenShift, the correct value is the one in the template, as set by the `.ProxyUID` field.
 	if original.SecurityContext != nil && template.SecurityContext != nil && template.SecurityContext.RunAsUser != nil &&
-		*template.SecurityContext.RunAsUser != constants.DefaultProxyUIDInt {
+		*template.SecurityContext.RunAsUser != iptablesConstants.DefaultProxyUIDInt {
 		original.SecurityContext.RunAsUser = nil
 		original.SecurityContext.RunAsGroup = nil
 	}
@@ -1065,15 +1062,9 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	proxyConfig := wh.env.GetProxyConfigOrDefault(pod.Namespace, pod.Labels, pod.Annotations, wh.meshConfig)
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
 
-	var podNamespace *corev1.Namespace
-	if wh.namespaces != nil {
-		podNamespace = wh.namespaces.Get(pod.Namespace, "")
-	}
-
 	params := InjectionParameters{
 		pod:                 &pod,
 		deployMeta:          deploy,
-		namespace:           podNamespace,
 		typeMeta:            typeMeta,
 		templates:           wh.Config.Templates,
 		defaultTemplate:     wh.Config.DefaultTemplates,
@@ -1084,6 +1075,19 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
+	}
+
+	if platform.IsOpenShift() && wh.namespaces != nil {
+		clusterID, _ := extractClusterAndNetwork(params)
+		if clusterID == "" {
+			clusterID = constants.DefaultClusterName
+		}
+		client := wh.namespaces.ForCluster(cluster.ID(clusterID))
+		if client != nil {
+			params.namespace = client.Get(pod.Namespace, "")
+		} else {
+			log.Warnf("unable to fetch namespace, failed to get client for %q", clusterID)
+		}
 	}
 	wh.mu.RUnlock()
 

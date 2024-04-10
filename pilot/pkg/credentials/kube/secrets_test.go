@@ -120,7 +120,7 @@ func TestSecretsController(t *testing.T) {
 		wrongKeys,
 	}
 	client := kube.NewFakeClient(secrets...)
-	sc := NewCredentialsController(client)
+	sc := NewCredentialsController(client, nil)
 	client.RunAndWait(test.NewStop(t))
 	cases := []struct {
 		name            string
@@ -287,7 +287,7 @@ func TestDockerCredentials(t *testing.T) {
 		genericCert,
 	}
 	client := kube.NewFakeClient(secrets...)
-	sc := NewCredentialsController(client)
+	sc := NewCredentialsController(client, nil)
 	client.RunAndWait(test.NewStop(t))
 	cases := []struct {
 		name                string
@@ -359,14 +359,16 @@ func allowIdentities(c kube.Client, identities ...string) {
 }
 
 func TestForCluster(t *testing.T) {
+	stop := test.NewStop(t)
 	localClient := kube.NewFakeClient()
-	localClient.RunAndWait(test.NewStop(t))
+	localClient.RunAndWait(stop)
 	remoteClient := kube.NewFakeClient()
-	remoteClient.RunAndWait(test.NewStop(t))
-	sc := NewMulticluster("local")
-	sc.ClusterAdded(&multicluster.Cluster{ID: "local", Client: localClient}, nil)
-	sc.ClusterAdded(&multicluster.Cluster{ID: "remote", Client: remoteClient}, nil)
-	sc.ClusterAdded(&multicluster.Cluster{ID: "remote2", Client: remoteClient}, nil)
+	remoteClient.RunAndWait(stop)
+	mc := multicluster.NewFakeController()
+	sc := NewMulticluster("local", mc)
+	mc.Add("local", localClient, stop)
+	mc.Add("remote", remoteClient, stop)
+	mc.Add("remote2", remoteClient, stop)
 	cases := []struct {
 		cluster cluster2.ID
 		allowed bool
@@ -387,15 +389,17 @@ func TestForCluster(t *testing.T) {
 }
 
 func TestAuthorize(t *testing.T) {
+	stop := test.NewStop(t)
 	localClient := kube.NewFakeClient()
-	localClient.RunAndWait(test.NewStop(t))
+	localClient.RunAndWait(stop)
 	remoteClient := kube.NewFakeClient()
-	remoteClient.RunAndWait(test.NewStop(t))
+	remoteClient.RunAndWait(stop)
 	allowIdentities(localClient, "system:serviceaccount:ns-local:sa-allowed")
 	allowIdentities(remoteClient, "system:serviceaccount:ns-remote:sa-allowed")
-	sc := NewMulticluster("local")
-	sc.ClusterAdded(&multicluster.Cluster{ID: "local", Client: localClient}, nil)
-	sc.ClusterAdded(&multicluster.Cluster{ID: "remote", Client: remoteClient}, nil)
+	mc := multicluster.NewFakeController()
+	sc := NewMulticluster("local", mc)
+	mc.Add("local", localClient, stop)
+	mc.Add("remote", remoteClient, stop)
 	cases := []struct {
 		sa      string
 		ns      string
@@ -448,10 +452,11 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	localClient := kube.NewFakeClient(secretsLocal...)
 	remoteClient := kube.NewFakeClient(secretsRemote...)
 	otherRemoteClient := kube.NewFakeClient()
-	sc := NewMulticluster("local")
-	sc.ClusterAdded(&multicluster.Cluster{ID: "local", Client: localClient}, nil)
-	sc.ClusterAdded(&multicluster.Cluster{ID: "remote", Client: remoteClient}, nil)
-	sc.ClusterAdded(&multicluster.Cluster{ID: "other", Client: otherRemoteClient}, nil)
+	mc := multicluster.NewFakeController()
+	sc := NewMulticluster("local", mc)
+	mc.Add("local", localClient, stop)
+	mc.Add("remote", remoteClient, stop)
+	mc.Add("other", otherRemoteClient, stop)
 
 	// normally the remote secrets controller would start these
 	localClient.RunAndWait(stop)

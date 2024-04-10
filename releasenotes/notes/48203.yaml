@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 47328
+releaseNotes:
+- |
+  **Added** support for customizing timeout when resolving jwksUri

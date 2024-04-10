@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestUDSLog(t *testing.T) {
@@ -33,7 +34,7 @@ func TestUDSLog(t *testing.T) {
 	pluginLog.SetOutputLevel(log.DebugLevel) // this will be configured by global.logging.level
 	stop := make(chan struct{})
 	defer close(stop)
-	logger.StartUDSLogServer(udsSock, stop)
+	assert.NoError(t, logger.StartUDSLogServer(udsSock, stop))
 
 	// Configure log to tee to UDS server
 	stdout := os.Stdout
@@ -41,20 +42,23 @@ func TestUDSLog(t *testing.T) {
 	os.Stdout = w
 	loggingOptions := log.DefaultOptions()
 	loggingOptions.WithTeeToUDS(udsSock, constants.UDSLogPath)
-	log.Configure(loggingOptions)
+	assert.NoError(t, log.Configure(loggingOptions))
 	log.FindScope("default").SetOutputLevel(log.DebugLevel)
 	log.Debug("debug log")
 	log.Info("info log")
 	log.Warn("warn log")
 	log.Error("error log")
-	log.Sync()
+	// This will error because stdout cannot sync, but the UDS part should sync
+	// Ideally we would fail if the UDS part fails but the error library makes it kind of tricky
+	_ = log.Sync()
 
 	// Restore os stdout.
 	os.Stdout = stdout
-	log.Configure(loggingOptions)
+	assert.NoError(t, log.Configure(loggingOptions))
 
-	w.Close()
-	out, _ := io.ReadAll(r)
+	assert.NoError(t, w.Close())
+	out, err := io.ReadAll(r)
+	assert.NoError(t, err)
 
 	// For each level, there should be two lines, one from direct log,
 	// the other one from UDS server

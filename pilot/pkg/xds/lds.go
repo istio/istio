@@ -32,26 +32,33 @@ var _ model.XdsResourceGenerator = &LdsGenerator{}
 
 // Map of all configs that do not impact LDS
 var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
-	model.Router: sets.New[kind.Kind](
+	model.Router: sets.New(
 		// for autopassthrough gateways, we build filterchains per-dr subset
 		kind.WorkloadGroup,
 		kind.WorkloadEntry,
 		kind.Secret,
 		kind.ProxyConfig,
+		kind.DNSName,
 	),
-	model.SidecarProxy: sets.New[kind.Kind](
+	model.SidecarProxy: sets.New(
 		kind.Gateway,
 		kind.WorkloadGroup,
 		kind.WorkloadEntry,
 		kind.Secret,
 		kind.ProxyConfig,
+		kind.DNSName,
+
+		kind.KubernetesGateway,
 	),
-	model.Waypoint: sets.New[kind.Kind](
+	model.Waypoint: sets.New(
 		kind.Gateway,
 		kind.WorkloadGroup,
 		kind.WorkloadEntry,
 		kind.Secret,
 		kind.ProxyConfig,
+		kind.DNSName,
+
+		kind.KubernetesGateway,
 	),
 }
 

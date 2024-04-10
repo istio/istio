@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2024-02-06T19-29-28
+BASE_VERSION ?= master-2024-03-28T19-01-22
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -237,8 +237,8 @@ RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl envoy ztunnel c
 # not set vtprotobuf: this adds some performance improvement, but at a binary cost increase that is not worth it for the agent
 AGENT_TAGS=agent,disable_pgv
 # disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
-# vtprotobuf: enables optimized protobuf marshalling
-STANDARD_TAGS=disable_pgv,vtprotobuf
+# vtprotobuf: enables optimized protobuf marshalling.
+STANDARD_TAGS=vtprotobuf,disable_pgv
 
 .PHONY: build
 build: depend ## Builds all go binaries.
@@ -286,10 +286,28 @@ MARKDOWN_LINT_ALLOWLIST=localhost:8080,storage.googleapis.com/istio-artifacts/pi
 lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint
 
-lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
+lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global check-agent-deps ## Runs all linters.
 	@bin/check_samples.sh
 	@testlinter
 	@envvarlinter istioctl pilot security
+
+# Allow-list:
+# (k8s) Machinery, utils, klog
+# (proto) TLS for SDS
+# (proto) Wasm for wasm xDS proxy
+# (proto) xDS discovery service for xDS proxy
+.PHONY: check-agent-deps
+check-agent-deps:
+	@go list -f '{{ join .Deps "\n" }}' -tags=agent \
+			./pilot/cmd/pilot-agent/app \
+			./pkg/istio-agent/... | sort | uniq |\
+		grep -Pv '^k8s.io/(utils|klog|apimachinery)/' |\
+		grep -Pv 'envoy/type/|envoy/annotations|envoy/config/core/' |\
+		grep -Pv 'envoy/extensions/transport_sockets/tls/' |\
+		grep -Pv 'envoy/service/discovery/v3' |\
+		grep -Pv 'envoy/extensions/wasm/' |\
+		grep -Pv 'envoy/extensions/filters/(http|network)/wasm/' |\
+		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|envoy/')
 
 go-gen:
 	@mkdir -p /tmp/bin
@@ -360,9 +378,10 @@ copy-templates:
 	# copy istio-discovery values, but apply some local customizations
 	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
 	yq -i '.defaults.telemetry.enabled=false | .defaults.global.externalIstiod=true | .defaults.global.omitSidecarInjectorConfigMap=true | .defaults.pilot.configMap=false' manifests/charts/istiod-remote/values.yaml
+	warning=$$(cat manifests/helm-profiles/warning-edit.txt | sed ':a;N;$$!ba;s/\n/\\n/g') ; \
 	for chart in $(CHARTS) ; do \
 		for profile in manifests/helm-profiles/*.yaml ; do \
-			cp $$profile manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
+			sed "1s|^|$${warning}\n\n|" $$profile > manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
 		done; \
 		cp manifests/zzz_profile.yaml manifests/charts/$$chart/templates ; \
 	done

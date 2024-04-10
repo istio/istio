@@ -1,0 +1,16 @@
+# WARNING: DO NOT EDIT, THIS FILE IS A COPY.
+# The original version of this file is located at /manifests/helm-profiles directory.
+# If you want to make a change in this file, edit the original one and run "make gen".
+
+pilot:
+  env:
+    # 1.22 behavioral changes
+    ENABLE_RESOLUTION_NONE_TARGET_PORT: "false"
+meshConfig:
+  # 1.22 behavioral changes
+  proxyMetadata:
+    ISTIO_DELTA_XDS: "false"
+  defaultConfig:
+    tracing:
+      zipkin:
+        address: zipkin.istio-system:9411

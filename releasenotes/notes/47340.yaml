@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 47340
+releaseNotes:
+- |
+  **Fixed** an issue where the local client contained incorrect entries in the local DNS name table

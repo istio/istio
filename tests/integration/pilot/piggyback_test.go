@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -34,67 +35,102 @@ import (
 func TestPiggyback(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).Features("usability.observability.proxy-status"). // TODO create new "agent-piggyback" feature
-		RequiresSingleCluster().
+		NewTest(t).RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
-			// Add retry loop to handle case when the pod has disconnected from Istio temporarily
-			retry.UntilSuccessOrFail(t, func() error {
-				out, _, err := t.Clusters()[0].PodExec(
-					apps.A[0].WorkloadsOrFail(t)[0].PodName(),
-					apps.A.Config().Namespace.Name(),
-					"istio-proxy",
-					"pilot-agent request --debug-port 15004 GET /debug/syncz")
-				if err != nil {
-					return fmt.Errorf("couldn't curl sidecar: %v", err)
-				}
-				dr := discovery.DiscoveryResponse{}
-				if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
-					return fmt.Errorf("unmarshal: %v", err)
-				}
-				if dr.TypeUrl != xds.TypeDebugSyncronization {
-					return fmt.Errorf("the output doesn't contain expected typeURL: %s", out)
-				}
-				if len(dr.Resources) < 1 {
-					return fmt.Errorf("the output didn't unmarshal as expected (no resources): %s", out)
-				}
-				if dr.Resources[0].TypeUrl != "type.googleapis.com/envoy.service.status.v3.ClientConfig" {
-					return fmt.Errorf("resources[0] doesn't contain expected typeURL: %s", out)
-				}
-				return nil
-			})
-
-			expectSubstrings := func(have string, wants ...string) error {
-				for _, want := range wants {
-					if !strings.Contains(have, want) {
-						return fmt.Errorf("substring %q not found; have %q", want, have)
+			workloads := []echo.Instances{apps.A, apps.Sotw}
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+			for _, workload := range workloads {
+				podName := workload[0].WorkloadsOrFail(t)[0].PodName()
+				namespace := workload.Config().Namespace.Name()
+				// Add retry loop to handle case when the pod has disconnected from Istio temporarily
+				retry.UntilSuccessOrFail(t, func() error {
+					out, _, err := t.Clusters()[0].PodExec(
+						podName,
+						workload.Config().Namespace.Name(),
+						"istio-proxy",
+						"pilot-agent request --debug-port 15004 GET /debug/syncz")
+					if err != nil {
+						return fmt.Errorf("couldn't curl sidecar: %v", err)
 					}
-				}
-				return nil
+					dr := discovery.DiscoveryResponse{}
+					if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
+						return fmt.Errorf("unmarshal: %v", err)
+					}
+					if dr.TypeUrl != xds.TypeDebugSyncronization {
+						return fmt.Errorf("the output doesn't contain expected typeURL: %s", out)
+					}
+					if len(dr.Resources) < 1 {
+						return fmt.Errorf("the output didn't unmarshal as expected (no resources): %s", out)
+					}
+					if dr.Resources[0].TypeUrl != "type.googleapis.com/envoy.service.status.v3.ClientConfig" {
+						return fmt.Errorf("resources[0] doesn't contain expected typeURL: %s", out)
+					}
+					return nil
+				})
+
+				retry.UntilSuccessOrFail(t, func() error {
+					args := []string{
+						"x", "proxy-status", "--xds-via-agents", fmt.Sprintf("%s.%s", podName, namespace),
+					}
+					output, _, err := istioCtl.Invoke(args)
+					if err != nil {
+						return err
+					}
+					return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
+				})
+
+				// Test gRPC-based tapped XDS using istioctl.
+				retry.UntilSuccessOrFail(t, func() error {
+					pf, err := t.Clusters()[0].NewPortForwarder(podName, namespace, "localhost", 0, 15004)
+					if err != nil {
+						return fmt.Errorf("failed to create the port forwarder: %v", err)
+					}
+					pf.Start()
+					defer pf.Close()
+
+					argsToTest := []struct {
+						args []string
+					}{
+						{[]string{"x", "proxy-status", "--plaintext", "--xds-address", pf.Address()}},
+						{[]string{"proxy-status", "--plaintext", "--xds-address", pf.Address()}},
+					}
+					for _, args := range argsToTest {
+						istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+						output, _, err := istioCtl.Invoke(args.args)
+						if err != nil {
+							return err
+						}
+
+						// Just verify pod A is known to Pilot; implicitly this verifies that
+						// the printing code printed it.
+						if err := expectSubstrings(output, fmt.Sprintf("%s.%s", podName, namespace)); err != nil {
+							return err
+						}
+					}
+					return nil
+				})
+
+				// Test gRPC-based --xds-via-agents
+				retry.UntilSuccessOrFail(t, func() error {
+					istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+					args := []string{"x", "proxy-status", "--xds-via-agents"}
+					output, _, err := istioCtl.Invoke(args)
+					if err != nil {
+						return err
+					}
+					return expectSubstrings(output, fmt.Sprintf("%s.%s", podName, namespace))
+				})
 			}
-
-			// Test gRPC-based Tap Service using istioctl.
-			retry.UntilSuccessOrFail(t, func() error {
-				podName := apps.A[0].WorkloadsOrFail(t)[0].PodName()
-				nsName := apps.A.Config().Namespace.Name()
-				pf, err := t.Clusters()[0].NewPortForwarder(podName, nsName, "localhost", 0, 15004)
-				if err != nil {
-					return fmt.Errorf("failed to create the port forwarder: %v", err)
-				}
-				pf.Start()
-				defer pf.Close()
-
-				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
-				args := []string{"x", "proxy-status", "--plaintext", "--xds-address", pf.Address()}
-				output, _, err := istioCtl.Invoke(args)
-				if err != nil {
-					return err
-				}
-
-				// Just verify pod A is known to Pilot; implicitly this verifies that
-				// the printing code printed it.
-				return expectSubstrings(output, fmt.Sprintf("%s.%s", podName, nsName))
-			})
 		})
+}
+
+func expectSubstrings(have string, wants ...string) error {
+	for _, want := range wants {
+		if !strings.Contains(have, want) {
+			return fmt.Errorf("substring %q not found; have %q", want, have)
+		}
+	}
+	return nil
 }

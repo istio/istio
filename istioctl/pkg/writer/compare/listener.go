@@ -20,6 +20,8 @@ import (
 
 	"github.com/pmezard/go-difflib/difflib"
 
+	// Force import protos
+	_ "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -30,7 +32,7 @@ func (c *Comparator) ListenerDiff() error {
 	if err != nil {
 		envoyBytes.WriteString(err.Error())
 	} else {
-		envoy, err := protomarshal.ToJSONWithIndent(envoyListenerDump, "    ")
+		envoy, err := protomarshal.ToJSONWithAnyResolver(envoyListenerDump, "    ", &envoyResolver)
 		if err != nil {
 			return err
 		}
@@ -40,7 +42,7 @@ func (c *Comparator) ListenerDiff() error {
 	if err != nil {
 		istiodBytes.WriteString(err.Error())
 	} else {
-		istiod, err := protomarshal.ToJSONWithIndent(istiodListenerDump, "    ")
+		istiod, err := protomarshal.ToJSONWithAnyResolver(istiodListenerDump, "    ", &envoyResolver)
 		if err != nil {
 			return err
 		}
@@ -58,6 +60,7 @@ func (c *Comparator) ListenerDiff() error {
 		return err
 	}
 	if text != "" {
+		fmt.Fprintln(c.w, "Listeners Don't Match")
 		fmt.Fprintln(c.w, text)
 	} else {
 		fmt.Fprintln(c.w, "Listeners Match")

@@ -43,12 +43,6 @@ var (
 func TestClusterLocal(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
-		Features(
-			"installation.multicluster.cluster_local",
-			// TODO tracking topologies as feature labels doesn't make sense
-			"installation.multicluster.multimaster",
-			"installation.multicluster.remote",
-		).
 		RequiresMinClusters(2).
 		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
@@ -166,11 +160,6 @@ func TestBadRemoteSecret(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresMinClusters(2).
-		Features(
-			// TODO tracking topologies as feature labels doesn't make sense
-			"installation.multicluster.multimaster",
-			"installation.multicluster.remote",
-		).
 		Run(func(t framework.TestContext) {
 			if len(t.Clusters().Primaries()) == 0 {
 				t.Skip("no primary cluster in framework (most likely only remote-config)")

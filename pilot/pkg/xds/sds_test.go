@@ -35,6 +35,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
@@ -311,7 +312,7 @@ func TestGenerateSDS(t *testing.T) {
 			if tt.proxy.Metadata == nil {
 				tt.proxy.Metadata = &model.NodeMetadata{}
 			}
-			tt.proxy.Metadata.ClusterID = "Kubernetes"
+			tt.proxy.Metadata.ClusterID = constants.DefaultClusterName
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertCrl, genericMtlsCertSplit, genericMtlsCertSplitCa},
 			})
@@ -361,13 +362,13 @@ func TestCaching(t *testing.T) {
 
 	fullPush := &model.PushRequest{Full: true, Start: time.Now()}
 	istiosystem := &model.Proxy{
-		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
+		Metadata:         &model.NodeMetadata{ClusterID: constants.DefaultClusterName},
 		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
 		Type:             model.Router,
 		ConfigNamespace:  "istio-system",
 	}
 	otherNamespace := &model.Proxy{
-		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
+		Metadata:         &model.NodeMetadata{ClusterID: constants.DefaultClusterName},
 		VerifiedIdentity: &spiffe.Identity{Namespace: "other-namespace"},
 		Type:             model.Router,
 		ConfigNamespace:  "other-namespace",
@@ -392,7 +393,7 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
 		Type:             model.Router,
 		Metadata: &model.NodeMetadata{
-			ClusterID: "Kubernetes",
+			ClusterID: constants.DefaultClusterName,
 			ProxyConfig: &model.NodeMetaProxyConfig{
 				PrivateKeyProvider: &meshconfig.PrivateKeyProvider{
 					Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
@@ -410,7 +411,7 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	rawProxy := &model.Proxy{
 		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
 		Type:             model.Router,
-		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
+		Metadata:         &model.NodeMetadata{ClusterID: constants.DefaultClusterName},
 	}
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		KubernetesObjects: []runtime.Object{genericCert},

@@ -60,10 +60,7 @@ var (
 	PilotCertProvider = env.Register("PILOT_CERT_PROVIDER", constants.CertProviderIstiod,
 		"The provider of Pilot DNS certificate.").Get()
 
-	JwtPolicy = env.Register("JWT_POLICY", jwt.PolicyThirdParty,
-		"The JWT validation policy.").Get()
-
-	ClusterName = env.Register("CLUSTER_ID", "Kubernetes",
+	ClusterName = env.Register("CLUSTER_ID", constants.DefaultClusterName,
 		"Defines the cluster and service registry that this Istiod instance belongs to").Get()
 
 	ExternalIstiod = env.Register("EXTERNAL_ISTIOD", false,
@@ -203,15 +200,6 @@ var (
 			"all traffic on that port will be matched, which can have disastrous consequences. Additionally, the destination is seen as an opaque destination; "+
 			"even if it is another service in the mesh, policies such as mTLS and load balancing will not be used when connecting to it.").Get()
 
-	// This is an experimental feature flag, can be removed once it became stable, and should introduced to Telemetry API.
-	MetricRotationInterval = env.Register("METRIC_ROTATION_INTERVAL", 0*time.Second,
-		"Metric scope rotation interval, set to 0 to disable the metric scope rotation").Get()
-	MetricGracefulDeletionInterval = env.Register("METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute,
-		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disabled.").Get()
-
-	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
-		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
-
 	ValidateWorkloadEntryIdentity = env.Register("ISTIO_WORKLOAD_ENTRY_VALIDATE_IDENTITY", true,
 		"If enabled, will validate the identity of a workload matches the identity of the "+
 			"WorkloadEntry it is associating with for health checks and auto registration. "+
@@ -219,10 +207,6 @@ var (
 
 	JwksResolverInsecureSkipVerify = env.Register("JWKS_RESOLVER_INSECURE_SKIP_VERIFY", false,
 		"If enabled, istiod will skip verifying the certificate of the JWKS server.").Get()
-
-	// User should not rely on builtin resource labels, this flag will be removed in future releases(1.20).
-	EnableOTELBuiltinResourceLabels = env.Register("ENABLE_OTEL_BUILTIN_RESOURCE_LABELS", false,
-		"If enabled, envoy will send builtin labels(e.g. node_name) via OTel sink.").Get()
 
 	EnableSelectorBasedK8sGatewayPolicy = env.Register("ENABLE_SELECTOR_BASED_K8S_GATEWAY_POLICY", true,
 		"If disabled, Gateway API gateways will ignore workloadSelector policies, only"+
@@ -239,8 +223,14 @@ var (
 	VerifyCertAtClient = env.Register("VERIFY_CERTIFICATE_AT_CLIENT", true,
 		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
 
-	EnableVtprotobuf = env.Register("ENABLE_VTPROTOBUF", false,
-		"If true, will use optimized vtprotobuf based marshaling").Get()
+	EnableVtprotobuf = env.Register("ENABLE_VTPROTOBUF", true,
+		"If true, will use optimized vtprotobuf based marshaling. Requires a build with -tags=vtprotobuf.").Get()
+
+	GatewayAPIDefaultGatewayClass = env.Register("PILOT_GATEWAY_API_DEFAULT_GATEWAYCLASS_NAME", "istio",
+		"Name of the default GatewayClass").Get()
+
+	ManagedGatewayController = env.Register("PILOT_GATEWAY_API_CONTROLLER_NAME", "istio.io/gateway-controller",
+		"Gateway API controller name. istiod will only reconcile Gateway API resources referencing a GatewayClass with this controller name").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

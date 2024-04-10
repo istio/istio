@@ -24,9 +24,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -139,21 +142,20 @@ users:
 
 func TestCronJobMetadata(t *testing.T) {
 	tests := []struct {
-		name               string
-		jobName            string
-		wantTypeMetadata   metav1.TypeMeta
-		wantObjectMetadata metav1.ObjectMeta
+		name             string
+		jobName          string
+		wantTypeMetadata metav1.TypeMeta
+		wantName         types.NamespacedName
 	}{
 		{
 			name:    "cron-job-name-sec",
 			jobName: "sec-1234567890",
 			wantTypeMetadata: metav1.TypeMeta{
 				Kind:       "CronJob",
-				APIVersion: "batch/v1beta1",
+				APIVersion: "batch/v1",
 			},
-			wantObjectMetadata: metav1.ObjectMeta{
-				Name:         "sec",
-				GenerateName: "sec-1234567890-pod",
+			wantName: types.NamespacedName{
+				Name: "sec",
 			},
 		},
 		{
@@ -161,11 +163,10 @@ func TestCronJobMetadata(t *testing.T) {
 			jobName: "min-12345678",
 			wantTypeMetadata: metav1.TypeMeta{
 				Kind:       "CronJob",
-				APIVersion: "batch/v1beta1",
+				APIVersion: "batch/v1",
 			},
-			wantObjectMetadata: metav1.ObjectMeta{
-				Name:         "min",
-				GenerateName: "min-12345678-pod",
+			wantName: types.NamespacedName{
+				Name: "min",
 			},
 		},
 		{
@@ -175,9 +176,8 @@ func TestCronJobMetadata(t *testing.T) {
 				Kind:       "Job",
 				APIVersion: "v1",
 			},
-			wantObjectMetadata: metav1.ObjectMeta{
-				Name:         "job-123",
-				GenerateName: "job-123-pod",
+			wantName: types.NamespacedName{
+				Name: "job-123",
 			},
 		},
 	}
@@ -198,8 +198,8 @@ func TestCronJobMetadata(t *testing.T) {
 					},
 				},
 			)
-			if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
-				t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
+			if !reflect.DeepEqual(gotObjectMeta, tt.wantName) {
+				t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantName)
 			}
 			if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
 				t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
@@ -208,12 +208,12 @@ func TestCronJobMetadata(t *testing.T) {
 	}
 }
 
-func TestDeploymentConfigMetadata(t *testing.T) {
+func TestDeployMeta(t *testing.T) {
 	tests := []struct {
-		name               string
-		pod                *corev1.Pod
-		wantTypeMetadata   metav1.TypeMeta
-		wantObjectMetadata metav1.ObjectMeta
+		name             string
+		pod              *corev1.Pod
+		wantTypeMetadata metav1.TypeMeta
+		wantName         types.NamespacedName
 	}{
 		{
 			name: "deployconfig-name-deploy",
@@ -222,10 +222,8 @@ func TestDeploymentConfigMetadata(t *testing.T) {
 				Kind:       "DeploymentConfig",
 				APIVersion: "v1",
 			},
-			wantObjectMetadata: metav1.ObjectMeta{
-				Name:         "deploy",
-				GenerateName: "deploy-rc-pod",
-				Labels:       map[string]string{},
+			wantName: types.NamespacedName{
+				Name: "deploy",
 			},
 		},
 		{
@@ -235,10 +233,8 @@ func TestDeploymentConfigMetadata(t *testing.T) {
 				Kind:       "DeploymentConfig",
 				APIVersion: "v1",
 			},
-			wantObjectMetadata: metav1.ObjectMeta{
-				Name:         "deploy2",
-				GenerateName: "deploy2-rc-pod",
-				Labels:       map[string]string{},
+			wantName: types.NamespacedName{
+				Name: "deploy2",
 			},
 		},
 		{
@@ -248,23 +244,41 @@ func TestDeploymentConfigMetadata(t *testing.T) {
 				Kind:       "ReplicationController",
 				APIVersion: "v1",
 			},
-			wantObjectMetadata: metav1.ObjectMeta{
-				Name:         "dep-rc",
-				GenerateName: "dep-rc-pod",
-				Labels:       map[string]string{},
+			wantName: types.NamespacedName{
+				Name: "dep-rc",
+			},
+		},
+		{
+			name: "argo-rollout",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "name-6dc78b855c-",
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion: "v1",
+						Controller: ptr.Of(true),
+						Kind:       "ReplicaSet",
+						Name:       "name-6dc78b855c",
+					}},
+					Labels: map[string]string{
+						"rollouts-pod-template-hash": "6dc78b855c",
+					},
+				},
+			},
+			wantTypeMetadata: metav1.TypeMeta{
+				Kind:       "Rollout",
+				APIVersion: "v1alpha1",
+			},
+			wantName: types.NamespacedName{
+				Name: "name",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotObjectMeta, gotTypeMeta := GetDeployMetaFromPod(tt.pod)
-			if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
-				t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
-			}
-			if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
-				t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
-			}
+			gotName, gotTypeMeta := GetDeployMetaFromPod(tt.pod)
+			assert.Equal(t, gotName, tt.wantName)
+			assert.Equal(t, gotTypeMeta, tt.wantTypeMetadata)
 		})
 	}
 }

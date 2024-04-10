@@ -37,7 +37,7 @@ spec:
       securityContext:
       {{- if .Values.securityContext }}
         {{- toYaml .Values.securityContext | nindent 8 }}
-      {{- else if (semverCompare ">=1.22-0" .Capabilities.KubeVersion.GitVersion) }}
+      {{- else }}
         # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
@@ -57,28 +57,18 @@ spec:
           securityContext:
           {{- if .Values.containerSecurityContext }}
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
-          {{- else if (semverCompare ">=1.22-0" .Capabilities.KubeVersion.GitVersion) }}
-            # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
+          {{- else }}
             capabilities:
               drop:
               - ALL
             allowPrivilegeEscalation: false
             privileged: false
             readOnlyRootFilesystem: true
+            {{- if not (eq .Values.platform "openshift") }}
             runAsUser: 1337
             runAsGroup: 1337
+            {{- end }}
             runAsNonRoot: true
-          {{- else }}
-            capabilities:
-              drop:
-              - ALL
-              add:
-              - NET_BIND_SERVICE
-            runAsUser: 0
-            runAsGroup: 1337
-            runAsNonRoot: false
-            allowPrivilegeEscalation: true
-            readOnlyRootFilesystem: true
           {{- end }}
           env:
           {{- with .Values.networkGateway }}

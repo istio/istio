@@ -34,3 +34,5 @@ ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -p tcp --dport 32000 -j ISTIO_REDIRECT
 ip6tables -t nat -A ISTIO_OUTPUT -p tcp --dport 31000 -j ISTIO_REDIRECT
+iptables-save
+ip6tables-save

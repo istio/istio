@@ -26,6 +26,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
@@ -69,7 +70,6 @@ func GetTarget() echo.Target {
 func TestStatsFilter(t *testing.T) {
 	expectedBuckets := DefaultBucketCount
 	framework.NewTest(t).
-		Features("observability.telemetry.stats.prometheus.http.api").
 		Run(func(t framework.TestContext) {
 			// Enable strict mTLS. This is needed for mock secured prometheus scraping test.
 			t.ConfigIstio().YAML(ist.Settings().SystemNamespace, PeerAuthenticationConfig).ApplyOrFail(t)
@@ -82,7 +82,7 @@ func TestStatsFilter(t *testing.T) {
 							return err
 						}
 						c := cltInstance.Config().Cluster
-						sourceCluster := "Kubernetes"
+						sourceCluster := constants.DefaultClusterName
 						if len(t.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}
@@ -154,7 +154,6 @@ func TestStatsFilter(t *testing.T) {
 // with nullvm and wasm runtime for TCP.
 func TestStatsTCPFilter(t *testing.T) {
 	framework.NewTest(t).
-		Features("observability.telemetry.stats.prometheus.tcp").
 		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
@@ -165,7 +164,7 @@ func TestStatsTCPFilter(t *testing.T) {
 							return err
 						}
 						c := cltInstance.Config().Cluster
-						sourceCluster := "Kubernetes"
+						sourceCluster := constants.DefaultClusterName
 						if len(t.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}
@@ -191,7 +190,6 @@ func TestStatsTCPFilter(t *testing.T) {
 
 func TestStatsGatewayServerTCPFilter(t *testing.T) {
 	framework.NewTest(t).
-		Features("observability.telemetry.stats.prometheus.tcp").
 		Run(func(t framework.TestContext) {
 			base := filepath.Join(env.IstioSrc, "tests/integration/telemetry/testdata/")
 			// Following resources are being deployed to test sidecar->gateway communication. With following resources,
@@ -239,7 +237,7 @@ spec:
 						}
 
 						c := cltInstance.Config().Cluster
-						sourceCluster := "Kubernetes"
+						sourceCluster := constants.DefaultClusterName
 						if len(t.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}
@@ -473,7 +471,6 @@ func ValidateBucket(cluster cluster.Cluster, prom prometheus.Instance, sourceApp
 func TestGRPCCountMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("observability.telemetry.stats.prometheus.grpc").
 		Run(func(t framework.TestContext) {
 			// Metrics to be queried and tested
 			metrics := []string{"istio_request_messages_total", "istio_response_messages_total"}

@@ -18,9 +18,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
+	emptypb "github.com/golang/protobuf/ptypes/empty"
+	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 )
@@ -97,4 +103,23 @@ func (c *Comparator) Diff() error {
 		return err
 	}
 	return c.RouteDiff()
+}
+
+// nonstrictResolver is an AnyResolver that ignores unknown proto messages
+type nonstrictResolver struct{}
+
+var envoyResolver nonstrictResolver
+
+func (m *nonstrictResolver) Resolve(typeURL string) (legacyproto.Message, error) {
+	// See https://github.com/golang/protobuf/issues/747#issuecomment-437463120
+	mname := typeURL
+	if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
+		mname = mname[slash+1:]
+	}
+	mt, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(mname))
+	if err != nil {
+		// istioctl should keep going if it encounters new Envoy versions; ignore unknown types
+		return &exprpb.Type{TypeKind: &exprpb.Type_Dyn{Dyn: &emptypb.Empty{}}}, nil
+	}
+	return legacyproto.MessageV1(mt.New().Interface()), nil
 }

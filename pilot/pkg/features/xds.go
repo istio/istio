@@ -51,14 +51,6 @@ var (
 		"UseRemoteAddress sets useRemoteAddress to true for sidecar outbound listeners.",
 	).Get()
 
-	EnableHeadlessService = env.Register(
-		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
-		true,
-		"If enabled, for a headless service/stateful set in Kubernetes, pilot will generate an "+
-			"outbound listener for each pod in a headless service. This feature should be disabled "+
-			"if headless services have a large number of pods.",
-	).Get()
-
 	EnableEDSForHeadless = env.Register(
 		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
 		false,

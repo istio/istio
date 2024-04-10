@@ -52,3 +52,18 @@ type ConfigGenerator interface {
 	// MeshConfigChanged is invoked when mesh config is changed, giving a chance to rebuild any cached config.
 	MeshConfigChanged(mesh *meshconfig.MeshConfig)
 }
+
+type ConfigGeneratorImpl struct {
+	Cache model.XdsCache
+}
+
+func NewConfigGenerator(cache model.XdsCache) *ConfigGeneratorImpl {
+	return &ConfigGeneratorImpl{
+		Cache: cache,
+	}
+}
+
+// MeshConfigChanged is called when mesh config is changed.
+func (configgen *ConfigGeneratorImpl) MeshConfigChanged(_ *meshconfig.MeshConfig) {
+	accessLogBuilder.reset()
+}

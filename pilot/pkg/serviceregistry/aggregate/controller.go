@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/workloadapi/security"
 )
 
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various
@@ -55,24 +54,35 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
+func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 	if !features.EnableAmbientControllers {
 		return nil
 	}
-	var res []netip.Addr
+	var res []model.ServiceInfo
 	for _, p := range c.GetRegistries() {
-		res = append(res, p.Waypoint(scope)...)
+		res = append(res, p.ServicesForWaypoint(key)...)
 	}
 	return res
 }
 
-func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.WorkloadInfo {
-	if !features.EnableAmbientControllers {
+func (c *Controller) Waypoint(network, address string) []netip.Addr {
+	if !features.EnableAmbientWaypoints {
 		return nil
 	}
-	var res []*model.WorkloadInfo
+	var res []netip.Addr
 	for _, p := range c.GetRegistries() {
-		res = append(res, p.WorkloadsForWaypoint(scope)...)
+		res = append(res, p.Waypoint(network, address)...)
+	}
+	return res
+}
+
+func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
+	if !features.EnableAmbientWaypoints {
+		return nil
+	}
+	var res []model.WorkloadInfo
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.WorkloadsForWaypoint(key)...)
 	}
 	return res
 }
@@ -88,8 +98,8 @@ func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur se
 	return res
 }
 
-func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.Authorization {
-	var res []*security.Authorization
+func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []model.WorkloadAuthorization {
+	var res []model.WorkloadAuthorization
 	if !features.EnableAmbientControllers {
 		return res
 	}
@@ -99,8 +109,8 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 	return res
 }
 
-func (c *Controller) AddressInformation(addresses sets.String) ([]*model.AddressInfo, sets.String) {
-	i := []*model.AddressInfo{}
+func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressInfo, sets.String) {
+	i := []model.AddressInfo{}
 	if !features.EnableAmbientControllers {
 		return i, nil
 	}

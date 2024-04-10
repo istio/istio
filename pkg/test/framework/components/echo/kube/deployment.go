@@ -306,7 +306,7 @@ func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost
 	istioRevision := getIstioRevision(cfg.Namespace)
 	istioHost = istioctlcmd.IstiodHost(istioNS, istioRevision)
 
-	istioIPAddr := ist.EastWestGatewayFor(cfg.Cluster).DiscoveryAddress().Addr()
+	istioIPAddr := ist.EastWestGatewayFor(cfg.Cluster).DiscoveryAddresses()[0].Addr()
 	if !istioIPAddr.IsValid() {
 		log.Warnf("VM config failed to get east-west gateway IP for %s", cfg.Cluster.Name())
 		istioHost, istioIP = "", ""
@@ -354,6 +354,15 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 			"ContainerPorts": grpcPorts,
 			"FallbackPort":   grpcFallbackPort,
 		})
+	}
+
+	if cfg.WorkloadWaypointProxy != "" {
+		for _, subset := range cfg.Subsets {
+			if subset.Annotations == nil {
+				subset.Annotations = echo.NewAnnotations()
+			}
+			subset.Annotations.Set(echo.AmbientUseWaypoint, cfg.WorkloadWaypointProxy)
+		}
 	}
 
 	params := map[string]any{
@@ -410,6 +419,12 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 }
 
 func serviceParams(cfg echo.Config) map[string]any {
+	if cfg.ServiceWaypointProxy != "" {
+		if cfg.ServiceAnnotations == nil {
+			cfg.ServiceAnnotations = echo.NewAnnotations()
+		}
+		cfg.ServiceAnnotations.Set(echo.AmbientUseWaypoint, cfg.ServiceWaypointProxy)
+	}
 	return map[string]any{
 		"Service":            cfg.Service,
 		"Headless":           cfg.Headless,

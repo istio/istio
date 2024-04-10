@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
@@ -44,7 +45,9 @@ import (
 	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -98,7 +101,7 @@ const (
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
 	TypeMeta                 metav1.TypeMeta
-	DeploymentMeta           metav1.ObjectMeta
+	DeploymentMeta           types.NamespacedName
 	ObjectMeta               metav1.ObjectMeta
 	Spec                     corev1.PodSpec
 	ProxyConfig              *meshconfig.ProxyConfig
@@ -109,6 +112,7 @@ type SidecarTemplateData struct {
 	ProxyUID                 int64
 	ProxyGID                 int64
 	InboundTrafficPolicyMode string
+	CompliancePolicy         string
 }
 
 type (
@@ -312,7 +316,7 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
 	}
 
-	imageType := ""
+	imageType := global.GetVariant()
 	if image != nil {
 		imageType = image.ImageType
 	}
@@ -370,17 +374,8 @@ func updateImageTypeIfPresent(tag string, imageType string) string {
 	return tag + "-" + imageType
 }
 
-// RunTemplate renders the sidecar template
-// Returns the raw string template, as well as the parse pod form
-func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod *corev1.Pod, err error) {
+func extractClusterAndNetwork(params InjectionParameters) (string, string) {
 	metadata := &params.pod.ObjectMeta
-	meshConfig := params.meshConfig
-
-	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
-		log.Errorf("Injection failed due to invalid annotations: %v", err)
-		return nil, nil, err
-	}
-
 	cluster := params.valuesConfig.asStruct.GetGlobal().GetMultiCluster().GetClusterName()
 	// TODO allow overriding the values.global network in injection with the system namespace label
 	network := params.valuesConfig.asStruct.GetGlobal().GetNetwork()
@@ -395,6 +390,21 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	if n, ok := metadata.Labels[label.TopologyNetwork.Name]; ok {
 		network = n
 	}
+	return cluster, network
+}
+
+// RunTemplate renders the sidecar template
+// Returns the raw string template, as well as the parse pod form
+func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod *corev1.Pod, err error) {
+	metadata := &params.pod.ObjectMeta
+	meshConfig := params.meshConfig
+
+	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
+		log.Errorf("Injection failed due to invalid annotations: %v", err)
+		return nil, nil, err
+	}
+
+	cluster, network := extractClusterAndNetwork(params)
 
 	// use network in values for template, and proxy env variables
 	if cluster != "" {
@@ -411,6 +421,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 
 	proxyUID, proxyGID := GetProxyIDs(params.namespace)
 
+	// When changing this, make sure to change TemplateInput in deploymentcontroller.go
 	data := SidecarTemplateData{
 		TypeMeta:                 params.typeMeta,
 		DeploymentMeta:           params.deployMeta,
@@ -424,6 +435,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		ProxyUID:                 proxyUID,
 		ProxyGID:                 proxyGID,
 		InboundTrafficPolicyMode: InboundTrafficPolicyMode(meshConfig),
+		CompliancePolicy:         common_features.CompliancePolicy,
 	}
 
 	mergedPod = params.pod
@@ -633,7 +645,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 ) (any, error) {
 	out := in.DeepCopyObject()
 
-	var deploymentMetadata metav1.ObjectMeta
+	var deploymentMetadata types.NamespacedName
 	var metadata *metav1.ObjectMeta
 	var podSpec *corev1.PodSpec
 	var typeMeta metav1.TypeMeta
@@ -670,7 +682,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 		job := v
 		typeMeta = job.TypeMeta
 		metadata = &job.Spec.JobTemplate.ObjectMeta
-		deploymentMetadata = job.ObjectMeta
+		deploymentMetadata = config.NamespacedName(job)
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
 	case *corev1.Pod:
 		pod := v
@@ -681,7 +693,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	case *appsv1.Deployment: // Added to be explicit about the most expected case
 		deploy := v
 		typeMeta = deploy.TypeMeta
-		deploymentMetadata = deploy.ObjectMeta
+		deploymentMetadata = config.NamespacedName(deploy)
 		metadata = &deploy.Spec.Template.ObjectMeta
 		podSpec = &deploy.Spec.Template.Spec
 	default:
@@ -690,7 +702,8 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 
 		typeMeta = outValue.FieldByName("TypeMeta").Interface().(metav1.TypeMeta)
 
-		deploymentMetadata = outValue.FieldByName("ObjectMeta").Interface().(metav1.ObjectMeta)
+		om := outValue.FieldByName("ObjectMeta").Interface().(metav1.ObjectMeta)
+		deploymentMetadata = types.NamespacedName{Name: om.GetName(), Namespace: om.GetNamespace()}
 
 		templateValue := outValue.FieldByName("Spec").FieldByName("Template")
 		// `Template` is defined as a pointer in some older API

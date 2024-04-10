@@ -215,10 +215,10 @@ func TestRequestPrincipal(t *testing.T) {
 `,
 		},
 	}
-	rpg := requestPrincipalGenerator{useExtendedJwt: true}
+	rpg := requestPrincipalGenerator{}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
-			got, err := rpg.principal("", tc.in, false, false)
+			got, err := rpg.extendedPrincipal("", []string{tc.in}, false)
 			if err != nil {
 				t.Fatal(err)
 			}

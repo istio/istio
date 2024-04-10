@@ -30,7 +30,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
+	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -40,7 +40,6 @@ import (
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/hash"
 )
 
@@ -327,7 +326,23 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
 // into a ClusterLoadAssignment. Used for EDS.
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
+	svcPort := b.servicePort(b.port)
+	if svcPort == nil {
+		return buildEmptyClusterLoadAssignment(b.clusterName)
+	}
 	svcEps := b.snapshotShards(endpointIndex)
+	svcEps = slices.FilterInPlace(svcEps, func(ep *model.IstioEndpoint) bool {
+		// filter out endpoints that don't match the service port
+		if svcPort.Name != ep.ServicePortName {
+			return false
+		}
+		// filter out endpoints that don't match the subset
+		if !b.subsetLabels.SubsetOf(ep.Labels) {
+			return false
+		}
+		return true
+	})
+
 	localityLbEndpoints := b.generate(svcEps, false)
 	if len(localityLbEndpoints) == 0 {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
@@ -362,13 +377,9 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed 
 	if !b.ServiceFound() {
 		return nil
 	}
-	svcPort := b.servicePort(b.port)
-	if svcPort == nil {
-		return nil
-	}
 
 	eps = slices.Filter(eps, func(ep *model.IstioEndpoint) bool {
-		return b.filterIstioEndpoint(ep, svcPort)
+		return b.filterIstioEndpoint(ep)
 	})
 
 	localityEpMap := make(map[string]*LocalityEndpoints)
@@ -461,7 +472,7 @@ func addUint32(left, right uint32) (uint32, bool) {
 	return left + right, false
 }
 
-func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *model.Port) bool {
+func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	// for ServiceInternalTrafficPolicy
 	if b.service.Attributes.NodeLocal && ep.NodeName != b.proxy.GetNodeName() {
 		return false
@@ -479,13 +490,6 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *
 	}
 	// TODO(nmittler): Consider merging discoverability policy with cluster-local
 	if !ep.IsDiscoverableFromProxy(b.proxy) {
-		return false
-	}
-	if svcPort.Name != ep.ServicePortName {
-		return false
-	}
-	// Port labels
-	if !b.subsetLabels.SubsetOf(ep.Labels) {
 		return false
 	}
 	// If we don't know the address we must eventually use a gateway address
@@ -518,9 +522,9 @@ func (b *EndpointBuilder) snapshotShards(endpointIndex *model.EndpointIndex) []*
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
 	isClusterLocal := b.clusterLocal
-
 	var eps []*model.IstioEndpoint
 	shards.RLock()
+	defer shards.RUnlock()
 	// Extract shard keys so we can iterate in order. This ensures a stable EDS output.
 	keys := shards.Keys()
 	// The shards are updated independently, now need to filter and merge for this cluster
@@ -534,7 +538,6 @@ func (b *EndpointBuilder) snapshotShards(endpointIndex *model.EndpointIndex) []*
 		}
 		eps = append(eps, shards.Shards[shardKey]...)
 	}
-	shards.RUnlock()
 	return eps
 }
 
@@ -728,23 +731,11 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 
 // waypointInScope computes whether the endpoint is owned by the waypoint
 func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
-	scope := waypoint.WaypointScope()
-	if scope.Namespace != e.Namespace {
-		return false
-	}
-	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
-	if scope.ServiceAccount != "" && (scope.ServiceAccount != ident.ServiceAccount) {
-		return false
-	}
-	return true
+	return waypoint.GetNamespace() == e.Namespace
 }
 
 func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {
-	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
-	ips := push.WaypointsFor(model.WaypointScope{
-		Namespace:      e.Namespace,
-		ServiceAccount: ident.ServiceAccount,
-	})
+	ips := push.WaypointsFor(e.Network.String(), e.Address)
 	return ips
 }
 

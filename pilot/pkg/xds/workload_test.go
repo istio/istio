@@ -26,13 +26,12 @@ import (
 
 	"istio.io/api/security/v1beta1"
 	metav1beta1 "istio.io/api/type/v1beta1"
+	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -124,8 +123,10 @@ func TestWorkload(t *testing.T) {
 	t.Run("ondemand", func(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			DebounceTime: time.Millisecond * 25,
+		})
+		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe:   []string{"*"},
@@ -161,6 +162,7 @@ func TestWorkload(t *testing.T) {
 		// Create pod we are not subscribed to; due to same-node optimization this will push
 		createPod(s, "pod-same-node", "sa", "127.0.0.3", "node")
 		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod-same-node")
+
 		deletePod(s, "pod-same-node")
 		expectRemoved(ads.ExpectResponse(), "Kubernetes//Pod/default/pod-same-node")
 
@@ -171,6 +173,7 @@ func TestWorkload(t *testing.T) {
 		// Creating a pod in the service should send an update as usual
 		createPod(s, "pod", "sa", "127.0.0.1", "node")
 		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
+
 		// Make service not select workload should also update things
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
 		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
@@ -192,13 +195,15 @@ func TestWorkload(t *testing.T) {
 
 		// And if the service changes to no longer select them, we should see them *removed* (not updated)
 		createService(s, "svc1", "default", map[string]string{"app": "nothing"})
-		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod4", "default/svc1.default.svc.cluster.local")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod4")
 	})
 	t.Run("wildcard", func(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			DebounceTime: time.Millisecond * 25,
+		})
+		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe: []string{"*"},
@@ -226,7 +231,7 @@ func TestWorkload(t *testing.T) {
 
 		// Make service not select workload should also update things
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2", "default/svc1.default.svc.cluster.local")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
 	})
 }
 
@@ -238,35 +243,32 @@ func deletePod(s *xds.FakeDiscoveryServer, name string) {
 }
 
 func createAuthorizationPolicy(s *xds.FakeDiscoveryServer, name string, ns string) {
-	_, err := s.Env().Create(config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.AuthorizationPolicy,
-			Name:             name,
-			Namespace:        ns,
+	clienttest.NewWriter[*securityclient.AuthorizationPolicy](s.T(), s.KubeClient()).Create(&securityclient.AuthorizationPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
 		},
-		Spec: &v1beta1.AuthorizationPolicy{},
+		Spec: v1beta1.AuthorizationPolicy{},
 	})
-	if err != nil {
-		s.T().Fatal(err)
-	}
 }
 
-func createPeerAuthentication(s *xds.FakeDiscoveryServer, name string, ns string, f func(*config.Config)) {
-	c := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.PeerAuthentication,
-			Name:             name,
-			Namespace:        ns,
+func deletePeerAuthentication(s *xds.FakeDiscoveryServer, name string, ns string) {
+	clienttest.NewWriter[*securityclient.PeerAuthentication](s.T(), s.KubeClient()).Delete(name, ns)
+}
+
+func createPeerAuthentication(s *xds.FakeDiscoveryServer, name string, ns string, spec *v1beta1.PeerAuthentication) {
+	c := &securityclient.PeerAuthentication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
 		},
-		Spec: &v1beta1.PeerAuthentication{},
+		Spec: *spec, //nolint: govet
 	}
-	if f != nil {
-		f(&c)
-	}
-	_, err := s.Env().Create(c)
-	if err != nil {
-		s.T().Fatal(err)
-	}
+	clienttest.NewWriter[*securityclient.PeerAuthentication](s.T(), s.KubeClient()).CreateOrUpdate(c)
+}
+
+func deleteRBAC(s *xds.FakeDiscoveryServer, name string, ns string) {
+	clienttest.NewWriter[*securityclient.AuthorizationPolicy](s.T(), s.KubeClient()).Delete(name, ns)
 }
 
 func mkPod(name string, sa string, ip string, node string) *corev1.Pod {
@@ -354,7 +356,7 @@ func TestWorkloadAuthorizationPolicy(t *testing.T) {
 	createAuthorizationPolicy(s, "policy2", "ns")
 	expect(ads.ExpectResponse(), "ns/policy2")
 
-	s.Env().Delete(gvk.AuthorizationPolicy, "policy2", "ns", nil)
+	deleteRBAC(s, "policy2", "ns")
 	expectRemoved(ads.ExpectResponse(), "ns/policy2")
 
 	// Irrelevant update shouldn't push
@@ -376,32 +378,30 @@ func TestWorkloadPeerAuthentication(t *testing.T) {
 
 	// Create policy; it should push only the static strict policy
 	// We expect a removal because the policy exists in the cluster but is not sent to the proxy (because it's not port-specific, STRICT, etc.)
-	createPeerAuthentication(s, "policy1", "ns", nil)
-	expectAddedAndRemoved(ads.ExpectResponse(), []string{"istio-system/istio_converted_static_strict"}, []string{"ns/converted_peer_authentication_policy1"})
+	createPeerAuthentication(s, "policy1", "ns", &v1beta1.PeerAuthentication{})
+	expectAddedAndRemoved(ads.ExpectResponse(), []string{"istio-system/istio_converted_static_strict"}, nil)
 
-	createPeerAuthentication(s, "policy2", "ns", func(c *config.Config) {
-		c.Spec = &v1beta1.PeerAuthentication{
-			Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+	createPeerAuthentication(s, "policy2", "ns", &v1beta1.PeerAuthentication{
+		Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+			Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+		},
+		PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+			9080: {
+				Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 			},
-			PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-				9080: {
-					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-				},
+		},
+		Selector: &metav1beta1.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app": "sa", // This patches the pod we will create
 			},
-			Selector: &metav1beta1.WorkloadSelector{
-				MatchLabels: map[string]string{
-					"app": "sa", // This patches the pod we will create
-				},
-			},
-		}
+		},
 	})
-	expect(ads.ExpectResponse(), "ns/converted_peer_authentication_policy2", "istio-system/istio_converted_static_strict")
+	expect(ads.ExpectResponse(), "ns/converted_peer_authentication_policy2")
 
 	// We expect a removal because the policy was deleted
 	// Note that policy1 was not removed because its config was not updated (i.e. this is a partial push)
-	s.Env().Delete(gvk.PeerAuthentication, "policy2", "ns", nil)
-	expectAddedAndRemoved(ads.ExpectResponse(), []string{"istio-system/istio_converted_static_strict"}, []string{"ns/converted_peer_authentication_policy2"})
+	deletePeerAuthentication(s, "policy2", "ns")
+	expectAddedAndRemoved(ads.ExpectResponse(), nil, []string{"ns/converted_peer_authentication_policy2"})
 
 	// Irrelevant update (pod is in the default namespace and not "ns") shouldn't push
 	createPod(s, "pod", "sa", "127.0.0.1", "node")

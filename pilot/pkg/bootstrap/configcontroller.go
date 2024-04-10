@@ -98,7 +98,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient, args.RegistryOptions.KubeOptions)
+					ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
 					// Start informers again. This fixes the case where informers for namespace do not start,
 					// as we create them only after acquiring the leader lock
 					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -172,13 +172,9 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
 						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
-							nsFilter := args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter
-							if !features.EnableEnhancedResourceScoping {
-								nsFilter = nil
-							}
 							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
 							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
-								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision, nsFilter)
+								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
 							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -352,9 +348,6 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 		Revision:     args.Revision,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 		Identifier:   "crd-controller",
-	}
-	if args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter != nil {
-		opts.NamespacesFilter = args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter.Filter
 	}
 	return crdclient.New(s.kubeClient, opts)
 }

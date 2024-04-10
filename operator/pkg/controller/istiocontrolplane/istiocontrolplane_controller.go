@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	kubeversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
 	cache2 "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,10 +55,8 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
 )
@@ -82,14 +79,10 @@ type Options struct {
 	MaxConcurrentReconciles int
 }
 
-const (
-	autoscalingV2MinK8SVersion = 23
-)
-
 // watchedResources contains all resources we will watch and reconcile when changed
 // Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
 // a type that does not yet exist.
-func watchedResources(version *kubeversion.Info) []schema.GroupVersionKind {
+func watchedResources() []schema.GroupVersionKind {
 	res := []schema.GroupVersionKind{
 		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
 		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
@@ -108,12 +101,7 @@ func watchedResources(version *kubeversion.Info) []schema.GroupVersionKind {
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
 		{Group: "apiextensions.k8s.io", Version: "v1", Kind: name.CRDStr},
 		{Group: "policy", Version: "v1", Kind: name.PDBStr},
-	}
-	// autoscaling v2 API is available on >=1.23
-	if kube.IsKubeAtLeastOrLessThanVersion(version, autoscalingV2MinK8SVersion, true) {
-		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: name.HPAStr})
-	} else {
-		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2beta2", Kind: name.HPAStr})
+		{Group: "autoscaling", Version: "v2", Kind: name.HPAStr},
 	}
 	return res
 }
@@ -171,12 +159,12 @@ var (
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldIOP, ok := e.ObjectOld.(*iopv1alpha1.IstioOperator)
 			if !ok {
-				errdict.OperatorFailedToGetObjectInCallback.Log(scope).Errorf("failed to get old IstioOperator")
+				operatorFailedToGetObjectInCallback.Log(scope).Errorf("failed to get old IstioOperator")
 				return false
 			}
 			newIOP, ok := e.ObjectNew.(*iopv1alpha1.IstioOperator)
 			if !ok {
-				errdict.OperatorFailedToGetObjectInCallback.Log(scope).Errorf("failed to get new IstioOperator")
+				operatorFailedToGetObjectInCallback.Log(scope).Errorf("failed to get new IstioOperator")
 				return false
 			}
 
@@ -245,7 +233,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		errdict.OperatorFailedToGetObjectFromAPIServer.Log(scope).Warnf("error getting IstioOperator %s: %s", iopName, err)
+		operatorFailedToGetObjectFromAPIServer.Log(scope).Warnf("error getting IstioOperator %s: %s", iopName, err)
 		metrics.CountCRFetchFail(errors.ReasonForError(err))
 		return reconcile.Result{}, err
 	}
@@ -274,7 +262,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	// get the merged values in iop on top of the defaults for the profile given by iop.profile
 	iopMerged.Spec, err = mergeIOPSWithProfile(iopMerged)
 	if err != nil {
-		errdict.OperatorFailedToMergeUserIOP.Log(scope).Errorf("failed to merge base profile with user IstioOperator CR %s, %s", iopName, err)
+		operatorFailedToMergeUserIOP.Log(scope).Errorf("failed to merge base profile with user IstioOperator CR %s, %s", iopName, err)
 		return reconcile.Result{}, err
 	}
 
@@ -317,7 +305,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 				scope.Infof("Could not remove finalizer from %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
 				return reconcile.Result{}, nil
 			}
-			errdict.OperatorFailedToRemoveFinalizer.Log(scope).Errorf("error removing finalizer: %s", finalizerError)
+			operatorFailedToRemoveFinalizer.Log(scope).Errorf("error removing finalizer: %s", finalizerError)
 			return reconcile.Result{}, finalizerError
 		}
 		return reconcile.Result{}, nil
@@ -334,7 +322,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			} else if errors.IsConflict(err) {
 				scope.Infof("Could not add finalizer to %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
 			}
-			errdict.OperatorFailedToAddFinalizer.Log(scope).Errorf("Failed to add finalizer to IstioOperator CR %s: %s", iopName, err)
+			operatorFailedToAddFinalizer.Log(scope).Errorf("Failed to add finalizer to IstioOperator CR %s: %s", iopName, err)
 			return reconcile.Result{}, err
 		}
 	}
@@ -344,23 +332,9 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	if _, ok := val["global"]; !ok {
 		val["global"] = make(map[string]any)
 	}
-	globalValues := val["global"].(map[string]any)
-	scope.Info("Detecting third-party JWT support")
-	var jwtPolicy util.JWTPolicy
-	if jwtPolicy, err = util.DetectSupportedJWTPolicy(r.kubeClient.Kube()); err != nil {
-		// TODO(howardjohn): add to dictionary. When resolved, replace this sentence with Done or WontFix - if WontFix, add reason.
-		scope.Warnf("Failed to detect third-party JWT support: %v", err)
-	} else {
-		if jwtPolicy == util.FirstPartyJWT {
-			scope.Info("Detected that your cluster does not support third party JWT authentication. " +
-				"Falling back to less secure first party JWT. " +
-				"See " + url.ConfigureSAToken + " for details.")
-		}
-		globalValues["jwtPolicy"] = string(jwtPolicy)
-	}
 	err = util.ValidateIOPCAConfig(r.kubeClient, iopMerged)
 	if err != nil {
-		errdict.OperatorFailedToConfigure.Log(scope).Errorf("failed to apply IstioOperator resources. Error %s", err)
+		operatorFailedToConfigure.Log(scope).Errorf("failed to apply IstioOperator resources. Error %s", err)
 		return reconcile.Result{}, err
 	}
 	helmReconcilerOptions := &helmreconciler.Options{
@@ -500,12 +474,8 @@ func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error
 	if err != nil {
 		return err
 	}
-	ver, err := r.kubeClient.GetKubernetesVersion()
-	if err != nil {
-		return err
-	}
 	// watch for changes to Istio resources
-	err = watchIstioResources(mgr.GetCache(), c, ver)
+	err = watchIstioResources(mgr.GetCache(), c)
 	if err != nil {
 		return err
 	}
@@ -514,8 +484,8 @@ func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error
 }
 
 // Watch changes for Istio resources managed by the operator
-func watchIstioResources(mgrCache cache2.Cache, c controller.Controller, ver *kubeversion.Info) error {
-	for _, t := range watchedResources(ver) {
+func watchIstioResources(mgrCache cache2.Cache, c controller.Controller) error {
+	for _, t := range watchedResources() {
 		u := &unstructured.Unstructured{}
 		u.SetGroupVersionKind(schema.GroupVersionKind{
 			Kind:    t.Kind,

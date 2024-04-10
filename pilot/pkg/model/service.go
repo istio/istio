@@ -45,8 +45,10 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -171,9 +173,7 @@ const (
 	// registry's value.
 	//
 	// Note: because k8s labels does not support `/`, so we use `.` instead in k8s.
-	LocalityLabel = "istio-locality"
-	// k8s istio-locality label separator
-	k8sSeparator = "."
+	LocalityLabel = pm.LocalityLabel
 )
 
 const (
@@ -206,10 +206,10 @@ const (
 	IstioMutualTLSModeLabel = "istio"
 
 	// IstioCanonicalServiceLabelName is the name of label for the Istio Canonical Service for a workload instance.
-	IstioCanonicalServiceLabelName = "service.istio.io/canonical-name"
+	IstioCanonicalServiceLabelName = pm.IstioCanonicalServiceLabelName
 
 	// IstioCanonicalServiceRevisionLabelName is the name of label for the Istio Canonical Service revision for a workload instance.
-	IstioCanonicalServiceRevisionLabelName = "service.istio.io/canonical-revision"
+	IstioCanonicalServiceRevisionLabelName = pm.IstioCanonicalServiceRevisionLabelName
 )
 
 func SupportsTunnel(labels map[string]string, tunnelType string) bool {
@@ -426,15 +426,7 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 // GetLocalityLabel returns the locality from the supplied label. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
 func GetLocalityLabel(label string) string {
-	if len(label) > 0 {
-		// if there are /'s present we don't need to replace
-		if strings.Contains(label, "/") {
-			return label
-		}
-		// replace "." with "/"
-		return strings.Replace(label, k8sSeparator, "/", -1)
-	}
-	return ""
+	return pm.GetLocalityLabel(label)
 }
 
 // Locality information for an IstioEndpoint
@@ -702,6 +694,8 @@ type ServiceAttributes struct {
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
 
+	PassthroughTargetPorts map[uint32]uint32
+
 	K8sAttributes
 }
 
@@ -858,21 +852,31 @@ type ServiceDiscovery interface {
 }
 
 type AmbientIndexes interface {
-	AddressInformation(addresses sets.String) ([]*AddressInfo, sets.String)
+	AddressInformation(addresses sets.String) ([]AddressInfo, sets.String)
 	AdditionalPodSubscriptions(
 		proxy *Proxy,
 		allAddresses sets.String,
 		currentSubs sets.String,
 	) sets.String
-	Policies(requested sets.Set[ConfigKey]) []*security.Authorization
-	Waypoint(scope WaypointScope) []netip.Addr
-	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
+	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
+	ServicesForWaypoint(WaypointKey) []ServiceInfo
+	Waypoint(network, address string) []netip.Addr
+	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
+}
+
+// WaypointKey is a multi-address extension of NetworkAddress which is commonly used for lookups in AmbientIndex
+// We likely need to consider alternative keying options internally such as hostname as we look to expand beyong istio-waypoint
+// This extension can ideally support that type of lookup in the interface without introducing scope creep into things
+// like NetworkAddress
+type WaypointKey struct {
+	Network   string
+	Addresses []string
 }
 
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
 type NoopAmbientIndexes struct{}
 
-func (u NoopAmbientIndexes) AddressInformation(sets.String) ([]*AddressInfo, sets.String) {
+func (u NoopAmbientIndexes) AddressInformation(sets.String) ([]AddressInfo, sets.String) {
 	return nil, nil
 }
 
@@ -884,15 +888,19 @@ func (u NoopAmbientIndexes) AdditionalPodSubscriptions(
 	return nil
 }
 
-func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*security.Authorization {
+func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []WorkloadAuthorization {
 	return nil
 }
 
-func (u NoopAmbientIndexes) Waypoint(WaypointScope) []netip.Addr {
+func (u NoopAmbientIndexes) ServicesForWaypoint(WaypointKey) []ServiceInfo {
 	return nil
 }
 
-func (u NoopAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
+func (u NoopAmbientIndexes) Waypoint(string, string) []netip.Addr {
+	return nil
+}
+
+func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
 	return nil
 }
 
@@ -934,8 +942,26 @@ func (i AddressInfo) ResourceName() string {
 	return name
 }
 
+type ServicePortName struct {
+	PortName       string
+	TargetPortName string
+}
+
 type ServiceInfo struct {
 	*workloadapi.Service
+	// LabelSelectors for the Service. Note these are only used internally, not sent over XDS
+	LabelSelector
+	// PortNames provides a mapping of ServicePort -> port names. Note these are only used internally, not sent over XDS
+	PortNames map[int32]ServicePortName
+	// Source is the type that introduced this service.
+	Source kind.Kind
+}
+
+func (i ServiceInfo) Equals(other ServiceInfo) bool {
+	return proto.Equal(i.Service, other.Service) &&
+		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
+		maps.Equal(i.PortNames, other.PortNames) &&
+		i.Source == other.Source
 }
 
 func (i ServiceInfo) ResourceName() string {
@@ -948,20 +974,21 @@ func serviceResourceName(s *workloadapi.Service) string {
 
 type WorkloadSource string
 
-const (
-	WorkloadSourcePod           WorkloadSource = "pod"
-	WorkloadSourceServiceEntry  WorkloadSource = "serviceentry"
-	WorkloadSourceWorkloadEntry WorkloadSource = "workloadentry"
-)
-
 type WorkloadInfo struct {
 	*workloadapi.Workload
 	// Labels for the workload. Note these are only used internally, not sent over XDS
 	Labels map[string]string
-	// Source of the workload. Note this is used internally only.
-	Source WorkloadSource
+	// Source is the type that introduced this workload.
+	Source kind.Kind
 	// CreationTime is the time when the workload was created. Note this is used internally only.
 	CreationTime time.Time
+}
+
+func (i WorkloadInfo) Equals(other WorkloadInfo) bool {
+	return proto.Equal(i.Workload, other.Workload) &&
+		maps.Equal(i.Labels, other.Labels) &&
+		i.Source == other.Source &&
+		i.CreationTime == other.CreationTime
 }
 
 func workloadResourceName(w *workloadapi.Workload) string {
@@ -981,8 +1008,35 @@ func (i *WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
 }
 
-func ExtractWorkloadsFromAddresses(addrs []*AddressInfo) []WorkloadInfo {
-	return slices.MapFilter(addrs, func(a *AddressInfo) *WorkloadInfo {
+type WorkloadAuthorization struct {
+	// LabelSelectors for the workload. Note these are only used internally, not sent over XDS
+	LabelSelector
+	Authorization *security.Authorization
+}
+
+func (i WorkloadAuthorization) Equals(other WorkloadAuthorization) bool {
+	return maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
+		proto.Equal(i.Authorization, other.Authorization)
+}
+
+func (i WorkloadAuthorization) ResourceName() string {
+	return i.Authorization.GetNamespace() + "/" + i.Authorization.GetName()
+}
+
+type LabelSelector struct {
+	Labels map[string]string
+}
+
+func NewSelector(l map[string]string) LabelSelector {
+	return LabelSelector{l}
+}
+
+func (l LabelSelector) GetLabelSelector() map[string]string {
+	return l.Labels
+}
+
+func ExtractWorkloadsFromAddresses(addrs []AddressInfo) []WorkloadInfo {
+	return slices.MapFilter(addrs, func(a AddressInfo) *WorkloadInfo {
 		switch addr := a.Type.(type) {
 		case *workloadapi.Address_Workload:
 			return &WorkloadInfo{Workload: addr.Workload}
@@ -992,7 +1046,7 @@ func ExtractWorkloadsFromAddresses(addrs []*AddressInfo) []WorkloadInfo {
 	})
 }
 
-func SortWorkloadsByCreationTime(workloads []*WorkloadInfo) []*WorkloadInfo {
+func SortWorkloadsByCreationTime(workloads []WorkloadInfo) []WorkloadInfo {
 	sort.SliceStable(workloads, func(i, j int) bool {
 		if workloads[i].CreationTime.Equal(workloads[j].CreationTime) {
 			return workloads[i].Uid < workloads[j].Uid

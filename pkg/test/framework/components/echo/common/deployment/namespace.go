@@ -38,7 +38,7 @@ const (
 	StatefulSetSvc   = "statefulset"
 	ProxylessGRPCSvc = "proxyless-grpc"
 	NakedSvc         = "naked"
-	DeltaSvc         = "delta"
+	SotwSvc          = "sotw"
 	WaypointSvc      = "waypoint"
 	CapturedSvc      = "captured"
 )
@@ -70,8 +70,8 @@ type EchoNamespace struct {
 	Naked echo.Instances
 	// A virtual machine echo app (only deployed to one cluster)
 	VM echo.Instances
-	// DeltaXDS echo app uses the delta XDS protocol. This should be functionally equivalent to A.
-	DeltaXDS echo.Instances
+	// Sotw echo app uses the sotw XDS protocol. This should be functionally equivalent to A.
+	Sotw echo.Instances
 	// All echo apps in this namespace
 	All echo.Services
 }
@@ -107,8 +107,8 @@ func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *
 	if !t.Settings().Skip(echo.VM) {
 		n.VM = match.ServiceName(echo.NamespacedName{Name: VMSvc, Namespace: ns}).GetMatches(echos)
 	}
-	if !skipDeltaXDS(t) {
-		n.DeltaXDS = match.ServiceName(echo.NamespacedName{Name: DeltaSvc, Namespace: ns}).GetMatches(echos)
+	if !t.Settings().Skip(echo.Sotw) {
+		n.Sotw = match.ServiceName(echo.NamespacedName{Name: SotwSvc, Namespace: ns}).GetMatches(echos)
 	}
 
 	namespaces, err := namespace.GetAll(t)

@@ -67,7 +67,7 @@ func buildSecurityCaller(xfccHeader string) (*security.Caller, error) {
 	}
 	ids := []string{}
 	for _, cc := range clientCerts {
-		ids = append(ids, cc.URI)
+		ids = append(ids, cc.URI...)
 		ids = append(ids, cc.DNS...)
 		if cc.Subject != nil {
 			ids = append(ids, cc.Subject.CommonName)

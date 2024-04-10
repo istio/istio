@@ -21,12 +21,9 @@ import (
 	"testing"
 	"time"
 
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -40,7 +37,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -1584,6 +1580,16 @@ func TestValidateTlsOptions(t *testing.T) {
 			"", "PASSTHROUGH mode does not use certificates",
 		},
 		{
+			"pass through sds crl",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_PASSTHROUGH,
+				ServerCertificate: "",
+				CaCertificates:    "",
+				CaCrl:             "scrl",
+			},
+			"", "PASSTHROUGH mode does not use certificates",
+		},
+		{
 			"istio_mutual no certs",
 			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
@@ -1670,6 +1676,23 @@ func TestValidateTlsOptions(t *testing.T) {
 				CipherSuites: []string{"not-a-cipher-suite"},
 			},
 			"requires a private key", "not-a-cipher-suite",
+		},
+		{
+			"crl specified for SIMPLE TLS",
+			&networking.ServerTLSSettings{
+				Mode:  networking.ServerTLSSettings_SIMPLE,
+				CaCrl: "crl",
+			},
+			"CRL is not supported with SIMPLE TLS", "",
+		},
+		{
+			"crl specified for CredentialName",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CaCrl:          "crl",
+				CredentialName: "credential",
+			},
+			"", "",
 		},
 	}
 	for _, tt := range tests {
@@ -1772,6 +1795,17 @@ func TestValidateTLS(t *testing.T) {
 				ClientCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    "ca",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName set with CACRL specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCrl:             "ca",
 			},
 			valid: false,
 		},
@@ -3546,6 +3580,14 @@ func TestValidateDestinationRule(t *testing.T) {
 			},
 		}, valid: false},
 
+		{name: "duplicate subset names", in: &networking.DestinationRule{
+			Host: "reviews",
+			Subsets: []*networking.Subset{
+				{Name: "foo", Labels: map[string]string{"version": "v1"}},
+				{Name: "foo", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: false},
+
 		{name: "valid traffic policy, top level", in: &networking.DestinationRule{
 			Host: "reviews",
 			TrafficPolicy: &networking.TrafficPolicy{
@@ -4267,406 +4309,6 @@ func TestValidateOutlierDetection(t *testing.T) {
 	}
 }
 
-func TestValidateEnvoyFilter(t *testing.T) {
-	tests := []struct {
-		name    string
-		in      proto.Message
-		error   string
-		warning string
-	}{
-		{name: "empty filters", in: &networking.EnvoyFilter{}, error: ""},
-		{name: "labels not defined in workload selector", in: &networking.EnvoyFilter{
-			WorkloadSelector: &networking.WorkloadSelector{},
-		}, error: "", warning: "Envoy filter: workload selector specified without labels, will be applied to all services in namespace"},
-		{name: "invalid applyTo", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: 0,
-				},
-			},
-		}, error: "Envoy filter: missing applyTo"},
-		{name: "nil patch", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Patch:   nil,
-				},
-			},
-		}, error: "Envoy filter: missing patch"},
-		{name: "invalid patch operation", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Patch:   &networking.EnvoyFilter_Patch{},
-				},
-			},
-		}, error: "Envoy filter: missing patch operation"},
-		{name: "nil patch value", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_ADD,
-					},
-				},
-			},
-		}, error: "Envoy filter: missing patch value for non-remove operation"},
-		{name: "match with invalid regex", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						Proxy: &networking.EnvoyFilter_ProxyMatch{
-							ProxyVersion: "%#@~++==`24c234`",
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
-					},
-				},
-			},
-		}, error: "Envoy filter: invalid regex for proxy version, [error parsing regexp: invalid nested repetition operator: `++`]"},
-		{name: "match with valid regex", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						Proxy: &networking.EnvoyFilter_ProxyMatch{
-							ProxyVersion: `release-1\.2-23434`,
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
-					},
-				},
-			},
-		}, error: ""},
-		{name: "listener with invalid match", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-							Cluster: &networking.EnvoyFilter_ClusterMatch{},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
-					},
-				},
-			},
-		}, error: "Envoy filter: applyTo for listener class objects cannot have non listener match"},
-		{name: "listener with invalid filter match", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Sni:    "124",
-									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{},
-								},
-							},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
-					},
-				},
-			},
-		}, error: "Envoy filter: filter match has no name to match on"},
-		{name: "listener with sub filter match and invalid applyTo", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-										Name:      "random",
-										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
-									},
-								},
-							},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
-					},
-				},
-			},
-		}, error: "Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only"},
-		{name: "listener with sub filter match and invalid filter name", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-										Name:      "random",
-										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
-									},
-								},
-							},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
-					},
-				},
-			},
-		}, error: "Envoy filter: subfilter match requires filter match with envoy.filters.network.http_connection_manager"},
-		{name: "listener with sub filter match and no sub filter name", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-										Name:      wellknown.HTTPConnectionManager,
-										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
-									},
-								},
-							},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
-					},
-				},
-			},
-		}, error: "Envoy filter: subfilter match has no name to match on"},
-		{name: "route configuration with invalid match", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-							Cluster: &networking.EnvoyFilter_ClusterMatch{},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
-					},
-				},
-			},
-		}, error: "Envoy filter: applyTo for http route class objects cannot have non route configuration match"},
-		{name: "cluster with invalid match", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_CLUSTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_REMOVE,
-					},
-				},
-			},
-		}, error: "Envoy filter: applyTo for cluster class objects cannot have non cluster match"},
-		{name: "invalid patch value", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_CLUSTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-							Cluster: &networking.EnvoyFilter_ClusterMatch{},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_ADD,
-						Value: &structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"name": {
-									Kind: &structpb.Value_BoolValue{BoolValue: false},
-								},
-							},
-						},
-					},
-				},
-			},
-		}, error: `Envoy filter: json: cannot unmarshal bool into Go value of type string`},
-		{name: "happy config", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_CLUSTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-							Cluster: &networking.EnvoyFilter_ClusterMatch{},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_ADD,
-						Value: &structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"lb_policy": {
-									Kind: &structpb.Value_StringValue{StringValue: "RING_HASH"},
-								},
-							},
-						},
-					},
-				},
-				{
-					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Name: "envoy.tcp_proxy",
-								},
-							},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
-						Value: &structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"typed_config": {
-									Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
-										Fields: map[string]*structpb.Value{
-											"@type": {
-												Kind: &structpb.Value_StringValue{
-													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
-												},
-											},
-										},
-									}},
-								},
-							},
-						},
-					},
-				},
-				{
-					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Name: "envoy.tcp_proxy",
-								},
-							},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
-						Value: &structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"typed_config": {
-									Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
-										Fields: map[string]*structpb.Value{
-											"@type": {
-												Kind: &structpb.Value_StringValue{
-													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
-												},
-											},
-										},
-									}},
-								},
-							},
-						},
-					},
-				},
-			},
-		}, error: ""},
-		{name: "deprecated config", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Name: "envoy.tcp_proxy",
-								},
-							},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
-						Value: &structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"typed_config": {
-									Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
-										Fields: map[string]*structpb.Value{
-											"@type": {
-												Kind: &structpb.Value_StringValue{
-													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
-												},
-											},
-										},
-									}},
-								},
-							},
-						},
-					},
-				},
-			},
-		}, error: "referenced type unknown (hint: try using the v3 XDS API)"},
-		{name: "deprecated type", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-										Name: "envoy.http_connection_manager",
-									},
-								},
-							},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
-						Value:     &structpb.Struct{},
-					},
-				},
-			},
-		}, error: "", warning: "using deprecated filter name"},
-		// Regression test for https://github.com/golang/protobuf/issues/1374
-		{name: "duration marshal", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_CLUSTER,
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_ADD,
-						Value: &structpb.Struct{
-							Fields: map[string]*structpb.Value{
-								"dns_refresh_rate": {
-									Kind: &structpb.Value_StringValue{
-										StringValue: "500ms",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}, error: "", warning: ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			warn, err := ValidateEnvoyFilter(config.Config{
-				Meta: config.Meta{
-					Name:      someName,
-					Namespace: someNamespace,
-				},
-				Spec: tt.in,
-			})
-			checkValidationMessage(t, warn, err, tt.warning, tt.error)
-		})
-	}
-}
-
 func TestValidateServiceEntries(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -5128,7 +4770,8 @@ func TestValidateServiceEntries(t *testing.T) {
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 			},
-			valid: true,
+			valid:   true,
+			warning: true,
 		},
 		{
 			name: "workload selector without labels",
@@ -5154,7 +4797,32 @@ func TestValidateServiceEntries(t *testing.T) {
 					{Address: "1.1.1.1"},
 				},
 			},
-			valid: false,
+			valid:   false,
+			warning: true,
+		},
+		{
+			name: "selector and resolution NONE", in: &networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "selector and resolution DNS", in: &networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DNS,
+			},
+			valid:   true,
+			warning: true,
 		},
 		{
 			name: "bad selector key", in: &networking.ServiceEntry{
@@ -5168,9 +4836,8 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 		{
 			name: "repeat target port", in: &networking.ServiceEntry{
-				Hosts:            []string{"google.com"},
-				Resolution:       networking.ServiceEntry_DNS,
-				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Hosts:      []string{"google.com"},
+				Resolution: networking.ServiceEntry_DNS,
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 80},
 					{Number: 81, Protocol: "http", Name: "http-valid2", TargetPort: 80},
@@ -5180,9 +4847,8 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 		{
 			name: "valid target port", in: &networking.ServiceEntry{
-				Hosts:            []string{"google.com"},
-				Resolution:       networking.ServiceEntry_DNS,
-				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Hosts:      []string{"google.com"},
+				Resolution: networking.ServiceEntry_DNS,
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
 				},
@@ -5191,9 +4857,8 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 		{
 			name: "invalid target port", in: &networking.ServiceEntry{
-				Hosts:            []string{"google.com"},
-				Resolution:       networking.ServiceEntry_DNS,
-				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Hosts:      []string{"google.com"},
+				Resolution: networking.ServiceEntry_DNS,
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 65536},
 				},
@@ -9235,23 +8900,6 @@ func TestValidateWasmPlugin(t *testing.T) {
 			checkValidationMessage(t, warn, err, tt.warning, tt.out)
 		})
 	}
-}
-
-func TestRecurseMissingTypedConfig(t *testing.T) {
-	good := &listener.Filter{
-		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: nil},
-	}
-	ecds := &hcm.HttpFilter{
-		Name:       "something",
-		ConfigType: &hcm.HttpFilter_ConfigDiscovery{},
-	}
-	bad := &listener.Filter{
-		Name: wellknown.TCPProxy,
-	}
-	assert.Equal(t, recurseMissingTypedConfig(good.ProtoReflect()), []string{}, "typed config set")
-	assert.Equal(t, recurseMissingTypedConfig(ecds.ProtoReflect()), []string{}, "config discovery set")
-	assert.Equal(t, recurseMissingTypedConfig(bad.ProtoReflect()), []string{wellknown.TCPProxy}, "typed config not set")
 }
 
 func TestValidateHTTPHeaderValue(t *testing.T) {

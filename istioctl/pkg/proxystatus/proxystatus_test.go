@@ -16,36 +16,52 @@ package proxystatus
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/rest/fake"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 
+	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/multixds"
+	"istio.io/istio/istioctl/pkg/xds"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 type execTestCase struct {
-	args []string
+	args     []string
+	revision string
+	noIstiod bool
 
 	// Typically use one of the three
 	expectedOutput string // Expected constant output
 	expectedString string // String output is expected to contain
-	goldenFilename string // Expected output stored in golden file
 
 	wantException bool
 }
 
 func TestProxyStatus(t *testing.T) {
 	cases := []execTestCase{
-		{ // case 0
+		{ // case 0, with no Isitod instance
+			args:           []string{},
+			noIstiod:       true,
+			expectedOutput: "Error: no running Istio pods in \"istio-system\"\n",
+			wantException:  true,
+		},
+		{ // case 1, with Istiod instance
 			args:           []string{},
 			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ECDS     ISTIOD",
 		},
@@ -68,16 +84,45 @@ func TestProxyStatus(t *testing.T) {
 		{ // case 6: new --revision argument
 			args:           strings.Split("--revision canary", " "),
 			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ECDS     ISTIOD",
+			revision:       "canary",
 		},
 		{ // case 7: supplying type that doesn't select pods should fail
 			args:          strings.Split("serviceaccount/sleep", " "),
 			wantException: true,
 		},
 	}
+	multixds.GetXdsResponse = func(_ *discovery.DiscoveryRequest, _ string, _ string, _ clioptions.CentralControlPlaneOptions, _ []grpc.DialOption,
+	) (*discovery.DiscoveryResponse, error) {
+		return &discovery.DiscoveryResponse{}, nil
+	}
+	t.Cleanup(func() {
+		multixds.GetXdsResponse = xds.GetXdsResponse
+	})
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyExecTestOutput(t, StatusCommand(cli.NewFakeContext(nil)), c)
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+				IstioNamespace: "istio-system",
+			})
+			if !c.noIstiod {
+				client, err := ctx.CLIClientWithRevision(c.revision)
+				assert.NoError(t, err)
+				_, err = client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "istiod-test",
+						Namespace: "istio-system",
+						Labels: map[string]string{
+							"app":                 "istiod",
+							label.IoIstioRev.Name: c.revision,
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					},
+				}, metav1.CreateOptions{})
+				assert.NoError(t, err)
+			}
+			verifyExecTestOutput(t, XdsStatusCommand(ctx), c)
 		})
 	}
 }
@@ -100,10 +145,6 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 
 	if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
 		t.Fatalf("Output didn't match for '%s %s'\n got %v\nwant: %v", cmd.Name(), strings.Join(c.args, " "), output, c.expectedString)
-	}
-
-	if c.goldenFilename != "" {
-		util.CompareContent(t, []byte(output), c.goldenFilename)
 	}
 
 	if c.wantException {

@@ -393,8 +393,25 @@ func (sc *SecretManagerClient) keyCertificateExist(certPath, keyPath string) boo
 
 // Generate a root certificate item from the passed in rootCertPath
 func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, resourceName string, workload bool) (*security.SecretItem, error) {
-	rootCert, err := sc.readFileWithTimeout(rootCertPath)
-	if err != nil {
+	var rootCert []byte
+	var err error
+	o := backoff.DefaultOption()
+	o.InitialInterval = sc.configOptions.FileDebounceDuration
+	b := backoff.NewExponentialBackOff(o)
+	certValid := func() error {
+		rootCert, err = os.ReadFile(rootCertPath)
+		if err != nil {
+			return err
+		}
+		_, _, err := pkiutil.ParsePemEncodedCertificateChain(rootCert)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), totalTimeout)
+	defer cancel()
+	if err := b.RetryWithContext(ctx, certValid); err != nil {
 		return nil, err
 	}
 

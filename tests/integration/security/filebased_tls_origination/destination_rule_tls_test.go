@@ -31,7 +31,6 @@ import (
 func TestDestinationRuleTls(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.egress.tls.filebased").
 		Run(func(t framework.TestContext) {
 			ns := appNS
 

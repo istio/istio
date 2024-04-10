@@ -275,20 +275,6 @@ func TestCreateCertificate(t *testing.T) {
 	}
 }
 
-type mockMultiClusterController struct {
-	handlers []multicluster.ClusterHandler
-}
-
-func (m *mockMultiClusterController) addHandler(h multicluster.ClusterHandler) {
-	m.handlers = append(m.handlers, h)
-}
-
-func (m *mockMultiClusterController) addCluster(c *multicluster.Cluster) {
-	for _, h := range m.handlers {
-		h.ClusterAdded(c, nil)
-	}
-}
-
 func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 	allowZtunnel := sets.Set[types.NamespacedName]{
 		{Name: "ztunnel", Namespace: "istio-system"}: {},
@@ -447,20 +433,17 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			test.SetForTest(t, &features.CATrustedNodeAccounts, c.trustedNodeAccounts)
 
-			multiClusterController := &mockMultiClusterController{}
-			server, _ := New(c.ca, time.Duration(1), c.authenticators, nil, multiClusterController.addHandler)
+			multiClusterController := multicluster.NewFakeController()
+			server, _ := New(c.ca, time.Duration(1), c.authenticators, multiClusterController)
 
 			var pods []runtime.Object
 			for _, p := range c.pods {
 				pods = append(pods, toPod(p, strings.HasPrefix(p.name, "ztunnel")))
 			}
 			client := kube.NewFakeClient(pods...)
-			primaryCluster := &multicluster.Cluster{
-				ID:     "fake",
-				Client: client,
-			}
-			multiClusterController.addCluster(primaryCluster)
-			client.RunAndWait(test.NewStop(t))
+			stop := test.NewStop(t)
+			multiClusterController.Add("fake", client, stop)
+			client.RunAndWait(stop)
 
 			if c.isMultiCluster {
 				var remoteClusterPods []runtime.Object
@@ -468,17 +451,13 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 					remoteClusterPods = append(remoteClusterPods, toPod(p, strings.HasPrefix(p.name, "ztunnel")))
 				}
 				remoteClient := kube.NewFakeClient(remoteClusterPods...)
-				remoteCluster := &multicluster.Cluster{
-					ID:     "fake-remote",
-					Client: remoteClient,
-				}
-				multiClusterController.addCluster(remoteCluster)
-				remoteClient.RunAndWait(test.NewStop(t))
+				multiClusterController.Add("fake-remote", remoteClient, stop)
+				remoteClient.RunAndWait(stop)
 			}
 
 			if server.nodeAuthorizer != nil {
-				for _, nodeAuthorizer := range server.nodeAuthorizer.remoteNodeAuthenticators {
-					kube.WaitForCacheSync("test", test.NewStop(t), nodeAuthorizer.pods.HasSynced)
+				for _, c := range server.nodeAuthorizer.component.All() {
+					kube.WaitForCacheSync("test", stop, c.pods.HasSynced)
 				}
 			}
 

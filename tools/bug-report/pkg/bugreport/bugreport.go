@@ -128,7 +128,7 @@ func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}
-	client, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(restConfig), "")
+	client, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(restConfig))
 	if err != nil {
 		return err
 	}
@@ -297,7 +297,7 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
 	beginTime := time.Now()
 
-	client, err := kube.NewCLIClient(kube.BuildClientCmd(config.KubeConfigPath, config.Context), "")
+	client, err := kube.NewCLIClient(kube.BuildClientCmd(config.KubeConfigPath, config.Context))
 	if err != nil {
 		appendGlobalErr(err)
 	}
@@ -388,12 +388,24 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 		}()
 
 		out, err := f(params)
-		appendGlobalErr(err)
+		appendGlobalErr(filterUnknownBinaryErrors(err))
 		if err == nil {
 			writeFiles(dir, out, params.DryRun)
 		}
 		log.Infof("Done with %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	}()
+}
+
+// filterUnknownBinaryErrors ignores errors about not finding a binary
+// This is expected behavior on distroless
+func filterUnknownBinaryErrors(err error) error {
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(err.Error(), "executable file not found in $PATH") {
+		return nil
+	}
+	return err
 }
 
 // getProxyLogs fetches proxy logs for the given namespace/pod/container and stores the output in global structs.
@@ -576,7 +588,7 @@ func configLogs(opt *log.Options) error {
 	opt2 := *opt
 	opt2.OutputPaths = op
 	opt2.ErrorOutputPaths = op
-	opt2.SetOutputLevel("default", log.InfoLevel)
+	opt2.SetDefaultOutputLevel("default", log.InfoLevel)
 
 	return log.Configure(&opt2)
 }

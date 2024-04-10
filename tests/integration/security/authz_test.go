@@ -42,9 +42,6 @@ import (
 
 func TestAuthz_Principal(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.mtls-local",
-			"security.authorization.grpc-protocol",
-			"security.authorization.tcp").
 		Run(func(t framework.TestContext) {
 			allowed := apps.Ns1.A
 			denied := apps.Ns2.A
@@ -115,10 +112,6 @@ func TestAuthz_Principal(t *testing.T) {
 
 func TestAuthz_DenyPrincipal(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.mtls-local",
-			"security.authorization.grpc-protocol",
-			"security.authorization.tcp",
-			"security.authorization.negative-match").
 		Run(func(t framework.TestContext) {
 			allowed := apps.Ns1.A
 			denied := apps.Ns2.A
@@ -222,9 +215,6 @@ func TestAuthz_DenyPrincipal(t *testing.T) {
 
 func TestAuthz_Namespace(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.mtls-local",
-			"security.authorization.grpc-protocol",
-			"security.authorization.tcp").
 		Run(func(t framework.TestContext) {
 			// Allow anything from ns1. Any service in ns1 will work as the `from` (just using ns1.A)
 			allowed := apps.Ns1.A
@@ -296,10 +286,6 @@ func TestAuthz_Namespace(t *testing.T) {
 
 func TestAuthz_DenyNamespace(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.mtls-local",
-			"security.authorization.grpc-protocol",
-			"security.authorization.tcp",
-			"security.authorization.negative-match").
 		Run(func(t framework.TestContext) {
 			allowed := apps.Ns1.A
 			denied := apps.Ns2.A
@@ -403,10 +389,6 @@ func TestAuthz_DenyNamespace(t *testing.T) {
 
 func TestAuthz_NotNamespace(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.mtls-local",
-			"security.authorization.grpc-protocol",
-			"security.authorization.tcp",
-			"security.authorization.negative-match").
 		Run(func(t framework.TestContext) {
 			allowed := apps.Ns1.A
 			denied := apps.Ns2.A
@@ -443,7 +425,6 @@ func TestAuthz_NotNamespace(t *testing.T) {
 
 func TestAuthz_NotHost(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.negative-match").
 		Run(func(t framework.TestContext) {
 			from := apps.Ns1.A
 			fromMatch := match.AnyServiceName(from.NamespacedNames())
@@ -505,7 +486,6 @@ func TestAuthz_NotMethod(t *testing.T) {
 	// NOTE: negative match for mtls is tested by TestAuthz_DenyPlaintext.
 	// Negative match for paths is tested by TestAuthz_DenyPrincipal, TestAuthz_DenyNamespace.
 	framework.NewTest(t).
-		Features("security.authorization.negative-match").
 		Run(func(t framework.TestContext) {
 			from := apps.Ns1.A
 			fromMatch := match.AnyServiceName(from.NamespacedNames())
@@ -553,7 +533,6 @@ func TestAuthz_NotMethod(t *testing.T) {
 
 func TestAuthz_NotPort(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.negative-match").
 		Run(func(t framework.TestContext) {
 			from := apps.Ns1.A
 			fromMatch := match.AnyServiceName(from.NamespacedNames())
@@ -597,10 +576,6 @@ func TestAuthz_NotPort(t *testing.T) {
 
 func TestAuthz_DenyPlaintext(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.mtls-local",
-			"security.authorization.grpc-protocol",
-			"security.authorization.tcp",
-			"security.authorization.negative-match").
 		Run(func(t framework.TestContext) {
 			allowed := apps.Ns1.A
 			denied := apps.Ns2.A
@@ -628,7 +603,6 @@ func TestAuthz_DenyPlaintext(t *testing.T) {
 func TestAuthz_JWT(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authorization.jwt-token").
 		Run(func(t framework.TestContext) {
 			from := apps.Ns1.A
 			fromMatch := match.ServiceName(from.NamespacedName())
@@ -799,7 +773,6 @@ func TestAuthz_JWT(t *testing.T) {
 
 func TestAuthz_WorkloadSelector(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.workload-selector").
 		Run(func(t framework.TestContext) {
 			// Verify that the workload-specific path (/policy-<ns>-<svc>) works only on the selected workload.
 			t.NewSubTestf("single workload").
@@ -931,7 +904,6 @@ func TestAuthz_WorkloadSelector(t *testing.T) {
 
 func TestAuthz_PathPrecedence(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.deny-action").
 		Run(func(t framework.TestContext) {
 			from := apps.Ns1.A
 			fromMatch := match.ServiceName(from.NamespacedName())
@@ -984,7 +956,6 @@ func TestAuthz_PathPrecedence(t *testing.T) {
 
 func TestAuthz_IngressGateway(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.ingress-gateway").
 		Run(func(t framework.TestContext) {
 			to := apps.Ns1.All
 			config.New(t).
@@ -1154,7 +1125,6 @@ func TestAuthz_IngressGateway(t *testing.T) {
 func TestAuthz_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authorization.egress-gateway").
 		Run(func(t framework.TestContext) {
 			allowed := apps.Ns1.A
 			denied := apps.Ns2.A
@@ -1262,7 +1232,6 @@ func TestAuthz_EgressGateway(t *testing.T) {
 
 func TestAuthz_Conditions(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.conditions").
 		Run(func(t framework.TestContext) {
 			allowed := apps.Ns1.A
 			denied := apps.Ns2.A
@@ -1439,7 +1408,6 @@ func TestAuthz_Conditions(t *testing.T) {
 
 func TestAuthz_PathNormalization(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.path-normalization").
 		Run(func(t framework.TestContext) {
 			from := apps.Ns1.A
 			fromMatch := match.ServiceName(from.NamespacedName())
@@ -1529,7 +1497,6 @@ func TestAuthz_PathNormalization(t *testing.T) {
 
 func TestAuthz_CustomServer(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.authorization.custom").
 		Run(func(t framework.TestContext) {
 			extAuthzHeaders := func(value string) http.Header {
 				return headers.New().

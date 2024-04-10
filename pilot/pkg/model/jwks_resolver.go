@@ -15,6 +15,7 @@
 package model
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -44,9 +45,6 @@ const (
 	// OpenID Providers supporting Discovery MUST make a JSON document available at the path
 	// formed by concatenating the string /.well-known/openid-configuration to the Issuer.
 	openIDDiscoveryCfgURLSuffix = "/.well-known/openid-configuration"
-
-	// OpenID Discovery web request timeout.
-	jwksHTTPTimeOutInSec = 5
 
 	// JwtPubKeyEvictionDuration is the life duration for cached item.
 	// Cached item will be removed from the cache if it hasn't been used longer than JwtPubKeyEvictionDuration or if pilot
@@ -97,7 +95,7 @@ var (
 	jwksuriChannel = make(chan jwtKey, 5)
 )
 
-// jwtPubKeyEntry is a single cached entry for jwt public key.
+// jwtPubKeyEntry is a single cached entry for jwt public key and the http context options
 type jwtPubKeyEntry struct {
 	pubKey string
 
@@ -106,6 +104,9 @@ type jwtPubKeyEntry struct {
 
 	// Cached item's last used time, which is set in GetPublicKey.
 	lastUsedTime time.Time
+
+	// OpenID Discovery web request timeout
+	timeout time.Duration
 }
 
 // jwtKey is a key in the JwksResolver keyEntries map.
@@ -175,7 +176,6 @@ func newJwksResolverWithCABundlePaths(
 		refreshIntervalOnFailure: refreshIntervalOnFailure,
 		retryInterval:            retryInterval,
 		httpClient: &http.Client{
-			Timeout: jwksHTTPTimeOutInSec * time.Second,
 			Transport: &http.Transport{
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
@@ -201,7 +201,6 @@ func newJwksResolverWithCABundlePaths(
 
 	if caCertsFound {
 		ret.secureHTTPClient = &http.Client{
-			Timeout: jwksHTTPTimeOutInSec * time.Second,
 			Transport: &http.Transport{
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
@@ -224,16 +223,17 @@ func newJwksResolverWithCABundlePaths(
 
 var errEmptyPubKeyFoundInCache = errors.New("empty public key found in cache")
 
-// GetPublicKey returns the  JWT public key if it is available in the cache
+// GetPublicKey returns the JWT public key if it is available in the cache
 // or fetch with from jwksuri if there is a error while fetching then it adds the
 // jwksURI in the cache to fetch the public key in the background process
-func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, error) {
+func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.Duration) (string, error) {
 	now := time.Now()
 	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
 	if val, found := r.keyEntries.Load(key); found {
 		e := val.(jwtPubKeyEntry)
 		// Update cached key's last used time.
 		e.lastUsedTime = now
+		e.timeout = timeout
 		r.keyEntries.Store(key, e)
 		if e.pubKey == "" {
 			return e.pubKey, errEmptyPubKeyFoundInCache
@@ -245,13 +245,13 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 	var pubKey string
 	if jwksURI == "" {
 		// Fetch the jwks URI if it is not hardcoded on config.
-		jwksURI, err = r.resolveJwksURIUsingOpenID(issuer)
+		jwksURI, err = r.resolveJwksURIUsingOpenID(issuer, timeout)
 	}
 	if err != nil {
 		log.Errorf("Failed to jwks URI from %q: %v", issuer, err)
 	} else {
 		var resp []byte
-		resp, err = r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnMainFlow)
+		resp, err = r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnMainFlow, timeout)
 		if err != nil {
 			log.Errorf("Failed to fetch public key from %q: %v", jwksURI, err)
 		}
@@ -262,6 +262,7 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 		pubKey:            pubKey,
 		lastRefreshedTime: now,
 		lastUsedTime:      now,
+		timeout:           timeout,
 	})
 	if err != nil {
 		// fetching the public key in the background
@@ -271,12 +272,12 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 }
 
 // BuildLocalJwks builds local Jwks by fetching the Jwt Public Key from the URL passed if it is empty.
-func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *envoy_jwt.JwtProvider_LocalJwks {
+func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string, timeout time.Duration) *envoy_jwt.JwtProvider_LocalJwks {
 	var err error
 	if jwtPubKey == "" {
 		// jwtKeyResolver should never be nil since the function is only called in Discovery Server request processing
 		// workflow, where the JWT key resolver should have already been initialized on server creation.
-		jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI)
+		jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI, timeout)
 		if err != nil {
 			log.Infof("The JWKS key is not yet fetched for issuer %s (%s), using a fake JWKS for now", jwtIssuer, jwksURI)
 			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
@@ -321,10 +322,10 @@ const FakeJwks = `{
 }`
 
 // Resolve jwks_uri through openID discovery.
-func (r *JwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) {
+func (r *JwksResolver) resolveJwksURIUsingOpenID(issuer string, timeout time.Duration) (string, error) {
 	// Try to get jwks_uri through OpenID Discovery.
 	issuer = strings.TrimSuffix(issuer, "/")
-	body, err := r.getRemoteContentWithRetry(issuer+openIDDiscoveryCfgURLSuffix, networkFetchRetryCountOnMainFlow)
+	body, err := r.getRemoteContentWithRetry(issuer+openIDDiscoveryCfgURLSuffix, networkFetchRetryCountOnMainFlow, timeout)
 	if err != nil {
 		log.Errorf("Failed to fetch jwks_uri from %q: %v", issuer+openIDDiscoveryCfgURLSuffix, err)
 		return "", err
@@ -342,12 +343,15 @@ func (r *JwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 	return jwksURI, nil
 }
 
-func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte, error) {
+func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout time.Duration) ([]byte, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		log.Errorf("Failed to parse %q", uri)
 		return nil, err
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
 	client := r.httpClient
 	if strings.EqualFold(u.Scheme, "https") {
@@ -367,7 +371,11 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 				networkFetchSuccessCounter.Increment()
 			}
 		}()
-		resp, err := client.Get(uri)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -479,7 +487,7 @@ func (r *JwksResolver) refresh() bool {
 			jwksURI := k.jwksURI
 			if jwksURI == "" {
 				var err error
-				jwksURI, err = r.resolveJwksURIUsingOpenID(k.issuer)
+				jwksURI, err = r.resolveJwksURIUsingOpenID(k.issuer, e.timeout)
 				if err != nil {
 					hasErrors.Store(true)
 					log.Errorf("Failed to resolve Jwks from issuer %q: %v", k.issuer, err)
@@ -489,7 +497,7 @@ func (r *JwksResolver) refresh() bool {
 				r.keyEntries.Delete(k)
 				k.jwksURI = jwksURI
 			}
-			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow)
+			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow, e.timeout)
 			if err != nil {
 				hasErrors.Store(true)
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
@@ -504,6 +512,7 @@ func (r *JwksResolver) refresh() bool {
 				pubKey:            newPubKey,
 				lastRefreshedTime: now,            // update the lastRefreshedTime if we get a success response from the network.
 				lastUsedTime:      e.lastUsedTime, // keep original lastUsedTime.
+				timeout:           e.timeout,
 			})
 			isNewKey, err := compareJWKSResponse(oldPubKey, newPubKey)
 			if err != nil {

@@ -23,22 +23,28 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 	authorizationapi "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	istiocluster "istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/diag"
 	legacykube "istio.io/istio/pkg/config/analysis/legacy/source/kube"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kubetypes"
@@ -92,7 +98,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					outputMsgs = append(outputMsgs, m)
 				}
 			}
-			output, err := formatting.Print(msgs, msgOutputFormat, true)
+			output, err := formatting.Print(outputMsgs, msgOutputFormat, true)
 			if err != nil {
 				return err
 			}
@@ -142,6 +148,12 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 	}
 
 	var messages diag.Messages = make([]diag.Message, 0)
+	if minor <= 21 {
+		// ENHANCED_RESOURCE_SCOPING
+		if err := checkPilot(cli, ctx.IstioNamespace(), &messages); err != nil {
+			return nil, err
+		}
+	}
 	if minor <= 20 {
 		// VERIFY_CERTIFICATE_AT_CLIENT and ENABLE_AUTO_SNI
 		if err := checkDestinationRuleTLS(cli, &messages); err != nil {
@@ -152,12 +164,65 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 			return nil, err
 		}
 		// PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING
-		// TODO
-		messages.Add(msg.NewUnknownUpgradeCompatibility(nil,
-			"PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", "1.20",
-			"consult upgrade notes for more information", "1.20"))
+		if err := checkVirtualServiceHostMatching(cli, &messages); err != nil {
+			return nil, err
+		}
+	}
+	if minor <= 21 {
+		if err := checkPassthroughTargetPorts(cli, &messages); err != nil {
+			return nil, err
+		}
+		if err := checkTracing(cli, &messages); err != nil {
+			return nil, err
+		}
 	}
 	return messages, nil
+}
+
+func checkTracing(cli kube.CLIClient, messages *diag.Messages) error {
+	// In 1.22, we remove the default tracing config which points to zipkin.istio-system
+	// This has no effect for users, unless they have this service.
+	svc, err := cli.Kube().CoreV1().Services("istio-system").Get(context.Background(), "zipkin", metav1.GetOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+	if err != nil {
+		// not found
+		return nil
+	}
+	// found
+	res := ObjectToInstance(svc)
+	messages.Add(msg.NewUpdateIncompatibility(res,
+		"meshConfig.defaultConfig.tracer", "1.21",
+		"tracing is no longer by default enabled to send to 'zipkin.istio-system.svc'; "+
+			"follow https://istio.io/latest/docs/tasks/observability/distributed-tracing/telemetry-api/",
+		"1.21"))
+	return nil
+}
+
+func checkPassthroughTargetPorts(cli kube.CLIClient, messages *diag.Messages) error {
+	ses, err := cli.Istio().NetworkingV1alpha3().ServiceEntries(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, se := range ses.Items {
+		if se.Spec.Resolution != networking.ServiceEntry_NONE {
+			continue
+		}
+		changed := false
+		for _, p := range se.Spec.Ports {
+			if p.TargetPort != 0 && p.Number != p.TargetPort {
+				changed = true
+			}
+		}
+		if changed {
+			res := ObjectToInstance(se)
+			messages.Add(msg.NewUpdateIncompatibility(res,
+				"ENABLE_RESOLUTION_NONE_TARGET_PORT", "1.21",
+				"ServiceEntry with resolution NONE and a targetPort set previously did nothing but now is respected", "1.21"))
+		}
+	}
+	return nil
 }
 
 func checkExternalNameAlias(cli kube.CLIClient, messages *diag.Messages) error {
@@ -174,6 +239,67 @@ func checkExternalNameAlias(cli kube.CLIClient, messages *diag.Messages) error {
 			"ENABLE_EXTERNAL_NAME_ALIAS", "1.20",
 			"ExternalName services now behavior differently; consult upgrade notes for more information", "1.20"))
 
+	}
+	return nil
+}
+
+func checkPilot(cli kube.CLIClient, namespace string, messages *diag.Messages) error {
+	deployments, err := cli.Kube().AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "app=istiod",
+	})
+	if err != nil {
+		return err
+	}
+	for _, deployment := range deployments.Items {
+		scopingImpacted := false
+
+		// Obtain configmap to verify if affected features are used
+		configMapName := "istio"
+		if rev := deployment.Labels[label.IoIstioRev.Name]; rev != "default" {
+			configMapName += fmt.Sprintf("-%s", rev)
+		}
+		configMap, err := cli.Kube().CoreV1().ConfigMaps(namespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
+		if err != nil {
+			fmt.Printf("Error getting configmap %s: %v\n", configMapName, err)
+		}
+		meshData := make(map[string]interface{})
+		if data, exists := configMap.Data["mesh"]; exists {
+			if err := yaml.Unmarshal([]byte(data), &meshData); err != nil {
+				fmt.Printf("Error parsing meshConfig: %v\n", err)
+				return err
+			}
+		}
+		if scopingImpacted = meshData["discoverySelectors"] != nil; !scopingImpacted {
+			continue
+		}
+		// Check if mitigation is already in place
+		for _, container := range deployment.Spec.Template.Spec.Containers {
+			if container.Name == "discovery" {
+				for _, envVar := range container.Env {
+					if envVar.Name == "ENHANCED_RESOURCE_SCOPING" && envVar.Value == "true" {
+						scopingImpacted = false
+						break
+					}
+				}
+			}
+		}
+		if scopingImpacted {
+			res := &resource.Instance{
+				Origin: &legacykube.Origin{
+					Type: config.GroupVersionKind(deployment.GroupVersionKind()),
+					FullName: resource.FullName{
+						Namespace: resource.Namespace(deployment.GetNamespace()),
+						Name:      resource.LocalName(deployment.GetName()),
+					},
+					ResourceVersion: resource.Version(deployment.GetResourceVersion()),
+					Ref:             nil,
+					FieldsMap:       nil,
+				},
+			}
+			messages.Add(msg.NewUpdateIncompatibility(res,
+				"ENHANCED_RESOURCE_SCOPING", "1.22",
+				"previously, the enhanced scoping of custom resources was disabled by default; now it will be enabled by default", "1.21"))
+		}
 	}
 	return nil
 }
@@ -218,6 +344,27 @@ func checkDestinationRuleTLS(cli kube.CLIClient, messages *diag.Messages) error 
 			messages.Add(msg.NewUpdateIncompatibility(res,
 				"ENABLE_AUTO_SNI", "1.20",
 				"previously, no SNI would be set; now it will be automatically set", "1.20"))
+		}
+	}
+	return nil
+}
+
+func checkVirtualServiceHostMatching(cli kube.CLIClient, messages *diag.Messages) error {
+	virtualServices, err := cli.Istio().NetworkingV1alpha3().VirtualServices(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, vs := range virtualServices.Items {
+		for _, hostname := range vs.Spec.Hosts {
+			if host.Name(hostname).IsWildCarded() {
+				res := ObjectToInstance(vs)
+				messages.Add(msg.NewUpdateIncompatibility(res,
+					"PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", "1.20",
+					"previously, VirtualServices with overlapping wildcard hosts would have the oldest "+
+						"VirtualService take precedence. Now, the most specific VirtualService will win", "1.20"),
+				)
+				continue
+			}
 		}
 	}
 	return nil
@@ -338,79 +485,76 @@ func checkInstallPermissions(cli kube.CLIClient, istioNamespace string) diag.Mes
 		namespace string
 		group     string
 		version   string
-		name      string
+		resource  string
 	}{
 		{
-			version: "v1",
-			name:    "Namespace",
+			version:  "v1",
+			resource: "namespaces",
+		},
+		{
+			group:    "rbac.authorization.k8s.io",
+			version:  "v1",
+			resource: "clusterroles",
+		},
+		{
+			group:    "rbac.authorization.k8s.io",
+			version:  "v1",
+			resource: "clusterrolebindings",
+		},
+		{
+			group:    "apiextensions.k8s.io",
+			version:  "v1",
+			resource: "customresourcedefinitions",
 		},
 		{
 			namespace: istioNamespace,
 			group:     "rbac.authorization.k8s.io",
 			version:   "v1",
-			name:      "ClusterRole",
-		},
-		{
-			namespace: istioNamespace,
-			group:     "rbac.authorization.k8s.io",
-			version:   "v1",
-			name:      "ClusterRoleBinding",
-		},
-		{
-			namespace: istioNamespace,
-			group:     "apiextensions.k8s.io",
-			version:   "v1",
-			name:      "CustomResourceDefinition",
-		},
-		{
-			namespace: istioNamespace,
-			group:     "rbac.authorization.k8s.io",
-			version:   "v1",
-			name:      "Role",
+			resource:  "roles",
 		},
 		{
 			namespace: istioNamespace,
 			version:   "v1",
-			name:      "ServiceAccount",
+			resource:  "serviceaccounts",
 		},
 		{
 			namespace: istioNamespace,
 			version:   "v1",
-			name:      "Service",
+			resource:  "services",
 		},
 		{
 			namespace: istioNamespace,
 			group:     "apps",
 			version:   "v1",
-			name:      "Deployments",
+			resource:  "deployments",
 		},
 		{
 			namespace: istioNamespace,
 			version:   "v1",
-			name:      "ConfigMap",
+			resource:  "configmaps",
 		},
 		{
-			group:   "admissionregistration.k8s.io",
-			version: "v1",
-			name:    "MutatingWebhookConfiguration",
+			group:    "admissionregistration.k8s.io",
+			version:  "v1",
+			resource: "mutatingwebhookconfigurations",
 		},
 		{
-			group:   "admissionregistration.k8s.io",
-			version: "v1",
-			name:    "ValidatingWebhookConfiguration",
+			group:    "admissionregistration.k8s.io",
+			version:  "v1",
+			resource: "validatingwebhookconfigurations",
 		},
 	}
 	msgs := diag.Messages{}
 	for _, r := range Resources {
-		err := checkCanCreateResources(cli, r.namespace, r.group, r.version, r.name)
+		err := checkCanCreateResources(cli, r.namespace, r.group, r.version, r.resource)
 		if err != nil {
-			msgs.Add(msg.NewInsufficientPermissions(&resource.Instance{Origin: clusterOrigin{}}, r.name, err.Error()))
+			msgs.Add(msg.NewInsufficientPermissions(&resource.Instance{Origin: clusterOrigin{}}, r.resource, err.Error()))
 		}
 	}
 	return msgs
 }
 
-func checkCanCreateResources(c kube.CLIClient, namespace, group, version, name string) error {
+func checkCanCreateResources(c kube.CLIClient, namespace, group, version, resource string) error {
 	s := &authorizationapi.SelfSubjectAccessReview{
 		Spec: authorizationapi.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authorizationapi.ResourceAttributes{
@@ -418,7 +562,7 @@ func checkCanCreateResources(c kube.CLIClient, namespace, group, version, name s
 				Verb:      "create",
 				Group:     group,
 				Version:   version,
-				Resource:  name,
+				Resource:  resource,
 			},
 		},
 	}
@@ -456,6 +600,10 @@ func checkServerVersion(cli kube.CLIClient) (diag.Messages, error) {
 
 // clusterOrigin defines an Origin that refers to the cluster
 type clusterOrigin struct{}
+
+func (o clusterOrigin) ClusterName() istiocluster.ID {
+	return "Cluster"
+}
 
 func (o clusterOrigin) String() string {
 	return ""

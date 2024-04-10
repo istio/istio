@@ -15,10 +15,7 @@
 package configdump
 
 import (
-	"strings"
-
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
 	emptypb "github.com/golang/protobuf/ptypes/empty"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -27,23 +24,20 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-// nonstrictResolver is an AnyResolver that ignores unknown proto messages
-type nonstrictResolver struct{}
+type resolver struct {
+	*protoregistry.Types
+}
 
-var envoyResolver nonstrictResolver
+var nonStrictResolver = &resolver{protoregistry.GlobalTypes}
 
-func (m *nonstrictResolver) Resolve(typeURL string) (legacyproto.Message, error) {
-	// See https://github.com/golang/protobuf/issues/747#issuecomment-437463120
-	mname := typeURL
-	if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
-		mname = mname[slash+1:]
-	}
-	mt, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(mname))
+func (r *resolver) FindMessageByURL(url string) (protoreflect.MessageType, error) {
+	typ, err := r.Types.FindMessageByURL(url)
 	if err != nil {
-		// istioctl should keep going if it encounters new Envoy versions; ignore unknown types
-		return &exprpb.Type{TypeKind: &exprpb.Type_Dyn{Dyn: &emptypb.Empty{}}}, nil
+		// Here we ignore the error since we want istioctl to ignore unknown types due to the Envoy version change
+		msg := exprpb.Type{TypeKind: &exprpb.Type_Dyn{Dyn: &emptypb.Empty{}}}
+		return msg.ProtoReflect().Type(), nil
 	}
-	return legacyproto.MessageV1(mt.New().Interface()), nil
+	return typ, nil
 }
 
 // Wrapper is a wrapper around the Envoy ConfigDump
@@ -52,15 +46,10 @@ type Wrapper struct {
 	*admin.ConfigDump
 }
 
-// MarshalJSON is a custom marshaller to handle protobuf pain
-func (w *Wrapper) MarshalJSON() ([]byte, error) {
-	return protomarshal.Marshal(w)
-}
-
 // UnmarshalJSON is a custom unmarshaller to handle protobuf pain
 func (w *Wrapper) UnmarshalJSON(b []byte) error {
 	cd := &admin.ConfigDump{}
-	err := protomarshal.UnmarshalAllowUnknownWithAnyResolver(&envoyResolver, b, cd)
+	err := protomarshal.UnmarshalAllowUnknownWithAnyResolver(nonStrictResolver, b, cd)
 	*w = Wrapper{cd}
 	return err
 }

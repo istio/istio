@@ -49,6 +49,7 @@ var (
 	SidecarInjectTemplates         = workloadAnnotation(annotation.InjectTemplates.Name, "")
 	SidecarStatsHistogramBuckets   = workloadAnnotation(annotation.SidecarStatsHistogramBuckets.Name, "")
 	AmbientType                    = workloadAnnotation(constants.AmbientRedirection, "")
+	AmbientUseWaypoint             = workloadAnnotation(constants.AmbientUseWaypoint, "")
 )
 
 type AnnotationValue struct {

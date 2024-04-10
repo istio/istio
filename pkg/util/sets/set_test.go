@@ -55,45 +55,53 @@ func TestUnion(t *testing.T) {
 }
 
 func TestDifference(t *testing.T) {
-	elements := []string{"a", "b", "c", "d"}
-	s1 := New(elements...)
+	s1 := New("a", "b", "c", "d")
+	s2 := New("a", "b", "e")
+	want := New("c", "d")
 
-	elements2 := []string{"a", "b", "e"}
-	s2 := New(elements2...)
+	t.Run("difference", func(t *testing.T) {
+		d := s1.Difference(s2)
+		if !want.Equals(d) {
+			t.Errorf("want %+v, but got %+v", want, d)
+		}
+	})
 
-	d := s1.Difference(s2)
-
-	if len(d) != 2 {
-		t.Errorf("Expected len=2: %d", len(d))
-	}
-
-	if _, exist := d["c"]; !exist {
-		t.Errorf("c is not in %v", d)
-	}
-	if _, exist := d["d"]; !exist {
-		t.Errorf("d is not in %v", d)
-	}
+	t.Run("difference in place", func(t *testing.T) {
+		s1c := s1.Copy()
+		r := s1c.DifferenceInPlace(s2)
+		if !want.Equals(r) {
+			t.Errorf("want %+v, but got %+v", want, r)
+		}
+		// s1c should be updated
+		if !want.Equals(s1c) {
+			t.Errorf("want %+v, but got %+v", want, s1c)
+		}
+	})
 }
 
 func TestIntersection(t *testing.T) {
-	elements := []string{"a", "b", "d"}
-	s1 := New(elements...)
+	s1 := New("a", "b", "d")
+	s2 := New("a", "b", "c")
+	want := New("a", "b")
 
-	elements2 := []string{"a", "b", "c"}
-	s2 := New(elements2...)
+	t.Run("intersection", func(t *testing.T) {
+		d := s1.Intersection(s2)
+		if !d.Equals(want) {
+			t.Errorf("want %+v, but got %+v", want, d)
+		}
+	})
 
-	d := s1.Intersection(s2)
-
-	if len(d) != 2 {
-		t.Errorf("Expected len=2: %d", len(d))
-	}
-
-	if _, exist := d["a"]; !exist {
-		t.Errorf("a is not in %v", d)
-	}
-	if _, exist := d["b"]; !exist {
-		t.Errorf("b is not in %v", d)
-	}
+	t.Run("intersect in replace", func(t *testing.T) {
+		s1c := s1.Copy()
+		d := s1c.IntersectInPlace(s2)
+		if !want.Equals(d) {
+			t.Errorf("want %+v, but got %+v", want, d)
+		}
+		// s1c should be updated
+		if !want.Equals(s1c) {
+			t.Errorf("want %+v, but got %+v", want, s1c)
+		}
+	})
 }
 
 func TestSupersetOf(t *testing.T) {
@@ -343,4 +351,37 @@ func TestSetString(t *testing.T) {
 	elements := []string{"a"}
 	set := New(elements...)
 	assert.Equal(t, "[a]", set.String())
+}
+
+func BenchmarkOperateInPlace(b *testing.B) {
+	s1 := New[int]()
+	for i := 0; i < 100; i++ {
+		s1.Insert(i)
+	}
+	s2 := New[int]()
+	for i := 0; i < 100; i += 2 {
+		s2.Insert(i)
+	}
+	b.ResetTimer()
+
+	b.Run("Difference", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			s1.Difference(s2)
+		}
+	})
+	b.Run("DifferenceInPlace", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			s1.DifferenceInPlace(s2)
+		}
+	})
+	b.Run("Intersection", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			s1.Intersection(s2)
+		}
+	})
+	b.Run("IntersectInPlace", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			s1.IntersectInPlace(s2)
+		}
+	})
 }

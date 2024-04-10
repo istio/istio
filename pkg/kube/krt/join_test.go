@@ -59,7 +59,7 @@ func TestJoinCollection(t *testing.T) {
 	}
 	assert.Equal(
 		t,
-		slices.SortBy(j.List(""), sortf),
+		slices.SortBy(j.List(), sortf),
 		slices.SortBy([]Named{
 			{"c1", "b"},
 			{"c2", "a"},
@@ -90,7 +90,7 @@ func TestCollectionJoin(t *testing.T) {
 	SimpleEndpoints := SimpleEndpointsCollection(AllPods, AllServices)
 
 	fetch := func() []SimpleEndpoint {
-		return slices.SortBy(SimpleEndpoints.List(""), func(s SimpleEndpoint) string { return s.ResourceName() })
+		return slices.SortBy(SimpleEndpoints.List(), func(s SimpleEndpoint) string { return s.ResourceName() })
 	}
 
 	assert.Equal(t, fetch(), nil)

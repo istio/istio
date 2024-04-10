@@ -99,7 +99,7 @@ function maybe_build_ztunnel() {
   fi
 
   pushd "${BUILD_ZTUNNEL_REPO}"
-  cargo build --profile="${BUILD_ZTUNNEL_PROFILE:-dev}"
+  cargo build --profile="${BUILD_ZTUNNEL_PROFILE:-dev}" ${BUILD_ZTUNNEL_TARGET:+--target=${BUILD_ZTUNNEL_TARGET}}
 
   local ZTUNNEL_BIN_PATH
   if [[ "${BUILD_ZTUNNEL_PROFILE:-dev}" == "dev" ]]; then
@@ -107,7 +107,7 @@ function maybe_build_ztunnel() {
   else
       ZTUNNEL_BIN_PATH="${BUILD_ZTUNNEL_PROFILE}"
   fi
-  ZTUNNEL_BIN_PATH="out/rust/${ZTUNNEL_BIN_PATH}/ztunnel"
+  ZTUNNEL_BIN_PATH="out/rust/${BUILD_ZTUNNEL_TARGET:+${BUILD_ZTUNNEL_TARGET}/}${ZTUNNEL_BIN_PATH}/ztunnel"
 
   echo "Copying $(pwd)/${ZTUNNEL_BIN_PATH} to ${TARGET_OUT_LINUX}/ztunnel"
   mkdir -p "${TARGET_OUT_LINUX}"

@@ -224,7 +224,7 @@ func mergeVirtualServicesIfNeeded(
 				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
 				delegateVS, ok := delegatesMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
 				if !ok {
-					log.Debugf("delegate virtual service %s/%s of %s/%s not found",
+					log.Warnf("delegate virtual service %s/%s of %s/%s not found",
 						delegateNamespace, delegate.Name, root.Namespace, root.Name)
 					// delegate not found, ignore only the current HTTP route
 					continue
@@ -232,7 +232,7 @@ func mergeVirtualServicesIfNeeded(
 				// make sure that the delegate is visible to root virtual service's namespace
 				exportTo := delegatesExportToMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
 				if !exportTo.Contains(visibility.Public) && !exportTo.Contains(visibility.Instance(root.Namespace)) {
-					log.Debugf("delegate virtual service %s/%s of %s/%s is not exported to %s",
+					log.Warnf("delegate virtual service %s/%s of %s/%s is not exported to %s",
 						delegateNamespace, delegate.Name, root.Namespace, root.Name, root.Namespace)
 					continue
 				}
@@ -253,6 +253,8 @@ func mergeVirtualServicesIfNeeded(
 		}
 		out = append(out, root)
 	}
+
+	sortConfigByCreationTime(out)
 
 	return out, delegatesByRoot
 }
@@ -278,7 +280,7 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	// if match condition of N2 is a subset of anyone in N1, this is a valid matching conditions
 	merged, conflict := mergeHTTPMatchRequests(root.Match, delegate.Match)
 	if conflict {
-		log.Debugf("HTTPMatchRequests conflict: root route %s, delegate route %s", root.Name, delegate.Name)
+		log.Warnf("HTTPMatchRequests conflict: root route %s, delegate route %s", root.Name, delegate.Name)
 		return nil
 	}
 	delegate.Match = merged
@@ -341,7 +343,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 		foundMatch := false
 		for _, rootMatch := range root {
 			if hasConflict(rootMatch, subMatch) {
-				log.Debugf("HTTPMatchRequests conflict: root %v, delegate %v", rootMatch, subMatch)
+				log.Warnf("HTTPMatchRequests conflict: root %v, delegate %v", rootMatch, subMatch)
 				continue
 			}
 			// merge HTTPMatchRequest

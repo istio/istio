@@ -22,9 +22,7 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	httprbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
-	networkrbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
@@ -32,15 +30,18 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/bootstrap"
-	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/util/istiomultierror"
 )
 
 var (
-	allowHTTPTypedConfig    = protoconv.MessageToAny(&httprbac.RBAC{})
-	allowNetworkTypedConfig = protoconv.MessageToAny(&networkrbac.RBAC{})
+	allowHTTPTypedConfig = &anypb.Any{
+		TypeUrl: "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
+	}
+	allowNetworkTypedConfig = &anypb.Any{
+		TypeUrl: "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC",
+	}
 )
 
 func createHTTPAllowAllFilter(name string) (*anypb.Any, error) {
@@ -132,7 +133,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 	}
 
 	wg.Wait()
-	err := multierror.Append(nil, convertErrs...).ErrorOrNil()
+	err := multierror.Append(istiomultierror.New(), convertErrs...).ErrorOrNil()
 	if err != nil {
 		wasmLog.Errorf("convert the wasm config: %v", err)
 	}
@@ -155,27 +156,27 @@ func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *httpwasm.Wa
 	switch {
 	case ec.GetTypedConfig() == nil:
 		return nil, nil, nil, fmt.Errorf("typed extension config %+v does not contain any typed config", ec)
-	case ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType:
+	case ec.GetTypedConfig().TypeUrl == model.WasmHTTPFilterType:
 		if err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig); err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to unmarshal extension config resource into Wasm HTTP filter: %w", err)
 		}
-	case ec.GetTypedConfig().TypeUrl == xds.WasmNetworkFilterType:
+	case ec.GetTypedConfig().TypeUrl == model.WasmNetworkFilterType:
 		wasmNetwork = true
 		if err := ec.GetTypedConfig().UnmarshalTo(wasmNetworkFilterConfig); err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to unmarshal extension config resource into Wasm Network filter: %w", err)
 		}
-	case ec.GetTypedConfig().TypeUrl == xds.TypedStructType:
+	case ec.GetTypedConfig().TypeUrl == model.TypedStructType:
 		typedStruct := &udpa.TypedStruct{}
 		wasmTypedConfig := ec.GetTypedConfig()
 		if err := wasmTypedConfig.UnmarshalTo(typedStruct); err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to unmarshal typed config for wasm filter: %w", err)
 		}
 
-		if typedStruct.TypeUrl == xds.WasmHTTPFilterType {
+		if typedStruct.TypeUrl == model.WasmHTTPFilterType {
 			if err := conversion.StructToMessage(typedStruct.Value, wasmHTTPFilterConfig); err != nil {
 				return nil, nil, nil, fmt.Errorf("failed to convert extension config struct %+v to Wasm Network filter", typedStruct)
 			}
-		} else if typedStruct.TypeUrl == xds.WasmNetworkFilterType {
+		} else if typedStruct.TypeUrl == model.WasmNetworkFilterType {
 			wasmNetwork = true
 			if err := conversion.StructToMessage(typedStruct.Value, wasmNetworkFilterConfig); err != nil {
 				return nil, nil, nil, fmt.Errorf("failed to convert extension config struct %+v to Wasm HTTP filter", typedStruct)

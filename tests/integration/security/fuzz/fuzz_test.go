@@ -206,7 +206,6 @@ func runFuzzer(t framework.TestContext, fuzzer, ns, server string) {
 
 func TestFuzzAuthorization(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.fuzz.authorization").
 		Run(func(t framework.TestContext) {
 			ns := "fuzz-authz"
 			namespace.ClaimOrFail(t, t, ns)
@@ -291,7 +290,6 @@ func runJwtToolTest(t framework.TestContext, ns, server, jwtToken string) {
 
 func TestRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.fuzz.jwt").
 		Run(func(t framework.TestContext) {
 			ns := "fuzz-jwt"
 			namespace.ClaimOrFail(t, t, ns)

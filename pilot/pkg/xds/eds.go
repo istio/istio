@@ -89,17 +89,24 @@ type EdsGenerator struct {
 var _ model.XdsDeltaResourceGenerator = &EdsGenerator{}
 
 // Map of all configs that do not impact EDS
-var skippedEdsConfigs = map[kind.Kind]struct{}{
-	kind.Gateway:               {},
-	kind.VirtualService:        {},
-	kind.WorkloadGroup:         {},
-	kind.AuthorizationPolicy:   {},
-	kind.RequestAuthentication: {},
-	kind.Secret:                {},
-	kind.Telemetry:             {},
-	kind.WasmPlugin:            {},
-	kind.ProxyConfig:           {},
-}
+var skippedEdsConfigs = sets.New(
+	kind.Gateway,
+	kind.VirtualService,
+	kind.WorkloadGroup,
+	kind.AuthorizationPolicy,
+	kind.RequestAuthentication,
+	kind.Secret,
+	kind.Telemetry,
+	kind.WasmPlugin,
+	kind.ProxyConfig,
+	kind.DNSName,
+
+	kind.KubernetesGateway,
+	kind.HTTPRoute,
+	kind.TCPRoute,
+	kind.TLSRoute,
+	kind.GRPCRoute,
+)
 
 func edsNeedsPush(updates model.XdsUpdates) bool {
 	// If none set, we will always push
@@ -107,7 +114,7 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 		return true
 	}
 	for config := range updates {
-		if _, f := skippedEdsConfigs[config.Kind]; !f {
+		if !skippedEdsConfigs.Contains(config.Kind) {
 			return true
 		}
 	}
@@ -152,7 +159,7 @@ func canSendPartialFullPushes(req *model.PushRequest) bool {
 		return false
 	}
 	for cfg := range req.ConfigsUpdated {
-		if _, f := skippedEdsConfigs[cfg.Kind]; f {
+		if skippedEdsConfigs.Contains(cfg.Kind) {
 			// the updated config does not impact EDS, skip it
 			// this happens when push requests are merged due to debounce
 			continue

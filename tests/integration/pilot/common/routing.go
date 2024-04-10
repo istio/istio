@@ -824,7 +824,6 @@ spec:
 		},
 		workloadAgnostic: true,
 	})
-
 	t.RunTraffic(TrafficTestCase{
 		name: "fault abort gRPC",
 		config: `
@@ -854,6 +853,40 @@ spec:
 		},
 		workloadAgnostic: true,
 		sourceMatchers:   includeProxyless,
+	})
+	t.RunTraffic(TrafficTestCase{
+		name: "catch all route short circuit the other routes",
+		config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - match:
+    - uri:
+        regex: .*
+    route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 418
+  - route:
+    - destination:
+        host: {{ .dstSvc }}`,
+		opts: echo.CallOptions{
+			Port: echo.Port{
+				Name: "http",
+			},
+			Count: 1,
+			Check: check.Status(http.StatusTeapot),
+		},
+		workloadAgnostic: true,
 	})
 
 	splits := [][]int{
@@ -953,6 +986,259 @@ spec:
 			},
 			workloadAgnostic: true,
 		})
+
+		// access is denied when the request header `end-user` is not jason.
+		t.RunTraffic(TrafficTestCase{
+			name: "without headers",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs
+spec:
+  hosts:
+  - {{ .dstSvc }}
+  http:
+  - match:
+    - withoutHeaders:
+        end-user:
+          exact: jason
+    route:
+    - destination:
+        host: {{ .dstSvc }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 403
+  - route:
+    - destination:
+        host: {{ .dstSvc }}
+`,
+			children: []TrafficCall{
+				{
+					name: "end-user is jason",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+								Headers: headers.New().
+									With("end-user", "jason").
+									Build(),
+							},
+							Count: 1,
+							Check: check.Status(http.StatusOK),
+						}
+					}(),
+				},
+				{
+					name: "end-user is not jason",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+								Headers: headers.New().
+									With("end-user", "not-jason").
+									Build(),
+							},
+							Count: 1,
+							Check: check.Status(http.StatusForbidden),
+						}
+					}(),
+				},
+				{
+					name: "do not have end-user header",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+							},
+							Count: 1,
+							Check: check.Status(http.StatusForbidden),
+						}
+					}(),
+				},
+			},
+			workloadAgnostic: true,
+		})
+
+		// allow only when `end-user` header present.
+		t.RunTraffic(TrafficTestCase{
+			name: "without headers regex convert to present_match",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs
+spec:
+  hosts:
+  - {{ .dstSvc }}
+  http:
+  - match:
+    - withoutHeaders:
+        end-user:
+          regex: "*"
+    route:
+    - destination:
+        host: {{ .dstSvc }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 403
+  - route:
+    - destination:
+        host: {{ .dstSvc }}
+`,
+			children: []TrafficCall{
+				{
+					name: "have end-user header and value",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+								Headers: headers.New().
+									With("end-user", "jason").
+									Build(),
+							},
+							Count: 1,
+							Check: check.Status(http.StatusOK),
+						}
+					}(),
+				},
+				{
+					name: "have end-user header but value is empty",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+								Headers: headers.New().
+									With("end-user", "").
+									Build(),
+							},
+							Count: 1,
+							Check: check.Status(http.StatusOK),
+						}
+					}(),
+				},
+				{
+					name: "do not have end-user header",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+							},
+							Count: 1,
+							Check: check.Status(http.StatusForbidden),
+						}
+					}(),
+				},
+			},
+			workloadAgnostic: true,
+		})
+
+		// allow all access.
+		t.RunTraffic(TrafficTestCase{
+			name: "without headers regex match any string",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs
+spec:
+  hosts:
+  - {{ .dstSvc }}
+  http:
+  - match:
+    - withoutHeaders:
+        end-user:
+          regex: .*
+    route:
+    - destination:
+        host: {{ .dstSvc }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 403
+  - route:
+    - destination:
+        host: {{ .dstSvc }}
+`,
+			children: []TrafficCall{
+				{
+					name: "have end-user header and value",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+								Headers: headers.New().
+									With("end-user", "jason").
+									Build(),
+							},
+							Count: 1,
+							Check: check.Status(http.StatusOK),
+						}
+					}(),
+				},
+				{
+					name: "have end-user header but value is empty",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+								Headers: headers.New().
+									With("end-user", "").
+									Build(),
+							},
+							Count: 1,
+							Check: check.Status(http.StatusOK),
+						}
+					}(),
+				},
+				{
+					name: "do not have end-user header",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+							},
+							Count: 1,
+							Check: check.Status(http.StatusOK),
+						}
+					}(),
+				},
+			},
+			workloadAgnostic: true,
+		})
+
 	}
 }
 
@@ -963,7 +1249,7 @@ func HostHeader(header string) http.Header {
 // tlsOriginationCases contains tests TLS origination from DestinationRule
 func tlsOriginationCases(t TrafficContext) {
 	tc := TrafficTestCase{
-		name: "",
+		name: "DNS",
 		config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -993,11 +1279,168 @@ spec:
 			tc.children = append(tc.children, TrafficCall{
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
-					Port:    echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
-					Count:   1,
+					Port:  echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count: 1,
+					// Failed requests will go to non-existent port which hangs forever
+					// Set a low timeout to fail faster
+					Timeout: time.Millisecond * 500,
 					Address: t.Apps.External.All[0].Address(),
 					HTTP: echo.HTTP{
 						Headers: HostHeader(t.Apps.External.All[0].Config().DefaultHostHeader),
+					},
+					Scheme: scheme.HTTP,
+					Check: check.And(
+						check.OK(),
+						check.Alpn(e.alpn)),
+				},
+				call: c.CallOrFail,
+			})
+		}
+	}
+	t.RunTraffic(tc)
+
+	tc = TrafficTestCase{
+		name: "NONE",
+		config: fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: external
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: alt-external-service
+spec:
+  exportTo: [.]
+  hosts:
+  - %s
+  resolution: NONE
+  ports:
+  - name: http-tls-origination
+    number: 8888
+    protocol: http
+    targetPort: 443
+  - name: http2-tls-origination
+    number: 8882
+    protocol: http2
+    targetPort: 443`,
+			"external."+t.Apps.External.Namespace.Name()+".svc.cluster.local",
+			"external."+t.Apps.External.Namespace.Name()+".svc.cluster.local",
+		),
+		children: []TrafficCall{},
+	}
+	for _, c := range t.Apps.A {
+		for _, e := range expects {
+			c := c
+			e := e
+
+			tc.children = append(tc.children, TrafficCall{
+				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
+				opts: echo.CallOptions{
+					Port:  echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count: 1,
+					// Failed requests will go to non-existent port which hangs forever
+					// Set a low timeout to fail faster
+					Timeout: time.Millisecond * 500,
+					Address: t.Apps.External.All.ForCluster(c.Config().Cluster.Name())[0].Address(),
+					HTTP: echo.HTTP{
+						Headers: HostHeader(t.Apps.External.All[0].Config().ClusterLocalFQDN()),
+					},
+					Scheme: scheme.HTTP,
+					Check: check.And(
+						check.OK(),
+						check.Alpn(e.alpn)),
+				},
+				call: c.CallOrFail,
+			})
+		}
+	}
+	t.RunTraffic(tc)
+
+	tc = TrafficTestCase{
+		name: "Redirect NONE",
+		config: tmpl.MustEvaluate(`
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: external
+spec:
+  host: {{.}}
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: httpbin.org
+spec:
+  hosts:
+  - {{.}}
+  http:
+  - route:
+    - destination:
+        host: {{.}}
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: alt-external-service
+spec:
+  exportTo: [.]
+  hosts:
+  - {{.}}
+  resolution: NONE
+  ports:
+  - name: http
+    number: 8888
+    protocol: http
+  - name: http2
+    number: 8882
+    protocol: http2
+  - name: https
+    number: 443
+    targetPort: 443
+    protocol: https
+    `,
+			"external."+t.Apps.External.Namespace.Name()+".svc.cluster.local",
+		),
+		children: []TrafficCall{},
+	}
+	expects = []struct {
+		port int
+		alpn string
+	}{
+		{8888, "http/1.1"},
+		// Note: here we expect HTTP/1.1, because the 443 port is not configured to be HTTP2!
+		{8882, "http/1.1"},
+	}
+	for _, c := range t.Apps.A {
+		for _, e := range expects {
+			c := c
+			e := e
+
+			tc.children = append(tc.children, TrafficCall{
+				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
+				opts: echo.CallOptions{
+					Port:  echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count: 1,
+					// Failed requests will go to non-existent port which hangs forever
+					// Set a low timeout to fail faster
+					Timeout: time.Millisecond * 500,
+					Address: t.Apps.External.All.ForCluster(c.Config().Cluster.Name())[0].Address(),
+					HTTP: echo.HTTP{
+						Headers: HostHeader(t.Apps.External.All[0].Config().ClusterLocalFQDN()),
 					},
 					Scheme: scheme.HTTP,
 					Check: check.And(

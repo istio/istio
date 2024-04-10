@@ -33,6 +33,7 @@
       image:
         imageType: {{. | quote}}
       {{- end }}
+      {{- if not (eq .Values.global.proxy.tracer "none") }}
       tracing:
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
         lightstep:
@@ -61,8 +62,7 @@
       {{- else if eq .Values.global.proxy.tracer "openCensusAgent" }}
       {{/* Fill in openCensusAgent configuration from meshConfig so it isn't overwritten below */}}
 {{ toYaml $.Values.meshConfig.defaultConfig.tracing | indent 8 }}
-      {{- else }}
-        {}
+      {{- end }}
       {{- end }}
       {{- if .Values.global.remotePilotAddress }}
       {{- if .Values.pilot.enabled }}

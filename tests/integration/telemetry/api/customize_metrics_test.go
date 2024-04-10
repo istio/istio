@@ -19,7 +19,6 @@ package api
 
 import (
 	_ "embed"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"testing"
@@ -29,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 )
@@ -43,10 +41,8 @@ const (
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("observability.telemetry.stats.prometheus.customize-metric").
-		Features("observability.telemetry.request-classification").
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
+			setupWasmExtension(t)
 			t.ConfigIstio().YAML(apps.Namespace.Name(), `
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
@@ -116,20 +112,15 @@ spec:
 		})
 }
 
-func setupWasmExtension(ctx resource.Context) error {
+func setupWasmExtension(t framework.TestContext) {
 	proxySHA := "359dcd3a19f109c50e97517fe6b1e2676e870c4d"
 	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:%v", registry.Address(), proxySHA)
 	args := map[string]any{
 		"AttributeGenURL": attrGenImageURL,
-		"DockerConfigJson": base64.StdEncoding.EncodeToString(
-			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
 	}
-	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/attributegen.yaml").
-		Apply(); err != nil {
-		return err
-	}
-
-	return nil
+	t.ConfigIstio().
+		EvalFile(apps.Namespace.Name(), args, "testdata/attributegen.yaml").
+		ApplyOrFail(t)
 }
 
 func sendCustomizeMetricsTraffic() error {

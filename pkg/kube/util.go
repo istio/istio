@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" //  allow out of cluster authentication
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -245,15 +246,14 @@ func CheckPodReady(pod *corev1.Pod) error {
 }
 
 // GetDeployMetaFromPod heuristically derives deployment metadata from the pod spec.
-func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) {
+func GetDeployMetaFromPod(pod *corev1.Pod) (types.NamespacedName, metav1.TypeMeta) {
 	if pod == nil {
-		return metav1.ObjectMeta{}, metav1.TypeMeta{}
+		return types.NamespacedName{}, metav1.TypeMeta{}
 	}
 	// try to capture more useful namespace/name info for deployments, etc.
 	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
-	deployMeta := pod.ObjectMeta
-	deployMeta.ManagedFields = nil
-	deployMeta.OwnerReferences = nil
+
+	deployMeta := types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}
 
 	typeMetadata := metav1.TypeMeta{
 		Kind:       "Pod",
@@ -280,6 +280,13 @@ func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) 
 				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
 				deployMeta.Name = name
 				typeMetadata.Kind = "Deployment"
+			} else if typeMetadata.Kind == "ReplicaSet" && pod.Labels["rollouts-pod-template-hash"] != "" &&
+				strings.HasSuffix(controllerRef.Name, pod.Labels["rollouts-pod-template-hash"]) {
+				// Heuristic for ArgoCD Rollout
+				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["rollouts-pod-template-hash"])
+				deployMeta.Name = name
+				typeMetadata.Kind = "Rollout"
+				typeMetadata.APIVersion = "v1alpha1"
 			} else if typeMetadata.Kind == "ReplicationController" && pod.Labels["deploymentconfig"] != "" {
 				// If the pod is controlled by the replication controller, which is created by the DeploymentConfig resource in
 				// Openshift platform, set the deploy name to the deployment config's name, and the kind to 'DeploymentConfig'.
@@ -292,16 +299,14 @@ func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) 
 				// https://github.com/openshift/library-go/blob/7a65fdb398e28782ee1650959a5e0419121e97ae/pkg/apps/appsutil/const.go#L25
 				deployMeta.Name = pod.Labels["deploymentconfig"]
 				typeMetadata.Kind = "DeploymentConfig"
-				delete(deployMeta.Labels, "deploymentconfig")
 			} else if typeMetadata.Kind == "Job" {
 				// If job name suffixed with `-<digit-timestamp>`, where the length of digit timestamp is 8~10,
 				// trim the suffix and set kind to cron job.
 				if jn := cronJobNameRegexp.FindStringSubmatch(controllerRef.Name); len(jn) == 2 {
 					deployMeta.Name = jn[1]
 					typeMetadata.Kind = "CronJob"
-					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
-					// Cronjob is not GA yet and latest version is v1beta1: https://github.com/kubernetes/enhancements/pull/978
-					typeMetadata.APIVersion = "batch/v1beta1"
+					// heuristically set cron job api version to v1 as it cannot be derived from pod metadata.
+					typeMetadata.APIVersion = "batch/v1"
 				}
 			}
 		}
@@ -498,4 +503,17 @@ func sanitizeKubeConfig(config api.Config, allowlist sets.String) error {
 		//   entirely local
 	}
 	return nil
+}
+
+type Syncer interface {
+	HasSynced() bool
+}
+
+func AllSynced[T Syncer](syncers []T) bool {
+	for _, h := range syncers {
+		if !h.HasSynced() {
+			return false
+		}
+	}
+	return true
 }

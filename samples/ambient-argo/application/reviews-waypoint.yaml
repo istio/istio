@@ -1,8 +1,6 @@
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  annotations:
-    istio.io/for-service-account: bookinfo-reviews
   labels:
     istio.io/rev: rapid
   name: bookinfo-reviews
