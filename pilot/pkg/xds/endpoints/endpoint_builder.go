@@ -651,23 +651,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
-	address, port := e.Address, int(e.EndpointPort)
-	tunnel := supportTunnel(b, e)
-	// Setup tunnel information, if needed
-	// This is for waypoint
-	if b.dir == model.TrafficDirectionInboundVIP {
-		// This is a waypoint generating endpoints for service traffic
-		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
-		if tunnel {
-			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
-			// and add some detunnel metadata that had the original port.
-			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port)
-			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
-			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
-				Value: e.GetLoadBalancingWeight(),
-			}
-		}
-	} else if tunnel {
+	if supportTunnel(b, e) {
+		address, port := e.Address, int(e.EndpointPort)
 		// We intentionally do not take into account waypoints here.
 		// 1. Workload waypoints: sidecar/ingress do not support sending traffic directly to workloads, only to services,
 		//    so these are not applicable.
@@ -685,10 +670,14 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(port))),
 		}}
 		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port)
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
-			},
+		if b.dir != model.TrafficDirectionInboundVIP {
+			// Add TLS metadata matcher to indicate we can use HBONE for this endpoint.
+			// We skip this for service waypoint, which doesn't need to dynamically match mTLS vs HBONE.
+			ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+				},
+			}
 		}
 	}
 
