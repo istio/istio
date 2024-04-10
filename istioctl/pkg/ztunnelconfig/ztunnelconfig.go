@@ -1,3 +1,17 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ztunnelconfig
 
 import (
@@ -12,6 +26,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/istioctl/pkg/kubeinject"
@@ -43,8 +58,6 @@ var (
 	configDumpFile string
 
 	labelSelector = ""
-
-	loggerName string
 )
 
 func ZtunnelConfig(ctx cli.Context) *cobra.Command {
@@ -263,7 +276,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 				}
 			}
 			for _, pod := range podNames {
-				loggerName, err = setupEnvoyLogConfig(kubeClient, "", pod, podNamespace)
+				_, err = setupEnvoyLogConfig(kubeClient, "", pod, podNamespace)
 				if err != nil {
 					return err
 				}
