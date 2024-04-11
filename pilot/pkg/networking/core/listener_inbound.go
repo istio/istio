@@ -181,7 +181,14 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	// entire listeners makes the errors logs more confusing (instead of "no filter chain found" we have no listener at all).
 	if len(l.FilterChains) == 0 {
 		l.FilterChains = []*listener.FilterChain{{
-			FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "never-match"},
+			Name: model.VirtualInboundBlackholeFilterChainName,
+			Filters: []*listener.Filter{{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
+					StatPrefix:       util.BlackHoleCluster,
+					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+				})},
+			}},
 		}}
 	}
 	lb.authzBuilder = oldBuilder
