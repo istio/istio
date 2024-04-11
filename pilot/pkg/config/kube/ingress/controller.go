@@ -19,7 +19,6 @@ package ingress
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 	"sync"
 
@@ -187,13 +186,8 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 	// we should check need process only when event is not delete,
 	// if it is delete event, and previously processed, we need to process too.
 	if event != model.EventDelete {
-		oldIngress := c.ingresses[config.NamespacedName(ing)]
 		shouldProcess := c.shouldProcessIngressUpdate(ing)
 		if !shouldProcess {
-			return nil
-		}
-		// only trigger when real changes were found
-		if oldIngress != nil && reflect.DeepEqual(oldIngress.Spec, ing.Spec) {
 			return nil
 		}
 	}
@@ -212,6 +206,7 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 	}
 
 	// Trigger updates for Gateway and VirtualService
+	// TODO: we could be smarter here and only trigger when real changes were found
 	for _, f := range c.virtualServiceHandlers {
 		f(config.Config{Meta: vsmetadata}, config.Config{Meta: vsmetadata}, event)
 	}
