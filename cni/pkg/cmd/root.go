@@ -42,7 +42,11 @@ import (
 
 var (
 	logOptions   = log.DefaultOptions()
-	ctrlzOptions = ctrlz.DefaultOptions()
+	ctrlzOptions = func() *ctrlz.Options {
+		o := ctrlz.DefaultOptions()
+		o.EnablePprof = true
+		return o
+	}()
 )
 
 var rootCmd = &cobra.Command{
