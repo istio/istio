@@ -302,13 +302,16 @@ func IgnoreNotFound(err error) error {
 
 // EventHandler mirrors ResourceEventHandlerFuncs, but takes typed T objects instead of any.
 type EventHandler[T Object] struct {
-	AddFunc    func(obj T)
-	UpdateFunc func(oldObj, newObj T)
-	DeleteFunc func(obj T)
+	AddFunc         func(obj T)
+	AddExtendedFunc func(obj T, initialSync bool)
+	UpdateFunc      func(oldObj, newObj T)
+	DeleteFunc      func(obj T)
 }
 
-func (e EventHandler[T]) OnAdd(obj interface{}, _ bool) {
-	if e.AddFunc != nil {
+func (e EventHandler[T]) OnAdd(obj interface{}, initialSync bool) {
+	if e.AddExtendedFunc != nil {
+		e.AddExtendedFunc(Extract[T](obj), initialSync)
+	} else if e.AddFunc != nil {
 		e.AddFunc(Extract[T](obj))
 	}
 }
