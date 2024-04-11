@@ -29,6 +29,7 @@ import (
 	"html/template"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"strings"
 	"sync"
@@ -116,19 +117,9 @@ func normalize(input string) string {
 	return strings.Replace(input, "/", "-", -1)
 }
 
-// RegisterTopic registers a new Control-Z topic for the current process.
-func RegisterTopic(t fw.Topic) {
-	topicMutex.Lock()
-	defer topicMutex.Unlock()
-
-	allTopics = append(allTopics, t)
-}
-
 // Run starts up the ControlZ listeners.
 //
-// ControlZ uses the set of standard core topics, the
-// supplied custom topics, as well as any topics registered
-// via the RegisterTopic function.
+// ControlZ uses the set of standard core topics.
 func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 	topicMutex.Lock()
 	allTopics = append(allTopics, coreTopics...)
@@ -156,6 +147,13 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 		registerTopic(router, mainLayout, t)
 	}
 
+	if o.EnablePprof && o.Address == "localhost" {
+		router.NewRoute().PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
+		router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		router.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		router.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 	registerHome(router, mainLayout)
 
 	addr := o.Address
