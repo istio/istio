@@ -439,8 +439,5 @@ func namespaceIsLabeledAmbient(kubeClient kube.CLIClient, ns string) (bool, erro
 	if nsObj.Labels == nil {
 		return false, nil
 	}
-	if nsObj.Labels[constants.DataplaneMode] == constants.DataplaneModeAmbient {
-		return true, nil
-	}
-	return false, nil
+	return nsObj.Labels[constants.DataplaneMode] == constants.DataplaneModeAmbient, nil
 }
