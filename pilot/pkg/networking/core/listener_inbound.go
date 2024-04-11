@@ -177,6 +177,13 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		}
 		l.FilterChains = append(l.FilterChains, chains...)
 	}
+	// If there are no filter chains, populate a dummy one that never matches. Envoy doesn't allow no chains, but removing the
+	// entire listeners makes the errors logs more confusing (instead of "no filter chain found" we have no listener at all).
+	if len(l.FilterChains) == 0 {
+		l.FilterChains = []*listener.FilterChain{{
+			FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "never-match"},
+		}}
+	}
 	lb.authzBuilder = oldBuilder
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	l.ListenerFilters = append(l.ListenerFilters, xdsfilters.OriginalDestination)
