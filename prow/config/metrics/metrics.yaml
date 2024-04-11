@@ -1,5 +1,5 @@
-# Created with `curl -Ls https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.4.4/components.yaml > prow/config/metrics/metrics.yaml`
-# And special patches noted below
+# Created with `curl -Ls https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.7.1/components.yaml > prow/config/metrics/metrics.yaml`
+# With a startup probe and `--kubelet-insecure-tls` added.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -38,11 +38,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes/metrics
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
   - pods
   - nodes
-  - nodes/stats
-  - namespaces
-  - configmaps
   verbs:
   - get
   - list
@@ -132,11 +135,12 @@ spec:
       containers:
       - args:
         - --cert-dir=/tmp
-        - --secure-port=4443
+        - --secure-port=10250
         - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
         - --kubelet-use-node-status-port
+        - --metric-resolution=15s
         - --kubelet-insecure-tls
-        image: registry.k8s.io/metrics-server/metrics-server:v0.4.4
+        image: registry.k8s.io/metrics-server/metrics-server:v0.7.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -147,7 +151,7 @@ spec:
           periodSeconds: 10
         name: metrics-server
         ports:
-        - containerPort: 4443
+        - containerPort: 10250
           name: https
           protocol: TCP
         readinessProbe:
@@ -156,11 +160,30 @@ spec:
             path: /readyz
             port: https
             scheme: HTTPS
+          initialDelaySeconds: 0
           periodSeconds: 10
+        startupProbe:
+          httpGet:
+            path: /readyz
+            port: https
+            scheme: HTTPS
+          failureThreshold: 600
+          initialDelaySeconds: 0
+          periodSeconds: 1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 200Mi
         securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
           readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 1000
+          seccompProfile:
+            type: RuntimeDefault
         volumeMounts:
         - mountPath: /tmp
           name: tmp-dir
