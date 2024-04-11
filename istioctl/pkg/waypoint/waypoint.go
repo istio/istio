@@ -148,8 +148,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					return fmt.Errorf("failed to check if namespace is labeled ambient: %v", err)
 				}
 				if !namespaceIsLabeledAmbient {
-					fmt.Fprintln(cmd.OutOrStdout(), "Warning: namespace is not enrolled in ambient. Consider running\t"+
-						"`"+"kubectl label namespace default istio.io/dataplane-mode=ambient"+"`")
+					fmt.Fprintf(cmd.OutOrStdout(), "Warning: namespace is not enrolled in ambient. Consider running\t"+
+						"`"+"kubectl label namespace %s istio.io/dataplane-mode=ambient"+"`", ns)
 					return nil
 				}
 			}
