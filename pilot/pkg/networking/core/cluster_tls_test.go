@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -47,15 +46,15 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 	}
 	mutualTLSSettingsWithCerts := &networking.ClientTLSSettings{
 		Mode:              networking.ClientTLSSettings_MUTUAL,
-		CaCertificates:    constants.DefaultRootCert,
-		ClientCertificate: constants.DefaultCertChain,
-		PrivateKey:        constants.DefaultKey,
+		CaCertificates:    "root-cert.pem",
+		ClientCertificate: "cert-chain.pem",
+		PrivateKey:        "key.pem",
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
 	simpleTLSSettingsWithCerts := &networking.ClientTLSSettings{
 		Mode:            networking.ClientTLSSettings_SIMPLE,
-		CaCertificates:  constants.DefaultRootCert,
+		CaCertificates:  "root-cert.pem",
 		SubjectAltNames: []string{"custom.foo.com"},
 		Sni:             "custom.foo.com",
 	}

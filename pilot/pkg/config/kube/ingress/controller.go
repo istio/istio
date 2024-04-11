@@ -90,7 +90,7 @@ type controller struct {
 	services kclient.Client[*corev1.Service]
 }
 
-var IngressNamespace = env.Register("K8S_INGRESS_NS", constants.IstioIngressNamespace, "").Get()
+var IngressNamespace = env.Register("K8S_INGRESS_NS", constants.IstioSystemNamespace, "").Get()
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 
