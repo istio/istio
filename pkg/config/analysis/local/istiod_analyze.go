@@ -62,7 +62,7 @@ type IstiodAnalyzer struct {
 	// fileSource contains all file bases sources
 	fileSource *file.KubeSource
 
-	analyzer       *analysis.CombinedAnalyzer
+	analyzer       analysis.CombinedAnalyzer
 	namespace      resource.Namespace
 	istioNamespace resource.Namespace
 
@@ -88,14 +88,14 @@ type IstiodAnalyzer struct {
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
-func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace, cr CollectionReporterFn) *IstiodAnalyzer {
+func NewSourceAnalyzer(analyzer analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace, cr CollectionReporterFn) *IstiodAnalyzer {
 	return NewIstiodAnalyzer(analyzer, namespace, istioNamespace, cr)
 }
 
 // NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
+func NewIstiodAnalyzer(analyzer analysis.CombinedAnalyzer, namespace,
 	istioNamespace resource.Namespace, cr CollectionReporterFn,
 ) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
@@ -131,7 +131,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 	return sa.internalAnalyze(sa.analyzer, cancel)
 }
 
-func (sa *IstiodAnalyzer) internalAnalyze(a *analysis.CombinedAnalyzer, cancel <-chan struct{}) (AnalysisResult, error) {
+func (sa *IstiodAnalyzer) internalAnalyze(a analysis.CombinedAnalyzer, cancel <-chan struct{}) (AnalysisResult, error) {
 	store := sa.initializedStore
 
 	var result AnalysisResult
