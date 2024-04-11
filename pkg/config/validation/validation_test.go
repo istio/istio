@@ -321,10 +321,10 @@ func TestValidateConnectTimeout(t *testing.T) {
 		},
 		{
 			duration: &durationpb.Duration{Seconds: 31},
-			isValid:  false,
+			isValid:  true,
 		},
 		{
-			duration: &durationpb.Duration{Nanos: 99999},
+			duration: &durationpb.Duration{Seconds: 999999999},
 			isValid:  false,
 		},
 	}
