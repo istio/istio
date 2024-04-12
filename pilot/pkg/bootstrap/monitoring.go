@@ -59,9 +59,6 @@ var (
 func init() {
 	pilotVersion.With(versionTag.Value(version.Info.String())).Record(1)
 
-	monitoring.MustRegister(
-		connectionTotal,
-	)
 	connectionTotal.RecordInt(0)
 }
 

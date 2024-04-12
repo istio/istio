@@ -1352,11 +1352,12 @@ func (s *Server) initReadinessProbes() {
 }
 
 func (s *Server) StreamServerOverloadInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	connectionTotal.RecordInt(s.connectionCounter.Add(1))
+	current := s.connectionCounter.Add(1)
+	connectionTotal.RecordInt(current)
 	defer func() {
 		connectionTotal.RecordInt(s.connectionCounter.Add(-1))
 	}()
-	if features.ConnectionLimit > 0 && int64(features.ConnectionLimit) < s.connectionCounter.Load() {
+	if features.ConnectionLimit > 0 && int64(features.ConnectionLimit) < current {
 		return grpcstatus.Errorf(codes.ResourceExhausted, "connection limit exceeded")
 	}
 	err := handler(srv, ss)

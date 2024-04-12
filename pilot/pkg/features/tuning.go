@@ -26,7 +26,8 @@ var (
 	ConnectionLimit = env.RegisterIntVar(
 		"PILOT_MAX_CONNECTION",
 		0,
-		"Limits the number of incoming ADS connection.",
+		"Limits the number of incoming ADS connection. "+
+			"If set to 0 or unset, unlimited connections",
 	).Get()
 
 	MaxConcurrentStreams = env.Register(
