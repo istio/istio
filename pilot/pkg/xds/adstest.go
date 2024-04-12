@@ -16,6 +16,7 @@ package xds
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -147,6 +148,22 @@ func (a *AdsTest) ExpectResponse(t test.Failer) *discovery.DiscoveryResponse {
 	return nil
 }
 
+// HasResponse waits until a response is received and returns it, no panic
+func (a *AdsTest) HasResponse(t test.Failer) (*discovery.DiscoveryResponse, error) {
+	t.Helper()
+	select {
+	case <-time.After(a.timeout):
+		return nil, fmt.Errorf("did not get response in time")
+	case resp := <-a.responses:
+		if resp == nil || len(resp.Resources) == 0 {
+			t.Fatalf("got empty response")
+		}
+		return resp, nil
+	case err := <-a.error:
+		return nil, err
+	}
+}
+
 // ExpectError waits until an error is received and returns it
 func (a *AdsTest) ExpectError(t test.Failer) error {
 	t.Helper()
@@ -159,15 +176,15 @@ func (a *AdsTest) ExpectError(t test.Failer) error {
 	return nil
 }
 
+// HasError waits until an error is received and returns it, no panic
 func (a *AdsTest) HasError(t test.Failer) error {
 	t.Helper()
 	select {
 	case <-time.After(a.timeout):
-		t.Logf("did not get error in time")
+		return nil
 	case err := <-a.error:
 		return err
 	}
-	return nil
 }
 
 // ExpectNoResponse waits a short period of time and ensures no response is received

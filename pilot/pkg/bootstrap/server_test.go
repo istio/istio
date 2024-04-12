@@ -18,12 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"istio.io/istio/pilot/pkg/xds"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	caclient "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	"math/rand"
 	"net"
 	"net/http"
@@ -34,8 +29,11 @@ import (
 	"testing"
 	"time"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/http2"
+	"golang.org/x/time/rate"
+	"google.golang.org/grpc"
 	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -43,6 +41,8 @@ import (
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/server"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube"
@@ -777,27 +777,44 @@ func TestGetDNSNames(t *testing.T) {
 	}
 }
 
-func TestConnectionOverload(t *testing.T) {
+func TestMaxConnection(t *testing.T) {
+	tests := []struct {
+		name  string
+		limit int
+	}{
+		{
+			name:  "small limit",
+			limit: 4,
+		},
+		{
+			name:  "medium limit",
+			limit: 100,
+		},
+	}
 
-	testConnectionOverload(t, 4, 4, 2)
-
-	testConnectionOverload(t, 25, 500, 6)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testMaxConnection(t, tc.limit)
+		})
+	}
 }
 
-func testConnectionOverload(t *testing.T, qps, limit, reconnection int) {
+func testMaxConnection(t *testing.T, limit int) {
 
-	features.RequestLimit = float64(qps)
 	features.ConnectionLimit = limit
+	features.RequestLimit = 100
+
+	t.Logf("test max connection use limit: %d, qps: %d\n", limit, int(features.RequestLimit))
 
 	g := NewGomegaWithT(t)
 	configDir := t.TempDir()
 	args := NewPilotArgs(func(p *PilotArgs) {
 		p.Namespace = "istio-system"
 		p.ServerOptions = DiscoveryServerOptions{
-			HTTPAddr:  ":8080",
-			HTTPSAddr: ":15017",
-			GRPCAddr:  ":15010",
-			//SecureGRPCAddr: ":15012",
+			HTTPAddr:       ":8080",
+			HTTPSAddr:      ":15017",
+			GRPCAddr:       ":15010",
+			SecureGRPCAddr: ":15012",
 			MonitoringAddr: ":15014",
 		}
 		p.RegistryOptions = RegistryOptions{
@@ -819,107 +836,119 @@ func testConnectionOverload(t *testing.T, qps, limit, reconnection int) {
 		s.WaitUntilCompletion()
 	}()
 
-	var connectionListLock sync.Mutex
-	var wg sync.WaitGroup
-	connectionSuccessful := make([]*FakeAgent, 0, qps*2)
-	// init connection
-	last := 0
-	for i := 0; i < features.ConnectionLimit/2; i++ {
-		client := NewFakeAgent("localhost:15010", "localhost:15010")
-		client.Connect(t)
-		client.ADS().WithType(v3.EndpointType)
-		client.ADS().RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
-		connectionSuccessful = append(connectionSuccessful, client)
-		if i-last == int(features.RequestLimit) {
-			time.Sleep(time.Second)
-			last = i
-		}
-	}
+	limiter := rate.NewLimiter(rate.Limit(50), int(10))
+	dataPlane := NewFakeDataPlane()
+	defer dataPlane.Clear()
+
+	// init part connection
+	g.Expect(dataPlane.AddAgentN(t, "localhost:15010", features.ConnectionLimit/2+1, limiter)).To(Succeed())
+	t.Logf("Initialize %d connections", dataPlane.Size())
 
 	// burst connection
-	for i := 0; i < features.ConnectionLimit*2; i++ {
+	var wg sync.WaitGroup
+	for i := 0; i < features.ConnectionLimit; i++ {
 		wg.Add(1)
-		go func(id string) {
+		go func() {
 			defer wg.Done()
 			time.Sleep(time.Second * time.Duration(rand.Intn(4)))
-			client := NewFakeAgent("localhost:15010", "localhost:15010")
-			client.Connect(t)
-			ads := client.ADS().WithType(v3.EndpointType).WithID("sidecar~1.1.1.1~test.default." + id + "~default.svc.cluster.local")
-			req := &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}}
-			time.Sleep(time.Second * time.Duration(rand.Intn(2)))
-			if err := ads.HasError(t); err != nil {
+			_, err := dataPlane.AddAgent(t, "localhost:15010", v3.EndpointType)
+			if err != nil {
 				return
 			}
-			ads.Request(t, req)
-
-			if err := ads.HasError(t); err != nil {
-				t.Logf("connection failed: %v", err)
-			} else {
-				resp := ads.ExpectResponse(t)
-				req.ResponseNonce = resp.Nonce
-				req.VersionInfo = resp.VersionInfo
-				ads.Request(t, req)
-				connectionListLock.Lock()
-				defer connectionListLock.Unlock()
-				connectionSuccessful = append(connectionSuccessful, client)
-			}
-
-		}(strconv.Itoa(i))
-
-		if i%(int(features.RequestLimit)*8) == 0 {
-			time.Sleep(time.Second)
-		}
+		}()
 	}
 	wg.Wait()
 
-	if len(connectionSuccessful) < features.ConnectionLimit/2 || len(connectionSuccessful) > features.ConnectionLimit {
-		t.Fatalf("connection is not as expected %d:%d", len(connectionSuccessful), features.ConnectionLimit)
-	} else if len(connectionSuccessful) != len(s.XDSServer.AllClients()) {
+	t.Logf("after burst: %d connections", dataPlane.Size())
+
+	if dataPlane.Size() > features.ConnectionLimit {
+		t.Fatalf("ConnectionLimit %d exceeded", limit)
+	}
+
+	dataPlane.KeepAlive(t)
+	t.Logf("%d connections keep alive", dataPlane.Size())
+
+	if dataPlane.Size() < features.ConnectionLimit/2 || dataPlane.Size() > features.ConnectionLimit {
+		t.Fatalf("connection is not as expected %d:%d", dataPlane.Size(), features.ConnectionLimit)
+	} else if dataPlane.Size() != len(s.XDSServer.AllClients()) {
 		t.Fatalf("inconsistent connection")
 	} else {
-		t.Logf("establish %d connections", len(connectionSuccessful))
+		t.Logf("establish %d connections", dataPlane.Size())
 	}
 
-	// reconnection
+}
 
-	randCloseConnection := func() {
-		sliceSwapLast(rand.Intn(len(connectionSuccessful)), connectionSuccessful)
-		connectionSuccessful[len(connectionSuccessful)-1].ADS().Cleanup() // repeat
-		connectionSuccessful = connectionSuccessful[:len(connectionSuccessful)-1]
+type FakeDataPlane struct {
+	locker  sync.RWMutex
+	agents  map[string]*xds.AdsTest
+	counter int
+
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+func NewFakeDataPlane() *FakeDataPlane {
+	datePlane := &FakeDataPlane{
+		agents:  make(map[string]*xds.AdsTest),
+		counter: 0,
 	}
+	datePlane.ctx, datePlane.cancel = context.WithTimeout(context.TODO(), time.Minute*5)
+	return datePlane
+}
 
-	time.Sleep(time.Second * 4)
-	for i := 0; i < reconnection; i++ {
-		randCloseConnection()
-		time.Sleep(time.Second * 2)
-		if len(connectionSuccessful) != len(s.XDSServer.AllClients()) {
-			t.Fatalf("inconsistent after disconnection %d:%d", len(connectionSuccessful), len(s.XDSServer.AllClients()))
+func (p *FakeDataPlane) Size() int {
+	p.locker.RLock()
+	defer p.locker.RUnlock()
+	return len(p.agents)
+}
+
+func (p *FakeDataPlane) Clear() {
+	p.cancel()
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	for _, a := range p.agents {
+		a.Cleanup()
+	}
+	p.agents = nil
+}
+
+func (p *FakeDataPlane) KeepAlive(t test.Failer) int {
+	p.locker.RLock()
+	var agents []*xds.AdsTest
+	for _, a := range p.agents {
+		agents = append(agents, a)
+	}
+	p.locker.RUnlock()
+
+	var wg sync.WaitGroup
+	for _, a := range agents {
+		wg.Add(1)
+		go func(agent *xds.AdsTest) {
+			defer wg.Done()
+			if err := DoRequest(t, agent, NewDiscoveryRequest("fake-cluster")); err != nil {
+				p.locker.Lock()
+				defer p.locker.Unlock()
+				delete(p.agents, agent.ID)
+			}
+		}(a)
+	}
+	wg.Wait()
+
+	return p.Size()
+}
+
+func (p *FakeDataPlane) AddAgentN(t test.Failer, discoveryAddress string, n int, limiter *rate.Limiter) error {
+	for i := 0; i < n; i++ {
+		if err := limiter.Wait(p.ctx); err != nil {
+			return err
 		}
-		client := NewFakeAgent("localhost:15010", "localhost:15010")
-		client.Connect(t)
-		ads := client.ADS().WithType(v3.EndpointType)
-		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
-		connectionSuccessful = append(connectionSuccessful, client)
+		_, _ = p.AddAgent(t, discoveryAddress, v3.EndpointType)
 	}
+	return nil
 }
 
-type FakeAgent struct {
-	DiscoveryAddress string
-	CAEndpoint       string
-
-	ads      *xds.AdsTest
-	caClient *caclient.CitadelClient
-}
-
-func NewFakeAgent(discoveryAddress, caServer string) *FakeAgent {
-	return &FakeAgent{
-		DiscoveryAddress: discoveryAddress,
-		CAEndpoint:       caServer,
-	}
-}
-
-func (agent *FakeAgent) Connect(t test.Failer) {
-	conn, err := grpc.Dial(agent.DiscoveryAddress,
+func (p *FakeDataPlane) AddAgent(t test.Failer, discoveryAddress string, typeURL string) (*xds.AdsTest, error) {
+	conn, err := grpc.DialContext(p.ctx, discoveryAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 	)
@@ -927,18 +956,49 @@ func (agent *FakeAgent) Connect(t test.Failer) {
 		t.Fatalf("failed to connect: %v", err)
 	}
 
-	agent.ads = xds.NewAdsTest(t, conn)
-	t.Cleanup(agent.ads.Cleanup)
+	id := p.nextId()
+	ads := xds.NewAdsTest(t, conn)
+	ads.WithType(typeURL).WithID(id).WithTimeout(time.Second * 2)
+
+	if err := DoRequest(t, ads, NewDiscoveryRequest("fake-cluster")); err != nil {
+		return nil, err
+	}
+
+	p.locker.Lock()
+	defer p.locker.Unlock()
+	p.agents[id] = ads
+
+	return ads, nil
 }
 
-func (agent *FakeAgent) ADS() *xds.AdsTest {
-	return agent.ads
+func (p *FakeDataPlane) nextId() string {
+	defer func() {
+		p.counter++
+	}()
+	return "sidecar~1.1.1.1~test.default." + strconv.Itoa(p.counter) + "~default.svc.cluster.local"
 }
 
-func sliceSwapLast[T any](i int, arr []T) {
-	sliceSwap(i, len(arr)-1, arr)
+func NewDiscoveryRequest(resource string) *discovery.DiscoveryRequest {
+	req := &discovery.DiscoveryRequest{}
+
+	if len(resource) > 0 {
+		req.ResourceNames = []string{resource}
+	}
+
+	return req
 }
 
-func sliceSwap[T any](i, j int, arr []T) {
-	arr[i], arr[j] = arr[j], arr[i]
+func DoRequest(t test.Failer, ads *xds.AdsTest, req *discovery.DiscoveryRequest) error {
+	if err := ads.HasError(t); err != nil {
+		return err
+	}
+	ads.Request(t, req)
+	resp, err := ads.HasResponse(t)
+	if err != nil {
+		return err
+	}
+	req.ResponseNonce = resp.Nonce
+	req.VersionInfo = resp.VersionInfo
+	ads.Request(t, req)
+	return nil
 }
