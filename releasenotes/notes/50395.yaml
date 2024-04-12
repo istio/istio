@@ -5,4 +5,4 @@ issue:
   - 50396
 releaseNotes:
 - |
-  **Added** Warn user in standard out when `x waypoint apply --enroll-namespace` is called and namespace is not labeled ambient.
+  **Added** Warn user in standard out when `istioctl experimental waypoint apply --enroll-namespace` is called and namespace is not labeled ambient.
