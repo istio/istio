@@ -58,7 +58,7 @@ var (
 	verboseProxyConfig      bool
 	waypointProxyConfig     bool
 
-	address, listenerType, statsType, node string
+	address, listenerType, statsType string
 
 	routeName string
 
