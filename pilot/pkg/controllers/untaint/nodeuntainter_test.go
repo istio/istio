@@ -60,8 +60,8 @@ func newNodeUntainterTestServer(t *testing.T) *nodeTainterTestServer {
 
 	nodeUntainter := NewNodeUntainter(stop, client, systemNS, systemNS)
 	go nodeUntainter.Run(stop)
-	go client.Informers().Start(stop)
-	kubelib.WaitForCacheSync("test", stop, nodeUntainter.nodesClient.HasSynced, nodeUntainter.podsClient.HasSynced)
+	client.RunAndWait(stop)
+	kubelib.WaitForCacheSync("test", stop, nodeUntainter.HasSynced)
 
 	pc := clienttest.Wrap(t, nodeUntainter.podsClient)
 	nc := clienttest.Wrap(t, nodeUntainter.nodesClient)
