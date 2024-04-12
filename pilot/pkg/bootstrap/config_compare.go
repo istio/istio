@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 )
 
 // needsPush checks whether the passed in config has same spec and hence push needs
@@ -35,27 +36,11 @@ func needsPush(prev config.Config, curr config.Config) bool {
 	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") {
 		return true
 	}
-	// If current/previous metadata has "*istio.io" label/annotation, just push
-	for label := range curr.Meta.Labels {
-		if strings.Contains(label, "istio.io") {
-			return true
-		}
+
+	if _, ok := curr.Labels[constants.AlwaysPushLabel]; ok {
+		return true
 	}
-	for annotation := range curr.Meta.Annotations {
-		if strings.Contains(annotation, "istio.io") {
-			return true
-		}
-	}
-	for label := range prev.Meta.Labels {
-		if strings.Contains(label, "istio.io") {
-			return true
-		}
-	}
-	for annotation := range prev.Meta.Annotations {
-		if strings.Contains(annotation, "istio.io") {
-			return true
-		}
-	}
+
 	prevspecProto, okProtoP := prev.Spec.(proto.Message)
 	currspecProto, okProtoC := curr.Spec.(proto.Message)
 	if okProtoP && okProtoC {
