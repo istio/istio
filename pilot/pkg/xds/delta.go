@@ -336,6 +336,8 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		return false
 	}
 
+	deltaLog.Debugf("ADS:%s REQUEST %v: sub:%v unsub:%v initial:%v", stype, con.conID,
+		request.ResourceNamesSubscribe, request.ResourceNamesUnsubscribe, request.InitialResourceVersions)
 	previousInfo := con.proxy.GetWatchedResource(request.TypeUrl)
 
 	// This can happen in two cases:
