@@ -860,7 +860,6 @@ type AmbientIndexes interface {
 	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
 	ServicesForWaypoint(WaypointKey) []ServiceInfo
-	Waypoint(network, address string) []netip.Addr
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
 }
 

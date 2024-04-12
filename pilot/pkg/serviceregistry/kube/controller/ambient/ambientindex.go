@@ -46,7 +46,6 @@ type Index interface {
 	All() []model.AddressInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
-	Waypoint(network, address string) []netip.Addr
 	SyncAll()
 	HasSynced() bool
 	model.AmbientIndexes
@@ -408,29 +407,6 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	})
 	workloads = model.SortWorkloadsByCreationTime(workloads)
 	return workloads
-}
-
-func (a *index) Waypoint(network, address string) []netip.Addr {
-	res := sets.Set[netip.Addr]{}
-	networkAddr := networkAddress{
-		network: network,
-		ip:      address,
-	}
-	addressInfos := a.Lookup(networkAddr.String())
-	for _, addressInfo := range addressInfos {
-		waypointAddress := addressInfo.GetService().GetWaypoint().GetAddress().GetAddress()
-		if a, ok := netip.AddrFromSlice(waypointAddress); ok {
-			res.Insert(a)
-			// This was a service, therefore it is not a workload and we can just move on
-			continue
-		}
-
-		waypointAddress = addressInfo.GetWorkload().GetWaypoint().GetAddress().GetAddress()
-		if a, ok := netip.AddrFromSlice(waypointAddress); ok {
-			res.Insert(a)
-		}
-	}
-	return res.UnsortedList()
 }
 
 func (a *index) AdditionalPodSubscriptions(

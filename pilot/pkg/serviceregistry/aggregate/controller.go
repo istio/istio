@@ -15,7 +15,6 @@
 package aggregate
 
 import (
-	"net/netip"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -61,17 +60,6 @@ func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceI
 	var res []model.ServiceInfo
 	for _, p := range c.GetRegistries() {
 		res = append(res, p.ServicesForWaypoint(key)...)
-	}
-	return res
-}
-
-func (c *Controller) Waypoint(network, address string) []netip.Addr {
-	if !features.EnableAmbientWaypoints {
-		return nil
-	}
-	var res []netip.Addr
-	for _, p := range c.GetRegistries() {
-		res = append(res, p.Waypoint(network, address)...)
 	}
 	return res
 }

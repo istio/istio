@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -2450,10 +2449,6 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 		}
 	}
 	return false
-}
-
-func (ps *PushContext) WaypointsFor(network, address string) []netip.Addr {
-	return ps.ambientIndex.Waypoint(network, address)
 }
 
 // WorkloadsForWaypoint returns all workloads associated with a given waypoint identified by it's WaypointKey
