@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"go.uber.org/atomic"
+	"sigs.k8s.io/gateway-api/pkg/consts"
 
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
@@ -83,4 +84,32 @@ func TestCRDWatcher(t *testing.T) {
 	clienttest.MakeCRD(t, c, gvr.ServiceAccount)
 	// And call the callback when the CRD is created
 	assert.EventuallyEqual(t, saCalls.Load, 1)
+}
+
+func TestCRDWatcherMinimumVersion(t *testing.T) {
+	stop := test.NewStop(t)
+	c := kube.NewFakeClient()
+
+	clienttest.MakeCRDWithAnnotations(t, c, gvr.GRPCRoute, map[string]string{
+		consts.BundleVersionAnnotation: "v1.0.0",
+	})
+	calls := atomic.NewInt32(0)
+
+	ctl := c.CrdWatcher()
+	// Created before informer runs: not ready yet
+	assert.Equal(t, ctl.KnownOrCallback(gvr.GRPCRoute, func(s <-chan struct{}) {
+		assert.Equal(t, s, stop)
+		calls.Inc()
+	}), false)
+
+	c.RunAndWait(stop)
+
+	// Still not ready
+	assert.Equal(t, calls.Load(), 0)
+
+	// Upgrade it to v1.1, which is allowed
+	clienttest.MakeCRDWithAnnotations(t, c, gvr.GRPCRoute, map[string]string{
+		consts.BundleVersionAnnotation: "v1.1.0",
+	})
+	assert.EventuallyEqual(t, calls.Load, 1)
 }
