@@ -953,7 +953,7 @@ func (p *FakeDataPlane) AddAgent(t test.Failer, discoveryAddress string, typeURL
 		t.Fatalf("failed to connect: %v", err)
 	}
 
-	id := p.nextId()
+	id := p.nextID()
 	ads := xds.NewAdsTest(t, conn)
 	ads.WithType(typeURL).WithID(id).WithTimeout(time.Second * 2)
 
@@ -968,7 +968,7 @@ func (p *FakeDataPlane) AddAgent(t test.Failer, discoveryAddress string, typeURL
 	return ads, nil
 }
 
-func (p *FakeDataPlane) nextId() string {
+func (p *FakeDataPlane) nextID() string {
 	defer func() {
 		p.counter++
 	}()
