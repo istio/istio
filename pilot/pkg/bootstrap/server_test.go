@@ -800,7 +800,6 @@ func TestMaxConnection(t *testing.T) {
 }
 
 func testMaxConnection(t *testing.T, limit int) {
-
 	features.ConnectionLimit = limit
 	features.RequestLimit = 100
 
@@ -822,7 +821,6 @@ func testMaxConnection(t *testing.T, limit int) {
 		}
 
 		p.ShutdownDuration = 1 * time.Millisecond
-
 	})
 
 	s, err := NewServer(args, func(s *Server) {
@@ -875,7 +873,6 @@ func testMaxConnection(t *testing.T, limit int) {
 	} else {
 		t.Logf("establish %d connections", dataPlane.Size())
 	}
-
 }
 
 type FakeDataPlane struct {
