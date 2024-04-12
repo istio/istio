@@ -16,8 +16,8 @@ package model
 
 import (
 	authpb "istio.io/api/security/v1beta1"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type AuthorizationPolicy struct {
@@ -25,6 +25,10 @@ type AuthorizationPolicy struct {
 	Namespace   string                      `json:"namespace"`
 	Annotations map[string]string           `json:"annotations"`
 	Spec        *authpb.AuthorizationPolicy `json:"spec"`
+}
+
+func (ap *AuthorizationPolicy) NamespacedName() types.NamespacedName {
+  return types.NamespacedName{Name: ap.Name, Namespace: ap.Namespace}
 }
 
 // AuthorizationPolicies organizes AuthorizationPolicy by namespace.
@@ -66,14 +70,13 @@ type AuthorizationPoliciesResult struct {
 }
 
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts WorkloadSelectionOpts) AuthorizationPoliciesResult {
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts WorkloadPolicyMatcher) AuthorizationPoliciesResult {
 	configs := AuthorizationPoliciesResult{}
 	if policy == nil {
 		return configs
 	}
 	rootNamespace := policy.RootNamespace
 	namespace := selectionOpts.Namespace
-	workloadLabels := selectionOpts.WorkloadLabels
 	var lookupInNamespaces []string
 
 	if namespace != rootNamespace {
@@ -87,15 +90,10 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 	for _, ns := range lookupInNamespaces {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
-			switch getPolicyMatcher(gvk.AuthorizationPolicy, config.Name, selectionOpts, spec) {
-			case policyMatchSelector:
-				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-				if selector.SubsetOf(workloadLabels) {
+
+      if selectionOpts.ShouldAttachPolicy(gvk.AuthorizationPolicy, config.NamespacedName(), spec) {
 					configs = updateAuthorizationPoliciesResult(configs, config)
-				}
-			case policyMatchDirect:
-				configs = updateAuthorizationPoliciesResult(configs, config)
-			}
+      }
 		}
 	}
 

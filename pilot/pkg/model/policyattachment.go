@@ -21,43 +21,63 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-type PolicyTargetGetter interface {
+// this can be any type from istio/api that uses these types of selectors
+type TargetablePolicy interface {
 	GetTargetRef() *v1beta1.PolicyTargetReference
 	GetTargetRefs() []*v1beta1.PolicyTargetReference
 	GetSelector() *v1beta1.WorkloadSelector
 }
 
-// GetTargetRefs returns the list of targetRefs, taking into account the legacy targetRef
-func GetTargetRefs(p PolicyTargetGetter) []*v1beta1.PolicyTargetReference {
-	targetRefs := p.GetTargetRefs()
-	if len(targetRefs) == 0 && p.GetTargetRef() != nil {
-		targetRefs = []*v1beta1.PolicyTargetReference{p.GetTargetRef()}
-	}
-	return targetRefs
-}
-
-type WorkloadSelectionOpts struct {
-	RootNamespace  string
+// WorkloadPolicyMatcher performs policy selection either using targetRef or label selectors.
+// Label selection uses the workload labels.
+// TargetRef selection uses either the workload's namespace + the gateway name based on labels,
+// or the Services the workload is a part of.
+type WorkloadPolicyMatcher struct {
 	Namespace      string
 	WorkloadLabels labels.Instance
 	IsWaypoint     bool
+	// TODO can this just be sets.String since the services must be same-namespace?
+	Services sets.Set[types.NamespacedName]
 }
 
-type policyMatch string
+func PolicyMatcherFor(workloadNamespace string, labels labels.Instance, isWaypoint bool) WorkloadPolicyMatcher {
+	return WorkloadPolicyMatcher{
+		Namespace:      workloadNamespace,
+		WorkloadLabels: labels,
+		IsWaypoint:     isWaypoint,
+		// TODO check if any callers need services (i think it's just mTLS checker)
+		Services: map[types.NamespacedName]struct{}{},
+	}
+}
 
-const (
-	// policyMatchSelector is the default behavior. If the workload matches the policy's selector, the policy is applied
-	policyMatchSelector policyMatch = "selector"
-	// policyMatchDirect is used when the policy has a targetRef, and the workload matches the targetRef.
-	// Note that the actual targetRef matching is done within `getPolicyMatcher`
-	policyMatchDirect policyMatch = "direct"
-	// policyMatchIgnore indicates that there is no match between the workload and the policy, and the policy should be ignored
-	policyMatchIgnore policyMatch = "ignore"
-)
+func PolicyMatcherForProxy(proxy *Proxy, push *PushContext) WorkloadPolicyMatcher {
+	var proxyServices  sets.Set[types.NamespacedName]
+	if proxy.IsWaypointProxy() {
+		if push != nil {
+			key := WaypointKeyForProxy(proxy)
+			proxyServices = sets.New(slices.Map(push.ServicesForWaypoint(key), ServiceInfo.NamespacedName)...)
+		}
+	} else {
+    // TODO do we want this for non waypoints?
+    proxyServices = sets.New(slices.Map(proxy.ServiceTargets, ServiceTarget.NamespacedName)...)
+  }
+	return WorkloadPolicyMatcher{
+		Namespace:      proxy.GetNamespace(),
+		WorkloadLabels: proxy.Labels,
+		IsWaypoint:     proxy.IsWaypointProxy(),
+		// TODO pass push context and extract
+		Services: proxyServices,
+	}
+}
 
-func KubernetesGatewayNameAndExists(l labels.Instance) (string, bool) {
+// workloadGatewayName returns the name of the gateway for which a workload is an instance.
+// This is based on the gateway.networking.k8s.io/gateway-name label.
+func workloadGatewayName(l labels.Instance) (string, bool) {
 	gwName, exists := l[constants.GatewayNameLabel]
 	if !exists {
 		// TODO: Remove deprecated gateway name label (1.22 or 1.23)
@@ -67,36 +87,66 @@ func KubernetesGatewayNameAndExists(l labels.Instance) (string, bool) {
 	return gwName, exists
 }
 
-func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts WorkloadSelectionOpts, policy PolicyTargetGetter) policyMatch {
-	gatewayName, isGatewayAPI := KubernetesGatewayNameAndExists(opts.WorkloadLabels)
+func (p WorkloadPolicyMatcher) isSelected(policy TargetablePolicy) bool {
+	selector := policy.GetSelector()
+	return selector != nil && labels.Instance(selector.GetMatchLabels()).SubsetOf(p.WorkloadLabels)
+}
+
+// GetTargetRefs returns the list of targetRefs, taking into account the legacy targetRef
+func GetTargetRefs(p TargetablePolicy) []*v1beta1.PolicyTargetReference {
+	targetRefs := p.GetTargetRefs()
+	if len(targetRefs) == 0 && p.GetTargetRef() != nil {
+		targetRefs = []*v1beta1.PolicyTargetReference{p.GetTargetRef()}
+	}
+	return targetRefs
+}
+
+func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, policyName types.NamespacedName, policy TargetablePolicy) bool {
+	gatewayName, isGatewayAPI := workloadGatewayName(p.WorkloadLabels)
 	targetRefs := GetTargetRefs(policy)
-	if isGatewayAPI && len(targetRefs) == 0 && policy.GetSelector() != nil {
-		if opts.IsWaypoint || !features.EnableSelectorBasedK8sGatewayPolicy {
-			log.Debugf("Ignoring workload-scoped %s/%s %s.%s for gateway %s because it has no targetRef", kind.Group, kind.Kind, opts.Namespace, policyName, gatewayName)
-			return policyMatchIgnore
+
+  // non-gateway: use selector
+	if !isGatewayAPI {
+    // if targetRef is specified, ignore the policy altogether
+    // TODO should we just use the selector rather than ignoring?
+		if len(targetRefs) > 0 {
+			return false
 		}
+		return p.isSelected(policy)
 	}
 
-	if !isGatewayAPI && len(targetRefs) > 0 {
-		return policyMatchIgnore
-	}
-
-	if isGatewayAPI && len(targetRefs) > 0 {
-		// There's a targetRef specified for this policy, and the proxy is a Gateway API Gateway. Use targetRef instead of workload selector
-		// TODO: Account for `kind`s that are not `KubernetesGateway`
-		for _, targetRef := range targetRefs {
-			if targetRef.GetGroup() == gvk.KubernetesGateway.Group &&
-				targetRef.GetName() == gatewayName &&
-				(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == opts.Namespace) &&
-				targetRef.GetKind() == gvk.KubernetesGateway.Kind {
-				return policyMatchDirect
-			}
+  // gateway with no targetRefs: (sometimes) fallback to selector
+	if len(targetRefs) == 0 {
+		// gateways require the feature flag for selector-based policy
+		// waypoints never use selector
+		if p.IsWaypoint || !features.EnableSelectorBasedK8sGatewayPolicy {
+			log.Debugf("Ignoring workload-scoped %s/%s %s for gateway %s.%s because it has no targetRef", kind.Group, kind.Kind, policyName, gatewayName, p.Namespace)
+			return false
 		}
-
-		// This config doesn't match this workload. Ignore
-		return policyMatchIgnore
+		return p.isSelected(policy)
 	}
 
-	// Default case
-	return policyMatchSelector
+  for _, targetRef := range targetRefs {
+    target := types.NamespacedName{
+      Name: targetRef.GetName(),
+      Namespace: GetOrDefault(targetRef.GetNamespace(), policyName.Namespace),
+    }
+
+    // Gateway attached
+    if targetRef.GetGroup() == gvk.KubernetesGateway.Group &&
+      targetRef.GetKind() == gvk.KubernetesGateway.Kind &&
+      target.Name == gatewayName &&
+      target.Namespace == p.Namespace {
+      return true
+    }
+
+    // Service attached
+    if targetRef.GetGroup() == gvk.Service.Group &&
+      targetRef.GetKind() == gvk.Service.Kind &&
+      p.Services.Contains(target) {
+      return true
+    }
+  }
+
+	return false
 }

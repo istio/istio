@@ -176,10 +176,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	fc := []*hcm.HttpFilter{}
 	// See security/authz/builder and grpc internal/xds/rbac
 	// grpc supports ALLOW and DENY actions (fail if it is not one of them), so we can't use the normal generator
-	selectionOpts := model.WorkloadSelectionOpts{
-		Namespace:      node.ConfigNamespace,
-		WorkloadLabels: node.Labels,
-	}
+	selectionOpts := model.PolicyMatcherForProxy(node, push)
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	if len(policies.Deny)+len(policies.Allow) > 0 {
 		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)

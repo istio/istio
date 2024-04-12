@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestGetPolicyMatcher(t *testing.T) {
@@ -52,24 +53,21 @@ func TestGetPolicyMatcher(t *testing.T) {
 			constants.GatewayNameLabel: "sample-waypoint",
 		},
 	}
-	regularApp := WorkloadSelectionOpts{
-		RootNamespace: "root",
+	regularApp := WorkloadPolicyMatcher{
 		Namespace:     "default",
 		WorkloadLabels: labels.Instance{
 			"app": "my-app",
 		},
 		IsWaypoint: false,
 	}
-	sampleGateway := WorkloadSelectionOpts{
-		RootNamespace: "root",
+	sampleGateway := WorkloadPolicyMatcher{
 		Namespace:     "default",
 		WorkloadLabels: labels.Instance{
 			constants.GatewayNameLabel: "sample-gateway",
 		},
 		IsWaypoint: false,
 	}
-	sampleWaypoint := WorkloadSelectionOpts{
-		RootNamespace: "root",
+	sampleWaypoint := WorkloadPolicyMatcher{
 		Namespace:     "default",
 		WorkloadLabels: labels.Instance{
 			constants.GatewayNameLabel: "sample-waypoint",
@@ -78,14 +76,14 @@ func TestGetPolicyMatcher(t *testing.T) {
 	}
 	tests := []struct {
 		name                   string
-		opts                   WorkloadSelectionOpts
-		policy                 PolicyTargetGetter
-		expected               policyMatch
+		selection              WorkloadPolicyMatcher
+		policy                 TargetablePolicy
+		expected               PolicyMatch
 		enableSelectorPolicies bool
 	}{
 		{
-			name: "non-gateway API workload and a targetRef",
-			opts: regularApp,
+			name:      "non-gateway API workload and a targetRef",
+			selection: regularApp,
 			policy: &mockPolicyTargetGetter{
 				targetRef: sampleTargetRef,
 			},
@@ -93,8 +91,8 @@ func TestGetPolicyMatcher(t *testing.T) {
 			enableSelectorPolicies: true,
 		},
 		{
-			name: "non-gateway API workload and a selector",
-			opts: regularApp,
+			name:      "non-gateway API workload and a selector",
+			selection: regularApp,
 			policy: &mockPolicyTargetGetter{
 				selector: sampleSelector,
 			},
@@ -102,8 +100,8 @@ func TestGetPolicyMatcher(t *testing.T) {
 			enableSelectorPolicies: true,
 		},
 		{
-			name: "non-gateway API workload and both a targetRef and a selector",
-			opts: regularApp,
+			name:      "non-gateway API workload and both a targetRef and a selector",
+			selection: regularApp,
 			policy: &mockPolicyTargetGetter{
 				selector:  sampleSelector,
 				targetRef: sampleTargetRef,
@@ -114,7 +112,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 		{
 			name:                   "non-gateway API workload and no targetRef or selector",
 			policy:                 &mockPolicyTargetGetter{},
-			opts:                   regularApp,
+			selection:              regularApp,
 			expected:               policyMatchSelector,
 			enableSelectorPolicies: true,
 		},
@@ -123,15 +121,15 @@ func TestGetPolicyMatcher(t *testing.T) {
 			policy: &mockPolicyTargetGetter{
 				targetRef: sampleTargetRef,
 			},
-			opts:     sampleGateway,
-			expected: policyMatchDirect,
+			selection: sampleGateway,
+			expected:  policyMatchDirect,
 		},
 		{
 			name: "gateway API ingress and a selector",
 			policy: &mockPolicyTargetGetter{
 				selector: sampleGatewaySelector,
 			},
-			opts:                   sampleGateway,
+			selection:              sampleGateway,
 			expected:               policyMatchSelector,
 			enableSelectorPolicies: true,
 		},
@@ -140,7 +138,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 			policy: &mockPolicyTargetGetter{
 				selector: sampleGatewaySelector,
 			},
-			opts:                   sampleGateway,
+			selection:              sampleGateway,
 			expected:               policyMatchIgnore,
 			enableSelectorPolicies: false,
 		},
@@ -150,21 +148,21 @@ func TestGetPolicyMatcher(t *testing.T) {
 				targetRef: sampleTargetRef,
 				selector:  sampleGatewaySelector,
 			},
-			opts:     sampleGateway,
-			expected: policyMatchDirect,
+			selection: sampleGateway,
+			expected:  policyMatchDirect,
 		},
 		{
 			name: "gateway API ingress and non-matching targetRef",
 			policy: &mockPolicyTargetGetter{
 				targetRef: waypointTargetRef,
 			},
-			opts:                   sampleGateway,
+			selection:              sampleGateway,
 			expected:               policyMatchIgnore,
 			enableSelectorPolicies: true,
 		},
 		{
 			name:                   "gateway API ingress and no targetRef or selector",
-			opts:                   sampleGateway,
+			selection:              sampleGateway,
 			policy:                 &mockPolicyTargetGetter{},
 			expected:               policyMatchSelector,
 			enableSelectorPolicies: true,
@@ -174,7 +172,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 			policy: &mockPolicyTargetGetter{
 				targetRef: waypointTargetRef,
 			},
-			opts:                   sampleWaypoint,
+			selection:              sampleWaypoint,
 			expected:               policyMatchDirect,
 			enableSelectorPolicies: true,
 		},
@@ -183,7 +181,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 			policy: &mockPolicyTargetGetter{
 				selector: sampleWaypointSelector,
 			},
-			opts:                   sampleWaypoint,
+			selection:              sampleWaypoint,
 			expected:               policyMatchIgnore,
 			enableSelectorPolicies: true,
 		},
@@ -193,20 +191,20 @@ func TestGetPolicyMatcher(t *testing.T) {
 				targetRef: waypointTargetRef,
 				selector:  sampleWaypointSelector,
 			},
-			opts:                   sampleWaypoint,
+			selection:              sampleWaypoint,
 			expected:               policyMatchDirect,
 			enableSelectorPolicies: true,
 		},
 		{
 			name:                   "waypoint and no targetRef or selector",
-			opts:                   sampleWaypoint,
+			selection:              sampleWaypoint,
 			policy:                 &mockPolicyTargetGetter{},
-			expected:               policyMatchSelector,
+			expected:               policyMatchIgnore,
 			enableSelectorPolicies: true,
 		},
 		{
-			name: "waypoint and non-matching targetRef",
-			opts: sampleWaypoint,
+			name:      "waypoint and non-matching targetRef",
+			selection: sampleWaypoint,
 			policy: &mockPolicyTargetGetter{
 				targetRef: sampleTargetRef,
 			},
@@ -245,7 +243,8 @@ func TestGetPolicyMatcher(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableSelectorBasedK8sGatewayPolicy, tt.enableSelectorPolicies)
-			matcher := getPolicyMatcher(mockKind, "policy1", tt.opts, tt.policy)
+			nsName := types.NamespacedName{Name: "policy1", Namespace: "default"}
+			matcher := tt.selection.GetPolicyMatcher(mockKind, nsName, tt.policy)
 
 			if matcher != tt.expected {
 				t.Errorf("Expected %v, but got %v", tt.expected, matcher)

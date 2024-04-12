@@ -56,6 +56,10 @@ type Telemetry struct {
 	Spec      *tpb.Telemetry `json:"spec"`
 }
 
+func (t *Telemetry) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{Name: t.Name, Namespace: t.Namespace}
+}
+
 // Telemetries organizes Telemetry configuration by namespace.
 type Telemetries struct {
 	// Maps from namespace to the Telemetry configs.
@@ -447,24 +451,12 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		if len(spec.GetSelector().GetMatchLabels()) == 0 {
 			continue
 		}
-		opts := WorkloadSelectionOpts{
-			RootNamespace:  t.RootNamespace,
-			Namespace:      telemetry.Namespace,
-			WorkloadLabels: proxy.Labels,
-			IsWaypoint:     proxy.IsWaypointProxy(),
-		}
-
-		switch getPolicyMatcher(gvk.Telemetry, telemetry.Name, opts, spec) {
-		case policyMatchSelector:
-			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-			if selector.SubsetOf(proxy.Labels) {
-				ct = appendApplicableTelemetries(ct, telemetry, spec)
-			}
-		case policyMatchDirect:
+		// TODO why do we pass the config's namespace instead of the proxy's here?
+		if PolicyMatcherFor(telemetry.Namespace, proxy.Labels, proxy.IsWaypointProxy()).ShouldAttachPolicy(gvk.Telemetry, telemetry.NamespacedName(), spec) {
 			ct = appendApplicableTelemetries(ct, telemetry, spec)
-		case policyMatchIgnore:
+		} else {
 			log.Debug("There isn't a match between the workload and the policy. Policy is ignored.")
-		}
+    }
 	}
 
 	return *ct

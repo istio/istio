@@ -49,11 +49,7 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 		UseFilterState:  useFilterState,
 		UseExtendedJwt:  proxy.SupportsEnvoyExtendedJwt(),
 	}
-	selectionOpts := model.WorkloadSelectionOpts{
-		Namespace:      proxy.ConfigNamespace,
-		WorkloadLabels: proxy.Labels,
-		IsWaypoint:     proxy.IsWaypointProxy(),
-	}
+	selectionOpts := model.PolicyMatcherForProxy(proxy, push) 
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}

@@ -45,20 +45,9 @@ type waypointServices struct {
 
 // findWaypointResources returns workloads and services associated with the waypoint proxy
 func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.WorkloadInfo, *waypointServices) {
-	network := node.Metadata.Network.String()
-	workloads := make([]model.WorkloadInfo, 0)
-	serviceInfos := make([]model.ServiceInfo, 0)
-	for _, svct := range node.ServiceTargets {
-		ips := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
-		key := model.WaypointKey{
-			Network:   network,
-			Addresses: ips,
-		}
-		wl := push.WorkloadsForWaypoint(key)
-		workloads = append(workloads, wl...)
-		svcs := push.ServicesForWaypoint(key)
-		serviceInfos = append(serviceInfos, svcs...)
-	}
+  key := model.WaypointKeyForProxy(node)
+  workloads := push.WorkloadsForWaypoint(key) 
+  serviceInfos := push.ServicesForWaypoint(key) 
 
 	waypointServices := &waypointServices{}
 	for _, s := range serviceInfos {
