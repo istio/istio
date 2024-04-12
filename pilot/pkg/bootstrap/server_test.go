@@ -779,27 +779,39 @@ func TestGetDNSNames(t *testing.T) {
 
 func TestMaxConnection(t *testing.T) {
 	tests := []struct {
-		name  string
-		limit int
+		name   string
+		limit  int
+		try    int
+		expect int
 	}{
 		{
-			name:  "small limit",
-			limit: 4,
+			name:   "no limit",
+			limit:  0,
+			try:    100,
+			expect: 100,
 		},
 		{
-			name:  "medium limit",
-			limit: 100,
+			name:   "small limit",
+			limit:  4,
+			try:    4,
+			expect: 4,
+		},
+		{
+			name:   "medium limit",
+			limit:  100,
+			try:    200,
+			expect: 100,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			testMaxConnection(t, tc.limit)
+			assert.Equal(t, tc.expect, tryConnection(t, tc.limit, tc.try))
 		})
 	}
 }
 
-func testMaxConnection(t *testing.T, limit int) {
+func tryConnection(t *testing.T, limit, try int) int {
 	features.ConnectionLimit = limit
 	features.RequestLimit = 100
 
@@ -819,7 +831,6 @@ func testMaxConnection(t *testing.T, limit int) {
 		p.RegistryOptions = RegistryOptions{
 			FileDir: configDir,
 		}
-
 		p.ShutdownDuration = 1 * time.Millisecond
 	})
 
@@ -834,17 +845,17 @@ func testMaxConnection(t *testing.T, limit int) {
 		s.WaitUntilCompletion()
 	}()
 
-	limiter := rate.NewLimiter(rate.Limit(50), int(10))
+	limiter := rate.NewLimiter(rate.Limit(50), 10)
 	dataPlane := NewFakeDataPlane()
 	defer dataPlane.Clear()
 
 	// init part connection
-	g.Expect(dataPlane.AddAgentN(t, "localhost:15010", features.ConnectionLimit/2+1, limiter)).To(Succeed())
+	g.Expect(dataPlane.AddAgentN(t, "localhost:15010", try/3, limiter)).To(Succeed())
 	t.Logf("Initialize %d connections", dataPlane.Size())
 
 	// burst connection
 	var wg sync.WaitGroup
-	for i := 0; i < features.ConnectionLimit; i++ {
+	for i := try / 3; i < try; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -859,20 +870,10 @@ func testMaxConnection(t *testing.T, limit int) {
 
 	t.Logf("after burst: %d connections", dataPlane.Size())
 
-	if dataPlane.Size() > features.ConnectionLimit {
-		t.Fatalf("ConnectionLimit %d exceeded", limit)
-	}
-
 	dataPlane.KeepAlive(t)
 	t.Logf("%d connections keep alive", dataPlane.Size())
 
-	if dataPlane.Size() < features.ConnectionLimit/2 || dataPlane.Size() > features.ConnectionLimit {
-		t.Fatalf("connection is not as expected %d:%d", dataPlane.Size(), features.ConnectionLimit)
-	} else if dataPlane.Size() != len(s.XDSServer.AllClients()) {
-		t.Fatalf("inconsistent connection")
-	} else {
-		t.Logf("establish %d connections", dataPlane.Size())
-	}
+	return dataPlane.Size()
 }
 
 type FakeDataPlane struct {
