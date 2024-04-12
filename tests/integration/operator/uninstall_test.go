@@ -45,7 +45,6 @@ const deletionTimeout = 5 * time.Minute
 func TestReconcileDelete(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.operator.uninstall_revision").
 		Run(func(t framework.TestContext) {
 			// For positive casse, use minimal profile, iop file will be deleted
 			t.NewSubTest("delete-iop-success").Run(func(t framework.TestContext) {

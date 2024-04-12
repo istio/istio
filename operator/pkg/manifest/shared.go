@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/sets"
 	pkgversion "istio.io/istio/pkg/version"
 )
@@ -161,7 +160,7 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 
 	// Merge k8s specific values.
 	if client != nil {
-		kubeOverrides, err := getClusterSpecificValues(client, skipValidation, l)
+		kubeOverrides, err := getClusterSpecificValues(client)
 		if err != nil {
 			return "", nil, err
 		}
@@ -358,6 +357,9 @@ func validateSetFlags(setFlags []string) error {
 		if len(pv) != 2 {
 			return fmt.Errorf("set flag %s has incorrect format, must be path=value", sf)
 		}
+		if pv[0] == "profile" && pv[1] == "external" {
+			return fmt.Errorf("\"external\" profile has been removed, use \"remote\" profile instead")
+		}
 	}
 	return nil
 }
@@ -381,19 +383,9 @@ func overlayHubAndTag(yml string) (string, error) {
 	return out, nil
 }
 
-func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (string, error) {
+func getClusterSpecificValues(client kube.Client) (string, error) {
 	overlays := []string{}
 
-	jwtStr, err := getJwtTypeOverlay(client, l)
-	if err != nil {
-		if force {
-			l.LogAndPrint(err)
-		} else {
-			return "", err
-		}
-	} else {
-		overlays = append(overlays, jwtStr)
-	}
 	cni := getCNISettings(client)
 	if cni != "" {
 		overlays = append(overlays, cni)
@@ -449,19 +441,6 @@ func makeTreeFromSetList(setOverlay []string) (string, error) {
 		return "", err
 	}
 	return tpath.AddSpecRoot(string(out))
-}
-
-func getJwtTypeOverlay(client kube.Client, l clog.Logger) (string, error) {
-	jwtPolicy, err := util.DetectSupportedJWTPolicy(client.Kube())
-	if err != nil {
-		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
-	}
-	if jwtPolicy == util.FirstPartyJWT {
-		// nolint: lll
-		l.LogAndPrint("Detected that your cluster does not support third party JWT authentication. " +
-			"Falling back to less secure first party JWT. See " + url.ConfigureSAToken + " for details.")
-	}
-	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
 }
 
 // unmarshalAndValidateIOP unmarshals a string containing IstioOperator YAML, validates it, and returns a struct

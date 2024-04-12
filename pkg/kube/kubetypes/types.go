@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type InformerOptions struct {
@@ -50,6 +51,32 @@ const (
 	MetadataInformer
 )
 
+type DynamicObjectFilter interface {
+	// Filter returns true if the input object or namespace string resides in a namespace selected for discovery
+	Filter(obj any) bool
+	// AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected.
+	AddHandler(func(selected, deselected sets.String))
+}
+
+type staticFilter struct {
+	f func(obj interface{}) bool
+}
+
+func (s staticFilter) Filter(obj any) bool {
+	return s.f(obj)
+}
+
+func (s staticFilter) AddHandler(func(selected, deselected sets.String)) {
+	// Do nothing
+}
+
+var _ DynamicObjectFilter = staticFilter{}
+
+// NewStaticObjectFilter returns a DynamicObjectFilter that does not ever change (so does not need an AddHandler)
+func NewStaticObjectFilter(f func(obj any) bool) DynamicObjectFilter {
+	return staticFilter{f}
+}
+
 // Filter allows filtering read operations
 type Filter struct {
 	// A selector to restrict the list of returned objects by their labels.
@@ -64,7 +91,7 @@ type Filter struct {
 	// ObjectFilter allows arbitrary filtering logic.
 	// This is a *client side* filter. This means CPU/memory costs are still present for filtered objects.
 	// Use LabelSelector or FieldSelector instead, if possible.
-	ObjectFilter func(t any) bool
+	ObjectFilter DynamicObjectFilter
 	// ObjectTransform allows arbitrarily modifying objects stored in the underlying cache.
 	// If unset, a default transform is provided to remove ManagedFields (high cost, low value)
 	ObjectTransform func(obj any) (any, error)

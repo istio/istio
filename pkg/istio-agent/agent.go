@@ -16,6 +16,7 @@ package istioagent
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -28,13 +29,13 @@ import (
 
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -42,9 +43,11 @@ import (
 	dnsClient "istio.io/istio/pkg/dns/client"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -52,7 +55,6 @@ import (
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	cas "istio.io/istio/security/pkg/nodeagent/caclient/providers/google-cas"
-	"istio.io/istio/security/pkg/nodeagent/sds"
 )
 
 const (
@@ -86,6 +88,49 @@ const (
 	ExitLifecycleEvent  LifecycleEvent = "exit"
 )
 
+type SDSService interface {
+	OnSecretUpdate(resourceName string)
+	Stop()
+}
+
+type SDSServiceFactory = func(_ *security.Options, _ security.SecretManager, _ *mesh.PrivateKeyProvider) SDSService
+
+// Shared properties with Pilot Proxy struct.
+type Proxy struct {
+	ID          string
+	IPAddresses []string
+	Type        model.NodeType
+	ipMode      model.IPMode
+	DNSDomain   string
+}
+
+func (node *Proxy) DiscoverIPMode() {
+	node.ipMode = model.DiscoverIPMode(node.IPAddresses)
+}
+
+// IsIPv6 returns true if proxy only supports IPv6 addresses.
+func (node *Proxy) IsIPv6() bool {
+	return node.ipMode == model.IPv6
+}
+
+func (node *Proxy) SupportsIPv6() bool {
+	return node.ipMode == model.IPv6 || node.ipMode == model.Dual
+}
+
+const (
+	serviceNodeSeparator = "~"
+)
+
+func (node *Proxy) ServiceNode() string {
+	ip := ""
+	if len(node.IPAddresses) > 0 {
+		ip = node.IPAddresses[0]
+	}
+	return strings.Join([]string{
+		string(node.Type), ip, node.ID, node.DNSDomain,
+	}, serviceNodeSeparator)
+}
+
 // Agent contains the configuration of the agent, based on the injected
 // environment:
 // - SDS hostPath if node-agent was used
@@ -101,7 +146,7 @@ type Agent struct {
 
 	envoyAgent *envoy.Agent
 
-	sdsServer   *sds.Server
+	sdsServer   SDSService
 	secretCache *cache.SecretManagerClient
 
 	// Used when proxying envoy xds via istio-agent is enabled.
@@ -197,6 +242,8 @@ type AgentOptions struct {
 
 	// Enable metadata discovery bootstrap extension
 	MetadataDiscovery bool
+
+	SDSFactory func(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *mesh.PrivateKeyProvider) SDSService
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -272,7 +319,9 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 		a.envoyOpts.ConfigCleanup = false
 	} else {
 		out, err := bootstrap.New(bootstrap.Config{
-			Node: node,
+			Node:             node,
+			CompliancePolicy: common_features.CompliancePolicy,
+			LogAsJSON:        a.envoyOpts.LogAsJSON,
 		}).CreateFile()
 		if err != nil {
 			return fmt.Errorf("failed to generate bootstrap config: %v", err)
@@ -414,7 +463,7 @@ func (a *Agent) initSdsServer() error {
 		}()
 	} else {
 		pkpConf := a.proxyConfig.GetPrivateKeyProvider()
-		a.sdsServer = sds.NewServer(a.secOpts, a.secretCache, pkpConf)
+		a.sdsServer = a.cfg.SDSFactory(a.secOpts, a.secretCache, pkpConf)
 		a.secretCache.RegisterSecretHandler(a.sdsServer.OnSecretUpdate)
 	}
 
@@ -765,8 +814,11 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		return cache.NewSecretManagerClient(caClient, a.secOpts)
 	} else if a.secOpts.CAProviderName == security.GoogleCASProvider {
 		// Use a plugin
+		tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+		model.EnforceGoCompliance(tlsConfig)
 		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint,
-			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(caclient.NewCATokenProvider(a.secOpts))))
+			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(caclient.NewCATokenProvider(a.secOpts))),
+			option.WithGRPCDialOption(grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))))
 		if err != nil {
 			return nil, err
 		}

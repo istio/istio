@@ -120,6 +120,14 @@ func FindFunc[E any](s []E, f func(E) bool) *E {
 	return &s[idx]
 }
 
+// First returns the first item in the slice, if there is one
+func First[E any](s []E) *E {
+	if len(s) == 0 {
+		return nil
+	}
+	return &s[0]
+}
+
 // Reverse returns its argument array reversed
 func Reverse[E any](r []E) []E {
 	for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {
@@ -170,6 +178,19 @@ func Map[E any, O any](s []E, f func(E) O) []O {
 		n = append(n, f(e))
 	}
 	return n
+}
+
+// MapErr runs f() over all elements in s and returns the result, short circuiting if there is an error.
+func MapErr[E any, O any](s []E, f func(E) (O, error)) ([]O, error) {
+	n := make([]O, 0, len(s))
+	for _, e := range s {
+		res, err := f(e)
+		if err != nil {
+			return nil, err
+		}
+		n = append(n, res)
+	}
+	return n, nil
 }
 
 // MapFilter runs f() over all elements in s and returns any non-nil results

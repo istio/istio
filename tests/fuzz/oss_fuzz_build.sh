@@ -35,7 +35,7 @@ printf "package main\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/testing\
 go mod tidy
 
 mv "${SRC}"/istio/security/pkg/server/ca/server_test.go "${SRC}"/istio/security/pkg/server/ca/server_test_fuzz.go
-mv "${SRC}"/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter/listener_patch_test.go "${SRC}"/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter/listener_patch_test_fuzz.go
+mv "${SRC}"/istio/pilot/pkg/networking/core/envoyfilter/listener_patch_test.go "${SRC}"/istio/pilot/pkg/networking/core/envoyfilter/listener_patch_test_fuzz.go
 
 # Find all native fuzzers and compile them
 # shellcheck disable=SC2016

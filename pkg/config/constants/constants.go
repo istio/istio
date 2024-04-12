@@ -77,6 +77,9 @@ const (
 	// used for load balancing requests against endpoints across the ClusterSet (i.e. mesh).
 	DefaultClusterSetLocalDomain = "clusterset.local"
 
+	// DefaultClusterName is the default cluster name
+	DefaultClusterName = "Kubernetes"
+
 	// IstioLabel indicates that a workload is part of a named Istio system component.
 	IstioLabel = "istio"
 
@@ -93,6 +96,9 @@ const (
 
 	// IstioMeshGateway is the built in gateway for all sidecars
 	IstioMeshGateway = "mesh"
+
+	// DefaultNamespaceWaypoint is the default name for a waypoint in a namespace.
+	DefaultNamespaceWaypoint = "default-namespace"
 
 	// The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMapDataName = "root-cert.pem"
@@ -141,8 +147,8 @@ const (
 	InternalGatewaySemantics = "internal.istio.io/gateway-semantics"
 	GatewaySemanticsGateway  = "gateway"
 
-	// TrustworthyJWTPath is the default 3P token to authenticate with third party services
-	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
+	// ThirdPartyJwtPath is the default 3P token to authenticate with third party services
+	ThirdPartyJwtPath = "./var/run/secrets/tokens/istio-token"
 
 	// CertProviderIstiod uses istiod self signed DNS certificates for the control plane
 	CertProviderIstiod = "istiod"
@@ -160,10 +166,7 @@ const (
 	// testing the validation webhook.
 	AlwaysReject = "internal.istio.io/webhook-always-reject"
 
-	WaypointServiceAccount = "istio.io/for-service-account"
-
 	ManagedGatewayLabel               = "gateway.istio.io/managed"
-	ManagedGatewayController          = "istio.io/gateway-controller"
 	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
 	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
 	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
@@ -193,4 +196,24 @@ const (
 	AmbientRedirectionEnabled = "enabled"
 	// AmbientRedirectionDisabled is an opt-out, configured by user.
 	AmbientRedirectionDisabled = "disabled"
+
+	// AmbientUseWaypoint is the annotation used to specify which waypoint should be used for a given pod, service, etc...
+	AmbientUseWaypoint = "istio.io/use-waypoint"
+	// AmbientWaypointForTrafficType is the annotation used to specify which traffic is allowed through the Waypoint.
+	// This annotation is applied to the Waypoint. Valid traffic types are "service", "workload", "all", and "none".
+	AmbientWaypointForTrafficType = "istio.io/waypoint-for"
+
+	// AmbientWaypointInboundBinding has the format `<protocol>` or `<protocol>/<port>`. If the waypoint is
+	// captured by a zTunnel, the zTunnel  will send traffic to the specified port with tunnel information
+	// such as source/destination addresses, identity and HBONE target host using the specified protocol.
+	AmbientWaypointInboundBinding = "ambient.istio.io/waypoint-inbound-binding"
+
+	// ServiceTraffic indicates that service traffic should go through the intended waypoint.
+	ServiceTraffic = "service"
+	// WorkloadTraffic indicates that workload traffic should go through the intended waypoint.
+	WorkloadTraffic = "workload"
+	// AllTraffic indicates that all traffic should go through the intended waypoint.
+	AllTraffic = "all"
+	// NoTraffic indicates that no traffic should go through the intended waypoint.
+	NoTraffic = "none"
 )

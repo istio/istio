@@ -28,7 +28,6 @@ import (
 func TestPostInstallControlPlaneVerification(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.postinstall_verify").
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			cs := t.Environment().Clusters().Default()

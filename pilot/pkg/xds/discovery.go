@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
+	"istio.io/istio/pilot/pkg/networking/core/envoyfilter"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/maps"
@@ -294,7 +294,15 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
-	if len(model.ConfigsOfKind(req.ConfigsUpdated, kind.Address)) > 0 {
+	if features.EnableUnsafeAssertions {
+		// This operation is really slow, which makes tests fail for unrelated reasons, so we process it async.
+		go func() {
+			if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Service) {
+				panic("assertion failed kind.Service can not be set in ConfigKey")
+			}
+		}()
+	}
+	if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
 		// This is a bit like clearing EDS cache on EndpointShard update. Because Address
 		// types are fetched dynamically, they are not part of the same protections, so we need to clear
 		// the cache.
@@ -560,38 +568,6 @@ func (s *DiscoveryServer) AllClients() []*Connection {
 	s.adsClientsMutex.RLock()
 	defer s.adsClientsMutex.RUnlock()
 	return maps.Values(s.adsClients)
-}
-
-// SendResponse will immediately send the response to all connections.
-// TODO: additional filters can be added, for example namespace.
-func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery.DiscoveryResponse) {
-	for _, p := range connections {
-		// p.send() waits for an ACK - which is reasonable for normal push,
-		// but in this case we want to sync fast and not bother with stuck connections.
-		// This is expecting a relatively small number of watchers - each other istiod
-		// plus few admin tools or bridges to real message brokers. The normal
-		// push expects 1000s of envoy connections.
-		con := p
-		go func() {
-			err := con.stream.Send(res)
-			if err != nil {
-				log.Errorf("Failed to send internal event %s: %v", con.conID, err)
-			}
-		}()
-	}
-}
-
-// nolint
-// ClientsOf returns the clients that are watching the given resource.
-func (s *DiscoveryServer) ClientsOf(typeUrl string) []*Connection {
-	pending := []*Connection{}
-	for _, v := range s.Clients() {
-		if v.Watching(typeUrl) {
-			pending = append(pending, v)
-		}
-	}
-
-	return pending
 }
 
 func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {

@@ -46,7 +46,6 @@ func TestSimpleTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
-		Features("security.egress.tls.sds").
 		Run(func(t framework.TestContext) {
 			var (
 				credName        = "tls-credential-cacert"
@@ -124,7 +123,6 @@ func TestMutualTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
-		Features("security.egress.mtls.sds").
 		Run(func(t framework.TestContext) {
 			var (
 				credNameGeneric    = "mtls-credential-generic"

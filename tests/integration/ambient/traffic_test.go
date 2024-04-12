@@ -27,7 +27,7 @@ import (
 
 func TestTraffic(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
+		TopLevel().
 		Run(func(t framework.TestContext) {
 			apps := deployment.NewOrFail(t, t, deployment.Config{
 				NoExternalNamespace: true,

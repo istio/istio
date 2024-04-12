@@ -176,14 +176,11 @@ func TestSingleClusterNodeAuthorization(t *testing.T) {
 				})
 			}
 			c := kube.NewFakeClient(pods...)
-			na, err := NewClusterNodeAuthorizer(c, nil, tt.trustedAccounts)
-			if err != nil {
-				t.Fatal(err)
-			}
+			na := NewClusterNodeAuthorizer(c, tt.trustedAccounts)
 			c.RunAndWait(test.NewStop(t))
 			kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
 
-			err = na.authenticateImpersonation(tt.caller, tt.requestedIdentityString)
+			err := na.authenticateImpersonation(tt.caller, tt.requestedIdentityString)
 			if tt.wantErr == "" && err != nil {
 				t.Fatalf("wanted no error, got %v", err)
 			}
@@ -289,17 +286,20 @@ func TestMultiClusterNodeAuthorization(t *testing.T) {
 
 	remote2Client := kube.NewFakeClient(remoteCluster2Pods...)
 
-	mNa := NewMulticlusterNodeAuthenticator(nil, allowZtunnel, nil)
-	mNa.ClusterAdded(&multicluster.Cluster{ID: "primary", Client: primaryClient}, nil)
-	mNa.ClusterAdded(&multicluster.Cluster{ID: "remote", Client: remoteClient}, nil)
-	mNa.ClusterAdded(&multicluster.Cluster{ID: "remote2", Client: remote2Client}, nil)
-	primaryClient.RunAndWait(test.NewStop(t))
-	remoteClient.RunAndWait(test.NewStop(t))
-	remote2Client.RunAndWait(test.NewStop(t))
-	mNa.ClusterDeleted(cluster.ID("remote2"))
+	mc := multicluster.NewFakeController()
+	mNa := NewMulticlusterNodeAuthenticator(allowZtunnel, mc)
+	stop := test.NewStop(t)
+	mc.Add("primary", primaryClient, stop)
+	mc.Add("remote", remoteClient, stop)
+	mc.Add("remote2", remote2Client, stop)
+	primaryClient.RunAndWait(stop)
+	remoteClient.RunAndWait(stop)
+	remote2Client.RunAndWait(stop)
+	mc.Delete("remote2")
 
-	kube.WaitForCacheSync("test", test.NewStop(t), mNa.remoteNodeAuthenticators[cluster.ID("primary")].pods.HasSynced)
-	kube.WaitForCacheSync("test", test.NewStop(t), mNa.remoteNodeAuthenticators[cluster.ID("remote")].pods.HasSynced)
+	for _, c := range mNa.component.All() {
+		kube.WaitForCacheSync("test", stop, c.pods.HasSynced)
+	}
 	cases := []struct {
 		name                    string
 		callerClusterID         cluster.ID

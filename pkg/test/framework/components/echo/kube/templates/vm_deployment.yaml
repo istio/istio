@@ -116,11 +116,6 @@ spec:
           sudo sh -c 'echo PROV_CERT=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo OUTPUT_CERTS=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
 
-          # su will mess with the limits set on the process we run. This may lead to quickly exhausting the file limits
-          # We will get the host limit and set it in the child as well.
-          # TODO(https://superuser.com/questions/1645513/why-does-executing-a-command-in-su-change-limits) can we do better?
-          currentLimit=$(ulimit -n)
-
           # This looks weird but Kubernetes escapes $$ to $; we want double dollar sign for current PID
           pid="$$$$"
 
@@ -136,7 +131,7 @@ spec:
           chmod +x /tmp/start.sh
           
           export ISTIO_AGENT_FLAGS="--concurrency 2 --proxyLogLevel warning,misc:error,rbac:debug,jwt:debug"
-          sudo -E -s /bin/bash -c "ulimit -n ${currentLimit}; exec /tmp/start.sh $pid &"
+          sudo -E /tmp/start.sh $pid &
           override_core_limits&
           /usr/local/bin/server --cluster "{{ $cluster }}" --version "{{ $subset.Version }}" \
 {{- range $i, $p := $.ContainerPorts }}

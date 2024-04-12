@@ -36,8 +36,6 @@ spec:
         command:
         - envoy
         env:
-        - name: JWT_POLICY
-          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
         - name: CA_ADDR

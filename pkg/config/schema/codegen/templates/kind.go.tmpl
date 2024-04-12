@@ -31,7 +31,7 @@ func (k Kind) String() string {
 func MustFromGVK(g config.GroupVersionKind) Kind {
 	switch g {
 {{- range .Entries }}
-	{{- if not (eq .Resource.Identifier "Address") }}
+	{{- if not (or (eq .Resource.Identifier "Address") (eq .Resource.Identifier "DNSName")) }}
 		case gvk.{{.Resource.Identifier}}:
 			return {{.Resource.Identifier}}
 	{{- end }}

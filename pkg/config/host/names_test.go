@@ -82,6 +82,11 @@ func TestNamesIntersection(t *testing.T) {
 			host.Names{"foo.com"},
 			host.Names{"foo.com"},
 		},
+		{
+			host.Names{"foo.com"},
+			host.Names{"Foo.com"},
+			host.Names{},
+		},
 	}
 
 	for idx, tt := range tests {

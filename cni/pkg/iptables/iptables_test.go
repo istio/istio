@@ -15,13 +15,13 @@
 package iptables
 
 import (
-	"io"
 	"net/netip"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	testutil "istio.io/istio/pilot/test/util"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 func TestIptables(t *testing.T) {
@@ -45,8 +45,8 @@ func TestIptables(t *testing.T) {
 				cfg := constructTestConfig()
 				cfg.EnableInboundIPv6 = ipv6
 				tt.config(cfg)
-				ext := &DependenciesStub{}
-				iptConfigurator := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
+				ext := &dep.DependenciesStub{}
+				iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
 				var probeIP *netip.Addr
 				if ipv6 {
 					probeIP = &probeSNATipv6
@@ -84,8 +84,8 @@ func TestIptablesHostRules(t *testing.T) {
 				cfg := constructTestConfig()
 				cfg.EnableInboundIPv6 = ipv6
 				tt.config(cfg)
-				ext := &DependenciesStub{}
-				iptConfigurator := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
+				ext := &dep.DependenciesStub{}
+				iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
 				var probeIP *netip.Addr
 				if ipv6 {
 					probeIP = &probeSNATipv6
@@ -118,15 +118,15 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 
 	cfg := constructTestConfig()
 	tt.config(cfg)
-	ext := &DependenciesStub{}
-	iptConfigurator := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
+	ext := &dep.DependenciesStub{}
+	iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
 	err := iptConfigurator.CreateInpodRules(&probeSNATipv4)
 	if err != nil {
 		t.Fatal(err)
 	}
 	compareToGolden(t, false, tt.name, ext.ExecutedAll)
 
-	*ext = DependenciesStub{}
+	*ext = dep.DependenciesStub{}
 	// run another time to make sure we are idempotent
 	err = iptConfigurator.CreateInpodRules(&probeSNATipv4)
 	if err != nil {
@@ -156,41 +156,5 @@ func compareToGolden(t *testing.T, ipv6 bool, name string, actual []string) {
 func constructTestConfig() *Config {
 	return &Config{
 		RestoreFormat: false,
-	}
-}
-
-type DependenciesStub struct {
-	ExecutedNormally []string
-	ExecutedQuietly  []string
-	ExecutedAll      []string
-	Stdin            []byte
-}
-
-func (s *DependenciesStub) RunOrFail(cmd string, stdin io.ReadSeeker, args ...string) {
-	if stdin != nil {
-		s.Stdin, _ = io.ReadAll(stdin)
-	}
-	s.execute(false /*quietly*/, cmd, args...)
-}
-
-func (s *DependenciesStub) Run(cmd string, stdin io.ReadSeeker, args ...string) error {
-	if stdin != nil {
-		s.Stdin, _ = io.ReadAll(stdin)
-	}
-	s.execute(false /*quietly*/, cmd, args...)
-	return nil
-}
-
-func (s *DependenciesStub) RunQuietlyAndIgnore(cmd string, stdin io.ReadSeeker, args ...string) {
-	s.execute(true /*quietly*/, cmd, args...)
-}
-
-func (s *DependenciesStub) execute(quietly bool, cmd string, args ...string) {
-	cmdline := strings.Join(append([]string{cmd}, args...), " ")
-	s.ExecutedAll = append(s.ExecutedAll, cmdline)
-	if quietly {
-		s.ExecutedQuietly = append(s.ExecutedQuietly, cmdline)
-	} else {
-		s.ExecutedNormally = append(s.ExecutedNormally, cmdline)
 	}
 }

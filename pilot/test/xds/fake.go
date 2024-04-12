@@ -41,7 +41,7 @@ import (
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -53,9 +53,11 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
@@ -107,7 +109,7 @@ type FakeOptions struct {
 }
 
 type FakeDiscoveryServer struct {
-	*v1alpha3.ConfigGenTest
+	*core.ConfigGenTest
 	t            test.Failer
 	Discovery    *xds.DiscoveryServer
 	Listener     net.Listener
@@ -142,7 +144,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	if opts.DefaultClusterName == "" {
-		opts.DefaultClusterName = "Kubernetes"
+		opts.DefaultClusterName = constants.DefaultClusterName
 	}
 	k8sObjects := getKubernetesObjects(t, opts)
 	var defaultKubeClient kubelib.Client
@@ -160,7 +162,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if opts.EnableFakeXDSUpdater {
 		xdsUpdater = xdsfake.NewWithDelegate(s)
 	}
-	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
+	mc := multicluster.NewFakeController()
+	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName, mc)
 
 	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	for k8sCluster, objs := range k8sObjects {
@@ -168,21 +171,23 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		if opts.KubeClientModifier != nil {
 			opts.KubeClientModifier(client)
 		}
-		k8sConfig := configController
-		if k8sCluster != opts.DefaultClusterName {
-			k8sConfig = nil
-		}
 		k8s, _ := kube.NewFakeControllerWithOptions(t, kube.FakeControllerOptions{
-			ServiceHandler:   serviceHandler,
-			Client:           client,
-			ClusterID:        k8sCluster,
-			DomainSuffix:     "cluster.local",
-			XDSUpdater:       xdsUpdater,
-			NetworksWatcher:  opts.NetworksWatcher,
-			SkipRun:          true,
-			ConfigController: k8sConfig,
-			ConfigCluster:    k8sCluster == opts.DefaultClusterName,
-			MeshWatcher:      mesh.NewFixedWatcher(m),
+			ServiceHandler:  serviceHandler,
+			Client:          client,
+			ClusterID:       k8sCluster,
+			DomainSuffix:    "cluster.local",
+			XDSUpdater:      xdsUpdater,
+			NetworksWatcher: opts.NetworksWatcher,
+			SkipRun:         true,
+			ConfigCluster:   k8sCluster == opts.DefaultClusterName,
+			MeshWatcher:     mesh.NewFixedWatcher(m),
+			CRDs: []schema.GroupVersionResource{
+				gvr.AuthorizationPolicy,
+				gvr.PeerAuthentication,
+				gvr.KubernetesGateway,
+				gvr.WorkloadEntry,
+				gvr.ServiceEntry,
+			},
 		})
 		stop := test.NewStop(t)
 		// start default client informers after creating ingress/secret controllers
@@ -196,7 +201,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			client.RunAndWait(stop)
 		}
 		registries = append(registries, k8s)
-		creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop)
+		mc.Add(k8sCluster, client, stop)
 	}
 
 	stop := test.NewStop(t)
@@ -206,7 +211,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	defaultKubeClient.RunAndWait(stop)
 
 	var gwc *gateway.Controller
-	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+	cg := core.NewConfigGenTest(t, core.TestOptions{
 		Configs:             opts.Configs,
 		ConfigString:        opts.ConfigString,
 		ConfigTemplateInput: opts.ConfigTemplateInput,
@@ -237,7 +242,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		t.Fatal(err)
 	}
 
-	bootstrap.InitGenerators(s, v1alpha3.NewConfigGenerator(s.Cache), "istio-system", "", nil)
+	bootstrap.InitGenerators(s, core.NewConfigGenerator(s.Cache), "istio-system", "", nil)
 	s.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*xds.EcdsGenerator).SetCredController(creds)
 

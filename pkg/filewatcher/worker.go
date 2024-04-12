@@ -17,7 +17,7 @@ package filewatcher
 import (
 	"bufio"
 	"bytes"
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -52,8 +52,8 @@ type fileTracker struct {
 	events chan fsnotify.Event
 	errors chan error
 
-	// md5 sum to indicate if a file has been updated.
-	md5Sum []byte
+	// Hash sum to indicate if a file has been updated.
+	hash []byte
 }
 
 func newWorker(path string, funcs *patchTable) (*worker, error) {
@@ -105,9 +105,9 @@ func (wk *worker) loop() {
 					continue
 				}
 
-				sum := getMd5Sum(path)
-				if !bytes.Equal(sum, ft.md5Sum) {
-					ft.md5Sum = sum
+				sum := getHashSum(path)
+				if !bytes.Equal(sum, ft.hash) {
+					ft.hash = sum
 
 					select {
 					case ft.events <- event:
@@ -203,7 +203,7 @@ func (wk *worker) addPath(path string) error {
 	ft = &fileTracker{
 		events: make(chan fsnotify.Event),
 		errors: make(chan error),
-		md5Sum: getMd5Sum(path),
+		hash:   getHashSum(path),
 	}
 
 	wk.watchedFiles[path] = ft
@@ -250,10 +250,8 @@ func (wk *worker) errorChannel(path string) chan error {
 	return nil
 }
 
-// gets the MD5 of the given file, or nil if there's a problem
-// nolint: gosec
-// not security sensitive code
-func getMd5Sum(file string) []byte {
+// gets the hash of the given file, or nil if there's a problem
+func getHashSum(file string) []byte {
 	f, err := os.Open(file)
 	if err != nil {
 		return nil
@@ -261,7 +259,7 @@ func getMd5Sum(file string) []byte {
 	defer f.Close()
 	r := bufio.NewReader(f)
 
-	h := md5.New()
+	h := sha256.New()
 	_, _ = io.Copy(h, r)
 	return h.Sum(nil)
 }

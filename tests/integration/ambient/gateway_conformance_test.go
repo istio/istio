@@ -20,15 +20,15 @@ package ambient
 import (
 	"testing"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
+	ambientComponent "istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -57,15 +57,9 @@ var skippedTests = map[string]string{
 	"GatewayStaticAddresses": "https://github.com/istio/istio/issues/47467",
 }
 
-func init() {
-	scope := log.RegisterScope("controlleruntime", "scope for controller runtime")
-	controllruntimelog.SetLogger(log.NewLogrAdapter(scope))
-}
-
 func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ambient.gateway").
 		Run(func(ctx framework.TestContext) {
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
 			if ctx.Settings().Image.PullSecret != "" {
@@ -124,7 +118,21 @@ func TestGatewayConformance(t *testing.T) {
 			ns.RemoveLabel(constants.DataplaneMode)
 
 			// create a waypoint for mesh conformance
-			setupWaypoints(ctx, namespace.Static("gateway-conformance-mesh"), "default")
+			meshNS := namespace.Static("gateway-conformance-mesh")
+			ambientComponent.NewWaypointProxyOrFail(ctx, meshNS, "namespace")
+			for _, k := range ctx.AllClusters() {
+				ns, err := k.Kube().CoreV1().Namespaces().Get(ctx.Context(), meshNS.Name(), v1.GetOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				annotations := ns.Annotations
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
+				annotations[constants.AmbientUseWaypoint] = "namespace"
+				ns.Annotations = annotations
+				k.Kube().CoreV1().Namespaces().Update(ctx.Context(), ns, v1.UpdateOptions{})
+			}
 
 			for _, ct := range tests.ConformanceTests {
 				t.Run(ct.ShortName, func(t *testing.T) {

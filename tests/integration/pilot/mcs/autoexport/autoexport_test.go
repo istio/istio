@@ -57,7 +57,6 @@ func TestMain(m *testing.M) {
 
 func TestAutoExport(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.mcs.autoexport").
 		Run(func(ctx framework.TestContext) {
 			serviceExportGVR := common.KubeSettings(ctx).ServiceExportGVR()
 			// Verify that ServiceExport is created automatically for services.

@@ -61,30 +61,6 @@ func Compare(content, golden []byte) error {
 	return nil
 }
 
-// CompareYAML compares a file "x" against a golden file "x.golden"
-func CompareYAML(t test.Failer, filename string) {
-	t.Helper()
-	content, err := os.ReadFile(filename)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	goldenFile := filename + ".golden"
-	if Refresh() {
-		t.Logf("Refreshing golden file for %s", filename)
-		if err = os.WriteFile(goldenFile, content, 0o644); err != nil {
-			t.Fatal(err.Error())
-		}
-	}
-
-	golden, err := os.ReadFile(goldenFile)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	if err = Compare(content, golden); err != nil {
-		t.Fatalf("Failed validating artifact %s:\n%v", filename, err)
-	}
-}
-
 // CompareContent compares the content value against the golden file and fails the test if they differ
 func CompareContent(t test.Failer, content []byte, goldenFile string) {
 	t.Helper()

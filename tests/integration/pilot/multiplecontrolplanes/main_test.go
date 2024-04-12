@@ -82,11 +82,7 @@ meshConfig:
         usergroup: usergroup-1
 values:
   global:
-    istioNamespace: %s
-  pilot:
-    env:
-      # CR scoping is guarded by the feature flag
-      ENABLE_ENHANCED_RESOURCE_SCOPING: true`,
+    istioNamespace: %s`,
 				userGroup1NS.Name(), userGroup1NS.Name())
 		})).
 		Setup(istio.Setup(nil, func(ctx resource.Context, cfg *istio.Config) {
@@ -106,11 +102,7 @@ meshConfig:
         usergroup: usergroup-2
 values:
   global:
-    istioNamespace: %s
-  pilot:
-    env:
-      # CR scoping is guarded by the feature flag
-      ENABLE_ENHANCED_RESOURCE_SCOPING: true`,
+    istioNamespace: %s`,
 				userGroup2NS.Name(), userGroup2NS.Name())
 		})).
 		SetupParallel(
@@ -134,7 +126,6 @@ values:
 // TestMultiControlPlane sets up two distinct istio control planes and verify if resources and traffic are properly isolated
 func TestMultiControlPlane(t *testing.T) {
 	framework.NewTest(t).
-		Features("installation.multiplecontrolplanes").
 		Run(func(t framework.TestContext) {
 			// configure peerauthentication per system namespace
 			restrictUserGroups(t)
@@ -191,7 +182,6 @@ func TestMultiControlPlane(t *testing.T) {
 // TestCustomResourceScoping sets up a CustomResource and verifies that the configuration is not leaked to namespaces owned by a different control plane
 func TestCustomResourceScoping(t *testing.T) {
 	framework.NewTest(t).
-		Features("installation.multiplecontrolplanes").
 		Run(func(t framework.TestContext) {
 			// allow access to external service only for app-ns-2 namespace which is under usergroup-2
 			allowExternalService(t, apps.NS[1].Namespace.Name(), externalNS.Name(), "usergroup-2")

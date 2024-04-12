@@ -340,12 +340,8 @@ func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPSet
 		log.Warnf("unable to list IPSet: %v", err)
 		return err
 	}
-	actual := sets.New[netip.Addr]()
-	for _, ip := range actualIPSetContents {
-		actual.Insert(ip)
-	}
-
-	stales := actual.Difference(expected)
+	actual := sets.New[netip.Addr](actualIPSetContents...)
+	stales := actual.DifferenceInPlace(expected)
 
 	for staleIP := range stales {
 		if err := hostsideProbeSet.ClearEntriesWithIP(staleIP); err != nil {

@@ -173,8 +173,11 @@ type Config struct {
 
 	DualStack bool
 
-	// WaypointProxy specifies if this workload should have an associated Waypoint
-	WaypointProxy bool
+	// ServiceWaypointProxy specifies if this workload should have an associated Waypoint for service-addressed traffic
+	ServiceWaypointProxy string
+
+	// WorkloadWaypointProxy specifies if this workload should have an associated Waypoint for workload-addressed traffic
+	WorkloadWaypointProxy string
 }
 
 // Getter for a custom echo deployment
@@ -264,6 +267,21 @@ func (c Config) ClusterSetLocalFQDN() string {
 	return out
 }
 
+// HostnameVariants for a Kubernetes service.
+// Results may be invalid for non k8s.
+func (c Config) HostnameVariants() []string {
+	ns := c.NamespaceName()
+	if ns == "" {
+		ns = "default"
+	}
+	return []string{
+		c.Service,
+		c.Service + "." + ns,
+		c.Service + "." + ns + ".svc",
+		c.ClusterLocalFQDN(),
+	}
+}
+
 // HostHeader returns the Host header that will be used for calls to this service.
 func (c Config) HostHeader() string {
 	if c.DefaultHostHeader != "" {
@@ -319,8 +337,16 @@ func (c Config) IsTProxy() bool {
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(SidecarInterceptionMode) == "TPROXY"
 }
 
-func (c Config) HasWaypointProxy() bool {
-	return c.WaypointProxy
+func (c Config) HasAnyWaypointProxy() bool {
+	return c.ServiceWaypointProxy != "" || c.WorkloadWaypointProxy != ""
+}
+
+func (c Config) HasServiceAddressedWaypointProxy() bool {
+	return c.ServiceWaypointProxy != ""
+}
+
+func (c Config) HasWorkloadAddressedWaypointProxy() bool {
+	return c.WorkloadWaypointProxy != ""
 }
 
 func (c Config) HasSidecar() bool {
@@ -346,8 +372,8 @@ func (c Config) IsVM() bool {
 	return c.DeployAsVM
 }
 
-func (c Config) IsDelta() bool {
-	// TODO this doesn't hold if delta is on by default
+func (c Config) IsSotw() bool {
+	// TODO this doesn't hold if delta is off by default
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.Contains(c.Subsets[0].Annotations.Get(SidecarProxyConfig), "ISTIO_DELTA_XDS")
 }
 
@@ -366,15 +392,21 @@ func (c Config) IsRegularPod() bool {
 		!c.IsHeadless() &&
 		!c.IsStatefulSet() &&
 		!c.IsProxylessGRPC() &&
-		!c.HasWaypointProxy() &&
+		!c.HasServiceAddressedWaypointProxy() &&
+		!c.HasWorkloadAddressedWaypointProxy() &&
 		!c.ZTunnelCaptured() &&
 		!c.DualStack
 }
 
 // ZTunnelCaptured returns true in ambient enabled namespaces where there is no sidecar
 func (c Config) ZTunnelCaptured() bool {
-	return c.Namespace.IsAmbient() && len(c.Subsets) > 0 &&
-		c.Subsets[0].Annotations.GetByName("ambient.istio.io/redirection") == "enabled"
+	haveSubsets := len(c.Subsets) > 0
+	if c.Namespace.IsAmbient() && haveSubsets &&
+		c.Subsets[0].Annotations.GetByName(constants.AmbientRedirection) != constants.AmbientRedirectionDisabled &&
+		!c.HasSidecar() {
+		return true
+	}
+	return haveSubsets && c.Subsets[0].Annotations.GetByName(constants.AmbientRedirection) == constants.AmbientRedirectionEnabled
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
@@ -560,10 +592,10 @@ func (c Config) WorkloadClass() WorkloadClass {
 		return External
 	} else if c.IsStatefulSet() {
 		return StatefulSet
-	} else if c.IsDelta() {
-		// TODO remove if delta is on by default
-		return Delta
-	} else if c.ZTunnelCaptured() && !c.HasWaypointProxy() {
+	} else if c.IsSotw() {
+		return Sotw
+	} else if c.ZTunnelCaptured() &&
+		!(c.HasServiceAddressedWaypointProxy() || c.HasWorkloadAddressedWaypointProxy()) {
 		return Captured
 	}
 	if c.IsHeadless() {

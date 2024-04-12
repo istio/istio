@@ -71,6 +71,7 @@ func All() []analysis.Analyzer {
 		&telemetry.SelectorAnalyzer{},
 		&telemetry.DefaultSelectorAnalyzer{},
 		&telemetry.LightstepAnalyzer{},
+		&multicluster.ServiceAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)
@@ -78,7 +79,19 @@ func All() []analysis.Analyzer {
 	return analyzers
 }
 
+func AllMultiCluster() []analysis.Analyzer {
+	analyzers := []analysis.Analyzer{
+		&multicluster.ServiceAnalyzer{},
+	}
+	return analyzers
+}
+
 // AllCombined returns all analyzers combined as one
-func AllCombined() *analysis.CombinedAnalyzer {
+func AllCombined() analysis.CombinedAnalyzer {
 	return analysis.Combine("all", All()...)
+}
+
+// AllMultiClusterCombined returns all multi-cluster analyzers combined as one
+func AllMultiClusterCombined() analysis.CombinedAnalyzer {
+	return analysis.Combine("all-multi-cluster", AllMultiCluster()...)
 }

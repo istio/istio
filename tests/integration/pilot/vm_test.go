@@ -62,7 +62,6 @@ func GetAdditionVMImages(t framework.TestContext) []string {
 func TestVmOSPost(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.reachability").
 		Label(label.Postsubmit).
 		Run(func(t framework.TestContext) {
 			if t.Settings().Skip(echo.VM) {
@@ -102,7 +101,6 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
-		Features("vm.autoregistration").
 		Run(func(t framework.TestContext) {
 			if t.Settings().Skip(echo.VM) {
 				t.Skip()

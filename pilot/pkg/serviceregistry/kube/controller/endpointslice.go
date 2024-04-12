@@ -49,7 +49,7 @@ var (
 )
 
 func newEndpointSliceController(c *Controller) *endpointSliceController {
-	slices := kclient.NewFiltered[*v1.EndpointSlice](c.client, kclient.Filter{ObjectFilter: c.opts.GetFilter()})
+	slices := kclient.NewFiltered[*v1.EndpointSlice](c.client, kclient.Filter{ObjectFilter: c.client.ObjectFilter()})
 	out := &endpointSliceController{
 		c:             c,
 		slices:        slices,
@@ -83,17 +83,6 @@ func (esc *endpointSliceController) initializeNamespace(ns string, filtered bool
 	return err.ErrorOrNil()
 }
 
-// deleteEndpoints deletes endpoints for a given namespace.
-func (esc *endpointSliceController) deleteEndpoints(ns string) error {
-	var err *multierror.Error
-	endpoints := esc.slices.ListUnfiltered(ns, klabels.Everything())
-	log.Debugf("deleting %d endpointslices", len(endpoints))
-	for _, s := range endpoints {
-		err = multierror.Append(err, esc.onEvent(nil, s, model.EventDelete))
-	}
-	return err.ErrorOrNil()
-}
-
 func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model.Event) error {
 	esc.onEventInternal(nil, ep, event)
 	return nil
@@ -116,21 +105,23 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
 	// Trigger EDS push for all hostnames.
 	esc.pushEDS(hostnames, namespacedName.Namespace)
+
 	name := serviceNameForEndpointSlice(esLabels)
 	namespace := ep.GetNamespace()
 	svc := esc.c.services.Get(name, namespace)
-	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone {
+	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone || svc.Spec.Type == corev1.ServiceTypeExternalName {
 		return
 	}
 
-	configsUpdated := sets.New[model.ConfigKey]()
+	configs := []types.NamespacedName{}
 	pureHTTP := true
 	for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
 		// skip push if it is not exported
 		if modelSvc.Attributes.ExportTo.Contains(visibility.None) {
 			continue
 		}
-		configsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
+
+		configs = append(configs, types.NamespacedName{Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
 
 		for _, p := range modelSvc.Ports {
 			if !p.Protocol.IsHTTP() {
@@ -140,17 +131,25 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 		}
 	}
 
-	if len(configsUpdated) > 0 {
-		// For headless services, trigger a full push if EnableHeadlessService is true and svc ports are not pure HTTP.
-		// otherwise push endpoint updates - needed for NDS output.
-		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+	configsUpdated := sets.New[model.ConfigKey]()
+	for _, config := range configs {
+		if !pureHTTP {
+			configsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: config.Name, Namespace: config.Namespace})
+		} else {
 			// pure HTTP headless services should not need a full push since they do not
 			// require a Listener based on IP: https://github.com/istio/istio/issues/48207
-			Full: !pureHTTP && features.EnableHeadlessService,
-			// TODO: extend and set service instance type, so no need to re-init push context
-			ConfigsUpdated: configsUpdated,
+			configsUpdated.Insert(model.ConfigKey{Kind: kind.DNSName, Name: config.Name, Namespace: config.Namespace})
+		}
+	}
 
-			Reason: model.NewReasonStats(model.HeadlessEndpointUpdate),
+	if len(configsUpdated) > 0 {
+		// For headless services, trigger a full push.
+		// If EnableHeadlessService is true and svc ports are not pure HTTP, we need to regenerate listeners per endpoint.
+		// Otherwise we only need to push NDS, but still need to set full but we skip all other xDS except NDS during the push.
+		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: configsUpdated,
+			Reason:         model.NewReasonStats(model.HeadlessEndpointUpdate),
 		})
 	}
 }

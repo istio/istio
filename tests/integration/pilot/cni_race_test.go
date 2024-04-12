@@ -42,7 +42,6 @@ import (
 
 func TestCNIRaceRepair(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.cni.race-condition-repair").
 		Run(func(t framework.TestContext) {
 			if !i.Settings().EnableCNI {
 				t.Skip("CNI race condition mitigation is only tested when CNI is enabled.")

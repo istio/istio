@@ -14,6 +14,8 @@
 
 package resource
 
+import "istio.io/istio/pkg/cluster"
+
 // Origin of a resource. This is source-implementation dependent.
 type Origin interface {
 	FriendlyName() string
@@ -24,6 +26,9 @@ type Origin interface {
 	// and their corresponding line numbers as values
 	FieldMap() map[string]int
 	Comparator() string
+
+	// ClusterName returns the cluster name where the resource is located
+	ClusterName() cluster.ID
 }
 
 // Reference provides more information about an Origin. This is also source-implementation dependent.

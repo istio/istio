@@ -77,7 +77,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 		}
 
 		sic.serviceImports = kclient.NewDelayedInformer[controllers.Object](sic.client, mcs.ServiceImportGVR, kubetypes.DynamicInformer, kclient.Filter{
-			ObjectFilter: sic.opts.GetFilter(),
+			ObjectFilter: sic.client.ObjectFilter(),
 		})
 		// Register callbacks for events.
 		registerHandlers(sic.Controller, sic.serviceImports, "ServiceImports", sic.onServiceImportEvent, nil)

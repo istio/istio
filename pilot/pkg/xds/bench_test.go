@@ -35,11 +35,12 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	"istio.io/istio/pilot/pkg/networking/core/route"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -380,7 +381,7 @@ func setupTest(t testing.TB, config ConfigInput) (*xds.FakeDiscoveryServer, *mod
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
-			ClusterID:    "Kubernetes",
+			ClusterID:    constants.DefaultClusterName,
 			IstioVersion: "1.22.0",
 		},
 		ConfigNamespace:  "default",

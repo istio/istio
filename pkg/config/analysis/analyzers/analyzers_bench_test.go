@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
@@ -92,7 +94,10 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 
 		return false
 	})
-	ctx := local.NewContext(store, make(chan struct{}), func(name config.GroupVersionKind) {})
+	stores := map[cluster.ID]model.ConfigStore{
+		"fake": store,
+	}
+	ctx := local.NewContext(stores, make(chan struct{}), func(name config.GroupVersionKind) {})
 
 	b.ResetTimer()
 	for _, a := range All() {

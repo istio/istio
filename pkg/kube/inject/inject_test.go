@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	securityv1 "github.com/openshift/api/security/v1"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -41,7 +42,10 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/kube/multicluster"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/platform"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -56,6 +60,7 @@ func TestInjection(t *testing.T) {
 		inFilePath    string
 		mesh          func(m *meshapi.MeshConfig)
 		skipWebhook   bool
+		skipInjection bool
 		expectedError string
 		expectedLog   string
 		setup         func(t test.Failer)
@@ -67,7 +72,7 @@ func TestInjection(t *testing.T) {
 			want: "hello.yaml.cni.injected",
 			setFlags: []string{
 				"components.cni.enabled=true",
-				"values.istio_cni.chained=true",
+				"values.istio_cni.provider=default",
 				"values.global.network=network1",
 			},
 		},
@@ -170,7 +175,7 @@ func TestInjection(t *testing.T) {
 			want: "hello-cncf-networks.yaml.injected",
 			setFlags: []string{
 				`components.cni.enabled=true`,
-				`values.istio_cni.chained=false`,
+				`values.istio_cni.provider=multus`,
 			},
 		},
 		{
@@ -179,7 +184,7 @@ func TestInjection(t *testing.T) {
 			want: "hello-existing-cncf-networks.yaml.injected",
 			setFlags: []string{
 				`components.cni.enabled=true`,
-				`values.istio_cni.chained=false`,
+				`values.istio_cni.provider=multus`,
 			},
 		},
 		{
@@ -188,7 +193,7 @@ func TestInjection(t *testing.T) {
 			want: "hello-existing-cncf-networks-json.yaml.injected",
 			setFlags: []string{
 				`components.cni.enabled=true`,
-				`values.istio_cni.chained=false`,
+				`values.istio_cni.provider=multus`,
 			},
 		},
 		{
@@ -341,6 +346,18 @@ func TestInjection(t *testing.T) {
 			in:   "truncate-canonical-name-custom-controller-pod.yaml",
 			want: "truncate-canonical-name-custom-controller-pod.yaml.injected",
 		},
+		{
+			// Test injection on OpenShift. Currently kube-inject does not work, only test webhook
+			in:   "hello-openshift.yaml",
+			want: "hello-openshift.yaml.injected",
+			setFlags: []string{
+				"components.cni.enabled=true",
+			},
+			skipInjection: true,
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, platform.Platform.Name, platform.OpenShift)
+			},
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
@@ -431,6 +448,10 @@ func TestInjection(t *testing.T) {
 
 			// First we test kube-inject. This will run exactly what kube-inject does, and write output to the golden files
 			t.Run("kube-inject", func(t *testing.T) {
+				if c.skipInjection {
+					return
+				}
+
 				var got bytes.Buffer
 				logs := make([]string, 0)
 				warn := func(s string) {
@@ -484,13 +505,32 @@ func TestInjection(t *testing.T) {
 				env.SetPushContext(&model.PushContext{
 					ProxyConfigs: &model.ProxyConfigs{},
 				})
+
+				multi := multicluster.NewFakeController()
+				client := kube.NewFakeClient(
+					&corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-ns",
+							Annotations: map[string]string{
+								securityv1.UIDRangeAnnotation:           "1000620000/10000",
+								securityv1.SupplementalGroupsAnnotation: "1000620000/10000",
+							},
+						},
+					})
+
 				webhook := &Webhook{
 					Config:       sidecarTemplate,
 					meshConfig:   mc,
 					env:          env,
 					valuesConfig: valuesConfig,
 					revision:     "default",
+					namespaces:   multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](multi, kubetypes.Filter{}),
 				}
+
+				stop := test.NewStop(t)
+				multi.Add(constants.DefaultClusterName, client, stop)
+				client.RunAndWait(stop)
+
 				// Split multi-part yaml documents. Input and output will have the same number of parts.
 				inputYAMLs := splitYamlFile(inputFilePath, t)
 				wantYAMLs := splitYamlFile(wantFilePath, t)

@@ -40,11 +40,11 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/kube/namespace"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -122,14 +122,14 @@ var builtinClasses = getBuiltinClasses()
 
 func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 	res := map[gateway.ObjectName]gateway.GatewayController{
-		defaultClassName: constants.ManagedGatewayController,
+		gateway.ObjectName(features.GatewayAPIDefaultGatewayClass): gateway.GatewayController(features.ManagedGatewayController),
 	}
 
 	if features.MultiNetworkGatewayAPI {
 		res[constants.RemoteGatewayClassName] = constants.UnmanagedGatewayController
 	}
 
-	if features.EnableAmbientControllers {
+	if features.EnableAmbientWaypoints {
 		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
 	}
 	return res
@@ -137,8 +137,8 @@ func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 
 func getClassInfos() map[gateway.GatewayController]classInfo {
 	m := map[gateway.GatewayController]classInfo{
-		constants.ManagedGatewayController: {
-			controller:         constants.ManagedGatewayController,
+		gateway.GatewayController(features.ManagedGatewayController): {
+			controller:         features.ManagedGatewayController,
 			description:        "The default Istio GatewayClass",
 			templates:          "kube-gateway",
 			defaultServiceType: corev1.ServiceTypeLoadBalancer,
@@ -156,7 +156,7 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			addressType:            gateway.HostnameAddressType,
 		}
 	}
-	if features.EnableAmbientControllers {
+	if features.EnableAmbientWaypoints {
 		m[constants.ManagedGatewayMeshController] = classInfo{
 			controller:         constants.ManagedGatewayMeshController,
 			description:        "The default Istio waypoint GatewayClass",
@@ -172,13 +172,9 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 // The controller will not start until Run() is called.
 func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *model.Environment,
 	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher, revision string,
-	nsFilter namespace.DiscoveryNamespacesFilter,
 ) *DeploymentController {
-	var filter namespace.DiscoveryFilter
-	if nsFilter != nil {
-		filter = nsFilter.Filter
-	}
-	gateways := kclient.NewFiltered[*gateway.Gateway](client, kclient.Filter{ObjectFilter: filter})
+	filter := kclient.Filter{ObjectFilter: kube.FilterIfEnhancedFilteringEnabled(client)}
+	gateways := kclient.NewFiltered[*gateway.Gateway](client, filter)
 	gatewayClasses := kclient.New[*gateway.GatewayClass](client)
 	dc := &DeploymentController{
 		client:    client,
@@ -190,7 +186,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *mode
 			t := true
 			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
 				Force:        &t,
-				FieldManager: constants.ManagedGatewayController,
+				FieldManager: features.ManagedGatewayController,
 			}, subresources...)
 			return err
 		},
@@ -209,19 +205,19 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *mode
 	// the Gateway to the queue and reconcile the state of the world.
 	parentHandler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
 
-	dc.services = kclient.NewFiltered[*corev1.Service](client, kclient.Filter{ObjectFilter: filter})
+	dc.services = kclient.NewFiltered[*corev1.Service](client, filter)
 	dc.services.AddEventHandler(parentHandler)
 	dc.clients[gvr.Service] = NewUntypedWrapper(dc.services)
 
-	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, kclient.Filter{ObjectFilter: filter})
+	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, filter)
 	dc.deployments.AddEventHandler(parentHandler)
 	dc.clients[gvr.Deployment] = NewUntypedWrapper(dc.deployments)
 
-	dc.serviceAccounts = kclient.NewFiltered[*corev1.ServiceAccount](client, kclient.Filter{ObjectFilter: filter})
+	dc.serviceAccounts = kclient.NewFiltered[*corev1.ServiceAccount](client, filter)
 	dc.serviceAccounts.AddEventHandler(parentHandler)
 	dc.clients[gvr.ServiceAccount] = NewUntypedWrapper(dc.serviceAccounts)
 
-	dc.namespaces = kclient.NewFiltered[*corev1.Namespace](client, kclient.Filter{ObjectFilter: filter})
+	dc.namespaces = kclient.NewFiltered[*corev1.Namespace](client, filter)
 	dc.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		// TODO: make this more intelligent, checking if something we care about has changed
 		// requeue this namespace
@@ -358,6 +354,23 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		gw.Labels[label.TopologyNetwork.Name] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
 	}
 
+	// Disable ambient redirection for kube-gateway if there is no explicit setting
+	var hasAmbientAnnotation bool
+	if _, ok := gw.Annotations[constants.AmbientRedirection]; ok {
+		hasAmbientAnnotation = true
+	}
+	if gw.Spec.Infrastructure != nil {
+		if _, ok := gw.Spec.Infrastructure.Annotations[constants.AmbientRedirection]; ok {
+			hasAmbientAnnotation = true
+		}
+	}
+	if features.EnableAmbientWaypoints && !isWaypointGateway && !hasAmbientAnnotation {
+		if gw.Annotations == nil {
+			gw.Annotations = make(map[string]string)
+		}
+		gw.Annotations[constants.AmbientRedirection] = constants.AmbientRedirectionDisabled
+	}
+
 	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
@@ -370,6 +383,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		ServiceType:               serviceType,
 		ProxyUID:                  proxyUID,
 		ProxyGID:                  proxyGID,
+		CompliancePolicy:          common_features.CompliancePolicy,
 		InfrastructureLabels:      gw.GetLabels(),
 		InfrastructureAnnotations: gw.GetAnnotations(),
 	}
@@ -627,6 +641,7 @@ type TemplateInput struct {
 	Revision                  string
 	ProxyUID                  int64
 	ProxyGID                  int64
+	CompliancePolicy          string
 	InfrastructureLabels      map[string]string
 	InfrastructureAnnotations map[string]string
 	GatewayNameLabel          string

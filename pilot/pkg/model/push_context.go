@@ -159,16 +159,22 @@ type sidecarIndex struct {
 	// for all services in the mesh. This will be used if there is no sidecar specified in root namespace.
 	// These are lazy-loaded. Access protected by derivedSidecarMutex.
 	defaultSidecarsByNamespace map[string]*SidecarScope
+	// sidecarsForGatewayByNamespace contains the default sidecar for gateways and waypoints,
+	// These are *always* computed from DefaultSidecarScopeForGateway.
+	// These are lazy-loaded. Access protected by derivedSidecarMutex.
+	sidecarsForGatewayByNamespace map[string]*SidecarScope
+
 	// mutex to protect derived sidecars i.e. not specified by user.
 	derivedSidecarMutex *sync.RWMutex
 }
 
 func newSidecarIndex() sidecarIndex {
 	return sidecarIndex{
-		sidecarsByNamespace:         map[string][]*SidecarScope{},
-		meshRootSidecarsByNamespace: map[string]*SidecarScope{},
-		defaultSidecarsByNamespace:  map[string]*SidecarScope{},
-		derivedSidecarMutex:         &sync.RWMutex{},
+		sidecarsByNamespace:           map[string][]*SidecarScope{},
+		meshRootSidecarsByNamespace:   map[string]*SidecarScope{},
+		defaultSidecarsByNamespace:    map[string]*SidecarScope{},
+		sidecarsForGatewayByNamespace: map[string]*SidecarScope{},
+		derivedSidecarMutex:           &sync.RWMutex{},
 	}
 }
 
@@ -1081,9 +1087,13 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 			return sc
 		}
 
+		if sc, f := ps.sidecarIndex.sidecarsForGatewayByNamespace[proxy.ConfigNamespace]; f {
+			return sc
+		}
+
 		// We need to compute this namespace
-		computed := DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
-		ps.sidecarIndex.defaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
+		computed := DefaultSidecarScopeForGateway(ps, proxy.ConfigNamespace)
+		ps.sidecarIndex.sidecarsForGatewayByNamespace[proxy.ConfigNamespace] = computed
 		return computed
 	case SidecarProxy:
 		if hasSidecar {
@@ -1305,7 +1315,7 @@ func (ps *PushContext) updateContext(
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
-		case kind.ServiceEntry:
+		case kind.ServiceEntry, kind.DNSName:
 			servicesChanged = true
 		case kind.DestinationRule:
 			destinationRulesChanged = true
@@ -1327,7 +1337,7 @@ func (ps *PushContext) updateContext(
 		case kind.RequestAuthentication,
 			kind.PeerAuthentication:
 			authnChanged = true
-		case kind.HTTPRoute, kind.TCPRoute, kind.GatewayClass, kind.KubernetesGateway, kind.TLSRoute, kind.ReferenceGrant:
+		case kind.HTTPRoute, kind.TCPRoute, kind.TLSRoute, kind.GRPCRoute, kind.GatewayClass, kind.KubernetesGateway, kind.ReferenceGrant:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
@@ -1446,7 +1456,11 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		}
 		shards, ok := env.EndpointIndex.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
 		if ok {
-			ps.ServiceIndex.instancesByPort[svcKey] = shards.CopyEndpoints(portMap)
+			instancesByPort := shards.CopyEndpoints(portMap)
+			// Iterate over the instances and add them to the service index to avoid overiding the existing port instances.
+			for port, instances := range instancesByPort {
+				ps.ServiceIndex.instancesByPort[svcKey][port] = instances
+			}
 		}
 		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
@@ -1672,12 +1686,6 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 
 	totalVirtualServices.Record(float64(len(virtualServices)))
 
-	// TODO(rshriram): parse each virtual service and maintain a map of the
-	// virtualservice name, the list of registry hosts in the VS and non
-	// registry DNS names in the VS.  This should cut down processing in
-	// the RDS code. See separateVSHostsAndServices in route/route.go
-	sortConfigByCreationTime(vservices)
-
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
 		resolveVirtualServiceShortnames(r.Spec.(*networking.VirtualService), r.Meta)
@@ -1749,7 +1757,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		}
 
 		// For mesh virtual services, build a map of host -> referenced destinations
-		if features.EnableAmbientControllers && (len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway)) {
+		if features.EnableAmbientWaypoints && (len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway)) {
 			for host := range virtualServiceDestinations(rule) {
 				for _, rhost := range rule.Hosts {
 					if _, f := ps.virtualServiceIndex.referencedDestinations[rhost]; !f {
@@ -1932,6 +1940,30 @@ func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
 	ps.setDestinationRules(configs)
 }
 
+// sortConfigBySelectorAndCreationTime sorts the list of config objects based on priority and creation time.
+func sortConfigBySelectorAndCreationTime(configs []config.Config) []config.Config {
+	creationTimeComparator := sortByCreationComparator(configs)
+	// Define a comparator function for sorting configs by priority and creation time
+	comparator := func(i, j int) bool {
+		idr := configs[i].Spec.(*networking.DestinationRule)
+		jdr := configs[j].Spec.(*networking.DestinationRule)
+
+		// Check if one of the configs has priority set to true
+		if idr.GetWorkloadSelector() != nil && jdr.GetWorkloadSelector() == nil {
+			return true
+		} else if idr.GetWorkloadSelector() == nil && jdr.GetWorkloadSelector() != nil {
+			return false
+		}
+
+		// If priority is the same or neither has priority, fallback to creation time ordering
+		return creationTimeComparator(i, j)
+	}
+
+	// Sort the configs using the defined comparator function
+	sort.Slice(configs, comparator)
+	return configs
+}
+
 // setDestinationRules updates internal structures using a set of configs.
 // Split out of DestinationRule expensive conversions, computed once per push.
 // This will not work properly for Sidecars, which will precompute their
@@ -1939,7 +1971,7 @@ func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
 func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
-	sortConfigByCreationTime(configs)
+	sortConfigBySelectorAndCreationTime(configs)
 	namespaceLocalDestRules := make(map[string]*consolidatedDestRules)
 	exportedDestRulesByNamespace := make(map[string]*consolidatedDestRules)
 	rootNamespaceLocalDestRules := newConsolidatedDestRules()
@@ -2155,6 +2187,24 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		matchedEnvoyFilters = append(matchedEnvoyFilters, matched...)
 	}
 
+	sort.Slice(matchedEnvoyFilters, func(i, j int) bool {
+		ifilter := matchedEnvoyFilters[i]
+		jfilter := matchedEnvoyFilters[j]
+		if ifilter.Priority != jfilter.Priority {
+			return ifilter.Priority < jfilter.Priority
+		}
+		// Prefer root namespace filters over non-root namespace filters.
+		if ifilter.Namespace != jfilter.Namespace &&
+			(ifilter.Namespace == ps.Mesh.RootNamespace || jfilter.Namespace == ps.Mesh.RootNamespace) {
+			return ifilter.Namespace == ps.Mesh.RootNamespace
+		}
+		if ifilter.creationTime != jfilter.creationTime {
+			return ifilter.creationTime.Before(jfilter.creationTime)
+		}
+		in := ifilter.Name + "." + ifilter.Namespace
+		jn := jfilter.Name + "." + jfilter.Namespace
+		return in < jn
+	})
 	var out *EnvoyFilterWrapper
 	if len(matchedEnvoyFilters) > 0 {
 		out = &EnvoyFilterWrapper{
@@ -2402,11 +2452,18 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 	return false
 }
 
-func (ps *PushContext) WaypointsFor(scope WaypointScope) []netip.Addr {
-	return ps.ambientIndex.Waypoint(scope)
+func (ps *PushContext) WaypointsFor(network, address string) []netip.Addr {
+	return ps.ambientIndex.Waypoint(network, address)
 }
 
-// WorkloadsForWaypoint returns all workloads associated with a given WaypointScope
-func (ps *PushContext) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
-	return ps.ambientIndex.WorkloadsForWaypoint(scope)
+// WorkloadsForWaypoint returns all workloads associated with a given waypoint identified by it's WaypointKey
+// Used when calculating the workloads which should be configured for a specific waypoint proxy
+func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []WorkloadInfo {
+	return ps.ambientIndex.WorkloadsForWaypoint(key)
+}
+
+// ServicesForWaypoint returns all services associated with a given waypoint identified by it's WaypointKey
+// Used when calculating the services which should be configured for a specific waypoint proxy
+func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
+	return ps.ambientIndex.ServicesForWaypoint(key)
 }

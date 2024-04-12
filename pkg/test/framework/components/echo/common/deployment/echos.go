@@ -26,6 +26,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -302,18 +303,18 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		defaultConfigs = append(defaultConfigs, dSvc, eSvc)
 	}
 
-	if !skipDeltaXDS(t) {
-		delta := echo.Config{
-			Service:        DeltaSvc,
+	if !t.Settings().Skip(echo.Sotw) {
+		sotw := echo.Config{
+			Service:        SotwSvc,
 			ServiceAccount: true,
 			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{{
 				Labels: map[string]string{label.SidecarInject.Name: "true"},
 				Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
-ISTIO_DELTA_XDS: "true"`),
+  ISTIO_DELTA_XDS: "false"`),
 			}},
 		}
-		defaultConfigs = append(defaultConfigs, delta)
+		defaultConfigs = append(defaultConfigs, sotw)
 	}
 
 	if !t.Clusters().IsMulticluster() {
@@ -341,15 +342,17 @@ ISTIO_DELTA_XDS: "true"`),
 			for i, config := range defaultConfigs {
 				if !config.HasSidecar() && !config.IsProxylessGRPC() {
 					scopes.Framework.Infof("adding waypoint to %s", config.NamespacedName())
-					defaultConfigs[i].WaypointProxy = true
+					defaultConfigs[i].ServiceWaypointProxy = "shared"
+					defaultConfigs[i].WorkloadWaypointProxy = "shared"
 				}
 			}
 		} else {
 			waypointed := echo.Config{
-				Service:        WaypointSvc,
-				ServiceAccount: true,
-				Ports:          ports.All(),
-				WaypointProxy:  true,
+				Service:               WaypointSvc,
+				ServiceAccount:        true,
+				Ports:                 ports.All(),
+				ServiceWaypointProxy:  "shared",
+				WorkloadWaypointProxy: "shared",
 				Subsets: []echo.SubsetConfig{{
 					Labels: map[string]string{label.SidecarInject.Name: "false"},
 				}},
@@ -473,6 +476,34 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 		return nil, err
 	}
 
+	if ctx.Settings().Ambient {
+
+		waypointProxies := make(map[string]ambient.WaypointProxy)
+
+		for _, echo := range echos {
+			svcwp := echo.Config().ServiceWaypointProxy
+			wlwp := echo.Config().WorkloadWaypointProxy
+			var err error
+			if svcwp != "" {
+				if _, found := waypointProxies[svcwp]; !found {
+					waypointProxies[svcwp], err = ambient.NewWaypointProxy(ctx, echo.Config().Namespace, svcwp)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+			if wlwp != "" {
+				if _, found := waypointProxies[wlwp]; !found {
+					waypointProxies[wlwp], err = ambient.NewWaypointProxy(ctx, echo.Config().Namespace, wlwp)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+
+		}
+	}
+
 	apps.All = echos.Services()
 
 	g := multierror.Group{}
@@ -587,9 +618,4 @@ func Setup(apps *Echos, cfg Config) resource.SetupFn {
 
 		return nil
 	}
-}
-
-// TODO(nmittler): should ctx.Settings().Skip(echo.Delta) do all of this?
-func skipDeltaXDS(ctx resource.Context) bool {
-	return ctx.Settings().Skip(echo.Delta) || !ctx.Settings().Revisions.AtLeast("1.12")
 }

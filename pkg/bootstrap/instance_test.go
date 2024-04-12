@@ -32,6 +32,14 @@ import (
 	bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	trace "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/brotli/compressor/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/gzip/compressor/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/zstd/compressor/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/compressor/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -89,6 +97,7 @@ func TestGolden(t *testing.T) {
 		setup                      func()
 		teardown                   func()
 		check                      func(got *bootstrap.Bootstrap, t *testing.T)
+		compliancePolicy           string
 	}{
 		{
 			base: "xdsproxy",
@@ -280,7 +289,8 @@ func TestGolden(t *testing.T) {
 			base: "tracing_tls_custom_sni",
 		},
 		{
-			base: "lrs",
+			base:             "lrs",
+			compliancePolicy: "fips-140-2",
 			envVars: map[string]string{
 				"ISTIO_META_LOAD_STATS_CONFIG_JSON": `{"api_type": "GRPC", "transport_api_version": "V3"}`,
 			},
@@ -365,7 +375,8 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			fn, err := New(Config{
-				Node: node,
+				Node:             node,
+				CompliancePolicy: c.compliancePolicy,
 			}).CreateFile()
 			if err != nil {
 				t.Fatal(err)

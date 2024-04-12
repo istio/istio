@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 49539
+releaseNotes:
+  - |
+    **Fixed** an issue that when using a delegate in a VirtualService, the effective VirtualService may not be consistent with expectations due to a sorting error. 

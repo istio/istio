@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/api/annotation"
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -105,7 +104,7 @@ func fakeMeshHolder(ingressService string) mesh.Watcher {
 
 func makeStatusSyncer(t *testing.T, name string) *StatusSyncer {
 	client := kubelib.NewFakeClient(testObjects...)
-	sync := NewStatusSyncer(fakeMeshHolder(name), client, kubecontroller.Options{})
+	sync := NewStatusSyncer(fakeMeshHolder(name), client)
 	client.RunAndWait(test.NewStop(t))
 	go sync.Run(test.NewStop(t))
 	return sync

@@ -27,7 +27,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/schema/gvk"
 	istiogvr "istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kubeclient"
 	types "istio.io/istio/pkg/config/schema/kubetypes"
@@ -37,6 +36,7 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type fullClient[T controllers.Object] struct {
@@ -48,13 +48,20 @@ type writeClient[T controllers.Object] struct {
 	client kube.Client
 }
 
+// handlerRegistration stores a handler, with the registration so it can be de-registered
+type handlerRegistration struct {
+	registration cache.ResourceEventHandlerRegistration
+	// handler is the actual handler. Note this does NOT have the filtering applied.
+	handler cache.ResourceEventHandler
+}
+
 type informerClient[T controllers.Object] struct {
 	informer      cache.SharedIndexInformer
 	startInformer func(stopCh <-chan struct{})
 	filter        func(t any) bool
 
 	handlerMu          sync.RWMutex
-	registeredHandlers []cache.ResourceEventHandlerRegistration
+	registeredHandlers []handlerRegistration
 }
 
 func (n *informerClient[T]) Get(name, namespace string) T {
@@ -115,7 +122,7 @@ func (n *informerClient[T]) ShutdownHandlers() {
 	n.handlerMu.Lock()
 	defer n.handlerMu.Unlock()
 	for _, c := range n.registeredHandlers {
-		_ = n.informer.RemoveEventHandler(c)
+		_ = n.informer.RemoveEventHandler(c.registration)
 	}
 }
 
@@ -136,7 +143,7 @@ func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 	}
 	n.handlerMu.Lock()
 	defer n.handlerMu.Unlock()
-	n.registeredHandlers = append(n.registeredHandlers, reg)
+	n.registeredHandlers = append(n.registeredHandlers, handlerRegistration{registration: reg, handler: h})
 }
 
 func (n *informerClient[T]) HasSynced() bool {
@@ -147,7 +154,7 @@ func (n *informerClient[T]) HasSynced() bool {
 	defer n.handlerMu.RUnlock()
 	// HasSynced is fast, so doing it under the lock is okay
 	for _, g := range n.registeredHandlers {
-		if !g.HasSynced() {
+		if !g.registration.HasSynced() {
 			return false
 		}
 	}
@@ -202,11 +209,11 @@ func New[T controllers.ComparableObject](c kube.Client) Client[T] {
 // This means there must only be one filter configuration for a given type using the same kube.Client.
 // Use with caution.
 func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) Client[T] {
-	gvr := gvk.MustToGVR(types.GetGVK[T]())
+	gvr := types.MustToGVR[T](types.GetGVK[T]())
 	inf := kubeclient.GetInformerFiltered[T](c, ToOpts(c, gvr, filter))
 	return &fullClient[T]{
 		writeClient: writeClient[T]{client: c},
-		Informer:    newInformerClient[T](inf, filter),
+		Informer:    newInformerClient[T](gvr, inf, filter),
 	}
 }
 
@@ -238,7 +245,7 @@ func NewDelayedInformer[T controllers.ComparableObject](
 // NewUntypedInformer returns an untyped client for a given GVR. This is read-only.
 func NewUntypedInformer(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
 	inf := kubeclient.GetInformerFilteredFromGVR(c, ToOpts(c, gvr, filter), gvr)
-	return newInformerClient[controllers.Object](inf, filter)
+	return newInformerClient[controllers.Object](gvr, inf, filter)
 }
 
 // NewDynamic returns a dynamic client for a given GVR. This is read-only.
@@ -246,7 +253,7 @@ func NewDynamic(c kube.Client, gvr schema.GroupVersionResource, filter Filter) U
 	opts := ToOpts(c, gvr, filter)
 	opts.InformerType = kubetypes.DynamicInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
-	return newInformerClient[controllers.Object](inf, filter)
+	return newInformerClient[controllers.Object](gvr, inf, filter)
 }
 
 // NewMetadata returns a metadata client for a given GVR. This is read-only.
@@ -254,7 +261,7 @@ func NewMetadata(c kube.Client, gvr schema.GroupVersionResource, filter Filter) 
 	opts := ToOpts(c, gvr, filter)
 	opts.InformerType = kubetypes.MetadataInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
-	return newInformerClient[*metav1.PartialObjectMetadata](inf, filter)
+	return newInformerClient[*metav1.PartialObjectMetadata](gvr, inf, filter)
 }
 
 // NewWriteClient is exposed for testing.
@@ -282,8 +289,8 @@ func newDelayedInformer[T controllers.ComparableObject](
 		fc := &informerClient[T]{
 			informer:      inf.Informer,
 			startInformer: inf.Start,
-			filter:        filter.ObjectFilter,
 		}
+		applyDynamicFilter(filter, gvr, fc)
 		inf.Start(stop)
 		log.Infof("%v is now ready, building client", gvr.GroupResource())
 		// Swap out the dummy client with the full one
@@ -294,14 +301,62 @@ func newDelayedInformer[T controllers.ComparableObject](
 		return delayedClient
 	}
 	log.Debugf("%v ready now, building client", gvr.GroupResource())
-	return newInformerClient[T](getInf(), filter)
+	return newInformerClient[T](gvr, getInf(), filter)
 }
 
-func newInformerClient[T controllers.ComparableObject](inf informerfactory.StartableInformer, filter Filter) Informer[T] {
-	return &informerClient[T]{
+func newInformerClient[T controllers.ComparableObject](
+	gvr schema.GroupVersionResource,
+	inf informerfactory.StartableInformer,
+	filter Filter,
+) Informer[T] {
+	ic := &informerClient[T]{
 		informer:      inf.Informer,
 		startInformer: inf.Start,
-		filter:        filter.ObjectFilter,
+	}
+	if filter.ObjectFilter != nil {
+		applyDynamicFilter(filter, gvr, ic)
+	}
+	return ic
+}
+
+func applyDynamicFilter[T controllers.ComparableObject](filter Filter, gvr schema.GroupVersionResource, ic *informerClient[T]) {
+	if filter.ObjectFilter != nil {
+		ic.filter = filter.ObjectFilter.Filter
+		filter.ObjectFilter.AddHandler(func(added, removed sets.String) {
+			ic.handlerMu.RLock()
+			defer ic.handlerMu.RUnlock()
+			if gvr == istiogvr.Namespace {
+				// Namespace is special; we query all namespaces
+				// Note: other cluster-scoped resources should just not use the filter
+				for _, item := range ic.ListUnfiltered(metav1.NamespaceAll, klabels.Everything()) {
+					if !added.Contains(item.GetName()) && !removed.Contains(item.GetName()) {
+						continue
+					}
+					for _, c := range ic.registeredHandlers {
+						if added.Contains(item.GetName()) {
+							c.handler.OnAdd(item, false)
+						} else {
+							c.handler.OnDelete(item)
+						}
+					}
+				}
+			} else {
+				for ns := range added {
+					for _, item := range ic.ListUnfiltered(ns, klabels.Everything()) {
+						for _, c := range ic.registeredHandlers {
+							c.handler.OnAdd(item, false)
+						}
+					}
+				}
+				for ns := range removed {
+					for _, item := range ic.ListUnfiltered(ns, klabels.Everything()) {
+						for _, c := range ic.registeredHandlers {
+							c.handler.OnDelete(item)
+						}
+					}
+				}
+			}
+		})
 	}
 }
 

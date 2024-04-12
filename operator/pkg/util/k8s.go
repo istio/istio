@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
@@ -32,38 +31,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 )
-
-type JWTPolicy string
-
-const (
-	FirstPartyJWT JWTPolicy = "first-party-jwt"
-	ThirdPartyJWT JWTPolicy = "third-party-jwt"
-)
-
-// DetectSupportedJWTPolicy queries the api-server to detect whether it has TokenRequest support
-func DetectSupportedJWTPolicy(client kubernetes.Interface) (JWTPolicy, error) {
-	_, s, err := client.Discovery().ServerGroupsAndResources()
-	// This may fail if any api service is down. We should only fail if the specific API we care about failed
-	if err != nil {
-		if discovery.IsGroupDiscoveryFailedError(err) {
-			derr := err.(*discovery.ErrGroupDiscoveryFailed)
-			if _, f := derr.Groups[schema.GroupVersion{Group: "authentication.k8s.io", Version: "v1"}]; f {
-				return "", err
-			}
-		} else {
-			return "", err
-		}
-	}
-	for _, res := range s {
-		for _, api := range res.APIResources {
-			// Appearance of this API indicates we do support third party jwt token
-			if api.Name == "serviceaccounts/token" {
-				return ThirdPartyJWT, nil
-			}
-		}
-	}
-	return FirstPartyJWT, nil
-}
 
 // GKString differs from default representation of GroupKind
 func GKString(gvk schema.GroupKind) string {

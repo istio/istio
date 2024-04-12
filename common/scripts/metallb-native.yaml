@@ -1,5 +1,6 @@
 # Downloaded from https://github.com/metallb/metallb/raw/v0.13.12/config/manifests/metallb-native.yaml
 # With quay.io hub replaced with gcr.io/istio-testing
+# And probes tuned to startup faster
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -8,213 +9,6 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/warn: privileged
   name: metallb-system
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
-  creationTimestamp: null
-  name: addresspools.metallb.io
-spec:
-  conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tDQpNSUlGWlRDQ0EwMmdBd0lCQWdJVU5GRW1XcTM3MVpKdGkrMmlSQzk1WmpBV1MxZ3dEUVlKS29aSWh2Y05BUUVMDQpCUUF3UWpFTE1Ba0dBMVVFQmhNQ1dGZ3hGVEFUQmdOVkJBY01ERVJsWm1GMWJIUWdRMmwwZVRFY01Cb0dBMVVFDQpDZ3dUUkdWbVlYVnNkQ0JEYjIxd1lXNTVJRXgwWkRBZUZ3MHlNakEzTVRrd09UTXlNek5hRncweU1qQTRNVGd3DQpPVE15TXpOYU1FSXhDekFKQmdOVkJBWVRBbGhZTVJVd0V3WURWUVFIREF4RVpXWmhkV3gwSUVOcGRIa3hIREFhDQpCZ05WQkFvTUUwUmxabUYxYkhRZ1EyOXRjR0Z1ZVNCTWRHUXdnZ0lpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElDDQpEd0F3Z2dJS0FvSUNBUUNxVFpxMWZRcC9vYkdlenhES0o3OVB3Ny94azJwellualNzMlkzb1ZYSm5sRmM4YjVlDQpma2ZZQnY2bndscW1keW5PL2phWFBaQmRQSS82aFdOUDBkdVhadEtWU0NCUUpyZzEyOGNXb3F0MGNTN3pLb1VpDQpvcU1tQ0QvRXVBeFFNZjhRZDF2c1gvVllkZ0poVTZBRXJLZEpIaXpFOUJtUkNkTDBGMW1OVW55Rk82UnRtWFZUDQpidkxsTDVYeTc2R0FaQVBLOFB4aVlDa0NtbDdxN0VnTWNiOXlLWldCYmlxQ3VkTXE5TGJLNmdKNzF6YkZnSXV4DQo1L1pXK2JraTB2RlplWk9ZODUxb1psckFUNzJvMDI4NHNTWW9uN0pHZVZkY3NoUnh5R1VpSFpSTzdkaXZVTDVTDQpmM2JmSDFYbWY1ZDQzT0NWTWRuUUV2NWVaOG8zeWVLa3ZrbkZQUGVJMU9BbjdGbDlFRVNNR2dhOGFaSG1URSttDQpsLzlMSmdDYjBnQmtPT0M0WnV4bWh2aERKV1EzWnJCS3pMQlNUZXN0NWlLNVlwcXRWVVk2THRyRW9FelVTK1lsDQpwWndXY2VQWHlHeHM5ZURsR3lNVmQraW15Y3NTU1UvVno2Mmx6MnZCS21NTXBkYldDQWhud0RsRTVqU2dyMjRRDQp0eGNXLys2N3d5KzhuQlI3UXdqVTFITndVRjBzeERWdEwrZ1NHVERnSEVZSlhZelYvT05zMy94TkpoVFNPSkxNDQpoeXNVdyttaGdackdhbUdXcHVIVU1DUitvTWJzMTc1UkcrQjJnUFFHVytPTjJnUTRyOXN2b0ZBNHBBQm8xd1dLDQpRYjRhY3pmeVVscElBOVFoSmFsZEY3S3dPSHVlV3gwRUNrNXg0T2tvVDBvWVp0dzFiR0JjRGtaSmF3SURBUUFCDQpvMU13VVRBZEJnTlZIUTRFRmdRVW90UlNIUm9IWTEyRFZ4R0NCdEhpb1g2ZmVFQXdId1lEVlIwakJCZ3dGb0FVDQpvdFJTSFJvSFkxMkRWeEdDQnRIaW9YNmZlRUF3RHdZRFZSMFRBUUgvQkFVd0F3RUIvekFOQmdrcWhraUc5dzBCDQpBUXNGQUFPQ0FnRUFSbkpsWWRjMTFHd0VxWnh6RDF2R3BDR2pDN2VWTlQ3aVY1d3IybXlybHdPYi9aUWFEa0xYDQpvVStaOVVXT1VlSXJTdzUydDdmQUpvVVAwSm5iYkMveVIrU1lqUGhvUXNiVHduOTc2ZldBWTduM3FMOXhCd1Y0DQphek41OXNjeUp0dlhMeUtOL2N5ak1ReDRLajBIMFg0bWJ6bzVZNUtzWWtYVU0vOEFPdWZMcEd0S1NGVGgrSEFDDQpab1Q5YnZHS25adnNHd0tYZFF0Wnh0akhaUjVqK3U3ZGtQOTJBT051RFNabS8rWVV4b2tBK09JbzdSR3BwSHNXDQo1ZTdNY0FTVXRtb1FORXd6dVFoVkJaRWQ1OGtKYjUrV0VWbGNzanlXNnRTbzErZ25tTWNqR1BsMWgxR2hVbjV4DQpFY0lWRnBIWXM5YWo1NmpBSjk1MVQvZjhMaWxmTlVnanBLQ0c1bnl0SUt3emxhOHNtdGlPdm1UNEpYbXBwSkI2DQo4bmdHRVluVjUrUTYwWFJ2OEhSSGp1VG9CRHVhaERrVDA2R1JGODU1d09FR2V4bkZpMXZYWUxLVllWb1V2MXRKDQo4dVdUR1pwNllDSVJldlBqbzg5ZytWTlJSaVFYUThJd0dybXE5c0RoVTlqTjA0SjdVL1RvRDFpNHE3VnlsRUc5DQorV1VGNkNLaEdBeTJIaEhwVncyTGFoOS9lUzdZMUZ1YURrWmhPZG1laG1BOCtqdHNZamJadnR5Mm1SWlF0UUZzDQpUU1VUUjREbUR2bVVPRVRmeStpRHdzK2RkWXVNTnJGeVVYV2dkMnpBQU4ydVl1UHFGY2pRcFNPODFzVTJTU3R3DQoxVzAyeUtYOGJEYmZFdjBzbUh3UzliQnFlSGo5NEM1Mjg0YXpsdTBmaUdpTm1OUEM4ckJLRmhBPQ0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
-        service:
-          name: webhook-service
-          namespace: metallb-system
-          path: /convert
-      conversionReviewVersions:
-      - v1alpha1
-      - v1beta1
-  group: metallb.io
-  names:
-    kind: AddressPool
-    listKind: AddressPoolList
-    plural: addresspools
-    singular: addresspool
-  scope: Namespaced
-  versions:
-  - deprecated: true
-    deprecationWarning: metallb.io v1alpha1 AddressPool is deprecated
-    name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: AddressPool is the Schema for the addresspools API.
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: AddressPoolSpec defines the desired state of AddressPool.
-            properties:
-              addresses:
-                description: A list of IP address ranges over which MetalLB has authority.
-                  You can list multiple ranges in a single pool, they will all share
-                  the same settings. Each range can be either a CIDR prefix, or an
-                  explicit start-end range of IPs.
-                items:
-                  type: string
-                type: array
-              autoAssign:
-                default: true
-                description: AutoAssign flag used to prevent MetallB from automatic
-                  allocation for a pool.
-                type: boolean
-              bgpAdvertisements:
-                description: When an IP is allocated from this pool, how should it
-                  be translated into BGP announcements?
-                items:
-                  properties:
-                    aggregationLength:
-                      default: 32
-                      description: The aggregation-length advertisement option lets
-                        you “roll up” the /32s into a larger prefix.
-                      format: int32
-                      minimum: 1
-                      type: integer
-                    aggregationLengthV6:
-                      default: 128
-                      description: Optional, defaults to 128 (i.e. no aggregation)
-                        if not specified.
-                      format: int32
-                      type: integer
-                    communities:
-                      description: BGP communities
-                      items:
-                        type: string
-                      type: array
-                    localPref:
-                      description: BGP LOCAL_PREF attribute which is used by BGP best
-                        path algorithm, Path with higher localpref is preferred over
-                        one with lower localpref.
-                      format: int32
-                      type: integer
-                  type: object
-                type: array
-              protocol:
-                description: Protocol can be used to select how the announcement is
-                  done.
-                enum:
-                - layer2
-                - bgp
-                type: string
-            required:
-            - addresses
-            - protocol
-            type: object
-          status:
-            description: AddressPoolStatus defines the observed state of AddressPool.
-            type: object
-        required:
-        - spec
-        type: object
-    served: true
-    storage: false
-    subresources:
-      status: {}
-  - deprecated: true
-    deprecationWarning: metallb.io v1beta1 AddressPool is deprecated, consider using
-      IPAddressPool
-    name: v1beta1
-    schema:
-      openAPIV3Schema:
-        description: AddressPool represents a pool of IP addresses that can be allocated
-          to LoadBalancer services. AddressPool is deprecated and being replaced by
-          IPAddressPool.
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: AddressPoolSpec defines the desired state of AddressPool.
-            properties:
-              addresses:
-                description: A list of IP address ranges over which MetalLB has authority.
-                  You can list multiple ranges in a single pool, they will all share
-                  the same settings. Each range can be either a CIDR prefix, or an
-                  explicit start-end range of IPs.
-                items:
-                  type: string
-                type: array
-              autoAssign:
-                default: true
-                description: AutoAssign flag used to prevent MetallB from automatic
-                  allocation for a pool.
-                type: boolean
-              bgpAdvertisements:
-                description: Drives how an IP allocated from this pool should translated
-                  into BGP announcements.
-                items:
-                  properties:
-                    aggregationLength:
-                      default: 32
-                      description: The aggregation-length advertisement option lets
-                        you “roll up” the /32s into a larger prefix.
-                      format: int32
-                      minimum: 1
-                      type: integer
-                    aggregationLengthV6:
-                      default: 128
-                      description: Optional, defaults to 128 (i.e. no aggregation)
-                        if not specified.
-                      format: int32
-                      type: integer
-                    communities:
-                      description: BGP communities to be associated with the given
-                        advertisement.
-                      items:
-                        type: string
-                      type: array
-                    localPref:
-                      description: BGP LOCAL_PREF attribute which is used by BGP best
-                        path algorithm, Path with higher localpref is preferred over
-                        one with lower localpref.
-                      format: int32
-                      type: integer
-                  type: object
-                type: array
-              protocol:
-                description: Protocol can be used to select how the announcement is
-                  done.
-                enum:
-                - layer2
-                - bgp
-                type: string
-            required:
-            - addresses
-            - protocol
-            type: object
-          status:
-            description: AddressPoolStatus defines the observed state of AddressPool.
-            type: object
-        required:
-        - spec
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -1733,12 +1527,13 @@ spec:
       - args:
         - --port=7472
         - --log-level=info
+        - --tls-min-version=VersionTLS12
         env:
         - name: METALLB_ML_SECRET_NAME
           value: memberlist
         - name: METALLB_DEPLOYMENT
           value: controller
-        image: gcr.io/istio-testing/metallb/controller:v0.13.12
+        image: gcr.io/istio-testing/metallb/controller:v0.14.3
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -1760,8 +1555,16 @@ spec:
           httpGet:
             path: /metrics
             port: monitoring
-          initialDelaySeconds: 10
+          initialDelaySeconds: 0
           periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        startupProbe:
+          httpGet:
+            path: /metrics
+            port: monitoring
+          initialDelaySeconds: 1
+          periodSeconds: 1
           successThreshold: 1
           timeoutSeconds: 1
         securityContext:
@@ -1831,7 +1634,7 @@ spec:
           value: app=metallb,component=speaker
         - name: METALLB_ML_SECRET_KEY_PATH
           value: /etc/ml_secret_key
-        image: gcr.io/istio-testing/metallb/speaker:v0.13.12
+        image: gcr.io/istio-testing/metallb/speaker:v0.14.3
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -1855,8 +1658,17 @@ spec:
           httpGet:
             path: /metrics
             port: monitoring
-          initialDelaySeconds: 10
+          initialDelaySeconds: 0
           periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        startupProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /metrics
+            port: monitoring
+          initialDelaySeconds: 1
+          periodSeconds: 1
           successThreshold: 1
           timeoutSeconds: 1
         securityContext:
@@ -1921,26 +1733,6 @@ webhooks:
     - UPDATE
     resources:
     - bgppeers
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: metallb-system
-      path: /validate-metallb-io-v1beta1-addresspool
-  failurePolicy: Fail
-  name: addresspoolvalidationwebhook.metallb.io
-  rules:
-  - apiGroups:
-    - metallb.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - addresspools
   sideEffects: None
 - admissionReviewVersions:
   - v1

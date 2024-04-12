@@ -20,10 +20,10 @@ import (
 	"io"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -38,6 +38,13 @@ import (
 
 // installerScope is the scope for all commands in the mesh package.
 var installerScope = log.RegisterScope("installer", "installer")
+
+func init() {
+	// adding to remove message about the controller-runtime logs not getting displayed
+	// We cannot do this in the `log` package since it would place a runtime dependency on controller-runtime for all binaries.
+	scope := log.RegisterScope("controlleruntime", "scope for controller runtime")
+	controllruntimelog.SetLogger(log.NewLogrAdapter(scope))
+}
 
 type Printer interface {
 	Printf(format string, a ...any)
@@ -58,26 +65,6 @@ func (w *writerPrinter) Printf(format string, a ...any) {
 
 func (w *writerPrinter) Println(str string) {
 	_, _ = fmt.Fprintln(w.writer, str)
-}
-
-func initLogsOrExit(_ *RootArgs) {
-	if err := configLogs(log.DefaultOptions()); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
-		os.Exit(1)
-	}
-}
-
-var logMutex = sync.Mutex{}
-
-func configLogs(opt *log.Options) error {
-	logMutex.Lock()
-	defer logMutex.Unlock()
-	op := []string{"stderr"}
-	opt2 := *opt
-	opt2.OutputPaths = op
-	opt2.ErrorOutputPaths = op
-
-	return log.Configure(&opt2)
 }
 
 func refreshGoldenFiles() bool {

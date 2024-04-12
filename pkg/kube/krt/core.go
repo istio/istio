@@ -24,14 +24,25 @@ var log = istiolog.RegisterScope("krt", "")
 // Collection is the core resource type for krt, representing a collection of objects. Items can be listed, or fetched
 // directly. Most importantly, consumers can subscribe to events when objects change.
 type Collection[T any] interface {
-	// GetKey returns an object by it's key, if present. Otherwise, nil is returned.
+	// GetKey returns an object by its key, if present. Otherwise, nil is returned.
 	GetKey(k Key[T]) *T
 
-	// List returns all objects in the queried namespace.
+	// List returns all objects in the collection.
 	// Order of the list is undefined.
-	// Note: not all T types have a "Namespace"; a non-empty namespace is only valid for types that do have a namespace.
-	List(namespace string) []T
+	List() []T
 
+	EventStream[T]
+}
+
+// EventStream provides a link between the underlying collection
+// and its clients.
+// The EventStream does not publish events for retrigger operations
+// where the resultant object of type T is equal to an existing
+// object in the collection.
+//
+// On initial sync, events will be published to registered clients
+// as the Collection is populated.
+type EventStream[T any] interface {
 	// Register adds an event watcher to the collection. Any time an item in the collection changes, the handler will be
 	// called. Typically, usage of Register is done internally in krt via composition of Collections with Transformations
 	// (NewCollection, NewManyCollection, NewSingleton); however, at boundaries of the system (connecting to something not
@@ -167,8 +178,4 @@ type Namer interface {
 // If implemented, this will be used to determine an objects' Namespace.
 type Namespacer interface {
 	GetNamespace() string
-}
-
-type labeler interface {
-	GetLabels() map[string]string
 }

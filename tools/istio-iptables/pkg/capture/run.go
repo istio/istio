@@ -49,7 +49,7 @@ var opsToString = map[Ops]string{
 }
 
 type IptablesConfigurator struct {
-	iptables *builder.IptablesBuilder
+	ruleBuilder *builder.IptablesRuleBuilder
 	// TODO(abhide): Fix dep.Dependencies with better interface
 	ext dep.Dependencies
 	cfg *config.Config
@@ -57,9 +57,9 @@ type IptablesConfigurator struct {
 
 func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) *IptablesConfigurator {
 	return &IptablesConfigurator{
-		iptables: builder.NewIptablesBuilder(cfg),
-		ext:      ext,
-		cfg:      cfg,
+		ruleBuilder: builder.NewIptablesRuleBuilder(cfg),
+		ext:         ext,
+		cfg:         cfg,
 	}
 }
 
@@ -134,15 +134,15 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			// In the ISTIOINBOUND chain, '-j ISTIODIVERT' reroutes to the loopback
 			// interface.
 			// Mark all inbound packets.
-			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIODIVERT, constants.MANGLE, "-j", constants.MARK, "--set-mark",
+			cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIODIVERT, constants.MANGLE, "-j", constants.MARK, "--set-mark",
 				cfg.cfg.InboundTProxyMark)
-			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIODIVERT, constants.MANGLE, "-j", constants.ACCEPT)
+			cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIODIVERT, constants.MANGLE, "-j", constants.ACCEPT)
 
 			// Create a new chain for redirecting inbound traffic to the common Envoy
 			// port.
 			// In the ISTIOINBOUND chain, '-j RETURN' bypasses Envoy and
 			// '-j ISTIOTPROXY' redirects to Envoy.
-			cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand,
+			cfg.ruleBuilder.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand,
 				constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", constants.IPVersionSpecific,
 				"-p", constants.TCP, "-j", constants.TPROXY,
 				"--tproxy-mark", cfg.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", cfg.cfg.InboundCapturePort)
@@ -150,14 +150,14 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 		} else {
 			table = constants.NAT
 		}
-		cfg.iptables.AppendRule(iptableslog.JumpInbound, constants.PREROUTING, table, "-p", constants.TCP,
+		cfg.ruleBuilder.AppendRule(iptableslog.JumpInbound, constants.PREROUTING, table, "-p", constants.TCP,
 			"-j", constants.ISTIOINBOUND)
 
 		if cfg.cfg.InboundPortsInclude == "*" {
 			// Apply any user-specified port exclusions.
 			if cfg.cfg.InboundPortsExclude != "" {
 				for _, port := range split(cfg.cfg.InboundPortsExclude) {
-					cfg.iptables.AppendRule(iptableslog.ExcludeInboundPort, constants.ISTIOINBOUND, table, "-p", constants.TCP,
+					cfg.ruleBuilder.AppendRule(iptableslog.ExcludeInboundPort, constants.ISTIOINBOUND, table, "-p", constants.TCP,
 						"--dport", port, "-j", constants.RETURN)
 				}
 			}
@@ -165,25 +165,25 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			if cfg.cfg.InboundInterceptionMode == constants.TPROXY {
 				// If an inbound packet belongs to an established socket, route it to the
 				// loopback interface.
-				cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
+				cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
 					"-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", constants.ISTIODIVERT)
 				// Otherwise, it's a new connection. Redirect it using TPROXY.
-				cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
+				cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
 					"-j", constants.ISTIOTPROXY)
 			} else {
-				cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP,
+				cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP,
 					"-j", constants.ISTIOINREDIRECT)
 			}
 		} else {
 			// User has specified a non-empty list of ports to be redirected to Envoy.
 			for _, port := range split(cfg.cfg.InboundPortsInclude) {
 				if cfg.cfg.InboundInterceptionMode == constants.TPROXY {
-					cfg.iptables.AppendRule(iptableslog.IncludeInboundPort, constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
+					cfg.ruleBuilder.AppendRule(iptableslog.IncludeInboundPort, constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP,
 						"--dport", port, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", constants.ISTIODIVERT)
-					cfg.iptables.AppendRule(iptableslog.IncludeInboundPort,
+					cfg.ruleBuilder.AppendRule(iptableslog.IncludeInboundPort,
 						constants.ISTIOINBOUND, constants.MANGLE, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOTPROXY)
 				} else {
-					cfg.iptables.AppendRule(iptableslog.IncludeInboundPort,
+					cfg.ruleBuilder.AppendRule(iptableslog.IncludeInboundPort,
 						constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOINREDIRECT)
 				}
 			}
@@ -193,8 +193,8 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 
 func (cfg *IptablesConfigurator) handleOutboundIncludeRules(
 	rangeInclude NetworkRange,
-	appendRule func(command iptableslog.Command, chain string, table string, params ...string) *builder.IptablesBuilder,
-	insert func(command iptableslog.Command, chain string, table string, position int, params ...string) *builder.IptablesBuilder,
+	appendRule func(command iptableslog.Command, chain string, table string, params ...string) *builder.IptablesRuleBuilder,
+	insert func(command iptableslog.Command, chain string, table string, position int, params ...string) *builder.IptablesRuleBuilder,
 ) {
 	// Apply outbound IP inclusions.
 	if rangeInclude.IsWildcard {
@@ -221,22 +221,22 @@ func (cfg *IptablesConfigurator) handleOutboundIncludeRules(
 
 func (cfg *IptablesConfigurator) shortCircuitKubeInternalInterface() {
 	for _, internalInterface := range split(cfg.cfg.KubeVirtInterfaces) {
-		cfg.iptables.InsertRule(iptableslog.KubevirtCommand, constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
+		cfg.ruleBuilder.InsertRule(iptableslog.KubevirtCommand, constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
 	}
 }
 
 func (cfg *IptablesConfigurator) shortCircuitExcludeInterfaces() {
 	for _, excludeInterface := range split(cfg.cfg.ExcludeInterfaces) {
-		cfg.iptables.AppendRule(
+		cfg.ruleBuilder.AppendRule(
 			iptableslog.ExcludeInterfaceCommand, constants.PREROUTING, constants.NAT, "-i", excludeInterface, "-j", constants.RETURN)
-		cfg.iptables.AppendRule(iptableslog.ExcludeInterfaceCommand, constants.OUTPUT, constants.NAT, "-o", excludeInterface, "-j", constants.RETURN)
+		cfg.ruleBuilder.AppendRule(iptableslog.ExcludeInterfaceCommand, constants.OUTPUT, constants.NAT, "-o", excludeInterface, "-j", constants.RETURN)
 	}
 	if cfg.cfg.InboundInterceptionMode == constants.TPROXY {
 		for _, excludeInterface := range split(cfg.cfg.ExcludeInterfaces) {
 
-			cfg.iptables.AppendRule(
+			cfg.ruleBuilder.AppendRule(
 				iptableslog.ExcludeInterfaceCommand, constants.PREROUTING, constants.MANGLE, "-i", excludeInterface, "-j", constants.RETURN)
-			cfg.iptables.AppendRule(iptableslog.ExcludeInterfaceCommand, constants.OUTPUT, constants.MANGLE, "-o", excludeInterface, "-j", constants.RETURN)
+			cfg.ruleBuilder.AppendRule(iptableslog.ExcludeInterfaceCommand, constants.OUTPUT, constants.MANGLE, "-o", excludeInterface, "-j", constants.RETURN)
 		}
 	}
 }
@@ -279,11 +279,21 @@ func configureIPv6Addresses(cfg *config.Config) error {
 }
 
 func (cfg *IptablesConfigurator) Run() error {
+	iptVer, err := cfg.ext.DetectIptablesVersion(false)
+	if err != nil {
+		return err
+	}
+
+	ipt6Ver, err := cfg.ext.DetectIptablesVersion(true)
+	if err != nil {
+		return err
+	}
+
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		_ = cfg.ext.Run(constants.IPTABLESSAVE, nil)
+		_ = cfg.ext.Run(constants.IPTablesSave, &iptVer, nil)
 		if cfg.cfg.EnableInboundIPv6 {
-			_ = cfg.ext.Run(constants.IP6TABLESSAVE, nil)
+			_ = cfg.ext.Run(constants.IPTablesSave, &ipt6Ver, nil)
 		}
 	}()
 
@@ -315,24 +325,24 @@ func (cfg *IptablesConfigurator) Run() error {
 	// Create a rule for invalid drop in PREROUTING chain in mangle table, so the iptables will drop the out of window packets instead of reset connection .
 	dropInvalid := cfg.cfg.DropInvalid
 	if dropInvalid {
-		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.PREROUTING, constants.MANGLE, "-m", "conntrack", "--ctstate",
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.PREROUTING, constants.MANGLE, "-m", "conntrack", "--ctstate",
 			"INVALID", "-j", constants.DROP)
 	}
 
 	// Create a new chain for to hit tunnel port directly. Envoy will be listening on port acting as VPN tunnel.
-	cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",
+	cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",
 		cfg.cfg.InboundTunnelPort, "-j", constants.RETURN)
 
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
-	cfg.iptables.AppendRule(iptableslog.UndefinedCommand,
+	cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand,
 		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", cfg.cfg.ProxyPort)
 
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 
-	cfg.iptables.AppendRule(iptableslog.InboundCapture, constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
+	cfg.ruleBuilder.AppendRule(iptableslog.InboundCapture, constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
 		"--to-ports", cfg.cfg.InboundCapturePort)
 
 	cfg.handleInboundPortsInclude()
@@ -340,17 +350,17 @@ func (cfg *IptablesConfigurator) Run() error {
 	// TODO: change the default behavior to not intercept any output - user may use http_proxy or another
 	// iptablesOrFail wrapper (like ufw). Current default is similar with 0.1
 	// Jump to the ISTIOOUTPUT chain from OUTPUT chain for all tcp traffic, and UDP dns (if enabled)
-	cfg.iptables.AppendRule(iptableslog.JumpOutbound, constants.OUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
+	cfg.ruleBuilder.AppendRule(iptableslog.JumpOutbound, constants.OUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
 	if cfg.cfg.OutboundPortsExclude != "" {
 		for _, port := range split(cfg.cfg.OutboundPortsExclude) {
-			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP,
+			cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP,
 				"--dport", port, "-j", constants.RETURN)
 		}
 	}
 
 	// 127.0.0.6/::7 is bind connect from inbound passthrough cluster
-	cfg.iptables.AppendVersionedRule("127.0.0.6/32", "::6/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+	cfg.ruleBuilder.AppendVersionedRule("127.0.0.6/32", "::6/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 		"-o", "lo", "-s", constants.IPVersionSpecific, "-j", constants.RETURN)
 
 	for _, uid := range split(cfg.cfg.ProxyUID) {
@@ -362,7 +372,7 @@ func (cfg *IptablesConfigurator) Run() error {
 			// app => istio-agent => Envoy inbound => dns server
 			// Instead, we just have:
 			// app => istio-agent => dns server
-			cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+			cfg.ruleBuilder.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 				"-o", "lo",
 				"!", "-d", constants.IPVersionSpecific,
 				"-p", "tcp",
@@ -370,7 +380,7 @@ func (cfg *IptablesConfigurator) Run() error {
 				"!", "--dports", "53,"+cfg.cfg.InboundTunnelPort,
 				"-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
 		} else {
-			cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+			cfg.ruleBuilder.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 				"-o", "lo",
 				"!", "-d", constants.IPVersionSpecific,
 				"-p", "tcp",
@@ -387,25 +397,25 @@ func (cfg *IptablesConfigurator) Run() error {
 				// handle this case, we exclude port 53 from this rule. Note: We cannot just move the
 				// port 53 redirection rule further up the list, as we will want to avoid capturing
 				// DNS requests from the proxy UID/GID
-				cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-p", "tcp",
+				cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-p", "tcp",
 					"!", "--dport", "53",
 					"-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
 			} else {
-				cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+				cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 					"-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
 			}
 		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
-		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 			"-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
 	}
 
 	for _, gid := range split(cfg.cfg.ProxyGID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
-		cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+		cfg.ruleBuilder.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 			"-o", "lo",
 			"!", "-d", constants.IPVersionSpecific,
 			"-p", "tcp",
@@ -422,19 +432,19 @@ func (cfg *IptablesConfigurator) Run() error {
 				// handle this case, we exclude port 53 from this rule. Note: We cannot just move the
 				// port 53 redirection rule further up the list, as we will want to avoid capturing
 				// DNS requests from the proxy UID/GID
-				cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+				cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 					"-o", "lo", "-p", "tcp",
 					"!", "--dport", "53",
 					"-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
 			} else {
-				cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+				cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 					"-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
 			}
 		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
-		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 	}
 
 	ownerGroupsFilter := config.ParseInterceptFilter(cfg.cfg.OwnerGroupsInclude, cfg.cfg.OwnerGroupsExclude)
@@ -445,7 +455,7 @@ func (cfg *IptablesConfigurator) Run() error {
 		if cfg.cfg.CaptureAllDNS {
 			// Redirect all TCP dns traffic on port 53 to the agent on port 15053
 			// This will be useful for the CNI case where pod DNS server address cannot be decided.
-			cfg.iptables.AppendRule(iptableslog.UndefinedCommand,
+			cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand,
 				constants.ISTIOOUTPUT, constants.NAT,
 				"-p", constants.TCP,
 				"--dport", "53",
@@ -460,7 +470,7 @@ func (cfg *IptablesConfigurator) Run() error {
 				// This ensures that we do not get requests from dnsmasq sent back to the agent dns server in a loop.
 				// Note: If a user somehow configured etc/resolv.conf to point to dnsmasq and server X, and dnsmasq also
 				// pointed to server X, this would not work. However, the assumption is that is not a common case.
-				cfg.iptables.AppendRuleV4(iptableslog.UndefinedCommand,
+				cfg.ruleBuilder.AppendRuleV4(iptableslog.UndefinedCommand,
 					constants.ISTIOOUTPUT, constants.NAT,
 					"-p", constants.TCP,
 					"--dport", "53",
@@ -469,7 +479,7 @@ func (cfg *IptablesConfigurator) Run() error {
 					"--to-ports", constants.IstioAgentDNSListenerPort)
 			}
 			for _, s := range cfg.cfg.DNSServersV6 {
-				cfg.iptables.AppendRuleV6(iptableslog.UndefinedCommand,
+				cfg.ruleBuilder.AppendRuleV6(iptableslog.UndefinedCommand,
 					constants.ISTIOOUTPUT, constants.NAT,
 					"-p", constants.TCP,
 					"--dport", "53",
@@ -483,24 +493,24 @@ func (cfg *IptablesConfigurator) Run() error {
 	// Skip redirection for Envoy-aware applications and
 	// container-to-container traffic both of which explicitly use
 	// localhost.
-	cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+	cfg.ruleBuilder.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 		"-d", constants.IPVersionSpecific, "-j", constants.RETURN)
 	// Apply outbound IPv4 exclusions. Must be applied before inclusions.
 	for _, cidr := range ipv4RangesExclude.CIDRs {
-		cfg.iptables.AppendRuleV4(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.RETURN)
+		cfg.ruleBuilder.AppendRuleV4(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.RETURN)
 	}
 	for _, cidr := range ipv6RangesExclude.CIDRs {
-		cfg.iptables.AppendRuleV6(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.RETURN)
+		cfg.ruleBuilder.AppendRuleV6(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.RETURN)
 	}
 
 	cfg.handleOutboundPortsInclude()
 
-	cfg.handleOutboundIncludeRules(ipv4RangesInclude, cfg.iptables.AppendRuleV4, cfg.iptables.InsertRuleV4)
-	cfg.handleOutboundIncludeRules(ipv6RangesInclude, cfg.iptables.AppendRuleV6, cfg.iptables.InsertRuleV6)
+	cfg.handleOutboundIncludeRules(ipv4RangesInclude, cfg.ruleBuilder.AppendRuleV4, cfg.ruleBuilder.InsertRuleV4)
+	cfg.handleOutboundIncludeRules(ipv6RangesInclude, cfg.ruleBuilder.AppendRuleV6, cfg.ruleBuilder.InsertRuleV6)
 
 	if redirectDNS {
 		HandleDNSUDP(
-			AppendOps, cfg.iptables, cfg.ext, "",
+			AppendOps, cfg.ruleBuilder, cfg.ext, &iptVer, &ipt6Ver,
 			cfg.cfg.ProxyUID, cfg.cfg.ProxyGID,
 			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS,
 			ownerGroupsFilter)
@@ -508,50 +518,51 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	if cfg.cfg.InboundInterceptionMode == constants.TPROXY {
 		// save packet mark set by envoy.filters.listener.original_src as connection mark
-		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.PREROUTING, constants.MANGLE,
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.PREROUTING, constants.MANGLE,
 			"-p", constants.TCP, "-m", "mark", "--mark", cfg.cfg.InboundTProxyMark, "-j", "CONNMARK", "--save-mark")
 		// If the packet is already marked with 1337, then return. This is to prevent mark envoy --> app traffic again.
-		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
 			"-p", constants.TCP, "-o", "lo", "-m", "mark", "--mark", cfg.cfg.InboundTProxyMark, "-j", constants.RETURN)
 		for _, uid := range split(cfg.cfg.ProxyUID) {
 			// mark outgoing packets from envoy to workload by pod ip
 			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
-			cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
+			cfg.ruleBuilder.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
 				"!", "-d", constants.IPVersionSpecific, "-p", constants.TCP, "-o", "lo",
 				"-m", "owner", "--uid-owner", uid, "-j", constants.MARK, "--set-mark", outboundMark)
 		}
 		for _, gid := range split(cfg.cfg.ProxyGID) {
 			// mark outgoing packets from envoy to workload by pod ip
 			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
-			cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
+			cfg.ruleBuilder.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
 				"!", "-d", constants.IPVersionSpecific, "-p", constants.TCP, "-o", "lo",
 				"-m", "owner", "--gid-owner", gid, "-j", constants.MARK, "--set-mark", outboundMark)
 		}
 		// mark outgoing packets from workload, match it to policy routing entry setup for TPROXY mode
-		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
 			"-p", constants.TCP, "-m", "connmark", "--mark", cfg.cfg.InboundTProxyMark, "-j", "CONNMARK", "--restore-mark")
 		// prevent infinite redirect
-		cfg.iptables.InsertRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 1,
+		cfg.ruleBuilder.InsertRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 1,
 			"-p", constants.TCP, "-m", "mark", "--mark", cfg.cfg.InboundTProxyMark, "-j", constants.RETURN)
 		// prevent intercept traffic from envoy/pilot-agent ==> app by 127.0.0.6 --> podip
-		cfg.iptables.InsertRuleV4(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 2,
+		cfg.ruleBuilder.InsertRuleV4(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 2,
 			"-p", constants.TCP, "-s", "127.0.0.6/32", "-i", "lo", "-j", constants.RETURN)
-		cfg.iptables.InsertRuleV6(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 2,
+		cfg.ruleBuilder.InsertRuleV6(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 2,
 			"-p", constants.TCP, "-s", "::6/128", "-i", "lo", "-j", constants.RETURN)
 		// prevent intercept traffic from app ==> app by pod ip
-		cfg.iptables.InsertRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 3,
+		cfg.ruleBuilder.InsertRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 3,
 			"-p", constants.TCP, "-i", "lo", "-m", "mark", "!", "--mark", outboundMark, "-j", constants.RETURN)
 	}
-	return cfg.executeCommands()
+	return cfg.executeCommands(&iptVer, &ipt6Ver)
 }
 
 type UDPRuleApplier struct {
-	iptables *builder.IptablesBuilder
+	iptables *builder.IptablesRuleBuilder
 	ext      dep.Dependencies
 	ops      Ops
 	table    string
 	chain    string
-	cmd      string
+	iptV     *dep.IptablesVersion
+	ipt6V    *dep.IptablesVersion
 }
 
 func (f UDPRuleApplier) RunV4(args ...string) {
@@ -561,7 +572,7 @@ func (f UDPRuleApplier) RunV4(args ...string) {
 	case DeleteOps:
 		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
 		deleteArgs = append(deleteArgs, args...)
-		f.ext.RunQuietlyAndIgnore(f.cmd, nil, deleteArgs...)
+		f.ext.RunQuietlyAndIgnore(constants.IPTables, f.iptV, nil, deleteArgs...)
 	}
 }
 
@@ -572,7 +583,7 @@ func (f UDPRuleApplier) RunV6(args ...string) {
 	case DeleteOps:
 		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
 		deleteArgs = append(deleteArgs, args...)
-		f.ext.RunQuietlyAndIgnore(f.cmd, nil, deleteArgs...)
+		f.ext.RunQuietlyAndIgnore(constants.IPTables, f.ipt6V, nil, deleteArgs...)
 	}
 }
 
@@ -594,17 +605,20 @@ func (f UDPRuleApplier) WithTable(table string) UDPRuleApplier {
 // HandleDNSUDP is a helper function to tackle with DNS UDP specific operations.
 // This helps the creation logic of DNS UDP rules in sync with the deletion.
 func HandleDNSUDP(
-	ops Ops, iptables *builder.IptablesBuilder, ext dep.Dependencies,
-	cmd, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
+	ops Ops, iptables *builder.IptablesRuleBuilder, ext dep.Dependencies,
+	iptV, ipt6V *dep.IptablesVersion, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
 	ownerGroupsFilter config.InterceptFilter,
 ) {
+	// TODO BML drop "UDPRuleApplier", it is a largely useless type.
+	// we do not need a unique type just to apply UDP iptables rules
 	f := UDPRuleApplier{
 		iptables: iptables,
 		ext:      ext,
 		ops:      ops,
 		table:    constants.NAT,
 		chain:    constants.OUTPUT,
-		cmd:      cmd,
+		iptV:     iptV,
+		ipt6V:    ipt6V,
 	}
 	// Make sure that upstream DNS requests from agent/envoy dont get captured.
 	// TODO: add ip6 as well
@@ -706,7 +720,7 @@ func addConntrackZoneDNSUDP(
 func (cfg *IptablesConfigurator) handleOutboundPortsInclude() {
 	if cfg.cfg.OutboundPortsInclude != "" {
 		for _, port := range split(cfg.cfg.OutboundPortsInclude) {
-			cfg.iptables.AppendRule(iptableslog.UndefinedCommand,
+			cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand,
 				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
 		}
 	}
@@ -715,65 +729,57 @@ func (cfg *IptablesConfigurator) handleOutboundPortsInclude() {
 func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter config.InterceptFilter) {
 	if filter.Except {
 		for _, group := range filter.Values {
-			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+			cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 				"-m", "owner", "--gid-owner", group, "-j", constants.RETURN)
 		}
 	} else {
 		groupIsNoneOf := CombineMatchers(filter.Values, func(group string) []string {
 			return []string{"-m", "owner", "!", "--gid-owner", group}
 		})
-		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 			append(groupIsNoneOf, "-j", constants.RETURN)...)
 	}
 }
 
-func (cfg *IptablesConfigurator) executeIptablesCommands(commands [][]string) error {
+func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, commands [][]string) error {
 	for _, cmd := range commands {
-		if len(cmd) > 1 {
-			if err := cfg.ext.Run(cmd[0], nil, cmd[1:]...); err != nil {
-				return err
-			}
-		} else {
-			if err := cfg.ext.Run(cmd[0], nil); err != nil {
-				return err
-			}
+		if err := cfg.ext.Run(constants.IPTables, iptVer, nil, cmd...); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(isIpv4 bool) error {
-	var data, cmd string
+func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptVer *dep.IptablesVersion, isIpv4 bool) error {
+	var data string
 	if isIpv4 {
-		data = cfg.iptables.BuildV4Restore()
-		cmd = constants.IPTABLESRESTORE
+		data = cfg.ruleBuilder.BuildV4Restore()
 	} else {
-		data = cfg.iptables.BuildV6Restore()
-		cmd = constants.IP6TABLESRESTORE
+		data = cfg.ruleBuilder.BuildV6Restore()
 	}
 
-	log.Infof("Running %s with the following input:\n%v", cmd, strings.TrimSpace(data))
+	log.Infof("Running iptables restore with: %s and the following input:\n%v", iptVer.CmdToString(constants.IPTablesRestore), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(cmd, strings.NewReader(data), "--noflush")
+	return cfg.ext.Run(constants.IPTablesRestore, iptVer, strings.NewReader(data), "--noflush")
 }
 
-func (cfg *IptablesConfigurator) executeCommands() error {
+func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVersion) error {
 	if cfg.cfg.RestoreFormat {
 		// Execute iptables-restore
-		if err := cfg.executeIptablesRestoreCommand(true); err != nil {
+		if err := cfg.executeIptablesRestoreCommand(iptVer, true); err != nil {
 			return err
 		}
 		// Execute ip6tables-restore
-		if err := cfg.executeIptablesRestoreCommand(false); err != nil {
+		if err := cfg.executeIptablesRestoreCommand(ipt6Ver, false); err != nil {
 			return err
 		}
 	} else {
 		// Execute iptables commands
-		if err := cfg.executeIptablesCommands(cfg.iptables.BuildV4()); err != nil {
+		if err := cfg.executeIptablesCommands(iptVer, cfg.ruleBuilder.BuildV4()); err != nil {
 			return err
 		}
 		// Execute ip6tables commands
-		if err := cfg.executeIptablesCommands(cfg.iptables.BuildV6()); err != nil {
+		if err := cfg.executeIptablesCommands(ipt6Ver, cfg.ruleBuilder.BuildV6()); err != nil {
 			return err
 		}
 	}

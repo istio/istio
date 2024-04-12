@@ -291,7 +291,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			force: true,
 			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
 				g.Expect(err).Should(BeNil())
-				g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(2))
+				g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(3))
 			},
 		},
 		{
@@ -333,8 +333,16 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 }
 
 func TestManifestGenerateDefaultWithRevisionedWebhook(t *testing.T) {
+	runRevisionedWebhookTest(t, "minimal-revisioned", "default_tag")
+}
+
+func TestManifestGenerateFailedDefaultInstallation(t *testing.T) {
+	runRevisionedWebhookTest(t, "minimal", "default_installation_failed")
+}
+
+func runRevisionedWebhookTest(t *testing.T, testResourceFile, whSource string) {
+	t.Helper()
 	recreateSimpleTestEnv()
-	testResourceFile := "minimal-revisioned"
 	tmpDir := t.TempDir()
 	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
 	err := copyDir(string(liveCharts), string(tmpCharts))
@@ -343,7 +351,6 @@ func TestManifestGenerateDefaultWithRevisionedWebhook(t *testing.T) {
 	}
 
 	// Add a default tag which is the webhook that will be processed post-install
-	whSource := "default_tag"
 	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", whSource+".yaml"))
 	if err != nil {
 		t.Fatal(err)
@@ -391,6 +398,54 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 		g.Expect(ep).Should(HavePathValueContain(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
 
 		checkClusterRoleBindingsReferenceRoles(g, objs)
+	}
+}
+
+func TestPrune(t *testing.T) {
+	recreateSimpleTestEnv()
+	tmpDir := t.TempDir()
+	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
+	err := copyDir(string(liveCharts), string(tmpCharts))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", "envoyfilter"+".yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writeFile(filepath.Join(tmpDir, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+"default.yaml"), []byte(rs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fakeControllerReconcile("default", tmpCharts, &helmreconciler.Options{
+		Force:     false,
+		SkipPrune: false,
+		Log:       clog.NewDefaultLogger(),
+	})
+	assert.NoError(t, err)
+
+	// Install a default revision should not cause any error
+	objs, err := fakeControllerReconcile("empty", tmpCharts, &helmreconciler.Options{
+		Force:     false,
+		SkipPrune: false,
+		Log:       clog.NewDefaultLogger(),
+	})
+	assert.NoError(t, err)
+
+	for _, s := range helmreconciler.PrunedResourcesSchemas() {
+		remainedObjs := objs.kind(s.Kind)
+		if remainedObjs.size() == 0 {
+			continue
+		}
+		for _, v := range remainedObjs.objMap {
+			// exclude operator objects, which will not be pruned
+			if strings.Contains(v.Name, "istio-operator") {
+				continue
+			}
+			t.Fatalf("obj %s/%s is not pruned", v.Namespace, v.Name)
+		}
 	}
 }
 
@@ -536,17 +591,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 			diffSelect: "ConfigMap:*:istio$",
 		},
 		{
-			desc:       "deprecated_autoscaling_k8s_spec",
-			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
-			fileSelect: []string{"templates/autoscale.yaml"},
-		},
-		{
 			desc:       "autoscaling_ingress_v2",
-			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
-			fileSelect: []string{"templates/autoscale.yaml"},
-		},
-		{
-			desc:       "autoscaling_v2beta1_k8s_and_values",
 			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
 			fileSelect: []string{"templates/autoscale.yaml"},
 		},

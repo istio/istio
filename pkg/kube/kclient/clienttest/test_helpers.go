@@ -19,8 +19,10 @@ import (
 
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type TestClient[T controllers.Object] struct {
@@ -129,4 +131,8 @@ func TrackerHandler(tracker *assert.Tracker[string]) controllers.EventHandler[co
 			tracker.Record("delete/" + obj.GetName())
 		},
 	}
+}
+
+func Names[T controllers.Object](list []T) sets.String {
+	return sets.New(slices.Map(list, func(a T) string { return a.GetName() })...)
 }

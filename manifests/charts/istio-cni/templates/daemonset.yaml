@@ -45,7 +45,7 @@ spec:
       {{if .Values.cni.ambient.enabled }}hostNetwork: true{{ end }}
       nodeSelector:
         kubernetes.io/os: linux
-      # Can be configured to allow for excluding instio-cni from being scheduled on specified nodes
+      # Can be configured to allow for excluding istio-cni from being scheduled on specified nodes
       {{- with .Values.cni.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
@@ -81,21 +81,27 @@ spec:
               path: /readyz
               port: 8000
           securityContext:
+            privileged: true # always requires privilege to be useful (install node plugin, etc)
             runAsGroup: 0
             runAsUser: 0
             runAsNonRoot: false
-{{- if .Values.cni.ambient.enabled }}
+            # Both ambient and sidecar repair mode require elevated node privileges to function.
+            # But we don't need _everything_ in `privileged`, so drop+readd capabilities based on feature.
+            # privileged is redundant with CAP_SYS_ADMIN
+            # since it's redundant, hardcode it to `true`, then manually drop ALL + readd granular
+            # capabilities we actually require
             capabilities:
               drop:
               - ALL
               add:
+              # CAP_NET_ADMIN is required to allow ipset and route table access
               - NET_ADMIN
-              # TODO this, `privileged`, etc need to be reworked - both sidecar (repair) and ambient require SYS_ADMIN
-              # and istio-cni is *always* privileged to some degree, regardless of the `privileged` flag
-              - SYS_ADMIN
+              # CAP_NET_RAW is required to allow iptables mutation of the `nat` table
               - NET_RAW
-{{- end }}
-            privileged: {{ .Values.cni.privileged }}
+              # CAP_SYS_ADMIN is required for both ambient and repair, in order to open
+              # network namespaces in `/proc` to obtain descriptors for entering pod netnamespaces.
+              # There does not appear to be a more granular capability for this.
+              - SYS_ADMIN
 {{- if .Values.cni.seccompProfile }}
             seccompProfile:
 {{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}

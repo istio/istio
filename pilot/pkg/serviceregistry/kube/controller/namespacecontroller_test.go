@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -39,19 +38,20 @@ import (
 )
 
 func TestNamespaceController(t *testing.T) {
-	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	client := kube.NewFakeClient()
 	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
 	watcher.SetAndNotify(nil, nil, caBundle)
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+	stop := test.NewStop(t)
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
 		kclient.New[*v1.Namespace](client),
-		meshWatcher.Mesh().DiscoverySelectors,
+		meshWatcher,
+		stop,
 	)
-	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
-	stop := test.NewStop(t)
+	kube.SetObjectFilter(client, discoveryNamespacesFilter)
+	nc := NewNamespaceController(client, watcher)
 	client.RunAndWait(stop)
 	go nc.Run(stop)
 	retry.UntilOrFail(t, nc.queue.HasSynced)
@@ -87,7 +87,6 @@ func TestNamespaceController(t *testing.T) {
 }
 
 func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
-	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	client := kube.NewFakeClient()
 	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
@@ -102,12 +101,14 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 			},
 		},
 	})
+	stop := test.NewStop(t)
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
 		kclient.New[*v1.Namespace](client),
-		meshWatcher.Mesh().DiscoverySelectors,
+		meshWatcher,
+		stop,
 	)
-	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
-	stop := test.NewStop(t)
+	kube.SetObjectFilter(client, discoveryNamespacesFilter)
+	nc := NewNamespaceController(client, watcher)
 	client.RunAndWait(stop)
 	go nc.Run(stop)
 	retry.UntilOrFail(t, nc.queue.HasSynced)
@@ -129,7 +130,6 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 }
 
 func TestNamespaceControllerDiscovery(t *testing.T) {
-	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
 	client := kube.NewFakeClient()
 	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
@@ -140,12 +140,14 @@ func TestNamespaceControllerDiscovery(t *testing.T) {
 			MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 		}},
 	})
+	stop := test.NewStop(t)
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
 		kclient.New[*v1.Namespace](client),
-		meshWatcher.Mesh().DiscoverySelectors,
+		meshWatcher,
+		stop,
 	)
-	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
-	stop := test.NewStop(t)
+	kube.SetObjectFilter(client, discoveryNamespacesFilter)
+	nc := NewNamespaceController(client, watcher)
 	client.RunAndWait(stop)
 	go nc.Run(stop)
 	retry.UntilOrFail(t, nc.queue.HasSynced)
@@ -159,9 +161,11 @@ func TestNamespaceControllerDiscovery(t *testing.T) {
 	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "selected", expectedData)
 	expectConfigMapNotExist(t, nc.configmaps, "not-selected")
 
-	discoveryNamespacesFilter.SelectorsChanged([]*metav1.LabelSelector{{
-		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "not-selected"},
-	}})
+	meshWatcher.Update(&meshconfig.MeshConfig{
+		DiscoverySelectors: []*metav1.LabelSelector{{
+			MatchLabels: map[string]string{"kubernetes.io/metadata.name": "not-selected"},
+		}},
+	}, time.Second)
 	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "not-selected", expectedData)
 	expectConfigMapNotExist(t, nc.configmaps, "selected")
 }

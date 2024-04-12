@@ -40,6 +40,9 @@ var skippedCdsConfigs = sets.New(
 	kind.Telemetry,
 	kind.WasmPlugin,
 	kind.ProxyConfig,
+	kind.DNSName,
+
+	kind.KubernetesGateway,
 )
 
 // Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
@@ -47,6 +50,12 @@ var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 	s := sets.New(
 		kind.VirtualService,
 		kind.Gateway,
+
+		kind.KubernetesGateway,
+		kind.HTTPRoute,
+		kind.TCPRoute,
+		kind.TLSRoute,
+		kind.GRPCRoute,
 	)
 	if features.JwksFetchMode != jwt.Istiod {
 		s.Insert(kind.RequestAuthentication)
@@ -58,9 +67,25 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if req == nil {
 		return true
 	}
-	if !req.Full {
-		// CDS only handles full push
-		return false
+	switch proxy.Type {
+	case model.Waypoint:
+		if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
+			// TODO: this logic is identical to that used in LDS, consider refactor into a common function
+			// taken directly from LDS... waypoints need CDS updates on kind.Address changes
+			// after implementing use-waypoint which decouples waypoint creation, wl pod creation
+			// user specifying waypoint use. Without this we're not getting correct waypoint config
+			// in a timely manner
+			return true
+		}
+		// Otherwise, only handle full pushes (skip endpoint-only updates)
+		if !req.Full {
+			return false
+		}
+	default:
+		if !req.Full {
+			// CDS only handles full push
+			return false
+		}
 	}
 	// If none set, we will always push
 	if len(req.ConfigsUpdated) == 0 {

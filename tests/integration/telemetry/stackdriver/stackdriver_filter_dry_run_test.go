@@ -57,7 +57,6 @@ func testDryRunTCP(t *testing.T, policies []string, cases []dryRunCase) {
 
 func testDryRun(t *testing.T, policies []string, cases []dryRunCase, isTCP bool) {
 	framework.NewTest(t).
-		Features("observability.telemetry.stackdriver").
 		Run(func(t framework.TestContext) {
 			for _, policy := range policies {
 				createDryRunPolicy(t, policy)

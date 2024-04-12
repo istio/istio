@@ -117,6 +117,8 @@ func (h *manyCollection[I, O]) Synced() Syncer {
 
 // nolint: unused // (not true, its to implement an interface)
 func (h *manyCollection[I, O]) dump() {
+	h.recomputeMu.Lock()
+	defer h.recomputeMu.Unlock()
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.log.Errorf(">>> BEGIN DUMP")
@@ -155,6 +157,10 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 		iObj := h.parent.GetKey(iKey)
 		if iObj == nil {
 			ev.Event = controllers.EventDelete
+			if ev.Old == nil {
+				// This was an add, now its a Delete. Make sure we don't have Old and New nil, which we claim to be illegal
+				ev.Old = ev.New
+			}
 			ev.New = nil
 		} else {
 			ev.New = iObj
@@ -177,7 +183,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		i := a.Latest()
 		iKey := GetKey(i)
 
-		ctx := &collectionDependencyTracker[I, O]{h, nil}
+		ctx := &collectionDependencyTracker[I, O]{h, nil, iKey}
 		results := slices.GroupUnique(h.transformation(ctx, i), GetKey[O])
 		recomputedResults[idx] = results
 		// Update the I -> Dependency mapping
@@ -262,7 +268,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		h.log.WithLabels("events", len(events), "handlers", len(handlers)).Debugf("calling handlers")
 	}
 	for _, handler := range handlers {
-		handler(events)
+		handler(slices.Clone(events))
 	}
 }
 
@@ -431,7 +437,7 @@ func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []depende
 		// For each input, we will check if it depends on this event.
 		// We use Items() to check both the old and new object; we will recompute if either matched
 		for _, item := range ev.Items() {
-			match := dep.filter.Matches(item)
+			match := dep.filter.Matches(item, false)
 			if h.log.DebugEnabled() {
 				h.log.WithLabels("item", iKey, "match", match).Debugf("dependency change for collection %T", sourceCollection)
 			}
@@ -457,19 +463,10 @@ func (h *manyCollection[I, O]) GetKey(k Key[O]) (res *O) {
 	return nil
 }
 
-func (h *manyCollection[I, O]) List(namespace string) (res []O) {
+func (h *manyCollection[I, O]) List() (res []O) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if namespace == "" {
-		res = maps.Values(h.collectionState.outputs)
-	} else {
-		// Future improvement: shard outputs by namespace so we can query more efficiently
-		res = slices.FilterInPlace(maps.Values(h.collectionState.outputs), func(o O) bool {
-			return getNamespace(o) == namespace
-		})
-		return
-	}
-	return
+	return maps.Values(h.collectionState.outputs)
 }
 
 func (h *manyCollection[I, O]) Register(f func(o Event[O])) Syncer {
@@ -516,7 +513,12 @@ func (h *manyCollection[I, O]) name() string {
 // for a given transformation call at once, then apply it in a single transaction to the manyCollection.
 type collectionDependencyTracker[I, O any] struct {
 	*manyCollection[I, O]
-	d []dependency
+	d   []dependency
+	key Key[I]
+}
+
+func (i *collectionDependencyTracker[I, O]) name() string {
+	return fmt.Sprintf("%s{%s}", i.collectionName, i.key)
 }
 
 // registerDependency track a dependency. This is in the context of a specific input I type, as we create a collectionDependencyTracker

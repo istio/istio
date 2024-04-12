@@ -961,6 +961,16 @@ func TestAnalyzers(t *testing.T) {
 		g := NewWithT(t)
 	outer:
 		for _, a := range All() {
+			var isMultiClusterAnalyzer bool
+			for _, mc := range AllMultiCluster() {
+				if a.Metadata().Name == mc.Metadata().Name {
+					isMultiClusterAnalyzer = true
+					break
+				}
+			}
+			if isMultiClusterAnalyzer {
+				continue
+			}
 			analyzerName := a.Metadata().Name
 
 			// Skip this check for explicitly ignored analyzers

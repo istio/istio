@@ -16,3 +16,4 @@ iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 32000 -j ISTIO_REDIRECT
 iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 31000 -j ISTIO_REDIRECT
+iptables-save

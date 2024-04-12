@@ -32,6 +32,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/textparse"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -397,32 +398,32 @@ func TestNegotiateMetricsFormat(t *testing.T) {
 		{
 			name:        "openmetrics minimal accept header",
 			contentType: `application/openmetrics-text; version=0.0.1`,
-			expected:    expfmt.FmtOpenMetrics_0_0_1,
+			expected:    FmtOpenMetrics_0_0_1,
 		},
 		{
 			name:        "openmetrics minimal v1 accept header",
 			contentType: `application/openmetrics-text; version=1.0.0`,
-			expected:    expfmt.FmtOpenMetrics_1_0_0,
+			expected:    FmtOpenMetrics_1_0_0,
 		},
 		{
 			name:        "openmetrics accept header",
 			contentType: `application/openmetrics-text; version=0.0.1; charset=utf-8`,
-			expected:    expfmt.FmtOpenMetrics_0_0_1,
+			expected:    FmtOpenMetrics_0_0_1,
 		},
 		{
 			name:        "openmetrics v1 accept header",
 			contentType: `application/openmetrics-text; version=1.0.0; charset=utf-8`,
-			expected:    expfmt.FmtOpenMetrics_1_0_0,
+			expected:    FmtOpenMetrics_1_0_0,
 		},
 		{
 			name:        "plaintext accept header",
 			contentType: "text/plain; version=0.0.4; charset=utf-8",
-			expected:    expfmt.FmtText,
+			expected:    expfmt.NewFormat(expfmt.TypeTextPlain),
 		},
 		{
 			name:        "empty accept header",
 			contentType: "",
-			expected:    expfmt.FmtText,
+			expected:    expfmt.NewFormat(expfmt.TypeTextPlain),
 		},
 	}
 	for _, tt := range cases {
@@ -469,7 +470,7 @@ my_other_metric{} 0
 		},
 		{
 			name:         "plaintext accept header",
-			acceptHeader: string(expfmt.FmtText),
+			acceptHeader: string(FmtText),
 		},
 		{
 			name:         "empty accept header",
@@ -488,7 +489,7 @@ my_other_metric{} 0
 			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
 				var negotiatedMetrics string
-				if format == expfmt.FmtText {
+				if strings.Contains(string(format), "text/plain") {
 					negotiatedMetrics = appText004
 				} else {
 					negotiatedMetrics = appOpenMetrics
@@ -519,14 +520,14 @@ my_other_metric{} 0
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)
 			}
 
-			if negotiateMetricsFormat(rec.Header().Get("Content-Type")) == expfmt.FmtText {
+			if negotiateMetricsFormat(rec.Header().Get("Content-Type")) == FmtText {
 				textParser := expfmt.TextParser{}
 				_, err := textParser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
 				if err != nil {
 					t.Fatalf("failed to parse text metrics: %v", err)
 				}
 			} else {
-				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes())
+				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes(), labels.NewSymbolTable())
 				for {
 					_, err := omParser.Next()
 					if err == io.EOF {
@@ -621,7 +622,7 @@ my_other_metric{} 0
 	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
 		var negotiatedMetrics string
-		if format == expfmt.FmtText {
+		if format == FmtText {
 			negotiatedMetrics = appText
 		} else {
 			negotiatedMetrics = appOpenMetrics
@@ -664,7 +665,7 @@ func BenchmarkStats(t *testing.B) {
 			for i := 0; i < t.N; i++ {
 				req := &http.Request{}
 				req.Header = make(http.Header)
-				req.Header.Add("Accept", string(expfmt.FmtText))
+				req.Header.Add("Accept", string(FmtText))
 				rec := httptest.NewRecorder()
 				server.handleStats(rec, req)
 			}
@@ -673,7 +674,7 @@ func BenchmarkStats(t *testing.B) {
 			for i := 0; i < t.N; i++ {
 				req := &http.Request{}
 				req.Header = make(http.Header)
-				req.Header.Add("Accept", string(expfmt.FmtOpenMetrics_1_0_0))
+				req.Header.Add("Accept", string(FmtOpenMetrics_1_0_0))
 				rec := httptest.NewRecorder()
 				server.handleStats(rec, req)
 			}

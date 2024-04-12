@@ -30,7 +30,7 @@ func (c *Comparator) ClusterDiff() error {
 	if err != nil {
 		envoyBytes.WriteString(err.Error())
 	} else {
-		envoy, err := protomarshal.ToJSONWithIndent(envoyClusterDump, "    ")
+		envoy, err := protomarshal.ToJSONWithAnyResolver(envoyClusterDump, "    ", &envoyResolver)
 		if err != nil {
 			return err
 		}
@@ -40,7 +40,7 @@ func (c *Comparator) ClusterDiff() error {
 	if err != nil {
 		istiodBytes.WriteString(err.Error())
 	} else {
-		istiod, err := protomarshal.ToJSONWithIndent(istiodClusterDump, "    ")
+		istiod, err := protomarshal.ToJSONWithAnyResolver(istiodClusterDump, "    ", &envoyResolver)
 		if err != nil {
 			return err
 		}
@@ -58,6 +58,7 @@ func (c *Comparator) ClusterDiff() error {
 		return err
 	}
 	if text != "" {
+		fmt.Fprintln(c.w, "Clusters Don't Match")
 		fmt.Fprintln(c.w, text)
 	} else {
 		fmt.Fprintln(c.w, "Clusters Match")

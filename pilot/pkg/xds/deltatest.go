@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -39,35 +40,29 @@ var knownOptimizationGaps = sets.New(
 func (s *DiscoveryServer) compareDiff(
 	con *Connection,
 	w *model.WatchedResource,
-	full model.Resources,
-	resp model.Resources,
+	sotwRes model.Resources,
+	deltaRes model.Resources,
 	deleted model.DeletedResources,
 	usedDelta bool,
 	delta model.ResourceDelta,
 	incremental bool,
 ) {
-	current := con.Watched(w.TypeUrl).LastResources
+	current := con.proxy.GetWatchedResource(w.TypeUrl).LastResources
 	if current == nil {
 		log.Debugf("ADS:%s: resources initialized", v3.GetShortType(w.TypeUrl))
 		return
 	}
-	if resp == nil && deleted == nil && len(full) == 0 {
+	if deltaRes == nil && deleted == nil && len(sotwRes) == 0 {
 		// TODO: it suspicious full is never nil - are there case where we should be deleting everything?
 		// Both SotW and Delta did not respond, nothing to compare
 		return
 	}
-	newByName := map[string]*discovery.Resource{}
-	for _, v := range full {
-		newByName[v.Name] = v
-	}
-	curByName := map[string]*discovery.Resource{}
-	for _, v := range current {
-		curByName[v.Name] = v
-	}
+	newByName := slices.GroupUnique(sotwRes, (*discovery.Resource).GetName)
+	curByName := slices.GroupUnique(current, (*discovery.Resource).GetName)
 
 	watched := sets.New(w.ResourceNames...)
 
-	details := fmt.Sprintf("last:%v sotw:%v delta:%v-%v", len(current), len(full), len(resp), len(deleted))
+	details := fmt.Sprintf("last:%v sotw:%v delta:%v-%v", len(current), len(sotwRes), len(deltaRes), len(deleted))
 	wantDeleted := sets.New[string]()
 	wantChanged := sets.New[string]()
 	wantUnchanged := sets.New[string]()
@@ -87,7 +82,7 @@ func (s *DiscoveryServer) compareDiff(
 			wantUnchanged.Insert(c.Name)
 		}
 	}
-	for _, v := range full {
+	for _, v := range sotwRes {
 		if _, f := curByName[v.Name]; !f {
 			// Resource is added. Delta doesn't distinguish add vs update, so just put it with changed
 			wantChanged.Insert(v.Name)
@@ -99,7 +94,7 @@ func (s *DiscoveryServer) compareDiff(
 		gotDeleted.InsertAll(deleted...)
 	}
 	gotChanged := sets.New[string]()
-	for _, v := range resp {
+	for _, v := range deltaRes {
 		gotChanged.Insert(v.Name)
 	}
 

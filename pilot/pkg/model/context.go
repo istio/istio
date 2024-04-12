@@ -15,7 +15,6 @@
 package model
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -43,6 +42,8 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/ledger"
+	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
@@ -50,6 +51,29 @@ import (
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+)
+
+type (
+	Node                    = pm.Node
+	NodeMetadata            = pm.NodeMetadata
+	NodeMetaProxyConfig     = pm.NodeMetaProxyConfig
+	NodeType                = pm.NodeType
+	BootstrapNodeMetadata   = pm.BootstrapNodeMetadata
+	TrafficInterceptionMode = pm.TrafficInterceptionMode
+	PodPort                 = pm.PodPort
+	StringBool              = pm.StringBool
+	IPMode                  = pm.IPMode
+)
+
+const (
+	SidecarProxy = pm.SidecarProxy
+	Router       = pm.Router
+	Waypoint     = pm.Waypoint
+	Ztunnel      = pm.Ztunnel
+
+	IPv4 = pm.IPv4
+	IPv6 = pm.IPv6
+	Dual = pm.Dual
 )
 
 var _ mesh.Holder = &Environment{}
@@ -423,324 +447,6 @@ type WatchedResource struct {
 
 var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
 
-// StringList is a list that will be marshaled to a comma separate string in Json
-type StringList []string
-
-func (l StringList) MarshalJSON() ([]byte, error) {
-	if l == nil {
-		return nil, nil
-	}
-	return json.Marshal(strings.Join(l, ","))
-}
-
-func (l *StringList) UnmarshalJSON(data []byte) error {
-	var inner string
-	err := json.Unmarshal(data, &inner)
-	if err != nil {
-		return err
-	}
-	if len(inner) == 0 {
-		*l = []string{}
-	} else {
-		*l = strings.Split(inner, ",")
-	}
-	return nil
-}
-
-// PodPort describes a mapping of port name to port number. Generally, this is just the definition of
-// a port in Kubernetes, but without depending on Kubernetes api.
-type PodPort struct {
-	// If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
-	// named port in a pod must have a unique name. Name for the port that can be
-	// referred to by services.
-	// +optional
-	Name string `json:"name,omitempty"`
-	// Number of port to expose on the pod's IP address.
-	// This must be a valid port number, 0 < x < 65536.
-	ContainerPort int `json:"containerPort"`
-	// Name of the protocol
-	Protocol string `json:"protocol"`
-}
-
-// PodPortList defines a list of PodPort's that is serialized as a string
-// This is for legacy reasons, where proper JSON was not supported and was written as a string
-type PodPortList []PodPort
-
-func (l PodPortList) MarshalJSON() ([]byte, error) {
-	if l == nil {
-		return nil, nil
-	}
-	b, err := json.Marshal([]PodPort(l))
-	if err != nil {
-		return nil, err
-	}
-	b = bytes.ReplaceAll(b, []byte{'"'}, []byte{'\\', '"'})
-	out := append([]byte{'"'}, b...)
-	out = append(out, '"')
-	return out, nil
-}
-
-func (l *PodPortList) UnmarshalJSON(data []byte) error {
-	var pl []PodPort
-	pls, err := strconv.Unquote(string(data))
-	if err != nil {
-		return err
-	}
-	if err := json.Unmarshal([]byte(pls), &pl); err != nil {
-		return err
-	}
-	*l = pl
-	return nil
-}
-
-// StringBool defines a boolean that is serialized as a string for legacy reasons
-type StringBool bool
-
-func (s StringBool) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%t"`, s)), nil
-}
-
-func (s *StringBool) UnmarshalJSON(data []byte) error {
-	pls, err := strconv.Unquote(string(data))
-	if err != nil {
-		return err
-	}
-	b, err := strconv.ParseBool(pls)
-	if err != nil {
-		return err
-	}
-	*s = StringBool(b)
-	return nil
-}
-
-// ProxyConfig can only be marshaled using (gogo) jsonpb. However, the rest of node meta is not a proto
-// To allow marshaling, we need to define a custom type that calls out to the gogo marshaller
-type NodeMetaProxyConfig meshconfig.ProxyConfig
-
-func (s *NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
-	pc := (*meshconfig.ProxyConfig)(s)
-	return protomarshal.Marshal(pc)
-}
-
-func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
-	pc := (*meshconfig.ProxyConfig)(s)
-	return protomarshal.UnmarshalAllowUnknown(data, pc)
-}
-
-// Node is a typed version of Envoy node with metadata.
-type Node struct {
-	// ID of the Envoy node
-	ID string
-	// Metadata is the typed node metadata
-	Metadata *BootstrapNodeMetadata
-	// RawMetadata is the untyped node metadata
-	RawMetadata map[string]any
-	// Locality from Envoy bootstrap
-	Locality *core.Locality
-}
-
-// BootstrapNodeMetadata is a superset of NodeMetadata, intended to model the entirety of the node metadata
-// we configure in the Envoy bootstrap. This is split out from NodeMetadata to explicitly segment the parameters
-// that are consumed by Pilot from the parameters used only as part of the bootstrap. Fields used by bootstrap only
-// are consumed by Envoy itself, such as the telemetry filters.
-type BootstrapNodeMetadata struct {
-	NodeMetadata
-
-	// InstanceName is the short name for the workload instance (ex: pod name)
-	// replaces POD_NAME
-	InstanceName string `json:"NAME,omitempty"`
-
-	// Owner specifies the workload owner (opaque string). Typically, this is the owning controller of
-	// of the workload instance (ex: k8s deployment for a k8s pod).
-	Owner string `json:"OWNER,omitempty"`
-
-	// PilotSAN is the list of subject alternate names for the xDS server.
-	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`
-
-	// XDSRootCert defines the root cert to use for XDS connections
-	XDSRootCert string `json:"-"`
-
-	// OutlierLogPath is the cluster manager outlier event log path.
-	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
-
-	// AppContainers is the list of containers in the pod.
-	AppContainers string `json:"APP_CONTAINERS,omitempty"`
-
-	// IstioProxySHA is the SHA of the proxy version.
-	IstioProxySHA string `json:"ISTIO_PROXY_SHA,omitempty"`
-}
-
-// NodeMetadata defines the metadata associated with a proxy
-// Fields should not be assumed to exist on the proxy, especially newly added fields which will not exist
-// on older versions.
-// The JSON field names should never change, as they are needed for backward compatibility with older proxies
-// nolint: maligned
-type NodeMetadata struct {
-	// ProxyConfig defines the proxy config specified for a proxy.
-	// Note that this setting may be configured different for each proxy, due user overrides
-	// or from different versions of proxies connecting. While Pilot has access to the meshConfig.defaultConfig,
-	// this field should be preferred if it is present.
-	ProxyConfig *NodeMetaProxyConfig `json:"PROXY_CONFIG,omitempty"`
-
-	// IstioVersion specifies the Istio version associated with the proxy
-	IstioVersion string `json:"ISTIO_VERSION,omitempty"`
-
-	// IstioRevision specifies the Istio revision associated with the proxy.
-	// Mostly used when istiod requests the upstream.
-	IstioRevision string `json:"ISTIO_REVISION,omitempty"`
-
-	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
-	// It contains both StaticLabels and pod labels if any, it is a superset of StaticLabels.
-	// Note: it is not meant to be used during xds generation.
-	Labels map[string]string `json:"LABELS,omitempty"`
-
-	// StaticLabels specifies the set of labels from `ISTIO_METAJSON_LABELS`.
-	StaticLabels map[string]string `json:"STATIC_LABELS,omitempty"`
-
-	// Annotations specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
-	Annotations map[string]string `json:"ANNOTATIONS,omitempty"`
-
-	// InstanceIPs is the set of IPs attached to this proxy
-	InstanceIPs StringList `json:"INSTANCE_IPS,omitempty"`
-
-	// Namespace is the namespace in which the workload instance is running.
-	Namespace string `json:"NAMESPACE,omitempty"`
-
-	// NodeName is the name of the kubernetes node on which the workload instance is running.
-	NodeName string `json:"NODE_NAME,omitempty"`
-
-	// WorkloadName specifies the name of the workload represented by this node.
-	WorkloadName string `json:"WORKLOAD_NAME,omitempty"`
-
-	// InterceptionMode is the name of the metadata variable that carries info about
-	// traffic interception mode at the proxy
-	InterceptionMode TrafficInterceptionMode `json:"INTERCEPTION_MODE,omitempty"`
-
-	// ServiceAccount specifies the service account which is running the workload.
-	ServiceAccount string `json:"SERVICE_ACCOUNT,omitempty"`
-
-	// HTTPProxyPort enables http proxy on the port for the current sidecar.
-	// Same as MeshConfig.HttpProxyPort, but with per/sidecar scope.
-	HTTPProxyPort string `json:"HTTP_PROXY_PORT,omitempty"`
-
-	// MeshID specifies the mesh ID environment variable.
-	MeshID string `json:"MESH_ID,omitempty"`
-
-	// ClusterID defines the cluster the node belongs to.
-	ClusterID cluster.ID `json:"CLUSTER_ID,omitempty"`
-
-	// Network defines the network the node belongs to. It is an optional metadata,
-	// set at injection time. When set, the Endpoints returned to a node and not on same network
-	// will be replaced with the gateway defined in the settings.
-	Network network.ID `json:"NETWORK,omitempty"`
-
-	// RequestedNetworkView specifies the networks that the proxy wants to see
-	RequestedNetworkView StringList `json:"REQUESTED_NETWORK_VIEW,omitempty"`
-
-	// PodPorts defines the ports on a pod. This is used to lookup named ports.
-	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
-
-	// TLSServerCertChain is the absolute path to server cert-chain file
-	TLSServerCertChain string `json:"TLS_SERVER_CERT_CHAIN,omitempty"`
-	// TLSServerKey is the absolute path to server private key file
-	TLSServerKey string `json:"TLS_SERVER_KEY,omitempty"`
-	// TLSServerRootCert is the absolute path to server root cert file
-	TLSServerRootCert string `json:"TLS_SERVER_ROOT_CERT,omitempty"`
-	// TLSClientCertChain is the absolute path to client cert-chain file
-	TLSClientCertChain string `json:"TLS_CLIENT_CERT_CHAIN,omitempty"`
-	// TLSClientKey is the absolute path to client private key file
-	TLSClientKey string `json:"TLS_CLIENT_KEY,omitempty"`
-	// TLSClientRootCert is the absolute path to client root cert file
-	TLSClientRootCert string `json:"TLS_CLIENT_ROOT_CERT,omitempty"`
-
-	CertBaseDir string `json:"BASE,omitempty"`
-
-	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
-	// If not set, default timeout is 1 hour.
-	IdleTimeout string `json:"IDLE_TIMEOUT,omitempty"`
-
-	// HTTP10 indicates the application behind the sidecar is making outbound http requests with HTTP/1.0
-	// protocol. It will enable the "AcceptHttp_10" option on the http options for outbound HTTP listeners.
-	// Alpha in 1.1, based on feedback may be turned into an API or change. Set to "1" to enable.
-	HTTP10 string `json:"HTTP10,omitempty"`
-
-	// Generator indicates the client wants to use a custom Generator plugin.
-	Generator string `json:"GENERATOR,omitempty"`
-
-	// DNSCapture indicates whether the workload has enabled dns capture
-	DNSCapture StringBool `json:"DNS_CAPTURE,omitempty"`
-
-	// DNSAutoAllocate indicates whether the workload should have auto allocated addresses for ServiceEntry
-	// This allows resolving ServiceEntries, which is especially useful for distinguishing TCP traffic
-	// This depends on DNSCapture.
-	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
-
-	// EnableHBONE, if set, will enable generation of HBONE config.
-	// Note: this only impacts sidecars; ztunnel and waypoint proxy unconditionally use HBONE.
-	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
-
-	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
-	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
-
-	// WorkloadEntry specifies the name of the WorkloadEntry this proxy corresponds to.
-	//
-	// This field is intended for use in those scenarios where a user needs to
-	// onboard a workload from a VM without relying on auto-registration.
-	//
-	// At runtime, when a proxy establishes an ADS connection to the istiod,
-	// istiod will treat a non-empty value of this field as an indicator
-	// that proxy corresponds to a VM and must be represented by a WorkloadEntry
-	// with a given name.
-	WorkloadEntry string `json:"WORKLOAD_ENTRY,omitempty"`
-
-	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
-	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
-
-	// PlatformMetadata contains any platform specific metadata
-	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
-
-	// StsPort specifies the port of security token exchange server (STS).
-	// Used by envoy filters
-	StsPort string `json:"STS_PORT,omitempty"`
-
-	// Envoy status port redirecting to agent status port.
-	EnvoyStatusPort int `json:"ENVOY_STATUS_PORT,omitempty"`
-
-	// Envoy prometheus port redirecting to admin port prometheus endpoint.
-	EnvoyPrometheusPort int `json:"ENVOY_PROMETHEUS_PORT,omitempty"`
-
-	// ExitOnZeroActiveConnections terminates Envoy if there are no active connections if set.
-	ExitOnZeroActiveConnections StringBool `json:"EXIT_ON_ZERO_ACTIVE_CONNECTIONS,omitempty"`
-
-	// InboundListenerExactBalance sets connection balance config to use exact_balance for virtualInbound,
-	// as long as QUIC, since it uses UDP, isn't also used.
-	InboundListenerExactBalance StringBool `json:"INBOUND_LISTENER_EXACT_BALANCE,omitempty"`
-
-	// OutboundListenerExactBalance sets connection balance config to use exact_balance for outbound
-	// redirected tcp listeners. This does not change the virtualOutbound listener.
-	OutboundListenerExactBalance StringBool `json:"OUTBOUND_LISTENER_EXACT_BALANCE,omitempty"`
-
-	// The istiod address when running ASM Managed Control Plane.
-	CloudrunAddr string `json:"CLOUDRUN_ADDR,omitempty"`
-
-	// Metadata discovery service enablement
-	MetadataDiscovery StringBool `json:"METADATA_DISCOVERY,omitempty"`
-
-	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
-	// If a value is known ahead of time it should be added to the struct rather than reading from here,
-	Raw map[string]any `json:"-"`
-}
-
-// ProxyConfigOrDefault is a helper function to get the ProxyConfig from metadata, or fallback to a default
-// This is useful as the logic should check for proxy config from proxy first and then defer to mesh wide defaults
-// if not present.
-func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
-	if m.ProxyConfig != nil {
-		return (*meshconfig.ProxyConfig)(m.ProxyConfig)
-	}
-	return def
-}
-
 // GetView returns a restricted view of the mesh for this proxy. The view can be
 // restricted by network (via ISTIO_META_REQUESTED_NETWORK_VIEW).
 // If not set, we assume that the proxy wants to see endpoints in any network.
@@ -773,39 +479,6 @@ func (node *Proxy) IsZTunnel() bool {
 // IsAmbient returns true if the proxy is acting as either a ztunnel or a waypoint proxy in an ambient mesh.
 func (node *Proxy) IsAmbient() bool {
 	return node.IsWaypointProxy() || node.IsZTunnel()
-}
-
-func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
-	// Create a new type from the target type to avoid recursion.
-	type BootstrapNodeMetadata2 BootstrapNodeMetadata
-
-	t2 := &BootstrapNodeMetadata2{}
-	if err := json.Unmarshal(data, t2); err != nil {
-		return err
-	}
-	var raw map[string]any
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	*m = BootstrapNodeMetadata(*t2)
-	m.Raw = raw
-
-	return nil
-}
-
-// ToStruct converts NodeMetadata to a protobuf structure. This should be used only for debugging - performance is bad.
-func (m NodeMetadata) ToStruct() *structpb.Struct {
-	j, err := json.Marshal(m)
-	if err != nil {
-		return nil
-	}
-
-	pbs := &structpb.Struct{}
-	if err := protomarshal.Unmarshal(j, pbs); err != nil {
-		return nil
-	}
-
-	return pbs
 }
 
 // IstioVersion encodes the Istio version of the proxy. This is a low key way to
@@ -853,55 +526,7 @@ func compareVersion(ov, nv int) int {
 	return 1
 }
 
-// NodeType decides the responsibility of the proxy serves in the mesh
-type NodeType string
-
-const (
-	// SidecarProxy type is used for sidecar proxies in the application containers
-	SidecarProxy NodeType = "sidecar"
-
-	// Router type is used for standalone proxies acting as L7/L4 routers
-	Router NodeType = "router"
-
-	// Waypoint type is used for waypoint proxies
-	Waypoint NodeType = "waypoint"
-
-	// Ztunnel type is used for node proxies (ztunnel)
-	Ztunnel NodeType = "ztunnel"
-)
-
 var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
-
-// IPMode represents the IP mode of proxy.
-type IPMode int
-
-// IPMode constants starting with index 1.
-const (
-	IPv4 IPMode = iota + 1
-	IPv6
-	Dual
-)
-
-// IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
-func IsApplicationNodeType(nType NodeType) bool {
-	switch nType {
-	case SidecarProxy, Router, Waypoint, Ztunnel:
-		return true
-	default:
-		return false
-	}
-}
-
-// ServiceNode encodes the proxy node attributes into a URI-acceptable string
-func (node *Proxy) ServiceNode() string {
-	ip := ""
-	if len(node.IPAddresses) > 0 {
-		ip = node.IPAddresses[0]
-	}
-	return strings.Join([]string{
-		string(node.Type), ip, node.ID, node.DNSDomain,
-	}, serviceNodeSeparator)
-}
 
 // SetSidecarScope identifies the sidecar scope object associated with this
 // proxy and updates the proxy Node. This is a convenience hack so that
@@ -984,13 +609,7 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) {
 
 // DiscoverIPMode discovers the IP Versions supported by Proxy based on its IP addresses.
 func (node *Proxy) DiscoverIPMode() {
-	if networkutil.AllIPv4(node.IPAddresses) {
-		node.ipMode = IPv4
-	} else if networkutil.AllIPv6(node.IPAddresses) {
-		node.ipMode = IPv6
-	} else {
-		node.ipMode = Dual
-	}
+	node.ipMode = pm.DiscoverIPMode(node.IPAddresses)
 	node.GlobalUnicastIP = networkutil.GlobalUnicastIP(node.IPAddresses)
 }
 
@@ -1061,7 +680,7 @@ func ParseServiceNodeWithMetadata(nodeID string, metadata *NodeMetadata) (*Proxy
 		return out, fmt.Errorf("missing parts in the service node %q", nodeID)
 	}
 
-	if !IsApplicationNodeType(NodeType(parts[0])) {
+	if !pm.IsApplicationNodeType(NodeType(parts[0])) {
 		return out, fmt.Errorf("invalid node type (valid types: %v) in the service node %q", NodeTypes, nodeID)
 	}
 	out.Type = NodeType(parts[0])
@@ -1112,10 +731,7 @@ func ParseIstioVersion(ver string) *IstioVersion {
 
 // GetOrDefault returns either the value, or the default if the value is empty. Useful when retrieving node metadata fields.
 func GetOrDefault(s string, def string) string {
-	if len(s) > 0 {
-		return s
-	}
-	return def
+	return pm.GetOrDefault(s, def)
 }
 
 // GetProxyConfigNamespace extracts the namespace associated with the proxy
@@ -1174,12 +790,6 @@ func hasValidIPAddresses(ipAddresses []string) bool {
 	}
 	return true
 }
-
-// TrafficInterceptionMode indicates how traffic to/from the workload is captured and
-// sent to Envoy. This should not be confused with the CaptureMode in the API that indicates
-// how the user wants traffic to be intercepted for the listener. TrafficInterceptionMode is
-// always derived from the Proxy metadata
-type TrafficInterceptionMode string
 
 const (
 	// InterceptionNone indicates that the workload is not using IPtables for traffic interception
@@ -1314,22 +924,6 @@ func (node *Proxy) EnableHBONE() bool {
 	return node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE))
 }
 
-// WaypointScope is either an entire namespace or an individual service account
-// in the namespace. This setting dictates the upstream TLS verification
-// strategy, depending on the binding of the waypoints to its backend
-// workloads.
-type WaypointScope struct {
-	Namespace      string
-	ServiceAccount string // optional
-}
-
-func (node *Proxy) WaypointScope() WaypointScope {
-	return WaypointScope{
-		Namespace:      node.ConfigNamespace,
-		ServiceAccount: node.Metadata.Annotations[constants.WaypointServiceAccount],
-	}
-}
-
 func (node *Proxy) SetWorkloadEntry(name string, create bool) {
 	node.Lock()
 	defer node.Unlock()
@@ -1341,6 +935,59 @@ func (node *Proxy) WorkloadEntry() (string, bool) {
 	node.RLock()
 	defer node.RUnlock()
 	return node.workloadEntryName, node.workloadEntryAutoCreated
+}
+
+// CloneWatchedResources clones the watched resources, both the keys and values are shallow copy.
+func (node *Proxy) CloneWatchedResources() map[string]*WatchedResource {
+	node.RLock()
+	defer node.RUnlock()
+	return maps.Clone(node.WatchedResources)
+}
+
+func (node *Proxy) GetWatchedResourceTypes() sets.String {
+	node.RLock()
+	defer node.RUnlock()
+
+	ret := sets.NewWithLength[string](len(node.WatchedResources))
+	for typeURL := range node.WatchedResources {
+		ret.Insert(typeURL)
+	}
+	return ret
+}
+
+func (node *Proxy) GetWatchedResource(typeURL string) *WatchedResource {
+	node.RLock()
+	defer node.RUnlock()
+
+	return node.WatchedResources[typeURL]
+}
+
+func (node *Proxy) AddOrUpdateWatchedResource(r *WatchedResource) {
+	if r == nil {
+		return
+	}
+	node.Lock()
+	defer node.Unlock()
+	node.WatchedResources[r.TypeUrl] = r
+}
+
+func (node *Proxy) UpdateWatchedResource(typeURL string, updateFn func(*WatchedResource) *WatchedResource) {
+	node.Lock()
+	defer node.Unlock()
+	r := node.WatchedResources[typeURL]
+	r = updateFn(r)
+	if r != nil {
+		node.WatchedResources[typeURL] = r
+	} else {
+		delete(node.WatchedResources, typeURL)
+	}
+}
+
+func (node *Proxy) DeleteWatchedResource(typeURL string) {
+	node.Lock()
+	defer node.Unlock()
+
+	delete(node.WatchedResources, typeURL)
 }
 
 // SupportsEnvoyExtendedJwt indicates that the proxy JWT extension is capable of

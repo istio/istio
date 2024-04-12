@@ -82,7 +82,7 @@ func initNetworkManager(c *Controller, options Options) *networkManager {
 		discoverRemoteGatewayResources: options.ConfigCluster,
 	}
 	// initialize the gateway resource client when any feature that uses it is enabled
-	if features.MultiNetworkGatewayAPI || features.EnableAmbientControllers {
+	if features.MultiNetworkGatewayAPI {
 		n.gatewayResourceClient = kclient.NewDelayedInformer[*v1beta1.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
 	}
 	if features.MultiNetworkGatewayAPI {
@@ -159,8 +159,8 @@ func (c *Controller) onNetworkChange() {
 	c.reloadNetworkGateways()
 	// This is to ensure the ambient workloads are updated dynamically, aligning them with the current network settings.
 	// With this, the pod do not need to restart when the network configuration changes.
-	if features.EnableAmbientControllers {
-		c.syncAllWorkloadsForAmbient()
+	if c.ambientIndex != nil {
+		c.ambientIndex.SyncAll()
 	}
 }
 
@@ -169,7 +169,6 @@ func (c *Controller) onNetworkChange() {
 func (n *networkManager) reloadMeshNetworks() {
 	n.Lock()
 	defer n.Unlock()
-	n.networkFromMeshConfig = ""
 	ranger := cidranger.NewPCTrieRanger()
 
 	n.networkFromMeshConfig = ""

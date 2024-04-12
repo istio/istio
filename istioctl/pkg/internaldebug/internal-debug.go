@@ -15,6 +15,7 @@
 package internaldebug
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -27,7 +28,6 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util"
-	"istio.io/istio/istioctl/pkg/writer/pilot"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/kube"
 )
@@ -141,7 +141,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			if err != nil {
 				return err
 			}
-			sw := pilot.XdsStatusWriter{
+			sw := DebugWriter{
 				Writer:                 c.OutOrStdout(),
 				InternalDebugAllIstiod: internalDebugAllIstiod,
 			}
@@ -166,3 +166,34 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 }
 
 var internalDebugAllIstiod bool
+
+type DebugWriter struct {
+	Writer                 io.Writer
+	Namespace              string
+	InternalDebugAllIstiod bool
+}
+
+func (s *DebugWriter) PrintAll(drs map[string]*discovery.DiscoveryResponse) error {
+	// Gather the statuses before printing so they may be sorted
+	mappedResp := map[string]string{}
+	for id, dr := range drs {
+		for _, resource := range dr.Resources {
+			if s.InternalDebugAllIstiod {
+				mappedResp[id] = string(resource.Value) + "\n"
+			} else {
+				_, _ = s.Writer.Write(resource.Value)
+				_, _ = s.Writer.Write([]byte("\n"))
+			}
+		}
+	}
+	if len(mappedResp) > 0 {
+		mresp, err := json.MarshalIndent(mappedResp, "", "  ")
+		if err != nil {
+			return err
+		}
+		_, _ = s.Writer.Write(mresp)
+		_, _ = s.Writer.Write([]byte("\n"))
+	}
+
+	return nil
+}

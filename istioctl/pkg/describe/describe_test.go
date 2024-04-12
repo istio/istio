@@ -51,7 +51,6 @@ type execAndK8sConfigTestCase struct {
 	// Typically use one of the three
 	expectedOutput string // Expected constant output
 	expectedString string // String output is expected to contain
-	goldenFilename string // Expected output stored in golden file
 
 	wantException bool
 }
@@ -254,7 +253,7 @@ func TestDescribe(t *testing.T) {
 			args: strings.Split("service productpage", " "),
 			expectedOutput: `Service: productpage
 DestinationRule: productpage for "productpage"
-  WARNING POD DOES NOT MATCH ANY SUBSETS.  (Non matching subsets v1)
+   WARNING POD DOES NOT MATCH ANY SUBSETS.  (Non matching subsets v1)
    Matching subsets: 
       (Non-matching subsets v1)
    No Traffic Policy
@@ -433,10 +432,525 @@ VirtualService: bookinfo
 			args: strings.Split("service productpage", " "),
 			expectedOutput: `Service: productpage
 DestinationRule: productpage for "productpage"
-  WARNING POD DOES NOT MATCH ANY SUBSETS.  (Non matching subsets v1)
+   WARNING POD DOES NOT MATCH ANY SUBSETS.  (Non matching subsets v1)
    Matching subsets: 
       (Non-matching subsets v1)
    No Traffic Policy
+VirtualService: bookinfo
+   Route to host "productpage" with weight 30%
+   Route to host "productpage2" with weight 20%
+   Route to host "productpage3" with weight 50%
+   Match: /prefix*
+`,
+		},
+		// have traffic policy
+		{
+			k8sConfigs: []runtime.Object{
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "productpage",
+						Namespace: "default",
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"app": "productpage",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Name:       "http",
+								Port:       9080,
+								TargetPort: intstr.FromInt32(9080),
+							},
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ingress",
+						Namespace: "default",
+						Labels: map[string]string{
+							"istio": "ingressgateway",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"istio": "ingressgateway",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Name:       "http",
+								Port:       80,
+								TargetPort: intstr.FromInt32(80),
+							},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "productpage-v1-1234567890",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app": "productpage",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "productpage",
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "http",
+										ContainerPort: 9080,
+									},
+								},
+							},
+							{
+								Name: "istio-proxy",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "istio-proxy",
+								Ready: true,
+							},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ingress",
+						Namespace: "default",
+						Labels: map[string]string{
+							"istio": "ingressgateway",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "istio-proxy",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "istio-proxy",
+								Ready: true,
+							},
+						},
+					},
+				},
+			},
+			istioConfigs: []runtime.Object{
+				&v1alpha3.VirtualService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bookinfo",
+						Namespace: "default",
+					},
+					Spec: v1alpha32.VirtualService{
+						Hosts:    []string{"productpage"},
+						Gateways: []string{"fake-gw"},
+						Http: []*v1alpha32.HTTPRoute{
+							{
+								Match: []*v1alpha32.HTTPMatchRequest{
+									{
+										Uri: &v1alpha32.StringMatch{
+											MatchType: &v1alpha32.StringMatch_Prefix{
+												Prefix: "/prefix",
+											},
+										},
+									},
+								},
+								Route: []*v1alpha32.HTTPRouteDestination{
+									{
+										Destination: &v1alpha32.Destination{
+											Host: "productpage",
+										},
+										Weight: 30,
+									},
+									{
+										Destination: &v1alpha32.Destination{
+											Host: "productpage2",
+										},
+										Weight: 20,
+									},
+									{
+										Destination: &v1alpha32.Destination{
+											Host: "productpage3",
+										},
+										Weight: 50,
+									},
+								},
+							},
+						},
+					},
+				},
+				&v1alpha3.DestinationRule{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "productpage",
+						Namespace: "default",
+					},
+					Spec: v1alpha32.DestinationRule{
+						Host: "productpage",
+						Subsets: []*v1alpha32.Subset{
+							{
+								Name:   "v1",
+								Labels: map[string]string{"version": "v1"},
+							},
+						},
+						TrafficPolicy: &v1alpha32.TrafficPolicy{
+							LoadBalancer: &v1alpha32.LoadBalancerSettings{
+								LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST},
+							},
+							ConnectionPool:   &v1alpha32.ConnectionPoolSettings{Tcp: &v1alpha32.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
+							OutlierDetection: &v1alpha32.OutlierDetection{MinHealthPercent: 10},
+							Tls:              &v1alpha32.ClientTLSSettings{Mode: v1alpha32.ClientTLSSettings_ISTIO_MUTUAL},
+							PortLevelSettings: []*v1alpha32.TrafficPolicy_PortTrafficPolicy{
+								{
+									LoadBalancer: &v1alpha32.LoadBalancerSettings{
+										LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST},
+									},
+									Port:             &v1alpha32.PortSelector{Number: 8080},
+									Tls:              &v1alpha32.ClientTLSSettings{Mode: v1alpha32.ClientTLSSettings_DISABLE},
+									ConnectionPool:   &v1alpha32.ConnectionPoolSettings{Tcp: &v1alpha32.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
+									OutlierDetection: &v1alpha32.OutlierDetection{MinHealthPercent: 10},
+								},
+							},
+							Tunnel:        nil,
+							ProxyProtocol: nil,
+						},
+					},
+				},
+			},
+			configDumps: map[string][]byte{
+				"productpage-v1-1234567890": config,
+				"ingress":                   []byte("{}"),
+			},
+			namespace:      "default",
+			istioNamespace: "default",
+			// case 9, vs route to multiple hosts
+			args: strings.Split("service productpage", " "),
+			expectedOutput: `Service: productpage
+DestinationRule: productpage for "productpage"
+   WARNING POD DOES NOT MATCH ANY SUBSETS.  (Non matching subsets v1)
+   Matching subsets: 
+      (Non-matching subsets v1)
+   Traffic Policy TLS Mode: ISTIO_MUTUAL
+   Policies: load balancer/connection pool/outlier detection
+   Port Level Settings:
+    8080:
+      TLS Mode: DISABLE
+      Policies: load balancer/connection pool/outlier detection
+VirtualService: bookinfo
+   Route to host "productpage" with weight 30%
+   Route to host "productpage2" with weight 20%
+   Route to host "productpage3" with weight 50%
+   Match: /prefix*
+`,
+		},
+		// have ingress gateway
+		{
+			k8sConfigs: []runtime.Object{
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "productpage",
+						Namespace: "default",
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"app": "productpage",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Name:       "http",
+								Port:       9080,
+								TargetPort: intstr.FromInt32(9080),
+							},
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ingress",
+						Namespace: "default",
+						Labels: map[string]string{
+							"istio": "ingressgateway",
+							"app":   "ingress",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"istio": "ingressgateway",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Name:       "http",
+								Port:       80,
+								TargetPort: intstr.FromInt32(80),
+								Protocol:   corev1.ProtocolTCP,
+							},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{
+							{
+								IP: "2.2.2.2",
+							},
+						}},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ingress",
+						Namespace: "istio-ingress",
+						Labels: map[string]string{
+							"istio": "ingressgateway",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"istio": "ingressgateway",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Name:       "http",
+								Port:       80,
+								TargetPort: intstr.FromInt32(80),
+								Protocol:   corev1.ProtocolTCP,
+							},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{
+							{
+								IP: "1.1.1.1",
+							},
+						}},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "productpage-v1-1234567890",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app": "productpage",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "productpage",
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "http",
+										ContainerPort: 9080,
+									},
+								},
+							},
+							{
+								Name: "istio-proxy",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "istio-proxy",
+								Ready: true,
+							},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ingress",
+						Namespace: "default",
+						Labels: map[string]string{
+							"istio": "ingressgateway",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "istio-proxy",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "istio-proxy",
+								Ready: true,
+							},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ingress",
+						Namespace: "istio-ingress",
+						Labels: map[string]string{
+							"istio": "ingressgateway",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "istio-proxy",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "istio-proxy",
+								Ready: true,
+							},
+						},
+					},
+				},
+			},
+			istioConfigs: []runtime.Object{
+				&v1alpha3.VirtualService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bookinfo",
+						Namespace: "default",
+					},
+					Spec: v1alpha32.VirtualService{
+						Hosts: []string{
+							"productpage",
+							"productpage.exapple.com",
+						},
+						Gateways: []string{"fake-gw"},
+						Http: []*v1alpha32.HTTPRoute{
+							{
+								Match: []*v1alpha32.HTTPMatchRequest{
+									{
+										Uri: &v1alpha32.StringMatch{
+											MatchType: &v1alpha32.StringMatch_Prefix{
+												Prefix: "/prefix",
+											},
+										},
+									},
+								},
+								Route: []*v1alpha32.HTTPRouteDestination{
+									{
+										Destination: &v1alpha32.Destination{
+											Host: "productpage",
+										},
+										Weight: 30,
+									},
+									{
+										Destination: &v1alpha32.Destination{
+											Host: "productpage2",
+										},
+										Weight: 20,
+									},
+									{
+										Destination: &v1alpha32.Destination{
+											Host: "productpage3",
+										},
+										Weight: 50,
+									},
+								},
+							},
+						},
+					},
+				},
+				&v1alpha3.DestinationRule{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "productpage",
+						Namespace: "default",
+					},
+					Spec: v1alpha32.DestinationRule{
+						Host: "productpage",
+						Subsets: []*v1alpha32.Subset{
+							{
+								Name:   "v1",
+								Labels: map[string]string{"version": "v1"},
+							},
+						},
+						TrafficPolicy: &v1alpha32.TrafficPolicy{
+							LoadBalancer: &v1alpha32.LoadBalancerSettings{
+								LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST},
+							},
+							ConnectionPool:   &v1alpha32.ConnectionPoolSettings{Tcp: &v1alpha32.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
+							OutlierDetection: &v1alpha32.OutlierDetection{MinHealthPercent: 10},
+							Tls:              &v1alpha32.ClientTLSSettings{Mode: v1alpha32.ClientTLSSettings_ISTIO_MUTUAL},
+							PortLevelSettings: []*v1alpha32.TrafficPolicy_PortTrafficPolicy{
+								{
+									LoadBalancer: &v1alpha32.LoadBalancerSettings{
+										LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST},
+									},
+									Port:             &v1alpha32.PortSelector{Number: 8080},
+									Tls:              &v1alpha32.ClientTLSSettings{Mode: v1alpha32.ClientTLSSettings_DISABLE},
+									ConnectionPool:   &v1alpha32.ConnectionPoolSettings{Tcp: &v1alpha32.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
+									OutlierDetection: &v1alpha32.OutlierDetection{MinHealthPercent: 10},
+								},
+							},
+							Tunnel:        nil,
+							ProxyProtocol: nil,
+						},
+					},
+				},
+				&v1alpha3.Gateway{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "fake-gw",
+						Namespace: "default",
+					},
+					Spec: v1alpha32.Gateway{
+						Servers: []*v1alpha32.Server{
+							{
+								Port: &v1alpha32.Port{
+									Number:   80,
+									Name:     "default",
+									Protocol: "HTTP",
+								},
+								Hosts: []string{
+									"productpage.exapple.com",
+								},
+							},
+						},
+						Selector: map[string]string{
+							"istio": "ingressgateway",
+						},
+					},
+				},
+			},
+			configDumps: map[string][]byte{
+				"productpage-v1-1234567890": config,
+				"ingress":                   config,
+			},
+			namespace:      "default",
+			istioNamespace: "default",
+			// case 9, vs route to multiple hosts
+			args: strings.Split("service productpage", " "),
+			expectedOutput: `Service: productpage
+DestinationRule: productpage for "productpage"
+   WARNING POD DOES NOT MATCH ANY SUBSETS.  (Non matching subsets v1)
+   Matching subsets: 
+      (Non-matching subsets v1)
+   Traffic Policy TLS Mode: ISTIO_MUTUAL
+   Policies: load balancer/connection pool/outlier detection
+   Port Level Settings:
+    8080:
+      TLS Mode: DISABLE
+      Policies: load balancer/connection pool/outlier detection
+VirtualService: bookinfo
+   Route to host "productpage" with weight 30%
+   Route to host "productpage2" with weight 20%
+   Route to host "productpage3" with weight 50%
+   Match: /prefix*
+--------------------
+Exposed on Ingress Gateway http://1.1.1.1
+Exposed on Ingress Gateway http://2.2.2.2
 VirtualService: bookinfo
    Route to host "productpage" with weight 30%
    Route to host "productpage2" with weight 20%
@@ -567,19 +1081,19 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	for i := range c.istioConfigs {
 		switch t := c.istioConfigs[i].(type) {
 		case *v1alpha3.DestinationRule:
-			client.Istio().NetworkingV1alpha3().DestinationRules(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			client.Istio().NetworkingV1alpha3().DestinationRules(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
 		case *v1alpha3.Gateway:
-			client.Istio().NetworkingV1alpha3().Gateways(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			client.Istio().NetworkingV1alpha3().Gateways(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
 		case *v1alpha3.VirtualService:
-			client.Istio().NetworkingV1alpha3().VirtualServices(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			client.Istio().NetworkingV1alpha3().VirtualServices(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
 		}
 	}
 	for i := range c.k8sConfigs {
 		switch t := c.k8sConfigs[i].(type) {
 		case *corev1.Service:
-			client.Kube().CoreV1().Services(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			client.Kube().CoreV1().Services(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
 		case *corev1.Pod:
-			client.Kube().CoreV1().Pods(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			client.Kube().CoreV1().Pods(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
 		}
 	}
 
@@ -607,10 +1121,6 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 
 	if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
 		t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v", strings.Join(c.args, " "), output, c.expectedString)
-	}
-
-	if c.goldenFilename != "" {
-		util.CompareContent(t, []byte(output), c.goldenFilename)
 	}
 
 	if c.wantException {

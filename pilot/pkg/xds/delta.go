@@ -169,7 +169,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl := con.orderWatchedResources()
+	wrl := con.watchedResourcesByOrder()
 	for _, w := range wrl {
 		if err := s.pushDeltaXds(con, w, pushRequest); err != nil {
 			return err
@@ -238,27 +238,32 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 	}
 }
 
-func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
-	sendHandler := func() error {
+func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newResourceNames []string) error {
+	sendResonse := func() error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
 		return conn.deltaStream.Send(res)
 	}
-	err := istiogrpc.Send(conn.deltaStream.Context(), sendHandler)
+	err := sendResonse()
 	if err == nil {
 		if !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
-			conn.proxy.Lock()
-			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
-			}
-			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-			if features.EnableUnsafeDeltaTest {
-				conn.proxy.WatchedResources[res.TypeUrl].LastResources = applyDelta(conn.proxy.WatchedResources[res.TypeUrl].LastResources, res)
-			}
-			conn.proxy.Unlock()
+			conn.proxy.UpdateWatchedResource(res.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
+				if wr == nil {
+					wr = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				}
+				// some resources dynamically update ResourceNames. Most don't though
+				if newResourceNames != nil {
+					wr.ResourceNames = newResourceNames
+				}
+				wr.NonceSent = res.Nonce
+				if features.EnableUnsafeDeltaTest {
+					wr.LastResources = applyDelta(wr.LastResources, res)
+				}
+				return wr
+			})
 		}
-	} else {
-		deltaLog.Infof("Timeout writing %s", conn.conID)
+	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
+		deltaLog.Infof("Timeout writing %s: %v", conn.conID, v3.GetShortType(res.TypeUrl))
 		xdsResponseWriteTimeouts.Increment()
 	}
 	return err
@@ -313,7 +318,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
 		s.computeProxyState(con.proxy, request)
 	}
-	return s.pushDeltaXds(con, con.Watched(req.TypeUrl), request)
+	return s.pushDeltaXds(con, con.proxy.GetWatchedResource(req.TypeUrl), request)
 }
 
 // shouldRespondDelta determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
@@ -331,9 +336,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		return false
 	}
 
-	con.proxy.RLock()
-	previousInfo := con.proxy.WatchedResources[request.TypeUrl]
-	con.proxy.RUnlock()
+	previousInfo := con.proxy.GetWatchedResource(request.TypeUrl)
 
 	// This can happen in two cases:
 	// 1. Envoy initially send request to Istiod
@@ -342,14 +345,14 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
+		con.proxy.Lock()
+		defer con.proxy.Unlock()
+
 		if len(request.InitialResourceVersions) > 0 {
 			deltaLog.Debugf("ADS:%s: RECONNECT %s %s resources:%v", stype, con.conID, request.ResponseNonce, len(request.InitialResourceVersions))
 		} else {
 			deltaLog.Debugf("ADS:%s: INIT %s %s", stype, con.conID, request.ResponseNonce)
 		}
-
-		con.proxy.Lock()
-		defer con.proxy.Unlock()
 
 		res, wildcard := deltaWatchedResources(nil, request)
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
@@ -386,14 +389,17 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	}
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
-	con.proxy.Lock()
-	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
-	currentResources, _ := deltaWatchedResources(previousResources, request)
-	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
-	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = currentResources
-	alwaysRespond := previousInfo.AlwaysRespond
-	previousInfo.AlwaysRespond = false
-	con.proxy.Unlock()
+	var previousResources, currentResources []string
+	var alwaysRespond bool
+	con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
+		previousResources = wr.ResourceNames
+		currentResources, _ = deltaWatchedResources(previousResources, request)
+		wr.NonceAcked = request.ResponseNonce
+		wr.ResourceNames = currentResources
+		alwaysRespond = wr.AlwaysRespond
+		wr.AlwaysRespond = false
+		return wr
+	})
 
 	subChanged := !slices.EqualUnordered(previousResources, currentResources)
 	// Spontaneous DeltaDiscoveryRequests from the client.
@@ -430,9 +436,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 }
 
 // Push a Delta XDS resource for the given connection.
-func (s *DiscoveryServer) pushDeltaXds(con *Connection,
-	w *model.WatchedResource, req *model.PushRequest,
-) error {
+func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource, req *model.PushRequest) error {
 	if w == nil {
 		return nil
 	}
@@ -500,14 +504,23 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		removed := subscribed.DeleteAll(currentResources...)
 		resp.RemovedResources = sets.SortedList(removed)
 	}
+	var newResourceNames []string
+	if shouldSetWatchedResources(w) {
+		// Set the new watched resources. Do not write to w directly, as it can be a copy from the 'filtered' logic above
+		if usedDelta {
+			// Apply the delta
+			newResourceNames = sets.SortedList(sets.New(w.ResourceNames...).
+				DeleteAll(resp.RemovedResources...).
+				InsertAll(currentResources...))
+		} else {
+			newResourceNames = currentResources
+		}
+	}
+	if neverRemoveDelta(w.TypeUrl) {
+		resp.RemovedResources = nil
+	}
 	if len(resp.RemovedResources) > 0 {
 		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
-	}
-	if shouldSetWatchedResources(w) {
-		// this is probably a bad idea...
-		con.proxy.Lock()
-		w.ResourceNames = currentResources
-		con.proxy.Unlock()
 	}
 
 	configSize := ResourceSize(res)
@@ -525,11 +538,13 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		info += logFiltered
 	}
 
-	if err := con.sendDelta(resp); err != nil {
+	if err := con.sendDelta(resp, newResourceNames); err != nil {
+		logger := deltaLog.Debugf
 		if recordSendError(w.TypeUrl, err) {
-			deltaLog.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
+			logger = deltaLog.Warnf
 		}
+		logger("%s: Send failure for node:%s resources:%d size:%s%s: %v",
+			v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
 		return err
 	}
 
@@ -559,10 +574,18 @@ func requiresResourceNamesModification(url string) bool {
 	return url == v3.AddressType || url == v3.WorkloadType
 }
 
+// neverRemoveDelta checks if a type should never remove resources
+func neverRemoveDelta(url string) bool {
+	// https://github.com/envoyproxy/envoy/issues/32823
+	// We want to garbage collect extensions when they are no longer referenced, rather than delete immediately
+	return url == v3.ExtensionConfigurationType
+}
+
 // shouldSetWatchedResources indicates whether we should set the watched resources for a given type.
 // for some type like `Address` we customly handle it in the generator
 func shouldSetWatchedResources(w *model.WatchedResource) bool {
-	if w.TypeUrl == v3.AddressType || w.TypeUrl == v3.WorkloadType {
+	if requiresResourceNamesModification(w.TypeUrl) {
+		// These handle it directly in the generator
 		return false
 	}
 	// Else fallback based on type

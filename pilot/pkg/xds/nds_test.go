@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 
@@ -141,7 +142,7 @@ func TestGenerate(t *testing.T) {
 			if tt.proxy.Metadata == nil {
 				tt.proxy.Metadata = &model.NodeMetadata{}
 			}
-			tt.proxy.Metadata.ClusterID = "Kubernetes"
+			tt.proxy.Metadata.ClusterID = constants.DefaultClusterName
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 			gen := s.Discovery.Generators[v3.NameTableType]

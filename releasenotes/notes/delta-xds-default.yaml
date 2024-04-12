@@ -1,0 +1,24 @@
+apiVersion: release-notes/v2
+kind: promotion
+area: traffic-management
+issue:
+  - 47949
+releaseNotes:
+  - |
+    **Enabled** [Delta xDS](https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#incremental-xds) by default. See upgrade notes for more information.
+upgradeNotes:
+  - title: Delta xDS on by default
+    content: |
+      In previous versions, Istio used the "State of the world" xDS protocol to configure Envoy.
+      In this release, the ["Delta"](https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#incremental-xds) xDS protocol is enabled by default.
+
+      This should be an internal implementation detail, but because this controls the core configuration protocol in Istio,
+      an upgrade notice is present in an abundance of caution.
+
+      The expected impacts of this change is improved performance of configuration distribution.
+      This may result in reduced CPU and memory utilization in Istiod and proxies, as well as less network traffic between the two.
+      Note that while this release changes the *protocol* to be incremental, Istio does not yet send perfect minimal incremental updates.
+      However, there are already optimizations in place for a variety of critical code paths, and this change enables us to continue optimizations.
+      
+      If you experience unexpected impacts of this change, please set the `ISTIO_DELTA_XDS=false` environment variable in proxies
+      and file a GitHub issue.

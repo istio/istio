@@ -51,6 +51,8 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var scope = log.RegisterScope("kube", "Kubernetes client messages")
@@ -83,16 +85,14 @@ type Client struct {
 	logger           *log.Scope
 
 	// namespacesFilter is only used to initiate filtered informer.
-	namespacesFilter func(obj interface{}) bool
-	filtersByGVK     map[config.GroupVersionKind]kubetypes.Filter
+	filtersByGVK map[config.GroupVersionKind]kubetypes.Filter
 }
 
 type Option struct {
-	Revision         string
-	DomainSuffix     string
-	Identifier       string
-	NamespacesFilter func(obj interface{}) bool
-	FiltersByGVK     map[config.GroupVersionKind]kubetypes.Filter
+	Revision     string
+	DomainSuffix string
+	Identifier   string
+	FiltersByGVK map[config.GroupVersionKind]kubetypes.Filter
 }
 
 var _ model.ConfigStoreController = &Client{}
@@ -123,7 +123,6 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
 		client:           client,
 		logger:           scope.WithLabels("controller", opts.Identifier),
-		namespacesFilter: opts.NamespacesFilter,
 		filtersByGVK:     opts.FiltersByGVK,
 	}
 
@@ -344,17 +343,17 @@ func (cl *Client) addCRD(name string) {
 		cl.logger.Debugf("added resource that already exists: %v", resourceGVK)
 		return
 	}
-	filter := cl.filtersByGVK[resourceGVK]
-	objectFilter := filter.ObjectFilter
-	filter.ObjectFilter = func(t any) bool {
-		if objectFilter != nil && !objectFilter(t) {
-			return false
-		}
-		if cl.namespacesFilter != nil && !cl.namespacesFilter(t) {
-			return false
-		}
-		return config.LabelsInRevision(t.(controllers.Object).GetLabels(), cl.revision)
+
+	// We need multiple filters:
+	// 1. Is it in this revision?
+	// 2. Does it match the discovery selector?
+	// 3. Does it have a special per-type object filter?
+	var extraFilter func(obj any) bool
+	if of, f := cl.filtersByGVK[resourceGVK]; f && of.ObjectFilter != nil {
+		extraFilter = of.ObjectFilter.Filter
 	}
+	filter := kubetypes.Filter{ObjectFilter: composeFilters(kube.FilterIfEnhancedFilteringEnabled(cl.client), cl.inRevision, extraFilter)}
+
 	var kc kclient.Untyped
 	if s.IsBuiltin() {
 		kc = kclient.NewUntypedInformer(cl.client, gvr, filter)
@@ -393,6 +392,45 @@ func (cl *Client) addCRD(name string) {
 	})
 
 	cl.kinds[resourceGVK] = kc
+}
+
+// composedFilter offers a way to join multiple different object filters into a single one
+type composedFilter struct {
+	// The primary filter, which has a handler. Optional
+	filter kubetypes.DynamicObjectFilter
+	// Secondary filters (no handler allowed)
+	extra []func(obj any) bool
+}
+
+func (f composedFilter) Filter(obj any) bool {
+	for _, filter := range f.extra {
+		if !filter(obj) {
+			return false
+		}
+	}
+	if f.filter != nil {
+		return f.filter.Filter(obj)
+	}
+	return true
+}
+
+func (f composedFilter) AddHandler(fn func(selected, deselected sets.String)) {
+	if f.filter != nil {
+		f.filter.AddHandler(fn)
+	}
+}
+
+func composeFilters(filter kubetypes.DynamicObjectFilter, extra ...func(obj any) bool) kubetypes.DynamicObjectFilter {
+	return composedFilter{
+		filter: filter,
+		extra: slices.FilterInPlace(extra, func(f func(obj any) bool) bool {
+			return f != nil
+		}),
+	}
+}
+
+func (cl *Client) inRevision(obj any) bool {
+	return config.LabelsInRevision(obj.(controllers.Object).GetLabels(), cl.revision)
 }
 
 func (cl *Client) onEvent(resourceGVK config.GroupVersionKind, old controllers.Object, curr controllers.Object, event model.Event) {

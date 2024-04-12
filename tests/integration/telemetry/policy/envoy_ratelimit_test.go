@@ -51,7 +51,6 @@ var (
 func TestRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ratelimit.envoy").
 		Run(func(t framework.TestContext) {
 			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_ratelimit.yaml")
 			defer cleanup()
@@ -62,7 +61,6 @@ func TestRateLimiting(t *testing.T) {
 func TestLocalRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ratelimit.envoy").
 		Run(func(t framework.TestContext) {
 			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit.yaml")
 			defer cleanup()
@@ -73,7 +71,6 @@ func TestLocalRateLimiting(t *testing.T) {
 func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ratelimit.envoy").
 		Run(func(t framework.TestContext) {
 			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit_per_route.yaml")
 			defer cleanup()
@@ -84,7 +81,6 @@ func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 func TestLocalRateLimitingServiceAccount(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ratelimit.envoy").
 		Run(func(t framework.TestContext) {
 			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit_sa.yaml")
 			defer cleanup()

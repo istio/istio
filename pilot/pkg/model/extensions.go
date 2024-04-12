@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -43,12 +44,9 @@ const (
 	fileScheme     = "file"
 	ociScheme      = "oci"
 
-	// name of environment variable at Wasm VM, which will carry the Wasm image pull secret.
-	WasmSecretEnv = "ISTIO_META_WASM_IMAGE_PULL_SECRET"
-	// name of environment variable at Wasm VM, which will carry the Wasm image pull policy.
-	WasmPolicyEnv = "ISTIO_META_WASM_IMAGE_PULL_POLICY"
-	// name of environment variable at Wasm VM, which will carry the resource version of WasmPlugin.
-	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
+	WasmSecretEnv          = pm.WasmSecretEnv
+	WasmPolicyEnv          = pm.WasmPolicyEnv
+	WasmResourceVersionEnv = pm.WasmResourceVersionEnv
 
 	// WasmPluginResourceNamePrefix is the prefix of the resource name of WasmPlugin,
 	// preventing the name collision with other resources.

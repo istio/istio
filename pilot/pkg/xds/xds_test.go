@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -504,12 +505,12 @@ spec:
 			},
 			serviceCluster: "outbound|27018||mymongodb.somedomain",
 			wantClusterLocal: map[cluster.ID][]string{
-				"Kubernetes": {"2.2.2.2:27018", "3.3.3.3:27018"},
-				"other":      {},
+				constants.DefaultClusterName: {"2.2.2.2:27018", "3.3.3.3:27018"},
+				"other":                      {},
 			},
 			wantNonClusterLocal: map[cluster.ID][]string{
-				"Kubernetes": {"2.2.2.2:27018", "3.3.3.3:27018"},
-				"other":      {"2.2.2.2:27018", "3.3.3.3:27018"},
+				constants.DefaultClusterName: {"2.2.2.2:27018", "3.3.3.3:27018"},
+				"other":                      {"2.2.2.2:27018", "3.3.3.3:27018"},
 			},
 		},
 	}

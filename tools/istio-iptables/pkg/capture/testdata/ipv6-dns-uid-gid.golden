@@ -66,3 +66,5 @@ ip6tables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j CT --zone
 ip6tables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1 -j CT --zone 2
 ip6tables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j CT --zone 1
 ip6tables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 2 -j CT --zone 2
+iptables-save
+ip6tables-save

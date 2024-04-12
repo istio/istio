@@ -1,3 +1,7 @@
+# WARNING: DO NOT EDIT, THIS FILE IS A COPY.
+# The original version of this file is located at /manifests/helm-profiles directory.
+# If you want to make a change in this file, edit the original one and run "make gen".
+
 meshConfig:
   defaultConfig:
     proxyMetadata:
@@ -16,10 +20,10 @@ cni:
   logLevel: info
   privileged: true
   provider: "multus"
-istio_cni:
-  enabled: true
-  chained: false
 pilot:
+  cni:
+    enabled: true
+    provider: "multus"
   variant: distroless
   env:
     # Setup more secure default that is off in 'default' only for backwards compatibility
@@ -29,6 +33,7 @@ pilot:
     PILOT_ENABLE_HBONE: "true"
     CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
     PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
+    PILOT_ENABLE_AMBIENT_WAYPOINTS: "true"
 variant: distroless
 seLinuxOptions:
   type: spc_t

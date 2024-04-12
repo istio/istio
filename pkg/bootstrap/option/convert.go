@@ -21,8 +21,6 @@ import (
 	"os"
 	"strings"
 
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -31,11 +29,9 @@ import (
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -46,22 +42,34 @@ type TransportSocket struct {
 	TypedConfig *pstruct.Struct `json:"typed_config,omitempty"`
 }
 
+// TCPKeepalive wraps is a thin JSON for xDS proto
+type TCPKeepalive struct {
+	KeepaliveProbes   *wrappers.UInt32Value `json:"keepalive_probes,omitempty"`
+	KeepaliveTime     *wrappers.UInt32Value `json:"keepalive_time,omitempty"`
+	KeepaliveInterval *wrappers.UInt32Value `json:"keepalive_interval,omitempty"`
+}
+
+// UpstreamConnectionOptions wraps is a thin JSON for xDS proto
+type UpstreamConnectionOptions struct {
+	TCPKeepalive *TCPKeepalive `json:"tcp_keepalive,omitempty"`
+}
+
 func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) convertFunc {
 	return func(*instance) (any, error) {
-		upstreamConnectionOptions := &cluster.UpstreamConnectionOptions{
-			TcpKeepalive: &core.TcpKeepalive{},
+		upstreamConnectionOptions := &UpstreamConnectionOptions{
+			TCPKeepalive: &TCPKeepalive{},
 		}
 
 		if value.Probes > 0 {
-			upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: value.Probes}
+			upstreamConnectionOptions.TCPKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: value.Probes}
 		}
 
 		if value.Time != nil && value.Time.Seconds > 0 {
-			upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(value.Time.Seconds)}
+			upstreamConnectionOptions.TCPKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(value.Time.Seconds)}
 		}
 
 		if value.Interval != nil && value.Interval.Seconds > 0 {
-			upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(value.Interval.Seconds)}
+			upstreamConnectionOptions.TCPKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(value.Interval.Seconds)}
 		}
 		return convertToJSON(upstreamConnectionOptions), nil
 	}
@@ -102,11 +110,11 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: model.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.CommonTlsContext.AlpnProtocols = model.ALPNH2Only
 		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_MUTUAL:
 		res := security.SdsCertificateConfig{
@@ -116,28 +124,28 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		}
 		if len(res.GetResourceName()) > 0 {
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
+				model.ConstructSdsSecretConfig(res.GetResourceName()))
 		}
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: model.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.CommonTlsContext.AlpnProtocols = model.ALPNH2Only
 		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
+			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName))
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: model.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+		tlsContext.CommonTlsContext.AlpnProtocols = model.ALPNInMeshH2
 		tlsContext.Sni = tls.Sni
 		// For ISTIO_MUTUAL if custom SNI is not provided, use the default SNI name.
 		if len(tls.Sni) == 0 {

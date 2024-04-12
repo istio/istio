@@ -40,17 +40,23 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 
 	// Now we can do the real fetching
 	var res []T
-	for _, i := range c.List(d.filter.namespace) {
+	var list []T
+	if d.filter.listFromIndex != nil {
+		list = d.filter.listFromIndex().([]T)
+	} else {
+		list = c.List()
+	}
+	for _, i := range list {
 		i := i
 		o := c.augment(i)
-		if d.filter.Matches(o) {
+		if d.filter.Matches(o, true) {
 			res = append(res, i)
 		}
 	}
 	if log.DebugEnabled() {
 		log.WithLabels(
-			"from", h.name(),
-			"for", c.name(),
+			"parent", h.name(),
+			"fetch", c.name(),
 			"filter", d.filter,
 			"size", len(res),
 		).Debugf("Fetch")
