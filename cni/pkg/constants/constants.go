@@ -62,7 +62,6 @@ const (
 	LivenessEndpoint  = "/healthz"
 	ReadinessEndpoint = "/readyz"
 	ReadinessPort     = "8000"
-	NetNsPath         = "/var/run/netns"
 )
 
 // Exposed for testing constants
