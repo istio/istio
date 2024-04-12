@@ -87,7 +87,7 @@ calculated over a time interval of 1 minute.
 			return run(cmd, ctx, args)
 		},
 		DisableFlagsInUseLine: true,
-		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
+		ValidArgsFunction:     completion.ValidPodsNameArgs(ctx),
 	}
 
 	cmd.PersistentFlags().DurationVarP(&metricsDuration, "duration", "d", time.Minute, "Duration of query metrics, default value is 1m.")
