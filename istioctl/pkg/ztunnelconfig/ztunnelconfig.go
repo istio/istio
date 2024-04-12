@@ -20,17 +20,24 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/kubectl/pkg/util/podutils"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/completion"
 	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -441,8 +448,16 @@ func runConfigDump(ctx cli.Context, common *commonFlags, f func(cw *ztunnelDump.
 			if len(args) > 0 {
 				lookup = args[0]
 			}
-			if podName, podNamespace, err = getComponentPodName(ctx, lookup); err != nil {
-				return err
+			if common.node != "" {
+				nsn, err := PodOnNodeFromDaemonset(common.node, "ztunnel", ctx.IstioNamespace(), kubeClient)
+				if err != nil {
+					return err
+				}
+				podName, podNamespace = nsn.Name, nsn.Namespace
+			} else {
+				if podName, podNamespace, err = getComponentPodName(ctx, lookup); err != nil {
+					return err
+				}
 			}
 			ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
 			if !ztunnelPod {
@@ -455,6 +470,39 @@ func runConfigDump(ctx cli.Context, common *commonFlags, f func(cw *ztunnelDump.
 		}
 		return f(configWriter)
 	}
+}
+
+func PodOnNodeFromDaemonset(node string, name, namespace string, client kube.Client) (types.NamespacedName, error) {
+	ds, err := client.Kube().AppsV1().DaemonSets(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return types.NamespacedName{}, err
+	}
+	selector := ds.Spec.Selector
+	if selector == nil {
+		return types.NamespacedName{}, fmt.Errorf("selector is required")
+	}
+
+	sel := selector.MatchLabels
+	kv := []string{}
+	for k, v := range sel {
+		kv = append(kv, k+"="+v)
+	}
+	podsr, err := client.Kube().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+		TypeMeta:      metav1.TypeMeta{},
+		LabelSelector: strings.Join(kv, ","),
+		FieldSelector: "spec.nodeName=" + node,
+	})
+	if err != nil {
+		return types.NamespacedName{}, err
+	}
+	pods := slices.Reference(podsr.Items)
+	if len(pods) > 0 {
+		// We need to pass in a sorter, and the one used by `kubectl logs` is good enough.
+		sortBy := func(pods []*corev1.Pod) sort.Interface { return podutils.ByLogging(pods) }
+		sort.Sort(sortBy(pods))
+		return config.NamespacedName(pods[0]), nil
+	}
+	return types.NamespacedName{}, fmt.Errorf("no pods found")
 }
 
 type commonFlags struct {
