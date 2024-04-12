@@ -1134,13 +1134,13 @@ func TestAuthorizationL7(t *testing.T) {
 				t.Skip("https://github.com/istio/istio/issues/43238")
 			}
 
-			if dst.Config().HasWorkloadAddressedWaypointProxy() {
-				// this case should bypass waypoints because traffic is svc addressed but
-				// presently a ztunnel bug will drop this traffic because it doesn't differentiate
-				// between svc and wl addressed traffic when determining if the connection
-				// should have gone through a waypoint.
-				t.Skip("TODO: open an issue to address this ztunnel issue")
-			}
+			// if dst.Config().HasWorkloadAddressedWaypointProxy() {
+			// 	// this case should bypass waypoints because traffic is svc addressed but
+			// 	// presently a ztunnel bug will drop this traffic because it doesn't differentiate
+			// 	// between svc and wl addressed traffic when determining if the connection
+			// 	// should have gone through a waypoint.
+			// 	t.Skip("TODO: open an issue to address this ztunnel issue")
+			// }
 
 			policySpec := `
   rules:
@@ -1187,7 +1187,7 @@ func TestAuthorizationL7(t *testing.T) {
 `
 			// for most cases just use the normal policy spec
 			policySpecWL := policySpec
-			if dst.Config().HasServiceAddressedWaypointProxy() {
+			if dst.Config().HasAnyWaypointProxy() {
 				// for svc addressed traffic we want the WL policy to allow Waypoint -> Workload
 				policySpecWL = `
   rules:
@@ -1196,11 +1196,18 @@ func TestAuthorizationL7(t *testing.T) {
         principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}"]
 `
 			}
+			waypointName := "none"
+			switch {
+			case dst.Config().HasServiceAddressedWaypointProxy():
+				waypointName = dst.Config().ServiceWaypointProxy
+			case dst.Config().HasWorkloadAddressedWaypointProxy():
+				waypointName = dst.Config().WorkloadWaypointProxy
+			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination":  dst.Config().Service,
 				"Source":       src.Config().Service,
 				"Namespace":    apps.Namespace.Name(),
-				"WaypointName": dst.Config().ServiceWaypointProxy,
+				"WaypointName": waypointName,
 			}, `
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -1248,10 +1255,17 @@ spec:
 				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
 					opt.Check = check.OK()
-				case !dst.Config().HasServiceAddressedWaypointProxy() && !dst.Config().HasSidecar():
+				case !dst.Config().HasAnyWaypointProxy() && !dst.Config().HasSidecar():
 					// Only waypoint proxy can handle L7 policies
 					opt.Check = CheckDeny
+				case dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy():
+					// send traffic to the workload instead of the service so it will redirect to the WL waypoint
+					opt.Address = dst.MustWorkloads().Addresses()[0]
+					opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
 				}
+			}
+			if src == dst {
+				t.Skip("I don't work right now... self call")
 			}
 			t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
 				opt := opt.DeepCopy()
