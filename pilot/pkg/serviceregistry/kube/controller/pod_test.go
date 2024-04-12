@@ -106,45 +106,46 @@ func cleanup(ki kubernetes.Interface) {
 	}
 }
 
-func TestPodCache(t *testing.T) {
+func TestPodLabelUpdate(t *testing.T) {
 	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		WatchedNamespaces: "nsa,nsb",
 	})
 
 	initTestEnv(t, c.client.Kube(), fx)
-
-	// Namespace must be lowercase (nsA doesn't work)
-	pods := []*v1.Pod{
-		generatePod("128.0.0.1", "cpod1", "nsa", "", "", map[string]string{"app": "test-app"}, map[string]string{}),
-		generatePod("128.0.0.2", "cpod2", "nsa", "", "", map[string]string{"app": "prod-app-1"}, map[string]string{}),
-		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
-	}
-
-	addPods(t, c, fx, pods...)
+	// Setup a service with 1 pod and endpointslices
+	createServiceWait(c, "ratings", "nsa",
+		nil, nil, []int32{8080}, map[string]string{"app": "test"}, t)
+	pod := generatePod("128.0.0.1", "cpod1", "nsa", "", "", map[string]string{"app": "test", "foo": "bar"}, map[string]string{})
+	addPods(t, c, fx, pod)
+	createEndpoints(t, c, "rating", "nsa", []string{"tcp-port"}, []string{"128.0.0.1"}, []*v1.ObjectReference{
+		{
+			Kind:      "Pod",
+			Namespace: "nsa",
+			Name:      "cpod1",
+		},
+	}, nil)
+	fx.WaitOrFail(t, "eds")
+	fx.Clear()
 
 	// Verify podCache
-	wantLabels := map[string]labels.Instance{
-		"128.0.0.1": {"app": "test-app"},
-		"128.0.0.2": {"app": "prod-app-1"},
-		"128.0.0.3": {"app": "prod-app-2"},
-	}
-	for addr, wantTag := range wantLabels {
-		pod := c.pods.getPodsByIP(addr)
-		if pod == nil {
-			t.Error("Not found ", addr)
-			continue
-		}
-		if !reflect.DeepEqual(wantTag, labels.Instance(pod[0].Labels)) {
-			t.Errorf("Expected %v got %v", wantTag, labels.Instance(pod[0].Labels))
-		}
-	}
+	got := c.pods.getPodsByIP("128.0.0.1")
+	assert.Equal(t, got != nil, true)
+	assert.Equal(t, map[string]string{"app": "test", "foo": "bar"}, got[0].Labels)
 
-	// This pod exists, but should not be in the cache because it is in a
-	// namespace not watched by the controller.
-	assert.Equal(t, c.pods.getPodsByIP("128.0.0.4"), nil)
+	pod.Labels["foo"] = "not-bar"
+	clienttest.Wrap(t, c.podsClient).CreateOrUpdate(pod)
+	fx.StrictMatchOrFail(t, xdsfake.Event{
+		Type: "proxy",
+		ID:   "128.0.0.1",
+	},
+		xdsfake.Event{
+			Type: "xds",
+			ID:   "ratings.nsa.svc.company.com",
+		})
 
-	// This pod should not be in the cache because it never existed.
-	assert.Equal(t, c.pods.getPodsByIP("128.0.0.128"), nil)
+	got = c.pods.getPodsByIP("128.0.0.1")
+	assert.Equal(t, got != nil, true)
+	assert.Equal(t, map[string]string{"app": "test", "foo": "not-bar"}, got[0].Labels)
 }
 
 func TestHostNetworkPod(t *testing.T) {
@@ -324,4 +325,45 @@ func TestPodCacheEvents(t *testing.T) {
 	if handled != 4 {
 		t.Errorf("notified workload handler %d times, want %d", handled, 5)
 	}
+}
+
+func TestPodUpdates(t *testing.T) {
+	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		WatchedNamespaces: "nsa,nsb",
+	})
+
+	initTestEnv(t, c.client.Kube(), fx)
+
+	// Namespace must be lowercase (nsA doesn't work)
+	pods := []*v1.Pod{
+		generatePod("128.0.0.1", "cpod1", "nsa", "", "", map[string]string{"app": "test-app"}, map[string]string{}),
+		generatePod("128.0.0.2", "cpod2", "nsa", "", "", map[string]string{"app": "prod-app-1"}, map[string]string{}),
+		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
+	}
+
+	addPods(t, c, fx, pods...)
+
+	// Verify podCache
+	wantLabels := map[string]labels.Instance{
+		"128.0.0.1": {"app": "test-app"},
+		"128.0.0.2": {"app": "prod-app-1"},
+		"128.0.0.3": {"app": "prod-app-2"},
+	}
+	for addr, wantTag := range wantLabels {
+		pod := c.pods.getPodsByIP(addr)
+		if pod == nil {
+			t.Error("Not found ", addr)
+			continue
+		}
+		if !reflect.DeepEqual(wantTag, labels.Instance(pod[0].Labels)) {
+			t.Errorf("Expected %v got %v", wantTag, labels.Instance(pod[0].Labels))
+		}
+	}
+
+	// This pod exists, but should not be in the cache because it is in a
+	// namespace not watched by the controller.
+	assert.Equal(t, c.pods.getPodsByIP("128.0.0.4"), nil)
+
+	// This pod should not be in the cache because it never existed.
+	assert.Equal(t, c.pods.getPodsByIP("128.0.0.128"), nil)
 }

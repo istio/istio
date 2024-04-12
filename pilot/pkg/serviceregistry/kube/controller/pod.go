@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
@@ -132,9 +133,13 @@ func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodC
 }
 
 func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
-	// If labels updated, trigger proxy push
-	if cur.Status.PodIP != "" && !maps.Equal(old.Labels, cur.Labels) {
-		pc.proxyUpdates(cur.Status.PodIP)
+	// If labels/annotations updated, trigger proxy push
+	labelsChanged := !maps.Equal(old.Labels, cur.Labels)
+	// Annotations are only used in endpoints in one case, so just compare that one
+	relevantAnnotationsChanged := old.Annotations[constants.AmbientRedirection] != cur.Annotations[constants.AmbientRedirection]
+	changed := labelsChanged || relevantAnnotationsChanged
+	if cur.Status.PodIP != "" && changed {
+		pc.proxyUpdates(cur, true)
 	}
 
 	// always continue calling pc.onEvent
@@ -154,7 +159,7 @@ func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
 	switch ev {
 	case model.EventAdd:
 		if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
-			pc.update(ip, key)
+			pc.update(pod, ip, key)
 		} else {
 			return nil
 		}
@@ -166,7 +171,7 @@ func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
 			}
 			ev = model.EventDelete
 		} else if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
-			pc.update(ip, key)
+			pc.update(pod, ip, key)
 		} else {
 			return nil
 		}
@@ -227,7 +232,7 @@ func (pc *PodCache) deleteIP(ip string, podKey types.NamespacedName) bool {
 	return false
 }
 
-func (pc *PodCache) update(ip string, key types.NamespacedName) {
+func (pc *PodCache) update(pod *v1.Pod, ip string, key types.NamespacedName) {
 	pc.Lock()
 	// if the pod has been cached, return
 	if pc.podsByIP[ip].Contains(key) {
@@ -250,7 +255,7 @@ func (pc *PodCache) update(ip string, key types.NamespacedName) {
 	}
 	pc.Unlock()
 
-	pc.proxyUpdates(ip)
+	pc.proxyUpdates(pod, false)
 }
 
 // queueEndpointEventOnPodArrival registers this endpoint and queues endpoint event
@@ -270,9 +275,17 @@ func (pc *PodCache) endpointDeleted(key types.NamespacedName, ip string) {
 	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
-func (pc *PodCache) proxyUpdates(ip string) {
-	if pc.c != nil && pc.c.opts.XDSUpdater != nil {
-		pc.c.opts.XDSUpdater.ProxyUpdate(pc.c.Cluster(), ip)
+func (pc *PodCache) proxyUpdates(pod *v1.Pod, isPodUpdate bool) {
+	if pc.c != nil {
+		if pc.c.opts.XDSUpdater != nil {
+			ip := pod.Status.PodIP
+			pc.c.opts.XDSUpdater.ProxyUpdate(pc.c.Cluster(), ip)
+		}
+		if isPodUpdate {
+			// Recompute service(s) due to pod label change.
+			// If it is a new pod, no need to recompute, as it yet computed for the first time yet.
+			pc.c.recomputeServiceForPod(pod)
+		}
 	}
 }
 

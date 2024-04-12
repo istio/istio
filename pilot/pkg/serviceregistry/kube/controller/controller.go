@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -54,6 +55,7 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -417,6 +419,42 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, event)
 
 	c.handlers.NotifyServiceHandlers(nil, svc, event)
+}
+
+// recomputeServiceForPod is called when a pod changes and service endpoints need to be recompute
+// Most of Pod is immutable, so once it has been created we are ok to cache the internal representation.
+// However, a few fields (labels) are mutable. When these change, we call recomputeServiceForPod and rebuild the cache
+// for all service's the pod is a part of and push an update.
+func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
+	allServices := c.services.List(pod.Namespace, klabels.Everything())
+	cu := sets.New[model.ConfigKey]()
+	services := getPodServices(allServices, pod)
+	for _, svc := range services {
+		hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.opts.DomainSuffix)
+		c.Lock()
+		conv, f := c.servicesMap[hostname]
+		c.Unlock()
+		if !f {
+			return
+		}
+		shard := model.ShardKeyFromRegistry(c)
+		endpoints := c.buildEndpointsForService(conv, true)
+		if len(endpoints) > 0 {
+			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(hostname), svc.Namespace, endpoints)
+		}
+		cu.Insert(model.ConfigKey{
+			Kind:      kind.ServiceEntry,
+			Name:      string(hostname),
+			Namespace: svc.Namespace,
+		})
+	}
+	if len(cu) > 0 {
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			Full:           false,
+			ConfigsUpdated: cu,
+			Reason:         model.NewReasonStats(model.EndpointUpdate),
+		})
+	}
 }
 
 func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
