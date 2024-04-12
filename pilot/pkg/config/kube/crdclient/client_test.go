@@ -23,6 +23,7 @@ import (
 	"go.uber.org/atomic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/gateway-api/pkg/consts"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -49,7 +50,13 @@ func makeClient(t *testing.T, schemas collection.Schemas, f kubetypes.DynamicObj
 		kube.SetObjectFilter(fake, f)
 	}
 	for _, s := range schemas.All() {
-		clienttest.MakeCRD(t, fake, s.GroupVersionResource())
+		var annotations map[string]string
+		if s.Group() == gvk.KubernetesGateway.Group {
+			annotations = map[string]string{
+				consts.BundleVersionAnnotation: consts.BundleVersion,
+			}
+		}
+		clienttest.MakeCRDWithAnnotations(t, fake, s.GroupVersionResource(), annotations)
 	}
 	stop := test.NewStop(t)
 	config := New(fake, Option{})
