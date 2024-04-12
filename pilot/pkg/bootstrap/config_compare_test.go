@@ -19,6 +19,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -29,6 +30,26 @@ func TestNeedsPush(t *testing.T) {
 		curr     config.Config
 		expected bool
 	}{
+		{
+			name: "different gvk",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+				},
+				Spec: &networking.VirtualService{},
+			},
+			expected: true,
+		},
 		{
 			name: "same gvk label change",
 			prev: config.Config{
@@ -87,6 +108,7 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
+					Labels:           map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			expected: true,
@@ -98,6 +120,7 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
+					Labels:           map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			curr: config.Config{
@@ -123,6 +146,7 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
+					Annotations:      map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			expected: true,
@@ -134,6 +158,7 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
+					Annotations:      map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			curr: config.Config{
