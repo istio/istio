@@ -1,23 +1,14 @@
-// Copyright Istio Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package configdump
+
+type Locality struct {
+	Region  string `json:"region,omitempty"`
+	Zone    string `json:"zone,omitempty"`
+	Subzone string `json:"subzone,omitempty"`
+}
 
 type ZtunnelWorkload struct {
 	WorkloadIPs       []string  `json:"workloadIps"`
 	Waypoint          *Waypoint `json:"waypoint"`
-	GatewayIP         []byte    `json:"gatewayIp"`
 	Protocol          string    `json:"protocol"`
 	Name              string    `json:"name"`
 	Namespace         string    `json:"namespace"`
@@ -26,9 +17,13 @@ type ZtunnelWorkload struct {
 	WorkloadType      string    `json:"workloadType"`
 	CanonicalName     string    `json:"canonicalName"`
 	CanonicalRevision string    `json:"canonicalRevision"`
+	ClusterID         string    `json:"clusterId"`
+	TrustDomain       string    `json:"trustDomain,omitempty"`
+	Locality          Locality  `json:"locality,omitempty"`
 	Node              string    `json:"node"`
 	NativeHbone       bool      `json:"nativeHbone"`
 	Network           string    `json:"network,omitempty"`
+	Status            string    `json:"status"`
 }
 
 type Waypoint struct {

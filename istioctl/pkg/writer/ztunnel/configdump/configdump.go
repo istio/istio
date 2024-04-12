@@ -25,19 +25,18 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pkg/log"
 )
 
 // ConfigWriter is a writer for processing responses from the Ztunnel Admin config_dump endpoint
 type ConfigWriter struct {
 	Stdout      io.Writer
-	ztunnelDump *configdump.ZtunnelDump
+	ztunnelDump *ZtunnelDump
 }
 
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	cd := configdump.ZtunnelDump{}
+	cd := ZtunnelDump{}
 	// TODO(fisherxu): migrate this to jsonpb when issue fixed in golang
 	// Issue to track -> https://github.com/golang/protobuf/issues/632
 	err := json.Unmarshal(b, &cd)
@@ -117,7 +116,7 @@ func valueOrNA(value string) string {
 	return value
 }
 
-func certNotExpired(cert *configdump.Cert) bool {
+func certNotExpired(cert *Cert) bool {
 	// case where cert state is in either Initializing or Unavailable state
 	if cert.ExpirationTime == "" && cert.ValidFrom == "" {
 		return false

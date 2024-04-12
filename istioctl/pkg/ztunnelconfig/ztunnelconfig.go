@@ -16,7 +16,6 @@ package ztunnelconfig
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -42,58 +41,16 @@ const (
 	defaultProxyAdminPort = 15000
 )
 
-var (
-	workloadsNamespace string
-	verboseProxyConfig bool
-
-	address string
-
-	labelSelector = ""
-)
-
-type commonFlags struct {
-	// output format (json, yaml or short)
-	outputFormat string
-
-	proxyAdminPort int
-
-	configDumpFile string
-
-	node string
-}
-
-func (c commonFlags) attach(cmd *cobra.Command) {
-	cmd.PersistentFlags().IntVar(&c.proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Ztunnel proxy admin port")
-	cmd.PersistentFlags().StringVarP(&c.outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	cmd.PersistentFlags().StringVar(&c.node, "node", "", "Filter workloads by node field")
-	cmd.PersistentFlags().StringVarP(&c.configDumpFile, "file", "f", "",
-		"Ztunnel config dump JSON file")
-}
-func (c commonFlags) validateArgs(cmd *cobra.Command, args []string) error {
-	set := 0
-	if c.configDumpFile != "" {
-		set++
-	}
-	if len(args) == 1 {
-		set++
-	}
-	if c.node != "" {
-		set++
-	}
-	if set != 1 {
-		cmd.Println(cmd.UsageString())
-		return fmt.Errorf("exactly one of --file, --node, or pod name must be passed")
-	}
-	return nil
-}
-
 func ZtunnelConfig(ctx cli.Context) *cobra.Command {
 	configCmd := &cobra.Command{
 		Use:   "ztunnel-config",
 		Short: "Update or retrieve current Ztunnel configuration.",
 		Long:  "A group of commands used to update or retrieve Ztunnel configuration from a Ztunnel instance.",
-		Example: `  # Retrieve summary about workload configuration for a given Ztunnel instance.
-	istioctl ztunnel-config <workload> <ztunnel-name[.namespace]>`,
+		Example: `  # Retrieve summary about workload configuration
+  istioctl ztunnel-config workload
+
+  # Retrieve summary about certificates
+  istioctl ztunnel-config certificates`,
 		Aliases: []string{"zc"},
 	}
 
@@ -109,25 +66,25 @@ type Command struct {
 }
 
 func certificatesConfigCmd(ctx cli.Context) *cobra.Command {
-	var common commonFlags
+	common := new(commonFlags)
 	cmd := &cobra.Command{
-		Use:   "certificates [<type>/]<name>[.<namespace>]",
+		Use:   "certificate",
 		Short: "Retrieves certificate for the specified Ztunnel pod.",
 		Long:  `Retrieve information about certificates for the Ztunnel instance.`,
-		Example: `  # Retrieve summary about workload configuration for a given Ztunnel instance.
-  istioctl ztunnel-config certificates <ztunnel-name[.namespace]>
+		Example: `  # Retrieve summary about workload configuration for a randomly chosen ztunnel.
+  istioctl ztunnel-config certificates
 
   # Retrieve full certificate dump of workloads for a given Ztunnel instance.
-  istioctl ztunnel-config workload <ztunnel-name[.namespace]> -o json
+  istioctl ztunnel-config certificates <ztunnel-name[.namespace]> -o json
 `,
-		Aliases: []string{"workloads", "w"},
+		Aliases: []string{"certificates", "certs", "cert"},
 		Args:    common.validateArgs,
-		RunE:  run(ctx, func(cw *ztunnelDump.ConfigWriter) error {
+		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
 			switch common.outputFormat {
 			case summaryOutput:
-			return cw.PrintSecretSummary()
+				return cw.PrintSecretSummary()
 			case jsonOutput, yamlOutput:
-			return cw.PrintSecretDump(common.outputFormat)
+				return cw.PrintSecretDump(common.outputFormat)
 			default:
 				return fmt.Errorf("output format %q not supported", common.outputFormat)
 			}
@@ -142,48 +99,19 @@ func certificatesConfigCmd(ctx cli.Context) *cobra.Command {
 	return cmd
 }
 
-func commonArgs(cmd *cobra.Command, args []string) error {
-	if (len(args) == 1) != (configDumpFile == "") {
-		cmd.Println(cmd.UsageString())
-		return fmt.Errorf("requires pod name or --file parameter")
-	}
-	return nil
-}
-
-func run(ctx cli.Context, f func(cw *ztunnelDump.ConfigWriter) error) func(c *cobra.Command, args []string) error {
-	return func(c *cobra.Command, args []string) error {
-		var podName, podNamespace string
-		kubeClient, err := ctx.CLIClient()
-		if err != nil {
-			return err
-		}
-		var configWriter *ztunnelDump.ConfigWriter
-		if len(args) == 1 {
-			if podName, podNamespace, err = getComponentPodName(ctx, args[0]); err != nil {
-				return err
-			}
-			ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
-			if !ztunnelPod {
-				return fmt.Errorf("workloads command is only supported by Ztunnel proxies: %v", podName)
-			}
-			configWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
-		} else {
-			configWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
-		}
-		if err != nil {
-			return err
-		}
-		return f(configWriter)
-	}
-}
-
 func workloadConfigCmd(ctx cli.Context) *cobra.Command {
-	workloadConfigCmd := &cobra.Command{
+	var workloadsNamespace string
+	var verboseProxyConfig bool
+
+	var address string
+
+	common := new(commonFlags)
+	cmd := &cobra.Command{
 		Use:   "workload [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves workload configuration for the specified Ztunnel pod.",
 		Long:  `Retrieve information about workload configuration for the Ztunnel instance.`,
-		Example: `  # Retrieve summary about workload configuration for a given Ztunnel instance.
-  istioctl ztunnel-config workload <ztunnel-name[.namespace]>
+		Example: `  # Retrieve summary about workload configuration for a randomly chosen ztunnel.
+  istioctl ztunnel-config workload
 
   # Retrieve summary of workloads on node XXXX for a given Ztunnel instance.
   istioctl ztunnel-config workload <ztunnel-name[.namespace]> --node ambient-worker
@@ -198,45 +126,35 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
   # Retrieve workload summary for a specific namespace
   istioctl ztunnel-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
 `,
-		Aliases: []string{"certs"},
-		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
-				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("workload requires pod name or --file parameter")
-			}
-			return nil
-		},
-		RunE: run(ctx, func(cw *ztunnelDump.ConfigWriter) error {
+		Aliases: []string{"w", "workloads"},
+		Args:    common.validateArgs,
+		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
 			filter := ztunnelDump.WorkloadFilter{
 				Namespace: workloadsNamespace,
 				Address:   address,
-				Node:      node,
+				Node:      common.node,
 				Verbose:   verboseProxyConfig,
 			}
-			_ = filter
 
-			switch outputFormat {
+			switch common.outputFormat {
 			case summaryOutput:
-				return cw.PrintSecretSummary()
+				return cw.PrintWorkloadSummary(filter)
 			case jsonOutput, yamlOutput:
-				return cw.PrintSecretDump(outputFormat)
+				return cw.PrintWorkloadDump(filter, common.outputFormat)
 			default:
-				return fmt.Errorf("output format %q not supported", outputFormat)
+				return fmt.Errorf("output format %q not supported", common.outputFormat)
 			}
 		}),
 		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
-	workloadConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	workloadConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter workloads by address field")
-	workloadConfigCmd.PersistentFlags().StringVar(&node, "node", "", "Filter workloads by node field")
-	workloadConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
-	workloadConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
-		"Ztunnel config dump JSON file")
-	workloadConfigCmd.PersistentFlags().StringVar(&workloadsNamespace, "workload-namespace", "",
+	common.attach(cmd)
+	cmd.PersistentFlags().StringVar(&address, "address", "", "Filter workloads by address field")
+	cmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
+	cmd.PersistentFlags().StringVar(&workloadsNamespace, "workload-namespace", "",
 		"Filter workloads by namespace field")
 
-	return workloadConfigCmd
+	return cmd
 }
 
 // Level is an enumeration of all supported log levels.
@@ -302,36 +220,34 @@ func ztunnelLogLevel(level string) string {
 }
 
 func logCmd(ctx cli.Context) *cobra.Command {
-	var podNamespace string
-	var podNames []string
+	common := new(commonFlags)
 
-	logCmd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "log [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves logging levels of the Ztunnel instance in the specified pod.",
 		Long:  "Retrieve information about logging levels of the Ztunnel instance in the specified pod, and update optionally.",
-		Example: `  # Retrieve information about logging levels for a given pod from Ztunnel.
-  istioctl ztunnel-config log <pod-name[.namespace]>
+		Example: `  # Retrieve information about logging levels from all Ztunnel pods
+ istioctl ztunnel-config log
 
-  # Update levels of the all loggers
-  istioctl ztunnel-config log <pod-name[.namespace]> --level none
+ # Update levels of the all loggers for a specific Ztunnel pod
+ istioctl ztunnel-config log <pod-name[.namespace]> --level none
 
-  # Update levels of the specified loggers.
-  istioctl ztunnel-config log <pod-name[.namespace]> --level http:debug,redis:debug
+ # Update levels of the specified loggers for all Ztunnl pods
+ istioctl ztunnel-config log --level http:debug,redis:debug
 
-  # Reset levels of all the loggers to default value (warning).
-  istioctl ztunnel-config log <pod-name[.namespace]> -r
+ # Reset levels of all the loggers to default value (warning)  for a specific Ztunnel pod.
+ istioctl ztunnel-config log <pod-name[.namespace]> -r
 `,
 		Aliases: []string{"o"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("--level needs a value")
+			if err := common.validateArgs(cmd, args); err != nil {
+				return err
 			}
 			if reset && loggerLevelString != "" {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("--level cannot be combined with --reset")
 			}
-			if outputFormat != "" && outputFormat != summaryOutput {
+			if common.outputFormat != "" && common.outputFormat != summaryOutput {
 				return fmt.Errorf("--output is not applicable for this command")
 			}
 			return nil
@@ -341,17 +257,22 @@ func logCmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if labelSelector != "" {
-				if podNames, podNamespace, err = getPodNameBySelector(ctx, kubeClient, labelSelector); err != nil {
+			var podNames []string
+			var podNamespace string
+			if len(args) == 1 {
+				podName, ns, err := getComponentPodName(ctx, args[0])
+				if err != nil {
 					return err
 				}
+				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, ns)
+				if !ztunnelPod {
+					return fmt.Errorf("workloads command is only supported by Ztunnel proxies: %v", podName)
+				}
+				podNames = []string{podName}
+				podNamespace = ns
 			} else {
-				if podNames, podNamespace, err = getPodNames(ctx, args[0], ctx.Namespace()); err != nil {
-					return err
-				}
-			}
-			for _, pod := range podNames {
-				_, err = setupEnvoyLogConfig(kubeClient, "", pod, podNamespace)
+				var err error
+				podNames, podNamespace, err = ctx.InferPodsFromTypedResource("daemonset/ztunnel", ctx.IstioNamespace())
 				if err != nil {
 					return err
 				}
@@ -359,7 +280,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 
 			destLoggerLevels := map[string]Level{}
 			if reset {
-				log.Warn("logLevel reset; using default value \"info\" for Ztunnel")
+				log.Warn("log level reset; using default value \"info\" for Ztunnel")
 				loggerLevelString = "info"
 			} else if loggerLevelString != "" {
 				levels := strings.Split(loggerLevelString, ",")
@@ -393,7 +314,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 				if reset {
 					q += "&reset"
 				}
-				resp, err := setupEnvoyLogConfig(kubeClient, q, podName, podNamespace)
+				resp, err := setupZtunnelLogs(kubeClient, q, podName, podNamespace, common.proxyAdminPort)
 				if err == nil {
 					_, _ = fmt.Fprintf(c.OutOrStdout(), "%v.%v:\n%v\n", podName, podNamespace, resp)
 				} else {
@@ -417,54 +338,27 @@ func logCmd(ctx cli.Context) *cobra.Command {
 		levelToString[CriticalLevel],
 		levelToString[OffLevel])
 
-	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
-	logCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
+	common.attach(cmd)
+	cmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
+	cmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
 			" [<logger>:]<level>,[<logger>:]<level>,... or <level> to change all active loggers, "+
 			"where logger components can be listed by running \"istioctl ztunnel-config log <pod-name[.namespace]>\""+
 			", and level can be one of %s", levelListString))
-	return logCmd
+	return cmd
 }
 
-func setupEnvoyLogConfig(kubeClient kube.CLIClient, param, podName, podNamespace string) (string, error) {
+func setupZtunnelLogs(kubeClient kube.CLIClient, param, podName, podNamespace string, port int) (string, error) {
 	path := "logging"
 	if param != "" {
 		path = path + "?" + param
 	}
-	result, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "POST", path, proxyAdminPort)
+	// "Envoy" applies despite this being ztunnel
+	result, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "POST", path, port)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Ztunnel: %v", err)
 	}
 	return string(result), nil
-}
-
-func getPodNames(ctx cli.Context, podflag, ns string) ([]string, string, error) {
-	podNames, ns, err := ctx.InferPodsFromTypedResource(podflag, ns)
-	if err != nil {
-		log.Errorf("pods lookup failed")
-		return []string{}, "", err
-	}
-	return podNames, ns, nil
-}
-
-func getPodNameBySelector(ctx cli.Context, kubeClient kube.CLIClient, labelSelector string) ([]string, string, error) {
-	var (
-		podNames []string
-		ns       string
-	)
-	pl, err := kubeClient.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.Namespace()), labelSelector)
-	if err != nil {
-		return nil, "", fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
-	}
-	if len(pl.Items) < 1 {
-		return nil, "", errors.New("no pods found")
-	}
-	for _, pod := range pl.Items {
-		podNames = append(podNames, pod.Name)
-	}
-	ns = pl.Items[0].Namespace
-	return podNames, ns, nil
 }
 
 // getComponentPodName returns the pod name and namespace of the Istio component
@@ -530,4 +424,72 @@ func setupFileZtunnelConfigdumpWriter(filename string, out io.Writer) (*ztunnelD
 		return nil, err
 	}
 	return setupConfigdumpZtunnelConfigWriter(data, out)
+}
+
+func runConfigDump(ctx cli.Context, common *commonFlags, f func(cw *ztunnelDump.ConfigWriter) error) func(c *cobra.Command, args []string) error {
+	return func(c *cobra.Command, args []string) error {
+		var podName, podNamespace string
+		kubeClient, err := ctx.CLIClient()
+		if err != nil {
+			return err
+		}
+		var configWriter *ztunnelDump.ConfigWriter
+		if common.configDumpFile != "" {
+			configWriter, err = setupFileZtunnelConfigdumpWriter(common.configDumpFile, c.OutOrStdout())
+		} else {
+			lookup := "daemonset/ztunnel"
+			if len(args) > 0 {
+				lookup = args[0]
+			}
+			if podName, podNamespace, err = getComponentPodName(ctx, lookup); err != nil {
+				return err
+			}
+			ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
+			if !ztunnelPod {
+				return fmt.Errorf("workloads command is only supported by Ztunnel proxies: %v", podName)
+			}
+			configWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
+		}
+		if err != nil {
+			return err
+		}
+		return f(configWriter)
+	}
+}
+
+type commonFlags struct {
+	// output format (json, yaml or short)
+	outputFormat string
+
+	proxyAdminPort int
+
+	configDumpFile string
+
+	node string
+}
+
+func (c *commonFlags) attach(cmd *cobra.Command) {
+	cmd.PersistentFlags().IntVar(&c.proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Ztunnel proxy admin port")
+	cmd.PersistentFlags().StringVarP(&c.outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	cmd.PersistentFlags().StringVar(&c.node, "node", "", "Filter workloads by node field")
+	cmd.PersistentFlags().StringVarP(&c.configDumpFile, "file", "f", "",
+		"Ztunnel config dump JSON file")
+}
+
+func (c *commonFlags) validateArgs(cmd *cobra.Command, args []string) error {
+	set := 0
+	if c.configDumpFile != "" {
+		set++
+	}
+	if len(args) == 1 {
+		set++
+	}
+	if c.node != "" {
+		set++
+	}
+	if set > 1 {
+		cmd.Println(cmd.UsageString())
+		return fmt.Errorf("at most one of --file, --node, or pod name must be passed")
+	}
+	return nil
 }
