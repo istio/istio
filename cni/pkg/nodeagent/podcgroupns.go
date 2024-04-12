@@ -25,21 +25,23 @@ import (
 	"strings"
 	"unicode"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
-type PodToNetns map[types.UID]NetnsCloser
+type PodToNetns map[string]WorkloadInfo
 
 func (p PodToNetns) Close() {
-	for _, netns := range p {
-		netns.Close()
+	for _, wl := range p {
+		wl.Netns.Close()
 	}
 }
 
 type PodNetnsFinder interface {
-	FindNetnsForPods(filter sets.Set[types.UID]) (PodToNetns, error)
+	FindNetnsForPods(filter map[types.UID]*corev1.Pod) (PodToNetns, error)
 }
 
 type PodNetnsProcFinder struct {
@@ -54,7 +56,7 @@ func isNotNumber(r rune) bool {
 	return r < '0' || r > '9'
 }
 
-func (p *PodNetnsProcFinder) FindNetnsForPods(filter sets.Set[types.UID]) (PodToNetns, error) {
+func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (PodToNetns, error) {
 	/*
 		for each process, find its netns inode,
 		if we already seen the inode, skip it
@@ -64,10 +66,6 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(filter sets.Set[types.UID]) (PodTo
 	*/
 
 	podUIDNetns := make(PodToNetns)
-
-	if filter != nil && filter.Len() == 0 {
-		return podUIDNetns, nil
-	}
 	netnsObserved := sets.New[uint64]()
 
 	entries, err := fs.ReadDir(p.proc, ".")
@@ -75,10 +73,11 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(filter sets.Set[types.UID]) (PodTo
 		return nil, err
 	}
 
+	desiredUIDs := sets.New(maps.Keys(pods)...)
 	for _, entry := range entries {
 		// we can't break here because we need to close all the netns we opened
 		// plus we want to return whatever we can to the user.
-		res, err := p.processEntry(p.proc, netnsObserved, filter, entry)
+		res, err := p.processEntry(p.proc, netnsObserved, desiredUIDs, entry)
 		if err != nil {
 			log.Debugf("error processing entry: %s %v", entry.Name(), err)
 			continue
@@ -86,11 +85,17 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(filter sets.Set[types.UID]) (PodTo
 		if res == nil {
 			continue
 		}
-		podUIDNetns[res.uid] = &NetnsWithFd{
+		pod := pods[res.uid]
+		netns := &NetnsWithFd{
 			netns: res.netns,
 			fd:    res.netnsfd,
 			inode: res.inode,
 		}
+		workload := WorkloadInfo{
+			Workload: podToWorkload(pod),
+			Netns:    netns,
+		}
+		podUIDNetns[string(res.uid)] = workload
 
 	}
 	return podUIDNetns, nil

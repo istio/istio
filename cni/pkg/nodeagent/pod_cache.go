@@ -21,13 +21,16 @@ import (
 	"runtime"
 	"sync"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/zdsapi"
 )
 
 var ErrPodNotFound = errors.New("netns not provided, but is needed as pod is not in cache")
 
 type PodNetnsCache interface {
-	ReadCurrentPodSnapshot() map[string]Netns
+	ReadCurrentPodSnapshot() map[string]WorkloadInfo
 }
 
 // Hold a cache of node local pods with their netns
@@ -35,8 +38,13 @@ type PodNetnsCache interface {
 type podNetnsCache struct {
 	openNetns func(nspath string) (NetnsCloser, error)
 
-	currentPodCache map[string]Netns
+	currentPodCache map[string]WorkloadInfo
 	mu              sync.RWMutex
+}
+
+type WorkloadInfo struct {
+	Workload *zdsapi.WorkloadInfo
+	Netns    NetnsCloser
 }
 
 var _ PodNetnsCache = &podNetnsCache{}
@@ -44,34 +52,43 @@ var _ PodNetnsCache = &podNetnsCache{}
 func newPodNetnsCache(openNetns func(nspath string) (NetnsCloser, error)) *podNetnsCache {
 	return &podNetnsCache{
 		openNetns:       openNetns,
-		currentPodCache: map[string]Netns{},
+		currentPodCache: map[string]WorkloadInfo{},
 	}
 }
 
-func (p *podNetnsCache) UpsertPodCache(uid string, nspath string) (Netns, error) {
+func (p *podNetnsCache) UpsertPodCache(pod *corev1.Pod, nspath string) (Netns, error) {
 	newnetns, err := p.openNetns(nspath)
 	if err != nil {
 		return nil, err
 	}
-	return p.UpsertPodCacheWithNetns(uid, newnetns), nil
+	wl := WorkloadInfo{
+		Workload: podToWorkload(pod),
+		Netns:    newnetns,
+	}
+	return p.UpsertPodCacheWithNetns(string(pod.UID), wl), nil
 }
 
 // Update the cache with the given Netns. If there is already a Netns for the given uid, we return it, and close the one provided.
-func (p *podNetnsCache) UpsertPodCacheWithNetns(uid string, newnetns NetnsCloser) Netns {
+func (p *podNetnsCache) UpsertPodCacheWithNetns(uid string, workload WorkloadInfo) Netns {
 	// lock current snapshot pod map
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if existingNs := p.currentPodCache[uid]; existingNs != nil {
-		if existingNs.Inode() == newnetns.Inode() {
-			newnetns.Close()
+	if existing := p.currentPodCache[uid]; existing.Netns != nil {
+		if existing.Netns.Inode() == workload.Netns.Inode() {
+			workload.Netns.Close()
+			// Replace the workload, but keep the old Netns
+			p.currentPodCache[uid] = WorkloadInfo{
+				Workload: workload.Workload,
+				Netns:    existing.Netns,
+			}
 			// already in cache
-			return existingNs
+			return existing.Netns
 		}
 		log.Debug("netns inode mismatch, using the new one")
 	}
 
-	p.addToCacheUnderLock(uid, newnetns)
-	return newnetns
+	p.addToCacheUnderLock(uid, workload)
+	return workload.Netns
 }
 
 // Update the cache with the given uid and nspath. Return the Netns for the given uid.
@@ -80,7 +97,10 @@ func (p *podNetnsCache) Get(uid string) Netns {
 	// lock current snapshot pod map
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.currentPodCache[uid]
+	if info, f := p.currentPodCache[uid]; f {
+		return info.Netns
+	}
+	return nil
 }
 
 // make sure uid is in the cache, even if we don't have a netns
@@ -88,20 +108,20 @@ func (p *podNetnsCache) Ensure(uid string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if _, ok := p.currentPodCache[uid]; !ok {
-		p.currentPodCache[uid] = nil
+		p.currentPodCache[uid] = WorkloadInfo{}
 	}
 }
 
-func (p *podNetnsCache) addToCacheUnderLock(uid string, newnetns NetnsCloser) {
-	runtime.SetFinalizer(newnetns, closeNetns)
-	p.currentPodCache[uid] = newnetns
+func (p *podNetnsCache) addToCacheUnderLock(uid string, workload WorkloadInfo) {
+	runtime.SetFinalizer(workload.Netns, closeNetns)
+	p.currentPodCache[uid] = workload
 }
 
 func closeNetns(netns NetnsCloser) {
 	netns.Close()
 }
 
-func (p *podNetnsCache) ReadCurrentPodSnapshot() map[string]Netns {
+func (p *podNetnsCache) ReadCurrentPodSnapshot() map[string]WorkloadInfo {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	// snapshot the cache to avoid long locking
@@ -118,7 +138,7 @@ func (p *podNetnsCache) Take(uid string) Netns {
 	if ns, ok := p.currentPodCache[uid]; ok {
 		delete(p.currentPodCache, uid)
 		// already in cache
-		return ns
+		return ns.Netns
 	}
 
 	return nil

@@ -27,7 +27,6 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/util/sets"
 )
 
 var annotationPatch = []byte(fmt.Sprintf(
@@ -106,33 +105,6 @@ func AnnotateUnenrollPod(client kubernetes.Interface, pod *metav1.ObjectMeta) er
 		return nil
 	}
 	return err
-}
-
-func GetEnvFromPod(pod *corev1.Pod, envName string) string {
-	for _, container := range pod.Spec.Containers {
-		for _, env := range container.Env {
-			if env.Name == envName {
-				return env.Value
-			}
-		}
-	}
-	return ""
-}
-
-// GetUID is a nil safe UID accessor
-func GetUID(o *corev1.Pod) types.UID {
-	if o == nil {
-		return ""
-	}
-	return o.GetUID()
-}
-
-func GetUniquePodUIDs(pods []*corev1.Pod) sets.Set[types.UID] {
-	uids := sets.New[types.UID]()
-	for _, pod := range pods {
-		uids.Insert(GetUID(pod))
-	}
-	return uids
 }
 
 // Get any IPs currently assigned to the Pod.

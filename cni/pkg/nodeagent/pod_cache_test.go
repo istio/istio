@@ -18,6 +18,9 @@ import (
 	"reflect"
 	"sync/atomic"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func openNsTestOverride(s string) (NetnsCloser, error) {
@@ -38,16 +41,16 @@ func TestUpsertPodCache(t *testing.T) {
 
 	p := newPodNetnsCache(openNsTestOverrideWithInodes(1, 1))
 
-	uid := "testUID"
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{UID: "testUID"}}
 	nspath1 := "/path/to/netns/1"
 	nspath2 := "/path/to/netns/2"
 
-	netns1, err := p.UpsertPodCache(uid, nspath1)
+	netns1, err := p.UpsertPodCache(pod, nspath1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	netns2, err := p.UpsertPodCache(uid, nspath2)
+	netns2, err := p.UpsertPodCache(pod, nspath2)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,16 +69,16 @@ func TestUpsertPodCacheWithNewInode(t *testing.T) {
 
 	p := newPodNetnsCache(openNsTestOverrideWithInodes(1, 2))
 
-	uid := "testUID"
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{UID: "testUID"}}
 	nspath1 := "/path/to/netns/1"
 	nspath2 := "/path/to/netns/2"
 
-	netns1, err := p.UpsertPodCache(uid, nspath1)
+	netns1, err := p.UpsertPodCache(pod, nspath1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	netns2, err := p.UpsertPodCache(uid, nspath2)
+	netns2, err := p.UpsertPodCache(pod, nspath2)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -97,7 +100,7 @@ func TestPodsAppearsWithNilNetnsWhenEnsureIsUsed(t *testing.T) {
 	found := false
 	snap := p.ReadCurrentPodSnapshot()
 	for k, v := range snap {
-		if k == "123" && v == nil {
+		if k == "123" && v == (WorkloadInfo{}) {
 			found = true
 		}
 	}
@@ -109,16 +112,24 @@ func TestPodsAppearsWithNilNetnsWhenEnsureIsUsed(t *testing.T) {
 func TestUpsertPodCacheWithLiveNetns(t *testing.T) {
 	p := newPodNetnsCache(openNsTestOverride)
 
-	uid := "testUID"
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{UID: "testUID"}}
 	ns := newFakeNsInode(inc(), 1)
-	netns1 := p.UpsertPodCacheWithNetns(uid, ns)
+	wl := WorkloadInfo{
+		Workload: podToWorkload(pod),
+		Netns:    ns,
+	}
+	netns1 := p.UpsertPodCacheWithNetns(string(pod.UID), wl)
 	if !reflect.DeepEqual(netns1, ns) {
 		t.Fatalf("Expected the same Netns for the same uid, got %v and %v", netns1, ns)
 	}
 
 	ns2 := newFakeNsInode(inc(), 1)
+	wl2 := WorkloadInfo{
+		Workload: podToWorkload(pod),
+		Netns:    ns2,
+	}
 	// when using same uid, the original netns should be returned
-	netns2 := p.UpsertPodCacheWithNetns(uid, ns2)
+	netns2 := p.UpsertPodCacheWithNetns(string(pod.UID), wl2)
 	if netns2 != ns {
 		t.Fatalf("Expected the original Netns for the same uid, got %p and %p", netns2, ns)
 	}
@@ -129,14 +140,19 @@ func TestUpsertPodCacheWithLiveNetns(t *testing.T) {
 
 func TestDoubleTake(t *testing.T) {
 	p := newPodNetnsCache(openNsTestOverride)
-	uid := "testUID"
+
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{UID: "testUID"}}
 	ns := newFakeNs(inc())
-	netns1 := p.UpsertPodCacheWithNetns(uid, ns)
-	netnsTaken := p.Take(uid)
+	wl := WorkloadInfo{
+		Workload: podToWorkload(pod),
+		Netns:    ns,
+	}
+	netns1 := p.UpsertPodCacheWithNetns(string(pod.UID), wl)
+	netnsTaken := p.Take(string(pod.UID))
 	if netns1 != netnsTaken {
 		t.Fatalf("Expected the original Netns for the same uid, got %p and %p", netns1, ns)
 	}
-	if nil != p.Take(uid) {
+	if nil != p.Take(string(pod.UID)) {
 		// expect nil because we already took it
 		t.Fatalf("Expected nil Netns for the same uid twice")
 	}

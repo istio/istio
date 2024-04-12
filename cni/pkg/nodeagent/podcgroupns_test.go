@@ -17,6 +17,8 @@ package nodeagent
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/test/util/assert"
@@ -24,7 +26,14 @@ import (
 
 func TestWithProcFs(t *testing.T) {
 	n := NewPodNetnsProcFinder(fakeFs())
-	podUIDNetns, err := n.FindNetnsForPods(nil)
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+	}}
+	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{
+		pod.UID: pod,
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -34,8 +43,8 @@ func TestWithProcFs(t *testing.T) {
 		t.Fatal("expected to find pod netns")
 	}
 
-	expectedUID := types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa")
-	if podUIDNetns[expectedUID] == nil {
+	expectedUID := "863b91d4-4b68-4efa-917f-4b560e3e86aa"
+	if podUIDNetns[expectedUID] == (WorkloadInfo{}) {
 		t.Fatal("expected to find pod netns under pod uid")
 	}
 }
