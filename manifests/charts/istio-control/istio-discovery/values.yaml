@@ -37,9 +37,14 @@ defaults:
     extraContainerArgs: []
 
     env: {}
-
+    
+    # Settings related to the untaint controller
+    # This controller will remove `cni.istio.io/not-ready` from nodes when the istio-cni pod becomes ready
+    # It should be noted that cluster operator/owner is responsible for having the taint set by their infrastructure provider when new nodes are added to the cluster; the untaint controller does not taint nodes
     taint:
+      # Controls whether or not the untaint controller is active
       enabled: false
+      # What namespace the untaint controller should watch for istio-cni pods. This is only required when istio-cni is running in a different namespace than istiod
       namespace: ""
 
     affinity: {}
