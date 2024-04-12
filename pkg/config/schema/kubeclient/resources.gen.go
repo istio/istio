@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -55,8 +56,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().CoreV1().Endpoints(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1alpha2.GRPCRoute:
-		return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisv1.GRPCRoute:
+		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1alpha3.Gateway:
 		return c.Istio().NetworkingV1alpha3().Gateways(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
@@ -144,8 +145,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().CoreV1().Endpoints(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1alpha2.GRPCRoute:
-		return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1.GRPCRoute:
+		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1alpha3.Gateway:
 		return c.Istio().NetworkingV1alpha3().Gateways(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
@@ -234,7 +235,7 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 	case gvr.EnvoyFilter:
 		return &apiistioioapinetworkingv1alpha3.EnvoyFilter{}
 	case gvr.GRPCRoute:
-		return &sigsk8siogatewayapiapisv1alpha2.GRPCRoute{}
+		return &sigsk8siogatewayapiapisv1.GRPCRoute{}
 	case gvr.Gateway:
 		return &apiistioioapinetworkingv1alpha3.Gateway{}
 	case gvr.GatewayClass:
@@ -377,10 +378,10 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 	case gvr.GRPCRoute:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(opts.Namespace).List(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().GRPCRoutes(opts.Namespace).List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(opts.Namespace).Watch(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().GRPCRoutes(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.Gateway:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

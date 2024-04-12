@@ -13,6 +13,7 @@ import (
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -59,7 +60,7 @@ func getGvk(obj any) config.GroupVersionKind {
 		return gvk.EnvoyFilter
 	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
 		return gvk.EnvoyFilter
-	case *sigsk8siogatewayapiapisv1alpha2.GRPCRoute:
+	case *sigsk8siogatewayapiapisv1.GRPCRoute:
 		return gvk.GRPCRoute
 	case *istioioapinetworkingv1alpha3.Gateway:
 		return gvk.Gateway

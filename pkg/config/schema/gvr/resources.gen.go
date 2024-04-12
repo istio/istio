@@ -20,7 +20,8 @@ var (
 	EndpointSlice                  = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "endpointslices"}
 	Endpoints                      = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "endpoints"}
 	EnvoyFilter                    = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "envoyfilters"}
-	GRPCRoute                      = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "grpcroutes"}
+	GRPCRoute                      = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "grpcroutes"}
+	GRPCRoute_v1alpha2             = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "grpcroutes"}
 	Gateway                        = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "gateways"}
 	Gateway_v1beta1                = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "gateways"}
 	Gateway_v1                     = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "gateways"}
@@ -110,6 +111,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 	case EnvoyFilter:
 		return false
 	case GRPCRoute:
+		return false
+	case GRPCRoute_v1alpha2:
 		return false
 	case Gateway:
 		return false
