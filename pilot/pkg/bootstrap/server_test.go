@@ -969,8 +969,10 @@ func (p *FakeDataPlane) AddAgent(t test.Failer, discoveryAddress string, typeURL
 }
 
 func (p *FakeDataPlane) nextID() string {
+	p.locker.Lock()
 	defer func() {
 		p.counter++
+		p.locker.Unlock()
 	}()
 	return "sidecar~1.1.1.1~test.default." + strconv.Itoa(p.counter) + "~default.svc.cluster.local"
 }
