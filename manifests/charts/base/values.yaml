@@ -36,3 +36,5 @@ defaults:
     enableIstioConfigCRDs: true
 
   defaultRevision: "default"
+  experimental:
+    stableValidationPolicy: false

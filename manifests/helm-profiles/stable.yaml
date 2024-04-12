@@ -1,0 +1,4 @@
+# The stable profile deploys admission control to ensure that only stable resources and fields are used
+# THIS IS CURRENTLY EXPERIMENTAL AND SUBJECT TO CHANGE
+experimental:
+  stableValidationPolicy: true
