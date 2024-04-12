@@ -39,10 +39,12 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/controllers/untaint"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/keycertbundle"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	sec_model "istio.io/istio/pilot/pkg/security/model"
@@ -1112,6 +1114,10 @@ func (s *Server) initControllers(args *PilotArgs) error {
 
 	s.initSDSServer()
 
+	if features.EnableNodeUntaintControllers {
+		s.initNodeUntaintController(args)
+	}
+
 	if err := s.initConfigController(args); err != nil {
 		return fmt.Errorf("error initializing config controller: %v", err)
 	}
@@ -1119,6 +1125,18 @@ func (s *Server) initControllers(args *PilotArgs) error {
 		return fmt.Errorf("error initializing service controllers: %v", err)
 	}
 	return nil
+}
+
+func (s *Server) initNodeUntaintController(args *PilotArgs) {
+	s.addStartFunc("nodeUntainter controller", func(stop <-chan struct{}) error {
+		go leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.NodeUntaintController, args.Revision, s.kubeClient).
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				nodeUntainter := untaint.NewNodeUntainter(leaderStop, s.kubeClient, args.CniNamespace, args.Namespace)
+				nodeUntainter.Run(leaderStop)
+			}).Run(stop)
+		return nil
+	})
 }
 
 func (s *Server) initMulticluster(args *PilotArgs) {

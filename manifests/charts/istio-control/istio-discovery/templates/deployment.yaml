@@ -66,8 +66,10 @@ spec:
       affinity:
 {{- toYaml . | nindent 8 }}
 {{- end }}
-{{- with .Values.pilot.tolerations }}
       tolerations:
+        - key: cni.istio.io/not-ready
+          operator: "Exists"
+{{- with .Values.pilot.tolerations }}
 {{- toYaml . | nindent 8 }}
 {{- end }}
 {{- with .Values.pilot.topologySpreadConstraints }}
@@ -99,6 +101,9 @@ spec:
 {{- end }}
           - --domain
           - {{ .Values.global.proxy.clusterDomain }}
+{{- if .Values.pilot.taint.namespace }}
+          - --cniNamespace={{ .Values.pilot.taint.namespace }}
+{{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
 {{- if .Values.pilot.extraContainerArgs }}
