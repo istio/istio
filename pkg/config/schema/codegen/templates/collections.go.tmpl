@@ -77,15 +77,13 @@ var (
 		Build()
 
 	// PilotStableGatewayAPI contains only collections used by Pilot, including beta+ Gateway API.
-    // TODO: add GPRCRoute
 	pilotStableGatewayAPI = collection.NewSchemasBuilder().
 	{{- range .Entries }}
 		{{- if or
        (contains .Resource.Group "istio.io")
        (and
           (contains .Resource.Group "gateway.networking.k8s.io")
-          (not (contains .Resource.Version "alpha"))
-          (not (contains .Resource.Kind "GRPCRoute")))
+          (not (contains .Resource.Version "alpha")))
     }}
 		MustAdd({{ .Resource.Identifier }}).
 		{{- end}}
