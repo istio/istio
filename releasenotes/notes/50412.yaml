@@ -30,7 +30,8 @@ issue:
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
 releaseNotes:
-  - "**Added** PILOT_MAX_CONNECTION env to limit the number of connections to the control plane instance"
+- |
+  **Added** PILOT_MAX_CONNECTION env to limit the number of connections to the control plane instance
 
 # upgradeNotes is a markdown listing of any changes that will affect the upgrade
 # process. This will appear in the release notes.
