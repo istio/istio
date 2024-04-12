@@ -89,42 +89,82 @@ kind: EnvoyFilter
 metadata:
   name: sample
 spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
   configPatches:
-  - applyTo: HTTP_FILTER
+  - applyTo: NETWORK_FILTER # http connection manager is a filter in Envoy
     match:
-      context: SIDECAR_OUTBOUND
+      context: GATEWAY
       listener:
         filterChain:
+          sni: app.example.com
           filter:
-            name: envoy.filters.network.http_connection_manager
-            subFilter:
-              name: envoy.filters.http.router
-      proxy:
-        proxyVersion: ^1\.19.*
-  - applyTo: HTTP_FILTER
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+          xff_num_trusted_hops: 5
+          common_http_protocol_options:
+            idle_timeout: 30s
+`
+
+	revisionedSampleEnvoyFilter = `
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: sample
+  labels:
+    istio.io/rev: %s
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+  - applyTo: NETWORK_FILTER # http connection manager is a filter in Envoy
     match:
-      context: SIDECAR_INBOUND
+      context: GATEWAY
       listener:
         filterChain:
+          sni: app.example.com
           filter:
-            name: envoy.filters.network.http_connection_manager
-            subFilter:
-              name: envoy.filters.http.router
-      proxy:
-        proxyVersion: ^1\.19.*
-  priority: -1
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+          xff_num_trusted_hops: 5
+          common_http_protocol_options:
+            idle_timeout: 30s
 `
 
 	extendedTelemetry = `
-apiVersion: v1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
-	name: metrics-reporting-interval
+  name: sample
 spec:
-	metrics:
-		- providers:
-			- name: prometheus
-		reportingInterval: 10s
+  metrics:
+    - providers:
+      - name: prometheus
+      reportingInterval: 10s
+`
+
+	revisionedExtendedTelemetry = `
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: sample
+  labels:
+    istio.io/rev: %s
+spec:
+  metrics:
+    - providers:
+      - name: prometheus
+      reportingInterval: 10s
 `
 )
 
@@ -362,11 +402,15 @@ func VerifyPodReady(ctx framework.TestContext, cs cluster.Cluster, ns, label str
 }
 
 // VerifyInstallation verify that the Helm installation is successful
-func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, nsConfig NamespaceConfig, verifyGateway bool, verifyAmbient bool) {
+func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, nsConfig NamespaceConfig, verifyGateway bool, verifyAmbient bool, revision string) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
 
+	validatingwebhookName := "istiod-default-validator"
+	if revision != "" {
+		validatingwebhookName = fmt.Sprintf("istio-validator-%s-istio-system", revision)
+	}
 	VerifyValidatingWebhookConfigurations(ctx, cs, []string{
-		"istiod-default-validator",
+		validatingwebhookName,
 	})
 
 	VerifyPodReady(ctx, cs, nsConfig.Get(IstiodReleaseName), "app=istiod")
@@ -435,7 +479,7 @@ func VerifyValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster
 }
 
 // verifyValidation verifies that Istio resource validation is active on the cluster.
-func verifyValidation(ctx framework.TestContext) {
+func verifyValidation(ctx framework.TestContext, revision string) {
 	ctx.Helper()
 	invalidGateway := &v1alpha3.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
@@ -445,6 +489,11 @@ func verifyValidation(ctx framework.TestContext) {
 		Spec: networking.Gateway{},
 	}
 
+	if revision != "" {
+		invalidGateway.Labels = map[string]string{
+			"istio.io/rev": revision,
+		}
+	}
 	createOptions := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
 	istioClient := ctx.Clusters().Default().Istio().NetworkingV1alpha3()
 	retry.UntilOrFail(ctx, func() bool {
