@@ -185,11 +185,22 @@ func checkDestinationRuleTLS(cli kube.CLIClient, messages *diag.Messages) error 
 		return err
 	}
 	checkVerify := func(tls *networking.ClientTLSSettings) bool {
-		return tls != nil && tls.CaCertificates == "" && tls.CredentialName == "" &&
-			tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL && !tls.InsecureSkipVerify.GetValue()
+		if tls == nil {
+			return false
+		}
+		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
+			return false
+		}
+		return tls.CaCertificates == "" && tls.CredentialName == "" && !tls.InsecureSkipVerify.GetValue()
 	}
 	checkSNI := func(tls *networking.ClientTLSSettings) bool {
-		return tls != nil && tls.Sni == "" && tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL
+		if tls == nil {
+			return false
+		}
+		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
+			return false
+		}
+		return tls.Sni == ""
 	}
 	for _, dr := range drs.Items {
 		verificationImpacted := false
