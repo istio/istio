@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.22
+go 1.22.0
 
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
@@ -35,7 +35,7 @@ require (
 	github.com/go-logr/logr v1.4.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.4
-	github.com/google/cel-go v0.17.7
+	github.com/google/cel-go v0.17.8
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-containerregistry v0.19.1
 	github.com/google/gofuzz v1.2.0
@@ -108,16 +108,16 @@ require (
 	helm.sh/helm/v3 v3.14.3
 	istio.io/api v1.19.0-alpha.1.0.20240412132631-4ffbbd13c1bb
 	istio.io/client-go v1.19.0-alpha.1.0.20240412133231-75efd4d3373c
-	k8s.io/api v0.29.3
-	k8s.io/apiextensions-apiserver v0.29.3
-	k8s.io/apimachinery v0.29.3
-	k8s.io/apiserver v0.29.3
-	k8s.io/cli-runtime v0.29.3
-	k8s.io/client-go v0.29.3
+	k8s.io/api v0.30.0-rc.2
+	k8s.io/apiextensions-apiserver v0.30.0-rc.2
+	k8s.io/apimachinery v0.30.0-rc.2
+	k8s.io/apiserver v0.30.0-rc.2
+	k8s.io/cli-runtime v0.30.0-rc.2
+	k8s.io/client-go v0.30.0-rc.2
 	k8s.io/klog/v2 v2.120.1
-	k8s.io/kubectl v0.29.3
+	k8s.io/kubectl v0.30.0-rc.2
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
-	sigs.k8s.io/controller-runtime v0.17.2
+	sigs.k8s.io/controller-runtime v0.17.1-0.20240412100902-45e166d1fd01
 	sigs.k8s.io/gateway-api v1.0.1-0.20240412163039-e8cdaaf9b4ff
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.4.0
@@ -205,7 +205,7 @@ require (
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
-	github.com/onsi/ginkgo/v2 v2.16.0 // indirect
+	github.com/onsi/ginkgo/v2 v2.17.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc5 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
@@ -245,9 +245,8 @@ require (
 	golang.org/x/tools v0.19.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	k8s.io/component-base v0.29.3 // indirect
-	k8s.io/kube-openapi v0.0.0-20240126223410-2919ad4fcfec // indirect
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.29.0 // indirect
+	k8s.io/component-base v0.30.0-rc.2 // indirect
+	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.16.0 // indirect
