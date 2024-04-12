@@ -712,9 +712,10 @@ kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
 spec:
-  selector:
-    matchLabels:
-      gateway.networking.k8s.io/gateway-name: waypoint
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: waypoint
 `+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
@@ -757,9 +758,10 @@ kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
 spec:
-  selector:
-    matchLabels:
-      gateway.networking.k8s.io/gateway-name: waypoint
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: waypoint
 `+policySpec).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				opt.Check = CheckDeny
@@ -877,9 +879,10 @@ kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
 spec:
-  selector:
-    matchLabels:
-      gateway.networking.k8s.io/gateway-name: waypoint
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: waypoint
 `+policySpec+`
 ---
 apiVersion: networking.istio.io/v1alpha3
@@ -1060,9 +1063,10 @@ kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
 spec:
-  selector:
-    matchLabels:
-      gateway.networking.k8s.io/gateway-name: waypoint
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: waypoint
 `+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
@@ -1080,9 +1084,10 @@ kind: AuthorizationPolicy
 metadata:
   name: deny-policy-waypoint
 spec:
-  selector:
-    matchLabels:
-      gateway.networking.k8s.io/gateway-name: waypoint
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: waypoint
 `+denySpec).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {

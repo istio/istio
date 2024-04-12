@@ -52,6 +52,7 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	selectionOpts := model.WorkloadSelectionOpts{
 		Namespace:      proxy.ConfigNamespace,
 		WorkloadLabels: proxy.Labels,
+		IsWaypoint:     proxy.IsWaypointProxy(),
 	}
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	b := builder.New(tdBundle, push, policies, option)
