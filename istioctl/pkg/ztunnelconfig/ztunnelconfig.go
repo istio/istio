@@ -232,6 +232,16 @@ const (
 	TraceLevel
 )
 
+var levelToString = map[Level]string{
+	TraceLevel:    "trace",
+	DebugLevel:    "debug",
+	InfoLevel:     "info",
+	WarningLevel:  "warning",
+	ErrorLevel:    "error",
+	CriticalLevel: "critical",
+	OffLevel:      "off",
+}
+
 var stringToLevel = map[string]Level{
 	"trace":    TraceLevel,
 	"debug":    DebugLevel,
@@ -369,9 +379,21 @@ func logCmd(ctx cli.Context) *cobra.Command {
 		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
+	levelListString := fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s]",
+		levelToString[TraceLevel],
+		levelToString[DebugLevel],
+		levelToString[InfoLevel],
+		levelToString[WarningLevel],
+		levelToString[ErrorLevel],
+		levelToString[CriticalLevel],
+		levelToString[OffLevel])
 	common.attach(cmd)
 	cmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
-
+	cmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
+		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
+			" [<logger>:]<level>,[<logger>:]<level>,... or <level> to change all active loggers, "+
+			"where logger components can be listed by running \"istioctl ztunnel-config log <pod-name[.namespace]>\""+
+			", and level can be one of %s", levelListString))
 	return cmd
 }
 
