@@ -30,9 +30,10 @@ kind: AuthorizationPolicy
 metadata:
   name: authz-gateway-{{ .To.ServiceName }}
 spec:
-  selector:
-    matchLabels:
-      gateway.networking.k8s.io/gateway-name: waypoint # TODO: Replace this with a targetRef after https://github.com/istio/istio/pull/46560 merges
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: waypoint
   rules:
   - from:
     - source:
