@@ -847,14 +847,6 @@ func TestAuthorizationL4(t *testing.T) {
 				t.Skip("https://github.com/istio/istio/issues/43238")
 			}
 
-			if src.Config().ZTunnelCaptured() && dst.Config().HasWorkloadAddressedWaypointProxy() {
-				// this case should bypass waypoints because traffic is svc addressed but
-				// presently a ztunnel bug will drop this traffic because it doesn't differentiate
-				// between svc and wl addressed traffic when determining if the connection
-				// should have gone through a waypoint.
-				t.Skip("TODO: open an issue to address this ztunnel issue")
-			}
-
 			overrideCheck := func(src echo.Instance, dst echo.Instance, opt *echo.CallOptions) {
 				switch {
 				case src.Config().IsUncaptured() && dst.Config().HasAnyWaypointProxy():
@@ -1134,14 +1126,6 @@ func TestAuthorizationL7(t *testing.T) {
 				t.Skip("https://github.com/istio/istio/issues/43238")
 			}
 
-			// if dst.Config().HasWorkloadAddressedWaypointProxy() {
-			// 	// this case should bypass waypoints because traffic is svc addressed but
-			// 	// presently a ztunnel bug will drop this traffic because it doesn't differentiate
-			// 	// between svc and wl addressed traffic when determining if the connection
-			// 	// should have gone through a waypoint.
-			// 	t.Skip("TODO: open an issue to address this ztunnel issue")
-			// }
-
 			policySpec := `
   rules:
   - to:
@@ -1262,10 +1246,10 @@ spec:
 					// send traffic to the workload instead of the service so it will redirect to the WL waypoint
 					opt.Address = dst.MustWorkloads().Addresses()[0]
 					opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+					if src == dst {
+						t.Skip("I don't work right now... self call")
+					}
 				}
-			}
-			if src == dst {
-				t.Skip("I don't work right now... self call")
 			}
 			t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
 				opt := opt.DeepCopy()
@@ -1357,8 +1341,18 @@ func TestL7JWT(t *testing.T) {
 				t.Skip("https://github.com/istio/istio/issues/43238")
 			}
 
-			if !dst.Config().HasServiceAddressedWaypointProxy() {
+			if !dst.Config().HasAnyWaypointProxy() {
 				t.Skip("L7 JWT is only for waypoints")
+			}
+
+			switch {
+			case dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy():
+				// send traffic to the workload instead of the service so it will redirect to the WL waypoint
+				opt.Address = dst.MustWorkloads().Addresses()[0]
+				opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+				if src == dst {
+					t.Skip("I don't work right now... self call")
+				}
 			}
 
 			t.ConfigIstio().New().EvalFile(apps.Namespace.Name(), map[string]any{
