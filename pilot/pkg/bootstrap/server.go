@@ -785,8 +785,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 		grpcprom.UnaryServerInterceptor,
 	}
 	opts := istiogrpc.ServerOptions(args.KeepaliveOptions, interceptors...)
-	opts = append(opts, grpc.Creds(tlsCreds))
-	opts = append(opts, grpc.StreamInterceptor(middleware.ChainStreamServer(s.StreamServerOverloadInterceptor)))
+	opts = append(opts, grpc.Creds(tlsCreds), grpc.StreamInterceptor(middleware.ChainStreamServer(s.StreamServerOverloadInterceptor)))
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
