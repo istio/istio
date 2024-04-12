@@ -64,6 +64,7 @@ func ZtunnelConfig(ctx cli.Context) *cobra.Command {
 	configCmd.AddCommand(logCmd(ctx))
 	configCmd.AddCommand(workloadConfigCmd(ctx))
 	configCmd.AddCommand(certificatesConfigCmd(ctx))
+	configCmd.AddCommand(servicesCmd(ctx))
 
 	return configCmd
 }
@@ -106,8 +107,49 @@ func certificatesConfigCmd(ctx cli.Context) *cobra.Command {
 	return cmd
 }
 
+func servicesCmd(ctx cli.Context) *cobra.Command {
+	var serviceNamespace string
+	common := new(commonFlags)
+	cmd := &cobra.Command{
+		Use:   "service",
+		Short: "Retrieves services for the specified Ztunnel pod.",
+		Long:  `Retrieve information about services for the Ztunnel instance.`,
+		Example: `  # Retrieve summary about services configuration for a randomly chosen ztunnel.
+  istioctl ztunnel-config services
+
+  # Retrieve full certificate dump of workloads for a given Ztunnel instance.
+  istioctl ztunnel-config services <ztunnel-name[.namespace]> -o json
+`,
+		Aliases: []string{"services", "s", "svc"},
+		Args:    common.validateArgs,
+		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+			filter := ztunnelDump.ServiceFilter{
+				Namespace: serviceNamespace,
+			}
+			switch common.outputFormat {
+			case summaryOutput:
+				return cw.PrintServiceSummary(filter)
+			case jsonOutput, yamlOutput:
+				return cw.PrintServiceDump(filter, common.outputFormat)
+			default:
+				return fmt.Errorf("output format %q not supported", common.outputFormat)
+			}
+		}),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
+		},
+	}
+
+	common.attach(cmd)
+	cmd.PersistentFlags().StringVar(&serviceNamespace, "service-namespace", "",
+		"Filter services by namespace field")
+
+	return cmd
+}
+
 func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 	var workloadsNamespace string
+	var workloadNode string
 	var verboseProxyConfig bool
 
 	var address string
@@ -139,7 +181,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 			filter := ztunnelDump.WorkloadFilter{
 				Namespace: workloadsNamespace,
 				Address:   address,
-				Node:      common.node,
+				Node:      workloadNode,
 				Verbose:   verboseProxyConfig,
 			}
 
@@ -160,6 +202,8 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 	cmd.PersistentFlags().StringVar(&workloadsNamespace, "workload-namespace", "",
 		"Filter workloads by namespace field")
+	cmd.PersistentFlags().StringVar(&workloadNode, "workload-node", "",
+		"Filter workloads by node")
 
 	return cmd
 }
@@ -168,8 +212,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 type Level int
 
 const (
-	defaultLoggerName       = "level"
-	defaultEnvoyOutputLevel = WarningLevel
+	defaultLoggerName = "level"
 )
 
 const (
@@ -188,16 +231,6 @@ const (
 	// TraceLevel enables trace level logging
 	TraceLevel
 )
-
-var levelToString = map[Level]string{
-	TraceLevel:    "trace",
-	DebugLevel:    "debug",
-	InfoLevel:     "info",
-	WarningLevel:  "warning",
-	ErrorLevel:    "error",
-	CriticalLevel: "critical",
-	OffLevel:      "off",
-}
 
 var stringToLevel = map[string]Level{
 	"trace":    TraceLevel,
@@ -336,22 +369,9 @@ func logCmd(ctx cli.Context) *cobra.Command {
 		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
-	levelListString := fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s]",
-		levelToString[TraceLevel],
-		levelToString[DebugLevel],
-		levelToString[InfoLevel],
-		levelToString[WarningLevel],
-		levelToString[ErrorLevel],
-		levelToString[CriticalLevel],
-		levelToString[OffLevel])
-
 	common.attach(cmd)
 	cmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
-	cmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
-		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
-			" [<logger>:]<level>,[<logger>:]<level>,... or <level> to change all active loggers, "+
-			"where logger components can be listed by running \"istioctl ztunnel-config log <pod-name[.namespace]>\""+
-			", and level can be one of %s", levelListString))
+
 	return cmd
 }
 

@@ -21,7 +21,6 @@ type ZtunnelWorkload struct {
 	TrustDomain       string    `json:"trustDomain,omitempty"`
 	Locality          Locality  `json:"locality,omitempty"`
 	Node              string    `json:"node"`
-	NativeHbone       bool      `json:"nativeHbone"`
 	Network           string    `json:"network,omitempty"`
 	Status            string    `json:"status"`
 }
@@ -30,12 +29,19 @@ type Waypoint struct {
 	Destination string `json:"destination"`
 }
 
+type LoadBalancer struct {
+	Mode               string   `json:"mode"`
+	RoutingPreferences []string `json:"routingPreferences"`
+}
+
 type ZtunnelService struct {
-	Name      string         `json:"name"`
-	Namespace string         `json:"namespace"`
-	Hostname  string         `json:"hostname"`
-	Addresses []string       `json:"addresses"`
-	Ports     map[string]int `json:"ports"`
+	Name         string         `json:"name"`
+	Namespace    string         `json:"namespace"`
+	Hostname     string         `json:"hostname"`
+	Addresses    []string       `json:"vips"`
+	Ports        map[string]int `json:"ports"`
+	LoadBalancer *LoadBalancer  `json:"loadBalancer"`
+	Waypoint     *Waypoint      `json:"waypoint"`
 }
 
 type ZtunnelDump struct {
