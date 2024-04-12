@@ -83,6 +83,49 @@ global:
   variant: %q
 profile: ambient
 `
+	sampleEnvoyFilter = `
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: sample
+spec:
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_OUTBOUND
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+      proxy:
+        proxyVersion: ^1\.19.*
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+      proxy:
+        proxyVersion: ^1\.19.*
+  priority: -1
+`
+
+	extendedTelemetry = `
+apiVersion: v1
+kind: Telemetry
+metadata:
+	name: metrics-reporting-interval
+spec:
+	metrics:
+		- providers:
+			- name: prometheus
+		reportingInterval: 10s
+`
 )
 
 // ManifestsChartPath is path of local Helm charts used for testing.

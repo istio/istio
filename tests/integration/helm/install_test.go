@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -87,7 +88,53 @@ func TestAmbientInstallMultiNamespace(t *testing.T) {
 	}
 }
 
+// TestReleaseChannels tests that non-stable CRDs and fields get blocked
+// by the ValidatingAdmissionPolicy
+func TestReleaseChannels(t *testing.T) {
+	overrideValuesStr := `
+global:
+  hub: %s
+  tag: %s
+  variant: %q
+profile: stable
+`
+
+	framework.
+		NewTest(t).
+		Run(setupInstallationWithCustomCheck(overrideValuesStr, false, DefaultNamespaceConfig, func(t framework.TestContext) {
+			// Try to apply an EnvoyFilter (it should be rejected)
+			err := t.ConfigIstio().Eval("istio-system", nil, sampleEnvoyFilter).Apply()
+			if err == nil {
+				t.Error("Did not receive an error while applying sample EnvoyFilter with stable admission policy")
+			}
+			expectedErrorPrefix := "admission something something"
+			if !strings.HasPrefix(err.Error(), expectedErrorPrefix) {
+				t.Errorf("Expected error %s to have prefix %s", err.Error(), expectedErrorPrefix)
+			}
+
+			// Now test field-level blocks with Telemetry
+			err = t.ConfigIstio().Eval("istio-system", nil, extendedTelemetry).Apply()
+			if err == nil {
+				t.Error("Did not receive an error while applying sample EnvoyFilter with stable admission policy")
+			}
+
+			if !strings.HasPrefix(err.Error(), expectedErrorPrefix) {
+				t.Errorf("Expected error %s to have prefix %s", err.Error(), expectedErrorPrefix)
+			}
+		}))
+}
+
 func setupInstallation(overrideValuesStr string, isAmbient bool, config NamespaceConfig) func(t framework.TestContext) {
+	return baseSetup(overrideValuesStr, isAmbient, config, func(t framework.TestContext) {
+		sanitycheck.RunTrafficTest(t, t)
+	})
+}
+
+func setupInstallationWithCustomCheck(overrideValuesStr string, isAmbient bool, config NamespaceConfig, check func(t framework.TestContext)) func(t framework.TestContext) {
+	return baseSetup(overrideValuesStr, isAmbient, config, check)
+}
+
+func baseSetup(overrideValuesStr string, isAmbient bool, config NamespaceConfig, check func(t framework.TestContext)) func(t framework.TestContext) {
 	return func(t framework.TestContext) {
 		workDir, err := t.CreateTmpDirectory("helm-install-test")
 		if err != nil {
@@ -116,7 +163,7 @@ func setupInstallation(overrideValuesStr string, isAmbient bool, config Namespac
 		VerifyInstallation(t, cs, config, true, isAmbient)
 		verifyValidation(t)
 
-		sanitycheck.RunTrafficTest(t, t)
+		check(t)
 		t.Cleanup(func() {
 			DeleteIstio(t, h, cs, config, isAmbient)
 		})
