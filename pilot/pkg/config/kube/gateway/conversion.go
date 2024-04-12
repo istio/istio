@@ -298,7 +298,7 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 	return vs, nil
 }
 
-func convertGRPCRoute(r k8salpha.GRPCRouteRule, ctx configContext,
+func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 	obj config.Config, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *ConfigError) {
 	// TODO: implement rewrite, timeout, mirror, corspolicy, retries
@@ -323,7 +323,7 @@ func convertGRPCRoute(r k8salpha.GRPCRouteRule, ctx configContext,
 	}
 	for _, filter := range r.Filters {
 		switch filter.Type {
-		case k8salpha.GRPCRouteFilterRequestHeaderModifier:
+		case k8s.GRPCRouteFilterRequestHeaderModifier:
 			h := createHeadersFilter(filter.RequestHeaderModifier)
 			if h == nil {
 				continue
@@ -332,7 +332,7 @@ func convertGRPCRoute(r k8salpha.GRPCRouteRule, ctx configContext,
 				vs.Headers = &istio.Headers{}
 			}
 			vs.Headers.Request = h
-		case k8salpha.GRPCRouteFilterResponseHeaderModifier:
+		case k8s.GRPCRouteFilterResponseHeaderModifier:
 			h := createHeadersFilter(filter.ResponseHeaderModifier)
 			if h == nil {
 				continue
@@ -341,7 +341,7 @@ func convertGRPCRoute(r k8salpha.GRPCRouteRule, ctx configContext,
 				vs.Headers = &istio.Headers{}
 			}
 			vs.Headers.Response = h
-		case k8salpha.GRPCRouteFilterRequestMirror:
+		case k8s.GRPCRouteFilterRequestMirror:
 			mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, enforceRefGrant, gvk.GRPCRoute)
 			if err != nil {
 				return nil, err
@@ -625,11 +625,11 @@ func buildGRPCVirtualServices(
 	gatewayRoutes map[string]map[string]*config.Config,
 	meshRoutes map[string]map[string]*config.Config,
 ) {
-	route := obj.Spec.(*k8salpha.GRPCRouteSpec)
+	route := obj.Spec.(*k8s.GRPCRouteSpec)
 	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, route.Hostnames, gvk.GRPCRoute, obj.Namespace)
 	reportStatus := func(results []RouteParentResult) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-			rs := s.(*k8salpha.GRPCRouteStatus)
+			rs := s.(*k8s.GRPCRouteStatus)
 			rs.Parents = createRouteStatus(results, obj, rs.Parents)
 			return rs
 		})
@@ -649,7 +649,7 @@ func buildGRPCVirtualServices(
 			}
 			for _, m := range matches {
 				if m != nil {
-					r.Matches = []k8salpha.GRPCRouteMatch{*m}
+					r.Matches = []k8s.GRPCRouteMatch{*m}
 				}
 				vs, err := convertGRPCRoute(r, ctx, obj, n, !mesh)
 				// This was a hard error
@@ -1311,7 +1311,7 @@ func weightSum(forwardTo []k8s.HTTPBackendRef) int {
 	return int(sum)
 }
 
-func grpcWeightSum(forwardTo []k8salpha.GRPCBackendRef) int {
+func grpcWeightSum(forwardTo []k8s.GRPCBackendRef) int {
 	sum := int32(0)
 	for _, w := range forwardTo {
 		sum += ptr.OrDefault(w.Weight, 1)
@@ -1397,7 +1397,7 @@ func buildHTTPDestination(
 
 func buildGRPCDestination(
 	ctx configContext,
-	forwardTo []k8salpha.GRPCBackendRef,
+	forwardTo []k8s.GRPCBackendRef,
 	ns string,
 	enforceRefGrant bool,
 ) ([]*istio.HTTPRouteDestination, *ConfigError, *ConfigError) {
@@ -1405,7 +1405,7 @@ func buildGRPCDestination(
 		return nil, nil, nil
 	}
 	weights := []int{}
-	action := []k8salpha.GRPCBackendRef{}
+	action := []k8s.GRPCBackendRef{}
 	for _, w := range forwardTo {
 		wt := int(ptr.OrDefault(w.Weight, 1))
 		if wt == 0 {
@@ -1436,7 +1436,7 @@ func buildGRPCDestination(
 		}
 		for _, filter := range fwd.Filters {
 			switch filter.Type {
-			case k8salpha.GRPCRouteFilterRequestHeaderModifier:
+			case k8s.GRPCRouteFilterRequestHeaderModifier:
 				h := createHeadersFilter(filter.RequestHeaderModifier)
 				if h == nil {
 					continue
@@ -1445,7 +1445,7 @@ func buildGRPCDestination(
 					rd.Headers = &istio.Headers{}
 				}
 				rd.Headers.Request = h
-			case k8salpha.GRPCRouteFilterResponseHeaderModifier:
+			case k8s.GRPCRouteFilterResponseHeaderModifier:
 				h := createHeadersFilter(filter.ResponseHeaderModifier)
 				if h == nil {
 					continue
@@ -1731,7 +1731,7 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch
 	return res, nil
 }
 
-func createGRPCHeadersMatch(match k8salpha.GRPCRouteMatch) (map[string]*istio.StringMatch, *ConfigError) {
+func createGRPCHeadersMatch(match k8s.GRPCRouteMatch) (map[string]*istio.StringMatch, *ConfigError) {
 	res := map[string]*istio.StringMatch{}
 	for _, header := range match.Headers {
 		tp := k8s.HeaderMatchExact
@@ -1791,12 +1791,12 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 	}
 }
 
-func createGRPCURIMatch(match k8salpha.GRPCRouteMatch) (*istio.StringMatch, *ConfigError) {
+func createGRPCURIMatch(match k8s.GRPCRouteMatch) (*istio.StringMatch, *ConfigError) {
 	m := match.Method
 	if m == nil {
 		return nil, nil
 	}
-	tp := k8salpha.GRPCMethodMatchExact
+	tp := k8s.GRPCMethodMatchExact
 	if m.Type != nil {
 		tp = *m.Type
 	}
@@ -1806,7 +1806,7 @@ func createGRPCURIMatch(match k8salpha.GRPCRouteMatch) (*istio.StringMatch, *Con
 	}
 	// gRPC format is /<Service>/<Method>. Since we don't natively understand this, convert to various string matches
 	switch tp {
-	case k8salpha.GRPCMethodMatchExact:
+	case k8s.GRPCMethodMatchExact:
 		if m.Method == nil {
 			return &istio.StringMatch{
 				MatchType: &istio.StringMatch_Prefix{Prefix: fmt.Sprintf("/%s/", *m.Service)},
@@ -1820,7 +1820,7 @@ func createGRPCURIMatch(match k8salpha.GRPCRouteMatch) (*istio.StringMatch, *Con
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Exact{Exact: fmt.Sprintf("/%s/%s", *m.Service, *m.Method)},
 		}, nil
-	case k8salpha.GRPCMethodMatchRegularExpression:
+	case k8s.GRPCMethodMatchRegularExpression:
 		if m.Method == nil {
 			return &istio.StringMatch{
 				MatchType: &istio.StringMatch_Regex{Regex: fmt.Sprintf("/%s/.+", *m.Service)},
