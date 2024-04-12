@@ -2432,6 +2432,31 @@ func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 			}
 		}
 		out.CredentialName = cred
+		if fv := tls.FrontendValidation; fv != nil {
+			if len(fv.CACertificateRefs) != 1 {
+				return out, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 caCertificateRefs should be present for frontend TLS validation"}
+			}
+			cert := fv.CACertificateRefs[0]
+			// Istio's implementation is currently limited
+			// * Only Secret reference is allowed
+			// * Secret must match the TLS cert
+			// TODO(https://github.com/istio/istio/issues/49511) fix these.
+			if !emptyOrEqual((string)(cert.Group), gvk.Secret.Group) || string(cert.Kind) != gvk.Secret.Kind {
+				return out, &ConfigError{
+					Reason:  InvalidTLS,
+					Message: fmt.Sprintf("invalid caCertificateRefs %v, only secret is allowed", objectReferenceString(cert)),
+				}
+			}
+			caNs := ptr.OrDefault((*string)(cert.Namespace), namespace)
+			// Artificial limitation.
+			if cert.Name != tls.CertificateRefs[0].Name || caNs != credNs {
+				return out, &ConfigError{
+					Reason:  InvalidTLS,
+					Message: fmt.Sprintf("invalid caCertificateRefs %v, must match certificateRef", objectReferenceString(cert)),
+				}
+			}
+			out.Mode = istio.ServerTLSSettings_MUTUAL
+		}
 	case k8s.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
 		if isAutoPassthrough {
@@ -2443,7 +2468,10 @@ func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 
 func buildSecretReference(ctx configContext, ref k8s.SecretObjectReference, gw config.Config) (string, *ConfigError) {
 	if !nilOrEqual((*string)(ref.Group), gvk.Secret.Group) || !nilOrEqual((*string)(ref.Kind), gvk.Secret.Kind) {
-		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", objectReferenceString(ref))}
+		return "", &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", secretObjectReferenceString(ref)),
+		}
 	}
 
 	secret := model.ConfigKey{
@@ -2462,12 +2490,12 @@ func buildSecretReference(ctx configContext, ref k8s.SecretObjectReference, gw c
 		if certInfo, err := ctx.Credentials.GetCertInfo(secret.Name, secret.Namespace); err != nil {
 			return "", &ConfigError{
 				Reason:  InvalidTLS,
-				Message: fmt.Sprintf("invalid certificate reference %v, %v", objectReferenceString(ref), err),
+				Message: fmt.Sprintf("invalid certificate reference %v, %v", secretObjectReferenceString(ref), err),
 			}
 		} else if _, err = tls.X509KeyPair(certInfo.Cert, certInfo.Key); err != nil {
 			return "", &ConfigError{
 				Reason:  InvalidTLS,
-				Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", objectReferenceString(ref), err),
+				Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", secretObjectReferenceString(ref), err),
 			}
 		}
 	}
@@ -2475,10 +2503,18 @@ func buildSecretReference(ctx configContext, ref k8s.SecretObjectReference, gw c
 	return creds.ToKubernetesGatewayResource(secret.Namespace, secret.Name), nil
 }
 
-func objectReferenceString(ref k8s.SecretObjectReference) string {
+func secretObjectReferenceString(ref k8s.SecretObjectReference) string {
 	return fmt.Sprintf("%s/%s/%s.%s",
 		ptr.OrEmpty(ref.Group),
 		ptr.OrEmpty(ref.Kind),
+		ref.Name,
+		ptr.OrEmpty(ref.Namespace))
+}
+
+func objectReferenceString(ref k8s.ObjectReference) string {
+	return fmt.Sprintf("%s/%s/%s.%s",
+		ref.Group,
+		ref.Kind,
 		ref.Name,
 		ptr.OrEmpty(ref.Namespace))
 }
@@ -2553,6 +2589,10 @@ func namespacesFromSelector(localNamespace string, r GatewayResources, lr *k8s.A
 
 func nilOrEqual(have *string, expected string) bool {
 	return have == nil || *have == expected
+}
+
+func emptyOrEqual(have string, expected string) bool {
+	return have == "" || have == expected
 }
 
 func humanReadableJoin(ss []string) string {
