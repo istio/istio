@@ -65,14 +65,14 @@ func (s *staticList[T]) Synced() Syncer {
 	return alwaysSynced{}
 }
 
-func (s *staticList[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Syncer {
+func (s *staticList[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer {
 	if runExistingState {
 		f(slices.Map(s.List(), func(e T) Event[T] {
 			return Event[T]{
 				New:   &e,
 				Event: controllers.EventAdd,
 			}
-		}))
+		}), true)
 	}
 	return alwaysSynced{}
 }

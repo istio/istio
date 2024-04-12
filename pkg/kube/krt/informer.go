@@ -88,14 +88,14 @@ func (i *informer[I]) Register(f func(o Event[I])) Syncer {
 	return registerHandlerAsBatched[I](i, f)
 }
 
-func (i *informer[I]) RegisterBatch(f func(o []Event[I]), runExistingState bool) Syncer {
+func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runExistingState bool) Syncer {
 	// Note: runExistingState is NOT respected here.
 	// Informer doesn't expose a way to do that. However, due to the runtime model of informers, this isn't a dealbreaker;
 	// the handlers are all called async, so we don't end up with the same deadlocks we would have in the other collection types.
 	// While this is quite kludgy, this is an internal interface so its not too bad.
 	if !i.eventHandlers.Insert(f) {
-		i.inf.AddEventHandler(EventHandler[I](func(o Event[I]) {
-			f([]Event[I]{o})
+		i.inf.AddEventHandler(informerEventHandler[I](func(o Event[I], initialSync bool) {
+			f([]Event[I]{o}, initialSync)
 		}))
 	}
 	return pollSyncer{
@@ -104,26 +104,26 @@ func (i *informer[I]) RegisterBatch(f func(o []Event[I]), runExistingState bool)
 	}
 }
 
-func EventHandler[I controllers.ComparableObject](handler func(o Event[I])) cache.ResourceEventHandler {
+func informerEventHandler[I controllers.ComparableObject](handler func(o Event[I], initialSync bool)) cache.ResourceEventHandler {
 	return controllers.EventHandler[I]{
-		AddFunc: func(obj I) {
+		AddExtendedFunc: func(obj I, initialSync bool) {
 			handler(Event[I]{
 				New:   &obj,
 				Event: controllers.EventAdd,
-			})
+			}, initialSync)
 		},
 		UpdateFunc: func(oldObj, newObj I) {
 			handler(Event[I]{
 				Old:   &oldObj,
 				New:   &newObj,
 				Event: controllers.EventUpdate,
-			})
+			}, false)
 		},
 		DeleteFunc: func(obj I) {
 			handler(Event[I]{
 				Old:   &obj,
 				Event: controllers.EventDelete,
-			})
+			}, false)
 		},
 	}
 }
@@ -155,8 +155,8 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		// Now, take all our handlers we have built up and register them...
 		handlers := h.eventHandlers.MarkInitialized()
 		for _, h := range handlers {
-			c.AddEventHandler(EventHandler[I](func(o Event[I]) {
-				h([]Event[I]{o})
+			c.AddEventHandler(informerEventHandler[I](func(o Event[I], initialSync bool) {
+				h([]Event[I]{o}, initialSync)
 			}))
 		}
 		// Now wait for handlers to sync

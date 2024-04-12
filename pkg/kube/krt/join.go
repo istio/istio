@@ -60,7 +60,7 @@ func (j *join[T]) Register(f func(o Event[T])) Syncer {
 	return registerHandlerAsBatched[T](j, f)
 }
 
-func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Syncer {
+func (j *join[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer {
 	sync := multiSyncer{}
 	for _, c := range j.collections {
 		sync.syncers = append(sync.syncers, c.RegisterBatch(f, runExistingState))

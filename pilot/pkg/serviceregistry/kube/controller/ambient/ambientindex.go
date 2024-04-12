@@ -486,8 +486,8 @@ func (a *index) HasSynced() bool {
 
 type LookupNetwork func(endpointIP string, labels labels.Instance) network.ID
 
-func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {
-	return func(events []krt.Event[T]) {
+func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T], initialSync bool) {
+	return func(events []krt.Event[T], initialSync bool) {
 		cu := sets.New[model.ConfigKey]()
 		for _, e := range events {
 			for _, i := range e.Items() {

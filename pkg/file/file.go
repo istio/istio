@@ -15,6 +15,7 @@
 package file
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -36,12 +37,7 @@ func AtomicCopy(srcFilepath, targetDir, targetFilename string) error {
 		return err
 	}
 
-	input, err := io.ReadAll(in)
-	if err != nil {
-		return err
-	}
-
-	return AtomicWrite(filepath.Join(targetDir, targetFilename), input, perm.Mode())
+	return AtomicWriteReader(filepath.Join(targetDir, targetFilename), in, perm.Mode())
 }
 
 func Copy(srcFilepath, targetDir, targetFilename string) error {
@@ -69,10 +65,14 @@ func Copy(srcFilepath, targetDir, targetFilename string) error {
 }
 
 // Write atomically by writing to a temporary file in the same directory then renaming
-func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
+func AtomicWrite(path string, data []byte, mode os.FileMode) error {
+	return AtomicWriteReader(path, bytes.NewReader(data), mode)
+}
+
+func AtomicWriteReader(path string, data io.Reader, mode os.FileMode) error {
 	tmpFile, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp.")
 	if err != nil {
-		return
+		return err
 	}
 	defer func() {
 		if Exists(tmpFile.Name()) {
@@ -86,23 +86,21 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 		}
 	}()
 
-	if err = os.Chmod(tmpFile.Name(), mode); err != nil {
-		return
+	if err := os.Chmod(tmpFile.Name(), mode); err != nil {
+		return err
 	}
 
-	_, err = tmpFile.Write(data)
-	if err != nil {
+	if _, err := io.Copy(tmpFile, data); err != nil {
 		if closeErr := tmpFile.Close(); closeErr != nil {
 			err = fmt.Errorf("%s: %w", closeErr.Error(), err)
 		}
-		return
+		return err
 	}
-	if err = tmpFile.Close(); err != nil {
-		return
+	if err := tmpFile.Close(); err != nil {
+		return err
 	}
 
-	err = os.Rename(tmpFile.Name(), path)
-	return
+	return os.Rename(tmpFile.Name(), path)
 }
 
 func Exists(name string) bool {

@@ -71,39 +71,15 @@ const (
 global:
   hub: %s
   tag: %s
+  variant: %q
 revision: "%s"
 `
-	// TODO: Remove this once the previous release version for the ambient upgrade test becomes 1.21, and start using --set profile=ambient
-	// refer: https://github.com/istio/istio/issues/49242
 	ambientProfileOverride = `
 global:
   hub: %s
   tag: %s
-variant: ""
-meshConfig:
-  defaultConfig:
-    proxyMetadata:
-      ISTIO_META_ENABLE_HBONE: "true"
-pilot:
-  variant: ""
-  env:
-    # Setup more secure default that is off in 'default' only for backwards compatibility
-    VERIFY_CERTIFICATE_AT_CLIENT: "true"
-    ENABLE_AUTO_SNI: "true"
-
-    PILOT_ENABLE_HBONE: "true"
-    CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
-    PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
-    PILOT_ENABLE_AMBIENT_WAYPOINTS: "true"
-cni:
-  logLevel: info
-  privileged: true
-  ambient:
-    enabled: true
-
-  # Default excludes istio-system; its actually fine to redirect there since we opt-out istiod, ztunnel, and istio-cni
-  excludeNamespaces:
-    - kube-system
+  variant: %q
+profile: ambient
 `
 )
 
@@ -112,11 +88,11 @@ var ManifestsChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
 // getValuesOverrides returns the values file created to pass into Helm override default values
 // for the hub and tag
-func GetValuesOverrides(ctx framework.TestContext, hub, tag, revision string, isAmbient bool) string {
+func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision string, isAmbient bool) string {
 	workDir := ctx.CreateTmpDirectoryOrFail("helm")
-	overrideValues := fmt.Sprintf(defaultValues, hub, tag, revision)
+	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, revision)
 	if isAmbient {
-		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag)
+		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag, variant)
 	}
 	overrideValuesFile := filepath.Join(workDir, "values.yaml")
 	if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
@@ -150,7 +126,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		// TODO: Remove this once the previous release version for the test becomes 1.21
 		// refer: https://github.com/istio/istio/issues/49242
 		if ambientProfile {
-			gatewayOverrideValuesFile = GetValuesOverrides(t, t.Settings().Image.Hub, version, "", false)
+			gatewayOverrideValuesFile = GetValuesOverrides(t, t.Settings().Image.Hub, version, t.Settings().Image.Variant, "", false)
 		}
 	} else {
 		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)

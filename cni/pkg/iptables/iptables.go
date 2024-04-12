@@ -20,7 +20,6 @@ import (
 	"net/netip"
 	"strings"
 
-	"istio.io/istio/cni/pkg/nodeagent/constants"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
@@ -40,6 +39,12 @@ const (
 	ChainInpodPrerouting = "ISTIO_PRERT"
 	ChainHostPostrouting = "ISTIO_POSTRT"
 	RouteTableInbound    = 100
+
+	DNSCapturePort              = 15053
+	ZtunnelInboundPort          = 15008
+	ZtunnelOutboundPort         = 15001
+	ZtunnelInboundPlaintextPort = 15006
+	ProbeIPSet                  = "istio-inpod-probes"
 )
 
 var log = istiolog.RegisterScope("iptables", "iptables helper")
@@ -269,11 +274,11 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
 		"-p", "tcp",
 		"-m", "tcp",
-		"--dport", fmt.Sprintf("%d", constants.ZtunnelInboundPort),
+		"--dport", fmt.Sprintf("%d", ZtunnelInboundPort),
 		"-m", "mark", "!",
 		"--mark", inpodMark,
 		"-j", "TPROXY",
-		"--on-port", fmt.Sprintf("%d", constants.ZtunnelInboundPort),
+		"--on-port", fmt.Sprintf("%d", ZtunnelInboundPort),
 		// "--on-ip", "127.0.0.1",
 		"--tproxy-mark", inpodTproxyMark,
 	)
@@ -299,7 +304,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 		"-m", "mark", "!",
 		"--mark", inpodMark,
 		"-j", "TPROXY",
-		"--on-port", fmt.Sprintf("%d", constants.ZtunnelInboundPlaintextPort),
+		"--on-port", fmt.Sprintf("%d", ZtunnelInboundPlaintextPort),
 		// "--on-ip", "127.0.0.1",
 		"--tproxy-mark", inpodTproxyMark,
 	)
@@ -328,7 +333,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 			"-m", "udp",
 			"--dport", "53",
 			"-j", "REDIRECT",
-			"--to-port", fmt.Sprintf("%d", constants.DNSCapturePort),
+			"--to-port", fmt.Sprintf("%d", DNSCapturePort),
 		)
 	}
 
@@ -362,7 +367,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 		"-m", "mark", "!",
 		"--mark", inpodMark,
 		"-j", "REDIRECT",
-		"--to-ports", fmt.Sprintf("%d", constants.ZtunnelOutboundPort),
+		"--to-ports", fmt.Sprintf("%d", ZtunnelOutboundPort),
 	)
 	return iptablesBuilder
 }
@@ -516,7 +521,7 @@ func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP *netip.Addr) *builde
 		"--socket-exists",
 		"-p", "tcp",
 		"-m", "set",
-		"--match-set", constants.ProbeIPSet,
+		"--match-set", ProbeIPSet,
 		"dst",
 		"-j", "SNAT",
 		"--to-source", hostSNATIP.String(),

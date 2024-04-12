@@ -25,6 +25,9 @@ type Options struct {
 
 	// The IP address to listen on for ctrlz.
 	Address string
+
+	// If true, pprof will be enabled
+	EnablePprof bool
 }
 
 // DefaultOptions returns a new set of options, initialized to the defaults

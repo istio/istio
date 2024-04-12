@@ -3172,7 +3172,7 @@ func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
 
 var _ ServiceDiscovery = &localServiceDiscovery{}
 
-// MockDiscovery is an in-memory ServiceDiscover with mock services
+// localServiceDiscovery is an in-memory ServiceDiscovery with mock services
 type localServiceDiscovery struct {
 	services         []*Service
 	serviceInstances []*ServiceInstance

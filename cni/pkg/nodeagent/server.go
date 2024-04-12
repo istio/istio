@@ -30,7 +30,6 @@ import (
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
-	"istio.io/istio/cni/pkg/nodeagent/constants"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/kube"
 )
@@ -155,7 +154,7 @@ func buildKubeClient(kubeConfig string) (kube.Client, error) {
 // We will unconditionally flush our set before use here, so it shouldn't matter.
 func createHostsideProbeIpset() (ipset.IPSet, error) {
 	linDeps := ipset.RealNlDeps()
-	probeSet, err := ipset.NewIPSet(constants.ProbeIPSet, linDeps)
+	probeSet, err := ipset.NewIPSet(iptables.ProbeIPSet, linDeps)
 	if err != nil {
 		return probeSet, err
 	}

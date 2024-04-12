@@ -93,8 +93,8 @@ func TrackerHandler[T any](tracker *assert.Tracker[string]) func(krt.Event[T]) {
 	}
 }
 
-func BatchedTrackerHandler[T any](tracker *assert.Tracker[string]) func([]krt.Event[T]) {
-	return func(o []krt.Event[T]) {
+func BatchedTrackerHandler[T any](tracker *assert.Tracker[string]) func([]krt.Event[T], bool) {
+	return func(o []krt.Event[T], initialSync bool) {
 		tracker.Record(slices.Join(",", slices.Map(o, func(o krt.Event[T]) string {
 			return fmt.Sprintf("%v/%v", o.Event, krt.GetKey(o.Latest()))
 		})...))
