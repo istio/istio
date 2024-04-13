@@ -187,10 +187,8 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
 			return nil
 		}
-		if features.VerifySDSCertificate {
-			if err := ValidateCertificate(caCertInfo.Cert); err != nil {
-				recordInvalidCertificate(sr.ResourceName, err)
-			}
+		if err := ValidateCertificate(caCertInfo.Cert); err != nil {
+			recordInvalidCertificate(sr.ResourceName, err)
 		}
 		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
 		return res
@@ -201,10 +199,8 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
 		return nil
 	}
-	if features.VerifySDSCertificate {
-		if err := ValidateCertificate(certInfo.Cert); err != nil {
-			recordInvalidCertificate(sr.ResourceName, err)
-		}
+	if err := ValidateCertificate(certInfo.Cert); err != nil {
+		recordInvalidCertificate(sr.ResourceName, err)
 	}
 	res := toEnvoyTLSSecret(sr.ResourceName, certInfo, proxy, s.meshConfig)
 	return res
