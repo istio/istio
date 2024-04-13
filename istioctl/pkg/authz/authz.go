@@ -89,9 +89,7 @@ The command also supports reading from a standalone config dump file with flag -
 			analyzer.Print(cmd.OutOrStdout())
 			return nil
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 	cmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"The json file with Envoy config dump to be checked")

@@ -145,9 +145,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	workloadConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -328,9 +326,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 			}
 			return nil
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	levelListString := fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s]",

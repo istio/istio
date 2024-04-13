@@ -475,9 +475,7 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 			}
 			return nil
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 	opts.AttachControlPlaneFlags(logCmd)
 	logCmd.PersistentFlags().BoolVar(&istiodReset, "reset", istiodReset, "Reset levels to default value. (info)")

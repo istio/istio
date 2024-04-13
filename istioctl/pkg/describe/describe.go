@@ -180,9 +180,7 @@ the configuration objects that affect that pod.`,
 			// Now look for ingress gateways
 			return printIngressInfo(writer, matchingServices, podsLabels, client.Kube(), configClient, kubeClient)
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
