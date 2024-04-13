@@ -112,6 +112,7 @@ func permissionPathTemplate(path *uri_template.UriTemplateMatchConfig) *rbacpb.P
 	return &rbacpb.Permission{
 		Rule: &rbacpb.Permission_UriTemplate{
 			UriTemplate: &core.TypedExtensionConfig{
+				Name:        "uri-template",
 				TypedConfig: protoconv.MessageToAny(path),
 			},
 		},

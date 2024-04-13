@@ -954,6 +954,78 @@ func TestAuthz_PathPrecedence(t *testing.T) {
 		})
 }
 
+func TestAuthz_PathTemplating(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			from := apps.Ns1.A
+			fromMatch := match.ServiceName(from.NamespacedName())
+			toMatch := match.Not(fromMatch)
+			to := toMatch.GetServiceMatches(apps.Ns1.All)
+			fromAndTo := to.Instances().Append(from)
+
+			config.New(t).
+				Source(config.File("testdata/authz/path-templating.yaml.tmpl")).
+				BuildAll(nil, to).
+				Apply()
+
+			newTrafficTest(t, fromAndTo).
+				FromMatch(fromMatch).
+				ToMatch(toMatch).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+					cases := []struct {
+						path  string
+						allow allowValue
+					}{
+						{
+							path:  "/allow/admin",
+							allow: true,
+						},
+						{
+							path:  "/allow/admin2",
+							allow: false,
+						},
+						{
+							path:  "/allow/user",
+							allow: false,
+						},
+						{
+							path:  "/allow/admin?param=value",
+							allow: false,
+						},
+						{
+							path:  "/allow",
+							allow: false,
+						},
+						{
+							path:  "/allow/admin/temp",
+							allow: true,
+						},
+						{
+							path:  "/allow/admin/temp.txt",
+							allow: true,
+						},
+						{
+							path:  "/allow/admin/foo/temp.txt",
+							allow: true,
+						},
+					}
+
+					for _, c := range cases {
+						c := c
+						testName := fmt.Sprintf("%s(%s)/http", c.path, c.allow)
+						t.NewSubTest(testName).Run(func(t framework.TestContext) {
+							newAuthzTest().
+								From(from).
+								To(to).
+								Allow(c.allow).
+								Path(c.path).
+								BuildAndRunForPorts(t, ports.HTTP, ports.HTTP2)
+						})
+					}
+				})
+		})
+}
+
 func TestAuthz_IngressGateway(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
