@@ -25,6 +25,7 @@ import (
 
 type policyTargetGetter interface {
 	GetTargetRef() *v1beta1.PolicyTargetReference
+	GetTargetRefs() []*v1beta1.PolicyTargetReference
 	GetSelector() *v1beta1.WorkloadSelector
 }
 
@@ -59,26 +60,31 @@ func KubernetesGatewayNameAndExists(l labels.Instance) (string, bool) {
 
 func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts WorkloadSelectionOpts, policy policyTargetGetter) policyMatch {
 	gatewayName, isGatewayAPI := KubernetesGatewayNameAndExists(opts.WorkloadLabels)
-	targetRef := policy.GetTargetRef()
-	if isGatewayAPI && targetRef == nil && policy.GetSelector() != nil {
+	targetRefs := policy.GetTargetRefs()
+	if len(targetRefs) == 0 && policy.GetTargetRef() != nil {
+		targetRefs = []*v1beta1.PolicyTargetReference{policy.GetTargetRef()}
+	}
+	if isGatewayAPI && len(targetRefs) == 0 && policy.GetSelector() != nil {
 		if opts.IsWaypoint || !features.EnableSelectorBasedK8sGatewayPolicy {
 			log.Debugf("Ignoring workload-scoped %s/%s %s.%s for gateway %s because it has no targetRef", kind.Group, kind.Kind, opts.Namespace, policyName, gatewayName)
 			return policyMatchIgnore
 		}
 	}
 
-	if !isGatewayAPI && targetRef != nil {
+	if !isGatewayAPI && len(targetRefs) > 0 {
 		return policyMatchIgnore
 	}
 
-	if isGatewayAPI && targetRef != nil {
-		// There's a targetRef specified for this RA, and the proxy is a Gateway API Gateway. Use targetRef instead of workload selector
+	if isGatewayAPI && len(targetRefs) > 0 {
+		// There's a targetRef specified for this policy, and the proxy is a Gateway API Gateway. Use targetRef instead of workload selector
 		// TODO: Account for `kind`s that are not `KubernetesGateway`
-		if targetRef.GetGroup() == gvk.KubernetesGateway.Group &&
-			targetRef.GetName() == gatewayName &&
-			(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == opts.Namespace) &&
-			targetRef.GetKind() == gvk.KubernetesGateway.Kind {
-			return policyMatchDirect
+		for _, targetRef := range targetRefs {
+			if targetRef.GetGroup() == gvk.KubernetesGateway.Group &&
+				targetRef.GetName() == gatewayName &&
+				(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == opts.Namespace) &&
+				targetRef.GetKind() == gvk.KubernetesGateway.Kind {
+				return policyMatchDirect
+			}
 		}
 
 		// This config doesn't match this workload. Ignore
