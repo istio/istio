@@ -129,8 +129,15 @@ func (n *NodeUntainter) setup(stop <-chan struct{}) {
 	})
 }
 
+func (n *NodeUntainter) HasSynced() bool {
+	return n.queue.HasSynced()
+}
+
 func (n *NodeUntainter) Run(stop <-chan struct{}) {
+	kubelib.WaitForCacheSync("node untainer", stop, n.nodesClient.HasSynced, n.podsClient.HasSynced)
 	n.queue.Run(stop)
+	n.podsClient.ShutdownHandlers()
+	n.nodesClient.ShutdownHandlers()
 }
 
 func (n *NodeUntainter) reconcileNode(key types.NamespacedName) error {
