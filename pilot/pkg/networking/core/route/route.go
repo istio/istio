@@ -1162,7 +1162,9 @@ func TranslateCORSPolicy(in *networking.CorsPolicy) *cors.CorsPolicy {
 	}
 
 	// CORS filter is enabled by default
-	out := cors.CorsPolicy{}
+	out := cors.CorsPolicy{
+		ForwardNotMatchingPreflights: wrappers.Bool(false),
+	}
 	// nolint: staticcheck
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = util.ConvertToEnvoyMatches(in.AllowOrigins)
