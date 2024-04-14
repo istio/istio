@@ -150,14 +150,14 @@ func UnmarshalInlineYaml(obj map[string]any, targetPath string) (err error) {
 	for _, nname := range nodeList {
 		ndata, ok := cur[nname]
 		if !ok || ndata == nil { // target path does not exist
-			return fmt.Errorf("targetPath '%v' doest not exist in obj: '%v' is missing",
+			return fmt.Errorf("targetPath '%v' does not exist in obj: '%v' is missing",
 				targetPath, nname)
 		}
 		switch nnode := ndata.(type) {
 		case map[string]any:
 			cur = nnode
 		default: // target path type does not match
-			return fmt.Errorf("targetPath '%v' doest not exist in obj: "+
+			return fmt.Errorf("targetPath '%v' does not exist in obj: "+
 				"'%v' type is not map[string]interface{}", targetPath, nname)
 		}
 	}
