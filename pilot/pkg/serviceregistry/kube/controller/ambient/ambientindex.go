@@ -390,10 +390,14 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 }
 
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
-	return a.services.ByOwningWaypoint.Lookup(networkAddress{
-		network: key.Network,
-		ip:      key.Addresses[0],
-	})
+	var out []model.ServiceInfo
+	for _, addr := range key.Addresses {
+		out = append(out, a.services.ByOwningWaypoint.Lookup(networkAddress{
+			network: key.Network,
+			ip:      addr,
+		})...)
+	}
+	return out
 }
 
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
