@@ -88,34 +88,69 @@ func buildExpectAddedAndRemoved(t *testing.T) func(resp *discovery.DeltaDiscover
 
 func TestWorkloadReconnect(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
-	expect := buildExpect(t)
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
-	})
-	ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
-	ads.Request(&discovery.DeltaDiscoveryRequest{
-		ResourceNamesSubscribe:   []string{"*"},
-		ResourceNamesUnsubscribe: []string{"*"},
-	})
-	ads.ExpectEmptyResponse()
+	t.Run("ondemand", func(t *testing.T) {
+		expect := buildExpect(t)
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
+		})
+		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads.Request(&discovery.DeltaDiscoveryRequest{
+			ResourceNamesSubscribe:   []string{"*"},
+			ResourceNamesUnsubscribe: []string{"*"},
+		})
+		ads.ExpectEmptyResponse()
 
-	// Now subscribe to the pod, should get it back
-	resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
-		ResourceNamesSubscribe: []string{"/127.0.0.1"},
-	})
-	expect(resp, "Kubernetes//Pod/default/pod")
-	ads.Cleanup()
+		// Now subscribe to the pod, should get it back
+		resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+			ResourceNamesSubscribe: []string{"/127.0.0.1"},
+		})
+		expect(resp, "Kubernetes//Pod/default/pod")
+		ads.Cleanup()
 
-	// Reconnect
-	ads = s.ConnectDeltaADS().WithType(v3.AddressType)
-	ads.Request(&discovery.DeltaDiscoveryRequest{
-		ResourceNamesSubscribe:   []string{"*"},
-		ResourceNamesUnsubscribe: []string{"*"},
-		InitialResourceVersions: map[string]string{
-			"/127.0.0.1": "",
-		},
+		// Create new pod in the meantime
+		createPod(s, "pod2", "sa", "127.0.0.2", "node")
+
+		// Reconnect
+		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads.Request(&discovery.DeltaDiscoveryRequest{
+			ResourceNamesSubscribe:   []string{"*"},
+			ResourceNamesUnsubscribe: []string{"*"},
+			InitialResourceVersions: map[string]string{
+				"/127.0.0.1": "",
+			},
+		})
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
 	})
-	expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
+	t.Run("wildcard", func(t *testing.T) {
+		expect := buildExpect(t)
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
+		})
+		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+
+		// Subscribe to everything, expect to get the pod back
+		resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+			ResourceNamesSubscribe:   []string{},
+			ResourceNamesUnsubscribe: []string{},
+		})
+		expect(resp, "Kubernetes//Pod/default/pod")
+		// Close the connection
+		ads.Cleanup()
+
+		// Create new pod in the meantime
+		createPod(s, "pod2", "sa", "127.0.0.2", "node")
+
+		// Reconnect
+		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads.Request(&discovery.DeltaDiscoveryRequest{
+			ResourceNamesSubscribe:   []string{},
+			ResourceNamesUnsubscribe: []string{},
+			InitialResourceVersions: map[string]string{
+				"/127.0.0.1": "",
+			},
+		})
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
+	})
 }
 
 func TestWorkload(t *testing.T) {
