@@ -700,7 +700,7 @@ spec:
   rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}", "cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}-istio-waypoint"]
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}", "cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}"]
 `
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination":  dst.Config().Service,
@@ -996,7 +996,7 @@ spec:
   rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}-istio-waypoint"]
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}"]
 `
 			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
