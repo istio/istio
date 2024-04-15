@@ -713,8 +713,8 @@ kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
 spec:
-  targetRef:
-    kind: Gateway
+  targetRefs:
+  - kind: Gateway
     group: gateway.networking.k8s.io
     name: waypoint
 `+policySpec+`
@@ -759,8 +759,8 @@ kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
 spec:
-  targetRef:
-    kind: Gateway
+  targetRefs:
+  - kind: Gateway
     group: gateway.networking.k8s.io
     name: waypoint
 `+policySpec).ApplyOrFail(t)
@@ -1020,8 +1020,8 @@ kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
 spec:
-  targetRef:
-    kind: Gateway
+  targetRefs:
+  - kind: Gateway
     group: gateway.networking.k8s.io
     name: waypoint
 `+policySpec+`
@@ -1041,8 +1041,8 @@ kind: AuthorizationPolicy
 metadata:
   name: deny-policy-waypoint
 spec:
-  targetRef:
-    kind: Gateway
+  targetRefs:
+  - kind: Gateway
     group: gateway.networking.k8s.io
     name: waypoint
 `+denySpec).ApplyOrFail(t)
