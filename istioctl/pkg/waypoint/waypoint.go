@@ -203,7 +203,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	waypointApplyCmd.PersistentFlags().StringVar(&trafficType,
 		"for",
 		"service",
-		fmt.Sprintf("Specify the traffic type %s for the waypoint", validTrafficTypes.String()),
+		fmt.Sprintf("Specify the traffic type %s for the waypoint", sets.SortedList(validTrafficTypes)),
 	)
 
 	waypointApplyCmd.PersistentFlags().BoolVarP(&enrollNamespace, "enroll-namespace", "", false,
