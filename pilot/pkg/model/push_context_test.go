@@ -3122,7 +3122,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	ps.initDefaultExportMaps()
 	ps.initVirtualServices(env)
 	assert.Equal(t, ps.virtualServiceIndex.destinationsByGateway[gatewayName], sets.String{})
-	assert.Equal(t, ps.extraGatewayServices(nil), sets.New("otel.foo.svc.cluster.local"))
+	assert.Equal(t, ps.extraServicesForProxy(nil), sets.New("otel.foo.svc.cluster.local"))
 }
 
 func TestWellKnownProvidersCount(t *testing.T) {
