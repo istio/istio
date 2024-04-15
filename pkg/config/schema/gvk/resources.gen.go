@@ -23,7 +23,8 @@ var (
 	EndpointSlice                  = config.GroupVersionKind{Group: "", Version: "v1", Kind: "EndpointSlice"}
 	Endpoints                      = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"}
 	EnvoyFilter                    = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "EnvoyFilter"}
-	GRPCRoute                      = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "GRPCRoute"}
+	GRPCRoute                      = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "GRPCRoute"}
+	GRPCRoute_v1alpha2             = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "GRPCRoute"}
 	Gateway                        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Gateway"}
 	Gateway_v1beta1                = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "Gateway"}
 	Gateway_v1                     = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "Gateway"}
@@ -111,6 +112,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.EnvoyFilter, true
 	case GRPCRoute:
 		return gvr.GRPCRoute, true
+	case GRPCRoute_v1alpha2:
+		return gvr.GRPCRoute_v1alpha2, true
 	case Gateway:
 		return gvr.Gateway, true
 	case Gateway_v1beta1:

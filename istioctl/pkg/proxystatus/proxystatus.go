@@ -168,9 +168,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			}
 			return sw.PrintAll(xdsResponses)
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	opts.AttachControlPlaneFlags(statusCmd)

@@ -88,7 +88,7 @@ spec:
 // - works for both HTTP and TCP protocol
 // - works for pass through filter chains
 func TestTrustDomainValidation(t *testing.T) {
-	framework.NewTest(t).Features("security.peer.trust-domain-validation").Run(
+	framework.NewTest(t).Run(
 		func(ctx framework.TestContext) {
 			testNS := apps.EchoNamespace.Namespace
 

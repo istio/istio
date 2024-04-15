@@ -317,10 +317,10 @@ func TestValidateConnectTimeout(t *testing.T) {
 		},
 		{
 			duration: &durationpb.Duration{Seconds: 31},
-			isValid:  false,
+			isValid:  true,
 		},
 		{
-			duration: &durationpb.Duration{Nanos: 99999},
+			duration: &durationpb.Duration{Seconds: 999999999},
 			isValid:  false,
 		},
 	}
@@ -5320,6 +5320,38 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			Warning: false,
 		},
 		{
+			name: "target-refs-good",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRefs: []*api.PolicyTargetReference{{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				}},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: false,
+		},
+		{
 			name: "target-ref-non-empty-namespace",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
@@ -5456,6 +5488,43 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 					Kind:  gvk.KubernetesGateway.Kind,
 					Name:  "foo",
 				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
+		},
+		{
+			name: "target-refs-and-selector-cannot-both-be-set",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRefs: []*api.PolicyTargetReference{{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				}},
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app": "httpbin",
@@ -8615,7 +8684,7 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				},
 			},
-			"only one of targetRef or workloadSelector can be set", "",
+			"only one of targetRefs or workloadSelector can be set", "",
 		},
 	}
 	for _, tt := range tests {
@@ -8885,7 +8954,7 @@ func TestValidateWasmPlugin(t *testing.T) {
 					},
 				},
 			},
-			"only one of targetRef or workloadSelector can be set", "",
+			"only one of targetRefs or workloadSelector can be set", "",
 		},
 	}
 	for _, tt := range tests {

@@ -16,8 +16,8 @@ package krt
 
 import (
 	"fmt"
-	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
@@ -67,14 +67,18 @@ func (i *informer[I]) name() string {
 	return i.collectionName
 }
 
-func (i *informer[I]) List(namespace string) []I {
-	res := i.inf.List(namespace, klabels.Everything())
+func (i *informer[I]) List() []I {
+	res := i.inf.List(metav1.NamespaceAll, klabels.Everything())
 	return res
 }
 
 func (i *informer[I]) GetKey(k Key[I]) *I {
-	ns, n := splitKeyFunc(string(k))
-	if got := i.inf.Get(n, ns); !controllers.IsNil(got) {
+	// ns, n := splitKeyFunc(string(k))
+	// Internal optimization: we know kclient will eventually lookup "ns/name"
+	// We also have a key in this format.
+	// Rather than split and rejoin it later, just pass it as the name
+	// This is depending on "unstable" implementation details, but we own both libraries and tests would catch any issues.
+	if got := i.inf.Get(string(k), ""); !controllers.IsNil(got) {
 		return &got
 	}
 	return nil
@@ -84,14 +88,14 @@ func (i *informer[I]) Register(f func(o Event[I])) Syncer {
 	return registerHandlerAsBatched[I](i, f)
 }
 
-func (i *informer[I]) RegisterBatch(f func(o []Event[I]), runExistingState bool) Syncer {
+func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runExistingState bool) Syncer {
 	// Note: runExistingState is NOT respected here.
 	// Informer doesn't expose a way to do that. However, due to the runtime model of informers, this isn't a dealbreaker;
 	// the handlers are all called async, so we don't end up with the same deadlocks we would have in the other collection types.
 	// While this is quite kludgy, this is an internal interface so its not too bad.
 	if !i.eventHandlers.Insert(f) {
-		i.inf.AddEventHandler(EventHandler[I](func(o Event[I]) {
-			f([]Event[I]{o})
+		i.inf.AddEventHandler(informerEventHandler[I](func(o Event[I], initialSync bool) {
+			f([]Event[I]{o}, initialSync)
 		}))
 	}
 	return pollSyncer{
@@ -100,26 +104,26 @@ func (i *informer[I]) RegisterBatch(f func(o []Event[I]), runExistingState bool)
 	}
 }
 
-func EventHandler[I controllers.ComparableObject](handler func(o Event[I])) cache.ResourceEventHandler {
+func informerEventHandler[I controllers.ComparableObject](handler func(o Event[I], initialSync bool)) cache.ResourceEventHandler {
 	return controllers.EventHandler[I]{
-		AddFunc: func(obj I) {
+		AddExtendedFunc: func(obj I, initialSync bool) {
 			handler(Event[I]{
 				New:   &obj,
 				Event: controllers.EventAdd,
-			})
+			}, initialSync)
 		},
 		UpdateFunc: func(oldObj, newObj I) {
 			handler(Event[I]{
 				Old:   &oldObj,
 				New:   &newObj,
 				Event: controllers.EventUpdate,
-			})
+			}, false)
 		},
 		DeleteFunc: func(obj I) {
 			handler(Event[I]{
 				Old:   &obj,
 				Event: controllers.EventDelete,
-			})
+			}, false)
 		},
 	}
 }
@@ -151,8 +155,8 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		// Now, take all our handlers we have built up and register them...
 		handlers := h.eventHandlers.MarkInitialized()
 		for _, h := range handlers {
-			c.AddEventHandler(EventHandler[I](func(o Event[I]) {
-				h([]Event[I]{o})
+			c.AddEventHandler(informerEventHandler[I](func(o Event[I], initialSync bool) {
+				h([]Event[I]{o}, initialSync)
 			}))
 		}
 		// Now wait for handlers to sync
@@ -182,18 +186,4 @@ func NewInformer[I controllers.ComparableObject](c kube.Client, opts ...Collecti
 // the same as NewInformer
 func NewInformerFiltered[I controllers.ComparableObject](c kube.Client, filter kubetypes.Filter, opts ...CollectionOption) Collection[I] {
 	return WrapClient[I](kclient.NewFiltered[I](c, filter), opts...)
-}
-
-func splitKeyFunc(key string) (namespace, name string) {
-	parts := strings.Split(key, "/")
-	switch len(parts) {
-	case 1:
-		// name only, no namespace
-		return "", parts[0]
-	case 2:
-		// namespace and name
-		return parts[0], parts[1]
-	}
-
-	return "", ""
 }

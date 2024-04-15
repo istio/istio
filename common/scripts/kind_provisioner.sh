@@ -172,14 +172,15 @@ function setup_kind_cluster() {
   if [[ -z "${CONFIG}" ]]; then
     # Kubernetes 1.15+
     CONFIG=${DEFAULT_CLUSTER_YAML}
-    # Configure the cluster IP Family only for default configs
-    if [ "${IP_FAMILY}" != "ipv4" ]; then
-      grep "ipFamily: ${IP_FAMILY}" "${CONFIG}" || \
-      cat <<EOF >> "${CONFIG}"
+  fi
+
+  # Configure the cluster IP Family if explicitly set
+  if [ "${IP_FAMILY}" != "ipv4" ]; then
+    grep "ipFamily: ${IP_FAMILY}" "${CONFIG}" || \
+    cat <<EOF >> "${CONFIG}"
 networking:
   ipFamily: ${IP_FAMILY}
 EOF
-    fi
   fi
 
   KIND_WAIT_FLAG="--wait=180s"

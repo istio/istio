@@ -41,10 +41,10 @@ func (j *join[T]) GetKey(k Key[T]) *T {
 	return ptr.Of(j.merge(found))
 }
 
-func (j *join[T]) List(namespace string) []T {
+func (j *join[T]) List() []T {
 	res := map[Key[T]][]T{}
 	for _, c := range j.collections {
-		for _, i := range c.List(namespace) {
+		for _, i := range c.List() {
 			key := GetKey(i)
 			res[key] = append(res[key], i)
 		}
@@ -60,7 +60,7 @@ func (j *join[T]) Register(f func(o Event[T])) Syncer {
 	return registerHandlerAsBatched[T](j, f)
 }
 
-func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Syncer {
+func (j *join[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer {
 	sync := multiSyncer{}
 	for _, c := range j.collections {
 		sync.syncers = append(sync.syncers, c.RegisterBatch(f, runExistingState))

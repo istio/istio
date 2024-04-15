@@ -58,7 +58,6 @@ const (
 func TestBookinfo(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
 			skipsForTest(t)
 			nsConfig, err := namespace.New(t, namespace.Config{
@@ -278,7 +277,6 @@ func TestBookinfo(t *testing.T) {
 func TestOtherRevisionIgnored(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
 			// This is a negative test, ensuring gateways with tags other
 			// than my tags do not get controlled by me.

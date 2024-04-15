@@ -18,21 +18,30 @@
 package pilot
 
 import (
+	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
 
 	k8ssets "k8s.io/apimachinery/pkg/util/sets" //nolint: depguard
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/gateway-api/conformance"
+	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 // GatewayConformanceInputs defines inputs to the gateway conformance test.
@@ -61,7 +70,6 @@ var skippedTests = map[string]string{
 func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.gateway").
 		Run(func(ctx framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(ctx)
 
@@ -91,20 +99,36 @@ func TestGatewayConformance(t *testing.T) {
 					Insert(suite.ReferenceGrantCoreFeatures.UnsortedList()...).
 					Insert(suite.HTTPRouteCoreFeatures.UnsortedList()...).
 					Insert(suite.HTTPRouteExtendedFeatures.UnsortedList()...).
-					Insert(suite.MeshCoreFeatures.UnsortedList()...)
+					Insert(suite.MeshCoreFeatures.UnsortedList()...).
+					Insert(suite.GRPCRouteCoreFeatures.UnsortedList()...)
 			}
 			hostnameType := v1.AddressType("Hostname")
-			opts := suite.Options{
+			istioVersion, _ := env.ReadVersion()
+			opts := suite.ConformanceOptions{
 				Client:                   c,
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
 				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
 				GatewayClassName:         "istio",
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
+				ManifestFS:               []fs.FS{&conformance.Manifests},
 				SupportedFeatures:        features,
 				SkipTests:                maps.Keys(skippedTests),
 				UsableNetworkAddresses:   []v1.GatewayAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 				UnusableNetworkAddresses: []v1.GatewayAddress{{Value: "foo", Type: &hostnameType}},
+				ConformanceProfiles: k8ssets.New(
+					suite.HTTPConformanceProfile.Name,
+					suite.TLSConformanceProfile.Name,
+					suite.GRPCConformanceProfile.Name,
+					suite.MeshConformanceProfile.Name,
+				),
+				Implementation: confv1.Implementation{
+					Organization: "istio",
+					Project:      "istio",
+					URL:          "https://istio.io/",
+					Version:      istioVersion,
+					Contact:      []string{"@istio/maintainers"},
+				},
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{
@@ -126,8 +150,16 @@ func TestGatewayConformance(t *testing.T) {
 				}
 			})
 
-			csuite := suite.New(opts)
-			csuite.Setup(t)
-			csuite.Run(t, tests.ConformanceTests)
+			csuite, err := suite.NewConformanceTestSuite(opts)
+			assert.NoError(t, err)
+			csuite.Setup(t, tests.ConformanceTests)
+			assert.NoError(t, csuite.Run(t, tests.ConformanceTests))
+			report, err := csuite.Report()
+			assert.NoError(t, err)
+			reportb, err := yaml.Marshal(report)
+			assert.NoError(t, err)
+			fp := filepath.Join(ctx.Settings().BaseDir, "conformance.yaml")
+			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
+			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
 		})
 }

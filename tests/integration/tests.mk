@@ -32,6 +32,10 @@ ifneq ($(TAG),)
     _INTEGRATION_TEST_FLAGS += --istio.test.tag=$(TAG)
 endif
 
+ifneq ($(VARIANT),)
+    _INTEGRATION_TEST_FLAGS += --istio.test.variant=$(VARIANT)
+endif
+
 _INTEGRATION_TEST_SELECT_FLAGS ?= --istio.test.select=$(TEST_SELECT)
 ifneq ($(JOB_TYPE),postsubmit)
 	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-postsubmit"
@@ -83,14 +87,6 @@ define run-test
 $(GO) test -exec=true -toolexec=$(REPO_ROOT)/tools/go-compile-without-link -vet=off -tags=integ $2 $1
 $(GO) test -p 1 ${T} -tags=integ -vet=off -timeout 30m $2 $1 ${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 endef
-
-test.integration.analyze: test.integration...analyze
-
-test.integration.%.analyze: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test ${T} -tags=integ -vet=off ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} \
-	--istio.test.analyze \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Ensure that all test files are tagged properly. This ensures that we don't accidentally skip tests
 # and that integration tests are not run as part of the unit test suite.

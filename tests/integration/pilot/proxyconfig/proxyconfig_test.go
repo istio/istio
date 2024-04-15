@@ -61,7 +61,6 @@ type proxyConfigInstance struct {
 
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).
-		Features("usability.observability.proxy-config").
 		RequireIstioVersion("1.13").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{

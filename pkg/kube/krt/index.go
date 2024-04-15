@@ -26,6 +26,7 @@ type Index[I any, K comparable] struct {
 	mu      sync.RWMutex
 	objects map[K]sets.Set[Key[I]]
 	c       Collection[I]
+	extract func(o I) []K
 }
 
 // Lookup finds all objects matching a given key
@@ -45,6 +46,15 @@ func (i *Index[I, K]) Lookup(k K) []I {
 	return res
 }
 
+func (i *Index[I, K]) objectHasKey(obj I, k K) bool {
+	for _, got := range i.extract(obj) {
+		if got == k {
+			return true
+		}
+	}
+	return false
+}
+
 func (i *Index[I, K]) Dump() {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
@@ -55,9 +65,16 @@ func (i *Index[I, K]) Dump() {
 	log.Errorf("< END DUMP (index %v[%T]", i.c.(internalCollection[I]).name(), ptr.TypeName[K]())
 }
 
-// CreateIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
+// NewNamespaceIndex is a small helper to index a collection by namespace
+func NewNamespaceIndex[I Namespacer](c Collection[I]) *Index[I, string] {
+	return NewIndex(c, func(o I) []string {
+		return []string{o.GetNamespace()}
+	})
+}
+
+// NewIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
 // NewInformer.AddIndex, but is easier to use and can be added after an informer has already started.
-func CreateIndex[I any, K comparable](
+func NewIndex[I any, K comparable](
 	c Collection[I],
 	extract func(o I) []K,
 ) *Index[I, K] {
@@ -65,6 +82,7 @@ func CreateIndex[I any, K comparable](
 		objects: make(map[K]sets.Set[Key[I]]),
 		c:       c,
 		mu:      sync.RWMutex{},
+		extract: extract,
 	}
 	c.Register(func(o Event[I]) {
 		idx.mu.Lock()

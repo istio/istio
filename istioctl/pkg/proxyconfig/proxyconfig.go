@@ -67,17 +67,15 @@ var (
 
 	clusterName, status string
 
-	// output format (yaml or short)
+	// output format (json, yaml or short)
 	outputFormat string
 
 	proxyAdminPort int
 
 	configDumpFile string
 
-	workloadsNamespace string
-
 	labelSelector = ""
-	name          string
+	loggerName    string
 )
 
 // Level is an enumeration of all supported log levels.
@@ -130,17 +128,6 @@ var (
 	loggerLevelString = ""
 	reset             = false
 )
-
-func ztunnelLogLevel(level string) string {
-	switch level {
-	case "warning":
-		return "warn"
-	case "critical":
-		return "error"
-	default:
-		return level
-	}
-}
 
 func extractConfigDump(kubeClient kube.CLIClient, podName, podNamespace string, eds bool) ([]byte, error) {
 	path := "config_dump"
@@ -391,9 +378,7 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	clusterConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -533,9 +518,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 			}
 			return nil
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -559,93 +542,6 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 	allConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
 
 	return allConfigCmd
-}
-
-func workloadConfigCmd(ctx cli.Context) *cobra.Command {
-	var podName, podNamespace string
-
-	workloadConfigCmd := &cobra.Command{
-		// Until stabilized
-		Hidden: true,
-		Use:    "workload [<type>/]<name>[.<namespace>]",
-		Short:  "Retrieves workload configuration for the specified ztunnel pod",
-		Long:   `Retrieve information about workload configuration for the ztunnel instance.`,
-		Example: `  # Retrieve summary about workload configuration for a given ztunnel.
-  istioctl proxy-config workload <ztunnel-name[.namespace]>
-
-  # Retrieve summary of workloads on node XXXX for a given ztunnel instance.
-  istioctl proxy-config workload <ztunnel-name[.namespace]> --node ambient-worker
-
-  # Retrieve full workload dump of workloads with address XXXX for a given ztunnel
-  istioctl proxy-config workload <ztunnel-name[.namespace]> --address 0.0.0.0 -o json
-
-  # Retrieve workload summary
-  kubectl exec -it $ZTUNNEL -n istio-system -- curl localhost:15000/config_dump > ztunnel-config.json
-  istioctl proxy-config workloads --file ztunnel-config.json
-
-  # Retrieve workload summary for a specific namespace
-  istioctl proxy-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
-`,
-		Aliases: []string{"workloads", "w"},
-		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
-				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("workload requires pod name or --file parameter")
-			}
-			return nil
-		},
-		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := ctx.CLIClient()
-			if err != nil {
-				return err
-			}
-			var configWriter *ztunnelDump.ConfigWriter
-			if len(args) == 1 {
-				if podName, podNamespace, err = getComponentPodName(ctx, args[0]); err != nil {
-					return err
-				}
-				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
-				if !ztunnelPod {
-					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
-				}
-				configWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
-			} else {
-				configWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
-			}
-			if err != nil {
-				return err
-			}
-			filter := ztunnelDump.WorkloadFilter{
-				Namespace: workloadsNamespace,
-				Address:   address,
-				Node:      node,
-				Verbose:   verboseProxyConfig,
-			}
-
-			switch outputFormat {
-			case summaryOutput:
-				return configWriter.PrintWorkloadSummary(filter)
-			case jsonOutput, yamlOutput:
-				return configWriter.PrintWorkloadDump(filter, outputFormat)
-			default:
-				return fmt.Errorf("output format %q not supported", outputFormat)
-			}
-		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
-	}
-
-	workloadConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	workloadConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter workloads by address field")
-	workloadConfigCmd.PersistentFlags().StringVar(&node, "node", "", "Filter workloads by node field")
-	workloadConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
-	workloadConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
-		"Ztunnel config dump JSON file")
-	workloadConfigCmd.PersistentFlags().StringVar(&workloadsNamespace, "workloads-namespace", "",
-		"Filter workloads by namespace field")
-
-	return workloadConfigCmd
 }
 
 func listenerConfigCmd(ctx cli.Context) *cobra.Command {
@@ -712,9 +608,7 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	listenerConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -798,9 +692,7 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
 
 			return nil
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short|prom|prom-merged")
 	statsConfigCmd.PersistentFlags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
@@ -808,13 +700,6 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
 
 	return statsConfigCmd
 }
-
-type proxyType int
-
-const (
-	Envoy proxyType = iota
-	Ztunnel
-)
 
 func logCmd(ctx cli.Context) *cobra.Command {
 	var podNamespace string
@@ -856,7 +741,6 @@ func logCmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			loggerNames := map[string]proxyType{}
 			if labelSelector != "" {
 				if podNames, podNamespace, err = getPodNameBySelector(ctx, kubeClient, labelSelector); err != nil {
 					return err
@@ -867,15 +751,9 @@ func logCmd(ctx cli.Context) *cobra.Command {
 				}
 			}
 			for _, pod := range podNames {
-				name, err = setupEnvoyLogConfig(kubeClient, "", pod, podNamespace)
+				loggerName, err = setupEnvoyLogConfig(kubeClient, "", pod, podNamespace)
 				if err != nil {
 					return err
-				}
-				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, pod, podNamespace)
-				if ztunnelPod {
-					loggerNames[name] = Ztunnel
-				} else {
-					loggerNames[name] = Envoy
 				}
 			}
 
@@ -887,7 +765,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 				if ok {
 					destLoggerLevels[defaultLoggerName] = level
 				} else {
-					log.Warnf("unable to get logLevel from ConfigMap istio-sidecar-injector, using default value %q for envoy proxies and \"info\" for ztunnel",
+					log.Warnf("unable to get logLevel from ConfigMap istio-sidecar-injector, using default value %q for envoy proxies",
 						levelToString[defaultEnvoyOutputLevel])
 					destLoggerLevels[defaultLoggerName] = defaultEnvoyOutputLevel
 				}
@@ -907,14 +785,8 @@ func logCmd(ctx cli.Context) *cobra.Command {
 						logParts := strings.Split(ol, "::") // account for any specified namespace
 						loggerAndLevelOnly := logParts[len(logParts)-1]
 						loggerLevel := regexp.MustCompile(`[:=]`).Split(loggerAndLevelOnly, 2)
-						for logName, typ := range loggerNames {
-							if typ == Ztunnel {
-								// TODO validate ztunnel logger name when available: https://github.com/istio/ztunnel/issues/426
-								continue
-							}
-							if !strings.Contains(logName, loggerLevel[0]) && loggerLevel[0] != defaultLoggerName {
-								return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
-							}
+						if !strings.Contains(loggerName, loggerLevel[0]) && loggerLevel[0] != defaultLoggerName {
+							return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
 						}
 						level, ok := stringToLevel[loggerLevel[1]]
 						if !ok {
@@ -928,20 +800,6 @@ func logCmd(ctx cli.Context) *cobra.Command {
 			var resp string
 			var errs *multierror.Error
 			for _, podName := range podNames {
-				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
-				if ztunnelPod {
-					q := "level=" + ztunnelLogLevel(loggerLevelString)
-					if reset {
-						q += "&reset"
-					}
-					resp, err := setupEnvoyLogConfig(kubeClient, q, podName, podNamespace)
-					if err == nil {
-						_, _ = fmt.Fprintf(c.OutOrStdout(), "%v.%v:\n%v\n", podName, podNamespace, resp)
-					} else {
-						errs = multierror.Append(fmt.Errorf("%v.%v: %v", podName, podNamespace, err))
-					}
-					continue
-				}
 				if len(destLoggerLevels) == 0 {
 					resp, err = setupEnvoyLogConfig(kubeClient, "", podName, podNamespace)
 				} else {
@@ -967,9 +825,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 			}
 			return nil
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	levelListString := fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s]",
@@ -1049,9 +905,7 @@ func routeConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	routeConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -1130,9 +984,7 @@ func endpointConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -1218,9 +1070,7 @@ func edsConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -1289,9 +1139,7 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml|short")
@@ -1362,9 +1210,7 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -1431,9 +1277,7 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 			}
 			return returnErr
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	rootCACompareConfigCmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
@@ -1480,7 +1324,6 @@ func ProxyConfig(ctx cli.Context) *cobra.Command {
 	configCmd.AddCommand(secretConfigCmd(ctx))
 	configCmd.AddCommand(rootCACompareConfigCmd(ctx))
 	configCmd.AddCommand(ecdsConfigCmd(ctx))
-	configCmd.AddCommand(workloadConfigCmd(ctx))
 
 	return configCmd
 }
@@ -1505,11 +1348,6 @@ func getPodNameWithNamespace(ctx cli.Context, podflag, ns string) (string, strin
 		return "", "", err
 	}
 	return podName, podNamespace, nil
-}
-
-// getComponentPodName returns the pod name and namespace of the Istio component
-func getComponentPodName(ctx cli.Context, podflag string) (string, string, error) {
-	return getPodNameWithNamespace(ctx, podflag, ctx.IstioNamespace())
 }
 
 func getPodNameBySelector(ctx cli.Context, kubeClient kube.CLIClient, labelSelector string) ([]string, string, error) {
@@ -1580,9 +1418,7 @@ func ecdsConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	ecdsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")

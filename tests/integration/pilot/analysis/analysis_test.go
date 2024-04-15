@@ -32,14 +32,13 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestWait(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).Features("usability.observability.wait").
+	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
@@ -66,18 +65,9 @@ spec:
 		})
 }
 
-func TestStatusExistsByDefault(t *testing.T) {
-	// This test is not yet implemented
-	framework.NewTest(t).
-		NotImplementedYet(features.Usability_Observability_Status_DefaultExists)
-}
-
 func TestAnalysisWritesStatus(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
-		Features(features.Usability_Observability_Status).
-		// TODO: make feature labels heirarchical constants like:
-		// Label(features.Usability.Observability.Status).
 		RequiresLocalControlPlane().
 		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
@@ -147,7 +137,6 @@ spec:
 
 func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 	framework.NewTest(t).
-		Features(features.Usability_Observability_Status).
 		Run(func(t framework.TestContext) {
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix:   "default",

@@ -47,6 +47,10 @@ var (
 	// nolint: revive, stylecheck
 	TAG Variable = "TAG"
 
+	// VARIANT is the Docker variant to be used for images.
+	// nolint: revive, stylecheck
+	VARIANT Variable = "VARIANT"
+
 	// PULL_POLICY is the image pull policy to use when rendering templates.
 	// nolint: revive, stylecheck
 	PULL_POLICY Variable = "PULL_POLICY"

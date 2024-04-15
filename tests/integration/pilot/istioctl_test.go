@@ -61,8 +61,7 @@ var (
 func TestVersion(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).Features("usability.observability.version").
-		RequiresSingleCluster().
+		NewTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
 
@@ -86,8 +85,7 @@ func TestVersion(t *testing.T) {
 func TestXdsVersion(t *testing.T) {
 	// nolint: staticcheck
 	framework.
-		NewTest(t).Features("usability.observability.version").
-		RequiresSingleCluster().
+		NewTest(t).RequiresSingleCluster().
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
@@ -110,8 +108,7 @@ func TestXdsVersion(t *testing.T) {
 
 func TestDescribe(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).Features("usability.observability.describe").
-		RequiresSingleCluster().
+	framework.NewTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/a.yaml").ApplyOrFail(t)
 
@@ -171,8 +168,7 @@ func getPodID(i echo.Instance) (string, error) {
 
 func TestProxyConfig(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).Features("usability.observability.proxy-config").
-		RequiresSingleCluster().
+	framework.NewTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -289,8 +285,7 @@ func jsonUnmarshallOrFail(t test.Failer, context, s string) any {
 
 func TestProxyStatus(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).Features("usability.observability.proxy-status").
-		RequiresSingleCluster().
+	framework.NewTest(t).RequiresSingleCluster().
 		RequiresLocalControlPlane(). // https://github.com/istio/istio/issues/37051
 		Run(func(t framework.TestContext) {
 			const timeoutFlag = "--timeout=10s"
@@ -363,8 +358,7 @@ func TestProxyStatus(t *testing.T) {
 
 func TestAuthZCheck(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).Features("usability.observability.authz-check").
-		RequiresSingleCluster().
+	framework.NewTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			istioLabel := "ingressgateway"
 			if labelOverride := i.Settings().IngressGatewayIstioLabel; labelOverride != "" {
@@ -432,8 +426,7 @@ func TestAuthZCheck(t *testing.T) {
 
 func TestKubeInject(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).Features("usability.helpers.kube-inject").
-		RequiresSingleCluster().
+	framework.NewTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			var output string
@@ -447,8 +440,7 @@ func TestKubeInject(t *testing.T) {
 
 func TestRemoteClusters(t *testing.T) {
 	// nolint: staticcheck
-	framework.NewTest(t).Features("usability.observability.remote-clusters").
-		RequiresMinClusters(2).
+	framework.NewTest(t).RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
 			for _, cluster := range t.Clusters().Primaries() {
 				cluster := cluster

@@ -368,7 +368,6 @@ func TestErrorLine(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
-		Features("usability.observability.analysis.line-numbers").
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
@@ -464,7 +463,6 @@ func TestMultiCluster(t *testing.T) {
 	// nolint: staticcheck
 	framework.
 		NewTest(t).
-		Features("usability.observability.analysis.multi-cluster").
 		Run(func(t framework.TestContext) {
 			if len(t.Environment().Clusters()) < 2 {
 				t.Skip("skipping test, need at least 2 clusters")

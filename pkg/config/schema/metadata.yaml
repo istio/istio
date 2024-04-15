@@ -218,11 +218,13 @@ resources:
   - kind: "GRPCRoute"
     plural: "grpcroutes"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    version: "v1"
+    versionAliases:
+    - "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     proto: "k8s.io.gateway_api.api.v1alpha1.GRPCRouteSpec"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.GRPCRouteStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
 
   - kind: "TCPRoute"
     plural: "tcproutes"

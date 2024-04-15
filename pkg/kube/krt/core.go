@@ -24,13 +24,12 @@ var log = istiolog.RegisterScope("krt", "")
 // Collection is the core resource type for krt, representing a collection of objects. Items can be listed, or fetched
 // directly. Most importantly, consumers can subscribe to events when objects change.
 type Collection[T any] interface {
-	// GetKey returns an object by it's key, if present. Otherwise, nil is returned.
+	// GetKey returns an object by its key, if present. Otherwise, nil is returned.
 	GetKey(k Key[T]) *T
 
-	// List returns all objects in the queried namespace.
+	// List returns all objects in the collection.
 	// Order of the list is undefined.
-	// Note: not all T types have a "Namespace"; a non-empty namespace is only valid for types that do have a namespace.
-	List(namespace string) []T
+	List() []T
 
 	EventStream[T]
 }
@@ -58,7 +57,7 @@ type EventStream[T any] interface {
 	// Otherwise, behaves the same as Register.
 	// Additionally, skipping the default behavior of "send all current state through the handler" can be turned off.
 	// This is important when we register in a handler itself, which would cause duplicative events.
-	RegisterBatch(f func(o []Event[T]), runExistingState bool) Syncer
+	RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer
 }
 
 // internalCollection is a superset of Collection for internal usage. All collections must implement this type, but

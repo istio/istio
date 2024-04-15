@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: []
+releaseNotes:
+- |
+  **Fixed** an issue causing routes to be overwritten by other virtual services.

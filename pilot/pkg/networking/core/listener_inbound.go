@@ -177,6 +177,20 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		}
 		l.FilterChains = append(l.FilterChains, chains...)
 	}
+	// If there are no filter chains, populate a dummy one that never matches. Envoy doesn't allow no chains, but removing the
+	// entire listeners makes the errors logs more confusing (instead of "no filter chain found" we have no listener at all).
+	if len(l.FilterChains) == 0 {
+		l.FilterChains = []*listener.FilterChain{{
+			Name: model.VirtualInboundBlackholeFilterChainName,
+			Filters: []*listener.Filter{{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
+					StatPrefix:       util.BlackHoleCluster,
+					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+				})},
+			}},
+		}}
+	}
 	lb.authzBuilder = oldBuilder
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	l.ListenerFilters = append(l.ListenerFilters, xdsfilters.OriginalDestination)

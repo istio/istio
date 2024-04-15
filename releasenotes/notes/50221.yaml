@@ -6,5 +6,5 @@ issue:
   - 50173
 releaseNotes:
 - |
-  **Added** Allow user to name their waypoint throught istioctl via --name flag on the waypoint cmd.
+  **Added** Allow user to name their waypoint through istioctl via --name flag on the waypoint cmd.
   **Removed** Remove ability for user to specify service account for the waypoint by deleting the --service-account flag on the waypoint cmd

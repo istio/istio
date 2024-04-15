@@ -17,7 +17,6 @@ package endpoints
 import (
 	"math"
 	"net"
-	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -675,103 +674,66 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
-	waypoint := ""
-	addresses, port := e.Addresses, int(e.EndpointPort)
-	// If Dual Stack feature is enable, the `e.Addresses` has both IPv4 and IPv6
-	// `supportTunnel` returns the IP address which supports Tunnel based on `e`'s
-	// networkID and IP address information.
-	// Note: Waypoint is not deployed in Dual Stack mode, so it still keeps the single
-	// stack behaviors, so `supportTunnel` returns the first IP here if `e` is waypoint`
-	// because it does support Tunnel
-	tunnel, supportTunnelAddr := supportTunnel(b, e)
-	if supportTunnelAddr == "" {
-		supportTunnelAddr = addresses[0]
-	}
-	// Setup tunnel information, if needed
-	// This is for waypoint
-	if b.dir == model.TrafficDirectionInboundVIP {
-		// This is only used in waypoint proxy
-		inScope := waypointInScope(b.proxy, e)
-		if !inScope {
-			// A waypoint can *partially* select a Service in edge cases. In this case, some % of requests will
-			// go through the waypoint, and the rest direct. Since these have already been load balanced across,
-			// we want to make sure we only send to workloads behind our waypoint
-			return nil
-		}
-		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
-		if tunnel {
-			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
-			// and add some detunnel metadata that had the original port.
-			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(supportTunnelAddr, port, waypoint)
-			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
-			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
-				Value: e.GetLoadBalancingWeight(),
-			}
-		}
-	} else if tunnel {
+	if supportTunnel(b, e) {
+		addresses, port := e.Addresses, int(e.EndpointPort)
+		// We intentionally do not take into account waypoints here.
+		// 1. Workload waypoints: sidecar/ingress do not support sending traffic directly to workloads, only to services,
+		//    so these are not applicable.
+		// 2. Service waypoints: in ztunnel, we would defer handling service traffic if the service has a waypoint, and instead
+		//    send to the waypoint. However, with sidecars this is problematic. We don't know which service is the intended destination
+		//    until *after* we apply policies. If we then sent to a service waypoint, we apply service policies twice.
+		//    This can be problematic: double mirroring, fault injection, request manipulation, ....
+		//    Instead, we consider this to workload traffic. This gives the same behavior as if we were an application doing internal load balancing
+		//    with ztunnel.
+		//    Note: there is a pretty valid case for wanting to send to the service from ingress. This gives a two tier delegation.
+		//    However, it's not safe to do that by default; perhaps a future API could opt into this.
 		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
-		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() {
-			workloads := findWaypoints(b.push, e)
-			if len(workloads) > 0 {
-				// TODO: load balance
-				waypoint = net.JoinHostPort(workloads[0].String(), strconv.Itoa(model.HBoneInboundListenPort))
-			}
-		}
 		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(supportTunnelAddr, strconv.Itoa(port))),
+			Address:             util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(addresses[0], strconv.Itoa(port))),
+			AdditionalAddresses: additionalAddrs,
 		}}
-		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(supportTunnelAddr, port, waypoint)
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
-			},
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(addresses[0], port)
+		if b.dir != model.TrafficDirectionInboundVIP {
+			// Add TLS metadata matcher to indicate we can use HBONE for this endpoint.
+			// We skip this for service waypoint, which doesn't need to dynamically match mTLS vs HBONE.
+			ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+				},
+			}
 		}
 	}
 
 	return ep
 }
 
-func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) (bool, string) {
+func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 	if b.proxy.IsProxylessGrpc() {
 		// Proxyless client cannot handle tunneling, even if the server can
-		return false, ""
+		return false
 	}
 
 	if !b.proxy.EnableHBONE() {
-		return false, ""
+		return false
 	}
 
 	// Other side is a waypoint proxy.
 	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
-		return true, e.Addresses[0]
+		return true
 	}
 
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
 	// Checking all addresses and return true if there is any IP address support tunneling with currenct endpoint has multiple addresses
 	for _, addr := range e.Addresses {
 		if b.push.SupportsTunnel(e.Network, addr) {
-			return true, addr
+			return true
 		}
 	}
 	// Otherwise supports tunnel
 	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
 	// need to pick the right one based on our support overlap.
-	if e.SupportsTunnel(model.TunnelHTTP) {
-		return true, ""
-	}
-
-	return false, ""
-}
-
-// waypointInScope computes whether the endpoint is owned by the waypoint
-func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
-	return waypoint.GetNamespace() == e.Namespace
-}
-
-func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {
-	ips := push.WaypointsFor(e.Network.String(), e.Key())
-	return ips
+	return e.SupportsTunnel(model.TunnelHTTP)
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

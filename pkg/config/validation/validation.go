@@ -62,8 +62,9 @@ import (
 
 // Constants for duration fields
 const (
+	// Set some high upper bound to avoid weird configurations
 	// nolint: revive
-	connectTimeoutMax = time.Second * 30
+	connectTimeoutMax = time.Hour
 	// nolint: revive
 	connectTimeoutMin = time.Millisecond
 
@@ -1721,6 +1722,13 @@ func ValidateControlPlaneAuthPolicy(policy meshconfig.AuthenticationPolicy) erro
 	return fmt.Errorf("unrecognized control plane auth policy %q", policy)
 }
 
+func validatePolicyTargetReferences(targetRefs []*type_beta.PolicyTargetReference) (v Validation) {
+	for _, r := range targetRefs {
+		v = AppendValidation(v, validatePolicyTargetReference(r))
+	}
+	return
+}
+
 func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
 	if targetRef == nil {
 		return
@@ -1761,9 +1769,23 @@ func validateWorkloadSelector(selector *type_beta.WorkloadSelector) Validation {
 	return validation
 }
 
-func validateOneOfSelectorType(selector *type_beta.WorkloadSelector, targetRef *type_beta.PolicyTargetReference) (v Validation) {
-	if selector != nil && targetRef != nil {
-		v = appendErrorf(v, "only one of targetRef or workloadSelector can be set")
+func validateOneOfSelectorType(
+	selector *type_beta.WorkloadSelector,
+	targetRef *type_beta.PolicyTargetReference,
+	targetRefs []*type_beta.PolicyTargetReference,
+) (v Validation) {
+	set := 0
+	if selector != nil {
+		set++
+	}
+	if targetRef != nil {
+		set++
+	}
+	if len(targetRefs) > 0 {
+		set++
+	}
+	if set > 1 {
+		v = appendErrorf(v, "only one of targetRefs or workloadSelector can be set")
 	}
 	return
 }
@@ -1778,10 +1800,11 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 
 		var errs error
 		var warnings Warning
-		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef())
+		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef(), in.GetTargetRefs())
 		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
 		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef())
-		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation)
+		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs())
+		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation, targetRefsValidation)
 		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
 
 		if in.Action == security_beta.AuthorizationPolicy_CUSTOM {
@@ -1952,9 +1975,10 @@ var ValidateRequestAuthentication = RegisterValidateFunc("ValidateRequestAuthent
 
 		errs := Validation{}
 		errs = AppendValidation(errs,
-			validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef()),
+			validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef(), in.GetTargetRefs()),
 			validateWorkloadSelector(in.GetSelector()),
 			validatePolicyTargetReference(in.GetTargetRef()),
+			validatePolicyTargetReferences(in.GetTargetRefs()),
 		)
 
 		for _, rule := range in.JwtRules {
@@ -2610,6 +2634,18 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	return
+}
+
+func validateStringMatch(sm *networking.StringMatch, where string) error {
+	switch sm.GetMatchType().(type) {
+	case *networking.StringMatch_Prefix:
+		if sm.GetPrefix() == "" {
+			return fmt.Errorf("%q: prefix string match should not be empty", where)
+		}
+	case *networking.StringMatch_Regex:
+		return validateStringMatchRegexp(sm, where)
+	}
+	return nil
 }
 
 func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
@@ -3674,9 +3710,10 @@ var ValidateTelemetry = RegisterValidateFunc("ValidateTelemetry",
 		errs := Validation{}
 
 		errs = AppendValidation(errs,
-			validateOneOfSelectorType(spec.GetSelector(), spec.GetTargetRef()),
+			validateOneOfSelectorType(spec.GetSelector(), spec.GetTargetRef(), spec.GetTargetRefs()),
 			validateWorkloadSelector(spec.GetSelector()),
 			validatePolicyTargetReference(spec.GetTargetRef()),
+			validatePolicyTargetReferences(spec.GetTargetRefs()),
 			validateTelemetryMetrics(spec.Metrics),
 			validateTelemetryTracing(spec.Tracing),
 			validateTelemetryAccessLogging(spec.AccessLogging),
@@ -3801,9 +3838,10 @@ var ValidateWasmPlugin = RegisterValidateFunc("ValidateWasmPlugin",
 		// figure out how to add check for targetRef and workload selector is not nil
 		errs := Validation{}
 		errs = AppendValidation(errs,
-			validateOneOfSelectorType(spec.GetSelector(), spec.GetTargetRef()),
+			validateOneOfSelectorType(spec.GetSelector(), spec.GetTargetRef(), spec.GetTargetRefs()),
 			validateWorkloadSelector(spec.GetSelector()),
 			validatePolicyTargetReference(spec.GetTargetRef()),
+			validatePolicyTargetReferences(spec.GetTargetRefs()),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
 			validateWasmPluginVMConfig(spec.VmConfig),

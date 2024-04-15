@@ -22,13 +22,13 @@ import (
 
 	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/util"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -80,26 +80,27 @@ func (s *NetServer) Stop() {
 	s.ztunnelServer.Close()
 }
 
-func (s *NetServer) rescanPod(pod *metav1.ObjectMeta) error {
+func (s *NetServer) rescanPod(pod *corev1.Pod) error {
 	// this can happen if the pod was dynamically added to the mesh after it was created.
 	// in that case, try finding the netns using procfs.
-	filter := sets.New[types.UID]()
-	filter.Insert(pod.UID)
+	filter := map[types.UID]*corev1.Pod{
+		pod.UID: pod,
+	}
 	return s.scanProcForPodsAndCache(filter)
 }
 
-func (s *NetServer) getOrOpenNetns(pod *metav1.ObjectMeta, netNs string) (Netns, error) {
+func (s *NetServer) getOrOpenNetns(pod *corev1.Pod, netNs string) (Netns, error) {
 	if netNs == "" {
 		return s.getNetns(pod)
 	}
 	return s.openNetns(pod, netNs)
 }
 
-func (s *NetServer) openNetns(pod *metav1.ObjectMeta, netNs string) (Netns, error) {
-	return s.currentPodSnapshot.UpsertPodCache(string(pod.UID), netNs)
+func (s *NetServer) openNetns(pod *corev1.Pod, netNs string) (Netns, error) {
+	return s.currentPodSnapshot.UpsertPodCache(pod, netNs)
 }
 
-func (s *NetServer) getNetns(pod *metav1.ObjectMeta) (Netns, error) {
+func (s *NetServer) getNetns(pod *corev1.Pod) (Netns, error) {
 	openNetns := s.currentPodSnapshot.Get(string(pod.UID))
 	if openNetns != nil {
 		return openNetns, nil
@@ -138,7 +139,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	log.Infof("in pod mode - adding pod %s/%s to ztunnel ", pod.Namespace, pod.Name)
 	// make sure the cache is aware of the pod, even if we don't have the netns yet.
 	s.currentPodSnapshot.Ensure(string(pod.UID))
-	openNetns, err := s.getOrOpenNetns(&pod.ObjectMeta, netNs)
+	openNetns, err := s.getOrOpenNetns(pod, netNs)
 	if err != nil {
 		return err
 	}
@@ -159,7 +160,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	}
 
 	log.Debug("notifying subscribed node proxies")
-	if err := s.sendPodToZtunnelAndWaitForAck(ctx, &pod.ObjectMeta, openNetns); err != nil {
+	if err := s.sendPodToZtunnelAndWaitForAck(ctx, pod, openNetns); err != nil {
 		// we must return PartialAdd error here. the pod was injected with iptables rules,
 		// so it should be annotated, so if it is removed from the mesh, the rules will be removed.
 		// alternatively, we may not return an error at all, but we want this to fail on tests.
@@ -168,8 +169,8 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	return nil
 }
 
-func (s *NetServer) sendPodToZtunnelAndWaitForAck(ctx context.Context, pod *metav1.ObjectMeta, netns Netns) error {
-	return s.ztunnelServer.PodAdded(ctx, string(pod.UID), netns)
+func (s *NetServer) sendPodToZtunnelAndWaitForAck(ctx context.Context, pod *corev1.Pod, netns Netns) error {
+	return s.ztunnelServer.PodAdded(ctx, pod, netns)
 }
 
 // ConstructInitialSnapshot takes a "snapshot" of current ambient pods and
@@ -184,7 +185,8 @@ func (s *NetServer) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {
 		consErr = append(consErr, err)
 	}
 
-	if err := s.buildZtunnelSnapshot(util.GetUniquePodUIDs(ambientPods)); err != nil {
+	podsByUID := slices.GroupUnique(ambientPods, (*corev1.Pod).GetUID)
+	if err := s.buildZtunnelSnapshot(podsByUID); err != nil {
 		log.Warnf("failed to construct initial ztunnel snapshot: %v", err)
 		consErr = append(consErr, err)
 	}
@@ -192,7 +194,7 @@ func (s *NetServer) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {
 	return errors.Join(consErr...)
 }
 
-func (s *NetServer) buildZtunnelSnapshot(ambientPodUIDs sets.Set[types.UID]) error {
+func (s *NetServer) buildZtunnelSnapshot(ambientPodUIDs map[types.UID]*corev1.Pod) error {
 	// first add all the pods as empty:
 	for uid := range ambientPodUIDs {
 		s.currentPodSnapshot.Ensure(string(uid))
@@ -202,15 +204,15 @@ func (s *NetServer) buildZtunnelSnapshot(ambientPodUIDs sets.Set[types.UID]) err
 	return s.scanProcForPodsAndCache(ambientPodUIDs)
 }
 
-func (s *NetServer) scanProcForPodsAndCache(filter sets.Set[types.UID]) error {
+func (s *NetServer) scanProcForPodsAndCache(pods map[types.UID]*corev1.Pod) error {
 	// TODO: maybe remove existing uids in s.currentPodSnapshot from the filter set.
-	res, err := s.podNs.FindNetnsForPods(filter)
+	res, err := s.podNs.FindNetnsForPods(pods)
 	if err != nil {
 		return err
 	}
 
-	for uid, netns := range res {
-		s.currentPodSnapshot.UpsertPodCacheWithNetns(string(uid), netns)
+	for uid, wl := range res {
+		s.currentPodSnapshot.UpsertPodCacheWithNetns(uid, wl)
 	}
 	return nil
 }

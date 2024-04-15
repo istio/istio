@@ -46,7 +46,6 @@ type Index interface {
 	All() []model.AddressInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
-	Waypoint(network, address string) []netip.Addr
 	SyncAll()
 	HasSynced() bool
 	model.AmbientIndexes
@@ -138,6 +137,10 @@ func New(options Options) Index {
 	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, krt.WithName("GatewayClasses"))
 
 	Services := krt.NewInformerFiltered[*v1.Service](options.Client, filter, krt.WithName("Services"))
+	Nodes := krt.NewInformerFiltered[*v1.Node](options.Client, kclient.Filter{
+		ObjectFilter:    options.Client.ObjectFilter(),
+		ObjectTransform: kubeclient.StripNodeUnusedFields,
+	}, krt.WithName("Nodes"))
 	Pods := krt.NewInformerFiltered[*v1.Pod](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
@@ -157,8 +160,8 @@ func New(options Options) Index {
 
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
-	ServiceAddressIndex := krt.CreateIndex[model.ServiceInfo, networkAddress](WorkloadServices, networkAddressFromService)
-	ServiceInfosByOwningWaypoint := krt.CreateIndex[model.ServiceInfo, networkAddress](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
+	ServiceAddressIndex := krt.NewIndex[model.ServiceInfo, networkAddress](WorkloadServices, networkAddressFromService)
+	ServiceInfosByOwningWaypoint := krt.NewIndex[model.ServiceInfo, networkAddress](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -191,6 +194,7 @@ func New(options Options) Index {
 
 	Workloads := a.WorkloadsCollection(
 		Pods,
+		Nodes,
 		MeshConfig,
 		AuthorizationPolicies,
 		PeerAuths,
@@ -201,11 +205,11 @@ func New(options Options) Index {
 		AllPolicies,
 		Namespaces,
 	)
-	WorkloadAddressIndex := krt.CreateIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
-	WorkloadServiceIndex := krt.CreateIndex[model.WorkloadInfo, string](Workloads, func(o model.WorkloadInfo) []string {
+	WorkloadAddressIndex := krt.NewIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
+	WorkloadServiceIndex := krt.NewIndex[model.WorkloadInfo, string](Workloads, func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Services)
 	})
-	WorkloadWaypointIndex := krt.CreateIndex[model.WorkloadInfo, networkAddress](Workloads, func(w model.WorkloadInfo) []networkAddress {
+	WorkloadWaypointIndex := krt.NewIndex[model.WorkloadInfo, networkAddress](Workloads, func(w model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -322,7 +326,7 @@ func (a *index) All() []model.AddressInfo {
 		index int
 	}
 	addrm := map[netip.Addr]kindindex{}
-	for _, wl := range a.workloads.List("") {
+	for _, wl := range a.workloads.List() {
 		overwrite := -1
 		write := true
 		for _, addr := range wl.Addresses {
@@ -354,7 +358,7 @@ func (a *index) All() []model.AddressInfo {
 			}
 		}
 	}
-	for _, s := range a.services.List("") {
+	for _, s := range a.services.List() {
 		res = append(res, serviceToAddressInfo(s.Service))
 	}
 	return res
@@ -403,29 +407,6 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	})
 	workloads = model.SortWorkloadsByCreationTime(workloads)
 	return workloads
-}
-
-func (a *index) Waypoint(network, address string) []netip.Addr {
-	res := sets.Set[netip.Addr]{}
-	networkAddr := networkAddress{
-		network: network,
-		ip:      address,
-	}
-	addressInfos := a.Lookup(networkAddr.String())
-	for _, addressInfo := range addressInfos {
-		waypointAddress := addressInfo.GetService().GetWaypoint().GetAddress().GetAddress()
-		if a, ok := netip.AddrFromSlice(waypointAddress); ok {
-			res.Insert(a)
-			// This was a service, therefore it is not a workload and we can just move on
-			continue
-		}
-
-		waypointAddress = addressInfo.GetWorkload().GetWaypoint().GetAddress().GetAddress()
-		if a, ok := netip.AddrFromSlice(waypointAddress); ok {
-			res.Insert(a)
-		}
-	}
-	return res.UnsortedList()
 }
 
 func (a *index) AdditionalPodSubscriptions(
@@ -481,8 +462,8 @@ func (a *index) HasSynced() bool {
 
 type LookupNetwork func(endpointIP string, labels labels.Instance) network.ID
 
-func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {
-	return func(events []krt.Event[T]) {
+func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T], initialSync bool) {
+	return func(events []krt.Event[T], initialSync bool) {
 		cu := sets.New[model.ConfigKey]()
 		for _, e := range events {
 			for _, i := range e.Items() {

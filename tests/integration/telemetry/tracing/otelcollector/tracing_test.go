@@ -41,7 +41,6 @@ import (
 // the Envoy Trace driver for OpenCensusAgent.
 func TestProxyTracingOpenCensusMeshConfig(t *testing.T) {
 	framework.NewTest(t).
-		Features("observability.telemetry.tracing.server").
 		Run(func(t framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
 			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
@@ -107,7 +106,6 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 	}
 
 	framework.NewTest(t).
-		Features("observability.telemetry.tracing.server").
 		Run(func(ctx framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
 

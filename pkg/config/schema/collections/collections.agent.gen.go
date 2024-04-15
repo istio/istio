@@ -345,6 +345,7 @@ var (
 			Build()
 
 	// PilotStableGatewayAPI contains only collections used by Pilot, including beta+ Gateway API.
+	// TODO: add GPRCRoute
 	pilotStableGatewayAPI = collection.NewSchemasBuilder().
 				MustAdd(AuthorizationPolicy).
 				MustAdd(DestinationRule).

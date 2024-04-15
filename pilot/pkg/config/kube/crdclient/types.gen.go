@@ -22,6 +22,7 @@ import (
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -56,9 +57,9 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.EnvoyFilter)),
 		}, metav1.CreateOptions{})
 	case gvk.GRPCRoute:
-		return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.GRPCRoute{
+		return c.GatewayAPI().GatewayV1().GRPCRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.GRPCRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.GRPCRouteSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.GRPCRouteSpec)),
 		}, metav1.CreateOptions{})
 	case gvk.Gateway:
 		return c.Istio().NetworkingV1alpha3().Gateways(cfg.Namespace).Create(context.TODO(), &apiistioioapinetworkingv1alpha3.Gateway{
@@ -173,9 +174,9 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.EnvoyFilter)),
 		}, metav1.UpdateOptions{})
 	case gvk.GRPCRoute:
-		return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.GRPCRoute{
+		return c.GatewayAPI().GatewayV1().GRPCRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.GRPCRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.GRPCRouteSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.GRPCRouteSpec)),
 		}, metav1.UpdateOptions{})
 	case gvk.Gateway:
 		return c.Istio().NetworkingV1alpha3().Gateways(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1alpha3.Gateway{
@@ -290,9 +291,9 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.GRPCRoute:
-		return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.GRPCRoute{
+		return c.GatewayAPI().GatewayV1().GRPCRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1.GRPCRoute{
 			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1alpha2.GRPCRouteStatus)),
+			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1.GRPCRouteStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.Gateway:
 		return c.Istio().NetworkingV1alpha3().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapinetworkingv1alpha3.Gateway{
@@ -435,19 +436,19 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.GRPCRoute:
-		oldRes := &sigsk8siogatewayapiapisv1alpha2.GRPCRoute{
+		oldRes := &sigsk8siogatewayapiapisv1.GRPCRoute{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1alpha2.GRPCRouteSpec)),
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1.GRPCRouteSpec)),
 		}
-		modRes := &sigsk8siogatewayapiapisv1alpha2.GRPCRoute{
+		modRes := &sigsk8siogatewayapiapisv1.GRPCRoute{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1alpha2.GRPCRouteSpec)),
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1.GRPCRouteSpec)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
 			return nil, err
 		}
-		return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(orig.Namespace).
+		return c.GatewayAPI().GatewayV1().GRPCRoutes(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.Gateway:
 		oldRes := &apiistioioapinetworkingv1alpha3.Gateway{
@@ -737,7 +738,7 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 	case gvk.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.GRPCRoute:
-		return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
+		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.Gateway:
 		return c.Istio().NetworkingV1alpha3().Gateways(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.GatewayClass:
@@ -965,7 +966,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 	gvk.GRPCRoute: func(r runtime.Object) config.Config {
-		obj := r.(*sigsk8siogatewayapiapisv1alpha2.GRPCRoute)
+		obj := r.(*sigsk8siogatewayapiapisv1.GRPCRoute)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.GRPCRoute,

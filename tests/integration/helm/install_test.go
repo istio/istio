@@ -36,10 +36,10 @@ func TestDefaultInstall(t *testing.T) {
 global:
   hub: %s
   tag: %s
+  variant: %q
 `
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.install").
 		Run(setupInstallation(overrideValuesStr, false))
 }
 
@@ -47,7 +47,6 @@ global:
 func TestAmbientInstall(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.ambient.install").
 		Run(setupInstallation(ambientProfileOverride, true))
 }
 
@@ -60,7 +59,7 @@ func setupInstallation(overrideValuesStr string, isAmbient bool) func(t framewor
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
 		s := t.Settings()
-		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, s.Image.Tag)
+		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, s.Image.Tag, s.Image.Variant)
 		overrideValuesFile := filepath.Join(workDir, "values.yaml")
 		if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 			t.Fatalf("failed to write iop cr file: %v", err)

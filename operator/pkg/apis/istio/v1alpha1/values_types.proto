@@ -971,6 +971,18 @@ message PilotConfig {
 
   // Configures whether to use an existing CNI installation for workloads
   CNIUsageConfig cni = 55;
+
+  PilotTaintControllerConfig taint = 57;
+}
+
+message PilotTaintControllerConfig {
+  // Enable the untaint controller for new nodes. This aims to solve a race for CNI installation on 
+  // new nodes. For this to work, the newly added nodes need to have the istio CNI taint as they are
+  // added to the cluster. This is usually done by configuring the cluster infra provider.
+  bool enabled = 1;
+
+  // The namespace of the CNI daemonset, incase it's not the same as istiod.
+  string namespace = 2;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.

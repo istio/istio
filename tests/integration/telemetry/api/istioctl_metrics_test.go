@@ -33,7 +33,6 @@ import (
 // traffic and that the expected default output format is matched.
 func TestIstioctlMetrics(t *testing.T) {
 	framework.NewTest(t).
-		Features("observability.telemetry.istioctl").
 		Run(func(t framework.TestContext) {
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := SendTraffic(GetClientInstances()[0]); err != nil {

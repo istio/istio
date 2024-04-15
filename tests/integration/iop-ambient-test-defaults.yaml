@@ -10,10 +10,6 @@ spec:
       - name: istio-ingressgateway
         enabled: true
   values:
-    global:
-      # Ambient profile defaults to distroless. But this kind of breaks the test framework, which tries to set
-      # its own logic for distroless or not. Instead, defer it to the framework.
-      variant: ""
     cni:
       ambient:
         # Some of the tests require DNS capture

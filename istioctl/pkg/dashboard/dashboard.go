@@ -390,7 +390,7 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
 	return cmd
 }
 
-// istiodDebugDashCmd port-forwards to istio monitoring port; open browser to the debug page
+// istioDebugDashCmd port-forwards to istio monitoring port; open browser to the debug page
 func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{

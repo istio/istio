@@ -32,7 +32,7 @@ import (
 // registerHandlerAsBatched is a helper to register the provided handler as a batched handler. This allows collections to
 // only implement RegisterBatch.
 func registerHandlerAsBatched[T any](c internalCollection[T], f func(o Event[T])) Syncer {
-	return c.RegisterBatch(func(events []Event[T]) {
+	return c.RegisterBatch(func(events []Event[T], initialSync bool) {
 		for _, o := range events {
 			f(o)
 		}
@@ -45,12 +45,12 @@ type erasedCollection struct {
 	// original stores the original typed Collection
 	original any
 	// registerFunc registers any Event[any] handler. These will be mapped to Event[T] when connected to the original collection.
-	registerFunc func(f func(o []Event[any]))
+	registerFunc func(f func(o []Event[any], initialSync bool))
 	name         string
 	synced       Syncer
 }
 
-func (e erasedCollection) register(f func(o []Event[any])) {
+func (e erasedCollection) register(f func(o []Event[any], initialSync bool)) {
 	e.registerFunc(f)
 }
 
@@ -59,9 +59,9 @@ func eraseCollection[T any](c internalCollection[T]) erasedCollection {
 		name:     c.name(),
 		original: c,
 		synced:   c.Synced(),
-		registerFunc: func(f func(o []Event[any])) {
-			ff := func(o []Event[T]) {
-				f(slices.Map(o, castEvent[T, any]))
+		registerFunc: func(f func(o []Event[any], initialSync bool)) {
+			ff := func(o []Event[T], initialSync bool) {
+				f(slices.Map(o, castEvent[T, any]), initialSync)
 			}
 			// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
 			// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
@@ -120,16 +120,6 @@ type registerDependency interface {
 	name() string
 }
 
-// getName returns the name for an object, if possible.
-// Warning: this will panic if the name is not available.
-func getName(a any) string {
-	ak, ok := a.(Namer)
-	if ok {
-		return ak.GetName()
-	}
-	panic(fmt.Sprintf("No Name, got %T %+v", a, a))
-}
-
 // tryGetKey returns the Key for an object. If not possible, returns false
 func tryGetKey[O any](a O) (Key[O], bool) {
 	as, ok := any(a).(string)
@@ -154,20 +144,6 @@ func tryGetKey[O any](a O) (Key[O], bool) {
 		return *ack, true
 	}
 	return "", false
-}
-
-// getNamespace returns the namespace for an object, if possible.
-// Warning: this will panic if the namespace is not available.
-func getNamespace(a any) string {
-	ak, ok := a.(Namespacer)
-	if ok {
-		return ak.GetNamespace()
-	}
-	pk, ok := any(&a).(Namespacer)
-	if ok {
-		return pk.GetNamespace()
-	}
-	panic(fmt.Sprintf("No Namespace, got %T", a))
 }
 
 // getLabels returns the labels for an object, if possible.

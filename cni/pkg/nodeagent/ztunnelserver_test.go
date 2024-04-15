@@ -25,6 +25,9 @@ import (
 
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test/util/assert"
@@ -136,14 +139,14 @@ func TestZtunnelPodAdded(t *testing.T) {
 	// now remove the pod
 	ztunnelServer := fixture.ztunServer
 	errChan := make(chan error)
-	uid2, ns2 := podAndNetns()
+	pod2, ns2 := podAndNetns()
 	go func() {
-		errChan <- ztunnelServer.PodAdded(ctx, uid2, ns2)
+		errChan <- ztunnelServer.PodAdded(ctx, pod2, ns2)
 	}()
 	// read the msg to delete from ztunnel
 	m, fds = readRequest(t, ztunClient)
 	assert.Equal(t, len(fds), 1)
-	assert.Equal(t, m.Payload.(*zdsapi.WorkloadRequest_Add).Add.Uid, uid2)
+	assert.Equal(t, m.Payload.(*zdsapi.WorkloadRequest_Add).Add.Uid, string(pod2.UID))
 	sendAck(ztunClient)
 
 	assert.NoError(t, <-errChan)
@@ -162,10 +165,10 @@ func TestZtunnelPodKept(t *testing.T) {
 
 	pods := &fakePodCache{}
 
-	uid, f := podAndNetns()
+	pod, f := podAndNetns()
 	f.Close()
-	pods.pods = map[string]Netns{
-		uid: nil, // simulate unknown netns
+	pods.pods = map[string]WorkloadInfo{
+		string(pod.UID): {}, // simulate unknown netns
 	}
 
 	fixture := connectWithPods(ctx, pods)
@@ -174,7 +177,7 @@ func TestZtunnelPodKept(t *testing.T) {
 	keep, fds := readRequest(t, ztunClient)
 	assert.Equal(t, len(fds), 0)
 	kept := keep.Payload.(*zdsapi.WorkloadRequest_Keep).Keep
-	if kept.Uid != uid {
+	if kept.Uid != string(pod.UID) {
 		panic("expected keep received")
 	}
 
@@ -193,7 +196,7 @@ func TestZtunnelPodKept(t *testing.T) {
 	mt.Assert(ztunnelConnected.Name(), nil, monitortest.Exactly(0))
 }
 
-func podAndNetns() (string, *fakeNs) {
+func podAndNetns() (*v1.Pod, *fakeNs) {
 	devNull, err := os.Open(os.DevNull)
 	if err != nil {
 		panic(err)
@@ -202,7 +205,16 @@ func podAndNetns() (string, *fakeNs) {
 	// it would leak, but this is a test, so we don't care
 	//	defer devNull.Close()
 
-	return fmt.Sprintf("uid%d", ztunnelTestCounter.Add(1)), newFakeNs(devNull.Fd())
+	id := ztunnelTestCounter.Add(1)
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("name-%d", id),
+			UID:  types.UID(fmt.Sprintf("uid-%d", id)),
+		},
+		Spec:   v1.PodSpec{},
+		Status: v1.PodStatus{},
+	}
+	return pod, newFakeNs(devNull.Fd())
 }
 
 func connect(ctx context.Context) struct {
@@ -212,9 +224,13 @@ func connect(ctx context.Context) struct {
 } {
 	pods := &fakePodCache{}
 
-	uid, ns := podAndNetns()
-	pods.pods = map[string]Netns{
-		uid: ns,
+	pod, ns := podAndNetns()
+	workload := WorkloadInfo{
+		Workload: podToWorkload(pod),
+		Netns:    ns,
+	}
+	pods.pods = map[string]WorkloadInfo{
+		string(pod.UID): workload,
 	}
 	ret := connectWithPods(ctx, pods)
 
@@ -222,7 +238,7 @@ func connect(ctx context.Context) struct {
 		ztunClient *net.UnixConn
 		ztunServer *ztunnelServer
 		uid        string
-	}{ztunClient: ret.ztunClient, ztunServer: ret.ztunServer, uid: uid}
+	}{ztunClient: ret.ztunClient, ztunServer: ret.ztunServer, uid: string(pod.UID)}
 }
 
 func connectWithPods(ctx context.Context, pods PodNetnsCache) struct {
@@ -318,9 +334,9 @@ func sendHello(c *net.UnixConn) {
 }
 
 type fakePodCache struct {
-	pods map[string]Netns
+	pods map[string]WorkloadInfo
 }
 
-func (f fakePodCache) ReadCurrentPodSnapshot() map[string]Netns {
+func (f fakePodCache) ReadCurrentPodSnapshot() map[string]WorkloadInfo {
 	return f.pods
 }

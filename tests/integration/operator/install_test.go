@@ -37,7 +37,6 @@ type installTestCase struct {
 func TestInstallCommandInput(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.install").
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 			testCases := []installTestCase{
@@ -65,7 +64,6 @@ func TestInstallCommandInput(t *testing.T) {
 
 func TestReInstallAfterFailure(t *testing.T) {
 	framework.NewTest(t).
-		Features("installation.istioctl.install").
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			cs := t.Clusters().Default()

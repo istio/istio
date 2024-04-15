@@ -55,6 +55,12 @@ rules:
     resources: ["endpointslices"]
     verbs: ["get", "list", "watch"]
 
+{{- if .Values.pilot.taint.enabled }}
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["patch"]
+{{- end }}
+
   # ingress controller
 {{- if .Values.global.istiod.enableAnalysis }}
   - apiGroups: ["extensions", "networking.k8s.io"]

@@ -28,7 +28,6 @@ import (
 func TestPostInstallControlPlaneVerification(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.postinstall_verify").
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			cs := t.Environment().Clusters().Default()
@@ -41,6 +40,7 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 				"install",
 				"--set", "hub=" + s.Image.Hub,
 				"--set", "tag=" + s.Image.Tag,
+				"--set", "values.global.variant=" + s.Image.Variant,
 				"--manifests=" + ManifestPath,
 				"-y",
 			}

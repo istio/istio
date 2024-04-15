@@ -103,7 +103,6 @@ func TestLocality(t *testing.T) {
 	// nolint: staticcheck
 	framework.
 		NewTest(t).
-		Features("traffic.locality").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			destA := apps.B[0]

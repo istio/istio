@@ -18,6 +18,7 @@ package ambient
 import (
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -44,9 +45,11 @@ func MeshConfigCollection(ConfigMaps krt.Collection[*v1.ConfigMap], options Opti
 			meshCfg := mesh.DefaultMeshConfig()
 			cms := []*v1.ConfigMap{}
 			if features.SharedMeshConfig != "" {
-				cms = AppendNonNil(cms, krt.FetchOne(ctx, ConfigMaps, krt.FilterName(features.SharedMeshConfig, options.SystemNamespace)))
+				cms = AppendNonNil(cms, krt.FetchOne(ctx, ConfigMaps,
+					krt.FilterObjectName(types.NamespacedName{Name: features.SharedMeshConfig, Namespace: options.SystemNamespace})))
 			}
-			cms = AppendNonNil(cms, krt.FetchOne(ctx, ConfigMaps, krt.FilterName(cmName, options.SystemNamespace)))
+			cms = AppendNonNil(cms, krt.FetchOne(ctx, ConfigMaps,
+				krt.FilterObjectName(types.NamespacedName{Name: cmName, Namespace: options.SystemNamespace})))
 
 			for _, c := range cms {
 				n, err := mesh.ApplyMeshConfig(meshConfigMapData(c), meshCfg)

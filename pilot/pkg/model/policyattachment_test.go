@@ -213,6 +213,33 @@ func TestGetPolicyMatcher(t *testing.T) {
 			expected:               policyMatchIgnore,
 			enableSelectorPolicies: true,
 		},
+		{
+			name: "waypoint and matching targetRefs",
+			opts: sampleWaypoint,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{waypointTargetRef},
+			},
+			expected:               policyMatchDirect,
+			enableSelectorPolicies: true,
+		},
+		{
+			name: "waypoint and partial matching targetRefs",
+			opts: sampleWaypoint,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{waypointTargetRef, sampleTargetRef},
+			},
+			expected:               policyMatchDirect,
+			enableSelectorPolicies: true,
+		},
+		{
+			name: "waypoint and non matching targetRefs",
+			opts: sampleWaypoint,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{sampleTargetRef},
+			},
+			expected:               policyMatchIgnore,
+			enableSelectorPolicies: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -228,12 +255,17 @@ func TestGetPolicyMatcher(t *testing.T) {
 }
 
 type mockPolicyTargetGetter struct {
-	targetRef *v1beta1.PolicyTargetReference
-	selector  *v1beta1.WorkloadSelector
+	targetRef  *v1beta1.PolicyTargetReference
+	targetRefs []*v1beta1.PolicyTargetReference
+	selector   *v1beta1.WorkloadSelector
 }
 
 func (m *mockPolicyTargetGetter) GetTargetRef() *v1beta1.PolicyTargetReference {
 	return m.targetRef
+}
+
+func (m *mockPolicyTargetGetter) GetTargetRefs() []*v1beta1.PolicyTargetReference {
+	return m.targetRefs
 }
 
 func (m *mockPolicyTargetGetter) GetSelector() *v1beta1.WorkloadSelector {

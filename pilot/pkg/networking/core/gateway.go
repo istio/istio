@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/hash"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/util/sets"
@@ -480,9 +481,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						}
 					}
 					newVHost := &route.VirtualHost{
-						Name:                       util.DomainName(string(hostname), port),
-						Domains:                    []string{hostname.String()},
-						Routes:                     routes,
+						Name:    util.DomainName(string(hostname), port),
+						Domains: []string{hostname.String()},
+						// Route will be appended to during deduplication, so make sure we are operating on a copy
+						Routes:                     slices.Clone(routes),
 						TypedPerFilterConfig:       perRouteFilters,
 						IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
 					}

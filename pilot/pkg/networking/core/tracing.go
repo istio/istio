@@ -64,9 +64,9 @@ func configureTracing(
 	proxy *model.Proxy,
 	httpConnMgr *hcm.HttpConnectionManager,
 	class networking.ListenerClass,
-) (bool, *requestidextension.UUIDRequestIDExtensionContext) {
-	tracing := push.Telemetry.Tracing(proxy)
-	return configureTracingFromTelemetry(tracing, push, proxy, httpConnMgr, class)
+) *requestidextension.UUIDRequestIDExtensionContext {
+	tracingCfg := push.Telemetry.Tracing(proxy)
+	return configureTracingFromTelemetry(tracingCfg, push, proxy, httpConnMgr, class)
 }
 
 func configureTracingFromTelemetry(
@@ -75,14 +75,14 @@ func configureTracingFromTelemetry(
 	proxy *model.Proxy,
 	h *hcm.HttpConnectionManager,
 	class networking.ListenerClass,
-) (bool, *requestidextension.UUIDRequestIDExtensionContext) {
+) *requestidextension.UUIDRequestIDExtensionContext {
 	proxyCfg := proxy.Metadata.ProxyConfigOrDefault(push.Mesh.DefaultConfig)
 	// If there is no telemetry config defined, fallback to legacy mesh config.
 	if tracing == nil {
 		meshCfg := push.Mesh
 		if !meshCfg.EnableTracing {
 			log.Debug("No valid tracing configuration found")
-			return false, nil
+			return nil
 		}
 		// use the prior configuration bits of sampling and custom tags
 		h.Tracing = &hcm.HttpConnectionManager_Tracing{}
@@ -91,7 +91,7 @@ func configureTracingFromTelemetry(
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			h.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 		}
-		return false, nil
+		return nil
 	}
 	spec := tracing.ServerSpec
 	if class == networking.ListenerClassSidecarOutbound || class == networking.ListenerClassGateway {
@@ -99,19 +99,17 @@ func configureTracingFromTelemetry(
 	}
 
 	if spec.Disabled {
-		return false, nil
+		return nil
 	}
 
-	var startChildSpan bool
 	var useCustomSampler bool
 	if spec.Provider != nil {
-		tcfg, child, hasCustomSampler, err := configureFromProviderConfig(push, proxy, spec.Provider)
+		hcmTracing, hasCustomSampler, err := configureFromProviderConfig(push, proxy, spec.Provider)
 		if err != nil {
 			log.Warnf("Not able to configure requested tracing provider %q: %v", spec.Provider.Name, err)
-			return false, nil
+			return nil
 		}
-		h.Tracing = tcfg
-		startChildSpan = child
+		h.Tracing = hcmTracing
 		useCustomSampler = hasCustomSampler
 	} else {
 		// TODO: should this `return nil, nil` instead ?
@@ -145,7 +143,7 @@ func configureTracingFromTelemetry(
 
 	reqIDExtension := &requestidextension.UUIDRequestIDExtensionContext{}
 	reqIDExtension.UseRequestIDForTraceSampling = spec.UseRequestIDForTraceSampling
-	return startChildSpan, reqIDExtension
+	return reqIDExtension
 }
 
 // configureFromProviderConfigHandled contains the number of providers we handle below.
@@ -155,7 +153,7 @@ const configureFromProviderConfigHandled = 14
 
 func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider,
-) (*hcm.HttpConnectionManager_Tracing, bool, bool, error) {
+) (*hcm.HttpConnectionManager_Tracing, bool, error) {
 	startChildSpan := false
 	useCustomSampler := false
 	var serviceCluster string
@@ -232,9 +230,9 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		maxTagLength = provider.Opentelemetry.GetMaxTagLength()
 		providerName = envoyOpenTelemetry
 		providerConfig = func() (*anypb.Any, error) {
-			tracing, hasCustomSampler, err := otelConfig(serviceCluster, provider.Opentelemetry, pushCtx)
+			tracingCfg, hasCustomSampler, err := otelConfig(serviceCluster, provider.Opentelemetry, pushCtx)
 			useCustomSampler = hasCustomSampler
-			return tracing, err
+			return tracingCfg, err
 		}
 		// Providers without any tracing support
 		// Explicitly list to be clear what does and does not support tracing
@@ -245,13 +243,13 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		*meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls,
 		*meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog,
 		*meshconfig.MeshConfig_ExtensionProvider_Prometheus:
-		return nil, false, false, fmt.Errorf("provider %T does not support tracing", provider)
+		return nil, false, fmt.Errorf("provider %T does not support tracing", provider)
 		// Should never happen, but just in case we forget to add one
 	default:
-		return nil, false, false, fmt.Errorf("provider %T does not support tracing", provider)
+		return nil, false, fmt.Errorf("provider %T does not support tracing", provider)
 	}
-	tracing, err := buildHCMTracing(providerName, maxTagLength, providerConfig)
-	return tracing, startChildSpan, useCustomSampler, err
+	hcmTracing, err := buildHCMTracing(providerName, startChildSpan, maxTagLength, providerConfig)
+	return hcmTracing, useCustomSampler, err
 }
 
 func zipkinConfig(hostname, cluster string, enable128BitTraceID bool) (*anypb.Any, error) {
@@ -558,8 +556,11 @@ func configureDynatraceSampler(hostname, cluster string,
 	}, nil
 }
 
-func buildHCMTracing(provider string, maxTagLen uint32, anyFn typedConfigGenFn) (*hcm.HttpConnectionManager_Tracing, error) {
+func buildHCMTracing(provider string, startChildSpan bool, maxTagLen uint32, anyFn typedConfigGenFn) (*hcm.HttpConnectionManager_Tracing, error) {
 	config := &hcm.HttpConnectionManager_Tracing{}
+	if startChildSpan {
+		config.SpawnUpstreamSpan = wrapperspb.Bool(startChildSpan)
+	}
 	cfg, err := anyFn()
 	if err != nil {
 		return config, fmt.Errorf("could not configure tracing provider %q: %v", provider, err)

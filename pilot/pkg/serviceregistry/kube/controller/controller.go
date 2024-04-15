@@ -143,6 +143,8 @@ type Options struct {
 	Revision string
 
 	ConfigCluster bool
+
+	CniNamespace string
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -615,7 +617,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
-
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue

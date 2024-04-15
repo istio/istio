@@ -53,7 +53,7 @@ func (d *static[T]) GetKey(k Key[T]) *T {
 	return d.val.Load()
 }
 
-func (d *static[T]) List(namespace string) []T {
+func (d *static[T]) List() []T {
 	v := d.val.Load()
 	if v == nil {
 		return nil
@@ -65,7 +65,7 @@ func (d *static[T]) Register(f func(o Event[T])) Syncer {
 	return registerHandlerAsBatched[T](d, f)
 }
 
-func (d *static[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Syncer {
+func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer {
 	d.eventHandlers.Insert(f)
 	if runExistingState {
 		v := d.val.Load()
@@ -73,7 +73,7 @@ func (d *static[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) S
 			f([]Event[T]{{
 				New:   v,
 				Event: controllers.EventAdd,
-			}})
+			}}, true)
 		}
 	}
 	return alwaysSynced{}
@@ -89,7 +89,7 @@ func (d *static[T]) Set(now *T) {
 		return
 	}
 	for _, h := range d.eventHandlers.Get() {
-		h([]Event[T]{toEvent[T](old, now)})
+		h([]Event[T]{toEvent[T](old, now)}, false)
 	}
 }
 
@@ -140,7 +140,7 @@ func (c collectionAdapter[T]) Set(t *T) {
 
 func (c collectionAdapter[T]) Get() *T {
 	// Guaranteed to be 0 or 1 len
-	res := c.c.List("")
+	res := c.c.List()
 	if len(res) == 0 {
 		return nil
 	}

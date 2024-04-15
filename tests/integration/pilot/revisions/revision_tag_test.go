@@ -35,7 +35,6 @@ import (
 func TestRevisionTags(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
-		Features("installation.istioctl.revision_tags").
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
