@@ -713,9 +713,9 @@ metadata:
   name: policy-waypoint
 spec:
   targetRefs:
-  - kind: Gateway
-    group: gateway.networking.k8s.io
-    name: waypoint
+  - kind: Service
+    group: core
+    name: "{{ .Destination }}"
 `+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
@@ -759,9 +759,9 @@ metadata:
   name: policy-waypoint
 spec:
   targetRefs:
-  - kind: Gateway
-    group: gateway.networking.k8s.io
-    name: waypoint
+  - kind: Service
+    group: core
+    name: "{{ .Destination }}"
 `+policySpec).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				opt.Check = CheckDeny
