@@ -138,7 +138,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	// SDS flow. The pilotSDSCertificateErrors metric and logs handle visibility into invalid references.
 	resources := filterAuthorizedResources(s.parseResources(w.ResourceNames, proxy), proxy, proxyClusterSecrets)
 
-	results := model.Resources{}
+	var results model.Resources
 	cached, regenerated := 0, 0
 	for _, sr := range resources {
 		if updatedSecrets != nil {
