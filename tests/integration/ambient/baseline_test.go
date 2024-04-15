@@ -375,6 +375,109 @@ func TestOtherRevisionIgnored(t *testing.T) {
 	})
 }
 
+func TestRemoveAddWaypoint(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			"x",
+			"waypoint",
+			"apply",
+			"--namespace",
+			apps.Namespace.Name(),
+			"--name", "captured-waypoint",
+			"--wait",
+		})
+		t.Cleanup(func() {
+			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+				"x",
+				"waypoint",
+				"delete",
+				"--namespace",
+				apps.Namespace.Name(),
+				"captured-waypoint",
+			})
+		})
+
+		t.NewSubTest("before").Run(func(t framework.TestContext) {
+			dst := apps.Captured
+			for _, src := range apps.All {
+				if src.Config().IsUncaptured() {
+					continue
+				}
+				t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+					c := IsL4()
+					if src.Config().HasSidecar() {
+						c = IsL7()
+					}
+					opt := echo.CallOptions{
+						To:     dst,
+						Port:   echo.Port{Name: "http"},
+						Scheme: scheme.HTTP,
+						Count:  10,
+						Check:  check.And(check.OK(), c),
+					}
+					src.CallOrFail(t, opt)
+				})
+			}
+		})
+
+		SetWaypoint(t, Captured, "captured-waypoint")
+
+		// Now should always be L7
+		t.NewSubTest("after").Run(func(t framework.TestContext) {
+			dst := apps.Captured
+			for _, src := range apps.All {
+				if src.Config().IsUncaptured() {
+					continue
+				}
+				t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+					opt := echo.CallOptions{
+						To:     dst,
+						Port:   echo.Port{Name: "http"},
+						Scheme: scheme.HTTP,
+						Count:  10,
+						Check:  check.And(check.OK(), IsL7()),
+					}
+					src.CallOrFail(t, opt)
+				})
+			}
+		})
+	})
+}
+
+func TestBogusUseWaypoint(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		check := func(t framework.TestContext) {
+			dst := apps.Captured
+			for _, src := range apps.All {
+				if src.Config().IsUncaptured() {
+					continue
+				}
+				t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+					c := IsL4()
+					if src.Config().HasSidecar() {
+						c = IsL7()
+					}
+					opt := echo.CallOptions{
+						To:     dst,
+						Port:   echo.Port{Name: "http"},
+						Scheme: scheme.HTTP,
+						Count:  10,
+						Check:  check.And(check.OK(), c),
+					}
+					src.CallOrFail(t, opt)
+				})
+			}
+		}
+		t.NewSubTest("before").Run(check)
+
+		SetWaypoint(t, Captured, "bogus-waypoint")
+		t.NewSubTest("with waypoint").Run(check)
+
+		SetWaypoint(t, Captured, "")
+		t.NewSubTest("waypoit removed").Run(check)
+	})
+}
+
 func TestServerRouting(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need waypoint proxy and HTTP
