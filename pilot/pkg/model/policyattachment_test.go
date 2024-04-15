@@ -17,6 +17,8 @@ package model
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
@@ -24,7 +26,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestPolicyMatcher(t *testing.T) {

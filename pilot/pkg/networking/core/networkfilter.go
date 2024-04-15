@@ -62,7 +62,9 @@ func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, cla
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
 // TcpProxy instance and builds a TCP filter out of it.
-func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, config *tcp.TcpProxy, class istionetworking.ListenerClass, svc *model.Service) *listener.Filter {
+func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy,
+	config *tcp.TcpProxy, class istionetworking.ListenerClass, svc *model.Service,
+) *listener.Filter {
 	accessLogBuilder.setTCPAccessLog(push, node, config, class, svc)
 
 	tcpFilter := &listener.Filter{
@@ -108,7 +110,7 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	authzCustomBuilder := lb.authzCustomBuilder
 	authzBuilder := lb.authzBuilder
 	if policySvc != nil {
-    useFilterState := lb.node.Type == model.Waypoint
+		useFilterState := lb.node.Type == model.Waypoint
 		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, useFilterState, policySvc)
 		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, useFilterState, policySvc)
 	}

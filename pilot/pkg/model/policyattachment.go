@@ -136,7 +136,7 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 			return true
 		}
 
-    println("checking service")
+		println("checking service")
 		// Service attached
 		if targetRef.GetGroup() == gvk.Service.Group &&
 			targetRef.GetKind() == gvk.Service.Kind &&

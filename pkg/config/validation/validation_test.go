@@ -5352,6 +5352,38 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			Warning: false,
 		},
 		{
+			name: "target-refs-good-service",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRefs: []*api.PolicyTargetReference{{
+					Group: gvk.Service.Group,
+					Kind:  gvk.Service.Kind,
+					Name:  "foo",
+				}},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: false,
+		},
+		{
 			name: "target-ref-non-empty-namespace",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
@@ -8633,8 +8665,8 @@ func TestValidateTelemetry(t *testing.T) {
 					Name:  "foo",
 				},
 			},
-			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
-				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, "wrong-group", gvk.KubernetesGateway.Kind), "",
+			fmt.Sprintf("targetRef must be to one of %v but was %s/%s",
+				allowedTargetRefs, "wrong-group", gvk.KubernetesGateway.Kind), "",
 		},
 		{
 			"bad targetRef - wrong kind",
@@ -8656,8 +8688,8 @@ func TestValidateTelemetry(t *testing.T) {
 					Name:  "foo",
 				},
 			},
-			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
-				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, gvk.KubernetesGateway.Group, "wrong-kind"), "",
+			fmt.Sprintf("targetRef must be to one of %v but was %s/%s",
+				allowedTargetRefs, gvk.KubernetesGateway.Group, "wrong-kind"), "",
 		},
 		{
 			"targetRef and selector cannot both be set",
@@ -8890,6 +8922,18 @@ func TestValidateWasmPlugin(t *testing.T) {
 			"", "",
 		},
 		{
+			"target-ref-good-service",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.Service.Group,
+					Kind:  gvk.Service.Kind,
+					Name:  "foo",
+				},
+			},
+			"", "",
+		},
+		{
 			"target-ref-non-empty-namespace",
 			&extensions.WasmPlugin{
 				Url: "http://test.com/test",
@@ -8923,8 +8967,8 @@ func TestValidateWasmPlugin(t *testing.T) {
 					Name:  "foo",
 				},
 			},
-			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
-				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, "wrong-group", gvk.KubernetesGateway.Kind), "",
+			fmt.Sprintf("targetRef must be to one of %v but was %s/%s",
+				allowedTargetRefs, "wrong-group", gvk.KubernetesGateway.Kind), "",
 		},
 		{
 			"target-ref-wrong-kind",
@@ -8936,8 +8980,8 @@ func TestValidateWasmPlugin(t *testing.T) {
 					Name:  "foo",
 				},
 			},
-			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
-				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, gvk.KubernetesGateway.Group, "wrong-kind"), "",
+			fmt.Sprintf("targetRef must be to one of %v but was %s/%s",
+				allowedTargetRefs, gvk.KubernetesGateway.Group, "wrong-kind"), "",
 		},
 		{
 			"target-ref-and-selector-cannot-both-be-set",

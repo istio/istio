@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/grpc"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -1729,6 +1730,12 @@ func validatePolicyTargetReferences(targetRefs []*type_beta.PolicyTargetReferenc
 	return
 }
 
+// don't validate version, just group and kind
+var allowedTargetRefs = []config.GroupVersionKind{
+	gvk.Service,
+	gvk.KubernetesGateway,
+}
+
 func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
 	if targetRef == nil {
 		return
@@ -1739,10 +1746,18 @@ func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (
 	if targetRef.Namespace != "" {
 		v = appendErrorf(v, "targetRef namespace must not be set")
 	}
-	// Currently, gateway.networking.k8s.io is the only valid Group and gateway.networking.k8s.io/Gateway the only valid Kind.
-	if targetRef.Group != gvk.KubernetesGateway.Group || targetRef.Kind != gvk.KubernetesGateway.Kind {
-		v = appendErrorf(v, "targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
-			gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, targetRef.Group, targetRef.Kind)
+
+	canoncalGroup := targetRef.Group
+	if canoncalGroup == "" {
+		canoncalGroup = "core"
+	}
+	allowed := slices.FindFunc(allowedTargetRefs, func(gvk config.GroupVersionKind) bool {
+		return gvk.Kind == targetRef.Kind && gvk.CanonicalGroup() == canoncalGroup
+	}) != nil
+
+	if !allowed {
+		v = appendErrorf(v, "targetRef must be to one of %v but was %s/%s",
+			allowedTargetRefs, targetRef.Group, targetRef.Kind)
 	}
 	return
 }
