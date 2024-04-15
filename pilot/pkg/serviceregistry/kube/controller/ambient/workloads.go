@@ -109,6 +109,9 @@ func (a *index) WorkloadsCollection(
 			var waypointAddress *workloadapi.GatewayAddress
 			if waypoint != nil {
 				waypointAddress = a.getWaypointAddress(waypoint)
+				if waypointPolicy := implicitWaypointPolicyName(waypoint); waypointPolicy != "" {
+					policies = append(policies, waypointPolicy)
+				}
 			}
 			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 			network := a.Network(p.Address, p.Labels).String()
@@ -178,6 +181,9 @@ func (a *index) workloadEntryWorkloadBuilder(
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {
 			waypointAddress = a.getWaypointAddress(waypoint)
+			if waypointPolicy := implicitWaypointPolicyName(waypoint); waypointPolicy != "" {
+				policies = append(policies, waypointPolicy)
+			}
 		}
 		fo := []krt.FetchOption{krt.FilterIndex(WorkloadServicesNamespaceIndex, p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableK8SServiceSelectWorkloadEntries {
@@ -268,6 +274,23 @@ func (a *index) podWorkloadBuilder(
 		}
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		network := a.Network(p.Status.PodIP, p.Labels).String()
+
+		var appTunnel *workloadapi.ApplicationTunnel
+		var targetWaypoint *workloadapi.GatewayAddress
+		if instancedWaypoint := fetchWaypointForInstance(ctx, Waypoints, p.ObjectMeta); instancedWaypoint != nil {
+			// we're an instance of a waypoint, set inbound tunnel info
+			appTunnel = &workloadapi.ApplicationTunnel{
+				Protocol: instancedWaypoint.DefaultBinding.Protocol,
+				Port:     instancedWaypoint.DefaultBinding.Port,
+			}
+		} else if waypoint := fetchWaypointForWorkload(ctx, Waypoints, Namespaces, p.ObjectMeta); waypoint != nil {
+			// there is a workload-attached waypoint, point there with a GatewayAddress
+			targetWaypoint = a.getWaypointAddress(waypoint)
+			if waypointPolicy := implicitWaypointPolicyName(waypoint); waypointPolicy != "" {
+				policies = append(policies, waypointPolicy)
+			}
+		}
+
 		w := &workloadapi.Workload{
 			Uid:                   a.generatePodUID(p),
 			Name:                  p.Name,
@@ -276,7 +299,9 @@ func (a *index) podWorkloadBuilder(
 			ClusterId:             string(a.ClusterID),
 			Addresses:             [][]byte{podIP.AsSlice()},
 			ServiceAccount:        p.Spec.ServiceAccountName,
+			Waypoint:              targetWaypoint,
 			Node:                  p.Spec.NodeName,
+			ApplicationTunnel:     appTunnel,
 			Services:              constructServices(p, services),
 			AuthorizationPolicies: policies,
 			Status:                status,
@@ -284,16 +309,6 @@ func (a *index) podWorkloadBuilder(
 			Locality:              getPodLocality(ctx, Nodes, p),
 		}
 
-		if instancedWaypoint := fetchWaypointForInstance(ctx, Waypoints, p.ObjectMeta); instancedWaypoint != nil {
-			// we're an instance of a waypoint, set inbound tunnel info
-			w.ApplicationTunnel = &workloadapi.ApplicationTunnel{
-				Protocol: instancedWaypoint.DefaultBinding.Protocol,
-				Port:     instancedWaypoint.DefaultBinding.Port,
-			}
-		} else if waypoint := fetchWaypointForWorkload(ctx, Waypoints, Namespaces, p.ObjectMeta); waypoint != nil {
-			// there is a workload-attached waypoint, point there with a GatewayAddress
-			w.Waypoint = a.getWaypointAddress(waypoint)
-		}
 		w.WorkloadName, w.WorkloadType = workloadNameAndType(p)
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
