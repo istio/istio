@@ -13,7 +13,7 @@ pilot:
   env:
     # Allow sidecars/ingress to send/receive HBONE. This is required for interop.
     PILOT_ENABLE_SENDING_HBONE: "true"
-    PILOT_ENABLE_LISTENING_HBONE: "true"
+    PILOT_ENABLE_SIDECAR_LISTENING_HBONE: "true"
     CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
     PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
     PILOT_ENABLE_AMBIENT_WAYPOINTS: "true"

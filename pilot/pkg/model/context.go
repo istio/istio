@@ -921,7 +921,7 @@ func (node *Proxy) FuzzValidate() bool {
 }
 
 func (node *Proxy) EnableHBONEListen() bool {
-	return node.IsAmbient() || (features.EnableHBONEListening && bool(node.Metadata.EnableHBONE))
+	return node.IsAmbient() || (features.EnableSidecarHBONEListening && bool(node.Metadata.EnableHBONE))
 }
 
 func (node *Proxy) SetWorkloadEntry(name string, create bool) {

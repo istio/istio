@@ -211,7 +211,7 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	h.Write(Separator)
 	h.WriteString(strconv.FormatBool(b.clusterLocal))
 	h.Write(Separator)
-	if features.EnableHBONEListening && b.proxy != nil {
+	if features.EnableSidecarHBONEListening && b.proxy != nil {
 		h.WriteString(strconv.FormatBool(b.proxy.IsProxylessGrpc()))
 		h.Write(Separator)
 	}

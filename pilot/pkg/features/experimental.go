@@ -165,9 +165,9 @@ var (
 	EnableGatewayAPIGatewayClassController = env.Register("PILOT_ENABLE_GATEWAY_API_GATEWAYCLASS_CONTROLLER", true,
 		"If this is set to true, istiod will create and manage its default GatewayClasses").Get()
 
-	// EnableHBONEListening provides a global Pilot flag for enabling listening on HBONE.
-	EnableHBONEListening = env.Register(
-		"PILOT_ENABLE_LISTENING_HBONE",
+	// EnableSidecarHBONEListening provides a global Pilot flag for enabling listening on HBONE.
+	EnableSidecarHBONEListening = env.Register(
+		"PILOT_ENABLE_SIDECAR_LISTENING_HBONE",
 		false,
 		"If enabled, HBONE support can be configured for proxies. "+
 			"Note: proxies must opt in on a per-proxy basis with ENABLE_HBONE to actually get HBONE config, in addition to this flag.").Get()
