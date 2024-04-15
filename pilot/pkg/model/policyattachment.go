@@ -23,10 +23,19 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-type policyTargetGetter interface {
+type PolicyTargetGetter interface {
 	GetTargetRef() *v1beta1.PolicyTargetReference
 	GetTargetRefs() []*v1beta1.PolicyTargetReference
 	GetSelector() *v1beta1.WorkloadSelector
+}
+
+// GetTargetRefs returns the list of targetRefs, taking into account the legacy targetRef
+func GetTargetRefs(p PolicyTargetGetter) []*v1beta1.PolicyTargetReference {
+	targetRefs := p.GetTargetRefs()
+	if len(targetRefs) == 0 && p.GetTargetRef() != nil {
+		targetRefs = []*v1beta1.PolicyTargetReference{p.GetTargetRef()}
+	}
+	return targetRefs
 }
 
 type WorkloadSelectionOpts struct {
@@ -58,12 +67,9 @@ func KubernetesGatewayNameAndExists(l labels.Instance) (string, bool) {
 	return gwName, exists
 }
 
-func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts WorkloadSelectionOpts, policy policyTargetGetter) policyMatch {
+func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts WorkloadSelectionOpts, policy PolicyTargetGetter) policyMatch {
 	gatewayName, isGatewayAPI := KubernetesGatewayNameAndExists(opts.WorkloadLabels)
-	targetRefs := policy.GetTargetRefs()
-	if len(targetRefs) == 0 && policy.GetTargetRef() != nil {
-		targetRefs = []*v1beta1.PolicyTargetReference{policy.GetTargetRef()}
-	}
+	targetRefs := GetTargetRefs(policy)
 	if isGatewayAPI && len(targetRefs) == 0 && policy.GetSelector() != nil {
 		if opts.IsWaypoint || !features.EnableSelectorBasedK8sGatewayPolicy {
 			log.Debugf("Ignoring workload-scoped %s/%s %s.%s for gateway %s because it has no targetRef", kind.Group, kind.Kind, opts.Namespace, policyName, gatewayName)

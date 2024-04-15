@@ -79,7 +79,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 	tests := []struct {
 		name                   string
 		opts                   WorkloadSelectionOpts
-		policy                 policyTargetGetter
+		policy                 PolicyTargetGetter
 		expected               policyMatch
 		enableSelectorPolicies bool
 	}{
