@@ -56,8 +56,8 @@ func (e WorkloadGenerator) GenerateDeltas(
 	var addresses sets.String
 	if isReq {
 		// this is from request, we only send response for the subscribed address
-		// At t0, a client request A, we only send A and aditional resources back to the client.
-		// At t1, a client request B, we only send B and aditional resources back to the client, no A here.
+		// At t0, a client request A, we only send A and additional resources back to the client.
+		// At t1, a client request B, we only send B and additional resources back to the client, no A here.
 		addresses = req.Delta.Subscribed
 	} else {
 		if w.Wildcard {
@@ -81,8 +81,10 @@ func (e WorkloadGenerator) GenerateDeltas(
 	}
 
 	// TODO: it is needlessly wasteful to do a full sync just because the rest of Istio thought it was "full"
-	// The only things that can really trigger a "full" push here is trust domain or network changing, which is extremely rare
-	// We do a full push for wildcard requests (initial proxy sync) or for full pushes with no ConfigsUpdates (since we don't know what changed)
+	// The rest of Istio xDS types would treat `req.Full && len(req.ConfigsUpdated) == 0` as a need to trigger a "full" push.
+	// This is only an escape hatch for a lack of complete mapping of "Input changed -> Output changed".
+	// WDS does not suffer this limitation, so we could almost safely ignore these.
+	// However, other code will merge "Partial push + Full push -> Full push", so skipping full pushes isn't viable.
 	full := (isReq && w.Wildcard) || (!isReq && req.Full && len(req.ConfigsUpdated) == 0)
 
 	// Nothing to do
@@ -95,16 +97,22 @@ func (e WorkloadGenerator) GenerateDeltas(
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
 	resources := make(model.Resources, 0)
-	addrs, removed := e.Server.Env.ServiceDiscovery.AddressInformation(addresses)
+	reqAddresses := addresses
+	if full {
+		reqAddresses = nil
+	}
+	addrs, removed := e.Server.Env.ServiceDiscovery.AddressInformation(reqAddresses)
 	// Note: while "removed" is a weird name for a resource that never existed, this is how the spec works:
 	// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#id2
 	have := sets.New[string]()
+	haveAliases := sets.New[string]()
 	for _, addr := range addrs {
 		// TODO(@hzxuzhonghu): calculate removed with aliases in `AddressInformation`
 		aliases := addr.Aliases()
 		removed.DeleteAll(aliases...)
 		n := addr.ResourceName()
 		have.Insert(n)
+		haveAliases.InsertAll(aliases...)
 		switch w.TypeUrl {
 		case v3.WorkloadType:
 			if addr.GetWorkload() != nil {
@@ -126,7 +134,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 	if full {
 		// If it's a full push, AddressInformation won't have info to compute the full set of removals.
 		// Instead, we need can see what resources are missing that we were subscribe to; those were removed.
-		removed = subs.Difference(have).Merge(removed)
+		removed = subs.Difference(have).Difference(haveAliases).Merge(removed)
 	}
 
 	if !w.Wildcard {
