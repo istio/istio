@@ -150,6 +150,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if c.store != nil && c.cleanupQueue != nil {
 		go c.periodicWorkloadEntryCleanup(stop)
 		go c.cleanupQueue.Run(stop)
+	}
+	if features.WorkloadEntryAutoRegistration {
 		go c.lateRegistrationQueue.Run(stop)
 	}
 
