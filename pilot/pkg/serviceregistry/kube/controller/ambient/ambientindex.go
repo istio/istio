@@ -166,7 +166,7 @@ func New(options Options) Index {
 		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		waypoint := s.Waypoint
+		waypoint := s.Service.Waypoint
 		if waypoint == nil {
 			return nil
 		}

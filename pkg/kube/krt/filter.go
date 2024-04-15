@@ -21,10 +21,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type filter struct {
-	key string
+	keys sets.String
 
 	// selectsNonEmpty is like selects, but it treats an empty selector as not matching
 	selectsNonEmpty map[string]string
@@ -38,8 +39,8 @@ type filter struct {
 
 func (f filter) String() string {
 	attrs := []string{}
-	if f.key != "" {
-		attrs = append(attrs, "key="+f.key)
+	if !f.keys.IsEmpty() {
+		attrs = append(attrs, "key="+f.keys.String())
 	}
 	if f.selectsNonEmpty != nil {
 		attrs = append(attrs, fmt.Sprintf("selectsNonEmpty=%v", f.selectsNonEmpty))
@@ -61,13 +62,19 @@ func (f filter) String() string {
 func FilterObjectName(name types.NamespacedName) FetchOption {
 	return func(h *dependency) {
 		// Translate to a key lookup
-		h.filter.key = keyFunc(name.Name, name.Namespace)
+		h.filter.keys = sets.New(keyFunc(name.Name, name.Namespace))
 	}
 }
 
 func FilterKey(k string) FetchOption {
 	return func(h *dependency) {
-		h.filter.key = k
+		h.filter.keys = sets.New(k)
+	}
+}
+
+func FilterKeys(k ...string) FetchOption {
+	return func(h *dependency) {
+		h.filter.keys = sets.New(k...)
 	}
 }
 
@@ -111,9 +118,9 @@ func FilterGeneric(f func(any) bool) FetchOption {
 }
 
 func (f filter) Matches(object any, forList bool) bool {
-	if f.key != "" && f.key != string(GetKey[any](object)) {
+	if !f.keys.IsEmpty() && f.keys.Contains(string(GetKey[any](object))) {
 		if log.DebugEnabled() {
-			log.Debugf("no match key: %q vs %q", f.key, string(GetKey[any](object)))
+			log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
 		}
 		return false
 	}

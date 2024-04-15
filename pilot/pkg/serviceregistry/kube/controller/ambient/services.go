@@ -44,13 +44,18 @@ func (a *index) ServicesCollection(
 				TargetPortName: p.TargetPort.StrVal,
 			}
 		}
+		waypointKey := ""
 		waypoint := fetchWaypointForService(ctx, Waypoints, Namespaces, s.ObjectMeta)
+		if waypoint != nil {
+			waypointKey = waypoint.ResourceName()
+		}
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		return &model.ServiceInfo{
 			Service:       a.constructService(s, waypoint),
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(s.Spec.Selector),
 			Source:        kind.Service,
+			Waypoint:      waypointKey,
 		}
 	}, krt.WithName("ServicesInfo"))
 	ServiceEntriesInfo := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
@@ -71,12 +76,17 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint
 			PortName: p.Name,
 		}
 	}
+	waypointKey := ""
+	if w != nil {
+		waypointKey = w.ResourceName()
+	}
 	return slices.Map(a.constructServiceEntries(s, w), func(e *workloadapi.Service) model.ServiceInfo {
 		return model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
 			LabelSelector: sel,
 			Source:        kind.ServiceEntry,
+			Waypoint:      waypointKey,
 		}
 	})
 }
