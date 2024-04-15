@@ -136,13 +136,17 @@ func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 		},
 		Handler: h,
 	}
+	n.handlerMu.Lock()
+	defer n.handlerMu.Unlock()
+	// AddEventHandler is safe to call under the lock. This will *enqueue* all existing items, but not block on processing them,
+	// so the timing is quick.
+	// If we do this outside the lock, we can hit a subtle race condition where we have started processing items before they
+	// are registered (in n.registeredHandlers); this can cause the dynamic filtering to miss events
 	reg, err := n.informer.AddEventHandler(fh)
 	if err != nil {
 		// Should only happen if its already stopped. We should exit early.
 		return
 	}
-	n.handlerMu.Lock()
-	defer n.handlerMu.Unlock()
 	n.registeredHandlers = append(n.registeredHandlers, handlerRegistration{registration: reg, handler: h})
 }
 
