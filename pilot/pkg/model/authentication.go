@@ -250,7 +250,9 @@ func getConfigsForWorkload(rootNamespace string, configsByNamespace map[string][
 				switch cfg.GroupVersionKind {
 				case gvk.RequestAuthentication:
 					ra := cfg.Spec.(*v1beta1.RequestAuthentication)
-					if selectionOpts.ShouldAttachPolicy(cfg.GroupVersionKind, cfg.NamespacedName(), ra) {
+          should := selectionOpts.ShouldAttachPolicy(cfg.GroupVersionKind, cfg.NamespacedName(), ra)
+          println("name: ", cfg.Name, " ns: ", cfg.Namespace, " should: ", should)
+					if should {
 						configs = append(configs, cfg)
 					}
 				case gvk.PeerAuthentication:

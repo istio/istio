@@ -108,8 +108,9 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	authzCustomBuilder := lb.authzCustomBuilder
 	authzBuilder := lb.authzBuilder
 	if policySvc != nil {
-		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, true, policySvc)
-		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, true, policySvc)
+    useFilterState := lb.node.Type == model.Waypoint
+		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, useFilterState, policySvc)
+		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, useFilterState, policySvc)
 	}
 
 	var filters []*listener.Filter

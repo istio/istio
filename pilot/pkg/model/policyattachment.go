@@ -53,6 +53,7 @@ func PolicyMatcherFor(workloadNamespace string, labels labels.Instance, isWaypoi
 
 func PolicyMatcherForProxy(proxy *Proxy) WorkloadPolicyMatcher {
 	return WorkloadPolicyMatcher{
+		// TODO should this use proxy.ConfigNamespace?
 		Namespace:      proxy.GetNamespace(),
 		WorkloadLabels: proxy.Labels,
 		IsWaypoint:     proxy.IsWaypointProxy(),
@@ -85,7 +86,7 @@ func workloadGatewayName(l labels.Instance) (string, bool) {
 
 func (p WorkloadPolicyMatcher) isSelected(policy TargetablePolicy) bool {
 	selector := policy.GetSelector()
-	return selector != nil && labels.Instance(selector.GetMatchLabels()).SubsetOf(p.WorkloadLabels)
+	return selector == nil || labels.Instance(selector.GetMatchLabels()).SubsetOf(p.WorkloadLabels)
 }
 
 // GetTargetRefs returns the list of targetRefs, taking into account the legacy targetRef
@@ -104,7 +105,6 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 	// non-gateway: use selector
 	if !isGatewayAPI {
 		// if targetRef is specified, ignore the policy altogether
-		// TODO should we just use the selector rather than ignoring?
 		if len(targetRefs) > 0 {
 			return false
 		}
@@ -132,15 +132,16 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 		if targetRef.GetGroup() == gvk.KubernetesGateway.Group &&
 			targetRef.GetKind() == gvk.KubernetesGateway.Kind &&
 			target.Name == gatewayName &&
-			target.Namespace == p.Namespace {
+			(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.Namespace) {
 			return true
 		}
 
+    println("checking service")
 		// Service attached
 		if targetRef.GetGroup() == gvk.Service.Group &&
 			targetRef.GetKind() == gvk.Service.Kind &&
 			targetRef.GetName() == p.Service &&
-			targetRef.GetNamespace() == p.Namespace {
+			(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.Namespace) {
 			return true
 		}
 	}

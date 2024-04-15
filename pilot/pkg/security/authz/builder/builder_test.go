@@ -462,7 +462,8 @@ func node(version *model.IstioVersion) *model.Proxy {
 		ConfigNamespace: "foo",
 		Labels:          httpbin,
 		Metadata: &model.NodeMetadata{
-			Labels: httpbin,
+			Labels:    httpbin,
+			Namespace: "foo",
 		},
 		IstioVersion: version,
 	}

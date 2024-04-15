@@ -449,6 +449,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy, svc *Service) computed
 	matcher := PolicyMatcherForProxy(proxy).WithService(svc)
 	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
 		spec := telemetry.Spec
+    // TODO in many other places, empty selector matches all policy
 		if len(spec.GetSelector().GetMatchLabels()) == 0 {
 			continue
 		}

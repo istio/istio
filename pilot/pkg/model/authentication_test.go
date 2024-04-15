@@ -196,14 +196,6 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "foo",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "with-targetref",
 						Namespace:        "foo",
 					},
@@ -214,14 +206,6 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 							Name:  "my-gateway",
 						},
 					},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "istio-config",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 			wantPeerAuthn: []*config.Config{
@@ -690,14 +674,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 				{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "foo",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "with-targetref",
 						Namespace:        "foo",
 					},
@@ -708,14 +684,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 							Name:  "my-gateway",
 						},
 					},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "istio-config",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 			wantPeerAuthn: []*config.Config{
@@ -759,14 +727,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 				{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "foo",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "with-targetref",
 						Namespace:        "foo",
 					},
@@ -777,14 +737,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 							Name:  "my-gateway",
 						},
 					},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "istio-config",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 			wantPeerAuthn: []*config.Config{
@@ -827,14 +779,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 				{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "bar",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "with-targetref",
 						Namespace:        "bar",
 					},
@@ -845,14 +789,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 							Name:  "my-gateway",
 						},
 					},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "istio-config",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 			wantPeerAuthn: []*config.Config{
