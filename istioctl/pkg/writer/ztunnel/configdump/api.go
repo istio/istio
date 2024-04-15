@@ -58,21 +58,50 @@ type ZtunnelService struct {
 	Waypoint     *Waypoint      `json:"waypoint"`
 }
 
+type PolicyMatch struct {
+	Namespaces          []StringMatch `json:"namespaces,omitempty"`
+	NotNamespaces       []StringMatch `json:"notNamespaces,omitempty"`
+	Principals          []StringMatch `json:"principals,omitempty"`
+	NotPrincipals       []StringMatch `json:"notPrincipals,omitempty"`
+	SourceIps           []string      `json:"sourceIps,omitempty"`
+	NotSourceIps        []string      `json:"notSourceIps,omitempty"`
+	DestinationIps      []string      `json:"destinationIps,omitempty"`
+	NotDestinationIps   []string      `json:"notDestinationIps,omitempty"`
+	DestinationPorts    []uint16      `json:"destinationPorts,omitempty"`
+	NotDestinationPorts []uint16      `json:"notDestinationPorts,omitempty"`
+}
+
+type StringMatch struct {
+	Exact    string `json:"Exact,omitempty"`
+	Suffix   string `json:"Suffix,omitempty"`
+	Prefix   string `json:"Prefix,omitempty"`
+	Presence any    `json:"Presence,omitempty"`
+}
+
+type ZtunnelPolicy struct {
+	Name      string             `json:"name"`
+	Namespace string             `json:"namespace"`
+	Scope     string             `json:"scope"`
+	Action    string             `json:"action"`
+	Rules     [][][]*PolicyMatch `json:"rules"`
+}
+
 type ZtunnelDump struct {
-	Workloads    map[string]*ZtunnelWorkload `json:"by_addr"`
-	Services     map[string]*ZtunnelService  `json:"by_vip"`
+	Workloads    map[string]*ZtunnelWorkload `json:"workloads"`
+	Services     map[string]*ZtunnelService  `json:"services"`
+	Policies     map[string]*ZtunnelPolicy   `json:"policies"`
 	Certificates []*CertsDump                `json:"certificates"`
 }
 
 type CertsDump struct {
 	Identity  string  `json:"identity"`
 	State     string  `json:"state"`
-	CertChain []*Cert `json:"cert_chain"`
+	CertChain []*Cert `json:"certChain"`
 }
 
 type Cert struct {
 	Pem            string `json:"pem"`
-	SerialNumber   string `json:"serial_number"`
-	ValidFrom      string `json:"valid_from"`
-	ExpirationTime string `json:"expiration_time"`
+	SerialNumber   string `json:"serialNumber"`
+	ValidFrom      string `json:"validFrom"`
+	ExpirationTime string `json:"expirationTime"`
 }

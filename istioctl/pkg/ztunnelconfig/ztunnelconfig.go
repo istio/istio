@@ -65,6 +65,8 @@ func ZtunnelConfig(ctx cli.Context) *cobra.Command {
 	configCmd.AddCommand(workloadConfigCmd(ctx))
 	configCmd.AddCommand(certificatesConfigCmd(ctx))
 	configCmd.AddCommand(servicesCmd(ctx))
+	configCmd.AddCommand(policiesCmd(ctx))
+	configCmd.AddCommand(allCmd(ctx))
 
 	return configCmd
 }
@@ -97,9 +99,7 @@ func certificatesConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("output format %q not supported", common.outputFormat)
 			}
 		}),
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	common.attach(cmd)
@@ -135,14 +135,81 @@ func servicesCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("output format %q not supported", common.outputFormat)
 			}
 		}),
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	common.attach(cmd)
 	cmd.PersistentFlags().StringVar(&serviceNamespace, "service-namespace", "",
 		"Filter services by namespace field")
+
+	return cmd
+}
+
+func policiesCmd(ctx cli.Context) *cobra.Command {
+	var policyNamespace string
+	common := new(commonFlags)
+	cmd := &cobra.Command{
+		Use:   "policy",
+		Short: "Retrieves policies for the specified Ztunnel pod.",
+		Long:  `Retrieve information about policies for the Ztunnel instance.`,
+		Example: `  # Retrieve summary about policy configuration for a randomly chosen ztunnel.
+  istioctl ztunnel-config policies
+
+  # Retrieve full policy dump of workloads for a given Ztunnel instance.
+  istioctl ztunnel-config policies <ztunnel-name[.namespace]> -o json
+`,
+		Aliases: []string{"policies", "p", "pol"},
+		Args:    common.validateArgs,
+		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+			filter := ztunnelDump.PolicyFilter{
+				Namespace: policyNamespace,
+			}
+			switch common.outputFormat {
+			case summaryOutput:
+				return cw.PrintPolicySummary(filter)
+			case jsonOutput, yamlOutput:
+				return cw.PrintPolicyDump(filter, common.outputFormat)
+			default:
+				return fmt.Errorf("output format %q not supported", common.outputFormat)
+			}
+		}),
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
+	}
+
+	common.attach(cmd)
+	cmd.PersistentFlags().StringVar(&policyNamespace, "policy-namespace", "",
+		"Filter policies by namespace field")
+
+	return cmd
+}
+
+func allCmd(ctx cli.Context) *cobra.Command {
+	common := new(commonFlags)
+	cmd := &cobra.Command{
+		Use:   "all",
+		Short: "Retrieves all configuration for the specified Ztunnel pod.",
+		Long:  `Retrieve information about all configuration for the Ztunnel instance.`,
+		Example: `  # Retrieve summary about all configuration for a randomly chosen ztunnel.
+  istioctl ztunnel-config all
+
+  # Retrieve full configuration dump of workloads for a given Ztunnel instance.
+  istioctl ztunnel-config policies <ztunnel-name[.namespace]> -o json
+`,
+		Args: common.validateArgs,
+		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+			switch common.outputFormat {
+			case summaryOutput:
+				return cw.PrintFullSummary()
+			case jsonOutput, yamlOutput:
+				return cw.PrintFullDump(common.outputFormat)
+			default:
+				return fmt.Errorf("output format %q not supported", common.outputFormat)
+			}
+		}),
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
+	}
+
+	common.attach(cmd)
 
 	return cmd
 }
@@ -459,7 +526,7 @@ func extractZtunnelConfigDump(kubeClient kube.CLIClient, podName, podNamespace s
 }
 
 func setupConfigdumpZtunnelConfigWriter(debug []byte, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
-	cw := &ztunnelDump.ConfigWriter{Stdout: out}
+	cw := &ztunnelDump.ConfigWriter{Stdout: out, FullDump: debug}
 	err := cw.Prime(debug)
 	if err != nil {
 		return nil, err
