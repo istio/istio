@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/cni/pkg/constants"
 )
 
-// StartServer initializes and starts a web server that exposes liveness and readiness endpoints at port 8000.
+// StartHealthServer initializes and starts a web server that exposes liveness and readiness endpoints at port 8000.
 func StartHealthServer() (installReady *atomic.Value, watchReady *atomic.Value) {
 	router := http.NewServeMux()
 	installReady, watchReady = initRouter(router)
