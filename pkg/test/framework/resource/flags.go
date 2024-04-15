@@ -218,36 +218,47 @@ func initGatewayConformanceTimeouts() {
 		0, "Gateway conformance test timeout for getting a k8s resource.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.GetTimeout, "istio.test.gatewayConformance.geTimeout",
 		0, "Gateway conformance test timeout for getting a k8s resource.")
-	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.GatewayMustHaveAddress, "istio.test.gatewayConformance.gatewayMustHaveAddressTimeout",
-		0, "Gateway conformance test timeout for waiting for a Gateway to have an address.")
-	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.GatewayMustHaveCondition, "istio.test.gatewayConformance.gatewayMustHaveConditionTimeout",
-		0, "Gateway conformance test timeout for waiting for a Gateway to have a certain condition.")
-	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.GatewayStatusMustHaveListeners, "istio.test.gatewayConformance.gatewayStatusMustHaveListenersTimeout",
-		0, "Gateway conformance test timeout for waiting for a Gateway's status to have listeners.")
-	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.GatewayListenersMustHaveConditions, "istio.test.gatewayConformance.gatewayListenersMustHaveConditionTimeout",
-		0, "Gateway conformance test timeout for waiting for a Gateway's listeners to have certain conditions.")
-	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.GWCMustBeAccepted, "istio.test.gatewayConformance.gatewayClassMustBeAcceptedTimeout",
+	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.GatewayMustHaveAddress,
+		"istio.test.gatewayConformance.gatewayMustHaveAddressTimeout", 0,
+		"Gateway conformance test timeout for waiting for a Gateway to have an address.")
+	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.GatewayMustHaveCondition,
+		"istio.test.gatewayConformance.gatewayMustHaveConditionTimeout", 0,
+		"Gateway conformance test timeout for waiting for a Gateway to have a certain condition.")
+	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.GatewayStatusMustHaveListeners,
+		"istio.test.gatewayConformance.gatewayStatusMustHaveListenersTimeout", 0,
+		"Gateway conformance test timeout for waiting for a Gateway's status to have listeners.")
+	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.GatewayListenersMustHaveConditions,
+		"istio.test.gatewayConformance.gatewayListenersMustHaveConditionTimeout", 0,
+		"Gateway conformance test timeout for waiting for a Gateway's listeners to have certain conditions.")
+	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.GWCMustBeAccepted,
+		"istio.test.gatewayConformance.gatewayClassMustBeAcceptedTimeout",
 		0, "Gateway conformance test timeout for waiting for a GatewayClass to be accepted.")
-	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.HTTPRouteMustNotHaveParents, "istio.test.gatewayConformance.httpRouteMustNotHaveParentsTimeout",
-		0, "Gateway conformance test timeout for waiting for an HTTPRoute to either have no parents or a single parent that is not accepted.")
-	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.HTTPRouteMustHaveCondition, "istio.test.gatewayConformance.httpRouteMustHaveConditionTimeout",
+	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.HTTPRouteMustNotHaveParents,
+		"istio.test.gatewayConformance.httpRouteMustNotHaveParentsTimeout", 0,
+		"Gateway conformance test timeout for waiting for an HTTPRoute to either have no parents or a single parent that is not accepted.")
+	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.HTTPRouteMustHaveCondition,
+		"istio.test.gatewayConformance.httpRouteMustHaveConditionTimeout",
 		0, "Gateway conformance test timeout for waiting for an HTTPRoute to have a certain condition.")
-	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.TLSRouteMustHaveCondition, "istio.test.gatewayConformance.tlsRouteMustHaveConditionTimeout",
-		0, "Gateway conformance test timeout for waiting for an TLSRoute to have a certain condition.")
+	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.TLSRouteMustHaveCondition,
+		"istio.test.gatewayConformance.tlsRouteMustHaveConditionTimeout", 0,
+		"Gateway conformance test timeout for waiting for an TLSRoute to have a certain condition.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.RouteMustHaveParents, "istio.test.gatewayConformance.routeMustHaveParentsTimeout",
 		0, "Gateway conformance test timeout for the the maximum time for an xRoute to have parents in status that match the expected parents.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.ManifestFetchTimeout, "istio.test.gatewayConformance.manifestFetchTimeout",
 		0, "Gateway conformance test timeout for the maximum time for getting content from a https:// URL.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.MaxTimeToConsistency, "istio.test.gatewayConformance.maxTimeToConsistency",
 		0, "Gateway conformance test setting for the maximum time for requiredConsecutiveSuccesses (default 3) requests to succeed in a row before failing the test.")
-	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.NamespacesMustBeReady, "istio.test.gatewayConformance.namespacesMustBeReadyTimeout",
-		0, "Gateway conformance test timeout for waiting for namespaces to be ready.")
+	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.NamespacesMustBeReady,
+		"istio.test.gatewayConformance.namespacesMustBeReadyTimeout", 0,
+		"Gateway conformance test timeout for waiting for namespaces to be ready.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.RequestTimeout, "istio.test.gatewayConformance.requestTimeout",
 		0, "Gateway conformance test timeout for an HTTP request.")
-	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.LatestObservedGenerationSet, "istio.test.gatewayConformance.latestObservedGenerationSetTimeout",
-		0, "Gateway conformance test timeout for waiting for a latest observed generation to be set.")
+	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.LatestObservedGenerationSet,
+		"istio.test.gatewayConformance.latestObservedGenerationSetTimeout", 0,
+		"Gateway conformance test timeout for waiting for a latest observed generation to be set.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.DefaultTestTimeout, "istio.test.gatewayConformance.defaultTestTimeout",
 		0, "Default gateway conformance test case timeout.")
-	flag.IntVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.RequiredConsecutiveSuccesses, "istio.test.gatewayConformance.requiredConsecutiveSuccesses",
-		0, "Gateway conformance test setting for the required number of consecutive successes before failing the test.")
+	flag.IntVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.RequiredConsecutiveSuccesses,
+		"istio.test.gatewayConformance.requiredConsecutiveSuccesses", 0,
+		"Gateway conformance test setting for the required number of consecutive successes before failing the test.")
 }
