@@ -202,9 +202,6 @@ var (
 	EnableTLSOnSidecarIngress = env.Register("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
 		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
 
-	VerifySDSCertificate = env.Register("VERIFY_SDS_CERTIFICATE", true,
-		"If enabled, certificates fetched from SDS server will be verified before sending back to proxy.").Get()
-
 	EnableHCMInternalNetworks = env.Register("ENABLE_HCM_INTERNAL_NETWORKS", false,
 		"If enable, endpoints defined in mesh networks will be configured as internal addresses in Http Connection Manager").Get()
 
