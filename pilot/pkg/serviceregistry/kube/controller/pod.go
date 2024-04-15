@@ -159,7 +159,7 @@ func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
 	switch ev {
 	case model.EventAdd:
 		if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
-			pc.update(pod, ip, key)
+			pc.addPod(pod, ip, key)
 		} else {
 			return nil
 		}
@@ -171,7 +171,7 @@ func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
 			}
 			ev = model.EventDelete
 		} else if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
-			pc.update(pod, ip, key)
+			pc.addPod(pod, ip, key)
 		} else {
 			return nil
 		}
@@ -232,7 +232,7 @@ func (pc *PodCache) deleteIP(ip string, podKey types.NamespacedName) bool {
 	return false
 }
 
-func (pc *PodCache) update(pod *v1.Pod, ip string, key types.NamespacedName) {
+func (pc *PodCache) addPod(pod *v1.Pod, ip string, key types.NamespacedName) {
 	pc.Lock()
 	// if the pod has been cached, return
 	if pc.podsByIP[ip].Contains(key) {
@@ -255,7 +255,8 @@ func (pc *PodCache) update(pod *v1.Pod, ip string, key types.NamespacedName) {
 	}
 	pc.Unlock()
 
-	pc.proxyUpdates(pod, false)
+	const isPodUpdate = false
+	pc.proxyUpdates(pod, isPodUpdate)
 }
 
 // queueEndpointEventOnPodArrival registers this endpoint and queues endpoint event

@@ -421,7 +421,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.handlers.NotifyServiceHandlers(nil, svc, event)
 }
 
-// recomputeServiceForPod is called when a pod changes and service endpoints need to be recompute
+// recomputeServiceForPod is called when a pod changes and service endpoints need to be recomputed.
 // Most of Pod is immutable, so once it has been created we are ok to cache the internal representation.
 // However, a few fields (labels) are mutable. When these change, we call recomputeServiceForPod and rebuild the cache
 // for all service's the pod is a part of and push an update.
