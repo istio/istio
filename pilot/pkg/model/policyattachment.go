@@ -15,15 +15,14 @@
 package model
 
 import (
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // this can be any type from istio/api that uses these types of selectors
@@ -41,8 +40,7 @@ type WorkloadPolicyMatcher struct {
 	Namespace      string
 	WorkloadLabels labels.Instance
 	IsWaypoint     bool
-	// TODO can this just be sets.String since the services must be same-namespace?
-	Services sets.Set[types.NamespacedName]
+	Service        string
 }
 
 func PolicyMatcherFor(workloadNamespace string, labels labels.Instance, isWaypoint bool) WorkloadPolicyMatcher {
@@ -50,29 +48,27 @@ func PolicyMatcherFor(workloadNamespace string, labels labels.Instance, isWaypoi
 		Namespace:      workloadNamespace,
 		WorkloadLabels: labels,
 		IsWaypoint:     isWaypoint,
-		// TODO check if any callers need services (i think it's just mTLS checker)
-		Services: map[types.NamespacedName]struct{}{},
 	}
 }
 
-func PolicyMatcherForProxy(proxy *Proxy, push *PushContext) WorkloadPolicyMatcher {
-	var proxyServices  sets.Set[types.NamespacedName]
-	if proxy.IsWaypointProxy() {
-		if push != nil {
-			key := WaypointKeyForProxy(proxy)
-			proxyServices = sets.New(slices.Map(push.ServicesForWaypoint(key), ServiceInfo.NamespacedName)...)
-		}
-	} else {
-    // TODO do we want this for non waypoints?
-    proxyServices = sets.New(slices.Map(proxy.ServiceTargets, ServiceTarget.NamespacedName)...)
-  }
+func PolicyMatcherForProxy(proxy *Proxy) WorkloadPolicyMatcher {
 	return WorkloadPolicyMatcher{
 		Namespace:      proxy.GetNamespace(),
 		WorkloadLabels: proxy.Labels,
 		IsWaypoint:     proxy.IsWaypointProxy(),
-		// TODO pass push context and extract
-		Services: proxyServices,
 	}
+}
+
+func (p WorkloadPolicyMatcher) WithService(service *Service) WorkloadPolicyMatcher {
+	if service == nil {
+		return p
+	}
+	if service.Attributes.Namespace != p.Namespace {
+		log.Debugf("matching policy for service in namespace %s for workload in %s", service.Attributes.Namespace, p.Namespace)
+	}
+
+	p.Service = service.Attributes.Name
+	return p
 }
 
 // workloadGatewayName returns the name of the gateway for which a workload is an instance.
@@ -105,17 +101,17 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 	gatewayName, isGatewayAPI := workloadGatewayName(p.WorkloadLabels)
 	targetRefs := GetTargetRefs(policy)
 
-  // non-gateway: use selector
+	// non-gateway: use selector
 	if !isGatewayAPI {
-    // if targetRef is specified, ignore the policy altogether
-    // TODO should we just use the selector rather than ignoring?
+		// if targetRef is specified, ignore the policy altogether
+		// TODO should we just use the selector rather than ignoring?
 		if len(targetRefs) > 0 {
 			return false
 		}
 		return p.isSelected(policy)
 	}
 
-  // gateway with no targetRefs: (sometimes) fallback to selector
+	// gateway with no targetRefs: (sometimes) fallback to selector
 	if len(targetRefs) == 0 {
 		// gateways require the feature flag for selector-based policy
 		// waypoints never use selector
@@ -126,27 +122,28 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 		return p.isSelected(policy)
 	}
 
-  for _, targetRef := range targetRefs {
-    target := types.NamespacedName{
-      Name: targetRef.GetName(),
-      Namespace: GetOrDefault(targetRef.GetNamespace(), policyName.Namespace),
-    }
+	for _, targetRef := range targetRefs {
+		target := types.NamespacedName{
+			Name:      targetRef.GetName(),
+			Namespace: GetOrDefault(targetRef.GetNamespace(), policyName.Namespace),
+		}
 
-    // Gateway attached
-    if targetRef.GetGroup() == gvk.KubernetesGateway.Group &&
-      targetRef.GetKind() == gvk.KubernetesGateway.Kind &&
-      target.Name == gatewayName &&
-      target.Namespace == p.Namespace {
-      return true
-    }
+		// Gateway attached
+		if targetRef.GetGroup() == gvk.KubernetesGateway.Group &&
+			targetRef.GetKind() == gvk.KubernetesGateway.Kind &&
+			target.Name == gatewayName &&
+			target.Namespace == p.Namespace {
+			return true
+		}
 
-    // Service attached
-    if targetRef.GetGroup() == gvk.Service.Group &&
-      targetRef.GetKind() == gvk.Service.Kind &&
-      p.Services.Contains(target) {
-      return true
-    }
-  }
+		// Service attached
+		if targetRef.GetGroup() == gvk.Service.Group &&
+			targetRef.GetKind() == gvk.Service.Kind &&
+			targetRef.GetName() == p.Service &&
+			targetRef.GetNamespace() == p.Namespace {
+			return true
+		}
+	}
 
 	return false
 }

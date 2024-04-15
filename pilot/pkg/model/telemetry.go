@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/ptr"
@@ -244,8 +243,8 @@ func workloadMode(class networking.ListenerClass) tpb.WorkloadMode {
 // AccessLogging returns the logging configuration for a given proxy and listener class.
 // If nil or empty configuration is returned, access logs are not configured via Telemetry and should use fallback mechanisms.
 // If access logging is explicitly disabled, a configuration with disabled set to true is returned.
-func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class networking.ListenerClass) []LoggingConfig {
-	ct := t.applicableTelemetries(proxy)
+func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class networking.ListenerClass, svc *Service) []LoggingConfig {
+	ct := t.applicableTelemetries(proxy, nil)
 	if len(ct.Logging) == 0 && len(t.meshConfig.GetDefaultProviders().GetAccessLogging()) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		return nil
@@ -291,9 +290,10 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 
 // Tracing returns the logging tracing for a given proxy. If nil is returned, tracing
 // are not configured via Telemetry and should use fallback mechanisms. If a non-nil but disabled is set,
-// then tracing is explicitly disabled
-func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
-	ct := t.applicableTelemetries(proxy)
+// then tracing is explicitly disabled.
+// A service can optionally be provided to include service-attached Telemetry config.
+func (t *Telemetries) Tracing(proxy *Proxy, svc *Service) *TracingConfig {
+	ct := t.applicableTelemetries(proxy, svc)
 
 	providerNames := t.meshConfig.GetDefaultProviders().GetTracing()
 	hasDefaultProvider := len(providerNames) > 0
@@ -378,23 +378,23 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 }
 
 // HTTPFilters computes the HttpFilter for a given proxy/class
-func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
-	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
+func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass, svc *Service) []*hcm.HttpFilter {
+	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP, svc); res != nil {
 		return res.([]*hcm.HttpFilter)
 	}
 	return nil
 }
 
 // TCPFilters computes the TCPFilters for a given proxy/class
-func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass) []*listener.Filter {
-	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
+func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass, svc *Service) []*listener.Filter {
+	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP, svc); res != nil {
 		return res.([]*listener.Filter)
 	}
 	return nil
 }
 
 // applicableTelemetries fetches the relevant telemetry configurations for a given proxy
-func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
+func (t *Telemetries) applicableTelemetries(proxy *Proxy, svc *Service) computedTelemetries {
 	if t == nil {
 		return computedTelemetries{}
 	}
@@ -446,17 +446,17 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		Tracing:      ts,
 	}
 
+	matcher := PolicyMatcherForProxy(proxy).WithService(svc)
 	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
 		spec := telemetry.Spec
 		if len(spec.GetSelector().GetMatchLabels()) == 0 {
 			continue
 		}
-		// TODO why do we pass the config's namespace instead of the proxy's here?
-		if PolicyMatcherFor(telemetry.Namespace, proxy.Labels, proxy.IsWaypointProxy()).ShouldAttachPolicy(gvk.Telemetry, telemetry.NamespacedName(), spec) {
+		if matcher.ShouldAttachPolicy(gvk.Telemetry, telemetry.NamespacedName(), spec) {
 			ct = appendApplicableTelemetries(ct, telemetry, spec)
 		} else {
 			log.Debug("There isn't a match between the workload and the policy. Policy is ignored.")
-    }
+		}
 	}
 
 	return *ct
@@ -482,12 +482,12 @@ func appendApplicableTelemetries(ct *computedTelemetries, tel Telemetry, spec *t
 // set of applicable Telemetries, merges them, then translates to the appropriate filters based on the
 // extension providers in the mesh config. Where possible, the result is cached.
 // Currently, this includes metrics and access logging, as some providers are implemented in filters.
-func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) any {
+func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol, svc *Service) any {
 	if t == nil {
 		return nil
 	}
 
-	c := t.applicableTelemetries(proxy)
+	c := t.applicableTelemetries(proxy, svc)
 
 	key := metricsKey{
 		telemetryKey: c.telemetryKey,
@@ -678,7 +678,8 @@ func (t *Telemetries) fetchProvider(m string) *meshconfig.MeshConfig_ExtensionPr
 }
 
 func (t *Telemetries) Debug(proxy *Proxy) any {
-	at := t.applicableTelemetries(proxy)
+	// TODO we could use service targets + ambient index to include service-attached here
+	at := t.applicableTelemetries(proxy, nil)
 	return at
 }
 

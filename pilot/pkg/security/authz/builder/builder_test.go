@@ -260,7 +260,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 				}
 				push := push(t, baseDir+tc.input, tc.meshConfig)
 				proxy := node(tc.version)
-				selectionOpts := model.PolicyMatcherForProxy(proxy, push)
+				selectionOpts := model.PolicyMatcherForProxy(proxy)
 				policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 				g := New(tc.tdBundle, push, policies, option)
 				if g == nil {
@@ -334,7 +334,7 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(nil)
-      selectionOpts := model.PolicyMatcherForProxy(proxy, push)
+			selectionOpts := model.PolicyMatcherForProxy(proxy)
 			policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {

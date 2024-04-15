@@ -15,9 +15,10 @@
 package model
 
 import (
+	"k8s.io/apimachinery/pkg/types"
+
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type AuthorizationPolicy struct {
@@ -28,7 +29,7 @@ type AuthorizationPolicy struct {
 }
 
 func (ap *AuthorizationPolicy) NamespacedName() types.NamespacedName {
-  return types.NamespacedName{Name: ap.Name, Namespace: ap.Namespace}
+	return types.NamespacedName{Name: ap.Name, Namespace: ap.Namespace}
 }
 
 // AuthorizationPolicies organizes AuthorizationPolicy by namespace.
@@ -91,9 +92,9 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 
-      if selectionOpts.ShouldAttachPolicy(gvk.AuthorizationPolicy, config.NamespacedName(), spec) {
-					configs = updateAuthorizationPoliciesResult(configs, config)
-      }
+			if selectionOpts.ShouldAttachPolicy(gvk.AuthorizationPolicy, config.NamespacedName(), spec) {
+				configs = updateAuthorizationPoliciesResult(configs, config)
+			}
 		}
 	}
 

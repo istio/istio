@@ -690,7 +690,7 @@ func TestAccessLogging(t *testing.T) {
 			telemetry, ctx := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
 			var got []string
-			cfgs := telemetry.AccessLogging(ctx, tt.proxy, tt.class)
+			cfgs := telemetry.AccessLogging(ctx, tt.proxy, tt.class, nil)
 			if cfgs != nil {
 				got = []string{}
 				for _, p := range cfgs {
@@ -917,7 +917,7 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry, ctx := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
-			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound)
+			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound, nil)
 			assert.Equal(t, tt.excepted, got)
 		})
 	}
@@ -944,8 +944,8 @@ func TestAccessLoggingCache(t *testing.T) {
 	telemetry, ctx := createTestTelemetries([]config.Config{newTelemetry("default", cfgs)}, t)
 	for _, s := range []*Proxy{sidecar, otherNamespace} {
 		t.Run(s.ConfigNamespace, func(t *testing.T) {
-			first := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound)
-			second := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound)
+			first := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound, nil)
+			second := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound, nil)
 			assert.Equal(t, first, second)
 		})
 	}
@@ -1738,7 +1738,7 @@ func TestTelemetryAccessLogWithFormatter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry, ctx := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
-			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound)
+			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound, nil)
 			assert.Equal(t, tt.excepted, got)
 		})
 	}

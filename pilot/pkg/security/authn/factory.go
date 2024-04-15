@@ -52,8 +52,8 @@ type MtlsPolicy interface {
 
 // NewPolicyApplier returns the appropriate (policy) applier, depends on the versions of the policy exists
 // for the given service innstance.
-func NewPolicyApplier(push *model.PushContext, proxy *model.Proxy) PolicyApplier {
-	forWorkload := model.PolicyMatcherForProxy(proxy, push)
+func NewPolicyApplier(push *model.PushContext, proxy *model.Proxy, svc *model.Service) PolicyApplier {
+	forWorkload := model.PolicyMatcherForProxy(proxy).WithService(svc)
 	return newPolicyApplier(
 		push.AuthnPolicies.GetRootNamespace(),
 		push.AuthnPolicies.GetJwtPoliciesForWorkload(forWorkload),

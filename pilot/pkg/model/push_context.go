@@ -938,7 +938,7 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy) sets.String {
 	}
 	// add services from RequestAuthentication.JwtRules.JwksUri
 	if features.JwksFetchMode != jwt.Istiod {
-		forWorkload := PolicyMatcherForProxy(proxy, ps)
+		forWorkload := PolicyMatcherForProxy(proxy)
 		jwtPolicies := ps.AuthnPolicies.GetJwtPoliciesForWorkload(forWorkload)
 		for _, cfg := range jwtPolicies {
 			rules := cfg.Spec.(*v1beta1.RequestAuthentication).JwtRules
@@ -2088,7 +2088,7 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 		lookupInNamespaces = []string{proxy.ConfigNamespace}
 	}
 
-	selectionOpts := PolicyMatcherForProxy(proxy, ps)
+	selectionOpts := PolicyMatcherForProxy(proxy).WithService(info.Service)
 	for _, ns := range lookupInNamespaces {
 		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
 			for _, plugin := range wasmPlugins {

@@ -40,6 +40,7 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/route"
 	"istio.io/istio/pilot/pkg/networking/core/route/retry"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
+	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -169,7 +170,6 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
 	chains := []*listener.FilterChain{}
-	pre, post := lb.buildWaypointHTTPFilters()
 	for _, svc := range svcs {
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
@@ -178,7 +178,8 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 			portString := fmt.Sprintf("%d", port.Port)
 			cc := inboundChainConfig{
-				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
+				clusterName:   model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
+				policyService: svc,
 				port: model.ServiceInstancePort{
 					ServicePort: port,
 					TargetPort:  uint32(port.Port),
@@ -195,7 +196,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			cc.clusterName = model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
 			httpName := name + "-http"
 			httpChain := &listener.FilterChain{
-				Filters: lb.buildWaypointInboundHTTPFilters(svc, cc, pre, post),
+				Filters: lb.buildWaypointInboundHTTPFilters(svc, cc),
 				Name:    httpName,
 			}
 			if port.Protocol.IsUnsupported() {
@@ -252,7 +253,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			Filters: append([]*listener.Filter{
 				xdsfilters.ConnectAuthorityNetworkFilter,
 			},
-				lb.buildWaypointInboundHTTPFilters(nil, cc, pre, post)...),
+				lb.buildWaypointInboundHTTPFilters(nil, cc)...),
 			Name: "direct-http",
 		}
 		chains = append(chains, tcpChain, httpChain)
@@ -340,30 +341,41 @@ func buildConnectOriginateListener() *listener.Listener {
 
 // buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.
 // Authn/authz filters are pre-pended. Telemetry filters are appended.
-func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, post []*hcm.HttpFilter) {
+func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*hcm.HttpFilter, post []*hcm.HttpFilter) {
+	authzCustomBuilder := lb.authzCustomBuilder
+	authzBuilder := lb.authzBuilder
+	authnBuilder := lb.authnBuilder
+	if svc != nil {
+		authnBuilder = authn.NewBuilderForService(lb.push, lb.node, svc)
+		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, true, svc)
+		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, true, svc)
+	}
+
 	// TODO: consider dedicated listener class for waypoint filters
 	cls := istionetworking.ListenerClassSidecarInbound
 	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
-		Class: cls,
+		Class:   cls,
+		Service: svc,
 	}, model.WasmPluginTypeHTTP)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
-  // TODO policies here will need to be different per-chain (service attached)
-	pre = append(pre, lb.authzCustomBuilder.BuildHTTP(cls)...)
+	// TODO policies here will need to be different per-chain (service attached)
+	pre = append(pre, authzCustomBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHN)
-	pre = append(pre, lb.authnBuilder.BuildHTTP(cls)...)
+	pre = append(pre, authnBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHZ)
-	pre = append(pre, lb.authzBuilder.BuildHTTP(cls)...)
+	pre = append(pre, authzBuilder.BuildHTTP(cls)...)
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_STATS)
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	post = append(post, xdsfilters.WaypointUpstreamMetadataFilter)
-	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls)...)
+	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
 	return
 }
 
 // buildWaypointInboundHTTPFilters builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
-func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig, pre, post []*hcm.HttpFilter) []*listener.Filter {
+func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
+	pre, post := lb.buildWaypointHTTPFilters(svc)
 	ph := GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	var filters []*listener.Filter
 	httpOpts := &httpListenerOpts{
@@ -380,6 +392,7 @@ func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, c
 		class:                     istionetworking.ListenerClassSidecarInbound,
 		statPrefix:                cc.StatPrefix(),
 		isWaypoint:                true,
+		policySvc:                 svc,
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {

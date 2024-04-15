@@ -32,7 +32,11 @@ type Builder struct {
 }
 
 func NewBuilder(push *model.PushContext, proxy *model.Proxy) *Builder {
-	applier := authn.NewPolicyApplier(push, proxy)
+	return NewBuilderForService(push, proxy, nil)
+}
+
+func NewBuilderForService(push *model.PushContext, proxy *model.Proxy, svc *model.Service) *Builder {
+	applier := authn.NewPolicyApplier(push, proxy, svc)
 	trustDomains := TrustDomainsForValidation(push.Mesh)
 	return &Builder{
 		applier:      applier,

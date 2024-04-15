@@ -64,8 +64,9 @@ func configureTracing(
 	proxy *model.Proxy,
 	httpConnMgr *hcm.HttpConnectionManager,
 	class networking.ListenerClass,
+	svc *model.Service,
 ) *requestidextension.UUIDRequestIDExtensionContext {
-	tracingCfg := push.Telemetry.Tracing(proxy)
+	tracingCfg := push.Telemetry.Tracing(proxy, svc)
 	return configureTracingFromTelemetry(tracingCfg, push, proxy, httpConnMgr, class)
 }
 

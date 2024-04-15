@@ -601,10 +601,11 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
+			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
 			}
-			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
+			if got := policies.GetPeerAuthenticationsForWorkload(matcher); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
 			}
 			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
@@ -1163,10 +1164,11 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
+			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
 			}
-			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
+			if got := policies.GetPeerAuthenticationsForWorkload(matcher); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
 			}
 			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
@@ -1293,7 +1295,8 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
+			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
+			if got := policies.GetPeerAuthenticationsForWorkload(matcher); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
 			}
 			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
@@ -1455,7 +1458,8 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
+			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
 			}
 		})
