@@ -57,19 +57,19 @@ func TestAmbientInstallMultiNamespace(t *testing.T) {
 		name     string
 		nsConfig NamespaceConfig
 	}{{
-		name: "istio-cni",
+		name: "isolated-istio-cni",
 		nsConfig: NewNamespaceConfig(types.NamespacedName{
 			Name: CniReleaseName, Namespace: "istio-cni",
 		}),
 	}, {
-		name: "istio-cni-ztunnel",
+		name: "isolated-istio-cni-and-ztunnel",
 		nsConfig: NewNamespaceConfig(types.NamespacedName{
 			Name: CniReleaseName, Namespace: "istio-cni",
 		}, types.NamespacedName{
 			Name: ZtunnelReleaseName, Namespace: "kube-system",
 		}),
 	}, {
-		name: "istio-cni-foo",
+		name: "isolated-istio-cni-ztunnel-and-gateway",
 		nsConfig: NewNamespaceConfig(types.NamespacedName{
 			Name: CniReleaseName, Namespace: "istio-cni",
 		}, types.NamespacedName{
