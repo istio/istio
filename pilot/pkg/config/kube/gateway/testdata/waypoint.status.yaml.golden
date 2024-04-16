@@ -13,7 +13,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "namespace-istio-waypoint.ns.svc.domain.suffix"
+    message: 'Failed to assign to any requested addresses: hostname "namespace.ns.svc.domain.suffix"
       not found'
     reason: AddressNotUsable
     status: "False"
@@ -59,7 +59,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "invalid-istio-waypoint.ns.svc.domain.suffix"
+    message: 'Failed to assign to any requested addresses: hostname "invalid.ns.svc.domain.suffix"
       not found'
     reason: AddressNotUsable
     status: "False"
