@@ -136,7 +136,8 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 		}
 
 		// Service attached
-		if config.CanonicalGroup(targetRef.GetGroup()) == gvk.Service.CanonicalGroup() &&
+		if p.IsWaypoint &&
+      config.CanonicalGroup(targetRef.GetGroup()) == gvk.Service.CanonicalGroup() &&
 			targetRef.GetKind() == gvk.Service.Kind &&
 			targetRef.GetName() == p.Service &&
 			(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.Namespace) {
