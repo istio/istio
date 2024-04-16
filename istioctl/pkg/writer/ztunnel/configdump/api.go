@@ -87,10 +87,11 @@ type ZtunnelPolicy struct {
 }
 
 type ZtunnelDump struct {
-	Workloads    map[string]*ZtunnelWorkload `json:"workloads"`
-	Services     map[string]*ZtunnelService  `json:"services"`
-	Policies     map[string]*ZtunnelPolicy   `json:"policies"`
-	Certificates []*CertsDump                `json:"certificates"`
+	Workloads     map[string]*ZtunnelWorkload `json:"workloads"`
+	Services      map[string]*ZtunnelService  `json:"services"`
+	Policies      map[string]*ZtunnelPolicy   `json:"policies"`
+	Certificates  []*CertsDump                `json:"certificates"`
+	WorkloadState map[string]WorkloadState    `json:"workloadState"`
 }
 
 type CertsDump struct {
@@ -104,4 +105,42 @@ type Cert struct {
 	SerialNumber   string `json:"serialNumber"`
 	ValidFrom      string `json:"validFrom"`
 	ExpirationTime string `json:"expirationTime"`
+}
+
+type WorkloadState struct {
+	State       string              `json:"state,omitempty	"`
+	Connections WorkloadConnections `json:"connections,omitempty"`
+	Info        WorkloadInfo        `json:"info"`
+}
+
+type WorkloadConnections struct {
+	Inbound  []InboundConnection  `json:"inbound"`
+	Outbound []OutboundConnection `json:"outbound"`
+}
+
+type WorkloadInfo struct {
+	Name           string `json:"name"`
+	Namespace      string `json:"namespace"`
+	TrustDomain    string `json:"trustDomain"`
+	ServiceAccount string `json:"serviceAccount"`
+}
+
+type InboundConnection struct {
+	Src         string `json:"src"`
+	Dst         string `json:"dst"`
+	SrcIdentity string `json:"src_identity"`
+	DstNetwork  string `json:"dst_network"`
+}
+
+type OutboundConnection struct {
+	Src         string `json:"src"`
+	OriginalDst string `json:"originalDst"`
+	ActualDst   string `json:"actualDst"`
+}
+
+type WorkloadConnection struct {
+	Src         string `json:"src"`
+	Dst         string `json:"dst"`
+	SrcIdentity string `json:"src_identity"`
+	DstNetwork  string `json:"dst_network"`
 }
