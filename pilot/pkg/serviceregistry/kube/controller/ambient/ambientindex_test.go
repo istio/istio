@@ -1082,7 +1082,7 @@ func TestDefaultAllowWaypointPolicy(t *testing.T) {
 	s := newAmbientTestServer(t, testC, testNW)
 	setupPolicyTest(t, s)
 
-	t.Run("generate policy", func(t *testing.T) {
+	t.Run("policy with service accounts", func(t *testing.T) {
 		assert.EventuallyEqual(t, func() []string {
 			waypointPolicy := s.authorizationPolicies.GetKey(krt.Key[model.WorkloadAuthorization]("ns1/" + policyName))
 			if waypointPolicy == nil {

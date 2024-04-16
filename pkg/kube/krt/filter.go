@@ -118,7 +118,8 @@ func FilterGeneric(f func(any) bool) FetchOption {
 }
 
 func (f filter) Matches(object any, forList bool) bool {
-	if !f.keys.IsEmpty() && f.keys.Contains(string(GetKey[any](object))) {
+	// an empty set will match none
+	if f.keys != nil && !f.keys.Contains(string(GetKey[any](object))) {
 		if log.DebugEnabled() {
 			log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
 		}

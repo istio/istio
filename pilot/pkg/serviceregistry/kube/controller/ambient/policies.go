@@ -16,6 +16,8 @@
 package ambient
 
 import (
+	v1 "k8s.io/api/core/v1"
+
 	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -23,7 +25,6 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/workloadapi/security"
-	"k8s.io/api/core/v1"
 )
 
 func PolicyCollections(
