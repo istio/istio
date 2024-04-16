@@ -352,6 +352,35 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
 }
 
+func TestAutoregistrationDisabled(t *testing.T) {
+	test.SetForTest(t, &features.WorkloadEntryAutoRegistration, false)
+	store := memory.NewController(memory.Make(collections.All))
+	createOrFail(t, store, weB)
+
+	stop := test.NewStop(t)
+
+	c := NewController(store, "pilot-x", keepalive.Infinity)
+	go c.Run(stop)
+
+	t.Run("health check still works", func(t *testing.T) {
+		proxy := fakeProxySuitableForHealthChecks(weB)
+
+		err := c.OnConnect(makeConn(proxy, time.Now()))
+		assert.NoError(t, err)
+		// report workload is healthy
+		c.QueueWorkloadEntryHealth(proxy, HealthEvent{
+			Healthy: true,
+		})
+		// ensure health condition has been updated
+		checkHealthOrFail(t, store, proxy, true)
+	})
+	t.Run("registration does nothing", func(t *testing.T) {
+		p := fakeProxy("1.2.3.4", wgA, "litNw", "sa-a")
+		assert.NoError(t, c.OnConnect(makeConn(p, time.Now())))
+		checkNoEntryOrFail(t, store, wgA, p)
+	})
+}
+
 func TestUpdateHealthCondition(t *testing.T) {
 	stop := test.NewStop(t)
 	ig, ig2, store := setup(t)
