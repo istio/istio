@@ -477,6 +477,7 @@ func TestGenerator(t *testing.T) {
 			value: "/abc/{*}",
 			want: yamlPermission(t, `
          uriTemplate:
+           name: uri-template
            typedConfig:
             '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
             pathTemplate: /abc/*`),

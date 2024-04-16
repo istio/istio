@@ -976,16 +976,18 @@ func TestAuthz_PathTemplating(t *testing.T) {
 						path  string
 						allow allowValue
 					}{
+						// Test matches for `/allow/admin/{**}`
 						{
-							path:  "/allow/admin",
+							path:  "/allow/admin/",
 							allow: true,
 						},
 						{
-							path:  "/allow/admin2",
+							// When `**` is the last segment and operator in the template, the path must have a trailing `/` to match.
+							path:  "/allow/admin",
 							allow: false,
 						},
 						{
-							path:  "/allow/user",
+							path:  "/allow/user/",
 							allow: false,
 						},
 						{
@@ -1007,6 +1009,23 @@ func TestAuthz_PathTemplating(t *testing.T) {
 						{
 							path:  "/allow/admin/foo/temp.txt",
 							allow: true,
+						},
+						// Test matches for `/foo/{*}/bar/{**}.txt`
+						{
+							path:  "/foo/buzz/bar/bat.txt",
+							allow: true,
+						},
+						{
+							path:  "/foo/buzz/bar/bat/fuzz.txt",
+							allow: true,
+						},
+						{
+							path:  "/foo/bar/bat.txt",
+							allow: false,
+						},
+						{
+							path:  "/foo/buzz/bar/bat",
+							allow: false,
 						},
 					}
 
