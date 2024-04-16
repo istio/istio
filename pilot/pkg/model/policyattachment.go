@@ -53,8 +53,7 @@ func PolicyMatcherFor(workloadNamespace string, labels labels.Instance, isWaypoi
 
 func PolicyMatcherForProxy(proxy *Proxy) WorkloadPolicyMatcher {
 	return WorkloadPolicyMatcher{
-		// TODO should this use proxy.ConfigNamespace?
-		Namespace:      proxy.GetNamespace(),
+		Namespace:      proxy.ConfigNamespace,
 		WorkloadLabels: proxy.Labels,
 		IsWaypoint:     proxy.IsWaypointProxy(),
 	}
@@ -129,16 +128,15 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 		}
 
 		// Gateway attached
-		if targetRef.GetGroup() == gvk.KubernetesGateway.Group &&
+		if config.CanonicalGroup(targetRef.GetGroup()) == gvk.KubernetesGateway.CanonicalGroup() &&
 			targetRef.GetKind() == gvk.KubernetesGateway.Kind &&
 			target.Name == gatewayName &&
 			(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.Namespace) {
 			return true
 		}
 
-		println("checking service")
 		// Service attached
-		if targetRef.GetGroup() == gvk.Service.Group &&
+		if config.CanonicalGroup(targetRef.GetGroup()) == gvk.Service.CanonicalGroup() &&
 			targetRef.GetKind() == gvk.Service.Kind &&
 			targetRef.GetName() == p.Service &&
 			(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.Namespace) {

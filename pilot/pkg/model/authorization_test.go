@@ -68,6 +68,14 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		Namespace: "bar",
 	}
 
+	policyWithServiceRef := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	policyWithServiceRef.TargetRef = &selectorpb.PolicyTargetReference{
+		Group:     gvk.Service.Group,
+		Kind:      gvk.Service.Kind,
+		Name:      "foo-svc",
+		Namespace: "foo",
+	}
+
 	denyPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
 	denyPolicy.Action = authpb.AuthorizationPolicy_DENY
 
@@ -395,6 +403,27 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 					Namespace: "bar",
 					Spec:      policy,
 				},
+			},
+		},
+		{
+			name: "waypoint service attached",
+			selectionOpts: WorkloadPolicyMatcher{
+				IsWaypoint: true,
+				Service:    "foo-svc",
+				Namespace:  "foo",
+				WorkloadLabels: labels.Instance{
+					constants.GatewayNameLabel: "foo-waypoint",
+					// labels match in selector policy but ignore them for waypoint
+					"app":     "httpbin",
+					"version": "v1",
+				},
+			},
+			configs: []config.Config{
+				newConfig("authz-1", "foo", policyWithServiceRef),
+				newConfig("authz-2", "foo", policyWithSelector),
+			},
+			wantAllow: []AuthorizationPolicy{
+				{Name: "authz-1", Namespace: "foo", Spec: policyWithServiceRef},
 			},
 		},
 	}

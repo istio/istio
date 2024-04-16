@@ -114,7 +114,7 @@ func TestBookinfo(t *testing.T) {
 			ambientComponent.NewWaypointProxyOrFail(t, nsConfig, "namespace")
 
 			t.NewSubTest("ingress receives waypoint updates").Run(func(t framework.TestContext) {
-				ambientComponent.AddWaypointToService(t, nsConfig, "productpage", "namespace")
+				ambientComponent.SetWaypointForService(t, nsConfig, "productpage", "namespace")
 				for _, ingressURL := range ingressURLs {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingressClient.Get(ingressURL + "/productpage")
@@ -170,7 +170,7 @@ func TestBookinfo(t *testing.T) {
 					}
 				})
 
-				ambientComponent.AddWaypointToService(t, nsConfig, "reviews", "namespace")
+				ambientComponent.SetWaypointForService(t, nsConfig, "reviews", "namespace")
 
 				t.NewSubTest("reviews v1").Run(func(t framework.TestContext) {
 					applyFileOrFail(t, nsConfig.Name(), routingV1)
