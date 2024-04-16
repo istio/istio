@@ -218,3 +218,56 @@ func TestValidateCondition(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckValidPathTemplate(t *testing.T) {
+	cases := []struct {
+		name      string
+		values    []string
+		wantError bool
+	}{
+		{
+			name:   "valid path template - matchOneTemplate",
+			values: []string{"/{*}/foo"},
+		},
+		{
+			name:   "valid path template - matchAnyTemplate",
+			values: []string{"/foo/{**}/bar"},
+		},
+		{
+			name:      "invalid path template - empty curly braces",
+			values:    []string{"/{*}/foo/{}/bar"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - matchOneTemplate with `*`",
+			values:    []string{"/foo/{*}/bar/*"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - matchOneTemplate with `**`",
+			values:    []string{"/foo/{*}/bar/**/buzz"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - matchAnyTemplate with named var: {buzz}",
+			values:    []string{"/foo/{buzz}/bar/{**}.txt"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - matchAnyTemplate with named var: {buzz=*}",
+			values:    []string{"/foo/{buzz=*}/bar/{**}.txt"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - matchAnyTemplate with named var: {buzz=**}",
+			values:    []string{"/{*}/foo/{buzz=**}/bar"},
+			wantError: true,
+		},
+	}
+	for _, c := range cases {
+		err := security.CheckValidPathTemplate(c.name, c.values)
+		if c.wantError == (err == nil) {
+			t.Fatalf("CheckValidPathTemplate(%s): want error (%v) but got (%v)", c.name, c.wantError, err)
+		}
+	}
+}

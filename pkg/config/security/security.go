@@ -18,12 +18,14 @@ import (
 	"fmt"
 	"net/netip"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pilot/pkg/security/authz/matcher"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
@@ -56,6 +58,10 @@ const (
 	attrConnSNI          = "connection.sni"         // server name indication, e.g. "www.example.com".
 	attrExperimental     = "experimental.envoy.filters."
 )
+
+// Matches on named variables {namedvar=*}, named variables {namedvar}, empty braces {}, wildcard /*,
+// and double wildcard /**
+var unsupportedPathTempRegex = regexp.MustCompile(`\/{\w+\=\*[*]?\}|{\w*\}|\/\*[*]?|\*[*]?\/`)
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
 // URI must start with "http://" or "https://", which corresponding to "http" or "https" scheme.
@@ -95,6 +101,18 @@ func CheckEmptyValues(key string, values []string) error {
 	for _, value := range values {
 		if value == "" {
 			return fmt.Errorf("empty value not allowed, found in %s", key)
+		}
+	}
+	return nil
+}
+
+func CheckValidPathTemplate(key string, paths []string) error {
+	for _, path := range paths {
+		// If the path is a path template it must be supported.
+		// It must not contain named variables, `*`, or `**`.
+		// Ex: "/{*}/foo/{bar}" is an unsupported PathTemplate.
+		if matcher.IsPathTemplate(path) && unsupportedPathTempRegex.MatchString(path) {
+			return fmt.Errorf("invalid or unsupported path template, found in %s", key)
 		}
 	}
 	return nil
