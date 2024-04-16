@@ -1998,7 +1998,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 		servers := []*istio.Server{}
 
 		// Extract the addresses. A gateway will bind to a specific Service
-		gatewayServices, err := extractGatewayServices(r.GatewayResources, kgw, obj)
+		gatewayServices, err := extractGatewayServices(r.GatewayResources, kgw, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
@@ -2264,9 +2264,9 @@ func IsManaged(gw *k8s.GatewaySpec) bool {
 	return false
 }
 
-func extractGatewayServices(r GatewayResources, kgw *k8s.GatewaySpec, obj config.Config) ([]string, *ConfigError) {
+func extractGatewayServices(r GatewayResources, kgw *k8s.GatewaySpec, obj config.Config, info classInfo) ([]string, *ConfigError) {
 	if IsManaged(kgw) {
-		name := model.GetOrDefault(obj.Annotations[gatewayNameOverride], getDefaultName(obj.Name, kgw, false))
+		name := model.GetOrDefault(obj.Annotations[gatewayNameOverride], getDefaultName(obj.Name, kgw, info.disableNameSuffix))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, obj.Namespace, r.Domain)}, nil
 	}
 	gatewayServices := []string{}
