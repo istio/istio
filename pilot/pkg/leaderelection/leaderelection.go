@@ -47,6 +47,8 @@ const (
 	GatewayStatusController = "istio-gateway-status-leader"
 	StatusController        = "istio-status-leader"
 	AnalyzeController       = "istio-analyze-leader"
+
+	ServiceEntryStatusController = "istio-service-entry-status-leader"
 	// GatewayDeploymentController controls translating Kubernetes Gateway objects into various derived
 	// resources (Service, Deployment, etc).
 	// Unlike other types which use ConfigMaps, we use a Lease here. This is because:

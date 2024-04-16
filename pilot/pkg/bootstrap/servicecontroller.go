@@ -17,6 +17,7 @@ package bootstrap
 import (
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -33,11 +34,31 @@ func (s *Server) ServiceController() *aggregate.Controller {
 func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := s.ServiceController()
 
+	if s.statusManager == nil {
+		s.initStatusManager(args)
+	}
+
 	s.serviceEntryController = serviceentry.NewController(
 		s.configController, s.XDSServer,
 		serviceentry.WithClusterID(s.clusterID),
 	)
 	serviceControllers.AddRegistry(s.serviceEntryController)
+
+	s.addTerminatingStartFunc("service entry status", func(stop <-chan struct{}) error {
+		leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.ServiceEntryStatusController, args.Revision, s.kubeClient).
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				log.Infof("Starting service entry status writer")
+				s.serviceEntryController.SetStatusWrite(true, s.statusManager)
+				// Update the status forcibly.
+				s.serviceEntryController.UpdateStatus()
+				<-leaderStop
+				log.Infof("Stopping service entry status writer")
+				s.serviceEntryController.SetStatusWrite(false, nil)
+			}).
+			Run(stop)
+		return nil
+	})
 
 	registered := sets.New[provider.ID]()
 	for _, r := range args.RegistryOptions.Registries {

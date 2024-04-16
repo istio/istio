@@ -204,6 +204,7 @@ func (wp *WorkerPool) maybeAddWorker() {
 			if cfg != nil {
 				// Check that generation matches
 				if strconv.FormatInt(cfg.Generation, 10) == target.Generation {
+					var changed bool
 					x, err := GetOGProvider(cfg.Status)
 					if err == nil {
 						// Not all controllers user generation, so we can ignore errors
@@ -211,9 +212,16 @@ func (wp *WorkerPool) maybeAddWorker() {
 					}
 					for c, i := range perControllerWork {
 						// TODO: this does not guarantee controller order.  perhaps it should?
-						x = c.fn(x, i)
+						if nx := c.fn(x, i); nx != nil {
+							// If nil is returned, skip the controller.
+							x = nx
+							changed = true
+						}
 					}
-					wp.write(cfg, x)
+					// Write the status only if it is changed.
+					if changed {
+						wp.write(cfg, x)
+					}
 				}
 			}
 			wp.lock.Lock()

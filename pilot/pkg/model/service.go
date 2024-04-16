@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -696,7 +697,17 @@ type ServiceAttributes struct {
 
 	PassthroughTargetPorts map[uint32]uint32
 
+	// A reference to the origin resource which defines the service.
+	// This is optional.
+	ResourceRef *ResourceReference
+
 	K8sAttributes
+}
+
+type ResourceReference struct {
+	Generation       int64
+	GroupVersionKind config.GroupVersionKind
+	Name             string
 }
 
 type NamespacedHostname struct {

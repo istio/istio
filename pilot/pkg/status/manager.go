@@ -95,6 +95,10 @@ func (m *Manager) CreateIstioStatusController(fn func(status *v1alpha1.IstioStat
 			input = converted.IstioStatus
 		}
 		result := fn(input, context)
+		if result == nil {
+			// Skip the status if `nil` is returned.
+			return nil
+		}
 		return &IstioGenerationProvider{result}
 	}
 	result := &Controller{

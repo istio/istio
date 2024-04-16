@@ -210,12 +210,12 @@ func convertServices(cfg config.Config) []*model.Service {
 	}
 
 	return buildServices(hostAddresses, cfg.Name, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels, portOverrides)
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels, portOverrides, cfg.Generation, cfg.GroupVersionKind)
 }
 
 func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo sets.Set[visibility.Instance], selectors map[string]string, saccounts []string,
-	ctime time.Time, labels map[string]string, overrides map[uint32]uint32,
+	ctime time.Time, labels map[string]string, overrides map[uint32]uint32, generation int64, gvr config.GroupVersionKind,
 ) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
 	lbls := labels
@@ -238,6 +238,11 @@ func buildServices(hostAddresses []*HostAddress, name, namespace string, ports m
 				Labels:                 lbls,
 				ExportTo:               exportTo,
 				LabelSelectors:         selectors,
+				ResourceRef: &model.ResourceReference{
+					Name:             name,
+					Generation:       generation,
+					GroupVersionKind: gvr,
+				},
 			},
 			ServiceAccounts: saccounts,
 		})
