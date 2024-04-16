@@ -287,7 +287,7 @@ spec:
 					config).
 				ApplyOrFail(t, apply.CleanupConditionally)
 
-				retry.UntilSuccessOrFail(t, func() error {
+			retry.UntilSuccessOrFail(t, func() error {
 				return checkWaypointIsReady(t, apps.Namespace.Name(), "simple-http-waypoint")
 			}, retry.Timeout(2*time.Minute))
 

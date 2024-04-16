@@ -19,7 +19,6 @@ package ambient
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -32,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/ptr"
@@ -474,7 +474,7 @@ func TestBogusUseWaypoint(t *testing.T) {
 		t.NewSubTest("with waypoint").Run(check)
 
 		SetWaypoint(t, Captured, "")
-		t.NewSubTest("waypoit removed").Run(check)
+		t.NewSubTest("waypoint removed").Run(check)
 	})
 }
 
@@ -2626,29 +2626,4 @@ func TestDirect(t *testing.T) {
 			})
 		})
 	})
-}
-
-func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa string) {
-	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-		"x",
-		"waypoint",
-		"delete",
-		"--namespace",
-		nsConfig.Name(),
-		"--service-account",
-		sa,
-	})
-	waypointError := retry.UntilSuccess(func() error {
-		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+sa)
-		pods, err := kubetest.CheckPodsAreReady(fetch)
-		if err != nil && !errors.Is(err, kubetest.ErrNoPodsFetched) {
-			return fmt.Errorf("cannot fetch pod: %v", err)
-		} else if len(pods) != 0 {
-			return fmt.Errorf("waypoint pod is not deleted")
-		}
-		return nil
-	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
-	if waypointError != nil {
-		t.Fatal(waypointError)
-	}
 }
