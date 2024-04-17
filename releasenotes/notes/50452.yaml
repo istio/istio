@@ -3,4 +3,4 @@ kind: bug-fix
 area: traffic-management
 releaseNotes:
   - |
-    **Fixed** an issue that CORS filter do not modify response headers for requests not matching origin.
+    **Fixed** an issue that CORS filter forwarded preflight request if the origin is not allowed.
