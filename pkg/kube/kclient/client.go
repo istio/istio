@@ -213,7 +213,7 @@ func New[T controllers.ComparableObject](c kube.Client) Client[T] {
 // This means there must only be one filter configuration for a given type using the same kube.Client.
 // Use with caution.
 func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) Client[T] {
-	gvr := types.MustToGVR[T](types.GetGVK[T]())
+	gvr := types.MustToGVR[T](types.MustGVKFromType[T]())
 	inf := kubeclient.GetInformerFiltered[T](c, ToOpts(c, gvr, filter))
 	return &fullClient[T]{
 		writeClient: writeClient[T]{client: c},
