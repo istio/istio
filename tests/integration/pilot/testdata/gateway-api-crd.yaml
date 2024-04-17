@@ -1,4 +1,4 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=e8cdaaf9b4ff999d5d0320fbbed6135cd2cfd9d2"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=bbbb51b9f25d67c26b990eed6aa6d5cb5b3d9448"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -84,16 +84,6 @@ spec:
                     description: Name is the name of the target resource.
                     maxLength: 253
                     minLength: 1
-                    type: string
-                  namespace:
-                    description: |-
-                      Namespace is the namespace of the referent. When unspecified, the local
-                      namespace is inferred. Even when policy targets a resource in a different
-                      namespace, it MUST only apply to traffic originating from the same
-                      namespace as the policy.
-                    maxLength: 63
-                    minLength: 1
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
                   sectionName:
                     description: |-
@@ -873,7 +863,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -1133,7 +1123,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 status:
@@ -2387,7 +2377,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -3612,7 +3602,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 status:
@@ -11235,7 +11225,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -14348,7 +14338,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 status:

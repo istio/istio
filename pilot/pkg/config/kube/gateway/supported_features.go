@@ -16,12 +16,12 @@ package gateway
 
 import (
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 
 	"istio.io/istio/pkg/util/sets"
 )
 
-var SupportedFeatures = suite.AllFeatures
+var SupportedFeatures = features.AllFeatures
 
 var gatewaySupportedFeatures = getSupportedFeatures()
 
