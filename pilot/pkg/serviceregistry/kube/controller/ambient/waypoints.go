@@ -175,7 +175,11 @@ func (w Waypoint) ResourceName() string {
 	return w.GetNamespace() + "/" + w.GetName()
 }
 
-func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway], GatewayClasses krt.Collection[*v1beta1.GatewayClass], Pods krt.Collection[*v1.Pod]) krt.Collection[Waypoint] {
+func WaypointsCollection(
+	Gateways krt.Collection[*v1beta1.Gateway],
+	GatewayClasses krt.Collection[*v1beta1.GatewayClass],
+	Pods krt.Collection[*v1.Pod],
+) krt.Collection[Waypoint] {
 	podsByNamespace := krt.NewNamespaceIndex(Pods)
 	return krt.NewCollection(Gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
 		if len(gateway.Status.Addresses) == 0 {
