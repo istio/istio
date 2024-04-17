@@ -166,10 +166,14 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 
 type ConnectionContext interface {
 	Connection() *BaseConnection
-	Initialize(node *core.Node) error
-	Close()
 	Watcher() xds.Watcher
+	// Initialize checks the first request.
+	Initialize(node *core.Node) error
+	// Close discards the connection.
+	Close()
+	// Process responds to a discovery request.
 	Process(req *discovery.DiscoveryRequest) error
+	// Push responds to a push event queue
 	Push(ev any) error
 }
 

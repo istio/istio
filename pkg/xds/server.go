@@ -17,13 +17,8 @@ package xds
 import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
-)
-
-var (
-	log = istiolog.RegisterScope("ads", "ads debugging")
 )
 
 // ResourceDelta records the difference in requested resources by an XDS client
@@ -37,8 +32,6 @@ type ResourceDelta struct {
 func (rd ResourceDelta) IsEmpty() bool {
 	return len(rd.Subscribed) == 0 && len(rd.Unsubscribed) == 0
 }
-
-var emptyResourceDelta = ResourceDelta{}
 
 type Resources = []*discovery.Resource
 
@@ -82,6 +75,7 @@ type Watcher interface {
 	GetWatchedResource(url string) *WatchedResource
 	NewWatchedResource(url string, names []string)
 	UpdateWatchedResource(string, func(*WatchedResource) *WatchedResource)
+	// GetID identifies an xDS client. This is different from a connection ID.
 	GetID() string
 }
 
