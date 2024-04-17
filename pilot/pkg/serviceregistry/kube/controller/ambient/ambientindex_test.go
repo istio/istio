@@ -71,14 +71,12 @@ const (
 
 func init() {
 	features.EnableAmbientWaypoints = true
-	features.EnableAmbientControllers = true
+	features.EnableAmbient = true
 }
 
 var validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 
 func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
-
 	cases := []struct {
 		name         string
 		trafficType  string
@@ -174,7 +172,6 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 }
 
 func TestAmbientIndex_NetworkAndClusterIDs(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	cases := []struct {
 		name    string
 		cluster cluster.ID
@@ -254,7 +251,6 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 }
 
 func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addWaypoint(t, "10.0.0.10", "test-wp", "default", true)
@@ -1344,7 +1340,6 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 }
 
 func TestWorkloadsForWaypointOrder(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, "", testNW)
 
 	assertOrderedWaypoint := func(t *testing.T, network, address string, expected ...string) {

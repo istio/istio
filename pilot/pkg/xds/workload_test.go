@@ -87,7 +87,7 @@ func buildExpectAddedAndRemoved(t *testing.T) func(resp *discovery.DeltaDiscover
 }
 
 func TestWorkloadReconnect(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	test.SetForTest(t, &features.EnableAmbient, true)
 	t.Run("ondemand", func(t *testing.T) {
 		expect := buildExpect(t)
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
@@ -154,7 +154,7 @@ func TestWorkloadReconnect(t *testing.T) {
 }
 
 func TestWorkload(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	test.SetForTest(t, &features.EnableAmbient, true)
 	t.Run("ondemand", func(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
@@ -372,7 +372,7 @@ func createService(s *xds.FakeDiscoveryServer, name, namespace string, selector 
 }
 
 func TestWorkloadAuthorizationPolicy(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	test.SetForTest(t, &features.EnableAmbient, true)
 	expect := buildExpect(t)
 	expectRemoved := buildExpectExpectRemoved(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
@@ -400,7 +400,7 @@ func TestWorkloadAuthorizationPolicy(t *testing.T) {
 }
 
 func TestWorkloadPeerAuthentication(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	test.SetForTest(t, &features.EnableAmbient, true)
 	expect := buildExpect(t)
 	expectAddedAndRemoved := buildExpectAddedAndRemoved(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})

@@ -165,40 +165,6 @@ var (
 	EnableGatewayAPIGatewayClassController = env.Register("PILOT_ENABLE_GATEWAY_API_GATEWAYCLASS_CONTROLLER", true,
 		"If this is set to true, istiod will create and manage its default GatewayClasses").Get()
 
-	// EnableSidecarHBONEListening provides a global Pilot flag for enabling listening on HBONE.
-	EnableSidecarHBONEListening = env.Register(
-		"PILOT_ENABLE_SIDECAR_LISTENING_HBONE",
-		false,
-		"If enabled, HBONE support can be configured for proxies. "+
-			"Note: proxies must opt in on a per-proxy basis with ENABLE_HBONE to actually get HBONE config, in addition to this flag.").Get()
-	// PreferHBONESend controls whether HBONE is preferred. If not, if an endpoint supports mTLS and HBONE, mTLS will be used
-	PreferHBONESend = env.Register(
-		"PILOT_PREFER_SENDING_HBONE",
-		false,
-		"If enabled, HBONE will be preferred when sending to destinations. ").Get()
-	// PreferHBONESend controls whether HBONE sending HBONE is allowed.
-	// This is required for ambient to function.
-	EnableHBONESend = env.Register(
-		"PILOT_ENABLE_SENDING_HBONE",
-		false,
-		"If enabled, HBONE will be preferred when sending to destinations. ").Get()
-
-	EnableAmbientControllers = env.Register(
-		"PILOT_ENABLE_AMBIENT_CONTROLLERS",
-		false,
-		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
-
-	EnableAmbientWaypoints = func() bool {
-		v := env.Register(
-			"PILOT_ENABLE_AMBIENT_WAYPOINTS",
-			false,
-			"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
-		if v && !EnableAmbientControllers {
-			log.Fatalf("PILOT_ENABLE_AMBIENT_WAYPOINTS requires PILOT_ENABLE_AMBIENT_CONTROLLERS")
-		}
-		return v
-	}()
-
 	DeltaXds = env.Register("ISTIO_DELTA_XDS", true,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()

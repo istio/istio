@@ -540,8 +540,8 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	con.conID = connectionID(proxy.ID)
 	con.node = node
 	con.proxy = proxy
-	if proxy.IsZTunnel() && !features.EnableAmbientControllers {
-		return fmt.Errorf("ztunnel requires PILOT_ENABLE_AMBIENT_CONTROLLERS=true")
+	if proxy.IsZTunnel() && !features.EnableAmbient {
+		return fmt.Errorf("ztunnel requires PILOT_ENABLE_AMBIENT=true")
 	}
 
 	// Authorize xds clients
