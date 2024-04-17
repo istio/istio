@@ -30,7 +30,6 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -172,12 +171,12 @@ func moduleNameFromURL(fullURLStr string) string {
 	return fullURLStr
 }
 
-func shouldIgnoreResourceVersion(pullPolicy extensions.PullPolicy, u *url.URL) bool {
+func shouldIgnoreResourceVersion(pullPolicy PullPolicy, u *url.URL) bool {
 	switch pullPolicy {
-	case extensions.PullPolicy_Always:
+	case Always:
 		// When Always, pull a wasm module when the resource version is changed.
 		return false
-	case extensions.PullPolicy_IfNotPresent:
+	case IfNotPresent:
 		// When IfNotPresent, use the cached one regardless of the resource version.
 		return true
 	default:

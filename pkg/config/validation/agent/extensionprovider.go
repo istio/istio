@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package validation
+package agent
 
 import (
 	"fmt"
@@ -39,7 +39,7 @@ func validateExtensionProviderService(service string) error {
 			}
 		}
 	} else {
-		if err := validateNamespaceSlashWildcardHostname(service, false, false); err != nil {
+		if err := ValidateNamespaceSlashWildcardHostname(service, false, false); err != nil {
 			return err
 		}
 	}
@@ -65,20 +65,20 @@ func ValidateExtensionProviderEnvoyExtAuthzHTTP(config *meshconfig.MeshConfig_Ex
 		return fmt.Errorf("nil EnvoyExternalAuthorizationHttpProvider")
 	}
 	if err := ValidatePort(int(config.Port)); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := validateExtensionProviderService(config.Service); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := validateExtensionProviderEnvoyExtAuthzStatusOnError(config.StatusOnError); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if config.PathPrefix != "" {
 		if _, err := url.Parse(config.PathPrefix); err != nil {
-			errs = appendErrors(errs, fmt.Errorf("invalid pathPrefix %s: %v", config.PathPrefix, err))
+			errs = AppendErrors(errs, fmt.Errorf("invalid pathPrefix %s: %v", config.PathPrefix, err))
 		}
 		if !strings.HasPrefix(config.PathPrefix, "/") {
-			errs = appendErrors(errs, fmt.Errorf("pathPrefix should begin with `/` but found %q", config.PathPrefix))
+			errs = AppendErrors(errs, fmt.Errorf("pathPrefix should begin with `/` but found %q", config.PathPrefix))
 		}
 	}
 	return
@@ -89,13 +89,13 @@ func ValidateExtensionProviderEnvoyExtAuthzGRPC(config *meshconfig.MeshConfig_Ex
 		return fmt.Errorf("nil EnvoyExternalAuthorizationGrpcProvider")
 	}
 	if err := ValidatePort(int(config.Port)); err != nil {
-		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+		errs = AppendErrors(errs, fmt.Errorf("invalid service port: %v", err))
 	}
 	if err := validateExtensionProviderService(config.Service); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := validateExtensionProviderEnvoyExtAuthzStatusOnError(config.StatusOnError); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	return
 }
@@ -105,10 +105,10 @@ func validateExtensionProviderTracingZipkin(config *meshconfig.MeshConfig_Extens
 		return fmt.Errorf("nil TracingZipkinProvider")
 	}
 	if err := validateExtensionProviderService(config.Service); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := ValidatePort(int(config.Port)); err != nil {
-		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+		errs = AppendErrors(errs, fmt.Errorf("invalid service port: %v", err))
 	}
 	return
 }
@@ -118,13 +118,13 @@ func validateExtensionProviderTracingLightStep(config *meshconfig.MeshConfig_Ext
 		return fmt.Errorf("nil TracingLightStepProvider")
 	}
 	if err := validateExtensionProviderService(config.Service); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := ValidatePort(int(config.Port)); err != nil {
-		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+		errs = AppendErrors(errs, fmt.Errorf("invalid service port: %v", err))
 	}
 	if config.AccessToken == "" {
-		errs = appendErrors(errs, fmt.Errorf("access token is required"))
+		errs = AppendErrors(errs, fmt.Errorf("access token is required"))
 	}
 	return
 }
@@ -134,10 +134,10 @@ func validateExtensionProviderTracingDatadog(config *meshconfig.MeshConfig_Exten
 		return fmt.Errorf("nil TracingDatadogProvider")
 	}
 	if err := validateExtensionProviderService(config.Service); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := ValidatePort(int(config.Port)); err != nil {
-		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+		errs = AppendErrors(errs, fmt.Errorf("invalid service port: %v", err))
 	}
 	return
 }
@@ -147,10 +147,10 @@ func validateExtensionProviderTracingOpenCensusAgent(config *meshconfig.MeshConf
 		return fmt.Errorf("nil OpenCensusAgent")
 	}
 	if err := validateExtensionProviderService(config.Service); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := ValidatePort(int(config.Port)); err != nil {
-		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+		errs = AppendErrors(errs, fmt.Errorf("invalid service port: %v", err))
 	}
 	return
 }
@@ -160,10 +160,10 @@ func validateExtensionProviderTracingSkyWalking(config *meshconfig.MeshConfig_Ex
 		return fmt.Errorf("nil TracingSkyWalkingProvider")
 	}
 	if err := validateExtensionProviderService(config.Service); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := ValidatePort(int(config.Port)); err != nil {
-		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+		errs = AppendErrors(errs, fmt.Errorf("invalid service port: %v", err))
 	}
 	return
 }
@@ -185,10 +185,10 @@ func ValidateExtensionProviderEnvoyOtelAls(provider *meshconfig.MeshConfig_Exten
 		return fmt.Errorf("nil EnvoyOpenTelemetryLogProvider")
 	}
 	if err := ValidatePort(int(provider.Port)); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := validateExtensionProviderService(provider.Service); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	return
 }
@@ -198,10 +198,10 @@ func ValidateExtensionProviderTracingOpentelemetry(provider *meshconfig.MeshConf
 		return fmt.Errorf("nil OpenTelemetryTracingProvider")
 	}
 	if err := ValidatePort(int(provider.Port)); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := validateExtensionProviderService(provider.Service); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	return
 }
@@ -211,10 +211,10 @@ func ValidateExtensionProviderEnvoyHTTPAls(provider *meshconfig.MeshConfig_Exten
 		return fmt.Errorf("nil EnvoyHttpGrpcV3LogProvider")
 	}
 	if err := ValidatePort(int(provider.Port)); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := validateExtensionProviderService(provider.Service); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	return
 }
@@ -224,10 +224,10 @@ func ValidateExtensionProviderEnvoyTCPAls(provider *meshconfig.MeshConfig_Extens
 		return fmt.Errorf("nil EnvoyTcpGrpcV3LogProvider")
 	}
 	if err := ValidatePort(int(provider.Port)); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	if err := validateExtensionProviderService(provider.Service); err != nil {
-		errs = appendErrors(errs, err)
+		errs = AppendErrors(errs, err)
 	}
 	return
 }
@@ -238,51 +238,51 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 		var currentErrs error
 		// Provider name must be unique and not empty.
 		if c.Name == "" {
-			currentErrs = appendErrors(currentErrs, fmt.Errorf("empty extension provider name"))
+			currentErrs = AppendErrors(currentErrs, fmt.Errorf("empty extension provider name"))
 		} else {
 			if definedProviders.Contains(c.Name) {
-				currentErrs = appendErrors(currentErrs, fmt.Errorf("duplicate extension provider name %s", c.Name))
+				currentErrs = AppendErrors(currentErrs, fmt.Errorf("duplicate extension provider name %s", c.Name))
 			}
 			definedProviders.Insert(c.Name)
 		}
 
 		switch provider := c.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyExtAuthzHTTP(provider.EnvoyExtAuthzHttp))
+			currentErrs = AppendErrors(currentErrs, ValidateExtensionProviderEnvoyExtAuthzHTTP(provider.EnvoyExtAuthzHttp))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyExtAuthzGRPC(provider.EnvoyExtAuthzGrpc))
+			currentErrs = AppendErrors(currentErrs, ValidateExtensionProviderEnvoyExtAuthzGRPC(provider.EnvoyExtAuthzGrpc))
 		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingZipkin(provider.Zipkin))
+			currentErrs = AppendErrors(currentErrs, validateExtensionProviderTracingZipkin(provider.Zipkin))
 		//nolint: staticcheck  // Lightstep deprecated
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingLightStep(provider.Lightstep))
+			currentErrs = AppendErrors(currentErrs, validateExtensionProviderTracingLightStep(provider.Lightstep))
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingDatadog(provider.Datadog))
+			currentErrs = AppendErrors(currentErrs, validateExtensionProviderTracingDatadog(provider.Datadog))
 		//nolint: staticcheck
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingOpenCensusAgent(provider.Opencensus))
+			currentErrs = AppendErrors(currentErrs, validateExtensionProviderTracingOpenCensusAgent(provider.Opencensus))
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingSkyWalking(provider.Skywalking))
+			currentErrs = AppendErrors(currentErrs, validateExtensionProviderTracingSkyWalking(provider.Skywalking))
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderMetricsPrometheus(provider.Prometheus))
+			currentErrs = AppendErrors(currentErrs, validateExtensionProviderMetricsPrometheus(provider.Prometheus))
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderStackdriver(provider.Stackdriver))
+			currentErrs = AppendErrors(currentErrs, validateExtensionProviderStackdriver(provider.Stackdriver))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyFileAccessLog(provider.EnvoyFileAccessLog))
+			currentErrs = AppendErrors(currentErrs, validateExtensionProviderEnvoyFileAccessLog(provider.EnvoyFileAccessLog))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
-			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyOtelAls(provider.EnvoyOtelAls))
+			currentErrs = AppendErrors(currentErrs, ValidateExtensionProviderEnvoyOtelAls(provider.EnvoyOtelAls))
 		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
-			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderTracingOpentelemetry(provider.Opentelemetry))
+			currentErrs = AppendErrors(currentErrs, ValidateExtensionProviderTracingOpentelemetry(provider.Opentelemetry))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
-			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyHTTPAls(provider.EnvoyHttpAls))
+			currentErrs = AppendErrors(currentErrs, ValidateExtensionProviderEnvoyHTTPAls(provider.EnvoyHttpAls))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
-			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyTCPAls(provider.EnvoyTcpAls))
+			currentErrs = AppendErrors(currentErrs, ValidateExtensionProviderEnvoyTCPAls(provider.EnvoyTcpAls))
 			// TODO: add exhaustiveness test
 		default:
-			currentErrs = appendErrors(currentErrs, fmt.Errorf("unsupported provider: %v of type %T", provider, provider))
+			currentErrs = AppendErrors(currentErrs, fmt.Errorf("unsupported provider: %v of type %T", provider, provider))
 		}
 		currentErrs = multierror.Prefix(currentErrs, fmt.Sprintf("invalid extension provider %s:", c.Name))
-		errs = appendErrors(errs, currentErrs)
+		errs = AppendErrors(errs, currentErrs)
 	}
 	return
 }

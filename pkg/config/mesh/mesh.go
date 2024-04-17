@@ -28,7 +28,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -252,7 +252,7 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 
 	defaultConfig.TrustDomainAliases = sets.SortedList(sets.New(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...))
 
-	warn, err := validation.ValidateMeshConfig(defaultConfig)
+	warn, err := agent.ValidateMeshConfig(defaultConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +309,7 @@ func ParseMeshNetworks(yaml string) (*meshconfig.MeshNetworks, error) {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
-	if err := validation.ValidateMeshNetworks(&out); err != nil {
+	if err := agent.ValidateMeshNetworks(&out); err != nil {
 		return nil, err
 	}
 	return &out, nil
