@@ -152,7 +152,8 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 
 		var currentConditions []metav1.Condition
 		currentStatus := slices.FindFunc(currentParents, func(s k8s.RouteParentStatus) bool {
-			return parentRefString(s.ParentRef) == parentRefString(gw.OriginalReference)
+			return parentRefString(s.ParentRef) == parentRefString(gw.OriginalReference) &&
+				s.ControllerName == k8s.GatewayController(features.ManagedGatewayController)
 		})
 		if currentStatus != nil {
 			currentConditions = currentStatus.Conditions
