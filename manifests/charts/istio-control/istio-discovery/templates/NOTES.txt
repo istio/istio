@@ -5,11 +5,16 @@ To learn more about the release, try:
   $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
 
 Next steps:
-  * Deploy a Gateway: https://istio.io/latest/docs/setup/additional-setup/gateway/
+{{- if (eq .Values.profile "ambient") }}
+  * Get started with ambient: https://istio.io/latest/docs/ops/ambient/getting-started/
+  * Review ambient's architecture: https://istio.io/latest/docs/ops/ambient/architecture/
+{{- else }}
   * Try out our tasks to get started on common configurations:
     * https://istio.io/latest/docs/tasks/traffic-management
     * https://istio.io/latest/docs/tasks/security/
     * https://istio.io/latest/docs/tasks/policy-enforcement/
+{{- end }}
+  * Deploy a Gateway: https://istio.io/latest/docs/setup/additional-setup/gateway/
   * Review the list of actively supported releases, CVE publications and our hardening guide:
     * https://istio.io/latest/docs/releases/supported-releases/
     * https://istio.io/latest/news/security/
