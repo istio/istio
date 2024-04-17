@@ -1390,10 +1390,6 @@ func ValidateDrainDuration(drainTime *durationpb.Duration) (errs error) {
 			errors.New("drain time only supports durations to seconds precision"))
 	}
 
-	if drainDuration > drainTimeMax {
-		errs = multierror.Append(errs,
-			fmt.Errorf("drain time %v must be <%v", drainDuration.String(), drainTimeMax.String()))
-	}
 	return
 }
 

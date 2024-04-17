@@ -291,10 +291,6 @@ func TestValidateDrainDuration(t *testing.T) {
 			Drain: &durationpb.Duration{Seconds: -1},
 			Valid: false,
 		},
-		{
-			Drain: &durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
-			Valid: false,
-		},
 	}
 	for _, combo := range combinations {
 		if got := ValidateDrainDuration(combo.Drain); (got == nil) != combo.Valid {
