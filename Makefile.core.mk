@@ -300,7 +300,7 @@ check-agent-deps:
 		grep -Pv 'envoy/service/discovery/v3' |\
 		grep -Pv 'envoy/extensions/wasm/' |\
 		grep -Pv 'envoy/extensions/filters/(http|network)/wasm/' |\
-		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|envoy/')
+		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|jwx/jwk|envoy/')
 
 go-gen:
 	@mkdir -p /tmp/bin
