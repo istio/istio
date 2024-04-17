@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
 	"istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -399,7 +400,7 @@ func (g pathGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permi
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
-	if matcher.IsPathTemplate(value) {
+	if security.IsPathTemplate(value) {
 		m := matcher.PathTemplateMatcher(value)
 		return permissionPathTemplate(m), nil
 	}

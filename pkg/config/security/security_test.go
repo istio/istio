@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/security"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestParseJwksURI(t *testing.T) {
@@ -269,5 +270,46 @@ func TestCheckValidPathTemplate(t *testing.T) {
 		if c.wantError == (err == nil) {
 			t.Fatalf("CheckValidPathTemplate(%s): want error (%v) but got (%v)", c.name, c.wantError, err)
 		}
+	}
+}
+
+func TestIsPathTemplate(t *testing.T) {
+	testCases := []struct {
+		name           string
+		path           string
+		isPathTemplate bool
+	}{
+		{
+			name:           "matchOneOnly",
+			path:           "foo/bar/{*}",
+			isPathTemplate: true,
+		},
+		{
+			name:           "matchOneOnly",
+			path:           "foo/{**}/bar",
+			isPathTemplate: true,
+		},
+		{
+			name:           "matchAnyAndOne",
+			path:           "{*}/bar/{**}",
+			isPathTemplate: true,
+		},
+		{
+			name:           "stringMatch",
+			path:           "foo/bar/*",
+			isPathTemplate: false,
+		},
+		{
+			name:           "namedVariable",
+			path:           "foo/bar/{buzz}",
+			isPathTemplate: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pathTemplate := security.IsPathTemplate(tc.path)
+			assert.Equal(t, tc.isPathTemplate, pathTemplate)
+		})
 	}
 }

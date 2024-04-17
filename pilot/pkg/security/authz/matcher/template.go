@@ -18,11 +18,8 @@ import (
 	"strings"
 
 	uri_template "github.com/envoyproxy/go-control-plane/envoy/extensions/path/match/uri_template/v3"
-)
 
-var (
-	matchOneTemplate = "{*}"
-	matchAnyTemplate = "{**}"
+	"istio.io/istio/pkg/config/security"
 )
 
 // PatherTemplateMatcher creates a URI template matcher for path.
@@ -38,16 +35,11 @@ func PathTemplateMatcher(path string) *uri_template.UriTemplateMatchConfig {
 // If path contains "{**}", it will be replaced with "**".
 // If the path already contained "*" or "**", they will be left as is.
 func sanitizePathTemplate(path string) string {
-	if strings.Contains(path, matchOneTemplate) {
-		path = strings.ReplaceAll(path, matchOneTemplate, "*")
+	if strings.Contains(path, security.MatchOneTemplate) {
+		path = strings.ReplaceAll(path, security.MatchOneTemplate, "*")
 	}
-	if strings.Contains(path, matchAnyTemplate) {
-		path = strings.ReplaceAll(path, matchAnyTemplate, "**")
+	if strings.Contains(path, security.MatchAnyTemplate) {
+		path = strings.ReplaceAll(path, security.MatchAnyTemplate, "**")
 	}
 	return path
-}
-
-// IsPathTemplate returns true if the path contains a valid path template.
-func IsPathTemplate(value string) bool {
-	return strings.Contains(value, matchOneTemplate) || strings.Contains(value, matchAnyTemplate)
 }

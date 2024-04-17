@@ -25,7 +25,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/security/authz/matcher"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
@@ -59,9 +58,13 @@ const (
 	attrExperimental     = "experimental.envoy.filters."
 )
 
-// Matches on named variables {namedvar=*}, named variables {namedvar}, empty braces {}, wildcard /*,
-// and double wildcard /**
-var unsupportedPathTempRegex = regexp.MustCompile(`\/{\w+\=\*[*]?\}|{\w*\}|\/\*[*]?|\*[*]?\/`)
+var (
+	MatchOneTemplate = "{*}"
+	MatchAnyTemplate = "{**}"
+	// Matches on named variables {namedvar=*}, named variables {namedvar}, empty braces {}, wildcard /*,
+	// and double wildcard /**
+	unsupportedPathTempRegex = regexp.MustCompile(`\/{\w+\=\*[*]?\}|{\w*\}|\/\*[*]?|\*[*]?\/`)
+)
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
 // URI must start with "http://" or "https://", which corresponding to "http" or "https" scheme.
@@ -111,11 +114,16 @@ func CheckValidPathTemplate(key string, paths []string) error {
 		// If the path is a path template it must be supported.
 		// It must not contain named variables, `*`, or `**`.
 		// Ex: "/{*}/foo/{bar}" is an unsupported PathTemplate.
-		if matcher.IsPathTemplate(path) && unsupportedPathTempRegex.MatchString(path) {
+		if IsPathTemplate(path) && unsupportedPathTempRegex.MatchString(path) {
 			return fmt.Errorf("invalid or unsupported path template, found in %s", key)
 		}
 	}
 	return nil
+}
+
+// IsPathTemplate returns true if the path contains a valid path template.
+func IsPathTemplate(value string) bool {
+	return strings.Contains(value, MatchOneTemplate) || strings.Contains(value, MatchAnyTemplate)
 }
 
 func ValidateAttribute(key string, values []string) error {
