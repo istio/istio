@@ -22,6 +22,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 )
@@ -91,6 +92,7 @@ func TestValidatePort(t *testing.T) {
 		}
 	}
 }
+
 func TestValidateControlPlaneAuthPolicy(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -217,6 +219,7 @@ func TestValidateDrainDuration(t *testing.T) {
 		}
 	}
 }
+
 func TestValidateMeshConfigProxyConfig(t *testing.T) {
 	valid := &meshconfig.ProxyConfig{
 		ConfigPath:             "/etc/istio/proxy",
@@ -840,6 +843,7 @@ func TestValidateTLS(t *testing.T) {
 		}
 	}
 }
+
 func TestValidateWildcardDomain(t *testing.T) {
 	tests := []struct {
 		name string
@@ -928,6 +932,7 @@ func TestValidateConnectTimeout(t *testing.T) {
 		}
 	}
 }
+
 func TestValidateProtocolDetectionTimeout(t *testing.T) {
 	type durationCheck struct {
 		duration *durationpb.Duration
@@ -1046,6 +1051,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		}
 	}
 }
+
 func TestValidateLocalityLbSetting(t *testing.T) {
 	cases := []struct {
 		name    string

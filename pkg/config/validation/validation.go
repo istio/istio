@@ -59,12 +59,6 @@ import (
 
 // Constants for duration fields
 const (
-	// Set some high upper bound to avoid weird configurations
-	// nolint: revive
-	connectTimeoutMax = time.Hour
-	// nolint: revive
-	connectTimeoutMin = time.Millisecond
-
 	// UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
 	// ServiceEntry.Endpoint.Address message.
 	UnixAddressPrefix = "unix://"

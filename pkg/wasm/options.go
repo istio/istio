@@ -54,13 +54,11 @@ const (
 	Always       PullPolicy = 2
 )
 
-var (
-	PullPolicyValues = map[string]PullPolicy{
-		"UNSPECIFIED_POLICY": 0,
-		"IfNotPresent":       1,
-		"Always":             2,
-	}
-)
+var PullPolicyValues = map[string]PullPolicy{
+	"UNSPECIFIED_POLICY": 0,
+	"IfNotPresent":       1,
+	"Always":             2,
+}
 
 // GetOptions is a struct for providing options to Get method of Cache.
 type GetOptions struct {

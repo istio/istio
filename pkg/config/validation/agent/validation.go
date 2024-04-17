@@ -46,9 +46,7 @@ const (
 	connectTimeoutMin = time.Millisecond
 )
 
-var (
-	scope = log.RegisterScope("validation", "CRD validation debugging")
-)
+var scope = log.RegisterScope("validation", "CRD validation debugging")
 
 type Warning error
 

@@ -287,8 +287,8 @@ lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles li
 # Allow-list:
 # (k8s) Machinery, utils, klog
 # (proto) Istio API non-CRDs, MeshConfig and ProxyConfig
-# (proto) TLS for SDS
-# (proto) Wasm for wasm xDS proxy
+# (proto) Envoy TLS proto for SDS
+# (proto) Envoy Wasm filters for wasm xDS proxy
 # (proto) xDS discovery service for xDS proxy
 .PHONY: check-agent-deps
 check-agent-deps:
