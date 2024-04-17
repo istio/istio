@@ -286,6 +286,7 @@ lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles li
 
 # Allow-list:
 # (k8s) Machinery, utils, klog
+# (proto) Istio API non-CRDs, MeshConfig and ProxyConfig
 # (proto) TLS for SDS
 # (proto) Wasm for wasm xDS proxy
 # (proto) xDS discovery service for xDS proxy
@@ -300,7 +301,8 @@ check-agent-deps:
 		grep -Pv 'envoy/service/discovery/v3' |\
 		grep -Pv 'envoy/extensions/wasm/' |\
 		grep -Pv 'envoy/extensions/filters/(http|network)/wasm/' |\
-		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|jwx/jwk|envoy/')
+		grep -Pv 'istio\.io/api/(annotation|label|mcp|mesh|networking|security/v1alpha1|type)' |\
+		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|jwx/jwk|envoy/|istio.io/api')
 
 go-gen:
 	@mkdir -p /tmp/bin

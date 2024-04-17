@@ -17,7 +17,6 @@ package wasm
 import (
 	"time"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -47,6 +46,22 @@ func defaultOptions() Options {
 	}
 }
 
+type PullPolicy int32
+
+const (
+	Unspecified  PullPolicy = 0
+	IfNotPresent PullPolicy = 1
+	Always       PullPolicy = 2
+)
+
+var (
+	PullPolicyValues = map[string]PullPolicy{
+		"UNSPECIFIED_POLICY": 0,
+		"IfNotPresent":       1,
+		"Always":             2,
+	}
+)
+
 // GetOptions is a struct for providing options to Get method of Cache.
 type GetOptions struct {
 	Checksum        string
@@ -54,5 +69,5 @@ type GetOptions struct {
 	ResourceVersion string
 	RequestTimeout  time.Duration
 	PullSecret      []byte
-	PullPolicy      extensions.PullPolicy
+	PullPolicy      PullPolicy
 }
