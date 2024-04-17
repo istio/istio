@@ -31,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/ptr"
 	echot "istio.io/istio/pkg/test/echo"
@@ -700,7 +699,7 @@ spec:
   rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}", "cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}-istio-waypoint"]
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}", "cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}"]
 `
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination":  dst.Config().Service,
@@ -996,7 +995,7 @@ spec:
   rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}-istio-waypoint"]
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}"]
 `
 			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
@@ -2211,7 +2210,7 @@ func buildQuery(src, dst echo.Instance) prometheus.Query {
 		"destination_canonical_service":  dst.ServiceName(),
 		"destination_canonical_revision": dst.Config().Version,
 		"destination_service":            fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
-		"destination_principal":          fmt.Sprintf("spiffe://cluster.local/ns/%v/sa/%v-%v", destns, "waypoint", constants.WaypointGatewayClassName),
+		"destination_principal":          fmt.Sprintf("spiffe://cluster.local/ns/%v/sa/%v", destns, "waypoint"),
 		"destination_service_name":       dst.Config().Service,
 		"destination_workload":           deployName(dst),
 		"destination_workload_namespace": destns,

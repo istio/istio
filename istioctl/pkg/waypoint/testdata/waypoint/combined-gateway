@@ -2,5 +2,5 @@ NAMESPACE     NAME                   REVISION     PROGRAMMED
 bookinfo      bookinfo-rev           rev1         True
 bookinfo      bookinfo-valid         default      True
 default       bookinfo               default      False
-default       default-namespace      default      False
 default       no-name-convention     default      True
+default       waypoint               default      False

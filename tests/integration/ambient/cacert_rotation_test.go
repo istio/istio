@@ -30,7 +30,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/istio/istioctl/pkg/util/configdump"
+	"istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"

@@ -32,6 +32,13 @@ func TestCreateRouteStatus(t *testing.T) {
 	parentStatus := []k8s.RouteParentStatus{
 		{
 			ParentRef:      parentRef,
+			ControllerName: k8s.GatewayController("another-gateway-controller"),
+			Conditions: []metav1.Condition{
+				{Type: "foo", Status: "bar"},
+			},
+		},
+		{
+			ParentRef:      parentRef,
 			ControllerName: k8s.GatewayController(features.ManagedGatewayController),
 			Conditions: []metav1.Condition{
 				{

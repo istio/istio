@@ -396,6 +396,14 @@ func (g GroupVersionKind) GroupVersion() string {
 	return g.Group + "/" + g.Version
 }
 
+func FromKubernetesGVK(gvk schema.GroupVersionKind) GroupVersionKind {
+	return GroupVersionKind{
+		Group:   gvk.Group,
+		Version: gvk.Version,
+		Kind:    gvk.Kind,
+	}
+}
+
 // Kubernetes returns the same GVK, using the Kubernetes object type
 func (g GroupVersionKind) Kubernetes() schema.GroupVersionKind {
 	return schema.GroupVersionKind{

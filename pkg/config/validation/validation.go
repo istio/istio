@@ -68,8 +68,6 @@ const (
 	// nolint: revive
 	connectTimeoutMin = time.Millisecond
 
-	drainTimeMax = time.Hour
-
 	// UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
 	// ServiceEntry.Endpoint.Address message.
 	UnixAddressPrefix = "unix://"
@@ -1390,10 +1388,6 @@ func ValidateDrainDuration(drainTime *durationpb.Duration) (errs error) {
 			errors.New("drain time only supports durations to seconds precision"))
 	}
 
-	if drainDuration > drainTimeMax {
-		errs = multierror.Append(errs,
-			fmt.Errorf("drain time %v must be <%v", drainDuration.String(), drainTimeMax.String()))
-	}
 	return
 }
 

@@ -204,7 +204,7 @@ func TestSimpleHTTPSandwich(t *testing.T) {
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  name: {{.Service}}-gateway
+  name: simple-http-waypoint
   namespace: {{.Namespace}}
   annotations:
     networking.istio.io/address-type: IPAddress
@@ -253,7 +253,7 @@ metadata:
   name: {{.Service}}-httproute
 spec:
   parentRefs:
-  - name: {{.Service}}-gateway
+  - name: simple-http-waypoint
   hostnames:
   - {{.Service}}.{{.Namespace}}.svc.cluster.local
   - {{.Service}}.{{.Namespace}}.svc
@@ -287,6 +287,10 @@ spec:
 					config).
 				ApplyOrFail(t, apply.CleanupConditionally)
 
+			retry.UntilSuccessOrFail(t, func() error {
+				return checkWaypointIsReady(t, apps.Namespace.Name(), "simple-http-waypoint")
+			}, retry.Timeout(2*time.Minute))
+
 			// Update use-waypoint for Captured service
 			for _, c := range t.Clusters().Kube() {
 				client := c.Kube().CoreV1().Services(apps.Namespace.Name())
@@ -297,7 +301,7 @@ spec:
 					return err
 				}
 
-				if err := setWaypoint("captured-gateway"); err != nil {
+				if err := setWaypoint("simple-http-waypoint"); err != nil {
 					t.Fatal(err)
 				}
 				t.Cleanup(func() {

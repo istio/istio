@@ -13,7 +13,7 @@ metadata:
     gateway.networking.k8s.io/gateway-name: namespace
     istio.io/gateway-name: namespace
     topology.istio.io/network: network-1
-  name: namespace-istio-waypoint
+  name: namespace
   namespace: default
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1
@@ -30,7 +30,7 @@ metadata:
     gateway.networking.k8s.io/gateway-name: namespace
     istio.io/gateway-name: namespace
     topology.istio.io/network: network-1
-  name: namespace-istio-waypoint
+  name: namespace
   namespace: default
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1
@@ -53,7 +53,7 @@ spec:
         gateway.istio.io/managed: istio.io-mesh-controller
         gateway.networking.k8s.io/gateway-name: namespace
         istio.io/gateway-name: namespace
-        service.istio.io/canonical-name: namespace-istio-waypoint
+        service.istio.io/canonical-name: namespace
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
         topology.istio.io/network: network-1
@@ -65,7 +65,7 @@ spec:
         - --domain
         - $(POD_NAMESPACE).svc.<no value>
         - --serviceCluster
-        - namespace-istio-waypoint.$(POD_NAMESPACE)
+        - namespace.$(POD_NAMESPACE)
         - --proxyLogLevel
         - <nil>
         - --proxyComponentLogLevel
@@ -127,9 +127,9 @@ spec:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
-          value: namespace-istio-waypoint
+          value: namespace
         - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/default/deployments/namespace-istio-waypoint
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/namespace
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         image: test/proxyv2:test
@@ -188,7 +188,7 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
-      serviceAccountName: namespace-istio-waypoint
+      serviceAccountName: namespace
       terminationGracePeriodSeconds: 2
       volumes:
       - emptyDir: {}
@@ -232,7 +232,7 @@ metadata:
     gateway.networking.k8s.io/gateway-name: namespace
     istio.io/gateway-name: namespace
     topology.istio.io/network: network-1
-  name: namespace-istio-waypoint
+  name: namespace
   namespace: default
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1
