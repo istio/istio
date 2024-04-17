@@ -241,8 +241,8 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		IdleTimeout:      parseDuration(node.Metadata.IdleTimeout),
 	}
 
-	filterStack := buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound)
-	accessLogBuilder.setTCPAccessLog(push, node, tcpProxy, istionetworking.ListenerClassSidecarOutbound)
+	filterStack := buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound, nil)
+	accessLogBuilder.setTCPAccessLog(push, node, tcpProxy, istionetworking.ListenerClassSidecarOutbound, nil)
 	filterStack = append(filterStack, &listener.Filter{
 		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpProxy)},
@@ -286,7 +286,7 @@ func blackholeFilterChain(push *model.PushContext, node *model.Proxy) *listener.
 			DestinationPort: &wrappers.UInt32Value{Value: uint32(push.Mesh.ProxyListenPort)},
 		},
 		Filters: append(
-			buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound),
+			buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound, nil),
 			&listener.Filter{
 				Name: wellknown.TCPProxy,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
@@ -365,9 +365,9 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		connectionManager.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}
 
-	accessLogBuilder.setHTTPAccessLog(lb.push, lb.node, connectionManager, httpOpts.class)
+	accessLogBuilder.setHTTPAccessLog(lb.push, lb.node, connectionManager, httpOpts.class, httpOpts.policySvc)
 
-	reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
+	reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class, httpOpts.policySvc)
 
 	filters := []*hcm.HttpFilter{}
 	if !httpOpts.isWaypoint {
@@ -408,7 +408,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	// TypedPerFilterConfig in route needs these filters.
 	filters = append(filters, xdsfilters.Fault, xdsfilters.Cors)
 	if !httpOpts.isWaypoint {
-		filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class)...)
+		filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class, nil)...)
 	}
 	// Add EmptySessionFilter so that it can be overridden at route level per service.
 	if features.EnablePersistentSessionFilter && httpOpts.class != istionetworking.ListenerClassSidecarInbound {

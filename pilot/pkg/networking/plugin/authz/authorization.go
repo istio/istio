@@ -43,17 +43,17 @@ type Builder struct {
 }
 
 func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy, useFilterState bool) *Builder {
+	return NewBuilderForService(actionType, push, proxy, useFilterState, nil)
+}
+
+func NewBuilderForService(actionType ActionType, push *model.PushContext, proxy *model.Proxy, useFilterState bool, svc *model.Service) *Builder {
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
 		UseFilterState:  useFilterState,
 		UseExtendedJwt:  proxy.SupportsEnvoyExtendedJwt(),
 	}
-	selectionOpts := model.WorkloadSelectionOpts{
-		Namespace:      proxy.ConfigNamespace,
-		WorkloadLabels: proxy.Labels,
-		IsWaypoint:     proxy.IsWaypointProxy(),
-	}
+	selectionOpts := model.PolicyMatcherForProxy(proxy).WithService(svc)
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}

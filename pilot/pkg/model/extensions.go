@@ -26,6 +26,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	typeapi "istio.io/api/type/v1beta1"
@@ -33,7 +34,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -98,19 +98,17 @@ type WasmPluginWrapper struct {
 	ResourceVersion string
 }
 
-func (p *WasmPluginWrapper) MatchListener(opts WorkloadSelectionOpts, li WasmPluginListenerInfo) bool {
-	switch getPolicyMatcher(gvk.WasmPlugin, p.Name, opts, p) {
-	case policyMatchDirect:
-		// This plugin is bound directly to this workload; just check traffic selectors
+func (p *WasmPluginWrapper) MatchListener(matcher WorkloadPolicyMatcher, li WasmPluginListenerInfo) bool {
+	if matcher.ShouldAttachPolicy(gvk.WasmPlugin, p.NamespacedName(), p) {
 		return matchTrafficSelectors(p.Match, li)
-	case policyMatchSelector:
-		// This plugin is bound based on the workload selector; check traffic selectors and workload selector
-		workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(opts.WorkloadLabels))
-		return workloadMatch && matchTrafficSelectors(p.Match, li)
 	}
 
 	// If it doesn't match one of the above cases, the plugin is not bound to this workload
 	return false
+}
+
+func (p *WasmPluginWrapper) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{Name: p.Name, Namespace: p.Namespace}
 }
 
 func (p *WasmPluginWrapper) MatchType(pluginType WasmPluginType) bool {
@@ -173,6 +171,9 @@ func (p *WasmPluginWrapper) buildPluginConfig() *wasmextensions.PluginConfig {
 type WasmPluginListenerInfo struct {
 	Port  int
 	Class istionetworking.ListenerClass
+
+	// Service that WasmPlugins can attach to via targetRefs (optional)
+	Service *Service
 }
 
 // If anyListener is used as a listener info,

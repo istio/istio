@@ -36,6 +36,7 @@ import (
 	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -650,17 +651,8 @@ spec:
 
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		// Workaround https://github.com/istio/istio/issues/43239
-		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: single-request
-spec:
-  host: '*.svc.cluster.local'
-  trafficPolicy:
-    connectionPool:
-      http:
-        maxRequestsPerConnection: 1`).ApplyOrFail(t)
+		applyDrainingWorkaround(t)
+		// pairs x allow/deny
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.TCP {
 				return
@@ -682,7 +674,7 @@ spec:
 				t.Skip("TODO: open an issue to address this ztunnel issue")
 			}
 
-			overrideCheck := func(opt *echo.CallOptions) {
+			overrideCheck := func(src echo.Instance, dst echo.Instance, opt *echo.CallOptions) {
 				switch {
 				case src.Config().IsUncaptured() && dst.Config().HasAnyWaypointProxy():
 					// For this case, it is broken if the src and dst are on the same node.
@@ -694,81 +686,126 @@ spec:
 					opt.Check = check.OK()
 				}
 			}
-			t.NewSubTest("allow").Run(func(t framework.TestContext) {
-				policySpec := `
+
+			authzCases := []struct {
+				name  string
+				spec  string
+				check echo.Checker
+			}{
+				{
+					name:  "allow",
+					check: check.OK(),
+					spec: `
   rules:
   - from:
     - source:
         principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}", "cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}"]
-`
-				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-					"Destination":  dst.Config().Service,
-					"Source":       src.Config().Service,
-					"Namespace":    apps.Namespace.Name(),
-					"WaypointName": dst.Config().ServiceWaypointProxy,
-				}, `
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: policy-waypoint
-spec:
-  targetRefs:
-  - kind: Gateway
-    group: gateway.networking.k8s.io
-    name: waypoint
-`+policySpec+`
----
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: policy
-spec:
-  selector:
-    matchLabels:
-      app: "{{ .Destination }}"
-`+policySpec).ApplyOrFail(t)
-				opt = opt.DeepCopy()
-				overrideCheck(&opt)
-				src.CallOrFail(t, opt)
-			})
-			t.NewSubTest("not allow").Run(func(t framework.TestContext) {
-				policySpec := `
+`,
+				},
+				{
+					name:  "not allow",
+					check: CheckDeny,
+					spec: `
   rules:
   - from:
     - source:
         principals: ["cluster.local/ns/something/sa/else"]
-`
-				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-					"Destination": dst.Config().Service,
-					"Source":      src.Config().Service,
-					"Namespace":   apps.Namespace.Name(),
-				}, `
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: policy
-spec:
-  selector:
-    matchLabels:
-      app: "{{ .Destination }}"
-`+policySpec+`
----
+          `,
+				},
+			}
+
+			for _, tc := range authzCases {
+				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+					t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+						"Destination":  dst.Config().Service,
+						"Source":       src.Config().Service,
+						"Namespace":    apps.Namespace.Name(),
+						"WaypointName": dst.Config().ServiceWaypointProxy,
+					}, `
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
 spec:
   targetRefs:
-  - kind: Gateway
-    group: gateway.networking.k8s.io
-    name: waypoint
-`+policySpec).ApplyOrFail(t)
-				opt = opt.DeepCopy()
-				opt.Check = CheckDeny
-				overrideCheck(&opt)
-				src.CallOrFail(t, opt)
-			})
+  # affects Waypoints
+  - kind: Service
+    group: core
+    name: "{{ .Destination }}"
+`+tc.spec+`
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+spec:
+  # affects zTunnels and Sidecars
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+`+tc.spec).ApplyOrFail(t)
+					perCaseOpt := opt.DeepCopy()
+					perCaseOpt.Check = tc.check
+					overrideCheck(src, dst, &perCaseOpt)
+					src.CallOrFail(t, perCaseOpt)
+				})
+			}
 		})
+	})
+}
+
+func TestAuthorizationServiceAttached(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		applyDrainingWorkaround(t)
+		src := apps.Captured
+		authzDst := apps.ServiceAddressedWaypoint
+		otherDst := apps.WorkloadAddressedWaypoint
+
+		// make another target use our waypoint, but don't expect authz there
+		ambient.SetWaypointForService(t, apps.Namespace, otherDst.ServiceName(), authzDst.Config().ServiceWaypointProxy)
+
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Destination": authzDst.Config().Service,
+		}, `
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-waypoint
+spec:
+  targetRefs:
+  - kind: Service
+    group: core
+    name: "{{ .Destination }}"
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/something/sa/else"]
+  `).ApplyOrFail(t)
+
+		for _, src := range src.Instances() {
+			t.NewSubTest(src.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
+				t.NewSubTest("authz target deny").RunParallel(func(t framework.TestContext) {
+					opts := echo.CallOptions{
+						To:     authzDst,
+						Check:  CheckDeny,
+						Port:   echo.Port{Name: "http"},
+						Scheme: scheme.HTTP,
+						Count:  10,
+					}
+					src.CallOrFail(t, opts)
+				})
+				t.NewSubTest("non-authz target allow").RunParallel(func(t framework.TestContext) {
+					opts := echo.CallOptions{
+						To:     otherDst,
+						Check:  check.OK(),
+						Port:   echo.Port{Name: "http"},
+						Scheme: scheme.HTTP,
+						Count:  10,
+					}
+					src.CallOrFail(t, opts)
+				})
+			})
+		}
 	})
 }
 
@@ -791,17 +828,7 @@ func TestAuthorizationGateway(t *testing.T) {
 		}
 	}
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		// Workaround https://github.com/istio/istio/issues/43239
-		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: single-request
-spec:
-  host: '*.svc.cluster.local'
-  trafficPolicy:
-    connectionPool:
-      http:
-        maxRequestsPerConnection: 1`).ApplyOrFail(t)
+		applyDrainingWorkaround(t)
 		runTest(t, func(t framework.TestContext, src echo.Caller, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -913,17 +940,7 @@ spec:
 
 func TestAuthorizationL7(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		// Workaround https://github.com/istio/istio/issues/43239
-		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: single-request
-spec:
-  host: '*.svc.cluster.local'
-  trafficPolicy:
-    connectionPool:
-      http:
-        maxRequestsPerConnection: 1`).ApplyOrFail(t)
+		applyDrainingWorkaround(t)
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -1132,16 +1149,7 @@ spec:
 func TestL7JWT(t *testing.T) {
 	// Workaround https://github.com/istio/istio/issues/43239
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: single-request
-spec:
-  host: '*.svc.cluster.local'
-  trafficPolicy:
-    connectionPool:
-      http:
-        maxRequestsPerConnection: 1`).ApplyOrFail(t)
+		applyDrainingWorkaround(t)
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -1218,6 +1226,20 @@ spec:
 			})
 		})
 	})
+}
+
+func applyDrainingWorkaround(t framework.TestContext) {
+	// Workaround https://github.com/istio/istio/issues/43239
+	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: single-request
+spec:
+  host: '*.svc.cluster.local'
+  trafficPolicy:
+    connectionPool:
+      http:
+        maxRequestsPerConnection: 1`).ApplyOrFail(t)
 }
 
 // Relies on the suite running in a cluster with a CNI which enforces K8s netpol but presently has no check

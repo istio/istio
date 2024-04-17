@@ -260,10 +260,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 				}
 				push := push(t, baseDir+tc.input, tc.meshConfig)
 				proxy := node(tc.version)
-				selectionOpts := model.WorkloadSelectionOpts{
-					Namespace:      proxy.ConfigNamespace,
-					WorkloadLabels: proxy.Labels,
-				}
+				selectionOpts := model.PolicyMatcherForProxy(proxy)
 				policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 				g := New(tc.tdBundle, push, policies, option)
 				if g == nil {
@@ -337,10 +334,7 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(nil)
-			selectionOpts := model.WorkloadSelectionOpts{
-				Namespace:      proxy.ConfigNamespace,
-				WorkloadLabels: proxy.Labels,
-			}
+			selectionOpts := model.PolicyMatcherForProxy(proxy)
 			policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
@@ -468,7 +462,8 @@ func node(version *model.IstioVersion) *model.Proxy {
 		ConfigNamespace: "foo",
 		Labels:          httpbin,
 		Metadata: &model.NodeMetadata{
-			Labels: httpbin,
+			Labels:    httpbin,
+			Namespace: "foo",
 		},
 		IstioVersion: version,
 	}
