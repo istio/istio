@@ -33,7 +33,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/xds"
@@ -41,7 +40,7 @@ import (
 
 type mockCache struct {
 	wantSecret []byte
-	wantPolicy extensions.PullPolicy
+	wantPolicy PullPolicy
 }
 
 func (c *mockCache) Get(downloadURL string, opts GetOptions) (string, error) {

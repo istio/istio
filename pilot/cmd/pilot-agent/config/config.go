@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 )
@@ -98,7 +98,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 			proxyConfig.StatsdUdpAddress = addr
 		}
 	}
-	if err := validation.ValidateMeshConfigProxyConfig(proxyConfig); err != nil {
+	if err := agent.ValidateMeshConfigProxyConfig(proxyConfig); err != nil {
 		return nil, err
 	}
 	return applyAnnotations(proxyConfig, annotations), nil

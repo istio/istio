@@ -21,6 +21,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/validation/agent"
 )
 
 type HTTPRouteType int
@@ -104,7 +105,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate, gatewaySemantics bo
 	errs = AppendValidation(errs, validateAuthorityRewrite(http.Rewrite, http.Headers))
 	errs = AppendValidation(errs, validateHTTPRouteDestinations(http.Route, gatewaySemantics))
 	if http.Timeout != nil {
-		errs = AppendValidation(errs, ValidateDuration(http.Timeout))
+		errs = AppendValidation(errs, agent.ValidateDuration(http.Timeout))
 	}
 
 	return
@@ -170,7 +171,7 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute) (errs error) {
 	for _, match := range http.Match {
 		if match != nil {
 			if match.Port != 0 {
-				errs = appendErrors(errs, ValidatePort(int(match.Port)))
+				errs = appendErrors(errs, agent.ValidatePort(int(match.Port)))
 			}
 			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
