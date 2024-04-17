@@ -1,8 +1,8 @@
 "istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}" successfully installed!
 
 To learn more about the release, try:
-  $ helm status {{ .Release.Name }}
-  $ helm get all {{ .Release.Name }}
+  $ helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+  $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
 
 Next steps:
   * Deploy a Gateway: https://istio.io/latest/docs/setup/additional-setup/gateway/
