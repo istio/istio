@@ -1249,7 +1249,7 @@ spec:
 				}
 			}
 			if src == dst {
-				t.Skip("I don't work right now... self call")
+				t.Skip("self call is not captured, L7 features will not work")
 			}
 			t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
 				opt := opt.DeepCopy()
@@ -1351,7 +1351,7 @@ func TestL7JWT(t *testing.T) {
 				opt.Address = dst.MustWorkloads().Addresses()[0]
 				opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
 				if src == dst {
-					t.Skip("I don't work right now... self call")
+					t.Skip("self call is not captured, L7 features will not work")
 				}
 			}
 
