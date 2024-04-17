@@ -1246,10 +1246,10 @@ spec:
 					// send traffic to the workload instead of the service so it will redirect to the WL waypoint
 					opt.Address = dst.MustWorkloads().Addresses()[0]
 					opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
-					if src == dst {
-						t.Skip("I don't work right now... self call")
-					}
 				}
+			}
+			if src == dst {
+				t.Skip("I don't work right now... self call")
 			}
 			t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
 				opt := opt.DeepCopy()
