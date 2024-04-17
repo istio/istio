@@ -505,7 +505,7 @@ func translateRoute(
 		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(TranslateFault(in.Fault))
 	}
 	if in.CorsPolicy != nil {
-		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(in.CorsPolicy))
+		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(node, in.CorsPolicy))
 	}
 	var statefulConfig *statefulsession.StatefulSession
 	for _, hostname := range hostnames {
@@ -1156,15 +1156,18 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 }
 
 // TranslateCORSPolicy translates CORS policy
-func TranslateCORSPolicy(in *networking.CorsPolicy) *cors.CorsPolicy {
+func TranslateCORSPolicy(proxy *model.Proxy, in *networking.CorsPolicy) *cors.CorsPolicy {
 	if in == nil {
 		return nil
 	}
 
 	// CORS filter is enabled by default
-	out := cors.CorsPolicy{
-		ForwardNotMatchingPreflights: wrappers.Bool(false),
+	out := cors.CorsPolicy{}
+	// Start from Envoy 1.30(istio 1.22), cors filter will not forward preflight requests to upstream by default.
+	if proxy.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 22, Patch: -1}) >= 0 {
+		out.ForwardNotMatchingPreflights = wrappers.Bool(false)
 	}
+
 	// nolint: staticcheck
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = util.ConvertToEnvoyMatches(in.AllowOrigins)
