@@ -171,7 +171,7 @@ func TestSDS(t *testing.T) {
 		ResourceName: rootResourceName,
 		RootCert:     fakeRootCert,
 	}
-	log.FindScope("ads").SetOutputLevel(log.DebugLevel)
+	log.FindScope("xdsserver").SetOutputLevel(log.DebugLevel)
 	t.Run("multiplexed", func(t *testing.T) {
 		// In reality Envoy doesn't do this, but it *could* per XDS spec
 		s := setupSDS(t)

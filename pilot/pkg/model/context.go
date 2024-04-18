@@ -273,11 +273,7 @@ func AnyToUnnamedResources(r []*anypb.Any) Resources {
 }
 
 func ResourcesToAny(r Resources) []*anypb.Any {
-	a := make([]*anypb.Any, 0, len(r))
-	for _, rr := range r {
-		a = append(a, rr.Resource)
-	}
-	return a
+	return xds.ResourcesToAny(r)
 }
 
 // XdsUpdates include information about the subset of updated resources.

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/xds"
 )
 
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
@@ -77,7 +78,9 @@ func ExpectDequeue(t *testing.T, p *PushQueue, expected *Connection) {
 func TestProxyQueue(t *testing.T) {
 	proxies := make([]*Connection, 0, 100)
 	for p := 0; p < 100; p++ {
-		proxies = append(proxies, &Connection{BaseConnection: BaseConnection{conID: fmt.Sprintf("proxy-%d", p)}})
+		conn := xds.NewConnection("", &fakeStream{})
+		conn.SetID(fmt.Sprintf("proxy-%d", p))
+		proxies = append(proxies, &Connection{BaseConnection: conn})
 	}
 
 	t.Run("simple add and remove", func(t *testing.T) {
@@ -243,7 +246,7 @@ func TestProxyQueue(t *testing.T) {
 		p := NewPushQueue()
 		defer p.ShutDown()
 
-		key := func(p *Connection, eds string) string { return fmt.Sprintf("%s~%s", p.conID, eds) }
+		key := func(p *Connection, eds string) string { return fmt.Sprintf("%s~%s", p.ID(), eds) }
 
 		// We will trigger many pushes for eds services to each proxy. In the end we will expect
 		// all of these to be dequeue, but order is not deterministic.
@@ -299,7 +302,8 @@ func TestProxyQueue(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
 		defer p.ShutDown()
-		con := &Connection{BaseConnection: BaseConnection{conID: "proxy-test"}}
+		con := &Connection{BaseConnection: xds.NewConnection("", &fakeStream{})}
+		con.SetID("proxy-test")
 
 		// We will trigger many pushes for eds services to the proxy. In the end we will expect
 		// all of these to be dequeue, but order is deterministic.

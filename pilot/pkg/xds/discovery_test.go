@@ -32,18 +32,17 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/xds"
 )
 
 func createProxies(n int) []*Connection {
 	proxies := make([]*Connection, 0, n)
 	for p := 0; p < n; p++ {
-		proxies = append(proxies, &Connection{
-			BaseConnection: BaseConnection{
-				conID:       fmt.Sprintf("proxy-%v", p),
-				pushChannel: make(chan any),
-				stream:      &fakeStream{},
-			},
-		})
+		conn := &Connection{
+			BaseConnection: xds.NewConnection("", &fakeStream{}),
+		}
+		conn.SetID(fmt.Sprintf("proxy-%v", p))
+		proxies = append(proxies, conn)
 	}
 	return proxies
 }
@@ -81,11 +80,11 @@ func TestSendPushesManyPushes(t *testing.T) {
 		go func() {
 			for {
 				select {
-				case ev := <-proxy.pushChannel:
+				case ev := <-proxy.PushChannel:
 					p := ev.(*Event)
 					p.done()
 					pushesMu.Lock()
-					pushes[proxy.conID]++
+					pushes[proxy.ID()]++
 					pushesMu.Unlock()
 				case <-stopCh:
 					return
@@ -135,11 +134,11 @@ func TestSendPushesSinglePush(t *testing.T) {
 		go func() {
 			for {
 				select {
-				case ev := <-proxy.pushChannel:
+				case ev := <-proxy.PushChannel:
 					p := ev.(*Event)
 					p.done()
 					pushesMu.Lock()
-					pushes[proxy.conID]++
+					pushes[proxy.ID()]++
 					pushesMu.Unlock()
 					wg.Done()
 				case <-stopCh:
@@ -486,7 +485,7 @@ func TestShouldRespond(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if response, _ := ShouldRespond(tt.connection.proxy, tt.connection.conID, tt.request); response != tt.response {
+			if response, _ := xds.ShouldRespond(tt.connection.proxy, tt.connection.ID(), tt.request); response != tt.response {
 				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
 			}
 			if tt.name != "reconnect" && tt.response {
