@@ -31,6 +31,9 @@ app.kubernetes.io/name: {{ include "gateway.name" . }}
 {{- define "gateway.podLabels" -}}
 {{ include "gateway.selectorLabels" . }}
 app.kubernetes.io/name: {{ include "gateway.name" . }}
+{{- with .Values.revision }}
+istio.io/rev: {{ . | quote }}
+{{- end }}
 {{- range $key, $val := .Values.labels }}
 {{- if not (or (eq $key "app") (eq $key "istio")) }}
 {{ $key | quote }}: {{ $val | quote }}
