@@ -45,16 +45,10 @@ var (
 		false, false,
 		"If enabled, HBONE will be preferred when sending to destinations. ")
 
-	DefaultAllowFromWaypoint = func() bool {
-		v := env.Register(
-			"PILOT_DEFAULT_ENFORCE_FROM_WAYPOINT",
-			false,
-			"If enabled, zTunnels will enforce that incoming traffic has traversed a Waypoint if traffic to an endpoint may traverse one.").Get()
-		if v && !EnableAmbient {
-			log.Fatalf("PILOT_ENABLE_AMBIENT_WAYPOINTS requires PILOT_ENABLE_AMBIENT_CONTROLLERS")
-		}
-		return v
-	}()
+	DefaultAllowFromWaypoint = registerAmbient(
+		"PILOT_DEFAULT_ENFORCE_FROM_WAYPOINT",
+		true, false,
+		"If enabled, zTunnels will enforce that incoming traffic has traversed a Waypoint if traffic to an endpoint may traverse one.")
 )
 
 // registerAmbient registers a variable that is allowed only if EnableAmbient is set
