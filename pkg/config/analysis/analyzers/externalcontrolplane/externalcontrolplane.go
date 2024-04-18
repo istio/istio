@@ -130,13 +130,5 @@ func lintWebhookURL(webhookURL string) string {
 		return "is an IP address instead of a hostname"
 	}
 
-	ips, err := net.LookupIP(parsedHostname)
-	if err != nil {
-		return "cannot be resolved via a DNS lookup"
-	}
-	if len(ips) == 0 {
-		return "resolves with zero IP addresses"
-	}
-
 	return ""
 }
