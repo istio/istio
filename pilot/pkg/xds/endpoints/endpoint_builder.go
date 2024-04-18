@@ -211,7 +211,7 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	h.Write(Separator)
 	h.WriteString(strconv.FormatBool(b.clusterLocal))
 	h.Write(Separator)
-	if features.EnableHBONE && b.proxy != nil {
+	if features.EnableSidecarHBONEListening && b.proxy != nil {
 		h.WriteString(strconv.FormatBool(b.proxy.IsProxylessGrpc()))
 		h.Write(Separator)
 	}
@@ -319,7 +319,7 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	}
 	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
 	// don't use the pre-computed endpoints for CDS to preserve previous behavior
-	return ExtractEnvoyEndpoints(b.generate(svcEps, true))
+	return ExtractEnvoyEndpoints(b.generate(svcEps))
 }
 
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
@@ -342,7 +342,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		return true
 	})
 
-	localityLbEndpoints := b.generate(svcEps, false)
+	localityLbEndpoints := b.generate(svcEps)
 	if len(localityLbEndpoints) == 0 {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
@@ -370,8 +370,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 }
 
 // generate endpoints with applies weights, multi-network mapping and other filtering
-// noCache means we will not use or update the IstioEndpoint's precomputedEnvoyEndpoint
-func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed bool) []*LocalityEndpoints {
+func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint) []*LocalityEndpoints {
 	// shouldn't happen here
 	if !b.ServiceFound() {
 		return nil
@@ -383,28 +382,10 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed 
 
 	localityEpMap := make(map[string]*LocalityEndpoints)
 	for _, ep := range eps {
-		eep := ep.EnvoyEndpoint()
 		mtlsEnabled := b.mtlsChecker.checkMtlsEnabled(ep, b.proxy.IsWaypointProxy())
-		// Determine if we need to build the endpoint. We try to cache it for performance reasons
-		needToCompute := eep == nil
-		if features.EnableHBONE {
-			// Currently the HBONE implementation leads to different endpoint generation depending on if the
-			// client proxy supports HBONE or not. This breaks the cache.
-			// For now, just disable caching if the global HBONE flag is enabled.
-			needToCompute = true
-		}
-		if eep != nil && mtlsEnabled != isMtlsEnabled(eep) {
-			// The mTLS settings may have changed, invalidating the cache endpoint. Rebuild it
-			needToCompute = true
-		}
-		if needToCompute || !allowPrecomputed {
-			eep = buildEnvoyLbEndpoint(b, ep, mtlsEnabled)
-			if eep == nil {
-				continue
-			}
-			if allowPrecomputed {
-				ep.ComputeEnvoyEndpoint(eep)
-			}
+		eep := buildEnvoyLbEndpoint(b, ep, mtlsEnabled)
+		if eep == nil {
+			continue
 		}
 		locLbEps, found := localityEpMap[ep.Locality.Label]
 		if !found {
@@ -651,7 +632,11 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
-	if supportTunnel(b, e) {
+	tunnel := supportTunnel(b, e)
+	if mtlsEnabled && !features.PreferHBONESend {
+		tunnel = false
+	}
+	if tunnel {
 		address, port := e.Address, int(e.EndpointPort)
 		// We intentionally do not take into account waypoints here.
 		// 1. Workload waypoints: sidecar/ingress do not support sending traffic directly to workloads, only to services,
@@ -687,10 +672,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 	if b.proxy.IsProxylessGrpc() {
 		// Proxyless client cannot handle tunneling, even if the server can
-		return false
-	}
-
-	if !b.proxy.EnableHBONE() {
 		return false
 	}
 

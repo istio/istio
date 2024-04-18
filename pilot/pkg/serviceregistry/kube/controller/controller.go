@@ -284,7 +284,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
-	if features.EnableAmbientControllers {
+	if features.EnableAmbient {
 		c.ambientIndex = ambient.New(ambient.Options{
 			Client:          kubeClient,
 			SystemNamespace: options.SystemNamespace,

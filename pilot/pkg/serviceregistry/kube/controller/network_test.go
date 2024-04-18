@@ -227,7 +227,7 @@ func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher
 }
 
 func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	test.SetForTest(t, &features.EnableAmbient, true)
 	testNS := "test"
 	systemNS := "istio-system"
 

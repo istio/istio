@@ -110,7 +110,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 
 	builder.patchListeners()
 	l := builder.getListeners()
-	if builder.node.EnableHBONE() && !builder.node.IsWaypointProxy() {
+	if features.EnableHBONESend && !builder.node.IsWaypointProxy() {
 		l = append(l, buildConnectOriginateListener())
 	}
 

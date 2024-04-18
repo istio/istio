@@ -28,10 +28,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mitchellh/copystructure"
@@ -528,18 +526,6 @@ type IstioEndpoint struct {
 
 	// If in k8s, the node where the pod resides
 	NodeName string
-
-	// precomputedEnvoyEndpoint is a cached LbEndpoint, converted from the data, to
-	// avoid recomputation
-	precomputedEnvoyEndpoint atomic.Pointer[endpoint.LbEndpoint]
-}
-
-func (ep *IstioEndpoint) EnvoyEndpoint() *endpoint.LbEndpoint {
-	return ep.precomputedEnvoyEndpoint.Load()
-}
-
-func (ep *IstioEndpoint) ComputeEnvoyEndpoint(now *endpoint.LbEndpoint) {
-	ep.precomputedEnvoyEndpoint.Store(now)
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {

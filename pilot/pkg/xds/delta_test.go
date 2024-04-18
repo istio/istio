@@ -316,7 +316,7 @@ func TestDeltaReconnectRequests(t *testing.T) {
 }
 
 func TestDeltaWDS(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	test.SetForTest(t, &features.EnableAmbient, true)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	wlA := &model.WorkloadInfo{
 		Workload: &workloadapi.Workload{
