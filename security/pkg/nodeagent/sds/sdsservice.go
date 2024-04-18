@@ -60,8 +60,12 @@ type sdsservice struct {
 
 type Context struct {
 	BaseConnection xds.BaseConnection
+	s              *sdsservice
+	w              *Watch
+}
+
+type Watch struct {
 	sync.Mutex
-	s     *sdsservice
 	watch *xds.WatchedResource
 }
 
@@ -182,30 +186,30 @@ func (c *Context) Close() {
 	delete(c.s.clients, c.Connection().ID())
 }
 func (c *Context) Watcher() xds.Watcher {
-	return c
+	return c.w
 }
-func (c *Context) DeleteWatchedResource(string) {
+func (c *Watch) DeleteWatchedResource(string) {
 	c.Lock()
 	defer c.Unlock()
 	c.watch = nil
 }
-func (c *Context) GetWatchedResource(string) *xds.WatchedResource {
+func (c *Watch) GetWatchedResource(string) *xds.WatchedResource {
 	c.Lock()
 	defer c.Unlock()
 	return c.watch
 }
-func (c *Context) NewWatchedResource(typeURL string, names []string) {
+func (c *Watch) NewWatchedResource(typeURL string, names []string) {
 	c.Lock()
 	defer c.Unlock()
 	c.watch = &xds.WatchedResource{TypeUrl: typeURL, ResourceNames: names}
 }
-func (c *Context) UpdateWatchedResource(_ string, f func(*xds.WatchedResource) *xds.WatchedResource) {
+func (c *Watch) UpdateWatchedResource(_ string, f func(*xds.WatchedResource) *xds.WatchedResource) {
 	c.Lock()
 	defer c.Unlock()
 	c.watch = f(c.watch)
 }
-func (c *Context) GetID() string {
-	return c.Connection().ID()
+func (c *Watch) GetID() string {
+	return ""
 }
 
 var version uberatomic.Uint64
@@ -234,7 +238,7 @@ func (c *Context) Process(req *discovery.DiscoveryRequest) error {
 	}
 	return xds.Send(c, resp)
 }
-func (c *Context) requested(name string) bool {
+func (c *Watch) requested(name string) bool {
 	c.Lock()
 	defer c.Unlock()
 	if c.watch != nil {
@@ -248,7 +252,7 @@ func (c *Context) requested(name string) bool {
 }
 func (c *Context) Push(ev any) error {
 	name := ev.(string)
-	if !c.requested(name) {
+	if !c.w.requested(name) {
 		return nil
 	}
 	res, err := c.s.generate([]string{name})
@@ -268,6 +272,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 	return xds.Stream(&Context{
 		BaseConnection: xds.NewConnection("", stream),
 		s:              s,
+		w:              &Watch{},
 	})
 }
 
