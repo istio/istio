@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     istio: pilot
@@ -27,7 +27,7 @@ spec:
     matchLabels:
       {{- if ne .Values.revision "" }}
       app: istiod
-      istio.io/rev: {{ .Values.revision | default "default" }}
+      istio.io/rev: {{ .Values.revision | default "default" | quote }}
       {{- else }}
       istio: pilot
       {{- end }}
@@ -35,7 +35,7 @@ spec:
     metadata:
       labels:
         app: istiod
-        istio.io/rev: {{ .Values.revision | default "default" }}
+        istio.io/rev: {{ .Values.revision | default "default" | quote }}
         install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         sidecar.istio.io/inject: "false"
         operator.istio.io/component: "Pilot"

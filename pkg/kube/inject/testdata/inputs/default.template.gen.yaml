@@ -898,7 +898,7 @@ templates:
         service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
         service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
       annotations: {
-        istio.io/rev: {{ .Revision | default "default" }},
+        istio.io/rev: {{ .Revision | default "default" | quote }},
         {{- if ge (len $containers) 1 }}
         {{- if not (isset .ObjectMeta.Annotations `kubectl.kubernetes.io/default-logs-container`) }}
         kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
