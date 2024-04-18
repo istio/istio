@@ -108,8 +108,6 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 type webhookURLResult struct {
 	ip       net.IP
 	hostName string
-
-	resolvesIPs []net.IP
 }
 
 func (r *webhookURLResult) isIP() bool {
@@ -133,14 +131,6 @@ func lintWebhookURL(webhookURL string) (result *webhookURLResult, err error) {
 	}
 
 	result.hostName = parsedHostname
-	ips, err := net.LookupIP(parsedHostname)
-	if err != nil {
-		return result, fmt.Errorf("cannot be resolved via a DNS lookup")
-	}
-	result.resolvesIPs = ips
-	if len(ips) == 0 {
-		return result, fmt.Errorf("resolves with zero IP addresses")
-	}
 
 	return result, nil
 }
