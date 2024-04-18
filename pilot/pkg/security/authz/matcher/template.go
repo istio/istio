@@ -22,6 +22,8 @@ import (
 	"istio.io/istio/pkg/config/security"
 )
 
+var replacer = strings.NewReplacer(security.MatchOneTemplate, "*", security.MatchAnyTemplate, "**")
+
 // PatherTemplateMatcher creates a URI template matcher for path.
 func PathTemplateMatcher(path string) *uri_template.UriTemplateMatchConfig {
 	return &uri_template.UriTemplateMatchConfig{
@@ -35,11 +37,5 @@ func PathTemplateMatcher(path string) *uri_template.UriTemplateMatchConfig {
 // If path contains "{**}", it will be replaced with "**".
 // If the path already contained "*" or "**", they will be left as is.
 func sanitizePathTemplate(path string) string {
-	if strings.Contains(path, security.MatchOneTemplate) {
-		path = strings.ReplaceAll(path, security.MatchOneTemplate, "*")
-	}
-	if strings.Contains(path, security.MatchAnyTemplate) {
-		path = strings.ReplaceAll(path, security.MatchAnyTemplate, "**")
-	}
-	return path
+	return replacer.Replace(path)
 }

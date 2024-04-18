@@ -30,23 +30,30 @@ func TestPathTemplateMatcher(t *testing.T) {
 	}{
 		{
 			name: "matchOneOnly",
-			path: "foo/bar/{*}",
+			path: "/foo/bar/{*}",
 			want: &uri_template.UriTemplateMatchConfig{
-				PathTemplate: "foo/bar/*",
+				PathTemplate: "/foo/bar/*",
 			},
 		},
 		{
 			name: "matchAnyOnly",
-			path: "foo/{**}/bar.tmp",
+			path: "/foo/{**}/bar.tmp",
 			want: &uri_template.UriTemplateMatchConfig{
-				PathTemplate: "foo/**/bar.tmp",
+				PathTemplate: "/foo/**/bar.tmp",
 			},
 		},
 		{
 			name: "matchAnyAndOne",
-			path: "{*}/foo/{**}/bar.tmp",
+			path: "/{*}/foo/{**}/bar.tmp",
 			want: &uri_template.UriTemplateMatchConfig{
-				PathTemplate: "*/foo/**/bar.tmp",
+				PathTemplate: "/*/foo/**/bar.tmp",
+			},
+		},
+		{
+			name: "matchAnyAndMultipleOnes",
+			path: "/{*}/{*}/foo/{**}/bar",
+			want: &uri_template.UriTemplateMatchConfig{
+				PathTemplate: "/*/*/foo/**/bar",
 			},
 		},
 	}
