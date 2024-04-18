@@ -292,25 +292,7 @@ spec:
 			}, retry.Timeout(2*time.Minute))
 
 			// Update use-waypoint for Captured service
-			for _, c := range t.Clusters().Kube() {
-				client := c.Kube().CoreV1().Services(apps.Namespace.Name())
-				setWaypoint := func(waypoint string) error {
-					annotation := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%s"}}}`,
-						constants.AmbientUseWaypoint, waypoint))
-					_, err := client.Patch(context.TODO(), Captured, types.MergePatchType, annotation, metav1.PatchOptions{})
-					return err
-				}
-
-				if err := setWaypoint("simple-http-waypoint"); err != nil {
-					t.Fatal(err)
-				}
-				t.Cleanup(func() {
-					if err := setWaypoint(""); err != nil {
-						scopes.Framework.Errorf("failed resetting waypoint for %s", Captured)
-					}
-				})
-
-			}
+			SetWaypoint(t, Captured, "simple-http-waypoint")
 
 			// ensure HTTP traffic works with all hostname variants
 			for _, src := range apps.All {
@@ -343,4 +325,31 @@ spec:
 				})
 			}
 		})
+}
+
+func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
+	for _, c := range t.Clusters().Kube() {
+		client := c.Kube().CoreV1().Services(apps.Namespace.Name())
+		setWaypoint := func(waypoint string) error {
+			if waypoint == "" {
+				waypoint = "null"
+			} else {
+				waypoint = fmt.Sprintf("%q", waypoint)
+			}
+			annotation := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":%s}}}`,
+				constants.AmbientUseWaypoint, waypoint))
+			_, err := client.Patch(context.TODO(), svc, types.MergePatchType, annotation, metav1.PatchOptions{})
+			return err
+		}
+
+		if err := setWaypoint(waypoint); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := setWaypoint(""); err != nil {
+				scopes.Framework.Errorf("failed resetting waypoint for %s", svc)
+			}
+		})
+
+	}
 }
