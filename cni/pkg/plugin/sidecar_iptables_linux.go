@@ -53,7 +53,9 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	cfg.CaptureAllDNS = rdrct.dnsRedirect
 	cfg.DropInvalid = rdrct.invalidDrop
 	cfg.DualStack = rdrct.dualStack
-	cfg.FillConfigFromEnvironment()
+	if err := cfg.FillConfigFromEnvironment(); err != nil {
+		return err
+	}
 
 	netNs, err := getNs(netns)
 	if err != nil {

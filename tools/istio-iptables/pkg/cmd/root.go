@@ -151,7 +151,9 @@ func GetCommand(logOpts *log.Options) *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			cfg.FillConfigFromEnvironment()
+			if err := cfg.FillConfigFromEnvironment(); err != nil {
+				handleErrorWithCode(err, 1)
+			}
 			if err := cfg.Validate(); err != nil {
 				handleErrorWithCode(err, 1)
 			}
