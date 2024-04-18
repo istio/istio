@@ -8,7 +8,7 @@ metadata:
 {{ toYaml .Values.pilot.serviceAnnotations | indent 4 }}
   {{- end }}
   labels:
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     app: istiod
@@ -32,7 +32,7 @@ spec:
   selector:
     app: istiod
     {{- if ne .Values.revision "" }}
-    istio.io/rev: {{ .Values.revision }}
+    istio.io/rev: {{ .Values.revision | quote }}
     {{- else }}
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
