@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: feature
-area: xds
+area: traffic-management
 issue:
   - 50562
 releaseNotes:
