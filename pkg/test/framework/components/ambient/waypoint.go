@@ -167,7 +167,7 @@ func SetWaypointForService(t framework.TestContext, ns namespace.Instance, servi
 		if err != nil {
 			t.Fatalf("error getting svc %s, err %v", service, err)
 		}
-		oldLabels := oldSvc.ObjectMeta.GetAnnotations()
+		oldLabels := oldSvc.ObjectMeta.GetLabels()
 		if oldLabels == nil {
 			oldLabels = make(map[string]string, 1)
 		}
