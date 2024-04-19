@@ -51,6 +51,9 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(c resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
+  global:
+    logging:
+      level: delta:debug
   pilot: 
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true

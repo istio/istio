@@ -1451,7 +1451,7 @@ func TestExtractGatewayServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gatewayServices, err := extractGatewayServices(tt.r, tt.kgw, tt.obj)
+			gatewayServices, err := extractGatewayServices(tt.r, tt.kgw, tt.obj, classInfo{})
 			assert.Equal(t, gatewayServices, tt.gatewayServices)
 			assert.Equal(t, err, tt.err)
 		})

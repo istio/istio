@@ -26,7 +26,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -56,7 +56,7 @@ func validateProxyConfig(value string) error {
 	if err := protomarshal.ApplyYAML(value, config); err != nil {
 		return fmt.Errorf("failed to convert to apply proxy config: %v", err)
 	}
-	return validation.ValidateMeshConfigProxyConfig(config)
+	return agent.ValidateMeshConfigProxyConfig(config)
 }
 
 func validateAnnotations(annotations map[string]string) (err error) {

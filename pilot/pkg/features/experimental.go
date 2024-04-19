@@ -165,32 +165,6 @@ var (
 	EnableGatewayAPIGatewayClassController = env.Register("PILOT_ENABLE_GATEWAY_API_GATEWAYCLASS_CONTROLLER", true,
 		"If this is set to true, istiod will create and manage its default GatewayClasses").Get()
 
-	// EnableHBONE provides a global Pilot flag for enabling HBONE.
-	// Generally, this could be a per-proxy setting (and is, via ENABLE_HBONE node metadata).
-	// However, there are some code paths that impact all clients, hence the global flag.
-	// Warning: do not enable by default until endpoint_builder.go caching is fixed (and possibly other locations).
-	EnableHBONE = env.Register(
-		"PILOT_ENABLE_HBONE",
-		false,
-		"If enabled, HBONE support can be configured for proxies. "+
-			"Note: proxies must opt in on a per-proxy basis with ENABLE_HBONE to actually get HBONE config, in addition to this flag.").Get()
-
-	EnableAmbientControllers = env.Register(
-		"PILOT_ENABLE_AMBIENT_CONTROLLERS",
-		false,
-		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
-
-	EnableAmbientWaypoints = func() bool {
-		v := env.Register(
-			"PILOT_ENABLE_AMBIENT_WAYPOINTS",
-			false,
-			"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
-		if v && !EnableAmbientControllers {
-			log.Fatalf("PILOT_ENABLE_AMBIENT_WAYPOINTS requires PILOT_ENABLE_AMBIENT_CONTROLLERS")
-		}
-		return v
-	}()
-
 	DeltaXds = env.Register("ISTIO_DELTA_XDS", true,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
@@ -201,9 +175,6 @@ var (
 
 	EnableTLSOnSidecarIngress = env.Register("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
 		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
-
-	VerifySDSCertificate = env.Register("VERIFY_SDS_CERTIFICATE", true,
-		"If enabled, certificates fetched from SDS server will be verified before sending back to proxy.").Get()
 
 	EnableHCMInternalNetworks = env.Register("ENABLE_HCM_INTERNAL_NETWORKS", false,
 		"If enable, endpoints defined in mesh networks will be configured as internal addresses in Http Connection Manager").Get()

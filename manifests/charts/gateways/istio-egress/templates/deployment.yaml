@@ -8,7 +8,7 @@ metadata:
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "EgressGateways"
 spec:
@@ -34,13 +34,13 @@ spec:
         chart: gateways
 {{- end }}
         service.istio.io/canonical-name: {{ $gateway.name }}
-        service.istio.io/canonical-revision: {{ index $gateway.labels "app.kubernetes.io/version" | default (index $gateway.labels "version") | default .Values.revision | default "latest" }}
-        istio.io/rev: {{ .Values.revision | default "default" }}
+        service.istio.io/canonical-revision: {{ index $gateway.labels "app.kubernetes.io/version" | default (index $gateway.labels "version") | default .Values.revision | default "latest" | quote }}
+        istio.io/rev: {{ .Values.revision | default "default" | quote }}
         install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         operator.istio.io/component: "EgressGateways"
         sidecar.istio.io/inject: "false"
       annotations:
-        istio.io/rev: {{ .Values.revision | default "default" }}
+        istio.io/rev: {{ .Values.revision | default "default" | quote }}
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"

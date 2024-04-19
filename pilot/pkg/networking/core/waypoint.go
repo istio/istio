@@ -45,20 +45,9 @@ type waypointServices struct {
 
 // findWaypointResources returns workloads and services associated with the waypoint proxy
 func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.WorkloadInfo, *waypointServices) {
-	network := node.Metadata.Network.String()
-	workloads := make([]model.WorkloadInfo, 0)
-	serviceInfos := make([]model.ServiceInfo, 0)
-	for _, svct := range node.ServiceTargets {
-		ips := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
-		key := model.WaypointKey{
-			Network:   network,
-			Addresses: ips,
-		}
-		wl := push.WorkloadsForWaypoint(key)
-		workloads = append(workloads, wl...)
-		svcs := push.ServicesForWaypoint(key)
-		serviceInfos = append(serviceInfos, svcs...)
-	}
+	key := model.WaypointKeyForProxy(node)
+	workloads := push.WorkloadsForWaypoint(key)
+	serviceInfos := push.ServicesForWaypoint(key)
 
 	waypointServices := &waypointServices{}
 	for _, s := range serviceInfos {
@@ -86,11 +75,13 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 // It looks at:
 // * referencedServices: all services referenced by mesh virtual services
 // * waypointServices: all services owned by this waypoint
+// * extraServices: extra services required by the waypoint (extensions configured, etc)
 // * all services
 // We want to find any VirtualServices that are from a waypointServices to a non-waypointService
 func filterWaypointOutboundServices(
 	referencedServices map[string]sets.String,
 	waypointServices map[host.Name]*model.Service,
+	extraServices sets.String,
 	services []*model.Service,
 ) []*model.Service {
 	outboundServices := sets.New[string]()
@@ -106,7 +97,7 @@ func filterWaypointOutboundServices(
 	}
 	res := make([]*model.Service, 0, len(outboundServices))
 	for _, s := range services {
-		if outboundServices.Contains(s.Hostname.String()) {
+		if outboundServices.Contains(s.Hostname.String()) || extraServices.Contains(s.Hostname.String()) {
 			res = append(res, s)
 		}
 	}

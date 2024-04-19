@@ -875,8 +875,8 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
 	})
 
-	istiotest.SetForTest(t, &features.EnableHBONE, true)
-	istiotest.SetForTest(t, &features.EnableAmbientControllers, true)
+	istiotest.SetForTest(t, &features.EnableSidecarHBONEListening, true)
+	istiotest.SetForTest(t, &features.EnableAmbient, true)
 	for _, ambient := range []bool{false, true} {
 		name := "disabled"
 		if ambient {

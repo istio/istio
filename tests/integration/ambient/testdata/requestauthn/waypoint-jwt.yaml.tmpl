@@ -3,8 +3,8 @@ kind: RequestAuthentication
 metadata:
   name: default-{{ .To.ServiceName }}
 spec:
-  targetRef:
-    kind: Gateway
+  targetRefs:
+  - kind: Gateway
     group: gateway.networking.k8s.io
     name: waypoint
   jwtRules:
@@ -30,8 +30,8 @@ kind: AuthorizationPolicy
 metadata:
   name: authz-gateway-{{ .To.ServiceName }}
 spec:
-  targetRef:
-    kind: Gateway
+  targetRefs:
+  - kind: Gateway
     group: gateway.networking.k8s.io
     name: waypoint
   rules:

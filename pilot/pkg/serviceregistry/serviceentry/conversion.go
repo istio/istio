@@ -66,15 +66,7 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		// Internal Service and K8S Service have a single Address.
 		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
 		// Will be 0.0.0.0 if not specified as ClusterIP or ClusterIP==None. In such case resolution is Passthrough.
-		//
 		Addresses: svc.GetAddresses(proxy),
-
-		// Location:             0,
-
-		// Internal resolution:
-		//  - Passthrough - for ClusterIP=None and no ExternalName
-		//  - ClientSideLB - regular ClusterIP clusters (VIP, resolved via EDS)
-		//  - DNSLB - if ExternalName is specified. Also meshExternal is set.
 
 		// This is based on alpha.istio.io/canonical-serviceaccounts and
 		//  alpha.istio.io/kubernetes-serviceaccounts.
@@ -98,7 +90,6 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 	}
 
 	// Reverse in convertServices. Note that enum values are different
-	// TODO: make the enum match, should be safe (as long as they're used as enum)
 	var resolution networking.ServiceEntry_Resolution
 	switch svc.Resolution {
 	case model.Passthrough: // 2
@@ -405,7 +396,6 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 			ep := workloadInstance.Endpoint.ShallowCopy()
 			ep.ServicePortName = serviceEntryPort.Name
 			ep.EndpointPort = targetPort
-			ep.ComputeEnvoyEndpoint(nil)
 			out = append(out, &model.ServiceInstance{
 				Endpoint:    ep,
 				Service:     service,

@@ -83,6 +83,10 @@ type inboundChainConfig struct {
 
 	// telemetryMetadata defines additional information about the chain for telemetry purposes.
 	telemetryMetadata telemetry.FilterChainMetadata
+
+	// proxies that accept service-attached policy should include the service for per-service chains
+	// so that those policies can be found
+	policyService *model.Service
 }
 
 // StatPrefix returns the stat prefix for the config
@@ -747,7 +751,7 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	if !lb.node.IsWaypointProxy() {
 		filters = append(filters, buildMetadataExchangeNetworkFilters()...)
 	}
-	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
+	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound, nil)...)
 	filters = append(filters, &listener.Filter{
 		Name: wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
@@ -848,7 +852,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: fcc.clusterName},
 		IdleTimeout:      parseDuration(lb.node.Metadata.IdleTimeout),
 	}
-	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound, fcc.policyService)
 	networkFilterstack := buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)
-	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true)
+	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService)
 }

@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2024-03-28T19-01-22
+BASE_VERSION ?= master-2024-04-16T19-01-05
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -286,8 +286,9 @@ lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles li
 
 # Allow-list:
 # (k8s) Machinery, utils, klog
-# (proto) TLS for SDS
-# (proto) Wasm for wasm xDS proxy
+# (proto) Istio API non-CRDs, MeshConfig and ProxyConfig
+# (proto) Envoy TLS proto for SDS
+# (proto) Envoy Wasm filters for wasm xDS proxy
 # (proto) xDS discovery service for xDS proxy
 .PHONY: check-agent-deps
 check-agent-deps:
@@ -300,7 +301,8 @@ check-agent-deps:
 		grep -Pv 'envoy/service/discovery/v3' |\
 		grep -Pv 'envoy/extensions/wasm/' |\
 		grep -Pv 'envoy/extensions/filters/(http|network)/wasm/' |\
-		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|envoy/')
+		grep -Pv 'istio\.io/api/(annotation|label|mcp|mesh|networking|security/v1alpha1|type)' |\
+		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|jwx/jwk|envoy/|istio.io/api')
 
 go-gen:
 	@mkdir -p /tmp/bin

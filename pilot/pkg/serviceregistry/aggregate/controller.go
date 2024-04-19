@@ -54,7 +54,7 @@ type Controller struct {
 }
 
 func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
-	if !features.EnableAmbientControllers {
+	if !features.EnableAmbient {
 		return nil
 	}
 	var res []model.ServiceInfo
@@ -76,7 +76,7 @@ func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.Workloa
 }
 
 func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.String) sets.String {
-	if !features.EnableAmbientControllers {
+	if !features.EnableAmbient {
 		return nil
 	}
 	res := sets.New[string]()
@@ -88,7 +88,7 @@ func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur se
 
 func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []model.WorkloadAuthorization {
 	var res []model.WorkloadAuthorization
-	if !features.EnableAmbientControllers {
+	if !features.EnableAmbient {
 		return res
 	}
 	for _, p := range c.GetRegistries() {
@@ -99,7 +99,7 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []model.Workl
 
 func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressInfo, sets.String) {
 	i := []model.AddressInfo{}
-	if !features.EnableAmbientControllers {
+	if !features.EnableAmbient {
 		return i, nil
 	}
 	removed := sets.String{}

@@ -106,19 +106,19 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.14.3
-	istio.io/api v1.19.0-alpha.1.0.20240412204431-fe48267f8633
-	istio.io/client-go v1.19.0-alpha.1.0.20240412204831-64c83851ab6b
-	k8s.io/api v0.30.0-rc.2
-	k8s.io/apiextensions-apiserver v0.30.0-rc.2
-	k8s.io/apimachinery v0.30.0-rc.2
-	k8s.io/apiserver v0.30.0-rc.2
-	k8s.io/cli-runtime v0.30.0-rc.2
-	k8s.io/client-go v0.30.0-rc.2
+	istio.io/api v1.19.0-alpha.1.0.20240418192243-e481111191fc
+	istio.io/client-go v1.19.0-alpha.1.0.20240418192942-362cd564429a
+	k8s.io/api v0.30.0
+	k8s.io/apiextensions-apiserver v0.30.0
+	k8s.io/apimachinery v0.30.0
+	k8s.io/apiserver v0.30.0
+	k8s.io/cli-runtime v0.30.0
+	k8s.io/client-go v0.30.0
 	k8s.io/klog/v2 v2.120.1
-	k8s.io/kubectl v0.30.0-rc.2
+	k8s.io/kubectl v0.30.0
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
 	sigs.k8s.io/controller-runtime v0.17.1-0.20240412100902-45e166d1fd01
-	sigs.k8s.io/gateway-api v1.0.1-0.20240412163039-e8cdaaf9b4ff
+	sigs.k8s.io/gateway-api v1.0.1-0.20240418002011-7f9f51098f40
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -245,7 +245,7 @@ require (
 	golang.org/x/tools v0.19.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	k8s.io/component-base v0.30.0-rc.2 // indirect
+	k8s.io/component-base v0.30.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3 // indirect

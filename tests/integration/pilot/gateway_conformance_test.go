@@ -30,6 +30,7 @@ import (
 	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
@@ -92,15 +93,15 @@ func TestGatewayConformance(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			features := gateway.SupportedFeatures
+			supportedFeatures := gateway.SupportedFeatures
 			if ctx.Settings().GatewayConformanceStandardOnly {
-				features = k8ssets.New[suite.SupportedFeature]().
-					Insert(suite.GatewayExtendedFeatures.UnsortedList()...).
-					Insert(suite.ReferenceGrantCoreFeatures.UnsortedList()...).
-					Insert(suite.HTTPRouteCoreFeatures.UnsortedList()...).
-					Insert(suite.HTTPRouteExtendedFeatures.UnsortedList()...).
-					Insert(suite.MeshCoreFeatures.UnsortedList()...).
-					Insert(suite.GRPCRouteCoreFeatures.UnsortedList()...)
+				supportedFeatures = k8ssets.New[features.SupportedFeature]().
+					Insert(features.GatewayExtendedFeatures.UnsortedList()...).
+					Insert(features.ReferenceGrantCoreFeatures.UnsortedList()...).
+					Insert(features.HTTPRouteCoreFeatures.UnsortedList()...).
+					Insert(features.HTTPRouteExtendedFeatures.UnsortedList()...).
+					Insert(features.MeshCoreFeatures.UnsortedList()...).
+					Insert(features.GRPCRouteCoreFeatures.UnsortedList()...)
 			}
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
@@ -112,7 +113,7 @@ func TestGatewayConformance(t *testing.T) {
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},
-				SupportedFeatures:        features,
+				SupportedFeatures:        supportedFeatures,
 				SkipTests:                maps.Keys(skippedTests),
 				UsableNetworkAddresses:   []v1.GatewayAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 				UnusableNetworkAddresses: []v1.GatewayAddress{{Value: "foo", Type: &hostnameType}},
@@ -129,6 +130,7 @@ func TestGatewayConformance(t *testing.T) {
 					Version:      istioVersion,
 					Contact:      []string{"@istio/maintainers"},
 				},
+				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{

@@ -112,6 +112,9 @@ type classInfo struct {
 	// disableRouteGeneration, if set, will make it so the controller ignores this class.
 	disableRouteGeneration bool
 
+	// disableNameSuffix, if set, will avoid appending -<class> to names
+	disableNameSuffix bool
+
 	// addressType is the default address type to report
 	addressType gateway.AddressType
 }
@@ -161,6 +164,7 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			controller:         constants.ManagedGatewayMeshController,
 			description:        "The default Istio waypoint GatewayClass",
 			templates:          "waypoint",
+			disableNameSuffix:  true,
 			defaultServiceType: corev1.ServiceTypeClusterIP,
 			addressType:        gateway.IPAddressType,
 		}
@@ -335,7 +339,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	proxyUID, proxyGID := inject.GetProxyIDs(ns)
 
-	defaultName := getDefaultName(gw.Name, &gw.Spec)
+	defaultName := getDefaultName(gw.Name, &gw.Spec, gi.disableNameSuffix)
 
 	serviceType := gi.defaultServiceType
 	if o, f := gw.Annotations[serviceTypeOverride]; f {

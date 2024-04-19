@@ -45,7 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
@@ -545,7 +545,7 @@ func marshalWorkloadEntryPodPorts(p map[string]uint32) string {
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
 func createHosts(kubeClient kube.CLIClient, istioNamespace, ingressIP, dir string, revision string) error {
 	// try to infer the ingress IP if the provided one is invalid
-	if validation.ValidateIPAddress(ingressIP) != nil {
+	if agent.ValidateIPAddress(ingressIP) != nil {
 		p := strings.Split(ingressSvc, ".")
 		ingressNs := istioNamespace
 		if len(p) == 2 {

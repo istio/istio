@@ -136,13 +136,17 @@ func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 		},
 		Handler: h,
 	}
+	n.handlerMu.Lock()
+	defer n.handlerMu.Unlock()
+	// AddEventHandler is safe to call under the lock. This will *enqueue* all existing items, but not block on processing them,
+	// so the timing is quick.
+	// If we do this outside the lock, we can hit a subtle race condition where we have started processing items before they
+	// are registered (in n.registeredHandlers); this can cause the dynamic filtering to miss events
 	reg, err := n.informer.AddEventHandler(fh)
 	if err != nil {
 		// Should only happen if its already stopped. We should exit early.
 		return
 	}
-	n.handlerMu.Lock()
-	defer n.handlerMu.Unlock()
 	n.registeredHandlers = append(n.registeredHandlers, handlerRegistration{registration: reg, handler: h})
 }
 
@@ -209,7 +213,7 @@ func New[T controllers.ComparableObject](c kube.Client) Client[T] {
 // This means there must only be one filter configuration for a given type using the same kube.Client.
 // Use with caution.
 func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) Client[T] {
-	gvr := types.MustToGVR[T](types.GetGVK[T]())
+	gvr := types.MustToGVR[T](types.MustGVKFromType[T]())
 	inf := kubeclient.GetInformerFiltered[T](c, ToOpts(c, gvr, filter))
 	return &fullClient[T]{
 		writeClient: writeClient[T]{client: c},

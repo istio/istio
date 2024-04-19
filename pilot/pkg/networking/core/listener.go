@@ -110,7 +110,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 
 	builder.patchListeners()
 	l := builder.getListeners()
-	if builder.node.EnableHBONE() && !builder.node.IsWaypointProxy() {
+	if features.EnableHBONESend && !builder.node.IsWaypointProxy() {
 		l = append(l, buildConnectOriginateListener())
 	}
 
@@ -1024,6 +1024,10 @@ type httpListenerOpts struct {
 
 	// Waypoint-specific modifications in HCM
 	isWaypoint bool
+
+	// allow service attached policy for to-service chains
+	// currently only used for waypoints
+	policySvc *model.Service
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context

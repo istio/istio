@@ -122,6 +122,7 @@ func TestGatewayConformance(t *testing.T) {
 				NamespaceLabels: map[string]string{
 					constants.DataplaneMode: "ambient",
 				},
+				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 			}
 
 			ctx.Cleanup(func() {

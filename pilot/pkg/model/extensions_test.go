@@ -513,8 +513,7 @@ func TestMatchListener(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			opts := WorkloadSelectionOpts{
-				RootNamespace:  "root",
+			opts := WorkloadPolicyMatcher{
 				Namespace:      "ns",
 				WorkloadLabels: tc.proxyLabels,
 				IsWaypoint:     false,

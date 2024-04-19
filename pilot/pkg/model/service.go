@@ -28,14 +28,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mitchellh/copystructure"
 	"google.golang.org/protobuf/proto"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -120,6 +119,10 @@ type Service struct {
 
 	// ResourceVersion represents the internal version of this object.
 	ResourceVersion string
+}
+
+func (s *Service) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{Name: s.Attributes.Name, Namespace: s.Attributes.Namespace}
 }
 
 func (s *Service) Key() string {
@@ -296,6 +299,10 @@ func (instance *ServiceInstance) CmpOpts() []cmp.Option {
 type ServiceTarget struct {
 	Service *Service
 	Port    ServiceInstancePort
+}
+
+func (st ServiceTarget) NamespacedName() types.NamespacedName {
+	return st.Service.NamespacedName()
 }
 
 type (
@@ -535,18 +542,6 @@ type IstioEndpoint struct {
 
 	// If in k8s, the node where the pod resides
 	NodeName string
-
-	// precomputedEnvoyEndpoint is a cached LbEndpoint, converted from the data, to
-	// avoid recomputation
-	precomputedEnvoyEndpoint atomic.Pointer[endpoint.LbEndpoint]
-}
-
-func (ep *IstioEndpoint) EnvoyEndpoint() *endpoint.LbEndpoint {
-	return ep.precomputedEnvoyEndpoint.Load()
-}
-
-func (ep *IstioEndpoint) ComputeEnvoyEndpoint(now *endpoint.LbEndpoint) {
-	ep.precomputedEnvoyEndpoint.Store(now)
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
@@ -919,6 +914,19 @@ type WaypointKey struct {
 	Addresses []string
 }
 
+// WaypointKey contains all of the VIPs that the Proxy serves.
+func WaypointKeyForProxy(node *Proxy) WaypointKey {
+	// TODO IP based lookup should switch to looking up services by name/ns
+	key := WaypointKey{
+		Network: node.Metadata.Network.String(),
+	}
+	for _, svct := range node.ServiceTargets {
+		ips := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
+		key.Addresses = append(key.Addresses, ips...)
+	}
+	return key
+}
+
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
 type NoopAmbientIndexes struct{}
 
@@ -1001,6 +1009,10 @@ type ServiceInfo struct {
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
 	Source kind.Kind
+}
+
+func (i ServiceInfo) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{Name: i.Name, Namespace: i.Namespace}
 }
 
 func (i ServiceInfo) Equals(other ServiceInfo) bool {

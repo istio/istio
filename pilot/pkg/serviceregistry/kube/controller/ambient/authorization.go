@@ -23,7 +23,6 @@ import (
 	"istio.io/api/security/v1beta1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
@@ -343,11 +342,9 @@ func convertPeerAuthentication(rootNamespace string, cfg *securityclient.PeerAut
 func convertAuthorizationPolicy(rootns string, obj *securityclient.AuthorizationPolicy) *security.Authorization {
 	pol := &obj.Spec
 
-	polTargetRef := pol.GetTargetRef()
-	if polTargetRef != nil &&
-		polTargetRef.Group == gvk.KubernetesGateway.Group &&
-		polTargetRef.Kind == gvk.KubernetesGateway.Kind {
-		// we have a policy targeting a gateway, do not configure a WDS authorization
+	polTargetRef := model.GetTargetRefs(pol)
+	if len(polTargetRef) > 0 {
+		// TargetRef is not intended for ztunnel
 		return nil
 	}
 

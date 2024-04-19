@@ -808,6 +808,10 @@ func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Se
 	return out
 }
 
+func (ps *PushContext) ExtraWaypointServices(proxy *Proxy) sets.String {
+	return ps.extraServicesForProxy(proxy)
+}
+
 // GatewayServices returns the set of services which are referred from the proxy gateways.
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	svcs := proxy.SidecarScope.services
@@ -819,7 +823,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	}
 
 	// host set.
-	hostsFromGateways := ps.extraGatewayServices(proxy)
+	hostsFromGateways := ps.extraServicesForProxy(proxy)
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
 	}
@@ -861,7 +865,7 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) b
 			}
 		}
 	}
-	return ps.extraGatewayServices(proxy).Contains(hostname)
+	return ps.extraServicesForProxy(proxy).Contains(hostname)
 }
 
 // wellknownProviders is a list of all known providers.
@@ -891,14 +895,14 @@ func AssertProvidersHandled(expected int) {
 
 // addHostsFromMeshConfigProvidersHandled contains the number of providers we handle below.
 // This is to ensure this stays in sync as new handlers are added
-// STOP. DO NOT UPDATE THIS WITHOUT UPDATING extraGatewayServices.
+// STOP. DO NOT UPDATE THIS WITHOUT UPDATING extraServicesForProxy.
 const addHostsFromMeshConfigProvidersHandled = 14
 
-// extraGatewayServices returns a subset of services referred from the proxy gateways, including:
+// extraServicesForProxy returns a subset of services referred from the proxy gateways, including:
 // 1. MeshConfig.ExtensionProviders
 // 2. RequestAuthentication.JwtRules.JwksUri
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func (ps *PushContext) extraGatewayServices(proxy *Proxy) sets.String {
+func (ps *PushContext) extraServicesForProxy(proxy *Proxy) sets.String {
 	hosts := sets.String{}
 	// add services from MeshConfig.ExtensionProviders
 	for _, prov := range ps.Mesh.ExtensionProviders {
@@ -934,7 +938,8 @@ func (ps *PushContext) extraGatewayServices(proxy *Proxy) sets.String {
 	}
 	// add services from RequestAuthentication.JwtRules.JwksUri
 	if features.JwksFetchMode != jwt.Istiod {
-		jwtPolicies := ps.AuthnPolicies.GetJwtPoliciesForWorkload(proxy.Metadata.Namespace, proxy.Labels, false)
+		forWorkload := PolicyMatcherForProxy(proxy)
+		jwtPolicies := ps.AuthnPolicies.GetJwtPoliciesForWorkload(forWorkload)
 		for _, cfg := range jwtPolicies {
 			rules := cfg.Spec.(*v1beta1.RequestAuthentication).JwtRules
 			for _, r := range rules {
@@ -2083,16 +2088,11 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 		lookupInNamespaces = []string{proxy.ConfigNamespace}
 	}
 
+	selectionOpts := PolicyMatcherForProxy(proxy).WithService(info.Service)
 	for _, ns := range lookupInNamespaces {
 		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
 			for _, plugin := range wasmPlugins {
-				opts := WorkloadSelectionOpts{
-					RootNamespace:  ps.Mesh.RootNamespace,
-					Namespace:      proxy.ConfigNamespace,
-					WorkloadLabels: proxy.Labels,
-					IsWaypoint:     proxy.IsWaypointProxy(),
-				}
-				if plugin.MatchListener(opts, info) && plugin.MatchType(pluginType) {
+				if plugin.MatchListener(selectionOpts, info) && plugin.MatchType(pluginType) {
 					matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 				}
 			}
