@@ -102,7 +102,7 @@ func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 		name := fmt.Sprintf("%s.%s", wl.Info.Name, wl.Info.Namespace)
 		if filter.Direction != "outbound" {
 			for _, c := range wl.Connections.Inbound {
-				fmt.Fprintf(w, "%v\tInbound\t%v\t%v\t\n", name, lookupIP(c.Dst), lookupIP(c.Src))
+				fmt.Fprintf(w, "%v\tInbound\t%v\t%v\t%v\n", name, lookupIP(c.ActualDst), lookupIP(c.Src), c.OriginalDst)
 			}
 		}
 		if filter.Direction != "inbound" {

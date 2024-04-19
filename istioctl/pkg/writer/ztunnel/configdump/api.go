@@ -127,9 +127,8 @@ type WorkloadInfo struct {
 
 type InboundConnection struct {
 	Src         string `json:"src"`
-	Dst         string `json:"dst"`
-	SrcIdentity string `json:"src_identity"`
-	DstNetwork  string `json:"dst_network"`
+	OriginalDst string `json:"originalDst"`
+	ActualDst   string `json:"actualDst"`
 }
 
 type OutboundConnection struct {
