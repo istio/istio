@@ -265,10 +265,7 @@ func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 	s.assertEvent(t, s.podXdsName("pod1"), s.svcXdsName("svc1"))
 
-	s.addService(t, "svc1",
-		map[string]string{},
-		map[string]string{constants.AmbientUseWaypoint: "test-wp"},
-		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.labelService(t, "svc1", testNS, map[string]string{constants.AmbientUseWaypoint: "test-wp"})
 	s.assertEvent(t, s.svcXdsName("svc1"))
 	s.assertNoEvent(t)
 
