@@ -432,7 +432,7 @@ func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
 	if nsObj.Labels == nil {
 		nsObj.Labels = map[string]string{}
 	}
-	nsObj.Labels[constants.AmbientUseWaypoint] = waypointName
+	nsObj.Labels[constants.AmbientUseWaypointLabel] = waypointName
 	if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(context.Background(), nsObj, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update namespace %s: %v", ns, err)
 	}
@@ -449,5 +449,5 @@ func namespaceIsLabeledAmbient(kubeClient kube.CLIClient, ns string) (bool, erro
 	if nsObj.Labels == nil {
 		return false, nil
 	}
-	return nsObj.Labels[constants.DataplaneMode] == constants.DataplaneModeAmbient, nil
+	return nsObj.Labels[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient, nil
 }

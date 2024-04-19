@@ -185,8 +185,8 @@ const (
 	ListenerModeOption          = "gateway.istio.io/listener-protocol"
 	ListenerModeAutoPassthrough = "auto-passthrough"
 
-	// DataplaneMode namespace label for determining ambient mesh behavior
-	DataplaneMode        = "istio.io/dataplane-mode"
+	// DataplaneModeLabel namespace label for determining ambient mesh behavior
+	DataplaneModeLabel        = "istio.io/dataplane-mode"
 	DataplaneModeAmbient = "ambient"
 
 	// AmbientRedirection specifies whether a pod has ambient redirection (to ztunnel) configured.
@@ -197,8 +197,8 @@ const (
 	// AmbientRedirectionDisabled is an opt-out, configured by user.
 	AmbientRedirectionDisabled = "disabled"
 
-	// AmbientUseWaypoint is the label used to specify which waypoint should be used for a given pod, service, etc...
-	AmbientUseWaypoint = "istio.io/use-waypoint"
+        // AmbientUseWaypointLabelLabel is the label used to specify which waypoint should be used for a given pod, service, etc...
+	AmbientUseWaypointLabel = "istio.io/use-waypoint"
 	// AmbientWaypointForTrafficType is the label used to specify which traffic is allowed through the Waypoint.
 	// This label is applied to the Waypoint. Valid traffic types are "service", "workload", "all", and "none".
 	AmbientWaypointForTrafficType = "istio.io/waypoint-for"

@@ -119,7 +119,7 @@ func TestGatewayConformance(t *testing.T) {
 					Contact:      []string{"@istio/maintainers"},
 				},
 				NamespaceLabels: map[string]string{
-					constants.DataplaneMode: "ambient",
+					constants.DataplaneModeLabel: "ambient",
 				},
 				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 			}
@@ -147,7 +147,7 @@ func TestGatewayConformance(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ns.RemoveLabel(constants.DataplaneMode)
+			ns.RemoveLabel(constants.DataplaneModeLabel)
 
 			// create a waypoint for mesh conformance
 			meshNS := namespace.Static("gateway-conformance-mesh")
@@ -161,7 +161,7 @@ func TestGatewayConformance(t *testing.T) {
 				if labels == nil {
 					labels = make(map[string]string)
 				}
-				labels[constants.AmbientUseWaypoint] = "namespace"
+				labels[constants.AmbientUseWaypointLabel] = "namespace"
 				ns.Labels = labels
 				k.Kube().CoreV1().Namespaces().Update(ctx.Context(), ns, metav1.UpdateOptions{})
 			}

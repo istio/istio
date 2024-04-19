@@ -155,7 +155,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		Prefix: "echo",
 		Inject: false,
 		Labels: map[string]string{
-			constants.DataplaneMode: "ambient",
+			constants.DataplaneModeLabel: "ambient",
 		},
 	})
 	if err != nil {
@@ -188,7 +188,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Labels: map[string]string{
 						"app":                        WorkloadAddressedWaypoint,
 						"version":                    "v1",
-						constants.AmbientUseWaypoint: "waypoint",
+						constants.AmbientUseWaypointLabel: "waypoint",
 					},
 				},
 				{
@@ -197,7 +197,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Labels: map[string]string{
 						"app":                        WorkloadAddressedWaypoint,
 						"version":                    "v2",
-						constants.AmbientUseWaypoint: "waypoint",
+						constants.AmbientUseWaypointLabel: "waypoint",
 					},
 				},
 			},
@@ -206,7 +206,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:              ServiceAddressedWaypoint,
 			Namespace:            apps.Namespace,
 			Ports:                ports.All(),
-			ServiceLabels:        map[string]string{constants.AmbientUseWaypoint: "waypoint"},
+			ServiceLabels:        map[string]string{constants.AmbientUseWaypointLabel: "waypoint"},
 			ServiceAccount:       true,
 			ServiceWaypointProxy: "waypoint",
 			Subsets: []echo.SubsetConfig{
