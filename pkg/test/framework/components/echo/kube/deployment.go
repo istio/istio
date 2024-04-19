@@ -358,8 +358,8 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 
 	if cfg.WorkloadWaypointProxy != "" {
 		for _, subset := range cfg.Subsets {
-			if subset.Annotations == nil {
-				subset.Annotations = echo.NewAnnotations()
+			if subset.Labels == nil {
+				subset.Labels = make(map[string]string)
 			}
 			subset.Labels[constants.AmbientUseWaypoint] = cfg.WorkloadWaypointProxy
 		}
@@ -420,8 +420,8 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 
 func serviceParams(cfg echo.Config) map[string]any {
 	if cfg.ServiceWaypointProxy != "" {
-		if cfg.ServiceAnnotations == nil {
-			cfg.ServiceAnnotations = echo.NewAnnotations()
+		if cfg.ServiceLabels == nil {
+			cfg.ServiceLabels = make(map[string]string)
 		}
 		cfg.ServiceLabels[constants.AmbientUseWaypoint] = cfg.ServiceWaypointProxy
 	}
@@ -430,7 +430,7 @@ func serviceParams(cfg echo.Config) map[string]any {
 		"Headless":           cfg.Headless,
 		"ServiceAccount":     cfg.ServiceAccount,
 		"ServicePorts":       cfg.Ports.GetServicePorts(),
-		"ServiceAnnotations": cfg.ServiceAnnotations,
+		"ServiceLabels":      cfg.ServiceLabels,
 		"IPFamilies":         cfg.IPFamilies,
 		"IPFamilyPolicy":     cfg.IPFamilyPolicy,
 	}
