@@ -1455,7 +1455,6 @@ type ambientTestServer struct {
 	fx        *xdsfake.Updater
 	pc        clienttest.TestClient[*corev1.Pod]
 	sc        clienttest.TestClient[*corev1.Service]
-	nc        clienttest.TestWriter[*corev1.Node]
 	ns        clienttest.TestWriter[*corev1.Namespace]
 	grc       clienttest.TestWriter[*k8sbeta.Gateway]
 	gwcls     clienttest.TestWriter[*k8sbeta.GatewayClass]
@@ -1511,7 +1510,6 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		pc:        clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
 		sc:        clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
 		ns:        clienttest.NewWriter[*corev1.Namespace](t, cl),
-		nc:        clienttest.NewWriter[*corev1.Node](t, cl),
 		grc:       clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
 		gwcls:     clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
 		se:        clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
@@ -1536,12 +1534,6 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   testNS,
 			Labels: map[string]string{"istio.io/dataplane-mode": "ambient"},
-		},
-	})
-
-	a.nc.Create(&corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "node1",
 		},
 	})
 
