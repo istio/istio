@@ -207,14 +207,14 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v applied\n", gw.Namespace, gw.Name)
 
-			// If a user decides to enroll their namespace with a waypoint, annotate the namespace with the waypoint name
+			// If a user decides to enroll their namespace with a waypoint, label the namespace with the waypoint name
 			// after the waypoint has been applied.
 			if enrollNamespace {
 				err = labelNamespaceWithWaypoint(kubeClient, ns)
 				if err != nil {
-					return fmt.Errorf("failed to annotate namespace with waypoint: %v", err)
+					return fmt.Errorf("failed to label namespace with waypoint: %v", err)
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v annotated with waypoint %v\n", ctx.NamespaceOrDefault(ctx.Namespace()), gw.Name)
+				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with waypoint %v\n", ctx.NamespaceOrDefault(ctx.Namespace()), gw.Name)
 			}
 			return nil
 		},
@@ -226,7 +226,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	)
 
 	waypointApplyCmd.PersistentFlags().BoolVarP(&enrollNamespace, "enroll-namespace", "", false,
-		"If set, the namespace will be annotated with the waypoint name")
+		"If set, the namespace will be labeled with the waypoint name")
 
 	waypointDeleteCmd := &cobra.Command{
 		Use:   "delete",
