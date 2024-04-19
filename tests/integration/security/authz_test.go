@@ -1016,6 +1016,10 @@ func TestAuthz_PathTemplating(t *testing.T) {
 							allow: true,
 						},
 						{
+							path:  "/foo/buzz/bar/bat.temp.txt",
+							allow: true,
+						},
+						{
 							path:  "/foo/buzz/bar/bat/fuzz.txt",
 							allow: true,
 						},

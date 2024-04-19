@@ -115,7 +115,7 @@ func CheckValidPathTemplate(key string, paths []string) error {
 		// It must not contain named variables, `*`, or `**`.
 		// Ex: "/{*}/foo/{bar}" is an unsupported PathTemplate.
 		if IsPathTemplate(path) && unsupportedPathTempRegex.MatchString(path) {
-			return fmt.Errorf("invalid or unsupported path template, found in %s", key)
+			return fmt.Errorf("invalid or unsupported path template %s, found in %s", path, key)
 		}
 	}
 	return nil

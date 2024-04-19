@@ -285,7 +285,7 @@ func TestIsPathTemplate(t *testing.T) {
 			isPathTemplate: true,
 		},
 		{
-			name:           "matchOneOnly",
+			name:           "matchAnyOnly",
 			path:           "foo/{**}/bar",
 			isPathTemplate: true,
 		},
