@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 50562
+releaseNotes:
+  - |
+    **Added** Update github.com/envoyproxy/go-control-plane to latest main version.
