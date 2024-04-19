@@ -36,6 +36,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -331,7 +332,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 	h := host.Name(destination.Host)
 	// If this is an Alias, point to the concrete service
 	// TODO: this will not work if we have Alias -> Alias -> Concrete service.
-	if service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
+	if features.EnableExternalNameAlias && service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
 		h = host.Name(service.Attributes.K8sAttributes.ExternalName)
 	}
 	port := listenerPort
