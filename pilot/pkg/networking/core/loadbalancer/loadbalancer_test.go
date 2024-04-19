@@ -69,7 +69,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				env := buildEnvForClustersWithDistribute(tt.distribute)
 				cluster := buildFakeCluster()
-				ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
+				ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 				weights := make([]int, 0)
 				for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 					weights = append(weights, int(localityEndpoint.LoadBalancingWeight.GetValue()))
@@ -85,7 +85,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildFakeCluster()
-		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
+		ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
@@ -111,7 +111,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallCluster()
-		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
+		ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
@@ -137,7 +137,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallClusterWithNilLocalities()
-		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
+		ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality == nil {
 				g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
@@ -166,7 +166,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		lbsetting := &networking.LocalityLoadBalancerSetting{
 			Enabled: &wrappers.BoolValue{Value: false},
 		}
-		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, lbsetting, true)
+		ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, lbsetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
 		}
@@ -626,7 +626,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				env := buildEnvForClustersWithFailoverPriority(tt.failoverPriority)
 				cluster := buildFakeCluster()
-				ApplyLocalityLBSetting(cluster.LoadAssignment, wrappedEndpoints, locality, tt.proxyLabels, env.Mesh().LocalityLbSetting, true)
+				ApplyLocalityLoadBalancer(cluster.LoadAssignment, wrappedEndpoints, locality, tt.proxyLabels, env.Mesh().LocalityLbSetting, true)
 
 				if len(cluster.LoadAssignment.Endpoints) != len(tt.expected) {
 					t.Fatalf("expected endpoints %d but got %d", len(cluster.LoadAssignment.Endpoints), len(tt.expected))
@@ -781,7 +781,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				env := buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(tt.failoverPriority)
 				cluster := buildFakeCluster()
-				ApplyLocalityLBSetting(cluster.LoadAssignment, wrappedEndpoints, locality, tt.proxyLabels, env.Mesh().LocalityLbSetting, true)
+				ApplyLocalityLoadBalancer(cluster.LoadAssignment, wrappedEndpoints, locality, tt.proxyLabels, env.Mesh().LocalityLbSetting, true)
 
 				if len(cluster.LoadAssignment.Endpoints) != len(tt.expected) {
 					t.Fatalf("expected endpoints %d but got %d", len(cluster.LoadAssignment.Endpoints), len(tt.expected))
