@@ -150,13 +150,13 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 			s.assertEvent(t, s.svcXdsName("svc1"), s.podXdsName("pod1"))
 
-			// Annotate the pod and check that the correct event is produced.
-			s.annotatePod(t, "pod1", testNS,
-				map[string]string{constants.AmbientUseWaypoint: "test-wp"})
+			// Label the pod and check that the correct event is produced.
+			s.labelPod(t, "pod1", testNS,
+				map[string]string{"app": "a", constants.AmbientUseWaypoint: "test-wp"})
 			c.podAssertion(s)
 
-			// Annotate the service and check that the correct event is produced.
-			s.annotateService(t, "svc1", testNS,
+			// Label the service and check that the correct event is produced.
+			s.labelService(t, "svc1", testNS,
 				map[string]string{constants.AmbientUseWaypoint: "test-wp"})
 			c.svcAssertion(s)
 
@@ -1645,6 +1645,19 @@ func (s *ambientTestServer) annotatePod(t *testing.T, name, ns string, annotatio
 	s.pc.Update(p)
 }
 
+// just overwrites the labels
+// nolint: unparam
+func (s *ambientTestServer) labelPod(t *testing.T, name, ns string, labels map[string]string) {
+	t.Helper()
+
+	p := s.pc.Get(name, ns)
+	if p == nil {
+		return
+	}
+	p.ObjectMeta.Labels = labels
+	s.pc.Update(p)
+}
+
 // just overwrites the annotations
 // nolint: unparam
 func (s *ambientTestServer) annotateService(t *testing.T, name, ns string, annotations map[string]string) {
@@ -1655,6 +1668,19 @@ func (s *ambientTestServer) annotateService(t *testing.T, name, ns string, annot
 		return
 	}
 	svc.ObjectMeta.Annotations = annotations
+	s.sc.Update(svc)
+}
+
+// just overwrites the labels
+// nolint: unparam
+func (s *ambientTestServer) labelService(t *testing.T, name, ns string, labels map[string]string) {
+	t.Helper()
+
+	svc := s.sc.Get(name, testNS)
+	if svc == nil {
+		return
+	}
+	svc.ObjectMeta.Labels = labels
 	s.sc.Update(svc)
 }
 

@@ -336,9 +336,9 @@ func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
 			} else {
 				waypoint = fmt.Sprintf("%q", waypoint)
 			}
-			annotation := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":%s}}}`,
+			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
 				constants.AmbientUseWaypoint, waypoint))
-			_, err := client.Patch(context.TODO(), svc, types.MergePatchType, annotation, metav1.PatchOptions{})
+			_, err := client.Patch(context.TODO(), svc, types.MergePatchType, label, metav1.PatchOptions{})
 			return err
 		}
 

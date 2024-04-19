@@ -141,15 +141,15 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 }
 
 // getUseWaypoint takes objectMeta and a defaultNamespace
-// it looks for the istio.io/use-waypoint annotation and parses it
-// if there is no namespace provided in the annotation the default namespace will be used
+// it looks for the istio.io/use-waypoint label and parses it
+// if there is no namespace provided in the label the default namespace will be used
 // defaultNamespace avoids the need to infer when object meta from a namespace was given
 func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
-	if annotationValue, ok := meta.Annotations[constants.AmbientUseWaypoint]; ok {
-		if annotationValue == "#none" || annotationValue == "~" {
+	if labelValue, ok := meta.Labels[constants.AmbientUseWaypoint]; ok {
+		if labelValue == "#none" || labelValue == "~" {
 			return nil, true
 		}
-		namespacedName := strings.Split(annotationValue, "/")
+		namespacedName := strings.Split(labelValue, "/")
 		switch len(namespacedName) {
 		case 1:
 			return &krt.Named{
@@ -162,8 +162,8 @@ func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt
 				Namespace: namespacedName[0],
 			}, false
 		default:
-			// malformed annotation error
-			log.Errorf("%s/%s, has a malformed %s annotation, value found: %s", meta.GetNamespace(), meta.GetName(), constants.AmbientUseWaypoint, annotationValue)
+			// malformed label error
+			log.Errorf("%s/%s, has a malformed %s label, value found: %s", meta.GetNamespace(), meta.GetName(), constants.AmbientUseWaypoint, labelValue)
 			return nil, false
 		}
 

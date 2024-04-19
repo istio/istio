@@ -361,7 +361,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 			if subset.Annotations == nil {
 				subset.Annotations = echo.NewAnnotations()
 			}
-			subset.Annotations.Set(echo.AmbientUseWaypoint, cfg.WorkloadWaypointProxy)
+			subset.Labels[constants.AmbientUseWaypoint] = cfg.WorkloadWaypointProxy
 		}
 	}
 
@@ -423,7 +423,7 @@ func serviceParams(cfg echo.Config) map[string]any {
 		if cfg.ServiceAnnotations == nil {
 			cfg.ServiceAnnotations = echo.NewAnnotations()
 		}
-		cfg.ServiceAnnotations.Set(echo.AmbientUseWaypoint, cfg.ServiceWaypointProxy)
+		cfg.ServiceLabels[constants.AmbientUseWaypoint] = cfg.ServiceWaypointProxy
 	}
 	return map[string]any{
 		"Service":            cfg.Service,

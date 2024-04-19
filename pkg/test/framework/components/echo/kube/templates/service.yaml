@@ -10,7 +10,16 @@ kind: Service
 metadata:
   name: {{ .Service }}
   labels:
+{{- if .ServiceLabels }}
+  labels:
     app: {{ .Service }}
+{{- range $name, $value := .ServiceLabels }}
+    {{ $name.Name }}: {{ printf "%q" $value.Value }}
+{{- end }}
+{{- else}}
+  labels:
+    app: {{ .Service }}
+{{- end }}
 {{- if .ServiceAnnotations }}
   annotations:
 {{- range $name, $value := .ServiceAnnotations }}
