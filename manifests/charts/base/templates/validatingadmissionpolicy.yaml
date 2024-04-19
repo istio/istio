@@ -20,55 +20,21 @@ spec:
       operations:  ["CREATE", "UPDATE"]
       resources:   ["*"]
   variables:
-    - name: isVirtualService
-      expression: "object.kind == 'VirtualService'"
-    - name: isDestinationRule
-      expression: "object.kind == 'DestinationRule'"
-    - name: isIstioGateway
-      expression: "object.kind == 'Gateway'"
-    - name: isServiceEntry
-      expression: "object.kind == 'ServiceEntry'"
     - name: isEnvoyFilter
       expression: "object.kind == 'EnvoyFilter'"
-    - name: isAuthorizationPolicy
-      expression: "object.kind == 'AuthorizationPolicy'"
-    - name: isPeerAuthentication
-      expression: "object.kind == 'PeerAuthentication'"
-    - name: isRequestAuthentication
-      expression: "object.kind == 'RequestAuthentication'"
-    - name: isWorkloadEntry
-      expression: "object.kind == 'WorkloadEntry'"
-    - name: isWorkloadGroup
-      expression: "object.kind == 'WorkloadGroup'"
-    - name: isSidecar
-      expression: "object.kind == 'Sidecar'"
     - name: isWasmPlugin
       expression: "object.kind == 'WasmPlugin'"
     - name: isTelemetry
       expression: "object.kind == 'Telemetry'"
-    - name: isProxyConfig
-      expression: "object.kind == 'ProxyConfig'"
   validations:
     - expression: "!variables.isEnvoyFilter"
     - expression: "!variables.isWasmPlugin"
     - expression: |
-        variables.isVirtualService        ||
-        variables.isDestinationRule       ||
-        variables.isIstioGateway          ||
-        variables.isServiceEntry          ||
-        variables.isAuthorizationPolicy   ||
-        variables.isPeerAuthentication    ||
-        variables.isRequestAuthentication ||
-        variables.isWorkloadEntry         ||
-        variables.isWorkloadGroup         ||
-        variables.isSidecar               ||
-        variables.isProxyConfig           ||
-        (
-          variables.isTelemetry &&
-          (
-            (has(object.spec.tracing) && object.spec.tracing.all(t, !has(t.useRequestIdForTraceSampling))) ||
-            (has(object.spec.metrics) && object.spec.metrics.all(m, !has(m.reportingInterval))) ||
-            (has(object.spec.accessLogging) && object.spec.accessLogging.all(l, !has(l.filter)))
+        !(
+          variables.isTelemetry && (
+            (has(object.spec.tracing) ? object.spec.tracing : {}).exists(t, has(t.useRequestIdForTraceSampling)) ||
+            (has(object.spec.metrics) ? object.spec.metrics : {}).exists(m, has(m.reportingInterval)) ||
+            (has(object.spec.accessLogging) ? object.spec.accessLogging : {}).exists(l, has(l.filter))
           )
         )
 ---
