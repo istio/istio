@@ -1658,19 +1658,6 @@ func (s *ambientTestServer) labelPod(t *testing.T, name, ns string, labels map[s
 	s.pc.Update(p)
 }
 
-// just overwrites the annotations
-// nolint: unparam
-func (s *ambientTestServer) annotateService(t *testing.T, name, ns string, annotations map[string]string) {
-	t.Helper()
-
-	svc := s.sc.Get(name, testNS)
-	if svc == nil {
-		return
-	}
-	svc.ObjectMeta.Annotations = annotations
-	s.sc.Update(svc)
-}
-
 // just overwrites the labels
 // nolint: unparam
 func (s *ambientTestServer) labelService(t *testing.T, name, ns string, labels map[string]string) {
