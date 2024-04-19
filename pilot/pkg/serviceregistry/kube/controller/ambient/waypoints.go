@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -52,6 +53,12 @@ type Waypoint struct {
 	// TrafficType controls whether Service or Workload can reference this
 	// waypoint. Must be one of "all", "service", "workload".
 	TrafficType string
+
+	// ServiceAccounts from instances of the waypoint.
+	// This only handles Pods. If we wish to support non-pod waypoints, we'll
+	// want to index ServiceEntry/WorkloadEntry or possibly allow specifying
+	// the ServiceAccounts directly on a Gateway resource.
+	ServiceAccounts []string
 }
 
 // fetchWaypointForInstance attempts to find a Waypoint a given object is an instance of.
@@ -168,13 +175,26 @@ func (w Waypoint) ResourceName() string {
 	return w.GetNamespace() + "/" + w.GetName()
 }
 
-func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway], GatewayClasses krt.Collection[*v1beta1.GatewayClass]) krt.Collection[Waypoint] {
+func WaypointsCollection(
+	Gateways krt.Collection[*v1beta1.Gateway],
+	GatewayClasses krt.Collection[*v1beta1.GatewayClass],
+	Pods krt.Collection[*v1.Pod],
+) krt.Collection[Waypoint] {
+	podsByNamespace := krt.NewNamespaceIndex(Pods)
 	return krt.NewCollection(Gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
 		if len(gateway.Status.Addresses) == 0 {
 			// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
+
+		instances := krt.Fetch(ctx, Pods, krt.FilterLabel(map[string]string{
+			constants.GatewayNameLabel: gateway.Name,
+		}), krt.FilterIndex(podsByNamespace, gateway.Namespace))
+
+		serviceAccounts := slices.Map(instances, func(p *v1.Pod) string {
+			return p.Spec.ServiceAccountName
+		})
 
 		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
 		if gatewayClass == nil {
@@ -183,14 +203,14 @@ func WaypointsCollection(Gateways krt.Collection[*v1beta1.Gateway], GatewayClass
 
 		// Check for a declared traffic type that is allowed to pass through the Waypoint
 		if tt, found := gateway.Annotations[constants.AmbientWaypointForTrafficType]; found {
-			return makeWaypoint(gateway, gatewayClass, tt)
+			return makeWaypoint(gateway, gatewayClass, serviceAccounts, tt)
 		}
 		// If a value is not declared on a Gateway or its associated GatewayClass
 		// then the network layer should default to service when redirecting traffic.
 		//
 		// This is a safety measure to ensure that the Gateway is not misconfigured, but
 		// we will likely not hit this case as the CLI will validate the traffic type.
-		return makeWaypoint(gateway, gatewayClass, constants.ServiceTraffic)
+		return makeWaypoint(gateway, gatewayClass, serviceAccounts, constants.ServiceTraffic)
 	}, krt.WithName("Waypoints"))
 }
 
@@ -240,12 +260,18 @@ func makeInboundBinding(gatewayClass *v1beta1.GatewayClass) InboundBinding {
 	}
 }
 
-func makeWaypoint(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayClass, trafficType string) *Waypoint {
+func makeWaypoint(
+	gateway *v1beta1.Gateway,
+	gatewayClass *v1beta1.GatewayClass,
+	serviceAccounts []string,
+	trafficType string,
+) *Waypoint {
 	return &Waypoint{
-		Named:          krt.NewNamed(gateway),
-		Addresses:      getGatewayAddrs(gateway),
-		DefaultBinding: makeInboundBinding(gatewayClass),
-		TrafficType:    trafficType,
+		Named:           krt.NewNamed(gateway),
+		Addresses:       getGatewayAddrs(gateway),
+		DefaultBinding:  makeInboundBinding(gatewayClass),
+		TrafficType:     trafficType,
+		ServiceAccounts: slices.Sort(serviceAccounts),
 	}
 }
 
