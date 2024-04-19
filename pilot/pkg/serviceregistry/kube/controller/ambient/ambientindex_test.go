@@ -1299,7 +1299,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertWaypointAddressForPod(t, "pod1", "")
 
 	// annotate pod2 to use a waypoint
-	s.annotatePod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that the correct waypoint was configured
 	s.assertWaypointAddressForPod(t, "pod1", "10.0.0.2")
@@ -1374,7 +1374,7 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 	assertWaypoint(t, testNW, "10.0.0.1", s.podXdsName("pod2"))
 
 	// Revert back
-	s.annotatePod(t, "pod1", testNS, map[string]string{})
+	s.labelPod(t, "pod1", testNS, map[string]string{})
 	s.assertEvent(t, s.podXdsName("pod1"))
 
 	assertWaypoint(t, testNW, "10.0.0.1", s.podXdsName("pod1"), s.podXdsName("pod2"))
