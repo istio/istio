@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -272,7 +273,7 @@ func TestDeltaReconnectRequests(t *testing.T) {
 
 	const updateCluster = "outbound|2080||adsupdate.example.com"
 	const staticCluster = "outbound|2080||adsstatic.example.com"
-	ads := s.ConnectDeltaADS()
+	ads := s.ConnectDeltaADS().WithTimeout(30 * time.Second)
 	// Send initial request
 	res := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{TypeUrl: v3.ClusterType})
 	// we must get the cluster back
@@ -295,9 +296,13 @@ func TestDeltaReconnectRequests(t *testing.T) {
 	})
 	s.EnsureSynced(t)
 
-	ads = s.ConnectDeltaADS()
+	ads = s.ConnectDeltaADS().WithTimeout(30 * time.Second) // TODO: Remove before pushing
 	// Sometimes we get an EDS request first before CDS
-	ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{TypeUrl: v3.EndpointType})
+	ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+		TypeUrl:                v3.EndpointType,
+		ResponseNonce:          "",
+		ResourceNamesSubscribe: []string{"outbound|80||local.default.svc.cluster.local"},
+	})
 
 	// Now send initial CDS request
 	res = ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
