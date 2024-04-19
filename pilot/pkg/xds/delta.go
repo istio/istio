@@ -273,6 +273,8 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newReso
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryRequest, con *Connection) error {
+	dependentResourceChan := make(chan *model.WatchedResource, 1)
+	defer close(dependentResourceChan)
 	stype := v3.GetShortType(req.TypeUrl)
 	deltaLog.Debugf("ADS:%s: REQ %s resources sub:%d unsub:%d nonce:%s", stype,
 		con.conID, len(req.ResourceNamesSubscribe), len(req.ResourceNamesUnsubscribe), req.ResponseNonce)
@@ -291,7 +293,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		s.StatusReporter.RegisterEvent(con.conID, req.TypeUrl, req.ResponseNonce)
 	}
 
-	shouldRespond := s.shouldRespondDelta(con, req)
+	shouldRespond := s.shouldRespondDelta(con, req, dependentResourceChan)
 	if !shouldRespond {
 		return nil
 	}
@@ -318,12 +320,35 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
 		s.computeProxyState(con.proxy, request)
 	}
-	return s.pushDeltaXds(con, con.proxy.GetWatchedResource(req.TypeUrl), request)
+
+	err := s.pushDeltaXds(con, con.proxy.GetWatchedResource(req.TypeUrl), request)
+	if err != nil {
+		return err
+	}
+
+	select {
+	case dwr := <-dependentResourceChan:
+		request := &model.PushRequest{
+			Full:   true,
+			Push:   con.proxy.LastPushContext,
+			Reason: model.NewReasonStats(model.DependentRequest),
+			Start:  con.proxy.LastPushTime,
+			Delta: model.ResourceDelta{
+				// Record sub/unsub, but drop synthetic wildcard info
+				Subscribed: sets.New(dwr.ResourceNames...),
+			},
+		}
+		deltaLog.Debugf("ADS:%s: FORCE DEPENDENT RESPONSE %s for warming.", dwr.TypeUrl, con.conID)
+		return s.pushDeltaXds(con, dwr, request)
+	default:
+		// no dependent push was added
+		return nil
+	}
 }
 
 // shouldRespondDelta determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
 // using WatchedResource for previous state and discovery request for the current state.
-func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryRequest) bool {
+func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryRequest, dependentResourceChan chan<- *model.WatchedResource) bool {
 	stype := v3.GetShortType(request.TypeUrl)
 
 	// If there is an error in request that means previous response is erroneous.
@@ -362,19 +387,25 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 			ResourceNames: res,
 			Wildcard:      wildcard,
 		}
-		// For all EDS requests that we have already responded with in the same stream let us
-		// force the response. It is important to respond to those requests for Envoy to finish
-		// warming of those resources(Clusters).
+		// Anytime we get a CDS request on reconnect, we should always push EDS as well.
+		// It is always the server's responsibility to send EDS after CDS, regardless if
+		// Envoy asks for it or not (see https://github.com/envoyproxy/envoy/issues/33607 for more details).
+		// Without this logic, there are cases where the clusters we send could stay warming forever,
+		// expecting an EDS response. Note that in SotW, Envoy sends an EDS request after the delayed
+		// CDS request; however, this is not guaranteed in delta, and has been observed to cause issues
+		// with EDS and SDS.
 		// This can happen with the following sequence
 		// 1. Envoy disconnects and reconnects to Istiod.
 		// 2. Envoy sends EDS request and we respond with it.
 		// 3. Envoy sends CDS request and we respond with clusters.
-		// 4. Envoy detects a change in cluster state and tries to warm those clusters and send EDS request for them.
-		// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
+		// 4. Envoy detects a change in cluster state and tries to warm those clusters but never sends
+		//    an EDS request for them.
+		// 5. Therefore, any initial CDS request should always trigger an RDS response
+		// 		to let Envoy finish cluster warming.
 		// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
 		for _, dependent := range warmingDependencies(request.TypeUrl) {
 			if dwr, exists := con.proxy.WatchedResources[dependent]; exists {
-				dwr.AlwaysRespond = true
+				dependentResourceChan <- dwr
 			}
 		}
 		return true
