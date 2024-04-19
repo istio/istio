@@ -31,6 +31,9 @@ app.kubernetes.io/name: {{ include "gateway.name" . }}
 {{- define "gateway.podLabels" -}}
 {{ include "gateway.selectorLabels" . }}
 app.kubernetes.io/name: {{ include "gateway.name" . }}
+{{- with .Chart.AppVersion }}
+app.kubernetes.io/version: {{ . | quote }}
+{{- end }}
 {{- with .Values.revision }}
 istio.io/rev: {{ . | quote }}
 {{- end }}
