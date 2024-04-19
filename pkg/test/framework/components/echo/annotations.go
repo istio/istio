@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 )
 
+// TODO BML this entire file feels like we're overcomplicating map[string]string
 type AnnotationType string
 
 const (
@@ -49,7 +50,6 @@ var (
 	SidecarInjectTemplates         = workloadAnnotation(annotation.InjectTemplates.Name, "")
 	SidecarStatsHistogramBuckets   = workloadAnnotation(annotation.SidecarStatsHistogramBuckets.Name, "")
 	AmbientType                    = workloadAnnotation(constants.AmbientRedirection, "")
-	AmbientUseWaypoint             = workloadAnnotation(constants.AmbientUseWaypoint, "")
 )
 
 type AnnotationValue struct {

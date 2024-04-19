@@ -167,33 +167,33 @@ func SetWaypointForService(t framework.TestContext, ns namespace.Instance, servi
 		if err != nil {
 			t.Fatalf("error getting svc %s, err %v", service, err)
 		}
-		oldAnnotations := oldSvc.ObjectMeta.GetAnnotations()
-		if oldAnnotations == nil {
-			oldAnnotations = make(map[string]string, 1)
+		oldLabels := oldSvc.ObjectMeta.GetLabels()
+		if oldLabels == nil {
+			oldLabels = make(map[string]string, 1)
 		}
-		newAnnotations := maps.Clone(oldAnnotations)
+		newLabels := maps.Clone(oldLabels)
 		if waypoint != "" {
-			newAnnotations[constants.AmbientUseWaypoint] = waypoint
+			newLabels[constants.AmbientUseWaypoint] = waypoint
 		} else {
-			delete(newAnnotations, constants.AmbientUseWaypoint)
+			delete(newLabels, constants.AmbientUseWaypoint)
 		}
 
-		doAnnotate := func(annotations map[string]string) error {
+		doLabel := func(labels map[string]string) error {
 			// update needs the latest version
 			svc, err := c.Kube().CoreV1().Services(ns.Name()).Get(t.Context(), service, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
-			svc.ObjectMeta.SetAnnotations(annotations)
+			svc.ObjectMeta.SetLabels(labels)
 			_, err = c.Kube().CoreV1().Services(ns.Name()).Update(t.Context(), svc, metav1.UpdateOptions{})
 			return err
 		}
 
-		if err = doAnnotate(newAnnotations); err != nil {
+		if err = doLabel(newLabels); err != nil {
 			t.Fatalf("error updating svc %s, err %v", service, err)
 		}
 		t.Cleanup(func() {
-			if err := doAnnotate(oldAnnotations); err != nil {
+			if err := doLabel(oldLabels); err != nil {
 				scopes.Framework.Errorf("failed resetting waypoint for %s/%s; this will likely break other tests", ns.Name(), service)
 			}
 		})
@@ -233,10 +233,10 @@ func RemoveWaypointFromService(t framework.TestContext, ns namespace.Instance, s
 			if err != nil {
 				t.Fatalf("error getting svc %s, err %v", service, err)
 			}
-			annotations := oldSvc.ObjectMeta.GetAnnotations()
-			if annotations != nil {
-				delete(annotations, constants.AmbientUseWaypoint)
-				oldSvc.ObjectMeta.SetAnnotations(annotations)
+			labels := oldSvc.ObjectMeta.GetLabels()
+			if labels != nil {
+				delete(labels, constants.AmbientUseWaypoint)
+				oldSvc.ObjectMeta.SetLabels(labels)
 			}
 			_, err = c.Kube().CoreV1().Services(ns.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})
 			if err != nil {
