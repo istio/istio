@@ -74,7 +74,7 @@ func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 		_, ip, _ := strings.Cut(netIP, "/")
 		workloadNames[ip] = s.Name + "." + s.Namespace
 	}
-	lookupIp := func(addr string) string {
+	lookupIP := func(addr string) string {
 		if filter.Raw {
 			return addr
 		}
@@ -102,12 +102,12 @@ func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 		name := fmt.Sprintf("%s.%s", wl.Info.Name, wl.Info.Namespace)
 		if filter.Direction != "outbound" {
 			for _, c := range wl.Connections.Inbound {
-				fmt.Fprintf(w, "%v\tInbound\t%v\t%v\t\n", name, lookupIp(c.Dst), lookupIp(c.Src))
+				fmt.Fprintf(w, "%v\tInbound\t%v\t%v\t\n", name, lookupIP(c.Dst), lookupIP(c.Src))
 			}
 		}
 		if filter.Direction != "inbound" {
 			for _, c := range wl.Connections.Outbound {
-				fmt.Fprintf(w, "%v\tOutbound\t%v\t%v\t%v\n", name, lookupIp(c.Src), lookupIp(c.ActualDst), lookupIp(c.OriginalDst))
+				fmt.Fprintf(w, "%v\tOutbound\t%v\t%v\t%v\n", name, lookupIP(c.Src), lookupIP(c.ActualDst), lookupIP(c.OriginalDst))
 			}
 		}
 	}
