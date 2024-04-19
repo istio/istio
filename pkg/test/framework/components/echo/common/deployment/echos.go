@@ -17,12 +17,12 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
@@ -241,11 +241,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		Ports:          ports.All(),
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: map[echo.Annotation]*echo.AnnotationValue{
-					echo.SidecarInject: {
-						Value: strconv.FormatBool(false),
-					},
-				},
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 				Labels: map[string]string{
 					label.SidecarInject.Name:     "false",
 					constants.AmbientRedirection: constants.AmbientRedirectionDisabled,
@@ -259,7 +255,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		ServiceAccount: true,
 		Ports:          ports.All(),
 		Subsets: []echo.SubsetConfig{{
-			Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
+			Annotations: map[string]string{annotation.SidecarInterceptionMode.Name: "TPROXY"},
 			Labels: map[string]string{
 				constants.AmbientRedirection: constants.AmbientRedirectionDisabled,
 			},
@@ -303,15 +299,16 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		defaultConfigs = append(defaultConfigs, dSvc, eSvc)
 	}
 
+	sotw := `{"proxyMetadata": {"ISTIO_DELTA_XDS": "false"}}`
+
 	if !t.Settings().Skip(echo.Sotw) {
 		sotw := echo.Config{
 			Service:        SotwSvc,
 			ServiceAccount: true,
 			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{{
-				Labels: map[string]string{label.SidecarInject.Name: "true"},
-				Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
-  ISTIO_DELTA_XDS: "false"`),
+				Labels:      map[string]string{label.SidecarInject.Name: "true"},
+				Annotations: map[string]string{annotation.ProxyConfig.Name: sotw},
 			}},
 		}
 		defaultConfigs = append(defaultConfigs, sotw)
@@ -325,12 +322,8 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{
 				{
-					Labels: map[string]string{label.SidecarInject.Name: "true"},
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.SidecarInjectTemplates: {
-							Value: "grpc-agent",
-						},
-					},
+					Labels:      map[string]string{label.SidecarInject.Name: "true"},
+					Annotations: map[string]string{annotation.InjectTemplates.Name: "grpc-agent"},
 				},
 			},
 		}

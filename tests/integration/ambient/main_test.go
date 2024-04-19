@@ -214,16 +214,16 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":     ServiceAddressedWaypoint,
-						"version": "v1",
+						"app":                             ServiceAddressedWaypoint,
+						"version":                         "v1",
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":     ServiceAddressedWaypoint,
-						"version": "v2",
+						"app":                             ServiceAddressedWaypoint,
+						"version":                         "v2",
 					},
 				},
 			},
@@ -253,12 +253,12 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas:    1,
 					Version:     "v1",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
+					Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled},
 				},
 				{
 					Replicas:    1,
 					Version:     "v2",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
+					Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled},
 				},
 			},
 		})
@@ -327,7 +327,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas:    1,
 					Version:     "v1",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
+					Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled},
 					Labels: map[string]string{
 						"sidecar.istio.io/inject": "true",
 					},
@@ -335,7 +335,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas:    1,
 					Version:     "v2",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
+					Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled},
 					Labels: map[string]string{
 						"sidecar.istio.io/inject": "true",
 					},

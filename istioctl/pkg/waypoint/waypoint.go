@@ -95,7 +95,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		if gw.Labels == nil {
 			gw.Labels = map[string]string{}
 		}
-		gw.Labels[constants.AmbientWaypointForTrafficType] = trafficType
+		gw.Labels[constants.AmbientWaypointForTrafficTypeLabel] = trafficType
 
 		if revision != "" {
 			gw.Labels = map[string]string{label.IoIstioRev.Name: revision}
@@ -219,7 +219,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("failed to label namespace with waypoint: %v", err)
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()), constants.AmbientUseWaypoint, gw.Name)
+				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()),
+					constants.AmbientUseWaypointLabel, gw.Name)
 			}
 			return nil
 		},

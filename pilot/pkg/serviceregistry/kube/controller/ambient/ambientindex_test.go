@@ -1574,9 +1574,9 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType stri
 	}
 	labels := make(map[string]string, 2)
 	if trafficType != "" && validTrafficTypes.Contains(trafficType) {
-		labels[constants.AmbientWaypointForTrafficType] = trafficType
+		labels[constants.AmbientWaypointForTrafficTypeLabel] = trafficType
 	} else {
-		labels[constants.AmbientWaypointForTrafficType] = constants.ServiceTraffic
+		labels[constants.AmbientWaypointForTrafficTypeLabel] = constants.ServiceTraffic
 	}
 	gateway.Labels = labels
 

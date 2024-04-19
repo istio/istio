@@ -93,7 +93,7 @@ func Test_getNamespaces(t *testing.T) {
 		}),
 		createNamespace("no-ambient", map[string]string{
 			constants.DataplaneModeLabel: constants.DataplaneModeAmbient,
-			"istio-injection":       "enabled",
+			"istio-injection":            "enabled",
 		}),
 	}
 

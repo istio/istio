@@ -46,7 +46,7 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
 {{- range $name, $value := $subset.Annotations }}
-        {{ $name.Name }}: {{ printf "%q" $value.Value }}
+        {{ $name }}: {{ printf "%q" $value }}
 {{- end }}
 {{- if $.ProxylessGRPC }}
         proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
@@ -73,8 +73,8 @@ spec:
 {{- end }}
       containers:
 {{- if and
-  (ne ($subset.Annotations.GetByName "sidecar.istio.io/inject") "false")
-  (ne ($subset.Annotations.GetByName "inject.istio.io/templates") "grpc")
+  (ne (index $subset.Annotations "sidecar.istio.io/inject") "false")
+  (ne (index $subset.Annotations "inject.istio.io/templates") "grpc")
   ($.OverlayIstioProxy)
 }}
       - name: istio-proxy

@@ -145,7 +145,7 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 // if there is no namespace provided in the label the default namespace will be used
 // defaultNamespace avoids the need to infer when object meta from a namespace was given
 func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
-	if labelValue, ok := meta.Labels[constants.AmbientUseWaypointLabelLabel]; ok {
+	if labelValue, ok := meta.Labels[constants.AmbientUseWaypointLabel]; ok {
 		if labelValue == "#none" || labelValue == "~" {
 			return nil, true
 		}
@@ -202,7 +202,7 @@ func WaypointsCollection(
 		}
 
 		// Check for a declared traffic type that is allowed to pass through the Waypoint
-		if tt, found := gateway.Labels[constants.AmbientWaypointForTrafficType]; found {
+		if tt, found := gateway.Labels[constants.AmbientWaypointForTrafficTypeLabel]; found {
 			return makeWaypoint(gateway, gatewayClass, serviceAccounts, tt)
 		}
 		// If a value is not declared on a Gateway or its associated GatewayClass
