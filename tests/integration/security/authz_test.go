@@ -1010,7 +1010,7 @@ func TestAuthz_PathTemplating(t *testing.T) {
 							path:  "/allow/admin/foo/temp.txt",
 							allow: true,
 						},
-						// Test matches for `/foo/{*}/bar/{**}.txt`
+						// Test matches for `/foo/{*}/bar/{**}`
 						{
 							path:  "/foo/buzz/bar/bat.txt",
 							allow: true,
@@ -1033,7 +1033,7 @@ func TestAuthz_PathTemplating(t *testing.T) {
 						},
 						{
 							path:  "/foo/buzz/bar/bat",
-							allow: false,
+							allow: true,
 						},
 						// Test matches for `/store/{**}/cart`
 						{

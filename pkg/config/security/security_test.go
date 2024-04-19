@@ -235,6 +235,15 @@ func TestCheckValidPathTemplate(t *testing.T) {
 			values: []string{"/foo/{**}/bar"},
 		},
 		{
+			name:   "valid path template - matchAnyTemplate at end",
+			values: []string{"/foo/bar/{**}"},
+		},
+		{
+			name:      "valid path template - matchAnyTemplate with additional chars",
+			values:    []string{"/foo/{**}buzz/bar"},
+			wantError: true,
+		},
+		{
 			name:      "invalid path template - empty curly braces",
 			values:    []string{"/{*}/foo/{}/bar"},
 			wantError: true,
@@ -251,17 +260,42 @@ func TestCheckValidPathTemplate(t *testing.T) {
 		},
 		{
 			name:      "unsupported path template - matchAnyTemplate with named var: {buzz}",
-			values:    []string{"/foo/{buzz}/bar/{**}.txt"},
+			values:    []string{"/foo/{buzz}/bar/{**}"},
 			wantError: true,
 		},
 		{
 			name:      "unsupported path template - matchAnyTemplate with named var: {buzz=*}",
-			values:    []string{"/foo/{buzz=*}/bar/{**}.txt"},
+			values:    []string{"/foo/{buzz=*}/bar/{**}"},
 			wantError: true,
 		},
 		{
 			name:      "unsupported path template - matchAnyTemplate with named var: {buzz=**}",
 			values:    []string{"/{*}/foo/{buzz=**}/bar"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - matchAnyTemplate with additional chars at end",
+			values:    []string{"/{*}/foo/{**}bar"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - matchOneTemplate with file extension",
+			values:    []string{"/{*}/foo/{*}.txt"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - matchOneTemplate with unmatched open curly brace",
+			values:    []string{"/{*}/foo/{temp"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - matchOneTemplate with unmatched closed curly brace",
+			values:    []string{"/{*}/foo/temp}/bar"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - matchOneTemplate with unmatched closed curly brace and `*`",
+			values:    []string{"/{*}/foo/temp}/*"},
 			wantError: true,
 		},
 	}
@@ -273,7 +307,7 @@ func TestCheckValidPathTemplate(t *testing.T) {
 	}
 }
 
-func TestIsPathTemplate(t *testing.T) {
+func TestContainsPathTemplate(t *testing.T) {
 	testCases := []struct {
 		name           string
 		path           string
@@ -308,7 +342,7 @@ func TestIsPathTemplate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pathTemplate := security.IsPathTemplate(tc.path)
+			pathTemplate := security.ContainsPathTemplate(tc.path)
 			assert.Equal(t, tc.isPathTemplate, pathTemplate)
 		})
 	}

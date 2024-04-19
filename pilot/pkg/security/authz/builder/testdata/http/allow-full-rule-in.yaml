@@ -30,7 +30,7 @@ spec:
             notMethods: ["not-method", "not-method-prefix-*", "*-not-suffix-method", "*"]
             notHosts: ["not-exact.com", "*.not-suffix.com", "not-prefix.*", "*"]
             notPorts: ["8000", "9000"]
-            notPaths: ["/not-exact", "/not-prefix/*", "*/not-suffix", "*", "/not-path/template/{*}", "{**}/not-path/template"]
+            notPaths: ["/not-exact", "/not-prefix/*", "*/not-suffix", "*", "/not-path/template/{*}", "/{**}/not-path/template"]
       when:
         - key: "request.headers[X-header]"
           values: ["header", "header-prefix-*", "*-suffix-header", "*"]

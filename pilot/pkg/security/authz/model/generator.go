@@ -400,7 +400,7 @@ func (g pathGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permi
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
-	if security.IsPathTemplate(value) {
+	if security.ContainsPathTemplate(value) {
 		m := matcher.PathTemplateMatcher(value)
 		return permissionPathTemplate(m), nil
 	}

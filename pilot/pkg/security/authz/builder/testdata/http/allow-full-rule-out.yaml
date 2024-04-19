@@ -133,7 +133,7 @@ typedConfig:
                       name: uri-template
                       typedConfig:
                         '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
-                        pathTemplate: '**/not-path/template'
+                        pathTemplate: /**/not-path/template
             - orRules:
                 rules:
                 - destinationPort: 80
