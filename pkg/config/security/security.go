@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/netip"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -61,9 +60,6 @@ const (
 var (
 	MatchOneTemplate = "{*}"
 	MatchAnyTemplate = "{**}"
-	// Matches on named variables {namedvar=*}, named variables {namedvar}, empty braces {}, wildcard /*,
-	// and double wildcard /**
-	unsupportedPathTempRegex = regexp.MustCompile(`\/{\w+\=\*[*]?\}|{\w*\}|\/\*[*]?|\*[*]?\/`)
 )
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
@@ -121,9 +117,10 @@ func CheckValidPathTemplate(key string, paths []string) error {
 			if glob == MatchAnyTemplate || glob == MatchOneTemplate {
 				continue
 			}
-			// If glob is not a supported path template and contains `*`, `{`, or `} it is invalid.
+			// If glob is not a supported path template and contains `*`, `{`, or `}` it is invalid.
 			if strings.ContainsAny(glob, "{}*") {
-				return fmt.Errorf("invalid or unsupported path template %s, found in %s", path, key)
+				return fmt.Errorf("invalid or unsupported path template %s, found in %s."+
+					"Contains '*', '{', or '}' beyond a supported path template", path, key)
 			}
 		}
 	}
