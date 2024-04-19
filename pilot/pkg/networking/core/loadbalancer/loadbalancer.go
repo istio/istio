@@ -84,7 +84,7 @@ func ApplyLocalityLoadBalancer(
 		switch {
 		case len(localityLB.FailoverPriority) > 0:
 			// Apply user defined priority failover settings.
-			applyFailoverPriority(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.FailoverPriority)
+			applyFailoverPriorities(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.FailoverPriority)
 		default:
 			// Apply default failover settings or user defined region failover settings.
 			applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
@@ -220,7 +220,7 @@ type WrappedLocalityLbEndpoints struct {
 }
 
 // set loadbalancing priority by failover priority label.
-func applyFailoverPriority(
+func applyFailoverPriorities(
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
 	proxyLabels map[string]string,
@@ -232,7 +232,7 @@ func applyFailoverPriority(
 	priorityMap := make(map[int][]int, len(failoverPriorities))
 	localityLbEndpoints := []*endpoint.LocalityLbEndpoints{}
 	for _, wrappedLbEndpoint := range wrappedLocalityLbEndpoints {
-		localityLbEndpointsPerLocality := applyPriorityFailoverPerLocality(proxyLabels, wrappedLbEndpoint, failoverPriorities)
+		localityLbEndpointsPerLocality := applyFailoverPriorityPerLocality(proxyLabels, wrappedLbEndpoint, failoverPriorities)
 		localityLbEndpoints = append(localityLbEndpoints, localityLbEndpointsPerLocality...)
 	}
 	for i, ep := range localityLbEndpoints {
@@ -277,7 +277,7 @@ func priorityLabelOverrides(labels []string) ([]string, map[string]string) {
 
 // set loadbalancing priority by failover priority label.
 // split one LocalityLbEndpoints to multiple LocalityLbEndpoints based on failover priorities.
-func applyPriorityFailoverPerLocality(
+func applyFailoverPriorityPerLocality(
 	proxyLabels map[string]string,
 	ep *WrappedLocalityLbEndpoints,
 	failoverPriorities []string,
