@@ -962,7 +962,7 @@ type ServiceInfo struct {
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
 	Source kind.Kind
-	// Waypoint attached to the Service
+	// Waypoint that clients should use when addressing traffic to this Service.
 	Waypoint string
 }
 
