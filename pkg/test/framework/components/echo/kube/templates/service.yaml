@@ -13,7 +13,7 @@ metadata:
   labels:
     app: {{ .Service }}
 {{- range $name, $value := .ServiceLabels }}
-    {{ $name.Name }}: {{ printf "%q" $value.Value }}
+    {{$name}}: "{{$value}}"
 {{- end }}
 {{- else}}
   labels:
