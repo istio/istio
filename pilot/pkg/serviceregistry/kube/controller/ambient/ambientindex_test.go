@@ -376,10 +376,10 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 	s.addWaypoint(t, "10.0.0.2", "waypoint-sa2", constants.WorkloadTraffic, true)
 	s.assertEvent(t, s.podXdsName("pod2"))
 
-	// // make waypoint-sa1 ready
-	// s.addWaypoint(t, "10.0.0.1", "waypoint-sa1", constants.WorkloadTraffic, true)
-	// // if waypoint-sa1 was configured when not ready "pod2" assertions should skip the "pod1" xds event and this should fail
-	// s.assertEvent(t, s.podXdsName("pod1"))
+	// make waypoint-sa1 ready
+	s.addWaypoint(t, "10.0.0.1", "waypoint-sa1", constants.WorkloadTraffic, true)
+	// if waypoint-sa1 was configured when not ready "pod2" assertions should skip the "pod1" xds event and this should fail
+	s.assertEvent(t, s.podXdsName("pod1"))
 }
 
 func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
@@ -1627,19 +1627,6 @@ func (s *ambientTestServer) addPods(t *testing.T, ip string, name, sa string, la
 	} else {
 		s.pc.Update(pod)
 	}
-}
-
-// just overwrites the annotations
-// nolint: unparam
-func (s *ambientTestServer) annotatePod(t *testing.T, name, ns string, annotations map[string]string) {
-	t.Helper()
-
-	p := s.pc.Get(name, ns)
-	if p == nil {
-		return
-	}
-	p.ObjectMeta.Annotations = annotations
-	s.pc.Update(p)
 }
 
 // just overwrites the labels
