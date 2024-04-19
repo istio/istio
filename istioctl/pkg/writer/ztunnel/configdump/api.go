@@ -108,7 +108,7 @@ type Cert struct {
 }
 
 type WorkloadState struct {
-	State       string              `json:"state,omitempty	"`
+	State       string              `json:"state,omitempty"`
 	Connections WorkloadConnections `json:"connections,omitempty"`
 	Info        WorkloadInfo        `json:"info"`
 }
