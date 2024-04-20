@@ -85,6 +85,10 @@ func ApplyLocalityLoadBalancer(
 		case len(localityLB.FailoverPriority) > 0:
 			// Apply user defined priority failover settings.
 			applyFailoverPriorities(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.FailoverPriority)
+			// If failover is expliciltly configured with failover priority, apply failover settings also.
+			if len(localityLB.Failover) != 0 {
+				applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
+			}
 		default:
 			// Apply default failover settings or user defined region failover settings.
 			applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
