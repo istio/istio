@@ -324,6 +324,10 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		return err
 	}
 
+	if req.TypeUrl != v3.ClusterType {
+		return nil
+	}
+
 	// Anytime we get a CDS request on reconnect, we should always push EDS as well.
 	// It is always the server's responsibility to send EDS after CDS, regardless if
 	// Envoy asks for it or not (see https://github.com/envoyproxy/envoy/issues/33607 for more details).
@@ -341,7 +345,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	// 		to let Envoy finish cluster warming.
 	// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
 
-	if dwr := con.proxy.GetWatchedResource(v3.EndpointType); req.TypeUrl == v3.ClusterType && dwr != nil {
+	if dwr := con.proxy.GetWatchedResource(v3.EndpointType); dwr != nil {
 		request := &model.PushRequest{
 			Full:   true,
 			Push:   con.proxy.LastPushContext,
