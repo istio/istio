@@ -107,20 +107,23 @@ func CheckEmptyValues(key string, values []string) error {
 
 func CheckValidPathTemplate(key string, paths []string) error {
 	for _, path := range paths {
-		// If path does not contain any path templates, skip the check.
-		if !ContainsPathTemplate(path) {
-			continue
-		}
+		containsPathTemplate := ContainsPathTemplate(path)
 		globs := strings.Split(path, "/")
 		for _, glob := range globs {
 			// If glob is a supported path template, skip the check.
 			if glob == MatchAnyTemplate || glob == MatchOneTemplate {
 				continue
 			}
-			// If glob is not a supported path template and contains `*`, `{`, or `}` it is invalid.
-			if strings.ContainsAny(glob, "{}*") {
-				return fmt.Errorf("invalid or unsupported path template %s, found in %s."+
-					"Contains '*', '{', or '}' beyond a supported path template", path, key)
+			// If glob is not a supported path template and contains `{`, or `}` it is invalid.
+			if strings.ContainsAny(glob, "{}") {
+				return fmt.Errorf("invalid or unsupported path %s, found in %s."+
+					"Contains '{' or '}' beyond a supported path template", path, key)
+			}
+			// If glob contains `*`, is not a supported path template and
+			// the path contains a supported path template, it is invalid.
+			if strings.Contains(glob, "*") && containsPathTemplate {
+				return fmt.Errorf("invalid or unsupported path %s, found in %s."+
+					"Contains '*' beyond a supported path template", path, key)
 			}
 		}
 	}

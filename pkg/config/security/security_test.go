@@ -239,12 +239,12 @@ func TestCheckValidPathTemplate(t *testing.T) {
 			values: []string{"/foo/bar/{**}"},
 		},
 		{
-			name:      "valid path template - matchAnyTemplate with additional chars",
+			name:      "unsupported path template - matchAnyTemplate with additional chars",
 			values:    []string{"/foo/{**}buzz/bar"},
 			wantError: true,
 		},
 		{
-			name:      "invalid path template - empty curly braces",
+			name:      "unsupported path template - empty curly braces",
 			values:    []string{"/{*}/foo/{}/bar"},
 			wantError: true,
 		},
@@ -256,6 +256,16 @@ func TestCheckValidPathTemplate(t *testing.T) {
 		{
 			name:      "unsupported path template - matchOneTemplate with `**`",
 			values:    []string{"/foo/{*}/bar/**/buzz"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path/path template - named var: {buzz}",
+			values:    []string{"/foo/{buzz}/bar"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path/path template - only named var: {buzz}",
+			values:    []string{"/{buzz}"},
 			wantError: true,
 		},
 		{
