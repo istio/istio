@@ -15,26 +15,27 @@ run:
 linters:
   disable-all: true
   enable:
+    - depguard
     - errcheck
     - exportloopref
-    - depguard
     - gocritic
     - gofumpt
     - goimports
-    - revive
     - gosimple
     - govet
+    - gci
+    - gosec
     - ineffassign
     - lll
     - misspell
+    - revive
     - staticcheck
     - stylecheck
+    - testifylint
     - typecheck
     - unconvert
     - unparam
     - unused
-    - gci
-    - gosec
   fast: false
 linters-settings:
   errcheck:
