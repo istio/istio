@@ -1334,6 +1334,8 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 					errs = appendErrors(errs, security.CheckEmptyValues("NotMethods", op.NotMethods))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotPaths", op.NotPaths))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotHosts", op.NotHosts))
+					errs = appendErrors(errs, security.CheckValidPathTemplate("Paths", op.Paths))
+					errs = appendErrors(errs, security.CheckValidPathTemplate("NotPaths", op.NotPaths))
 					if op.Ports != nil || op.NotPorts != nil {
 						tcpRulesInTo = true
 					}

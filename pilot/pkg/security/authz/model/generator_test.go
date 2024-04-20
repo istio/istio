@@ -472,6 +472,17 @@ func TestGenerator(t *testing.T) {
             exact: /abc`),
 		},
 		{
+			name:  "pathGenerator-template",
+			g:     pathGenerator{},
+			value: "/abc/{*}",
+			want: yamlPermission(t, `
+         uriTemplate:
+           name: uri-template
+           typedConfig:
+            '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
+            pathTemplate: /abc/*`),
+		},
+		{
 			name:  "methodGenerator",
 			g:     methodGenerator{},
 			value: "GET",

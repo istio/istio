@@ -57,6 +57,11 @@ const (
 	attrExperimental     = "experimental.envoy.filters."
 )
 
+var (
+	MatchOneTemplate = "{*}"
+	MatchAnyTemplate = "{**}"
+)
+
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
 // URI must start with "http://" or "https://", which corresponding to "http" or "https" scheme.
 // Port number is extracted from URI if available (i.e from postfix :<port>, eg. ":80"), or assigned
@@ -98,6 +103,36 @@ func CheckEmptyValues(key string, values []string) error {
 		}
 	}
 	return nil
+}
+
+func CheckValidPathTemplate(key string, paths []string) error {
+	for _, path := range paths {
+		containsPathTemplate := ContainsPathTemplate(path)
+		globs := strings.Split(path, "/")
+		for _, glob := range globs {
+			// If glob is a supported path template, skip the check.
+			if glob == MatchAnyTemplate || glob == MatchOneTemplate {
+				continue
+			}
+			// If glob is not a supported path template and contains `{`, or `}` it is invalid.
+			if strings.ContainsAny(glob, "{}") {
+				return fmt.Errorf("invalid or unsupported path %s, found in %s."+
+					"Contains '{' or '}' beyond a supported path template", path, key)
+			}
+			// If glob contains `*`, is not a supported path template and
+			// the path contains a supported path template, it is invalid.
+			if strings.Contains(glob, "*") && containsPathTemplate {
+				return fmt.Errorf("invalid or unsupported path %s, found in %s."+
+					"Contains '*' beyond a supported path template", path, key)
+			}
+		}
+	}
+	return nil
+}
+
+// ContainsPathTemplate returns true if the path contains a valid path template.
+func ContainsPathTemplate(value string) bool {
+	return strings.Contains(value, MatchOneTemplate) || strings.Contains(value, MatchAnyTemplate)
 }
 
 func ValidateAttribute(key string, values []string) error {
