@@ -21,11 +21,11 @@ import (
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasmextension "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -38,7 +38,7 @@ var (
 		Namespace:    "istio-system",
 		ResourceName: "istio-system.someAuthNFilter",
 		WasmPlugin: &extensions.WasmPlugin{
-			Priority: &wrappers.Int32Value{Value: 1},
+			Priority: &wrapperspb.Int32Value{Value: 1},
 		},
 	}
 	someAuthZFilter = &model.WasmPluginWrapper{
@@ -46,7 +46,7 @@ var (
 		Namespace:    "istio-system",
 		ResourceName: "istio-system.someAuthZFilter",
 		WasmPlugin: &extensions.WasmPlugin{
-			Priority: &wrappers.Int32Value{Value: 1000},
+			Priority: &wrapperspb.Int32Value{Value: 1000},
 		},
 	}
 	someNetworkFilter = &model.WasmPluginWrapper{
@@ -54,7 +54,7 @@ var (
 		Namespace:    "istio-system",
 		ResourceName: "istio-system.someNetworkFilter",
 		WasmPlugin: &extensions.WasmPlugin{
-			Priority: &wrappers.Int32Value{Value: 1000},
+			Priority: &wrapperspb.Int32Value{Value: 1000},
 			Type:     extensions.PluginType_NETWORK,
 		},
 	}

@@ -27,7 +27,6 @@ import (
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -1972,7 +1971,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				{
 					Name: "virtualInbound-blackhole",
 					FilterChainMatch: &listener.FilterChainMatch{
-						DestinationPort: &wrappers.UInt32Value{
+						DestinationPort: &wrapperspb.UInt32Value{
 							Value: 15006,
 						},
 					},
@@ -2082,7 +2081,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				{
 					Name: "virtualInbound-blackhole",
 					FilterChainMatch: &listener.FilterChainMatch{
-						DestinationPort: &wrappers.UInt32Value{
+						DestinationPort: &wrapperspb.UInt32Value{
 							Value: 15006,
 						},
 					},
