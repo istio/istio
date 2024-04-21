@@ -1,4 +1,4 @@
-version: v1beta1
+version: v1
 plugins:
 - name: go
   out: .

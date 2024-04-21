@@ -1,9 +1,8 @@
-version: v1beta1
-build:
-  roots:
-    - operator
-    - pkg
-    - common-protos
+version: v1
+name: buf.build/istio/istio
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/k8s/api
 lint:
   allow_comment_ignores: true
   use:

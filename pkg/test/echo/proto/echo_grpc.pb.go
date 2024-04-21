@@ -16,7 +16,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             (unknown)
-// source: test/echo/proto/echo.proto
+// source: pkg/test/echo/proto/echo.proto
 
 // Generate with protoc --go_out=. echo.proto -I /work/common-protos/ -I.
 
@@ -158,5 +158,5 @@ var EchoTestService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "test/echo/proto/echo.proto",
+	Metadata: "pkg/test/echo/proto/echo.proto",
 }
