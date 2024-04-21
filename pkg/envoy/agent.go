@@ -169,6 +169,7 @@ func (a *Agent) terminate() {
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
 		defer ticker.Stop()
+		retryCount := 0
 	graceful_loop:
 		for range ticker.C {
 			ac, err := a.activeProxyConnections()
@@ -180,9 +181,15 @@ func (a *Agent) terminate() {
 			default:
 				if err != nil {
 					log.Errorf(err.Error())
-					a.abortCh <- errAbort
-					log.Infof("Graceful termination logic ended prematurely, error while obtaining downstream_cx_active stat")
-					break graceful_loop
+					retryCount++
+					// max retry 3 times
+					if retryCount > 2 {
+						a.abortCh <- errAbort
+						log.Warnf("Graceful termination logic ended prematurely, error while obtaining downstream_cx_active stat (Max retry %d exceeded)", retryCount)
+						break graceful_loop
+					}
+					log.Warnf("Retrying (%d attempt) to obtain active connections...", retryCount)
+					continue graceful_loop
 				}
 				if ac == -1 {
 					log.Info("downstream_cx_active are not available. This either means there are no downstream connection established yet" +
