@@ -16,10 +16,10 @@ package configdump
 
 import (
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	emptypb "github.com/golang/protobuf/ptypes/empty"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"istio.io/istio/pkg/util/protomarshal"
 )
