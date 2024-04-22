@@ -790,7 +790,16 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 // PushOrder defines the order that updates will be pushed in. Any types not listed here will be pushed in random
 // order after the types listed here
-var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
+var PushOrder = []string{
+	v3.ClusterType,
+	v3.EndpointType,
+	v3.ListenerType,
+	v3.RouteType,
+	v3.SecretType,
+	v3.AddressType,
+	v3.WorkloadType,
+	v3.WorkloadAuthorizationType,
+}
 
 // KnownOrderedTypeUrls has typeUrls for which we know the order of push.
 var KnownOrderedTypeUrls = sets.New(PushOrder...)
