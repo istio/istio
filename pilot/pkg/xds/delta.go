@@ -323,10 +323,6 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	if err != nil {
 		return err
 	}
-	return s.forceEDSPush(req, con)
-}
-
-func (s *DiscoveryServer) forceEDSPush(req *discovery.DeltaDiscoveryRequest, con *Connection) error {
 	// Anytime we get a CDS request on reconnect, we should always push EDS as well.
 	// It is always the server's responsibility to send EDS after CDS, regardless if
 	// Envoy asks for it or not (See https://github.com/envoyproxy/envoy/issues/33607 for more details).
@@ -346,6 +342,10 @@ func (s *DiscoveryServer) forceEDSPush(req *discovery.DeltaDiscoveryRequest, con
 	if req.TypeUrl != v3.ClusterType {
 		return nil
 	}
+	return s.forceEDSPush(con)
+}
+
+func (s *DiscoveryServer) forceEDSPush(con *Connection) error {
 	if dwr := con.proxy.GetWatchedResource(v3.EndpointType); dwr != nil {
 		request := &model.PushRequest{
 			Full:   true,
