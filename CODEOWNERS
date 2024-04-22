@@ -64,8 +64,6 @@ Makefile*                                                        @istio/wg-test-
 /tools/packaging/common/envoy_bootstrap.json                     @istio/wg-networking-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
 /tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers
-manifests/charts/global.yaml                                     @costinm @jacob-delgado @Monkeyanator @hanxiaop @GregHanson
-**/values.yaml                                                   @costinm @jacob-delgado @Monkeyanator @hanxiaop @GregHanson
 architecture/ambient                                             @istio/wg-networking-maintainers-pilot @istio/wg-networking-maintainers-ztunnel
 architecture/environments                                        @istio/wg-environments-maintainers
 architecture/networking                                          @istio/wg-networking-maintainers
