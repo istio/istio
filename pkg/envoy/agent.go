@@ -236,7 +236,7 @@ func (a *Agent) terminate() {
 func (a *Agent) activeProxyConnections() (int, error) {
 	adminHost := net.JoinHostPort(a.localhost, strconv.Itoa(a.adminPort))
 	activeConnectionsURL := fmt.Sprintf("http://%s/stats?usedonly&filter=downstream_cx_active$", adminHost)
-	stats, err := http.DoHTTPGet(activeConnectionsURL)
+	stats, err := http.DoHTTPGetWithTimeout(activeConnectionsURL, 2*time.Second)
 	if err != nil {
 		return -1, fmt.Errorf("unable to get listener stats from Envoy : %v", err)
 	}
