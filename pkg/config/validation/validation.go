@@ -2701,7 +2701,8 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 			}
 			if len(serviceEntry.Addresses) == 0 {
 				if port.Protocol == "" || port.Protocol == "TCP" {
-					errs = AppendValidation(errs, WrapWarning(fmt.Errorf("addresses are required for ports serving TCP (or unset) protocol")))
+					errs = AppendValidation(errs, WrapWarning(fmt.Errorf(
+						"addresses are required for ports serving TCP (or unset) protocol, if dns auto allocate and cache is not enabled")))
 				}
 			}
 			errs = AppendValidation(errs,
