@@ -202,7 +202,7 @@ func WaypointsCollection(
 		}
 
 		// Check for a declared traffic type that is allowed to pass through the Waypoint
-		if tt, found := gateway.Annotations[constants.AmbientWaypointForTrafficType]; found {
+		if tt, found := gateway.Labels[constants.AmbientWaypointForTrafficType]; found {
 			return makeWaypoint(gateway, gatewayClass, serviceAccounts, tt)
 		}
 		// If a value is not declared on a Gateway or its associated GatewayClass
