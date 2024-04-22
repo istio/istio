@@ -169,7 +169,9 @@ func (a *Agent) terminate() {
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
 		defer ticker.Stop()
+
 		retryCount := 0
+		retryBackoffTime := 1 * time.Second
 	graceful_loop:
 		for range ticker.C {
 			ac, err := a.activeProxyConnections()
@@ -182,13 +184,15 @@ func (a *Agent) terminate() {
 				if err != nil {
 					log.Errorf(err.Error())
 					retryCount++
-					// max retry 3 times
-					if retryCount > 2 {
+					// Max retry 5 times
+					if retryCount > 4 {
 						a.abortCh <- errAbort
 						log.Warnf("Graceful termination logic ended prematurely, error while obtaining downstream_cx_active stat (Max retry %d exceeded)", retryCount)
 						break graceful_loop
 					}
 					log.Warnf("Retrying (%d attempt) to obtain active connections...", retryCount)
+					time.Sleep(retryBackoffTime)
+					retryBackoffTime *= 2 // Exponentially increase the retry backoff time.
 					continue graceful_loop
 				}
 				if ac == -1 {
@@ -203,6 +207,9 @@ func (a *Agent) terminate() {
 					break graceful_loop
 				}
 				log.Infof("There are still %d active connections", ac)
+				// reset retry count and backoff time
+				retryCount = 0
+				retryBackoffTime = 1 * time.Second
 			}
 		}
 	} else {
