@@ -467,9 +467,10 @@ const (
 	NetworksTrigger TriggerReason = "networks"
 	// ProxyRequest describes a push triggered based on proxy request
 	ProxyRequest TriggerReason = "proxyrequest"
-	// DependentRequest describes a push triggered based on a proxy request for a
+	// DependentResource describes a push triggered based on a proxy request for a
 	// resource that depends on this resource (e.g. a CDS request triggers an EDS response as well)
-	DependentRequest TriggerReason = "depdendentrequest"
+	// This is mainly used in Delta for now.
+	DependentResource TriggerReason = "depdendentresource"
 	// NamespaceUpdate describes a push triggered by a Namespace change
 	NamespaceUpdate TriggerReason = "namespace"
 	// ClusterUpdate describes a push triggered by a Cluster change

@@ -323,14 +323,13 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	if err != nil {
 		return err
 	}
+	return s.forceEDSPush(req, con)
+}
 
-	if req.TypeUrl != v3.ClusterType {
-		return nil
-	}
-
+func (s *DiscoveryServer) forceEDSPush(req *discovery.DeltaDiscoveryRequest, con *Connection) error {
 	// Anytime we get a CDS request on reconnect, we should always push EDS as well.
 	// It is always the server's responsibility to send EDS after CDS, regardless if
-	// Envoy asks for it or not (see https://github.com/envoyproxy/envoy/issues/33607 for more details).
+	// Envoy asks for it or not (See https://github.com/envoyproxy/envoy/issues/33607 for more details).
 	// Without this logic, there are cases where the clusters we send could stay warming forever,
 	// expecting an EDS response. Note that in SotW, Envoy sends an EDS request after the delayed
 	// CDS request; however, this is not guaranteed in delta, and has been observed to cause issues
@@ -341,21 +340,22 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	// 3. Envoy sends CDS request and we respond with clusters.
 	// 4. Envoy detects a change in cluster state and tries to warm those clusters but never sends
 	//    an EDS request for them.
-	// 5. Therefore, any initial CDS request should always trigger an RDS response
-	// 		to let Envoy finish cluster warming.
-	// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
-
+	// 5. Therefore, any initial CDS request should always trigger an EDS response
+	// 	  to let Envoy finish cluster warming.
+	// Refer to https://github.com/envoyproxy/envoy/issues/13009 for some more details on this type of issues.
+	if req.TypeUrl != v3.ClusterType {
+		return nil
+	}
 	if dwr := con.proxy.GetWatchedResource(v3.EndpointType); dwr != nil {
 		request := &model.PushRequest{
 			Full:   true,
 			Push:   con.proxy.LastPushContext,
-			Reason: model.NewReasonStats(model.DependentRequest),
+			Reason: model.NewReasonStats(model.DependentResource),
 			Start:  con.proxy.LastPushTime,
 		}
-		deltaLog.Infof("ADS:%s: FORCE DEPENDENT RESPONSE %s for warming.", v3.EndpointType, con.conID)
+		deltaLog.Infof("ADS:%s: FORCE %s PUSH for warming.", v3.GetShortType(v3.EndpointType), con.conID)
 		return s.pushDeltaXds(con, dwr, request)
 	}
-
 	return nil
 }
 
