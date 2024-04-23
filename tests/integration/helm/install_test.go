@@ -101,6 +101,7 @@ profile: stable
 
 	framework.
 		NewTest(t).
+		RequireKubernetesMinorVersion(30).
 		Run(setupInstallationWithCustomCheck(overrideValuesStr, false, DefaultNamespaceConfig, func(t framework.TestContext) {
 			// Try to apply an EnvoyFilter (it should be rejected)
 			expectedErrorPrefix := `%s "sample" is forbidden: ValidatingAdmissionPolicy 'stable-channel-default-policy.istio.io' ` +
@@ -143,6 +144,7 @@ defaultRevision: ""
 	revision := "1-x"
 	framework.
 		NewTest(t).
+		RequireKubernetesMinorVersion(30).
 		Run(setupInstallationWithCustomCheck(overrideValuesStr, false, DefaultNamespaceConfig, func(t framework.TestContext) {
 			// Try to apply an EnvoyFilter (it should be rejected)
 			expectedErrorPrefix := `%s "sample" is forbidden: ValidatingAdmissionPolicy 'stable-channel-policy-1-x-istio-system.istio.io' ` +
