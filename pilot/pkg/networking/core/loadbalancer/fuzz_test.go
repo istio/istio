@@ -60,6 +60,6 @@ func FuzzApplyLocalityLBSetting(f *testing.F) {
 		if err != nil {
 			return
 		}
-		ApplyLocalityLBSetting(loadAssignment, wrappedLocalityLbEndpoints, locality, proxyLabels, localityLB, enableFailover)
+		ApplyLocalityLoadBalancer(loadAssignment, wrappedLocalityLbEndpoints, locality, proxyLabels, localityLB, enableFailover)
 	})
 }

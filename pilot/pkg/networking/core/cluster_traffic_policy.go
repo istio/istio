@@ -239,7 +239,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 		}
 	}
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	applyLocalityLBSetting(locality, proxyLabels, c, localityLbSetting)
+	applyLocalityLoadBalancer(locality, proxyLabels, c, localityLbSetting)
 
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
@@ -273,14 +273,14 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	ApplyRingHashLoadBalancer(c, lb)
 }
 
-func applyLocalityLBSetting(locality *core.Locality, proxyLabels map[string]string, cluster *cluster.Cluster,
+func applyLocalityLoadBalancer(locality *core.Locality, proxyLabels map[string]string, cluster *cluster.Cluster,
 	localityLB *networking.LocalityLoadBalancerSetting,
 ) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
-	enabledFailover := cluster.OutlierDetection != nil
+	enableFailover := cluster.OutlierDetection != nil
 	if cluster.LoadAssignment != nil {
 		// TODO: enable failoverPriority for `STRICT_DNS` cluster type
-		loadbalancer.ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, proxyLabels, localityLB, enabledFailover)
+		loadbalancer.ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, proxyLabels, localityLB, enableFailover)
 	}
 }
 
