@@ -214,6 +214,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 		dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 		d := dobj.Unstructured()
 		c := dobj.Container("istio-proxy")
+		g.Expect(d).Should(HavePathValueContain(PathValue{"spec.template.metadata.labels", toMap("service.istio.io/canonical-revision:21")}))
 		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("aaa:aaa-val,bbb:bbb-val")}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "111m"}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.memory", "999Mi"}))
