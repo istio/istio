@@ -171,7 +171,6 @@ func (a *Agent) terminate() {
 		defer ticker.Stop()
 
 		retryCount := 0
-		retryBackoffTime := 1 * time.Second
 	graceful_loop:
 		for range ticker.C {
 			ac, err := a.activeProxyConnections()
@@ -191,8 +190,6 @@ func (a *Agent) terminate() {
 						break graceful_loop
 					}
 					log.Warnf("Retrying (%d attempt) to obtain active connections...", retryCount)
-					time.Sleep(retryBackoffTime)
-					retryBackoffTime *= 2 // Exponentially increase the retry backoff time.
 					continue graceful_loop
 				}
 				if ac == -1 {
@@ -207,9 +204,8 @@ func (a *Agent) terminate() {
 					break graceful_loop
 				}
 				log.Infof("There are still %d active connections", ac)
-				// reset retry count and backoff time
+				// reset retry count
 				retryCount = 0
-				retryBackoffTime = 1 * time.Second
 			}
 		}
 	} else {
