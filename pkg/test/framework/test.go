@@ -31,10 +31,12 @@ import (
 type Test interface {
 	// Label applies the given labels to this test.
 	Label(labels ...label.Instance) Test
-	// Label applies the given labels to this test.
 	// RequireIstioVersion ensures that all installed versions of Istio are at least the
 	// required version for the annotated test to pass
 	RequireIstioVersion(version string) Test
+	// RequireKubernetesMinorVersion ensures that all Kubernetes clusters used in this test
+	// are at least the required version for the annotated test to pass
+	RequireKubernetesMinorVersion(minorVersion uint) Test
 	// RequiresMinClusters ensures that the current environment contains at least the expected number of clusters.
 	// Otherwise it stops test execution and skips the test.
 	//
@@ -109,17 +111,18 @@ type Test interface {
 // Test allows the test author to specify test-related metadata in a fluent-style, before commencing execution.
 type testImpl struct {
 	// name to be used when creating a Golang test. Only used for subtests.
-	name                 string
-	parent               *testImpl
-	goTest               *testing.T
-	labels               []label.Instance
-	s                    *suiteContext
-	requiredMinClusters  int
-	requiredMaxClusters  int
-	requireLocalIstiod   bool
-	requireSingleNetwork bool
-	minIstioVersion      string
-	topLevel             bool
+	name                      string
+	parent                    *testImpl
+	goTest                    *testing.T
+	labels                    []label.Instance
+	s                         *suiteContext
+	requiredMinClusters       int
+	requiredMaxClusters       int
+	requireLocalIstiod        bool
+	requireSingleNetwork      bool
+	minIstioVersion           string
+	minKubernetesMinorVersion uint
+	topLevel                  bool
 
 	ctx *testContext
 	tc  context2.Context
@@ -183,6 +186,11 @@ func (t *testImpl) RequireIstioVersion(version string) Test {
 	return t
 }
 
+func (t *testImpl) RequireKubernetesMinorVersion(minorVersion uint) Test {
+	t.minKubernetesMinorVersion = minorVersion
+	return t
+}
+
 func (t *testImpl) Run(fn func(ctx TestContext)) {
 	t.runInternal(fn, false)
 }
@@ -240,6 +248,16 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 		t.goTest.Skipf("Skipping %q: number of clusters %d is above required max %d",
 			t.goTest.Name(), len(t.s.Environment().Clusters()), t.requiredMaxClusters)
 		return
+	}
+
+	if t.minKubernetesMinorVersion > 0 {
+		for _, c := range ctx.Clusters() {
+			if !c.MinKubeVersion(t.minKubernetesMinorVersion) {
+				t.goTest.Skipf("Skipping %q: cluster %s is below required min k8s version 1.%d",
+					t.goTest.Name(), c.Name(), t.minKubernetesMinorVersion)
+				return
+			}
+		}
 	}
 
 	if t.requireLocalIstiod {
