@@ -54,7 +54,7 @@ func (c *ConfigWriter) PrintPolicySummary(filter PolicyFilter) error {
 		}
 		return cmp.Compare(a.Name, b.Name)
 	})
-	fmt.Fprintln(w, "NAMESPACE\tNAME\tACTION\tSCOPE")
+	fmt.Fprintln(w, "NAMESPACE\tPOLICY NAME\tACTION\tSCOPE")
 
 	for _, pol := range pols {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",
