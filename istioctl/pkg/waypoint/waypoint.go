@@ -92,10 +92,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			return nil, fmt.Errorf("invalid traffic type: %s. Valid options are: %s", trafficType, validTrafficTypes.String())
 		}
 
-		if gw.Annotations == nil {
-			gw.Annotations = map[string]string{}
+		if gw.Labels == nil {
+			gw.Labels = map[string]string{}
 		}
-		gw.Annotations[constants.AmbientWaypointForTrafficType] = trafficType
+		gw.Labels[constants.AmbientWaypointForTrafficType] = trafficType
 
 		if revision != "" {
 			gw.Labels = map[string]string{label.IoIstioRev.Name: revision}
