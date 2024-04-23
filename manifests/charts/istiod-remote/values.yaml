@@ -165,6 +165,8 @@ defaults:
   # See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
   meshConfig:
     enablePrometheusMerge: true
+  experimental:
+    stableValidationPolicy: false
   global:
     # Used to locate istiod.
     istioNamespace: istio-system

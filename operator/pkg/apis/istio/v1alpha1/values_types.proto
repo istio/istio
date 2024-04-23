@@ -1426,6 +1426,9 @@ message Values {
   // Specifies the compatibility version to use. When this is set, the control plane will
   // be configured with the same defaults as the specified version.
   string compatibilityVersion = 43;
+
+  // Specifies experimental helm fields that could be removed or changed in the future
+  ExperimentalConfig experimental = 44;
 }
 
 // ZeroVPNConfig enables cross-cluster access using SNI matching.
@@ -1434,6 +1437,12 @@ message ZeroVPNConfig {
   google.protobuf.BoolValue enabled = 1;
 
   string suffix = 2;
+}
+
+// ExperimentalConfig is a placeholder for experimental installation features.
+message ExperimentalConfig {
+  // Controls whether the experimental feature is enabled.
+  google.protobuf.BoolValue stableValidationPolicy = 1;
 }
 
 // IntOrString is a type that can hold an int32 or a string.  When used in
