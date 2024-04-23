@@ -86,9 +86,9 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 	})
 
 	if filter.Verbose {
-		fmt.Fprintln(w, "NAMESPACE\tNAME\tIP\tNODE\tWAYPOINT\tPROTOCOL")
+		fmt.Fprintln(w, "NAMESPACE\tPOD NAME\tIP\tNODE\tWAYPOINT\tPROTOCOL")
 	} else {
-		fmt.Fprintln(w, "NAMESPACE\tNAME\tIP\tNODE")
+		fmt.Fprintln(w, "NAMESPACE\tPOD NAME\tIP\tNODE")
 	}
 
 	for _, wl := range verifiedWorkloads {

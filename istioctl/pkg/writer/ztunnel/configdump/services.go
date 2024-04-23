@@ -57,7 +57,7 @@ func (c *ConfigWriter) PrintServiceSummary(filter ServiceFilter) error {
 		}
 		return cmp.Compare(a.Hostname, b.Hostname)
 	})
-	fmt.Fprintln(w, "NAMESPACE\tNAME\tIP\tWAYPOINT")
+	fmt.Fprintln(w, "NAMESPACE\tSERVICE NAME\tSERVICE VIP\tWAYPOINT")
 
 	for _, svc := range svcs {
 		var ip string
