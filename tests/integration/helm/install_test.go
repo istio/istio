@@ -102,6 +102,9 @@ profile: stable
 	framework.
 		NewTest(t).
 		Run(setupInstallationWithCustomCheck(overrideValuesStr, false, DefaultNamespaceConfig, func(t framework.TestContext) {
+			if !supportsValidatingAdmissionPolicy(t) {
+				t.Skip("ValidatingAdmissionPolicy is not supported in k8s versions < 1.30")
+			}
 			// Try to apply an EnvoyFilter (it should be rejected)
 			expectedErrorPrefix := `%s "sample" is forbidden: ValidatingAdmissionPolicy 'stable-channel-default-policy.istio.io' ` +
 				`with binding 'stable-channel-default-policy-binding.istio.io' denied request`
@@ -144,6 +147,9 @@ defaultRevision: ""
 	framework.
 		NewTest(t).
 		Run(setupInstallationWithCustomCheck(overrideValuesStr, false, DefaultNamespaceConfig, func(t framework.TestContext) {
+			if !supportsValidatingAdmissionPolicy(t) {
+				t.Skip("ValidatingAdmissionPolicy is not supported in k8s versions < 1.30")
+			}
 			// Try to apply an EnvoyFilter (it should be rejected)
 			expectedErrorPrefix := `%s "sample" is forbidden: ValidatingAdmissionPolicy 'stable-channel-policy-1-x-istio-system.istio.io' ` +
 				`with binding 'stable-channel-policy-binding-1-x-istio-system.istio.io' denied request`
@@ -219,4 +225,13 @@ func baseSetup(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
 			DeleteIstio(t, h, cs, config, isAmbient)
 		})
 	}
+}
+
+func supportsValidatingAdmissionPolicy(t framework.TestContext) bool {
+	for _, cluster := range t.Clusters() {
+		if !cluster.MinKubeVersion(30) { // VAP is only on by default in k8s 1.30
+			return false
+		}
+	}
+	return true
 }
