@@ -9,7 +9,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/ambient/traffic_test"
 )
 
 var i istio.Instance
