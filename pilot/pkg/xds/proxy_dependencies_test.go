@@ -61,9 +61,10 @@ func TestProxyNeedsPush(t *testing.T) {
 		SidecarScope: &model.SidecarScope{Name: generalName, Namespace: nsName},
 	}
 	gateway := &model.Proxy{
-		Type:     model.Router,
-		Metadata: &model.NodeMetadata{Namespace: nsName},
-		Labels:   map[string]string{"gateway": "gateway"},
+		Type:            model.Router,
+		ConfigNamespace: nsName,
+		Metadata:        &model.NodeMetadata{Namespace: nsName},
+		Labels:          map[string]string{"gateway": "gateway"},
 	}
 
 	sidecarScopeKindNames := map[kind.Kind]string{

@@ -199,6 +199,9 @@ defaults:
   meshConfig:
     enablePrometheusMerge: true
 
+  experimental:
+    stableValidationPolicy: false
+
   global:
     # Used to locate istiod.
     istioNamespace: istio-system

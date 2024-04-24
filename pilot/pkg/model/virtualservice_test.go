@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
 	fuzz "github.com/google/gofuzz"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -1943,8 +1943,8 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 		func(r *networking.Destination, c fuzz.Continue) {
 			*r = networking.Destination{}
 		},
-		func(r *wrappers.UInt32Value, c fuzz.Continue) {
-			*r = wrappers.UInt32Value{}
+		func(r *wrapperspb.UInt32Value, c fuzz.Continue) {
+			*r = wrapperspb.UInt32Value{}
 		},
 		func(r *networking.Percent, c fuzz.Continue) {
 			*r = networking.Percent{}

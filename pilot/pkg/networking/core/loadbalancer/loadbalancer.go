@@ -63,7 +63,7 @@ func GetLocalityLbSetting(
 	return mesh
 }
 
-func ApplyLocalityLBSetting(
+func ApplyLocalityLoadBalancer(
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
 	locality *core.Locality,
@@ -77,23 +77,26 @@ func ApplyLocalityLBSetting(
 
 	// one of Distribute or Failover settings can be applied.
 	if localityLB.GetDistribute() != nil {
-		applyLocalityWeight(locality, loadAssignment, localityLB.GetDistribute())
+		applyLocalityWeights(locality, loadAssignment, localityLB.GetDistribute())
 		// Failover needs outlier detection, otherwise Envoy will never drop down to a lower priority.
 		// Do not apply default failover when locality LB is disabled.
 	} else if enableFailover && (localityLB.Enabled == nil || localityLB.Enabled.Value) {
 		if len(localityLB.FailoverPriority) > 0 {
-			applyPriorityFailover(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.FailoverPriority)
+			// Apply user defined priority failover settings.
+			applyFailoverPriorities(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.FailoverPriority)
+			// If failover is expliciltly configured with failover priority, apply failover settings also.
 			if len(localityLB.Failover) != 0 {
 				applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
 			}
-			return
+		} else {
+			// Apply default failover settings or user defined region failover settings.
+			applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
 		}
-		applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
 	}
 }
 
-// set locality loadbalancing weight
-func applyLocalityWeight(
+// set locality loadbalancing weight based on user defined weights.
+func applyLocalityWeights(
 	locality *core.Locality,
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	distribute []*v1alpha3.LocalityLoadBalancerSetting_Distribute,
@@ -106,7 +109,7 @@ func applyLocalityWeight(
 	// (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight#locality-weighted-load-balancing)
 	// by providing weights in LocalityLbEndpoints via load_balancing_weight.
 	// By setting weights across different localities, it can allow
-	// Envoy to weight assignments across different zones and geographical locations.
+	// Envoy to do weighted load balancing across different zones and geographical locations.
 	for _, localityWeightSetting := range distribute {
 		if localityWeightSetting != nil &&
 			util.LocalityMatch(locality, localityWeightSetting.From) {
@@ -154,7 +157,7 @@ func applyLocalityWeight(
 	}
 }
 
-// set locality loadbalancing priority
+// set locality loadbalancing priority - This is based on Region/Zone/SubZone matching.
 func applyLocalityFailover(
 	locality *core.Locality,
 	loadAssignment *endpoint.ClusterLoadAssignment,
@@ -220,7 +223,7 @@ type WrappedLocalityLbEndpoints struct {
 }
 
 // set loadbalancing priority by failover priority label.
-func applyPriorityFailover(
+func applyFailoverPriorities(
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
 	proxyLabels map[string]string,
@@ -232,7 +235,7 @@ func applyPriorityFailover(
 	priorityMap := make(map[int][]int, len(failoverPriorities))
 	localityLbEndpoints := []*endpoint.LocalityLbEndpoints{}
 	for _, wrappedLbEndpoint := range wrappedLocalityLbEndpoints {
-		localityLbEndpointsPerLocality := applyPriorityFailoverPerLocality(proxyLabels, wrappedLbEndpoint, failoverPriorities)
+		localityLbEndpointsPerLocality := applyFailoverPriorityPerLocality(proxyLabels, wrappedLbEndpoint, failoverPriorities)
 		localityLbEndpoints = append(localityLbEndpoints, localityLbEndpointsPerLocality...)
 	}
 	for i, ep := range localityLbEndpoints {
@@ -277,7 +280,7 @@ func priorityLabelOverrides(labels []string) ([]string, map[string]string) {
 
 // set loadbalancing priority by failover priority label.
 // split one LocalityLbEndpoints to multiple LocalityLbEndpoints based on failover priorities.
-func applyPriorityFailoverPerLocality(
+func applyFailoverPriorityPerLocality(
 	proxyLabels map[string]string,
 	ep *WrappedLocalityLbEndpoints,
 	failoverPriorities []string,

@@ -318,7 +318,45 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
 		s.computeProxyState(con.proxy, request)
 	}
-	return s.pushDeltaXds(con, con.proxy.GetWatchedResource(req.TypeUrl), request)
+
+	err := s.pushDeltaXds(con, con.proxy.GetWatchedResource(req.TypeUrl), request)
+	if err != nil {
+		return err
+	}
+	// Anytime we get a CDS request on reconnect, we should always push EDS as well.
+	// It is always the server's responsibility to send EDS after CDS, regardless if
+	// Envoy asks for it or not (See https://github.com/envoyproxy/envoy/issues/33607 for more details).
+	// Without this logic, there are cases where the clusters we send could stay warming forever,
+	// expecting an EDS response. Note that in SotW, Envoy sends an EDS request after the delayed
+	// CDS request; however, this is not guaranteed in delta, and has been observed to cause issues
+	// with EDS and SDS.
+	// This can happen with the following sequence
+	// 1. Envoy disconnects and reconnects to Istiod.
+	// 2. Envoy sends EDS request and we respond with it.
+	// 3. Envoy sends CDS request and we respond with clusters.
+	// 4. Envoy detects a change in cluster state and tries to warm those clusters but never sends
+	//    an EDS request for them.
+	// 5. Therefore, any initial CDS request should always trigger an EDS response
+	// 	  to let Envoy finish cluster warming.
+	// Refer to https://github.com/envoyproxy/envoy/issues/13009 for some more details on this type of issues.
+	if req.TypeUrl != v3.ClusterType {
+		return nil
+	}
+	return s.forceEDSPush(con)
+}
+
+func (s *DiscoveryServer) forceEDSPush(con *Connection) error {
+	if dwr := con.proxy.GetWatchedResource(v3.EndpointType); dwr != nil {
+		request := &model.PushRequest{
+			Full:   true,
+			Push:   con.proxy.LastPushContext,
+			Reason: model.NewReasonStats(model.DependentResource),
+			Start:  con.proxy.LastPushTime,
+		}
+		deltaLog.Infof("ADS:%s: FORCE %s PUSH for warming.", v3.GetShortType(v3.EndpointType), con.conID)
+		return s.pushDeltaXds(con, dwr, request)
+	}
+	return nil
 }
 
 // shouldRespondDelta determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
@@ -362,21 +400,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 			ResourceNames: res,
 			Wildcard:      wildcard,
 		}
-		// For all EDS requests that we have already responded with in the same stream let us
-		// force the response. It is important to respond to those requests for Envoy to finish
-		// warming of those resources(Clusters).
-		// This can happen with the following sequence
-		// 1. Envoy disconnects and reconnects to Istiod.
-		// 2. Envoy sends EDS request and we respond with it.
-		// 3. Envoy sends CDS request and we respond with clusters.
-		// 4. Envoy detects a change in cluster state and tries to warm those clusters and send EDS request for them.
-		// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
-		// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
-		for _, dependent := range warmingDependencies(request.TypeUrl) {
-			if dwr, exists := con.proxy.WatchedResources[dependent]; exists {
-				dwr.AlwaysRespond = true
-			}
-		}
+
 		return true
 	}
 

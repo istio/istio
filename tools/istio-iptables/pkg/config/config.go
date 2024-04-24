@@ -92,7 +92,7 @@ type Config struct {
 func (c *Config) String() string {
 	output, err := json.MarshalIndent(c, "", "\t")
 	if err != nil {
-		log.Fatalf("Unable to marshal config object: %v", err)
+		log.Errorf("Unable to marshal config object: %v", err)
 	}
 	return string(output)
 }
@@ -137,7 +137,7 @@ func (c *Config) Validate() error {
 
 var envoyUserVar = env.Register(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
 
-func (c *Config) FillConfigFromEnvironment() {
+func (c *Config) FillConfigFromEnvironment() error {
 	// Fill in env-var only options
 	c.OwnerGroupsInclude = constants.OwnerGroupsInclude.Get()
 	c.OwnerGroupsExclude = constants.OwnerGroupsExclude.Get()
@@ -164,7 +164,7 @@ func (c *Config) FillConfigFromEnvironment() {
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
 	hostIP, isIPv6, err := getLocalIP(c.DualStack)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	c.HostIP = hostIP
@@ -177,10 +177,11 @@ func (c *Config) FillConfigFromEnvironment() {
 	if c.RedirectDNS && !c.CaptureAllDNS {
 		dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 		if err != nil {
-			log.Fatalf("failed to load /etc/resolv.conf: %v", err)
+			return fmt.Errorf("failed to load /etc/resolv.conf: %v", err)
 		}
 		c.DNSServersV4, c.DNSServersV6 = netutil.IPsSplitV4V6(dnsConfig.Servers)
 	}
+	return nil
 }
 
 // mock net.InterfaceAddrs to make its unit test become available

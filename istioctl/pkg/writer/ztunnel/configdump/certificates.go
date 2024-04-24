@@ -53,7 +53,7 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 	}
 	secretDump := c.ztunnelDump.Certificates
 	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
-	fmt.Fprintln(w, "NAME\tTYPE\tSTATUS\tVALID CERT\tSERIAL NUMBER\tNOT AFTER\tNOT BEFORE")
+	fmt.Fprintln(w, "CERTIFICATE NAME\tTYPE\tSTATUS\tVALID CERT\tSERIAL NUMBER\tNOT AFTER\tNOT BEFORE")
 
 	for _, secret := range secretDump {
 		if strings.Contains(secret.State, "Unavailable") {

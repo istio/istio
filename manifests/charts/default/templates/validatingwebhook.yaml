@@ -5,7 +5,7 @@ metadata:
   labels:
     app: istiod
     istio: istiod
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     istio.io/tag: "default"
     # Required to make sure this resource is removed
     # when purging Istio resources

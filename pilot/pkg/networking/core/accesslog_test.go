@@ -456,7 +456,7 @@ func TestSetTCPAccessLog(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			b.setTCPAccessLog(tc.push, tc.proxy, tc.tcp, tc.class)
+			b.setTCPAccessLog(tc.push, tc.proxy, tc.tcp, tc.class, nil)
 			assert.Equal(t, tc.expected, tc.tcp)
 		})
 	}
@@ -548,7 +548,7 @@ func TestSetHttpAccessLog(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			b.setHTTPAccessLog(tc.push, tc.proxy, tc.hcm, tc.class)
+			b.setHTTPAccessLog(tc.push, tc.proxy, tc.hcm, tc.class, nil)
 			assert.Equal(t, tc.expected, tc.hcm)
 		})
 	}

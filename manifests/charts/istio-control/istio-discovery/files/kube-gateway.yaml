@@ -138,7 +138,7 @@ spec:
       {{- end }}
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
-          {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}
+          {{- toYaml .Values.global.proxy.lifecycle | nindent 10 }}
       {{- end }}
         env:
         - name: PILOT_CERT_PROVIDER

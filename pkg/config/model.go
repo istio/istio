@@ -396,6 +396,14 @@ func (g GroupVersionKind) GroupVersion() string {
 	return g.Group + "/" + g.Version
 }
 
+func FromKubernetesGVK(gvk schema.GroupVersionKind) GroupVersionKind {
+	return GroupVersionKind{
+		Group:   gvk.Group,
+		Version: gvk.Version,
+		Kind:    gvk.Kind,
+	}
+}
+
 // Kubernetes returns the same GVK, using the Kubernetes object type
 func (g GroupVersionKind) Kubernetes() schema.GroupVersionKind {
 	return schema.GroupVersionKind{
@@ -405,13 +413,17 @@ func (g GroupVersionKind) Kubernetes() schema.GroupVersionKind {
 	}
 }
 
+func CanonicalGroup(group string) string {
+	if group != "" {
+		return group
+	}
+	return "core"
+}
+
 // CanonicalGroup returns the group with defaulting applied. This means an empty group will
 // be treated as "core", following Kubernetes API standards
 func (g GroupVersionKind) CanonicalGroup() string {
-	if g.Group != "" {
-		return g.Group
-	}
-	return "core"
+	return CanonicalGroup(g.Group)
 }
 
 // PatchFunc provides the cached config as a base for modification. Only diff the between the cfg

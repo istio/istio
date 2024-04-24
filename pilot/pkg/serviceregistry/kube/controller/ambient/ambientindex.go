@@ -150,10 +150,10 @@ func New(options Options) Index {
 	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, krt.WithName("Namespaces"))
 
 	MeshConfig := MeshConfigCollection(ConfigMaps, options)
-	Waypoints := WaypointsCollection(Gateways, GatewayClasses)
+	Waypoints := WaypointsCollection(Gateways, GatewayClasses, Pods)
 
 	// AllPolicies includes peer-authentication converted policies
-	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig)
+	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints, Pods)
 	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater, func(i model.WorkloadAuthorization) model.ConfigKey {
 		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 	}), false)
@@ -166,7 +166,7 @@ func New(options Options) Index {
 		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		waypoint := s.Waypoint
+		waypoint := s.Service.Waypoint
 		if waypoint == nil {
 			return nil
 		}
@@ -390,10 +390,14 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 }
 
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
-	return a.services.ByOwningWaypoint.Lookup(networkAddress{
-		network: key.Network,
-		ip:      key.Addresses[0],
-	})
+	var out []model.ServiceInfo
+	for _, addr := range key.Addresses {
+		out = append(out, a.services.ByOwningWaypoint.Lookup(networkAddress{
+			network: key.Network,
+			ip:      addr,
+		})...)
+	}
+	return out
 }
 
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {

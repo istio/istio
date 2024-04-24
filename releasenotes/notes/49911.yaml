@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 49911
+releaseNotes:
+  - |
+    **Fixed** an issue that TraceId is not propagated when using OpenTelemetry access logger.

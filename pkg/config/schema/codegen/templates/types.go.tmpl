@@ -15,17 +15,17 @@ import (
 	apiistioioapitelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 )
 
-func getGvk(obj any) config.GroupVersionKind {
+func getGvk(obj any) (config.GroupVersionKind, bool) {
 	switch obj.(type) {
 {{- range .Entries }}
 	case *{{ .ClientImport }}.{{ .Resource.Kind }}:
-		return gvk.{{ .Resource.Identifier }}
+		return gvk.{{ .Resource.Identifier }}, true
 	{{- if and (not (eq .ClientImport .IstioAwareClientImport)) (not .Resource.Synthetic) }}
 	case *{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}:
-		return gvk.{{ .Resource.Identifier }}
+		return gvk.{{ .Resource.Identifier }}, true
     {{- end }}
 {{- end }}
   default:
-    panic(fmt.Sprintf("Unknown type %T", obj))
+    return config.GroupVersionKind{}, false
 	}
 }

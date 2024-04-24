@@ -29,7 +29,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/istiomultierror"
@@ -286,7 +285,7 @@ func convertNetworkWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wa
 func rewriteVMConfig(resourceName string, vm *wasmextensions.VmConfig, status *string, cache Cache, configName string) error {
 	envs := vm.GetEnvironmentVariables()
 	var pullSecret []byte
-	pullPolicy := extensions.PullPolicy_UNSPECIFIED_POLICY
+	pullPolicy := Unspecified
 	resourceVersion := ""
 	if envs != nil {
 		if sec, found := envs.KeyValues[model.WasmSecretEnv]; found {
@@ -298,8 +297,8 @@ func rewriteVMConfig(resourceName string, vm *wasmextensions.VmConfig, status *s
 		}
 
 		if ps, found := envs.KeyValues[model.WasmPolicyEnv]; found {
-			if p, found := extensions.PullPolicy_value[ps]; found {
-				pullPolicy = extensions.PullPolicy(p)
+			if p, found := PullPolicyValues[ps]; found {
+				pullPolicy = p
 			}
 		}
 		resourceVersion = envs.KeyValues[model.WasmResourceVersionEnv]

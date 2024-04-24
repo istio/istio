@@ -39,7 +39,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -393,7 +392,7 @@ func TestWasmCache(t *testing.T) {
 				ResourceName:    "namespace.resource",
 				ResourceVersion: "0",
 				RequestTimeout:  time.Second * 10,
-				PullPolicy:      extensions.PullPolicy_Always,
+				PullPolicy:      Always,
 			},
 			wantCachedModules: map[moduleKey]*cacheEntry{
 				{name: moduleNameFromURL(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
@@ -422,7 +421,7 @@ func TestWasmCache(t *testing.T) {
 				ResourceName:    "namespace.resource",
 				ResourceVersion: "123456",
 				RequestTimeout:  time.Second * 10,
-				PullPolicy:      extensions.PullPolicy_Always,
+				PullPolicy:      Always,
 			},
 			wantCachedModules: map[moduleKey]*cacheEntry{
 				{name: moduleNameFromURL(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
@@ -451,7 +450,7 @@ func TestWasmCache(t *testing.T) {
 				ResourceName:    "namespace.resource",
 				ResourceVersion: "0",
 				RequestTimeout:  time.Second * 10,
-				PullPolicy:      extensions.PullPolicy_IfNotPresent,
+				PullPolicy:      IfNotPresent,
 			},
 			wantCachedModules: map[moduleKey]*cacheEntry{
 				{name: moduleNameFromURL(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
@@ -473,7 +472,7 @@ func TestWasmCache(t *testing.T) {
 				ResourceName:    "namespace.resource",
 				ResourceVersion: "0",
 				RequestTimeout:  time.Second * 10,
-				PullPolicy:      extensions.PullPolicy_Always,
+				PullPolicy:      Always,
 			},
 			wantCachedModules: map[moduleKey]*cacheEntry{
 				{name: moduleNameFromURL(ociURLWithTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
@@ -502,7 +501,7 @@ func TestWasmCache(t *testing.T) {
 				ResourceName:    "namespace.resource",
 				ResourceVersion: "0",
 				RequestTimeout:  time.Second * 10,
-				PullPolicy:      extensions.PullPolicy_UNSPECIFIED_POLICY, // Default policy
+				PullPolicy:      Unspecified, // Default policy
 			},
 			wantCachedModules: map[moduleKey]*cacheEntry{
 				{name: moduleNameFromURL(ociURLWithLatestTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
@@ -532,7 +531,7 @@ func TestWasmCache(t *testing.T) {
 				ResourceVersion: "0",
 				RequestTimeout:  time.Second * 10,
 				Checksum:        dockerImageDigest,
-				PullPolicy:      extensions.PullPolicy_UNSPECIFIED_POLICY, // Default policy
+				PullPolicy:      Unspecified, // Default policy
 			},
 			wantCachedModules: map[moduleKey]*cacheEntry{
 				{name: moduleNameFromURL(ociURLWithLatestTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
@@ -561,7 +560,7 @@ func TestWasmCache(t *testing.T) {
 				ResourceName:    "namespace.resource",
 				ResourceVersion: "0",
 				RequestTimeout:  time.Second * 10,
-				PullPolicy:      extensions.PullPolicy_IfNotPresent,
+				PullPolicy:      IfNotPresent,
 			},
 			wantCachedModules: map[moduleKey]*cacheEntry{
 				{name: moduleNameFromURL(ociURLWithLatestTag), checksum: dockerImageDigest}: {modulePath: ociWasmFile},
@@ -873,9 +872,9 @@ func TestWasmCachePolicyChangesUsingHTTP(t *testing.T) {
 	url2 := ts.URL + "/next"
 	wantFilePath1 := generateModulePath(t, tmpDir, url1, fmt.Sprintf("%x.wasm", sha256.Sum256(binary1)))
 	wantFilePath2 := generateModulePath(t, tmpDir, url2, fmt.Sprintf("%x.wasm", sha256.Sum256(binary2)))
-	var defaultPullPolicy extensions.PullPolicy
+	var defaultPullPolicy PullPolicy
 
-	testWasmGet := func(downloadURL string, policy extensions.PullPolicy, resourceVersion string, wantFilePath string, wantNumRequest int) {
+	testWasmGet := func(downloadURL string, policy PullPolicy, resourceVersion string, wantFilePath string, wantNumRequest int) {
 		t.Helper()
 		gotFilePath, err := cache.Get(downloadURL, GetOptions{
 			ResourceName:    "namespace.resource",
@@ -900,13 +899,13 @@ func TestWasmCachePolicyChangesUsingHTTP(t *testing.T) {
 	// 2nd time: Should not pull the binary and use the cache because defaultPullPolicy is IfNotPresent
 	testWasmGet(url1, defaultPullPolicy, "2", wantFilePath1, 1)
 	// 3rd time: Should not pull the binary because the policy is IfNotPresent
-	testWasmGet(url1, extensions.PullPolicy_IfNotPresent, "3", wantFilePath1, 1)
+	testWasmGet(url1, IfNotPresent, "3", wantFilePath1, 1)
 	// 4th time: Should not pull the binary because the resource version is not changed
-	testWasmGet(url1, extensions.PullPolicy_Always, "3", wantFilePath1, 1)
+	testWasmGet(url1, Always, "3", wantFilePath1, 1)
 	// 5th time: Should pull the binary because the resource version is changed.
-	testWasmGet(url1, extensions.PullPolicy_Always, "4", wantFilePath1, 2)
+	testWasmGet(url1, Always, "4", wantFilePath1, 2)
 	// 6th time: Should pull the binary because URL is changed.
-	testWasmGet(url2, extensions.PullPolicy_Always, "4", wantFilePath2, 3)
+	testWasmGet(url2, Always, "4", wantFilePath2, 3)
 }
 
 func TestAllInsecureServer(t *testing.T) {
@@ -927,7 +926,7 @@ func TestAllInsecureServer(t *testing.T) {
 
 	dockerImageDigest, _ := setupOCIRegistry(t, ou.Host)
 	ociURLWithTag := fmt.Sprintf("oci://%s/test/valid/docker:v0.1.0", ou.Host)
-	var defaultPullPolicy extensions.PullPolicy
+	var defaultPullPolicy PullPolicy
 
 	gotFilePath, err := cache.Get(ociURLWithTag, GetOptions{
 		ResourceName:    "namespace.resource",

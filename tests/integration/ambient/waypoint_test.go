@@ -204,7 +204,7 @@ func TestSimpleHTTPSandwich(t *testing.T) {
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  name: {{.Service}}-gateway
+  name: simple-http-waypoint
   namespace: {{.Namespace}}
   annotations:
     networking.istio.io/address-type: IPAddress
@@ -253,7 +253,7 @@ metadata:
   name: {{.Service}}-httproute
 spec:
   parentRefs:
-  - name: {{.Service}}-gateway
+  - name: simple-http-waypoint
   hostnames:
   - {{.Service}}.{{.Namespace}}.svc.cluster.local
   - {{.Service}}.{{.Namespace}}.svc
@@ -287,26 +287,12 @@ spec:
 					config).
 				ApplyOrFail(t, apply.CleanupConditionally)
 
+			retry.UntilSuccessOrFail(t, func() error {
+				return checkWaypointIsReady(t, apps.Namespace.Name(), "simple-http-waypoint")
+			}, retry.Timeout(2*time.Minute))
+
 			// Update use-waypoint for Captured service
-			for _, c := range t.Clusters().Kube() {
-				client := c.Kube().CoreV1().Services(apps.Namespace.Name())
-				setWaypoint := func(waypoint string) error {
-					annotation := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%s"}}}`,
-						constants.AmbientUseWaypoint, waypoint))
-					_, err := client.Patch(context.TODO(), Captured, types.MergePatchType, annotation, metav1.PatchOptions{})
-					return err
-				}
-
-				if err := setWaypoint("captured-gateway"); err != nil {
-					t.Fatal(err)
-				}
-				t.Cleanup(func() {
-					if err := setWaypoint(""); err != nil {
-						scopes.Framework.Errorf("failed resetting waypoint for %s", Captured)
-					}
-				})
-
-			}
+			SetWaypoint(t, Captured, "simple-http-waypoint")
 
 			// ensure HTTP traffic works with all hostname variants
 			for _, src := range apps.All {
@@ -339,4 +325,31 @@ spec:
 				})
 			}
 		})
+}
+
+func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
+	for _, c := range t.Clusters().Kube() {
+		client := c.Kube().CoreV1().Services(apps.Namespace.Name())
+		setWaypoint := func(waypoint string) error {
+			if waypoint == "" {
+				waypoint = "null"
+			} else {
+				waypoint = fmt.Sprintf("%q", waypoint)
+			}
+			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
+				constants.AmbientUseWaypoint, waypoint))
+			_, err := client.Patch(context.TODO(), svc, types.MergePatchType, label, metav1.PatchOptions{})
+			return err
+		}
+
+		if err := setWaypoint(waypoint); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := setWaypoint(""); err != nil {
+				scopes.Framework.Errorf("failed resetting waypoint for %s", svc)
+			}
+		})
+
+	}
 }

@@ -196,14 +196,6 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "foo",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "with-targetref",
 						Namespace:        "foo",
 					},
@@ -214,14 +206,6 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 							Name:  "my-gateway",
 						},
 					},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "istio-config",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 			wantPeerAuthn: []*config.Config{
@@ -601,10 +585,11 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
+			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
 			}
-			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
+			if got := policies.GetPeerAuthenticationsForWorkload(matcher); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
 			}
 			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
@@ -689,14 +674,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 				{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "foo",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "with-targetref",
 						Namespace:        "foo",
 					},
@@ -707,14 +684,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 							Name:  "my-gateway",
 						},
 					},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "istio-config",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 			wantPeerAuthn: []*config.Config{
@@ -758,14 +727,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 				{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "foo",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "with-targetref",
 						Namespace:        "foo",
 					},
@@ -776,14 +737,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 							Name:  "my-gateway",
 						},
 					},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "istio-config",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 			wantPeerAuthn: []*config.Config{
@@ -826,14 +779,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 				{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "bar",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
 						Name:             "with-targetref",
 						Namespace:        "bar",
 					},
@@ -844,14 +789,6 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 							Name:  "my-gateway",
 						},
 					},
-				},
-				{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.RequestAuthentication,
-						Name:             "default",
-						Namespace:        "istio-config",
-					},
-					Spec: &securityBeta.RequestAuthentication{},
 				},
 			},
 			wantPeerAuthn: []*config.Config{
@@ -1163,10 +1100,11 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
+			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
 			}
-			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
+			if got := policies.GetPeerAuthenticationsForWorkload(matcher); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
 			}
 			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
@@ -1293,7 +1231,8 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
+			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
+			if got := policies.GetPeerAuthenticationsForWorkload(matcher); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
 			}
 			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
@@ -1455,7 +1394,8 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
+			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
 			}
 		})

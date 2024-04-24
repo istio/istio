@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	istioroute "istio.io/istio/pilot/pkg/networking/core/route"
 	"istio.io/istio/pilot/pkg/networking/core/tunnelingconfig"
+	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -55,14 +56,16 @@ func buildMetadataExchangeNetworkFilters() []*listener.Filter {
 	return filterstack
 }
 
-func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) []*listener.Filter {
-	return push.Telemetry.TCPFilters(proxy, class)
+func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass, svc *model.Service) []*listener.Filter {
+	return push.Telemetry.TCPFilters(proxy, class, svc)
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
 // TcpProxy instance and builds a TCP filter out of it.
-func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, config *tcp.TcpProxy, class istionetworking.ListenerClass) *listener.Filter {
-	accessLogBuilder.setTCPAccessLog(push, node, config, class)
+func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy,
+	config *tcp.TcpProxy, class istionetworking.ListenerClass, svc *model.Service,
+) *listener.Filter {
+	accessLogBuilder.setTCPAccessLog(push, node, config, class, svc)
 
 	tcpFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,
@@ -91,10 +94,10 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 	maybeSetHashPolicy(destinationRule, tcpProxy, subsetName)
 	applyTunnelingConfig(tcpProxy, destinationRule, subsetName)
 	class := model.OutboundListenerClass(lb.node.Type)
-	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class)
+	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class, nil)
 	networkFilterStack := buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)
 
-	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx)
+	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil)
 }
 
 func (lb *ListenerBuilder) buildCompleteNetworkFilters(
@@ -102,11 +105,21 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	port int,
 	networkFilterStack []*listener.Filter,
 	includeMx bool,
+	policySvc *model.Service,
 ) []*listener.Filter {
+	authzCustomBuilder := lb.authzCustomBuilder
+	authzBuilder := lb.authzBuilder
+	if policySvc != nil {
+		useFilterState := lb.node.Type == model.Waypoint
+		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, useFilterState, policySvc)
+		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, useFilterState, policySvc)
+	}
+
 	var filters []*listener.Filter
 	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
-		Port:  port,
-		Class: class,
+		Port:    port,
+		Class:   class,
+		Service: policySvc,
 	}, model.WasmPluginTypeNetwork)
 
 	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066
@@ -114,19 +127,19 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 		filters = append(filters, xdsfilters.TCPListenerMx)
 	}
 	// TODO: not sure why it goes here
-	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
+	filters = append(filters, authzCustomBuilder.BuildTCP()...)
 
 	// Authn
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
 
 	// Authz
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
-	filters = append(filters, lb.authzBuilder.BuildTCP()...)
+	filters = append(filters, authzBuilder.BuildTCP()...)
 
 	// Stats
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
-	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, class)...)
+	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, class, policySvc)...)
 
 	// Terminal filters
 	filters = append(filters, networkFilterStack...)
@@ -175,10 +188,10 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithWeightedClusters(route
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
 	class := model.OutboundListenerClass(lb.node.Type)
-	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class)
+	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class, nil)
 	networkFilterStack := buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)
 
-	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx)
+	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil)
 }
 
 func maybeSetHashPolicy(destinationRule *networking.DestinationRule, tcpProxy *tcp.TcpProxy, subsetName string) {

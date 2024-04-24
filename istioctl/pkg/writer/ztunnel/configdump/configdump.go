@@ -51,7 +51,7 @@ func (c *ConfigWriter) PrintBootstrapDump(outputFormat string) error {
 
 func (c *ConfigWriter) PrintFullSummary() error {
 	_, _ = c.Stdout.Write([]byte("\n"))
-	if err := c.PrintWorkloadSummary(WorkloadFilter{}); err != nil {
+	if err := c.PrintWorkloadSummary(WorkloadFilter{Verbose: true}); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))

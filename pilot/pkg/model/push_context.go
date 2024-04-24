@@ -467,6 +467,10 @@ const (
 	NetworksTrigger TriggerReason = "networks"
 	// ProxyRequest describes a push triggered based on proxy request
 	ProxyRequest TriggerReason = "proxyrequest"
+	// DependentResource describes a push triggered based on a proxy request for a
+	// resource that depends on this resource (e.g. a CDS request triggers an EDS response as well)
+	// This is mainly used in Delta for now.
+	DependentResource TriggerReason = "depdendentresource"
 	// NamespaceUpdate describes a push triggered by a Namespace change
 	NamespaceUpdate TriggerReason = "namespace"
 	// ClusterUpdate describes a push triggered by a Cluster change
@@ -938,7 +942,8 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy) sets.String {
 	}
 	// add services from RequestAuthentication.JwtRules.JwksUri
 	if features.JwksFetchMode != jwt.Istiod {
-		jwtPolicies := ps.AuthnPolicies.GetJwtPoliciesForWorkload(proxy.Metadata.Namespace, proxy.Labels, false)
+		forWorkload := PolicyMatcherForProxy(proxy)
+		jwtPolicies := ps.AuthnPolicies.GetJwtPoliciesForWorkload(forWorkload)
 		for _, cfg := range jwtPolicies {
 			rules := cfg.Spec.(*v1beta1.RequestAuthentication).JwtRules
 			for _, r := range rules {
@@ -2087,16 +2092,11 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 		lookupInNamespaces = []string{proxy.ConfigNamespace}
 	}
 
+	selectionOpts := PolicyMatcherForProxy(proxy).WithService(info.Service)
 	for _, ns := range lookupInNamespaces {
 		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
 			for _, plugin := range wasmPlugins {
-				opts := WorkloadSelectionOpts{
-					RootNamespace:  ps.Mesh.RootNamespace,
-					Namespace:      proxy.ConfigNamespace,
-					WorkloadLabels: proxy.Labels,
-					IsWaypoint:     proxy.IsWaypointProxy(),
-				}
-				if plugin.MatchListener(opts, info) && plugin.MatchType(pluginType) {
+				if plugin.MatchListener(selectionOpts, info) && plugin.MatchType(pluginType) {
 					matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 				}
 			}

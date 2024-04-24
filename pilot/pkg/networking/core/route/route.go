@@ -29,14 +29,14 @@ import (
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/golang/protobuf/ptypes/duration"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/route/retry"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -67,7 +67,7 @@ const DefaultRouteName = "default"
 var Notimeout = durationpb.New(0)
 
 // DefaultMaxDirectResponseBodySizeBytes is 1mb, the same limit the control plane validates via webhook. Set this to increase from envoy default of 4k
-var DefaultMaxDirectResponseBodySizeBytes = wrappers.UInt32(1024 * 1024)
+var DefaultMaxDirectResponseBodySizeBytes = wrapperspb.UInt32(1024 * 1024)
 
 type DestinationHashMap map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB
 
@@ -332,7 +332,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 	h := host.Name(destination.Host)
 	// If this is an Alias, point to the concrete service
 	// TODO: this will not work if we have Alias -> Alias -> Concrete service.
-	if service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
+	if features.EnableExternalNameAlias && service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
 		h = host.Name(service.Attributes.K8sAttributes.ExternalName)
 	}
 	port := listenerPort
@@ -693,7 +693,7 @@ func processWeightedDestination(dst *networking.HTTPRouteDestination, serviceReg
 	hostname := host.Name(dst.GetDestination().GetHost())
 	clusterWeight := &route.WeightedCluster_ClusterWeight{
 		Name:   GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
-		Weight: &wrappers.UInt32Value{Value: uint32(dst.Weight)},
+		Weight: &wrapperspb.UInt32Value{Value: uint32(dst.Weight)},
 	}
 	if dst.Headers != nil {
 		operations := TranslateHeadersOperations(dst.Headers)
@@ -1047,7 +1047,7 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest, useE
 		}
 	}
 
-	out.CaseSensitive = &wrappers.BoolValue{Value: !in.IgnoreUriCase}
+	out.CaseSensitive = &wrapperspb.BoolValue{Value: !in.IgnoreUriCase}
 
 	if in.Method != nil {
 		matcher := translateHeaderMatch(HeaderMethod, in.Method)
@@ -1247,7 +1247,7 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 }
 
 // setTimeout sets timeout for a route.
-func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *model.Proxy) {
+func setTimeout(action *route.RouteAction, vsTimeout *durationpb.Duration, node *model.Proxy) {
 	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
 	action.Timeout = Notimeout
 	if vsTimeout != nil {
@@ -1359,7 +1359,7 @@ func TranslateRequestMirrorPolicy(dst *networking.Destination, service *model.Se
 	return &route.RouteAction_RequestMirrorPolicy{
 		Cluster:         GetDestinationCluster(dst, service, listenerPort),
 		RuntimeFraction: mp,
-		TraceSampled:    &wrappers.BoolValue{Value: false},
+		TraceSampled:    &wrapperspb.BoolValue{Value: false},
 	}
 }
 

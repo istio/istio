@@ -120,6 +120,7 @@ spec:
                 type: string
               priority:
                 description: Determines ordering of `WasmPlugins` in the same `phase`.
+                format: int32
                 nullable: true
                 type: integer
               selector:
@@ -399,6 +400,8 @@ spec:
                                       description: Maximum number of keepalive probes
                                         to send without response before deciding the
                                         connection is dead.
+                                      maximum: 4294967295
+                                      minimum: 0
                                       type: integer
                                     time:
                                       description: The time duration a connection
@@ -483,10 +486,12 @@ spec:
                                   properties:
                                     tableSize:
                                       description: The table size for Maglev hashing.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 minimumRingSize:
                                   description: Deprecated.
+                                  minimum: 0
                                   type: integer
                                 ringHash:
                                   description: The ring/modulo hash load balancer
@@ -495,6 +500,7 @@ spec:
                                     minimumRingSize:
                                       description: The minimum number of virtual nodes
                                         to use for the hash ring.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 useSourceIp:
@@ -514,6 +520,8 @@ spec:
                                         type: string
                                       to:
                                         additionalProperties:
+                                          maximum: 4294967295
+                                          minimum: 0
                                           type: integer
                                         description: Map of upstream localities to
                                           traffic distribution weights.
@@ -574,6 +582,8 @@ spec:
                             consecutive5xxErrors:
                               description: Number of 5xx errors before a host is ejected
                                 from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveErrors:
@@ -582,11 +592,15 @@ spec:
                             consecutiveGatewayErrors:
                               description: Number of gateway errors before a host
                                 is ejected from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveLocalOriginFailures:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             interval:
@@ -695,6 +709,8 @@ spec:
                                             description: Maximum number of keepalive
                                               probes to send without response before
                                               deciding the connection is dead.
+                                            maximum: 4294967295
+                                            minimum: 0
                                             type: integer
                                           time:
                                             description: The time duration a connection
@@ -782,10 +798,12 @@ spec:
                                           tableSize:
                                             description: The table size for Maglev
                                               hashing.
+                                            minimum: 0
                                             type: integer
                                         type: object
                                       minimumRingSize:
                                         description: Deprecated.
+                                        minimum: 0
                                         type: integer
                                       ringHash:
                                         description: The ring/modulo hash load balancer
@@ -795,6 +813,7 @@ spec:
                                           minimumRingSize:
                                             description: The minimum number of virtual
                                               nodes to use for the hash ring.
+                                            minimum: 0
                                             type: integer
                                         type: object
                                       useSourceIp:
@@ -814,6 +833,8 @@ spec:
                                               type: string
                                             to:
                                               additionalProperties:
+                                                maximum: 4294967295
+                                                minimum: 0
                                                 type: integer
                                               description: Map of upstream localities
                                                 to traffic distribution weights.
@@ -875,6 +896,8 @@ spec:
                                   consecutive5xxErrors:
                                     description: Number of 5xx errors before a host
                                       is ejected from the connection pool.
+                                    maximum: 4294967295
+                                    minimum: 0
                                     nullable: true
                                     type: integer
                                   consecutiveErrors:
@@ -883,11 +906,15 @@ spec:
                                   consecutiveGatewayErrors:
                                     description: Number of gateway errors before a
                                       host is ejected from the connection pool.
+                                    maximum: 4294967295
+                                    minimum: 0
                                     nullable: true
                                     type: integer
                                   consecutiveLocalOriginFailures:
                                     description: The number of consecutive locally
                                       originated failures before ejection occurs.
+                                    maximum: 4294967295
+                                    minimum: 0
                                     nullable: true
                                     type: integer
                                   interval:
@@ -917,6 +944,8 @@ spec:
                                   applied.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               tls:
@@ -1056,6 +1085,8 @@ spec:
                             targetPort:
                               description: Specifies a port to which the downstream
                                 connection is tunneled.
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                           required:
                           - targetHost
@@ -1148,6 +1179,8 @@ spec:
                                 description: Maximum number of keepalive probes to
                                   send without response before deciding the connection
                                   is dead.
+                                maximum: 4294967295
+                                minimum: 0
                                 type: integer
                               time:
                                 description: The time duration a connection needs
@@ -1231,10 +1264,12 @@ spec:
                             properties:
                               tableSize:
                                 description: The table size for Maglev hashing.
+                                minimum: 0
                                 type: integer
                             type: object
                           minimumRingSize:
                             description: Deprecated.
+                            minimum: 0
                             type: integer
                           ringHash:
                             description: The ring/modulo hash load balancer implements
@@ -1243,6 +1278,7 @@ spec:
                               minimumRingSize:
                                 description: The minimum number of virtual nodes to
                                   use for the hash ring.
+                                minimum: 0
                                 type: integer
                             type: object
                           useSourceIp:
@@ -1262,6 +1298,8 @@ spec:
                                   type: string
                                 to:
                                   additionalProperties:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                   description: Map of upstream localities to traffic
                                     distribution weights.
@@ -1320,6 +1358,8 @@ spec:
                       consecutive5xxErrors:
                         description: Number of 5xx errors before a host is ejected
                           from the connection pool.
+                        maximum: 4294967295
+                        minimum: 0
                         nullable: true
                         type: integer
                       consecutiveErrors:
@@ -1328,11 +1368,15 @@ spec:
                       consecutiveGatewayErrors:
                         description: Number of gateway errors before a host is ejected
                           from the connection pool.
+                        maximum: 4294967295
+                        minimum: 0
                         nullable: true
                         type: integer
                       consecutiveLocalOriginFailures:
                         description: The number of consecutive locally originated
                           failures before ejection occurs.
+                        maximum: 4294967295
+                        minimum: 0
                         nullable: true
                         type: integer
                       interval:
@@ -1439,6 +1483,8 @@ spec:
                                       description: Maximum number of keepalive probes
                                         to send without response before deciding the
                                         connection is dead.
+                                      maximum: 4294967295
+                                      minimum: 0
                                       type: integer
                                     time:
                                       description: The time duration a connection
@@ -1523,10 +1569,12 @@ spec:
                                   properties:
                                     tableSize:
                                       description: The table size for Maglev hashing.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 minimumRingSize:
                                   description: Deprecated.
+                                  minimum: 0
                                   type: integer
                                 ringHash:
                                   description: The ring/modulo hash load balancer
@@ -1535,6 +1583,7 @@ spec:
                                     minimumRingSize:
                                       description: The minimum number of virtual nodes
                                         to use for the hash ring.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 useSourceIp:
@@ -1554,6 +1603,8 @@ spec:
                                         type: string
                                       to:
                                         additionalProperties:
+                                          maximum: 4294967295
+                                          minimum: 0
                                           type: integer
                                         description: Map of upstream localities to
                                           traffic distribution weights.
@@ -1614,6 +1665,8 @@ spec:
                             consecutive5xxErrors:
                               description: Number of 5xx errors before a host is ejected
                                 from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveErrors:
@@ -1622,11 +1675,15 @@ spec:
                             consecutiveGatewayErrors:
                               description: Number of gateway errors before a host
                                 is ejected from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveLocalOriginFailures:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             interval:
@@ -1653,6 +1710,8 @@ spec:
                             service on which this policy is being applied.
                           properties:
                             number:
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                           type: object
                         tls:
@@ -1790,6 +1849,8 @@ spec:
                       targetPort:
                         description: Specifies a port to which the downstream connection
                           is tunneled.
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                     required:
                     - targetHost
@@ -1946,6 +2007,8 @@ spec:
                                       description: Maximum number of keepalive probes
                                         to send without response before deciding the
                                         connection is dead.
+                                      maximum: 4294967295
+                                      minimum: 0
                                       type: integer
                                     time:
                                       description: The time duration a connection
@@ -2030,10 +2093,12 @@ spec:
                                   properties:
                                     tableSize:
                                       description: The table size for Maglev hashing.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 minimumRingSize:
                                   description: Deprecated.
+                                  minimum: 0
                                   type: integer
                                 ringHash:
                                   description: The ring/modulo hash load balancer
@@ -2042,6 +2107,7 @@ spec:
                                     minimumRingSize:
                                       description: The minimum number of virtual nodes
                                         to use for the hash ring.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 useSourceIp:
@@ -2061,6 +2127,8 @@ spec:
                                         type: string
                                       to:
                                         additionalProperties:
+                                          maximum: 4294967295
+                                          minimum: 0
                                           type: integer
                                         description: Map of upstream localities to
                                           traffic distribution weights.
@@ -2121,6 +2189,8 @@ spec:
                             consecutive5xxErrors:
                               description: Number of 5xx errors before a host is ejected
                                 from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveErrors:
@@ -2129,11 +2199,15 @@ spec:
                             consecutiveGatewayErrors:
                               description: Number of gateway errors before a host
                                 is ejected from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveLocalOriginFailures:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             interval:
@@ -2242,6 +2316,8 @@ spec:
                                             description: Maximum number of keepalive
                                               probes to send without response before
                                               deciding the connection is dead.
+                                            maximum: 4294967295
+                                            minimum: 0
                                             type: integer
                                           time:
                                             description: The time duration a connection
@@ -2329,10 +2405,12 @@ spec:
                                           tableSize:
                                             description: The table size for Maglev
                                               hashing.
+                                            minimum: 0
                                             type: integer
                                         type: object
                                       minimumRingSize:
                                         description: Deprecated.
+                                        minimum: 0
                                         type: integer
                                       ringHash:
                                         description: The ring/modulo hash load balancer
@@ -2342,6 +2420,7 @@ spec:
                                           minimumRingSize:
                                             description: The minimum number of virtual
                                               nodes to use for the hash ring.
+                                            minimum: 0
                                             type: integer
                                         type: object
                                       useSourceIp:
@@ -2361,6 +2440,8 @@ spec:
                                               type: string
                                             to:
                                               additionalProperties:
+                                                maximum: 4294967295
+                                                minimum: 0
                                                 type: integer
                                               description: Map of upstream localities
                                                 to traffic distribution weights.
@@ -2422,6 +2503,8 @@ spec:
                                   consecutive5xxErrors:
                                     description: Number of 5xx errors before a host
                                       is ejected from the connection pool.
+                                    maximum: 4294967295
+                                    minimum: 0
                                     nullable: true
                                     type: integer
                                   consecutiveErrors:
@@ -2430,11 +2513,15 @@ spec:
                                   consecutiveGatewayErrors:
                                     description: Number of gateway errors before a
                                       host is ejected from the connection pool.
+                                    maximum: 4294967295
+                                    minimum: 0
                                     nullable: true
                                     type: integer
                                   consecutiveLocalOriginFailures:
                                     description: The number of consecutive locally
                                       originated failures before ejection occurs.
+                                    maximum: 4294967295
+                                    minimum: 0
                                     nullable: true
                                     type: integer
                                   interval:
@@ -2464,6 +2551,8 @@ spec:
                                   applied.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               tls:
@@ -2603,6 +2692,8 @@ spec:
                             targetPort:
                               description: Specifies a port to which the downstream
                                 connection is tunneled.
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                           required:
                           - targetHost
@@ -2695,6 +2786,8 @@ spec:
                                 description: Maximum number of keepalive probes to
                                   send without response before deciding the connection
                                   is dead.
+                                maximum: 4294967295
+                                minimum: 0
                                 type: integer
                               time:
                                 description: The time duration a connection needs
@@ -2778,10 +2871,12 @@ spec:
                             properties:
                               tableSize:
                                 description: The table size for Maglev hashing.
+                                minimum: 0
                                 type: integer
                             type: object
                           minimumRingSize:
                             description: Deprecated.
+                            minimum: 0
                             type: integer
                           ringHash:
                             description: The ring/modulo hash load balancer implements
@@ -2790,6 +2885,7 @@ spec:
                               minimumRingSize:
                                 description: The minimum number of virtual nodes to
                                   use for the hash ring.
+                                minimum: 0
                                 type: integer
                             type: object
                           useSourceIp:
@@ -2809,6 +2905,8 @@ spec:
                                   type: string
                                 to:
                                   additionalProperties:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                   description: Map of upstream localities to traffic
                                     distribution weights.
@@ -2867,6 +2965,8 @@ spec:
                       consecutive5xxErrors:
                         description: Number of 5xx errors before a host is ejected
                           from the connection pool.
+                        maximum: 4294967295
+                        minimum: 0
                         nullable: true
                         type: integer
                       consecutiveErrors:
@@ -2875,11 +2975,15 @@ spec:
                       consecutiveGatewayErrors:
                         description: Number of gateway errors before a host is ejected
                           from the connection pool.
+                        maximum: 4294967295
+                        minimum: 0
                         nullable: true
                         type: integer
                       consecutiveLocalOriginFailures:
                         description: The number of consecutive locally originated
                           failures before ejection occurs.
+                        maximum: 4294967295
+                        minimum: 0
                         nullable: true
                         type: integer
                       interval:
@@ -2986,6 +3090,8 @@ spec:
                                       description: Maximum number of keepalive probes
                                         to send without response before deciding the
                                         connection is dead.
+                                      maximum: 4294967295
+                                      minimum: 0
                                       type: integer
                                     time:
                                       description: The time duration a connection
@@ -3070,10 +3176,12 @@ spec:
                                   properties:
                                     tableSize:
                                       description: The table size for Maglev hashing.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 minimumRingSize:
                                   description: Deprecated.
+                                  minimum: 0
                                   type: integer
                                 ringHash:
                                   description: The ring/modulo hash load balancer
@@ -3082,6 +3190,7 @@ spec:
                                     minimumRingSize:
                                       description: The minimum number of virtual nodes
                                         to use for the hash ring.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 useSourceIp:
@@ -3101,6 +3210,8 @@ spec:
                                         type: string
                                       to:
                                         additionalProperties:
+                                          maximum: 4294967295
+                                          minimum: 0
                                           type: integer
                                         description: Map of upstream localities to
                                           traffic distribution weights.
@@ -3161,6 +3272,8 @@ spec:
                             consecutive5xxErrors:
                               description: Number of 5xx errors before a host is ejected
                                 from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveErrors:
@@ -3169,11 +3282,15 @@ spec:
                             consecutiveGatewayErrors:
                               description: Number of gateway errors before a host
                                 is ejected from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveLocalOriginFailures:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             interval:
@@ -3200,6 +3317,8 @@ spec:
                             service on which this policy is being applied.
                           properties:
                             number:
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                           type: object
                         tls:
@@ -3337,6 +3456,8 @@ spec:
                       targetPort:
                         description: Specifies a port to which the downstream connection
                           is tunneled.
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                     required:
                     - targetHost
@@ -3493,6 +3614,8 @@ spec:
                                       description: Maximum number of keepalive probes
                                         to send without response before deciding the
                                         connection is dead.
+                                      maximum: 4294967295
+                                      minimum: 0
                                       type: integer
                                     time:
                                       description: The time duration a connection
@@ -3577,10 +3700,12 @@ spec:
                                   properties:
                                     tableSize:
                                       description: The table size for Maglev hashing.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 minimumRingSize:
                                   description: Deprecated.
+                                  minimum: 0
                                   type: integer
                                 ringHash:
                                   description: The ring/modulo hash load balancer
@@ -3589,6 +3714,7 @@ spec:
                                     minimumRingSize:
                                       description: The minimum number of virtual nodes
                                         to use for the hash ring.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 useSourceIp:
@@ -3608,6 +3734,8 @@ spec:
                                         type: string
                                       to:
                                         additionalProperties:
+                                          maximum: 4294967295
+                                          minimum: 0
                                           type: integer
                                         description: Map of upstream localities to
                                           traffic distribution weights.
@@ -3668,6 +3796,8 @@ spec:
                             consecutive5xxErrors:
                               description: Number of 5xx errors before a host is ejected
                                 from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveErrors:
@@ -3676,11 +3806,15 @@ spec:
                             consecutiveGatewayErrors:
                               description: Number of gateway errors before a host
                                 is ejected from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveLocalOriginFailures:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             interval:
@@ -3789,6 +3923,8 @@ spec:
                                             description: Maximum number of keepalive
                                               probes to send without response before
                                               deciding the connection is dead.
+                                            maximum: 4294967295
+                                            minimum: 0
                                             type: integer
                                           time:
                                             description: The time duration a connection
@@ -3876,10 +4012,12 @@ spec:
                                           tableSize:
                                             description: The table size for Maglev
                                               hashing.
+                                            minimum: 0
                                             type: integer
                                         type: object
                                       minimumRingSize:
                                         description: Deprecated.
+                                        minimum: 0
                                         type: integer
                                       ringHash:
                                         description: The ring/modulo hash load balancer
@@ -3889,6 +4027,7 @@ spec:
                                           minimumRingSize:
                                             description: The minimum number of virtual
                                               nodes to use for the hash ring.
+                                            minimum: 0
                                             type: integer
                                         type: object
                                       useSourceIp:
@@ -3908,6 +4047,8 @@ spec:
                                               type: string
                                             to:
                                               additionalProperties:
+                                                maximum: 4294967295
+                                                minimum: 0
                                                 type: integer
                                               description: Map of upstream localities
                                                 to traffic distribution weights.
@@ -3969,6 +4110,8 @@ spec:
                                   consecutive5xxErrors:
                                     description: Number of 5xx errors before a host
                                       is ejected from the connection pool.
+                                    maximum: 4294967295
+                                    minimum: 0
                                     nullable: true
                                     type: integer
                                   consecutiveErrors:
@@ -3977,11 +4120,15 @@ spec:
                                   consecutiveGatewayErrors:
                                     description: Number of gateway errors before a
                                       host is ejected from the connection pool.
+                                    maximum: 4294967295
+                                    minimum: 0
                                     nullable: true
                                     type: integer
                                   consecutiveLocalOriginFailures:
                                     description: The number of consecutive locally
                                       originated failures before ejection occurs.
+                                    maximum: 4294967295
+                                    minimum: 0
                                     nullable: true
                                     type: integer
                                   interval:
@@ -4011,6 +4158,8 @@ spec:
                                   applied.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               tls:
@@ -4150,6 +4299,8 @@ spec:
                             targetPort:
                               description: Specifies a port to which the downstream
                                 connection is tunneled.
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                           required:
                           - targetHost
@@ -4242,6 +4393,8 @@ spec:
                                 description: Maximum number of keepalive probes to
                                   send without response before deciding the connection
                                   is dead.
+                                maximum: 4294967295
+                                minimum: 0
                                 type: integer
                               time:
                                 description: The time duration a connection needs
@@ -4325,10 +4478,12 @@ spec:
                             properties:
                               tableSize:
                                 description: The table size for Maglev hashing.
+                                minimum: 0
                                 type: integer
                             type: object
                           minimumRingSize:
                             description: Deprecated.
+                            minimum: 0
                             type: integer
                           ringHash:
                             description: The ring/modulo hash load balancer implements
@@ -4337,6 +4492,7 @@ spec:
                               minimumRingSize:
                                 description: The minimum number of virtual nodes to
                                   use for the hash ring.
+                                minimum: 0
                                 type: integer
                             type: object
                           useSourceIp:
@@ -4356,6 +4512,8 @@ spec:
                                   type: string
                                 to:
                                   additionalProperties:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                   description: Map of upstream localities to traffic
                                     distribution weights.
@@ -4414,6 +4572,8 @@ spec:
                       consecutive5xxErrors:
                         description: Number of 5xx errors before a host is ejected
                           from the connection pool.
+                        maximum: 4294967295
+                        minimum: 0
                         nullable: true
                         type: integer
                       consecutiveErrors:
@@ -4422,11 +4582,15 @@ spec:
                       consecutiveGatewayErrors:
                         description: Number of gateway errors before a host is ejected
                           from the connection pool.
+                        maximum: 4294967295
+                        minimum: 0
                         nullable: true
                         type: integer
                       consecutiveLocalOriginFailures:
                         description: The number of consecutive locally originated
                           failures before ejection occurs.
+                        maximum: 4294967295
+                        minimum: 0
                         nullable: true
                         type: integer
                       interval:
@@ -4533,6 +4697,8 @@ spec:
                                       description: Maximum number of keepalive probes
                                         to send without response before deciding the
                                         connection is dead.
+                                      maximum: 4294967295
+                                      minimum: 0
                                       type: integer
                                     time:
                                       description: The time duration a connection
@@ -4617,10 +4783,12 @@ spec:
                                   properties:
                                     tableSize:
                                       description: The table size for Maglev hashing.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 minimumRingSize:
                                   description: Deprecated.
+                                  minimum: 0
                                   type: integer
                                 ringHash:
                                   description: The ring/modulo hash load balancer
@@ -4629,6 +4797,7 @@ spec:
                                     minimumRingSize:
                                       description: The minimum number of virtual nodes
                                         to use for the hash ring.
+                                      minimum: 0
                                       type: integer
                                   type: object
                                 useSourceIp:
@@ -4648,6 +4817,8 @@ spec:
                                         type: string
                                       to:
                                         additionalProperties:
+                                          maximum: 4294967295
+                                          minimum: 0
                                           type: integer
                                         description: Map of upstream localities to
                                           traffic distribution weights.
@@ -4708,6 +4879,8 @@ spec:
                             consecutive5xxErrors:
                               description: Number of 5xx errors before a host is ejected
                                 from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveErrors:
@@ -4716,11 +4889,15 @@ spec:
                             consecutiveGatewayErrors:
                               description: Number of gateway errors before a host
                                 is ejected from the connection pool.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             consecutiveLocalOriginFailures:
                               description: The number of consecutive locally originated
                                 failures before ejection occurs.
+                              maximum: 4294967295
+                              minimum: 0
                               nullable: true
                               type: integer
                             interval:
@@ -4747,6 +4924,8 @@ spec:
                             service on which this policy is being applied.
                           properties:
                             number:
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                           type: object
                         tls:
@@ -4884,6 +5063,8 @@ spec:
                       targetPort:
                         description: Specifies a port to which the downstream connection
                           is tunneled.
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                     required:
                     - targetHost
@@ -4994,6 +5175,8 @@ spec:
                             portNumber:
                               description: The service port for which this cluster
                                 was generated.
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                             service:
                               description: The fully qualified service name for this
@@ -5026,6 +5209,8 @@ spec:
                                 destinationPort:
                                   description: The destination_port value used by
                                     a filter chain's match condition.
+                                  maximum: 4294967295
+                                  minimum: 0
                                   type: integer
                                 filter:
                                   description: The name of a specific filter to apply
@@ -5065,6 +5250,8 @@ spec:
                             portNumber:
                               description: The service port/gateway port to which
                                 traffic is being sent/received.
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                           type: object
                         proxy:
@@ -5099,6 +5286,8 @@ spec:
                               description: The service port number or gateway server
                                 port number for which this route configuration was
                                 generated.
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                             vhost:
                               description: Match a specific virtual host in a route
@@ -5281,11 +5470,15 @@ spec:
                           type: string
                         number:
                           description: A valid non-negative integer port number.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
                         targetPort:
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       required:
                       - number
@@ -5438,11 +5631,15 @@ spec:
                           type: string
                         number:
                           description: A valid non-negative integer port number.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
                         targetPort:
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       required:
                       - number
@@ -5595,11 +5792,15 @@ spec:
                           type: string
                         number:
                           description: A valid non-negative integer port number.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
                         targetPort:
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       required:
                       - number
@@ -5744,6 +5945,7 @@ spec:
             properties:
               concurrency:
                 description: The number of worker threads to run.
+                format: int32
                 nullable: true
                 type: integer
               environmentVariables:
@@ -5860,6 +6062,8 @@ spec:
                       type: string
                     ports:
                       additionalProperties:
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                       description: Set of ports associated with the endpoint.
                       type: object
@@ -5869,6 +6073,8 @@ spec:
                       type: string
                     weight:
                       description: The load balancing weight associated with the endpoint.
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                   type: object
                 type: array
@@ -5900,6 +6106,8 @@ spec:
                       type: string
                     number:
                       description: A valid non-negative integer port number.
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                     protocol:
                       description: The protocol exposed on the port.
@@ -5907,6 +6115,8 @@ spec:
                     targetPort:
                       description: The port number on the endpoint where the traffic
                         will be received.
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                   required:
                   - number
@@ -6008,6 +6218,8 @@ spec:
                       type: string
                     ports:
                       additionalProperties:
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                       description: Set of ports associated with the endpoint.
                       type: object
@@ -6017,6 +6229,8 @@ spec:
                       type: string
                     weight:
                       description: The load balancing weight associated with the endpoint.
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                   type: object
                 type: array
@@ -6048,6 +6262,8 @@ spec:
                       type: string
                     number:
                       description: A valid non-negative integer port number.
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                     protocol:
                       description: The protocol exposed on the port.
@@ -6055,6 +6271,8 @@ spec:
                     targetPort:
                       description: The port number on the endpoint where the traffic
                         will be received.
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                   required:
                   - number
@@ -6156,6 +6374,8 @@ spec:
                       type: string
                     ports:
                       additionalProperties:
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                       description: Set of ports associated with the endpoint.
                       type: object
@@ -6165,6 +6385,8 @@ spec:
                       type: string
                     weight:
                       description: The load balancing weight associated with the endpoint.
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                   type: object
                 type: array
@@ -6196,6 +6418,8 @@ spec:
                       type: string
                     number:
                       description: A valid non-negative integer port number.
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                     protocol:
                       description: The protocol exposed on the port.
@@ -6203,6 +6427,8 @@ spec:
                     targetPort:
                       description: The port number on the endpoint where the traffic
                         will be received.
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                   required:
                   - number
@@ -6313,11 +6539,15 @@ spec:
                           type: string
                         number:
                           description: A valid non-negative integer port number.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
                         targetPort:
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       type: object
                   required:
@@ -6401,6 +6631,8 @@ spec:
                           probes:
                             description: Maximum number of keepalive probes to send
                               without response before deciding the connection is dead.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           time:
                             description: The time duration a connection needs to be
@@ -6509,6 +6741,8 @@ spec:
                                   description: Maximum number of keepalive probes
                                     to send without response before deciding the connection
                                     is dead.
+                                  maximum: 4294967295
+                                  minimum: 0
                                   type: integer
                                 time:
                                   description: The time duration a connection needs
@@ -6530,11 +6764,15 @@ spec:
                           type: string
                         number:
                           description: A valid non-negative integer port number.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
                         targetPort:
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       type: object
                     tls:
@@ -6645,6 +6883,8 @@ spec:
                           addressed.
                         properties:
                           number:
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                         type: object
                       subset:
@@ -6725,11 +6965,15 @@ spec:
                           type: string
                         number:
                           description: A valid non-negative integer port number.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
                         targetPort:
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       type: object
                   required:
@@ -6813,6 +7057,8 @@ spec:
                           probes:
                             description: Maximum number of keepalive probes to send
                               without response before deciding the connection is dead.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           time:
                             description: The time duration a connection needs to be
@@ -6921,6 +7167,8 @@ spec:
                                   description: Maximum number of keepalive probes
                                     to send without response before deciding the connection
                                     is dead.
+                                  maximum: 4294967295
+                                  minimum: 0
                                   type: integer
                                 time:
                                   description: The time duration a connection needs
@@ -6942,11 +7190,15 @@ spec:
                           type: string
                         number:
                           description: A valid non-negative integer port number.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
                         targetPort:
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       type: object
                     tls:
@@ -7057,6 +7309,8 @@ spec:
                           addressed.
                         properties:
                           number:
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                         type: object
                       subset:
@@ -7137,11 +7391,15 @@ spec:
                           type: string
                         number:
                           description: A valid non-negative integer port number.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
                         targetPort:
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       type: object
                   required:
@@ -7225,6 +7483,8 @@ spec:
                           probes:
                             description: Maximum number of keepalive probes to send
                               without response before deciding the connection is dead.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           time:
                             description: The time duration a connection needs to be
@@ -7333,6 +7593,8 @@ spec:
                                   description: Maximum number of keepalive probes
                                     to send without response before deciding the connection
                                     is dead.
+                                  maximum: 4294967295
+                                  minimum: 0
                                   type: integer
                                 time:
                                   description: The time duration a connection needs
@@ -7354,11 +7616,15 @@ spec:
                           type: string
                         number:
                           description: A valid non-negative integer port number.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
                           type: string
                         targetPort:
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       type: object
                     tls:
@@ -7469,6 +7735,8 @@ spec:
                           addressed.
                         properties:
                           number:
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                         type: object
                       subset:
@@ -7681,6 +7949,8 @@ spec:
                           type: object
                         status:
                           description: Specifies the HTTP response status to be returned.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       required:
                       - status
@@ -7906,6 +8176,8 @@ spec:
                           port:
                             description: Specifies the ports on the host that is being
                               addressed.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           queryParams:
                             additionalProperties:
@@ -8051,6 +8323,8 @@ spec:
                             addressed.
                           properties:
                             number:
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                           type: object
                         subset:
@@ -8060,9 +8334,13 @@ spec:
                       - host
                       type: object
                     mirror_percent:
+                      maximum: 4294967295
+                      minimum: 0
                       nullable: true
                       type: integer
                     mirrorPercent:
+                      maximum: 4294967295
+                      minimum: 0
                       nullable: true
                       type: integer
                     mirrorPercentage:
@@ -8091,6 +8369,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -8145,10 +8425,14 @@ spec:
                         port:
                           description: On a redirect, overwrite the port portion of
                             the URL with this value.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         redirectCode:
                           description: On a redirect, Specifies the HTTP status code
                             to use in the redirect response.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         scheme:
                           description: On a redirect, overwrite the scheme portion
@@ -8224,6 +8508,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -8303,6 +8589,8 @@ spec:
                           port:
                             description: Specifies the port on the host that is being
                               addressed.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           sourceLabels:
                             additionalProperties:
@@ -8337,6 +8625,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -8381,6 +8671,8 @@ spec:
                           port:
                             description: Specifies the port on the host that is being
                               addressed.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           sniHosts:
                             description: SNI (server name indicator) to match on.
@@ -8420,6 +8712,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -8598,6 +8892,8 @@ spec:
                           type: object
                         status:
                           description: Specifies the HTTP response status to be returned.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       required:
                       - status
@@ -8823,6 +9119,8 @@ spec:
                           port:
                             description: Specifies the ports on the host that is being
                               addressed.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           queryParams:
                             additionalProperties:
@@ -8968,6 +9266,8 @@ spec:
                             addressed.
                           properties:
                             number:
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                           type: object
                         subset:
@@ -8977,9 +9277,13 @@ spec:
                       - host
                       type: object
                     mirror_percent:
+                      maximum: 4294967295
+                      minimum: 0
                       nullable: true
                       type: integer
                     mirrorPercent:
+                      maximum: 4294967295
+                      minimum: 0
                       nullable: true
                       type: integer
                     mirrorPercentage:
@@ -9008,6 +9312,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -9062,10 +9368,14 @@ spec:
                         port:
                           description: On a redirect, overwrite the port portion of
                             the URL with this value.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         redirectCode:
                           description: On a redirect, Specifies the HTTP status code
                             to use in the redirect response.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         scheme:
                           description: On a redirect, overwrite the scheme portion
@@ -9141,6 +9451,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -9220,6 +9532,8 @@ spec:
                           port:
                             description: Specifies the port on the host that is being
                               addressed.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           sourceLabels:
                             additionalProperties:
@@ -9254,6 +9568,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -9298,6 +9614,8 @@ spec:
                           port:
                             description: Specifies the port on the host that is being
                               addressed.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           sniHosts:
                             description: SNI (server name indicator) to match on.
@@ -9337,6 +9655,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -9515,6 +9835,8 @@ spec:
                           type: object
                         status:
                           description: Specifies the HTTP response status to be returned.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                       required:
                       - status
@@ -9740,6 +10062,8 @@ spec:
                           port:
                             description: Specifies the ports on the host that is being
                               addressed.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           queryParams:
                             additionalProperties:
@@ -9885,6 +10209,8 @@ spec:
                             addressed.
                           properties:
                             number:
+                              maximum: 4294967295
+                              minimum: 0
                               type: integer
                           type: object
                         subset:
@@ -9894,9 +10220,13 @@ spec:
                       - host
                       type: object
                     mirror_percent:
+                      maximum: 4294967295
+                      minimum: 0
                       nullable: true
                       type: integer
                     mirrorPercent:
+                      maximum: 4294967295
+                      minimum: 0
                       nullable: true
                       type: integer
                     mirrorPercentage:
@@ -9925,6 +10255,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -9979,10 +10311,14 @@ spec:
                         port:
                           description: On a redirect, overwrite the port portion of
                             the URL with this value.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         redirectCode:
                           description: On a redirect, Specifies the HTTP status code
                             to use in the redirect response.
+                          maximum: 4294967295
+                          minimum: 0
                           type: integer
                         scheme:
                           description: On a redirect, overwrite the scheme portion
@@ -10058,6 +10394,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -10137,6 +10475,8 @@ spec:
                           port:
                             description: Specifies the port on the host that is being
                               addressed.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           sourceLabels:
                             additionalProperties:
@@ -10171,6 +10511,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -10215,6 +10557,8 @@ spec:
                           port:
                             description: Specifies the port on the host that is being
                               addressed.
+                            maximum: 4294967295
+                            minimum: 0
                             type: integer
                           sniHosts:
                             description: SNI (server name indicator) to match on.
@@ -10254,6 +10598,8 @@ spec:
                                   being addressed.
                                 properties:
                                   number:
+                                    maximum: 4294967295
+                                    minimum: 0
                                     type: integer
                                 type: object
                               subset:
@@ -10349,6 +10695,8 @@ spec:
                 type: string
               ports:
                 additionalProperties:
+                  maximum: 4294967295
+                  minimum: 0
                   type: integer
                 description: Set of ports associated with the endpoint.
                 type: object
@@ -10358,6 +10706,8 @@ spec:
                 type: string
               weight:
                 description: The load balancing weight associated with the endpoint.
+                maximum: 4294967295
+                minimum: 0
                 type: integer
             type: object
           status:
@@ -10407,6 +10757,8 @@ spec:
                 type: string
               ports:
                 additionalProperties:
+                  maximum: 4294967295
+                  minimum: 0
                   type: integer
                 description: Set of ports associated with the endpoint.
                 type: object
@@ -10416,6 +10768,8 @@ spec:
                 type: string
               weight:
                 description: The load balancing weight associated with the endpoint.
+                maximum: 4294967295
+                minimum: 0
                 type: integer
             type: object
           status:
@@ -10465,6 +10819,8 @@ spec:
                 type: string
               ports:
                 additionalProperties:
+                  maximum: 4294967295
+                  minimum: 0
                   type: integer
                 description: Set of ports associated with the endpoint.
                 type: object
@@ -10474,6 +10830,8 @@ spec:
                 type: string
               weight:
                 description: The load balancing weight associated with the endpoint.
+                maximum: 4294967295
+                minimum: 0
                 type: integer
             type: object
           status:
@@ -10596,6 +10954,8 @@ spec:
                         type: string
                       port:
                         description: Port on which the endpoint lives.
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                       scheme:
                         type: string
@@ -10622,6 +10982,8 @@ spec:
                       host:
                         type: string
                       port:
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                     required:
                     - port
@@ -10653,6 +11015,8 @@ spec:
                     type: string
                   ports:
                     additionalProperties:
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                     description: Set of ports associated with the endpoint.
                     type: object
@@ -10662,6 +11026,8 @@ spec:
                     type: string
                   weight:
                     description: The load balancing weight associated with the endpoint.
+                    maximum: 4294967295
+                    minimum: 0
                     type: integer
                 type: object
             required:
@@ -10761,6 +11127,8 @@ spec:
                         type: string
                       port:
                         description: Port on which the endpoint lives.
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                       scheme:
                         type: string
@@ -10787,6 +11155,8 @@ spec:
                       host:
                         type: string
                       port:
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                     required:
                     - port
@@ -10818,6 +11188,8 @@ spec:
                     type: string
                   ports:
                     additionalProperties:
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                     description: Set of ports associated with the endpoint.
                     type: object
@@ -10827,6 +11199,8 @@ spec:
                     type: string
                   weight:
                     description: The load balancing weight associated with the endpoint.
+                    maximum: 4294967295
+                    minimum: 0
                     type: integer
                 type: object
             required:
@@ -10928,6 +11302,8 @@ spec:
                         type: string
                       port:
                         description: Port on which the endpoint lives.
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                       scheme:
                         type: string
@@ -10954,6 +11330,8 @@ spec:
                       host:
                         type: string
                       port:
+                        maximum: 4294967295
+                        minimum: 0
                         type: integer
                     required:
                     - port
@@ -10985,6 +11363,8 @@ spec:
                     type: string
                   ports:
                     additionalProperties:
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                     description: Set of ports associated with the endpoint.
                     type: object
@@ -10994,6 +11374,8 @@ spec:
                     type: string
                   weight:
                     description: The load balancing weight associated with the endpoint.
+                    maximum: 4294967295
+                    minimum: 0
                     type: integer
                 type: object
             required:
@@ -12321,6 +12703,7 @@ spec:
                     randomSamplingPercentage:
                       description: Controls the rate at which traffic will be selected
                         for tracing if no prior sampling decision has been made.
+                      format: double
                       maximum: 100
                       minimum: 0
                       nullable: true
@@ -12647,6 +13030,7 @@ spec:
                     randomSamplingPercentage:
                       description: Controls the rate at which traffic will be selected
                         for tracing if no prior sampling decision has been made.
+                      format: double
                       maximum: 100
                       minimum: 0
                       nullable: true

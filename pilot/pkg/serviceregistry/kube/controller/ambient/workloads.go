@@ -85,6 +85,8 @@ func (a *index) WorkloadsCollection(
 			// Not ready yet
 			return nil
 		}
+		services := []model.ServiceInfo{*svc}
+
 		for _, p := range se.Spec.Endpoints {
 			meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
 			// We need to filter from the policies that are present, which apply to us.
@@ -110,6 +112,10 @@ func (a *index) WorkloadsCollection(
 			if waypoint != nil {
 				waypointAddress = a.getWaypointAddress(waypoint)
 			}
+
+			// enforce traversing waypoints
+			policies = append(policies, implicitWaypointPolicies(ctx, Waypoints, waypoint, services)...)
+
 			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 			network := a.Network(p.Address, p.Labels).String()
 			if p.Network != "" {
@@ -122,7 +128,7 @@ func (a *index) WorkloadsCollection(
 				Network:               network,
 				ClusterId:             string(a.ClusterID),
 				ServiceAccount:        p.ServiceAccount,
-				Services:              constructServicesFromWorkloadEntry(p, []model.ServiceInfo{*svc}),
+				Services:              constructServicesFromWorkloadEntry(p, services),
 				AuthorizationPolicies: policies,
 				Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
 				Waypoint:              waypointAddress,
@@ -191,6 +197,10 @@ func (a *index) workloadEntryWorkloadBuilder(
 		if p.Spec.Network != "" {
 			network = p.Spec.Network
 		}
+
+		// enforce traversing waypoints
+		policies = append(policies, implicitWaypointPolicies(ctx, Waypoints, waypoint, services)...)
+
 		w := &workloadapi.Workload{
 			Uid:                   a.generateWorkloadEntryUID(p.Namespace, p.Name),
 			Name:                  p.Name,
@@ -268,6 +278,23 @@ func (a *index) podWorkloadBuilder(
 		}
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		network := a.Network(p.Status.PodIP, p.Labels).String()
+
+		var appTunnel *workloadapi.ApplicationTunnel
+		var targetWaypoint *Waypoint
+		if instancedWaypoint := fetchWaypointForInstance(ctx, Waypoints, p.ObjectMeta); instancedWaypoint != nil {
+			// we're an instance of a waypoint, set inbound tunnel info
+			appTunnel = &workloadapi.ApplicationTunnel{
+				Protocol: instancedWaypoint.DefaultBinding.Protocol,
+				Port:     instancedWaypoint.DefaultBinding.Port,
+			}
+		} else if waypoint := fetchWaypointForWorkload(ctx, Waypoints, Namespaces, p.ObjectMeta); waypoint != nil {
+			// there is a workload-attached waypoint, point there with a GatewayAddress
+			targetWaypoint = waypoint
+		}
+
+		// enforce traversing waypoints
+		policies = append(policies, implicitWaypointPolicies(ctx, Waypoints, targetWaypoint, services)...)
+
 		w := &workloadapi.Workload{
 			Uid:                   a.generatePodUID(p),
 			Name:                  p.Name,
@@ -276,7 +303,9 @@ func (a *index) podWorkloadBuilder(
 			ClusterId:             string(a.ClusterID),
 			Addresses:             [][]byte{podIP.AsSlice()},
 			ServiceAccount:        p.Spec.ServiceAccountName,
+			Waypoint:              a.getWaypointAddress(targetWaypoint),
 			Node:                  p.Spec.NodeName,
+			ApplicationTunnel:     appTunnel,
 			Services:              constructServices(p, services),
 			AuthorizationPolicies: policies,
 			Status:                status,
@@ -284,16 +313,6 @@ func (a *index) podWorkloadBuilder(
 			Locality:              getPodLocality(ctx, Nodes, p),
 		}
 
-		if instancedWaypoint := fetchWaypointForInstance(ctx, Waypoints, p.ObjectMeta); instancedWaypoint != nil {
-			// we're an instance of a waypoint, set inbound tunnel info
-			w.ApplicationTunnel = &workloadapi.ApplicationTunnel{
-				Protocol: instancedWaypoint.DefaultBinding.Protocol,
-				Port:     instancedWaypoint.DefaultBinding.Port,
-			}
-		} else if waypoint := fetchWaypointForWorkload(ctx, Waypoints, Namespaces, p.ObjectMeta); waypoint != nil {
-			// there is a workload-attached waypoint, point there with a GatewayAddress
-			w.Waypoint = a.getWaypointAddress(waypoint)
-		}
 		w.WorkloadName, w.WorkloadType = workloadNameAndType(p)
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
@@ -466,4 +485,28 @@ func getWorkloadEntryLocality(p *networkingv1alpha3.WorkloadEntry) *workloadapi.
 		Zone:    zone,
 		Subzone: subzone,
 	}
+}
+
+func implicitWaypointPolicies(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], waypoint *Waypoint, services []model.ServiceInfo) []string {
+	if !features.DefaultAllowFromWaypoint {
+		return nil
+	}
+	serviceWaypointKeys := slices.MapFilter(services, func(si model.ServiceInfo) *string {
+		if si.Waypoint == "" || (waypoint != nil && waypoint.ResourceName() == si.Waypoint) {
+			return nil
+		}
+		return ptr.Of(si.Waypoint)
+	})
+	waypoints := krt.Fetch(ctx, Waypoints, krt.FilterKeys(serviceWaypointKeys...))
+	if waypoint != nil {
+		waypoints = append(waypoints, *waypoint)
+	}
+
+	return slices.MapFilter(waypoints, func(w Waypoint) *string {
+		policy := implicitWaypointPolicyName(&w)
+		if policy == "" {
+			return nil
+		}
+		return &policy
+	})
 }

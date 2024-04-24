@@ -549,7 +549,7 @@ func TestTracing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry, _ := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.Tracing = tt.defaultProviders
-			got := telemetry.Tracing(tt.proxy)
+			got := telemetry.Tracing(tt.proxy, nil)
 			if got != nil && got.ServerSpec.Provider != nil {
 				// We don't match on this, just the name for test simplicity
 				got.ServerSpec.Provider.Provider = nil
@@ -1215,7 +1215,7 @@ func TestTelemetryFilters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry, _ := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders = tt.defaultProviders
-			got := telemetry.telemetryFilters(tt.proxy, tt.class, tt.protocol)
+			got := telemetry.telemetryFilters(tt.proxy, tt.class, tt.protocol, nil)
 			res := map[string]string{}
 			http, ok := got.([]*hcm.HttpFilter)
 			if ok {

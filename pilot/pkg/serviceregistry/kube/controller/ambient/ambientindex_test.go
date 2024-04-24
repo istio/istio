@@ -71,14 +71,12 @@ const (
 
 func init() {
 	features.EnableAmbientWaypoints = true
-	features.EnableAmbientControllers = true
+	features.EnableAmbient = true
 }
 
 var validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 
 func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
-
 	cases := []struct {
 		name         string
 		trafficType  string
@@ -152,13 +150,13 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 			s.assertEvent(t, s.svcXdsName("svc1"), s.podXdsName("pod1"))
 
-			// Annotate the pod and check that the correct event is produced.
-			s.annotatePod(t, "pod1", testNS,
-				map[string]string{constants.AmbientUseWaypoint: "test-wp"})
+			// Label the pod and check that the correct event is produced.
+			s.labelPod(t, "pod1", testNS,
+				map[string]string{"app": "a", constants.AmbientUseWaypoint: "test-wp"})
 			c.podAssertion(s)
 
-			// Annotate the service and check that the correct event is produced.
-			s.annotateService(t, "svc1", testNS,
+			// Label the service and check that the correct event is produced.
+			s.labelService(t, "svc1", testNS,
 				map[string]string{constants.AmbientUseWaypoint: "test-wp"})
 			c.svcAssertion(s)
 
@@ -174,7 +172,6 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 }
 
 func TestAmbientIndex_NetworkAndClusterIDs(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	cases := []struct {
 		name    string
 		cluster cluster.ID
@@ -254,7 +251,6 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 }
 
 func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addWaypoint(t, "10.0.0.10", "test-wp", "default", true)
@@ -269,10 +265,7 @@ func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 	s.assertEvent(t, s.podXdsName("pod1"), s.svcXdsName("svc1"))
 
-	s.addService(t, "svc1",
-		map[string]string{},
-		map[string]string{constants.AmbientUseWaypoint: "test-wp"},
-		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.labelService(t, "svc1", testNS, map[string]string{constants.AmbientUseWaypoint: "test-wp"})
 	s.assertEvent(t, s.svcXdsName("svc1"))
 	s.assertNoEvent(t)
 
@@ -364,8 +357,8 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 		"127.0.0.1",
 		"pod1",
 		"sa1",
-		map[string]string{"app": "a"},
-		map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"},
+		map[string]string{"app": "a", constants.AmbientUseWaypoint: "waypoint-sa1"},
+		map[string]string{},
 		true,
 		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
@@ -373,8 +366,8 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 		"127.0.0.2",
 		"pod2",
 		"sa2",
-		map[string]string{"app": "b"},
-		map[string]string{constants.AmbientUseWaypoint: "waypoint-sa2"},
+		map[string]string{"app": "b", constants.AmbientUseWaypoint: "waypoint-sa2"},
+		map[string]string{},
 		true,
 		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod2"))
@@ -395,7 +388,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	s.ns.Update(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
-			Annotations: map[string]string{
+			Labels: map[string]string{
 				constants.AmbientUseWaypoint: "waypoint-ns",
 			},
 		},
@@ -413,8 +406,8 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 		"127.0.0.4",
 		"pod4",
 		"sa2",
-		map[string]string{"app": "b"},
-		map[string]string{constants.AmbientUseWaypoint: "waypoint-sa2"},
+		map[string]string{"app": "b", constants.AmbientUseWaypoint: "waypoint-sa2"},
+		map[string]string{},
 		true,
 		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod4"))
@@ -621,10 +614,10 @@ const (
 	xdsSelector                        = "selector"
 )
 
-// TODO(nmittler): Consider splitting this into multiple, smaller tests.
-func TestAmbientIndex_Policy(t *testing.T) {
-	s := newAmbientTestServer(t, testC, testNW)
-
+// app a has one pod
+// the waypoint has two pods with different service accounts
+// the waypoint is namespace attached
+func setupPolicyTest(t *testing.T, s *ambientTestServer) {
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
@@ -634,14 +627,17 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
 	s.addPods(t, "127.0.0.201", "waypoint2-sa", "waypoint-sa",
-		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
+		map[string]string{
+			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
+			constants.GatewayNameLabel:    "waypoint-ns",
+		},
 		map[string]string{}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
 	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", constants.AllTraffic, true)
 	s.ns.Update(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
-			Annotations: map[string]string{
+			Labels: map[string]string{
 				constants.AmbientUseWaypoint: "waypoint-ns",
 			},
 		},
@@ -652,6 +648,13 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "waypoint-ns"}, "10.0.0.2")
 	s.assertUnorderedEvent(t, s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
+}
+
+// TODO(nmittler): Consider splitting this into multiple, smaller tests.
+func TestAmbientIndex_Policy(t *testing.T) {
+	s := newAmbientTestServer(t, testC, testNW)
+	setupPolicyTest(t, s)
+
 	selectorPolicyName := "selector"
 
 	// Test that PeerAuthentications are added to the ambient index
@@ -1068,6 +1071,40 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	s.assertNoEvent(t)
 }
 
+func TestDefaultAllowWaypointPolicy(t *testing.T) {
+	// while the Waypoint is in testNS, the policies live in the Pods' namespaces
+	policyName := "istio_allow_waypoint_" + testNS + "_" + "waypoint-ns"
+	test.SetForTest(t, &features.DefaultAllowFromWaypoint, true)
+
+	s := newAmbientTestServer(t, testC, testNW)
+	setupPolicyTest(t, s)
+
+	t.Run("policy with service accounts", func(t *testing.T) {
+		assert.EventuallyEqual(t, func() []string {
+			waypointPolicy := s.authorizationPolicies.GetKey(krt.Key[model.WorkloadAuthorization]("ns1/" + policyName))
+			if waypointPolicy == nil {
+				return nil
+			}
+			match := waypointPolicy.Authorization.GetGroups()[0].GetRules()[0].GetMatches()[0]
+			return slices.Map(match.Principals, func(sm *security.StringMatch) string {
+				return sm.GetExact()
+			})
+		}, []string{
+			"spiffe://cluster.local/ns/ns1/sa/namespace-wide",
+			"spiffe://cluster.local/ns/ns1/sa/waypoint-sa",
+		})
+	})
+
+	t.Run("attach policy to workload", func(t *testing.T) {
+		assert.EventuallyEqual(t,
+			func() []string {
+				return s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies()
+			},
+			[]string{policyName},
+		)
+	})
+}
+
 func TestPodLifecycleWorkloadGates(t *testing.T) {
 	s := newAmbientTestServer(t, "", "")
 
@@ -1230,7 +1267,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.ns.Update(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
-			Annotations: map[string]string{
+			Labels: map[string]string{
 				constants.AmbientUseWaypoint: "waypoint-ns",
 			},
 		},
@@ -1238,14 +1275,14 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertEvent(t, s.podXdsName("pod1"))
 	s.assertWaypointAddressForPod(t, "pod1", "10.0.0.1")
 
-	// annotate pod1 to use a different waypoint than the namespace specifies
-	s.annotatePod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
+	// label pod1 to use a different waypoint than the namespace specifies
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that we're using the correct waypoint for pod1
 	s.assertWaypointAddressForPod(t, "pod1", "10.0.0.2")
 
-	// remove the use-waypoint annotation from pod1
-	s.annotatePod(t, "pod1", testNS, map[string]string{})
+	// remove the use-waypoint clabel from pod1
+	s.labelPod(t, "pod1", testNS, map[string]string{})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that pod1 is using the waypoint specified on the namespace
 	s.assertWaypointAddressForPod(t, "pod1", "10.0.0.1")
@@ -1262,7 +1299,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertWaypointAddressForPod(t, "pod1", "")
 
 	// annotate pod2 to use a waypoint
-	s.annotatePod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that the correct waypoint was configured
 	s.assertWaypointAddressForPod(t, "pod1", "10.0.0.2")
@@ -1271,7 +1308,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.ns.Update(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
-			Annotations: map[string]string{
+			Labels: map[string]string{
 				constants.AmbientUseWaypoint: "waypoint-ns",
 			},
 		},
@@ -1282,12 +1319,12 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertWaypointAddressForPod(t, "pod1", "10.0.0.2")
 
 	// assert local waypoint opt-out works as expected
-	s.annotatePod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "#none"})
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "#none"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that we're using no waypoint
 	s.assertWaypointAddressForPod(t, "pod1", "")
 	// check that the other opt out also works
-	s.annotatePod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "~"})
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "~"})
 	s.assertNoEvent(t)
 	s.assertWaypointAddressForPod(t, "pod1", "")
 }
@@ -1319,7 +1356,7 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 	s.ns.Update(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
-			Annotations: map[string]string{
+			Labels: map[string]string{
 				constants.AmbientUseWaypoint: "waypoint-ns",
 			},
 		},
@@ -1330,21 +1367,20 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 	// TODO: should this be returned? Or should it be filtered because such a waypoint does not exist
 
 	// Add a service account waypoint to the pod
-	s.annotatePod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 
 	assertWaypoint(t, testNW, "10.0.0.2", s.podXdsName("pod1"))
 	assertWaypoint(t, testNW, "10.0.0.1", s.podXdsName("pod2"))
 
 	// Revert back
-	s.annotatePod(t, "pod1", testNS, map[string]string{})
+	s.labelPod(t, "pod1", testNS, map[string]string{})
 	s.assertEvent(t, s.podXdsName("pod1"))
 
 	assertWaypoint(t, testNW, "10.0.0.1", s.podXdsName("pod1"), s.podXdsName("pod2"))
 }
 
 func TestWorkloadsForWaypointOrder(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, "", testNW)
 
 	assertOrderedWaypoint := func(t *testing.T, network, address string, expected ...string) {
@@ -1368,8 +1404,8 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 		"127.0.0.3",
 		"pod3",
 		"sa3",
-		map[string]string{"app": "a"},
-		map[string]string{constants.AmbientUseWaypoint: "waypoint"},
+		map[string]string{"app": "a", constants.AmbientUseWaypoint: "waypoint"},
+		map[string]string{},
 		true,
 		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod3"))
@@ -1377,8 +1413,8 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 		"127.0.0.1",
 		"pod1",
 		"sa1",
-		map[string]string{"app": "a"},
-		map[string]string{constants.AmbientUseWaypoint: "waypoint"},
+		map[string]string{"app": "a", constants.AmbientUseWaypoint: "waypoint"},
+		map[string]string{},
 		true,
 		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
@@ -1386,8 +1422,8 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 		"127.0.0.2",
 		"pod2",
 		"sa2",
-		map[string]string{"app": "a"},
-		map[string]string{constants.AmbientUseWaypoint: "waypoint"},
+		map[string]string{"app": "a", constants.AmbientUseWaypoint: "waypoint"},
+		map[string]string{},
 		true,
 		corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod2"))
@@ -1536,13 +1572,13 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType stri
 		Spec:   gatewaySpec,
 		Status: k8sbeta.GatewayStatus{},
 	}
-	annotations := make(map[string]string, 2)
+	labels := make(map[string]string, 2)
 	if trafficType != "" && validTrafficTypes.Contains(trafficType) {
-		annotations[constants.AmbientWaypointForTrafficType] = trafficType
+		labels[constants.AmbientWaypointForTrafficType] = trafficType
 	} else {
-		annotations[constants.AmbientWaypointForTrafficType] = constants.ServiceTraffic
+		labels[constants.AmbientWaypointForTrafficType] = constants.ServiceTraffic
 	}
-	gateway.Annotations = annotations
+	gateway.Labels = labels
 
 	if ready {
 		addrType := k8sbeta.IPAddressType
@@ -1593,29 +1629,29 @@ func (s *ambientTestServer) addPods(t *testing.T, ip string, name, sa string, la
 	}
 }
 
-// just overwrites the annotations
+// just overwrites the labels
 // nolint: unparam
-func (s *ambientTestServer) annotatePod(t *testing.T, name, ns string, annotations map[string]string) {
+func (s *ambientTestServer) labelPod(t *testing.T, name, ns string, labels map[string]string) {
 	t.Helper()
 
 	p := s.pc.Get(name, ns)
 	if p == nil {
 		return
 	}
-	p.ObjectMeta.Annotations = annotations
+	p.ObjectMeta.Labels = labels
 	s.pc.Update(p)
 }
 
-// just overwrites the annotations
+// just overwrites the labels
 // nolint: unparam
-func (s *ambientTestServer) annotateService(t *testing.T, name, ns string, annotations map[string]string) {
+func (s *ambientTestServer) labelService(t *testing.T, name, ns string, labels map[string]string) {
 	t.Helper()
 
 	svc := s.sc.Get(name, testNS)
 	if svc == nil {
 		return
 	}
-	svc.ObjectMeta.Annotations = annotations
+	svc.ObjectMeta.Labels = labels
 	s.sc.Update(svc)
 }
 

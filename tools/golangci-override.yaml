@@ -60,3 +60,9 @@ linters-settings:
             desc: "do not use OpenTelemetry directly; use pkg/monitoring"
           - pkg: go.opentelemetry.io/otel/metric
             desc: "do not use OpenTelemetry directly; use pkg/monitoring"
+      DenyProtobufV1:
+        files:
+          - $all
+        deny:
+          - pkg: github.com/golang/protobuf/ptypes
+            desc: "do not use github.com/golang/protobuf/ptypes; use google.golang.org/protobuf/types/known instead"
