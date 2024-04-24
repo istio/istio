@@ -27,6 +27,6 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func TestTraffic(t *testing.T) {
+func TestTrafficWithCNIRepair(t *testing.T) {
 	traffic_test.TestTraffic(t)
 }
