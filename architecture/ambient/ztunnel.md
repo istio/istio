@@ -67,7 +67,7 @@ The address type has the following goals:
   * Specifically, ztunnel should be able to send a request to the control plane to answer "I got a request to send traffic to 1.1.1.1, what is 1.1.1.1?"
   * While this is not needed for small scales, this is important for the long tail of massive clusters (think 1 million endpoints), where the entire set of endpoints cannot reasonably be replicated to each ztunnel.
 * It should not be client-specific.
-  * In Istio sidecars, historically we had a lot of client-specific XDS. For example, putting the XDS-client's IP back into the XDS response. This makes efficient control plane implementation (most notably, caching), extremely challenging.
+  * In Istio sidecars, historically we had a lot of client-specific xDS. For example, putting the xDS-client's IP back into the xDS response. This makes efficient control plane implementation (most notably, caching), extremely challenging.
   * In practice, this largely means that references are fully qualified in the API. IP Addresses (generally) have a network associated with them, node names have a cluster associated with them, etc.
 
 See the [XDS Evolution](https://docs.google.com/document/d/1V5wkeBHbLSLMzAMbwFlFZNHdZPyUEspG4lHbnB0UaCg/edit) document for more history and details.
@@ -243,7 +243,7 @@ This CA enforcement is done by Istio's CA, and is a requirement for any alternat
 Note: Ztunnel authenticates to the CA with a Kubernetes Service Account JWT token, which encodes the pod information, which is what enables this.
 
 Ztunnel will request certificates for all identities on the node.
-It determines this based on the Workload XDS configuration it receives.
+It determines this based on the Workload xDS configuration it receives.
 When a new identity is discovered on the node, it will be enqueued for fetching at a low priority, as an optimization.
 However, if a request needs a certain identity that we have not fetched yet, it will be immediately requested.
 
