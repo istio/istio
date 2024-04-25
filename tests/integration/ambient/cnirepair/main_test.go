@@ -15,20 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ambient
+package cnirepair
 
 import (
-	"context"
+	"fmt"
 	"strings"
 	"testing"
-
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	common_deploy "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
@@ -38,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/tests/integration/pilot/common"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
@@ -55,19 +54,33 @@ var (
 
 type EchoDeployments struct {
 	// Namespace echo apps will be deployed
-	Namespace                 namespace.Instance
-	AllWaypoint               echo.Instances
-	WorkloadAddressedWaypoint echo.Instances
-	ServiceAddressedWaypoint  echo.Instances
-	Captured                  echo.Instances
-	Uncaptured                echo.Instances
-	SidecarWaypoint           echo.Instances
-	SidecarCaptured           echo.Instances
-	SidecarUncaptured         echo.Instances
-	All                       echo.Instances
-	Mesh                      echo.Instances
-	MeshExternal              echo.Instances
+	Namespace namespace.Instance
 
+	// AllWaypoint is a waypoint for all types
+	AllWaypoint echo.Instances
+	// WorkloadAddressedWaypoint is a workload only waypoint
+	WorkloadAddressedWaypoint echo.Instances
+	// ServiceAddressedWaypoint is a serviceonly waypoint
+	ServiceAddressedWaypoint echo.Instances
+	// Captured echo service
+	Captured echo.Instances
+	// Uncaptured echo Service
+	Uncaptured echo.Instances
+	// SidecarWaypoint is a sidecar with a waypoint
+	SidecarWaypoint echo.Instances
+	// SidecarCaptured echo services with sidecar and ambient capture
+	SidecarCaptured echo.Instances
+	// SidecarUncaptured echo services with sidecar and no ambient capture
+	SidecarUncaptured echo.Instances
+
+	// All echo services
+	All echo.Instances
+	// Echo services that are in the mesh
+	Mesh echo.Instances
+	// Echo services that are not in mesh
+	MeshExternal echo.Instances
+
+	// WaypointProxies by
 	WaypointProxies map[string]ambient.WaypointProxy
 }
 
@@ -93,19 +106,13 @@ func TestMain(m *testing.M) {
 values:
   cni:
     repair:
-      enabled: false
+      enabled: true
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
       SECRET_TTL: 5m
 `
 		}, cert.CreateCASecretAlt)).
-		Setup(func(t resource.Context) error {
-			gatewayConformanceInputs.Client = t.Clusters().Default()
-			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
-
-			return nil
-		}).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
@@ -150,85 +157,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		return err
 	}
 
-	// Headless services don't work with targetPort, set to same port
-	headlessPorts := make([]echo.Port, len(ports.All()))
-	for i, p := range ports.All() {
-		p.ServicePort = p.WorkloadPort
-		headlessPorts[i] = p
-	}
 	builder := deployment.New(t).
 		WithClusters(t.Clusters()...).
-		WithConfig(echo.Config{
-			Service:               WorkloadAddressedWaypoint,
-			Namespace:             apps.Namespace,
-			Ports:                 ports.All(),
-			ServiceAccount:        true,
-			WorkloadWaypointProxy: "waypoint",
-			Subsets: []echo.SubsetConfig{
-				{
-					Replicas: 1,
-					Version:  "v1",
-					Labels: map[string]string{
-						"app":     WorkloadAddressedWaypoint,
-						"version": "v1",
-					},
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.AmbientUseWaypoint: {
-							Value: "waypoint",
-						},
-					},
-				},
-				{
-					Replicas: 1,
-					Version:  "v2",
-					Labels: map[string]string{
-						"app":     WorkloadAddressedWaypoint,
-						"version": "v2",
-					},
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.AmbientUseWaypoint: {
-							Value: "waypoint",
-						},
-					},
-				},
-			},
-		}).
-		WithConfig(echo.Config{
-			Service:              ServiceAddressedWaypoint,
-			Namespace:            apps.Namespace,
-			Ports:                ports.All(),
-			ServiceAnnotations:   echo.NewAnnotations().Set(echo.AmbientUseWaypoint, "waypoint"),
-			ServiceAccount:       true,
-			ServiceWaypointProxy: "waypoint",
-			Subsets: []echo.SubsetConfig{
-				{
-					Replicas: 1,
-					Version:  "v1",
-					Labels: map[string]string{
-						"app":     ServiceAddressedWaypoint,
-						"version": "v1",
-					},
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.AmbientUseWaypoint: {
-							Value: "waypoint",
-						},
-					},
-				},
-				{
-					Replicas: 1,
-					Version:  "v2",
-					Labels: map[string]string{
-						"app":     ServiceAddressedWaypoint,
-						"version": "v2",
-					},
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.AmbientUseWaypoint: {
-							Value: "waypoint",
-						},
-					},
-				},
-			},
-		}).
 		WithConfig(echo.Config{
 			Service:        Captured,
 			Namespace:      apps.Namespace,
@@ -262,64 +192,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
 				},
 			},
-		})
-
-	_, whErr := t.Clusters().Default().
-		Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().
-		Get(context.Background(), "istio-sidecar-injector", metav1.GetOptions{})
-	if whErr != nil && !kerrors.IsNotFound(whErr) {
-		return whErr
-	}
-	// Only setup sidecar tests if webhook is installed
-	if whErr == nil {
-		// TODO(https://github.com/istio/istio/issues/43244) support sidecars that are captured
-		//builder = builder.WithConfig(echo.Config{
-		//	Service:   SidecarWaypoint,
-		//	Namespace: apps.Namespace,
-		//	Ports:     ports.All(),
-		//	Subsets: []echo.SubsetConfig{
-		//		{
-		//			Replicas: 1,
-		//			Version:  "v1",
-		//			Labels: map[string]string{
-		//				"ambient-type":            "workload",
-		//				"sidecar.istio.io/inject": "true",
-		//			},
-		//		},
-		//		{
-		//			Replicas: 1,
-		//			Version:  "v2",
-		//			Labels: map[string]string{
-		//				"ambient-type":            "workload",
-		//				"sidecar.istio.io/inject": "true",
-		//			},
-		//		},
-		//	},
-		//})
-		//	builder = builder.WithConfig(echo.Config{
-		//		Service:   SidecarCaptured,
-		//		Namespace: apps.Namespace,
-		//		Ports:     ports.All(),
-		//		Subsets: []echo.SubsetConfig{
-		//			{
-		//				Replicas: 1,
-		//				Version:  "v1",
-		//				Labels: map[string]string{
-		//					"ambient-type":            "workload",
-		//					"sidecar.istio.io/inject": "true",
-		//				},
-		//			},
-		//			{
-		//				Replicas: 1,
-		//				Version:  "v2",
-		//				Labels: map[string]string{
-		//					"ambient-type":            "workload",
-		//					"sidecar.istio.io/inject": "true",
-		//				},
-		//			},
-		//		},
-		//	})
-		builder = builder.WithConfig(echo.Config{
+		}).
+		WithConfig(echo.Config{
 			Service:        SidecarUncaptured,
 			Namespace:      apps.Namespace,
 			Ports:          ports.All(),
@@ -343,15 +217,17 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				},
 			},
 		})
-	}
 
+	// Build the applications
 	echos, err := builder.Build()
+	fmt.Println(echos)
 	if err != nil {
 		return err
 	}
 	for _, b := range echos {
 		scopes.Framework.Infof("built %v", b.Config().Service)
 	}
+
 	apps.All = echos
 	apps.WorkloadAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: WorkloadAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.ServiceAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: ServiceAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
@@ -369,27 +245,17 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
 	}
 
-	for _, echo := range echos {
-		svcwp := echo.Config().ServiceWaypointProxy
-		wlwp := echo.Config().WorkloadWaypointProxy
-		if svcwp != "" {
-			if _, found := apps.WaypointProxies[svcwp]; !found {
-				apps.WaypointProxies[svcwp], err = ambient.NewWaypointProxy(t, apps.Namespace, svcwp)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		if wlwp != "" {
-			if _, found := apps.WaypointProxies[wlwp]; !found {
-				apps.WaypointProxies[wlwp], err = ambient.NewWaypointProxy(t, apps.Namespace, wlwp)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-	}
-
 	return nil
+}
+
+func TestTrafficWithCNIRepair(t *testing.T) {
+	framework.NewTest(t).
+		TopLevel().
+		Run(func(t framework.TestContext) {
+			apps := common_deploy.NewOrFail(t, t, common_deploy.Config{
+				NoExternalNamespace: true,
+				IncludeExtAuthz:     false,
+			})
+			common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
+		})
 }
