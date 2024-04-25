@@ -18,7 +18,6 @@
 package cnirepair
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -220,7 +219,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 
 	// Build the applications
 	echos, err := builder.Build()
-	fmt.Println(echos)
 	if err != nil {
 		return err
 	}
@@ -229,21 +227,10 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 
 	apps.All = echos
-	apps.WorkloadAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: WorkloadAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.ServiceAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: ServiceAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.AllWaypoint = apps.AllWaypoint.Append(apps.WorkloadAddressedWaypoint)
-	apps.AllWaypoint = apps.AllWaypoint.Append(apps.ServiceAddressedWaypoint)
 	apps.Uncaptured = match.ServiceName(echo.NamespacedName{Name: Uncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Captured = match.ServiceName(echo.NamespacedName{Name: Captured, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.SidecarWaypoint = match.ServiceName(echo.NamespacedName{Name: SidecarWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.SidecarUncaptured = match.ServiceName(echo.NamespacedName{Name: SidecarUncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.SidecarCaptured = match.ServiceName(echo.NamespacedName{Name: SidecarCaptured, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.Mesh = inMesh.GetMatches(echos)
-	apps.MeshExternal = match.Not(inMesh).GetMatches(echos)
-
-	if apps.WaypointProxies == nil {
-		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
-	}
 
 	return nil
 }
