@@ -134,7 +134,10 @@ func ConvertConfig(cfg config.Config) (IstioObject, error) {
 		if err != nil {
 			return nil, err
 		}
-		status = &s
+		// Probably a bit overkill, but this ensures we marshal a pointer to an empty object (&empty{}) as nil
+		if !bytes.Equal(s, []byte("{}")) {
+			status = &s
+		}
 	}
 	namespace := cfg.Namespace
 	if namespace == "" {
