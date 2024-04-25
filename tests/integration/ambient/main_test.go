@@ -105,6 +105,9 @@ func TestMain(m *testing.M) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
 values:
+  cni:
+    repair:
+      enabled: false
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
