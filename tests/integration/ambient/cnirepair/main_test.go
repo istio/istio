@@ -128,16 +128,6 @@ const (
 	SidecarUncaptured         = "sidecar-uncaptured"
 )
 
-var inMesh = match.Matcher(func(instance echo.Instance) bool {
-	names := []string{"waypoint", "captured", "sidecar"}
-	for _, name := range names {
-		if strings.Contains(instance.Config().Service, name) {
-			return true
-		}
-	}
-	return false
-})
-
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
 	var err error
 	apps.Namespace, err = namespace.New(t, namespace.Config{
