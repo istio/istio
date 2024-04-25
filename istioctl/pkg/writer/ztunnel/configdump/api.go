@@ -21,22 +21,28 @@ type Locality struct {
 }
 
 type ZtunnelWorkload struct {
-	WorkloadIPs       []string  `json:"workloadIps"`
-	Waypoint          *Waypoint `json:"waypoint"`
-	Protocol          string    `json:"protocol"`
-	Name              string    `json:"name"`
-	Namespace         string    `json:"namespace"`
-	ServiceAccount    string    `json:"serviceAccount"`
-	WorkloadName      string    `json:"workloadName"`
-	WorkloadType      string    `json:"workloadType"`
-	CanonicalName     string    `json:"canonicalName"`
-	CanonicalRevision string    `json:"canonicalRevision"`
-	ClusterID         string    `json:"clusterId"`
-	TrustDomain       string    `json:"trustDomain,omitempty"`
-	Locality          Locality  `json:"locality,omitempty"`
-	Node              string    `json:"node"`
-	Network           string    `json:"network,omitempty"`
-	Status            string    `json:"status"`
+	WorkloadIPs       []string          `json:"workloadIps"`
+	Waypoint          *Waypoint         `json:"waypoint,omitempty"`
+	Protocol          string            `json:"protocol"`
+	Name              string            `json:"name"`
+	Namespace         string            `json:"namespace"`
+	ServiceAccount    string            `json:"serviceAccount"`
+	WorkloadName      string            `json:"workloadName"`
+	WorkloadType      string            `json:"workloadType"`
+	CanonicalName     string            `json:"canonicalName"`
+	CanonicalRevision string            `json:"canonicalRevision"`
+	ClusterID         string            `json:"clusterId"`
+	TrustDomain       string            `json:"trustDomain,omitempty"`
+	Locality          Locality          `json:"locality,omitempty"`
+	Node              string            `json:"node"`
+	Network           string            `json:"network,omitempty"`
+	Status            string            `json:"status"`
+	ApplicationTunnel ApplicationTunnel `json:"applicationTunnel,omitempty"`
+}
+
+type ApplicationTunnel struct {
+	Protocol string  `json:"protocol"`
+	Port     *uint16 `json:"port,omitempty"`
 }
 
 type Waypoint struct {
