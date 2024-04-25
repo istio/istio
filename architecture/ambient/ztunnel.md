@@ -12,7 +12,7 @@ However, this has one glaring issue: how do we get the traffic to the remote pro
 
 A secondary goal was to enable a smoother on-ramp from "Zero" to "Getting some value".
 Historically, Istio had to really be consumed all-or-nothing for things to work as expected.
-In particular, an easy answer to "I just want to get have mTLS everywhere, then I can think about adopting the rest of service mesh" was desired.
+In particular, an easy answer to "I just want to have mTLS everywhere, then I can think about adopting the rest of service mesh" was desired.
 
 ## Goals
 
