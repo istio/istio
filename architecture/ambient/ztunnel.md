@@ -76,7 +76,7 @@ The `Workload` aims to represent everything about a workload (generally a `Pod` 
 This includes things like its IP address, identity, metadata (name, namespace, app, version, etc), and whether it has a waypoint proxy associated.
 
 The `Service` aims to represent everything about a service (generally a `Service` or `ServiceEntry`).
-This includes things like its IP addresses and ports.
+This includes things like its IP addresses, ports and an associated waypoint proxy if it has one.
 
 ### Authorization Type
 
