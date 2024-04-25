@@ -18,7 +18,6 @@
 package cnirepair
 
 import (
-	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/config/constants"
