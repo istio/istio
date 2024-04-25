@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/trustbundle"
 	networkutil "istio.io/istio/pilot/pkg/util/network"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -51,6 +52,7 @@ import (
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/xds"
 )
 
 type (
@@ -410,40 +412,7 @@ type Proxy struct {
 	LastPushTime time.Time
 }
 
-// WatchedResource tracks an active DiscoveryRequest subscription.
-type WatchedResource struct {
-	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
-	// nolint
-	TypeUrl string
-
-	// ResourceNames tracks the list of resources that are actively watched.
-	// For LDS and CDS, all resources of the TypeUrl type are watched if it is empty.
-	// For endpoints the resource names will have list of clusters and for clusters it is empty.
-	// For Delta Xds, all resources of the TypeUrl that a client has subscribed to.
-	ResourceNames []string
-
-	// Wildcard indicates the subscription is a wildcard subscription. This only applies to types that
-	// allow both wildcard and non-wildcard subscriptions.
-	Wildcard bool
-
-	// NonceSent is the nonce sent in the last sent response. If it is equal with NonceAcked, the
-	// last message has been processed. If empty: we never sent a message of this type.
-	NonceSent string
-
-	// NonceAcked is the last acked message.
-	NonceAcked string
-
-	// AlwaysRespond, if true, will ensure that even when a request would otherwise be treated as an
-	// ACK, it will be responded to. This typically happens when a proxy reconnects to another instance of
-	// Istiod. In that case, Envoy expects us to respond to EDS/RDS/SDS requests to finish warming of
-	// clusters/listeners.
-	// Typically, this should be set to 'false' after response; keeping it true would likely result in an endless loop.
-	AlwaysRespond bool
-
-	// LastResources tracks the contents of the last push.
-	// This field is extremely expensive to maintain and is typically disabled
-	LastResources Resources
-}
+type WatchedResource = xds.WatchedResource
 
 var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
 
@@ -960,6 +929,39 @@ func (node *Proxy) GetWatchedResource(typeURL string) *WatchedResource {
 	defer node.RUnlock()
 
 	return node.WatchedResources[typeURL]
+}
+
+func (node *Proxy) NewWatchedResource(typeURL string, names []string) {
+	node.Lock()
+	defer node.Unlock()
+
+	node.WatchedResources[typeURL] = &WatchedResource{TypeUrl: typeURL, ResourceNames: names}
+	// For all EDS requests that we have already responded with in the same stream let us
+	// force the response. It is important to respond to those requests for Envoy to finish
+	// warming of those resources(Clusters).
+	// This can happen with the following sequence
+	// 1. Envoy disconnects and reconnects to Istiod.
+	// 2. Envoy sends EDS request and we respond with it.
+	// 3. Envoy sends CDS request and we respond with clusters.
+	// 4. Envoy detects a change in cluster state and tries to warm those clusters and send EDS request for them.
+	// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
+	// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
+	for _, dependent := range WarmingDependencies(typeURL) {
+		if dwr, exists := node.WatchedResources[dependent]; exists {
+			dwr.AlwaysRespond = true
+		}
+	}
+}
+
+// WarmingDependencies returns the dependent typeURLs that need to be responded with
+// for warming of this typeURL.
+func WarmingDependencies(typeURL string) []string {
+	switch typeURL {
+	case v3.ClusterType:
+		return []string{v3.EndpointType}
+	default:
+		return nil
+	}
 }
 
 func (node *Proxy) AddOrUpdateWatchedResource(r *WatchedResource) {

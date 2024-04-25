@@ -34,6 +34,7 @@ import (
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/xds"
 )
 
 var deltaLog = istiolog.RegisterScope("delta", "delta xds debugging")
@@ -137,7 +138,8 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 				// Remote side closed connection or error processing the request.
 				return <-con.errorChan
 			}
-		case pushEv := <-con.pushChannel:
+		case ev := <-con.pushChannel:
+			pushEv := ev.(*Event)
 			err := s.pushConnectionDelta(con, pushEv)
 			pushEv.done()
 			if err != nil {
@@ -400,7 +402,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 			ResourceNames: res,
 			Wildcard:      wildcard,
 		}
-
 		return true
 	}
 
@@ -615,19 +616,21 @@ func shouldSetWatchedResources(w *model.WatchedResource) bool {
 		return false
 	}
 	// Else fallback based on type
-	return isWildcardTypeURL(w.TypeUrl)
+	return xds.IsWildcardTypeURL(w.TypeUrl)
 }
 
 func newDeltaConnection(peerAddr string, stream DeltaDiscoveryStream) *Connection {
 	return &Connection{
-		pushChannel:  make(chan *Event),
-		initialized:  make(chan struct{}),
-		stop:         make(chan struct{}),
-		peerAddr:     peerAddr,
-		connectedAt:  time.Now(),
+		BaseConnection: BaseConnection{
+			pushChannel: make(chan any),
+			initialized: make(chan struct{}),
+			stop:        make(chan struct{}),
+			peerAddr:    peerAddr,
+			connectedAt: time.Now(),
+			errorChan:   make(chan error, 1),
+		},
 		deltaStream:  stream,
 		deltaReqChan: make(chan *discovery.DeltaDiscoveryRequest, 1),
-		errorChan:    make(chan error, 1),
 	}
 }
 
