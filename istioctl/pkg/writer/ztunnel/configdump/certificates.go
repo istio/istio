@@ -63,20 +63,17 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 				secret.Identity, valueOrNA(""), secret.State, false, valueOrNA(""), valueOrNA(""), valueOrNA(""))
 		} else {
-			// get the CA value and remove it from the cert chain slice so it's not printed twice
-			ca := secret.CertChain[0]
-			secret.CertChain = secret.CertChain[1:]
-			n := new(big.Int)
-			n, _ = n.SetString(ca.SerialNumber, 10)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n",
-				secret.Identity, "CA", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
-
-			// print the rest of the cert chain
-			for _, ca := range secret.CertChain {
+			for i, ca := range secret.CertChain {
+				t := "Intermediate"
+				if i == 0 {
+					t = "Leaf"
+				} else if i == len(secret.CertChain)-1 {
+					t = "Root"
+				}
 				n := new(big.Int)
 				n, _ = n.SetString(ca.SerialNumber, 10)
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n",
-					secret.Identity, "Cert Chain", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
+					secret.Identity, t, secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
 			}
 		}
 	}
