@@ -91,6 +91,13 @@ func minimumVersionFilter(t any) bool {
 		log.Errorf("CRD %v version %v invalid; ignoring: %v", crd.Name, bv, err)
 		return false
 	}
+	// Ignore RC tags, etc. We 'round up' those.
+	nv, err := fv.SetPrerelease("")
+	if err != nil {
+		log.Errorf("CRD %v version %v invalid; ignoring: %v", crd.Name, bv, err)
+		return false
+	}
+	fv = &nv
 	if fv.LessThan(mv) {
 		log.Infof("CRD %v version %v is below minimum version %v, ignoring", crd.Name, fv, mv)
 		return false
