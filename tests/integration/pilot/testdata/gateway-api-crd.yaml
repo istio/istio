@@ -1,10 +1,10 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=7f9f51098f405344a3a7eb13c55895c77919f706"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=7320257302905254dcebf4f5c424741cf1556c06"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
-    gateway.networking.k8s.io/bundle-version: v1.0.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
+    gateway.networking.k8s.io/bundle-version: v1.1.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   labels:
@@ -27,7 +27,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha2
+    name: v1alpha3
     schema:
       openAPIV3Schema:
         description: |-
@@ -54,9 +54,9 @@ spec:
           spec:
             description: Spec defines the desired state of BackendTLSPolicy.
             properties:
-              targetRef:
+              targetRefs:
                 description: |-
-                  TargetRef identifies an API object to apply the policy to.
+                  TargetRefs identifies an API object to apply the policy to.
                   Only Services have Extended support. Implementations MAY support
                   additional objects, with Implementation Specific support.
                   Note that this config applies to the entire referenced resource
@@ -68,69 +68,83 @@ spec:
 
 
                   Support: Implementation-specific for any other resource
+                items:
+                  description: |-
+                    LocalPolicyTargetReferenceWithSectionName identifies an API object to apply a
+                    direct policy to. This should be used as part of Policy resources that can
+                    target single resources. For more information on how this policy attachment
+                    mode works, and a sample Policy resource, refer to the policy attachment
+                    documentation for Gateway API.
+
+
+                    Note: This should only be used for direct policy attachment when references
+                    to SectionName are actually needed. In all other cases,
+                    LocalPolicyTargetReference should be used.
+                  properties:
+                    group:
+                      description: Group is the group of the target resource.
+                      maxLength: 253
+                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    kind:
+                      description: Kind is kind of the target resource.
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                      type: string
+                    name:
+                      description: Name is the name of the target resource.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    sectionName:
+                      description: |-
+                        SectionName is the name of a section within the target resource. When
+                        unspecified, this targetRef targets the entire resource. In the following
+                        resources, SectionName is interpreted as the following:
+
+
+                        * Gateway: Listener name
+                        * HTTPRoute: HTTPRouteRule name
+                        * Service: Port name
+
+
+                        If a SectionName is specified, but does not exist on the targeted object,
+                        the Policy must fail to attach, and the policy implementation should record
+                        a `ResolvedRefs` or similar Condition in the Policy's status.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - group
+                  - kind
+                  - name
+                  type: object
+                maxItems: 16
+                minItems: 1
+                type: array
+              validation:
+                description: Validation contains backend TLS validation configuration.
                 properties:
-                  group:
-                    description: Group is the group of the target resource.
-                    maxLength: 253
-                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                    type: string
-                  kind:
-                    description: Kind is kind of the target resource.
-                    maxLength: 63
-                    minLength: 1
-                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
-                    type: string
-                  name:
-                    description: Name is the name of the target resource.
-                    maxLength: 253
-                    minLength: 1
-                    type: string
-                  sectionName:
+                  caCertificateRefs:
                     description: |-
-                      SectionName is the name of a section within the target resource. When
-                      unspecified, this targetRef targets the entire resource. In the following
-                      resources, SectionName is interpreted as the following:
-
-
-                      * Gateway: Listener name
-                      * HTTPRoute: HTTPRouteRule name
-                      * Service: Port name
-
-
-                      If a SectionName is specified, but does not exist on the targeted object,
-                      the Policy must fail to attach, and the policy implementation should record
-                      a `ResolvedRefs` or similar Condition in the Policy's status.
-                    maxLength: 253
-                    minLength: 1
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                    type: string
-                required:
-                - group
-                - kind
-                - name
-                type: object
-              tls:
-                description: TLS contains backend TLS policy configuration.
-                properties:
-                  caCertRefs:
-                    description: |-
-                      CACertRefs contains one or more references to Kubernetes objects that
+                      CACertificateRefs contains one or more references to Kubernetes objects that
                       contain a PEM-encoded TLS CA certificate bundle, which is used to
                       validate a TLS handshake between the Gateway and backend Pod.
 
 
-                      If CACertRefs is empty or unspecified, then WellKnownCACerts must be
-                      specified. Only one of CACertRefs or WellKnownCACerts may be specified,
-                      not both. If CACertRefs is empty or unspecified, the configuration for
-                      WellKnownCACerts MUST be honored instead if supported by the
-                      implementation.
+                      If CACertificateRefs is empty or unspecified, then WellKnownCACertificates must be
+                      specified. Only one of CACertificateRefs or WellKnownCACertificates may be specified,
+                      not both. If CACertifcateRefs is empty or unspecified, the configuration for
+                      WellKnownCACertificates MUST be honored instead if supported by the implementation.
 
 
                       References to a resource in a different namespace are invalid for the
                       moment, although we will revisit this in the future.
 
 
-                      A single CACertRef to a Kubernetes ConfigMap kind has "Core" support.
+                      A single CACertificateRef to a Kubernetes ConfigMap kind has "Core" support.
                       Implementations MAY choose to support attaching multiple certificates to
                       a backend, but this behavior is implementation-specific.
 
@@ -195,16 +209,16 @@ spec:
                     minLength: 1
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
-                  wellKnownCACerts:
+                  wellKnownCACertificates:
                     description: |-
-                      WellKnownCACerts specifies whether system CA certificates may be used in
+                      WellKnownCACertificates specifies whether system CA certificates may be used in
                       the TLS handshake between the gateway and backend pod.
 
 
-                      If WellKnownCACerts is unspecified or empty (""), then CACertRefs must be
-                      specified with at least one entry for a valid configuration. Only one of
-                      CACertRefs or WellKnownCACerts may be specified, not both. If an
-                      implementation does not support the WellKnownCACerts field or the value
+                      If WellKnownCACertificates is unspecified or empty (""), then CACertificateRefs
+                      must be specified with at least one entry for a valid configuration. Only one of
+                      CACertificateRefs or WellKnownCACertificates may be specified, not both. If an
+                      implementation does not support the WellKnownCACertificates field or the value
                       supplied is not supported, the Status Conditions on the Policy MUST be
                       updated to include an Accepted: False Condition with Reason: Invalid.
 
@@ -217,15 +231,17 @@ spec:
                 - hostname
                 type: object
                 x-kubernetes-validations:
-                - message: must not contain both CACertRefs and WellKnownCACerts
-                  rule: '!(has(self.caCertRefs) && size(self.caCertRefs) > 0 && has(self.wellKnownCACerts)
-                    && self.wellKnownCACerts != "")'
-                - message: must specify either CACertRefs or WellKnownCACerts
-                  rule: (has(self.caCertRefs) && size(self.caCertRefs) > 0 || has(self.wellKnownCACerts)
-                    && self.wellKnownCACerts != "")
+                - message: must not contain both CACertificateRefs and WellKnownCACertificates
+                  rule: '!(has(self.caCertificateRefs) && size(self.caCertificateRefs)
+                    > 0 && has(self.wellKnownCACertificates) && self.wellKnownCACertificates
+                    != "")'
+                - message: must specify either CACertificateRefs or WellKnownCACertificates
+                  rule: (has(self.caCertificateRefs) && size(self.caCertificateRefs)
+                    > 0 || has(self.wellKnownCACertificates) && self.wellKnownCACertificates
+                    != "")
             required:
-            - targetRef
-            - tls
+            - targetRefs
+            - validation
             type: object
           status:
             description: Status defines the current state of BackendTLSPolicy.
@@ -588,8 +604,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
-    gateway.networking.k8s.io/bundle-version: v1.0.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
+    gateway.networking.k8s.io/bundle-version: v1.1.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: gatewayclasses.gateway.networking.k8s.io
@@ -1137,8 +1153,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
-    gateway.networking.k8s.io/bundle-version: v1.0.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
+    gateway.networking.k8s.io/bundle-version: v1.1.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: gateways.gateway.networking.k8s.io
@@ -1663,11 +1679,13 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -2888,11 +2906,13 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 matchLabels:
                                   additionalProperties:
                                     type: string
@@ -3616,8 +3636,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
-    gateway.networking.k8s.io/bundle-version: v1.0.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
+    gateway.networking.k8s.io/bundle-version: v1.1.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: grpcroutes.gateway.networking.k8s.io
@@ -5541,6 +5561,106 @@ spec:
                         type: object
                       maxItems: 8
                       type: array
+                    sessionPersistence:
+                      description: |+
+                        SessionPersistence defines and configures session persistence
+                        for the route rule.
+
+
+                        Support: Extended
+
+
+                      properties:
+                        absoluteTimeout:
+                          description: |-
+                            AbsoluteTimeout defines the absolute timeout of the persistent
+                            session. Once the AbsoluteTimeout duration has elapsed, the
+                            session becomes invalid.
+
+
+                            Support: Extended
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                        cookieConfig:
+                          description: |-
+                            CookieConfig provides configuration settings that are specific
+                            to cookie-based session persistence.
+
+
+                            Support: Core
+                          properties:
+                            lifetimeType:
+                              default: Session
+                              description: |-
+                                LifetimeType specifies whether the cookie has a permanent or
+                                session-based lifetime. A permanent cookie persists until its
+                                specified expiry time, defined by the Expires or Max-Age cookie
+                                attributes, while a session cookie is deleted when the current
+                                session ends.
+
+
+                                When set to "Permanent", AbsoluteTimeout indicates the
+                                cookie's lifetime via the Expires or Max-Age cookie attributes
+                                and is required.
+
+
+                                When set to "Session", AbsoluteTimeout indicates the
+                                absolute lifetime of the cookie tracked by the gateway and
+                                is optional.
+
+
+                                Support: Core for "Session" type
+
+
+                                Support: Extended for "Permanent" type
+                              enum:
+                              - Permanent
+                              - Session
+                              type: string
+                          type: object
+                        idleTimeout:
+                          description: |-
+                            IdleTimeout defines the idle timeout of the persistent session.
+                            Once the session has been idle for more than the specified
+                            IdleTimeout duration, the session becomes invalid.
+
+
+                            Support: Extended
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                        sessionName:
+                          description: |-
+                            SessionName defines the name of the persistent session token
+                            which may be reflected in the cookie or the header. Users
+                            should avoid reusing session names to prevent unintended
+                            consequences, such as rejection or unpredictable behavior.
+
+
+                            Support: Implementation-specific
+                          maxLength: 128
+                          type: string
+                        type:
+                          default: Cookie
+                          description: |-
+                            Type defines the type of session persistence such as through
+                            the use a header or cookie. Defaults to cookie based session
+                            persistence.
+
+
+                            Support: Core for "Cookie" type
+
+
+                            Support: Extended for "Header" type
+                          enum:
+                          - Cookie
+                          - Header
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: AbsoluteTimeout must be specified when cookie lifetimeType
+                          is Permanent
+                        rule: '!has(self.cookieConfig.lifetimeType) || self.cookieConfig.lifetimeType
+                          != ''Permanent'' || has(self.absoluteTimeout)'
                   type: object
                 maxItems: 16
                 type: array
@@ -7768,6 +7888,106 @@ spec:
                         type: object
                       maxItems: 8
                       type: array
+                    sessionPersistence:
+                      description: |+
+                        SessionPersistence defines and configures session persistence
+                        for the route rule.
+
+
+                        Support: Extended
+
+
+                      properties:
+                        absoluteTimeout:
+                          description: |-
+                            AbsoluteTimeout defines the absolute timeout of the persistent
+                            session. Once the AbsoluteTimeout duration has elapsed, the
+                            session becomes invalid.
+
+
+                            Support: Extended
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                        cookieConfig:
+                          description: |-
+                            CookieConfig provides configuration settings that are specific
+                            to cookie-based session persistence.
+
+
+                            Support: Core
+                          properties:
+                            lifetimeType:
+                              default: Session
+                              description: |-
+                                LifetimeType specifies whether the cookie has a permanent or
+                                session-based lifetime. A permanent cookie persists until its
+                                specified expiry time, defined by the Expires or Max-Age cookie
+                                attributes, while a session cookie is deleted when the current
+                                session ends.
+
+
+                                When set to "Permanent", AbsoluteTimeout indicates the
+                                cookie's lifetime via the Expires or Max-Age cookie attributes
+                                and is required.
+
+
+                                When set to "Session", AbsoluteTimeout indicates the
+                                absolute lifetime of the cookie tracked by the gateway and
+                                is optional.
+
+
+                                Support: Core for "Session" type
+
+
+                                Support: Extended for "Permanent" type
+                              enum:
+                              - Permanent
+                              - Session
+                              type: string
+                          type: object
+                        idleTimeout:
+                          description: |-
+                            IdleTimeout defines the idle timeout of the persistent session.
+                            Once the session has been idle for more than the specified
+                            IdleTimeout duration, the session becomes invalid.
+
+
+                            Support: Extended
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                        sessionName:
+                          description: |-
+                            SessionName defines the name of the persistent session token
+                            which may be reflected in the cookie or the header. Users
+                            should avoid reusing session names to prevent unintended
+                            consequences, such as rejection or unpredictable behavior.
+
+
+                            Support: Implementation-specific
+                          maxLength: 128
+                          type: string
+                        type:
+                          default: Cookie
+                          description: |-
+                            Type defines the type of session persistence such as through
+                            the use a header or cookie. Defaults to cookie based session
+                            persistence.
+
+
+                            Support: Core for "Cookie" type
+
+
+                            Support: Extended for "Header" type
+                          enum:
+                          - Cookie
+                          - Header
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: AbsoluteTimeout must be specified when cookie lifetimeType
+                          is Permanent
+                        rule: '!has(self.cookieConfig.lifetimeType) || self.cookieConfig.lifetimeType
+                          != ''Permanent'' || has(self.absoluteTimeout)'
                   type: object
                 maxItems: 16
                 type: array
@@ -8099,8 +8319,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
-    gateway.networking.k8s.io/bundle-version: v1.0.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
+    gateway.networking.k8s.io/bundle-version: v1.1.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: httproutes.gateway.networking.k8s.io
@@ -10805,6 +11025,106 @@ spec:
                         type: object
                       maxItems: 8
                       type: array
+                    sessionPersistence:
+                      description: |+
+                        SessionPersistence defines and configures session persistence
+                        for the route rule.
+
+
+                        Support: Extended
+
+
+                      properties:
+                        absoluteTimeout:
+                          description: |-
+                            AbsoluteTimeout defines the absolute timeout of the persistent
+                            session. Once the AbsoluteTimeout duration has elapsed, the
+                            session becomes invalid.
+
+
+                            Support: Extended
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                        cookieConfig:
+                          description: |-
+                            CookieConfig provides configuration settings that are specific
+                            to cookie-based session persistence.
+
+
+                            Support: Core
+                          properties:
+                            lifetimeType:
+                              default: Session
+                              description: |-
+                                LifetimeType specifies whether the cookie has a permanent or
+                                session-based lifetime. A permanent cookie persists until its
+                                specified expiry time, defined by the Expires or Max-Age cookie
+                                attributes, while a session cookie is deleted when the current
+                                session ends.
+
+
+                                When set to "Permanent", AbsoluteTimeout indicates the
+                                cookie's lifetime via the Expires or Max-Age cookie attributes
+                                and is required.
+
+
+                                When set to "Session", AbsoluteTimeout indicates the
+                                absolute lifetime of the cookie tracked by the gateway and
+                                is optional.
+
+
+                                Support: Core for "Session" type
+
+
+                                Support: Extended for "Permanent" type
+                              enum:
+                              - Permanent
+                              - Session
+                              type: string
+                          type: object
+                        idleTimeout:
+                          description: |-
+                            IdleTimeout defines the idle timeout of the persistent session.
+                            Once the session has been idle for more than the specified
+                            IdleTimeout duration, the session becomes invalid.
+
+
+                            Support: Extended
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                        sessionName:
+                          description: |-
+                            SessionName defines the name of the persistent session token
+                            which may be reflected in the cookie or the header. Users
+                            should avoid reusing session names to prevent unintended
+                            consequences, such as rejection or unpredictable behavior.
+
+
+                            Support: Implementation-specific
+                          maxLength: 128
+                          type: string
+                        type:
+                          default: Cookie
+                          description: |-
+                            Type defines the type of session persistence such as through
+                            the use a header or cookie. Defaults to cookie based session
+                            persistence.
+
+
+                            Support: Core for "Cookie" type
+
+
+                            Support: Extended for "Header" type
+                          enum:
+                          - Cookie
+                          - Header
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: AbsoluteTimeout must be specified when cookie lifetimeType
+                          is Permanent
+                        rule: '!has(self.cookieConfig.lifetimeType) || self.cookieConfig.lifetimeType
+                          != ''Permanent'' || has(self.absoluteTimeout)'
                     timeouts:
                       description: |+
                         Timeouts defines the timeouts that can be configured for an HTTP request.
@@ -10819,6 +11139,12 @@ spec:
                             BackendRequest specifies a timeout for an individual request from the gateway
                             to a backend. This covers the time from when the request first starts being
                             sent from the gateway to when the full response has been received from the backend.
+
+
+                            Setting a timeout to the zero duration (e.g. "0s") SHOULD disable the timeout
+                            completely. Implementations that cannot completely disable the timeout MUST
+                            instead interpret the zero duration as the longest possible value to which
+                            the timeout can be set.
 
 
                             An entire client HTTP transaction with a gateway, covered by the Request timeout,
@@ -10843,6 +11169,12 @@ spec:
                             For example, setting the `rules.timeouts.request` field to the value `10s` in an
                             `HTTPRoute` will cause a timeout if a client request is taking longer than 10 seconds
                             to complete.
+
+
+                            Setting a timeout to the zero duration (e.g. "0s") SHOULD disable the timeout
+                            completely. Implementations that cannot completely disable the timeout MUST
+                            instead interpret the zero duration as the longest possible value to which
+                            the timeout can be set.
 
 
                             This timeout is intended to cover as close to the whole request-response transaction
@@ -13918,6 +14250,106 @@ spec:
                         type: object
                       maxItems: 8
                       type: array
+                    sessionPersistence:
+                      description: |+
+                        SessionPersistence defines and configures session persistence
+                        for the route rule.
+
+
+                        Support: Extended
+
+
+                      properties:
+                        absoluteTimeout:
+                          description: |-
+                            AbsoluteTimeout defines the absolute timeout of the persistent
+                            session. Once the AbsoluteTimeout duration has elapsed, the
+                            session becomes invalid.
+
+
+                            Support: Extended
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                        cookieConfig:
+                          description: |-
+                            CookieConfig provides configuration settings that are specific
+                            to cookie-based session persistence.
+
+
+                            Support: Core
+                          properties:
+                            lifetimeType:
+                              default: Session
+                              description: |-
+                                LifetimeType specifies whether the cookie has a permanent or
+                                session-based lifetime. A permanent cookie persists until its
+                                specified expiry time, defined by the Expires or Max-Age cookie
+                                attributes, while a session cookie is deleted when the current
+                                session ends.
+
+
+                                When set to "Permanent", AbsoluteTimeout indicates the
+                                cookie's lifetime via the Expires or Max-Age cookie attributes
+                                and is required.
+
+
+                                When set to "Session", AbsoluteTimeout indicates the
+                                absolute lifetime of the cookie tracked by the gateway and
+                                is optional.
+
+
+                                Support: Core for "Session" type
+
+
+                                Support: Extended for "Permanent" type
+                              enum:
+                              - Permanent
+                              - Session
+                              type: string
+                          type: object
+                        idleTimeout:
+                          description: |-
+                            IdleTimeout defines the idle timeout of the persistent session.
+                            Once the session has been idle for more than the specified
+                            IdleTimeout duration, the session becomes invalid.
+
+
+                            Support: Extended
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                        sessionName:
+                          description: |-
+                            SessionName defines the name of the persistent session token
+                            which may be reflected in the cookie or the header. Users
+                            should avoid reusing session names to prevent unintended
+                            consequences, such as rejection or unpredictable behavior.
+
+
+                            Support: Implementation-specific
+                          maxLength: 128
+                          type: string
+                        type:
+                          default: Cookie
+                          description: |-
+                            Type defines the type of session persistence such as through
+                            the use a header or cookie. Defaults to cookie based session
+                            persistence.
+
+
+                            Support: Core for "Cookie" type
+
+
+                            Support: Extended for "Header" type
+                          enum:
+                          - Cookie
+                          - Header
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: AbsoluteTimeout must be specified when cookie lifetimeType
+                          is Permanent
+                        rule: '!has(self.cookieConfig.lifetimeType) || self.cookieConfig.lifetimeType
+                          != ''Permanent'' || has(self.absoluteTimeout)'
                     timeouts:
                       description: |+
                         Timeouts defines the timeouts that can be configured for an HTTP request.
@@ -13932,6 +14364,12 @@ spec:
                             BackendRequest specifies a timeout for an individual request from the gateway
                             to a backend. This covers the time from when the request first starts being
                             sent from the gateway to when the full response has been received from the backend.
+
+
+                            Setting a timeout to the zero duration (e.g. "0s") SHOULD disable the timeout
+                            completely. Implementations that cannot completely disable the timeout MUST
+                            instead interpret the zero duration as the longest possible value to which
+                            the timeout can be set.
 
 
                             An entire client HTTP transaction with a gateway, covered by the Request timeout,
@@ -13956,6 +14394,12 @@ spec:
                             For example, setting the `rules.timeouts.request` field to the value `10s` in an
                             `HTTPRoute` will cause a timeout if a client request is taking longer than 10 seconds
                             to complete.
+
+
+                            Setting a timeout to the zero duration (e.g. "0s") SHOULD disable the timeout
+                            completely. Implementations that cannot completely disable the timeout MUST
+                            instead interpret the zero duration as the longest possible value to which
+                            the timeout can be set.
 
 
                             This timeout is intended to cover as close to the whole request-response transaction
@@ -14352,8 +14796,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
-    gateway.networking.k8s.io/bundle-version: v1.0.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
+    gateway.networking.k8s.io/bundle-version: v1.1.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: referencegrants.gateway.networking.k8s.io
@@ -14736,8 +15180,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
-    gateway.networking.k8s.io/bundle-version: v1.0.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
+    gateway.networking.k8s.io/bundle-version: v1.1.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: tcproutes.gateway.networking.k8s.io
@@ -15558,8 +16002,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
-    gateway.networking.k8s.io/bundle-version: v1.0.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
+    gateway.networking.k8s.io/bundle-version: v1.1.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: tlsroutes.gateway.networking.k8s.io
@@ -16453,8 +16897,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
-    gateway.networking.k8s.io/bundle-version: v1.0.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
+    gateway.networking.k8s.io/bundle-version: v1.1.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: udproutes.gateway.networking.k8s.io
