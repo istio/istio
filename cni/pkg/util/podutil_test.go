@@ -20,6 +20,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/annotation"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -74,4 +76,138 @@ func TestGetPodIPsIfNoPodIPPresent(t *testing.T) {
 
 	podIPs := GetPodIPsIfPresent(pod)
 	assert.Equal(t, len(podIPs), 0)
+}
+
+func TestPodRedirectionEnabled(t *testing.T) {
+	var (
+		ambientEnabledLabel       = map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient}
+		ambientDisabledAnnotation = map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled}
+
+		namespaceWithAmbientEnabledLabel = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "test",
+				Labels: ambientEnabledLabel,
+			},
+		}
+
+		unlabelledNamespace = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+			},
+		}
+
+		podWithAmbientEnabledLabel = &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test",
+				Labels:    ambientEnabledLabel,
+			},
+		}
+
+		unlabelledPod = &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test",
+			},
+		}
+
+		podWithSidecar = &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test",
+				Namespace:   "test",
+				Annotations: map[string]string{annotation.SidecarStatus.Name: "test"},
+			},
+		}
+
+		podWithAmbientDisabledAnnotation = &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test",
+				Namespace:   "test",
+				Annotations: ambientDisabledAnnotation,
+			},
+		}
+
+		podWithAmbientEnabledLabelAndAmbientDisabledAnnotation = &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test",
+				Namespace:   "test",
+				Labels:      ambientEnabledLabel,
+				Annotations: ambientDisabledAnnotation,
+			},
+		}
+	)
+
+	type args struct {
+		namespace *corev1.Namespace
+		pod       *corev1.Pod
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "ambient mode enabled for namespace",
+			args: args{
+				namespace: namespaceWithAmbientEnabledLabel,
+				pod:       unlabelledPod,
+			},
+			want: true,
+		},
+		{
+			name: "ambient mode enabled for pod",
+			args: args{
+				namespace: unlabelledNamespace,
+				pod:       podWithAmbientEnabledLabel,
+			},
+			want: true,
+		},
+		{
+			name: "ambient mode enabled for both namespace and pod",
+			args: args{
+				namespace: namespaceWithAmbientEnabledLabel,
+				pod:       podWithAmbientEnabledLabel,
+			},
+			want: true,
+		},
+		{
+			name: "ambient mode enabled for neither namespace nor pod",
+			args: args{
+				namespace: unlabelledNamespace,
+				pod:       unlabelledPod,
+			},
+			want: false,
+		},
+		{
+			name: "pod has sidecar and namespace has ambient enabled",
+			args: args{
+				namespace: namespaceWithAmbientEnabledLabel,
+				pod:       podWithSidecar,
+			},
+			want: false,
+		},
+		{
+			name: "pod has annotation to disable ambient redirection",
+			args: args{
+				namespace: namespaceWithAmbientEnabledLabel,
+				pod:       podWithAmbientDisabledAnnotation,
+			},
+			want: false,
+		},
+		{
+			name: "pod has label to enable ambient mode and annotation to disable ambient redirection",
+			args: args{
+				namespace: namespaceWithAmbientEnabledLabel,
+				pod:       podWithAmbientEnabledLabelAndAmbientDisabledAnnotation,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := PodRedirectionEnabled(tt.args.namespace, tt.args.pod); got != tt.want {
+				t.Errorf("PodRedirectionEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
