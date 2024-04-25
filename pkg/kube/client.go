@@ -1204,9 +1204,9 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(clientsecurity.AddToScheme(scheme))
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
-	utilruntime.Must(gatewayapi.AddToScheme(scheme))
-	utilruntime.Must(gatewayapibeta.AddToScheme(scheme))
-	utilruntime.Must(gatewayapiv1.AddToScheme(scheme))
+	utilruntime.Must(gatewayapi.Install(scheme))
+	utilruntime.Must(gatewayapibeta.Install(scheme))
+	utilruntime.Must(gatewayapiv1.Install(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme
 }
