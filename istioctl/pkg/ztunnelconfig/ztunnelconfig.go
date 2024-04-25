@@ -395,10 +395,10 @@ func logCmd(ctx cli.Context) *cobra.Command {
  istioctl ztunnel-config log
 
  # Update levels of the all loggers for a specific Ztunnel pod
- istioctl ztunnel-config log <pod-name[.namespace]> --level none
+ istioctl ztunnel-config log <pod-name[.namespace]> --level off
 
  # Update levels of the specified loggers for all Ztunnl pods
- istioctl ztunnel-config log --level http:debug,redis:debug
+ istioctl ztunnel-config log --level access:debug,info
 
  # Reset levels of all the loggers to default value (warning)  for a specific Ztunnel pod.
  istioctl ztunnel-config log <pod-name[.namespace]> -r
