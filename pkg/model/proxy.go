@@ -291,9 +291,13 @@ type NodeMetadata struct {
 	// This depends on DNSCapture.
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
-	// EnableHBONE, if set, will enable generation of HBONE config.
+	// EnableHBONE, if set, will enable generation of HBONE listener config.
 	// Note: this only impacts sidecars; ztunnel and waypoint proxy unconditionally use HBONE.
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
+
+	// DisableHBONESend, will disable sending HBONE.
+	// Warning: If this is enabled, ambient may break; use with caution.
+	DisableHBONESend StringBool `json:"DISABLE_HBONE_SEND,omitempty"`
 
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
