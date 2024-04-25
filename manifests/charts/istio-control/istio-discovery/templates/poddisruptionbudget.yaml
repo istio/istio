@@ -10,7 +10,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
@@ -21,7 +21,7 @@ spec:
     matchLabels:
       app: istiod
       {{- if ne .Values.revision "" }}
-      istio.io/rev: {{ .Values.revision }}
+      istio.io/rev: {{ .Values.revision | quote }}
       {{- else }}
       istio: pilot
       {{- end }}
