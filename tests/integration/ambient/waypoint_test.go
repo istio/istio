@@ -201,6 +201,17 @@ func TestSimpleHTTPSandwich(t *testing.T) {
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			config := `
+apiVersion: networking.istio.io/v1beta1
+kind: ProxyConfig
+metadata:
+  name: disable-hbone
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: simple-http-waypoint
+  environmentVariables:
+    ISTIO_META_DISABLE_HBONE_SEND: "true"
+---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
