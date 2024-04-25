@@ -68,6 +68,8 @@ if [ -z "${GATEWAY_VERSION}" ]; then
   fail "Unable to retrieve the gateway-api version from go.mod file. Not updating the CRD file.";
 fi
 
+# TODO(https://github.com/kubernetes-sigs/gateway-api/pull/3022) add this back
+exit 0
 echo "# Generated with \`kubectl kustomize \"https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=${GATEWAY_VERSION}\"\`" > "${API_TMP}/gateway-api-crd.yaml"
 if ! kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=${GATEWAY_VERSION}" >> "${API_TMP}/gateway-api-crd.yaml"; then
   fail "Unable to generate the CRDs for ${GATEWAY_VERSION}. Not updating the CRD file.";
