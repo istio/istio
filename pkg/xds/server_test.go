@@ -29,15 +29,19 @@ type TestProxy struct {
 func (p *TestProxy) DeleteWatchedResource(url string) {
 	delete(p.WatchedResources, url)
 }
+
 func (p *TestProxy) GetWatchedResource(url string) *WatchedResource {
 	return p.WatchedResources[url]
 }
+
 func (p *TestProxy) NewWatchedResource(url string, names []string) {
 	p.WatchedResources[url] = &WatchedResource{ResourceNames: names}
 }
+
 func (p *TestProxy) UpdateWatchedResource(url string, f func(*WatchedResource) *WatchedResource) {
 	p.WatchedResources[url] = f(p.WatchedResources[url])
 }
+
 func (p *TestProxy) GetID() string {
 	return ""
 }
