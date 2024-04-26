@@ -15,6 +15,7 @@
 package serviceentry
 
 import (
+	"fmt"
 	"net/netip"
 	"strings"
 	"time"
@@ -341,11 +342,12 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 				}
 				out = append(out, &model.ServiceInstance{
 					Endpoint: &model.IstioEndpoint{
-						Address:         string(service.Hostname),
-						EndpointPort:    endpointPort,
-						ServicePortName: serviceEntryPort.Name,
-						Labels:          nil,
-						TLSMode:         model.DisabledTLSModeLabel,
+						Address:            string(service.Hostname),
+						EndpointPort:       endpointPort,
+						ServicePortName:    serviceEntryPort.Name,
+						ServicePortNameKey: fmt.Sprintf("%s~%d", serviceEntryPort.Name, serviceEntryPort.Number),
+						Labels:             nil,
+						TLSMode:            model.DisabledTLSModeLabel,
 					},
 					Service:     service,
 					ServicePort: convertPort(serviceEntryPort),

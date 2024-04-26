@@ -485,7 +485,8 @@ type IstioEndpoint struct {
 	Address string
 
 	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
-	ServicePortName string
+	ServicePortName    string
+	ServicePortNameKey string
 
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string
