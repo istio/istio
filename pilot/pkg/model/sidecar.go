@@ -980,7 +980,7 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 		// Update index as well, so that future reads will merge into the new service
 		foundSvc.svc = copied
 		servicesAdded[foundSvc.svc.Hostname] = foundSvc
-		sc.servicesByHostname[s.Hostname] = s
+		sc.servicesByHostname[s.Hostname] = copied
 	}
 }
 
