@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"io"
 	"os"
@@ -48,6 +49,9 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 )
+
+//go:embed istio-ascii.txt
+var istioAsciiArt string
 
 type InstallArgs struct {
 	// InFilenames is an array of paths to the input IstioOperator CR files.
@@ -131,6 +135,7 @@ func InstallCmdWithArgs(ctx cli.Context, rootArgs *RootArgs, iArgs *InstallArgs)
 			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			p := NewPrinterForWriter(cmd.OutOrStderr())
+			p.Printf("%v\n", istioAsciiArt)
 			return Install(kubeClient, rootArgs, iArgs, cmd.OutOrStdout(), l, p)
 		},
 	}
