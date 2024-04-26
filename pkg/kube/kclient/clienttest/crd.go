@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	metadatafake "k8s.io/client-go/metadata/fake"
@@ -29,9 +30,15 @@ import (
 
 func MakeCRD(t test.Failer, c kube.Client, g schema.GroupVersionResource) {
 	t.Helper()
+	MakeCRDWithAnnotations(t, c, g, nil)
+}
+
+func MakeCRDWithAnnotations(t test.Failer, c kube.Client, g schema.GroupVersionResource, annotations map[string]string) {
+	t.Helper()
 	crd := &v1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s.%s", g.Resource, g.Group),
+			Name:        fmt.Sprintf("%s.%s", g.Resource, g.Group),
+			Annotations: annotations,
 		},
 	}
 	// Metadata client fake is not kept in sync, so if using a fake client update that as well
@@ -44,10 +51,18 @@ func MakeCRD(t test.Failer, c kube.Client, g schema.GroupVersionResource) {
 	if !ok {
 		return
 	}
-	if _, err := fmd.CreateFake(&metav1.PartialObjectMetadata{
+	obj := &metav1.PartialObjectMetadata{
 		TypeMeta:   crd.TypeMeta,
 		ObjectMeta: crd.ObjectMeta,
-	}, metav1.CreateOptions{}); err != nil {
-		t.Fatal(err)
+	}
+	if _, err := fmd.CreateFake(obj, metav1.CreateOptions{}); err != nil {
+		if kerrors.IsAlreadyExists(err) {
+			_, err = fmd.UpdateFake(obj, metav1.UpdateOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			t.Fatal(err)
+		}
 	}
 }

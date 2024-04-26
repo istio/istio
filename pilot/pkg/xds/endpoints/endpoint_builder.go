@@ -211,8 +211,10 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	h.Write(Separator)
 	h.WriteString(strconv.FormatBool(b.clusterLocal))
 	h.Write(Separator)
-	if features.EnableSidecarHBONEListening && b.proxy != nil {
+	if b.proxy != nil {
 		h.WriteString(strconv.FormatBool(b.proxy.IsProxylessGrpc()))
+		h.Write(Separator)
+		h.WriteString(strconv.FormatBool(bool(b.proxy.Metadata.DisableHBONESend)))
 		h.Write(Separator)
 	}
 	h.WriteString(util.LocalityToString(b.locality))
@@ -634,6 +636,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 
 	tunnel := supportTunnel(b, e)
 	if mtlsEnabled && !features.PreferHBONESend {
+		tunnel = false
+	}
+	if b.proxy.Metadata.DisableHBONESend {
 		tunnel = false
 	}
 	if tunnel {

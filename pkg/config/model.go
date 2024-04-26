@@ -179,6 +179,16 @@ func ToMap(s Spec) (map[string]any, error) {
 	return data, nil
 }
 
+func ToRaw(s Spec) (json.RawMessage, error) {
+	js, err := ToJSON(s)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal from json bytes to go map
+	return js, nil
+}
+
 func ToJSON(s Spec) ([]byte, error) {
 	return toJSON(s, false)
 }
