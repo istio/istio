@@ -374,13 +374,13 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
 					ProxyID: con.proxy.ID,
-					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.ClusterType),
+					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.ClusterType),
 						resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.ListenerType),
+					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.ListenerType),
 						resourceID, knownVersions),
-					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.RouteType),
+					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.RouteType),
 						resourceID, knownVersions),
-					EndpointVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.EndpointType),
+					EndpointVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.EndpointType),
 						resourceID, knownVersions),
 				})
 			}
@@ -519,9 +519,9 @@ func (s *DiscoveryServer) connectionsHandler(w http.ResponseWriter, req *http.Re
 
 	for _, c := range connections {
 		adsClient := AdsClient{
-			ConnectionID: c.conID,
-			ConnectedAt:  c.connectedAt,
-			PeerAddress:  c.peerAddr,
+			ConnectionID: c.ID(),
+			ConnectedAt:  c.ConnectedAt(),
+			PeerAddress:  c.Peer(),
 		}
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
@@ -553,9 +553,9 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	adsClients.Total = len(connections)
 	for _, c := range connections {
 		adsClient := AdsClient{
-			ConnectionID: c.conID,
-			ConnectedAt:  c.connectedAt,
-			PeerAddress:  c.peerAddr,
+			ConnectionID: c.ID(),
+			ConnectedAt:  c.ConnectedAt(),
+			PeerAddress:  c.Peer(),
 			Labels:       c.proxy.Labels,
 			Metadata:     c.proxy.Metadata,
 			Locality:     c.proxy.Locality,
@@ -1049,7 +1049,7 @@ func cloneProxy(proxy *model.Proxy) *model.Proxy {
 
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 	for _, con := range s.Clients() {
-		if strings.Contains(con.conID, proxyID) {
+		if strings.Contains(con.ID(), proxyID) {
 			out := *con
 			out.proxy = cloneProxy(con.proxy)
 			return &out
