@@ -45,6 +45,8 @@ spec:
         env:
         - name: REVISION
           value: default
+        - name: JWT_POLICY
+          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
         - name: POD_NAME
@@ -132,9 +134,6 @@ spec:
       nodeSelector:
         master: "true"
       serviceAccountName: istiod
-      tolerations:
-      - key: cni.istio.io/not-ready
-        operator: Exists
       volumes:
       - emptyDir:
           medium: Memory

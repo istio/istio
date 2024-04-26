@@ -63,28 +63,6 @@
         },
         {
             "apiGroups": [
-                "telemetry.istio.io"
-            ],
-            "resources": [
-                "*"
-            ],
-            "verbs": [
-                "*"
-            ]
-        },
-        {
-            "apiGroups": [
-                "extensions.istio.io"
-            ],
-            "resources": [
-                "*"
-            ],
-            "verbs": [
-                "*"
-            ]
-        },
-        {
-            "apiGroups": [
                 "admissionregistration.k8s.io"
             ],
             "resources": [

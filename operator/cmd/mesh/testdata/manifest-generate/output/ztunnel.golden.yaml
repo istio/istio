@@ -13,6 +13,7 @@ spec:
     metadata:
       annotations:
         ambient.istio.io/redirection: disabled
+        cni.projectcalico.org/allowedSourcePrefixes: '["0.0.0.0/0"]'
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
@@ -29,14 +30,8 @@ spec:
           value: istiod.istio-system.svc:15012
         - name: XDS_ADDRESS
           value: istiod.istio-system.svc:15012
-        - name: RUST_LOG
-          value: info
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        - name: INPOD_ENABLED
-          value: "true"
-        - name: ISTIO_META_DNS_PROXY_ADDR
-          value: 127.0.0.1:15053
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -81,8 +76,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-            - SYS_ADMIN
-            - NET_RAW
             drop:
             - ALL
           privileged: false
@@ -95,10 +88,6 @@ spec:
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        - mountPath: /var/run/ztunnel
-          name: cni-ztunnel-sock-dir
-        - mountPath: /tmp
-          name: tmp
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-node-critical
@@ -122,12 +111,6 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
-      - hostPath:
-          path: /var/run/ztunnel
-          type: DirectoryOrCreate
-        name: cni-ztunnel-sock-dir
-      - emptyDir: {}
-        name: tmp
   updateStrategy:
     rollingUpdate:
       maxSurge: 1

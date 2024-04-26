@@ -3,6 +3,7 @@ data:
   mesh: |-
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
+      tracing: {}
     defaultProviders:
       metrics:
       - prometheus
