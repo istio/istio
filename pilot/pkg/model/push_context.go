@@ -1455,7 +1455,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 	for _, s := range allServices {
 		portMap := map[string]int{}
 		for _, port := range s.Ports {
-			portMap[port.Name] = port.Port
+			portMap[fmt.Sprintf("%s~%d", port.Name, port.Port)] = port.Port
 		}
 
 		svcKey := s.Key()

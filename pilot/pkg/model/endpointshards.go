@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -100,7 +101,8 @@ func (es *EndpointShards) CopyEndpoints(portMap map[string]int) map[int][]*Istio
 	res := map[int][]*IstioEndpoint{}
 	for _, v := range es.Shards {
 		for _, ep := range v {
-			portNum, f := portMap[ep.ServicePortName]
+			k := ptr.NonEmptyOrDefault(ep.ServicePortNameKey, ep.ServicePortName)
+			portNum, f := portMap[k]
 			if !f {
 				continue
 			}
