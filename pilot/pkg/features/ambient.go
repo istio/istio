@@ -44,11 +44,6 @@ var (
 		"PILOT_PREFER_SENDING_HBONE",
 		false, false,
 		"If enabled, HBONE will be preferred when sending to destinations. ")
-
-	DefaultAllowFromWaypoint = registerAmbient(
-		"PILOT_DEFAULT_ENFORCE_FROM_WAYPOINT",
-		true, false,
-		"If enabled, zTunnels will enforce that incoming traffic has traversed a Waypoint if traffic to an endpoint may traverse one.")
 )
 
 // registerAmbient registers a variable that is allowed only if EnableAmbient is set

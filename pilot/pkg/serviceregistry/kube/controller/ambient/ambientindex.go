@@ -150,10 +150,10 @@ func New(options Options) Index {
 	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, krt.WithName("Namespaces"))
 
 	MeshConfig := MeshConfigCollection(ConfigMaps, options)
-	Waypoints := WaypointsCollection(Gateways, GatewayClasses, Pods)
+	Waypoints := WaypointsCollection(Gateways, GatewayClasses)
 
 	// AllPolicies includes peer-authentication converted policies
-	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints, Pods)
+	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig)
 	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater, func(i model.WorkloadAuthorization) model.ConfigKey {
 		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 	}), false)
@@ -166,7 +166,7 @@ func New(options Options) Index {
 		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		waypoint := s.Service.Waypoint
+		waypoint := s.Waypoint
 		if waypoint == nil {
 			return nil
 		}
