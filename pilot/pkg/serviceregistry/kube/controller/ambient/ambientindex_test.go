@@ -614,10 +614,10 @@ const (
 	xdsSelector                        = "selector"
 )
 
-// app a has one pod
-// the waypoint has two pods with different service accounts
-// the waypoint is namespace attached
-func setupPolicyTest(t *testing.T, s *ambientTestServer) {
+// TODO(nmittler): Consider splitting this into multiple, smaller tests.
+func TestAmbientIndex_Policy(t *testing.T) {
+	s := newAmbientTestServer(t, testC, testNW)
+
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
@@ -627,10 +627,7 @@ func setupPolicyTest(t *testing.T, s *ambientTestServer) {
 		}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
 	s.addPods(t, "127.0.0.201", "waypoint2-sa", "waypoint-sa",
-		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "waypoint-ns",
-		},
+		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
 	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", constants.AllTraffic, true)
@@ -648,13 +645,6 @@ func setupPolicyTest(t *testing.T, s *ambientTestServer) {
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "waypoint-ns"}, "10.0.0.2")
 	s.assertUnorderedEvent(t, s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
-}
-
-// TODO(nmittler): Consider splitting this into multiple, smaller tests.
-func TestAmbientIndex_Policy(t *testing.T) {
-	s := newAmbientTestServer(t, testC, testNW)
-	setupPolicyTest(t, s)
-
 	selectorPolicyName := "selector"
 
 	// Test that PeerAuthentications are added to the ambient index
@@ -1069,40 +1059,6 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	// there should be no event for creation of a gateway-targeted policy because we should not configure WDS with a policy
 	// when expressed user intent is specifically to have that policy enforced by a gateway
 	s.assertNoEvent(t)
-}
-
-func TestDefaultAllowWaypointPolicy(t *testing.T) {
-	// while the Waypoint is in testNS, the policies live in the Pods' namespaces
-	policyName := "istio_allow_waypoint_" + testNS + "_" + "waypoint-ns"
-	test.SetForTest(t, &features.DefaultAllowFromWaypoint, true)
-
-	s := newAmbientTestServer(t, testC, testNW)
-	setupPolicyTest(t, s)
-
-	t.Run("policy with service accounts", func(t *testing.T) {
-		assert.EventuallyEqual(t, func() []string {
-			waypointPolicy := s.authorizationPolicies.GetKey(krt.Key[model.WorkloadAuthorization]("ns1/" + policyName))
-			if waypointPolicy == nil {
-				return nil
-			}
-			match := waypointPolicy.Authorization.GetGroups()[0].GetRules()[0].GetMatches()[0]
-			return slices.Map(match.Principals, func(sm *security.StringMatch) string {
-				return sm.GetExact()
-			})
-		}, []string{
-			"spiffe://cluster.local/ns/ns1/sa/namespace-wide",
-			"spiffe://cluster.local/ns/ns1/sa/waypoint-sa",
-		})
-	})
-
-	t.Run("attach policy to workload", func(t *testing.T) {
-		assert.EventuallyEqual(t,
-			func() []string {
-				return s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies()
-			},
-			[]string{policyName},
-		)
-	})
 }
 
 func TestPodLifecycleWorkloadGates(t *testing.T) {

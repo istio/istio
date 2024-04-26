@@ -962,8 +962,6 @@ type ServiceInfo struct {
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
 	Source kind.Kind
-	// Waypoint that clients should use when addressing traffic to this Service.
-	Waypoint string
 }
 
 func (i ServiceInfo) NamespacedName() types.NamespacedName {
