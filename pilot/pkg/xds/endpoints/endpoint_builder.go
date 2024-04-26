@@ -337,6 +337,10 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		if svcPort.Name != ep.ServicePortName {
 			return false
 		}
+		// filter out endpoint that has invalid ip address, mostly domain name. Because this is generated from ServiceEntry.
+		if net.ParseIP(ep.Address) == nil {
+			return false
+		}
 		// filter out endpoints that don't match the subset
 		if !b.subsetLabels.SubsetOf(ep.Labels) {
 			return false
