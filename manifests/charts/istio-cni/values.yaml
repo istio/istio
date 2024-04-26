@@ -32,6 +32,12 @@ defaults:
     # Allows user to set custom affinity for the DaemonSet
     affinity: {}
 
+    # Custom labels on Deployment level, if you need them
+    deploymentLabels: {}
+
+    # Custom labels on Pod level, if you need them
+    podLabels: {}
+
     # Custom annotations on pod level, if you need them
     podAnnotations: {}
 

@@ -17,6 +17,10 @@ metadata:
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Cni"
+    {{- if .Values.cni.deploymentLabels }}
+    # Custom Labels
+{{ toYaml .Values.cni.deploymentLabels | indent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:
@@ -30,6 +34,10 @@ spec:
       labels:
         k8s-app: istio-cni-node
         sidecar.istio.io/inject: "false"
+        {{- if .Values.cni.podLabels }}
+        # Custom Labels
+{{ toYaml .Values.cni.podLabels | indent 8 }}
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         ambient.istio.io/redirection: disabled
