@@ -338,8 +338,10 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 			return false
 		}
 		// filter out endpoint that has invalid ip address, mostly domain name. Because this is generated from ServiceEntry.
-		// ep.Address can be empty since https://github.com/istio/istio/pull/45150, in this case we will replace it with gateway ip.
-		if ep.Address != "" && net.ParseIP(ep.Address) == nil {
+		// There are other two cases that should not be filtered out:
+		// 1. ep.Address can be empty since https://github.com/istio/istio/pull/45150, in this case we will replace it with gateway ip.
+		// 2. ep.Address can be uds when EndpointPort = 0
+		if ep.Address != "" && ep.EndpointPort != 0 && net.ParseIP(ep.Address) == nil {
 			return false
 		}
 		// filter out endpoints that don't match the subset
