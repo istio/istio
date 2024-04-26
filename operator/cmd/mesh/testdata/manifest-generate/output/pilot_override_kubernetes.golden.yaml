@@ -216,6 +216,8 @@ spec:
         - --keepaliveMaxServerConnectionAge
         - 60m
         env:
+        - name: JWT_POLICY
+          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
         - name: POD_NAME
@@ -290,9 +292,6 @@ spec:
           name: istio-csr-ca-configmap
           readOnly: true
       serviceAccountName: istiod
-      tolerations:
-      - key: cni.istio.io/not-ready
-        operator: Exists
       volumes:
       - emptyDir:
           medium: Memory

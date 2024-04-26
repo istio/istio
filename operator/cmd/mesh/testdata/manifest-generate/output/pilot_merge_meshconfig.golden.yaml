@@ -9,6 +9,9 @@ data:
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123
       drainDuration: 12s
+      tracing:
+        zipkin:
+          address: zipkin.istio-system:9411
     defaultProviders:
       metrics:
       - prometheus
