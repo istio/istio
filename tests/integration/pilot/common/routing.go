@@ -1666,14 +1666,15 @@ func gatewayCases(t TrafficContext) {
 	}
 
 	// SingleRegualrPod is already applied leaving one regular pod, to only regular pods should leave a single workload.
-	singleTarget := []match.Matcher{match.RegularPod}
+	// the following cases don't actually target workloads, we use the singleTarget filter to avoid duplicate cases
+	// Gateways don't support talking directly to waypoint, so we skip that here as well.
+	matchers := []match.Matcher{match.RegularPod, match.NotWaypoint}
 
 	gatewayListenPort := 80
 	gatewayListenPortName := "http"
-	// the following cases don't actually target workloads, we use the singleTarget filter to avoid duplicate cases
 	t.RunTraffic(TrafficTestCase{
 		name:             "404",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP", t.Istio.Settings().IngressGatewayIstioLabel),
@@ -1691,7 +1692,7 @@ func gatewayCases(t TrafficContext) {
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "https redirect",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -1729,7 +1730,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		// See https://github.com/istio/istio/issues/27315
 		name:             "https with x-forwarded-proto",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -1803,7 +1804,8 @@ spec:
 		},
 	})
 	t.RunTraffic(TrafficTestCase{
-		name: "cipher suite",
+		name:           "cipher suite",
+		targetMatchers: []match.Matcher{match.NotWaypoint},
 		config: gatewayTmpl + httpVirtualServiceTmpl +
 			ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
 		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
@@ -1825,7 +1827,8 @@ spec:
 		workloadAgnostic: true,
 	})
 	t.RunTraffic(TrafficTestCase{
-		name: "optional mTLS",
+		name:           "optional mTLS",
+		targetMatchers: []match.Matcher{match.NotWaypoint},
 		config: gatewayTmpl + httpVirtualServiceTmpl +
 			ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
 		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
@@ -1847,7 +1850,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		// See https://github.com/istio/istio/issues/34609
 		name:             "http redirect when vs port specify https",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -1890,7 +1893,7 @@ spec:
 		// See https://github.com/istio/istio/issues/27315
 		// See https://github.com/istio/istio/issues/34609
 		name:             "http return 400 with with x-forwarded-proto https when vs port specify https",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -1966,7 +1969,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		// https://github.com/istio/istio/issues/37196
 		name:             "client protocol - http1",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -2009,7 +2012,7 @@ spec:
 		// https://github.com/istio/istio/issues/37196
 		name:             "client protocol - http2",
 		skip:             skipEnvoyPeerMeta,
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -2061,7 +2064,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "wildcard hostname",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -2150,7 +2153,7 @@ spec:
 				// https://github.com/istio/istio/issues/37196
 				name:             fmt.Sprintf("client protocol - %v use client with %v", protoName, port),
 				skip:             skipEnvoyPeerMeta,
-				targetMatchers:   singleTarget,
+				targetMatchers:   matchers,
 				workloadAgnostic: true,
 				viaIngress:       true,
 				config: `apiVersion: networking.istio.io/v1alpha3
@@ -2241,7 +2244,7 @@ spec:
 					check.RequestHeader("Istio-Custom-Header", "user-defined-value")),
 			},
 			// to keep tests fast, we only run the basic protocol test per-workload and scheme match once (per cluster)
-			targetMatchers:   singleTarget,
+			targetMatchers:   matchers,
 			viaIngress:       true,
 			workloadAgnostic: true,
 		})
@@ -4062,7 +4065,8 @@ spec:
       claim: "wrong_claim"
 ---
 `
-	matchers := []match.Matcher{match.Or(match.ServiceName(t.Apps.B.NamespacedName()), match.WaypointService(), match.CapturedService())}
+	// No waypoint here, these are all via ingress which doesn't forward to waypoint
+	matchers := []match.Matcher{match.Or(match.ServiceName(t.Apps.B.NamespacedName()), match.AmbientCaptured())}
 	headersWithToken := map[string][]string{
 		"Host":          {"foo.bar"},
 		"Authorization": {"Bearer " + jwt.TokenIssuer1WithNestedClaims1},

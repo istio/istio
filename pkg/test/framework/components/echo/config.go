@@ -401,6 +401,13 @@ func (c Config) IsRegularPod() bool {
 		!c.DualStack
 }
 
+// WaypointClient means the client supports HBONE and does zTunnel redirection.
+// Currently, only zTunnel captured sources do this. Eventually this might be enabled
+// for ingress and/or sidecars.
+func (c Config) WaypointClient() bool {
+	return c.ZTunnelCaptured() && !c.IsUncaptured()
+}
+
 // ZTunnelCaptured returns true in ambient enabled namespaces where there is no sidecar
 func (c Config) ZTunnelCaptured() bool {
 	haveSubsets := len(c.Subsets) > 0
@@ -597,8 +604,9 @@ func (c Config) WorkloadClass() WorkloadClass {
 		return StatefulSet
 	} else if c.IsSotw() {
 		return Sotw
-	} else if c.ZTunnelCaptured() &&
-		!(c.HasServiceAddressedWaypointProxy() || c.HasWorkloadAddressedWaypointProxy()) {
+	} else if c.HasAnyWaypointProxy() {
+		return Waypoint
+	} else if c.ZTunnelCaptured() && !c.HasAnyWaypointProxy() {
 		return Captured
 	}
 	if c.IsHeadless() {

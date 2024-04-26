@@ -147,8 +147,7 @@ func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
 // Assumption is ambient test suite sidecars will support HBONE
 // If the assumption is incorrect hboneClient may return invalid result
 func hboneClient(instance echo.Instance) bool {
-	return instance.Config().ZTunnelCaptured() ||
-		instance.Config().HasSidecar()
+	return instance.Config().ZTunnelCaptured()
 }
 
 func TestServices(t *testing.T) {
@@ -157,13 +156,6 @@ func TestServices(t *testing.T) {
 			opt.Check = httpValidator
 		} else {
 			opt.Check = tcpValidator
-		}
-
-		if !hboneClient(src) && dst.Config().HasAnyWaypointProxy() {
-			// For this case, it is broken if the src and dst are on the same node.
-			// Because client request is not captured to perform the hairpin
-			// TODO(https://github.com/istio/istio/issues/43238): fix this and remove this skip
-			t.Skip("https://github.com/istio/istio/issues/44530")
 		}
 
 		if !dst.Config().HasServiceAddressedWaypointProxy() &&
@@ -176,12 +168,15 @@ func TestServices(t *testing.T) {
 			opt.Check = check.And(opt.Check, OriginalSourceCheck(t, src))
 		}
 
-		if src.Config().ZTunnelCaptured() && dst.Config().HasWorkloadAddressedWaypointProxy() {
-			// this is to svc traffic on a wl with only a workload addressed waypoint, it is going to bypass the waypoint by design
-			// we can't check http because we bypass the waypoint
-			// I don't think it makes sense to change the supportsL7 function for this case since it requires contect
-			// about how the traffic will be addressed
-			opt.Check = tcpValidator
+		// Non-HBONE clients will attempt to bypass the waypoint
+		if !src.Config().WaypointClient() && dst.Config().HasAnyWaypointProxy() {
+			opt.Check = check.NotOK()
+		}
+
+		// Any client will attempt to bypass a workload waypoint (not both service and workload waypoint)
+		// because this test always addresses by service.
+		if dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy() {
+			opt.Check = check.Error()
 		}
 
 		if src.Config().HasSidecar() && dst.Config().HasWorkloadAddressedWaypointProxy() {
@@ -217,22 +212,29 @@ func TestPodIP(t *testing.T) {
 										opt.Check = tcpValidator
 									}
 
-									if src.Config().IsUncaptured() && dst.Config().HasAnyWaypointProxy() {
-										// hairpinning isn't going to be implemented AND
-										// waypoint requirements are expressed via L4 policy which is not in place for this test:
-										// expected result is a plaintext passthrough by ztunnel
-										opt.Check = tcpValidator
+									opt.Address = dstWl.Address()
+									opt.Check = check.And(opt.Check, check.Hostname(dstWl.PodName()))
+
+									opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+									opt.ToWorkload = dst.WithWorkloads(dstWl)
+
+									// Uncaptured means we won't traverse the waypoint
+									// We cannot bypass the waypoint, so this fails.
+									if !src.Config().WaypointClient() && dst.Config().HasAnyWaypointProxy() {
+										opt.Check = check.NotOK()
+									}
+
+									// Only marked to use service waypoint. We'll deny since it's not traversed.
+									// Not traversed, since traffic is to-workload IP.
+									if dst.Config().HasServiceAddressedWaypointProxy() && !dst.Config().HasWorkloadAddressedWaypointProxy() {
+										opt.Check = check.NotOK()
 									}
 
 									if selfSend {
 										// Calls to ourself (by pod IP) are not captured
 										opt.Check = tcpValidator
 									}
-									opt.Address = dstWl.Address()
-									opt.Check = check.And(opt.Check, check.Hostname(dstWl.PodName()))
 
-									opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
-									opt.ToWorkload = dst.WithWorkloads(dstWl)
 									t.NewSubTestf("%v", opt.Scheme).RunParallel(func(t framework.TestContext) {
 										src.WithWorkloads(srcWl).CallOrFail(t, opt)
 									})
@@ -2209,6 +2211,13 @@ func TestIngress(t *testing.T) {
 		if opt.Scheme != scheme.HTTP {
 			return
 		}
+
+		// Ingress currently never sends to Waypoints
+		// We cannot bypass the waypoint, so this fails.
+		if dst.Config().HasAnyWaypointProxy() {
+			opt.Check = check.Error()
+		}
+
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Destination": dst.Config().Service,
 		}, `apiVersion: networking.istio.io/v1alpha3
