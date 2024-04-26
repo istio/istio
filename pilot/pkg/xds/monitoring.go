@@ -26,8 +26,6 @@ import (
 )
 
 var (
-	errTag     = monitoring.CreateLabel("err")
-	nodeTag    = monitoring.CreateLabel("node")
 	typeTag    = monitoring.CreateLabel("type")
 	versionTag = monitoring.CreateLabel("version")
 
