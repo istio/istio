@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	common_deploy "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -30,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -45,27 +43,15 @@ var (
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
 	// its doing something unique to that specific test.
 	apps = &EchoDeployments{}
-
-	// used to validate telemetry in-cluster
-	prom prometheus.Instance
 )
 
 type EchoDeployments struct {
 	// Namespace echo apps will be deployed
 	Namespace namespace.Instance
-
-	// AllWaypoint is a waypoint for all types
-	AllWaypoint echo.Instances
-	// WorkloadAddressedWaypoint is a workload only waypoint
-	WorkloadAddressedWaypoint echo.Instances
-	// ServiceAddressedWaypoint is a serviceonly waypoint
-	ServiceAddressedWaypoint echo.Instances
 	// Captured echo service
 	Captured echo.Instances
 	// Uncaptured echo Service
 	Uncaptured echo.Instances
-	// SidecarWaypoint is a sidecar with a waypoint
-	SidecarWaypoint echo.Instances
 	// SidecarCaptured echo services with sidecar and ambient capture
 	SidecarCaptured echo.Instances
 	// SidecarUncaptured echo services with sidecar and no ambient capture
@@ -73,13 +59,6 @@ type EchoDeployments struct {
 
 	// All echo services
 	All echo.Instances
-	// Echo services that are in the mesh
-	Mesh echo.Instances
-	// Echo services that are not in mesh
-	MeshExternal echo.Instances
-
-	// WaypointProxies by
-	WaypointProxies map[string]ambient.WaypointProxy
 }
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -118,13 +97,10 @@ values:
 }
 
 const (
-	WorkloadAddressedWaypoint = "workload-addressed-waypoint"
-	ServiceAddressedWaypoint  = "service-addressed-waypoint"
-	Captured                  = "captured"
-	Uncaptured                = "uncaptured"
-	SidecarWaypoint           = "sidecar-waypoint"
-	SidecarCaptured           = "sidecar-captured"
-	SidecarUncaptured         = "sidecar-uncaptured"
+	Captured          = "captured"
+	Uncaptured        = "uncaptured"
+	SidecarCaptured   = "sidecar-captured"
+	SidecarUncaptured = "sidecar-uncaptured"
 )
 
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
@@ -136,11 +112,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			constants.DataplaneMode: "ambient",
 		},
 	})
-	if err != nil {
-		return err
-	}
-
-	prom, err = prometheus.New(t, prometheus.Config{})
 	if err != nil {
 		return err
 	}

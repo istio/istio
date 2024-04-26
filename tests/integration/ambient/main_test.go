@@ -106,6 +106,9 @@ func TestMain(m *testing.M) {
 			cfg.ControlPlaneValues = `
 values:
   cni:
+    # The CNI repair feature is disabled for these tests because this is a controlled environment,
+    # and it is important to catch issues that might otherwise be automatically fixed.
+    # Refer to issue #49207 for more context.
     repair:
       enabled: false
   ztunnel:
