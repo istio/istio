@@ -19,13 +19,13 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.4.1
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cheggaaa/pb/v3 v3.1.5
-	github.com/cncf/xds/go v0.0.0-20240329184929-0c46c01016dc
+	github.com/cncf/xds/go v0.0.0-20240423153145-555b57ec207b
 	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.4.1
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v26.0.0+incompatible
-	github.com/envoyproxy/go-control-plane v0.12.1-0.20240419124334-0cebb2f428b3
+	github.com/envoyproxy/go-control-plane v0.12.1-0.20240425230418-212e93054f1a
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/fatih/color v1.16.0
 	github.com/felixge/fgprof v0.9.4
