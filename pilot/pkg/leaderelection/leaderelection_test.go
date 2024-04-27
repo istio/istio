@@ -78,9 +78,8 @@ func createElectionMulticluster(t *testing.T,
 		cycle:          atomic.NewInt32(0),
 		enabled:        true,
 	}
-	gotLeader := make(chan struct{})
 	l.AddRunFunction(func(stop <-chan struct{}) {
-		gotLeader <- struct{}{}
+		<-stop
 	})
 	for _, fn := range fns {
 		l.AddRunFunction(fn)

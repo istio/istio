@@ -280,6 +280,7 @@ func TestErrorHandler(t *testing.T) {
 	c.Kube().(*fake.Clientset).Fake.PrependReactor("*", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, fmt.Errorf("nope, out of luck")
 	})
+	c.RunAndWait(test.NewStop(t))
 	deployments := kclient.New[*appsv1.Deployment](c)
 	deployments.Start(test.NewStop(t))
 	mt.Assert("controller_sync_errors_total", map[string]string{"cluster": "fake"}, monitortest.AtLeast(1))
@@ -288,6 +289,7 @@ func TestErrorHandler(t *testing.T) {
 func TestToOpts(t *testing.T) {
 	test.SetForTest(t, &features.InformerWatchNamespace, "istio-system")
 	c := kube.NewFakeClient()
+	c.RunAndWait(test.NewStop(t))
 	cases := []struct {
 		name   string
 		gvr    schema.GroupVersionResource

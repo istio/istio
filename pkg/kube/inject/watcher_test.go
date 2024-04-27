@@ -22,6 +22,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	"istio.io/istio/pkg/test"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -82,7 +83,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 		newValues = values
 		return nil
 	})
-	stop := make(chan struct{})
+	stop := test.NewStop(t)
 	go w.Run(stop)
 	controller := w.(*configMapWatcher).c
 	client.RunAndWait(stop)
