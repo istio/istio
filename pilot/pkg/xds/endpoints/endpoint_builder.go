@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/hash"
+	netutil "istio.io/istio/pkg/util/net"
 )
 
 var (
@@ -339,7 +340,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		// There are other two cases that should not be filtered out:
 		// 1. ep.Address can be empty since https://github.com/istio/istio/pull/45150, in this case we will replace it with gateway ip.
 		// 2. ep.Address can be uds when EndpointPort = 0
-		if ep.Address != "" && ep.EndpointPort != 0 && net.ParseIP(ep.Address) == nil {
+		if ep.Address != "" && ep.EndpointPort != 0 && !netutil.IsValidIPAddress(ep.Address) {
 			return false
 		}
 		// filter out endpoints that don't match the subset
