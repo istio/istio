@@ -23,8 +23,15 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        sidecar.istio.io/inject: "true"
-        {{- include "gateway.podLabels" . | nindent 8 }}
+        {{- include "gateway.sidecarInjectionLabels" . | nindent 8 }}
+        {{- include "gateway.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ include "gateway.name" . }}
+        app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+        {{- range $key, $val := .Values.labels }}
+        {{- if and (ne $key "app") (ne $key "istio") }}
+        {{ $key | quote }}: {{ $val | quote }}
+        {{- end }}
+        {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
