@@ -2538,10 +2538,9 @@ func TestCreateSidecarScope(t *testing.T) {
 				// validate service is also in sidecarScope.serviceByHostname
 				if s2, ok := sidecarScope.servicesByHostname[s1.Hostname]; !ok {
 					t.Errorf("Expected service %v should also in servicesByHostname", s1.Hostname)
-				} else {
-					if s1 != s2 {
-						t.Errorf("Expected service %v in SidecarScope.Services should equal to that in SidecarScope.servicesByHostname", s1.Hostname)
-					}
+				} else if s1 != s2 {
+					t.Errorf("Expected service %v in SidecarScope.Services should equal to that in SidecarScope.servicesByHostname", s1.Hostname)
+
 				}
 			}
 
