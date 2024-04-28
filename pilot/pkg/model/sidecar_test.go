@@ -2540,7 +2540,6 @@ func TestCreateSidecarScope(t *testing.T) {
 					t.Errorf("Expected service %v should also in servicesByHostname", s1.Hostname)
 				} else if s1 != s2 {
 					t.Errorf("Expected service %v in SidecarScope.Services should equal to that in SidecarScope.servicesByHostname", s1.Hostname)
-
 				}
 			}
 
