@@ -75,7 +75,6 @@ func addMonitor(mux *http.ServeMux) error {
 
 func metricsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Debugf("MetricsLocalhostAccessOnly is: %v", features.MetricsLocalhostAccessOnly)
 		if features.MetricsLocalhostAccessOnly && !istioNetUtil.IsRequestFromLocalhost(r) {
 			http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 			return
