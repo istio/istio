@@ -129,7 +129,7 @@ func (p *Log) reportProgress(component string) func() {
 			if finished {
 				p.SetMessage(fmt.Sprintf(`%s %s installed`, successIcon, cliName), true)
 			} else {
-				p.SetMessage(fmt.Sprintf(`"❌" %s encountered an error: %s`, cliName, cmpErr), true)
+				p.SetMessage(fmt.Sprintf(`❌ %s encountered an error: %s`, cliName, cmpErr), true)
 			}
 			// Close the bar out, outputting a new line
 			delete(p.components, component)
