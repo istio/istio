@@ -111,7 +111,8 @@ func createBar() *pb.ProgressBar {
 // on a new line, and create a new bar. For example, this becomes "x succeeded", "waiting for y, z".
 func (p *Log) reportProgress(component string) func() {
 	return func() {
-		cliName := name.UserFacingComponentName(name.ComponentName(component))
+		cmpName := name.ComponentName(component)
+		cliName := name.UserFacingComponentName(cmpName)
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		cmp := p.components[component]
@@ -120,11 +121,15 @@ func (p *Log) reportProgress(component string) func() {
 		finished := cmp.finished
 		cmpErr := cmp.err
 		cmp.mu.Unlock()
+		successIcon := "✅"
+		if icon, found := name.IstioComponentSuccessIcons[cmpName]; found {
+			successIcon = icon
+		}
 		if finished || cmpErr != "" {
 			if finished {
-				p.SetMessage(fmt.Sprintf(`{{ green "✔" }} %s installed`, cliName), true)
+				p.SetMessage(fmt.Sprintf(`%s %s installed`, successIcon, cliName), true)
 			} else {
-				p.SetMessage(fmt.Sprintf(`{{ red "✘" }} %s encountered an error: %s`, cliName, cmpErr), true)
+				p.SetMessage(fmt.Sprintf(`"❌" %s encountered an error: %s`, cliName, cmpErr), true)
 			}
 			// Close the bar out, outputting a new line
 			delete(p.components, component)
@@ -146,10 +151,10 @@ func (p *Log) SetState(state InstallState) {
 		p.bar.SetTemplateString(inProgress + `Pruning removed resources`)
 		p.bar.Write()
 	case StateComplete:
-		p.bar.SetTemplateString(`{{ green "✔" }} Installation complete`)
+		p.bar.SetTemplateString(`{{ green "✅" }} Installation complete`)
 		p.bar.Write()
 	case StateUninstallComplete:
-		p.bar.SetTemplateString(`{{ green "✔" }} Uninstall complete`)
+		p.bar.SetTemplateString(`{{ green "✅" }} Uninstall complete`)
 		p.bar.Write()
 	}
 }
