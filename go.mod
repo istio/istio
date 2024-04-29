@@ -19,13 +19,13 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.4.1
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cheggaaa/pb/v3 v3.1.5
-	github.com/cncf/xds/go v0.0.0-20240329184929-0c46c01016dc
+	github.com/cncf/xds/go v0.0.0-20240423153145-555b57ec207b
 	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.4.1
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v26.0.0+incompatible
-	github.com/envoyproxy/go-control-plane v0.12.1-0.20240409154308-6a432fea92ca
+	github.com/envoyproxy/go-control-plane v0.12.1-0.20240425230418-212e93054f1a
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/fatih/color v1.16.0
 	github.com/felixge/fgprof v0.9.4
@@ -100,14 +100,14 @@ require (
 	google.golang.org/genproto v0.0.0-20240401170217-c3f982113cda
 	google.golang.org/genproto/googleapis/api v0.0.0-20240401170217-c3f982113cda
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240401170217-c3f982113cda
-	google.golang.org/grpc v1.63.0
+	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.14.3
-	istio.io/api v1.19.0-alpha.1.0.20240418192243-e481111191fc
-	istio.io/client-go v1.19.0-alpha.1.0.20240418192942-362cd564429a
+	istio.io/api v1.22.0-alpha.1.0.20240423182551-68cdbb256ce1
+	istio.io/client-go v1.22.0-alpha.1.0.20240423183151-16424ed01f53
 	k8s.io/api v0.30.0
 	k8s.io/apiextensions-apiserver v0.30.0
 	k8s.io/apimachinery v0.30.0
@@ -118,7 +118,7 @@ require (
 	k8s.io/kubectl v0.30.0
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
 	sigs.k8s.io/controller-runtime v0.17.1-0.20240412100902-45e166d1fd01
-	sigs.k8s.io/gateway-api v1.0.1-0.20240418002011-7f9f51098f40
+	sigs.k8s.io/gateway-api v1.1.0-rc1.0.20240425002700-732025730290
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.4.0
 )

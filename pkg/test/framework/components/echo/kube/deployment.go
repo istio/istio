@@ -358,10 +358,10 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 
 	if cfg.WorkloadWaypointProxy != "" {
 		for _, subset := range cfg.Subsets {
-			if subset.Annotations == nil {
-				subset.Annotations = echo.NewAnnotations()
+			if subset.Labels == nil {
+				subset.Labels = make(map[string]string)
 			}
-			subset.Annotations.Set(echo.AmbientUseWaypoint, cfg.WorkloadWaypointProxy)
+			subset.Labels[constants.AmbientUseWaypoint] = cfg.WorkloadWaypointProxy
 		}
 	}
 
@@ -420,19 +420,19 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 
 func serviceParams(cfg echo.Config) map[string]any {
 	if cfg.ServiceWaypointProxy != "" {
-		if cfg.ServiceAnnotations == nil {
-			cfg.ServiceAnnotations = echo.NewAnnotations()
+		if cfg.ServiceLabels == nil {
+			cfg.ServiceLabels = make(map[string]string)
 		}
-		cfg.ServiceAnnotations.Set(echo.AmbientUseWaypoint, cfg.ServiceWaypointProxy)
+		cfg.ServiceLabels[constants.AmbientUseWaypoint] = cfg.ServiceWaypointProxy
 	}
 	return map[string]any{
-		"Service":            cfg.Service,
-		"Headless":           cfg.Headless,
-		"ServiceAccount":     cfg.ServiceAccount,
-		"ServicePorts":       cfg.Ports.GetServicePorts(),
-		"ServiceAnnotations": cfg.ServiceAnnotations,
-		"IPFamilies":         cfg.IPFamilies,
-		"IPFamilyPolicy":     cfg.IPFamilyPolicy,
+		"Service":        cfg.Service,
+		"Headless":       cfg.Headless,
+		"ServiceAccount": cfg.ServiceAccount,
+		"ServicePorts":   cfg.Ports.GetServicePorts(),
+		"ServiceLabels":  cfg.ServiceLabels,
+		"IPFamilies":     cfg.IPFamilies,
+		"IPFamilyPolicy": cfg.IPFamilyPolicy,
 	}
 }
 

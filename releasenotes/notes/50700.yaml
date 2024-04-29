@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 50700
+
+releaseNotes:
+- |
+  **Fixed** a bug where injection template incorrectly evaluates when InboundTrafficPolicy is set to "localhost".

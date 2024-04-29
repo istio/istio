@@ -9,8 +9,16 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Service }}
+{{- if .ServiceLabels }}
   labels:
     app: {{ .Service }}
+{{- range $name, $value := .ServiceLabels }}
+    {{$name}}: "{{$value}}"
+{{- end }}
+{{- else}}
+  labels:
+    app: {{ .Service }}
+{{- end }}
 {{- if .ServiceAnnotations }}
   annotations:
 {{- range $name, $value := .ServiceAnnotations }}

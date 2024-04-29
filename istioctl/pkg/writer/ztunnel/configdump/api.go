@@ -21,22 +21,28 @@ type Locality struct {
 }
 
 type ZtunnelWorkload struct {
-	WorkloadIPs       []string  `json:"workloadIps"`
-	Waypoint          *Waypoint `json:"waypoint"`
-	Protocol          string    `json:"protocol"`
-	Name              string    `json:"name"`
-	Namespace         string    `json:"namespace"`
-	ServiceAccount    string    `json:"serviceAccount"`
-	WorkloadName      string    `json:"workloadName"`
-	WorkloadType      string    `json:"workloadType"`
-	CanonicalName     string    `json:"canonicalName"`
-	CanonicalRevision string    `json:"canonicalRevision"`
-	ClusterID         string    `json:"clusterId"`
-	TrustDomain       string    `json:"trustDomain,omitempty"`
-	Locality          Locality  `json:"locality,omitempty"`
-	Node              string    `json:"node"`
-	Network           string    `json:"network,omitempty"`
-	Status            string    `json:"status"`
+	WorkloadIPs       []string          `json:"workloadIps"`
+	Waypoint          *Waypoint         `json:"waypoint,omitempty"`
+	Protocol          string            `json:"protocol"`
+	Name              string            `json:"name"`
+	Namespace         string            `json:"namespace"`
+	ServiceAccount    string            `json:"serviceAccount"`
+	WorkloadName      string            `json:"workloadName"`
+	WorkloadType      string            `json:"workloadType"`
+	CanonicalName     string            `json:"canonicalName"`
+	CanonicalRevision string            `json:"canonicalRevision"`
+	ClusterID         string            `json:"clusterId"`
+	TrustDomain       string            `json:"trustDomain,omitempty"`
+	Locality          Locality          `json:"locality,omitempty"`
+	Node              string            `json:"node"`
+	Network           string            `json:"network,omitempty"`
+	Status            string            `json:"status"`
+	ApplicationTunnel ApplicationTunnel `json:"applicationTunnel,omitempty"`
+}
+
+type ApplicationTunnel struct {
+	Protocol string  `json:"protocol"`
+	Port     *uint16 `json:"port,omitempty"`
 }
 
 type Waypoint struct {
@@ -87,10 +93,11 @@ type ZtunnelPolicy struct {
 }
 
 type ZtunnelDump struct {
-	Workloads    map[string]*ZtunnelWorkload `json:"workloads"`
-	Services     map[string]*ZtunnelService  `json:"services"`
-	Policies     map[string]*ZtunnelPolicy   `json:"policies"`
-	Certificates []*CertsDump                `json:"certificates"`
+	Workloads     map[string]*ZtunnelWorkload `json:"workloads"`
+	Services      map[string]*ZtunnelService  `json:"services"`
+	Policies      map[string]*ZtunnelPolicy   `json:"policies"`
+	Certificates  []*CertsDump                `json:"certificates"`
+	WorkloadState map[string]WorkloadState    `json:"workloadState"`
 }
 
 type CertsDump struct {
@@ -104,4 +111,41 @@ type Cert struct {
 	SerialNumber   string `json:"serialNumber"`
 	ValidFrom      string `json:"validFrom"`
 	ExpirationTime string `json:"expirationTime"`
+}
+
+type WorkloadState struct {
+	State       string              `json:"state,omitempty"`
+	Connections WorkloadConnections `json:"connections,omitempty"`
+	Info        WorkloadInfo        `json:"info"`
+}
+
+type WorkloadConnections struct {
+	Inbound  []InboundConnection  `json:"inbound"`
+	Outbound []OutboundConnection `json:"outbound"`
+}
+
+type WorkloadInfo struct {
+	Name           string `json:"name"`
+	Namespace      string `json:"namespace"`
+	TrustDomain    string `json:"trustDomain"`
+	ServiceAccount string `json:"serviceAccount"`
+}
+
+type InboundConnection struct {
+	Src         string `json:"src"`
+	OriginalDst string `json:"originalDst"`
+	ActualDst   string `json:"actualDst"`
+}
+
+type OutboundConnection struct {
+	Src         string `json:"src"`
+	OriginalDst string `json:"originalDst"`
+	ActualDst   string `json:"actualDst"`
+}
+
+type WorkloadConnection struct {
+	Src         string `json:"src"`
+	Dst         string `json:"dst"`
+	SrcIdentity string `json:"src_identity"`
+	DstNetwork  string `json:"dst_network"`
 }

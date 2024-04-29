@@ -169,6 +169,8 @@ func (a *Agent) terminate() {
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
 		defer ticker.Stop()
+
+		retryCount := 0
 	graceful_loop:
 		for range ticker.C {
 			ac, err := a.activeProxyConnections()
@@ -180,9 +182,15 @@ func (a *Agent) terminate() {
 			default:
 				if err != nil {
 					log.Errorf(err.Error())
-					a.abortCh <- errAbort
-					log.Infof("Graceful termination logic ended prematurely, error while obtaining downstream_cx_active stat")
-					break graceful_loop
+					retryCount++
+					// Max retry 5 times
+					if retryCount > 4 {
+						a.abortCh <- errAbort
+						log.Warnf("Graceful termination logic ended prematurely, error while obtaining downstream_cx_active stat (Max retry %d exceeded)", retryCount)
+						break graceful_loop
+					}
+					log.Warnf("Retrying (%d attempt) to obtain active connections...", retryCount)
+					continue graceful_loop
 				}
 				if ac == -1 {
 					log.Info("downstream_cx_active are not available. This either means there are no downstream connection established yet" +
@@ -196,6 +204,8 @@ func (a *Agent) terminate() {
 					break graceful_loop
 				}
 				log.Infof("There are still %d active connections", ac)
+				// reset retry count
+				retryCount = 0
 			}
 		}
 	} else {
@@ -222,7 +232,7 @@ func (a *Agent) terminate() {
 func (a *Agent) activeProxyConnections() (int, error) {
 	adminHost := net.JoinHostPort(a.localhost, strconv.Itoa(a.adminPort))
 	activeConnectionsURL := fmt.Sprintf("http://%s/stats?usedonly&filter=downstream_cx_active$", adminHost)
-	stats, err := http.DoHTTPGet(activeConnectionsURL)
+	stats, err := http.DoHTTPGetWithTimeout(activeConnectionsURL, 2*time.Second)
 	if err != nil {
 		return -1, fmt.Errorf("unable to get listener stats from Envoy : %v", err)
 	}

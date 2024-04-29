@@ -105,6 +105,12 @@ func TestMain(m *testing.M) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
 values:
+  cni:
+    # The CNI repair feature is disabled for these tests because this is a controlled environment,
+    # and it is important to catch issues that might otherwise be automatically fixed.
+    # Refer to issue #49207 for more context.
+    repair:
+      enabled: false
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
@@ -180,26 +186,18 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":     WorkloadAddressedWaypoint,
-						"version": "v1",
-					},
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.AmbientUseWaypoint: {
-							Value: "waypoint",
-						},
+						"app":                        WorkloadAddressedWaypoint,
+						"version":                    "v1",
+						constants.AmbientUseWaypoint: "waypoint",
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":     WorkloadAddressedWaypoint,
-						"version": "v2",
-					},
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.AmbientUseWaypoint: {
-							Value: "waypoint",
-						},
+						"app":                        WorkloadAddressedWaypoint,
+						"version":                    "v2",
+						constants.AmbientUseWaypoint: "waypoint",
 					},
 				},
 			},
@@ -208,7 +206,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:              ServiceAddressedWaypoint,
 			Namespace:            apps.Namespace,
 			Ports:                ports.All(),
-			ServiceAnnotations:   echo.NewAnnotations().Set(echo.AmbientUseWaypoint, "waypoint"),
+			ServiceLabels:        map[string]string{constants.AmbientUseWaypoint: "waypoint"},
 			ServiceAccount:       true,
 			ServiceWaypointProxy: "waypoint",
 			Subsets: []echo.SubsetConfig{
@@ -216,26 +214,18 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":     ServiceAddressedWaypoint,
-						"version": "v1",
-					},
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.AmbientUseWaypoint: {
-							Value: "waypoint",
-						},
+						"app":                        ServiceAddressedWaypoint,
+						"version":                    "v1",
+						constants.AmbientUseWaypoint: "waypoint",
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":     ServiceAddressedWaypoint,
-						"version": "v2",
-					},
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.AmbientUseWaypoint: {
-							Value: "waypoint",
-						},
+						"app":                        ServiceAddressedWaypoint,
+						"version":                    "v2",
+						constants.AmbientUseWaypoint: "waypoint",
 					},
 				},
 			},

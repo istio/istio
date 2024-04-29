@@ -256,7 +256,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	}
 
 	// OutboundTunnel cluster is needed for sidecar and gateway.
-	if features.EnableHBONESend && proxy.Type != model.Waypoint {
+	if features.EnableHBONESend && proxy.Type != model.Waypoint && bool(!proxy.Metadata.DisableHBONESend) {
 		clusters = append(clusters, cb.buildConnectOriginate(proxy, req.Push, nil))
 	}
 

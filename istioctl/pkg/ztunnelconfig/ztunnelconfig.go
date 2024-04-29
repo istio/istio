@@ -67,6 +67,7 @@ func ZtunnelConfig(ctx cli.Context) *cobra.Command {
 	configCmd.AddCommand(servicesCmd(ctx))
 	configCmd.AddCommand(policiesCmd(ctx))
 	configCmd.AddCommand(allCmd(ctx))
+	configCmd.AddCommand(connectionsCmd(ctx))
 
 	return configCmd
 }
@@ -275,6 +276,53 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 	return cmd
 }
 
+func connectionsCmd(ctx cli.Context) *cobra.Command {
+	var workloadsNamespace string
+	var direction string
+	var raw bool
+
+	common := new(commonFlags)
+	cmd := &cobra.Command{
+		Use:    "connections [<type>/]<name>[.<namespace>]",
+		Hidden: true,
+		Short:  "Retrieves connections for the specified Ztunnel pod.",
+		Long:   `Retrieve information about connections for the Ztunnel instance.`,
+		Example: `  # Retrieve summary about connections for the ztunnel on a specific node.
+  istioctl ztunnel-config connections --node ambient-worker
+
+  # Retrieve summary of connections for a given Ztunnel instance.
+  istioctl ztunnel-config workload <ztunnel-name[.namespace]>
+`,
+		Aliases: []string{"cons"},
+		Args:    common.validateArgs,
+		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+			filter := ztunnelDump.ConnectionsFilter{
+				Namespace: workloadsNamespace,
+				Direction: direction,
+				Raw:       raw,
+			}
+
+			switch common.outputFormat {
+			case summaryOutput:
+				return cw.PrintConnectionsSummary(filter)
+			case jsonOutput, yamlOutput:
+				return cw.PrintConnectionsDump(filter, common.outputFormat)
+			default:
+				return fmt.Errorf("output format %q not supported", common.outputFormat)
+			}
+		}),
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
+	}
+
+	common.attach(cmd)
+	cmd.PersistentFlags().StringVar(&direction, "direction", "", "Filter workloads by direction (inbound or outbound)")
+	cmd.PersistentFlags().BoolVar(&raw, "raw", false, "If set, show IP addresses instead of names")
+	cmd.PersistentFlags().StringVar(&workloadsNamespace, "workload-namespace", "",
+		"Filter workloads by namespace field")
+
+	return cmd
+}
+
 // Level is an enumeration of all supported log levels.
 type Level int
 
@@ -347,10 +395,10 @@ func logCmd(ctx cli.Context) *cobra.Command {
  istioctl ztunnel-config log
 
  # Update levels of the all loggers for a specific Ztunnel pod
- istioctl ztunnel-config log <pod-name[.namespace]> --level none
+ istioctl ztunnel-config log <pod-name[.namespace]> --level off
 
  # Update levels of the specified loggers for all Ztunnl pods
- istioctl ztunnel-config log --level http:debug,redis:debug
+ istioctl ztunnel-config log --level access:debug,info
 
  # Reset levels of all the loggers to default value (warning)  for a specific Ztunnel pod.
  istioctl ztunnel-config log <pod-name[.namespace]> -r

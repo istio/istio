@@ -38,9 +38,11 @@ func createProxies(n int) []*Connection {
 	proxies := make([]*Connection, 0, n)
 	for p := 0; p < n; p++ {
 		proxies = append(proxies, &Connection{
-			conID:       fmt.Sprintf("proxy-%v", p),
-			pushChannel: make(chan *Event),
-			stream:      &fakeStream{},
+			BaseConnection: BaseConnection{
+				conID:       fmt.Sprintf("proxy-%v", p),
+				pushChannel: make(chan any),
+				stream:      &fakeStream{},
+			},
 		})
 	}
 	return proxies
@@ -79,7 +81,8 @@ func TestSendPushesManyPushes(t *testing.T) {
 		go func() {
 			for {
 				select {
-				case p := <-proxy.pushChannel:
+				case ev := <-proxy.pushChannel:
+					p := ev.(*Event)
 					p.done()
 					pushesMu.Lock()
 					pushes[proxy.conID]++
@@ -132,7 +135,8 @@ func TestSendPushesSinglePush(t *testing.T) {
 		go func() {
 			for {
 				select {
-				case p := <-proxy.pushChannel:
+				case ev := <-proxy.pushChannel:
+					p := ev.(*Event)
 					p.done()
 					pushesMu.Lock()
 					pushes[proxy.conID]++
@@ -482,8 +486,7 @@ func TestShouldRespond(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &DiscoveryServer{}
-			if response, _ := s.shouldRespond(tt.connection, tt.request); response != tt.response {
+			if response, _ := ShouldRespond(tt.connection.proxy, tt.connection.conID, tt.request); response != tt.response {
 				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
 			}
 			if tt.name != "reconnect" && tt.response {

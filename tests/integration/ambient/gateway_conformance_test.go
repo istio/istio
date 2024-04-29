@@ -107,10 +107,10 @@ func TestGatewayConformance(t *testing.T) {
 				UsableNetworkAddresses:   []v1.GatewayAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 				UnusableNetworkAddresses: []v1.GatewayAddress{{Value: "foo", Type: &hostnameType}},
 				ConformanceProfiles: k8ssets.New(
-					suite.HTTPConformanceProfile.Name,
-					suite.TLSConformanceProfile.Name,
-					suite.GRPCConformanceProfile.Name,
-					suite.MeshConformanceProfile.Name,
+					suite.GatewayHTTPConformanceProfileName,
+					suite.GatewayTLSConformanceProfileName,
+					suite.GatewayGRPCConformanceProfileName,
+					suite.MeshHTTPConformanceProfileName,
 				),
 				Implementation: confv1.Implementation{
 					Organization: "istio",
@@ -158,12 +158,12 @@ func TestGatewayConformance(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				annotations := ns.Annotations
-				if annotations == nil {
-					annotations = make(map[string]string)
+				labels := ns.Labels
+				if labels == nil {
+					labels = make(map[string]string)
 				}
-				annotations[constants.AmbientUseWaypoint] = "namespace"
-				ns.Annotations = annotations
+				labels[constants.AmbientUseWaypoint] = "namespace"
+				ns.Labels = labels
 				k.Kube().CoreV1().Namespaces().Update(ctx.Context(), ns, metav1.UpdateOptions{})
 			}
 

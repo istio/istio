@@ -443,7 +443,7 @@ func TestDeferredRun(t *testing.T) {
 
 	t.Run("AddRegistry before aggregate Run does not run", func(t *testing.T) {
 		ctrl.AddRegistry(runnableRegistry("earlyAdd"))
-		ctrl.AddRegistryAndRun(runnableRegistry("earlyAddAndRun"), nil)
+		ctrl.AddRegistryAndRun(runnableRegistry("earlyAddAndRun"), stop)
 		expectRunningOrFail(t, ctrl, false)
 	})
 	t.Run("aggregate Run starts all registries", func(t *testing.T) {
@@ -459,7 +459,7 @@ func TestDeferredRun(t *testing.T) {
 		expectRunningOrFail(t, ctrl, true)
 	})
 	t.Run("AddRegistryAndRun after aggregate Run starts registry", func(t *testing.T) {
-		ctrl.AddRegistryAndRun(runnableRegistry("late"), nil)
+		ctrl.AddRegistryAndRun(runnableRegistry("late"), stop)
 		expectRunningOrFail(t, ctrl, true)
 	})
 }

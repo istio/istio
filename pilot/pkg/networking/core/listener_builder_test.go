@@ -23,8 +23,8 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -945,11 +945,11 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 				CidrRanges: []*core.CidrRange{
 					{
 						AddressPrefix: "192.168.0.0",
-						PrefixLen:     &wrappers.UInt32Value{Value: 16},
+						PrefixLen:     &wrapperspb.UInt32Value{Value: 16},
 					},
 					{
 						AddressPrefix: "172.16.0.0",
-						PrefixLen:     &wrappers.UInt32Value{Value: 12},
+						PrefixLen:     &wrapperspb.UInt32Value{Value: 12},
 					},
 				},
 			},

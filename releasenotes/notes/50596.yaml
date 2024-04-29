@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 50596
+
+releaseNotes:
+- |
+  **Fixed** Added retry logic to make getting envoy metrics more safety on EXIT_ON_ZERO_ACTIVE_CONNECTIONS mode.

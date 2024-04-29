@@ -15,6 +15,7 @@
 package crd
 
 import (
+	"encoding/json"
 	"testing"
 
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -28,7 +29,7 @@ import (
 )
 
 func TestConvertIstioKind(t *testing.T) {
-	if _, err := ConvertObject(collections.VirtualService, &IstioKind{Spec: map[string]any{"x": 1}}, "local"); err != nil {
+	if _, err := ConvertObject(collections.VirtualService, &IstioKind{Spec: json.RawMessage(`{"x":1}`)}, "local"); err != nil {
 		t.Errorf("error for converting object: %s", err)
 	}
 }

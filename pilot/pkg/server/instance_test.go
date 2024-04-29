@@ -159,9 +159,12 @@ func newFakeComponent(d time.Duration) *fakeComponent {
 	}
 }
 
-func (c *fakeComponent) Run(_ <-chan struct{}) error {
+func (c *fakeComponent) Run(stop <-chan struct{}) error {
 	c.started.Store(true)
-	time.Sleep(c.d)
+	select {
+	case <-time.After(c.d):
+	case <-stop:
+	}
 	c.completed.Store(true)
 	return nil
 }

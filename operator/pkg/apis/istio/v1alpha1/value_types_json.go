@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 
 	github_com_golang_protobuf_jsonpb "github.com/golang/protobuf/jsonpb"
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -38,7 +38,7 @@ func (this *IntOrString) UnmarshalJSON(value []byte) error {
 		if err != nil {
 			return err
 		}
-		this.StrVal = &wrappers.StringValue{Value: s}
+		this.StrVal = &wrapperspb.StringValue{Value: s}
 		return nil
 	}
 	this.Type = int64(intstr.Int)
@@ -47,7 +47,7 @@ func (this *IntOrString) UnmarshalJSON(value []byte) error {
 	if err != nil {
 		return err
 	}
-	this.IntVal = &wrappers.Int32Value{Value: s}
+	this.IntVal = &wrapperspb.Int32Value{Value: s}
 	return nil
 }
 

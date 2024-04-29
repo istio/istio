@@ -124,6 +124,9 @@ type Config struct {
 	// ServiceAnnotations is annotations on service object.
 	ServiceAnnotations Annotations
 
+	// ServiceLabels is the labels on service object.
+	ServiceLabels map[string]string
+
 	// ReadinessTimeout specifies the timeout that we wait the application to
 	// become ready.
 	ReadinessTimeout time.Duration

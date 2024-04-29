@@ -22,8 +22,6 @@ import (
 	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -102,7 +100,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 	var idleTimeout *durationpb.Duration
 	var maxRequestsPerConnection uint32
 	var maxConcurrentStreams uint32
-	var maxConnectionDuration *duration.Duration
+	var maxConnectionDuration *durationpb.Duration
 
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
@@ -241,7 +239,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 		}
 	}
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	applyLocalityLBSetting(locality, proxyLabels, c, localityLbSetting)
+	applyLocalityLoadBalancer(locality, proxyLabels, c, localityLbSetting)
 
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
@@ -275,14 +273,14 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	ApplyRingHashLoadBalancer(c, lb)
 }
 
-func applyLocalityLBSetting(locality *core.Locality, proxyLabels map[string]string, cluster *cluster.Cluster,
+func applyLocalityLoadBalancer(locality *core.Locality, proxyLabels map[string]string, cluster *cluster.Cluster,
 	localityLB *networking.LocalityLoadBalancerSetting,
 ) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
-	enabledFailover := cluster.OutlierDetection != nil
+	enableFailover := cluster.OutlierDetection != nil
 	if cluster.LoadAssignment != nil {
 		// TODO: enable failoverPriority for `STRICT_DNS` cluster type
-		loadbalancer.ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, proxyLabels, localityLB, enabledFailover)
+		loadbalancer.ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, proxyLabels, localityLB, enableFailover)
 	}
 }
 
@@ -342,10 +340,10 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 		// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
 		// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
 		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
-		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+		MaxRetries:         &wrapperspb.UInt32Value{Value: math.MaxUint32},
+		MaxRequests:        &wrapperspb.UInt32Value{Value: math.MaxUint32},
+		MaxConnections:     &wrapperspb.UInt32Value{Value: math.MaxUint32},
+		MaxPendingRequests: &wrapperspb.UInt32Value{Value: math.MaxUint32},
 		TrackRemaining:     true,
 	}
 }

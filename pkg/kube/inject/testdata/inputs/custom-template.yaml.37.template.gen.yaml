@@ -249,7 +249,7 @@ templates:
               - drain
       {{- end }}
         env:
-        {{- if eq (env .InboundTrafficPolicyMode "localhost") "passthrough" }}
+        {{- if eq .InboundTrafficPolicyMode "localhost" }}
         - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
           value: "true"
         {{- end }}
@@ -948,7 +948,7 @@ templates:
           value: grpc
         - name: OUTPUT_CERTS
           value: /var/lib/istio/data
-        {{- if eq (env .InboundTrafficPolicyMode "localhost") "passthrough" }}
+        {{- if eq .InboundTrafficPolicyMode "localhost" }}
         - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
           value: "true"
         {{- end }}
@@ -1621,7 +1621,7 @@ templates:
           {{- end }}
           {{- if .Values.global.proxy.lifecycle }}
             lifecycle:
-              {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}
+              {{- toYaml .Values.global.proxy.lifecycle | nindent 10 }}
           {{- end }}
             env:
             - name: PILOT_CERT_PROVIDER

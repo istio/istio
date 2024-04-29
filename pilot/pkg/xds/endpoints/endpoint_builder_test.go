@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	wrappers "github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -155,7 +155,7 @@ func TestPopulateFailoverPriorityLabels(t *testing.T) {
 									"a",
 									"b",
 								},
-								Enabled: &wrappers.BoolValue{Value: false},
+								Enabled: &wrapperspb.BoolValue{Value: false},
 							},
 						},
 					},
@@ -234,7 +234,7 @@ func TestPopulateFailoverPriorityLabels(t *testing.T) {
 						"a",
 						"b",
 					},
-					Enabled: &wrappers.BoolValue{Value: false},
+					Enabled: &wrapperspb.BoolValue{Value: false},
 				},
 			},
 			expectedLabels: nil,

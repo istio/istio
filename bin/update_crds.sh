@@ -37,7 +37,7 @@ if [ -n "${SHA}" ]; then
   REPO=$(grep "istio.io/api" go.mod | grep "^replace" | awk '{print $4}')
 else
   SHA=$(grep "istio.io/api" go.mod | head -n1 | awk '{ print $2 }')
-  if [[ ${SHA} == *"-"* && ! ${SHA} =~ -rc.[0-9]$ && ! ${SHA} =~ -beta.[0-9]$ ]]; then
+  if [[ ${SHA} == *"-"* && ! ${SHA} =~ -rc.[0-9]$ && ! ${SHA} =~ -beta.[0-9]$ && ! ${SHA} =~ -alpha.[0-9]$ ]]; then
     # not an official release or release candidate, so get the commit sha
     SHA=$(echo "${SHA}" | awk -F '-' '{ print $NF }')
   fi

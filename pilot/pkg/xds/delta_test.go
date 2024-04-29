@@ -296,7 +296,14 @@ func TestDeltaReconnectRequests(t *testing.T) {
 	s.EnsureSynced(t)
 
 	ads = s.ConnectDeltaADS()
-	// Send initial request
+	// Sometimes we get an EDS request first before CDS
+	ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+		TypeUrl:                v3.EndpointType,
+		ResponseNonce:          "",
+		ResourceNamesSubscribe: []string{"outbound|80||local.default.svc.cluster.local"},
+	})
+
+	// Now send initial CDS request
 	res = ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
 		TypeUrl: v3.ClusterType,
 		InitialResourceVersions: map[string]string{
@@ -305,6 +312,12 @@ func TestDeltaReconnectRequests(t *testing.T) {
 			updateCluster: "",
 		},
 	})
+
+	// Expect that we send an EDS response even though there was no request
+	resp := ads.ExpectResponse()
+	if resp.TypeUrl != v3.EndpointType {
+		t.Fatalf("unexpected response type %v. Expected dependent EDS response", resp.TypeUrl)
+	}
 	// we must NOT get the cluster back
 	if resn := xdstest.ExtractResource(res.Resources); resn.Contains(updateCluster) || !resn.Contains(staticCluster) {
 		t.Fatalf("unexpected resources: %v", resn)

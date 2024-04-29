@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	envoy_admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	any1 "github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/types/known/anypb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -36,7 +36,7 @@ func TestNewAnalyzer(t *testing.T) {
 			name: "Test1",
 			input: &configdump.Wrapper{
 				ConfigDump: &envoy_admin.ConfigDump{
-					Configs: []*any1.Any{
+					Configs: []*anypb.Any{
 						{
 							TypeUrl: "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
 						},
@@ -63,7 +63,7 @@ func TestPrint(t *testing.T) {
 					Name: "10.102.11.148_15021",
 					ActiveState: &envoy_admin.ListenersConfigDump_DynamicListenerState{
 						VersionInfo: "2023-06-20T09:07:41Z/3",
-						Listener: &any1.Any{
+						Listener: &anypb.Any{
 							TypeUrl: "type.googleapis.com/envoy.config.listener.v3.Listener",
 						},
 						LastUpdated: timestamppb.Now(),
@@ -83,7 +83,7 @@ func TestPrint(t *testing.T) {
 				Name: "First_Listener",
 				ActiveState: &envoy_admin.ListenersConfigDump_DynamicListenerState{
 					VersionInfo: "version1.5",
-					Listener: &any1.Any{
+					Listener: &anypb.Any{
 						TypeUrl: "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
 					},
 					LastUpdated: timestamppb.Now(),

@@ -138,7 +138,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.ns.CreateOrUpdate(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
-			Annotations: map[string]string{
+			Labels: map[string]string{
 				constants.AmbientUseWaypoint: "waypoint-ns",
 			},
 		},
@@ -213,7 +213,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.ns.Update(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
-			Annotations: map[string]string{
+			Labels: map[string]string{
 				constants.AmbientUseWaypoint: "#none",
 			},
 		},

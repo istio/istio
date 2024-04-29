@@ -1334,6 +1334,8 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 					errs = appendErrors(errs, security.CheckEmptyValues("NotMethods", op.NotMethods))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotPaths", op.NotPaths))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotHosts", op.NotHosts))
+					errs = appendErrors(errs, security.CheckValidPathTemplate("Paths", op.Paths))
+					errs = appendErrors(errs, security.CheckValidPathTemplate("NotPaths", op.NotPaths))
 					if op.Ports != nil || op.NotPorts != nil {
 						tcpRulesInTo = true
 					}
@@ -2496,7 +2498,7 @@ var ValidateWorkloadEntry = RegisterValidateFunc("ValidateWorkloadEntry",
 		return validateWorkloadEntry(we, nil, true).Unwrap()
 	})
 
-func validateWorkloadEntry(we *networking.WorkloadEntry, servicePorts map[string]bool, allowFQDNAddresses bool) Validation {
+func validateWorkloadEntry(we *networking.WorkloadEntry, servicePorts sets.String, allowFQDNAddresses bool) Validation {
 	errs := Validation{}
 	unixEndpoint := false
 
@@ -2528,7 +2530,7 @@ func validateWorkloadEntry(we *networking.WorkloadEntry, servicePorts map[string
 	errs = AppendValidation(errs,
 		labels.Instance(we.Labels).Validate())
 	for name, port := range we.Ports {
-		if servicePorts != nil && !servicePorts[name] {
+		if servicePorts != nil && !servicePorts.Contains(name) {
 			errs = AppendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 		}
 		errs = AppendValidation(errs,
@@ -2676,21 +2678,19 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 			}
 		}
 
-		servicePortNumbers := make(map[uint32]bool)
-		servicePorts := make(map[string]bool, len(serviceEntry.Ports))
+		servicePortNumbers := sets.New[uint32]()
+		servicePorts := sets.NewWithLength[string](len(serviceEntry.Ports))
 		for _, port := range serviceEntry.Ports {
 			if port == nil {
 				errs = AppendValidation(errs, fmt.Errorf("service entry port may not be null"))
 				continue
 			}
-			if servicePorts[port.Name] {
+			if servicePorts.InsertContains(port.Name) {
 				errs = AppendValidation(errs, fmt.Errorf("service entry port name %q already defined", port.Name))
 			}
-			servicePorts[port.Name] = true
-			if servicePortNumbers[port.Number] {
+			if servicePortNumbers.InsertContains(port.Number) {
 				errs = AppendValidation(errs, fmt.Errorf("service entry port %d already defined", port.Number))
 			}
-			servicePortNumbers[port.Number] = true
 			if port.TargetPort != 0 {
 				errs = AppendValidation(errs, agent.ValidatePort(int(port.TargetPort)))
 				if serviceEntry.Resolution == networking.ServiceEntry_NONE && !features.PassthroughTargetPort {
@@ -2752,7 +2752,7 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 				errs = AppendValidation(errs,
 					labels.Instance(endpoint.Labels).Validate())
 				for name, port := range endpoint.Ports {
-					if !servicePorts[name] {
+					if !servicePorts.Contains(name) {
 						errs = AppendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 					}
 					errs = AppendValidation(errs,

@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/xds"
 )
 
 // Metrics is an interface for capturing metrics on a per-node basis.
@@ -380,17 +381,7 @@ type PushRequest struct {
 	Delta ResourceDelta
 }
 
-// ResourceDelta records the difference in requested resources by an XDS client
-type ResourceDelta struct {
-	// Subscribed indicates the client requested these additional resources
-	Subscribed sets.String
-	// Unsubscribed indicates the client no longer requires these resources
-	Unsubscribed sets.String
-}
-
-func (rd ResourceDelta) IsEmpty() bool {
-	return len(rd.Subscribed) == 0 && len(rd.Unsubscribed) == 0
-}
+type ResourceDelta = xds.ResourceDelta
 
 type ReasonStats map[TriggerReason]int
 
@@ -467,6 +458,10 @@ const (
 	NetworksTrigger TriggerReason = "networks"
 	// ProxyRequest describes a push triggered based on proxy request
 	ProxyRequest TriggerReason = "proxyrequest"
+	// DependentResource describes a push triggered based on a proxy request for a
+	// resource that depends on this resource (e.g. a CDS request triggers an EDS response as well)
+	// This is mainly used in Delta for now.
+	DependentResource TriggerReason = "depdendentresource"
 	// NamespaceUpdate describes a push triggered by a Namespace change
 	NamespaceUpdate TriggerReason = "namespace"
 	// ClusterUpdate describes a push triggered by a Cluster change
