@@ -16,57 +16,124 @@ package ipset
 
 import (
 	"net/netip"
+	"fmt"
+	"errors"
 )
 
 type IPSet struct {
-	Name string
+	V4Name string
+	V6Name string
 	Deps NetlinkIpsetDeps
 }
 
+const v4Name = "%s-v4"
+const v6Name = "%s-v6"
+
 type NetlinkIpsetDeps interface {
 	ipsetIPPortCreate(name string) error
+	ipsetIPPortCreateMultiFamily(name string) error
 	destroySet(name string) error
 	addIP(name string, ip netip.Addr, ipProto uint8, comment string, replace bool) error
 	deleteIP(name string, ip netip.Addr, ipProto uint8) error
 	flush(name string) error
-	clearEntriesWithComment(name, comment string) error
+	clearEntriesWithComment(name string, comment string) error
 	clearEntriesWithIP(name string, ip netip.Addr) error
 	listEntriesByIP(name string) ([]netip.Addr, error)
 }
 
-func NewIPSet(name string, deps NetlinkIpsetDeps) (IPSet, error) {
+// TODO this should actually create v6 and v6 subsets of type `hash:ip`, add them both to a
+// superset of type `list:set` - we can then query the superset directly in iptables (with the same rule),
+// and iptables will be smart enough to pick the correct underlying set (v4 or v6, based on context),
+// reducing the # of rules we need.
+//
+// BUT netlink lib doesn't support adding things to `list:set` types yet, and current tagged release
+// doesn't support creating `list:set` types yet (is in main branch tho)
+func NewIPSet(name string, v6 bool, deps NetlinkIpsetDeps) (IPSet, error) {
+	var err error;
 	set := IPSet{
-		Name: name,
+		V4Name: fmt.Sprintf(v4Name, name),
 		Deps: deps,
 	}
-	err := deps.ipsetIPPortCreate(name)
+	if v6 {
+		set.V6Name = fmt.Sprintf(v6Name, name)
+		err = deps.ipsetIPPortCreate(set.V6Name)
+	}
+	err = deps.ipsetIPPortCreate(set.V4Name)
 	return set, err
 }
 
 func (m *IPSet) DestroySet() error {
-	return m.Deps.destroySet(m.Name)
+	var err error
+	err = m.Deps.destroySet(m.V4Name)
+
+	if m.V6Name != "" {
+		v6err := m.Deps.destroySet(m.V6Name)
+		err = errors.Join(err, v6err)
+	}
+
+	return err
 }
 
 func (m *IPSet) AddIP(ip netip.Addr, ipProto uint8, comment string, replace bool) error {
-	return m.Deps.addIP(m.Name, ip, ipProto, comment, replace)
+	ipToInsert := ip.Unmap()
+
+	// We have already Unmap'd, so we can do a simple IsV6 y/n check now
+	if ipToInsert.Is6() {
+		return m.Deps.addIP(m.V6Name, ipToInsert, ipProto, comment, replace)
+	}
+	return m.Deps.addIP(m.V4Name, ipToInsert, ipProto, comment, replace)
 }
 
 func (m *IPSet) DeleteIP(ip netip.Addr, ipProto uint8) error {
-	return m.Deps.deleteIP(m.Name, ip, ipProto)
+	ipToDel := ip.Unmap()
+
+	// We have already Unmap'd, so we can do a simple IsV6 y/n check now
+	if ipToDel.Is6() {
+		return m.Deps.deleteIP(m.V6Name, ipToDel, ipProto)
+	}
+	return m.Deps.deleteIP(m.V4Name, ipToDel, ipProto)
 }
 
 func (m *IPSet) Flush() error {
-	return m.Deps.flush(m.Name)
+	var err error
+	err = m.Deps.flush(m.V4Name)
+
+	if m.V6Name != "" {
+		v6err := m.Deps.flush(m.V6Name)
+		err = errors.Join(err, v6err)
+	}
+	return err
 }
 
 func (m *IPSet) ClearEntriesWithComment(comment string) error {
-	return m.Deps.clearEntriesWithComment(m.Name, comment)
+	var err error
+	err = m.Deps.clearEntriesWithComment(m.V4Name, comment)
+
+	if m.V6Name != "" {
+		v6err := m.Deps.clearEntriesWithComment(m.V6Name, comment)
+		err = errors.Join(err, v6err)
+	}
+	return err
 }
 
 func (m *IPSet) ClearEntriesWithIP(ip netip.Addr) error {
-	return m.Deps.clearEntriesWithIP(m.Name, ip)
+	ipToClear := ip.Unmap()
+
+	if ipToClear.Is6() {
+		return m.Deps.clearEntriesWithIP(m.V6Name, ipToClear)
+	}
+	return m.Deps.clearEntriesWithIP(m.V4Name, ipToClear)
 }
 
 func (m *IPSet) ListEntriesByIP() ([]netip.Addr, error) {
-	return m.Deps.listEntriesByIP(m.Name)
+	var err error
+	var set []netip.Addr
+	set, err = m.Deps.listEntriesByIP(m.V4Name)
+
+	if m.V6Name != "" {
+		v6set, v6err := m.Deps.listEntriesByIP(m.V6Name)
+		err = errors.Join(err, v6err)
+		set = append(set, v6set...)
+	}
+	return set, err
 }

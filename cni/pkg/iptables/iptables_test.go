@@ -43,7 +43,7 @@ func TestIptables(t *testing.T) {
 		for _, ipv6 := range []bool{false, true} {
 			t.Run(tt.name+"_"+ipstr(ipv6), func(t *testing.T) {
 				cfg := constructTestConfig()
-				cfg.EnableInboundIPv6 = ipv6
+				cfg.EnableIPv6 = ipv6
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
 				iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
@@ -82,7 +82,7 @@ func TestIptablesHostRules(t *testing.T) {
 		for _, ipv6 := range []bool{false, true} {
 			t.Run(tt.name+"_"+ipstr(ipv6), func(t *testing.T) {
 				cfg := constructTestConfig()
-				cfg.EnableInboundIPv6 = ipv6
+				cfg.EnableIPv6 = ipv6
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
 				iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())

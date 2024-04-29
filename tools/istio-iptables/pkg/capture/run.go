@@ -257,7 +257,7 @@ func ignoreExists(err error) error {
 // in the 127.x.y.z range, while IPv6 defaults to `prefixlen 128` which allows binding only to ::1.
 // Equivalent to `ip -6 addr add "::6/128" dev lo`
 func configureIPv6Addresses(cfg *config.Config) error {
-	if !cfg.EnableInboundIPv6 {
+	if !cfg.EnableIPv6 {
 		return nil
 	}
 	link, err := netlink.LinkByName("lo")
@@ -292,7 +292,7 @@ func (cfg *IptablesConfigurator) Run() error {
 	defer func() {
 		// Best effort since we don't know if the commands exist
 		_ = cfg.ext.Run(constants.IPTablesSave, &iptVer, nil)
-		if cfg.cfg.EnableInboundIPv6 {
+		if cfg.cfg.EnableIPv6 {
 			_ = cfg.ext.Run(constants.IPTablesSave, &ipt6Ver, nil)
 		}
 	}()

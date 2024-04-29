@@ -52,7 +52,7 @@ var log = istiolog.RegisterScope("iptables", "iptables helper")
 type Config struct {
 	RestoreFormat     bool `json:"RESTORE_FORMAT"`
 	TraceLogging      bool `json:"IPTABLES_TRACE_LOGGING"`
-	EnableInboundIPv6 bool `json:"ENABLE_INBOUND_IPV6"`
+	EnableIPv6 bool `json:"ENABLE_INBOUND_IPV6"`
 	RedirectDNS       bool `json:"REDIRECT_DNS"`
 }
 
@@ -68,7 +68,7 @@ func ipbuildConfig(c *Config) *iptablesconfig.Config {
 	return &iptablesconfig.Config{
 		RestoreFormat:     c.RestoreFormat,
 		TraceLogging:      c.TraceLogging,
-		EnableInboundIPv6: c.EnableInboundIPv6,
+		EnableIPv6: c.EnableIPv6,
 		RedirectDNS:       c.RedirectDNS,
 	}
 }
@@ -147,7 +147,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 	iptablesVariant := []dep.IptablesVersion{}
 	iptablesVariant = append(iptablesVariant, cfg.iptV)
 
-	if cfg.cfg.EnableInboundIPv6 {
+	if cfg.cfg.EnableIPv6 {
 		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
 	}
 
@@ -379,7 +379,7 @@ func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.Iptabl
 		// Execute iptables-restore
 		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, &cfg.iptV, true))
 		// Execute ip6tables-restore
-		if cfg.cfg.EnableInboundIPv6 {
+		if cfg.cfg.EnableIPv6 {
 			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, &cfg.ipt6V, false))
 		}
 	} else {
@@ -387,7 +387,7 @@ func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.Iptabl
 		execErrs = append(execErrs,
 			cfg.executeIptablesCommands(&cfg.iptV, iptablesBuilder.BuildV4()))
 		// Execute ip6tables commands
-		if cfg.cfg.EnableInboundIPv6 {
+		if cfg.cfg.EnableIPv6 {
 			execErrs = append(execErrs,
 				cfg.executeIptablesCommands(&cfg.ipt6V, iptablesBuilder.BuildV6()))
 		}
@@ -448,13 +448,13 @@ func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks(hostSNATIP *neti
 	log.Info("Adding host netnamespace iptables rules")
 
 	// TODO BML work around no ipv6 ipset
-	hackGrab := cfg.cfg.EnableInboundIPv6
-	cfg.cfg.EnableInboundIPv6 = false
+	hackGrab := cfg.cfg.EnableIPv6
+	cfg.cfg.EnableIPv6 = false
 	if err := cfg.executeCommands(builder); err != nil {
 		log.Errorf("failed to add host netnamespace iptables rules: %v", err)
 		return err
 	}
-	cfg.cfg.EnableInboundIPv6 = hackGrab
+	cfg.cfg.EnableIPv6 = hackGrab
 	return nil
 }
 
@@ -478,7 +478,7 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	iptablesVariant := []dep.IptablesVersion{}
 	iptablesVariant = append(iptablesVariant, cfg.iptV)
 
-	if cfg.cfg.EnableInboundIPv6 {
+	if cfg.cfg.EnableIPv6 {
 		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
 	}
 	for _, iptVer := range iptablesVariant {

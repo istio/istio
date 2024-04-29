@@ -78,7 +78,7 @@ type Config struct {
 	RedirectDNS             bool          `json:"REDIRECT_DNS"`
 	DropInvalid             bool          `json:"DROP_INVALID"`
 	CaptureAllDNS           bool          `json:"CAPTURE_ALL_DNS"`
-	EnableInboundIPv6       bool          `json:"ENABLE_INBOUND_IPV6"`
+	EnableIPv6       bool          `json:"ENABLE_INBOUND_IPV6"`
 	DNSServersV4            []string      `json:"DNS_SERVERS_V4"`
 	DNSServersV6            []string      `json:"DNS_SERVERS_V6"`
 	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`
@@ -116,7 +116,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_INCLUDE=%s\n", c.OutboundPortsInclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_EXCLUDE=%s\n", c.OutboundPortsExclude))
 	b.WriteString(fmt.Sprintf("KUBE_VIRT_INTERFACES=%s\n", c.KubeVirtInterfaces))
-	b.WriteString(fmt.Sprintf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6))
+	b.WriteString(fmt.Sprintf("ENABLE_INBOUND_IPV6=%t\n", c.EnableIPv6))
 	b.WriteString(fmt.Sprintf("DUAL_STACK=%t\n", c.DualStack))
 	b.WriteString(fmt.Sprintf("DNS_CAPTURE=%t\n", c.RedirectDNS))
 	b.WriteString(fmt.Sprintf("DROP_INVALID=%t\n", c.DropInvalid))
@@ -168,7 +168,7 @@ func (c *Config) FillConfigFromEnvironment() error {
 	}
 
 	c.HostIP = hostIP
-	c.EnableInboundIPv6 = isIPv6
+	c.EnableIPv6 = isIPv6
 
 	// Lookup DNS nameservers. We only do this if DNS is enabled in case of some obscure theoretical
 	// case where reading /etc/resolv.conf could fail.

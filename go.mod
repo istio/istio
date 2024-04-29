@@ -74,7 +74,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/stoewer/go-strcase v1.3.0
 	github.com/stretchr/testify v1.9.0
-	github.com/vishvananda/netlink v1.2.1-beta.2
+	github.com/vishvananda/netlink v1.2.1-beta.2.0.20240411215012-578e95cc3190
 	github.com/vishvananda/netns v0.0.4
 	github.com/yl2chen/cidranger v1.0.2
 	go.opentelemetry.io/otel v1.26.0

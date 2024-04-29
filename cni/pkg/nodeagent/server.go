@@ -65,8 +65,14 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing kube client: %w", err)
 	}
 
+	cfg := &iptables.Config{
+		RestoreFormat:     true,
+		RedirectDNS:       args.DNSCapture,
+		EnableIPv6: true,
+	}
+
 	log.Debug("creating ipsets in the node netns")
-	set, err := createHostsideProbeIpset()
+	set, err := createHostsideProbeIpset(cfg.EnableIPv6)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing hostside probe ipset: %w", err)
 	}
@@ -75,12 +81,6 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 	ztunnelServer, err := newZtunnelServer(args.ServerSocket, podNsMap)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
-	}
-
-	cfg := &iptables.Config{
-		RestoreFormat:     true,
-		RedirectDNS:       args.DNSCapture,
-		EnableInboundIPv6: true,
 	}
 
 	iptablesConfigurator, err := iptables.NewIptablesConfigurator(cfg, realDependencies(), iptables.RealNlDeps())
@@ -153,9 +153,9 @@ func buildKubeClient(kubeConfig string) (kube.Client, error) {
 // Note that if the ipset already exist by name, Create will not return an error.
 //
 // We will unconditionally flush our set before use here, so it shouldn't matter.
-func createHostsideProbeIpset() (ipset.IPSet, error) {
+func createHostsideProbeIpset(isV6 bool) (ipset.IPSet, error) {
 	linDeps := ipset.RealNlDeps()
-	probeSet, err := ipset.NewIPSet(iptables.ProbeIPSet, linDeps)
+	probeSet, err := ipset.NewIPSet(iptables.ProbeIPSet, isV6, linDeps)
 	if err != nil {
 		return probeSet, err
 	}
