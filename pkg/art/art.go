@@ -21,12 +21,12 @@ import (
 )
 
 //go:embed istio-ascii.txt
-var istioAsciiArt string
+var istioASCIIArt string
 
 func IstioArt() string {
-	return istioAsciiArt
+	return istioASCIIArt
 }
 
 func IstioColoredArt() string {
-	return color.New(color.FgHiBlue).Add(color.Bold).Sprintf(istioAsciiArt)
+	return color.New(color.FgHiBlue).Add(color.Bold).Sprintf(istioASCIIArt)
 }
