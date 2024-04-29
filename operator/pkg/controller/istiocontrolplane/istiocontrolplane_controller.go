@@ -462,7 +462,12 @@ func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error
 	}
 
 	// Watch for changes to primary resource IstioOperator
-	err = c.Watch(source.Kind(mgr.GetCache(), &iopv1alpha1.IstioOperator{}, &handler.TypedEnqueueRequestForObject[*iopv1alpha1.IstioOperator]{}, operatorPredicates))
+	err = c.Watch(source.Kind(
+		mgr.GetCache(),
+		&iopv1alpha1.IstioOperator{},
+		&handler.TypedEnqueueRequestForObject[*iopv1alpha1.IstioOperator]{},
+		operatorPredicates,
+	))
 	if err != nil {
 		return err
 	}
