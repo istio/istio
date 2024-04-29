@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
+	"time"
 
 	xds "github.com/cncf/xds/go/xds/core/v3"
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
@@ -28,6 +29,7 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	any "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -51,6 +53,12 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/wellknown"
+)
+
+// These are both the current defaults used by the ztunnel hyper http2 server
+const (
+	h2KeepaliveInterval = 10 * time.Second
+	h2KeepaliveTimeout  = 20 * time.Second
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
@@ -110,6 +118,16 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		// TODO(https://github.com/istio/istio/issues/43443)
 		// All streams are bound to the same worker. Therefore, we need to limit for better fairness.
 		MaxConcurrentStreams: &wrappers.UInt32Value{Value: 100},
+		// well behaved clients should close connections.
+		// not all clients are well-behaved. This will prune
+		// connections when the client is not responding, to keep
+		// us from holding many stale conns from deceased clients
+		//
+		// Also TODO(https://github.com/hyperium/hyper/pull/3647)
+		ConnectionKeepalive: &core.KeepaliveSettings{
+			Interval: durationpb.New(h2KeepaliveInterval),
+			Timeout:  durationpb.New(h2KeepaliveTimeout),
+		},
 	}
 
 	// Filters needed to propagate the tunnel metadata to the inner streams.
