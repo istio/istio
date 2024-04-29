@@ -75,40 +75,41 @@ const (
 
 var (
 	// envoy supported retry on header values
-	supportedRetryOnPolicies = map[string]bool{
+	supportedRetryOnPolicies = sets.New(
 		// 'x-envoy-retry-on' supported policies:
 		// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter.html#x-envoy-retry-on
-		"5xx":                    true,
-		"gateway-error":          true,
-		"reset":                  true,
-		"connect-failure":        true,
-		"retriable-4xx":          true,
-		"refused-stream":         true,
-		"retriable-status-codes": true,
-		"retriable-headers":      true,
-		"envoy-ratelimited":      true,
+		"5xx",
+		"gateway-error",
+		"reset",
+		"connect-failure",
+		"retriable-4xx",
+		"refused-stream",
+		"retriable-status-codes",
+		"retriable-headers",
+		"envoy-ratelimited",
+		"http3-post-connect-failure",
 
 		// 'x-envoy-retry-grpc-on' supported policies:
 		// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
-		"cancelled":          true,
-		"deadline-exceeded":  true,
-		"internal":           true,
-		"resource-exhausted": true,
-		"unavailable":        true,
-	}
+		"cancelled",
+		"deadline-exceeded",
+		"internal",
+		"resource-exhausted",
+		"unavailable",
+	)
 
 	// golang supported methods: https://golang.org/src/net/http/method.go
-	supportedMethods = map[string]bool{
-		http.MethodGet:     true,
-		http.MethodHead:    true,
-		http.MethodPost:    true,
-		http.MethodPut:     true,
-		http.MethodPatch:   true,
-		http.MethodDelete:  true,
-		http.MethodConnect: true,
-		http.MethodOptions: true,
-		http.MethodTrace:   true,
-	}
+	supportedMethods = sets.New(
+		http.MethodGet,
+		http.MethodHead,
+		http.MethodPost,
+		http.MethodPut,
+		http.MethodPatch,
+		http.MethodDelete,
+		http.MethodConnect,
+		http.MethodOptions,
+		http.MethodTrace,
+	)
 
 	scope = log.RegisterScope("validation", "CRD validation debugging")
 
@@ -2236,7 +2237,7 @@ func validateAllowOrigins(origin *networking.StringMatch) error {
 }
 
 func validateHTTPMethod(method string) error {
-	if !supportedMethods[method] {
+	if !supportedMethods.Contains(method) {
 		return fmt.Errorf("%q is not a supported HTTP method", method)
 	}
 	return nil
@@ -2377,7 +2378,7 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 			// Try converting it to an integer to see if it's a valid HTTP status code.
 			i, _ := strconv.Atoi(policy)
 
-			if http.StatusText(i) == "" && !supportedRetryOnPolicies[policy] {
+			if http.StatusText(i) == "" && !supportedRetryOnPolicies.Contains(policy) {
 				errs = appendErrors(errs, fmt.Errorf("%q is not a valid retryOn policy", policy))
 			}
 		}
