@@ -98,7 +98,7 @@ var (
 		"If enabled, readiness probes will keep the connection from pilot-agent to the application alive. "+
 			"This mirrors older Istio versions' behaviors, but not kubelet's.").Get()
 
-	MetricsLocalhostAccessOnly = env.Register("METRICS_LOCALHOST_ACCESS_ONLY", false,
+	MetricsLocalhostAccessOnly = env.Register("PROXY_METRICS_LOCALHOST_ACCESS_ONLY", false,
 		"This will disable proxy metrics endpoint from outside of the pod, allow only localhost access.").Get()
 )
 
