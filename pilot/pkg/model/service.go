@@ -485,8 +485,11 @@ type IstioEndpoint struct {
 	Address string
 
 	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
-	ServicePortName    string
-	ServicePortNameKey string
+	ServicePortName string
+	// LegacyClusterPortKey provides an alternative key from ServicePortName to support legacy quirks in the API.
+	// Basically, EDS merges by port name, but CDS historically ignored port name and matched on number.
+	// Note that for Kubernetes Service, this is identical - its only ServiceEntry where these checks can differ
+	LegacyClusterPortKey string
 
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1446,7 +1447,8 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 	for _, s := range allServices {
 		portMap := map[string]int{}
 		for _, port := range s.Ports {
-			portMap[fmt.Sprintf("%s~%d", port.Name, port.Port)] = port.Port
+			// In EDS we match on port *name*. But for historical reasons, we match on port number for CDS.
+			portMap[strconv.Itoa(port.Port)] = port.Port
 		}
 
 		svcKey := s.Key()
