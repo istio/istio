@@ -285,6 +285,8 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 			Address:         addr,
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
+
+			ServicePortNameKey: fmt.Sprintf("%s~%d", servicePort.Name, servicePort.Number),
 			Network:         network.ID(wle.Network),
 			Locality: model.Locality{
 				Label:     locality,
@@ -397,6 +399,8 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 			}
 			ep := workloadInstance.Endpoint.ShallowCopy()
 			ep.ServicePortName = serviceEntryPort.Name
+			ep.ServicePortNameKey = fmt.Sprintf("%s~%d", serviceEntryPort.Name, serviceEntryPort.Number)
+
 			ep.EndpointPort = targetPort
 			out = append(out, &model.ServiceInstance{
 				Endpoint:    ep,

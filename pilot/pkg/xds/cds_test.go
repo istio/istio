@@ -298,10 +298,12 @@ spec:
   ports:
   - name: port1
     number: 80
+    targetPort: 999
     protocol: HTTP
   resolution: DNS
   endpoints:
-  - address: not.example.com
+  - address: endpoint.example.com
+  - address: endpoint-port-override.example.com
     ports:
       port1: 2345
 `})
@@ -310,6 +312,12 @@ spec:
 		"outbound|8080||example.com": {"example.com:8080"},
 		// Kind of weird to have multiple here, but it is what it is...
 		// If we had targetPort, etc, set here this would be required
-		"outbound|80||example.com":   { "example.com:1234", "example.com:80", "example.com:80",},
+		"outbound|80||example.com":   {
+			"example.com:1234",
+			"example.com:80",
+			"example.com:80",
+			"endpoint.example.com:999",
+			"endpoint-port-override.example.com:2345",
+		},
 	})
 }
