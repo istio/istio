@@ -273,10 +273,43 @@ spec:
     number: 80
     protocol: HTTP
   resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: se4
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 80
+    targetPort: 1234
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: se5
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 80
+    protocol: HTTP
+  resolution: DNS
+  endpoints:
+  - address: not.example.com
+    ports:
+      port1: 2345
 `})
 	res := xdstest.ExtractClusterEndpoints(s.Clusters(s.SetupProxy(nil)))
 	assert.Equal(t, res, map[string][]string{
 		"outbound|8080||example.com": {"example.com:8080"},
-		"outbound|80||example.com":   {"example.com:80"},
+		// Kind of weird to have multiple here, but it is what it is...
+		// If we had targetPort, etc, set here this would be required
+		"outbound|80||example.com":   { "example.com:1234", "example.com:80", "example.com:80",},
 	})
 }
