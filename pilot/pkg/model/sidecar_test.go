@@ -2534,6 +2534,13 @@ func TestCreateSidecarScope(t *testing.T) {
 				} else if len(ports) > 0 && !portsMatched {
 					t.Errorf("Expected service %v found in SidecarScope but ports not merged correctly. want: %v, got: %v", s1.Hostname, ports, s1.Ports)
 				}
+
+				// validate service is also in sidecarScope.serviceByHostname
+				if s2, ok := sidecarScope.servicesByHostname[s1.Hostname]; !ok {
+					t.Errorf("Expected service %v should also in servicesByHostname", s1.Hostname)
+				} else if s1 != s2 {
+					t.Errorf("Expected service %v in SidecarScope.Services should equal to that in SidecarScope.servicesByHostname", s1.Hostname)
+				}
 			}
 
 			for _, s1 := range tt.expectedServices {
