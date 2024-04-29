@@ -19,6 +19,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/google/go-cmp/cmp"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -323,6 +325,10 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 		for _, nie := range istioEndpoints {
 			if oie, exists := omap[nie.Address]; exists {
 				// If endpoint exists already, we should push if it's health status changes.
+				if !cmp.Equal(oie, nie, nie.CmpOpts()...) {
+					// DO NOT MERGE. Need an optimized equal method. This is just to check in CI
+					needPush = true
+				}
 				if oie.HealthStatus != nie.HealthStatus {
 					needPush = true
 				}
@@ -405,6 +411,8 @@ func updateShardServiceAccount(shards *EndpointShards, serviceName string) bool 
 // EndpointIndexUpdater is an updater that will keep an EndpointIndex in sync. This is intended for tests only.
 type EndpointIndexUpdater struct {
 	Index *EndpointIndex
+	// Optional; if set, we will trigger ConfigUpdates in response to EDS updates as appropriate
+	ConfigUpdateFunc func(req *PushRequest)
 }
 
 var _ XDSUpdater = &EndpointIndexUpdater{}
@@ -416,7 +424,15 @@ func NewEndpointIndexUpdater(ei *EndpointIndex) *EndpointIndexUpdater {
 func (f *EndpointIndexUpdater) ConfigUpdate(*PushRequest) {}
 
 func (f *EndpointIndexUpdater) EDSUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
-	f.Index.UpdateServiceEndpoints(shard, serviceName, namespace, eps)
+	pushType := f.Index.UpdateServiceEndpoints(shard, serviceName, namespace, eps)
+	if f.ConfigUpdateFunc != nil && pushType == IncrementalPush || pushType == FullPush {
+		// Trigger a push
+		f.ConfigUpdateFunc(&PushRequest{
+			Full:           pushType == FullPush,
+			ConfigsUpdated: sets.New(ConfigKey{Kind: kind.ServiceEntry, Name: serviceName, Namespace: namespace}),
+			Reason:         NewReasonStats(EndpointUpdate),
+		})
+	}
 }
 
 func (f *EndpointIndexUpdater) EDSCacheUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
