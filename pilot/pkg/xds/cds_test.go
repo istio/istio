@@ -232,3 +232,37 @@ func TestSAN(t *testing.T) {
 		})
 	}
 }
+
+func TestServiceEntryMerge(t *testing.T) {
+	// Regression test for https://github.com/istio/istio/issues/50478
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: `apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: se1
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 80
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: se2
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 8080
+    protocol: HTTP
+  resolution: DNS`})
+	res := xdstest.ExtractClusterEndpoints(s.Clusters(s.SetupProxy(nil)))
+	assert.Equal(t, res, map[string][]string{
+		"outbound|8080||example.com": {"example.com:8080"},
+		"outbound|80||example.com":   {"example.com:80"},
+	})
+}
