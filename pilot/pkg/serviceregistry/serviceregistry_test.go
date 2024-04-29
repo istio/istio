@@ -65,6 +65,7 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 	endpoints := model.NewEndpointIndex(model.DisabledCache{})
 	delegate := model.NewEndpointIndexUpdater(endpoints)
 	xdsUpdater := xdsfake.NewWithDelegate(delegate)
+	delegate.ConfigUpdateFunc = xdsUpdater.ConfigUpdate
 	meshWatcher := mesh.NewFixedWatcher(&meshconfig.MeshConfig{})
 	kc := kubecontroller.NewController(
 		client,
@@ -462,6 +463,53 @@ func TestWorkloadInstances(t *testing.T) {
 			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:    80,
 		}}
+		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+	})
+
+	t.Run("External only: workloadEntry port is changed", func(t *testing.T) {
+		store, _, fx := setupTest(t)
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"service.namespace.svc.cluster.local"},
+				Ports: []*networking.ServicePort{{
+					Name:     "http",
+					Number:   80,
+					Protocol: "http",
+				}},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: labels,
+				},
+			},
+		})
+		makeIstioObject(t, store, workloadEntry)
+		fx.WaitOrFail(t, "xds full")
+
+		instances := []EndpointResponse{{
+			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:    80,
+		}}
+		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+
+		fx.Clear()
+		// Update the port
+		newWorkloadEntry := workloadEntry.DeepCopy()
+		spec := workloadEntry.Spec.(*networking.WorkloadEntry)
+		spec.Ports = map[string]uint32{
+			"http": 1234,
+		}
+		newWorkloadEntry.Spec = spec
+		makeIstioObject(t, store, newWorkloadEntry)
+		instances = []EndpointResponse{{
+			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:    1234,
+		}}
+		fx.WaitOrFail(t, "xds")
 		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
 	})
 
