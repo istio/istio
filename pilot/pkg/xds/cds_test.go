@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -307,17 +308,20 @@ spec:
     ports:
       port1: 2345
 `})
+
 	res := xdstest.ExtractClusterEndpoints(s.Clusters(s.SetupProxy(nil)))
+	// TODO(https://github.com/istio/istio/issues/50749) order should be deterministic
+	slices.Sort(res["outbound|80||example.com"])
 	assert.Equal(t, res, map[string][]string{
 		"outbound|8080||example.com": {"example.com:8080"},
 		// Kind of weird to have multiple here, but it is what it is...
 		// If we had targetPort, etc, set here this would be required
-		"outbound|80||example.com":   {
+		"outbound|80||example.com": {
+			"endpoint-port-override.example.com:2345",
+			"endpoint.example.com:999",
 			"example.com:1234",
 			"example.com:80",
 			"example.com:80",
-			"endpoint.example.com:999",
-			"endpoint-port-override.example.com:2345",
 		},
 	})
 }
