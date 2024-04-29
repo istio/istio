@@ -62,7 +62,7 @@ func getTestFixure(ctx context.Context) netTestFixture {
 	ztunnelServer := &fakeZtunnel{}
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
 	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, NewPodNetnsProcFinder(fakeFs()), set)
 
 	netServer.netnsRunner = func(fdable NetnsFd, toRun func() error) error {
@@ -353,7 +353,7 @@ func TestAddPodToHostNSIPSets(t *testing.T) {
 
 	var podUID string = string(pod.ObjectMeta.UID)
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
 	ipProto := uint8(unix.IPPROTO_TCP)
 
 	fakeIPSetDeps.On("addIP",
@@ -384,7 +384,7 @@ func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 
 	var podUID string = string(pod.ObjectMeta.UID)
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
 	ipProto := uint8(unix.IPPROTO_TCP)
 
 	fakeIPSetDeps.On("addIP",
@@ -415,7 +415,7 @@ func TestRemovePodProbePortsFromHostNSIPSets(t *testing.T) {
 	pod := buildConvincingPod()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
 
 	fakeIPSetDeps.On("clearEntriesWithIP",
 		"foo",

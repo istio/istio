@@ -15,23 +15,25 @@
 package ipset
 
 import (
-	"net/netip"
-	"fmt"
 	"errors"
+	"fmt"
+	"net/netip"
 )
 
 type IPSet struct {
 	V4Name string
 	V6Name string
-	Deps NetlinkIpsetDeps
+	Prefix string
+	Deps   NetlinkIpsetDeps
 }
 
-const v4Name = "%s-v4"
-const v6Name = "%s-v6"
+const (
+	V4Name = "%s-v4"
+	V6Name = "%s-v6"
+)
 
 type NetlinkIpsetDeps interface {
 	ipsetIPPortCreate(name string) error
-	ipsetIPPortCreateMultiFamily(name string) error
 	destroySet(name string) error
 	addIP(name string, ip netip.Addr, ipProto uint8, comment string, replace bool) error
 	deleteIP(name string, ip netip.Addr, ipProto uint8) error
@@ -47,18 +49,21 @@ type NetlinkIpsetDeps interface {
 // reducing the # of rules we need.
 //
 // BUT netlink lib doesn't support adding things to `list:set` types yet, and current tagged release
-// doesn't support creating `list:set` types yet (is in main branch tho)
+// doesn't support creating `list:set` types yet (is in main branch tho).
+// So this will actually create 2 underlying ipsets, one for v4 and one for v6
 func NewIPSet(name string, v6 bool, deps NetlinkIpsetDeps) (IPSet, error) {
-	var err error;
+	var err error
 	set := IPSet{
-		V4Name: fmt.Sprintf(v4Name, name),
-		Deps: deps,
-	}
-	if v6 {
-		set.V6Name = fmt.Sprintf(v6Name, name)
-		err = deps.ipsetIPPortCreate(set.V6Name)
+		V4Name: fmt.Sprintf(V4Name, name),
+		Deps:   deps,
+		Prefix: name,
 	}
 	err = deps.ipsetIPPortCreate(set.V4Name)
+	if v6 {
+		set.V6Name = fmt.Sprintf(V6Name, name)
+		v6err := deps.ipsetIPPortCreate(set.V6Name)
+		err = errors.Join(err, v6err)
+	}
 	return set, err
 }
 
@@ -70,7 +75,6 @@ func (m *IPSet) DestroySet() error {
 		v6err := m.Deps.destroySet(m.V6Name)
 		err = errors.Join(err, v6err)
 	}
-
 	return err
 }
 

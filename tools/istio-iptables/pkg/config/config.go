@@ -78,7 +78,7 @@ type Config struct {
 	RedirectDNS             bool          `json:"REDIRECT_DNS"`
 	DropInvalid             bool          `json:"DROP_INVALID"`
 	CaptureAllDNS           bool          `json:"CAPTURE_ALL_DNS"`
-	EnableIPv6       bool          `json:"ENABLE_INBOUND_IPV6"`
+	EnableIPv6              bool          `json:"ENABLE_INBOUND_IPV6"`
 	DNSServersV4            []string      `json:"DNS_SERVERS_V4"`
 	DNSServersV6            []string      `json:"DNS_SERVERS_V6"`
 	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`

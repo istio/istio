@@ -66,9 +66,9 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 	}
 
 	cfg := &iptables.Config{
-		RestoreFormat:     true,
-		RedirectDNS:       args.DNSCapture,
-		EnableIPv6: true,
+		RestoreFormat: true,
+		RedirectDNS:   args.DNSCapture,
+		EnableIPv6:    true,
 	}
 
 	log.Debug("creating ipsets in the node netns")
@@ -92,7 +92,7 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 	// Later we will reuse this same configurator inside the pod netns for adding other rules
 	iptablesConfigurator.DeleteHostRules()
 
-	if err := iptablesConfigurator.CreateHostRulesForHealthChecks(&HostProbeSNATIP); err != nil {
+	if err := iptablesConfigurator.CreateHostRulesForHealthChecks(&HostProbeSNATIP, &HostProbeSNATIPV6); err != nil {
 		return nil, fmt.Errorf("error initializing the host rules for health checks: %w", err)
 	}
 
