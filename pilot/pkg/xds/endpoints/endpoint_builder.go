@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/hash"
+	netutil "istio.io/istio/pkg/util/net"
 )
 
 var (
@@ -327,7 +328,30 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
 // into a ClusterLoadAssignment. Used for EDS.
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
+	svcPort := b.servicePort(b.port)
+	if svcPort == nil {
+		return buildEmptyClusterLoadAssignment(b.clusterName)
+	}
 	svcEps := b.snapshotShards(endpointIndex)
+	svcEps = slices.FilterInPlace(svcEps, func(ep *model.IstioEndpoint) bool {
+		// filter out endpoints that don't match the service port
+		if svcPort.Name != ep.ServicePortName {
+			return false
+		}
+		// filter out endpoint that has invalid ip address, mostly domain name. Because this is generated from ServiceEntry.
+		// There are other two cases that should not be filtered out:
+		// 1. ep.Address can be empty since https://github.com/istio/istio/pull/45150, in this case we will replace it with gateway ip.
+		// 2. ep.Address can be uds when EndpointPort = 0
+		if ep.Address != "" && ep.EndpointPort != 0 && !netutil.IsValidIPAddress(ep.Address) {
+			return false
+		}
+		// filter out endpoints that don't match the subset
+		if !b.subsetLabels.SubsetOf(ep.Labels) {
+			return false
+		}
+		return true
+	})
+
 	localityLbEndpoints := b.generate(svcEps, false)
 	if len(localityLbEndpoints) == 0 {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
@@ -362,13 +386,9 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed 
 	if !b.ServiceFound() {
 		return nil
 	}
-	svcPort := b.servicePort(b.port)
-	if svcPort == nil {
-		return nil
-	}
 
 	eps = slices.Filter(eps, func(ep *model.IstioEndpoint) bool {
-		return b.filterIstioEndpoint(ep, svcPort)
+		return b.filterIstioEndpoint(ep)
 	})
 
 	localityEpMap := make(map[string]*LocalityEndpoints)
@@ -461,7 +481,7 @@ func addUint32(left, right uint32) (uint32, bool) {
 	return left + right, false
 }
 
-func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *model.Port) bool {
+func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	// for ServiceInternalTrafficPolicy
 	if b.service.Attributes.NodeLocal && ep.NodeName != b.proxy.GetNodeName() {
 		return false
@@ -479,13 +499,6 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *
 	}
 	// TODO(nmittler): Consider merging discoverability policy with cluster-local
 	if !ep.IsDiscoverableFromProxy(b.proxy) {
-		return false
-	}
-	if svcPort.Name != ep.ServicePortName {
-		return false
-	}
-	// Port labels
-	if !b.subsetLabels.SubsetOf(ep.Labels) {
 		return false
 	}
 	// If we don't know the address we must eventually use a gateway address
@@ -518,9 +531,9 @@ func (b *EndpointBuilder) snapshotShards(endpointIndex *model.EndpointIndex) []*
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
 	isClusterLocal := b.clusterLocal
-
 	var eps []*model.IstioEndpoint
 	shards.RLock()
+	defer shards.RUnlock()
 	// Extract shard keys so we can iterate in order. This ensures a stable EDS output.
 	keys := shards.Keys()
 	// The shards are updated independently, now need to filter and merge for this cluster
@@ -534,7 +547,6 @@ func (b *EndpointBuilder) snapshotShards(endpointIndex *model.EndpointIndex) []*
 		}
 		eps = append(eps, shards.Shards[shardKey]...)
 	}
-	shards.RUnlock()
 	return eps
 }
 

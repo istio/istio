@@ -834,6 +834,7 @@ func testShards() *model.EndpointIndex {
 		// network1 has one endpoint in each cluster
 		{Cluster: "cluster1a"}: {
 			{Network: "network1", Address: "10.0.0.1"},
+			{Network: "network1", Address: "foo.bar"}, // endpoint generated from ServiceEntry
 		},
 		{Cluster: "cluster1b"}: {
 			{Network: "network1", Address: "10.0.0.2"},
