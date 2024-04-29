@@ -214,18 +214,16 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":                        ServiceAddressedWaypoint,
-						"version":                    "v1",
-						constants.AmbientUseWaypoint: "waypoint",
+						"app":     ServiceAddressedWaypoint,
+						"version": "v1",
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":                        ServiceAddressedWaypoint,
-						"version":                    "v2",
-						constants.AmbientUseWaypoint: "waypoint",
+						"app":     ServiceAddressedWaypoint,
+						"version": "v2",
 					},
 				},
 			},

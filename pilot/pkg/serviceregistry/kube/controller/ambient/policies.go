@@ -16,6 +16,8 @@
 package ambient
 
 import (
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 
 	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
@@ -124,7 +126,7 @@ func implicitWaypointPolicy(ctx krt.HandlerContext, waypoint Waypoint) *model.Wo
 							{
 								Principals: slices.Map(waypoint.ServiceAccounts, func(sa string) *security.StringMatch {
 									return &security.StringMatch{MatchType: &security.StringMatch_Exact{
-										Exact: spiffe.MustGenSpiffeURI(waypoint.Namespace, sa),
+										Exact: strings.TrimPrefix(spiffe.MustGenSpiffeURI(waypoint.Namespace, sa), spiffe.URIPrefix),
 									}}
 								}),
 							},

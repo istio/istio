@@ -191,8 +191,17 @@ var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.I
 		reachableFromVM(from),
 		reachableFromProxylessGRPC(from),
 		reachableNakedDestinations(from),
-		reachableHeadlessDestinations(from)).
+		reachableHeadlessDestinations(from),
+		reachableWaypoints(from)).
 		GetMatches(to)
+}
+
+// reachableWaypoints removes waypointed targets when the client doesn't
+func reachableWaypoints(from echo.Instance) match.Matcher {
+	if from.Config().WaypointClient() {
+		return match.Any
+	}
+	return match.NotWaypoint
 }
 
 // reachableHeadlessDestinations filters out headless services that aren't in the same cluster
