@@ -82,6 +82,7 @@ func TestPodRedirectionEnabled(t *testing.T) {
 	var (
 		ambientEnabledLabel       = map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient}
 		ambientDisabledAnnotation = map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled}
+		sidecarStatusAnnotation   = map[string]string{annotation.SidecarStatus.Name: "test"}
 
 		namespaceWithAmbientEnabledLabel = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -115,7 +116,7 @@ func TestPodRedirectionEnabled(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "test",
 				Namespace:   "test",
-				Annotations: map[string]string{annotation.SidecarStatus.Name: "test"},
+				Annotations: sidecarStatusAnnotation,
 			},
 		}
 
@@ -133,6 +134,14 @@ func TestPodRedirectionEnabled(t *testing.T) {
 				Namespace:   "test",
 				Labels:      ambientEnabledLabel,
 				Annotations: ambientDisabledAnnotation,
+			},
+		}
+		podWithSidecarAndAmbientEnabledLabel = &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test",
+				Namespace:   "test",
+				Labels:      ambientEnabledLabel,
+				Annotations: sidecarStatusAnnotation,
 			},
 		}
 	)
@@ -186,6 +195,8 @@ func TestPodRedirectionEnabled(t *testing.T) {
 			},
 			want: false,
 		},
+		// TODO: when there exists a means for users to signal the intent to exclude a pod from ambient without requiring the use of
+		// the ambient redirection annotation, this annotation should no longer be checked by this function and this case should return 'true'
 		{
 			name: "pod has annotation to disable ambient redirection",
 			args: args{
@@ -194,11 +205,21 @@ func TestPodRedirectionEnabled(t *testing.T) {
 			},
 			want: false,
 		},
+		// TODO: when there exists a means for users to signal the intent to exclude a pod from ambient without requiring the use of
+		// the ambient redirection annotation, this annotation should no longer be checked by this function and this case should return 'true'
 		{
 			name: "pod has label to enable ambient mode and annotation to disable ambient redirection",
 			args: args{
 				namespace: namespaceWithAmbientEnabledLabel,
 				pod:       podWithAmbientEnabledLabelAndAmbientDisabledAnnotation,
+			},
+			want: false,
+		},
+		{
+			name: "pod has sidecar, pod has ambient mode label",
+			args: args{
+				namespace: unlabelledNamespace,
+				pod:       podWithSidecarAndAmbientEnabledLabel,
 			},
 			want: false,
 		},

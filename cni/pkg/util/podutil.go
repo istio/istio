@@ -44,15 +44,17 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 // PodRedirectionEnabled determines if a pod should or should not be configured
 // to have traffic redirected thru the node proxy.
 func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
-	if namespace.GetLabels()[constants.DataplaneMode] != constants.DataplaneModeAmbient &&
-		pod.GetLabels()[constants.DataplaneMode] != constants.DataplaneModeAmbient {
-		// Neither namespcape nor pod has ambient mode enabled
+	if !(namespace.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient ||
+		pod.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient) {
+		// Neither namespace nor pod has ambient mode enabled
 		return false
 	}
 	if podHasSidecar(pod) {
 		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
 		return false
 	}
+	// TODO: delete this block when there is a way for users to signal the intent to exclude
+	// a pod from ambient that does not require the use of this annotation
 	if pod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionDisabled {
 		// Pod explicitly asked to not have redirection enabled
 		return false
