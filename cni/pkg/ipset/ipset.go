@@ -33,7 +33,7 @@ const (
 )
 
 type NetlinkIpsetDeps interface {
-	ipsetIPPortCreate(name string) error
+	ipsetIPHashCreate(name string, v6 bool) error
 	destroySet(name string) error
 	addIP(name string, ip netip.Addr, ipProto uint8, comment string, replace bool) error
 	deleteIP(name string, ip netip.Addr, ipProto uint8) error
@@ -58,10 +58,10 @@ func NewIPSet(name string, v6 bool, deps NetlinkIpsetDeps) (IPSet, error) {
 		Deps:   deps,
 		Prefix: name,
 	}
-	err = deps.ipsetIPPortCreate(set.V4Name)
+	err = deps.ipsetIPHashCreate(set.V4Name, false)
 	if v6 {
 		set.V6Name = fmt.Sprintf(V6Name, name)
-		v6err := deps.ipsetIPPortCreate(set.V6Name)
+		v6err := deps.ipsetIPHashCreate(set.V6Name, true)
 		err = errors.Join(err, v6err)
 	}
 	return set, err

@@ -48,4 +48,5 @@ type AmbientArgs struct {
 	KubeConfig      string
 	ServerSocket    string
 	DNSCapture      bool
+	EnableIPv6      bool
 }

@@ -113,14 +113,14 @@ func buildConvincingPod(v6IP bool) *corev1.Pod {
 	var podStatus corev1.PodStatus
 	if v6IP {
 		podStatus = corev1.PodStatus{
-				PodIP:  "e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164",
-				PodIPs: []corev1.PodIP{{IP: "e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164"}, {IP: "e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3165"}},
-			}
+			PodIP:  "e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164",
+			PodIPs: []corev1.PodIP{{IP: "e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164"}, {IP: "e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3165"}},
+		}
 	} else {
 		podStatus = corev1.PodStatus{
-				PodIP:  "2.2.2.2",
-				PodIPs: []corev1.PodIP{{IP: "2.2.2.2"}, {IP: "3.3.3.3"}},
-			}
+			PodIP:  "2.2.2.2",
+			PodIPs: []corev1.PodIP{{IP: "2.2.2.2"}, {IP: "3.3.3.3"}},
+		}
 	}
 
 	return &corev1.Pod{

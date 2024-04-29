@@ -133,10 +133,6 @@ spec:
               value: "{{ .Values.cni.chained }}"
             - name: REPAIR_ENABLED
               value: "{{ .Values.cni.repair.enabled }}"
-{{- if .Values.cni.ambient.enabled }}
-            - name: AMBIENT_DNS_CAPTURE
-              value: "{{ .Values.cni.ambient.dnsCapture }}"
-{{- end }}
             - name: REPAIR_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -165,10 +161,14 @@ spec:
                   fieldPath: spec.nodeName
             - name: LOG_LEVEL
               value: {{ .Values.cni.logLevel | quote }}
-            {{- if .Values.cni.ambient.enabled }}
+{{- if .Values.cni.ambient.enabled }}
             - name: AMBIENT_ENABLED
               value: "true"
-            {{- end }}
+            - name: AMBIENT_IPV6
+              value: "{{ .Values.cni.ambient.ipv6 }}"
+            - name: AMBIENT_DNS_CAPTURE
+              value: "{{ .Values.cni.ambient.dnsCapture }}"
+{{- end }}
             - name: GOMEMLIMIT
               valueFrom:
                 resourceFieldRef:

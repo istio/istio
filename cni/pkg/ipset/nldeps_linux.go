@@ -22,6 +22,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
+	"golang.org/x/sys/unix"
 )
 
 func RealNlDeps() NetlinkIpsetDeps {
@@ -30,11 +31,19 @@ func RealNlDeps() NetlinkIpsetDeps {
 
 type realDeps struct{}
 
-func (m *realDeps) ipsetIPPortCreate(name string) error {
-	err := netlink.IpsetCreate(name, "hash:ip", netlink.IpsetCreateOptions{Comments: true, Replace: true})
+func (m *realDeps) ipsetIPHashCreate(name string, v6 bool) error {
+	var family uint8
+
+	if v6 {
+		family = unix.AF_INET6
+	} else {
+		family = unix.AF_INET
+	}
+	err := netlink.IpsetCreate(name, "hash:ip", netlink.IpsetCreateOptions{Comments: true, Replace: true, Family: family})
 	if ipsetErr, ok := err.(nl.IPSetError); ok && ipsetErr == nl.IPSET_ERR_EXIST {
 		return nil
 	}
+
 	return err
 }
 

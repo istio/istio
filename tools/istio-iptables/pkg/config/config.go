@@ -116,7 +116,12 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_INCLUDE=%s\n", c.OutboundPortsInclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_EXCLUDE=%s\n", c.OutboundPortsExclude))
 	b.WriteString(fmt.Sprintf("KUBE_VIRT_INTERFACES=%s\n", c.KubeVirtInterfaces))
+	// TODO consider renaming this env var to ENABLE_IPV6 - nothing about it is specific to "INBOUND"
 	b.WriteString(fmt.Sprintf("ENABLE_INBOUND_IPV6=%t\n", c.EnableIPv6))
+	// TODO remove this flag - "dual stack" should just mean
+	// - supports IPv6
+	// - supports pods with more than one podIP
+	// The former already has a flag, the latter is something we should do by default and is a bug where we do not
 	b.WriteString(fmt.Sprintf("DUAL_STACK=%t\n", c.DualStack))
 	b.WriteString(fmt.Sprintf("DNS_CAPTURE=%t\n", c.RedirectDNS))
 	b.WriteString(fmt.Sprintf("DROP_INVALID=%t\n", c.DropInvalid))
@@ -162,6 +167,7 @@ func (c *Config) FillConfigFromEnvironment() error {
 		c.ProxyGID = c.ProxyUID
 	}
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
+	// TODO remove this check, it will break with more than one pod IP
 	hostIP, isIPv6, err := getLocalIP(c.DualStack)
 	if err != nil {
 		return err
