@@ -101,7 +101,8 @@ func (es *EndpointShards) CopyEndpoints(portMap map[string]int) map[int][]*Istio
 	res := map[int][]*IstioEndpoint{}
 	for _, v := range es.Shards {
 		for _, ep := range v {
-			k := ptr.NonEmptyOrDefault(ep.ServicePortNameKey, ep.ServicePortName)
+			// use the port name as the key, unless LegacyClusterPortKey is set and takes precedence
+			k := ptr.NonEmptyOrDefault(ep.LegacyClusterPortKey, ep.ServicePortName)
 			portNum, f := portMap[k]
 			if !f {
 				continue

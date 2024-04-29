@@ -15,8 +15,8 @@
 package serviceentry
 
 import (
-	"fmt"
 	"net/netip"
+	"strconv"
 	"strings"
 	"time"
 
@@ -286,8 +286,8 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
 
-			ServicePortNameKey: fmt.Sprintf("%s~%d", servicePort.Name, servicePort.Number),
-			Network:         network.ID(wle.Network),
+			LegacyClusterPortKey: strconv.Itoa(int(servicePort.Number)),
+			Network:              network.ID(wle.Network),
 			Locality: model.Locality{
 				Label:     locality,
 				ClusterID: clusterID,
@@ -344,12 +344,12 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 				}
 				out = append(out, &model.ServiceInstance{
 					Endpoint: &model.IstioEndpoint{
-						Address:            string(service.Hostname),
-						EndpointPort:       endpointPort,
-						ServicePortName:    serviceEntryPort.Name,
-						ServicePortNameKey: fmt.Sprintf("%s~%d", serviceEntryPort.Name, serviceEntryPort.Number),
-						Labels:             nil,
-						TLSMode:            model.DisabledTLSModeLabel,
+						Address:              string(service.Hostname),
+						EndpointPort:         endpointPort,
+						ServicePortName:      serviceEntryPort.Name,
+						LegacyClusterPortKey: strconv.Itoa(int(serviceEntryPort.Number)),
+						Labels:               nil,
+						TLSMode:              model.DisabledTLSModeLabel,
 					},
 					Service:     service,
 					ServicePort: convertPort(serviceEntryPort),
@@ -399,7 +399,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 			}
 			ep := workloadInstance.Endpoint.ShallowCopy()
 			ep.ServicePortName = serviceEntryPort.Name
-			ep.ServicePortNameKey = fmt.Sprintf("%s~%d", serviceEntryPort.Name, serviceEntryPort.Number)
+			ep.LegacyClusterPortKey = strconv.Itoa(int(serviceEntryPort.Number))
 
 			ep.EndpointPort = targetPort
 			out = append(out, &model.ServiceInstance{
