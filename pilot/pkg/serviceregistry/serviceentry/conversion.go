@@ -16,7 +16,6 @@ package serviceentry
 
 import (
 	"net/netip"
-	"strconv"
 	"strings"
 	"time"
 
@@ -286,7 +285,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
 
-			LegacyClusterPortKey: strconv.Itoa(int(servicePort.Number)),
+			LegacyClusterPortKey: int(servicePort.Number),
 			Network:              network.ID(wle.Network),
 			Locality: model.Locality{
 				Label:     locality,
@@ -347,7 +346,7 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 						Address:              string(service.Hostname),
 						EndpointPort:         endpointPort,
 						ServicePortName:      serviceEntryPort.Name,
-						LegacyClusterPortKey: strconv.Itoa(int(serviceEntryPort.Number)),
+						LegacyClusterPortKey: int(serviceEntryPort.Number),
 						Labels:               nil,
 						TLSMode:              model.DisabledTLSModeLabel,
 					},
@@ -399,7 +398,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 			}
 			ep := workloadInstance.Endpoint.ShallowCopy()
 			ep.ServicePortName = serviceEntryPort.Name
-			ep.LegacyClusterPortKey = strconv.Itoa(int(serviceEntryPort.Number))
+			ep.LegacyClusterPortKey = int(serviceEntryPort.Number)
 
 			ep.EndpointPort = targetPort
 			out = append(out, &model.ServiceInstance{

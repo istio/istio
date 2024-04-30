@@ -489,7 +489,7 @@ type IstioEndpoint struct {
 	// LegacyClusterPortKey provides an alternative key from ServicePortName to support legacy quirks in the API.
 	// Basically, EDS merges by port name, but CDS historically ignored port name and matched on number.
 	// Note that for Kubernetes Service, this is identical - its only ServiceEntry where these checks can differ
-	LegacyClusterPortKey string
+	LegacyClusterPortKey int
 
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string
