@@ -16,8 +16,6 @@ package sidecar
 
 import (
 	"fmt"
-	"sort"
-
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
@@ -116,7 +114,6 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		}
 
 		sNames := getNames(sList)
-		sort.Strings(sNames)
 
 		for _, rs := range sList {
 			// We don't want to report errors for pods in ambient mode, since there is no sidecar,
