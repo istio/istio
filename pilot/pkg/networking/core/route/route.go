@@ -553,14 +553,7 @@ func applyHTTPRouteDestination(
 	listenerPort int,
 	hashByDestination DestinationHashMap,
 ) []host.Name {
-	policy := in.Retries
-	if policy == nil {
-		// No VS policy set, use mesh defaults
-		policy = mesh.GetDefaultHttpRetryPolicy()
-	}
-	action := &route.RouteAction{
-		RetryPolicy: retry.ConvertPolicy(policy),
-	}
+	action := &route.RouteAction{}
 
 	setTimeout(action, in.Timeout, node)
 
@@ -622,8 +615,16 @@ func applyHTTPRouteDestination(
 	}
 
 	var hostnames []host.Name
+	policy := in.Retries
+	if policy == nil {
+		// No VS policy set, use mesh defaults
+		policy = mesh.GetDefaultHttpRetryPolicy()
+	}
+	consistentHash := false
 	if len(in.Route) == 1 {
 		hostnames = append(hostnames, processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action))
+		hash := hashByDestination[in.Route[0]]
+		consistentHash = hash != nil
 	} else {
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 		for _, dst := range in.Route {
@@ -641,6 +642,7 @@ func applyHTTPRouteDestination(
 			},
 		}
 	}
+	action.RetryPolicy = retry.ConvertPolicy(policy, consistentHash)
 	return hostnames
 }
 
@@ -1275,7 +1277,7 @@ func setTimeout(action *route.RouteAction, vsTimeout *durationpb.Duration, node 
 func BuildDefaultHTTPOutboundRoute(clusterName string, operation string, mesh *meshconfig.MeshConfig) *route.Route {
 	out := buildDefaultHTTPRoute(clusterName, operation)
 	// Add a default retry policy for outbound routes.
-	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy())
+	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy(), false)
 	setTimeout(out.GetRoute(), nil, nil)
 	return out
 }

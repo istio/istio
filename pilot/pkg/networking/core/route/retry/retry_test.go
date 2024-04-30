@@ -218,7 +218,7 @@ func TestRetry(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
-			policy := retry.ConvertPolicy(tc.route.Retries)
+			policy := retry.ConvertPolicy(tc.route.Retries, false)
 			if tc.assertFunc != nil {
 				tc.assertFunc(g, policy)
 			}
