@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -1064,10 +1065,39 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 		if consistentHash.MinimumRingSize != 0 && consistentHash.GetHashAlgorithm() != nil {
 			errs = AppendValidation(errs, fmt.Errorf("only one of MinimumRingSize or Maglev/Ringhash can be specified"))
 		}
+		if ml := consistentHash.GetMaglev(); ml != nil {
+			if ml.TableSize == 0 {
+				errs = AppendValidation(errs, fmt.Errorf("tableSize must be set for maglev"))
+			}
+			if ml.TableSize >= 5000011 {
+				errs = AppendValidation(errs, fmt.Errorf("tableSize must be less than 5000011 for maglev"))
+			}
+			if !isPrime(ml.TableSize) {
+				errs = AppendValidation(errs, fmt.Errorf("tableSize must be a prime number for maglev"))
+			}
+		}
 	}
 
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
 	return
+}
+
+// Copied from https://github.com/envoyproxy/envoy/blob/5451efd9b8f8a444431197050e45ba974ed4e9d8/source/common/common/utility.cc#L601-L615
+// to ensure we 100% match Envoy's implementation
+func isPrime(x uint64) bool {
+	if x != 0 && x < 4 {
+		return true // eliminates special-casing 2.
+	} else if (x & 1) == 0 {
+		return false // eliminates even numbers >2.
+	}
+
+	limit := uint64(math.Sqrt(float64(x)))
+	for factor := uint64(3); factor <= limit; factor += 2 {
+		if (x % factor) == 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func validateSubset(subset *networking.Subset) error {
