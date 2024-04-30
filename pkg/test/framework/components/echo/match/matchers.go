@@ -172,10 +172,9 @@ func WaypointService() Matcher {
 	}
 }
 
-// add a new matcher for "captured service -> service"
-func CapturedService() Matcher {
+func AmbientCaptured() Matcher {
 	return func(i echo.Instance) bool {
-		return i.Config().ZTunnelCaptured()
+		return i.Config().ZTunnelCaptured() && !i.Config().IsUncaptured()
 	}
 }
 

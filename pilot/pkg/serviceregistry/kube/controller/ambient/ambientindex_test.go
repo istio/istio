@@ -1073,7 +1073,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 
 func TestDefaultAllowWaypointPolicy(t *testing.T) {
 	// while the Waypoint is in testNS, the policies live in the Pods' namespaces
-	policyName := "istio_allow_waypoint_" + testNS + "_" + "waypoint-ns"
+	policyName := "ns1/istio_allow_waypoint_" + testNS + "_" + "waypoint-ns"
 	test.SetForTest(t, &features.DefaultAllowFromWaypoint, true)
 
 	s := newAmbientTestServer(t, testC, testNW)
@@ -1081,7 +1081,7 @@ func TestDefaultAllowWaypointPolicy(t *testing.T) {
 
 	t.Run("policy with service accounts", func(t *testing.T) {
 		assert.EventuallyEqual(t, func() []string {
-			waypointPolicy := s.authorizationPolicies.GetKey(krt.Key[model.WorkloadAuthorization]("ns1/" + policyName))
+			waypointPolicy := s.authorizationPolicies.GetKey(krt.Key[model.WorkloadAuthorization](policyName))
 			if waypointPolicy == nil {
 				return nil
 			}
@@ -1090,8 +1090,8 @@ func TestDefaultAllowWaypointPolicy(t *testing.T) {
 				return sm.GetExact()
 			})
 		}, []string{
-			"spiffe://cluster.local/ns/ns1/sa/namespace-wide",
-			"spiffe://cluster.local/ns/ns1/sa/waypoint-sa",
+			"cluster.local/ns/ns1/sa/namespace-wide",
+			"cluster.local/ns/ns1/sa/waypoint-sa",
 		})
 	})
 
