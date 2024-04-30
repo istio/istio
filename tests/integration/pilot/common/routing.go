@@ -4020,7 +4020,7 @@ metadata:
   name: default
 spec:
   hosts:
-  - foo.bar
+  - {{ .dstSvc }}.foo.bar
   gateways:
   - gateway
   http:
@@ -4065,34 +4065,37 @@ spec:
       claim: "wrong_claim"
 ---
 `
-	// No waypoint here, these are all via ingress which doesn't forward to waypoint
-	matchers := []match.Matcher{match.Or(match.ServiceName(t.Apps.B.NamespacedName()), match.AmbientCaptured())}
+	matchers := []match.Matcher{match.And(
+		// No waypoint here, these are all via ingress which doesn't forward to waypoint
+		match.NotWaypoint,
+		match.Or(match.ServiceName(t.Apps.B.NamespacedName()), match.AmbientCaptured()),
+	)}
 	headersWithToken := map[string][]string{
-		"Host":          {"foo.bar"},
 		"Authorization": {"Bearer " + jwt.TokenIssuer1WithNestedClaims1},
 	}
 	headersWithInvalidToken := map[string][]string{
-		"Host":          {"foo.bar"},
 		"Authorization": {"Bearer " + jwt.TokenExpired},
 	}
 	headersWithNoToken := map[string][]string{"Host": {"foo.bar"}}
 	headersWithNoTokenButSameHeader := map[string][]string{
-		"Host":                            {"foo.bar"},
 		"request.auth.claims.nested.key1": {"valueA"},
 	}
 	headersWithToken2 := map[string][]string{
-		"Host":             {"foo.bar"},
 		"Authorization":    {"Bearer " + jwt.TokenIssuer1WithNestedClaims2},
 		"X-Jwt-Nested-Key": {"value_to_be_replaced"},
 	}
 	headersWithToken2WithAddedHeader := map[string][]string{
-		"Host":               {"foo.bar"},
 		"Authorization":      {"Bearer " + jwt.TokenIssuer1WithNestedClaims2},
 		"x-jwt-wrong-header": {"header_to_be_deleted"},
 	}
 	headersWithToken3 := map[string][]string{
-		"Host":          {"foo.bar"},
 		"Authorization": {"Bearer " + jwt.TokenIssuer1WithCollisionResistantName},
+	}
+	// the VirtualService for each test should be unique to avoid
+	// one test passing because it's new config hasn't kicked in yet
+	// and we're still testing the previous destination
+	setHostHeader := func(src echo.Caller, opts *echo.CallOptions) {
+		opts.HTTP.Headers["Host"] = []string{opts.To.ServiceName() + ".foo.bar"}
 	}
 
 	type configData struct {
@@ -4123,6 +4126,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with nested claim and single claim using claim to header:200",
@@ -4151,6 +4155,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with wrong claim and added header:404",
@@ -4176,6 +4181,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	// ---------------------------------------------
@@ -4206,6 +4212,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with single claim:200",
@@ -4231,6 +4238,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched multiple claims with regex:200",
@@ -4259,6 +4267,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched multiple claims:200",
@@ -4287,6 +4296,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched without claim:200",
@@ -4312,6 +4322,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched without claim:404",
@@ -4337,6 +4348,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched both with and without claims with regex:200",
@@ -4366,6 +4378,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched multiple claims:404",
@@ -4394,6 +4407,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched token:404",
@@ -4419,6 +4433,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with invalid token:401",
@@ -4444,6 +4459,7 @@ spec:
 			},
 			Check: check.Status(http.StatusUnauthorized),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no token:404",
@@ -4469,6 +4485,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no token but same header:404",
@@ -4495,6 +4512,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no request authentication:404",
@@ -4520,6 +4538,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	// ---------------------------------------------
@@ -4550,6 +4569,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched with single claim:200",
@@ -4575,6 +4595,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched multiple claims with regex:200",
@@ -4603,6 +4624,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched multiple claims:200",
@@ -4631,6 +4653,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched without claim:200",
@@ -4656,6 +4679,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched without claim:404",
@@ -4681,6 +4705,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched both with and without claims with regex:200",
@@ -4710,6 +4735,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched multiple claims:404",
@@ -4738,6 +4764,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched token:404",
@@ -4763,6 +4790,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with invalid token:401",
@@ -4788,6 +4816,7 @@ spec:
 			},
 			Check: check.Status(http.StatusUnauthorized),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no token:404",
@@ -4813,6 +4842,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no token but same header:404",
@@ -4839,6 +4869,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no request authentication:404",
@@ -4864,6 +4895,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	t.RunTraffic(TrafficTestCase{
@@ -4890,6 +4922,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	t.RunTraffic(TrafficTestCase{
@@ -4916,6 +4949,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	t.RunTraffic(TrafficTestCase{
@@ -4942,6 +4976,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	t.RunTraffic(TrafficTestCase{
@@ -4968,6 +5003,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 }
 
