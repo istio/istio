@@ -99,7 +99,7 @@ var (
 			"This mirrors older Istio versions' behaviors, but not kubelet's.").Get()
 
 	MetricsLocalhostAccessOnly = env.Register("PROXY_METRICS_LOCALHOST_ACCESS_ONLY", false,
-		"This will disable proxy metrics endpoint from outside of the pod, allow only localhost access.").Get()
+		"This will disable proxy metrics endpoint from outside of the pod, allowing only localhost access.").Get()
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
