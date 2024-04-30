@@ -114,7 +114,7 @@ func TestBinarySizes(t *testing.T) {
 		"client":          {15, 30},
 		"server":          {15, 30},
 		"envoy":           {60, 130},
-		"ztunnel":         {15, 30},
+		"ztunnel":         {10, 30},
 	}
 
 	runBinariesTest(t, func(t *testing.T, name string) {
@@ -135,7 +135,7 @@ func TestBinarySizes(t *testing.T) {
 		if got < tt.minMb {
 			t.Fatalf("Binary size of %dmb was smaller than min allowed size %dmb. This is very likely a good thing, "+
 				"indicating the binary size has decreased. The test will fail to ensure you update the test thresholds to ensure "+
-				"the improvements are 'locked in'.", got, tt.maxMb)
+				"the improvements are 'locked in'.", got, tt.minMb)
 		}
 	})
 }
