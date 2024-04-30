@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
@@ -37,13 +36,9 @@ import (
 func createProxies(n int) []*Connection {
 	proxies := make([]*Connection, 0, n)
 	for p := 0; p < n; p++ {
-		proxies = append(proxies, &Connection{
-			BaseConnection: BaseConnection{
-				conID:       fmt.Sprintf("proxy-%v", p),
-				pushChannel: make(chan any),
-				stream:      &fakeStream{},
-			},
-		})
+		conn := newConnection("", &fakeStream{})
+		conn.SetID(fmt.Sprintf("proxy-%v", p))
+		proxies = append(proxies, conn)
 	}
 	return proxies
 }
@@ -81,11 +76,11 @@ func TestSendPushesManyPushes(t *testing.T) {
 		go func() {
 			for {
 				select {
-				case ev := <-proxy.pushChannel:
+				case ev := <-proxy.PushCh():
 					p := ev.(*Event)
 					p.done()
 					pushesMu.Lock()
-					pushes[proxy.conID]++
+					pushes[proxy.ID()]++
 					pushesMu.Unlock()
 				case <-stopCh:
 					return
@@ -135,11 +130,11 @@ func TestSendPushesSinglePush(t *testing.T) {
 		go func() {
 			for {
 				select {
-				case ev := <-proxy.pushChannel:
+				case ev := <-proxy.PushCh():
 					p := ev.(*Event)
 					p.done()
 					pushesMu.Lock()
-					pushes[proxy.conID]++
+					pushes[proxy.ID()]++
 					pushesMu.Unlock()
 					wg.Done()
 				case <-stopCh:
@@ -328,172 +323,6 @@ func TestDebounce(t *testing.T) {
 
 			close(stopCh)
 			wg.Wait()
-		})
-	}
-}
-
-func TestShouldRespond(t *testing.T) {
-	tests := []struct {
-		name       string
-		connection *Connection
-		request    *discovery.DiscoveryRequest
-		response   bool
-	}{
-		{
-			name: "initial request",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl: v3.ClusterType,
-			},
-			response: true,
-		},
-		{
-			name: "ack",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.ClusterType: {
-							NonceSent: "nonce",
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.ClusterType,
-				VersionInfo:   "v1",
-				ResponseNonce: "nonce",
-			},
-			response: false,
-		},
-		{
-			name: "ack forced",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.EndpointType: {
-							NonceSent:     "nonce",
-							AlwaysRespond: true,
-							ResourceNames: []string{"my-resource"},
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.EndpointType,
-				VersionInfo:   "v1",
-				ResponseNonce: "nonce",
-				ResourceNames: []string{"my-resource"},
-			},
-			response: true,
-		},
-		{
-			name: "nack",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.ClusterType: {
-							NonceSent: "nonce",
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.ClusterType,
-				VersionInfo:   "v1",
-				ResponseNonce: "stale nonce",
-			},
-			response: false,
-		},
-		{
-			name: "reconnect",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.ClusterType,
-				VersionInfo:   "v1",
-				ResponseNonce: "reconnect nonce",
-			},
-			response: true,
-		},
-		{
-			name: "resources change",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.EndpointType: {
-							NonceSent:     "nonce",
-							ResourceNames: []string{"cluster1"},
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.EndpointType,
-				VersionInfo:   "v1",
-				ResponseNonce: "nonce",
-				ResourceNames: []string{"cluster1", "cluster2"},
-			},
-			response: true,
-		},
-		{
-			name: "ack with same resources",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.EndpointType: {
-							NonceSent:     "nonce",
-							ResourceNames: []string{"cluster2", "cluster1"},
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.EndpointType,
-				VersionInfo:   "v1",
-				ResponseNonce: "nonce",
-				ResourceNames: []string{"cluster1", "cluster2"},
-			},
-			response: false,
-		},
-		{
-			name: "unsubscribe EDS",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.EndpointType: {
-							NonceSent:     "nonce",
-							ResourceNames: []string{"cluster2", "cluster1"},
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.EndpointType,
-				VersionInfo:   "v1",
-				ResponseNonce: "nonce",
-				ResourceNames: []string{},
-			},
-			response: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if response, _ := ShouldRespond(tt.connection.proxy, tt.connection.conID, tt.request); response != tt.response {
-				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
-			}
-			if tt.name != "reconnect" && tt.response {
-				if tt.connection.proxy.WatchedResources[tt.request.TypeUrl].NonceAcked != tt.request.ResponseNonce {
-					t.Fatalf("Version & Nonce not updated properly")
-				}
-			}
 		})
 	}
 }
