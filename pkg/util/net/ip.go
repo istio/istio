@@ -87,7 +87,7 @@ func ParseIPsSplitToV4V6(ips []string) (ipv4 []netip.Addr, ipv6 []netip.Addr) {
 	return
 }
 
-// IsRequestFromLocalhost returns true slice of ipv4 and ipv6 netip.Addr.
+// IsRequestFromLocalhost returns true if request is from localhost address.
 func IsRequestFromLocalhost(r *http.Request) bool {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
