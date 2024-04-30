@@ -16,6 +16,7 @@ package sidecar
 
 import (
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
