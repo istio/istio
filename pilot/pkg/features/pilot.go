@@ -61,7 +61,7 @@ var (
 		"The provider of Pilot DNS certificate.").Get()
 
 	MetricsLocalhostAccessOnly = env.Register("PILOT_METRICS_LOCALHOST_ACCESS_ONLY", false,
-		"This will disable pilot metrics endpoint from outside of the pod, allow only localhost access.").Get()
+		"This will disable pilot metrics endpoint from outside of the pod, allowing only localhost access.").Get()
 
 	ClusterName = env.Register("CLUSTER_ID", constants.DefaultClusterName,
 		"Defines the cluster and service registry that this Istiod instance belongs to").Get()
