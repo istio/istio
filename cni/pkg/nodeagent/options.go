@@ -22,20 +22,24 @@ import (
 )
 
 var (
-	PodNamespace    = env.RegisterStringVar("SYSTEM_NAMESPACE", constants.IstioSystemNamespace, "pod's namespace").Get()
-	PodName         = env.RegisterStringVar("POD_NAME", "", "").Get()
-	NodeName        = env.RegisterStringVar("NODE_NAME", "", "").Get()
-	Revision        = env.RegisterStringVar("REVISION", "", "").Get()
-	HostProbeSNATIP = netip.MustParseAddr(env.RegisterStringVar("HOST_PROBE_SNAT_IP", DefaultHostProbeSNATIP, "").Get())
+	PodNamespace      = env.RegisterStringVar("SYSTEM_NAMESPACE", constants.IstioSystemNamespace, "pod's namespace").Get()
+	PodName           = env.RegisterStringVar("POD_NAME", "", "").Get()
+	NodeName          = env.RegisterStringVar("NODE_NAME", "", "").Get()
+	Revision          = env.RegisterStringVar("REVISION", "", "").Get()
+	HostProbeSNATIP   = netip.MustParseAddr(env.RegisterStringVar("HOST_PROBE_SNAT_IP", DefaultHostProbeSNATIP, "").Get())
+	HostProbeSNATIPV6 = netip.MustParseAddr(env.RegisterStringVar("HOST_PROBE_SNAT_IPV6", DefaultHostProbeSNATIPV6, "").Get())
 )
 
 const (
 	// to reliably identify kubelet healthprobes from inside the pod (versus standard kube-proxy traffic,
-	// since the IP is normally the same), we SNAT identified host probes in the host netns to a fixed APIPA IP.
+	// since the IP is normally the same), we SNAT identified host probes in the host netns to a fixed
+	// APIPA/"link-local" IP.
 	//
 	// It doesn't matter what this IP is, so long as it's not routable and doesn't collide with anything else.
-	// (Can be ipv6)
-	DefaultHostProbeSNATIP = "169.254.7.127"
+	//
+	// IPv6 link local ranges are designed to be collision-resistant by default, and so probably never need to be overridden
+	DefaultHostProbeSNATIP   = "169.254.7.127"
+	DefaultHostProbeSNATIPV6 = "fd16:9254:7127:1337:ffff:ffff:ffff:ffff"
 )
 
 type AmbientArgs struct {
@@ -44,4 +48,5 @@ type AmbientArgs struct {
 	KubeConfig      string
 	ServerSocket    string
 	DNSCapture      bool
+	EnableIPv6      bool
 }

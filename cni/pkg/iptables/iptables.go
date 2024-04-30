@@ -20,6 +20,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"istio.io/istio/cni/pkg/ipset"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
@@ -50,10 +51,10 @@ const (
 var log = istiolog.RegisterScope("iptables", "iptables helper")
 
 type Config struct {
-	RestoreFormat     bool `json:"RESTORE_FORMAT"`
-	TraceLogging      bool `json:"IPTABLES_TRACE_LOGGING"`
-	EnableInboundIPv6 bool `json:"ENABLE_INBOUND_IPV6"`
-	RedirectDNS       bool `json:"REDIRECT_DNS"`
+	RestoreFormat bool `json:"RESTORE_FORMAT"`
+	TraceLogging  bool `json:"IPTABLES_TRACE_LOGGING"`
+	EnableIPv6    bool `json:"ENABLE_INBOUND_IPV6"`
+	RedirectDNS   bool `json:"REDIRECT_DNS"`
 }
 
 type IptablesConfigurator struct {
@@ -66,10 +67,10 @@ type IptablesConfigurator struct {
 
 func ipbuildConfig(c *Config) *iptablesconfig.Config {
 	return &iptablesconfig.Config{
-		RestoreFormat:     c.RestoreFormat,
-		TraceLogging:      c.TraceLogging,
-		EnableInboundIPv6: c.EnableInboundIPv6,
-		RedirectDNS:       c.RedirectDNS,
+		RestoreFormat: c.RestoreFormat,
+		TraceLogging:  c.TraceLogging,
+		EnableIPv6:    c.EnableIPv6,
+		RedirectDNS:   c.RedirectDNS,
 	}
 }
 
@@ -147,7 +148,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 	iptablesVariant := []dep.IptablesVersion{}
 	iptablesVariant = append(iptablesVariant, cfg.iptV)
 
-	if cfg.cfg.EnableInboundIPv6 {
+	if cfg.cfg.EnableIPv6 {
 		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
 	}
 
@@ -379,7 +380,7 @@ func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.Iptabl
 		// Execute iptables-restore
 		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, &cfg.iptV, true))
 		// Execute ip6tables-restore
-		if cfg.cfg.EnableInboundIPv6 {
+		if cfg.cfg.EnableIPv6 {
 			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, &cfg.ipt6V, false))
 		}
 	} else {
@@ -387,7 +388,7 @@ func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.Iptabl
 		execErrs = append(execErrs,
 			cfg.executeIptablesCommands(&cfg.iptV, iptablesBuilder.BuildV4()))
 		// Execute ip6tables commands
-		if cfg.cfg.EnableInboundIPv6 {
+		if cfg.cfg.EnableIPv6 {
 			execErrs = append(execErrs,
 				cfg.executeIptablesCommands(&cfg.ipt6V, iptablesBuilder.BuildV6()))
 		}
@@ -441,16 +442,16 @@ func (cfg *IptablesConfigurator) delInpodMarkIPRule() error {
 // via the nodeIP
 // - kubelet (node-local healthchecks, which we do not capture)
 // - kube-proxy (fowarded/proxied traffic from LoadBalancer-backed services, potentially with public IPs, which we must capture)
-func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks(hostSNATIP *netip.Addr) error {
+func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks(hostSNATIP, hostSNATIPV6 *netip.Addr) error {
 	// Append our rules here
-	builder := cfg.appendHostRules(hostSNATIP)
+	builder := cfg.appendHostRules(hostSNATIP, hostSNATIPV6)
 
 	log.Info("Adding host netnamespace iptables rules")
+
 	if err := cfg.executeCommands(builder); err != nil {
 		log.Errorf("failed to add host netnamespace iptables rules: %v", err)
 		return err
 	}
-
 	return nil
 }
 
@@ -474,7 +475,7 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	iptablesVariant := []dep.IptablesVersion{}
 	iptablesVariant = append(iptablesVariant, cfg.iptV)
 
-	if cfg.cfg.EnableInboundIPv6 {
+	if cfg.cfg.EnableIPv6 {
 		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
 	}
 	for _, iptVer := range iptablesVariant {
@@ -487,7 +488,7 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	}
 }
 
-func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP *netip.Addr) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP, hostSNATIPV6 *netip.Addr) *builder.IptablesRuleBuilder {
 	log.Info("configuring host-level iptables rules (healthchecks, etc)")
 
 	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
@@ -515,17 +516,32 @@ func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP *netip.Addr) *builde
 	// we cannot make assumptions there.
 
 	// -A OUTPUT -m owner --socket-exists -p tcp -m set --match-set istio-inpod-probes dst,dst -j SNAT --to-source 169.254.7.127
-	iptablesBuilder.AppendRule(
+	iptablesBuilder.AppendRuleV4(
 		iptableslog.UndefinedCommand, ChainHostPostrouting, iptablesconstants.NAT,
 		"-m", "owner",
 		"--socket-exists",
 		"-p", "tcp",
 		"-m", "set",
-		"--match-set", ProbeIPSet,
+		"--match-set", fmt.Sprintf(ipset.V4Name, ProbeIPSet),
 		"dst",
 		"-j", "SNAT",
 		"--to-source", hostSNATIP.String(),
 	)
+
+	// For V6 we have to use a different set and a different SNAT IP
+	if cfg.cfg.EnableIPv6 {
+		iptablesBuilder.AppendRuleV6(
+			iptableslog.UndefinedCommand, ChainHostPostrouting, iptablesconstants.NAT,
+			"-m", "owner",
+			"--socket-exists",
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", fmt.Sprintf(ipset.V6Name, ProbeIPSet),
+			"dst",
+			"-j", "SNAT",
+			"--to-source", hostSNATIPV6.String(),
+		)
+	}
 
 	return iptablesBuilder
 }

@@ -51,7 +51,7 @@ func TestIptables(t *testing.T) {
 			"ipv6-empty-inbound-ports",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = ""
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
@@ -61,7 +61,7 @@ func TestIptables(t *testing.T) {
 				cfg.OutboundIPRangesInclude = "9.9.0.0/16"
 				cfg.DryRun = true
 				cfg.RedirectDNS = true
-				cfg.EnableInboundIPv6 = false
+				cfg.EnableIPv6 = false
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
 				cfg.DNSServersV4 = []string{"127.0.0.53"}
@@ -80,14 +80,14 @@ func TestIptables(t *testing.T) {
 				cfg.ProxyGID = "1337"
 				cfg.ProxyUID = "1337"
 				cfg.ExcludeInterfaces = "not-istio-nic"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
 			"ipv6-inbound-ports",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
@@ -95,7 +95,7 @@ func TestIptables(t *testing.T) {
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
 				cfg.KubeVirtInterfaces = "eth0,eth1"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
@@ -106,7 +106,7 @@ func TestIptables(t *testing.T) {
 				cfg.KubeVirtInterfaces = "eth0,eth1"
 				cfg.OutboundIPRangesExclude = "2001:db8::/32"
 				cfg.OutboundIPRangesInclude = "2001:db8::/32"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
@@ -117,7 +117,7 @@ func TestIptables(t *testing.T) {
 				cfg.KubeVirtInterfaces = "eth0,eth1"
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 				cfg.OutboundIPRangesExclude = "2001:db8::/32"
 				cfg.OutboundIPRangesInclude = "2001:db8::/32"
 			},
@@ -127,7 +127,7 @@ func TestIptables(t *testing.T) {
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = ""
 				cfg.OutboundPortsInclude = "32000,31000"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
@@ -188,13 +188,13 @@ func TestIptables(t *testing.T) {
 				cfg.DNSServersV6 = []string{"::127.0.0.53"}
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
 			"ipv6-dns-uid-gid",
 			func(cfg *config.Config) {
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 				cfg.RedirectDNS = true
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
@@ -215,7 +215,7 @@ func TestIptables(t *testing.T) {
 		{
 			"ipv6-dns-outbound-owner-groups",
 			func(cfg *config.Config) {
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 				cfg.RedirectDNS = true
 				cfg.OwnerGroupsInclude = "java,202"
 			},
@@ -223,7 +223,7 @@ func TestIptables(t *testing.T) {
 		{
 			"ipv6-dns-outbound-owner-groups-exclude",
 			func(cfg *config.Config) {
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 				cfg.RedirectDNS = true
 				cfg.OwnerGroupsExclude = "888,ftp"
 			},
@@ -241,7 +241,7 @@ func TestIptables(t *testing.T) {
 				cfg.DryRun = true
 				cfg.RedirectDNS = true
 				cfg.DNSServersV4 = []string{"127.0.0.53"}
-				cfg.EnableInboundIPv6 = false
+				cfg.EnableIPv6 = false
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
 			},

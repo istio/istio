@@ -53,6 +53,7 @@ Additionally, it does not require any network rules/routing/config in the host n
 | Env Var            | Default         | Purpose                                                                                                                                       |
 |--------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | HOST_PROBE_SNAT_IP | "169.254.7.127" | Applied to SNAT host probe packets, so they can be identified/skipped podside. Any link-local address in the 169.254.0.0/16 block can be used |
+| HOST_PROBE_SNAT_IPV6 | "fd16:9254:7127:1337:ffff:ffff:ffff:ffff" | IPv6 link local ranges are designed to be collision-resistant by default, and so this probably never needs to be overridden |
 
 ## Sidecar Mode Implementation Details
 

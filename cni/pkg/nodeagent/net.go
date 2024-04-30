@@ -311,13 +311,13 @@ func addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet 
 	// For each pod IP
 	for _, pip := range podIPs {
 		// Add to host ipset
-		log.Debugf("adding pod %s probe to ipset %s with ip %s", pod.Name, hostsideProbeSet.Name, pip)
+		log.Debugf("adding pod %s probe to ipset %s with ip %s", pod.Name, hostsideProbeSet.Prefix, pip)
 		// Add IP/port combo to set. Note that we set Replace to true - a pod ip/port combo already being
 		// in the set is perfectly fine, and something we can always safely overwrite, so we will.
 		if err := hostsideProbeSet.AddIP(pip, ipProto, podUID, true); err != nil {
 			ipsetAddrErrs = append(ipsetAddrErrs, err)
 			log.Warnf("failed adding pod %s to ipset %s with ip %s, error was %s",
-				pod.Name, hostsideProbeSet.Name, pip, err)
+				pod.Name, hostsideProbeSet.Prefix, pip, err)
 		}
 	}
 
@@ -330,7 +330,7 @@ func removePodFromHostNSIpset(pod *corev1.Pod, hostsideProbeSet *ipset.IPSet) er
 		if err := hostsideProbeSet.ClearEntriesWithIP(pip); err != nil {
 			return err
 		}
-		log.Debugf("removed pod name %s with UID %s from host ipset %s by ip %s", pod.Name, pod.UID, hostsideProbeSet.Name, pip)
+		log.Debugf("removed pod name %s with UID %s from host ipset %s by ip %s", pod.Name, pod.UID, hostsideProbeSet.Prefix, pip)
 	}
 
 	return nil
@@ -349,7 +349,7 @@ func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPSet
 		if err := hostsideProbeSet.ClearEntriesWithIP(staleIP); err != nil {
 			return err
 		}
-		log.Debugf("removed stale ip %s from host ipset %s", staleIP, hostsideProbeSet.Name)
+		log.Debugf("removed stale ip %s from host ipset %s", staleIP, hostsideProbeSet.Prefix)
 	}
 	return nil
 }

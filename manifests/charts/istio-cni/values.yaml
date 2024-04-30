@@ -51,6 +51,8 @@ defaults:
       configDir: ""
       # If enabled, and ambient is enabled, DNS redirection will be enabled
       dnsCapture: false
+      # UNSTABLE: If enabled, and ambient is enabled, enables ipv6 support
+      ipv6: false
 
 
     repair:
