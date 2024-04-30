@@ -25,7 +25,9 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	any "google.golang.org/protobuf/types/known/anypb"
@@ -339,19 +341,46 @@ func buildConnectOriginateListener() *listener.Listener {
 			xdsfilters.OriginalDestination,
 		},
 		FilterChains: []*listener.FilterChain{{
-			Filters: []*listener.Filter{{
-				Name: wellknown.TCPProxy,
-				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-						StatPrefix:       ConnectOriginate,
-						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: ConnectOriginate},
-						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-							Hostname:     "%DOWNSTREAM_LOCAL_ADDRESS%",
-							HeadersToAdd: headers,
-						},
-					}),
+			Filters: []*listener.Filter{
+				{
+					Name: "upstream_peer_principal",
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&sfsnetwork.Config{
+							OnNewConnection: []*sfsvalue.FilterStateValue{{
+								Key: &sfsvalue.FilterStateValue_ObjectKey{
+									ObjectKey: "io.istio.upstream_peer_principal",
+								},
+								FactoryKey: "envoy.string",
+								Value: &sfsvalue.FilterStateValue_FormatString{
+									FormatString: &core.SubstitutionFormatString{
+										Format: &core.SubstitutionFormatString_TextFormatSource{
+											TextFormatSource: &core.DataSource{
+												Specifier: &core.DataSource_InlineString{
+													InlineString: "%UPSTREAM_PEER_URI_SAN%",
+												},
+											},
+										},
+									},
+								},
+								SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+							}},
+						}),
+					},
 				},
-			}},
+				{
+					Name: wellknown.TCPProxy,
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
+							StatPrefix:       ConnectOriginate,
+							ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: ConnectOriginate},
+							TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+								Hostname:     "%DOWNSTREAM_LOCAL_ADDRESS%",
+								HeadersToAdd: headers,
+							},
+						}),
+					},
+				},
+			},
 		}},
 	}
 	return l

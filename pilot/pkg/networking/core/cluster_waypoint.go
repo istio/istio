@@ -20,6 +20,8 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
+	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
@@ -57,9 +59,38 @@ func buildInternalUpstreamCluster(name string, internalListener string) *cluster
 	}
 }
 
+func buildEncapInternalUpstreamCluster(name string, internalListener string) *cluster.Cluster {
+	return &cluster.Cluster{
+		Name:                 name,
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+		LoadAssignment: &endpoint.ClusterLoadAssignment{
+			ClusterName: name,
+			Endpoints:   util.BuildInternalEndpoint(internalListener, nil),
+		},
+		TransportSocket: &core.TransportSocket{
+			Name: "internal_upstream",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
+				PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
+					{
+						Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
+						Name: "io.istio.upstream_peer_principal",
+					},
+				},
+				TransportSocket: &core.TransportSocket{
+					Name:       "raw_buffer",
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
+				},
+			})},
+		},
+		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
+		},
+	}
+}
+
 var (
 	MainInternalCluster = buildInternalUpstreamCluster(MainInternalName, MainInternalName)
-	EncapCluster        = buildInternalUpstreamCluster(EncapClusterName, ConnectOriginate)
+	EncapCluster        = buildEncapInternalUpstreamCluster(EncapClusterName, ConnectOriginate)
 )
 
 func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters() *cluster.Cluster {
