@@ -98,7 +98,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 					return true
 				}
 			}
-			if proxy.MergedGateway.ContainsAutoPassthroughGateways && config.Kind == kind.Gateway {
+			if proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways && config.Kind == kind.Gateway {
 				return true
 			}
 		}
