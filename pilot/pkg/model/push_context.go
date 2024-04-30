@@ -1614,16 +1614,17 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 
 // SortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
 func SortServicesByCreationTime(services []*Service) []*Service {
-	sort.SliceStable(services, func(i, j int) bool {
+	slices.SortStableFunc(services, func(a, b *Service) int {
+		r := a.CreationTime.Compare(b.CreationTime)
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if services[i].CreationTime.Equal(services[j].CreationTime) {
-			in := services[i].Attributes.Name + "." + services[i].Attributes.Namespace
-			jn := services[j].Attributes.Name + "." + services[j].Attributes.Namespace
-			return in < jn
+		if r == 0 {
+			an := a.Attributes.Name + "." + a.Attributes.Namespace
+			bn := b.Attributes.Name + "." + b.Attributes.Namespace
+			return cmp.Compare(an, bn)
 		}
-		return services[i].CreationTime.Before(services[j].CreationTime)
+		return r
 	})
 	return services
 }
