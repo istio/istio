@@ -365,7 +365,7 @@ func (c Config) HasSidecar() bool {
 
 func (c Config) IsUncaptured() bool {
 	// TODO this can be more robust to not require labeling initial echo config (check namespace + isWaypoint + not sidecar)
-	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionDisabled
+	return len(c.Subsets) > 0 && c.Subsets[0].Labels != nil && c.Subsets[0].Labels[constants.DataplaneModeLabel] == constants.DataplaneModeNone
 }
 
 func (c Config) HasProxyCapabilities() bool {
@@ -413,7 +413,7 @@ func (c Config) WaypointClient() bool {
 func (c Config) ZTunnelCaptured() bool {
 	haveSubsets := len(c.Subsets) > 0
 	if c.Namespace.IsAmbient() && haveSubsets &&
-		c.Subsets[0].Annotations[constants.AmbientRedirection] != constants.AmbientRedirectionDisabled &&
+		c.Subsets[0].Labels[constants.DataplaneModeLalbe] != constants.DataplaneModeNone &&
 		!c.HasSidecar() {
 		return true
 	}

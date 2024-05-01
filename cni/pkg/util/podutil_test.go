@@ -80,9 +80,9 @@ func TestGetPodIPsIfNoPodIPPresent(t *testing.T) {
 
 func TestPodRedirectionEnabled(t *testing.T) {
 	var (
-		ambientEnabledLabel       = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
-		ambientDisabledAnnotation = map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled}
-		sidecarStatusAnnotation   = map[string]string{annotation.SidecarStatus.Name: "test"}
+		ambientEnabledLabel     = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
+		ambientDisabledLabel    = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone}
+		sidecarStatusAnnotation = map[string]string{annotation.SidecarStatus.Name: "test"}
 
 		namespaceWithAmbientEnabledLabel = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -120,22 +120,14 @@ func TestPodRedirectionEnabled(t *testing.T) {
 			},
 		}
 
-		podWithAmbientDisabledAnnotation = &corev1.Pod{
+		podWithAmbientDisabledLabel = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "test",
-				Namespace:   "test",
-				Annotations: ambientDisabledAnnotation,
+				Name:      "test",
+				Namespace: "test",
+				Labels:    ambientDisabledLabel,
 			},
 		}
 
-		podWithAmbientEnabledLabelAndAmbientDisabledAnnotation = &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        "test",
-				Namespace:   "test",
-				Labels:      ambientEnabledLabel,
-				Annotations: ambientDisabledAnnotation,
-			},
-		}
 		podWithSidecarAndAmbientEnabledLabel = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "test",
@@ -195,23 +187,11 @@ func TestPodRedirectionEnabled(t *testing.T) {
 			},
 			want: false,
 		},
-		// TODO: when there exists a means for users to signal the intent to exclude a pod from ambient without requiring the use of
-		// the ambient redirection annotation, this annotation should no longer be checked by this function and this case should return 'true'
 		{
-			name: "pod has annotation to disable ambient redirection",
+			name: "pod has label to disable ambient redirection",
 			args: args{
 				namespace: namespaceWithAmbientEnabledLabel,
-				pod:       podWithAmbientDisabledAnnotation,
-			},
-			want: false,
-		},
-		// TODO: when there exists a means for users to signal the intent to exclude a pod from ambient without requiring the use of
-		// the ambient redirection annotation, this annotation should no longer be checked by this function and this case should return 'true'
-		{
-			name: "pod has label to enable ambient mode and annotation to disable ambient redirection",
-			args: args{
-				namespace: namespaceWithAmbientEnabledLabel,
-				pod:       podWithAmbientEnabledLabelAndAmbientDisabledAnnotation,
+				pod:       podWithAmbientDisabledLabel,
 			},
 			want: false,
 		},

@@ -308,8 +308,9 @@ func TestConfigureIstioGateway(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
-					Annotations: map[string]string{
-						"ambient.istio.io/redirection": "enabled",
+					// TODO why are we setting this on gateways?
+					Labels: map[string]string{
+						constants.DataplaneMode: constants.DataplaneModeAmbient,
 					},
 				},
 				Spec: k8s.GatewaySpec{
@@ -328,8 +329,9 @@ func TestConfigureIstioGateway(t *testing.T) {
 				Spec: k8s.GatewaySpec{
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
 					Infrastructure: &k8s.GatewayInfrastructure{
-						Annotations: map[k8s.AnnotationKey]k8s.AnnotationValue{
-							"ambient.istio.io/redirection": "enabled",
+						// TODO why are we setting this on gateways?
+						Labels: map[k8s.AnnotationKey]k8s.AnnotationValue{
+							constants.DataplaneMode: constants.DataplaneModeAmbient,
 						},
 					},
 				},

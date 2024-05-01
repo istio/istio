@@ -217,10 +217,11 @@ kind: Gateway
 metadata:
   name: simple-http-waypoint
   namespace: {{.Namespace}}
+  labels:
+    istio.io/dataplane-mode: ambient
   annotations:
     networking.istio.io/address-type: IPAddress
     networking.istio.io/service-type: ClusterIP
-    ambient.istio.io/redirection: enabled
 spec:
   gatewayClassName: istio
   listeners:

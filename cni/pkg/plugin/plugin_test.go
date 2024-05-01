@@ -305,8 +305,8 @@ func TestCmdAddPodDisabledAnnotation(t *testing.T) {
 	pod, ns := buildFakePodAndNSForClient()
 
 	app := corev1.Container{Name: "app"}
-	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.AmbientRedirectionEnabled}
-	pod.ObjectMeta.Annotations = map[string]string{constants.DataplaneModeLabel: constants.AmbientRedirectionDisabled}
+	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
+	pod.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone}
 	pod.Spec.Containers = []corev1.Container{app}
 
 	testDoAddRun(t, cniConf, testNSName, pod, ns)
