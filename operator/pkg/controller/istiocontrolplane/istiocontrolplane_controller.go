@@ -107,16 +107,16 @@ func watchedResources() []schema.GroupVersionKind {
 }
 
 var (
-	ownedResourcePredicates = predicate.Funcs{
-		CreateFunc: func(_ event.CreateEvent) bool {
+	ownedResourcePredicates = predicate.TypedFuncs[*unstructured.Unstructured]{
+		CreateFunc: func(_ event.TypedCreateEvent[*unstructured.Unstructured]) bool {
 			// no action
 			return false
 		},
-		GenericFunc: func(_ event.GenericEvent) bool {
+		GenericFunc: func(_ event.TypedGenericEvent[*unstructured.Unstructured]) bool {
 			// no action
 			return false
 		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
+		DeleteFunc: func(e event.TypedDeleteEvent[*unstructured.Unstructured]) bool {
 			obj, err := meta.Accessor(e.Object)
 			if err != nil {
 				return false
@@ -141,32 +141,24 @@ var (
 			}
 			return false
 		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
+		UpdateFunc: func(e event.TypedUpdateEvent[*unstructured.Unstructured]) bool {
 			// no action
 			return false
 		},
 	}
 
-	operatorPredicates = predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
+	operatorPredicates = predicate.TypedFuncs[*iopv1alpha1.IstioOperator]{
+		CreateFunc: func(e event.TypedCreateEvent[*iopv1alpha1.IstioOperator]) bool {
 			metrics.IncrementReconcileRequest("create")
 			return true
 		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
+		DeleteFunc: func(e event.TypedDeleteEvent[*iopv1alpha1.IstioOperator]) bool {
 			metrics.IncrementReconcileRequest("delete")
 			return true
 		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldIOP, ok := e.ObjectOld.(*iopv1alpha1.IstioOperator)
-			if !ok {
-				operatorFailedToGetObjectInCallback.Log(scope).Errorf("failed to get old IstioOperator")
-				return false
-			}
-			newIOP, ok := e.ObjectNew.(*iopv1alpha1.IstioOperator)
-			if !ok {
-				operatorFailedToGetObjectInCallback.Log(scope).Errorf("failed to get new IstioOperator")
-				return false
-			}
+		UpdateFunc: func(e event.TypedUpdateEvent[*iopv1alpha1.IstioOperator]) bool {
+			oldIOP := e.ObjectOld
+			newIOP := e.ObjectNew
 
 			// If revision is updated in the IstioOperator resource, we must remove entries
 			// from the cache. If the IstioOperator resource is reverted back to match this operator's
@@ -470,7 +462,12 @@ func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error
 	}
 
 	// Watch for changes to primary resource IstioOperator
-	err = c.Watch(source.Kind(mgr.GetCache(), &iopv1alpha1.IstioOperator{}), &handler.EnqueueRequestForObject{}, operatorPredicates)
+	err = c.Watch(source.Kind(
+		mgr.GetCache(),
+		&iopv1alpha1.IstioOperator{},
+		&handler.TypedEnqueueRequestForObject[*iopv1alpha1.IstioOperator]{},
+		operatorPredicates,
+	))
 	if err != nil {
 		return err
 	}
@@ -492,7 +489,7 @@ func watchIstioResources(mgrCache cache2.Cache, c controller.Controller) error {
 			Group:   t.Group,
 			Version: t.Version,
 		})
-		err := c.Watch(source.Kind(mgrCache, u), handler.EnqueueRequestsFromMapFunc(func(_ context.Context, a client.Object) []reconcile.Request {
+		handlerFunc := handler.TypedEnqueueRequestsFromMapFunc[*unstructured.Unstructured](func(_ context.Context, a *unstructured.Unstructured) []reconcile.Request {
 			scope.Infof("Watching a change for istio resource: %s/%s", a.GetNamespace(), a.GetName())
 			return []reconcile.Request{
 				{NamespacedName: types.NamespacedName{
@@ -500,8 +497,8 @@ func watchIstioResources(mgrCache cache2.Cache, c controller.Controller) error {
 					Namespace: a.GetLabels()[helmreconciler.OwningResourceNamespace],
 				}},
 			}
-		}),
-			ownedResourcePredicates)
+		})
+		err := c.Watch(source.Kind(mgrCache, u, handlerFunc, ownedResourcePredicates))
 		if err != nil {
 			scope.Errorf("Could not create watch for %s/%s/%s: %s.", t.Kind, t.Group, t.Version, err)
 		}
