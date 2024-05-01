@@ -101,6 +101,10 @@ func Localhost(value LocalhostValue) Instance {
 	return newOption("localhost", value)
 }
 
+func AdditionalLocalhost(value LocalhostValue) Instance {
+	return newOption("additional_localhost", value)
+}
+
 func Wildcard(value WildcardValue) Instance {
 	return newOption("wildcard", value)
 }
@@ -263,6 +267,14 @@ func DiscoveryHost(value string) Instance {
 
 func MetadataDiscovery(value bool) Instance {
 	return newOption("metadata_discovery", value)
+}
+
+func MetricsLocalhostAccessOnly(proxyMetadata map[string]string) Instance {
+	value, ok := proxyMetadata["METRICS_LOCALHOST_ACCESS_ONLY"]
+	if ok && value == "true" {
+		return newOption("metrics_localhost_access_only", true)
+	}
+	return newOption("metrics_localhost_access_only", false)
 }
 
 func LoadStatsConfigJSONStr(node *model.Node) Instance {
