@@ -70,12 +70,6 @@ func buildEncapInternalUpstreamCluster(name string, internalListener string) *cl
 		TransportSocket: &core.TransportSocket{
 			Name: "internal_upstream",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-				PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
-					{
-						Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
-						Name: "io.istio.upstream_peer_principal",
-					},
-				},
 				TransportSocket: &core.TransportSocket{
 					Name:       "raw_buffer",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},

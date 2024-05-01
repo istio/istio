@@ -264,6 +264,31 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		tcpChain := &listener.FilterChain{
 			Filters: append([]*listener.Filter{
 				xdsfilters.ConnectAuthorityNetworkFilter,
+				{
+					Name: "init_upstream_peer_principal",
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&sfsnetwork.Config{
+							OnNewConnection: []*sfsvalue.FilterStateValue{{
+								Key: &sfsvalue.FilterStateValue_ObjectKey{
+									ObjectKey: "io.istio.upstream_peer_principal",
+								},
+								FactoryKey: "envoy.string",
+								Value: &sfsvalue.FilterStateValue_FormatString{
+									FormatString: &core.SubstitutionFormatString{
+										Format: &core.SubstitutionFormatString_TextFormatSource{
+											TextFormatSource: &core.DataSource{
+												Specifier: &core.DataSource_InlineString{
+													InlineString: "%UPSTREAM_PEER_URI_SAN%",
+												},
+											},
+										},
+									},
+								},
+								SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
+							}},
+						}),
+					},
+				},
 			},
 				lb.buildInboundNetworkFilters(cc)...),
 			Name: "direct-tcp",
@@ -272,6 +297,31 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		httpChain := &listener.FilterChain{
 			Filters: append([]*listener.Filter{
 				xdsfilters.ConnectAuthorityNetworkFilter,
+				{
+					Name: "init_upstream_peer_principal",
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&sfsnetwork.Config{
+							OnNewConnection: []*sfsvalue.FilterStateValue{{
+								Key: &sfsvalue.FilterStateValue_ObjectKey{
+									ObjectKey: "io.istio.upstream_peer_principal",
+								},
+								FactoryKey: "envoy.string",
+								Value: &sfsvalue.FilterStateValue_FormatString{
+									FormatString: &core.SubstitutionFormatString{
+										Format: &core.SubstitutionFormatString_TextFormatSource{
+											TextFormatSource: &core.DataSource{
+												Specifier: &core.DataSource_InlineString{
+													InlineString: "%UPSTREAM_PEER_URI_SAN%",
+												},
+											},
+										},
+									},
+								},
+								SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
+							}},
+						}),
+					},
+				},
 			},
 				lb.buildWaypointInboundHTTPFilters(nil, cc)...),
 			Name: "direct-http",
@@ -362,7 +412,7 @@ func buildConnectOriginateListener() *listener.Listener {
 										},
 									},
 								},
-								SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+								SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
 							}},
 						}),
 					},
@@ -415,6 +465,27 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_STATS)
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	post = append(post, xdsfilters.WaypointUpstreamMetadataFilter)
+	// post = append(post, &hcm.HttpFilter{
+	// 	Name: "init_upstream_peer_principal",
+	// 	ConfigType: &hcm.HttpFilter_TypedConfig{
+	// 		TypedConfig: protoconv.MessageToAny(&sfshttp.Config{
+	// 			OnRequestHeaders: []*sfsvalue.FilterStateValue{
+	// 				{
+	// 					Key:        &sfsvalue.FilterStateValue_ObjectKey{ObjectKey: "io.istio.upstream_peer_principal"},
+	// 					FactoryKey: "envoy.string",
+	// 					Value: &sfsvalue.FilterStateValue_FormatString{
+	// 						FormatString: &core.SubstitutionFormatString{
+	// 							Format: &core.SubstitutionFormatString_TextFormat{
+	// 								TextFormat: "%UPSTREAM_PEER_URI_SAN%",
+	// 							},
+	// 						},
+	// 					},
+	// 					SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+	// 				},
+	// 			},
+	// 		}),
+	// 	},
+	// })
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
 	return
 }
