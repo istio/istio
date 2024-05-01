@@ -2422,7 +2422,7 @@ func buildQuery(src, dst echo.Instance) prometheus.Query {
 	destns := dst.NamespaceName()
 
 	labels := map[string]string{
-		"reporter":                       "destination",
+		"reporter":                       "waypoint",
 		"request_protocol":               "http",
 		"response_code":                  "200",
 		"response_flags":                 "-",
