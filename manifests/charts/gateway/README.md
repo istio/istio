@@ -54,7 +54,7 @@ That is, `--set some.field=true` should be passed, not `--set defaults.some.fiel
 When deploying the gateway in an OpenShift cluster, use the `openshift` profile to override the default values, for example:
 
 ```console
-helm install istio-ingressgateway istio/gateway -- set profile=openshift
+helm install istio-ingressgateway istio/gateway --set profile=openshift
 ```
 
 ### `image: auto` Information
