@@ -70,15 +70,13 @@ func SortFunc[E any](x []E, less func(a, b E) int) []E {
 }
 
 // SortStableFunc sorts the slice x while keeping the original order of equal element.
-// cmp(a, b) should return a negative number when a < b, a positive number when
-// a > b and zero when a == b.
 // The slice is modified in place but returned.
-// If E is not a pointer type, sort.SliceStable may be more efficient.
-func SortStableFunc[E any](x []E, cmp func(a, b E) int) []E {
+// Please refer to SortFunc for usage instructions.
+func SortStableFunc[E any](x []E, less func(a, b E) int) []E {
 	if len(x) <= 1 {
 		return x
 	}
-	slices.SortStableFunc(x, cmp)
+	slices.SortStableFunc(x, less)
 	return x
 }
 

@@ -3368,20 +3368,3 @@ func BenchmarkInitServiceAccounts(b *testing.B) {
 		ps.initServiceAccounts(env, services)
 	}
 }
-
-func BenchmarkSortServicesByCreationTime(b *testing.B) {
-	cs := make([]*Service, 0, 1000)
-	for i := 0; i < 1000; i++ {
-		cs = append(cs, &Service{
-			CreationTime: time.Now().Add(time.Duration(i)),
-			Attributes: ServiceAttributes{
-				Name:      fmt.Sprintf("name%d", i),
-				Namespace: "default",
-			},
-		})
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		SortServicesByCreationTime(cs)
-	}
-}
