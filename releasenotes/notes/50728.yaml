@@ -4,7 +4,7 @@ area: security
 
 releaseNotes:
 - |
-  **Added** Environment variables PILOT_METRICS_LOCALHOST_ACCESS_ONLY and PROXY_METRICS_LOCALHOST_ACCESS_ONLY for disabling 
+  **Added** An environment variable METRICS_LOCALHOST_ACCESS_ONLY for disabling 
   metrics endpoint from outside of the pod, to allow only localhost access. User can use set this with command
-  `--set values.pilot.env.PILOT_METRICS_LOCALHOST_ACCESS_ONLY=true` for Control plane and  
-  `--set meshConfig.defaultConfig.proxyMetadata.PROXY_METRICS_LOCALHOST_ACCESS_ONLY=true` for proxy while istioctl installation.
+  `--set values.pilot.env.METRICS_LOCALHOST_ACCESS_ONLY=true` for Control plane and  
+  `--set meshConfig.defaultConfig.proxyMetadata.METRICS_LOCALHOST_ACCESS_ONLY=true` for proxy while istioctl installation.

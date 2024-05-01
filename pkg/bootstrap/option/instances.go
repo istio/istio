@@ -270,7 +270,7 @@ func MetadataDiscovery(value bool) Instance {
 }
 
 func MetricsLocalhostAccessOnly(proxyMetadata map[string]string) Instance {
-	value, ok := proxyMetadata["PROXY_METRICS_LOCALHOST_ACCESS_ONLY"]
+	value, ok := proxyMetadata["METRICS_LOCALHOST_ACCESS_ONLY"]
 	if ok && value == "true" {
 		return newOption("metrics_localhost_access_only", true)
 	}
