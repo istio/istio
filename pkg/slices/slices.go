@@ -69,6 +69,17 @@ func SortFunc[E any](x []E, less func(a, b E) int) []E {
 	return x
 }
 
+// SortStableFunc sorts the slice x while keeping the original order of equal element.
+// The slice is modified in place but returned.
+// Please refer to SortFunc for usage instructions.
+func SortStableFunc[E any](x []E, less func(a, b E) int) []E {
+	if len(x) <= 1 {
+		return x
+	}
+	slices.SortStableFunc(x, less)
+	return x
+}
+
 // SortBy is a helper to sort a slice by some value. Typically, this would be sorting a struct
 // by a single field. If you need to have multiple fields, see the ExampleSort.
 func SortBy[E any, A constraints.Ordered](x []E, extract func(a E) A) []E {
