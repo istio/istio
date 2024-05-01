@@ -90,7 +90,7 @@ func fetchWaypointForTarget(
 	if wp != nil {
 		// plausible the object has a waypoint defined but that waypoint's underlying gateway is not ready, in this case we'd return nil here even if
 		// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
-		// o was reliant on the namespace waypoint and then get's a use-waypoint annotation added before that gateway is ready.
+		// o was reliant on the namespace waypoint and then get's a use-waypoint label added before that gateway is ready.
 		// goes from having a waypoint to having no waypoint and then eventually gets a waypoint back
 		return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wp.ResourceName()))
 	}
@@ -106,7 +106,7 @@ func fetchWaypointForTarget(
 		}
 	}
 
-	// neither o nor it's namespace has a use-waypoint annotation
+	// neither o nor it's namespace has a use-waypoint label
 	return nil
 }
 
