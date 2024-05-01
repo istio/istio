@@ -42,8 +42,7 @@ type ProxyConfig struct {
 	NodeIPs           []string
 	Sidecar           bool
 	LogAsJSON         bool
-	// TODO: outlier log path configuration belongs to mesh ProxyConfig
-	OutlierLogPath string
+	OutlierLogPath    string
 
 	BinaryPath    string
 	ConfigPath    string
