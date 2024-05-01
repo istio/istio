@@ -572,6 +572,7 @@ func (ep *IstioEndpoint) Metadata() *EndpointMetadata {
 		Namespace:    ep.Namespace,
 		Labels:       ep.Labels,
 		ClusterID:    ep.Locality.ClusterID,
+		Identity:     ep.ServiceAccount,
 	}
 }
 
@@ -600,6 +601,9 @@ type EndpointMetadata struct {
 
 	// ClusterID where the endpoint is located
 	ClusterID cluster.ID
+
+	// Identity of the endpoint
+	Identity string
 }
 
 // EndpointDiscoverabilityPolicy determines the discoverability of an endpoint throughout the mesh.

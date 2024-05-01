@@ -667,6 +667,10 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(port))),
 		}}
+		peerPrincipal, _ := structpb.NewStruct(map[string]any{
+			"uri_san": meta.Identity,
+		})
+		ep.Metadata.FilterMetadata[util.UpstreamPrincipalMetadataKey] = peerPrincipal
 		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port)
 		if b.dir != model.TrafficDirectionInboundVIP {
 			// Add TLS metadata matcher to indicate we can use HBONE for this endpoint.

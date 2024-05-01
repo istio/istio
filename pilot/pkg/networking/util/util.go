@@ -635,6 +635,7 @@ func BuildInternalEndpoint(dest string, meta *core.Metadata) []*endpoint.Localit
 }
 
 const OriginalDstMetadataKey = "envoy.filters.listener.original_dst"
+const UpstreamPrincipalMetadataKey = "io.istio.upstream_peer_principal"
 
 // BuildInternalLbEndpoint builds an lb endpoint pointing to the internal listener named dest.
 // If the metadata contains ORIGINAL_DST destination that will become the "endpointId" to prevent deduplication.

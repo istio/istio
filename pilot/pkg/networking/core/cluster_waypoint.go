@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/spiffe"
 )
 
 // buildInternalUpstreamCluster builds a single endpoint cluster to the internal listener.
@@ -174,11 +173,9 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 }
 
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
-	m := &matcher.StringMatcher{}
-	m.MatchPattern = &matcher.StringMatcher_Prefix{
-		Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/ns/" + proxy.Metadata.Namespace + "/sa/",
-	}
-	return cb.buildConnectOriginate(proxy, push, m)
+	// TODO: Add more specific SAN match based on metadata once envoy supports retrieving it in
+	// validation context.
+	return cb.buildConnectOriginate(proxy, push, nil)
 }
 
 func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.PushContext, uriSanMatchers ...*matcher.StringMatcher) *cluster.Cluster {

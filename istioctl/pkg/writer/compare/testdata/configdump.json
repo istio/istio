@@ -157,16 +157,6 @@
                                   "factory_key": "envoy.string"
                                 },
                                 {
-                                  "object_key": "io.istio.upstream_peer_principal",
-                                  "format_string": {
-                                    "text_format_source": {
-                                      "inline_string": "%UPSTREAM_PEER_URI_SAN%"
-                                    }
-                                  },
-                                  "shared_with_upstream": "ONCE",
-                                  "factory_key": "envoy.string"
-                                },
-                                {
                                   "object_key": "io.istio.local_principal",
                                   "format_string": {
                                     "text_format_source": {
