@@ -57,6 +57,7 @@
       "includeInboundPorts": "*",
       "includeOutboundPorts": "",
       "logLevel": "warning",
+      "outlierLogPath": "",
       "privileged": false,
       "readinessFailureThreshold": 4,
       "readinessInitialDelaySeconds": 0,

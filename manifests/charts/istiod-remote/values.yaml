@@ -276,6 +276,9 @@ defaults:
       # Log level for proxy, applies to gateways and sidecars.
       # Expected values are: trace|debug|info|warning|error|critical|off
       logLevel: warning
+      # Specify the path to the outlier event log.
+      # Example: /dev/stdout
+      outlierLogPath: ""
       #If set to true, istio-proxy container will have privileged securityContext
       privileged: false
       # The number of successive failed probes before indicating readiness failure.
