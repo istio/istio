@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/env"
+	commonFeatures "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
@@ -97,9 +98,6 @@ var (
 	ProbeKeepaliveConnections = env.Register("ENABLE_PROBE_KEEPALIVE_CONNECTIONS", false,
 		"If enabled, readiness probes will keep the connection from pilot-agent to the application alive. "+
 			"This mirrors older Istio versions' behaviors, but not kubelet's.").Get()
-
-	MetricsLocalhostAccessOnly = env.Register("PROXY_METRICS_LOCALHOST_ACCESS_ONLY", false,
-		"This will disable proxy metrics endpoint from outside of the pod, allowing only localhost access.").Get()
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
@@ -511,7 +509,7 @@ type PrometheusScrapeConfiguration struct {
 // Note that we do not return any errors here. If we do, we will drop metrics. For example, the app may be having issues,
 // but we still want Envoy metrics. Instead, errors are tracked in the failed scrape metrics/logs.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	if MetricsLocalhostAccessOnly && !istioNetUtil.IsRequestFromLocalhost(r) {
+	if commonFeatures.MetricsLocalhostAccessOnly && !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}

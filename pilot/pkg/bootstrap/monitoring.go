@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"time"
 
-	"istio.io/istio/pilot/pkg/features"
+	commonFeatures "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
 	istioNetUtil "istio.io/istio/pkg/util/net"
@@ -75,7 +75,7 @@ func addMonitor(mux *http.ServeMux) error {
 
 func metricsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if features.MetricsLocalhostAccessOnly && !istioNetUtil.IsRequestFromLocalhost(r) {
+		if commonFeatures.MetricsLocalhostAccessOnly && !istioNetUtil.IsRequestFromLocalhost(r) {
 			http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 			return
 		}
