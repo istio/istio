@@ -126,6 +126,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 	}
+	waypointGenerateCmd.PersistentFlags().StringVar(&trafficType,
+		"for",
+		"service",
+		fmt.Sprintf("Specify the traffic type %s for the waypoint", sets.SortedList(validTrafficTypes)),
+	)
 	waypointApplyCmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Apply a waypoint configuration",
