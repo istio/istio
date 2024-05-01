@@ -702,9 +702,9 @@ func (s *Controller) ResyncEDS() {
 // running this function. Queueing ensures latest updated wins.
 func (s *Controller) edsUpdate(instances []*model.ServiceInstance) {
 	// Find all keys we need to lookup
-	keys := map[instancesKey]struct{}{}
+	keys := sets.NewWithLength[instancesKey](len(instances))
 	for _, i := range instances {
-		keys[makeInstanceKey(i)] = struct{}{}
+		keys.Insert(makeInstanceKey(i))
 	}
 	s.queueEdsEvent(keys, s.doEdsUpdate)
 }
