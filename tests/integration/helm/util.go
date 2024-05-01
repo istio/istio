@@ -33,6 +33,7 @@ import (
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -190,38 +191,33 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 var DefaultNamespaceConfig = NewNamespaceConfig()
 
 func NewNamespaceConfig(config ...types.NamespacedName) NamespaceConfig {
-	return &nsConfig{
-		config: config,
+	result := make(nsConfig, len(config))
+	for _, c := range config {
+		result[c.Name] = c.Namespace
 	}
+	return result
 }
 
-type nsConfig struct {
-	config []types.NamespacedName
-}
+type nsConfig map[string]string
 
-func (n *nsConfig) Get(name string) string {
-	for _, nsn := range n.config {
-		if name == nsn.Name {
-			return nsn.Namespace
-		}
+func (n nsConfig) Get(name string) string {
+	if ns, ok := n[name]; ok {
+		return ns
 	}
 	return IstioNamespace
 }
 
-func (n *nsConfig) AllNamespaces() []string {
-	unique := map[string]any{}
-	for _, nsname := range n.config {
-		unique[nsname.Namespace] = struct{}{}
-	}
-	namespaces := make([]string, 0, 4)
-	for k := range unique {
-		namespaces = append(namespaces, k)
-	}
-	return namespaces
+func (n nsConfig) Set(name, ns string) {
+	n[name] = ns
+}
+
+func (n nsConfig) AllNamespaces() []string {
+	return maps.Values(n)
 }
 
 type NamespaceConfig interface {
 	Get(name string) string
+	Set(name, ns string)
 	AllNamespaces() []string
 }
 
