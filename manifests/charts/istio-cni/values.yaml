@@ -32,11 +32,13 @@ defaults:
     # Allows user to set custom affinity for the DaemonSet
     affinity: {}
 
-    # Custom labels on Daemonset level, if you need them
+    # Custom labels on Daemonset level, for eg - FinOps/teams labels
     daemonSetLabels: {}
+      # team-owner: finops
 
-    # Custom labels on Pod level, if you need them
+    # Custom labels on Pod level, for eg - FinOps/teams labels
     podLabels: {}
+      # team-owner: finops
 
     # Custom annotations on pod level, if you need them
     podAnnotations: {}
