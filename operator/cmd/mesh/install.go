@@ -229,6 +229,8 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 			return fmt.Errorf("verification failed with the following error: %v", err)
 		}
 	}
+
+	// Post-install message
 	if profile == "ambient" {
 		p.Println("The ambient profile has been installed successfully, enjoy Istio without sidecars!")
 	}
