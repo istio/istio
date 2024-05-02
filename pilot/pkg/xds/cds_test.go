@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -231,4 +232,96 @@ func TestSAN(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestServiceEntryMerge(t *testing.T) {
+	// Regression test for https://github.com/istio/istio/issues/50478
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: `apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: se1
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 80
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: se2
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 8080
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: se3
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 80
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: se4
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 80
+    targetPort: 1234
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: se5
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 80
+    targetPort: 999
+    protocol: HTTP
+  resolution: DNS
+  endpoints:
+  - address: endpoint.example.com
+  - address: endpoint-port-override.example.com
+    ports:
+      port1: 2345
+`})
+
+	res := xdstest.ExtractClusterEndpoints(s.Clusters(s.SetupProxy(nil)))
+	// TODO(https://github.com/istio/istio/issues/50749) order should be deterministic
+	slices.Sort(res["outbound|80||example.com"])
+	assert.Equal(t, res, map[string][]string{
+		"outbound|8080||example.com": {"example.com:8080"},
+		// Kind of weird to have multiple here, but it is what it is...
+		// If we had targetPort, etc, set here this would be required
+		"outbound|80||example.com": {
+			"endpoint-port-override.example.com:2345",
+			"endpoint.example.com:999",
+			"example.com:1234",
+			"example.com:80",
+			"example.com:80",
+		},
+	})
 }
