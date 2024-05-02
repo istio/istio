@@ -330,8 +330,6 @@ func TestCmdAddPodEnabledNamespaceDisabled(t *testing.T) {
 	testDoAddRun(t, cniConf, testNSName, pod, ns)
 
 	wasCalled := serverClose()
-	// Currently, we do not allow individual pod opt-in to ambient if namespace is not labeled, so pod
-	// shouls not be added to ambient
 	assert.Equal(t, wasCalled, true)
 }
 
