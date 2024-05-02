@@ -31,14 +31,26 @@ type ConfigWriter struct {
 }
 
 // Prime loads the config dump into the writer ready for printing
+// func (c *ConfigWriter) Prime(b []byte) error {
+// 	cd := ZtunnelDump{}
+// 	// TODO(fisherxu): migrate this to jsonpb when issue fixed in golang
+// 	// Issue to track -> https://github.com/golang/protobuf/issues/632
+// 	err := json.Unmarshal(b, &cd)
+// 	if err != nil {
+// 		return fmt.Errorf("error unmarshalling config dump response from ztunnel: %v", err)
+// 	}
+// 	c.ztunnelDump = &cd
+// 	return nil
+// }
+
 func (c *ConfigWriter) Prime(b []byte) error {
+	fmt.Println("Raw JSON data:", string(b))
 	cd := ZtunnelDump{}
-	// TODO(fisherxu): migrate this to jsonpb when issue fixed in golang
-	// Issue to track -> https://github.com/golang/protobuf/issues/632
 	err := json.Unmarshal(b, &cd)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from ztunnel: %v", err)
 	}
+	fmt.Printf("Unmarshalled Data: %+v\n", cd)
 	c.ztunnelDump = &cd
 	return nil
 }
