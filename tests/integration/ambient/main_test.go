@@ -186,8 +186,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":                        WorkloadAddressedWaypoint,
-						"version":                    "v1",
+						"app":                             WorkloadAddressedWaypoint,
+						"version":                         "v1",
 						constants.AmbientUseWaypointLabel: "waypoint",
 					},
 				},
@@ -195,8 +195,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":                        WorkloadAddressedWaypoint,
-						"version":                    "v2",
+						"app":                             WorkloadAddressedWaypoint,
+						"version":                         "v2",
 						constants.AmbientUseWaypointLabel: "waypoint",
 					},
 				},
@@ -214,16 +214,16 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":                             ServiceAddressedWaypoint,
-						"version":                         "v1",
+						"app":     ServiceAddressedWaypoint,
+						"version": "v1",
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":                             ServiceAddressedWaypoint,
-						"version":                         "v2",
+						"app":     ServiceAddressedWaypoint,
+						"version": "v2",
 					},
 				},
 			},

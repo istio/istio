@@ -320,7 +320,7 @@ func (c Config) IsAllNaked() bool {
 		// No subsets - default to not-naked.
 		return false
 	}
-	//if ANY subset has a sidecar, not naked.
+	// if ANY subset has a sidecar, not naked.
 	for _, s := range c.Subsets {
 		if s.Annotations == nil || s.Annotations[annotation.SidecarInject.Name] != "false" {
 			// Sidecar injection is enabled - it's not naked.
