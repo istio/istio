@@ -297,7 +297,7 @@ func TestCmdAddPodWithGenericSidecar(t *testing.T) {
 	assert.Equal(t, wasCalled, true)
 }
 
-func TestCmdAddPodDisabledAnnotation(t *testing.T) {
+func TestCmdAddPodDisabledLabel(t *testing.T) {
 	url, serverClose := setupCNIEventClientWithMockServer(false)
 
 	cniConf := buildMockConf(true, url)
@@ -312,7 +312,7 @@ func TestCmdAddPodDisabledAnnotation(t *testing.T) {
 	testDoAddRun(t, cniConf, testNSName, pod, ns)
 
 	wasCalled := serverClose()
-	// Pod has an explicit opt-out annotation, should not be added to ambient mesh
+	// Pod has an explicit opt-out label, should not be added to ambient mesh
 	assert.Equal(t, wasCalled, false)
 }
 
@@ -324,7 +324,7 @@ func TestCmdAddPodEnabledNamespaceDisabled(t *testing.T) {
 	pod, ns := buildFakePodAndNSForClient()
 
 	app := corev1.Container{Name: "app"}
-	pod.ObjectMeta.Annotations = map[string]string{constants.DataplaneModeLabel: constants.AmbientRedirectionEnabled}
+	pod.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
 	pod.Spec.Containers = []corev1.Container{app}
 
 	testDoAddRun(t, cniConf, testNSName, pod, ns)
@@ -332,7 +332,7 @@ func TestCmdAddPodEnabledNamespaceDisabled(t *testing.T) {
 	wasCalled := serverClose()
 	// Currently, we do not allow individual pod opt-in to ambient if namespace is not labeled, so pod
 	// shouls not be added to ambient
-	assert.Equal(t, wasCalled, false)
+	assert.Equal(t, wasCalled, true)
 }
 
 func TestCmdAddPodInExcludedNamespace(t *testing.T) {
