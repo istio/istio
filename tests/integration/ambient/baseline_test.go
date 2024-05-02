@@ -349,7 +349,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 			Prefix: "badgateway",
 			Inject: false,
 			Labels: map[string]string{
-				constants.DataplaneMode: "ambient",
+				constants.DataplaneModeLabel: "ambient",
 			},
 		})
 		if err != nil {

@@ -173,7 +173,7 @@ spec:
         - mountPath: /var/run/secrets/istio/bootstrap
           name: istio-vm-bootstrap
         {{- range $name, $value := $subset.Annotations }}
-        {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
+        {{- if eq $name "sidecar.istio.io/bootstrapOverride" }}
         - mountPath: /etc/istio-custom-bootstrap
           name: custom-bootstrap-volume
         {{- end }}
@@ -196,10 +196,10 @@ spec:
           name: {{ $.Service }}-{{ $subset.Version }}-vm-bootstrap
         name: istio-vm-bootstrap
       {{- range $name, $value := $subset.Annotations }}
-      {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
+      {{- if eq $name "sidecar.istio.io/bootstrapOverride" }}
       - name: custom-bootstrap-volume
         configMap:
-          name: {{ $value.Value }}
+          name: {{ $value }}
       {{- end }}
       {{- end }}
 {{- end}}

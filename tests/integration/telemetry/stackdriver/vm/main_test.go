@@ -77,18 +77,11 @@ var (
 
 var clientBuilder, serverBuilder deployment.Builder
 
-var (
-	proxyConfigAnnotation = echo.Annotation{
-		Name: annotation.ProxyConfig.Name,
-		Type: echo.WorkloadAnnotation,
-	}
-
-	envTagsProxyConfig = `
+var envTagsProxyConfig = `
 tracing:
   stackdriver:
     debug: true
   sampling: 100.0`
-)
 
 const enforceMTLS = `
 apiVersion: security.istio.io/v1beta1
@@ -231,7 +224,7 @@ func testSetup(ctx resource.Context) error {
 			Ports:     ports,
 			Subsets: []echo.SubsetConfig{
 				{
-					Annotations: echo.NewAnnotations().Set(echo.SidecarBootstrapOverride, sdBootstrapConfigMap),
+					Annotations: map[string]string{annotation.SidecarBootstrapOverride.Name: sdBootstrapConfigMap},
 				},
 			},
 		})
@@ -245,9 +238,10 @@ func testSetup(ctx resource.Context) error {
 			VMEnvironment: vmEnv,
 			Subsets: []echo.SubsetConfig{
 				{
-					Annotations: echo.NewAnnotations().
-						Set(proxyConfigAnnotation, envTagsProxyConfig).
-						Set(echo.SidecarBootstrapOverride, sdBootstrapConfigMap),
+					Annotations: map[string]string{
+						annotation.ProxyConfig.Name:              envTagsProxyConfig,
+						annotation.SidecarBootstrapOverride.Name: sdBootstrapConfigMap,
+					},
 				},
 			},
 		})

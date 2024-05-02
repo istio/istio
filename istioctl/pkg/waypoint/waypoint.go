@@ -95,7 +95,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		if gw.Labels == nil {
 			gw.Labels = map[string]string{}
 		}
-		gw.Labels[constants.AmbientWaypointForTrafficType] = trafficType
+		gw.Labels[constants.AmbientWaypointForTrafficTypeLabel] = trafficType
 
 		if revision != "" {
 			gw.Labels = map[string]string{label.IoIstioRev.Name: revision}
@@ -219,7 +219,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("failed to label namespace with waypoint: %v", err)
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()), constants.AmbientUseWaypoint, gw.Name)
+				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()),
+					constants.AmbientUseWaypointLabel, gw.Name)
 			}
 			return nil
 		},
@@ -432,7 +433,7 @@ func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
 	if nsObj.Labels == nil {
 		nsObj.Labels = map[string]string{}
 	}
-	nsObj.Labels[constants.AmbientUseWaypoint] = waypointName
+	nsObj.Labels[constants.AmbientUseWaypointLabel] = waypointName
 	if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(context.Background(), nsObj, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update namespace %s: %v", ns, err)
 	}
@@ -449,5 +450,5 @@ func namespaceIsLabeledAmbient(kubeClient kube.CLIClient, ns string) (bool, erro
 	if nsObj.Labels == nil {
 		return false, nil
 	}
-	return nsObj.Labels[constants.DataplaneMode] == constants.DataplaneModeAmbient, nil
+	return nsObj.Labels[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient, nil
 }

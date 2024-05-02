@@ -44,8 +44,8 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 // PodRedirectionEnabled determines if a pod should or should not be configured
 // to have traffic redirected thru the node proxy.
 func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
-	if !(namespace.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient ||
-		pod.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient) {
+	if !(namespace.GetLabels()[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient ||
+		pod.GetLabels()[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient) {
 		// Neither namespace nor pod has ambient mode enabled
 		return false
 	}
