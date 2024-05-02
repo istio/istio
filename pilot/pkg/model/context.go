@@ -272,14 +272,6 @@ func AnyToUnnamedResources(r []*anypb.Any) Resources {
 	return a
 }
 
-func ResourcesToAny(r Resources) []*anypb.Any {
-	a := make([]*anypb.Any, 0, len(r))
-	for _, rr := range r {
-		a = append(a, rr.Resource)
-	}
-	return a
-}
-
 // XdsUpdates include information about the subset of updated resources.
 // See for example EDS incremental updates.
 type XdsUpdates = sets.Set[ConfigKey]

@@ -144,7 +144,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 		// TODO: send different version for incremental eds
 		VersionInfo: req.Push.PushVersion,
 		Nonce:       nonce(req.Push.LedgerVersion),
-		Resources:   model.ResourcesToAny(res),
+		Resources:   xds.ResourcesToAny(res),
 	}
 
 	configSize := ResourceSize(res)
