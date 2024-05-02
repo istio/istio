@@ -208,13 +208,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	if processed, err := helmreconciler.ProcessDefaultWebhook(kubeClient, iop, exists, opts); err != nil {
 		return fmt.Errorf("failed to process default webhook: %v", err)
 	} else if processed {
-		webhooksMsg := "Made this installation the default for %s."
-		if profile == "ambient" {
-			webhooksMsg = fmt.Sprintf(webhooksMsg, "validation")
-		} else {
-			webhooksMsg = fmt.Sprintf(webhooksMsg, "injection and validation")
-		}
-		p.Println(webhooksMsg)
+		p.Println("Made this installation the default for cluster-wide operations.")
 	}
 
 	if iArgs.Verify {
@@ -235,7 +229,9 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 			return fmt.Errorf("verification failed with the following error: %v", err)
 		}
 	}
-
+	if profile == "ambient" {
+		p.Println("The ambient profile has been installed successfully, enjoy Istio without sidecars!")
+	}
 	return nil
 }
 
