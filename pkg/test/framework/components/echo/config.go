@@ -413,7 +413,7 @@ func (c Config) WaypointClient() bool {
 func (c Config) ZTunnelCaptured() bool {
 	haveSubsets := len(c.Subsets) > 0
 	if c.Namespace.IsAmbient() && haveSubsets &&
-		c.Subsets[0].Labels[constants.DataplaneModeLalbe] != constants.DataplaneModeNone &&
+		c.Subsets[0].Labels[constants.DataplaneModeLabel] != constants.DataplaneModeNone &&
 		!c.HasSidecar() {
 		return true
 	}

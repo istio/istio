@@ -162,16 +162,16 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"sidecar.istio.io/inject": "true",
-						constants.DataplaneModeLabel:   constants.DataplaneModeNone,
+						"sidecar.istio.io/inject":    "true",
+						constants.DataplaneModeLabel: constants.DataplaneModeNone,
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"sidecar.istio.io/inject": "true",
-						constants.DataplaneModeLabel:   constants.DataplaneModeNone,
+						"sidecar.istio.io/inject":    "true",
+						constants.DataplaneModeLabel: constants.DataplaneModeNone,
 					},
 				},
 			},

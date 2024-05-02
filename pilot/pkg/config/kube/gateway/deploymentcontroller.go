@@ -361,11 +361,11 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	// TODO this sprays ambient annotations/labels all over EVER gateway resource (serviceaccts, services, etc)
 	// where they have no meaning/are not used/are ignored. We really only need them on the deployment podspec.
 	var hasAmbientLabel bool
-	if _, ok := gw.Labels[constants.DataplaneMode]; ok {
+	if _, ok := gw.Labels[constants.DataplaneModeLabel]; ok {
 		hasAmbientLabel = true
 	}
 	if gw.Spec.Infrastructure != nil {
-		if _, ok := gw.Spec.Infrastructure.Labels[constants.DataplaneMode]; ok {
+		if _, ok := gw.Spec.Infrastructure.Labels[constants.DataplaneModeLabel]; ok {
 			hasAmbientLabel = true
 		}
 	}
@@ -374,7 +374,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		if gw.Labels == nil {
 			gw.Labels = make(map[string]string)
 		}
-		gw.Labels[constants.DataplaneMode] = constants.DataplaneModeNone
+		gw.Labels[constants.DataplaneModeLabel] = constants.DataplaneModeNone
 	}
 
 	input := TemplateInput{

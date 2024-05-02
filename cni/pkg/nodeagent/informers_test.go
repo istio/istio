@@ -371,7 +371,7 @@ func TestExistingPodRemovedWhenPodAnnotated(t *testing.T) {
 
 	// label the pod for exclusion
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneMode, constants.DataplaneModeNone))
+		constants.DataplaneModeLabel, constants.DataplaneModeNone))
 	_, err = client.Kube().CoreV1().Pods(pod.Namespace).Patch(ctx, pod.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -452,7 +452,7 @@ func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 			Name:      "test",
 			Namespace: "test",
 			UID:       "1234",
-			Labels:    map[string]string{constants.DataplaneMode: constants.DataplaneModeNone},
+			Labels:    map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: NodeName,
@@ -496,7 +496,7 @@ func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 			Name:      "test",
 			Namespace: "test",
 			UID:       "1234",
-			Labels:    map[string]string{constants.DataplaneMode: constants.DataplaneModeNone},
+			Labels:    map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: NodeName,

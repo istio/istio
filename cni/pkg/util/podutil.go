@@ -52,7 +52,7 @@ func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
 		return false
 	}
-	if pod.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeNone {
+	if pod.GetLabels()[constants.DataplaneModeLabel] == constants.DataplaneModeNone {
 		// Pod explicitly asked to not have ambient redirection enabled
 		return false
 	}
