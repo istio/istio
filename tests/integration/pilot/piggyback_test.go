@@ -56,7 +56,7 @@ func TestPiggyback(t *testing.T) {
 					}
 					dr := discovery.DiscoveryResponse{}
 					if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
-						return fmt.Errorf("unmarshal: %v", err)
+						return fmt.Errorf("unmarshal: %v in %q", err, string(out))
 					}
 					if dr.TypeUrl != xds.TypeDebugSyncronization {
 						return fmt.Errorf("the output doesn't contain expected typeURL: %s", out)
