@@ -417,15 +417,15 @@
     ]
   }
   
-  
   ,
   "cluster_manager": {
     "enable_deferred_cluster_creation": true,
+  
     "outlier_detection": {
       "event_log_path": "/dev/stdout"
     }
     ,
     "load_stats_config":{"api_type": "GRPC", "transport_api_version": "V3"}
-  }
   
+  }
 }
