@@ -113,7 +113,8 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
 		option.XdsType(xdsType),
-		option.MetadataDiscovery(bool(metadataDiscovery)))
+		option.MetadataDiscovery(bool(metadataDiscovery)),
+		option.MetricsLocalhostAccessOnly(cfg.Metadata.ProxyConfig.ProxyMetadata))
 
 	// Add GCPProjectNumber to access in bootstrap template.
 	md := cfg.Metadata.PlatformMetadata
@@ -162,12 +163,14 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 			if ipFamily == network.IPv6 {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv6),
+					option.AdditionalLocalhost(option.LocalhostIPv4),
 					option.Wildcard(option.WildcardIPv6),
 					option.AdditionalWildCard(option.WildcardIPv4),
 					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
 			} else {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv4),
+					option.AdditionalLocalhost(option.LocalhostIPv6),
 					option.Wildcard(option.WildcardIPv4),
 					option.AdditionalWildCard(option.WildcardIPv6),
 					option.DNSLookupFamily(option.DNSLookupFamilyIPS))

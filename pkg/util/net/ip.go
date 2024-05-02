@@ -15,6 +15,8 @@
 package net
 
 import (
+	"net"
+	"net/http"
 	"net/netip"
 
 	"istio.io/istio/pkg/log"
@@ -83,4 +85,15 @@ func ParseIPsSplitToV4V6(ips []string) (ipv4 []netip.Addr, ipv6 []netip.Addr) {
 		}
 	}
 	return
+}
+
+// IsRequestFromLocalhost returns true if request is from localhost address.
+func IsRequestFromLocalhost(r *http.Request) bool {
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return false
+	}
+
+	userIP := net.ParseIP(ip)
+	return userIP.IsLoopback()
 }
