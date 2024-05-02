@@ -285,7 +285,9 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 			Address:         addr,
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
-			Network:         network.ID(wle.Network),
+
+			LegacyClusterPortKey: int(servicePort.Number),
+			Network:              network.ID(wle.Network),
 			Locality: model.Locality{
 				Label:     locality,
 				ClusterID: clusterID,
@@ -342,11 +344,12 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 				}
 				out = append(out, &model.ServiceInstance{
 					Endpoint: &model.IstioEndpoint{
-						Address:         string(service.Hostname),
-						EndpointPort:    endpointPort,
-						ServicePortName: serviceEntryPort.Name,
-						Labels:          nil,
-						TLSMode:         model.DisabledTLSModeLabel,
+						Address:              string(service.Hostname),
+						EndpointPort:         endpointPort,
+						ServicePortName:      serviceEntryPort.Name,
+						LegacyClusterPortKey: int(serviceEntryPort.Number),
+						Labels:               nil,
+						TLSMode:              model.DisabledTLSModeLabel,
 					},
 					Service:     service,
 					ServicePort: convertPort(serviceEntryPort),
@@ -396,6 +399,8 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 			}
 			ep := workloadInstance.Endpoint.ShallowCopy()
 			ep.ServicePortName = serviceEntryPort.Name
+			ep.LegacyClusterPortKey = int(serviceEntryPort.Number)
+
 			ep.EndpointPort = targetPort
 			ep.ComputeEnvoyEndpoint(nil)
 			out = append(out, &model.ServiceInstance{
