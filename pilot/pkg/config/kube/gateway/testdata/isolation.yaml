@@ -1,0 +1,131 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: isolation
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "istio"
+  listeners:
+    - name: empty-hostname
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: wildcard-example-com
+      port: 80
+      protocol: HTTP
+      hostname: "*.example.com"
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: wildcard-foo-example-com
+      port: 80
+      protocol: HTTP
+      hostname: "*.foo.example.com"
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: abc-foo-example-com
+      port: 80
+      protocol: HTTP
+      hostname: "abc.foo.example.com"
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: attaches-to-empty-hostname-with-hostname-intersection
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: isolation
+      namespace: gateway-conformance-infra
+      sectionName: empty-hostname
+  hostnames:
+    - "bar.com"
+    - "*.example.com" # request matching is prevented by the isolation wildcard-example-com listener
+    - "*.foo.example.com" # request matching is prevented by the isolation wildcard-foo-example-com listener
+    - "abc.foo.example.com" # request matching is prevented by the isolation of abc-foo-example-com listener
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /empty-hostname
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: attaches-to-wildcard-example-com-with-hostname-intersection
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: isolation
+      namespace: gateway-conformance-infra
+      sectionName: wildcard-example-com
+  hostnames:
+    - "bar.com" # doesn't match wildcard-example-com listener
+    - "*.example.com"
+    - "*.foo.example.com" # request matching is prevented by the isolation of wildcard-foo-example-com listener
+    - "abc.foo.example.com" # request matching is prevented by the isolation of abc-foo-example-com listener
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /wildcard-example-com
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: attaches-to-wildcard-foo-example-com-with-hostname-intersection
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: isolation
+      namespace: gateway-conformance-infra
+      sectionName: wildcard-foo-example-com
+  hostnames:
+    - "bar.com" # doesn't match wildcard-foo-example-com listener
+    - "*.example.com" # this becomes *.foo.example.com, as the hostname cannot be less specific than *.foo.example.com of the listener
+    - "*.foo.example.com"
+    - "abc.foo.example.com" # request matching is prevented by the isolation abc-foo-example-com listener
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /wildcard-foo-example-com
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: attaches-to-abc-foo-example-com-with-hostname-intersection
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: isolation
+      namespace: gateway-conformance-infra
+      sectionName: abc-foo-example-com
+  hostnames:
+    - "bar.com" # doesn't match abc-foo-example-com listener
+    - "*.example.com" # becomes abc.foo.example.com as it cannot be less specific than abc.foo.example.com of the listener
+    - "*.foo.example.com" # becomes abc.foo.example.com as it cannot be less specific than abc.foo.example.com of the listener
+    - "abc.foo.example.com"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /abc-foo-example-com
+      backendRefs:
+        - name: infra-backend-v1
+          port: 8080
