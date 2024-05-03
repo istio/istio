@@ -78,6 +78,19 @@ var (
 		},
 	}
 
+	port744x = []*Port{
+		{
+			Port:     7443,
+			Protocol: "GRPC",
+			Name:     "service-grpc-tls",
+		},
+		{
+			Port:     7442,
+			Protocol: "HTTP",
+			Name:     "http-tls",
+		},
+	}
+
 	port803x = []*Port{
 		{
 			Port:     8031,
@@ -566,7 +579,7 @@ var (
 					Port: &networking.SidecarPort{
 						Number:   8034,
 						Protocol: "TCP",
-						Name:     "tcp-ipc4",
+						Name:     "rmi-ipc4",
 					},
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
@@ -1015,24 +1028,9 @@ var (
 			Hostname: "foobar.svc.cluster.local",
 			Ports:    port803x,
 			Attributes: ServiceAttributes{
-				Name:      "foo",
-				Namespace: "ns1",
-			},
-		},
-		{
-			Hostname: "foobar.svc.cluster.local",
-			Ports:    port8000,
-			Attributes: ServiceAttributes{
-				Name:      "foo",
-				Namespace: "ns2",
-			},
-		},
-		{
-			Hostname: "foobar.svc.cluster.local",
-			Ports:    port7443,
-			Attributes: ServiceAttributes{
-				Name:      "baz",
-				Namespace: "ns3",
+				Name:            "foo",
+				Namespace:       "ns1",
+				ServiceRegistry: provider.Kubernetes,
 			},
 		},
 	}
@@ -2061,56 +2059,6 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 		},
 		{
-			name: "k8s service no merge",
-			sidecarConfig: &config.Config{
-				Meta: config.Meta{
-					Name:      "default",
-					Namespace: "default",
-				},
-				Spec: &networking.Sidecar{},
-			},
-			services: []*Service{
-				{
-					Hostname: "proxy",
-					Ports:    port7000,
-					Attributes: ServiceAttributes{
-						Name:            "s1",
-						Namespace:       "default",
-						ServiceRegistry: provider.Kubernetes,
-					},
-				},
-				{
-					Hostname: "proxy",
-					Ports:    port7443,
-					Attributes: ServiceAttributes{
-						Name:            "s2",
-						Namespace:       "default",
-						ServiceRegistry: provider.Kubernetes,
-					},
-				},
-				{
-					Hostname: "proxy",
-					Ports:    port7442,
-					Attributes: ServiceAttributes{
-						Name:            "s3",
-						Namespace:       "default",
-						ServiceRegistry: provider.Kubernetes,
-					},
-				},
-			},
-			expectedServices: []*Service{
-				{
-					Hostname: "proxy",
-					Ports:    port7000,
-					Attributes: ServiceAttributes{
-						Name:            "s1",
-						Namespace:       "default",
-						ServiceRegistry: provider.Kubernetes,
-					},
-				},
-			},
-		},
-		{
 			name: "k8s service take precedence over external service",
 			sidecarConfig: &config.Config{
 				Meta: config.Meta{
@@ -2201,7 +2149,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			expectedServices: []*Service{
 				{
 					Hostname: "proxy",
-					Ports:    port7443,
+					Ports:    port744x,
 					Attributes: ServiceAttributes{
 						Name:            "s2",
 						Namespace:       "default",
