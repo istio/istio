@@ -89,10 +89,10 @@ const (
 var IstioComponentSuccessIcons = map[ComponentName]string{
 	IstioBaseComponentName: "⛵️",
 	PilotComponentName:     "🧠",
-	CNIComponentName:       "🚦",
+	CNIComponentName:       "🪢",
 	ZtunnelComponentName:   "🔒",
-	IngressComponentName:   "🚪",
-	EgressComponentName:    "✋",
+	IngressComponentName:   "🛬",
+	EgressComponentName:    "🛫",
 }
 
 // ComponentNamesConfig is used for unmarshaling legacy and addon naming data.
