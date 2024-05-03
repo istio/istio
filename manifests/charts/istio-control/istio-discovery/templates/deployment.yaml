@@ -47,12 +47,12 @@ spec:
         {{- range $key, $val := .Values.pilot.podLabels }}
         {{ $key }}: "{{ $val }}"
         {{- end }}
+        istio.io/dataplane-mode: none
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15014"
         prometheus.io/scrape: "true"
         {{- end }}
-        ambient.istio.io/redirection: disabled
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
