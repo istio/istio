@@ -277,7 +277,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmiss
 		"resource version", current.ResourceVersion,
 	)
 	if !dirty {
-		scope.Infof("up-to-date, no change required")
+		scope.Debugf("up-to-date, no change required")
 		return nil
 	}
 	updated := current.DeepCopy()
