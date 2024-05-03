@@ -8,11 +8,11 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   annotations:
-    ambient.istio.io/redirection: disabled
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
     istio.io/gateway-name: default
   name: default-istio
   namespace: default
@@ -26,11 +26,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    ambient.istio.io/redirection: disabled
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
     istio.io/gateway-name: default
   name: default
   namespace: default
@@ -46,7 +46,6 @@ spec:
   template:
     metadata:
       annotations:
-        ambient.istio.io/redirection: disabled
         istio.io/rev: default
         networking.istio.io/service-type: ClusterIP
         prometheus.io/path: /stats/prometheus
@@ -54,6 +53,7 @@ spec:
         prometheus.io/scrape: "true"
       labels:
         gateway.networking.k8s.io/gateway-name: default
+        istio.io/dataplane-mode: none
         istio.io/gateway-name: default
         service.istio.io/canonical-name: default
         service.istio.io/canonical-revision: latest
@@ -223,11 +223,11 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    ambient.istio.io/redirection: disabled
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
     istio.io/gateway-name: default
   name: default
   namespace: default

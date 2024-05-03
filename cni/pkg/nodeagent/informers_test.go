@@ -369,11 +369,11 @@ func TestExistingPodRemovedWhenPodAnnotated(t *testing.T) {
 		mock.Anything,
 	).Once().Return(nil)
 
-	// annotate the pod
-	annotationsPatch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%s"}}}`,
-		constants.AmbientRedirection, constants.AmbientRedirectionDisabled))
+	// label the pod for exclusion
+	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
+		constants.DataplaneModeLabel, constants.DataplaneModeNone))
 	_, err = client.Kube().CoreV1().Pods(pod.Namespace).Patch(ctx, pod.Name,
-		types.MergePatchType, annotationsPatch, metav1.PatchOptions{})
+		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
 	// wait for an update events
@@ -384,7 +384,7 @@ func TestExistingPodRemovedWhenPodAnnotated(t *testing.T) {
 
 	assertPodNotAnnotated(t, client, pod)
 
-	// patch a test label to emulate a non-annotation POD update event
+	// patch a test label to emulate a POD update event
 	_, err = client.Kube().CoreV1().Pods(pod.Namespace).Patch(ctx, pod.Name,
 		types.MergePatchType, []byte(`{"metadata":{"labels":{"test":"update"}}}`), metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -449,10 +449,10 @@ func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "test",
-			Namespace:   "test",
-			UID:         "1234",
-			Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled},
+			Name:      "test",
+			Namespace: "test",
+			UID:       "1234",
+			Labels:    map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: NodeName,
@@ -493,10 +493,10 @@ func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "test",
-			Namespace:   "test",
-			UID:         "1234",
-			Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled},
+			Name:      "test",
+			Namespace: "test",
+			UID:       "1234",
+			Labels:    map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: NodeName,
