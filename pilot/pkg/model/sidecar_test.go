@@ -579,7 +579,7 @@ var (
 					Port: &networking.SidecarPort{
 						Number:   8034,
 						Protocol: "TCP",
-						Name:     "rmi-ipc4",
+						Name:     "tcp-ipc4",
 					},
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
@@ -1030,6 +1030,24 @@ var (
 			Attributes: ServiceAttributes{
 				Name:            "foo",
 				Namespace:       "ns1",
+				ServiceRegistry: provider.Kubernetes,
+			},
+		},
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:            "foo",
+				Namespace:       "ns2",
+				ServiceRegistry: provider.Kubernetes,
+			},
+		},
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:            "baz",
+				Namespace:       "ns3",
 				ServiceRegistry: provider.Kubernetes,
 			},
 		},
