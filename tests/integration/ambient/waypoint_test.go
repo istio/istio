@@ -81,7 +81,7 @@ func TestWaypoint(t *testing.T) {
 				Prefix: "waypoint",
 				Inject: false,
 				Labels: map[string]string{
-					constants.DataplaneMode: "ambient",
+					constants.DataplaneModeLabel: "ambient",
 				},
 			})
 
@@ -348,7 +348,7 @@ func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
 				waypoint = fmt.Sprintf("%q", waypoint)
 			}
 			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
-				constants.AmbientUseWaypoint, waypoint))
+				constants.AmbientUseWaypointLabel, waypoint))
 			_, err := client.Patch(context.TODO(), svc, types.MergePatchType, label, metav1.PatchOptions{})
 			return err
 		}

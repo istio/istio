@@ -149,7 +149,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		Prefix: "echo",
 		Inject: false,
 		Labels: map[string]string{
-			constants.DataplaneMode: "ambient",
+			constants.DataplaneModeLabel: "ambient",
 		},
 	})
 	if err != nil {
@@ -180,18 +180,18 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":                        WorkloadAddressedWaypoint,
-						"version":                    "v1",
-						constants.AmbientUseWaypoint: "waypoint",
+						"app":                             WorkloadAddressedWaypoint,
+						"version":                         "v1",
+						constants.AmbientUseWaypointLabel: "waypoint",
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":                        WorkloadAddressedWaypoint,
-						"version":                    "v2",
-						constants.AmbientUseWaypoint: "waypoint",
+						"app":                             WorkloadAddressedWaypoint,
+						"version":                         "v2",
+						constants.AmbientUseWaypointLabel: "waypoint",
 					},
 				},
 			},
@@ -200,7 +200,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:              ServiceAddressedWaypoint,
 			Namespace:            apps.Namespace,
 			Ports:                ports.All(),
-			ServiceLabels:        map[string]string{constants.AmbientUseWaypoint: "waypoint"},
+			ServiceLabels:        map[string]string{constants.AmbientUseWaypointLabel: "waypoint"},
 			ServiceAccount:       true,
 			ServiceWaypointProxy: "waypoint",
 			Subsets: []echo.SubsetConfig{
@@ -247,12 +247,12 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas:    1,
 					Version:     "v1",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
+					Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled},
 				},
 				{
 					Replicas:    1,
 					Version:     "v2",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
+					Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled},
 				},
 			},
 		})
@@ -321,7 +321,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas:    1,
 					Version:     "v1",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
+					Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled},
 					Labels: map[string]string{
 						"sidecar.istio.io/inject": "true",
 					},
@@ -329,7 +329,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas:    1,
 					Version:     "v2",
-					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
+					Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled},
 					Labels: map[string]string{
 						"sidecar.istio.io/inject": "true",
 					},

@@ -16,6 +16,7 @@ package kube
 import (
 	"testing"
 
+	"istio.io/api/annotation"
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -70,7 +71,7 @@ func TestDeploymentYAML(t *testing.T) {
 					},
 					{
 						Version:     "nosidecar",
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+						Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 					},
 				},
 			},
@@ -88,7 +89,7 @@ func TestDeploymentYAML(t *testing.T) {
 				}},
 				Subsets: []echo.SubsetConfig{
 					{
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, true),
+						Annotations: map[string]string{annotation.SidecarRewriteAppHTTPProbers.Name: "true"},
 					},
 				},
 			},
@@ -104,7 +105,7 @@ func TestDeploymentYAML(t *testing.T) {
 					},
 					{
 						Version:     "v-legacy",
-						Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+						Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 					},
 				},
 				Ports: []echo.Port{
@@ -178,7 +179,7 @@ func TestDeploymentYAML(t *testing.T) {
 				Service: "foo",
 				Version: "bar",
 				Subsets: []echo.SubsetConfig{{
-					Annotations: echo.NewAnnotations().Set(echo.SidecarInjectTemplates, "grpc-agent"),
+					Annotations: map[string]string{annotation.InjectTemplates.Name: "grpc-agent"},
 				}},
 				Ports: []echo.Port{
 					{
@@ -200,7 +201,7 @@ func TestDeploymentYAML(t *testing.T) {
 				Service: "foo",
 				Version: "bar",
 				Subsets: []echo.SubsetConfig{{
-					Annotations: echo.NewAnnotations().Set(echo.SidecarInjectTemplates, "grpc-agent"),
+					Annotations: map[string]string{annotation.InjectTemplates.Name: "grpc-agent"},
 				}},
 				Ports: []echo.Port{
 					{

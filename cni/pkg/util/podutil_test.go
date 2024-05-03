@@ -80,7 +80,7 @@ func TestGetPodIPsIfNoPodIPPresent(t *testing.T) {
 
 func TestPodRedirectionEnabled(t *testing.T) {
 	var (
-		ambientEnabledLabel       = map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient}
+		ambientEnabledLabel       = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
 		ambientDisabledAnnotation = map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionDisabled}
 		sidecarStatusAnnotation   = map[string]string{annotation.SidecarStatus.Name: "test"}
 

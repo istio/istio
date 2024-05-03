@@ -29,6 +29,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -362,12 +363,13 @@ func setupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 		Subsets: []echo.SubsetConfig{{
 			Version: "v1",
 			// Set up custom annotations to mount the certs.
-			Annotations: echo.NewAnnotations().
-				Set(echo.SidecarVolume, clientSidecarVolumes).
-				Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
+			Annotations: map[string]string{
+				annotation.SidecarUserVolume.Name:      clientSidecarVolumes,
+				annotation.SidecarUserVolumeMount.Name: sidecarVolumeMounts,
 				// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
 				// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
-				Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
+				annotation.ProxyConfig.Name: `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":` + strings.Replace(ProxyMetadataJSON, "\n", "", -1) + `}`,
+			},
 		}},
 	}
 
@@ -386,12 +388,13 @@ func setupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 		Subsets: []echo.SubsetConfig{{
 			Version: "v1",
 			// Set up custom annotations to mount the certs.
-			Annotations: echo.NewAnnotations().
-				Set(echo.SidecarVolume, serverSidecarVolumes).
-				Set(echo.SidecarVolumeMount, sidecarVolumeMounts).
+			Annotations: map[string]string{
+				annotation.SidecarUserVolume.Name:      serverSidecarVolumes,
+				annotation.SidecarUserVolumeMount.Name: sidecarVolumeMounts,
 				// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
 				// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
-				Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
+				annotation.ProxyConfig.Name: `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":` + strings.Replace(ProxyMetadataJSON, "\n", "", -1) + `}`,
+			},
 		}},
 	}
 	customConfig = append(customConfig, client, server)

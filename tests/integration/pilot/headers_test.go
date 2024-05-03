@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -47,7 +48,7 @@ func TestProxyHeaders(t *testing.T) {
 				Service:   "no-headers",
 				Subsets: []echo.SubsetConfig{
 					{
-						Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `
+						Annotations: map[string]string{annotation.ProxyConfig.Name: `
 tracing: {}
 proxyHeaders:
   forwardedClientCert: SANITIZE
@@ -60,7 +61,7 @@ proxyHeaders:
   envoyDebugHeaders:
     disabled: true
   metadataExchangeHeaders:
-    mode: IN_MESH`),
+    mode: IN_MESH`},
 					},
 				},
 			}
