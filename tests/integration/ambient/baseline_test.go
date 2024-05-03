@@ -170,15 +170,18 @@ func TestServices(t *testing.T) {
 
 		// Non-HBONE clients will attempt to bypass the waypoint
 		if !src.Config().WaypointClient() && dst.Config().HasAnyWaypointProxy() {
-			opt.Check = check.NotOK()
+			// TODO currently leads to no L7 processing, in the future it might be denied
+			// opt.Check = check.Error()
+			opt.Check = tcpValidator
 		}
 
 		// Any client will attempt to bypass a workload waypoint (not both service and workload waypoint)
 		// because this test always addresses by service.
-    // TODO implement waypoint enforcement mechanism
-		// if dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy() {
-		// 	opt.Check = check.Error()
-		// }
+		if dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy() {
+			// TODO currently leads to no L7 processing, in the future it might be denied
+			// opt.Check = check.Error()
+			opt.Check = tcpValidator
+		}
 
 		if src.Config().HasSidecar() && dst.Config().HasWorkloadAddressedWaypointProxy() {
 			// We are testing to svc traffic but presently sidecar has not been updated to know that to svc traffic should not
@@ -222,13 +225,17 @@ func TestPodIP(t *testing.T) {
 									// Uncaptured means we won't traverse the waypoint
 									// We cannot bypass the waypoint, so this fails.
 									if !src.Config().WaypointClient() && dst.Config().HasAnyWaypointProxy() {
-										opt.Check = check.NotOK()
+										// TODO currently leads to no L7 processing, in the future it might be denied
+										// opt.Check = check.NotOK()
+										opt.Check = tcpValidator
 									}
 
 									// Only marked to use service waypoint. We'll deny since it's not traversed.
 									// Not traversed, since traffic is to-workload IP.
 									if dst.Config().HasServiceAddressedWaypointProxy() && !dst.Config().HasWorkloadAddressedWaypointProxy() {
-										opt.Check = check.NotOK()
+										// TODO currently leads to no L7 processing, in the future it might be denied
+										// opt.Check = check.NotOK()
+										opt.Check = tcpValidator
 									}
 
 									if selfSend {
@@ -2213,7 +2220,7 @@ func TestIngress(t *testing.T) {
 			return
 		}
 
-    // TODO implement waypoint enforcement mechanism
+		// TODO implement waypoint enforcement mechanism
 		// Ingress currently never sends to Waypoints
 		// We cannot bypass the waypoint, so this fails.
 		// if dst.Config().HasAnyWaypointProxy() {
