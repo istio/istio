@@ -293,7 +293,7 @@ func (rag requestAudiencesGenerator) extendedPrincipal(key string, values []stri
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
-	return principalMetadata(MetadataValueMatcherForJWTClaim("aud", matcher.StringOrMatcher(values))), nil
+	return principalMetadata(MetadataListValueMatcherForJWTClaims([]string{"aud"}, matcher.StringOrMatcher(values))), nil
 }
 
 type requestPresenterGenerator struct{}

@@ -792,15 +792,30 @@ typedConfig:
                 value:
                   orMatch:
                     valueMatchers:
-                    - stringMatch:
-                        exact: audiences
-                    - stringMatch:
-                        prefix: audiences-prefix-
-                    - stringMatch:
-                        suffix: -suffix-audiences
-                    - stringMatch:
-                        safeRegex:
-                          regex: .+
+                    - listMatch:
+                        oneOf:
+                          orMatch:
+                            valueMatchers:
+                            - stringMatch:
+                                exact: audiences
+                            - stringMatch:
+                                prefix: audiences-prefix-
+                            - stringMatch:
+                                suffix: -suffix-audiences
+                            - stringMatch:
+                                safeRegex:
+                                  regex: .+
+                    - orMatch:
+                        valueMatchers:
+                        - stringMatch:
+                            exact: audiences
+                        - stringMatch:
+                            prefix: audiences-prefix-
+                        - stringMatch:
+                            suffix: -suffix-audiences
+                        - stringMatch:
+                            safeRegex:
+                              regex: .+
             - notId:
                 metadata:
                   filter: envoy.filters.http.jwt_authn
@@ -810,15 +825,30 @@ typedConfig:
                   value:
                     orMatch:
                       valueMatchers:
-                      - stringMatch:
-                          exact: not-audiences
-                      - stringMatch:
-                          prefix: not-audiences-prefix-
-                      - stringMatch:
-                          suffix: -not-suffix-audiences
-                      - stringMatch:
-                          safeRegex:
-                            regex: .+
+                      - listMatch:
+                          oneOf:
+                            orMatch:
+                              valueMatchers:
+                              - stringMatch:
+                                  exact: not-audiences
+                              - stringMatch:
+                                  prefix: not-audiences-prefix-
+                              - stringMatch:
+                                  suffix: -not-suffix-audiences
+                              - stringMatch:
+                                  safeRegex:
+                                    regex: .+
+                      - orMatch:
+                          valueMatchers:
+                          - stringMatch:
+                              exact: not-audiences
+                          - stringMatch:
+                              prefix: not-audiences-prefix-
+                          - stringMatch:
+                              suffix: -not-suffix-audiences
+                          - stringMatch:
+                              safeRegex:
+                                regex: .+
             - metadata:
                 filter: envoy.filters.http.jwt_authn
                 path:
