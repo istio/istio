@@ -146,7 +146,7 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 // defaultNamespace avoids the need to infer when object meta from a namespace was given
 func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
 	if labelValue, ok := meta.Labels[constants.AmbientUseWaypointLabel]; ok {
-		if labelValue == "#none" || labelValue == "~" {
+		if labelValue == "none" {
 			return nil, true
 		}
 		namespacedName := strings.Split(labelValue, "/")
