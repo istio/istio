@@ -30,9 +30,9 @@ spec:
       labels:
         k8s-app: istio-cni-node
         sidecar.istio.io/inject: "false"
+        istio.io/dataplane-mode: none
       annotations:
         sidecar.istio.io/inject: "false"
-        ambient.istio.io/redirection: disabled
         # Add Prometheus Scrape annotations
         prometheus.io/scrape: 'true'
         prometheus.io/port: "15014"

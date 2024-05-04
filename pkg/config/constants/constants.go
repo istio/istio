@@ -186,22 +186,27 @@ const (
 	ListenerModeAutoPassthrough = "auto-passthrough"
 
 	// DataplaneMode namespace label for determining ambient mesh behavior
-	DataplaneMode        = "istio.io/dataplane-mode"
+	DataplaneModeLabel = "istio.io/dataplane-mode"
+	// Set by users to indicate that the (namespace|pod) should be captured for ambient
 	DataplaneModeAmbient = "ambient"
+	// Set by users to indicate that the (namespace|pod) should NOT be captured for ambient
+	DataplaneModeNone    = "none"
+	DataplaneModeInherit = "inherit" // TODO do we need this atm
 
 	// AmbientRedirection specifies whether a pod has ambient redirection (to ztunnel) configured.
 	AmbientRedirection = "ambient.istio.io/redirection"
-	// AmbientRedirectionEnabled indicates redirection is configured. This is set by the CNI when it
-	// actually sets up redirection, rather than by the user.
+	// AmbientRedirectionEnabled indicates redirection is configured. This is set by the CNI on pods
+	// when it actually has successfully set up pod redirection, rather than by the user.
+	//
+	// The presence of this annotation with this specific value indicates the pod is captured.
+	// Anything else indicates it is not.
 	AmbientRedirectionEnabled = "enabled"
-	// AmbientRedirectionDisabled is an opt-out, configured by user.
-	AmbientRedirectionDisabled = "disabled"
 
-	// AmbientUseWaypoint is the label used to specify which waypoint should be used for a given pod, service, etc...
-	AmbientUseWaypoint = "istio.io/use-waypoint"
-	// AmbientWaypointForTrafficType is the label used to specify which traffic is allowed through the Waypoint.
+	// AmbientUseWaypointLabelLabel is the label used to specify which waypoint should be used for a given pod, service, etc...
+	AmbientUseWaypointLabel = "istio.io/use-waypoint"
+	// AmbientWaypointForTrafficTypeLabel is the label used to specify which traffic is allowed through the Waypoint.
 	// This label is applied to the Waypoint. Valid traffic types are "service", "workload", "all", and "none".
-	AmbientWaypointForTrafficType = "istio.io/waypoint-for"
+	AmbientWaypointForTrafficTypeLabel = "istio.io/waypoint-for"
 
 	// AmbientWaypointInboundBinding has the format `<protocol>` or `<protocol>/<port>`. If the waypoint is
 	// captured by a zTunnel, the zTunnel  will send traffic to the specified port with tunnel information

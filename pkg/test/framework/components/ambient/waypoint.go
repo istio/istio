@@ -173,9 +173,9 @@ func SetWaypointForService(t framework.TestContext, ns namespace.Instance, servi
 		}
 		newLabels := maps.Clone(oldLabels)
 		if waypoint != "" {
-			newLabels[constants.AmbientUseWaypoint] = waypoint
+			newLabels[constants.AmbientUseWaypointLabel] = waypoint
 		} else {
-			delete(newLabels, constants.AmbientUseWaypoint)
+			delete(newLabels, constants.AmbientUseWaypointLabel)
 		}
 
 		doLabel := func(labels map[string]string) error {
@@ -235,7 +235,7 @@ func RemoveWaypointFromService(t framework.TestContext, ns namespace.Instance, s
 			}
 			labels := oldSvc.ObjectMeta.GetLabels()
 			if labels != nil {
-				delete(labels, constants.AmbientUseWaypoint)
+				delete(labels, constants.AmbientUseWaypointLabel)
 				oldSvc.ObjectMeta.SetLabels(labels)
 			}
 			_, err = c.Kube().CoreV1().Services(ns.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})

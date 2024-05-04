@@ -152,12 +152,12 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 
 			// Label the pod and check that the correct event is produced.
 			s.labelPod(t, "pod1", testNS,
-				map[string]string{"app": "a", constants.AmbientUseWaypoint: "test-wp"})
+				map[string]string{"app": "a", constants.AmbientUseWaypointLabel: "test-wp"})
 			c.podAssertion(s)
 
 			// Label the service and check that the correct event is produced.
 			s.labelService(t, "svc1", testNS,
-				map[string]string{constants.AmbientUseWaypoint: "test-wp"})
+				map[string]string{constants.AmbientUseWaypointLabel: "test-wp"})
 			c.svcAssertion(s)
 
 			// clean up resources
@@ -265,7 +265,7 @@ func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 	s.assertEvent(t, s.podXdsName("pod1"), s.svcXdsName("svc1"))
 
-	s.labelService(t, "svc1", testNS, map[string]string{constants.AmbientUseWaypoint: "test-wp"})
+	s.labelService(t, "svc1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "test-wp"})
 	s.assertEvent(t, s.svcXdsName("svc1"))
 	s.assertNoEvent(t)
 
@@ -357,7 +357,7 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 		"127.0.0.1",
 		"pod1",
 		"sa1",
-		map[string]string{"app": "a", constants.AmbientUseWaypoint: "waypoint-sa1"},
+		map[string]string{"app": "a", constants.AmbientUseWaypointLabel: "waypoint-sa1"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -366,7 +366,7 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 		"127.0.0.2",
 		"pod2",
 		"sa2",
-		map[string]string{"app": "b", constants.AmbientUseWaypoint: "waypoint-sa2"},
+		map[string]string{"app": "b", constants.AmbientUseWaypointLabel: "waypoint-sa2"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -389,7 +389,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypoint: "waypoint-ns",
+				constants.AmbientUseWaypointLabel: "waypoint-ns",
 			},
 		},
 	})
@@ -406,7 +406,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 		"127.0.0.4",
 		"pod4",
 		"sa2",
-		map[string]string{"app": "b", constants.AmbientUseWaypoint: "waypoint-sa2"},
+		map[string]string{"app": "b", constants.AmbientUseWaypointLabel: "waypoint-sa2"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -638,7 +638,7 @@ func setupPolicyTest(t *testing.T, s *ambientTestServer) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypoint: "waypoint-ns",
+				constants.AmbientUseWaypointLabel: "waypoint-ns",
 			},
 		},
 	})
@@ -1268,7 +1268,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypoint: "waypoint-ns",
+				constants.AmbientUseWaypointLabel: "waypoint-ns",
 			},
 		},
 	})
@@ -1276,7 +1276,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertWaypointAddressForPod(t, "pod1", "10.0.0.1")
 
 	// label pod1 to use a different waypoint than the namespace specifies
-	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that we're using the correct waypoint for pod1
 	s.assertWaypointAddressForPod(t, "pod1", "10.0.0.2")
@@ -1299,7 +1299,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertWaypointAddressForPod(t, "pod1", "")
 
 	// annotate pod2 to use a waypoint
-	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that the correct waypoint was configured
 	s.assertWaypointAddressForPod(t, "pod1", "10.0.0.2")
@@ -1309,7 +1309,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypoint: "waypoint-ns",
+				constants.AmbientUseWaypointLabel: "waypoint-ns",
 			},
 		},
 	})
@@ -1319,12 +1319,12 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertWaypointAddressForPod(t, "pod1", "10.0.0.2")
 
 	// assert local waypoint opt-out works as expected
-	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "#none"})
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "#none"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that we're using no waypoint
 	s.assertWaypointAddressForPod(t, "pod1", "")
 	// check that the other opt out also works
-	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "~"})
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "~"})
 	s.assertNoEvent(t)
 	s.assertWaypointAddressForPod(t, "pod1", "")
 }
@@ -1357,7 +1357,7 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypoint: "waypoint-ns",
+				constants.AmbientUseWaypointLabel: "waypoint-ns",
 			},
 		},
 	})
@@ -1367,7 +1367,7 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 	// TODO: should this be returned? Or should it be filtered because such a waypoint does not exist
 
 	// Add a service account waypoint to the pod
-	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypoint: "waypoint-sa1"})
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 
 	assertWaypoint(t, testNW, "10.0.0.2", s.podXdsName("pod1"))
@@ -1404,7 +1404,7 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 		"127.0.0.3",
 		"pod3",
 		"sa3",
-		map[string]string{"app": "a", constants.AmbientUseWaypoint: "waypoint"},
+		map[string]string{"app": "a", constants.AmbientUseWaypointLabel: "waypoint"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -1413,7 +1413,7 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 		"127.0.0.1",
 		"pod1",
 		"sa1",
-		map[string]string{"app": "a", constants.AmbientUseWaypoint: "waypoint"},
+		map[string]string{"app": "a", constants.AmbientUseWaypointLabel: "waypoint"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -1422,7 +1422,7 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 		"127.0.0.2",
 		"pod2",
 		"sa2",
-		map[string]string{"app": "a", constants.AmbientUseWaypoint: "waypoint"},
+		map[string]string{"app": "a", constants.AmbientUseWaypointLabel: "waypoint"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -1574,9 +1574,9 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType stri
 	}
 	labels := make(map[string]string, 2)
 	if trafficType != "" && validTrafficTypes.Contains(trafficType) {
-		labels[constants.AmbientWaypointForTrafficType] = trafficType
+		labels[constants.AmbientWaypointForTrafficTypeLabel] = trafficType
 	} else {
-		labels[constants.AmbientWaypointForTrafficType] = constants.ServiceTraffic
+		labels[constants.AmbientWaypointForTrafficTypeLabel] = constants.ServiceTraffic
 	}
 	gateway.Labels = labels
 
