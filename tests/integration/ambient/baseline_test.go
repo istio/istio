@@ -169,7 +169,7 @@ func TestServices(t *testing.T) {
 		}
 
 		// Non-HBONE clients will attempt to bypass the waypoint
-		if !src.Config().WaypointClient() && dst.Config().HasAnyWaypointProxy() && !supportsL7(opt, src, dst) {
+		if !src.Config().WaypointClient() && dst.Config().HasAnyWaypointProxy() && !src.Config().HasSidecar() {
 			// TODO currently leads to no L7 processing, in the future it might be denied
 			// opt.Check = check.Error()
 			opt.Check = tcpValidator
