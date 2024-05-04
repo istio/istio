@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
@@ -234,7 +235,10 @@ func (wh *Webhook) validate(request *kube.AdmissionRequest) *kube.AdmissionRespo
 
 	warnings, err := s.ValidateConfig(*out)
 	if err != nil {
-		scope.Infof("configuration is invalid: %v", addDryRunMessageIfNeeded(err.Error()))
+		if _, f := out.Annotations[constants.AlwaysReject]; !f {
+			// Hide error message if it was intentionally rejected (by our own internal call)
+			scope.Infof("configuration is invalid: %v", addDryRunMessageIfNeeded(err.Error()))
+		}
 		reportValidationFailed(request, reasonInvalidConfig, isDryRun)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))
 	}
