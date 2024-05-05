@@ -386,7 +386,7 @@ For example, if a test, or test suite uses labels in this fashion:
 func TestMain(m *testing.M) {
     framework.
         NewSuite("galley_conversion", m).
-        // Test is tagged with "Presubmit" label
+        // Test is tagged with "CustomSetup" label
         Label(label.CustomSetup).
         Run()
 ```
@@ -518,14 +518,14 @@ The test framework supports the following command-line flags:
   -istio.test.work_dir string
         Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.
 
- -istio.test.ci
+ -istio.test.ci bool
         Enable CI Mode. Additional logging and state dumping will be enabled.
 
-  -istio.test.nocleanup
+  -istio.test.nocleanup bool
         Do not cleanup resources after test completion
 
   -istio.test.select string
-        Comma separatated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').
+        Comma separated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').
 
   -istio.test.hub string
         Container registry hub to use (default HUB environment variable)
@@ -539,10 +539,10 @@ The test framework supports the following command-line flags:
   -istio.test.kube.config string
         A comma-separated list of paths to kube config files for cluster environments. (default ~/.kube/config)
 
-  -istio.test.kube.deploy
+  -istio.test.kube.deploy bool
         Deploy Istio into the target Kubernetes environment. (default true)
 
-  -istio.test.kube.deployEastWestGW
+  -istio.test.kube.deployEastWestGW bool
         Deploy Istio east west gateway into the target Kubernetes environment. (default true)
 
   -istio.test.kube.systemNamespace string
@@ -559,6 +559,9 @@ The test framework supports the following command-line flags:
 
   -istio.test.revision string
         Overwrite the default namespace label (istio-enabled=true) with revision lable (istio.io/rev=XXX). (default is no overwrite)
+
+  -istio.test.skip []string
+        Skip tests matching the regular expression. This follows the semantics of -test.run.
 
   -istio.test.skipVM bool
         Skip all the VM related parts in all the tests. (default is "false")
