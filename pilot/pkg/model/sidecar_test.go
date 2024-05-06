@@ -595,6 +595,56 @@ var (
 		},
 	}
 
+	configs23 = &config.Config{
+		Meta: config.Meta{
+			Name: "sidecar-scope-with-multiple-ports",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.SidecarPort{
+						Number:   8031,
+						Protocol: "TCP",
+						Name:     "tcp-ipc1",
+					},
+					Hosts: []string{"ns1/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.SidecarPort{
+						Number:   8032,
+						Protocol: "TCP",
+						Name:     "tcp-ipc2",
+					},
+					Hosts: []string{"ns1/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.SidecarPort{
+						Number:   8033,
+						Protocol: "TCP",
+						Name:     "tcp-ipc3",
+					},
+					Hosts: []string{"ns1/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.SidecarPort{
+						Number:   8034,
+						Protocol: "TCP",
+						Name:     "tcp-ipc4",
+					},
+					Hosts: []string{"ns1/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.SidecarPort{
+						Number:   8035,
+						Protocol: "TCP",
+						Name:     "tcp-ipc5",
+					},
+					Hosts: []string{"ns1/foobar.svc.cluster.local"},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{
 			Hostname: "bar",
@@ -1101,6 +1151,18 @@ var (
 			Attributes: ServiceAttributes{
 				Name:            "baz",
 				Namespace:       "ns3",
+				ServiceRegistry: provider.Kubernetes,
+			},
+		},
+	}
+
+	services26 = []*Service{
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port803x,
+			Attributes: ServiceAttributes{
+				Name:            "foo",
+				Namespace:       "ns1",
 				ServiceRegistry: provider.Kubernetes,
 			},
 		},
@@ -2180,6 +2242,21 @@ func TestCreateSidecarScope(t *testing.T) {
 			name:          "multi-port-merge",
 			sidecarConfig: configs22,
 			services:      services23,
+			expectedServices: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x,
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+			},
+		},
+		{
+			name:          "multi-port-merge-in-same-namespace",
+			sidecarConfig: configs23,
+			services:      services26,
 			expectedServices: []*Service{
 				{
 					Hostname: "foobar.svc.cluster.local",
