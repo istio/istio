@@ -118,6 +118,11 @@ func FilterGeneric(f func(any) bool) FetchOption {
 }
 
 func (f filter) Matches(object any, forList bool) bool {
+	// Check each of our defined filters to see if the object matches
+	// This function is called very often and is important to keep fast
+	// Cheaper checks should come earlier to avoid additional work and short circuit early
+
+	// First, lookup directly by key. This is cheap
 	// an empty set will match none
 	if f.keys != nil && !f.keys.Contains(string(GetKey[any](object))) {
 		if log.DebugEnabled() {
@@ -125,6 +130,19 @@ func (f filter) Matches(object any, forList bool) bool {
 		}
 		return false
 	}
+
+	// Index is also cheap, and often used to filter namespaces out. Make sure we do this early
+	// If we are listing, we already did this. Do not redundantly check.
+	if !forList {
+		if f.indexMatches != nil && !f.indexMatches(object) {
+			if log.DebugEnabled() {
+				log.Debugf("no match index")
+			}
+			return false
+		}
+	}
+
+	// Rest is expensive
 	if f.selects != nil && !labels.Instance(getLabelSelector(object)).SubsetOf(f.selects) {
 		if log.DebugEnabled() {
 			log.Debugf("no match selects: %q vs %q", f.selects, getLabelSelector(object))
@@ -148,15 +166,6 @@ func (f filter) Matches(object any, forList bool) bool {
 			log.Debugf("no match generic")
 		}
 		return false
-	}
-	// If we are listing, we already did this. Do not redundantly check
-	if !forList {
-		if f.indexMatches != nil && !f.indexMatches(object) {
-			if log.DebugEnabled() {
-				log.Debugf("no match index")
-			}
-			return false
-		}
 	}
 	return true
 }
