@@ -479,10 +479,10 @@ func buildHTTPVirtualServices(
 		// Create one VS per hostname with a single hostname.
 		// This ensures we can treat each hostname independently, as the spec requires
 		for _, h := range vsHosts {
-			log.Errorf("howardjohn: %v: %v", parent.hostnameAllowedByIsolation(h), h)
-			//if !parent.hostnameAllowedByIsolation(h) {
-			//	continue
-			//}
+			if !parent.hostnameAllowedByIsolation(h) {
+				// TODO: standardize a status message for this upstream and report
+				continue
+			}
 			if cfg := routeMap[routeKey][h]; cfg != nil {
 				// merge http routes
 				vs := cfg.Spec.(*istio.VirtualService)
@@ -993,7 +993,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 		for _, gw := range gateways[gk] {
 			bannedHostnames.Insert(gw.OriginalHostname)
 		}
-		appendParent := func(pr *parentInfo, pk parentReference, allParents []*parentInfo) {
+		appendParent := func(pr *parentInfo, pk parentReference) {
 			bannedHostnames := sets.New[string]()
 			for _, gw := range gateways[gk] {
 				if gw == pr {
@@ -1025,7 +1025,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 		}
 		for _, gw := range gateways[gk] {
 			// Append all matches. Note we may be adding mismatch section or ports; this is handled later
-			appendParent(gw, pk, gateways[gk])
+			appendParent(gw, pk)
 		}
 	}
 	// Ensure stable order
@@ -1980,7 +1980,7 @@ func (r routeParentReference) hostnameAllowedByIsolation(rawRouteHost string) bo
 		// Not required for correctness, just an optimization
 		return true
 	}
-	if !routeHost.Matches(ourListener) {
+	if len(ourListener) > 0 && !routeHost.Matches(ourListener) {
 		return false
 	}
 	for checkListener := range r.BannedHostnames {
