@@ -52,6 +52,11 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 				list = append(list, *i)
 			}
 		}
+	} else if d.filter.key != "" {
+		list = make([]T, 0, 1)
+			if i := c.GetKey(Key[T](d.filter.key)); i != nil {
+				list = append(list, *i)
+			}
 	} else if d.filter.listFromIndex != nil {
 		// Otherwise from an index; fetch from there. Often this is a list of a namespace
 		list = d.filter.listFromIndex().([]T)

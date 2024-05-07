@@ -25,6 +25,7 @@ import (
 )
 
 type filter struct {
+	key string
 	keys sets.String
 
 	// selectsNonEmpty is like selects, but it treats an empty selector as not matching
@@ -40,7 +41,10 @@ type filter struct {
 func (f filter) String() string {
 	attrs := []string{}
 	if !f.keys.IsEmpty() {
-		attrs = append(attrs, "key="+f.keys.String())
+		attrs = append(attrs, "keys="+f.keys.String())
+	}
+	if f.key != "" {
+		attrs = append(attrs, "key="+f.key)
 	}
 	if f.selectsNonEmpty != nil {
 		attrs = append(attrs, fmt.Sprintf("selectsNonEmpty=%v", f.selectsNonEmpty))
@@ -62,13 +66,13 @@ func (f filter) String() string {
 func FilterObjectName(name types.NamespacedName) FetchOption {
 	return func(h *dependency) {
 		// Translate to a key lookup
-		h.filter.keys = sets.New(keyFunc(name.Name, name.Namespace))
+		h.filter.key = keyFunc(name.Name, name.Namespace)
 	}
 }
 
 func FilterKey(k string) FetchOption {
 	return func(h *dependency) {
-		h.filter.keys = sets.New(k)
+		h.filter.key = k
 	}
 }
 
@@ -122,18 +126,23 @@ func (f filter) Matches(object any, forList bool) bool {
 	// This function is called very often and is important to keep fast
 	// Cheaper checks should come earlier to avoid additional work and short circuit early
 
-	// First, lookup directly by key. This is cheap
-	// an empty set will match none
-	if f.keys != nil && !f.keys.Contains(string(GetKey[any](object))) {
-		if log.DebugEnabled() {
-			log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
-		}
-		return false
-	}
-
-	// Index is also cheap, and often used to filter namespaces out. Make sure we do this early
 	// If we are listing, we already did this. Do not redundantly check.
 	if !forList {
+		// First, lookup directly by key. This is cheap
+		// an empty set will match none
+		if f.keys != nil && !f.keys.Contains(string(GetKey[any](object))) {
+			if log.DebugEnabled() {
+				log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
+			}
+			return false
+		}
+		if f.key != "" && f.key != string(GetKey[any](object)) {
+			if log.DebugEnabled() {
+				log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
+			}
+			return false
+		}
+		// Index is also cheap, and often used to filter namespaces out. Make sure we do this early
 		if f.indexMatches != nil && !f.indexMatches(object) {
 			if log.DebugEnabled() {
 				log.Debugf("no match index")

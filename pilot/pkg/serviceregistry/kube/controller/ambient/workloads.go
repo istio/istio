@@ -422,7 +422,9 @@ func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*work
 	res := map[string]*workloadapi.PortList{}
 	for _, svc := range services {
 		n := namespacedHostname(svc.Namespace, svc.Hostname)
-		pl := &workloadapi.PortList{}
+		pl := &workloadapi.PortList{
+			Ports: make([]*workloadapi.Port, 0, len(svc.Ports)),
+		}
 		res[n] = pl
 		for _, port := range svc.Ports {
 			targetPort := port.TargetPort
