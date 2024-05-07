@@ -72,13 +72,13 @@ func TestEnvoyArgs(t *testing.T) {
 }
 
 func TestReadToJSON(t *testing.T) {
-	got, err := readToJSON("testdata/bootstrap.yaml")
+	got, err := readBootstrapToJSON("testdata/bootstrap.yaml")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	want := `{"key":"value"}`
 	if got != want {
-		t.Errorf("readToJSON() => got:\n%v,\nwant:\n%v", got, want)
+		t.Errorf("readBootstrapToJSON() => got:\n%v,\nwant:\n%v", got, want)
 	}
 }
 
