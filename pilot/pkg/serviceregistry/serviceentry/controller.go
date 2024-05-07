@@ -693,7 +693,9 @@ func (s *Controller) ResyncEDS() {
 	s.edsUpdate(allInstances)
 	// HACK to workaround Service syncing after WorkloadEntry: https://github.com/istio/istio/issues/45114
 	s.workloadInstances.ForEach(func(wi *model.WorkloadInstance) {
-		s.NotifyWorkloadInstanceHandlers(wi, model.EventAdd)
+		if wi.Kind == model.WorkloadEntryKind {
+			s.NotifyWorkloadInstanceHandlers(wi, model.EventAdd)
+		}
 	})
 }
 
