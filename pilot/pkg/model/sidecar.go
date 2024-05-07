@@ -929,19 +929,20 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 		sc.servicesByHostname[s.Hostname] = s
 	} else {
 		existing := foundSvc.svc
-		// We donot merge k8s service with any other services from other registries
-		if existing.Attributes.ServiceRegistry == provider.Kubernetes {
-			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
+		// We do not merge k8s service with any other services from other registries
+		if existing.Attributes.ServiceRegistry == provider.Kubernetes && s.Attributes.ServiceRegistry != provider.Kubernetes {
+			log.Debugf("Service %s/%s from registry %s ignored as there is an existing service in Kubernetes already %s/%s/%s",
+				s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
 				existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
 			return
 		}
 		// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
 		// arbitrary hostnames. In these cases, we want to pick the first Service, which is the oldest. This ensures
-		// newly created Services cannot take ownership unexpectedly.
-		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
-		// "domain squatting" on the hostname before a Kubernetes Service is created.
-		if s.Attributes.ServiceRegistry == provider.Kubernetes {
-			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry,
+		// newly created Services cannot take ownership unexpectedly. However, the Service is from Kubernetes it should
+		// take precedence over ones not. This prevents someone from "domain squatting" on the hostname before a Kubernetes Service is created.
+		if existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes {
+			log.Debugf("Service %s/%s from registry %s ignored as there is a Kubernetes service with the same host name %s/%s/%s",
+				existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry,
 				s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry)
 			// replace service in slice
 			sc.services[foundSvc.index] = s
@@ -958,10 +959,9 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 			return
 		}
 
-		// we merge ports for services both defined by ServiceEntry in same namespace
-
-		// merge the ports to service when each listener generates partial service
-		// we only merge if the found service is in the same namespace as the one we're trying to add
+		// If it comes here, it means we can merge the services.
+		// Merge the ports to service when each listener generates partial service.
+		// We only merge if the found service is in the same namespace as the one we're trying to add
 		copied := foundSvc.svc.DeepCopy()
 		for _, p := range s.Ports {
 			found := false
@@ -987,15 +987,12 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 
 func canMergeServices(s1, s2 *Service) bool {
 	// Hostname has been compared in the caller `appendSidecarServices`, so we donot need to compare again.
-
 	if s1.Attributes.Namespace != s2.Attributes.Namespace {
 		return false
 	}
-
 	if s1.Resolution != s2.Resolution {
 		return false
 	}
-
 	// kuberneres service registry has been checked before
 	if s1.Attributes.ServiceRegistry != s2.Attributes.ServiceRegistry {
 		return false
