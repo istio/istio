@@ -23,6 +23,7 @@ import (
 
 	utilversion "k8s.io/apimachinery/pkg/util/version"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -151,12 +152,19 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 		// if so, immediately use it.
 		return nftVer, nil
 	}
+	// not critical, may find another.
+	log.Debugf("did not find (or cannot use) iptables binary, error was %s: %+v", err, nftVer)
+
+	// Check again
 	// does the legacy binary set exist, and are legacy rules present?
 	legVer, err := shouldUseBinaryForCurrentContext(legacyBin)
 	if err == nil && legVer.ExistingRules {
 		// if so, immediately use it
 		return legVer, nil
 	}
+	// not critical, may find another.
+	log.Debugf("did not find (or cannot use) iptables binary, error was %s: %+v", err, legVer)
+
 	// regular non-suffixed binary set is our last resort.
 	//
 	// If it's there, and rules do not already exist for a specific variant,

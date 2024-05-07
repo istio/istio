@@ -105,12 +105,18 @@ func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDe
 	if err != nil {
 		return nil, err
 	}
+
+	log.Debugf("found iptables binary: %+v", iptVer)
+
 	configurator.iptV = iptVer
 
 	ipt6Ver, err := ext.DetectIptablesVersion(true)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Debugf("found iptables v6 binary: %+v", iptVer)
+
 	configurator.ipt6V = ipt6Ver
 
 	return configurator, nil
