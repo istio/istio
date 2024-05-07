@@ -2439,7 +2439,7 @@ func buildQuery(src, dst echo.Instance) prometheus.Query {
 		"destination_canonical_service":  dst.ServiceName(),
 		"destination_canonical_revision": dst.Config().Version,
 		"destination_service":            fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
-		"destination_principal":          fmt.Sprintf("spiffe://cluster.local/ns/%v/sa/%s", destns, dst.ServiceAccountName()),
+		"destination_principal":          fmt.Sprintf("spiffe://cluster.local/ns/%v/sa/%s", destns, dst.Config().AccountName()),
 		"destination_service_name":       dst.Config().Service,
 		"destination_workload":           deployName(dst),
 		"destination_workload_namespace": destns,
