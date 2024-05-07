@@ -33,7 +33,7 @@ defaults:
     affinity: {}
 
     # Custom labels on Daemonset level, for eg - FinOps/teams labels
-    daemonSetLabels: {}
+    labels: {}
       # team-owner: finops
 
     # Custom labels on Pod level, for eg - FinOps/teams labels

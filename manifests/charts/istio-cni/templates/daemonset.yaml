@@ -18,9 +18,9 @@ metadata:
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Cni"
-    {{- if .Values.cni.daemonSetLabels }}
+    {{- if .Values.cni.labels }}
     # Custom Labels
-{{ toYaml .Values.cni.daemonSetLabels | indent 4 }}
+{{ toYaml .Values.cni.labels | indent 4 }}
     {{- end }}
 spec:
   selector:
