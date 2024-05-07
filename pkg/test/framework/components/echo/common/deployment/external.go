@@ -16,8 +16,8 @@ package deployment
 
 import (
 	"path"
-	"strconv"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -60,12 +60,8 @@ func (e External) build(t resource.Context, b deployment.Builder) deployment.Bui
 		},
 		Subsets: []echo.SubsetConfig{
 			{
-				Version: "v1",
-				Annotations: map[echo.Annotation]*echo.AnnotationValue{
-					echo.SidecarInject: {
-						Value: strconv.FormatBool(false),
-					},
-				},
+				Version:     "v1",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
 		},
 	}

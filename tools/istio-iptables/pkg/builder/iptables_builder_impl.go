@@ -93,7 +93,7 @@ func (rb *IptablesRuleBuilder) InsertRuleV4(command log.Command, chain string, t
 }
 
 func (rb *IptablesRuleBuilder) InsertRuleV6(command log.Command, chain string, table string, position int, params ...string) *IptablesRuleBuilder {
-	if !rb.cfg.EnableInboundIPv6 {
+	if !rb.cfg.EnableIPv6 {
 		return rb
 	}
 	return rb.insertInternal(&rb.rules.rulesv6, command, chain, table, position, params...)
@@ -142,7 +142,7 @@ func (rb *IptablesRuleBuilder) AppendRule(command log.Command, chain string, tab
 }
 
 func (rb *IptablesRuleBuilder) AppendRuleV6(command log.Command, chain string, table string, params ...string) *IptablesRuleBuilder {
-	if !rb.cfg.EnableInboundIPv6 {
+	if !rb.cfg.EnableIPv6 {
 		return rb
 	}
 	return rb.appendInternal(&rb.rules.rulesv6, command, chain, table, params...)

@@ -46,7 +46,7 @@ func configureTProxyRoutes(cfg *config.Config) error {
 			// Route all packets marked in chain ISTIODIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
 			// Equivalent to `ip rule add fwmark <tproxyMark> lookup <tproxyTable>`
 			families := []int{unix.AF_INET}
-			if cfg.EnableInboundIPv6 {
+			if cfg.EnableIPv6 {
 				families = append(families, unix.AF_INET6)
 			}
 			for _, family := range families {
@@ -62,7 +62,7 @@ func configureTProxyRoutes(cfg *config.Config) error {
 			// the loopback interface.
 			// Equivalent to `ip route add local default dev lo table <table>`
 			cidrs := []string{"0.0.0.0/0"}
-			if cfg.EnableInboundIPv6 {
+			if cfg.EnableIPv6 {
 				cidrs = append(cidrs, "0::0/0")
 			}
 			for _, fullCIDR := range cidrs {

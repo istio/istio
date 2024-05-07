@@ -15,6 +15,7 @@
 package match
 
 import (
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -172,10 +173,9 @@ func WaypointService() Matcher {
 	}
 }
 
-// add a new matcher for "captured service -> service"
-func CapturedService() Matcher {
+func AmbientCaptured() Matcher {
 	return func(i echo.Instance) bool {
-		return i.Config().ZTunnelCaptured()
+		return i.Config().ZTunnelCaptured() && !i.Config().IsUncaptured()
 	}
 }
 
@@ -200,7 +200,7 @@ var MultiVersion Matcher = func(i echo.Instance) bool {
 	for _, s := range i.Config().Subsets {
 		if s.Version == "vistio" {
 			matchIstio = true
-		} else if s.Version == "vlegacy" && !s.Annotations.GetBool(echo.SidecarInject) {
+		} else if s.Version == "vlegacy" && s.Annotations[annotation.SidecarInject.Name] == "false" {
 			matchLegacy = true
 		}
 	}

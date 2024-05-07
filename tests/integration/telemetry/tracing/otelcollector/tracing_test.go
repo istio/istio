@@ -42,6 +42,9 @@ import (
 func TestProxyTracingOpenCensusMeshConfig(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			// there's a known issue with c-ares on upstream envoy,
+			// google plan to remove this from OSS istio, let's skip first.
+			t.Skip("https://github.com/istio/istio/issues/50808")
 			appNsInst := tracing.GetAppNamespace()
 			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {

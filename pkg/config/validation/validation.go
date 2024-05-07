@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -75,40 +76,41 @@ const (
 
 var (
 	// envoy supported retry on header values
-	supportedRetryOnPolicies = map[string]bool{
+	supportedRetryOnPolicies = sets.New(
 		// 'x-envoy-retry-on' supported policies:
 		// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter.html#x-envoy-retry-on
-		"5xx":                    true,
-		"gateway-error":          true,
-		"reset":                  true,
-		"connect-failure":        true,
-		"retriable-4xx":          true,
-		"refused-stream":         true,
-		"retriable-status-codes": true,
-		"retriable-headers":      true,
-		"envoy-ratelimited":      true,
+		"5xx",
+		"gateway-error",
+		"reset",
+		"connect-failure",
+		"retriable-4xx",
+		"refused-stream",
+		"retriable-status-codes",
+		"retriable-headers",
+		"envoy-ratelimited",
+		"http3-post-connect-failure",
 
 		// 'x-envoy-retry-grpc-on' supported policies:
 		// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
-		"cancelled":          true,
-		"deadline-exceeded":  true,
-		"internal":           true,
-		"resource-exhausted": true,
-		"unavailable":        true,
-	}
+		"cancelled",
+		"deadline-exceeded",
+		"internal",
+		"resource-exhausted",
+		"unavailable",
+	)
 
 	// golang supported methods: https://golang.org/src/net/http/method.go
-	supportedMethods = map[string]bool{
-		http.MethodGet:     true,
-		http.MethodHead:    true,
-		http.MethodPost:    true,
-		http.MethodPut:     true,
-		http.MethodPatch:   true,
-		http.MethodDelete:  true,
-		http.MethodConnect: true,
-		http.MethodOptions: true,
-		http.MethodTrace:   true,
-	}
+	supportedMethods = sets.New(
+		http.MethodGet,
+		http.MethodHead,
+		http.MethodPost,
+		http.MethodPut,
+		http.MethodPatch,
+		http.MethodDelete,
+		http.MethodConnect,
+		http.MethodOptions,
+		http.MethodTrace,
+	)
 
 	scope = log.RegisterScope("validation", "CRD validation debugging")
 
@@ -1063,10 +1065,39 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 		if consistentHash.MinimumRingSize != 0 && consistentHash.GetHashAlgorithm() != nil {
 			errs = AppendValidation(errs, fmt.Errorf("only one of MinimumRingSize or Maglev/Ringhash can be specified"))
 		}
+		if ml := consistentHash.GetMaglev(); ml != nil {
+			if ml.TableSize == 0 {
+				errs = AppendValidation(errs, fmt.Errorf("tableSize must be set for maglev"))
+			}
+			if ml.TableSize >= 5000011 {
+				errs = AppendValidation(errs, fmt.Errorf("tableSize must be less than 5000011 for maglev"))
+			}
+			if !isPrime(ml.TableSize) {
+				errs = AppendValidation(errs, fmt.Errorf("tableSize must be a prime number for maglev"))
+			}
+		}
 	}
 
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
 	return
+}
+
+// Copied from https://github.com/envoyproxy/envoy/blob/5451efd9b8f8a444431197050e45ba974ed4e9d8/source/common/common/utility.cc#L601-L615
+// to ensure we 100% match Envoy's implementation
+func isPrime(x uint64) bool {
+	if x != 0 && x < 4 {
+		return true // eliminates special-casing 2.
+	} else if (x & 1) == 0 {
+		return false // eliminates even numbers >2.
+	}
+
+	limit := uint64(math.Sqrt(float64(x)))
+	for factor := uint64(3); factor <= limit; factor += 2 {
+		if (x % factor) == 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func validateSubset(subset *networking.Subset) error {
@@ -2236,7 +2267,7 @@ func validateAllowOrigins(origin *networking.StringMatch) error {
 }
 
 func validateHTTPMethod(method string) error {
-	if !supportedMethods[method] {
+	if !supportedMethods.Contains(method) {
 		return fmt.Errorf("%q is not a supported HTTP method", method)
 	}
 	return nil
@@ -2377,7 +2408,7 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 			// Try converting it to an integer to see if it's a valid HTTP status code.
 			i, _ := strconv.Atoi(policy)
 
-			if http.StatusText(i) == "" && !supportedRetryOnPolicies[policy] {
+			if http.StatusText(i) == "" && !supportedRetryOnPolicies.Contains(policy) {
 				errs = appendErrors(errs, fmt.Errorf("%q is not a valid retryOn policy", policy))
 			}
 		}
@@ -2498,7 +2529,7 @@ var ValidateWorkloadEntry = RegisterValidateFunc("ValidateWorkloadEntry",
 		return validateWorkloadEntry(we, nil, true).Unwrap()
 	})
 
-func validateWorkloadEntry(we *networking.WorkloadEntry, servicePorts map[string]bool, allowFQDNAddresses bool) Validation {
+func validateWorkloadEntry(we *networking.WorkloadEntry, servicePorts sets.String, allowFQDNAddresses bool) Validation {
 	errs := Validation{}
 	unixEndpoint := false
 
@@ -2530,7 +2561,7 @@ func validateWorkloadEntry(we *networking.WorkloadEntry, servicePorts map[string
 	errs = AppendValidation(errs,
 		labels.Instance(we.Labels).Validate())
 	for name, port := range we.Ports {
-		if servicePorts != nil && !servicePorts[name] {
+		if servicePorts != nil && !servicePorts.Contains(name) {
 			errs = AppendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 		}
 		errs = AppendValidation(errs,
@@ -2678,21 +2709,19 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 			}
 		}
 
-		servicePortNumbers := make(map[uint32]bool)
-		servicePorts := make(map[string]bool, len(serviceEntry.Ports))
+		servicePortNumbers := sets.New[uint32]()
+		servicePorts := sets.NewWithLength[string](len(serviceEntry.Ports))
 		for _, port := range serviceEntry.Ports {
 			if port == nil {
 				errs = AppendValidation(errs, fmt.Errorf("service entry port may not be null"))
 				continue
 			}
-			if servicePorts[port.Name] {
+			if servicePorts.InsertContains(port.Name) {
 				errs = AppendValidation(errs, fmt.Errorf("service entry port name %q already defined", port.Name))
 			}
-			servicePorts[port.Name] = true
-			if servicePortNumbers[port.Number] {
+			if servicePortNumbers.InsertContains(port.Number) {
 				errs = AppendValidation(errs, fmt.Errorf("service entry port %d already defined", port.Number))
 			}
-			servicePortNumbers[port.Number] = true
 			if port.TargetPort != 0 {
 				errs = AppendValidation(errs, agent.ValidatePort(int(port.TargetPort)))
 				if serviceEntry.Resolution == networking.ServiceEntry_NONE && !features.PassthroughTargetPort {
@@ -2754,7 +2783,7 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 				errs = AppendValidation(errs,
 					labels.Instance(endpoint.Labels).Validate())
 				for name, port := range endpoint.Ports {
-					if !servicePorts[name] {
+					if !servicePorts.Contains(name) {
 						errs = AppendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
 					}
 					errs = AppendValidation(errs,

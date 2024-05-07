@@ -94,15 +94,26 @@ func (es *EndpointShards) Keys() []ShardKey {
 
 // CopyEndpoints takes a snapshot of all endpoints. As input, it takes a map of port name to number, to allow it to group
 // the results by service port number. This is a bit weird, but lets us efficiently construct the format the caller needs.
-func (es *EndpointShards) CopyEndpoints(portMap map[string]int) map[int][]*IstioEndpoint {
+func (es *EndpointShards) CopyEndpoints(portMap map[string]int, ports sets.Set[int]) map[int][]*IstioEndpoint {
 	es.RLock()
 	defer es.RUnlock()
 	res := map[int][]*IstioEndpoint{}
 	for _, v := range es.Shards {
 		for _, ep := range v {
-			portNum, f := portMap[ep.ServicePortName]
-			if !f {
-				continue
+			// use the port name as the key, unless LegacyClusterPortKey is set and takes precedence
+			// In EDS we match on port *name*. But for historical reasons, we match on port number for CDS.
+			var portNum int
+			if ep.LegacyClusterPortKey != 0 {
+				if !ports.Contains(ep.LegacyClusterPortKey) {
+					continue
+				}
+				portNum = ep.LegacyClusterPortKey
+			} else {
+				pn, f := portMap[ep.ServicePortName]
+				if !f {
+					continue
+				}
+				portNum = pn
 			}
 			res[portNum] = append(res[portNum], ep)
 		}

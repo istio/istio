@@ -39,7 +39,7 @@ func DelInpodMarkIPRule(cfg *Config) error {
 func forEachInpodMarkIPRule(cfg *Config, f func(*netlink.Rule) error) error {
 	var rules []*netlink.Rule
 	families := []int{unix.AF_INET}
-	if cfg.EnableInboundIPv6 {
+	if cfg.EnableIPv6 {
 		families = append(families, unix.AF_INET6)
 	}
 	for _, family := range families {
@@ -85,7 +85,7 @@ func forEachLoopbackRoute(cfg *Config, f func(*netlink.Route) error) error {
 
 	// Set up netlink routes for localhost
 	cidrs := []string{"0.0.0.0/0"}
-	if cfg.EnableInboundIPv6 {
+	if cfg.EnableIPv6 {
 		cidrs = append(cidrs, "0::0/0")
 	}
 	for _, fullCIDR := range cidrs {

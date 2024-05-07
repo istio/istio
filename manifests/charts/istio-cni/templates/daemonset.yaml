@@ -36,13 +36,13 @@ spec:
         k8s-app: istio-cni-node
         app: istio-cni
         sidecar.istio.io/inject: "false"
+        istio.io/dataplane-mode: none
         {{- if .Values.cni.podLabels }}
         # Custom Labels
 {{ toYaml .Values.cni.podLabels | indent 8 }}
-        {{- end }}
+        {{- end }}        
       annotations:
         sidecar.istio.io/inject: "false"
-        ambient.istio.io/redirection: disabled
         # Add Prometheus Scrape annotations
         prometheus.io/scrape: 'true'
         prometheus.io/port: "15014"
@@ -143,10 +143,6 @@ spec:
               value: "{{ .Values.cni.chained }}"
             - name: REPAIR_ENABLED
               value: "{{ .Values.cni.repair.enabled }}"
-{{- if .Values.cni.ambient.enabled }}
-            - name: AMBIENT_DNS_CAPTURE
-              value: "{{ .Values.cni.ambient.dnsCapture }}"
-{{- end }}
             - name: REPAIR_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -175,10 +171,14 @@ spec:
                   fieldPath: spec.nodeName
             - name: LOG_LEVEL
               value: {{ .Values.cni.logLevel | quote }}
-            {{- if .Values.cni.ambient.enabled }}
+{{- if .Values.cni.ambient.enabled }}
             - name: AMBIENT_ENABLED
               value: "true"
-            {{- end }}
+            - name: AMBIENT_IPV6
+              value: "{{ .Values.cni.ambient.ipv6 }}"
+            - name: AMBIENT_DNS_CAPTURE
+              value: "{{ .Values.cni.ambient.dnsCapture }}"
+{{- end }}
             - name: GOMEMLIMIT
               valueFrom:
                 resourceFieldRef:

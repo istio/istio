@@ -507,6 +507,6 @@ func implicitWaypointPolicies(ctx krt.HandlerContext, Waypoints krt.Collection[W
 		if policy == "" {
 			return nil
 		}
-		return &policy
+		return ptr.Of(w.Namespace + "/" + policy)
 	})
 }

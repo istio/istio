@@ -212,4 +212,7 @@ var (
 	PersistOldestWinsHeuristicForVirtualServiceHostMatching = env.Register("PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", false,
 		"If enabled, istiod will persist the oldest first heuristic for subtly conflicting traffic policy selection"+
 			"(such as with overlapping wildcard hosts)").Get()
+
+	Enable100ContinueHeaders = env.Register("ENABLE_100_CONTINUE_HEADERS", true,
+		"If enabled, istiod will proxy 100-continue headers as is").Get()
 )

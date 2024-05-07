@@ -16,12 +16,12 @@ spec:
       annotations:
         # Sidecar is inside the pod to simulate VMs - do not inject
         sidecar.istio.io/inject: "false"
-        # HBONE enabled proxy lives inside the VM. Don't use CNI to redirect.
-        ambient.istio.io/redirection: disabled
       labels:
         # Label should not be selected. We will create a workload entry instead
         istio.io/test-vm: {{ $.Service }}
         istio.io/test-vm-version: {{ $subset.Version }}
+        # HBONE enabled proxy lives inside the VM. Don't use CNI to redirect.
+        istio.io/dataplane-mode: none
     spec:
       # Disable kube-dns, to mirror VM
       # we set policy to none and explicitly provide a set of invalid values
@@ -173,7 +173,7 @@ spec:
         - mountPath: /var/run/secrets/istio/bootstrap
           name: istio-vm-bootstrap
         {{- range $name, $value := $subset.Annotations }}
-        {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
+        {{- if eq $name "sidecar.istio.io/bootstrapOverride" }}
         - mountPath: /etc/istio-custom-bootstrap
           name: custom-bootstrap-volume
         {{- end }}
@@ -196,10 +196,10 @@ spec:
           name: {{ $.Service }}-{{ $subset.Version }}-vm-bootstrap
         name: istio-vm-bootstrap
       {{- range $name, $value := $subset.Annotations }}
-      {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
+      {{- if eq $name "sidecar.istio.io/bootstrapOverride" }}
       - name: custom-bootstrap-volume
         configMap:
-          name: {{ $value.Value }}
+          name: {{ $value }}
       {{- end }}
       {{- end }}
 {{- end}}

@@ -238,7 +238,7 @@ spec:
           - drain
   {{- end }}
     env:
-    {{- if eq (env .InboundTrafficPolicyMode "localhost") "passthrough" }}
+    {{- if eq .InboundTrafficPolicyMode "localhost" }}
     - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
       value: "true"
     {{- end }}

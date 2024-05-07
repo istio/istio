@@ -358,21 +358,23 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		gw.Labels[label.TopologyNetwork.Name] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
 	}
 
-	// Disable ambient redirection for kube-gateway if there is no explicit setting
-	var hasAmbientAnnotation bool
-	if _, ok := gw.Annotations[constants.AmbientRedirection]; ok {
-		hasAmbientAnnotation = true
+	// TODO this sprays ambient annotations/labels all over EVER gateway resource (serviceaccts, services, etc)
+	// where they have no meaning/are not used/are ignored. We really only need them on the deployment podspec.
+	var hasAmbientLabel bool
+	if _, ok := gw.Labels[constants.DataplaneModeLabel]; ok {
+		hasAmbientLabel = true
 	}
 	if gw.Spec.Infrastructure != nil {
-		if _, ok := gw.Spec.Infrastructure.Annotations[constants.AmbientRedirection]; ok {
-			hasAmbientAnnotation = true
+		if _, ok := gw.Spec.Infrastructure.Labels[constants.DataplaneModeLabel]; ok {
+			hasAmbientLabel = true
 		}
 	}
-	if features.EnableAmbientWaypoints && !isWaypointGateway && !hasAmbientAnnotation {
-		if gw.Annotations == nil {
-			gw.Annotations = make(map[string]string)
+	// If no ambient redirection label is set explicitly, explicitly disable.
+	if features.EnableAmbientWaypoints && !isWaypointGateway && !hasAmbientLabel {
+		if gw.Labels == nil {
+			gw.Labels = make(map[string]string)
 		}
-		gw.Annotations[constants.AmbientRedirection] = constants.AmbientRedirectionDisabled
+		gw.Labels[constants.DataplaneModeLabel] = constants.DataplaneModeNone
 	}
 
 	input := TemplateInput{

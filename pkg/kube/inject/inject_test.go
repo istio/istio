@@ -358,6 +358,16 @@ func TestInjection(t *testing.T) {
 				test.SetEnvForTest(t, platform.Platform.Name, platform.OpenShift)
 			},
 		},
+		{
+			// Validates localhost probes get injected correctly
+			in:   "hello-probes-localhost.yaml",
+			want: "hello-probes-localhost.yaml.injected",
+			mesh: func(m *meshapi.MeshConfig) {
+				m.InboundTrafficPolicy = &meshapi.MeshConfig_InboundTrafficPolicy{
+					Mode: meshapi.MeshConfig_InboundTrafficPolicy_LOCALHOST,
+				}
+			},
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones

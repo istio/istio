@@ -53,6 +53,7 @@ Additionally, it does not require any network rules/routing/config in the host n
 | Env Var            | Default         | Purpose                                                                                                                                       |
 |--------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | HOST_PROBE_SNAT_IP | "169.254.7.127" | Applied to SNAT host probe packets, so they can be identified/skipped podside. Any link-local address in the 169.254.0.0/16 block can be used |
+| HOST_PROBE_SNAT_IPV6 | "fd16:9254:7127:1337:ffff:ffff:ffff:ffff" | IPv6 link local ranges are designed to be collision-resistant by default, and so this probably never needs to be overridden |
 
 ## Sidecar Mode Implementation Details
 
@@ -62,9 +63,9 @@ Istio CNI injection is currently based on the same Pod annotations used in init-
 
 - plugin config "exclude namespaces" applies first
 - ambient is enabled if:
-    - namespace label "istio.io/dataplane-mode" == "ambient" is required (may change for 'on-by-default' mode)
+    - namespace label "istio.io/dataplane-mode" == "ambient", and/or pod label "istio.io/dataplane-mode" == "ambient"
     - "sidecar.istio.io/status" annotation is not present on the pod (created by injection of sidecar)
-    - "ambient.istio.io/redirection" is not "disabled"
+    - pod label "istio.io/dataplane-mode" is not "none"
 - sidecar interception is enabled if:
     - "istio-init" container is not present in the pod.
     - istio-proxy container exists and

@@ -28,8 +28,8 @@ func FakeNLDeps() *MockedIpsetDeps {
 	return &MockedIpsetDeps{}
 }
 
-func (m *MockedIpsetDeps) ipsetIPPortCreate(name string) error {
-	args := m.Called(name)
+func (m *MockedIpsetDeps) ipsetIPHashCreate(name string, v6 bool) error {
+	args := m.Called(name, v6)
 	return args.Error(0)
 }
 

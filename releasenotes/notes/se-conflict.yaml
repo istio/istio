@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 50478
+releaseNotes:
+  - |
+    **Fixed** a behavioral change in Istio 1.20 that caused merging of ServiceEntries with the same hostname and port names
+    to give unexpected results.

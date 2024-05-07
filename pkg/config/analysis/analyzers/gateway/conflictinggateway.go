@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -85,7 +86,7 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	}
 
 	for _, server := range gw.Servers {
-		var rmsg []string
+		var gateways []string
 		conflictingGWMatch := 0
 		sPortNumber := strconv.Itoa(int(server.GetPort().GetNumber()))
 		mapKey := genGatewayMapKey(sGWSelector, sPortNumber)
@@ -95,13 +96,14 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 				if isGWsHostMatched(gwHost, gwHostsValue) {
 					if gwName != gwNameKey {
 						conflictingGWMatch++
-						rmsg = append(rmsg, gwNameKey)
+						gateways = append(gateways, gwNameKey)
 					}
 				}
 			}
 		}
 		if conflictingGWMatch > 0 {
-			reportMsg := strings.Join(rmsg, ",")
+			sort.Strings(gateways)
+			reportMsg := strings.Join(gateways, ",")
 			hostsMsg := strings.Join(server.GetHosts(), ",")
 			m := msg.NewConflictingGateways(r, reportMsg, sGWSelector, sPortNumber, hostsMsg)
 			c.Report(gvk.Gateway, m)

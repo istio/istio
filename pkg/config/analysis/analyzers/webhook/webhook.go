@@ -121,7 +121,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 				for match := range matches {
 					others := matches.Difference(sets.New(match))
 					context.Report(gvk.MutatingWebhookConfiguration, msg.NewInvalidWebhook(resources[match],
-						fmt.Sprintf("Webhook overlaps with others: %v. This may cause injection to occur twice.", others.UnsortedList())))
+						fmt.Sprintf("Webhook overlaps with others: %v. This may cause injection to occur twice.", sets.SortedList(others))))
 				}
 			}
 		}

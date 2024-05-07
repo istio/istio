@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -392,7 +393,7 @@ func (b builder) BuildOrFail(t test.Failer) echo.Instances {
 func (b builder) validateTemplates(config echo.Config, c cluster.Cluster) bool {
 	expected := sets.New[string]()
 	for _, subset := range config.Subsets {
-		expected.InsertAll(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
+		expected.InsertAll(parseList(subset.Annotations[annotation.InjectTemplates.Name])...)
 	}
 	if b.templates == nil || b.templates[c.Name()] == nil {
 		return expected.IsEmpty()

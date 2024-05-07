@@ -19,10 +19,10 @@ spec:
     metadata:
       labels:
         sidecar.istio.io/inject: "false"
+        istio.io/dataplane-mode: none
         app: ztunnel
 {{ with .Values.podLabels -}}{{ toYaml . | indent 8 }}{{ end }}
       annotations:
-        ambient.istio.io/redirection: disabled
         sidecar.istio.io/inject: "false"
 {{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
     spec:

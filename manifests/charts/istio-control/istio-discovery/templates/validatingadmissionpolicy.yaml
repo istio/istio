@@ -30,11 +30,14 @@ spec:
       expression: "object.kind == 'EnvoyFilter'"
     - name: isWasmPlugin
       expression: "object.kind == 'WasmPlugin'"
+    - name: isProxyConfig
+      expression: "object.kind == 'ProxyConfig'"
     - name: isTelemetry
       expression: "object.kind == 'Telemetry'"
   validations:
     - expression: "!variables.isEnvoyFilter"
     - expression: "!variables.isWasmPlugin"
+    - expression: "!variables.isProxyConfig"
     - expression: |
         !(
           variables.isTelemetry && (
