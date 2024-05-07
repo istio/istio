@@ -49,7 +49,7 @@ var (
 
 	deleteAll bool
 
-	trafficType       = constants.ServiceTraffic
+	trafficType       = ""
 	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 
 	waypointName    = constants.DefaultNamespaceWaypoint
@@ -86,16 +86,20 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}},
 			},
 		}
-		// Determine which traffic address type to apply the waypoint to, if none is provided it will default to "service"
-		// as the waypoint-for traffic type.
-		if !validTrafficTypes.Contains(trafficType) {
-			return nil, fmt.Errorf("invalid traffic type: %s. Valid options are: %s", trafficType, validTrafficTypes.String())
-		}
 
-		if gw.Labels == nil {
-			gw.Labels = map[string]string{}
+		// only label if the user has provided their own value, otherwise we let istiod choose a default at runtime (service)
+		// this will allow for gateway class to provide a default for that class rather than always forcing service or requiring users to configure correctly
+		if trafficType != "" {
+			if !validTrafficTypes.Contains(trafficType) {
+				return nil, fmt.Errorf("invalid traffic type: %s. Valid options are: %s", trafficType, validTrafficTypes.String())
+			}
+
+			if gw.Labels == nil {
+				gw.Labels = map[string]string{}
+			}
+
+			gw.Labels[constants.AmbientWaypointForTrafficTypeLabel] = trafficType
 		}
-		gw.Labels[constants.AmbientWaypointForTrafficTypeLabel] = trafficType
 
 		if revision != "" {
 			gw.Labels = map[string]string{label.IoIstioRev.Name: revision}
@@ -128,7 +132,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	}
 	waypointGenerateCmd.PersistentFlags().StringVar(&trafficType,
 		"for",
-		"service",
+		"",
 		fmt.Sprintf("Specify the traffic type %s for the waypoint", sets.SortedList(validTrafficTypes)),
 	)
 	waypointApplyCmd := &cobra.Command{
@@ -227,7 +231,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	}
 	waypointApplyCmd.PersistentFlags().StringVar(&trafficType,
 		"for",
-		"service",
+		"",
 		fmt.Sprintf("Specify the traffic type %s for the waypoint", sets.SortedList(validTrafficTypes)),
 	)
 
