@@ -14,6 +14,8 @@
 
 package krt
 
+import "istio.io/istio/pkg/slices"
+
 func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *T {
 	res := Fetch[T](ctx, c, opts...)
 	switch len(res) {
@@ -39,27 +41,35 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 	h.registerDependency(d)
 
 	// Now we can do the real fetching
-	var res []T
+	// Compute our list of all possible objects that can match. Then we will filter them later.
+	// This pre-filtering upfront avoids extra work
 	var list []T
-	if d.filter.listFromIndex != nil {
+	if d.filter.keys != nil {
+		// If they fetch a set of keys, directly Get these. Usually this is a single resource.
+		list = make([]T, 0, len(d.filter.keys))
+		for k := range d.filter.keys {
+			if i := c.GetKey(Key[T](k)); i != nil {
+				list = append(list, *i)
+			}
+		}
+	} else if d.filter.listFromIndex != nil {
+		// Otherwise from an index; fetch from there. Often this is a list of a namespace
 		list = d.filter.listFromIndex().([]T)
 	} else {
+		// Otherwise get everything
 		list = c.List()
 	}
-	for _, i := range list {
-		i := i
+	list = slices.FilterInPlace(list, func(i T) bool {
 		o := c.augment(i)
-		if d.filter.Matches(o, true) {
-			res = append(res, i)
-		}
-	}
+		return d.filter.Matches(o, true)
+	})
 	if log.DebugEnabled() {
 		log.WithLabels(
 			"parent", h.name(),
 			"fetch", c.name(),
 			"filter", d.filter,
-			"size", len(res),
+			"size", len(list),
 		).Debugf("Fetch")
 	}
-	return res
+	return list
 }
