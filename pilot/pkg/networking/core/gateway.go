@@ -707,6 +707,7 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		ServerHeaderTransformation: ph.ServerHeaderTransformation,
 		GenerateRequestId:          ph.GenerateRequestID,
 		HttpProtocolOptions:        httpProtoOpts,
+		Proxy_100Continue:          features.Enable100ContinueHeaders,
 	}
 
 	// Only set_current_client_cert_details if forward_client_cert_details permitted

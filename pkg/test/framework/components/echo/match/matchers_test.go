@@ -15,9 +15,9 @@
 package match_test
 
 import (
-	"strconv"
 	"testing"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -40,12 +40,12 @@ var (
 	headless1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "headless", Headless: true}
 	// naked pod (uninjected)
 	naked1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
-		Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+		Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 	}}}
 	// external svc
 	external1 = &fakeInstance{
 		Cluster: cls1, Namespace: namespace.Static("echo"), Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
-			Annotations: map[echo.Annotation]*echo.AnnotationValue{echo.SidecarInject: {Value: strconv.FormatBool(false)}},
+			Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 		}},
 	}
 )

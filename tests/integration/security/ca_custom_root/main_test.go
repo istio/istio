@@ -26,6 +26,7 @@ import (
 	"path"
 	"testing"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
@@ -186,7 +187,7 @@ func SetupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 		Service:   "server-naked-foo",
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
 		},
 		ServiceAccount: true,
@@ -212,7 +213,7 @@ func SetupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 		Service:   "server-naked-bar",
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
 		},
 		ServiceAccount: true,
@@ -239,7 +240,7 @@ func SetupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 		Service:   "server-naked-foo-alt",
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
 		},
 		ServiceAccount: true,

@@ -18,9 +18,11 @@
 package pilot
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -60,7 +62,7 @@ func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //n
 		ReadinessTCPPort: "1234",
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, rewrite),
+				Annotations: map[string]string{annotation.SidecarRewriteAppHTTPProbers.Name: strconv.FormatBool(rewrite)},
 			},
 		},
 	}

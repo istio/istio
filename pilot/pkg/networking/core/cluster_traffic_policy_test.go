@@ -27,7 +27,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/constants"
 )
 
 func TestApplyUpstreamProxyProtocol(t *testing.T) {
@@ -38,15 +37,15 @@ func TestApplyUpstreamProxyProtocol(t *testing.T) {
 	}
 	mutualTLSSettingsWithCerts := &networking.ClientTLSSettings{
 		Mode:              networking.ClientTLSSettings_MUTUAL,
-		CaCertificates:    constants.DefaultRootCert,
-		ClientCertificate: constants.DefaultCertChain,
-		PrivateKey:        constants.DefaultKey,
+		CaCertificates:    "root-cert.pem",
+		ClientCertificate: "cert-chain.pem",
+		PrivateKey:        "key.pem",
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
 	}
 	simpleTLSSettingsWithCerts := &networking.ClientTLSSettings{
 		Mode:            networking.ClientTLSSettings_SIMPLE,
-		CaCertificates:  constants.DefaultRootCert,
+		CaCertificates:  "root-cert.pem",
 		SubjectAltNames: []string{"custom.foo.com"},
 		Sni:             "custom.foo.com",
 	}

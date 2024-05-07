@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -151,10 +152,8 @@ func TestProxyConfig(t *testing.T) {
 					if tc.pcAnnotation != "" {
 						echoConfig.Subsets = []echo.SubsetConfig{
 							{
-								Annotations: map[echo.Annotation]*echo.AnnotationValue{
-									echo.SidecarConfig: {
-										Value: tc.pcAnnotation,
-									},
+								Annotations: map[string]string{
+									annotation.ProxyConfig.Name: tc.pcAnnotation,
 								},
 							},
 						}

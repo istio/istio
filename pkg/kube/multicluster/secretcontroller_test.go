@@ -120,12 +120,12 @@ func buildTestController(t *testing.T, synced bool) testController {
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
 	tc.controller = NewController(tc.client, secretNamespace, "config", mesh.NewFixedWatcher(nil))
 	tc.controller.ClientBuilder = TestingBuildClientsFromConfig
-	iter := 0
+	iter := atomic.NewInt32(0)
 	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
-		iter++
+		it := iter.Inc()
 		return testHandler{
 			ID:     cluster.ID,
-			Iter:   iter,
+			Iter:   int(it),
 			Closed: atomic.NewBool(false),
 			Synced: atomic.NewBool(synced),
 		}
@@ -223,9 +223,9 @@ func TestShutdown(t *testing.T) {
 	// close everything
 	close(stop)
 
-	// We should *not* shutdown anything else
+	// We should *not* shutdown anything else except the config cluster
 	// In theory we could, but we only shut down the controller when the entire application is closing so we don't bother
-	assert.Equal(t, map[string]bool{"config": false, "c1": false, "c0": true}, fetchClosed())
+	assert.EventuallyEqual(t, fetchClosed, map[string]bool{"config": true, "c1": false, "c0": true})
 }
 
 // TestObjectFilter tests that when a component is created, it should have access to the objectfilter.

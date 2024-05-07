@@ -7,11 +7,11 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  annotations:
-    ambient.istio.io/redirection: disabled
+  annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
     istio.io/gateway-name: default
     topology.istio.io/network: network-1
   name: default-istio
@@ -25,11 +25,11 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    ambient.istio.io/redirection: disabled
+  annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
     istio.io/gateway-name: default
     topology.istio.io/network: network-1
   name: default
@@ -46,13 +46,13 @@ spec:
   template:
     metadata:
       annotations:
-        ambient.istio.io/redirection: disabled
         istio.io/rev: default
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
       labels:
         gateway.networking.k8s.io/gateway-name: default
+        istio.io/dataplane-mode: none
         istio.io/gateway-name: default
         service.istio.io/canonical-name: default
         service.istio.io/canonical-revision: latest
@@ -226,11 +226,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    ambient.istio.io/redirection: disabled
+  annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
     istio.io/gateway-name: default
     topology.istio.io/network: network-1
   name: default

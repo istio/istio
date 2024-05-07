@@ -63,9 +63,9 @@ Istio CNI injection is currently based on the same Pod annotations used in init-
 
 - plugin config "exclude namespaces" applies first
 - ambient is enabled if:
-    - namespace label "istio.io/dataplane-mode" == "ambient" is required (may change for 'on-by-default' mode)
+    - namespace label "istio.io/dataplane-mode" == "ambient", and/or pod label "istio.io/dataplane-mode" == "ambient"
     - "sidecar.istio.io/status" annotation is not present on the pod (created by injection of sidecar)
-    - "ambient.istio.io/redirection" is not "disabled"
+    - pod label "istio.io/dataplane-mode" is not "none"
 - sidecar interception is enabled if:
     - "istio-init" container is not present in the pod.
     - istio-proxy container exists and

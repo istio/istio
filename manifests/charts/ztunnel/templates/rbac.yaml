@@ -14,3 +14,38 @@ metadata:
   annotations:
     {{- .Values.annotations | toYaml | nindent 4 }}
 ---
+{{- if (eq .Values.platform "openshift") }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ztunnel
+  labels:
+    app: ztunnel
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+rules:
+- apiGroups: ["security.openshift.io"]
+  resources: ["securitycontextconstraints"]
+  resourceNames: ["privileged"]
+  verbs: ["use"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ztunnel
+  labels:
+    app: ztunnel
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ztunnel
+subjects:
+- kind: ServiceAccount
+  name: ztunnel
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+---

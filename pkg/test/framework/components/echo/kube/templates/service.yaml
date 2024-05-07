@@ -22,7 +22,7 @@ metadata:
 {{- if .ServiceAnnotations }}
   annotations:
 {{- range $name, $value := .ServiceAnnotations }}
-    {{ $name.Name }}: {{ printf "%q" $value.Value }}
+    {{ $name }}: {{ printf "%q" $value }}
 {{- end }}
 {{- end }}
 spec:
