@@ -451,8 +451,8 @@ func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []*depend
 		}
 		// For each input, we will check if it depends on this event.
 		// We use Items() to check both the old and new object; we will recompute if either matched
-		for _, item := range ev.Items2() {
-			match := dep.filter.Matches2(item, false)
+		for _, item := range ev.Items() {
+			match := dep.filter.Matches(item, false)
 			if h.log.DebugEnabled() {
 				h.log.WithLabels("item", iKey, "match", match).Debugf("dependency change for collection %T", sourceCollection)
 			}
@@ -548,15 +548,19 @@ func (i *collectionDependencyTracker[I, O]) name() string {
 
 // registerDependency track a dependency. This is in the context of a specific input I type, as we create a collectionDependencyTracker
 // per I.
-func (i *collectionDependencyTracker[I, O]) registerDependency(d *dependency, ec *erasedCollection) {
+func (i *collectionDependencyTracker[I, O]) registerDependency(
+	d *dependency,
+	syncer Syncer,
+	register func(f erasedEventHandler),
+) {
 	i.d = append(i.d, d)
 
 	// For any new collections we depend on, start watching them if its the first time we have watched them.
 	if !i.collectionDependencies.InsertContains(d.id) {
-		i.log.WithLabels("collection", ec.name).Debugf("register new dependency")
-		ec.synced.WaitUntilSynced(i.stop)
-		ec.register(func(o []Event[any], initialSync bool) {
-			i.onSecondaryDependencyEvent(ec.id, o)
+		i.log.WithLabels("collection", d.id).Debugf("register new dependency")
+		syncer.WaitUntilSynced(i.stop)
+		register(func(o []Event[any], initialSync bool) {
+			i.onSecondaryDependencyEvent(d.id, o)
 		})
 	}
 }

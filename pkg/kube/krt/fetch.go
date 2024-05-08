@@ -14,7 +14,9 @@
 
 package krt
 
-import "istio.io/istio/pkg/slices"
+import (
+	"istio.io/istio/pkg/slices"
+)
 
 func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *T {
 	res := Fetch[T](ctx, c, opts...)
@@ -31,7 +33,6 @@ func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *
 func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T {
 	h := ctx.(registerDependency)
 	c := cc.(internalCollection[T])
-	ec := eraseCollection(c)
 	d := &dependency{
 		id:     c.uid(),
 		filter: &filter{},
@@ -40,7 +41,14 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 		o(d)
 	}
 	// Important: register before we List(), so we cannot miss any events
-	h.registerDependency(d, ec)
+	h.registerDependency(d, c.Synced(), func(f erasedEventHandler) {
+		ff := func(o []Event[T], initialSync bool) {
+			f(slices.Map(o, castEvent[T, any]), initialSync)
+		}
+		// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
+		// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
+		c.RegisterBatch(ff, false)
+	})
 
 	// Now we can do the real fetching
 	// Compute our list of all possible objects that can match. Then we will filter them later.

@@ -109,17 +109,6 @@ func (e Event[T]) Items() []T {
 	return res
 }
 
-func (e Event[T]) Items2() []*T {
-	res := make([]*T, 0, 2)
-	if e.Old != nil {
-		res = append(res, e.Old)
-	}
-	if e.New != nil {
-		res = append(res, e.New)
-	}
-	return res
-}
-
 // Latest returns only the latest object (New for add/update, Old for delete).
 func (e Event[T]) Latest() T {
 	if e.New != nil {

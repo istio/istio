@@ -121,65 +121,6 @@ func FilterGeneric(f func(any) bool) FetchOption {
 	}
 }
 
-func (f *filter) Matches2(objectp *any, forList bool) bool {
-	object := *objectp
-	// Check each of our defined filters to see if the object matches
-	// This function is called very often and is important to keep fast
-	// Cheaper checks should come earlier to avoid additional work and short circuit early
-
-	// If we are listing, we already did this. Do not redundantly check.
-	if !forList {
-		// First, lookup directly by key. This is cheap
-		// an empty set will match none
-		if f.keys != nil && !f.keys.Contains(string(GetKey[any](object))) {
-			if log.DebugEnabled() {
-				log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
-			}
-			return false
-		}
-		if f.key != "" && f.key != string(GetKey[any](object)) {
-			if log.DebugEnabled() {
-				log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
-			}
-			return false
-		}
-		// Index is also cheap, and often used to filter namespaces out. Make sure we do this early
-		if f.indexMatches != nil && !f.indexMatches(object) {
-			if log.DebugEnabled() {
-				log.Debugf("no match index")
-			}
-			return false
-		}
-	}
-
-	// Rest is expensive
-	if f.selects != nil && !labels.Instance(getLabelSelector(object)).SubsetOf(f.selects) {
-		if log.DebugEnabled() {
-			log.Debugf("no match selects: %q vs %q", f.selects, getLabelSelector(object))
-		}
-		return false
-	}
-	if f.selectsNonEmpty != nil && !labels.Instance(getLabelSelector(object)).Match(f.selectsNonEmpty) {
-		if log.DebugEnabled() {
-			log.Debugf("no match selectsNonEmpty: %q vs %q", f.selectsNonEmpty, getLabelSelector(object))
-		}
-		return false
-	}
-	if f.labels != nil && !labels.Instance(f.labels).SubsetOf(getLabels(object)) {
-		if log.DebugEnabled() {
-			log.Debugf("no match labels: %q vs %q", f.labels, getLabels(object))
-		}
-		return false
-	}
-	if f.generic != nil && !f.generic(object) {
-		if log.DebugEnabled() {
-			log.Debugf("no match generic")
-		}
-		return false
-	}
-	return true
-}
-
 func (f *filter) Matches(object any, forList bool) bool {
 	// Check each of our defined filters to see if the object matches
 	// This function is called very often and is important to keep fast
