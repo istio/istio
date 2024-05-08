@@ -86,7 +86,7 @@ func TestCNIRaceRepair(t *testing.T) {
 
 func getCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster) *appsv1.DaemonSet {
 	cniDaemonSet, err := c.(istioKube.CLIClient).
-		Kube().AppsV1().DaemonSets("kube-system").
+		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
 		Get(context.Background(), "istio-cni-node", metav1.GetOptions{})
 	if err != nil {
 		ctx.Fatalf("failed to get CNI Daemonset %v", err)
@@ -99,7 +99,7 @@ func getCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster) *appsv1.Daemo
 
 func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
 	if err := c.(istioKube.CLIClient).
-		Kube().AppsV1().DaemonSets("kube-system").
+		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
 		Delete(context.Background(), "istio-cni-node", metav1.DeleteOptions{}); err != nil {
 		ctx.Fatalf("failed to delete CNI Daemonset %v", err)
 	}
@@ -107,7 +107,7 @@ func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
 	// Wait until the CNI Daemonset pod cannot be fetched anymore
 	retry.UntilSuccessOrFail(ctx, func() error {
 		scopes.Framework.Infof("Checking if CNI Daemonset pods are deleted...")
-		pods, err := c.PodsForSelector(context.TODO(), "kube-system", "k8s-app=istio-cni-node")
+		pods, err := c.PodsForSelector(context.TODO(), i.Settings().SystemNamespace, "k8s-app=istio-cni-node")
 		if err != nil {
 			return err
 		}
@@ -127,7 +127,7 @@ func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonS
 		Labels:      cniDaemonSet.ObjectMeta.Labels,
 		Annotations: cniDaemonSet.ObjectMeta.Annotations,
 	}
-	_, err := c.(istioKube.CLIClient).Kube().AppsV1().DaemonSets("kube-system").
+	_, err := c.(istioKube.CLIClient).Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
 		Create(context.Background(), &deployDaemonSet, metav1.CreateOptions{})
 	if err != nil {
 		ctx.Fatalf("failed to deploy CNI Daemonset %v", err)
