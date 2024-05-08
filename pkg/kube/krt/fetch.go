@@ -54,18 +54,13 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 	// Compute our list of all possible objects that can match. Then we will filter them later.
 	// This pre-filtering upfront avoids extra work
 	var list []T
-	if d.filter.keys != nil {
+	if !d.filter.keys.IsEmpty() {
 		// If they fetch a set of keys, directly Get these. Usually this is a single resource.
-		list = make([]T, 0, len(d.filter.keys))
-		for k := range d.filter.keys {
+		list = make([]T, 0, d.filter.keys.Len())
+		for _, k := range d.filter.keys.List() {
 			if i := c.GetKey(Key[T](k)); i != nil {
 				list = append(list, *i)
 			}
-		}
-	} else if d.filter.key != "" {
-		list = make([]T, 0, 1)
-		if i := c.GetKey(Key[T](d.filter.key)); i != nil {
-			list = append(list, *i)
 		}
 	} else if d.filter.listFromIndex != nil {
 		// Otherwise from an index; fetch from there. Often this is a list of a namespace

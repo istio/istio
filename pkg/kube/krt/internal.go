@@ -76,8 +76,6 @@ type collectionOptions struct {
 // dependency is a specific thing that can be depended on
 type dependency struct {
 	id collectionUid
-	// The actual collection containing this
-	// collection *erasedCollection
 	// Filter over the collection
 	filter *filter
 }
