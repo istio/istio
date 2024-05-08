@@ -32,21 +32,21 @@ ip6tables -t nat -F ISTIO_REDIRECT
 ip6tables -t nat -X ISTIO_REDIRECT
 ip6tables -t nat -F ISTIO_IN_REDIRECT
 ip6tables -t nat -X ISTIO_IN_REDIRECT
-iptables -t nat -D OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
-ip6tables -t nat -D OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
-iptables -t nat -D OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
-ip6tables -t nat -D OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
-iptables -t nat -D OUTPUT -p udp --dport 53 -m owner --gid-owner 888 -j RETURN
-ip6tables -t nat -D OUTPUT -p udp --dport 53 -m owner --gid-owner 888 -j RETURN
-iptables -t nat -D OUTPUT -p udp --dport 53 -m owner --gid-owner ftp -j RETURN
-ip6tables -t nat -D OUTPUT -p udp --dport 53 -m owner --gid-owner ftp -j RETURN
-iptables -t raw -D OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
-ip6tables -t raw -D OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
-iptables -t raw -D OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
-ip6tables -t raw -D OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
-iptables -t raw -D OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
-ip6tables -t raw -D OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
-iptables -t raw -D OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
-ip6tables -t raw -D OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
+iptables -t nat -D ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
+ip6tables -t nat -D ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
+iptables -t nat -D ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
+ip6tables -t nat -D ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
+iptables -t nat -D ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 888 -j RETURN
+ip6tables -t nat -D ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 888 -j RETURN
+iptables -t nat -D ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner ftp -j RETURN
+ip6tables -t nat -D ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner ftp -j RETURN
+iptables -t raw -D ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
+ip6tables -t raw -D ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
+iptables -t raw -D ISTIO_OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
+ip6tables -t raw -D ISTIO_OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
+iptables -t raw -D ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
+ip6tables -t raw -D ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
+iptables -t raw -D ISTIO_OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
+ip6tables -t raw -D ISTIO_OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
 iptables-save
 ip6tables-save

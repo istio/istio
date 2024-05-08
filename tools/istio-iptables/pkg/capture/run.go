@@ -616,7 +616,7 @@ func HandleDNSUDP(
 		ext:      ext,
 		ops:      ops,
 		table:    constants.NAT,
-		chain:    constants.OUTPUT,
+		chain:    constants.ISTIOOUTPUT,
 		iptV:     iptV,
 		ipt6V:    ipt6V,
 	}

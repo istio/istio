@@ -5,6 +5,7 @@ iptables -t mangle -N ISTIO_DIVERT
 iptables -t mangle -N ISTIO_TPROXY
 iptables -t mangle -N ISTIO_INBOUND
 iptables -t nat -N ISTIO_OUTPUT
+iptables -t raw -N ISTIO_OUTPUT
 iptables -t nat -A PREROUTING -i not-istio-nic -j RETURN
 iptables -t nat -A OUTPUT -o not-istio-nic -j RETURN
 iptables -t mangle -A PREROUTING -i not-istio-nic -j RETURN
@@ -31,14 +32,14 @@ iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 1.1.0.0/16 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 9.9.0.0/16 -j ISTIO_REDIRECT
 iptables -t nat -A ISTIO_OUTPUT -j RETURN
-iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
-iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
-iptables -t nat -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-port 15053
-iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
-iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
-iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
-iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
-iptables -t raw -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j CT --zone 2
+iptables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-port 15053
+iptables -t raw -A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
+iptables -t raw -A ISTIO_OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
+iptables -t raw -A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
+iptables -t raw -A ISTIO_OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
+iptables -t raw -A ISTIO_OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j CT --zone 2
 iptables -t raw -A PREROUTING -p udp --sport 53 -s 127.0.0.53/32 -j CT --zone 1
 iptables -t mangle -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark
 iptables -t mangle -A OUTPUT -p tcp -o lo -m mark --mark 1337 -j RETURN
@@ -55,6 +56,7 @@ ip6tables -t mangle -N ISTIO_DIVERT
 ip6tables -t mangle -N ISTIO_TPROXY
 ip6tables -t mangle -N ISTIO_INBOUND
 ip6tables -t nat -N ISTIO_OUTPUT
+ip6tables -t raw -N ISTIO_OUTPUT
 ip6tables -t nat -A PREROUTING -i not-istio-nic -j RETURN
 ip6tables -t nat -A OUTPUT -o not-istio-nic -j RETURN
 ip6tables -t mangle -A PREROUTING -i not-istio-nic -j RETURN
@@ -77,12 +79,12 @@ ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -p tcp ! --dport 15008 -m ow
 ip6tables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
-ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
-ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
-ip6tables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
-ip6tables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
-ip6tables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
-ip6tables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
+ip6tables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
+ip6tables -t raw -A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
+ip6tables -t raw -A ISTIO_OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
+ip6tables -t raw -A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
+ip6tables -t raw -A ISTIO_OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
 ip6tables -t mangle -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark
 ip6tables -t mangle -A OUTPUT -p tcp -o lo -m mark --mark 1337 -j RETURN
 ip6tables -t mangle -A OUTPUT ! -d ::1/128 -p tcp -o lo -m owner --uid-owner 1337 -j MARK --set-mark 1338
