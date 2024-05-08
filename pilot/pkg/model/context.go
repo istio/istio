@@ -570,7 +570,8 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	node.MergedGateway = ps.mergeGateways(node)
 	if prevMergedGateway.ContainsAutoPassthroughGateways {
 		node.PrevMergedGateway = &PrevMergedGateway{
-			AutoPassthroughSNIHosts: prevMergedGateway.GetAutoPassthrughGatewaySNIHosts(),
+			ContainsAutoPassthroughGateways: prevMergedGateway.ContainsAutoPassthroughGateways,
+			AutoPassthroughSNIHosts:         prevMergedGateway.GetAutoPassthrughGatewaySNIHosts(),
 		}
 	}
 }
