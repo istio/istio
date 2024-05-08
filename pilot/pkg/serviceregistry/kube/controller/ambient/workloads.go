@@ -103,8 +103,6 @@ func (a *index) WorkloadsCollection(
 			policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
 			var waypoint *Waypoint
 			if wle.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-				// Waypoints do not have waypoints, but anything else does
-
 				// this is using object meta which simply defines the namespace since the endpoint doesn't have it's own object meta
 				waypoint = fetchWaypointForWorkload(ctx, Waypoints, Namespaces, someObjectMeta)
 			}
