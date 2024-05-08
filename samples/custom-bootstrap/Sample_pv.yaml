@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"PersistentVolume","metadata":{"annotations":{},"labels":{"type":"local"},"name":"wasm-pv-volume"},"spec":{"accessModes":["ReadWriteOnce"],"capacity":{"storage":"1Gi"},"hostPath":{"path":"/tmp/vol"},"storageClassName":"manual"}}
+    pv.kubernetes.io/bound-by-controller: "yes"
+  creationTimestamp: "2024-05-08T21:03:38Z"
+  finalizers:
+  - kubernetes.io/pv-protection
+  labels:
+    type: local
+  name: wasm-pv-volume
+  resourceVersion: "13830112"
+  uid: e2842c4a-3a74-4f9e-8628-961c5281073c
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 1Gi
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: wasm-pv-claim
+    namespace: test
+    resourceVersion: "13829754"
+    uid: 9d520a5a-8458-486a-b2d8-92836edd8609
+  hostPath:
+    path: /tmp/vol
+    type: ""
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  volumeMode: Filesystem
+status:
+  phase: Bound
