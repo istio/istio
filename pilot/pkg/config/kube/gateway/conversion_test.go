@@ -414,6 +414,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "mcs"},
 		{name: "route-precedence"},
 		{name: "waypoint"},
+		{name: "isolation"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
