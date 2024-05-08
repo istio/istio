@@ -31,14 +31,16 @@ func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *
 func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T {
 	h := ctx.(registerDependency)
 	c := cc.(internalCollection[T])
-	d := dependency{
-		collection: eraseCollection(c),
+	ec := eraseCollection(c)
+	d := &dependency{
+		id:     c.uid(),
+		filter: &filter{},
 	}
 	for _, o := range opts {
-		o(&d)
+		o(d)
 	}
 	// Important: register before we List(), so we cannot miss any events
-	h.registerDependency(d)
+	h.registerDependency(d, ec)
 
 	// Now we can do the real fetching
 	// Compute our list of all possible objects that can match. Then we will filter them later.
@@ -54,9 +56,9 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 		}
 	} else if d.filter.key != "" {
 		list = make([]T, 0, 1)
-			if i := c.GetKey(Key[T](d.filter.key)); i != nil {
-				list = append(list, *i)
-			}
+		if i := c.GetKey(Key[T](d.filter.key)); i != nil {
+			list = append(list, *i)
+		}
 	} else if d.filter.listFromIndex != nil {
 		// Otherwise from an index; fetch from there. Often this is a list of a namespace
 		list = d.filter.listFromIndex().([]T)

@@ -38,6 +38,7 @@ func NewStatic[T any](initial *T) StaticSingleton[T] {
 	val.Store(initial)
 	x := &static[T]{
 		val:           val,
+		id:            nextUid(),
 		eventHandlers: &handlers[T]{},
 	}
 	return collectionAdapter[T]{x}
@@ -46,6 +47,7 @@ func NewStatic[T any](initial *T) StaticSingleton[T] {
 // static represents a Collection of a single static value. This can be explicitly Set() to override it
 type static[T any] struct {
 	val           *atomic.Pointer[T]
+	id            collectionUid
 	eventHandlers *handlers[T]
 }
 
@@ -107,6 +109,11 @@ func (d *static[T]) augment(a any) any {
 // nolint: unused // (not true, its to implement an interface)
 func (d *static[T]) name() string {
 	return "static"
+}
+
+// nolint: unused // (not true, its to implement an interface)
+func (d *static[T]) uid() collectionUid {
+	return d.id
 }
 
 func toEvent[T any](old, now *T) Event[T] {

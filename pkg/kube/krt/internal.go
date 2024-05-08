@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -42,11 +43,10 @@ func registerHandlerAsBatched[T any](c internalCollection[T], f func(o Event[T])
 // erasedCollection is a Collection[T] that has been type-erased so it can be stored in collections
 // that do not have type information.
 type erasedCollection struct {
-	// original stores the original typed Collection
-	original any
 	// registerFunc registers any Event[any] handler. These will be mapped to Event[T] when connected to the original collection.
 	registerFunc func(f func(o []Event[any], initialSync bool))
 	name         string
+	id           collectionUid
 	synced       Syncer
 }
 
@@ -54,11 +54,11 @@ func (e erasedCollection) register(f func(o []Event[any], initialSync bool)) {
 	e.registerFunc(f)
 }
 
-func eraseCollection[T any](c internalCollection[T]) erasedCollection {
-	return erasedCollection{
-		name:     c.name(),
-		original: c,
-		synced:   c.Synced(),
+func eraseCollection[T any](c internalCollection[T]) *erasedCollection {
+	return &erasedCollection{
+		name:   c.name(),
+		id:     c.uid(),
+		synced: c.Synced(),
 		registerFunc: func(f func(o []Event[any], initialSync bool)) {
 			ff := func(o []Event[T], initialSync bool) {
 				f(slices.Map(o, castEvent[T, any]), initialSync)
@@ -106,17 +106,18 @@ type collectionOptions struct {
 
 // dependency is a specific thing that can be depended on
 type dependency struct {
+	id collectionUid
 	// The actual collection containing this
-	collection erasedCollection
+	// collection *erasedCollection
 	// Filter over the collection
-	filter filter
+	filter *filter
 }
 
 // registerDependency is an internal interface for things that can register dependencies.
 // This is called from Fetch to Collections, generally.
 type registerDependency interface {
 	// Registers a dependency, returning true if it is finalized
-	registerDependency(dependency)
+	registerDependency(*dependency, *erasedCollection)
 	name() string
 }
 
@@ -226,4 +227,12 @@ func equal[O any](a, b O) bool {
 		panic(fmt.Sprintf("unable to compare object %T; perhaps it is embedding a protobuf? Provide an Equaler implementation", a))
 	}
 	return reflect.DeepEqual(a, b)
+}
+
+type collectionUid uint64
+
+var globalUidCounter = atomic.NewUint64(1)
+
+func nextUid() collectionUid {
+	return collectionUid(globalUidCounter.Inc())
 }

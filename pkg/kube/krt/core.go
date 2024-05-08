@@ -68,6 +68,8 @@ type internalCollection[T any] interface {
 	// Name is a human facing name for this collection.
 	// Note this may not be universally unique
 	name() string
+	// Uid is an internal unique ID for this collection. MUST be globally unique
+	uid() collectionUid
 
 	dump()
 
@@ -103,6 +105,17 @@ func (e Event[T]) Items() []T {
 	}
 	if e.New != nil {
 		res = append(res, *e.New)
+	}
+	return res
+}
+
+func (e Event[T]) Items2() []*T {
+	res := make([]*T, 0, 2)
+	if e.Old != nil {
+		res = append(res, e.Old)
+	}
+	if e.New != nil {
+		res = append(res, e.New)
 	}
 	return res
 }

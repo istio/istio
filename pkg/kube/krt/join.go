@@ -23,6 +23,7 @@ import (
 
 type join[T any] struct {
 	collectionName string
+	id             collectionUid
 	collections    []internalCollection[T]
 	merge          func(ts []T) T
 	synced         <-chan struct{}
@@ -78,6 +79,9 @@ func (j *join[T]) augment(a any) any {
 func (j *join[T]) name() string { return j.collectionName }
 
 // nolint: unused // (not true, its to implement an interface)
+func (j *join[T]) uid() collectionUid { return j.id }
+
+// nolint: unused // (not true, its to implement an interface)
 func (j *join[I]) dump() {
 	log.Errorf("> BEGIN DUMP (join %v)", j.collectionName)
 	for _, c := range j.collections {
@@ -116,6 +120,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	}()
 	return &join[T]{
 		collectionName: o.name,
+		id:             nextUid(),
 		synced:         synced,
 		collections:    c,
 		merge: func(ts []T) T {

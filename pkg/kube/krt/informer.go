@@ -33,6 +33,7 @@ type informer[I controllers.ComparableObject] struct {
 	inf            kclient.Informer[I]
 	log            *istiolog.Scope
 	collectionName string
+	id             collectionUid
 
 	eventHandlers *handlers[I]
 	augmentation  func(a any) any
@@ -65,6 +66,10 @@ func (i *informer[I]) dump() {
 
 func (i *informer[I]) name() string {
 	return i.collectionName
+}
+
+func (i *informer[I]) uid() collectionUid {
+	return i.id
 }
 
 func (i *informer[I]) List() []I {
@@ -142,6 +147,7 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		inf:            c,
 		log:            log.WithLabels("owner", o.name),
 		collectionName: o.name,
+		id:             nextUid(),
 		eventHandlers:  &handlers[I]{},
 		augmentation:   o.augmentation,
 		synced:         make(chan struct{}),
