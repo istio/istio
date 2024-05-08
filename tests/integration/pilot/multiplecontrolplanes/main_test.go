@@ -58,6 +58,12 @@ func TestMain(m *testing.M) {
 		RequireMultiPrimary().
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
+		// We are deploying two isolated environments, which CNI doesn't support.
+		// We could deploy one of the usergroups as the CNI owner, but for now we skip
+		SkipIf("CNI is not suppored", func(ctx resource.Context) bool {
+			c, _ := istio.DefaultConfig(ctx)
+			return c.EnableCNI
+		}).
 		SetupParallel(
 			namespace.Setup(&userGroup1NS, namespace.Config{Prefix: "usergroup-1", Labels: map[string]string{"usergroup": "usergroup-1"}}),
 			namespace.Setup(&userGroup2NS, namespace.Config{Prefix: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}})).
