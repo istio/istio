@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- https://github.com/istio/istio/issues/50372
+releaseNotes:
+- |
+  **Added** Custom labels added for istio-cni deployment and pods in helm chart
