@@ -98,8 +98,13 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 					return true
 				}
 			}
-			if proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways && config.Kind == kind.Gateway {
-				return true
+			if config.Kind == kind.Gateway {
+				if proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway() {
+					return true
+				}
+				if !proxy.MergedGateway.GetAutoPassthrughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts()) {
+					return true
+				}
 			}
 		}
 
