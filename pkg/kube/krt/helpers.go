@@ -17,6 +17,7 @@ package krt
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,10 +32,7 @@ func GetKey[O any](a O) Key[O] {
 	if k, ok := tryGetKey[O](a); ok {
 		return k
 	}
-	// Allow pointer receiver as well
-	if k, ok := tryGetKey[*O](&a); ok {
-		return Key[O](k)
-	}
+
 	panic(fmt.Sprintf("Cannot get Key, got %T", a))
 }
 
@@ -64,6 +62,10 @@ func (n Named) GetNamespace() string {
 // GetApplyConfigKey returns the key for the ApplyConfig.
 // If there is none, this will return nil.
 func GetApplyConfigKey[O any](a O) *Key[O] {
+	// Reflection is expensive; short circuit here
+	if !strings.HasSuffix(ptr.TypeName[O](), "ApplyConfiguration") {
+		return nil
+	}
 	val := reflect.ValueOf(a)
 
 	if val.Kind() == reflect.Ptr {
