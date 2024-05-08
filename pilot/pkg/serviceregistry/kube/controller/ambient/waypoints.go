@@ -200,16 +200,14 @@ func WaypointsCollection(
 			return p.Spec.ServiceAccountName
 		})
 
-		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
-		if gatewayClass == nil {
-			log.Warnf("could not find GatewayClass %s for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
-		}
-
 		// default traffic type if neither GatewayClass nor Gateway specify a type
 		trafficType := constants.ServiceTraffic
 
-		// Check for a declared traffic type that is allowed to pass through the Waypoint's GatewayClass
-		if tt, found := gatewayClass.Labels[constants.AmbientWaypointForTrafficTypeLabel]; found {
+		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
+		if gatewayClass == nil {
+			log.Warnf("could not find GatewayClass %s for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
+		} else if tt, found := gatewayClass.Labels[constants.AmbientWaypointForTrafficTypeLabel]; found {
+			// Check for a declared traffic type that is allowed to pass through the Waypoint's GatewayClass
 			trafficType = tt
 		}
 
