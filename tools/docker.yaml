@@ -81,18 +81,18 @@ images:
     - ${TARGET_OUT_LINUX}/extauthz
 
 # TODO(https://github.com/istio/istio/issues/38224)
-#- name: app_sidecar_rockylinux_8
-#  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
-#  files:
-#  - tools/packaging/common/envoy_bootstrap.json
-#  - tests/testdata/certs
-#  - pkg/test/echo/docker/echo-start.sh
-#  - pkg/test/echo/docker/sudoers
-#  targets:
-#  - ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm
-#  - ${TARGET_OUT_LINUX}/client
-#  - ${TARGET_OUT_LINUX}/server
-- name: app_sidecar_debian_11
+- name: app_sidecar_rockylinux_9
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tests/testdata/certs
+  - pkg/test/echo/docker/echo-start.sh
+  - pkg/test/echo/docker/sudoers
+  targets:
+  - ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm
+  - ${TARGET_OUT_LINUX}/client
+  - ${TARGET_OUT_LINUX}/server
+- name: app_sidecar_debian_12
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
   files:
   - tools/packaging/common/envoy_bootstrap.json
@@ -104,7 +104,7 @@ images:
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
   emulationRequired: true
-- name: app_sidecar_ubuntu_jammy
+- name: app_sidecar_ubuntu_noble
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
   files:
   - tools/packaging/common/envoy_bootstrap.json
