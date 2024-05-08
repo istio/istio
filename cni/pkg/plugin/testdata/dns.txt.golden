@@ -23,15 +23,16 @@
 -A ISTIO_OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports 15053
 -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 -A ISTIO_OUTPUT -j ISTIO_REDIRECT
--A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
--A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
--A OUTPUT -p udp --dport 53 -j REDIRECT --to-port 15053
+-A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
+-A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
+-A ISTIO_OUTPUT -p udp --dport 53 -j REDIRECT --to-port 15053
 COMMIT
 * raw
--A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
--A OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
--A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
--A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
--A OUTPUT -p udp --dport 53 -j CT --zone 2
+-N ISTIO_OUTPUT
+-A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
+-A ISTIO_OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
+-A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
+-A ISTIO_OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
+-A ISTIO_OUTPUT -p udp --dport 53 -j CT --zone 2
 -A PREROUTING -p udp --sport 53 -j CT --zone 1
 COMMIT
