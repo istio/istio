@@ -529,6 +529,7 @@ func TestCmdAddNoPrevResult(t *testing.T) {
          "sampleconfig": []
     },
     "loglevel": "debug",
+	"ambient_enabled": %t,
     "kubernetes": {
         "k8sapiroot": "APIRoot",
         "kubeconfig": "testK8sConfig",
@@ -539,7 +540,8 @@ func TestCmdAddNoPrevResult(t *testing.T) {
     }`
 
 	pod, ns := buildFakePodAndNSForClient()
-	testDoAddRun(t, confNoPrevResult, testNSName, pod, ns)
+	testDoAddRun(t, fmt.Sprintf(confNoPrevResult, false), testNSName, pod, ns)
+	testDoAddRun(t, fmt.Sprintf(confNoPrevResult, true), testNSName, pod, ns)
 }
 
 func TestCmdAddEnableDualStack(t *testing.T) {
