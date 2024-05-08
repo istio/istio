@@ -989,10 +989,6 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 		if ir.Kind == gvk.Service || ir.Kind == gvk.ServiceEntry {
 			gk = meshParentKey
 		}
-		bannedHostnames := sets.New[string]()
-		for _, gw := range gateways[gk] {
-			bannedHostnames.Insert(gw.OriginalHostname)
-		}
 		appendParent := func(pr *parentInfo, pk parentReference) {
 			bannedHostnames := sets.New[string]()
 			for _, gw := range gateways[gk] {
@@ -1994,7 +1990,7 @@ func (r routeParentReference) hostnameAllowedByIsolation(rawRouteHost string) bo
 			continue
 		}
 		// Ours is shorter. If it matches the checkListener, then it should ONLY match that one
-		// Note protocol, port, etc are already considered
+		// Note protocol, port, etc are already considered when we construct bannedHostnames
 		if routeHost.SubsetOf(host.Name(checkListener)) {
 			return false
 		}
