@@ -20,8 +20,8 @@ spec:
 # - Allow request with any token to access path /tokenAny
 # - Allow request with permission claim of "write" or "append" to access path /permission
 # - Allow request with valid JWT token to access path /jwt1
-# - Allow request with valid JWT token of presenter foo to access path with suffix "/presenter"
-# - Allow request with valid JWT token of audiences bar to access path with suffix "/audiences"
+# - Allow request with valid JWT token of presenter bar to access path with suffix "/presenter"
+# - Allow request with valid JWT token of audiences foo to access path with suffix "/audiences"
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
