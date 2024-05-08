@@ -1,5 +1,5 @@
 apiVersion: release-notes/v2
-kind: enhancement
+kind: feature
 area: security
 releaseNotes:
   - |
