@@ -40,5 +40,5 @@ chmod +x prow/release-commit.sh
 sed -i '/PROXY_REPO_SHA/,/lastStableSHA/ { s/"lastStableSHA":.*/"lastStableSHA": "'"$(getSha proxy)"'"/  }; /ZTUNNEL_REPO_SHA/,/lastStableSHA/ { s/"lastStableSHA":.*/"lastStableSHA": "'"$(getSha ztunnel)"'"/  }' istio.deps
 
 # shellcheck disable=SC1001
-LATEST_DEB11_DISTROLESS_SHA256=$(crane digest gcr.io/distroless/static-debian11 | awk -F\: '{print $2}')
-sed -i -E "s/sha256:[a-z0-9]+/sha256:${LATEST_DEB11_DISTROLESS_SHA256}/g" docker/Dockerfile.distroless
+LATEST_DISTROLESS_SHA256=$(crane digest cgr.dev/chainguard/static | awk -F\: '{print $2}')
+sed -i -E "s/sha256:[a-z0-9]+/sha256:${LATEST_DISTROLESS_SHA256}/g" docker/Dockerfile.distroless

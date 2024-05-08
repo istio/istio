@@ -3,5 +3,5 @@ kind: feature
 area: installation
 releaseNotes:
   - |
-    **Updated** the [`distroless`](/docs/ops/configuration/security/harden-docker-images/) images for Istio CNI, Proxy, and Ztunnel to be based on [Wolfi](https://wolfi.dev).
+    **Updated** the [`distroless`](/docs/ops/configuration/security/harden-docker-images/) images to be based on [Wolfi](https://wolfi.dev).
     This should have no user facing impact.
