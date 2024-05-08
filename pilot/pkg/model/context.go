@@ -563,7 +563,10 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	if node.Type != Router {
 		return
 	}
-	prevMergedGateway := *node.MergedGateway
+	var prevMergedGateway MergedGateway
+	if node.MergedGateway != nil {
+		prevMergedGateway = *node.MergedGateway
+	}
 	node.MergedGateway = ps.mergeGateways(node)
 	if prevMergedGateway.ContainsAutoPassthroughGateways {
 		node.PrevMergedGateway = &PrevMergedGateway{
