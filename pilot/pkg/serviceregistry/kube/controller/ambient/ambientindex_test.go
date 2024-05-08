@@ -1319,7 +1319,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertWaypointAddressForPod(t, "pod1", "10.0.0.2")
 
 	// assert local waypoint opt-out works as expected
-	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "#none"})
+	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "none"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that we're using no waypoint
 	s.assertWaypointAddressForPod(t, "pod1", "")
