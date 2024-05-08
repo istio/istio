@@ -145,6 +145,10 @@ func Reverse[E any](r []E) []E {
 	return r
 }
 
+func BinarySearch[S ~[]E, E cmp.Ordered](x S, target E) (int, bool) {
+	return slices.BinarySearch(x, target)
+}
+
 // FilterInPlace retains all elements in []E that f(E) returns true for.
 // The array is *mutated in place* and returned.
 // Use Filter to avoid mutation
