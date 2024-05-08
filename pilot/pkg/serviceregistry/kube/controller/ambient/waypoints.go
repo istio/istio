@@ -146,7 +146,11 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 // defaultNamespace avoids the need to infer when object meta from a namespace was given
 func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
 	if labelValue, ok := meta.Labels[constants.AmbientUseWaypointLabel]; ok {
-		if labelValue == "#none" || labelValue == "~" {
+		// NOTE: this means Istio reserves the word "none" in this field with a special meaning
+		//   a waypoint named "none" cannot be used and will be ignored
+		//   also reserve anything with suffix "/none" to prevent use of "namespace/none" as a work around
+		// ~ is used in other portions of the API, reserve it with special meaning although it's unlikely to be documented
+		if labelValue == "none" || labelValue == "~" || strings.HasSuffix(labelValue, "/none") {
 			return nil, true
 		}
 		namespacedName := strings.Split(labelValue, "/")
