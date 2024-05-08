@@ -3,19 +3,20 @@
 package {{.PackageName}}
 
 import (
-	"reflect"
+	"context"
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/informers"
-	ktypes "istio.io/istio/pkg/kube/kubetypes"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pilot/pkg/util/informermetric"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/kube/informerfactory"
 	"k8s.io/apimachinery/pkg/runtime"
-	kubeext "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/client-go/kubernetes"
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
-	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/kube/informerfactory"
+	ktypes "istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/ptr"
+
 	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	apiistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
