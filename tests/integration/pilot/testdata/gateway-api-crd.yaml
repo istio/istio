@@ -1,10 +1,10 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.1.0-rc2"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.1.0"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
-    gateway.networking.k8s.io/bundle-version: v1.1.0-rc2
+    gateway.networking.k8s.io/bundle-version: v1.1.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   labels:
@@ -605,7 +605,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
-    gateway.networking.k8s.io/bundle-version: v1.1.0-rc2
+    gateway.networking.k8s.io/bundle-version: v1.1.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: gatewayclasses.gateway.networking.k8s.io
@@ -1154,7 +1154,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
-    gateway.networking.k8s.io/bundle-version: v1.1.0-rc2
+    gateway.networking.k8s.io/bundle-version: v1.1.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: gateways.gateway.networking.k8s.io
@@ -3637,7 +3637,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
-    gateway.networking.k8s.io/bundle-version: v1.1.0-rc2
+    gateway.networking.k8s.io/bundle-version: v1.1.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: grpcroutes.gateway.networking.k8s.io
@@ -8320,7 +8320,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
-    gateway.networking.k8s.io/bundle-version: v1.1.0-rc2
+    gateway.networking.k8s.io/bundle-version: v1.1.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: httproutes.gateway.networking.k8s.io
@@ -14797,7 +14797,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
-    gateway.networking.k8s.io/bundle-version: v1.1.0-rc2
+    gateway.networking.k8s.io/bundle-version: v1.1.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: referencegrants.gateway.networking.k8s.io
@@ -15181,7 +15181,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
-    gateway.networking.k8s.io/bundle-version: v1.1.0-rc2
+    gateway.networking.k8s.io/bundle-version: v1.1.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: tcproutes.gateway.networking.k8s.io
@@ -16003,7 +16003,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
-    gateway.networking.k8s.io/bundle-version: v1.1.0-rc2
+    gateway.networking.k8s.io/bundle-version: v1.1.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: tlsroutes.gateway.networking.k8s.io
@@ -16898,7 +16898,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2997
-    gateway.networking.k8s.io/bundle-version: v1.1.0-rc2
+    gateway.networking.k8s.io/bundle-version: v1.1.0
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: udproutes.gateway.networking.k8s.io
