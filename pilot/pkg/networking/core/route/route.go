@@ -1155,6 +1155,15 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 	return out
 }
 
+func forwardNotMatchingPreflights(cors *networking.CorsPolicy) *wrappers.BoolValue {
+	if cors.GetUnmatchedPreflights() == networking.CorsPolicy_IGNORE {
+		return wrappers.Bool(false)
+	}
+
+	// This is the default behavior before envoy 1.30.
+	return wrappers.Bool(true)
+}
+
 // TranslateCORSPolicy translates CORS policy
 func TranslateCORSPolicy(proxy *model.Proxy, in *networking.CorsPolicy) *cors.CorsPolicy {
 	if in == nil {
@@ -1164,8 +1173,9 @@ func TranslateCORSPolicy(proxy *model.Proxy, in *networking.CorsPolicy) *cors.Co
 	// CORS filter is enabled by default
 	out := cors.CorsPolicy{}
 	// Start from Envoy 1.30(istio 1.22), cors filter will not forward preflight requests to upstream by default.
-	if proxy.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 22, Patch: -1}) >= 0 {
-		out.ForwardNotMatchingPreflights = wrappers.Bool(false)
+	// Istio start support this feature from 1.23.
+	if proxy.VersionGreaterAndEqual(&model.IstioVersion{Major: 1, Minor: 23, Patch: -1}) {
+		out.ForwardNotMatchingPreflights = forwardNotMatchingPreflights(in)
 	}
 
 	// nolint: staticcheck

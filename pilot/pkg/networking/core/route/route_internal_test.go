@@ -164,11 +164,11 @@ func TestIsCatchAllRoute(t *testing.T) {
 	}
 }
 
-func TestTranslateCORSPolicyV122(t *testing.T) {
+func TestTranslateCORSPolicyForwardNotMatchingPreflights(t *testing.T) {
 	node := &model.Proxy{
 		IstioVersion: &model.IstioVersion{
 			Major: 1,
-			Minor: 22,
+			Minor: 23,
 			Patch: 0,
 		},
 	}
@@ -178,6 +178,7 @@ func TestTranslateCORSPolicyV122(t *testing.T) {
 			{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
 			{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
 		},
+		UnmatchedPreflights: networking.CorsPolicy_IGNORE,
 	}
 	expectedCorsPolicy := &cors.CorsPolicy{
 		ForwardNotMatchingPreflights: wrappers.Bool(false),
