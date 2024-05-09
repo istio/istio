@@ -837,6 +837,6 @@
     {{- if .load_stats_config_json_str }}
     "load_stats_config": {{- .load_stats_config_json_str }}
     {{- end }}
-  {{ end }}
   }
+  {{ end }}
 }
