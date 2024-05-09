@@ -28,6 +28,33 @@ spec:
     spec:
       nodeSelector:
         kubernetes.io/os: linux
+{{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | trim | indent 8 }}
+{{- else }}
+{{ if .Values.excludeNodes }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: ztunnel
+                operator: NotIn
+                values:
+                - "{{ .Values.excludeNodes }}"
+{{- end }}
+{{ if .Values.includeNodes }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: ztunnel
+                operator: In
+                values:
+                - "{{ .Values.includeNodes }}"
+{{- end }}
+{{- end }}
       serviceAccountName: ztunnel
       tolerations:
         - effect: NoSchedule
