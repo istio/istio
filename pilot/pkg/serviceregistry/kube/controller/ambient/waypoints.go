@@ -200,21 +200,23 @@ func WaypointsCollection(
 			return p.Spec.ServiceAccountName
 		})
 
+		// default traffic type if neither GatewayClass nor Gateway specify a type
+		trafficType := constants.ServiceTraffic
+
 		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
 		if gatewayClass == nil {
 			log.Warnf("could not find GatewayClass %s for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
+		} else if tt, found := gatewayClass.Labels[constants.AmbientWaypointForTrafficTypeLabel]; found {
+			// Check for a declared traffic type that is allowed to pass through the Waypoint's GatewayClass
+			trafficType = tt
 		}
 
 		// Check for a declared traffic type that is allowed to pass through the Waypoint
 		if tt, found := gateway.Labels[constants.AmbientWaypointForTrafficTypeLabel]; found {
-			return makeWaypoint(gateway, gatewayClass, serviceAccounts, tt)
+			trafficType = tt
 		}
-		// If a value is not declared on a Gateway or its associated GatewayClass
-		// then the network layer should default to service when redirecting traffic.
-		//
-		// This is a safety measure to ensure that the Gateway is not misconfigured, but
-		// we will likely not hit this case as the CLI will validate the traffic type.
-		return makeWaypoint(gateway, gatewayClass, serviceAccounts, constants.ServiceTraffic)
+
+		return makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType)
 	}, krt.WithName("Waypoints"))
 }
 
