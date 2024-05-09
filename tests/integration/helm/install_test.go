@@ -203,6 +203,7 @@ func baseSetup(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
 			tag = "tag: " + tag
 		}
 		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, tag, s.Image.Variant)
+		overrideValues = adjustValuesForOpenShift(t, overrideValues)
 
 		overrideValuesFile := filepath.Join(workDir, "values.yaml")
 		if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
