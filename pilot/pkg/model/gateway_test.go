@@ -20,6 +20,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // nolint lll
@@ -157,6 +158,70 @@ func TestMergeGateways(t *testing.T) {
 				t.Errorf("Incorrect number of gateways. Expected: %v Got: %d", tt.gatewaysNum, len(mgw.GatewayNameForServer))
 			}
 		})
+	}
+}
+
+func TestGetAutoPassthroughSNIHosts(t *testing.T) {
+	gateway := config.Config{
+		Meta: config.Meta{
+			Name:      "gateway",
+			Namespace: "istio-system",
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"static.example.com"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+				},
+				{
+					Hosts: []string{"www.example.com"},
+					Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_SIMPLE},
+				},
+				{
+					Hosts: []string{"a.apps.svc.cluster.local", "b.apps.svc.cluster.local"},
+					Port:  &networking.Port{Name: "tls", Number: 15443, Protocol: "TLS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_AUTO_PASSTHROUGH},
+				},
+			},
+		},
+	}
+	svc := &Service{
+		Attributes: ServiceAttributes{
+			Labels: map[string]string{},
+		},
+	}
+	gatewayServiceTargets := []ServiceTarget{
+		{
+			Service: svc,
+			Port: ServiceInstancePort{
+				ServicePort: &Port{Port: 80},
+				TargetPort:  80,
+			},
+		},
+		{
+			Service: svc,
+			Port: ServiceInstancePort{
+				ServicePort: &Port{Port: 443},
+				TargetPort:  443,
+			},
+		},
+		{
+			Service: svc,
+			Port: ServiceInstancePort{
+				ServicePort: &Port{Port: 15443},
+				TargetPort:  15443,
+			},
+		},
+	}
+	instances := []gatewayWithInstances{{gateway: gateway, instances: gatewayServiceTargets}}
+	mgw := MergeGateways(instances, &Proxy{}, nil)
+	hosts := mgw.GetAutoPassthrughGatewaySNIHosts()
+	expectedHosts := sets.Set[string]{}
+	expectedHosts.InsertAll("a.apps.svc.cluster.local", "b.apps.svc.cluster.local")
+	if !hosts.Equals(expectedHosts) {
+		t.Errorf("expected to get: [a.apps.svc.cluster.local,b.apps.svc.cluster.local], got: %s", hosts.String())
 	}
 }
 

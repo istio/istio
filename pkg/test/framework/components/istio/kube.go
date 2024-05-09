@@ -620,7 +620,6 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 
 	// Include all user-specified values and configuration options.
 	if cfg.EnableCNI {
-		args.AppendSet("components.cni.namespace", "kube-system")
 		args.AppendSet("components.cni.enabled", "true")
 	}
 
