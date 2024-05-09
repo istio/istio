@@ -59,9 +59,17 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if len(req.ConfigsUpdated) == 0 {
 		return true
 	}
+
+	autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
+	autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthrughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
 	for config := range req.ConfigsUpdated {
-		if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-			if _, f := pushCdsGatewayConfig[config.Kind]; f {
+		if proxy.Type == model.Router {
+			if features.FilterGatewayClusterConfig {
+				if _, f := pushCdsGatewayConfig[config.Kind]; f {
+					return true
+				}
+			}
+			if config.Kind == kind.Gateway && (autoPassthroughModeChanged || autoPassthroughHostsChanged) {
 				return true
 			}
 		}
