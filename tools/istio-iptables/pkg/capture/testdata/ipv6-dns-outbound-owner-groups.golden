@@ -16,6 +16,8 @@ iptables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner ! --gid-owner java -m owner ! --gid-owner 202 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
+iptables -t nat -A OUTPUT -p udp -j ISTIO_OUTPUT
+iptables -t raw -A OUTPUT -p udp -j ISTIO_OUTPUT
 iptables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner ! --gid-owner java -m owner ! --gid-owner 202 -j RETURN
@@ -41,6 +43,8 @@ ip6tables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owne
 ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -m owner ! --gid-owner java -m owner ! --gid-owner 202 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
+ip6tables -t nat -A OUTPUT -p udp -j ISTIO_OUTPUT
+ip6tables -t raw -A OUTPUT -p udp -j ISTIO_OUTPUT
 ip6tables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner ! --gid-owner java -m owner ! --gid-owner 202 -j RETURN

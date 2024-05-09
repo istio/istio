@@ -32,6 +32,10 @@ ip6tables -t nat -F ISTIO_REDIRECT
 ip6tables -t nat -X ISTIO_REDIRECT
 ip6tables -t nat -F ISTIO_IN_REDIRECT
 ip6tables -t nat -X ISTIO_IN_REDIRECT
+iptables -t nat -D OUTPUT -p udp -j ISTIO_OUTPUT
+iptables -t raw -D OUTPUT -p udp -j ISTIO_OUTPUT
+ip6tables -t nat -D OUTPUT -p udp -j ISTIO_OUTPUT
+ip6tables -t raw -D OUTPUT -p udp -j ISTIO_OUTPUT
 iptables -t nat -D ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
 ip6tables -t nat -D ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
 iptables -t nat -D ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN

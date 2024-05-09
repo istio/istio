@@ -20,6 +20,8 @@ iptables -t nat -A ISTIO_OUTPUT -p tcp --dport 53 -d 127.0.0.53/32 -j REDIRECT -
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.1.2.3/32 -j ISTIO_REDIRECT
 iptables -t nat -A ISTIO_OUTPUT -j RETURN
+iptables -t nat -A OUTPUT -p udp -j ISTIO_OUTPUT
+iptables -t raw -A OUTPUT -p udp -j ISTIO_OUTPUT
 iptables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN
