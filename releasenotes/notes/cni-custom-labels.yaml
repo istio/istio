@@ -5,4 +5,4 @@ issue:
 - https://github.com/istio/istio/issues/50372
 releaseNotes:
 - |
-  **Added** Custom labels added for istio-cni deployment and pods in helm chart
+  **Added** labels and podLabels fields to istio-cni chart
