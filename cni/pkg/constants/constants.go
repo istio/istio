@@ -34,6 +34,7 @@ const (
 	CNIEventAddress      = "cni-event-address"
 	AmbientEnabled       = "ambient-enabled"
 	AmbientDNSCapture    = "ambient-dns-capture"
+	AmbientIPv6          = "ambient-ipv6"
 
 	// Repair
 	RepairEnabled            = "repair-enabled"

@@ -31,6 +31,7 @@ import (
 	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	gwfeatures "sigs.k8s.io/gateway-api/pkg/features"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
@@ -64,10 +65,7 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-mesh",
 }
 
-var skippedTests = map[string]string{
-	// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/1996) scope this skip more
-	"MeshConsumerRoute": "This requires an egress waypoint which is not yet implemented",
-}
+var skippedTests = map[string]string{}
 
 func TestGatewayConformance(t *testing.T) {
 	framework.
@@ -94,6 +92,7 @@ func TestGatewayConformance(t *testing.T) {
 
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
+			supported := gateway.SupportedFeatures.Clone().Delete(gwfeatures.SupportMeshConsumerRoute)
 			opts := suite.ConformanceOptions{
 				Client:                   c,
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
@@ -102,15 +101,15 @@ func TestGatewayConformance(t *testing.T) {
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},
-				SupportedFeatures:        gateway.SupportedFeatures,
+				SupportedFeatures:        supported,
 				SkipTests:                maps.Keys(skippedTests),
 				UsableNetworkAddresses:   []v1.GatewayAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 				UnusableNetworkAddresses: []v1.GatewayAddress{{Value: "foo", Type: &hostnameType}},
 				ConformanceProfiles: k8ssets.New(
-					suite.HTTPConformanceProfile.Name,
-					suite.TLSConformanceProfile.Name,
-					suite.GRPCConformanceProfile.Name,
-					suite.MeshConformanceProfile.Name,
+					suite.GatewayHTTPConformanceProfileName,
+					suite.GatewayTLSConformanceProfileName,
+					suite.GatewayGRPCConformanceProfileName,
+					suite.MeshHTTPConformanceProfileName,
 				),
 				Implementation: confv1.Implementation{
 					Organization: "istio",
@@ -120,7 +119,7 @@ func TestGatewayConformance(t *testing.T) {
 					Contact:      []string{"@istio/maintainers"},
 				},
 				NamespaceLabels: map[string]string{
-					constants.DataplaneMode: "ambient",
+					constants.DataplaneModeLabel: "ambient",
 				},
 				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 			}
@@ -148,7 +147,7 @@ func TestGatewayConformance(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ns.RemoveLabel(constants.DataplaneMode)
+			ns.RemoveLabel(constants.DataplaneModeLabel)
 
 			// create a waypoint for mesh conformance
 			meshNS := namespace.Static("gateway-conformance-mesh")
@@ -162,7 +161,7 @@ func TestGatewayConformance(t *testing.T) {
 				if labels == nil {
 					labels = make(map[string]string)
 				}
-				labels[constants.AmbientUseWaypoint] = "namespace"
+				labels[constants.AmbientUseWaypointLabel] = "namespace"
 				ns.Labels = labels
 				k.Kube().CoreV1().Namespaces().Update(ctx.Context(), ns, metav1.UpdateOptions{})
 			}

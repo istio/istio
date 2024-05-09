@@ -32,6 +32,7 @@ import (
 	cloudtrace "cloud.google.com/go/trace/apiv1/tracepb"
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -108,11 +109,7 @@ func TestSetup(ctx resource.Context) (err error) {
 				Namespace: EchoNsInst,
 				Subsets: []echo.SubsetConfig{
 					{
-						Annotations: map[echo.Annotation]*echo.AnnotationValue{
-							echo.SidecarBootstrapOverride: {
-								Value: sdBootstrapConfigMap,
-							},
-						},
+						Annotations: map[string]string{annotation.SidecarBootstrapOverride.Name: sdBootstrapConfigMap},
 					},
 				},
 			}).
@@ -142,11 +139,7 @@ func TestSetup(ctx resource.Context) (err error) {
 				},
 				Subsets: []echo.SubsetConfig{
 					{
-						Annotations: map[echo.Annotation]*echo.AnnotationValue{
-							echo.SidecarBootstrapOverride: {
-								Value: sdBootstrapConfigMap,
-							},
-						},
+						Annotations: map[string]string{annotation.SidecarBootstrapOverride.Name: sdBootstrapConfigMap},
 					},
 				},
 			})

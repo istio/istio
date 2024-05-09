@@ -1666,14 +1666,15 @@ func gatewayCases(t TrafficContext) {
 	}
 
 	// SingleRegualrPod is already applied leaving one regular pod, to only regular pods should leave a single workload.
-	singleTarget := []match.Matcher{match.RegularPod}
+	// the following cases don't actually target workloads, we use the singleTarget filter to avoid duplicate cases
+	// Gateways don't support talking directly to waypoint, so we skip that here as well.
+	matchers := []match.Matcher{match.RegularPod, match.NotWaypoint}
 
 	gatewayListenPort := 80
 	gatewayListenPortName := "http"
-	// the following cases don't actually target workloads, we use the singleTarget filter to avoid duplicate cases
 	t.RunTraffic(TrafficTestCase{
 		name:             "404",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP", t.Istio.Settings().IngressGatewayIstioLabel),
@@ -1691,7 +1692,7 @@ func gatewayCases(t TrafficContext) {
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "https redirect",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -1729,7 +1730,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		// See https://github.com/istio/istio/issues/27315
 		name:             "https with x-forwarded-proto",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -1803,7 +1804,8 @@ spec:
 		},
 	})
 	t.RunTraffic(TrafficTestCase{
-		name: "cipher suite",
+		name:           "cipher suite",
+		targetMatchers: []match.Matcher{match.NotWaypoint},
 		config: gatewayTmpl + httpVirtualServiceTmpl +
 			ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
 		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
@@ -1825,7 +1827,8 @@ spec:
 		workloadAgnostic: true,
 	})
 	t.RunTraffic(TrafficTestCase{
-		name: "optional mTLS",
+		name:           "optional mTLS",
+		targetMatchers: []match.Matcher{match.NotWaypoint},
 		config: gatewayTmpl + httpVirtualServiceTmpl +
 			ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
 		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
@@ -1847,7 +1850,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		// See https://github.com/istio/istio/issues/34609
 		name:             "http redirect when vs port specify https",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -1890,7 +1893,7 @@ spec:
 		// See https://github.com/istio/istio/issues/27315
 		// See https://github.com/istio/istio/issues/34609
 		name:             "http return 400 with with x-forwarded-proto https when vs port specify https",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -1966,7 +1969,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		// https://github.com/istio/istio/issues/37196
 		name:             "client protocol - http1",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -2009,7 +2012,7 @@ spec:
 		// https://github.com/istio/istio/issues/37196
 		name:             "client protocol - http2",
 		skip:             skipEnvoyPeerMeta,
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -2061,7 +2064,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "wildcard hostname",
-		targetMatchers:   singleTarget,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config: `apiVersion: networking.istio.io/v1alpha3
@@ -2150,7 +2153,7 @@ spec:
 				// https://github.com/istio/istio/issues/37196
 				name:             fmt.Sprintf("client protocol - %v use client with %v", protoName, port),
 				skip:             skipEnvoyPeerMeta,
-				targetMatchers:   singleTarget,
+				targetMatchers:   matchers,
 				workloadAgnostic: true,
 				viaIngress:       true,
 				config: `apiVersion: networking.istio.io/v1alpha3
@@ -2241,7 +2244,7 @@ spec:
 					check.RequestHeader("Istio-Custom-Header", "user-defined-value")),
 			},
 			// to keep tests fast, we only run the basic protocol test per-workload and scheme match once (per cluster)
-			targetMatchers:   singleTarget,
+			targetMatchers:   matchers,
 			viaIngress:       true,
 			workloadAgnostic: true,
 		})
@@ -3630,7 +3633,7 @@ spec:
 			}
 			expected := aInCluster[0].Address()
 			t.RunTraffic(TrafficTestCase{
-				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
+				name: fmt.Sprintf("svc/%s/%s/%s", client.Config().Service, client.Config().Cluster.StableName(), tt.name),
 				call: client.CallOrFail,
 				opts: echo.CallOptions{
 					Count:   1,
@@ -4017,7 +4020,7 @@ metadata:
   name: default
 spec:
   hosts:
-  - foo.bar
+  - {{ .dstSvc }}.foo.bar
   gateways:
   - gateway
   http:
@@ -4062,33 +4065,37 @@ spec:
       claim: "wrong_claim"
 ---
 `
-	matchers := []match.Matcher{match.Or(match.ServiceName(t.Apps.B.NamespacedName()), match.WaypointService(), match.CapturedService())}
+	matchers := []match.Matcher{match.And(
+		// No waypoint here, these are all via ingress which doesn't forward to waypoint
+		match.NotWaypoint,
+		match.Or(match.ServiceName(t.Apps.B.NamespacedName()), match.AmbientCaptured()),
+	)}
 	headersWithToken := map[string][]string{
-		"Host":          {"foo.bar"},
 		"Authorization": {"Bearer " + jwt.TokenIssuer1WithNestedClaims1},
 	}
 	headersWithInvalidToken := map[string][]string{
-		"Host":          {"foo.bar"},
 		"Authorization": {"Bearer " + jwt.TokenExpired},
 	}
 	headersWithNoToken := map[string][]string{"Host": {"foo.bar"}}
 	headersWithNoTokenButSameHeader := map[string][]string{
-		"Host":                            {"foo.bar"},
 		"request.auth.claims.nested.key1": {"valueA"},
 	}
 	headersWithToken2 := map[string][]string{
-		"Host":             {"foo.bar"},
 		"Authorization":    {"Bearer " + jwt.TokenIssuer1WithNestedClaims2},
 		"X-Jwt-Nested-Key": {"value_to_be_replaced"},
 	}
 	headersWithToken2WithAddedHeader := map[string][]string{
-		"Host":               {"foo.bar"},
 		"Authorization":      {"Bearer " + jwt.TokenIssuer1WithNestedClaims2},
 		"x-jwt-wrong-header": {"header_to_be_deleted"},
 	}
 	headersWithToken3 := map[string][]string{
-		"Host":          {"foo.bar"},
 		"Authorization": {"Bearer " + jwt.TokenIssuer1WithCollisionResistantName},
+	}
+	// the VirtualService for each test should be unique to avoid
+	// one test passing because it's new config hasn't kicked in yet
+	// and we're still testing the previous destination
+	setHostHeader := func(src echo.Caller, opts *echo.CallOptions) {
+		opts.HTTP.Headers["Host"] = []string{opts.To.ServiceName() + ".foo.bar"}
 	}
 
 	type configData struct {
@@ -4119,6 +4126,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with nested claim and single claim using claim to header:200",
@@ -4147,6 +4155,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with wrong claim and added header:404",
@@ -4172,6 +4181,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	// ---------------------------------------------
@@ -4202,6 +4212,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with single claim:200",
@@ -4227,6 +4238,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched multiple claims with regex:200",
@@ -4255,6 +4267,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched multiple claims:200",
@@ -4283,6 +4296,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched without claim:200",
@@ -4308,6 +4322,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched without claim:404",
@@ -4333,6 +4348,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched both with and without claims with regex:200",
@@ -4362,6 +4378,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched multiple claims:404",
@@ -4390,6 +4407,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched token:404",
@@ -4415,6 +4433,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with invalid token:401",
@@ -4440,6 +4459,7 @@ spec:
 			},
 			Check: check.Status(http.StatusUnauthorized),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no token:404",
@@ -4465,6 +4485,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no token but same header:404",
@@ -4491,6 +4512,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no request authentication:404",
@@ -4516,6 +4538,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	// ---------------------------------------------
@@ -4546,6 +4569,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched with single claim:200",
@@ -4571,6 +4595,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched multiple claims with regex:200",
@@ -4599,6 +4624,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched multiple claims:200",
@@ -4627,6 +4653,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched without claim:200",
@@ -4652,6 +4679,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched without claim:404",
@@ -4677,6 +4705,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched both with and without claims with regex:200",
@@ -4706,6 +4735,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched multiple claims:404",
@@ -4734,6 +4764,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched token:404",
@@ -4759,6 +4790,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with invalid token:401",
@@ -4784,6 +4816,7 @@ spec:
 			},
 			Check: check.Status(http.StatusUnauthorized),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no token:404",
@@ -4809,6 +4842,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no token but same header:404",
@@ -4835,6 +4869,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no request authentication:404",
@@ -4860,6 +4895,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	t.RunTraffic(TrafficTestCase{
@@ -4886,6 +4922,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	t.RunTraffic(TrafficTestCase{
@@ -4912,6 +4949,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	t.RunTraffic(TrafficTestCase{
@@ -4938,6 +4976,7 @@ spec:
 			},
 			Check: check.Status(http.StatusOK),
 		},
+		setupOpts: setHostHeader,
 	})
 
 	t.RunTraffic(TrafficTestCase{
@@ -4964,6 +5003,7 @@ spec:
 			},
 			Check: check.Status(http.StatusNotFound),
 		},
+		setupOpts: setHostHeader,
 	})
 }
 

@@ -3195,6 +3195,19 @@ func TestValidateLoadBalancer(t *testing.T) {
 			},
 			valid: false,
 		},
+
+		{
+			name: "invalid load balancer with consistentHash load balancing, maglev not prime", in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashAlgorithm: &networking.LoadBalancerSettings_ConsistentHashLB_Maglev{
+							Maglev: &networking.LoadBalancerSettings_ConsistentHashLB_MagLev{TableSize: 1000},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {

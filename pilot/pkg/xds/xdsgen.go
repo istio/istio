@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/lazy"
 	istioversion "istio.io/istio/pkg/version"
+	"istio.io/istio/pkg/xds"
 )
 
 // IstioControlPlaneInstance defines the format Istio uses for when creating Envoy config.core.v3.ControlPlane.identifier
@@ -127,7 +128,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterEvent(con.conID, w.TypeUrl, req.Push.LedgerVersion)
+			s.StatusReporter.RegisterEvent(con.ID(), w.TypeUrl, req.Push.LedgerVersion)
 		}
 		if log.DebugEnabled() {
 			log.Debugf("%s: SKIP%s for node:%s%s", v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, info)
@@ -154,7 +155,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 		ptype = "PUSH INC"
 	}
 
-	if err := con.send(resp); err != nil {
+	if err := xds.Send(con, resp); err != nil {
 		if recordSendError(w.TypeUrl, err) {
 			log.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",
 				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)

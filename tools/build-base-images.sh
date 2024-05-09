@@ -48,3 +48,15 @@ DOCKER_TARGETS="${DOCKER_TARGETS:-${defaultTargets}}"
 # * export DOCKER_ARCHITECTURES="linux/amd64,linux/arm64"
 # Note: if you already have a container builder before running the qemu setup you will need to restart them
 "${ROOT}/tools/docker" --push --no-cache --no-clobber --targets="${DOCKER_TARGETS}"
+
+APKO_IMAGES=""
+for h in ${HUBS}; do
+  for t in ${TAGS:-$TAG}; do
+    APKO_IMAGES+="${h}/iptables:$t "
+  done
+done
+
+# Build apko base image, which isn't part of our image building tool
+APKO_ARCHES="$(echo "${DOCKER_ARCHITECTURES:-arm64,amd64}" | sed 's/linux\///g')"
+# shellcheck disable=SC2086
+apko publish --arch="${APKO_ARCHES}" docker/iptables.yaml ${APKO_IMAGES}

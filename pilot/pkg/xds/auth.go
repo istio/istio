@@ -48,7 +48,7 @@ func (s *DiscoveryServer) authorize(con *Connection, identities []string) error 
 		// TODO: allow locking down, rejecting unauthenticated requests.
 		id, err := checkConnectionIdentity(con.proxy, identities)
 		if err != nil {
-			log.Warnf("Unauthorized XDS: %v with identity %v: %v", con.peerAddr, identities, err)
+			log.Warnf("Unauthorized XDS: %v with identity %v: %v", con.Peer(), identities, err)
 			return status.Newf(codes.PermissionDenied, "authorization failed: %v", err).Err()
 		}
 		con.proxy.VerifiedIdentity = id

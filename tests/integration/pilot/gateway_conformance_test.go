@@ -64,9 +64,7 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
-var skippedTests = map[string]string{
-	"MeshFrontendHostname": "https://github.com/istio/istio/issues/44702",
-}
+var skippedTests = map[string]string{}
 
 func TestGatewayConformance(t *testing.T) {
 	framework.
@@ -93,7 +91,8 @@ func TestGatewayConformance(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			supportedFeatures := gateway.SupportedFeatures
+			supportedFeatures := gateway.SupportedFeatures.Clone().
+				Delete(features.SupportMeshClusterIPMatching) // https://github.com/istio/istio/issues/44702
 			if ctx.Settings().GatewayConformanceStandardOnly {
 				supportedFeatures = k8ssets.New[features.SupportedFeature]().
 					Insert(features.GatewayExtendedFeatures.UnsortedList()...).
@@ -118,10 +117,10 @@ func TestGatewayConformance(t *testing.T) {
 				UsableNetworkAddresses:   []v1.GatewayAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 				UnusableNetworkAddresses: []v1.GatewayAddress{{Value: "foo", Type: &hostnameType}},
 				ConformanceProfiles: k8ssets.New(
-					suite.HTTPConformanceProfile.Name,
-					suite.TLSConformanceProfile.Name,
-					suite.GRPCConformanceProfile.Name,
-					suite.MeshConformanceProfile.Name,
+					suite.GatewayHTTPConformanceProfileName,
+					suite.GatewayTLSConformanceProfileName,
+					suite.GatewayGRPCConformanceProfileName,
+					suite.MeshHTTPConformanceProfileName,
 				),
 				Implementation: confv1.Implementation{
 					Organization: "istio",

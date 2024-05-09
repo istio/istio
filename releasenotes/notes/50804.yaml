@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 50736
+releaseNotes:
+- |
+  **Added** Allow pods to be opted out of ambient capture using the `istio.io/dataplane-mode=none` label.
+  **Removed** the ability to opt-out pods from ambient capture using the `ambient.istio.io/redirection=disabled` annotation, as that is a status annotation reserved for the CNI.

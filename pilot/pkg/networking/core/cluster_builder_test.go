@@ -2169,12 +2169,12 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 						},
 					},
 					Tls: &networking.ClientTLSSettings{
-						CaCertificates: constants.DefaultRootCert,
+						CaCertificates: "root-cert.pem",
 						Mode:           networking.ClientTLSSettings_SIMPLE,
 					},
 				},
 			},
-			expectedCaCertificateName: constants.DefaultRootCert,
+			expectedCaCertificateName: "root-cert.pem",
 			enableVerifyCertAtClient:  true,
 		},
 		{
@@ -2242,12 +2242,12 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 						},
 					},
 					Tls: &networking.ClientTLSSettings{
-						CaCertificates: constants.DefaultRootCert,
+						CaCertificates: "root-cert.pem",
 						Mode:           networking.ClientTLSSettings_SIMPLE,
 					},
 				},
 			},
-			expectedCaCertificateName: constants.DefaultRootCert,
+			expectedCaCertificateName: "root-cert.pem",
 			enableVerifyCertAtClient:  false,
 		},
 	}

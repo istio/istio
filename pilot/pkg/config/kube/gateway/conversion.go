@@ -479,6 +479,10 @@ func buildHTTPVirtualServices(
 		// Create one VS per hostname with a single hostname.
 		// This ensures we can treat each hostname independently, as the spec requires
 		for _, h := range vsHosts {
+			if !parent.hostnameAllowedByIsolation(h) {
+				// TODO: standardize a status message for this upstream and report
+				continue
+			}
 			if cfg := routeMap[routeKey][h]; cfg != nil {
 				// merge http routes
 				vs := cfg.Spec.(*istio.VirtualService)
@@ -981,23 +985,39 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 			SectionName: ptr.OrEmpty(ref.SectionName),
 			Port:        ptr.OrEmpty(ref.Port),
 		}
+		gk := ir
+		if ir.Kind == gvk.Service || ir.Kind == gvk.ServiceEntry {
+			gk = meshParentKey
+		}
 		appendParent := func(pr *parentInfo, pk parentReference) {
+			bannedHostnames := sets.New[string]()
+			for _, gw := range gateways[gk] {
+				if gw == pr {
+					continue // do not ban ourself
+				}
+				if gw.Port != pr.Port {
+					// We only care about listeners on the same port
+					continue
+				}
+				if gw.Protocol != pr.Protocol {
+					// We only care about listeners on the same protocol
+					continue
+				}
+				bannedHostnames.Insert(gw.OriginalHostname)
+			}
 			rpi := routeParentReference{
 				InternalName:      pr.InternalName,
 				InternalKind:      ir.Kind,
 				Hostname:          pr.OriginalHostname,
 				DeniedReason:      referenceAllowed(pr, kind, pk, hostnames, localNamespace),
 				OriginalReference: ref,
+				BannedHostnames:   bannedHostnames.Copy().Delete(pr.OriginalHostname),
 			}
 			if rpi.DeniedReason == nil {
 				// Record that we were able to bind to the parent
 				pr.AttachedRoutes++
 			}
 			parentRefs = append(parentRefs, rpi)
-		}
-		gk := ir
-		if ir.Kind == gvk.Service || ir.Kind == gvk.ServiceEntry {
-			gk = meshParentKey
 		}
 		for _, gw := range gateways[gk] {
 			// Append all matches. Note we may be adding mismatch section or ports; this is handled later
@@ -1926,6 +1946,7 @@ type parentInfo struct {
 	ReportAttachedRoutes func()
 	SectionName          k8s.SectionName
 	Port                 k8s.PortNumber
+	Protocol             k8s.ProtocolType
 }
 
 // routeParentReference holds information about a route's parent reference
@@ -1939,11 +1960,42 @@ type routeParentReference struct {
 	// OriginalReference contains the original reference
 	OriginalReference k8s.ParentReference
 	// Hostname is the hostname match of the parent, if any
-	Hostname string
+	Hostname        string
+	BannedHostnames sets.Set[string]
 }
 
 func (r routeParentReference) IsMesh() bool {
 	return r.InternalName == "mesh"
+}
+
+func (r routeParentReference) hostnameAllowedByIsolation(rawRouteHost string) bool {
+	routeHost := host.Name(rawRouteHost)
+	ourListener := host.Name(r.Hostname)
+	if len(ourListener) > 0 && !ourListener.IsWildCarded() {
+		// Short circuit: this logic only applies to wildcards
+		// Not required for correctness, just an optimization
+		return true
+	}
+	if len(ourListener) > 0 && !routeHost.Matches(ourListener) {
+		return false
+	}
+	for checkListener := range r.BannedHostnames {
+		// We have 3 hostnames here:
+		// * routeHost, the hostname in the route entry
+		// * ourListener, the hostname of the listener the route is bound to
+		// * checkListener, the hostname of the other listener we are comparing to
+		// We want to return false if checkListener would match the routeHost and it would be a more exact match
+		if len(ourListener) > len(checkListener) {
+			// If our hostname is longer, it must be more exact than the check
+			continue
+		}
+		// Ours is shorter. If it matches the checkListener, then it should ONLY match that one
+		// Note protocol, port, etc are already considered when we construct bannedHostnames
+		if routeHost.SubsetOf(host.Name(checkListener)) {
+			return false
+		}
+	}
+	return true
 }
 
 func filteredReferences(parents []routeParentReference) []routeParentReference {
@@ -2049,6 +2101,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 				OriginalHostname: string(ptr.OrEmpty(l.Hostname)),
 				SectionName:      l.Name,
 				Port:             l.Port,
+				Protocol:         l.Protocol,
 			}
 			pri.ReportAttachedRoutes = func() {
 				reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)

@@ -61,7 +61,7 @@ func NamespaceInAmbientMode(r *resource.Instance) bool {
 	if v, ok := r.Metadata.Labels[label.IoIstioRev.Name]; ok && v != "" {
 		return false
 	}
-	return r.Metadata.Labels[constants.DataplaneMode] == constants.DataplaneModeAmbient
+	return r.Metadata.Labels[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient
 }
 
 func inMesh(annos, labels map[string]string, namespace resource.Namespace, containers []v1.Container, c analysis.Context) bool {

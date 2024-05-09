@@ -16,6 +16,7 @@ package virtualservice
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
@@ -97,6 +98,7 @@ func combineResourceEntryNames(rList []*resource.Instance) string {
 	for _, r := range rList {
 		names = append(names, r.Metadata.FullName.String())
 	}
+	sort.Strings(names)
 	return strings.Join(names, ",")
 }
 

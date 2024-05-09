@@ -78,6 +78,19 @@ var (
 		},
 	}
 
+	port744x = []*Port{
+		{
+			Port:     7443,
+			Protocol: "GRPC",
+			Name:     "service-grpc-tls",
+		},
+		{
+			Port:     7442,
+			Protocol: "HTTP",
+			Name:     "http-tls",
+		},
+	}
+
 	port803x = []*Port{
 		{
 			Port:     8031,
@@ -582,6 +595,56 @@ var (
 		},
 	}
 
+	configs23 = &config.Config{
+		Meta: config.Meta{
+			Name: "sidecar-scope-with-multiple-ports",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.SidecarPort{
+						Number:   8031,
+						Protocol: "TCP",
+						Name:     "tcp-ipc1",
+					},
+					Hosts: []string{"ns1/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.SidecarPort{
+						Number:   8032,
+						Protocol: "TCP",
+						Name:     "tcp-ipc2",
+					},
+					Hosts: []string{"ns1/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.SidecarPort{
+						Number:   8033,
+						Protocol: "TCP",
+						Name:     "tcp-ipc3",
+					},
+					Hosts: []string{"ns1/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.SidecarPort{
+						Number:   8034,
+						Protocol: "TCP",
+						Name:     "tcp-ipc4",
+					},
+					Hosts: []string{"ns1/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.SidecarPort{
+						Number:   8035,
+						Protocol: "TCP",
+						Name:     "tcp-ipc5",
+					},
+					Hosts: []string{"ns1/foobar.svc.cluster.local"},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{
 			Hostname: "bar",
@@ -1015,24 +1078,27 @@ var (
 			Hostname: "foobar.svc.cluster.local",
 			Ports:    port803x,
 			Attributes: ServiceAttributes{
-				Name:      "foo",
-				Namespace: "ns1",
+				Name:            "foo",
+				Namespace:       "ns1",
+				ServiceRegistry: provider.Kubernetes,
 			},
 		},
 		{
 			Hostname: "foobar.svc.cluster.local",
 			Ports:    port8000,
 			Attributes: ServiceAttributes{
-				Name:      "foo",
-				Namespace: "ns2",
+				Name:            "foo",
+				Namespace:       "ns2",
+				ServiceRegistry: provider.Kubernetes,
 			},
 		},
 		{
 			Hostname: "foobar.svc.cluster.local",
 			Ports:    port7443,
 			Attributes: ServiceAttributes{
-				Name:      "baz",
-				Namespace: "ns3",
+				Name:            "baz",
+				Namespace:       "ns3",
+				ServiceRegistry: provider.Kubernetes,
 			},
 		},
 	}
@@ -1085,6 +1151,18 @@ var (
 			Attributes: ServiceAttributes{
 				Name:            "baz",
 				Namespace:       "ns3",
+				ServiceRegistry: provider.Kubernetes,
+			},
+		},
+	}
+
+	services26 = []*Service{
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port803x,
+			Attributes: ServiceAttributes{
+				Name:            "foo",
+				Namespace:       "ns1",
 				ServiceRegistry: provider.Kubernetes,
 			},
 		},
@@ -2061,56 +2139,6 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 		},
 		{
-			name: "k8s service no merge",
-			sidecarConfig: &config.Config{
-				Meta: config.Meta{
-					Name:      "default",
-					Namespace: "default",
-				},
-				Spec: &networking.Sidecar{},
-			},
-			services: []*Service{
-				{
-					Hostname: "proxy",
-					Ports:    port7000,
-					Attributes: ServiceAttributes{
-						Name:            "s1",
-						Namespace:       "default",
-						ServiceRegistry: provider.Kubernetes,
-					},
-				},
-				{
-					Hostname: "proxy",
-					Ports:    port7443,
-					Attributes: ServiceAttributes{
-						Name:            "s2",
-						Namespace:       "default",
-						ServiceRegistry: provider.Kubernetes,
-					},
-				},
-				{
-					Hostname: "proxy",
-					Ports:    port7442,
-					Attributes: ServiceAttributes{
-						Name:            "s3",
-						Namespace:       "default",
-						ServiceRegistry: provider.Kubernetes,
-					},
-				},
-			},
-			expectedServices: []*Service{
-				{
-					Hostname: "proxy",
-					Ports:    port7000,
-					Attributes: ServiceAttributes{
-						Name:            "s1",
-						Namespace:       "default",
-						ServiceRegistry: provider.Kubernetes,
-					},
-				},
-			},
-		},
-		{
 			name: "k8s service take precedence over external service",
 			sidecarConfig: &config.Config{
 				Meta: config.Meta{
@@ -2201,7 +2229,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			expectedServices: []*Service{
 				{
 					Hostname: "proxy",
-					Ports:    port7443,
+					Ports:    port744x,
 					Attributes: ServiceAttributes{
 						Name:            "s2",
 						Namespace:       "default",
@@ -2214,6 +2242,21 @@ func TestCreateSidecarScope(t *testing.T) {
 			name:          "multi-port-merge",
 			sidecarConfig: configs22,
 			services:      services23,
+			expectedServices: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x,
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+			},
+		},
+		{
+			name:          "multi-port-merge-in-same-namespace",
+			sidecarConfig: configs23,
+			services:      services26,
 			expectedServices: []*Service{
 				{
 					Hostname: "foobar.svc.cluster.local",
@@ -2533,6 +2576,13 @@ func TestCreateSidecarScope(t *testing.T) {
 					t.Errorf("Expected service %v in SidecarScope but not found", s1.Hostname)
 				} else if len(ports) > 0 && !portsMatched {
 					t.Errorf("Expected service %v found in SidecarScope but ports not merged correctly. want: %v, got: %v", s1.Hostname, ports, s1.Ports)
+				}
+
+				// validate service is also in sidecarScope.serviceByHostname
+				if s2, ok := sidecarScope.servicesByHostname[s1.Hostname]; !ok {
+					t.Errorf("Expected service %v should also in servicesByHostname", s1.Hostname)
+				} else if s1 != s2 {
+					t.Errorf("Expected service %v in SidecarScope.Services should equal to that in SidecarScope.servicesByHostname", s1.Hostname)
 				}
 			}
 

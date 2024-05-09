@@ -118,7 +118,7 @@ func TestCNIPluginServer(t *testing.T) {
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneMode, constants.DataplaneModeAmbient))
+		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -194,7 +194,7 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneMode, constants.DataplaneModeAmbient))
+		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)

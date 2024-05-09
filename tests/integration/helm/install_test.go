@@ -195,7 +195,15 @@ func baseSetup(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
 		s := t.Settings()
-		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, s.Image.Tag, s.Image.Variant)
+
+		// Some templates contain a tag definition, in which we just replace %s it with the tag value,
+		// others just contain a %s placeholder for the whole tag: line
+		tag := s.Image.Tag
+		if !strings.Contains(overrideValuesStr, "tag: ") {
+			tag = "tag: " + tag
+		}
+		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, tag, s.Image.Variant)
+
 		overrideValuesFile := filepath.Join(workDir, "values.yaml")
 		if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 			t.Fatalf("failed to write iop cr file: %v", err)

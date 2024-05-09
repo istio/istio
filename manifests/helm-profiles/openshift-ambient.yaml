@@ -12,7 +12,6 @@ cni:
   chained: false
   cniConfFileName: "istio-cni.conf"
   logLevel: info
-  privileged: true
   provider: "multus"
 pilot:
   cni:
@@ -25,6 +24,7 @@ pilot:
     PILOT_ENABLE_SENDING_HBONE: "true"
     PILOT_ENABLE_SIDECAR_LISTENING_HBONE: "true"
     CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
+platform: openshift
 variant: distroless
 seLinuxOptions:
   type: spc_t

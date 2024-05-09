@@ -617,11 +617,12 @@ func makeInstance(cfg *config.Config, address string, port int,
 	return &model.ServiceInstance{
 		Service: svc,
 		Endpoint: &model.IstioEndpoint{
-			Address:         address,
-			EndpointPort:    uint32(port),
-			ServicePortName: svcPort.Name,
-			Labels:          svcLabels,
-			TLSMode:         tlsMode,
+			Address:              address,
+			EndpointPort:         uint32(port),
+			ServicePortName:      svcPort.Name,
+			LegacyClusterPortKey: int(svcPort.Number),
+			Labels:               svcLabels,
+			TLSMode:              tlsMode,
 		},
 		ServicePort: &model.Port{
 			Name:     svcPort.Name,

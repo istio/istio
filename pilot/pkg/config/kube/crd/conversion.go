@@ -44,7 +44,7 @@ func FromJSON(s resource.Schema, js string) (config.Spec, error) {
 	return c, nil
 }
 
-func StatusJSONFromMap(schema resource.Schema, jsonMap map[string]any) (config.Status, error) {
+func StatusJSONFromMap(schema resource.Schema, jsonMap *json.RawMessage) (config.Status, error) {
 	if jsonMap == nil {
 		return nil, nil
 	}
@@ -124,13 +124,20 @@ func ConvertObject(schema resource.Schema, object IstioObject, domain string) (*
 
 // ConvertConfig translates Istio config to k8s config JSON
 func ConvertConfig(cfg config.Config) (IstioObject, error) {
-	spec, err := config.ToMap(cfg.Spec)
+	spec, err := config.ToRaw(cfg.Spec)
 	if err != nil {
 		return nil, err
 	}
-	status, err := config.ToMap(cfg.Status)
-	if err != nil {
-		return nil, err
+	var status *json.RawMessage
+	if cfg.Status != nil {
+		s, err := config.ToRaw(cfg.Status)
+		if err != nil {
+			return nil, err
+		}
+		// Probably a bit overkill, but this ensures we marshal a pointer to an empty object (&empty{}) as nil
+		if !bytes.Equal(s, []byte("{}")) {
+			status = &s
+		}
 	}
 	namespace := cfg.Namespace
 	if namespace == "" {

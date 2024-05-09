@@ -152,6 +152,9 @@ message CNIAmbientConfig {
 
   // If enabled, and ambient is enabled, DNS redirection will be enabled.
   google.protobuf.BoolValue dnsCapture = 5;
+
+  // UNSTABLE: If enabled, and ambient is enabled, enables ipv6 support
+  google.protobuf.BoolValue ipv6 = 7;
 }
 
 message CNIRepairConfig {

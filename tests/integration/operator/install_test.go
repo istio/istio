@@ -82,7 +82,7 @@ func TestReInstallAfterFailure(t *testing.T) {
 			// Here we should have two activated webhooks, but dry-run should not report any error, which
 			// means the re-installation can be done successfully.
 			output, outErr := istioCtl.InvokeOrFail(t, []string{"install", "--dry-run"})
-			if !strings.Contains(output, "Made this installation the default for injection and validation.") {
+			if !strings.Contains(output, "Made this installation the default for cluster-wide operations.") {
 				t.Errorf("install expects to succeed but didn't")
 			}
 			assert.Equal(t, "", outErr)

@@ -161,7 +161,7 @@ func TestBuildV4AppendInsertMultipleRules(t *testing.T) {
 }
 
 var IPv6Config = &config.Config{
-	EnableInboundIPv6: true,
+	EnableIPv6: true,
 }
 
 func TestBuildV6InsertSingleRule(t *testing.T) {

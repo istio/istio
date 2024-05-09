@@ -787,7 +787,7 @@ func makeRandomStructs(n int) []*myStruct {
 const N = 100_000
 
 func BenchmarkSort(b *testing.B) {
-	b.Run("bool", func(b *testing.B) {
+	b.Run("SortFunc", func(b *testing.B) {
 		cmpFunc := func(a, b *myStruct) int { return a.n - b.n }
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
@@ -796,7 +796,16 @@ func BenchmarkSort(b *testing.B) {
 			SortFunc(ss, cmpFunc)
 		}
 	})
-	b.Run("by", func(b *testing.B) {
+	b.Run("SortStableFunc", func(b *testing.B) {
+		cmpFunc := func(a, b *myStruct) int { return a.n - b.n }
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			ss := makeRandomStructs(N)
+			b.StartTimer()
+			SortStableFunc(ss, cmpFunc)
+		}
+	})
+	b.Run("SortBy", func(b *testing.B) {
 		cmpFunc := func(a *myStruct) int { return a.n }
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()

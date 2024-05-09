@@ -62,7 +62,7 @@ func getTestFixure(ctx context.Context) netTestFixture {
 	ztunnelServer := &fakeZtunnel{}
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
 	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, NewPodNetnsProcFinder(fakeFs()), set)
 
 	netServer.netnsRunner = func(fdable NetnsFd, toRun func() error) error {
@@ -79,7 +79,7 @@ func getTestFixure(ctx context.Context) netTestFixture {
 	}
 }
 
-func buildConvincingPod() *corev1.Pod {
+func buildConvincingPod(v6IP bool) *corev1.Pod {
 	app1 := corev1.Container{
 		Name: "app1",
 		Ports: []corev1.ContainerPort{
@@ -110,6 +110,19 @@ func buildConvincingPod() *corev1.Pod {
 
 	containers := []corev1.Container{app1}
 
+	var podStatus corev1.PodStatus
+	if v6IP {
+		podStatus = corev1.PodStatus{
+			PodIP:  "e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164",
+			PodIPs: []corev1.PodIP{{IP: "e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164"}, {IP: "e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3165"}},
+		}
+	} else {
+		podStatus = corev1.PodStatus{
+			PodIP:  "2.2.2.2",
+			PodIPs: []corev1.PodIP{{IP: "2.2.2.2"}, {IP: "3.3.3.3"}},
+		}
+	}
+
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
@@ -119,10 +132,7 @@ func buildConvincingPod() *corev1.Pod {
 		Spec: corev1.PodSpec{
 			Containers: containers,
 		},
-		Status: corev1.PodStatus{
-			PodIP:  "2.2.2.2",
-			PodIPs: []corev1.PodIP{{IP: "2.2.2.2"}, {IP: "3.3.3.3"}},
-		},
+		Status: podStatus,
 	}
 }
 
@@ -142,7 +152,7 @@ func TestServerAddPod(t *testing.T) {
 	podIPs := []netip.Addr{podIP}
 
 	fixture.ipsetDeps.On("addIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("99.9.9.9"),
 		uint8(unix.IPPROTO_TCP),
 		string(podMeta.UID),
@@ -239,7 +249,7 @@ func TestServerDeletePod(t *testing.T) {
 
 func expectPodAddedToIPSet(ipsetDeps *ipset.MockedIpsetDeps, podMeta metav1.ObjectMeta) {
 	ipsetDeps.On("addIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("99.9.9.9"),
 		uint8(unix.IPPROTO_TCP),
 		string(podMeta.UID),
@@ -338,7 +348,7 @@ func TestConstructInitialSnap(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: podMeta}
 
 	fixture.ipsetDeps.On("listEntriesByIP",
-		"foo",
+		"foo-v4",
 	).Return([]netip.Addr{}, nil)
 
 	err := netServer.ConstructInitialSnapshot([]*corev1.Pod{pod})
@@ -349,15 +359,15 @@ func TestConstructInitialSnap(t *testing.T) {
 }
 
 func TestAddPodToHostNSIPSets(t *testing.T) {
-	pod := buildConvincingPod()
+	pod := buildConvincingPod(false)
 
 	var podUID string = string(pod.ObjectMeta.UID)
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
 	ipProto := uint8(unix.IPPROTO_TCP)
 
 	fakeIPSetDeps.On("addIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("99.9.9.9"),
 		ipProto,
 		podUID,
@@ -365,7 +375,7 @@ func TestAddPodToHostNSIPSets(t *testing.T) {
 	).Return(nil)
 
 	fakeIPSetDeps.On("addIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("2.2.2.2"),
 		ipProto,
 		podUID,
@@ -379,16 +389,78 @@ func TestAddPodToHostNSIPSets(t *testing.T) {
 	fakeIPSetDeps.AssertExpectations(t)
 }
 
-func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
-	pod := buildConvincingPod()
+func TestAddPodToHostNSIPSetsV6(t *testing.T) {
+	pod := buildConvincingPod(true)
 
 	var podUID string = string(pod.ObjectMeta.UID)
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{V4Name: "foo-v4", V6Name: "foo-v6", Prefix: "foo", Deps: fakeIPSetDeps}
 	ipProto := uint8(unix.IPPROTO_TCP)
 
 	fakeIPSetDeps.On("addIP",
-		"foo",
+		"foo-v6",
+		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"),
+		ipProto,
+		podUID,
+		true,
+	).Return(nil)
+
+	fakeIPSetDeps.On("addIP",
+		"foo-v6",
+		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164"),
+		ipProto,
+		podUID,
+		true,
+	).Return(nil)
+
+	podIPs := []netip.Addr{netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"), netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")}
+	err := addPodToHostNSIpset(pod, podIPs, &set)
+	assert.NoError(t, err)
+
+	fakeIPSetDeps.AssertExpectations(t)
+}
+
+func TestAddPodToHostNSIPSetsDualstack(t *testing.T) {
+	pod := buildConvincingPod(true)
+
+	var podUID string = string(pod.ObjectMeta.UID)
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	set := ipset.IPSet{V4Name: "foo-v4", V6Name: "foo-v6", Prefix: "foo", Deps: fakeIPSetDeps}
+	ipProto := uint8(unix.IPPROTO_TCP)
+
+	fakeIPSetDeps.On("addIP",
+		"foo-v6",
+		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"),
+		ipProto,
+		podUID,
+		true,
+	).Return(nil)
+
+	fakeIPSetDeps.On("addIP",
+		"foo-v4",
+		netip.MustParseAddr("99.9.9.9"),
+		ipProto,
+		podUID,
+		true,
+	).Return(nil)
+
+	podIPs := []netip.Addr{netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"), netip.MustParseAddr("99.9.9.9")}
+	err := addPodToHostNSIpset(pod, podIPs, &set)
+	assert.NoError(t, err)
+
+	fakeIPSetDeps.AssertExpectations(t)
+}
+
+func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
+	pod := buildConvincingPod(false)
+
+	var podUID string = string(pod.ObjectMeta.UID)
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+	ipProto := uint8(unix.IPPROTO_TCP)
+
+	fakeIPSetDeps.On("addIP",
+		"foo-v4",
 		netip.MustParseAddr("99.9.9.9"),
 		ipProto,
 		podUID,
@@ -396,7 +468,7 @@ func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 	).Return(nil)
 
 	fakeIPSetDeps.On("addIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("2.2.2.2"),
 		ipProto,
 		podUID,
@@ -412,18 +484,18 @@ func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 }
 
 func TestRemovePodProbePortsFromHostNSIPSets(t *testing.T) {
-	pod := buildConvincingPod()
+	pod := buildConvincingPod(false)
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
 
 	fakeIPSetDeps.On("clearEntriesWithIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("3.3.3.3"),
 	).Return(nil)
 
 	fakeIPSetDeps.On("clearEntriesWithIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("2.2.2.2"),
 	).Return(nil)
 
@@ -433,7 +505,7 @@ func TestRemovePodProbePortsFromHostNSIPSets(t *testing.T) {
 }
 
 func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
-	pod := buildConvincingPod()
+	pod := buildConvincingPod(false)
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 
@@ -446,7 +518,7 @@ func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 
 	// expectations
 	fixture.ipsetDeps.On("addIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("3.3.3.3"),
 		ipProto,
 		podUID,
@@ -454,7 +526,7 @@ func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 	).Return(nil)
 
 	fixture.ipsetDeps.On("addIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("2.2.2.2"),
 		ipProto,
 		podUID,
@@ -462,7 +534,7 @@ func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 	).Return(nil)
 
 	fixture.ipsetDeps.On("listEntriesByIP",
-		"foo",
+		"foo-v4",
 	).Return([]netip.Addr{}, nil)
 
 	netServer := fixture.netServer
@@ -472,7 +544,7 @@ func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 }
 
 func TestSyncHostIPSetsAddsNothingIfPodHasNoIPs(t *testing.T) {
-	pod := buildConvincingPod()
+	pod := buildConvincingPod(false)
 
 	pod.Status.PodIP = ""
 	pod.Status.PodIPs = []corev1.PodIP{}
@@ -485,7 +557,7 @@ func TestSyncHostIPSetsAddsNothingIfPodHasNoIPs(t *testing.T) {
 	setupLogging()
 
 	fixture.ipsetDeps.On("listEntriesByIP",
-		"foo",
+		"foo-v4",
 	).Return([]netip.Addr{}, nil)
 
 	netServer := fixture.netServer
@@ -495,7 +567,7 @@ func TestSyncHostIPSetsAddsNothingIfPodHasNoIPs(t *testing.T) {
 }
 
 func TestSyncHostIPSetsPrunesIfExtras(t *testing.T) {
-	pod := buildConvincingPod()
+	pod := buildConvincingPod(false)
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 
@@ -508,7 +580,7 @@ func TestSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 
 	// expectations
 	fixture.ipsetDeps.On("addIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("3.3.3.3"),
 		ipProto,
 		podUID,
@@ -516,7 +588,7 @@ func TestSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 	).Return(nil)
 
 	fixture.ipsetDeps.On("addIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("2.2.2.2"),
 		ipProto,
 		podUID,
@@ -525,7 +597,7 @@ func TestSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 
 	// List should return one IP not in our "pod snapshot", which means we prune
 	fixture.ipsetDeps.On("listEntriesByIP",
-		"foo",
+		"foo-v4",
 	).Return([]netip.Addr{
 		netip.MustParseAddr("2.2.2.2"),
 		netip.MustParseAddr("6.6.6.6"),
@@ -533,7 +605,7 @@ func TestSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 	}, nil)
 
 	fixture.ipsetDeps.On("clearEntriesWithIP",
-		"foo",
+		"foo-v4",
 		netip.MustParseAddr("6.6.6.6"),
 	).Return(nil)
 

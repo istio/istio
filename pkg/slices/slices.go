@@ -69,6 +69,17 @@ func SortFunc[E any](x []E, less func(a, b E) int) []E {
 	return x
 }
 
+// SortStableFunc sorts the slice x while keeping the original order of equal element.
+// The slice is modified in place but returned.
+// Please refer to SortFunc for usage instructions.
+func SortStableFunc[E any](x []E, less func(a, b E) int) []E {
+	if len(x) <= 1 {
+		return x
+	}
+	slices.SortStableFunc(x, less)
+	return x
+}
+
 // SortBy is a helper to sort a slice by some value. Typically, this would be sorting a struct
 // by a single field. If you need to have multiple fields, see the ExampleSort.
 func SortBy[E any, A constraints.Ordered](x []E, extract func(a E) A) []E {
@@ -99,10 +110,8 @@ func Clone[S ~[]E, E any](s S) S {
 
 // Delete removes the element i from s, returning the modified slice.
 func Delete[S ~[]E, E any](s S, i int) S {
-	// "If those elements contain pointers you might consider zeroing those elements
-	// so that objects they reference can be garbage collected."
-	var empty E
-	s[i] = empty
+	// Since Go 1.22, "slices.Delete zeroes the elements s[len(s)-(j-i):len(s)]"
+	// (no memory leak)
 	return slices.Delete(s, i, i+1)
 }
 

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** support for proxying 100 continue headers. This can be disabled by setting ENABLE_100_CONTINUE_HEADERS to false.

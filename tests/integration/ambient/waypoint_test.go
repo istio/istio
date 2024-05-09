@@ -81,7 +81,7 @@ func TestWaypoint(t *testing.T) {
 				Prefix: "waypoint",
 				Inject: false,
 				Labels: map[string]string{
-					constants.DataplaneMode: "ambient",
+					constants.DataplaneModeLabel: "ambient",
 				},
 			})
 
@@ -201,15 +201,27 @@ func TestSimpleHTTPSandwich(t *testing.T) {
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			config := `
+apiVersion: networking.istio.io/v1beta1
+kind: ProxyConfig
+metadata:
+  name: disable-hbone
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: simple-http-waypoint
+  environmentVariables:
+    ISTIO_META_DISABLE_HBONE_SEND: "true"
+---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: simple-http-waypoint
   namespace: {{.Namespace}}
+  labels:
+    istio.io/dataplane-mode: ambient
   annotations:
     networking.istio.io/address-type: IPAddress
     networking.istio.io/service-type: ClusterIP
-    ambient.istio.io/redirection: enabled
 spec:
   gatewayClassName: istio
   listeners:
@@ -337,7 +349,7 @@ func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
 				waypoint = fmt.Sprintf("%q", waypoint)
 			}
 			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
-				constants.AmbientUseWaypoint, waypoint))
+				constants.AmbientUseWaypointLabel, waypoint))
 			_, err := client.Patch(context.TODO(), svc, types.MergePatchType, label, metav1.PatchOptions{})
 			return err
 		}

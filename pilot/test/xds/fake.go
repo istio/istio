@@ -93,6 +93,9 @@ type FakeOptions struct {
 	// Callback to modify the kube client before it is started
 	KubeClientModifier func(c kubelib.Client)
 
+	// Override the default kube client constructor
+	KubeClientBuilder func(objects ...runtime.Object) kubelib.Client
+
 	// ListenerBuilder, if specified, allows making the server use the given
 	// listener instead of a buffered conn.
 	ListenerBuilder func() (net.Listener, error)
@@ -166,8 +169,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName, mc)
 
 	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
+	clientBuilder := opts.KubeClientBuilder
+	if clientBuilder == nil {
+		clientBuilder = func(objects ...runtime.Object) kubelib.Client {
+			return kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objects...)
+		}
+	}
 	for k8sCluster, objs := range k8sObjects {
-		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
+		client := clientBuilder(objs...)
 		if opts.KubeClientModifier != nil {
 			opts.KubeClientModifier(client)
 		}

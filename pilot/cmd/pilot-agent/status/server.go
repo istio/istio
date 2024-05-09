@@ -51,12 +51,14 @@ import (
 	"istio.io/istio/pkg/config"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/env"
+	commonFeatures "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
+	istioNetUtil "istio.io/istio/pkg/util/net"
 )
 
 const (
@@ -421,7 +423,7 @@ func (s *Server) Run(ctx context.Context) {
 }
 
 func (s *Server) handlePprofIndex(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -430,7 +432,7 @@ func (s *Server) handlePprofIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePprofCmdline(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -439,7 +441,7 @@ func (s *Server) handlePprofCmdline(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePprofSymbol(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -448,7 +450,7 @@ func (s *Server) handlePprofSymbol(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePprofProfile(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -457,7 +459,7 @@ func (s *Server) handlePprofProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePprofTrace(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -493,16 +495,6 @@ func (s *Server) isReady() error {
 	return nil
 }
 
-func isRequestFromLocalhost(r *http.Request) bool {
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return false
-	}
-
-	userIP := net.ParseIP(ip)
-	return userIP.IsLoopback()
-}
-
 type PrometheusScrapeConfiguration struct {
 	Scrape string `json:"scrape"`
 	Path   string `json:"path"`
@@ -517,6 +509,10 @@ type PrometheusScrapeConfiguration struct {
 // Note that we do not return any errors here. If we do, we will drop metrics. For example, the app may be having issues,
 // but we still want Envoy metrics. Instead, errors are tracked in the failed scrape metrics/logs.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
+	if commonFeatures.MetricsLocalhostAccessOnly && !istioNetUtil.IsRequestFromLocalhost(r) {
+		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
+		return
+	}
 	metrics.ScrapeTotals.Increment()
 	var err error
 	var envoy, application io.ReadCloser
@@ -683,7 +679,7 @@ func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, context.
 }
 
 func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -698,7 +694,7 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDrain(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -890,7 +886,7 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 }
 
 func (s *Server) handleNdsz(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}

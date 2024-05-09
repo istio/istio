@@ -27,5 +27,6 @@ const (
 	StatefulSet WorkloadClass = "statefulset"
 	Headless    WorkloadClass = "headless"
 	Captured    WorkloadClass = "captured"
+	Waypoint    WorkloadClass = "waypoint"
 	Standard    WorkloadClass = "standard"
 )

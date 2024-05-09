@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/hash"
+	netutil "istio.io/istio/pkg/util/net"
 )
 
 var (
@@ -211,8 +212,10 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	h.Write(Separator)
 	h.WriteString(strconv.FormatBool(b.clusterLocal))
 	h.Write(Separator)
-	if features.EnableSidecarHBONEListening && b.proxy != nil {
+	if b.proxy != nil {
 		h.WriteString(strconv.FormatBool(b.proxy.IsProxylessGrpc()))
+		h.Write(Separator)
+		h.WriteString(strconv.FormatBool(bool(b.proxy.Metadata.DisableHBONESend)))
 		h.Write(Separator)
 	}
 	h.WriteString(util.LocalityToString(b.locality))
@@ -333,6 +336,13 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	svcEps = slices.FilterInPlace(svcEps, func(ep *model.IstioEndpoint) bool {
 		// filter out endpoints that don't match the service port
 		if svcPort.Name != ep.ServicePortName {
+			return false
+		}
+		// filter out endpoint that has invalid ip address, mostly domain name. Because this is generated from ServiceEntry.
+		// There are other two cases that should not be filtered out:
+		// 1. ep.Address can be empty since https://github.com/istio/istio/pull/45150, in this case we will replace it with gateway ip.
+		// 2. ep.Address can be uds when EndpointPort = 0
+		if ep.Address != "" && ep.EndpointPort != 0 && !netutil.IsValidIPAddress(ep.Address) {
 			return false
 		}
 		// filter out endpoints that don't match the subset
@@ -634,6 +644,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 
 	tunnel := supportTunnel(b, e)
 	if mtlsEnabled && !features.PreferHBONESend {
+		tunnel = false
+	}
+	if b.proxy.Metadata.DisableHBONESend {
 		tunnel = false
 	}
 	if tunnel {

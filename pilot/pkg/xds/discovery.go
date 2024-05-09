@@ -473,10 +473,10 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			proxiesQueueTime.Record(time.Since(push.Start).Seconds())
 			var closed <-chan struct{}
-			if client.stream != nil {
-				closed = client.stream.Context().Done()
-			} else {
+			if client.deltaStream != nil {
 				closed = client.deltaStream.Context().Done()
+			} else {
+				closed = client.StreamDone()
 			}
 			go func() {
 				pushEv := &Event{
@@ -485,11 +485,11 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 				}
 
 				select {
-				case client.pushChannel <- pushEv:
+				case client.PushCh() <- pushEv:
 					return
 				case <-closed: // grpc stream was closed
 					doneFunc()
-					log.Infof("Client closed connection %v", client.conID)
+					log.Infof("Client closed connection %v", client.ID())
 				}
 			}()
 		}
@@ -536,7 +536,7 @@ func (s *DiscoveryServer) Clients() []*Connection {
 	clients := make([]*Connection, 0, len(s.adsClients))
 	for _, con := range s.adsClients {
 		select {
-		case <-con.initialized:
+		case <-con.InitializedCh():
 		default:
 			// Initialization not complete, skip
 			continue

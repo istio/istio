@@ -174,7 +174,7 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute) (errs error) {
 				errs = appendErrors(errs, agent.ValidatePort(int(match.Port)))
 			}
 			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
-			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+			errs = appendErrors(errs, validateGatewayNames(match.Gateways, false))
 			if match.SourceNamespace != "" {
 				if !labels.IsDNS1123Label(match.SourceNamespace) {
 					errs = appendErrors(errs, fmt.Errorf("sourceNamespace match %s is invalid", match.SourceNamespace))

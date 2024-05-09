@@ -434,6 +434,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 			connectionManager.InternalAddressConfig = iac
 		}
 	}
+	connectionManager.Proxy_100Continue = features.Enable100ContinueHeaders
 	return connectionManager
 }
 

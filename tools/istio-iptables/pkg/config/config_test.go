@@ -96,7 +96,7 @@ func TestGetLocalIP(t *testing.T) {
 				t.Errorf("getLocalIP err: %s", err)
 			}
 			if isV6 != tt.expected {
-				t.Errorf("unexpected EnableInboundIPv6 result, expected: %t got: %t", tt.expected, isV6)
+				t.Errorf("unexpected EnableIPv6 result, expected: %t got: %t", tt.expected, isV6)
 			}
 		})
 	}

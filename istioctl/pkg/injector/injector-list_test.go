@@ -89,11 +89,11 @@ func Test_getNamespaces(t *testing.T) {
 		createNamespace("kube-system", nil),
 		createNamespace("istio-system", nil),
 		createNamespace("ambient", map[string]string{
-			constants.DataplaneMode: constants.DataplaneModeAmbient,
+			constants.DataplaneModeLabel: constants.DataplaneModeAmbient,
 		}),
 		createNamespace("no-ambient", map[string]string{
-			constants.DataplaneMode: constants.DataplaneModeAmbient,
-			"istio-injection":       "enabled",
+			constants.DataplaneModeLabel: constants.DataplaneModeAmbient,
+			"istio-injection":            "enabled",
 		}),
 	}
 
