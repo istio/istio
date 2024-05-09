@@ -1155,13 +1155,13 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 	return out
 }
 
-func forwardNotMatchingPreflights(cors *networking.CorsPolicy) *wrappers.BoolValue {
+func forwardNotMatchingPreflights(cors *networking.CorsPolicy) *wrapperspb.BoolValue {
 	if cors.GetUnmatchedPreflights() == networking.CorsPolicy_IGNORE {
-		return wrappers.Bool(false)
+		return wrapperspb.Bool(false)
 	}
 
 	// This is the default behavior before envoy 1.30.
-	return wrappers.Bool(true)
+	return wrapperspb.Bool(true)
 }
 
 // TranslateCORSPolicy translates CORS policy
