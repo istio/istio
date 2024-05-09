@@ -535,6 +535,7 @@ The test framework supports the following command-line flags:
 | -istio.test.skipVM | bool | Skip all the VM related parts in all the tests. (default is "false"). |
 | -istio.test.helmRepo | string | Overwrite the default helm Repo used for the tests. |
 | -istio.test.ambient | bool | Indicate the use of ambient mesh. |
+| -istio.test.openshift | bool | Set to `true` when running the tests in an OpenShift cluster, rather than in KinD. |
 
 ## Notes
 
