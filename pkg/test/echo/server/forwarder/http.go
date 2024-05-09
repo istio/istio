@@ -76,7 +76,7 @@ func newHTTP3TransportGetter(cfg *Config) (httpTransportGetter, func()) {
 	newConn := func() *http3.RoundTripper {
 		return &http3.RoundTripper{
 			TLSClientConfig: cfg.tlsConfig,
-			QuicConfig:      &quic.Config{},
+			QUICConfig:      &quic.Config{},
 		}
 	}
 	closeFn := func(conn *http3.RoundTripper) func() {

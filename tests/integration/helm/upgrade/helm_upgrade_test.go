@@ -60,14 +60,6 @@ func initVersions(ctx resource.Context) error {
 	nMinusTwoVersion = semver.New(previousVersion.Major(), previousVersion.Minor()-1, previousVersion.Patch(),
 		previousVersion.Prerelease(), previousVersion.Metadata()).String()
 
-	// Workaround publish issues
-	if previousSupportedVersion == "1.17.0" {
-		previousSupportedVersion = "1.17.1"
-	}
-	if nMinusTwoVersion == "1.17.0" {
-		nMinusTwoVersion = "1.17.1"
-	}
-
 	return nil
 }
 

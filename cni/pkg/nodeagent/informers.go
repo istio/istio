@@ -119,7 +119,7 @@ func (s *InformerHandlers) GetAmbientPods() []*corev1.Pod {
 func (s *InformerHandlers) enqueueNamespace(o controllers.Object) {
 	namespace := o.GetName()
 	labels := o.GetLabels()
-	matchAmbient := labels[constants.DataplaneMode] == constants.DataplaneModeAmbient
+	matchAmbient := labels[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient
 	if matchAmbient {
 		log.Infof("Namespace %s is enabled in ambient mesh", namespace)
 	} else {
@@ -177,7 +177,7 @@ func getModeLabel(m map[string]string) string {
 	if m == nil {
 		return ""
 	}
-	return m[constants.DataplaneMode]
+	return m[constants.DataplaneModeLabel]
 }
 
 func (s *InformerHandlers) reconcilePod(input any) error {
@@ -207,13 +207,10 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		}
 		wasAnnotated := oldPod.Annotations != nil && oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 		isAnnotated := newPod.Annotations != nil && newPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
-		isOpOut := newPod.Annotations != nil && newPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionDisabled
 		shouldBeEnabled := util.PodRedirectionEnabled(ns, newPod)
 
 		// We should check the latest annotation vs desired status
 		changeNeeded := isAnnotated != shouldBeEnabled
-		// Also need change for case user manually rolls out the pods
-		changeNeeded = changeNeeded || (wasAnnotated && isOpOut && !shouldBeEnabled)
 
 		log.Debugf("Pod %s events: wasAnnotated(%v), isAnnotated(%v), shouldBeEnabled(%v), changeNeeded(%v), oldPod(%+v), newPod(%+v)",
 			pod.Name, wasAnnotated, isAnnotated, shouldBeEnabled, changeNeeded, oldPod, newPod)

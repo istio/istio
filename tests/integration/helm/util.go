@@ -33,6 +33,7 @@ import (
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -72,14 +73,14 @@ const (
 	defaultValues = `
 global:
   hub: %s
-  tag: %s
+  %s
   variant: %q
 revision: "%s"
 `
 	ambientProfileOverride = `
 global:
   hub: %s
-  tag: %s
+  %s
   variant: %q
 profile: ambient
 `
@@ -172,9 +173,20 @@ spec:
 var ManifestsChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
 // getValuesOverrides returns the values file created to pass into Helm override default values
-// for the hub and tag
+// for the hub and tag.
+//
+// Tag can be the empty string, which means the values file will not have a
+// tag. In other words, the tag will come from the chart. This is useful in the upgrade
+// tests, where we deploy an old Istio version using the chart, and we want to use
+// the tag that comes with the chart.
 func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision string, isAmbient bool) string {
 	workDir := ctx.CreateTmpDirectoryOrFail("helm")
+
+	// Only use a tag value if not empty. Not having a tag in values means: Use the tag directly from the chart
+	if tag != "" {
+		tag = "tag: " + tag
+	}
+
 	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, revision)
 	if isAmbient {
 		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag, variant)
@@ -190,38 +202,33 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 var DefaultNamespaceConfig = NewNamespaceConfig()
 
 func NewNamespaceConfig(config ...types.NamespacedName) NamespaceConfig {
-	return &nsConfig{
-		config: config,
+	result := make(nsConfig, len(config))
+	for _, c := range config {
+		result[c.Name] = c.Namespace
 	}
+	return result
 }
 
-type nsConfig struct {
-	config []types.NamespacedName
-}
+type nsConfig map[string]string
 
-func (n *nsConfig) Get(name string) string {
-	for _, nsn := range n.config {
-		if name == nsn.Name {
-			return nsn.Namespace
-		}
+func (n nsConfig) Get(name string) string {
+	if ns, ok := n[name]; ok {
+		return ns
 	}
 	return IstioNamespace
 }
 
-func (n *nsConfig) AllNamespaces() []string {
-	unique := map[string]any{}
-	for _, nsname := range n.config {
-		unique[nsname.Namespace] = struct{}{}
-	}
-	namespaces := make([]string, 0, 4)
-	for k := range unique {
-		namespaces = append(namespaces, k)
-	}
-	return namespaces
+func (n nsConfig) Set(name, ns string) {
+	n[name] = ns
+}
+
+func (n nsConfig) AllNamespaces() []string {
+	return maps.Values(n)
 }
 
 type NamespaceConfig interface {
 	Get(name string) string
+	Set(name, ns string)
 	AllNamespaces() []string
 }
 
@@ -246,7 +253,8 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	gatewayOverrideValuesFile := overrideValuesFile
 
 	if version != "" {
-		versionArgs = fmt.Sprintf("--repo %s --version %s", t.Settings().HelmRepo, version)
+		// Prepend ~ to the version, so that we can refer to the latest patch version of a minor version
+		versionArgs = fmt.Sprintf("--repo %s --version ~%s", t.Settings().HelmRepo, version)
 		// Currently the ambient in-place upgrade tests try an upgrade from previous release which is 1.20,
 		// and many of the profile override values seem to be unrecognized by the gateway installation.
 		// So, this is a workaround until we move to 1.21 where we can use --set profile=ambient for the install/upgrade.
@@ -308,7 +316,8 @@ func InstallIstioWithRevision(t framework.TestContext, cs cluster.Cluster,
 	baseChartPath := RepoBaseChartPath
 	discoveryChartPath := RepoDiscoveryChartPath
 	if version != "" {
-		versionArgs = fmt.Sprintf("--repo %s --version %s", t.Settings().HelmRepo, version)
+		// Prepend ~ to the version, so that we can refer to the latest patch version of a minor version
+		versionArgs = fmt.Sprintf("--repo %s --version ~%s", t.Settings().HelmRepo, version)
 	} else {
 		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
 		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
@@ -426,8 +435,9 @@ func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, nsConfig 
 
 func SetRevisionTagWithVersion(ctx framework.TestContext, h *helm.Helm, revision, revisionTag, version string) {
 	scopes.Framework.Infof("=== setting revision tag with version === ")
+	// Prepend ~ to the version, so that we can refer to the latest patch version of a minor version
 	template, err := h.Template(IstiodReleaseName+"-"+revision, RepoDiscoveryChartPath,
-		IstioNamespace, "templates/revision-tags.yaml", Timeout, "--version", version, "--repo", ctx.Settings().HelmRepo, "--set",
+		IstioNamespace, "templates/revision-tags.yaml", Timeout, "--version", "~"+version, "--repo", ctx.Settings().HelmRepo, "--set",
 		fmt.Sprintf("revision=%s", revision), "--set", fmt.Sprintf("revisionTags={%s}", revisionTag))
 	if err != nil {
 		ctx.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)

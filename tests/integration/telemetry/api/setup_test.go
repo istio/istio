@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -96,33 +97,26 @@ proxyMetadata:
   WASM_INSECURE_REGISTRIES: %q`, registry.Address())
 	for _, e := range echos {
 		if e.Subsets[0].Annotations == nil {
-			e.Subsets[0].Annotations = map[echo.Annotation]*echo.AnnotationValue{}
+			e.Subsets[0].Annotations = map[string]string{}
 		}
 		if e.Service == "b" {
-			e.Subsets[0].Annotations.Set(echo.SidecarStatsHistogramBuckets, customBuckets)
+			e.Subsets[0].Annotations[annotation.SidecarStatsHistogramBuckets.Name] = customBuckets
 		}
-		e.Subsets[0].Annotations.Set(echo.SidecarProxyConfig, proxyMetadata)
+		e.Subsets[0].Annotations[annotation.ProxyConfig.Name] = proxyMetadata
 	}
+
+	proxyMd := `{"proxyMetadata": {"OUTPUT_CERTS": "/etc/certs/custom"}}`
 	prom := echo.Config{
 		// mock prom instance is used to mock a prometheus server, which will visit other echo instance /metrics
 		// endpoint with proxy provisioned certs.
 		Service: "mock-prom",
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: map[echo.Annotation]*echo.AnnotationValue{
-					echo.SidecarIncludeInboundPorts: {
-						Value: "",
-					},
-					echo.SidecarIncludeOutboundIPRanges: {
-						Value: "",
-					},
-					echo.SidecarProxyConfig: {
-						Value: `proxyMetadata:
-  OUTPUT_CERTS: /etc/certs/custom`,
-					},
-					echo.SidecarVolumeMount: {
-						Value: `[{"name": "custom-certs", "mountPath": "/etc/certs/custom"}]`,
-					},
+				Annotations: map[string]string{
+					annotation.SidecarTrafficIncludeInboundPorts.Name:     "",
+					annotation.SidecarTrafficIncludeOutboundIPRanges.Name: "",
+					annotation.ProxyConfig.Name:                           proxyMd,
+					annotation.SidecarUserVolumeMount.Name:                `[{"name": "custom-certs", "mountPath": "/etc/certs/custom"}]`,
 				},
 			},
 		},

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 50162
+releaseNotes:
+- |
+  **Fixed** Allow ipv6 config to be propagated to ambient CNI. Note that IPv6 support is still unstable.

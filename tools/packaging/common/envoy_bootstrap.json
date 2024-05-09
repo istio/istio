@@ -513,7 +513,11 @@
         "address": {
           "socket_address": {
             "protocol": "TCP",
+            {{- if .metrics_localhost_access_only }}
+            "address": "{{ .localhost }}",
+            {{ else }}
             "address": "{{ .wildcard }}",
+            {{ end }}
             "port_value": {{ .envoy_prometheus_port }}
           }
         },
@@ -523,7 +527,11 @@
             "address": {
               "socket_address": {
                 "protocol": "TCP",
+                {{- if .metrics_localhost_access_only }}
+                "address": "{{ .additional_localhost }}",
+                {{ else }}
                 "address": "{{ .additional_wildcard }}",
+                {{ end }}
                 "port_value": {{ .envoy_prometheus_port }}
               }
             }

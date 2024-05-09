@@ -1,4 +1,4 @@
-FROM ubuntu:jammy
+FROM ubuntu:noble
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -15,7 +15,7 @@ RUN apt-get update && \
   iproute2 \
   iputils-ping \
   knot-dnsutils \
-  netcat \
+  netcat-openbsd \
   tcpdump \
   conntrack \
   bsdmainutils \

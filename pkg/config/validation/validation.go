@@ -335,7 +335,7 @@ var ValidateGateway = RegisterValidateFunc("ValidateGateway",
 		v := Validation{}
 
 		// Gateway name must conform to the DNS label format (no dots)
-		if !labels.IsDNS1123Label(name) {
+		if !labels.IsDNS1123Label(name) && !gatewaySemantics {
 			v = AppendValidation(v, fmt.Errorf("invalid gateway name: %q", name))
 		}
 		value, ok := cfg.Spec.(*networking.Gateway)
@@ -1545,13 +1545,14 @@ var ValidateVirtualService = RegisterValidateFunc("ValidateVirtualService",
 				errs = AppendValidation(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
 			}
 		}
+		gatewaySemantics := cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
 
 		appliesToMesh := false
 		appliesToGateway := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
 		} else {
-			errs = AppendValidation(errs, validateGatewayNames(virtualService.Gateways))
+			errs = AppendValidation(errs, validateGatewayNames(virtualService.Gateways, gatewaySemantics))
 			for _, gatewayName := range virtualService.Gateways {
 				if gatewayName == constants.IstioMeshGateway {
 					appliesToMesh = true
@@ -1609,7 +1610,6 @@ var ValidateVirtualService = RegisterValidateFunc("ValidateVirtualService",
 		if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 && len(virtualService.Tls) == 0 {
 			errs = AppendValidation(errs, errors.New("http, tcp or tls must be provided in virtual service"))
 		}
-		gatewaySemantics := cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
 		for _, httpRoute := range virtualService.Http {
 			if httpRoute == nil {
 				errs = AppendValidation(errs, errors.New("http route may not be null"))
@@ -2021,7 +2021,7 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 		errs = AppendValidation(errs, agent.ValidatePort(int(match.Port)))
 	}
 	errs = AppendValidation(errs, labels.Instance(match.SourceLabels).Validate())
-	errs = AppendValidation(errs, validateGatewayNames(match.Gateways))
+	errs = AppendValidation(errs, validateGatewayNames(match.Gateways, false))
 	return
 }
 
@@ -2070,7 +2070,7 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 		errs = appendErrors(errs, agent.ValidatePort(int(match.Port)))
 	}
 	errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
-	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+	errs = appendErrors(errs, validateGatewayNames(match.Gateways, false))
 	return
 }
 
@@ -2119,7 +2119,7 @@ func validateStringRegexp(re string, where string) error {
 	return fmt.Errorf("%q: %w; Istio uses RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax)", where, err)
 }
 
-func validateGatewayNames(gatewayNames []string) (errs Validation) {
+func validateGatewayNames(gatewayNames []string, gatewaySemantics bool) (errs Validation) {
 	for _, gatewayName := range gatewayNames {
 		parts := strings.SplitN(gatewayName, "/", 2)
 		if len(parts) != 2 {
@@ -2143,7 +2143,7 @@ func validateGatewayNames(gatewayNames []string) (errs Validation) {
 			errs = AppendValidation(errs, fmt.Errorf("invalid value for namespace: %q", parts[0]))
 		}
 
-		if !labels.IsDNS1123Label(parts[1]) {
+		if !labels.IsDNS1123Label(parts[1]) && !gatewaySemantics {
 			errs = AppendValidation(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
 		}
 	}

@@ -28,7 +28,7 @@ func RealNlDeps() NetlinkIpsetDeps {
 
 type realDeps struct{}
 
-func (m *realDeps) ipsetIPPortCreate(name string) error {
+func (m *realDeps) ipsetIPHashCreate(name string, v6 bool) error {
 	return errors.New("not implemented on this platform")
 }
 

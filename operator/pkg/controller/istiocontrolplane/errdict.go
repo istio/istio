@@ -61,13 +61,6 @@ var (
 		Action: "If the error is because the object was deleted, it can be safely ignored. Otherwise, if the " +
 			"error persists, " + actionCheckBugList,
 	}
-	operatorFailedToGetObjectInCallback = &structured.Error{
-		MoreInfo: "A Kubernetes update for an IstioOperator resource did not " +
-			"contain an IstioOperator object.",
-		Impact:      operatorImpactNoUpdates,
-		LikelyCause: formatCauses(likelyCauseAPIServer) + " " + transiencePermanentForInstall,
-		Action:      actionIfErrPersistsCheckBugList,
-	}
 	operatorFailedToAddFinalizer = &structured.Error{
 		MoreInfo: "A finalizer could not be added to the IstioOperator resource. The " +
 			"controller uses the finalizer to temporarily prevent the resource from being deleted while the Istio " +

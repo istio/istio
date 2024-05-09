@@ -786,6 +786,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 			ServerName:                 ph.ServerName,
 			ServerHeaderTransformation: ph.ServerHeaderTransformation,
 			GenerateRequestId:          ph.GenerateRequestID,
+			Proxy_100Continue:          features.Enable100ContinueHeaders,
 		},
 		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
 		protocol:                  cc.port.Protocol,

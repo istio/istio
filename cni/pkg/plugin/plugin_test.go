@@ -232,7 +232,7 @@ func TestCmdAddAmbientEnabledOnNS(t *testing.T) {
 	cniConf := buildMockConf(true, url)
 
 	pod, ns := buildFakePodAndNSForClient()
-	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient}
+	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
 
 	testDoAddRun(t, cniConf, testNSName, pod, ns)
 
@@ -247,7 +247,7 @@ func TestCmdAddAmbientEnabledOnNSServerFails(t *testing.T) {
 	cniConf := buildMockConf(true, url)
 
 	pod, ns := buildFakePodAndNSForClient()
-	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient}
+	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
 
 	testCmdAddExpectFail(t, cniConf, pod, ns)
 
@@ -268,7 +268,7 @@ func TestCmdAddPodWithProxySidecarAmbientEnabledNS(t *testing.T) {
 
 	pod.Spec.Containers = []corev1.Container{app, proxy}
 	pod.ObjectMeta.Annotations = map[string]string{annotation.SidecarStatus.Name: "true"}
-	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient}
+	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
 
 	testDoAddRun(t, cniConf, testNSName, pod, ns)
 
@@ -288,7 +288,7 @@ func TestCmdAddPodWithGenericSidecar(t *testing.T) {
 	app := corev1.Container{Name: "app"}
 
 	pod.Spec.Containers = []corev1.Container{app, proxy}
-	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient}
+	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
 
 	testDoAddRun(t, cniConf, testNSName, pod, ns)
 
@@ -297,7 +297,7 @@ func TestCmdAddPodWithGenericSidecar(t *testing.T) {
 	assert.Equal(t, wasCalled, true)
 }
 
-func TestCmdAddPodDisabledAnnotation(t *testing.T) {
+func TestCmdAddPodDisabledLabel(t *testing.T) {
 	url, serverClose := setupCNIEventClientWithMockServer(false)
 
 	cniConf := buildMockConf(true, url)
@@ -305,14 +305,14 @@ func TestCmdAddPodDisabledAnnotation(t *testing.T) {
 	pod, ns := buildFakePodAndNSForClient()
 
 	app := corev1.Container{Name: "app"}
-	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneMode: constants.AmbientRedirectionEnabled}
-	pod.ObjectMeta.Annotations = map[string]string{constants.DataplaneMode: constants.AmbientRedirectionDisabled}
+	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
+	pod.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone}
 	pod.Spec.Containers = []corev1.Container{app}
 
 	testDoAddRun(t, cniConf, testNSName, pod, ns)
 
 	wasCalled := serverClose()
-	// Pod has an explicit opt-out annotation, should not be added to ambient mesh
+	// Pod has an explicit opt-out label, should not be added to ambient mesh
 	assert.Equal(t, wasCalled, false)
 }
 
@@ -324,15 +324,13 @@ func TestCmdAddPodEnabledNamespaceDisabled(t *testing.T) {
 	pod, ns := buildFakePodAndNSForClient()
 
 	app := corev1.Container{Name: "app"}
-	pod.ObjectMeta.Annotations = map[string]string{constants.DataplaneMode: constants.AmbientRedirectionEnabled}
+	pod.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
 	pod.Spec.Containers = []corev1.Container{app}
 
 	testDoAddRun(t, cniConf, testNSName, pod, ns)
 
 	wasCalled := serverClose()
-	// Currently, we do not allow individual pod opt-in to ambient if namespace is not labeled, so pod
-	// shouls not be added to ambient
-	assert.Equal(t, wasCalled, false)
+	assert.Equal(t, wasCalled, true)
 }
 
 func TestCmdAddPodInExcludedNamespace(t *testing.T) {
@@ -345,7 +343,7 @@ func TestCmdAddPodInExcludedNamespace(t *testing.T) {
 
 	app := corev1.Container{Name: "app"}
 	ns.ObjectMeta.Name = excludedNS
-	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneMode: constants.AmbientRedirectionEnabled}
+	ns.ObjectMeta.Labels = map[string]string{constants.DataplaneModeLabel: constants.AmbientRedirectionEnabled}
 
 	pod.ObjectMeta.Namespace = excludedNS
 	pod.Spec.Containers = []corev1.Container{app}
@@ -531,6 +529,7 @@ func TestCmdAddNoPrevResult(t *testing.T) {
          "sampleconfig": []
     },
     "loglevel": "debug",
+	"ambient_enabled": %t,
     "kubernetes": {
         "k8sapiroot": "APIRoot",
         "kubeconfig": "testK8sConfig",
@@ -541,7 +540,8 @@ func TestCmdAddNoPrevResult(t *testing.T) {
     }`
 
 	pod, ns := buildFakePodAndNSForClient()
-	testDoAddRun(t, confNoPrevResult, testNSName, pod, ns)
+	testDoAddRun(t, fmt.Sprintf(confNoPrevResult, false), testNSName, pod, ns)
+	testDoAddRun(t, fmt.Sprintf(confNoPrevResult, true), testNSName, pod, ns)
 }
 
 func TestCmdAddEnableDualStack(t *testing.T) {

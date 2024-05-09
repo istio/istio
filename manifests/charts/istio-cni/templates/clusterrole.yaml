@@ -12,6 +12,12 @@ rules:
 - apiGroups: [""]
   resources: ["pods","nodes","namespaces"]
   verbs: ["get", "list", "watch"]
+{{- if (eq .Values.platform "openshift") }}
+- apiGroups: ["security.openshift.io"]
+  resources: ["securitycontextconstraints"]
+  resourceNames: ["privileged"]
+  verbs: ["use"]
+{{- end }}
 ---
 {{- if .Values.cni.repair.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
