@@ -28,6 +28,9 @@ spec:
     spec:
       nodeSelector:
         kubernetes.io/os: linux
+{{- if .Values.nodeSelector }}
+{{ toYaml .Values.nodeSelector | indent 8 }}
+{{- end }}
 {{- if .Values.affinity }}
       affinity:
 {{ toYaml .Values.affinity | trim | indent 8 }}
