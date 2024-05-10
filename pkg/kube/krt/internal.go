@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -26,7 +27,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/slices"
 )
 
 // registerHandlerAsBatched is a helper to register the provided handler as a batched handler. This allows collections to
@@ -37,37 +37,6 @@ func registerHandlerAsBatched[T any](c internalCollection[T], f func(o Event[T])
 			f(o)
 		}
 	}, true)
-}
-
-// erasedCollection is a Collection[T] that has been type-erased so it can be stored in collections
-// that do not have type information.
-type erasedCollection struct {
-	// original stores the original typed Collection
-	original any
-	// registerFunc registers any Event[any] handler. These will be mapped to Event[T] when connected to the original collection.
-	registerFunc func(f func(o []Event[any], initialSync bool))
-	name         string
-	synced       Syncer
-}
-
-func (e erasedCollection) register(f func(o []Event[any], initialSync bool)) {
-	e.registerFunc(f)
-}
-
-func eraseCollection[T any](c internalCollection[T]) erasedCollection {
-	return erasedCollection{
-		name:     c.name(),
-		original: c,
-		synced:   c.Synced(),
-		registerFunc: func(f func(o []Event[any], initialSync bool)) {
-			ff := func(o []Event[T], initialSync bool) {
-				f(slices.Map(o, castEvent[T, any]), initialSync)
-			}
-			// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
-			// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
-			c.RegisterBatch(ff, false)
-		},
-	}
 }
 
 // castEvent converts an Event[I] to Event[O].
@@ -106,17 +75,19 @@ type collectionOptions struct {
 
 // dependency is a specific thing that can be depended on
 type dependency struct {
-	// The actual collection containing this
-	collection erasedCollection
+	id             collectionUID
+	collectionName string
 	// Filter over the collection
-	filter filter
+	filter *filter
 }
+
+type erasedEventHandler = func(o []Event[any], initialSync bool)
 
 // registerDependency is an internal interface for things that can register dependencies.
 // This is called from Fetch to Collections, generally.
 type registerDependency interface {
 	// Registers a dependency, returning true if it is finalized
-	registerDependency(dependency)
+	registerDependency(*dependency, Syncer, func(f erasedEventHandler))
 	name() string
 }
 
@@ -226,4 +197,12 @@ func equal[O any](a, b O) bool {
 		panic(fmt.Sprintf("unable to compare object %T; perhaps it is embedding a protobuf? Provide an Equaler implementation", a))
 	}
 	return reflect.DeepEqual(a, b)
+}
+
+type collectionUID uint64
+
+var globalUIDCounter = atomic.NewUint64(1)
+
+func nextUID() collectionUID {
+	return collectionUID(globalUIDCounter.Inc())
 }

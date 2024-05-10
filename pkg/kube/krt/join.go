@@ -19,41 +19,38 @@ import (
 
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type join[T any] struct {
 	collectionName string
+	id             collectionUID
 	collections    []internalCollection[T]
-	merge          func(ts []T) T
 	synced         <-chan struct{}
 }
 
 func (j *join[T]) GetKey(k Key[T]) *T {
-	var found []T
 	for _, c := range j.collections {
 		if r := c.GetKey(k); r != nil {
-			found = append(found, *r)
+			return r
 		}
 	}
-	if len(found) == 0 {
-		return nil
-	}
-	return ptr.Of(j.merge(found))
+	return nil
 }
 
 func (j *join[T]) List() []T {
-	res := map[Key[T]][]T{}
+	res := []T{}
+	found := sets.New[Key[T]]()
 	for _, c := range j.collections {
 		for _, i := range c.List() {
 			key := GetKey(i)
-			res[key] = append(res[key], i)
+			if !found.InsertContains(key) {
+				// Only keep it if it is the first time we saw it, as our merging mechanism is to keep the first one
+				res = append(res, i)
+			}
 		}
 	}
-	var l []T
-	for _, ts := range res {
-		l = append(l, j.merge(ts))
-	}
-	return l
+	return res
 }
 
 func (j *join[T]) Register(f func(o Event[T])) Syncer {
@@ -76,6 +73,9 @@ func (j *join[T]) augment(a any) any {
 
 // nolint: unused // (not true, its to implement an interface)
 func (j *join[T]) name() string { return j.collectionName }
+
+// nolint: unused // (not true, its to implement an interface)
+func (j *join[T]) uid() collectionUID { return j.id }
 
 // nolint: unused // (not true, its to implement an interface)
 func (j *join[I]) dump() {
@@ -114,12 +114,11 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		close(synced)
 		log.Infof("%v synced", o.name)
 	}()
+	// TODO: in the future, we could have a custom merge function. For now, since we just take the first, we optimize around that case
 	return &join[T]{
 		collectionName: o.name,
+		id:             nextUID(),
 		synced:         synced,
 		collections:    c,
-		merge: func(ts []T) T {
-			return ts[0]
-		},
 	}
 }
