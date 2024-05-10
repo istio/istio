@@ -33,14 +33,19 @@ type Set[T constraints.Ordered] struct {
 }
 
 // NewPresorted creates a new Set with the given items.
-// If items is not sorted, this gives undefined behavior; use New instead.
+// If items is not sorted or contains duplicates, this gives undefined behavior; use New instead.
 func NewPresorted[T constraints.Ordered](items ...T) Set[T] {
 	return Set[T]{items: items}
 }
 
 // New creates a new Set with the given items.
+// Duplicates are removed
 func New[T constraints.Ordered](items ...T) Set[T] {
+	if len(items) == 1 {
+		return NewPresorted(items...)
+	}
 	slices.Sort(items)
+	items = slices.FilterDuplicatesPresorted(items)
 	return Set[T]{items: items}
 }
 

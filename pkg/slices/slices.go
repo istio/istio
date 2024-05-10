@@ -172,6 +172,29 @@ func FilterInPlace[E any](s []E, f func(E) bool) []E {
 	return s
 }
 
+// FilterDuplicatesPresorted retains all unique elements in []E.
+// The slices MUST be pre-sorted.
+func FilterDuplicatesPresorted[E comparable](s []E) []E {
+	n := 1
+	for i := 1; i < len(s); i++ {
+		val := s[i]
+		if val != s[i-1] {
+			s[n] = val
+			n++
+		}
+	}
+
+	// If those elements contain pointers you might consider zeroing those elements
+	// so that objects they reference can be garbage collected."
+	var empty E
+	for i := n; i < len(s); i++ {
+		s[i] = empty
+	}
+
+	s = s[:n]
+	return s
+}
+
 // Filter retains all elements in []E that f(E) returns true for.
 // A new slice is created and returned. Use FilterInPlace to perform in-place
 func Filter[E any](s []E, f func(E) bool) []E {

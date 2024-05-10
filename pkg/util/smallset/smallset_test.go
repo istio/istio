@@ -67,24 +67,33 @@ func BenchmarkSet(b *testing.B) {
 		set1000 := sets.New(items1000...)
 		set100 := sets.New(items100...)
 		set2 := sets.New(items2...)
+		b.Run("New/1", func(b *testing.B) {
+			for range b.N {
+				_ = sets.New("a")
+			}
+		})
 		b.Run("New/1000", func(b *testing.B) {
 			for range b.N {
-				_ = sets.New(items100...)
+				_ = sets.New(items1000...)
 			}
 		})
 		b.Run("Contains/1000", func(b *testing.B) {
 			for range b.N {
+				// Check an item in and out of the set
 				_ = set1000.Contains("456")
+				_ = set1000.Contains("abc")
 			}
 		})
 		b.Run("Contains/100", func(b *testing.B) {
 			for range b.N {
 				_ = set100.Contains("45")
+				_ = set100.Contains("abc")
 			}
 		})
 		b.Run("Contains/2", func(b *testing.B) {
 			for range b.N {
-				_ = set2.Contains("2")
+				_ = set2.Contains("1")
+				_ = set2.Contains("abc")
 			}
 		})
 	})
@@ -92,6 +101,11 @@ func BenchmarkSet(b *testing.B) {
 		set1000 := smallset.New(items1000...)
 		set100 := smallset.New(items100...)
 		set2 := smallset.New(items2...)
+		b.Run("New/1", func(b *testing.B) {
+			for range b.N {
+				_ = smallset.New("a")
+			}
+		})
 		b.Run("New/1000", func(b *testing.B) {
 			for range b.N {
 				_ = smallset.New(items1000...)
@@ -99,22 +113,28 @@ func BenchmarkSet(b *testing.B) {
 		})
 		b.Run("NewPresorted/1000", func(b *testing.B) {
 			for range b.N {
-				_ = smallset.New(items1000...)
+				_ = smallset.NewPresorted(items1000...)
 			}
 		})
 		b.Run("Contains/1000", func(b *testing.B) {
 			for range b.N {
+				// Check an item in and out of the set
 				_ = set1000.Contains("456")
+				_ = set1000.Contains("abc")
 			}
 		})
 		b.Run("Contains/100", func(b *testing.B) {
 			for range b.N {
+				// Check an item in and out of the set
 				_ = set100.Contains("45")
+				_ = set100.Contains("abc")
 			}
 		})
-		b.Run("Contains/4", func(b *testing.B) {
+		b.Run("Contains/2", func(b *testing.B) {
 			for range b.N {
-				_ = set2.Contains("2")
+				// Check an item in and out of the set
+				_ = set2.Contains("1")
+				_ = set2.Contains("abc")
 			}
 		})
 	})
