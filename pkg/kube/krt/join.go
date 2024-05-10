@@ -117,7 +117,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	// TODO: in the future, we could have a custom merge function. For now, since we just take the first, we optimize around that case
 	return &join[T]{
 		collectionName: o.name,
-		id:             nextUid(),
+		id:             nextUID(),
 		synced:         synced,
 		collections:    c,
 	}

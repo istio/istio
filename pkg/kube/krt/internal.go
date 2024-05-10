@@ -203,6 +203,6 @@ type collectionUID uint64
 
 var globalUIDCounter = atomic.NewUint64(1)
 
-func nextUid() collectionUID {
+func nextUID() collectionUID {
 	return collectionUID(globalUIDCounter.Inc())
 }

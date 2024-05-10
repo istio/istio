@@ -38,7 +38,7 @@ func NewStatic[T any](initial *T) StaticSingleton[T] {
 	val.Store(initial)
 	x := &static[T]{
 		val:           val,
-		id:            nextUid(),
+		id:            nextUID(),
 		eventHandlers: &handlers[T]{},
 	}
 	return collectionAdapter[T]{x}

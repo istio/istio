@@ -32,7 +32,7 @@ func NewStaticCollection[T any](vals []T) Collection[T] {
 	}
 	return &staticList[T]{
 		vals: res,
-		id:   nextUid(),
+		id:   nextUID(),
 	}
 }
 
@@ -48,6 +48,7 @@ func (s *staticList[T]) name() string {
 	return "staticList"
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) uid() collectionUID {
 	return s.id
 }

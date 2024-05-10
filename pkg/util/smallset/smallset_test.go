@@ -74,7 +74,6 @@ func BenchmarkSet(b *testing.B) {
 	for i := 0; i < 2; i++ {
 		items2 = append(items2, fmt.Sprint(i))
 	}
-	// rand.Shuffle(elements)
 	b.Run("Set", func(b *testing.B) {
 		set1000 := sets.New(items1000...)
 		set100 := sets.New(items100...)

@@ -338,7 +338,7 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 	h := &manyCollection[I, O]{
 		transformation:         hf,
 		collectionName:         opts.name,
-		id:                     nextUid(),
+		id:                     nextUID(),
 		log:                    log.WithLabels("owner", opts.name),
 		parent:                 c,
 		collectionDependencies: sets.New[collectionUID](),

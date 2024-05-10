@@ -68,6 +68,7 @@ func (i *informer[I]) name() string {
 	return i.collectionName
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (i *informer[I]) uid() collectionUID {
 	return i.id
 }
@@ -147,7 +148,7 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		inf:            c,
 		log:            log.WithLabels("owner", o.name),
 		collectionName: o.name,
-		id:             nextUid(),
+		id:             nextUID(),
 		eventHandlers:  &handlers[I]{},
 		augmentation:   o.augmentation,
 		synced:         make(chan struct{}),
