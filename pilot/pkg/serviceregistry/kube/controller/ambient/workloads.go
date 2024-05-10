@@ -292,6 +292,7 @@ func (a *index) podWorkloadBuilder(
 
 		// enforce traversing waypoints
 		policies = append(policies, implicitWaypointPolicies(ctx, Waypoints, targetWaypoint, services)...)
+		log.Errorf("howardjohn: %v %v", len(auths), len(policies))
 
 		w := &workloadapi.Workload{
 			Uid:                   a.generatePodUID(p),
@@ -497,10 +498,21 @@ func implicitWaypointPolicies(ctx krt.HandlerContext, Waypoints krt.Collection[W
 		}
 		return ptr.Of(si.Waypoint)
 	})
+	//if len(serviceWaypointKeys) == 0 {
+	//	if waypoint != nil {
+	//		n := implicitWaypointPolicyName(waypoint)
+	//		if n != "" {
+	//			return []string{waypoint.Namespace + "/" + n}
+	//		}
+	//	}
+	//	return nil
+	//}
 	waypoints := krt.Fetch(ctx, Waypoints, krt.FilterKeys(serviceWaypointKeys...))
 	if waypoint != nil {
 		waypoints = append(waypoints, *waypoint)
 	}
+	//log.Errorf("howardjohn: waypoints: %v"
+	log.Errorf("howardjohn: fetch %v %v: %v", serviceWaypointKeys, waypoint!=nil, len(waypoints))
 
 	return slices.MapFilter(waypoints, func(w Waypoint) *string {
 		policy := implicitWaypointPolicyName(&w)

@@ -35,6 +35,7 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 	c := cc.(internalCollection[T])
 	d := &dependency{
 		id:     c.uid(),
+		collectionName: c.name(),
 		filter: &filter{},
 	}
 	for _, o := range opts {
@@ -69,10 +70,12 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 		// Otherwise get everything
 		list = c.List()
 	}
+	log.Errorf("howardjohn: LIST PRE: %v %v", len(list), cap(list))
 	list = slices.FilterInPlace(list, func(i T) bool {
 		o := c.augment(i)
 		return d.filter.Matches(o, true)
 	})
+	log.Errorf("howardjohn: LIST POST: %v %v", len(list), cap(list))
 	if log.DebugEnabled() {
 		log.WithLabels(
 			"parent", h.name(),

@@ -125,7 +125,7 @@ func (h *manyCollection[I, O]) dump() {
 	h.log.Errorf(">>> BEGIN DUMP")
 	for k, deps := range h.objectDependencies {
 		for _, dep := range deps {
-			h.log.Errorf("Dependencies for: %v: %v (%v)", k, dep.id, dep.filter)
+			h.log.Errorf("Dependencies for: %v: %v (%v)", k, dep.collectionName, dep.filter)
 		}
 	}
 	for i, os := range h.collectionState.mappings {
@@ -557,7 +557,7 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(
 
 	// For any new collections we depend on, start watching them if its the first time we have watched them.
 	if !i.collectionDependencies.InsertContains(d.id) {
-		i.log.WithLabels("collection", d.id).Debugf("register new dependency")
+		i.log.WithLabels("collection", d.collectionName).Debugf("register new dependency")
 		syncer.WaitUntilSynced(i.stop)
 		register(func(o []Event[any], initialSync bool) {
 			i.onSecondaryDependencyEvent(d.id, o)

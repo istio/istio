@@ -16,6 +16,8 @@ package krt
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/kube/controllers"
+	"k8s.io/client-go/tools/cache"
 	"reflect"
 	"strings"
 	"time"
@@ -33,6 +35,13 @@ func GetKey[O any](a O) Key[O] {
 		return k
 	}
 
+	// Kubernetes types are pointers, which means our types would be double pointers
+	// Allow flattening
+	ao, ok := any(&a).(controllers.Object)
+	if ok {
+		k, _ := cache.MetaNamespaceKeyFunc(ao)
+		return Key[O](k)
+	}
 	panic(fmt.Sprintf("Cannot get Key, got %T", a))
 }
 
