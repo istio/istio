@@ -7909,6 +7909,16 @@ spec:
                           description: Specifies how long the results of a preflight
                             request can be cached.
                           type: string
+                        unmatchedPreflights:
+                          description: |-
+                            Indicates whether preflight requests not matching the configured allowed origin shouldn't be forwarded to the upstream.
+
+                            Valid Options: FORWARD, IGNORE
+                          enum:
+                          - UNSPECIFIED
+                          - FORWARD
+                          - IGNORE
+                          type: string
                       type: object
                     delegate:
                       description: Delegate is used to specify the particular VirtualService
@@ -8852,6 +8862,16 @@ spec:
                           description: Specifies how long the results of a preflight
                             request can be cached.
                           type: string
+                        unmatchedPreflights:
+                          description: |-
+                            Indicates whether preflight requests not matching the configured allowed origin shouldn't be forwarded to the upstream.
+
+                            Valid Options: FORWARD, IGNORE
+                          enum:
+                          - UNSPECIFIED
+                          - FORWARD
+                          - IGNORE
+                          type: string
                       type: object
                     delegate:
                       description: Delegate is used to specify the particular VirtualService
@@ -9794,6 +9814,16 @@ spec:
                         maxAge:
                           description: Specifies how long the results of a preflight
                             request can be cached.
+                          type: string
+                        unmatchedPreflights:
+                          description: |-
+                            Indicates whether preflight requests not matching the configured allowed origin shouldn't be forwarded to the upstream.
+
+                            Valid Options: FORWARD, IGNORE
+                          enum:
+                          - UNSPECIFIED
+                          - FORWARD
+                          - IGNORE
                           type: string
                       type: object
                     delegate:
