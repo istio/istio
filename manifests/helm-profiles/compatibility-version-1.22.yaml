@@ -1,0 +1,5 @@
+meshConfig:
+  # 1.22 behavioral changes
+  defaultConfig:
+    proxyMetadata:
+      ENABLE_DEFERRED_CLUSTER_CREATION: "false"

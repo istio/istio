@@ -6,4 +6,4 @@ releaseNotes:
 - |
   **Added** an experimental feature to enable cluster creation on worker threads inline during requests.
   This will save memory and CPU cycles in cases where there are lots of inactive clusters and > 1 worker thread.
-  This can be enabled by setting ENABLE_DEFERRED_CLUSTER_CREATION to true in Istiod Deployment.
+  This can be disabled by setting ENABLE_DEFERRED_CLUSTER_CREATION to true in agent Deployment.
