@@ -175,6 +175,9 @@ func FilterInPlace[E any](s []E, f func(E) bool) []E {
 // FilterDuplicatesPresorted retains all unique elements in []E.
 // The slices MUST be pre-sorted.
 func FilterDuplicatesPresorted[E comparable](s []E) []E {
+	if len(s) <= 1 {
+		return s
+	}
 	n := 1
 	for i := 1; i < len(s); i++ {
 		val := s[i]

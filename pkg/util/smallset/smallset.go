@@ -42,7 +42,7 @@ func NewPresorted[T constraints.Ordered](items ...T) Set[T] {
 // Duplicates are removed
 func New[T constraints.Ordered](items ...T) Set[T] {
 	if len(items) == 1 {
-		return NewPresorted(items...)
+		return Set[T]{items: items}
 	}
 	slices.Sort(items)
 	items = slices.FilterDuplicatesPresorted(items)
@@ -84,7 +84,8 @@ func (s Set[T]) CopyAndInsert(items ...T) Set[T] {
 	for ; j < len(b); j++ {
 		nl = appendIfUnique(b[j])
 	}
-	return New(nl...)
+	// we already know they are sorted+unique
+	return Set[T]{items: nl}
 }
 
 // List returns the underlying slice. Must not be modified

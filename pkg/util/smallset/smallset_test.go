@@ -24,10 +24,10 @@ import (
 )
 
 func TestSet(t *testing.T) {
-	elements := []string{"d", "b", "a"}
+	elements := []string{"d", "b", "a", "d"}
 	set := smallset.New(elements...)
 
-	assert.Equal(t, set.Len(), len(elements))
+	assert.Equal(t, set.Len(), 3)
 	assert.Equal(t, set.List(), []string{"a", "b", "d"})
 
 	assert.Equal(t, set.Contains("a"), true)

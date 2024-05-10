@@ -873,10 +873,10 @@ func BenchmarkEqualUnordered(b *testing.B) {
 }
 
 func TestFilterDuplicates(t *testing.T) {
-	tests := []struct{
+	tests := []struct {
 		name string
-		in []string
-		out []string
+		in   []string
+		out  []string
 	}{
 		{
 			name: "empty",
@@ -900,20 +900,20 @@ func TestFilterDuplicates(t *testing.T) {
 		},
 		{
 			name: "dupes last",
-			in:   []string{"a", "a", "c", "c"},
-			out:  []string{"a", "b", "C"},
+			in:   []string{"a", "b", "c", "c"},
+			out:  []string{"a", "b", "c"},
 		},
 		{
 			name: "dupes middle",
 			in:   []string{"a", "b", "b", "c"},
-			out:  []string{"a", "b", "C"},
+			out:  []string{"a", "b", "c"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FilterDuplicatesPresorted(tt.in)
 			assert.Equal(t, tt.out, got)
-			assert.Equal(t, tt.out, tt.in)
+			assert.Equal(t, tt.out, tt.in[:len(tt.out)])
 		})
 	}
 }
