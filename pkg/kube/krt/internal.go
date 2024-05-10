@@ -75,7 +75,7 @@ type collectionOptions struct {
 
 // dependency is a specific thing that can be depended on
 type dependency struct {
-	id collectionUid
+	id             collectionUID
 	collectionName string
 	// Filter over the collection
 	filter *filter
@@ -199,10 +199,10 @@ func equal[O any](a, b O) bool {
 	return reflect.DeepEqual(a, b)
 }
 
-type collectionUid uint64
+type collectionUID uint64
 
-var globalUidCounter = atomic.NewUint64(1)
+var globalUIDCounter = atomic.NewUint64(1)
 
-func nextUid() collectionUid {
-	return collectionUid(globalUidCounter.Inc())
+func nextUid() collectionUID {
+	return collectionUID(globalUIDCounter.Inc())
 }

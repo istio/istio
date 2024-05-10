@@ -49,6 +49,18 @@ func TestSet(t *testing.T) {
 	assert.Equal(t, nset.Contains("z"), true)
 }
 
+func TestNew(t *testing.T) {
+	var uninit smallset.Set[string]
+	assert.Equal(t, uninit.IsNil(), true)
+	assert.Equal(t, uninit.IsEmpty(), true)
+	empty := smallset.New[string]()
+	assert.Equal(t, empty.IsNil(), true)
+	assert.Equal(t, empty.IsEmpty(), true)
+	empty2 := smallset.New[string]([]string{}...)
+	assert.Equal(t, empty2.IsNil(), false)
+	assert.Equal(t, empty2.IsEmpty(), true)
+}
+
 func BenchmarkSet(b *testing.B) {
 	items1000 := []string{}
 	for i := 0; i < 1000; i++ {

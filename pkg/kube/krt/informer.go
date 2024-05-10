@@ -33,7 +33,7 @@ type informer[I controllers.ComparableObject] struct {
 	inf            kclient.Informer[I]
 	log            *istiolog.Scope
 	collectionName string
-	id             collectionUid
+	id             collectionUID
 
 	eventHandlers *handlers[I]
 	augmentation  func(a any) any
@@ -68,7 +68,7 @@ func (i *informer[I]) name() string {
 	return i.collectionName
 }
 
-func (i *informer[I]) uid() collectionUid {
+func (i *informer[I]) uid() collectionUID {
 	return i.id
 }
 

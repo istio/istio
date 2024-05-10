@@ -109,6 +109,14 @@ func (s Set[T]) IsEmpty() bool {
 	return len(s.items) == 0
 }
 
+// IsNil indicates whether the set is nil. This is different from an empty set.
+// 'var smallset.Set': nil
+// smallset.New(): nil
+// smallset.New(emptyList...): not nil
+func (s Set[T]) IsNil() bool {
+	return s.items == nil
+}
+
 // String returns a string representation of the set.
 // Use it only for debugging and logging.
 func (s Set[T]) String() string {

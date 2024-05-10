@@ -39,7 +39,7 @@ type filter struct {
 
 func (f *filter) String() string {
 	attrs := []string{}
-	if !f.keys.IsEmpty() {
+	if !f.keys.IsNil() {
 		attrs = append(attrs, "keys="+f.keys.String())
 	}
 	if f.selectsNonEmpty != nil {
@@ -126,7 +126,7 @@ func (f *filter) Matches(object any, forList bool) bool {
 	if !forList {
 		// First, lookup directly by key. This is cheap
 		// an empty set will match none
-		if !f.keys.IsEmpty() && !f.keys.Contains(string(GetKey[any](object))) {
+		if !f.keys.IsNil() && !f.keys.Contains(string(GetKey[any](object))) {
 			if log.DebugEnabled() {
 				log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
 			}

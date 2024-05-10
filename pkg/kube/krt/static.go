@@ -22,7 +22,7 @@ import (
 
 type staticList[T any] struct {
 	vals map[Key[T]]T
-	id   collectionUid
+	id   collectionUID
 }
 
 func NewStaticCollection[T any](vals []T) Collection[T] {
@@ -48,7 +48,7 @@ func (s *staticList[T]) name() string {
 	return "staticList"
 }
 
-func (s *staticList[T]) uid() collectionUid {
+func (s *staticList[T]) uid() collectionUID {
 	return s.id
 }
 

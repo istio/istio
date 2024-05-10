@@ -16,15 +16,15 @@ package krt
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/kube/controllers"
-	"k8s.io/client-go/tools/cache"
 	"reflect"
 	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	acmetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
 )
 

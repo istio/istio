@@ -69,7 +69,7 @@ type internalCollection[T any] interface {
 	// Note this may not be universally unique
 	name() string
 	// Uid is an internal unique ID for this collection. MUST be globally unique
-	uid() collectionUid
+	uid() collectionUID
 
 	dump()
 

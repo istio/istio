@@ -47,7 +47,7 @@ func NewStatic[T any](initial *T) StaticSingleton[T] {
 // static represents a Collection of a single static value. This can be explicitly Set() to override it
 type static[T any] struct {
 	val           *atomic.Pointer[T]
-	id            collectionUid
+	id            collectionUID
 	eventHandlers *handlers[T]
 }
 
@@ -112,7 +112,7 @@ func (d *static[T]) name() string {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (d *static[T]) uid() collectionUid {
+func (d *static[T]) uid() collectionUID {
 	return d.id
 }
 

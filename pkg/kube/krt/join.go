@@ -24,7 +24,7 @@ import (
 
 type join[T any] struct {
 	collectionName string
-	id             collectionUid
+	id             collectionUID
 	collections    []internalCollection[T]
 	synced         <-chan struct{}
 }
@@ -75,7 +75,7 @@ func (j *join[T]) augment(a any) any {
 func (j *join[T]) name() string { return j.collectionName }
 
 // nolint: unused // (not true, its to implement an interface)
-func (j *join[T]) uid() collectionUid { return j.id }
+func (j *join[T]) uid() collectionUID { return j.id }
 
 // nolint: unused // (not true, its to implement an interface)
 func (j *join[I]) dump() {

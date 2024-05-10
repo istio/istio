@@ -37,7 +37,7 @@ import (
 type manyCollection[I, O any] struct {
 	// collectionName provides the collectionName for this collection.
 	collectionName string
-	id             collectionUid
+	id             collectionUID
 	// parent is the input collection we are building off of.
 	parent Collection[I]
 
@@ -55,7 +55,7 @@ type manyCollection[I, O any] struct {
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
 	// These are keyed by the internal uid() function on collections.
 	// Note this does not include `parent`, which is the *primary* dependency declared outside of transformation functions.
-	collectionDependencies sets.Set[collectionUid]
+	collectionDependencies sets.Set[collectionUID]
 	// Stores a map of I -> secondary dependencies (added via Fetch)
 	objectDependencies map[Key[I]][]*dependency
 
@@ -97,8 +97,6 @@ func (o *handlers[O]) Get() []func(o []Event[O], initialSync bool) {
 	defer o.mu.RUnlock()
 	return slices.Clone(o.h)
 }
-
-type untypedCollection = any
 
 // multiIndex stores input and output objects.
 // Each input and output can be looked up by its key.
@@ -343,7 +341,7 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 		id:                     nextUid(),
 		log:                    log.WithLabels("owner", opts.name),
 		parent:                 c,
-		collectionDependencies: sets.New[collectionUid](),
+		collectionDependencies: sets.New[collectionUID](),
 		objectDependencies:     map[Key[I]][]*dependency{},
 		collectionState: multiIndex[I, O]{
 			inputs:   map[Key[I]]I{},
@@ -390,7 +388,7 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 
 // Handler is called when a dependency changes. We will take as inputs the item that changed.
 // Then we find all of our own values (I) that changed and onPrimaryInputEvent() them
-func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUid, events []Event[any]) {
+func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUID, events []Event[any]) {
 	h.recomputeMu.Lock()
 	defer h.recomputeMu.Unlock()
 	// A secondary dependency changed...
@@ -443,7 +441,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 	h.onPrimaryInputEventLocked(toRun)
 }
 
-func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []*dependency, sourceCollection collectionUid, ev Event[any]) bool {
+func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []*dependency, sourceCollection collectionUID, ev Event[any]) bool {
 	for _, dep := range dependencies {
 		id := dep.id
 		if id != sourceCollection {
@@ -525,7 +523,8 @@ func (h *manyCollection[I, O]) name() string {
 	return h.collectionName
 }
 
-func (h *manyCollection[I, O]) uid() collectionUid {
+// nolint: unused // (not true, its to implement an interface)
+func (h *manyCollection[I, O]) uid() collectionUID {
 	return h.id
 }
 
