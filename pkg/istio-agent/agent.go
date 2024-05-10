@@ -16,7 +16,6 @@ package istioagent
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -27,9 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/api/option"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
@@ -51,10 +48,6 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	"istio.io/istio/security/pkg/nodeagent/caclient"
-	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
-	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
-	cas "istio.io/istio/security/pkg/nodeagent/caclient/providers/google-cas"
 )
 
 const (
@@ -778,8 +771,8 @@ func (a *Agent) FindRootCAForCA() (string, error) {
 	return "", fmt.Errorf("root CA file for CA does not exist %s", rootCAPath)
 }
 
-// getKeyCertsForXDS return the key cert files path for connecting with CA server.
-func (a *Agent) getKeyCertsForCA() (string, string) {
+// GetKeyCertsForXDS return the key cert files path for connecting with CA server.
+func (a *Agent) GetKeyCertsForCA() (string, string) {
 	var key, cert string
 	if a.secOpts.ProvCert != "" {
 		key, cert = getKeyCertInner(a.secOpts.ProvCert)
@@ -802,62 +795,10 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 	}
 	log.Infof("CA Endpoint %s, provider %s", a.secOpts.CAEndpoint, a.secOpts.CAProviderName)
 
-	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
-	if a.secOpts.CAProviderName == security.GoogleCAProvider {
-		// Use a plugin to an external CA - this has direct support for the K8S JWT token
-		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
-		// used.
-		caClient, err := gca.NewGoogleCAClient(a.secOpts.CAEndpoint, true, caclient.NewCATokenProvider(a.secOpts))
-		if err != nil {
-			return nil, err
-		}
-		return cache.NewSecretManagerClient(caClient, a.secOpts)
-	} else if a.secOpts.CAProviderName == security.GoogleCASProvider {
-		// Use a plugin
-		tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
-		model.EnforceGoCompliance(tlsConfig)
-		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint,
-			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(caclient.NewCATokenProvider(a.secOpts))),
-			option.WithGRPCDialOption(grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))))
-		if err != nil {
-			return nil, err
-		}
-		return cache.NewSecretManagerClient(caClient, a.secOpts)
-	}
-
-	// Using citadel CA
-	var tlsOpts *citadel.TLSOptions
-	var err error
-	// Special case: if Istiod runs on a secure network, on the default port, don't use TLS
-	// TODO: may add extra cases or explicit settings - but this is a rare use cases, mostly debugging
-	if strings.HasSuffix(a.secOpts.CAEndpoint, ":15010") {
-		log.Warn("Debug mode or IP-secure network")
-	} else {
-		tlsOpts = &citadel.TLSOptions{}
-		tlsOpts.RootCert, err = a.FindRootCAForCA()
-		if err != nil {
-			return nil, fmt.Errorf("failed to find root CA cert for CA: %v", err)
-		}
-
-		if tlsOpts.RootCert == "" {
-			log.Infof("Using CA %s cert with system certs", a.secOpts.CAEndpoint)
-		} else if !fileExists(tlsOpts.RootCert) {
-			log.Fatalf("invalid config - %s missing a root certificate %s", a.secOpts.CAEndpoint, tlsOpts.RootCert)
-		} else {
-			log.Infof("Using CA %s cert with certs: %s", a.secOpts.CAEndpoint, tlsOpts.RootCert)
-		}
-
-		tlsOpts.Key, tlsOpts.Cert = a.getKeyCertsForCA()
-	}
-
-	// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
-	// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
-	// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
-	caClient, err := citadel.NewCitadelClient(a.secOpts, tlsOpts)
+	caClient, err := createCAClient(a.secOpts, a)
 	if err != nil {
 		return nil, err
 	}
-
 	return cache.NewSecretManagerClient(caClient, a.secOpts)
 }
 
