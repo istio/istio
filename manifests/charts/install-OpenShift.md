@@ -21,7 +21,7 @@ helm install istio-base -n istio-system manifests/charts/base --set profile=open
 2) `istio-cni` chart installs the CNI plugin. This should be installed after the `base` chart and prior to `istiod` chart. Need to add `--set pilot.cni.enabled=true` to the `istiod` install to enable its usage.
 
 ```console
-helm install istio-cni -n kube-system manifests/charts/istio-cni --set profile=openshift
+helm install istio-cni -n istio-system manifests/charts/istio-cni --set profile=openshift
 ```
 
 3) `istio-control/istio-discovery` chart installs a revision of istiod.

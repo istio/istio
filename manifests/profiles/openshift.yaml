@@ -4,6 +4,5 @@ spec:
   components:
     cni:
       enabled: true
-      namespace: kube-system
   values:
     profile: openshift

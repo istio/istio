@@ -4,10 +4,8 @@ spec:
   components:
     cni:
       enabled: true
-      namespace: kube-system
     ztunnel:
       enabled: true
-      namespace: kube-system
     ingressGateways:
     - name: istio-ingressgateway
       enabled: false
