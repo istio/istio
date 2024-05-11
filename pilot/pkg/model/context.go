@@ -523,6 +523,13 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	node.PrevSidecarScope = sidecarScope
 }
 
+func (node *Proxy) VersionGreaterAndEqual(inv *IstioVersion) bool {
+	if inv == nil {
+		return true
+	}
+	return node.IstioVersion.Compare(inv) >= 0
+}
+
 // SetGatewaysForProxy merges the Gateway objects associated with this
 // proxy and caches the merged object in the proxy Node. This is a convenience hack so that
 // callers can simply call push.MergedGateways(node) instead of having to

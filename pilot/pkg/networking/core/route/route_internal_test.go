@@ -29,6 +29,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
 	authzmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/labels"
@@ -163,7 +164,55 @@ func TestIsCatchAllRoute(t *testing.T) {
 	}
 }
 
+func TestTranslateCORSPolicyForwardNotMatchingPreflights(t *testing.T) {
+	node := &model.Proxy{
+		IstioVersion: &model.IstioVersion{
+			Major: 1,
+			Minor: 23,
+			Patch: 0,
+		},
+	}
+	corsPolicy := &networking.CorsPolicy{
+		AllowOrigins: []*networking.StringMatch{
+			{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
+			{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
+		},
+		UnmatchedPreflights: networking.CorsPolicy_IGNORE,
+	}
+	expectedCorsPolicy := &cors.CorsPolicy{
+		ForwardNotMatchingPreflights: wrapperspb.Bool(false),
+		AllowOriginStringMatch: []*matcher.StringMatcher{
+			{MatchPattern: &matcher.StringMatcher_Exact{Exact: "exact"}},
+			{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: "prefix"}},
+			{
+				MatchPattern: &matcher.StringMatcher_SafeRegex{
+					SafeRegex: &matcher.RegexMatcher{
+						Regex: "regex",
+					},
+				},
+			},
+		},
+		FilterEnabled: &core.RuntimeFractionalPercent{
+			DefaultValue: &xdstype.FractionalPercent{
+				Numerator:   100,
+				Denominator: xdstype.FractionalPercent_HUNDRED,
+			},
+		},
+	}
+	if got := TranslateCORSPolicy(node, corsPolicy); !reflect.DeepEqual(got, expectedCorsPolicy) {
+		t.Errorf("TranslateCORSPolicy() = \n%v, want \n%v", got, expectedCorsPolicy)
+	}
+}
+
 func TestTranslateCORSPolicy(t *testing.T) {
+	node := &model.Proxy{
+		IstioVersion: &model.IstioVersion{
+			Major: 1,
+			Minor: 21,
+			Patch: 0,
+		},
+	}
 	corsPolicy := &networking.CorsPolicy{
 		AllowOrigins: []*networking.StringMatch{
 			{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
@@ -190,7 +239,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			},
 		},
 	}
-	if got := TranslateCORSPolicy(corsPolicy); !reflect.DeepEqual(got, expectedCorsPolicy) {
+	if got := TranslateCORSPolicy(node, corsPolicy); !reflect.DeepEqual(got, expectedCorsPolicy) {
 		t.Errorf("TranslateCORSPolicy() = \n%v, want \n%v", got, expectedCorsPolicy)
 	}
 }

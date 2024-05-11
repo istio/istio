@@ -563,7 +563,7 @@ func (lb *ListenerBuilder) translateRoute(
 		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(istio_route.TranslateFault(in.Fault))
 	}
 	if in.CorsPolicy != nil {
-		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(istio_route.TranslateCORSPolicy(in.CorsPolicy))
+		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(istio_route.TranslateCORSPolicy(lb.node, in.CorsPolicy))
 	}
 
 	return out
