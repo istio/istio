@@ -298,7 +298,7 @@ messages:
   - name: "ServiceEntryAddressesRequired"
     code: IST0134
     level: Warning
-    description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol"
+    description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol when ISTIO_META_DNS_AUTO_ALLOCATE is not set on a proxy"
     template: "ServiceEntry addresses are required for this protocol."
 
   - name: "DeprecatedAnnotation"
