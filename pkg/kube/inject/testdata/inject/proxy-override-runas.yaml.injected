@@ -17,7 +17,7 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        proxy.istio.io/overrides: '{"containers":[{"name":"istio-proxy","resources":{"limits":{"cpu":"3"},"requests":{"cpu":"123m"}},"volumeMounts":[{"name":"certs","mountPath":"/etc/certs"}],"livenessProbe":{"httpGet":{"path":"/healthz/ready","port":15021},"initialDelaySeconds":10,"timeoutSeconds":3,"periodSeconds":2,"failureThreshold":30},"lifecycle":{"preStop":{"exec":{"command":["sleep","10"]}}},"terminationMessagePath":"/foo/bar","securityContext":{"runAsUser":1234,"runAsGroup":1234,"readOnlyRootFilesystem":false,"allowPrivilegeEscalation":true},"tty":true}],"initContainers":[{"name":"istio-init","image":"fake/custom-image","args":["my","custom","args"],"resources":{}}]}'
+        proxy.istio.io/overrides: '{"containers":[{"name":"istio-proxy","resources":{},"securityContext":{"runAsUser":1234,"runAsGroup":4321}}]}'
         sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
@@ -104,20 +104,6 @@ spec:
         - name: TRUST_DOMAIN
           value: cluster.local
         image: gcr.io/istio-testing/proxyv2:latest
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - sleep
-              - "10"
-        livenessProbe:
-          failureThreshold: 30
-          httpGet:
-            path: /healthz/ready
-            port: 15021
-          initialDelaySeconds: 10
-          periodSeconds: 2
-          timeoutSeconds: 3
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -132,19 +118,19 @@ spec:
           timeoutSeconds: 3
         resources:
           limits:
-            cpu: "3"
+            cpu: "2"
             memory: 1Gi
           requests:
-            cpu: 123m
+            cpu: 100m
             memory: 128Mi
         securityContext:
-          allowPrivilegeEscalation: true
+          allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
           privileged: false
-          readOnlyRootFilesystem: false
-          runAsGroup: 1234
+          readOnlyRootFilesystem: true
+          runAsGroup: 4321
           runAsNonRoot: true
           runAsUser: 1234
         startupProbe:
@@ -154,8 +140,6 @@ spec:
             port: 15021
           periodSeconds: 1
           timeoutSeconds: 3
-        terminationMessagePath: /foo/bar
-        tty: true
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket
@@ -173,14 +157,27 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
-        - mountPath: /etc/certs
-          name: certs
       initContainers:
       - args:
-        - my
-        - custom
-        - args
-        image: fake/custom-image
+        - istio-iptables
+        - -p
+        - "15001"
+        - -z
+        - "15006"
+        - -u
+        - "1234"
+        - -m
+        - REDIRECT
+        - -i
+        - '*'
+        - -x
+        - ""
+        - -b
+        - '*'
+        - -d
+        - 15090,15021,15020
+        - --log_output_level=default:info
+        image: gcr.io/istio-testing/proxyv2:latest
         name: istio-init
         resources:
           limits:
@@ -199,7 +196,7 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: false
-          runAsGroup: 1234
+          runAsGroup: 4321
           runAsNonRoot: false
           runAsUser: 1234
       volumes:
@@ -230,8 +227,5 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
-      - name: certs
-        secret:
-          secretName: istio-certs
 status: {}
 ---
