@@ -109,7 +109,7 @@ var (
 	SchemaWarning = diag.NewMessageType(diag.Warning, "IST0133", "Schema validation warning: %v")
 
 	// ServiceEntryAddressesRequired defines a diag.MessageType for message "ServiceEntryAddressesRequired".
-	// Description: Virtual IP addresses are required for ports serving TCP (or unset) protocol
+	// Description: Virtual IP addresses are required for ports serving TCP (or unset) protocol when ISTIO_META_DNS_AUTO_ALLOCATE is not set on a proxy
 	ServiceEntryAddressesRequired = diag.NewMessageType(diag.Warning, "IST0134", "ServiceEntry addresses are required for this protocol.")
 
 	// DeprecatedAnnotation defines a diag.MessageType for message "DeprecatedAnnotation".
