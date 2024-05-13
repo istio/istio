@@ -60,7 +60,7 @@ func TestCNIVersionSkew(t *testing.T) {
 			}
 			for _, v := range versions {
 				installCNIOrFail(t, v)
-				podFetchFn := kube.NewSinglePodFetch(t.Clusters().Default(), "kube-system", "k8s-app=istio-cni-node")
+				podFetchFn := kube.NewSinglePodFetch(t.Clusters().Default(), i.Settings().SystemNamespace, "k8s-app=istio-cni-node")
 				// Make sure CNI pod is using image with applied version.
 				retry.UntilSuccessOrFail(t, func() error {
 					pods, err := podFetchFn()
