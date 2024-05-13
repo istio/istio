@@ -111,5 +111,6 @@ func installCNIOrFail(t framework.TestContext, ver string) {
 	if err != nil {
 		t.Fatalf("Failed to read CNI manifest %v", err)
 	}
+	config = strings.ReplaceAll(config, "kube-system", i.Settings().SystemNamespace)
 	t.ConfigIstio().YAML("", config).ApplyOrFail(t)
 }
