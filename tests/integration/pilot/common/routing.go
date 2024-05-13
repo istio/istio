@@ -3633,7 +3633,7 @@ spec:
 			}
 			expected := aInCluster[0].Address()
 			t.RunTraffic(TrafficTestCase{
-				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
+				name: fmt.Sprintf("svc/%s/%s/%s", client.Config().Service, client.Config().Cluster.StableName(), tt.name),
 				call: client.CallOrFail,
 				opts: echo.CallOptions{
 					Count:   1,

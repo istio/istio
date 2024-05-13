@@ -1120,6 +1120,12 @@ message ProxyConfig {
   // Log level for proxy, applies to gateways and sidecars. If left empty, "warning" is used. Expected values are: trace\|debug\|info\|warning\|error\|critical\|off
   string logLevel = 18;
 
+  // Path to the file to which the proxy will write outlier detection logs.
+  //
+  // Example: "/dev/stdout"
+  // This would write the logs to standard output.
+  string outlierLogPath = 42;
+
   // Enables privileged securityContext for the istio-proxy container.
   //
   // See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/

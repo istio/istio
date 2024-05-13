@@ -32,5 +32,9 @@ ip6tables -t nat -F ISTIO_REDIRECT
 ip6tables -t nat -X ISTIO_REDIRECT
 ip6tables -t nat -F ISTIO_IN_REDIRECT
 ip6tables -t nat -X ISTIO_IN_REDIRECT
+iptables -t nat -D OUTPUT -p udp -j ISTIO_OUTPUT
+iptables -t raw -D OUTPUT -p udp -j ISTIO_OUTPUT
+ip6tables -t nat -D OUTPUT -p udp -j ISTIO_OUTPUT
+ip6tables -t raw -D OUTPUT -p udp -j ISTIO_OUTPUT
 iptables-save
 ip6tables-save

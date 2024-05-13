@@ -755,6 +755,18 @@ func TestAuthz_JWT(t *testing.T) {
 							path:   "/tokenAny",
 							allow:  false,
 						},
+						{
+							prefix: "[JWTWithAud]",
+							jwt:    jwt.TokenIssuer1WithAud,
+							path:   "/audiences",
+							allow:  true,
+						},
+						{
+							prefix: "[JWTWithAudList]",
+							jwt:    jwt.TokenIssuer1WithAudList,
+							path:   "/audiences",
+							allow:  true,
+						},
 					}
 					for _, c := range cases {
 						h := headers.New().WithAuthz(c.jwt).Build()

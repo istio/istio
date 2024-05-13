@@ -71,13 +71,16 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.IstiodReleaseName)
 	}
 
-	if isAmbient {
+	if isAmbient || ctx.Settings().OpenShift {
 		// Upgrade istio-cni chart
 		err = h.UpgradeChart(helmtest.CniReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.CniChartsDir),
 			nsConfig.Get(helmtest.CniReleaseName), overrideValuesFile, helmtest.Timeout)
 		if err != nil {
 			ctx.Fatalf("failed to upgrade istio %s chart", helmtest.CniReleaseName)
 		}
+	}
+
+	if isAmbient {
 		// Upgrade ztunnel chart
 		err = h.UpgradeChart(helmtest.ZtunnelReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.ZtunnelChartsDir),
 			nsConfig.Get(helmtest.ZtunnelReleaseName), overrideValuesFile, helmtest.Timeout)

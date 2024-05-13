@@ -1021,7 +1021,7 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 	}
 }
 
-func (i *WorkloadInfo) ResourceName() string {
+func (i WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
 }
 

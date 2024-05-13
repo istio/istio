@@ -15,6 +15,7 @@
 package envoy
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -42,8 +43,7 @@ type ProxyConfig struct {
 	NodeIPs           []string
 	Sidecar           bool
 	LogAsJSON         bool
-	// TODO: outlier log path configuration belongs to mesh ProxyConfig
-	OutlierLogPath string
+	OutlierLogPath    string
 
 	BinaryPath    string
 	ConfigPath    string
@@ -143,7 +143,7 @@ func (e *envoy) args(fname string, overrideFname string) []string {
 	startupArgs = append(startupArgs, e.extraArgs...)
 
 	if overrideFname != "" {
-		s, err := readToJSON(overrideFname)
+		s, err := readBootstrapToJSON(overrideFname)
 		if err != nil {
 			log.Warnf("Failed to read bootstrap override: %v", err)
 		} else {
@@ -159,14 +159,19 @@ func (e *envoy) args(fname string, overrideFname string) []string {
 	return startupArgs
 }
 
-// readToJSON reads a config file, in YAML or JSON, and returns JSON string
-func readToJSON(fname string) (string, error) {
-	bytes, err := os.ReadFile(fname)
+var HostIP = os.Getenv("HOST_IP")
+
+// readBootstrapToJSON reads a config file, in YAML or JSON, and returns JSON string
+func readBootstrapToJSON(fname string) (string, error) {
+	b, err := os.ReadFile(fname)
 	if err != nil {
 		return "", fmt.Errorf("failed to read file: %s, %v", fname, err)
 	}
 
-	converted, err := yaml.YAMLToJSON(bytes)
+	// Replace host with HOST_IP env var if it is "$(HOST_IP)".
+	// This is to support some tracer setting (Datadog, Zipkin), where "$(HOST_IP)" is used for address.
+	b = bytes.ReplaceAll(b, []byte("$(HOST_IP)"), []byte(HostIP))
+	converted, err := yaml.YAMLToJSON(b)
 	if err != nil {
 		return "", fmt.Errorf("failed to convert to JSON: %s, %v", fname, err)
 	}

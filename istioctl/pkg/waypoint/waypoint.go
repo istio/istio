@@ -67,6 +67,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		// If a user sets the waypoint name to an empty string, set it to the default namespace waypoint name.
 		if waypointName == "" {
 			waypointName = constants.DefaultNamespaceWaypoint
+		} else if waypointName == "none" {
+			return nil, fmt.Errorf("invalid name provided for waypoint, 'none' is a reserved value")
 		}
 		gw := gateway.Gateway{
 			TypeMeta: metav1.TypeMeta{
