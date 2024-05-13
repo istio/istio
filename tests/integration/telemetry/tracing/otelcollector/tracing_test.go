@@ -37,40 +37,6 @@ import (
 	"istio.io/istio/tests/integration/telemetry/tracing"
 )
 
-// TestProxyTracingOpenCensusMeshConfig exercises the trace generation features of Istio, based on
-// the Envoy Trace driver for OpenCensusAgent.
-func TestProxyTracingOpenCensusMeshConfig(t *testing.T) {
-	framework.NewTest(t).
-		Run(func(t framework.TestContext) {
-			// there's a known issue with c-ares on upstream envoy,
-			// google plan to remove this from OSS istio, let's skip first.
-			t.Skip("https://github.com/istio/istio/issues/50808")
-			appNsInst := tracing.GetAppNamespace()
-			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
-			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
-				cluster := cluster
-				t.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
-					retry.UntilSuccessOrFail(ctx, func() error {
-						err := tracing.SendTraffic(ctx, nil, cluster)
-						if err != nil {
-							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
-						}
-
-						traces, err := tracing.GetZipkinInstance().QueryTraces(300,
-							fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
-						if err != nil {
-							return fmt.Errorf("cannot get traces from zipkin: %v", err)
-						}
-						if !tracing.VerifyEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
-							return errors.New("cannot find expected traces")
-						}
-						return nil
-					}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
-				})
-			}
-		})
-}
-
 //go:embed testdata/otel-tracing.yaml
 var otelTracingCfg string
 
@@ -163,11 +129,6 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 meshConfig:
   enableTracing: true
-  defaultConfig:
-    tracing:
-      openCensusAgent:
-        address: "dns:opentelemetry-collector.istio-system.svc:55678"
-        context: [B3]
   extensionProviders:
   - name: test-otel
     opentelemetry:
@@ -191,8 +152,6 @@ meshConfig:
         environment: {}
         dynatrace: {}
 `
-	cfg.Values["pilot.traceSampling"] = "100.0"
-	cfg.Values["global.proxy.tracer"] = "openCensusAgent"
 }
 
 func testSetup(ctx resource.Context) (err error) {
