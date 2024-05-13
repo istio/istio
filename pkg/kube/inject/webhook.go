@@ -58,7 +58,6 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	iptablesConstants "istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 var (
@@ -525,7 +524,9 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 			continue
 		}
 		overlay := *match.DeepCopy()
-		resetFieldsInAutoImageContainer(&overlay, &c)
+		if overlay.Image == AutoImage {
+			overlay.Image = ""
+		}
 
 		overrides.Containers = append(overrides.Containers, overlay)
 		newMergedPod, err := applyContainer(finalPod, overlay)
@@ -546,7 +547,9 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 			continue
 		}
 		overlay := *match.DeepCopy()
-		resetFieldsInAutoImageContainer(&overlay, &c)
+		if overlay.Image == AutoImage {
+			overlay.Image = ""
+		}
 
 		overrides.InitContainers = append(overrides.InitContainers, overlay)
 		newMergedPod, err := applyInitContainer(finalPod, overlay)
@@ -568,23 +571,58 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 		finalPod.Annotations[annotation.ProxyOverrides.Name] = string(js)
 	}
 
+	adjustInitContainerUser(finalPod, originalPod)
+
 	return finalPod, nil
 }
 
-func resetFieldsInAutoImageContainer(original *corev1.Container, template *corev1.Container) {
-	if original.Image == AutoImage {
-		original.Image = ""
+// adjustInitContainerUser adjusts the RunAsUser/Group fields and iptables parameter "-u <uid>"
+// in the init/validation container so that they match the value of SecurityContext.RunAsUser/Group
+// when it is present in the custom istio-proxy container supplied by the user.
+func adjustInitContainerUser(finalPod *corev1.Pod, originalPod *corev1.Pod) {
+	userContainer := FindSidecar(originalPod)
+	if userContainer == nil {
+		// if user doesn't override the istio-proxy container, there's nothing to do
+		return
 	}
 
-	// If the original pod comes with SecurityContext.RunAsUser and the template defines a value different than the default (1337),
-	// then ignore the original value and stick with the final (merged one)
-	// This is likely a scenario in OpenShift when the istio-proxy container with image: auto is parsed, if SecurityContext.RunAsUser
-	// does not exist, OpenShift automatically assigns a value which is based on an annotation in the namespace. Regardless if the user
-	// provided that value or if it was assigned by OpenShift, the correct value is the one in the template, as set by the `.ProxyUID` field.
-	if original.SecurityContext != nil && template.SecurityContext != nil && template.SecurityContext.RunAsUser != nil &&
-		*template.SecurityContext.RunAsUser != iptablesConstants.DefaultProxyUIDInt {
-		original.SecurityContext.RunAsUser = nil
-		original.SecurityContext.RunAsGroup = nil
+	if userContainer.SecurityContext == nil || (userContainer.SecurityContext.RunAsUser == nil && userContainer.SecurityContext.RunAsGroup == nil) {
+		// if user doesn't override SecurityContext.RunAsUser/Group, there's nothing to do
+		return
+	}
+
+	// Locate the istio-init or istio-validation container
+	var initContainer *corev1.Container
+	for _, name := range []string{InitContainerName, ValidationContainerName} {
+		if container := FindContainer(name, finalPod.Spec.InitContainers); container != nil {
+			initContainer = container
+			break
+		}
+	}
+	if initContainer == nil {
+		// should not happen
+		return
+	}
+
+	// Make sure the validation container runs with the same uid/gid as the proxy (init container is untouched, it must run with 0)
+	if initContainer.Name == ValidationContainerName {
+		if initContainer.SecurityContext == nil {
+			initContainer.SecurityContext = &corev1.SecurityContext{}
+		}
+		if userContainer.SecurityContext.RunAsUser != nil {
+			initContainer.SecurityContext.RunAsUser = userContainer.SecurityContext.RunAsUser
+		}
+		if userContainer.SecurityContext.RunAsGroup != nil {
+			initContainer.SecurityContext.RunAsGroup = userContainer.SecurityContext.RunAsGroup
+		}
+	}
+
+	// Find the "-u <uid>" parameter and replace it with the userid from SecurityContext.RunAsUser
+	for i := range initContainer.Args {
+		if initContainer.Args[i] == "-u" {
+			initContainer.Args[i+1] = fmt.Sprintf("%d", *userContainer.SecurityContext.RunAsUser)
+			return
+		}
 	}
 }
 
