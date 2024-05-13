@@ -97,7 +97,7 @@ func toEnvoyNetworkFilter(wasmPlugin *model.WasmPluginWrapper) *listener.Filter 
 
 // InsertedExtensionConfigurations builds added via WasmPlugin.
 func InsertedExtensionConfigurations(
-	wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper,
+	wasmPlugins []*model.WasmPluginWrapper,
 	names []string, pullSecrets map[string][]byte,
 ) []*core.TypedExtensionConfig {
 	result := make([]*core.TypedExtensionConfig, 0)
@@ -105,38 +105,35 @@ func InsertedExtensionConfigurations(
 		return result
 	}
 	hasName := sets.New(names...)
-	for _, list := range wasmPlugins {
-		for _, p := range list {
-			if !hasName.Contains(p.ResourceName) {
+	for _, p := range wasmPlugins {
+		if !hasName.Contains(p.ResourceName) {
+			continue
+		}
+		switch {
+		case p.Type == extensions.PluginType_NETWORK:
+			wasmExtensionConfig := p.BuildNetworkWasmFilter()
+			if wasmExtensionConfig == nil {
 				continue
 			}
-			switch {
-			case p.Type == extensions.PluginType_NETWORK:
-				wasmExtensionConfig := p.BuildNetworkWasmFilter()
-				if wasmExtensionConfig == nil {
-					continue
-				}
-				updatePluginConfig(wasmExtensionConfig.GetConfig(), pullSecrets)
-				typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
-				ec := &core.TypedExtensionConfig{
-					Name:        p.ResourceName,
-					TypedConfig: typedConfig,
-				}
-				result = append(result, ec)
-			default:
-				wasmExtensionConfig := p.BuildHTTPWasmFilter()
-				if wasmExtensionConfig == nil {
-					continue
-				}
-				updatePluginConfig(wasmExtensionConfig.GetConfig(), pullSecrets)
-				typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
-				ec := &core.TypedExtensionConfig{
-					Name:        p.ResourceName,
-					TypedConfig: typedConfig,
-				}
-				result = append(result, ec)
+			updatePluginConfig(wasmExtensionConfig.GetConfig(), pullSecrets)
+			typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
+			ec := &core.TypedExtensionConfig{
+				Name:        p.ResourceName,
+				TypedConfig: typedConfig,
 			}
-
+			result = append(result, ec)
+		default:
+			wasmExtensionConfig := p.BuildHTTPWasmFilter()
+			if wasmExtensionConfig == nil {
+				continue
+			}
+			updatePluginConfig(wasmExtensionConfig.GetConfig(), pullSecrets)
+			typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
+			ec := &core.TypedExtensionConfig{
+				Name:        p.ResourceName,
+				TypedConfig: typedConfig,
+			}
+			result = append(result, ec)
 		}
 	}
 	return result
