@@ -242,10 +242,13 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 		fx.WaitOrFail(t, "eds")
+		// Endpoint update is triggered since its a brand new service
+		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.EndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v: %v", model.EndpointUpdate, ev)
+		}
 		// headless service update must trigger nds push, so we trigger a full push.
-		ev := fx.WaitOrFail(t, "xds full")
-		if !ev.Reason.Has(model.HeadlessEndpointUpdate) {
-			t.Fatalf("xds push reason does not contain %v", model.HeadlessEndpointUpdate)
+		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.HeadlessEndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v: %v", model.HeadlessEndpointUpdate, ev)
 		}
 
 		// pure HTTP headless services should not need a full push since they do not
@@ -264,10 +267,13 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "tcp", Port: 70}}, []string{pod.Status.PodIP})
 		fx.WaitOrFail(t, "eds")
-		ev := fx.WaitOrFail(t, "xds full")
-		// headless service update must trigger nds push.
-		if !ev.Reason.Has(model.HeadlessEndpointUpdate) {
-			t.Fatalf("xds push reason does not contain %v", model.HeadlessEndpointUpdate)
+		// Endpoint update is triggered since its a brand new service
+		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.EndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v: %v", model.EndpointUpdate, ev)
+		}
+		// headless service update must trigger nds push, so we trigger a full push.
+		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.HeadlessEndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v: %v", model.HeadlessEndpointUpdate, ev)
 		}
 		instances := []EndpointResponse{{
 			Address: pod.Status.PodIP,
@@ -499,7 +505,7 @@ func TestWorkloadInstances(t *testing.T) {
 		fx.Clear()
 		// Update the port
 		newWorkloadEntry := workloadEntry.DeepCopy()
-		spec := workloadEntry.Spec.(*networking.WorkloadEntry)
+		spec := workloadEntry.Spec.(*networking.WorkloadEntry).DeepCopy()
 		spec.Ports = map[string]uint32{
 			"http": 1234,
 		}
