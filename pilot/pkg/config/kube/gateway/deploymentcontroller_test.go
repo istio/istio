@@ -346,7 +346,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 			kube.SetObjectFilter(client, tt.discoveryNamespaceFilter)
 			client.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: "28"}
 			kclient.NewWriteClient[*k8sbeta.GatewayClass](client).Create(customClass)
-			kclient.NewWriteClient[*k8sbeta.Gateway](client).Create(&tt.gw)
+			kclient.NewWriteClient[*k8sbeta.Gateway](client).Create(tt.gw.DeepCopy())
 			stop := test.NewStop(t)
 			env := model.NewEnvironment()
 			env.PushContext().ProxyConfigs = tt.pcs
@@ -373,6 +373,10 @@ func TestConfigureIstioGateway(t *testing.T) {
 			} else {
 				resp := timestampRegex.ReplaceAll(buf.Bytes(), []byte("lastTransitionTime: fake"))
 				util.CompareContent(t, resp, filepath.Join("testdata", "deployment", tt.name+".yaml"))
+			}
+			// ensure we didn't mutate the object
+			if !tt.ignore {
+				assert.Equal(t, d.gateways.Get(tt.gw.Name, tt.gw.Namespace), &tt.gw)
 			}
 		})
 	}
