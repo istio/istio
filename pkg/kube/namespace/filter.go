@@ -15,12 +15,15 @@
 package namespace
 
 import (
+	"fmt"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 
+	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -126,9 +129,49 @@ func (d *discoveryNamespacesFilter) Filter(obj any) bool {
 	return d.discoveryNamespaces.Contains(ns)
 }
 
+func LabelSelectorAsSelector(ps *meshapi.LabelSelector) (labels.Selector, error) {
+	if ps == nil {
+		return labels.Nothing(), nil
+	}
+	if len(ps.MatchLabels)+len(ps.MatchExpressions) == 0 {
+		return labels.Everything(), nil
+	}
+	requirements := make([]labels.Requirement, 0, len(ps.MatchLabels)+len(ps.MatchExpressions))
+	for k, v := range ps.MatchLabels {
+		r, err := labels.NewRequirement(k, selection.Equals, []string{v})
+		if err != nil {
+			return nil, err
+		}
+		requirements = append(requirements, *r)
+	}
+	for _, expr := range ps.MatchExpressions {
+		var op selection.Operator
+		switch metav1.LabelSelectorOperator(expr.Operator) {
+		case metav1.LabelSelectorOpIn:
+			op = selection.In
+		case metav1.LabelSelectorOpNotIn:
+			op = selection.NotIn
+		case metav1.LabelSelectorOpExists:
+			op = selection.Exists
+		case metav1.LabelSelectorOpDoesNotExist:
+			op = selection.DoesNotExist
+		default:
+			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
+		}
+		r, err := labels.NewRequirement(expr.Key, op, append([]string(nil), expr.Values...))
+		if err != nil {
+			return nil, err
+		}
+		requirements = append(requirements, *r)
+	}
+	selector := labels.NewSelector()
+	selector = selector.Add(requirements...)
+	return selector, nil
+}
+
 // SelectorsChanged initializes the discovery filter state with the discovery selectors and selected namespaces
 func (d *discoveryNamespacesFilter) selectorsChanged(
-	discoverySelectors []*metav1.LabelSelector,
+	discoverySelectors []*meshapi.LabelSelector,
 	notify bool,
 ) {
 	d.lock.Lock()
@@ -140,7 +183,7 @@ func (d *discoveryNamespacesFilter) selectorsChanged(
 
 	// convert LabelSelectors to Selectors
 	for _, selector := range discoverySelectors {
-		ls, err := metav1.LabelSelectorAsSelector(selector)
+		ls, err := LabelSelectorAsSelector(selector)
 		if err != nil {
 			log.Errorf("error initializing discovery namespaces filter, invalid discovery selector: %v", err)
 			return

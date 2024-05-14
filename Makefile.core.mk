@@ -285,7 +285,7 @@ lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles li
 	@envvarlinter istioctl pilot security
 
 # Allow-list:
-# (k8s) Machinery, utils, klog
+# (k8s) some Machinery, utils, klog
 # (proto) Istio API non-CRDs, MeshConfig and ProxyConfig
 # (proto) Envoy TLS proto for SDS
 # (proto) Envoy Wasm filters for wasm xDS proxy
@@ -296,7 +296,9 @@ check-agent-deps:
 	@go list -f '{{ join .Deps "\n" }}' -tags=agent \
 			./pilot/cmd/pilot-agent/... \
 			./pkg/istio-agent/... | sort | uniq |\
-		grep -Pv '^k8s.io/(utils|klog|apimachinery)/' |\
+		grep -Pv '^k8s.io/(utils|klog)/' |\
+		grep -Pv '^k8s.io/apimachinery/pkg/types' |\
+		grep -Pv '^k8s.io/apimachinery/pkg/util/(rand|version)' |\
 		grep -Pv 'envoy/type/|envoy/annotations|envoy/config/core/' |\
 		grep -Pv 'envoy/extensions/transport_sockets/tls/' |\
 		grep -Pv 'envoy/service/(discovery|secret)/v3' |\

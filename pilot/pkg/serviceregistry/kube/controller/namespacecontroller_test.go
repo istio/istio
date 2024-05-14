@@ -93,7 +93,7 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 	caBundle := []byte("caBundle")
 	watcher.SetAndNotify(nil, nil, caBundle)
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{
-		DiscoverySelectors: []*metav1.LabelSelector{
+		DiscoverySelectors: []*meshconfig.LabelSelector{
 			{
 				MatchLabels: map[string]string{
 					"discovery-selectors": "enabled",
@@ -136,7 +136,7 @@ func TestNamespaceControllerDiscovery(t *testing.T) {
 	caBundle := []byte("caBundle")
 	watcher.SetAndNotify(nil, nil, caBundle)
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{
-		DiscoverySelectors: []*metav1.LabelSelector{{
+		DiscoverySelectors: []*meshconfig.LabelSelector{{
 			MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 		}},
 	})
@@ -162,7 +162,7 @@ func TestNamespaceControllerDiscovery(t *testing.T) {
 	expectConfigMapNotExist(t, nc.configmaps, "not-selected")
 
 	meshWatcher.Update(&meshconfig.MeshConfig{
-		DiscoverySelectors: []*metav1.LabelSelector{{
+		DiscoverySelectors: []*meshconfig.LabelSelector{{
 			MatchLabels: map[string]string{"kubernetes.io/metadata.name": "not-selected"},
 		}},
 	}, time.Second)
