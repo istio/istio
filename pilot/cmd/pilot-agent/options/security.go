@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cafile"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 )
 
@@ -126,14 +125,6 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 	// Default the CA provider where possible
 	if strings.Contains(o.CAEndpoint, "googleapis.com") {
 		o.CAProviderName = security.GoogleCAProvider
-	}
-	// TODO extract this logic out to a plugin
-	if o.CAProviderName == security.GoogleCAProvider || o.CAProviderName == security.GoogleCASProvider {
-		var err error
-		o.TokenExchanger, err = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	if o.ProvCert != "" && o.FileMountedCerts {
