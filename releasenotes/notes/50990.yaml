@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 50990
+releaseNotes:
+- |
+  **Fixed** a bug in istioctl where it would parse a field value into a non-string type which then failed to be assigned to the string field.

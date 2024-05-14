@@ -21,9 +21,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/test/env"
 )
+
+const operatorSubdirFilePath = "manifests"
 
 func TestReadLayeredYAMLs(t *testing.T) {
 	testDataDir := filepath.Join(env.IstioSrc, "operator/pkg/util/testdata/yaml")
@@ -150,5 +154,55 @@ func TestConvertIOPMapValues(t *testing.T) {
 				t.Errorf("convertIOPMapValues() got:\n%s\nwant:\n%s\ndiff:\n%s", actualOutput, string(expectOutput), diff)
 			}
 		})
+	}
+}
+
+func TestGenIOPFromProfile(t *testing.T) {
+	tests := []struct {
+		name        string
+		setFlags    []string
+		expectError bool
+	}{
+		{
+			name:     "cpu_limits",
+			setFlags: []string{"values.global.proxy.resources.limits.cpu=200"},
+		},
+		{
+			name:     "compatibilityVersion",
+			setFlags: []string{"values.compatibilityVersion=1.20", "compatibilityVersion=1.20"},
+		},
+		{
+			name:     "ingressGateways",
+			setFlags: []string{"components.ingressGateways[0].enabled=true", "components.ingressGateways[0].name=test"},
+		},
+		{
+			name:     "egressGatewayJsonNotation",
+			setFlags: []string{"values.gateways.istio-egressgateway.enabled=true"},
+		},
+		{
+			name:        "nonexistant_field",
+			setFlags:    []string{"values.global.proxy.unknown.image=test"},
+			expectError: true,
+		},
+	}
+	manifests := filepath.Join(env.IstioSrc, operatorSubdirFilePath)
+	profiles, err := helm.ListProfiles(manifests)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(profiles) < 2 {
+		// Just ensure we find some profiles, in case this code breaks
+		t.Fatalf("Maybe have failed getting profiles, got %v", profiles)
+	}
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
+	for _, profile := range profiles {
+		for _, tc := range tests {
+			t.Run(profile+"_"+tc.name, func(t *testing.T) {
+				_, _, err := GenIOPFromProfile(profile, "", append([]string{"installPackagePath=" + manifests}, tc.setFlags...), false, false, nil, l)
+				if (err != nil) != tc.expectError {
+					t.Fatal(err)
+				}
+			})
+		}
 	}
 }

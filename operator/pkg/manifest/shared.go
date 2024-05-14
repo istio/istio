@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util/sets"
 	pkgversion "istio.io/istio/pkg/version"
 )
 
@@ -470,10 +469,6 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 	return iop.Spec.InstallPackagePath, nil
 }
 
-// alwaysString represents types that should always be decoded as strings
-// TODO: this could be automatically derived from the value_types.proto?
-var alwaysString = sets.New("values.compatibilityVersion", "compatibilityVersion")
-
 // overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
 func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 	iop := make(map[string]any)
@@ -494,7 +489,11 @@ func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 		}
 		// input value type is always string, transform it to correct type before setting.
 		var val any = v
-		if !alwaysString.Contains(p) {
+		fieldType, err := iopv1alpha1.GetFieldType(p)
+		if err != nil {
+			return "", err
+		}
+		if fieldType.Kind() != reflect.String {
 			val = util.ParseValue(v)
 		}
 		if err := tpath.WritePathContext(inc, val, false); err != nil {
