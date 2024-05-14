@@ -1028,72 +1028,12 @@ func stackdriverVMID(class networking.ListenerClass) string {
 	}
 }
 
-var metricToSDServerMetrics = map[string]string{
-	"REQUEST_COUNT":          "server/request_count",
-	"REQUEST_DURATION":       "server/response_latencies",
-	"REQUEST_SIZE":           "server/request_bytes",
-	"RESPONSE_SIZE":          "server/response_bytes",
-	"TCP_OPENED_CONNECTIONS": "server/connection_open_count",
-	"TCP_CLOSED_CONNECTIONS": "server/connection_close_count",
-	"TCP_SENT_BYTES":         "server/sent_bytes_count",
-	"TCP_RECEIVED_BYTES":     "server/received_bytes_count",
-	"GRPC_REQUEST_MESSAGES":  "",
-	"GRPC_RESPONSE_MESSAGES": "",
-}
-
-var metricToSDClientMetrics = map[string]string{
-	"REQUEST_COUNT":          "client/request_count",
-	"REQUEST_DURATION":       "client/response_latencies",
-	"REQUEST_SIZE":           "client/request_bytes",
-	"RESPONSE_SIZE":          "client/response_bytes",
-	"TCP_OPENED_CONNECTIONS": "client/connection_open_count",
-	"TCP_CLOSED_CONNECTIONS": "client/connection_close_count",
-	"TCP_SENT_BYTES":         "client/sent_bytes_count",
-	"TCP_RECEIVED_BYTES":     "client/received_bytes_count",
-	"GRPC_REQUEST_MESSAGES":  "",
-	"GRPC_RESPONSE_MESSAGES": "",
-}
-
 // used for CEL expressions in stackdriver serialization
 var jsonUnescaper = strings.NewReplacer(`\u003e`, `>`, `\u003c`, `<`, `\u0026`, `&`)
 
 func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryFilterConfig) *anypb.Any {
 	cfg := sd.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
-	}
-	metricNameMap := metricToSDClientMetrics
-	if class == networking.ListenerClassSidecarInbound {
-		metricNameMap = metricToSDServerMetrics
-	}
-	metricCfg := telemetryConfig.MetricsForClass(class)
-	if !metricCfg.Disabled {
-		for _, override := range metricCfg.Overrides {
-			metricName, f := metricNameMap[override.Name]
-			if !f {
-				// Not a predefined metric, must be a custom one
-				metricName = override.Name
-			}
-			if metricName == "" {
-				continue
-			}
-			if cfg.MetricsOverrides == nil {
-				cfg.MetricsOverrides = map[string]*sd.MetricsOverride{}
-			}
-			if _, f := cfg.MetricsOverrides[metricName]; !f {
-				cfg.MetricsOverrides[metricName] = &sd.MetricsOverride{}
-			}
-			cfg.MetricsOverrides[metricName].Drop = override.Disabled
-			for _, t := range override.Tags {
-				if t.Remove {
-					// Remove is not supported by SD
-					continue
-				}
-				if cfg.MetricsOverrides[metricName].TagOverrides == nil {
-					cfg.MetricsOverrides[metricName].TagOverrides = map[string]string{}
-				}
-				cfg.MetricsOverrides[metricName].TagOverrides[t.Name] = t.Value
-			}
-		}
 	}
 
 	if telemetryConfig.AccessLogging {

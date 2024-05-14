@@ -620,48 +620,6 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 	}
 	overridesStackdriver := &tpb.Telemetry{
-		Metrics: []*tpb.Metrics{
-			{
-				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
-				Overrides: overrides,
-			},
-		},
-		AccessLogging: []*tpb.AccessLogging{
-			{
-				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
-				Filter: &tpb.AccessLogging_Filter{
-					Expression: `response.code >= 500 && response.code <= 800`,
-				},
-			},
-		},
-	}
-	overridesAllMetricsStackdriver := &tpb.Telemetry{
-		Metrics: []*tpb.Metrics{
-			{
-				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
-				Overrides: []*tpb.MetricsOverrides{
-					{
-						TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
-							"destination_service": {
-								Value: "fake_dest",
-							},
-						},
-					},
-					{
-						Match: &tpb.MetricSelector{
-							MetricMatch: &tpb.MetricSelector_Metric{
-								Metric: tpb.MetricSelector_REQUEST_COUNT,
-							},
-						},
-						TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
-							"destination_service": {
-								Value: "fake_dest_override",
-							},
-						},
-					},
-				},
-			},
-		},
 		AccessLogging: []*tpb.AccessLogging{
 			{
 				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
@@ -1034,7 +992,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"disable_server_access_logging":true,"metric_expiry_duration":"3600s"}`,
+				"istio.stackdriver": `{"disable_server_access_logging":true}`,
 			},
 		},
 		{
@@ -1045,50 +1003,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"access_logging_filter_expression":"response.code >= 500 && response.code <= 800",` +
-					`"metric_expiry_duration":"3600s","metrics_overrides":{"client/request_count":{"tag_overrides":{"add":"bar"}}}}`,
-			},
-		},
-		{
-			"overrides all metrics stackdriver/client",
-			[]config.Config{newTelemetry("istio-system", overridesAllMetricsStackdriver)},
-			sidecar,
-			networking.ListenerClassSidecarOutbound,
-			networking.ListenerProtocolHTTP,
-			nil,
-			map[string]string{
-				"istio.stackdriver": `{"access_logging_filter_expression":"response.code >= 500 && response.code <= 800",` +
-					`"metric_expiry_duration":"3600s","metrics_overrides":{` +
-					`"client/connection_close_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/connection_open_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/received_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/request_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/request_count":{"tag_overrides":{"destination_service":"fake_dest_override"}},` +
-					`"client/response_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/response_latencies":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/sent_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}}` +
-					`}}`,
-			},
-		},
-		{
-			"overrides all metrics stackdriver/server",
-			[]config.Config{newTelemetry("istio-system", overridesAllMetricsStackdriver)},
-			sidecar,
-			networking.ListenerClassSidecarInbound,
-			networking.ListenerProtocolHTTP,
-			nil,
-			map[string]string{
-				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging_filter_expression":"response.code >= 500 && response.code <= 800",` +
-					`"metric_expiry_duration":"3600s","metrics_overrides":{` +
-					`"server/connection_close_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/connection_open_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/received_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/request_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/request_count":{"tag_overrides":{"destination_service":"fake_dest_override"}},` +
-					`"server/response_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/response_latencies":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/sent_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}}` +
-					`}}`,
+				"istio.stackdriver": `{"access_logging_filter_expression":"response.code >= 500 && response.code <= 800"}`,
 			},
 		},
 		{
