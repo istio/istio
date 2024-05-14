@@ -15,7 +15,6 @@
 package aggregate
 
 import (
-	"slices"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
