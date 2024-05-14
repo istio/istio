@@ -296,6 +296,13 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			in:   "proxy-override-runas.yaml",
+			want: "proxy-override-runas.yaml.tproxy.injected",
+			mesh: func(m *meshapi.MeshConfig) {
+				m.DefaultConfig.InterceptionMode = meshapi.ProxyConfig_TPROXY
+			},
+		},
+		{
 			in:   "proxy-override-args.yaml",
 			want: "proxy-override-args-native.yaml.injected",
 			setup: func(t test.Failer) {
