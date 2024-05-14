@@ -17,6 +17,7 @@ package kclient_test
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -363,6 +364,18 @@ func TestFilterNamespace(t *testing.T) {
 		return slices.Equal(tracker.Events(), []string{"add/selected"}) ||
 			slices.Equal(tracker.Events(), []string{"add/selected", "add/selected"})
 	})
+	testns.Delete("selected", "")
+	// We may or may not get the deletion event, currently.
+	// Like above for adds, we cannot guarantee exactly once delivery. For adds we chose to give 1 or 2 events.
+	// For delete, it is usually not important to handle, so we choose to get 0 or 1 events here.
+	retry.UntilOrFail(t, func() bool {
+		events := slices.Filter(tracker.Events(), func(s string) bool {
+			// Ignore the adds
+			return !strings.HasPrefix(s, "add/")
+		})
+		return slices.Equal(events, []string{"delete/selected"}) ||
+			slices.Equal(events, nil)
+	}, retry.Timeout(time.Second*3))
 }
 
 func TestFilter(t *testing.T) {

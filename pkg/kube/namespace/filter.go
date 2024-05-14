@@ -79,8 +79,13 @@ func NewDiscoveryNamespacesFilter(
 			}
 		},
 		DeleteFunc: func(ns *corev1.Namespace) {
-			// No need to notify handlers for deletes
-			f.namespaceDeleted(ns.ObjectMeta)
+			f.lock.Lock()
+			defer f.lock.Unlock()
+			// No need to notify handlers for deletes. The namespace was deleted, so the object will be as well (and a delete could not de-select).
+			// Note that specifically for the edge case of a Namespace watcher that is filtering, this will ignore deletes we should
+			// otherwise send.
+			// See kclient.applyDynamicFilter for rationale.
+			f.namespaceDeletedLocked(ns.ObjectMeta)
 		},
 	})
 	// Start namespaces and wait for it to be ready now. This is required for subsequent users, so we want to block
@@ -194,10 +199,9 @@ func (d *discoveryNamespacesFilter) namespaceUpdatedLocked(oldNs, newNs metav1.O
 	return false, false
 }
 
-// namespaceDeleted : if deleted namespace was a member, remove it
-func (d *discoveryNamespacesFilter) namespaceDeleted(ns metav1.ObjectMeta) (membershipChanged bool) {
+// namespaceDeletedLocked : if deleted namespace was a member, remove it
+func (d *discoveryNamespacesFilter) namespaceDeletedLocked(ns metav1.ObjectMeta) {
 	d.discoveryNamespaces.Delete(ns.Name)
-	return d.isSelectedLocked(ns.Labels)
 }
 
 // AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected.
