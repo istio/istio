@@ -639,6 +639,10 @@ func adjustInitContainerUser(finalPod *corev1.Pod, originalPod *corev1.Pod, prox
 	}
 
 	// Find the "-u <uid>" parameter in the init container and replace it with the userid from SecurityContext.RunAsUser
+	// but only if it's not 0. iptables --uid-owner argument must not be 0.
+	if userContainer.SecurityContext.RunAsUser == nil || *userContainer.SecurityContext.RunAsUser == 0 {
+		return
+	}
 	for i := range initContainer.Args {
 		if initContainer.Args[i] == "-u" {
 			initContainer.Args[i+1] = fmt.Sprintf("%d", *userContainer.SecurityContext.RunAsUser)
