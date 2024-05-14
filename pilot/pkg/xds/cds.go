@@ -92,8 +92,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		return true
 	}
 
-	autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
-	autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthrughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
+	checkGateway := false
 	for config := range req.ConfigsUpdated {
 		if proxy.Type == model.Router {
 			if features.FilterGatewayClusterConfig {
@@ -101,12 +100,20 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 					return true
 				}
 			}
-			if config.Kind == kind.Gateway && (autoPassthroughModeChanged || autoPassthroughHostsChanged) {
-				return true
+			if config.Kind == kind.Gateway {
+				// Do the check outside of the loop since its slow; just trigger we need it
+				checkGateway = true
 			}
 		}
 
 		if _, f := skippedCdsConfigs[config.Kind]; !f {
+			return true
+		}
+	}
+	if checkGateway {
+		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
+		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthrughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
+		if autoPassthroughModeChanged || autoPassthroughHostsChanged {
 			return true
 		}
 	}
