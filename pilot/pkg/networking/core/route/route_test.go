@@ -270,6 +270,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[1].StatPrefix).To(Equal(""))
 		g.Expect(routes[2].GetMatch().GetPrefix()).To(Equal("/bar"))
 		g.Expect(routes[2].StatPrefix).To(Equal(""))
+		g.Expect(len(routes[0].GetRoute().GetRetryPolicy().RetryHostPredicate)).To(Equal(1))
 	})
 
 	t.Run("for virtual service with exact matching on JWT claims", func(t *testing.T) {
@@ -513,6 +514,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		}
 		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(ConsistOf(hashPolicy))
+		g.Expect(len(routes[0].GetRoute().GetRetryPolicy().RetryHostPredicate)).To(Equal(0))
 	})
 
 	t.Run("for virtual service with query param based ring hash", func(t *testing.T) {
@@ -560,6 +562,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		}
 		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(ConsistOf(hashPolicy))
+		g.Expect(len(routes[0].GetRoute().GetRetryPolicy().RetryHostPredicate)).To(Equal(0))
 	})
 
 	t.Run("for virtual service with subsets with ring hash", func(t *testing.T) {

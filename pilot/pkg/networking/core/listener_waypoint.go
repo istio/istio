@@ -576,7 +576,7 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 		policy = lb.push.Mesh.GetDefaultHttpRetryPolicy()
 	}
 	action := &route.RouteAction{
-		RetryPolicy: retry.ConvertPolicy(policy),
+		RetryPolicy: retry.ConvertPolicy(policy, false),
 	}
 
 	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
