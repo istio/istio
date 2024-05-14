@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -31,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
-	_ "istio.io/istio/pkg/test/framework/components/echo/staticvm" // force registraton of factory func
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -83,8 +81,8 @@ func New(ctx resource.Context, clusters ...cluster.Cluster) Builder {
 	}
 	b := builder{
 		ctx:        ctx,
-		configs:    map[cluster.Kind][]echo.Config{},
-		refs:       map[cluster.Kind][]*echo.Instance{},
+		configs:    []echo.Config{},
+		refs:       []*echo.Instance{},
 		namespaces: map[string]namespace.Instance{},
 	}
 	templates, err := b.injectionTemplates()
@@ -105,11 +103,11 @@ type builder struct {
 	clusters cluster.Clusters
 
 	// configs contains configurations to be built, expanded per-cluster and grouped by cluster Kind.
-	configs map[cluster.Kind][]echo.Config
+	configs []echo.Config
 	// refs contains the references to assign built Instances to.
 	// The length of each refs slice should match the length of the corresponding cluster slice.
 	// Only the first per-cluster entry for a given config should have a non-nil ref.
-	refs map[cluster.Kind][]*echo.Instance
+	refs []*echo.Instance
 	// namespaces caches namespaces by their prefix; used for converting Static namespace from configs into actual
 	// namespaces
 	namespaces map[string]namespace.Instance
@@ -162,9 +160,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
 			continue
 		}
 		if !b.validateTemplates(perClusterConfig, c) {
-			if c.Kind() == cluster.Kubernetes {
-				scopes.Framework.Warnf("%s does not contain injection templates for %s; skipping deployment", c.Name(), perClusterConfig.ClusterLocalFQDN())
-			}
+			scopes.Framework.Warnf("%s does not contain injection templates for %s; skipping deployment", c.Name(), perClusterConfig.ClusterLocalFQDN())
 			// Don't error out when injection template missing.
 			shouldSkip = true
 			continue
@@ -178,10 +174,9 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
 			ref = i
 		}
 		perClusterConfig = perClusterConfig.DeepCopy()
-		k := ec.Kind()
 		perClusterConfig.Cluster = ec
-		b.configs[k] = append(b.configs[k], perClusterConfig)
-		b.refs[k] = append(b.refs[k], ref)
+		b.configs = append(b.configs, perClusterConfig)
+		b.refs = append(b.refs, ref)
 		deployedTo++
 	}
 
@@ -214,7 +209,7 @@ func (b builder) injectionTemplates() (map[string]sets.String, error) {
 	}
 
 	out := map[string]sets.String{}
-	for _, c := range b.ctx.Clusters().Kube() {
+	for _, c := range b.ctx.Clusters() {
 		out[c.Name()] = sets.New[string]()
 		// TODO find a place to read revision(s) and avoid listing
 		cms, err := c.Kube().CoreV1().ConfigMaps(ns).List(context.TODO(), metav1.ListOptions{})
@@ -306,20 +301,18 @@ func (b builder) getOrCreateNamespace(prefix string) (builder, namespace.Instanc
 // per cluster. This avoids concurrent writes later.
 func (b builder) deployServices() (err error) {
 	services := make(map[string]string)
-	for _, cfgs := range b.configs {
-		for _, cfg := range cfgs {
-			svc, err := kube.GenerateService(cfg)
-			if err != nil {
-				return err
-			}
-			if existing, ok := services[cfg.ClusterLocalFQDN()]; ok {
-				// we've already run the generation for another echo instance's config, make sure things are the same
-				if existing != svc {
-					return fmt.Errorf("inconsistency in %s Service definition:\n%s", cfg.Service, cmp.Diff(existing, svc))
-				}
-			}
-			services[cfg.ClusterLocalFQDN()] = svc
+	for _, cfg := range b.configs {
+		svc, err := kube.GenerateService(cfg)
+		if err != nil {
+			return err
 		}
+		if existing, ok := services[cfg.ClusterLocalFQDN()]; ok {
+			// we've already run the generation for another echo instance's config, make sure things are the same
+			if existing != svc {
+				return fmt.Errorf("inconsistency in %s Service definition:\n%s", cfg.Service, cmp.Diff(existing, svc))
+			}
+		}
+		services[cfg.ClusterLocalFQDN()] = svc
 	}
 
 	// Deploy the services to all clusters.
@@ -332,40 +325,20 @@ func (b builder) deployServices() (err error) {
 	return cfg.Apply(apply.NoCleanup)
 }
 
-func (b builder) deployInstances() (instances echo.Instances, err error) {
-	m := sync.Mutex{}
-	out := echo.Instances{}
-	g := multierror.Group{}
+func (b builder) deployInstances() (echo.Instances, error) {
 	// run the builder func for each kind of config in parallel
-	for kind, configs := range b.configs {
-		kind := kind
-		configs := configs
-		g.Go(func() error {
-			buildFunc, err := echo.GetBuilder(kind)
-			if err != nil {
-				return err
-			}
-			instances, err := buildFunc(b.ctx, configs)
-			if err != nil {
-				return err
-			}
-
-			// link reference pointers
-			if err := assignRefs(b.refs[kind], instances); err != nil {
-				return err
-			}
-
-			// safely merge instances from all kinds of cluster into one list
-			m.Lock()
-			defer m.Unlock()
-			out = append(out, instances...)
-			return nil
-		})
-	}
-	if err := g.Wait().ErrorOrNil(); err != nil {
+	instances, err := kube.Build(b.ctx, b.configs)
+	if err != nil {
 		return nil, err
 	}
-	return out, nil
+
+	// link reference pointers
+	if err := assignRefs(b.refs, instances); err != nil {
+		return nil, err
+	}
+
+	// safely merge instances from all kinds of cluster into one list
+	return instances, nil
 }
 
 func assignRefs(refs []*echo.Instance, instances echo.Instances) error {

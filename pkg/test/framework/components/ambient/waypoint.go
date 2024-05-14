@@ -115,7 +115,7 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 		return nil, err
 	}
 
-	cls := ctx.Clusters().Kube().Default()
+	cls := ctx.Clusters().Default()
 	// Find the Waypoint pod and service, and start forwarding a local port.
 	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", constants.GatewayNameLabel, name))
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
@@ -160,7 +160,7 @@ func SetWaypointForService(t framework.TestContext, ns namespace.Instance, servi
 		return
 	}
 
-	cs := t.AllClusters().Kube()
+	cs := t.AllClusters()
 	for _, c := range cs {
 		oldSvc, err := c.Kube().CoreV1().Services(ns.Name()).Get(t.Context(), service, metav1.GetOptions{})
 		if err != nil {

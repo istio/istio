@@ -46,7 +46,7 @@ func TestWaypointStatus(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			client := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+			client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
 
 			check := func() error {
 				gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
@@ -341,7 +341,7 @@ func SetWaypointServiceEntry(t framework.TestContext, se, namespace string, wayp
 }
 
 func setWaypointInternal(t framework.TestContext, name, ns string, waypoint string, service bool) {
-	for _, c := range t.Clusters().Kube() {
+	for _, c := range t.Clusters() {
 		setWaypoint := func(waypoint string) error {
 			if waypoint == "" {
 				waypoint = "null"

@@ -18,18 +18,7 @@ import (
 	"istio.io/istio/pkg/test/framework/config"
 )
 
-type Kind string
-
-const (
-	Kubernetes Kind = "Kubernetes"
-	Fake       Kind = "Fake"
-	Aggregate  Kind = "Aggregate"
-	StaticVM   Kind = "StaticVM"
-	Unknown    Kind = "Unknown"
-)
-
 type Config struct {
-	Kind               Kind       `yaml:"kind,omitempty"`
 	Name               string     `yaml:"clusterName,omitempty"`
 	Network            string     `yaml:"network,omitempty"`
 	HTTPProxy          string     `yaml:"httpProxy,omitempty"`
