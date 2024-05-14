@@ -60,7 +60,6 @@ import (
 	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
 	"istio.io/istio/security/pkg/nodeagent/cafile"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
@@ -481,42 +480,15 @@ func TestAgent(t *testing.T) {
 		go sds[security.WorkloadKeyCertResourceName].DrainResponses()
 		expectFileUnchanged(t, filepath.Join(dir, "cert-chain.pem"), filepath.Join(dir, "key.pem"))
 	})
-	t.Run("Token exchange", func(t *testing.T) {
-		// This is used in environments where the CA expects a different token type than K8s jwt, and
-		// exchanges it for another form using TokenExchanger
-		Setup(t, func(a AgentTest) AgentTest {
-			a.CaAuthenticator.Set("some-token", "")
-			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"fake": "some-token"})
-			return a
-		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-	})
-	t.Run("Token exchange with credential fetcher", func(t *testing.T) {
-		// This is used with platform credentials, where the platform provides some underlying
-		// identity (typically for VMs, not Kubernetes), which is exchanged with TokenExchanger
-		// before sending to the CA.
-		dir := mktemp()
-		a := Setup(t, func(a AgentTest) AgentTest {
-			a.CaAuthenticator.Set("some-token", "")
-			a.XdsAuthenticator.Set("", fakeSpiffeID)
-			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"platform-cred": "some-token"})
-			a.Security.CredFetcher = plugin.CreateMockPlugin("platform-cred")
-			a.Security.OutputKeyCertToDir = dir
-			a.Security.ProvCert = dir
-			a.AgentConfig.XDSRootCerts = filepath.Join(certDir, "root-cert.pem")
-			return a
-		})
 
-		a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-	})
-	t.Run("Token exchange with credential fetcher downtime", func(t *testing.T) {
+	t.Run("credential fetcher downtime", func(t *testing.T) {
 		// This ensures our pre-warming is resilient to temporary downtime of the CA
 		dir := mktemp()
 		a := Setup(t, func(a AgentTest) AgentTest {
 			// Make CA deny all requests to simulate downtime
 			a.CaAuthenticator.Set("", "")
 			a.XdsAuthenticator.Set("", fakeSpiffeID)
-			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"platform-cred": "some-token"})
-			a.Security.CredFetcher = plugin.CreateMockPlugin("platform-cred")
+			a.Security.CredFetcher = plugin.CreateMockPlugin("some-token")
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.ProvCert = dir
 			a.AgentConfig.XDSRootCerts = filepath.Join(certDir, "root-cert.pem")

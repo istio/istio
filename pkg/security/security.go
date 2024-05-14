@@ -218,12 +218,6 @@ type Options struct {
 	// STS port
 	STSPort int
 
-	// authentication provider specific plugins, will exchange the token
-	// For example exchange long lived refresh with access tokens.
-	// Used by the secret fetcher when signing CSRs.
-	// Optional; if not present the token will be used directly
-	TokenExchanger TokenExchanger
-
 	// credential fetcher.
 	CredFetcher CredFetcher
 
@@ -322,12 +316,6 @@ type SecretManager interface {
 	// the K8S format. No other JWTs are currently supported due to client logic. If JWT is
 	// missing/invalid, the resourceName is used.
 	GenerateSecret(resourceName string) (*SecretItem, error)
-}
-
-// TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
-type TokenExchanger interface {
-	// ExchangeToken provides a common interface to exchange an existing token for a new one.
-	ExchangeToken(serviceAccountToken string) (string, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.

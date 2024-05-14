@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
@@ -91,20 +90,11 @@ func (t *TokenProvider) GetToken() (string, error) {
 		return "", fmt.Errorf("fetch platform credential: %v", err)
 	}
 
-	// Regardless of where the token came from, we (optionally) can exchange the token for a different
+	// CA does not use token exchange
 	if t.forCA {
-		return t.exchangeCAToken(token)
-	}
-	return t.exchangeXDSToken(token)
-}
-
-// exchangeCAToken exchanges the provided token using TokenExchanger, if configured. If not, the
-// original token is returned.
-func (t *TokenProvider) exchangeCAToken(token string) (string, error) {
-	if t.opts.TokenExchanger == nil {
 		return token, nil
 	}
-	return t.opts.TokenExchanger.ExchangeToken(token)
+	return t.exchangeXDSToken(token)
 }
 
 func (t *TokenProvider) exchangeXDSToken(token string) (string, error) {
@@ -120,7 +110,7 @@ func (t *TokenProvider) exchangeXDSToken(token string) (string, error) {
 		return "", fmt.Errorf("the token for XDS token exchange is empty")
 	}
 	params := security.StsRequestParameters{
-		Scope:            stsclient.Scope,
+		Scope:            "https://www.googleapis.com/auth/cloud-platform",
 		GrantType:        server.TokenExchangeGrantType,
 		SubjectToken:     token,
 		SubjectTokenType: server.SubjectTokenType,
