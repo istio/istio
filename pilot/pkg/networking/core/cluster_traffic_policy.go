@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // applyTrafficPolicy applies the trafficPolicy defined within destinationRule,
@@ -489,7 +490,7 @@ func (cb *ClusterBuilder) applyUpstreamProxyProtocol(
 	if c.cluster.TransportSocket != nil {
 		// add an upstream proxy protocol wrapper for transportSocket
 		c.cluster.TransportSocket = &core.TransportSocket{
-			Name: "envoy.transport_sockets.upstream_proxy_protocol",
+			Name: wellknown.TransportSocketPROXY,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocolUpstreamTransport{
 				Config:          &core.ProxyProtocolConfig{Version: core.ProxyProtocolConfig_Version(proxyProtocol.Version)},
 				TransportSocket: c.cluster.TransportSocket,
@@ -500,7 +501,7 @@ func (cb *ClusterBuilder) applyUpstreamProxyProtocol(
 	// add an upstream proxy protocol wrapper for each transportSocket
 	for _, tsm := range c.cluster.TransportSocketMatches {
 		tsm.TransportSocket = &core.TransportSocket{
-			Name: "envoy.transport_sockets.upstream_proxy_protocol",
+			Name: wellknown.TransportSocketPROXY,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocolUpstreamTransport{
 				Config:          &core.ProxyProtocolConfig{Version: core.ProxyProtocolConfig_Version(proxyProtocol.Version)},
 				TransportSocket: tsm.TransportSocket,
