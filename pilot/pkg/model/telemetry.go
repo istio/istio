@@ -24,17 +24,13 @@ import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
-	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
 
-	sd "istio.io/api/envoy/extensions/stackdriver/config/v1alpha1"
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
@@ -44,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -947,24 +942,6 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 					res = append(res, f)
 				}
 			}
-		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-			sdCfg := generateSDConfig(class, cfg)
-			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
-			vmConfig.VmConfig.VmId = stackdriverVMID(class)
-
-			wasmConfig := &httpwasm.Wasm{
-				Config: &wasm.PluginConfig{
-					RootId:        vmConfig.VmConfig.VmId,
-					Vm:            vmConfig,
-					Configuration: sdCfg,
-				},
-			}
-
-			f := &hcm.HttpFilter{
-				Name:       xds.StackdriverFilterName,
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
-			}
-			res = append(res, f)
 		default:
 			// Only prometheus and SD supported currently
 			continue
@@ -993,24 +970,6 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 					res = append(res, f)
 				}
 			}
-		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-			cfg := generateSDConfig(class, telemetryCfg)
-			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
-			vmConfig.VmConfig.VmId = stackdriverVMID(class)
-
-			wasmConfig := &wasmfilter.Wasm{
-				Config: &wasm.PluginConfig{
-					RootId:        vmConfig.VmConfig.VmId,
-					Vm:            vmConfig,
-					Configuration: cfg,
-				},
-			}
-
-			f := &listener.Filter{
-				Name:       xds.StackdriverFilterName,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
-			}
-			res = append(res, f)
 		default:
 			// Only prometheus and SD supported currently
 			continue
@@ -1030,40 +989,6 @@ func stackdriverVMID(class networking.ListenerClass) string {
 
 // used for CEL expressions in stackdriver serialization
 var jsonUnescaper = strings.NewReplacer(`\u003e`, `>`, `\u003c`, `<`, `\u0026`, `&`)
-
-func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryFilterConfig) *anypb.Any {
-	cfg := sd.PluginConfig{
-		DisableHostHeaderFallback: disableHostHeaderFallback(class),
-	}
-
-	if telemetryConfig.AccessLogging {
-		if telemetryConfig.LogsFilter != nil {
-			cfg.AccessLoggingFilterExpression = telemetryConfig.LogsFilter.Expression
-		} else {
-			if class == networking.ListenerClassSidecarInbound {
-				cfg.AccessLogging = sd.PluginConfig_FULL
-			} else {
-				// this can be achieved via CEL: `response.code >= 400 || response.code == 0`
-				cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
-			}
-		}
-	} else {
-		// The field is deprecated, but until it is removed we need to set it.
-		cfg.DisableServerAccessLogging = true // nolint: staticcheck
-	}
-
-	cfg.EnableAuditLog = features.StackdriverAuditLog
-	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
-	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
-
-	// MarshalProtoNames() forces HTML-escaped JSON encoding.
-	// this can be problematic for CEL expressions, particularly those using
-	// '>', '<', and '&'s. It is easier to use replaceAll operations than it is
-	// to mimic MarshalProtoNames() with configured JSON Encoder.
-	pb := &wrappers.StringValue{Value: jsonUnescaper.Replace(string(cfgJSON))}
-
-	return protoconv.MessageToAny(pb)
-}
 
 var metricToPrometheusMetric = map[string]string{
 	"REQUEST_COUNT":          "requests_total",
