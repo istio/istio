@@ -258,9 +258,19 @@ func (b *KeyCertBundle) ExtractRootCertExpiryTimestamp() (float64, error) {
 	return extractCertExpiryTimestamp("root cert", b.GetRootCertPem())
 }
 
+// ExtractRootCertExpirySeconds returns the time remaining, in seconds, before the root cert chain will expire.
+func (b *KeyCertBundle) ExtractRootCertExpirySeconds() (float64, error) {
+	return extractCertExpirySeconds("root cert", b.GetRootCertPem())
+}
+
 // ExtractCACertExpiryTimestamp returns the unix timestamp when the cert chain becomes expires.
 func (b *KeyCertBundle) ExtractCACertExpiryTimestamp() (float64, error) {
 	return extractCertExpiryTimestamp("CA cert", b.GetCertChainPem())
+}
+
+// ExtractCACertExpirySeconds returns the time remaining, in seconds, before the cert chain will expire.
+func (b *KeyCertBundle) ExtractCACertExpirySeconds() (float64, error) {
+	return extractCertExpirySeconds("CA cert", b.GetCertChainPem())
 }
 
 // TimeBeforeCertExpires returns the time duration before the cert gets expired.
@@ -330,6 +340,20 @@ func extractCertExpiryTimestamp(certType string, certPem []byte) (float64, error
 		return expiryTimestamp, fmt.Errorf("expired %s found, x509.NotAfter %v, please transit your %s", certType, end, certType)
 	}
 	return expiryTimestamp, nil
+}
+
+func extractCertExpirySeconds(certType string, certPem []byte) (float64, error) {
+	cert, err := ParsePemEncodedCertificate(certPem)
+	if err != nil {
+		return -1, fmt.Errorf("failed to parse the %s: %v", certType, err)
+	}
+
+	end := cert.NotAfter
+	expirySeconds := time.Until(end).Seconds()
+	if end.Before(time.Now()) {
+		return expirySeconds, fmt.Errorf("expired %s found, x509.NotAfter %v, please transit your %s", certType, end, certType)
+	}
+	return expirySeconds, nil
 }
 
 func copyBytes(src []byte) []byte {
