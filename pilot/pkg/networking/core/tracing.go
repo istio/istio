@@ -16,6 +16,9 @@ package core
 
 import (
 	"fmt"
+	"net/url"
+	"sort"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -25,8 +28,6 @@ import (
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	"net/url"
-	"sort"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	telemetrypb "istio.io/api/telemetry/v1alpha1"
