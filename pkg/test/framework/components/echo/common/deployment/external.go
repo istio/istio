@@ -42,7 +42,7 @@ type External struct {
 	All echo.Instances
 }
 
-func (e External) build(t resource.Context, b deployment.Builder) deployment.Builder {
+func (e External) Build(t resource.Context, b deployment.Builder) deployment.Builder {
 	config := echo.Config{
 		Service:           ExternalSvc,
 		Namespace:         e.Namespace,
@@ -72,7 +72,6 @@ func (e External) build(t resource.Context, b deployment.Builder) deployment.Bui
 	return b.WithConfig(config)
 }
 
-func (e *External) loadValues(echos echo.Instances) error {
+func (e *External) LoadValues(echos echo.Instances) {
 	e.All = match.ServiceName(echo.NamespacedName{Name: ExternalSvc, Namespace: e.Namespace}).GetMatches(echos)
-	return nil
 }

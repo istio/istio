@@ -125,7 +125,7 @@ proxyHeaders:
 				return nil
 			})
 
-			cdeployment.DeployExternalServiceEntry(t.ConfigIstio(), ns, apps.External.Namespace).
+			cdeployment.DeployExternalServiceEntry(t.ConfigIstio(), ns, apps.External.Namespace, false).
 				ApplyOrFail(t, apply.CleanupConditionally)
 			instance.CallOrFail(t, echo.CallOptions{
 				Address: apps.External.All[0].Address(),

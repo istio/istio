@@ -461,7 +461,7 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 	}
 
 	if !cfg.NoExternalNamespace {
-		builder = apps.External.build(ctx, builder)
+		builder = apps.External.Build(ctx, builder)
 	}
 
 	echos, err := builder.Build()
@@ -508,9 +508,7 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 	}
 
 	if !cfg.NoExternalNamespace {
-		g.Go(func() error {
-			return apps.External.loadValues(echos)
-		})
+		apps.External.LoadValues(echos)
 	}
 
 	if err := g.Wait().ErrorOrNil(); err != nil {
