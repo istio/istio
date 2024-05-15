@@ -44,7 +44,6 @@ import (
 
 const (
 	envoyDatadog       = "envoy.tracers.datadog"
-	envoyOpenCensus    = "envoy.tracers.opencensus"
 	envoyOpenTelemetry = "envoy.tracers.opentelemetry"
 	envoySkywalking    = "envoy.tracers.skywalking"
 	envoyZipkin        = "envoy.tracers.zipkin"
