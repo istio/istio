@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -139,7 +140,20 @@ func NewController(opt Options) *Controller {
 }
 
 func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan struct{}) {
-	c.registries = append(c.registries, &registryEntry{Instance: registry, stop: stop})
+	added := false
+	if registry.Provider() == provider.Kubernetes {
+		for i, r := range c.registries {
+			if r.Provider() != provider.Kubernetes {
+				// insert the registry in the position of the first non kubernetes registry
+				c.registries = slices.Insert(c.registries, i, &registryEntry{Instance: registry, stop: stop})
+				added = true
+				break
+			}
+		}
+	}
+	if !added {
+		c.registries = append(c.registries, &registryEntry{Instance: registry, stop: stop})
+	}
 
 	// Observe the registry for events.
 	registry.AppendNetworkGatewayHandler(c.NotifyGatewayHandlers)
