@@ -2136,11 +2136,9 @@ func TestIsHttp2Cluster(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			isHttp2Cluster := cb.isHttp2Cluster(test.cluster) // revive:disable-line
+			isHttp2Cluster := isHttp2Cluster(test.cluster) // revive:disable-line
 			if isHttp2Cluster != test.isHttp2Cluster {
 				t.Errorf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
 			}

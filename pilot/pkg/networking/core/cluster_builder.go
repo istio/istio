@@ -221,13 +221,14 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	// merge applicable port level traffic policy settings
 	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
-		mesh:           cb.req.Push.Mesh,
-		serviceTargets: cb.serviceTargets,
-		mutable:        mc,
-		policy:         trafficPolicy,
-		port:           port,
-		clusterMode:    clusterMode,
-		direction:      model.TrafficDirectionOutbound,
+		mesh:                  cb.req.Push.Mesh,
+		serviceTargets:        cb.serviceTargets,
+		mutable:               mc,
+		policy:                trafficPolicy,
+		port:                  port,
+		clusterMode:           clusterMode,
+		direction:             model.TrafficDirectionOutbound,
+		credentialSocketExist: cb.credentialSocketExist,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -558,7 +559,7 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 
 // nolint
 // revive:disable-next-line
-func (cb *ClusterBuilder) isHttp2Cluster(mc *clusterWrapper) bool {
+func isHttp2Cluster(mc *clusterWrapper) bool {
 	options := mc.httpProtocolOptions
 	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil
 }
