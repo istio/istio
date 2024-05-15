@@ -163,7 +163,6 @@ func TestReadCACert(t *testing.T) {
 				t.Error("the certificate read is unexpected")
 			}
 		})
-
 	}
 }
 
