@@ -978,18 +978,6 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 	return res
 }
 
-func stackdriverVMID(class networking.ListenerClass) string {
-	switch class {
-	case networking.ListenerClassSidecarInbound:
-		return "stackdriver_inbound"
-	default:
-		return "stackdriver_outbound"
-	}
-}
-
-// used for CEL expressions in stackdriver serialization
-var jsonUnescaper = strings.NewReplacer(`\u003e`, `>`, `\u003c`, `<`, `\u0026`, `&`)
-
 var metricToPrometheusMetric = map[string]string{
 	"REQUEST_COUNT":          "requests_total",
 	"REQUEST_DURATION":       "request_duration_milliseconds",

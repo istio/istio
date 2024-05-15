@@ -27,6 +27,5 @@ const (
 	RBACNetworkFilterType = resource.APITypePrefix + "envoy.extensions.filters.network.rbac.v3.RBAC"
 	TypedStructType       = pm.TypedStructType
 
-	StatsFilterName       = "istio.stats"
-	StackdriverFilterName = "istio.stackdriver"
+	StatsFilterName = "istio.stats"
 )
