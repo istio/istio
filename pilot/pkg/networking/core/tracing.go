@@ -461,33 +461,6 @@ func buildHCMTracing(provider string, startChildSpan bool, maxTagLen uint32, any
 	return config, nil
 }
 
-var allContexts = []tracingcfg.OpenCensusConfig_TraceContext{
-	tracingcfg.OpenCensusConfig_B3,
-	tracingcfg.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
-	tracingcfg.OpenCensusConfig_GRPC_TRACE_BIN,
-	tracingcfg.OpenCensusConfig_TRACE_CONTEXT,
-}
-
-func convert(ctxs []meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_TraceContext) []tracingcfg.OpenCensusConfig_TraceContext {
-	if len(ctxs) == 0 {
-		return allContexts
-	}
-	converted := make([]tracingcfg.OpenCensusConfig_TraceContext, 0, len(ctxs))
-	for _, c := range ctxs {
-		switch c {
-		case meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_B3:
-			converted = append(converted, tracingcfg.OpenCensusConfig_B3)
-		case meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_CLOUD_TRACE_CONTEXT:
-			converted = append(converted, tracingcfg.OpenCensusConfig_CLOUD_TRACE_CONTEXT)
-		case meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_GRPC_BIN:
-			converted = append(converted, tracingcfg.OpenCensusConfig_GRPC_TRACE_BIN)
-		case meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_W3C_TRACE_CONTEXT:
-			converted = append(converted, tracingcfg.OpenCensusConfig_TRACE_CONTEXT)
-		}
-	}
-	return converted
-}
-
 func dryRunPolicyTraceTag(name, key string) *tracing.CustomTag {
 	// The tag will not be populated when not used as there is no default value set for the tag.
 	// See https://www.envoyproxy.io/docs/envoy/v1.17.1/configuration/http/http_filters/rbac_filter#dynamic-metadata.
