@@ -157,7 +157,7 @@ func VerifyOtelEchoTraces(t framework.TestContext, namespace, clName string, tra
 
 func WantOtelTraceRoot(namespace, clName string) (root zipkin.Span) {
 	serverSpan := zipkin.Span{
-		Name:        "ingress",
+		Name:        fmt.Sprintf("server.%s.svc.cluster.local", namespace),
 		ServiceName: fmt.Sprintf("server.%s", namespace),
 	}
 
