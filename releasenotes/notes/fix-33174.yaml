@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 33174
+releaseNotes:
+  - |
+    **Fixed** `istioctl analyze` would fail to analyze VirtualService when a custom cluster domain was defined by user.

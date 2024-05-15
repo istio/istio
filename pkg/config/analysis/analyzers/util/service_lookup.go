@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/resource"
@@ -57,6 +58,17 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 					break
 				}
 			}
+		}
+		return true
+	})
+
+	// use meshConfig.trustDomain changed the default domain
+	// todo: replace by `values.global.proxy.clusterDomain`
+	ctx.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
+		meshConfig := r.Message.(*meshconfig.MeshConfig)
+		if meshConfig.GetTrustDomain() != "" {
+			SetConfigClusterLocalDomain(meshConfig.GetTrustDomain())
+			return false
 		}
 		return true
 	})

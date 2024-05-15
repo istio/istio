@@ -416,6 +416,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:           "virtualServiceDestinationHosts custom domain",
+		inputFiles:     []string{"testdata/virtualservice_destinationhosts_customdomain.yaml"},
+		analyzer:       &virtualservice.DestinationHostAnalyzer{},
+		meshConfigFile: "testdata/custom-domain-mesh-cfg.yaml",
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "VirtualService hello2/hello"},
+		},
+	},
+	{
 		name:       "virtualServiceDestinationRules",
 		inputFiles: []string{"testdata/virtualservice_destinationrules.yaml"},
 		analyzer:   &virtualservice.DestinationRuleAnalyzer{},

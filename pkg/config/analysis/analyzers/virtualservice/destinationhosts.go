@@ -45,6 +45,7 @@ func (a *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 			gvk.ServiceEntry,
 			gvk.VirtualService,
 			gvk.Service,
+			gvk.MeshConfig,
 		},
 	}
 }

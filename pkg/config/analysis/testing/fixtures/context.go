@@ -43,7 +43,9 @@ func (ctx *Context) Exists(config.GroupVersionKind, resource.FullName) bool { re
 // ForEach implements analysis.Context
 func (ctx *Context) ForEach(_ config.GroupVersionKind, fn analysis.IteratorFn) {
 	for _, r := range ctx.Resources {
-		fn(r)
+		if !fn(r) {
+			break
+		}
 	}
 }
 
