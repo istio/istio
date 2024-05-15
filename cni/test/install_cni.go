@@ -271,7 +271,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 			KubeconfigFilename:    "ZZZ-istio-cni-kubeconfig",
 			CNINetDir:             "/etc/cni/net.d",
 			ChainedCNIPlugin:      chainedCNIPlugin,
-			LogLevel:              "debug",
+			PluginLogLevel:        "debug",
 			ExcludeNamespaces:     "istio-system",
 			KubeconfigMode:        constants.DefaultKubeconfigMode,
 			CNIConfName:           envPreconf,

@@ -33,7 +33,7 @@ import (
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
-var log = istiolog.RegisterScope("ambient", "ambient controller")
+var log = istiolog.WithLabels("ambient-cni-agent")
 
 // Adapts CNI to ztunnel server. decoupled from k8s for easier integration testing.
 type NetServer struct {

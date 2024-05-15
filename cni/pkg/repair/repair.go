@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var repairLog = log.RegisterScope("repair", "CNI race condition repair")
+var repairLog = log.WithLabels("cni-repair")
 
 func StartRepair(ctx context.Context, cfg config.RepairConfig) {
 	if !cfg.Enabled {

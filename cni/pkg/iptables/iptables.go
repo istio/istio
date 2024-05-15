@@ -48,7 +48,7 @@ const (
 	ProbeIPSet                  = "istio-inpod-probes"
 )
 
-var log = istiolog.RegisterScope("iptables", "iptables helper")
+var log = istiolog.WithLabels("cni-iptables")
 
 type Config struct {
 	RestoreFormat bool `json:"RESTORE_FORMAT"`

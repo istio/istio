@@ -35,8 +35,9 @@ type InstallConfig struct {
 	// Whether to install CNI plugin as a chained or standalone
 	ChainedCNIPlugin bool
 
-	// Logging level
-	LogLevel string
+	// Logging level for the CNI plugin
+	// Since it runs out-of-process, it has to be separately configured
+	PluginLogLevel string
 	// Name of the kubeconfig file used by the CNI plugin
 	KubeconfigFilename string
 	// The file mode to set when creating the kubeconfig file
@@ -128,7 +129,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("CNIConfName: " + c.CNIConfName + "\n")
 	b.WriteString("ChainedCNIPlugin: " + fmt.Sprint(c.ChainedCNIPlugin) + "\n")
 
-	b.WriteString("LogLevel: " + c.LogLevel + "\n")
+	b.WriteString("PluginLogLevel: " + c.PluginLogLevel + "\n")
 	b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")
 	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")
 	b.WriteString("KubeCAFile: " + c.KubeCAFile + "\n")

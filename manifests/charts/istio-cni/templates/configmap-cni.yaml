@@ -11,7 +11,6 @@ metadata:
     operator.istio.io/component: "Cni"
 data:
   CURRENT_AGENT_VERSION: {{ .Values.cni.tag | default .Values.global.tag | quote }}
-  LOG_LEVEL: {{ .Values.cni.logLevel | quote }}
   AMBIENT_ENABLED: {{ .Values.cni.ambient.enabled | quote }}
   AMBIENT_DNS_CAPTURE: {{ .Values.cni.ambient.dnsCapture | quote | default "false" }}
   AMBIENT_IPV6: {{ .Values.cni.ambient.ipv6 | quote | default "false" }}

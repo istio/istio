@@ -243,7 +243,8 @@ func constructConfig() (*config.Config, error) {
 		CNIConfName:      viper.GetString(constants.CNIConfName),
 		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
 
-		LogLevel:              viper.GetString(constants.LogLevel),
+		// make plugin (which runs out-of-process) inherit our current log level
+		PluginLogLevel:        log.LevelToString(log.FindScope(log.DefaultScopeName).GetOutputLevel()),
 		KubeconfigFilename:    viper.GetString(constants.KubeconfigFilename),
 		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
 		KubeCAFile:            viper.GetString(constants.KubeCAFile),
