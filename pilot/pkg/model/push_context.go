@@ -2075,6 +2075,23 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 	return ps.WasmPluginsByListenerInfo(proxy, anyListener, WasmPluginTypeAny)
 }
 
+func (ps *PushContext) WasmPluginsByName(proxy *Proxy, names []types.NamespacedName) []*WasmPluginWrapper {
+	res := make([]*WasmPluginWrapper, 0, len(names))
+	for _, n := range names {
+		if n.Namespace != proxy.ConfigNamespace && n.Namespace != ps.Mesh.RootNamespace {
+			log.Warnf("proxy requested invalid WASM configuration: %v", n)
+			continue
+		}
+		for _, wsm := range ps.wasmPluginsByNamespace[n.Namespace] {
+			if wsm.Name == n.Name {
+				res = append(res, wsm)
+				break
+			}
+		}
+	}
+	return res
+}
+
 // WasmPluginsByListenerInfo return the WasmPluginWrappers which are matched with TrafficSelector in the given proxy.
 func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginListenerInfo,
 	pluginType WasmPluginType,
