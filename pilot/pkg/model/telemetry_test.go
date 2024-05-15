@@ -1017,7 +1017,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"disable_server_access_logging":true,"metric_expiry_duration":"3600s"}`,
+				"istio.stackdriver": `{"disable_server_access_logging":true}`,
 			},
 		},
 		{
@@ -1057,7 +1057,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			&meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
 			map[string]string{
-				"istio.stackdriver": `{"disable_server_access_logging":true,"metric_expiry_duration":"3600s"}`,
+				"istio.stackdriver": `{"disable_server_access_logging":true}`,
 			},
 		},
 		{
@@ -1070,7 +1070,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"access_logging":"ERRORS_ONLY","metric_expiry_duration":"3600s"}`,
+				"istio.stackdriver": `{"access_logging":"ERRORS_ONLY"}`,
 			},
 		},
 		{
@@ -1094,7 +1094,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			&meshconfig.MeshConfig_DefaultProviders{AccessLogging: []string{"stackdriver"}},
 			map[string]string{
-				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL","metric_expiry_duration":"3600s"}`,
+				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL"}`,
 			},
 		},
 		{
@@ -1108,7 +1108,7 @@ func TestTelemetryFilters(t *testing.T) {
 				AccessLogging: []string{"stackdriver"},
 			},
 			map[string]string{
-				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL","metric_expiry_duration":"3600s"}`,
+				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL"}`,
 			},
 		},
 		{
@@ -1122,7 +1122,7 @@ func TestTelemetryFilters(t *testing.T) {
 				AccessLogging: []string{"stackdriver"},
 			},
 			map[string]string{
-				"istio.stackdriver": `{"disable_server_access_logging":true,"disable_host_header_fallback":true,"metric_expiry_duration":"3600s"}`,
+				"istio.stackdriver": `{"disable_server_access_logging":true,"disable_host_header_fallback":true}`,
 			},
 		},
 	}

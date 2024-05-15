@@ -1052,7 +1052,6 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 		cfg.DisableServerAccessLogging = true // nolint: staticcheck
 	}
 
-	cfg.MetricExpiryDuration = durationpb.New(1 * time.Hour)
 	cfg.EnableAuditLog = features.StackdriverAuditLog
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
