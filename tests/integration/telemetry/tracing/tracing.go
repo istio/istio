@@ -162,7 +162,7 @@ func WantOtelTraceRoot(namespace, clName string) (root zipkin.Span) {
 	}
 
 	root = zipkin.Span{
-		Name:        fmt.Sprintf("egress server.%s.svc.cluster.local", namespace),
+		Name:        fmt.Sprintf("server.%s.svc.cluster.local", namespace),
 		ServiceName: fmt.Sprintf("client-%s.%s", clName, namespace),
 		ChildSpans:  []*zipkin.Span{&serverSpan},
 	}
