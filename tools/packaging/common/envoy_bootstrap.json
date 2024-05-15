@@ -736,6 +736,7 @@
       }
     }
   }
+  {{ end }}
   {{ if or .envoy_metrics_service_address .statsd }}
   ,
   "stats_sinks": [
