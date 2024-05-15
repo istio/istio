@@ -57,6 +57,9 @@ type InstallConfig struct {
 	K8sServicePort string
 	// KUBERNETES_NODE_NAME
 	K8sNodeName string
+	// Path where service account secrets live, e.g. "/var/run/secrets/kubernetes.io/serviceaccount"
+	// Tests may override.
+	K8sServiceAccountPath string
 
 	// Directory from where the CNI binaries should be copied
 	CNIBinSourceDir string

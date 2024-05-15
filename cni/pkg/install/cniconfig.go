@@ -56,6 +56,10 @@ func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string
 	return writeCNIConfig(ctx, marshalledJSON, cfg)
 }
 
+// writeCNIConfig will
+// 1. read in the existing CNI config file
+// 2. append the `istio`-specific entry
+// 3. write the combined result back out to the same path, overwriting the original.
 func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.InstallConfig) (string, error) {
 	cniConfigFilepath, err := getCNIConfigFilepath(ctx, cfg.CNIConfName, cfg.MountedCNINetDir, cfg.ChainedCNIPlugin)
 	if err != nil {
@@ -198,8 +202,7 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 	return "", fmt.Errorf("no valid networks found in %s", confDir)
 }
 
-// TODO BML why are we not using typed config for our stuff
-// newCNIConfig = istio-cni config, that should be inserted into existingCNIConfig
+// insertCNIConfig will append newCNIConfig to existingCNIConfig
 func insertCNIConfig(newCNIConfig, existingCNIConfig []byte) ([]byte, error) {
 	var istioMap map[string]any
 	err := json.Unmarshal(newCNIConfig, &istioMap)

@@ -61,16 +61,16 @@ const (
 	UDSLogPath      = "/log"
 
 	// K8s liveness and readiness endpoints
-	LivenessEndpoint  = "/healthz"
-	ReadinessEndpoint = "/readyz"
-	ReadinessPort     = "8000"
+	LivenessEndpoint   = "/healthz"
+	ReadinessEndpoint  = "/readyz"
+	ReadinessPort      = "8000"
+	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
 )
 
-// Exposed for testing constants
+// Exposed for testing "constants"
 var (
-	CNIBinDir          = "/opt/cni/bin"
-	HostCNIBinDir      = "/host/opt/cni/bin"
-	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
+	CNIBinDir     = "/opt/cni/bin"
+	HostCNIBinDir = "/host/opt/cni/bin"
 	// Well-known subpath we will mount any needed host-mounts under,
 	// to preclude shadowing or breaking any pod-internal mounts
 	HostMountsPath = "/host"
