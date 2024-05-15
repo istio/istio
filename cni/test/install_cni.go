@@ -45,21 +45,6 @@ const (
 	k8sSvcAcctSubDir = "/testdata/k8s_svcacct/"
 
 	defaultFileMode = 0o644
-
-	cniConfName          = "CNI_CONF_NAME"
-	chainedCNIPluginName = "CHAINED_CNI_PLUGIN"
-	cniNetworkConfigName = "CNI_NETWORK_CONFIG"
-	cniNetworkConfig     = `{
-  "cniVersion": "0.3.1",
-  "type": "istio-cni",
-  "log_level": "info",
-  "kubernetes": {
-      "kubeconfig": "__KUBECONFIG_FILEPATH__",
-      "cni_bin_dir": "/opt/cni/bin",
-      "exclude_namespaces": [ "istio-system" ]
-  }
-}
-`
 )
 
 func getEnv(key, fallback string) string {
@@ -67,14 +52,6 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
-}
-
-func setEnv(key, value string, t *testing.T) {
-	t.Helper()
-	err := os.Setenv(key, value)
-	if err != nil {
-		t.Fatalf("Couldn't set environment variable, err: %v", err)
-	}
 }
 
 func mktemp(dir, prefix string, t *testing.T) string {
@@ -193,48 +170,6 @@ func startInstallServer(ctx context.Context, serverConfig *config.Config, t *tes
 	}
 }
 
-func runInstall(ctx context.Context, tempCNIConfDir, tempCNIBinDir,
-	tempK8sSvcAcctDir, cniConfFileName, testBinDir string, chainedCNIPlugin bool, t *testing.T,
-) {
-	ztunnelAddr := "/tmp/ztfoo"
-	cniEventAddr := "/tmp/cnieventfoo"
-	defer os.Remove(ztunnelAddr)
-	defer os.Remove(cniEventAddr)
-
-	// "fake" constant, overridable for tests
-	// TODO this is gross, fix this
-	constants.ServiceAccountPath = tempK8sSvcAcctDir
-
-	installConfig := config.Config{
-		InstallConfig: config.InstallConfig{
-			CNIEventAddress:    cniEventAddr,
-			ZtunnelUDSAddress:  ztunnelAddr,
-			MountedCNINetDir:   tempCNIConfDir,
-			CNIBinSourceDir:    testBinDir,
-			CNIBinTargetDirs:   []string{tempCNIBinDir},
-			K8sServicePort:     "443",
-			K8sServiceHost:     "10.110.0.1",
-			MonitoringPort:     0,
-			LogUDSAddress:      "",
-			CNINetworkConfig:   cniNetworkConfig,
-			KubeconfigFilename: "ZZZ-istio-cni-kubeconfig",
-			CNINetDir:          "/etc/cni/net.d",
-			ChainedCNIPlugin:   true,
-			LogLevel:           "debug",
-			KubeconfigMode:     constants.DefaultKubeconfigMode,
-		},
-	}
-
-	if cniConfFileName != "" {
-		installConfig.InstallConfig.CNIConfName = cniConfFileName
-	}
-	if !chainedCNIPlugin {
-		installConfig.InstallConfig.ChainedCNIPlugin = false
-	}
-
-	startInstallServer(ctx, &installConfig, t)
-}
-
 // checkResult checks if resultFile is equal to expectedFile at each tick until timeout
 func checkResult(result, expected string) error {
 	resultFile, err := os.ReadFile(result)
@@ -305,6 +240,10 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 ) {
 	t.Logf("prior cni-conf='%v', expected result='%v'", preConfFile, resultFileName)
 
+	// disable monitoring & repair
+	viper.Set(constants.MonitoringPort, 0)
+	viper.Set(constants.RepairEnabled, false)
+
 	// Don't set the CNI conf file env var if preConfFile is not set
 	var envPreconf string
 	if preConfFile != "" {
@@ -312,22 +251,47 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 	} else {
 		preConfFile = resultFileName
 	}
-	setEnv(cniNetworkConfigName, cniNetworkConfig, t)
 
-	// disable monitoring & uds logging
-	viper.Set(constants.MonitoringPort, 0)
-	viper.Set(constants.LogUDSAddress, "")
-	viper.Set(constants.RepairEnabled, false)
+	ztunnelAddr := "/tmp/ztfoo"
+	cniEventAddr := "/tmp/cnieventfoo"
+	defer os.Remove(ztunnelAddr)
+	defer os.Remove(cniEventAddr)
+
+	// "fake" constant, overridable for tests
+	// TODO this is gross, fix this
+	constants.ServiceAccountPath = tempK8sSvcAcctDir
+
+	installConfig := config.Config{
+		InstallConfig: config.InstallConfig{
+			CNIEventAddress:    cniEventAddr,
+			ZtunnelUDSAddress:  ztunnelAddr,
+			MountedCNINetDir:   tempCNIConfDir,
+			CNIBinSourceDir:    filepath.Join(env.IstioSrc, "cni/test/testdata/bindir"),
+			CNIBinTargetDirs:   []string{tempCNIBinDir},
+			K8sServicePort:     "443",
+			K8sServiceHost:     "10.110.0.1",
+			MonitoringPort:     0,
+			LogUDSAddress:      "",
+			KubeconfigFilename: "ZZZ-istio-cni-kubeconfig",
+			CNINetDir:          "/etc/cni/net.d",
+			ChainedCNIPlugin:   chainedCNIPlugin,
+			LogLevel:           "debug",
+			ExcludeNamespaces:  "istio-system",
+			KubeconfigMode:     constants.DefaultKubeconfigMode,
+			CNIConfName:        envPreconf,
+		},
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	wg := sync.WaitGroup{}
+
 	wg.Add(1)
 	defer func() {
 		cancel()
 		wg.Wait()
 	}()
 	go func() {
-		runInstall(ctx, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir, envPreconf, filepath.Join(env.IstioSrc, "cni/test/testdata/bindir"), chainedCNIPlugin, t)
+		startInstallServer(ctx, &installConfig, t)
 		wg.Done()
 	}()
 

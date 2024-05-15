@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+// TODO this should share parent scope, in practice it isn't useful to hide it within its own granular scope.
 var installLog = log.RegisterScope("install", "CNI install")
 
 type Installer struct {

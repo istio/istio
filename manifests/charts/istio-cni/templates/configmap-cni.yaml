@@ -1,34 +1,28 @@
-{{- $defaultBinDir :=
-    (.Capabilities.KubeVersion.GitVersion | contains "-gke") | ternary
-      "/home/kubernetes/bin"
-      "/opt/cni/bin"
-}}
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: istio-cni-config
+  name: {{ template "name" . }}-config
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-cni
+    app: {{ template "name" . }}
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Cni"
 data:
-  # The CNI network configuration to add to the plugin chain on each node.  The special
-  # values in this config will be automatically populated.
-  cni_network_config: |-
-        {
-          "cniVersion": "0.3.1",
-          "name": "istio-cni",
-          "type": "istio-cni",
-          "log_level": {{ quote .Values.cni.logLevel }},
-          "log_uds_address": "__LOG_UDS_ADDRESS__",
-          {{if .Values.cni.ambient.enabled}}"ambient_enabled": true,{{end}}
-          "cni_event_address": "__CNI_EVENT_ADDRESS__",
-          "kubernetes": {
-              "kubeconfig": "__KUBECONFIG_FILEPATH__",
-              "cni_bin_dir": {{ .Values.cni.cniBinDir | default $defaultBinDir | quote }},
-              "exclude_namespaces": [ {{ range $idx, $ns := .Values.cni.excludeNamespaces }}{{ if $idx }}, {{ end }}{{ quote $ns }}{{ end }} ]
-          }
-        }
+  CURRENT_AGENT_VERSION: {{ .Values.cni.tag | default .Values.global.tag | quote }}
+  LOG_LEVEL: {{ .Values.cni.logLevel | quote }}
+  AMBIENT_ENABLED: {{ .Values.cni.ambient.enabled | quote }}
+  AMBIENT_DNS_CAPTURE: {{ .Values.cni.ambient.dnsCapture | quote | default "false" }}
+  AMBIENT_IPV6: {{ .Values.cni.ambient.ipv6 | quote | default "false" }}
+  CNI_CONF_NAME: {{ .Values.cni.cniConfFileName | default "" }} # Name of the CNI config file to create. Only override if you know the exact path your CNI requires..
+  CNI_NET_DIR: {{ .Values.cni.cniConfDir | default "/etc/cni/net.d" }}
+  CHAINED_CNI_PLUGIN: {{ .Values.cni.chained | quote }}
+  EXCLUDED_NAMESPACES: "{{ range $idx, $ns := .Values.cni.excludeNamespaces }}{{ if $idx }},{{ end }}{{ $ns }}{{ end }}"
+  REPAIR_ENABLED: {{ .Values.cni.chained | quote }}
+  REPAIR_LABEL_PODS: {{ .Values.cni.repair.labelPods | quote }}
+  REPAIR_DELETE_PODS: {{ .Values.cni.repair.deletePods | quote }}
+  REPAIR_REPAIR_PODS: {{ .Values.cni.repair.repairPods | quote }}
+  REPAIR_INIT_CONTAINER_NAME: {{ .Values.cni.repair.initContainerName | quote }}
+  REPAIR_BROKEN_POD_LABEL_KEY: {{ .Values.cni.repair.brokenPodLabelKey | quote }}
+  REPAIR_BROKEN_POD_LABEL_VALUE: {{ .Values.cni.repair.brokenPodLabelValue | quote }}

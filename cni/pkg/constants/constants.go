@@ -32,6 +32,7 @@ const (
 	LogUDSAddress        = "log-uds-address"
 	ZtunnelUDSAddress    = "ztunnel-uds-address"
 	CNIEventAddress      = "cni-event-address"
+	ExcludeNamespaces    = "exclude-namespaces"
 	AmbientEnabled       = "ambient-enabled"
 	AmbientDNSCapture    = "ambient-dns-capture"
 	AmbientIPv6          = "ambient-ipv6"

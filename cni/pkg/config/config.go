@@ -35,11 +35,6 @@ type InstallConfig struct {
 	// Whether to install CNI plugin as a chained or standalone
 	ChainedCNIPlugin bool
 
-	// CNI config template file
-	CNINetworkConfigFile string
-	// CNI config template string
-	CNINetworkConfig string
-
 	// Logging level
 	LogLevel string
 	// Name of the kubeconfig file used by the CNI plugin
@@ -50,6 +45,9 @@ type InstallConfig struct {
 	KubeCAFile string
 	// Whether to use insecure TLS in the kubeconfig file
 	SkipTLSVerify bool
+
+	// Comma-separated list of K8S namespaces that CNI should ignore
+	ExcludeNamespaces string
 
 	// KUBERNETES_SERVICE_PROTOCOL
 	K8sServiceProtocol string
@@ -126,8 +124,6 @@ func (c InstallConfig) String() string {
 	b.WriteString("MountedCNINetDir: " + c.MountedCNINetDir + "\n")
 	b.WriteString("CNIConfName: " + c.CNIConfName + "\n")
 	b.WriteString("ChainedCNIPlugin: " + fmt.Sprint(c.ChainedCNIPlugin) + "\n")
-	b.WriteString("CNINetworkConfigFile: " + c.CNINetworkConfigFile + "\n")
-	b.WriteString("CNINetworkConfig: " + c.CNINetworkConfig + "\n")
 
 	b.WriteString("LogLevel: " + c.LogLevel + "\n")
 	b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")
@@ -135,13 +131,19 @@ func (c InstallConfig) String() string {
 	b.WriteString("KubeCAFile: " + c.KubeCAFile + "\n")
 	b.WriteString("SkipTLSVerify: " + fmt.Sprint(c.SkipTLSVerify) + "\n")
 
+	b.WriteString("ExcludeNamespaces: " + fmt.Sprint(c.ExcludeNamespaces) + "\n")
 	b.WriteString("K8sServiceProtocol: " + c.K8sServiceProtocol + "\n")
 	b.WriteString("K8sServiceHost: " + c.K8sServiceHost + "\n")
 	b.WriteString("K8sServicePort: " + fmt.Sprint(c.K8sServicePort) + "\n")
 	b.WriteString("K8sNodeName: " + c.K8sNodeName + "\n")
+
+	b.WriteString("CNIBinSourceDir: " + c.CNIBinSourceDir + "\n")
+	b.WriteString("CNIBinTargetDirs: " + strings.Join(c.CNIBinTargetDirs, ",") + "\n")
+
 	b.WriteString("MonitoringPort: " + fmt.Sprint(c.MonitoringPort) + "\n")
-	b.WriteString("CNIEventAddress: " + fmt.Sprint(c.CNIEventAddress) + "\n")
 	b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
+	b.WriteString("CNIEventAddress: " + fmt.Sprint(c.CNIEventAddress) + "\n")
+	b.WriteString("ZtunnelUDSAddress: " + fmt.Sprint(c.ZtunnelUDSAddress) + "\n")
 
 	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")
 	b.WriteString("AmbientDNSCapture: " + fmt.Sprint(c.AmbientDNSCapture) + "\n")
