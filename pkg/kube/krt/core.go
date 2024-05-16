@@ -68,6 +68,8 @@ type internalCollection[T any] interface {
 	// Name is a human facing name for this collection.
 	// Note this may not be universally unique
 	name() string
+	// Uid is an internal unique ID for this collection. MUST be globally unique
+	uid() collectionUID
 
 	dump()
 

@@ -215,6 +215,9 @@ spec:
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
+  {{- if .Values.global.proxy.outlierLogPath }}
+    - --outlierLogPath={{ .Values.global.proxy.outlierLogPath }}
+  {{- end}}
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}

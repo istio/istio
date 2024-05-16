@@ -37,8 +37,9 @@ func (i *Index[I, K]) Lookup(k K) []I {
 	for obj := range i.objects[k] {
 		item := i.c.GetKey(obj)
 		if item == nil {
-			log.Errorf("Impossible missing item for %v", obj)
-			// This should be extremely rare, maybe impossible due to the mutex.
+			// This should be extremely rare, but possible. While we have a mutex here, the underlying collection
+			// is not locked and maybe have changed in the meantime.
+			log.Debugf("missing item for %v", obj)
 			continue
 		}
 		res = append(res, *item)

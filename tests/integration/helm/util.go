@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -172,6 +173,22 @@ spec:
 // ManifestsChartPath is path of local Helm charts used for testing.
 var ManifestsChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
+// adjustValuesForOpenShift adds the "openshift" or "openshift-ambient" profile to the
+// values if tests are running in OpenShift, and returns the modified values
+func adjustValuesForOpenShift(ctx framework.TestContext, values string) string {
+	if !ctx.Settings().OpenShift {
+		return values
+	}
+
+	if !strings.Contains(values, "profile: ") {
+		values += "\nprofile: openshift\n"
+	} else if strings.Contains(values, "profile: ambient") {
+		values = strings.ReplaceAll(values, "profile: ambient", "profile: openshift-ambient")
+	}
+
+	return values
+}
+
 // getValuesOverrides returns the values file created to pass into Helm override default values
 // for the hub and tag.
 //
@@ -191,6 +208,8 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 	if isAmbient {
 		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag, variant)
 	}
+	overrideValues = adjustValuesForOpenShift(ctx, overrideValues)
+
 	overrideValuesFile := filepath.Join(workDir, "values.yaml")
 	if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 		ctx.Fatalf("failed to write iop cr file: %v", err)
@@ -291,12 +310,15 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		}
 	}
 
-	if ambientProfile {
+	if ambientProfile || t.Settings().OpenShift {
 		// Install cni chart
 		err = h.InstallChart(CniReleaseName, cniChartPath, nsConfig.Get(CniReleaseName), overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
 			t.Fatalf("failed to install istio %s chart: %v", CniChartsDir, err)
 		}
+	}
+
+	if ambientProfile {
 
 		// Install ztunnel chart
 		err = h.InstallChart(ZtunnelReleaseName, ztunnelChartPath, nsConfig.Get(ZtunnelReleaseName), overrideValuesFile, Timeout, versionArgs)
@@ -380,6 +402,8 @@ func DeleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster, config
 		if err := h.DeleteChart(ZtunnelReleaseName, config.Get(ZtunnelReleaseName)); err != nil {
 			t.Errorf("failed to delete %s release: %v", ZtunnelReleaseName, err)
 		}
+	}
+	if isAmbient || t.Settings().OpenShift {
 		if err := h.DeleteChart(CniReleaseName, config.Get(CniReleaseName)); err != nil {
 			t.Errorf("failed to delete %s release: %v", CniReleaseName, err)
 		}
@@ -423,9 +447,11 @@ func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, nsConfig 
 	})
 
 	VerifyPodReady(ctx, cs, nsConfig.Get(IstiodReleaseName), "app=istiod")
+	if verifyAmbient || ctx.Settings().OpenShift {
+		VerifyPodReady(ctx, cs, nsConfig.Get(CniReleaseName), "k8s-app=istio-cni-node")
+	}
 	if verifyAmbient {
 		VerifyPodReady(ctx, cs, nsConfig.Get(ZtunnelReleaseName), "app=ztunnel")
-		VerifyPodReady(ctx, cs, nsConfig.Get(CniReleaseName), "k8s-app=istio-cni-node")
 	}
 	if verifyGateway {
 		VerifyPodReady(ctx, cs, nsConfig.Get(IngressReleaseName), "app=istio-ingress")

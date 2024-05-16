@@ -28,6 +28,7 @@ spec:
     spec:
       nodeSelector:
         kubernetes.io/os: linux
+<<<<<<< HEAD
 {{- if .Values.affinity }}
       affinity:
 {{ toYaml .Values.affinity | trim | indent 8 }}
@@ -54,6 +55,14 @@ spec:
                 values:
                 - "{{ .Values.includeNodes }}"
 {{- end }}
+=======
+{{- if .Values.nodeSelector }}
+{{ toYaml .Values.nodeSelector | indent 8 }}
+{{- end }}
+{{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | trim | indent 8 }}
+>>>>>>> 52c93a3d55e7c92d182dee6762c604e4f306bea2
 {{- end }}
       serviceAccountName: ztunnel
       tolerations:

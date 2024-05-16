@@ -48,6 +48,7 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test"
@@ -84,20 +85,21 @@ func TestGolden(t *testing.T) {
 	var ts *httptest.Server
 
 	cases := []struct {
-		base                       string
-		envVars                    map[string]string
-		annotations                map[string]string
-		sdsUDSPath                 string
-		sdsTokenPath               string
-		expectLightstepAccessToken bool
-		stats                      stats
-		checkLocality              bool
-		stsPort                    int
-		platformMeta               map[string]string
-		setup                      func()
-		teardown                   func()
-		check                      func(got *bootstrap.Bootstrap, t *testing.T)
-		compliancePolicy           string
+		base                          string
+		envVars                       map[string]string
+		annotations                   map[string]string
+		sdsUDSPath                    string
+		sdsTokenPath                  string
+		expectLightstepAccessToken    bool
+		stats                         stats
+		checkLocality                 bool
+		stsPort                       int
+		platformMeta                  map[string]string
+		setup                         func()
+		teardown                      func()
+		check                         func(got *bootstrap.Bootstrap, t *testing.T)
+		compliancePolicy              string
+		enableDefferedClusterCreation bool
 	}{
 		{
 			base: "xdsproxy",
@@ -268,6 +270,10 @@ func TestGolden(t *testing.T) {
 			base: "all",
 		},
 		{
+			base:                          "deferred_cluster_creation",
+			enableDefferedClusterCreation: true,
+		},
+		{
 			base: "stats_inclusion",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsInclusionPrefixes": "prefix1,prefix2,http.{pod_ip}_",
@@ -325,6 +331,7 @@ func TestGolden(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run("Bootstrap-"+c.base, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableDeferredClusterCreation, c.enableDefferedClusterCreation)
 			out := t.TempDir()
 			if c.setup != nil {
 				c.setup()

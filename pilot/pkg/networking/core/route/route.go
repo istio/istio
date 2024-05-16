@@ -505,7 +505,7 @@ func translateRoute(
 		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(TranslateFault(in.Fault))
 	}
 	if in.CorsPolicy != nil {
-		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(in.CorsPolicy))
+		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(node, in.CorsPolicy))
 	}
 	var statefulConfig *statefulsession.StatefulSession
 	for _, hostname := range hostnames {
@@ -553,14 +553,7 @@ func applyHTTPRouteDestination(
 	listenerPort int,
 	hashByDestination DestinationHashMap,
 ) []host.Name {
-	policy := in.Retries
-	if policy == nil {
-		// No VS policy set, use mesh defaults
-		policy = mesh.GetDefaultHttpRetryPolicy()
-	}
-	action := &route.RouteAction{
-		RetryPolicy: retry.ConvertPolicy(policy),
-	}
+	action := &route.RouteAction{}
 
 	setTimeout(action, in.Timeout, node)
 
@@ -622,8 +615,16 @@ func applyHTTPRouteDestination(
 	}
 
 	var hostnames []host.Name
+	policy := in.Retries
+	if policy == nil {
+		// No VS policy set, use mesh defaults
+		policy = mesh.GetDefaultHttpRetryPolicy()
+	}
+	consistentHash := false
 	if len(in.Route) == 1 {
 		hostnames = append(hostnames, processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action))
+		hash := hashByDestination[in.Route[0]]
+		consistentHash = hash != nil
 	} else {
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 		for _, dst := range in.Route {
@@ -641,6 +642,7 @@ func applyHTTPRouteDestination(
 			},
 		}
 	}
+	action.RetryPolicy = retry.ConvertPolicy(policy, consistentHash)
 	return hostnames
 }
 
@@ -1155,14 +1157,29 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 	return out
 }
 
+func forwardNotMatchingPreflights(cors *networking.CorsPolicy) *wrapperspb.BoolValue {
+	if cors.GetUnmatchedPreflights() == networking.CorsPolicy_IGNORE {
+		return wrapperspb.Bool(false)
+	}
+
+	// This is the default behavior before envoy 1.30.
+	return wrapperspb.Bool(true)
+}
+
 // TranslateCORSPolicy translates CORS policy
-func TranslateCORSPolicy(in *networking.CorsPolicy) *cors.CorsPolicy {
+func TranslateCORSPolicy(proxy *model.Proxy, in *networking.CorsPolicy) *cors.CorsPolicy {
 	if in == nil {
 		return nil
 	}
 
 	// CORS filter is enabled by default
 	out := cors.CorsPolicy{}
+	// Start from Envoy 1.30(istio 1.22), cors filter will not forward preflight requests to upstream by default.
+	// Istio start support this feature from 1.23.
+	if proxy.VersionGreaterAndEqual(&model.IstioVersion{Major: 1, Minor: 23, Patch: -1}) {
+		out.ForwardNotMatchingPreflights = forwardNotMatchingPreflights(in)
+	}
+
 	// nolint: staticcheck
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = util.ConvertToEnvoyMatches(in.AllowOrigins)
@@ -1275,7 +1292,7 @@ func setTimeout(action *route.RouteAction, vsTimeout *durationpb.Duration, node 
 func BuildDefaultHTTPOutboundRoute(clusterName string, operation string, mesh *meshconfig.MeshConfig) *route.Route {
 	out := buildDefaultHTTPRoute(clusterName, operation)
 	// Add a default retry policy for outbound routes.
-	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy())
+	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy(), false)
 	setTimeout(out.GetRoute(), nil, nil)
 	return out
 }

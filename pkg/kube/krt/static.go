@@ -22,6 +22,7 @@ import (
 
 type staticList[T any] struct {
 	vals map[Key[T]]T
+	id   collectionUID
 }
 
 func NewStaticCollection[T any](vals []T) Collection[T] {
@@ -29,7 +30,10 @@ func NewStaticCollection[T any](vals []T) Collection[T] {
 	for _, v := range vals {
 		res[GetKey(v)] = v
 	}
-	return &staticList[T]{res}
+	return &staticList[T]{
+		vals: res,
+		id:   nextUID(),
+	}
 }
 
 func (s *staticList[T]) GetKey(k Key[T]) *T {
@@ -42,6 +46,11 @@ func (s *staticList[T]) GetKey(k Key[T]) *T {
 // nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) name() string {
 	return "staticList"
+}
+
+// nolint: unused // (not true, its to implement an interface)
+func (s *staticList[T]) uid() collectionUID {
+	return s.id
 }
 
 // nolint: unused // (not true, its to implement an interface)

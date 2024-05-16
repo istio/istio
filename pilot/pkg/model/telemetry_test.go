@@ -612,91 +612,11 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
-	emptyStackdriver := &tpb.Telemetry{
-		Metrics: []*tpb.Metrics{
-			{
-				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
-			},
-		},
-	}
-	overridesStackdriver := &tpb.Telemetry{
-		Metrics: []*tpb.Metrics{
-			{
-				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
-				Overrides: overrides,
-			},
-		},
-		AccessLogging: []*tpb.AccessLogging{
-			{
-				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
-				Filter: &tpb.AccessLogging_Filter{
-					Expression: `response.code >= 500 && response.code <= 800`,
-				},
-			},
-		},
-	}
-	overridesAllMetricsStackdriver := &tpb.Telemetry{
-		Metrics: []*tpb.Metrics{
-			{
-				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
-				Overrides: []*tpb.MetricsOverrides{
-					{
-						TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
-							"destination_service": {
-								Value: "fake_dest",
-							},
-						},
-					},
-					{
-						Match: &tpb.MetricSelector{
-							MetricMatch: &tpb.MetricSelector_Metric{
-								Metric: tpb.MetricSelector_REQUEST_COUNT,
-							},
-						},
-						TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
-							"destination_service": {
-								Value: "fake_dest_override",
-							},
-						},
-					},
-				},
-			},
-		},
-		AccessLogging: []*tpb.AccessLogging{
-			{
-				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
-				Filter: &tpb.AccessLogging_Filter{
-					Expression: `response.code >= 500 && response.code <= 800`,
-				},
-			},
-		},
-	}
 	overridesEmptyProvider := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
 			{
 				Overrides: overrides,
 			},
-		},
-	}
-	sdLogging := &tpb.Telemetry{
-		AccessLogging: []*tpb.AccessLogging{
-			{
-				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
-			},
-		},
-	}
-	clientLogging := &tpb.Telemetry{
-		AccessLogging: []*tpb.AccessLogging{
-			{
-				Match: &tpb.AccessLogging_LogSelector{
-					Mode: tpb.WorkloadMode_CLIENT,
-				},
-			},
-		},
-	}
-	emptyLogging := &tpb.Telemetry{
-		AccessLogging: []*tpb.AccessLogging{
-			{},
 		},
 	}
 	disabledAllMetrics := &tpb.Telemetry{
@@ -730,21 +650,6 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
-	stackdriverDisabled := &tpb.Telemetry{
-		AccessLogging: []*tpb.AccessLogging{
-			{
-				Providers: []*tpb.ProviderRef{
-					{
-						Name: "stackdriver",
-					},
-				},
-				Disabled: &wrappers.BoolValue{
-					Value: true,
-				},
-			},
-		},
-	}
-
 	cfg := `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`
 
 	tests := []struct {
@@ -1027,85 +932,6 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 		{
-			"empty stackdriver",
-			[]config.Config{newTelemetry("istio-system", emptyStackdriver)},
-			sidecar,
-			networking.ListenerClassSidecarOutbound,
-			networking.ListenerProtocolHTTP,
-			nil,
-			map[string]string{
-				"istio.stackdriver": `{"disable_server_access_logging":true,"metric_expiry_duration":"3600s"}`,
-			},
-		},
-		{
-			"overrides stackdriver",
-			[]config.Config{newTelemetry("istio-system", overridesStackdriver)},
-			sidecar,
-			networking.ListenerClassSidecarOutbound,
-			networking.ListenerProtocolHTTP,
-			nil,
-			map[string]string{
-				"istio.stackdriver": `{"access_logging_filter_expression":"response.code >= 500 && response.code <= 800",` +
-					`"metric_expiry_duration":"3600s","metrics_overrides":{"client/request_count":{"tag_overrides":{"add":"bar"}}}}`,
-			},
-		},
-		{
-			"overrides all metrics stackdriver/client",
-			[]config.Config{newTelemetry("istio-system", overridesAllMetricsStackdriver)},
-			sidecar,
-			networking.ListenerClassSidecarOutbound,
-			networking.ListenerProtocolHTTP,
-			nil,
-			map[string]string{
-				"istio.stackdriver": `{"access_logging_filter_expression":"response.code >= 500 && response.code <= 800",` +
-					`"metric_expiry_duration":"3600s","metrics_overrides":{` +
-					`"client/connection_close_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/connection_open_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/received_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/request_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/request_count":{"tag_overrides":{"destination_service":"fake_dest_override"}},` +
-					`"client/response_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/response_latencies":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"client/sent_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}}` +
-					`}}`,
-			},
-		},
-		{
-			"overrides all metrics stackdriver/server",
-			[]config.Config{newTelemetry("istio-system", overridesAllMetricsStackdriver)},
-			sidecar,
-			networking.ListenerClassSidecarInbound,
-			networking.ListenerProtocolHTTP,
-			nil,
-			map[string]string{
-				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging_filter_expression":"response.code >= 500 && response.code <= 800",` +
-					`"metric_expiry_duration":"3600s","metrics_overrides":{` +
-					`"server/connection_close_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/connection_open_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/received_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/request_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/request_count":{"tag_overrides":{"destination_service":"fake_dest_override"}},` +
-					`"server/response_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/response_latencies":{"tag_overrides":{"destination_service":"fake_dest"}},` +
-					`"server/sent_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}}` +
-					`}}`,
-			},
-		},
-		{
-			"namespace empty merge",
-			[]config.Config{
-				newTelemetry("istio-system", emptyPrometheus),
-				newTelemetry("default", emptyStackdriver),
-			},
-			sidecar,
-			networking.ListenerClassSidecarOutbound,
-			networking.ListenerProtocolHTTP,
-			nil,
-			map[string]string{
-				"istio.stackdriver": `{"disable_server_access_logging":true,"metric_expiry_duration":"3600s"}`,
-			},
-		},
-		{
 			"namespace overrides merge without provider",
 			[]config.Config{
 				newTelemetry("istio-system", emptyPrometheus),
@@ -1130,84 +956,6 @@ func TestTelemetryFilters(t *testing.T) {
 			&meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
 			map[string]string{
 				"istio.stats": cfg,
-			},
-		},
-		{
-			"namespace overrides default provider",
-			[]config.Config{
-				newTelemetry("default", emptyStackdriver),
-			},
-			sidecar,
-			networking.ListenerClassSidecarOutbound,
-			networking.ListenerProtocolHTTP,
-			&meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
-			map[string]string{
-				"istio.stackdriver": `{"disable_server_access_logging":true,"metric_expiry_duration":"3600s"}`,
-			},
-		},
-		{
-			"stackdriver logging",
-			[]config.Config{
-				newTelemetry("default", sdLogging),
-			},
-			sidecar,
-			networking.ListenerClassSidecarOutbound,
-			networking.ListenerProtocolHTTP,
-			nil,
-			map[string]string{
-				"istio.stackdriver": `{"access_logging":"ERRORS_ONLY","metric_expiry_duration":"3600s"}`,
-			},
-		},
-		{
-			"stackdriver client logging",
-			[]config.Config{
-				newTelemetry("default", clientLogging),
-			},
-			sidecar,
-			networking.ListenerClassSidecarOutbound,
-			networking.ListenerProtocolHTTP,
-			nil,
-			map[string]string{},
-		},
-		{
-			"stackdriver logging default provider",
-			[]config.Config{
-				newTelemetry("default", emptyLogging),
-			},
-			sidecar,
-			networking.ListenerClassSidecarInbound,
-			networking.ListenerProtocolHTTP,
-			&meshconfig.MeshConfig_DefaultProviders{AccessLogging: []string{"stackdriver"}},
-			map[string]string{
-				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL","metric_expiry_duration":"3600s"}`,
-			},
-		},
-		{
-			"stackdriver default for all",
-			[]config.Config{},
-			sidecar,
-			networking.ListenerClassSidecarInbound,
-			networking.ListenerProtocolHTTP,
-			&meshconfig.MeshConfig_DefaultProviders{
-				Metrics:       []string{"stackdriver"},
-				AccessLogging: []string{"stackdriver"},
-			},
-			map[string]string{
-				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL","metric_expiry_duration":"3600s"}`,
-			},
-		},
-		{
-			"disable stackdriver",
-			[]config.Config{newTelemetry("istio-system", stackdriverDisabled)},
-			sidecar,
-			networking.ListenerClassSidecarInbound,
-			networking.ListenerProtocolHTTP,
-			&meshconfig.MeshConfig_DefaultProviders{
-				Metrics:       []string{"stackdriver"},
-				AccessLogging: []string{"stackdriver"},
-			},
-			map[string]string{
-				"istio.stackdriver": `{"disable_server_access_logging":true,"disable_host_header_fallback":true,"metric_expiry_duration":"3600s"}`,
 			},
 		},
 	}

@@ -208,6 +208,10 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.GatewayConformanceStandardOnly, "istio.test.gatewayConformanceStandardOnly",
 		settingsFromCommandLine.GatewayConformanceStandardOnly,
 		"If set, only the standard gateway conformance tests will be run; tests relying on experimental resources will be skipped.")
+
+	flag.BoolVar(&settingsFromCommandLine.OpenShift, "istio.test.openshift", settingsFromCommandLine.OpenShift,
+		"Indicate the tests run in an OpenShift platform rather than in plain Kubernetes.")
+
 	initGatewayConformanceTimeouts()
 }
 

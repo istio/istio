@@ -272,14 +272,6 @@ func AnyToUnnamedResources(r []*anypb.Any) Resources {
 	return a
 }
 
-func ResourcesToAny(r Resources) []*anypb.Any {
-	a := make([]*anypb.Any, 0, len(r))
-	for _, rr := range r {
-		a = append(a, rr.Resource)
-	}
-	return a
-}
-
 // XdsUpdates include information about the subset of updated resources.
 // See for example EDS incremental updates.
 type XdsUpdates = sets.Set[ConfigKey]
@@ -521,6 +513,13 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		node.SidecarScope = ps.getSidecarScope(node, nil)
 	}
 	node.PrevSidecarScope = sidecarScope
+}
+
+func (node *Proxy) VersionGreaterAndEqual(inv *IstioVersion) bool {
+	if inv == nil {
+		return true
+	}
+	return node.IstioVersion.Compare(inv) >= 0
 }
 
 // SetGatewaysForProxy merges the Gateway objects associated with this

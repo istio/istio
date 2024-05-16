@@ -86,6 +86,15 @@ const (
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
 )
 
+var IstioComponentSuccessIcons = map[ComponentName]string{
+	IstioBaseComponentName: "⛵️",
+	PilotComponentName:     "🧠",
+	CNIComponentName:       "🪢",
+	ZtunnelComponentName:   "🔒",
+	IngressComponentName:   "🛬",
+	EgressComponentName:    "🛫",
+}
+
 // ComponentNamesConfig is used for unmarshaling legacy and addon naming data.
 type ComponentNamesConfig struct {
 	DeprecatedComponentNames []string

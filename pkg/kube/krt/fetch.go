@@ -14,7 +14,9 @@
 
 package krt
 
-import "istio.io/istio/pkg/slices"
+import (
+	"istio.io/istio/pkg/slices"
+)
 
 func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *T {
 	res := Fetch[T](ctx, c, opts...)
@@ -31,23 +33,32 @@ func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *
 func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T {
 	h := ctx.(registerDependency)
 	c := cc.(internalCollection[T])
-	d := dependency{
-		collection: eraseCollection(c),
+	d := &dependency{
+		id:             c.uid(),
+		collectionName: c.name(),
+		filter:         &filter{},
 	}
 	for _, o := range opts {
-		o(&d)
+		o(d)
 	}
 	// Important: register before we List(), so we cannot miss any events
-	h.registerDependency(d)
+	h.registerDependency(d, c.Synced(), func(f erasedEventHandler) {
+		ff := func(o []Event[T], initialSync bool) {
+			f(slices.Map(o, castEvent[T, any]), initialSync)
+		}
+		// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
+		// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
+		c.RegisterBatch(ff, false)
+	})
 
 	// Now we can do the real fetching
 	// Compute our list of all possible objects that can match. Then we will filter them later.
 	// This pre-filtering upfront avoids extra work
 	var list []T
-	if d.filter.keys != nil {
+	if !d.filter.keys.IsNil() {
 		// If they fetch a set of keys, directly Get these. Usually this is a single resource.
-		list = make([]T, 0, len(d.filter.keys))
-		for k := range d.filter.keys {
+		list = make([]T, 0, d.filter.keys.Len())
+		for _, k := range d.filter.keys.List() {
 			if i := c.GetKey(Key[T](k)); i != nil {
 				list = append(list, *i)
 			}
