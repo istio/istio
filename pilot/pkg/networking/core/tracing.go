@@ -18,9 +18,7 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
-	"strconv"
 
-	opb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -40,15 +38,12 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
-	"istio.io/istio/pkg/bootstrap/platform"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/wellknown"
 )
 
 const (
 	envoyDatadog       = "envoy.tracers.datadog"
-	envoyOpenCensus    = "envoy.tracers.opencensus"
 	envoyOpenTelemetry = "envoy.tracers.opentelemetry"
 	envoySkywalking    = "envoy.tracers.skywalking"
 	envoyZipkin        = "envoy.tracers.zipkin"
@@ -200,14 +195,6 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 			}
 			return otelLightStepConfig(clusterName, hostname, provider.Lightstep.GetAccessToken())
 		}
-	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-		//nolint: staticcheck
-		maxTagLength = provider.Opencensus.GetMaxTagLength()
-		providerName = envoyOpenCensus
-		providerConfig = func() (*anypb.Any, error) {
-			//nolint: staticcheck
-			return opencensusConfig(provider.Opencensus)
-		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 		maxTagLength = 0
 		providerName = envoySkywalking
@@ -221,12 +208,6 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		}
 
 		startChildSpan = true
-	case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-		maxTagLength = provider.Stackdriver.GetMaxTagLength()
-		providerName = envoyOpenCensus
-		providerConfig = func() (*anypb.Any, error) {
-			return stackdriverConfig(proxy.Metadata, provider.Stackdriver)
-		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
 		maxTagLength = provider.Opentelemetry.GetMaxTagLength()
 		providerName = envoyOpenTelemetry
@@ -348,104 +329,6 @@ func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_Extensio
 
 	pb, err := anypb.New(oc)
 	return pb, hasCustomSampler, err
-}
-
-func opencensusConfig(opencensusProvider *meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider) (*anypb.Any, error) {
-	oc := &tracingcfg.OpenCensusConfig{
-		OcagentAddress:         fmt.Sprintf("%s:%d", opencensusProvider.GetService(), opencensusProvider.GetPort()),
-		OcagentExporterEnabled: true,
-		// this is incredibly dangerous for proxy stability, as switching provider config for OC providers
-		// is not allowed during the lifetime of a proxy.
-		IncomingTraceContext: convert(opencensusProvider.GetContext()),
-		OutgoingTraceContext: convert(opencensusProvider.GetContext()),
-	}
-
-	return protoconv.MessageToAnyWithError(oc)
-}
-
-func stackdriverConfig(proxyMetaData *model.NodeMetadata, sdProvider *meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider) (*anypb.Any, error) {
-	proj, ok := proxyMetaData.PlatformMetadata[platform.GCPProject]
-	if !ok {
-		proj, ok = proxyMetaData.PlatformMetadata[platform.GCPProjectNumber]
-	}
-	if !ok {
-		return nil, fmt.Errorf("could not configure Stackdriver tracer - unknown project id")
-	}
-
-	sd := &tracingcfg.OpenCensusConfig{
-		StackdriverExporterEnabled: true,
-		StackdriverProjectId:       proj,
-		IncomingTraceContext:       allContexts,
-		OutgoingTraceContext:       allContexts,
-		// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
-		StdoutExporterEnabled: false,
-		TraceConfig: &opb.TraceConfig{
-			MaxNumberOfAnnotations:   200,
-			MaxNumberOfAttributes:    200,
-			MaxNumberOfMessageEvents: 200,
-		},
-	}
-
-	if proxyMetaData.StsPort != "" {
-		stsPort, err := strconv.Atoi(proxyMetaData.StsPort)
-		if err != nil || stsPort < 1 {
-			return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
-		}
-		tokenPath := constants.ThirdPartyJwtPath
-		// nolint: staticcheck
-		sd.StackdriverGrpcService = &core.GrpcService{
-			InitialMetadata: []*core.HeaderValue{
-				{
-					Key:   "x-goog-user-project",
-					Value: proj,
-				},
-			},
-			TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-				GoogleGrpc: &core.GrpcService_GoogleGrpc{
-					TargetUri:  "cloudtrace.googleapis.com",
-					StatPrefix: "oc_stackdriver_tracer",
-					ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-						CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-							SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{},
-						},
-					},
-					CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-						{
-							CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_StsService_{
-								StsService: &core.GrpcService_GoogleGrpc_CallCredentials_StsService{
-									TokenExchangeServiceUri: fmt.Sprintf("http://localhost:%d/token", stsPort),
-									SubjectTokenPath:        tokenPath,
-									SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
-									Scope:                   "https://www.googleapis.com/auth/cloud-platform",
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-	}
-
-	// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
-	// so, we should not allow dynamic control based on provider configuration of the following params:
-	// - max number of annotations
-	// - max number of attributes
-	// - max number of message events
-	// The following code block allows control for a single configuration once during the lifecycle of a
-	// mesh.
-	// nolint: staticcheck
-	if sdProvider.GetMaxNumberOfAnnotations() != nil {
-		sd.TraceConfig.MaxNumberOfAnnotations = sdProvider.GetMaxNumberOfAnnotations().GetValue()
-	}
-	// nolint: staticcheck
-	if sdProvider.GetMaxNumberOfAttributes() != nil {
-		sd.TraceConfig.MaxNumberOfAttributes = sdProvider.GetMaxNumberOfAttributes().GetValue()
-	}
-	// nolint: staticcheck
-	if sdProvider.GetMaxNumberOfMessageEvents() != nil {
-		sd.TraceConfig.MaxNumberOfMessageEvents = sdProvider.GetMaxNumberOfMessageEvents().GetValue()
-	}
-	return protoconv.MessageToAnyWithError(sd)
 }
 
 func skywalkingConfig(clusterName, hostname string) (*anypb.Any, error) {
@@ -576,33 +459,6 @@ func buildHCMTracing(provider string, startChildSpan bool, maxTagLen uint32, any
 		config.MaxPathTagLength = &wrapperspb.UInt32Value{Value: maxTagLen}
 	}
 	return config, nil
-}
-
-var allContexts = []tracingcfg.OpenCensusConfig_TraceContext{
-	tracingcfg.OpenCensusConfig_B3,
-	tracingcfg.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
-	tracingcfg.OpenCensusConfig_GRPC_TRACE_BIN,
-	tracingcfg.OpenCensusConfig_TRACE_CONTEXT,
-}
-
-func convert(ctxs []meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_TraceContext) []tracingcfg.OpenCensusConfig_TraceContext {
-	if len(ctxs) == 0 {
-		return allContexts
-	}
-	converted := make([]tracingcfg.OpenCensusConfig_TraceContext, 0, len(ctxs))
-	for _, c := range ctxs {
-		switch c {
-		case meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_B3:
-			converted = append(converted, tracingcfg.OpenCensusConfig_B3)
-		case meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_CLOUD_TRACE_CONTEXT:
-			converted = append(converted, tracingcfg.OpenCensusConfig_CLOUD_TRACE_CONTEXT)
-		case meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_GRPC_BIN:
-			converted = append(converted, tracingcfg.OpenCensusConfig_GRPC_TRACE_BIN)
-		case meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider_W3C_TRACE_CONTEXT:
-			converted = append(converted, tracingcfg.OpenCensusConfig_TRACE_CONTEXT)
-		}
-	}
-	return converted
 }
 
 func dryRunPolicyTraceTag(name, key string) *tracing.CustomTag {

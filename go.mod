@@ -12,7 +12,6 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/alecholmes/xfccparser v0.3.0
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/census-instrumentation/opencensus-proto v0.4.1
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cheggaaa/pb/v3 v3.1.5
 	github.com/cncf/xds/go v0.0.0-20240423153145-555b57ec207b
@@ -129,6 +128,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
+	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
 	github.com/containerd/typeurl/v2 v2.1.1 // indirect

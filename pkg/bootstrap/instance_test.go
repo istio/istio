@@ -17,9 +17,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -28,10 +25,8 @@ import (
 	"strings"
 	"testing"
 
-	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	trace "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/brotli/compressor/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/gzip/compressor/v3"
@@ -82,8 +77,6 @@ var (
 // If the template is updated, refresh golden files using:
 // REFRESH_GOLDEN=true go test ./pkg/bootstrap/...
 func TestGolden(t *testing.T) {
-	var ts *httptest.Server
-
 	cases := []struct {
 		base                          string
 		envVars                       map[string]string
@@ -163,101 +156,6 @@ func TestGolden(t *testing.T) {
 		},
 		{
 			base: "metrics_no_statsd",
-		},
-		{
-			base:    "tracing_stackdriver",
-			stsPort: 15463,
-			platformMeta: map[string]string{
-				"gcp_project": "my-sd-project",
-			},
-			setup: func() {
-				ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					fmt.Fprintln(w, "my-sd-project")
-				}))
-
-				u, err := url.Parse(ts.URL)
-				if err != nil {
-					t.Fatalf("Unable to parse mock server url: %v", err)
-				}
-				t.Setenv("GCE_METADATA_HOST", u.Host)
-			},
-			teardown: func() {
-				if ts != nil {
-					ts.Close()
-				}
-			},
-			check: func(got *bootstrap.Bootstrap, t *testing.T) {
-				// nolint: staticcheck
-				cfg := got.Tracing.Http.GetTypedConfig()
-				sdMsg := &trace.OpenCensusConfig{}
-				if err := cfg.UnmarshalTo(sdMsg); err != nil {
-					t.Fatalf("unable to parse: %v %v", cfg, err)
-				}
-
-				want := &trace.OpenCensusConfig{
-					TraceConfig: &v1.TraceConfig{
-						Sampler: &v1.TraceConfig_ConstantSampler{
-							ConstantSampler: &v1.ConstantSampler{
-								Decision: v1.ConstantSampler_ALWAYS_PARENT,
-							},
-						},
-						MaxNumberOfAttributes:    200,
-						MaxNumberOfAnnotations:   201,
-						MaxNumberOfMessageEvents: 201,
-						MaxNumberOfLinks:         200,
-					},
-					StackdriverExporterEnabled: true,
-					StdoutExporterEnabled:      true,
-					StackdriverProjectId:       "my-sd-project",
-					StackdriverGrpcService: &core.GrpcService{
-						TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-							GoogleGrpc: &core.GrpcService_GoogleGrpc{
-								TargetUri:  "cloudtrace.googleapis.com",
-								StatPrefix: "oc_stackdriver_tracer",
-								ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-									CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-										SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{},
-									},
-								},
-								CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-									{
-										CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_StsService_{
-											StsService: &core.GrpcService_GoogleGrpc_CallCredentials_StsService{
-												TokenExchangeServiceUri: "http://localhost:15463/token",
-												SubjectTokenPath:        "./var/run/secrets/tokens/istio-token",
-												SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
-												Scope:                   "https://www.googleapis.com/auth/cloud-platform",
-											},
-										},
-									},
-								},
-							},
-						},
-						InitialMetadata: []*core.HeaderValue{
-							{
-								Key:   "x-goog-user-project",
-								Value: "my-sd-project",
-							},
-						},
-					},
-					IncomingTraceContext: []trace.OpenCensusConfig_TraceContext{
-						trace.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
-						trace.OpenCensusConfig_TRACE_CONTEXT,
-						trace.OpenCensusConfig_GRPC_TRACE_BIN,
-						trace.OpenCensusConfig_B3,
-					},
-					OutgoingTraceContext: []trace.OpenCensusConfig_TraceContext{
-						trace.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
-						trace.OpenCensusConfig_TRACE_CONTEXT,
-						trace.OpenCensusConfig_GRPC_TRACE_BIN,
-						trace.OpenCensusConfig_B3,
-					},
-				}
-
-				if diff := cmp.Diff(sdMsg, want, protocmp.Transform()); diff != "" {
-					t.Fatalf("got unexpected diff: %v", diff)
-				}
-			},
 		},
 		{
 			base: "tracing_opencensusagent",
