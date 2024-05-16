@@ -135,6 +135,10 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 		{"telemetry.v2.stackdriver.configOverride", "custom configuration", nil},
 		{"telemetry.v2.stackdriver.disableOutbound", "custom configuration", nil},
 		{"telemetry.v2.stackdriver.outboundAccessLogging", "custom configuration", nil},
+		{"meshConfig.defaultConfig.tracing.stackdriver.debug", "Istio supported tracers", false},
+		{"meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes", "Istio supported tracers", 0},
+		{"meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations", "Istio supported tracers", 0},
+		{"meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents", "Istio supported tracers", 0},
 	}
 
 	for _, d := range warningSettings {
