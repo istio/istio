@@ -36,8 +36,8 @@ func (s ScopedFqdn) InScopeOf(ns string) bool {
 }
 
 // NewScopedFqdn converts the passed host to FQDN if needed and applies the passed scope.
-func NewScopedFqdn(scope string, namespace resource.Namespace, host string) ScopedFqdn {
-	fqdn := ConvertHostToFQDN(namespace, host)
+func NewScopedFqdn(scope string, namespace resource.Namespace, host string, cusClusterDomain string) ScopedFqdn {
+	fqdn := ConvertHostToFQDN(namespace, host, cusClusterDomain)
 	return ScopedFqdn(scope + "/" + fqdn)
 }
 
@@ -73,25 +73,17 @@ func GetFullNameFromFQDN(fqdn string) resource.FullName {
 }
 
 // ConvertHostToFQDN returns the given host as a FQDN, if it isn't already.
-func ConvertHostToFQDN(namespace resource.Namespace, host string) string {
+func ConvertHostToFQDN(namespace resource.Namespace, host string, cusClusterDomain string) string {
 	fqdn := host
+
+	domain := DefaultClusterLocalDomain
+	if cusClusterDomain != "" {
+		domain = "svc." + cusClusterDomain
+	}
 	// Convert to FQDN only if host is not a wildcard or a FQDN
 	if !strings.HasPrefix(host, "*") &&
 		!strings.Contains(host, ".") {
-		fqdn = host + "." + string(namespace) + "." + GetConfigClusterLocalDomain()
+		fqdn = host + "." + string(namespace) + "." + domain
 	}
 	return fqdn
-}
-
-var configClusterLocalDomain string
-
-func SetConfigClusterLocalDomain(domain string) {
-	configClusterLocalDomain = "svc." + domain
-}
-
-func GetConfigClusterLocalDomain() string {
-	if configClusterLocalDomain == "" {
-		configClusterLocalDomain = DefaultClusterLocalDomain
-	}
-	return configClusterLocalDomain
 }

@@ -27,9 +27,25 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
+func GetCustomClusterDomain(ctx analysis.Context) string {
+	cusClusterDomain := ""
+	// use meshConfig.trustDomain changed the default domain
+	// todo: replace by `values.global.proxy.clusterDomain`
+	ctx.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
+		mc := r.Message.(*meshconfig.MeshConfig)
+		if mc.GetTrustDomain() != "" {
+			cusClusterDomain = mc.GetTrustDomain()
+			return false
+		}
+		return true
+	})
+	return cusClusterDomain
+}
+
 func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.ServiceEntry {
 	result := make(map[ScopedFqdn]*v1alpha3.ServiceEntry)
 
+	cusClusterDomain := GetCustomClusterDomain(ctx)
 	ctx.ForEach(gvk.ServiceEntry, func(r *resource.Instance) bool {
 		s := r.Message.(*v1alpha3.ServiceEntry)
 		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
@@ -38,19 +54,19 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 		for _, h := range s.GetHosts() {
 			// ExportToAll scenario
 			if len(s.ExportTo) == 0 || exportsToAll {
-				result[NewScopedFqdn(ExportToAllNamespaces, r.Metadata.FullName.Namespace, h)] = s
+				result[NewScopedFqdn(ExportToAllNamespaces, r.Metadata.FullName.Namespace, h, cusClusterDomain)] = s
 				continue // If exports to all, we can skip adding to each namespace
 			}
 
 			for _, ns := range s.ExportTo {
 				switch ns {
 				case ExportToAllNamespaces:
-					result[NewScopedFqdn(ExportToAllNamespaces, r.Metadata.FullName.Namespace, h)] = s
+					result[NewScopedFqdn(ExportToAllNamespaces, r.Metadata.FullName.Namespace, h, cusClusterDomain)] = s
 					exportsToAll = true
 				case ExportToNamespaceLocal:
-					result[NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, h)] = s
+					result[NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, h, cusClusterDomain)] = s
 				default:
-					result[NewScopedFqdn(ns, r.Metadata.FullName.Namespace, h)] = s
+					result[NewScopedFqdn(ns, r.Metadata.FullName.Namespace, h, cusClusterDomain)] = s
 				}
 
 				// If exports to all, we don't need to check other namespaces
@@ -58,17 +74,6 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 					break
 				}
 			}
-		}
-		return true
-	})
-
-	// use meshConfig.trustDomain changed the default domain
-	// todo: replace by `values.global.proxy.clusterDomain`
-	ctx.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
-		meshConfig := r.Message.(*meshconfig.MeshConfig)
-		if meshConfig.GetTrustDomain() != "" {
-			SetConfigClusterLocalDomain(meshConfig.GetTrustDomain())
-			return false
 		}
 		return true
 	})
@@ -86,7 +91,7 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 				Protocol: string(p.Protocol),
 			})
 		}
-		host := ConvertHostToFQDN(r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())
+		host := ConvertHostToFQDN(r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String(), cusClusterDomain)
 		se = &v1alpha3.ServiceEntry{
 			Hosts: []string{host},
 			Ports: ports,
@@ -94,7 +99,7 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 		visibleNamespaces := getVisibleNamespacesFromExportToAnno(
 			r.Metadata.Annotations[annotation.NetworkingExportTo.Name], r.Metadata.FullName.Namespace.String())
 		for _, scope := range visibleNamespaces {
-			result[NewScopedFqdn(scope, r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())] = se
+			result[NewScopedFqdn(scope, r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String(), cusClusterDomain)] = se
 		}
 		return true
 	})
@@ -117,20 +122,20 @@ func getVisibleNamespacesFromExportToAnno(anno, resourceNamespace string) []stri
 	return scopes
 }
 
-func GetDestinationHost(sourceNs resource.Namespace, exportTo []string, host string,
+func GetDestinationHost(sourceNs resource.Namespace, exportTo []string, host string, customDomain string,
 	serviceEntryHosts map[ScopedFqdn]*v1alpha3.ServiceEntry,
 ) *v1alpha3.ServiceEntry {
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
 
 	// Check ServiceEntries which are exposed to all namespaces
-	allNsScopedFqdn := NewScopedFqdn(ExportToAllNamespaces, sourceNs, host)
+	allNsScopedFqdn := NewScopedFqdn(ExportToAllNamespaces, sourceNs, host, customDomain)
 	if s, ok := serviceEntryHosts[allNsScopedFqdn]; ok {
 		return s
 	}
 
 	// ServiceEntries can be either namespace scoped or exposed to different/all namespaces
 	if len(exportTo) == 0 {
-		nsScopedFqdn := NewScopedFqdn(string(sourceNs), sourceNs, host)
+		nsScopedFqdn := NewScopedFqdn(string(sourceNs), sourceNs, host, customDomain)
 		if s, ok := serviceEntryHosts[nsScopedFqdn]; ok {
 			return s
 		}
@@ -139,7 +144,7 @@ func GetDestinationHost(sourceNs resource.Namespace, exportTo []string, host str
 			if e == ExportToNamespaceLocal {
 				e = sourceNs.String()
 			}
-			nsScopedFqdn := NewScopedFqdn(e, sourceNs, host)
+			nsScopedFqdn := NewScopedFqdn(e, sourceNs, host, customDomain)
 			if s, ok := serviceEntryHosts[nsScopedFqdn]; ok {
 				return s
 			}
