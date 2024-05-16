@@ -30,7 +30,6 @@ import (
 	"testing"
 	"time"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -608,7 +607,6 @@ type AgentTest struct {
 	bootstrapGenerator model.XdsResourceGenerator
 
 	envoyEnable bool
-	enableSTS   bool
 
 	agent *Agent
 }
@@ -942,25 +940,4 @@ spec:
 	}()
 	t.Cleanup(grpcServer.Stop)
 	return net.JoinHostPort("localhost", fmt.Sprint(l.Addr().(*net.TCPAddr).Port))
-}
-
-type fakePlatform struct {
-	meta   map[string]string
-	labels map[string]string
-}
-
-func (f *fakePlatform) Metadata() map[string]string {
-	return f.meta
-}
-
-func (f *fakePlatform) Locality() *core.Locality {
-	return &core.Locality{}
-}
-
-func (f *fakePlatform) Labels() map[string]string {
-	return f.labels
-}
-
-func (f *fakePlatform) IsKubernetes() bool {
-	return true
 }
