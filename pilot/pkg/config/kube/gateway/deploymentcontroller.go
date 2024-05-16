@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -248,6 +249,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *mode
 
 	dc.tagWatcher.AddHandler(dc.HandleTagChange)
 
+	log.WithLabels("classes", maps.Keys(builtinClasses)).Info("GatewayDeploymentController")
 	return dc
 }
 
