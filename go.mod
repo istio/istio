@@ -92,16 +92,16 @@ require (
 	golang.org/x/sys v0.19.0
 	golang.org/x/time v0.5.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
-	google.golang.org/genproto/googleapis/api v0.0.0-20240415180920-8c6c420018be
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240415180920-8c6c420018be
+	google.golang.org/genproto/googleapis/api v0.0.0-20240513163218-0867130af1f8
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240513163218-0867130af1f8
 	google.golang.org/grpc v1.63.2
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/protobuf v1.34.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.14.4
-	istio.io/api v1.22.0-alpha.1.0.20240515232811-bf02fc66fc34
-	istio.io/client-go v1.22.0-alpha.1.0.20240515233511-f6c10044399f
+	istio.io/api v1.22.0-alpha.1.0.20240516013811-f0b539812567
+	istio.io/client-go v1.22.0-alpha.1.0.20240516014211-da8a68549c20
 	k8s.io/api v0.30.0
 	k8s.io/apiextensions-apiserver v0.30.0
 	k8s.io/apimachinery v0.30.0
