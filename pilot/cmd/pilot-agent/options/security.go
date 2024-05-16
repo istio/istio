@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cafile"
-	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 )
 
 func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenManagerPlugin string) (*security.Options, error) {
@@ -62,14 +61,6 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 	if err != nil {
 		return o, err
 	}
-
-	var tokenManager security.TokenManager
-	if stsPort > 0 || xdsAuthProvider.Get() != "" {
-		// tokenManager is gcp token manager when using the default token manager plugin.
-		tokenManager, err = tokenmanager.CreateTokenManager(tokenManagerPlugin,
-			tokenmanager.Config{CredFetcher: o.CredFetcher, TrustDomain: o.TrustDomain})
-	}
-	o.TokenManager = tokenManager
 
 	return o, err
 }
