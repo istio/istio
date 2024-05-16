@@ -94,7 +94,7 @@ var rootCmd = &cobra.Command{
 			log.Info("Starting ambient node agent with inpod redirect mode")
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cfg.InstallConfig.CNIEventAddress,
 				nodeagent.AmbientArgs{
-					SystemNamespace: nodeagent.PodNamespace,
+					SystemNamespace: nodeagent.SystemNamespace,
 					Revision:        nodeagent.Revision,
 					ServerSocket:    cfg.InstallConfig.ZtunnelUDSAddress,
 					DNSCapture:      cfg.InstallConfig.AmbientDNSCapture,
