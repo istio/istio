@@ -377,31 +377,37 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 }
 
 func TestWaypointDNS(t *testing.T) {
+	runTest := func(t framework.TestContext, check echo.Checker) {
+		for _, src := range apps.All {
+			src := src
+			if !hboneClient(src) {
+				continue
+			}
+			t.NewSubTestf("from %s", src.ServiceName()).Run(func(t framework.TestContext) {
+				if src.Config().HasSidecar() {
+					t.Skip("TODO: sidecars don't properly handle use-waypoint")
+				}
+				src.CallOrFail(t, echo.CallOptions{
+					To:      apps.MockExternal,
+					Address: apps.MockExternal.Config().DefaultHostHeader,
+					Port:    echo.Port{Name: "http"},
+					Scheme:  scheme.HTTP,
+					Count:   1,
+					Check:   check,
+				})
+			})
+		}
+	}
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			// Update use-waypoint for Captured service
-			SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint")
-
-			// ensure HTTP traffic works with all hostname variants
-			for _, src := range apps.All {
-				src := src
-				if !hboneClient(src) {
-					continue
-				}
-				t.NewSubTestf("from %s", src.ServiceName()).Run(func(t framework.TestContext) {
-					if src.Config().HasSidecar() {
-						t.Skip("TODO: sidecars don't properly handle use-waypoint")
-					}
-					src.CallOrFail(t, echo.CallOptions{
-						To:      apps.MockExternal,
-						Address: apps.MockExternal.Config().DefaultHostHeader,
-						Port:    echo.Port{Name: "http"},
-						Scheme:  scheme.HTTP,
-						Count:   1,
-						Check:   check.And(check.OK(), IsL7()),
-					})
-				})
-			}
+			t.NewSubTest("without waypoint").Run(func(t framework.TestContext) {
+				runTest(t, check.OK())
+			})
+			t.NewSubTest("with waypoint").Run(func(t framework.TestContext) {
+				// Update use-waypoint for Captured service
+				SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint")
+				runTest(t, check.And(check.OK(), IsL7()))
+			})
 		})
 }
