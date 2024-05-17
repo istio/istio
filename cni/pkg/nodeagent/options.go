@@ -22,7 +22,8 @@ import (
 )
 
 var (
-	PodNamespace      = env.RegisterStringVar("SYSTEM_NAMESPACE", constants.IstioSystemNamespace, "pod's namespace").Get()
+	PodNamespace      = env.RegisterStringVar("POD_NAMESPACE", "", "pod's namespace").Get()
+	SystemNamespace   = env.RegisterStringVar("SYSTEM_NAMESPACE", constants.IstioSystemNamespace, "istio system namespace").Get()
 	PodName           = env.RegisterStringVar("POD_NAME", "", "").Get()
 	NodeName          = env.RegisterStringVar("NODE_NAME", "", "").Get()
 	Revision          = env.RegisterStringVar("REVISION", "", "").Get()

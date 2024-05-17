@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/cni/pkg/config"
-	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
 )
@@ -55,7 +54,7 @@ func createKubeConfig(cfg *config.InstallConfig) (kubeconfig, error) {
 		// User explicitly opted into insecure.
 		cluster.InsecureSkipTLSVerify = true
 	} else {
-		caFile := model.GetOrDefault(cfg.KubeCAFile, constants.ServiceAccountPath+"/ca.crt")
+		caFile := model.GetOrDefault(cfg.KubeCAFile, cfg.K8sServiceAccountPath+"/ca.crt")
 		caContents, err := os.ReadFile(caFile)
 		if err != nil {
 			return kubeconfig{}, err
@@ -63,7 +62,7 @@ func createKubeConfig(cfg *config.InstallConfig) (kubeconfig, error) {
 		cluster.CertificateAuthorityData = caContents
 	}
 
-	token, err := os.ReadFile(constants.ServiceAccountPath + "/token")
+	token, err := os.ReadFile(cfg.K8sServiceAccountPath + "/token")
 	if err != nil {
 		return kubeconfig{}, err
 	}

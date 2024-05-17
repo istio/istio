@@ -200,11 +200,6 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				}
 			}
 
-			cfg := pluginConfig{
-				mountedCNINetDir: tempDir,
-				cniConfName:      c.specifiedConfName,
-				chainedCNIPlugin: c.chainedCNIPlugin,
-			}
 			var expectedFilepath string
 			if len(c.expectedConfName) > 0 {
 				expectedFilepath = filepath.Join(tempDir, c.expectedConfName)
@@ -215,7 +210,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				parent := context.Background()
 				ctx1, cancel := context.WithTimeout(parent, 100*time.Millisecond)
 				defer cancel()
-				result, err := getCNIConfigFilepath(ctx1, cfg)
+				result, err := getCNIConfigFilepath(ctx1, c.specifiedConfName, tempDir, c.chainedCNIPlugin)
 				if err != nil {
 					assert.Equal(t, result, "")
 					if err == context.DeadlineExceeded {
@@ -235,14 +230,14 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			parent, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			resultChan, errChan := make(chan string, 1), make(chan error, 1)
-			go func(resultChan chan string, errChan chan error, ctx context.Context, cfg pluginConfig) {
-				result, err := getCNIConfigFilepath(ctx, cfg)
+			go func(resultChan chan string, errChan chan error, ctx context.Context, cniConfName, mountedCNINetDir string, chained bool) {
+				result, err := getCNIConfigFilepath(ctx, cniConfName, mountedCNINetDir, chained)
 				if err != nil {
 					errChan <- err
 					return
 				}
 				resultChan <- result
-			}(resultChan, errChan, parent, cfg)
+			}(resultChan, errChan, parent, c.specifiedConfName, tempDir, c.chainedCNIPlugin)
 
 			select {
 			case result := <-resultChan:
@@ -452,17 +447,15 @@ func TestCreateCNIConfigFile(t *testing.T) {
 
 	for _, c := range cases {
 		cfgFile := config.InstallConfig{
-			CNIConfName:          c.specifiedConfName,
-			ChainedCNIPlugin:     c.chainedCNIPlugin,
-			CNINetworkConfigFile: cniNetworkConfigFile,
-			LogLevel:             "debug",
-			KubeconfigFilename:   kubeconfigFilename,
+			CNIConfName:        c.specifiedConfName,
+			ChainedCNIPlugin:   c.chainedCNIPlugin,
+			LogLevel:           "debug",
+			KubeconfigFilename: kubeconfigFilename,
 		}
 
 		cfg := config.InstallConfig{
 			CNIConfName:        c.specifiedConfName,
 			ChainedCNIPlugin:   c.chainedCNIPlugin,
-			CNINetworkConfig:   cniNetworkConfig,
 			LogLevel:           "debug",
 			KubeconfigFilename: kubeconfigFilename,
 		}

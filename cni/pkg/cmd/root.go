@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/nodeagent"
 	"istio.io/istio/cni/pkg/repair"
-	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/env"
@@ -60,7 +59,6 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(c *cobra.Command, args []string) (err error) {
-		cmd.PrintFlags(c.Flags())
 		ctx := c.Context()
 
 		// Start controlz server
@@ -96,7 +94,7 @@ var rootCmd = &cobra.Command{
 			log.Info("Starting ambient node agent with inpod redirect mode")
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cfg.InstallConfig.CNIEventAddress,
 				nodeagent.AmbientArgs{
-					SystemNamespace: nodeagent.PodNamespace,
+					SystemNamespace: nodeagent.SystemNamespace,
 					Revision:        nodeagent.Revision,
 					ServerSocket:    cfg.InstallConfig.ZtunnelUDSAddress,
 					DNSCapture:      cfg.InstallConfig.AmbientDNSCapture,
@@ -245,24 +243,24 @@ func constructConfig() (*config.Config, error) {
 		CNIConfName:      viper.GetString(constants.CNIConfName),
 		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
 
-		CNINetworkConfigFile: viper.GetString(constants.CNINetworkConfigFile),
-		CNINetworkConfig:     viper.GetString(constants.CNINetworkConfig),
+		LogLevel:              viper.GetString(constants.LogLevel),
+		KubeconfigFilename:    viper.GetString(constants.KubeconfigFilename),
+		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
+		KubeCAFile:            viper.GetString(constants.KubeCAFile),
+		SkipTLSVerify:         viper.GetBool(constants.SkipTLSVerify),
+		K8sServiceProtocol:    os.Getenv("KUBERNETES_SERVICE_PROTOCOL"),
+		K8sServiceHost:        os.Getenv("KUBERNETES_SERVICE_HOST"),
+		K8sServicePort:        os.Getenv("KUBERNETES_SERVICE_PORT"),
+		K8sNodeName:           os.Getenv("KUBERNETES_NODE_NAME"),
+		K8sServiceAccountPath: constants.ServiceAccountPath,
 
-		LogLevel:           viper.GetString(constants.LogLevel),
-		KubeconfigFilename: viper.GetString(constants.KubeconfigFilename),
-		KubeconfigMode:     viper.GetInt(constants.KubeconfigMode),
-		KubeCAFile:         viper.GetString(constants.KubeCAFile),
-		SkipTLSVerify:      viper.GetBool(constants.SkipTLSVerify),
-		K8sServiceProtocol: os.Getenv("KUBERNETES_SERVICE_PROTOCOL"),
-		K8sServiceHost:     os.Getenv("KUBERNETES_SERVICE_HOST"),
-		K8sServicePort:     os.Getenv("KUBERNETES_SERVICE_PORT"),
-		K8sNodeName:        os.Getenv("KUBERNETES_NODE_NAME"),
+		CNIBinSourceDir:  constants.CNIBinDir,
+		CNIBinTargetDirs: []string{constants.HostCNIBinDir},
+		MonitoringPort:   viper.GetInt(constants.MonitoringPort),
+		LogUDSAddress:    viper.GetString(constants.LogUDSAddress),
+		CNIEventAddress:  viper.GetString(constants.CNIEventAddress),
 
-		CNIBinSourceDir:   constants.CNIBinDir,
-		CNIBinTargetDirs:  []string{constants.HostCNIBinDir},
-		MonitoringPort:    viper.GetInt(constants.MonitoringPort),
-		LogUDSAddress:     viper.GetString(constants.LogUDSAddress),
-		CNIEventAddress:   viper.GetString(constants.CNIEventAddress),
+		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
 		AmbientEnabled:    viper.GetBool(constants.AmbientEnabled),

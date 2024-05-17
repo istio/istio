@@ -25,14 +25,19 @@
       "type": "portmap"
     },
     {
+      "ambient_enabled": false,
+      "cni_event_address": "/tmp/cnieventfoo",
+      "dns": {},
+      "ipam": {},
       "kubernetes": {
-        "cni_bin_dir": "/opt/cni/bin",
         "exclude_namespaces": [
           "istio-system"
         ],
         "kubeconfig": "/etc/cni/net.d/ZZZ-istio-cni-kubeconfig"
       },
-      "log_level": "info",
+      "log_level": "debug",
+      "log_uds_address": "",
+      "name": "istio-cni",
       "type": "istio-cni"
     }
   ]

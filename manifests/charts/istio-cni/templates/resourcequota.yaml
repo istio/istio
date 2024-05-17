@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: istio-cni-resource-quota
+  name: {{ template "name" . }}-resource-quota
   namespace: {{ .Release.Namespace }}
 spec:
   hard:
