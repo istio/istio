@@ -94,8 +94,10 @@ func NewDiscoveryNamespacesFilter(
 			}
 		},
 		DeleteFunc: func(ns *corev1.Namespace) {
-			f.namespaceDeleted(ns.ObjectMeta)
+			f.lock.Lock()
+			defer f.lock.Unlock()
 			// no need to invoke object handlers since objects within the namespace will trigger delete events
+			f.namespaceDeletedLocked(ns.ObjectMeta)
 		},
 	})
 
@@ -205,13 +207,9 @@ func (d *discoveryNamespacesFilter) namespaceUpdated(oldNs, newNs metav1.ObjectM
 	return false, false
 }
 
-// namespaceDeleted : if deleted namespace was a member, remove it
-func (d *discoveryNamespacesFilter) namespaceDeleted(ns metav1.ObjectMeta) (membershipChanged bool) {
-	if d.isSelected(ns.Labels) {
-		d.removeNamespace(ns.Name)
-		return true
-	}
-	return false
+// namespaceDeletedLocked : if deleted namespace was a member, remove it
+func (d *discoveryNamespacesFilter) namespaceDeletedLocked(ns metav1.ObjectMeta) {
+	d.discoveryNamespaces.Delete(ns.Name)
 }
 
 // GetMembers returns member namespaces
