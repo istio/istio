@@ -68,13 +68,10 @@ spec:
             "istio.io/gateway-name" .Name
           ) | nindent 8 }}
     spec:
-      {{- if ge .KubeVersion 122 }}
-      {{/* safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326. */}}
       securityContext:
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
-      {{- end }}
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
       - name: istio-proxy
@@ -89,8 +86,6 @@ spec:
         {{- end }}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         securityContext:
-        {{- if ge .KubeVersion 122 }}
-          # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
           capabilities:
             drop:
             - ALL
@@ -100,18 +95,6 @@ spec:
           runAsUser: {{ .ProxyUID | default "1337" }}
           runAsGroup: {{ .ProxyGID | default "1337" }}
           runAsNonRoot: true
-        {{- else }}
-          capabilities:
-            drop:
-            - ALL
-            add:
-            - NET_BIND_SERVICE
-          runAsUser: 0
-          runAsGroup: 1337
-          runAsNonRoot: false
-          allowPrivilegeEscalation: true
-          readOnlyRootFilesystem: true
-        {{- end }}
         ports:
         - containerPort: 15021
           name: status-port
