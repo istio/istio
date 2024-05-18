@@ -406,8 +406,7 @@ func detectDefaultWebhookChange(p Printer, client kube.CLIClient, iop *v1alpha12
 	// If there is no default webhook but a revisioned default webhook exists,
 	// and we are installing a new IOP with default semantics, the default webhook shifts.
 	if exists && len(mwhs.Items) == 0 && iop.Spec.GetRevision() == "" {
-		p.Println("This installation will make default injection and validation pointing to the default revision, and " +
-			"originally it was pointing to the revisioned one.")
+		p.Println("The default revision has been updated to point to this installation.")
 	}
 	return nil
 }
