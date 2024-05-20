@@ -32,9 +32,9 @@
         ],
         "kubeconfig": "/etc/cni/net.d/ZZZ-istio-cni-kubeconfig"
       },
-      "log_level": "debug",
       "log_uds_address": "",
       "name": "istio-cni",
+      "plugin_log_level": "debug",
       "type": "istio-cni"
     }
   ]
