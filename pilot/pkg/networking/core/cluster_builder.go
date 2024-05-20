@@ -181,14 +181,9 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 		lbEndpoints = endpointBuilder.WithSubset(subset.Name).FromServiceEndpoints()
 	}
 
-	subsetCluster := cb.buildCluster(subsetClusterName, clusterType, lbEndpoints, model.TrafficDirectionOutbound, opts.port, service, nil)
+	subsetCluster := cb.buildCluster(subsetClusterName, clusterType, lbEndpoints, model.TrafficDirectionOutbound, opts.port, service, nil, subset.Name)
 	if subsetCluster == nil {
 		return nil
-	}
-
-	if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
-		subsetCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-			string(service.Hostname), subset.Name, opts.port, 0, &service.Attributes)
 	}
 
 	// Apply traffic policy for subset cluster with the destination rule traffic policy.
@@ -289,6 +284,7 @@ func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
 	port *model.Port, service *model.Service, inboundServices []model.ServiceTarget,
+	subset string,
 ) *clusterWrapper {
 	c := &cluster.Cluster{
 		Name:                 name,
@@ -347,7 +343,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		// If stat name is configured, build the alternate stats name.
 		if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
 			ec.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-				string(service.Hostname), "", port, 0, &service.Attributes)
+				string(service.Hostname), subset, port, 0, &service.Attributes)
 		}
 	}
 
@@ -371,7 +367,7 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		clusterType = cluster.Cluster_STATIC
 	}
 	localCluster := cb.buildCluster(clusterName, clusterType, localityLbEndpoints,
-		model.TrafficDirectionInbound, instance.Port.ServicePort, instance.Service, inboundServices)
+		model.TrafficDirectionInbound, instance.Port.ServicePort, instance.Service, inboundServices, "")
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
