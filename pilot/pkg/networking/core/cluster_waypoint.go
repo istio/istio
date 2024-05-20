@@ -95,7 +95,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, por
 
 	clusterType := cluster.Cluster_EDS
 	localCluster := cb.buildCluster(clusterName, clusterType, nil,
-		model.TrafficDirectionInbound, &port, nil, nil)
+		model.TrafficDirectionInbound, &port, nil, nil, subset)
 
 	// Ensure VIP cluster has services metadata for stats filter usage
 	im := getOrCreateIstioMetadata(localCluster.cluster)
