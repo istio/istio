@@ -15,7 +15,9 @@ data:
   AMBIENT_ENABLED: {{ .Values.cni.ambient.enabled | quote }}
   AMBIENT_DNS_CAPTURE: {{ .Values.cni.ambient.dnsCapture | quote | default "false" }}
   AMBIENT_IPV6: {{ .Values.cni.ambient.ipv6 | quote | default "false" }}
+  {{- if .Values.cni.cniConfFileName }} # K8S < 1.24 doesn't like empty values
   CNI_CONF_NAME: {{ .Values.cni.cniConfFileName }} # Name of the CNI config file to create. Only override if you know the exact path your CNI requires..
+  {{- end }}
   CNI_NET_DIR: {{ .Values.cni.cniConfDir | default "/etc/cni/net.d" }}
   CHAINED_CNI_PLUGIN: {{ .Values.cni.chained | quote }}
   EXCLUDED_NAMESPACES: "{{ range $idx, $ns := .Values.cni.excludeNamespaces }}{{ if $idx }},{{ end }}{{ $ns }}{{ end }}"
