@@ -61,3 +61,5 @@ var/
 ._*
 # MacOS Desktop Services Store
 .DS_Store
+/manifests/charts/**/charts/
+/manifests/charts/**/Chart.lock

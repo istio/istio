@@ -1,0 +1,32 @@
+# Copied from `helm-profiles/ambient.yaml`
+
+global:
+  variant: distroless
+
+# Overrides for the `istiod-remote` dep
+istiod-remote:
+  pilot:
+    env:
+      PILOT_ENABLE_AMBIENT: "true"
+      CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
+
+# TODO meshconfig is by-definition global and should be under `global:`
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_ENABLE_HBONE: "true"
+
+# Overrides for the `ztunnel` dep
+ztunnel:
+  variant: distroless
+# TODO meshconfig is by-definition global and should be under `global:`
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_ENABLE_HBONE: "true"
+
+# Overrides for the `cni` dep
+cni:
+  cni:
+    ambient:
+      enabled: true
