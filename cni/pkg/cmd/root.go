@@ -34,13 +34,14 @@ import (
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 var (
-	logOptions   = log.DefaultOptions()
+	logOptions   = istiolog.DefaultOptions()
+	log          = istiolog.RegisterScope(constants.CNIAgentLogScope, "CNI agent")
 	ctrlzOptions = func() *ctrlz.Options {
 		o := ctrlz.DefaultOptions()
 		o.EnablePprof = true
@@ -53,7 +54,7 @@ var rootCmd = &cobra.Command{
 	Short:        "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition.",
 	SilenceUsage: true,
 	PreRunE: func(c *cobra.Command, args []string) error {
-		if err := log.Configure(logOptions); err != nil {
+		if err := istiolog.Configure(logOptions); err != nil {
 			log.Errorf("Failed to configure log %v", err)
 		}
 		return nil
@@ -75,7 +76,7 @@ var rootCmd = &cobra.Command{
 		monitoring.SetupMonitoring(cfg.InstallConfig.MonitoringPort, "/metrics", ctx.Done())
 
 		// Start UDS log server
-		udsLogger := udsLog.NewUDSLogger()
+		udsLogger := udsLog.NewUDSLogger(log.GetOutputLevel())
 		if err = udsLogger.StartUDSLogServer(cfg.InstallConfig.LogUDSAddress, ctx.Done()); err != nil {
 			log.Errorf("Failed to start up UDS Log Server: %v", err)
 			return
@@ -244,7 +245,7 @@ func constructConfig() (*config.Config, error) {
 		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
 
 		// make plugin (which runs out-of-process) inherit our current log level
-		PluginLogLevel:        log.LevelToString(log.FindScope(log.DefaultScopeName).GetOutputLevel()),
+		PluginLogLevel:        istiolog.LevelToString(istiolog.FindScope(constants.CNIAgentLogScope).GetOutputLevel()),
 		KubeconfigFilename:    viper.GetString(constants.KubeconfigFilename),
 		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
 		KubeCAFile:            viper.GetString(constants.KubeCAFile),

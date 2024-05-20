@@ -20,6 +20,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/ipset"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
@@ -48,7 +49,7 @@ const (
 	ProbeIPSet                  = "istio-inpod-probes"
 )
 
-var log = istiolog.WithLabels("cni-iptables")
+var log = istiolog.RegisterScope(constants.CNIAgentLogScope, "").WithLabels("iptables")
 
 type Config struct {
 	RestoreFormat bool `json:"RESTORE_FORMAT"`

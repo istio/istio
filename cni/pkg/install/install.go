@@ -22,13 +22,14 @@ import (
 	"sync/atomic"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
-var installLog = log.WithLabels("cni-plugin-install")
+var installLog = log.FindScope(constants.CNIAgentLogScope).WithLabels("plugin-install")
 
 type Installer struct {
 	cfg                *config.InstallConfig

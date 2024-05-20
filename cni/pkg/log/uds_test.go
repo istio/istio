@@ -30,8 +30,7 @@ func TestUDSLog(t *testing.T) {
 	// Start UDS log server
 	udsSockDir := t.TempDir()
 	udsSock := filepath.Join(udsSockDir, "cni.sock")
-	logger := NewUDSLogger()
-	pluginLog.SetOutputLevel(log.DebugLevel) // this will be configured by global.logging.level
+	logger := NewUDSLogger(log.DebugLevel)
 	stop := make(chan struct{})
 	defer close(stop)
 	assert.NoError(t, logger.StartUDSLogServer(udsSock, stop))

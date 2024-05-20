@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/uds"
 )
 
-var pluginLog = log.WithLabels("cni-plugin")
+var pluginLog = log.RegisterScope(constants.CNIPluginLogScope, "CNI network plugin (forwarded logs)")
 
 type UDSLogger struct {
 	mu            sync.Mutex
@@ -42,7 +42,7 @@ type cniLog struct {
 	Msg   string    `json:"msg"`
 }
 
-func NewUDSLogger() *UDSLogger {
+func NewUDSLogger(level log.Level) *UDSLogger {
 	l := &UDSLogger{}
 	mux := http.NewServeMux()
 	mux.HandleFunc(constants.UDSLogPath, l.handleLog)
@@ -50,6 +50,7 @@ func NewUDSLogger() *UDSLogger {
 		Handler: mux,
 	}
 	l.loggingServer = loggingServer
+	pluginLog.SetOutputLevel(level)
 	return l
 }
 
