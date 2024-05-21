@@ -56,7 +56,7 @@ func TestIndex(t *testing.T) {
 		Name:      selector.Name,
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
+			Addresses:      []string{"2.2.2.2"},
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURIForTrustDomain("cluster.local", selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
@@ -67,7 +67,7 @@ func TestIndex(t *testing.T) {
 		Name:      "some-other-name",
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "3.3.3.3",
+			Addresses:      []string{"3.3.3.3"},
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURIForTrustDomain("cluster.local", selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
@@ -78,7 +78,7 @@ func TestIndex(t *testing.T) {
 		Name:      "another-name",
 		Namespace: "dns-selector",
 		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
+			Addresses:      []string{"2.2.2.2"},
 			Labels:         map[string]string{"app": "dns-wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURIForTrustDomain("cluster.local", "dns-selector", "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
@@ -125,8 +125,8 @@ func TestIndex_FindAll(t *testing.T) {
 		Name:      selector.Name,
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address: "2.2.2.2",
-			Labels:  map[string]string{"app": "wle"}, // should match
+			Addresses: []string{"2.2.2.2"},
+			Labels:    map[string]string{"app": "wle"}, // should match
 		},
 	}
 
@@ -134,8 +134,8 @@ func TestIndex_FindAll(t *testing.T) {
 		Name:      "same-ip",
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address: "2.2.2.2",
-			Labels:  map[string]string{"app": "wle"}, // should match
+			Addresses: []string{"2.2.2.2"},
+			Labels:    map[string]string{"app": "wle"}, // should match
 		},
 	}
 
@@ -143,8 +143,8 @@ func TestIndex_FindAll(t *testing.T) {
 		Name:      "another-ip",
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address: "3.3.3.3",
-			Labels:  map[string]string{"app": "another-wle"}, // should not match because of another label
+			Addresses: []string{"3.3.3.3"},
+			Labels:    map[string]string{"app": "another-wle"}, // should not match because of another label
 		},
 	}
 
@@ -152,8 +152,8 @@ func TestIndex_FindAll(t *testing.T) {
 		Name:      "another-name",
 		Namespace: "another-namespace", // should not match because of another namespace
 		Endpoint: &model.IstioEndpoint{
-			Address: "2.2.2.2",
-			Labels:  map[string]string{"app": "wle"},
+			Addresses: []string{"2.2.2.2"},
+			Labels:    map[string]string{"app": "wle"},
 		},
 	}
 

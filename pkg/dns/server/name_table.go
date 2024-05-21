@@ -57,8 +57,14 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 			// IP allocation logic for service entry was unable to allocate an IP.
 			if svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range cfg.Push.ServiceEndpointsByPort(svc, svc.Ports[0].Port, nil) {
-					// empty addresses are possible here
-					if !netutil.IsValidIPAddress(instance.Address) {
+					// addresses may be empty or invalid here
+					isValidInstance := true
+					for _, addr := range instance.Addresses {
+						if !netutil.IsValidIPAddress(addr) {
+							isValidInstance = false
+						}
+					}
+					if len(instance.Addresses) == 0 || !isValidInstance {
 						continue
 					}
 					// TODO(stevenctl): headless across-networks https://github.com/istio/istio/issues/38327
@@ -73,7 +79,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 						if len(parts) != 2 {
 							continue
 						}
-						address := []string{instance.Address}
+						address := instance.Addresses
 						shortName := instance.HostName + "." + instance.SubDomain
 						host := shortName + "." + parts[1] // Add cluster domain.
 						nameInfo := &dnsProto.NameTable_NameInfo{
@@ -103,7 +109,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 						continue
 					}
 					// TODO: should we skip the node's own IP like we do in listener?
-					addressList = append(addressList, instance.Address)
+					addressList = append(addressList, instance.Addresses...)
 				}
 			}
 			if len(addressList) == 0 {

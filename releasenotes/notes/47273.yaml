@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - 40394
+
+releaseNotes:
+- |
+        **Added** Support for multiple addresses in IstioEndpoint model
