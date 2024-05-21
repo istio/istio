@@ -214,7 +214,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypointLabel: "#none",
+				constants.AmbientUseWaypointLabel: "none",
 			},
 		},
 	})

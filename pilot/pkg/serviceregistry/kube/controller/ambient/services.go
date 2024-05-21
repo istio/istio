@@ -147,6 +147,18 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 	}
 
 	var lb *workloadapi.LoadBalancing
+	if svc.Spec.TrafficDistribution != nil && *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose {
+		lb = &workloadapi.LoadBalancing{
+			// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
+			RoutingPreference: []workloadapi.LoadBalancing_Scope{
+				workloadapi.LoadBalancing_NETWORK,
+				workloadapi.LoadBalancing_REGION,
+				workloadapi.LoadBalancing_ZONE,
+				workloadapi.LoadBalancing_SUBZONE,
+			},
+			Mode: workloadapi.LoadBalancing_FAILOVER,
+		}
+	}
 	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		// This is waypoint. Enable locality routing
 		lb = &workloadapi.LoadBalancing{

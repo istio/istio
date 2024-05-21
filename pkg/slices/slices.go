@@ -145,6 +145,10 @@ func Reverse[E any](r []E) []E {
 	return r
 }
 
+func BinarySearch[S ~[]E, E cmp.Ordered](x S, target E) (int, bool) {
+	return slices.BinarySearch(x, target)
+}
+
 // FilterInPlace retains all elements in []E that f(E) returns true for.
 // The array is *mutated in place* and returned.
 // Use Filter to avoid mutation
@@ -152,6 +156,32 @@ func FilterInPlace[E any](s []E, f func(E) bool) []E {
 	n := 0
 	for _, val := range s {
 		if f(val) {
+			s[n] = val
+			n++
+		}
+	}
+
+	// If those elements contain pointers you might consider zeroing those elements
+	// so that objects they reference can be garbage collected."
+	var empty E
+	for i := n; i < len(s); i++ {
+		s[i] = empty
+	}
+
+	s = s[:n]
+	return s
+}
+
+// FilterDuplicatesPresorted retains all unique elements in []E.
+// The slices MUST be pre-sorted.
+func FilterDuplicatesPresorted[E comparable](s []E) []E {
+	if len(s) <= 1 {
+		return s
+	}
+	n := 1
+	for i := 1; i < len(s); i++ {
+		val := s[i]
+		if val != s[i-1] {
 			s[n] = val
 			n++
 		}
@@ -267,4 +297,15 @@ func GroupUnique[T any, K comparable](data []T, f func(T) K) map[K]T {
 
 func Join(sep string, fields ...string) string {
 	return strings.Join(fields, sep)
+}
+
+// Insert inserts the values v... into s at index i,
+// returning the modified slice.
+// The elements at s[i:] are shifted up to make room.
+// In the returned slice r, r[i] == v[0],
+// and r[i+len(v)] == value originally at r[i].
+// Insert panics if i is out of range.
+// This function is O(len(s) + len(v)).
+func Insert[S ~[]E, E any](s S, i int, v ...E) S {
+	return slices.Insert(s, i, v...)
 }

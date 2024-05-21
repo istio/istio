@@ -28,6 +28,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
@@ -46,6 +47,7 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
@@ -346,37 +348,6 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		serviceType = corev1.ServiceType(o)
 	}
 
-	// TODO: Codify this API (i.e how to know if a specific gateway is an Istio waypoint gateway)
-	isWaypointGateway := strings.Contains(string(gw.Spec.GatewayClassName), "waypoint")
-
-	// Default the network label for waypoints if not explicitly set in gateway's labels
-	network := d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
-	if _, ok := gw.GetLabels()[label.TopologyNetwork.Name]; !ok && network != "" && isWaypointGateway {
-		if gw.Labels == nil {
-			gw.Labels = make(map[string]string)
-		}
-		gw.Labels[label.TopologyNetwork.Name] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
-	}
-
-	// TODO this sprays ambient annotations/labels all over EVER gateway resource (serviceaccts, services, etc)
-	// where they have no meaning/are not used/are ignored. We really only need them on the deployment podspec.
-	var hasAmbientLabel bool
-	if _, ok := gw.Labels[constants.DataplaneModeLabel]; ok {
-		hasAmbientLabel = true
-	}
-	if gw.Spec.Infrastructure != nil {
-		if _, ok := gw.Spec.Infrastructure.Labels[constants.DataplaneModeLabel]; ok {
-			hasAmbientLabel = true
-		}
-	}
-	// If no ambient redirection label is set explicitly, explicitly disable.
-	if features.EnableAmbientWaypoints && !isWaypointGateway && !hasAmbientLabel {
-		if gw.Labels == nil {
-			gw.Labels = make(map[string]string)
-		}
-		gw.Labels[constants.DataplaneModeLabel] = constants.DataplaneModeNone
-	}
-
 	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
@@ -395,37 +366,11 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 
 	d.setGatewayNameLabel(&input)
+
 	// Default to the gateway labels/annotations and overwrite if infrastructure labels/annotations are set
-	gwInfra := gw.Spec.Infrastructure
-	if gwInfra != nil && gwInfra.Labels != nil {
-		infraLabels := make(map[string]string, len(gwInfra.Labels))
-		for k, v := range gw.Spec.Infrastructure.Labels {
-			if strings.HasPrefix(string(k), "gateway.networking.k8s.io/") {
-				continue // ignore this prefix to avoid conflicts
-			}
-			infraLabels[string(k)] = string(v)
-		}
-
-		// Default the network label for waypoints if not explicitly set in infra labels
-		// We do this a second time here for correctness since if infra labels are set (according to the gwapi spec),
-		// the gateway's labels are ignored.
-		if _, ok := infraLabels[label.TopologyNetwork.Name]; !ok && network != "" && isWaypointGateway {
-			infraLabels[label.TopologyNetwork.Name] = network
-		}
-
-		input.InfrastructureLabels = infraLabels
-	}
-
-	if gwInfra != nil && gwInfra.Annotations != nil {
-		infraAnnotations := make(map[string]string, len(gwInfra.Annotations))
-		for k, v := range gw.Spec.Infrastructure.Annotations {
-			if strings.HasPrefix(string(k), "gateway.networking.k8s.io/") {
-				continue // ignore this prefix to avoid conflicts
-			}
-			infraAnnotations[string(k)] = string(v)
-		}
-		input.InfrastructureAnnotations = infraAnnotations
-	}
+	input.InfrastructureLabels = extractInfrastructureLabels(gw)
+	input.InfrastructureAnnotations = extractInfrastructureAnnotations(gw)
+	d.setLabelOverrides(gw, input)
 
 	if overwriteControllerVersion {
 		log.Debugf("write controller version, existing=%v", existingControllerVersion)
@@ -448,6 +393,66 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 
 	log.Info("gateway updated")
 	return nil
+}
+
+func (d *DeploymentController) setLabelOverrides(gw gateway.Gateway, input TemplateInput) {
+	// TODO: Codify this API (i.e how to know if a specific gateway is an Istio waypoint gateway)
+	isWaypointGateway := strings.Contains(string(gw.Spec.GatewayClassName), "waypoint")
+
+	var hasAmbientLabel bool
+	if _, ok := gw.Labels[constants.DataplaneModeLabel]; ok {
+		hasAmbientLabel = true
+	}
+	if _, ok := input.InfrastructureLabels[constants.DataplaneModeLabel]; ok {
+		hasAmbientLabel = true
+	}
+	// If no ambient redirection label is set explicitly, explicitly disable.
+	// TODO this sprays ambient annotations/labels all over EVER gateway resource (serviceaccts, services, etc)
+	if features.EnableAmbientWaypoints && !isWaypointGateway && !hasAmbientLabel {
+		input.InfrastructureLabels[constants.DataplaneModeLabel] = constants.DataplaneModeNone
+	}
+
+	// Default the network label for waypoints if not explicitly set in gateway's labels
+	network := d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+	if _, ok := gw.GetLabels()[label.TopologyNetwork.Name]; !ok && network != "" && isWaypointGateway {
+		input.InfrastructureLabels[label.TopologyNetwork.Name] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+	}
+}
+
+func extractInfrastructureLabels(gw gateway.Gateway) map[string]string {
+	return extractInfrastructureMetadata(gw.Spec.Infrastructure, true, gw)
+}
+
+func extractInfrastructureAnnotations(gw gateway.Gateway) map[string]string {
+	return extractInfrastructureMetadata(gw.Spec.Infrastructure, false, gw)
+}
+
+func extractInfrastructureMetadata(gwInfra *gatewayv1.GatewayInfrastructure, isLabel bool, gw gateway.Gateway) map[string]string {
+	var field map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue
+	if gwInfra != nil && isLabel && gwInfra.Labels != nil {
+		field = gwInfra.Labels
+	} else if gwInfra != nil && !isLabel && gwInfra.Annotations != nil {
+		field = gwInfra.Annotations
+	}
+	if field != nil {
+		infra := make(map[string]string, len(field))
+		for k, v := range field {
+			if strings.HasPrefix(string(k), "gateway.networking.k8s.io/") {
+				continue // ignore this prefix to avoid conflicts
+			}
+			infra[string(k)] = string(v)
+		}
+		return infra
+	} else if isLabel {
+		if gw.GetLabels() == nil {
+			return make(map[string]string)
+		}
+		return maps.Clone(gw.GetLabels())
+	}
+	if gw.GetAnnotations() == nil {
+		return make(map[string]string)
+	}
+	return maps.Clone(gw.GetAnnotations())
 }
 
 const (

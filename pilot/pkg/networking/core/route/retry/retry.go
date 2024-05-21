@@ -32,19 +32,30 @@ var defaultRetryPriorityTypedConfig = protoconv.MessageToAny(buildPreviousPriori
 
 // DefaultPolicy gets a copy of the default retry policy.
 func DefaultPolicy() *route.RetryPolicy {
+	policy := defaultPolicy()
+	policy.RetryHostPredicate = []*route.RetryPolicy_RetryHostPredicate{
+		// to configure retries to prefer hosts that haven’t been attempted already,
+		// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
+		xdsfilters.RetryPreviousHosts,
+	}
+	return policy
+}
+
+func defaultPolicy() *route.RetryPolicy {
 	policy := route.RetryPolicy{
 		NumRetries:           &wrappers.UInt32Value{Value: 2},
 		RetryOn:              "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
 		RetriableStatusCodes: []uint32{http.StatusServiceUnavailable},
-		RetryHostPredicate: []*route.RetryPolicy_RetryHostPredicate{
-			// to configure retries to prefer hosts that haven’t been attempted already,
-			// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
-			xdsfilters.RetryPreviousHosts,
-		},
 		// TODO: allow this to be configured via API.
 		HostSelectionRetryMaxAttempts: 5,
 	}
 	return &policy
+}
+
+// DefaultConsistentHashPolicy gets a copy of the default retry policy without previous host predicate.
+// When Consistent Hashing is enabled, we don't want to use other hosts during retries.
+func DefaultConsistentHashPolicy() *route.RetryPolicy {
+	return defaultPolicy()
 }
 
 // ConvertPolicy converts the given Istio retry policy to an Envoy policy.
@@ -61,10 +72,16 @@ func DefaultPolicy() *route.RetryPolicy {
 // is appended when encountering parts that are valid HTTP status codes.
 //
 // - PerTryTimeout: set from in.PerTryTimeout (if specified)
-func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
+func ConvertPolicy(in *networking.HTTPRetry, hashPolicy bool) *route.RetryPolicy {
+	var out *route.RetryPolicy
+	if hashPolicy {
+		out = DefaultConsistentHashPolicy()
+	} else {
+		out = DefaultPolicy()
+	}
 	if in == nil {
 		// No policy was set, use a default.
-		return DefaultPolicy()
+		return out
 	}
 
 	if in.Attempts <= 0 {
@@ -73,7 +90,6 @@ func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
 	}
 
 	// A policy was specified. Start with the default and override with user-provided fields where appropriate.
-	out := DefaultPolicy()
 	out.NumRetries = &wrappers.UInt32Value{Value: uint32(in.Attempts)}
 
 	if in.RetryOn != "" {

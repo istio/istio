@@ -21,11 +21,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/util/smallset"
 )
 
 type filter struct {
-	keys sets.String
+	keys smallset.Set[string]
 
 	// selectsNonEmpty is like selects, but it treats an empty selector as not matching
 	selectsNonEmpty map[string]string
@@ -37,10 +37,10 @@ type filter struct {
 	indexMatches  func(any) bool
 }
 
-func (f filter) String() string {
+func (f *filter) String() string {
 	attrs := []string{}
-	if !f.keys.IsEmpty() {
-		attrs = append(attrs, "key="+f.keys.String())
+	if !f.keys.IsNil() {
+		attrs = append(attrs, "keys="+f.keys.String())
 	}
 	if f.selectsNonEmpty != nil {
 		attrs = append(attrs, fmt.Sprintf("selectsNonEmpty=%v", f.selectsNonEmpty))
@@ -62,19 +62,19 @@ func (f filter) String() string {
 func FilterObjectName(name types.NamespacedName) FetchOption {
 	return func(h *dependency) {
 		// Translate to a key lookup
-		h.filter.keys = sets.New(keyFunc(name.Name, name.Namespace))
+		h.filter.keys = smallset.New(keyFunc(name.Name, name.Namespace))
 	}
 }
 
 func FilterKey(k string) FetchOption {
 	return func(h *dependency) {
-		h.filter.keys = sets.New(k)
+		h.filter.keys = smallset.New(k)
 	}
 }
 
 func FilterKeys(k ...string) FetchOption {
 	return func(h *dependency) {
-		h.filter.keys = sets.New(k...)
+		h.filter.keys = smallset.New(k...)
 	}
 }
 
@@ -117,14 +117,31 @@ func FilterGeneric(f func(any) bool) FetchOption {
 	}
 }
 
-func (f filter) Matches(object any, forList bool) bool {
-	// an empty set will match none
-	if f.keys != nil && !f.keys.Contains(string(GetKey[any](object))) {
-		if log.DebugEnabled() {
-			log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
+func (f *filter) Matches(object any, forList bool) bool {
+	// Check each of our defined filters to see if the object matches
+	// This function is called very often and is important to keep fast
+	// Cheaper checks should come earlier to avoid additional work and short circuit early
+
+	// If we are listing, we already did this. Do not redundantly check.
+	if !forList {
+		// First, lookup directly by key. This is cheap
+		// an empty set will match none
+		if !f.keys.IsNil() && !f.keys.Contains(string(GetKey[any](object))) {
+			if log.DebugEnabled() {
+				log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
+			}
+			return false
 		}
-		return false
+		// Index is also cheap, and often used to filter namespaces out. Make sure we do this early
+		if f.indexMatches != nil && !f.indexMatches(object) {
+			if log.DebugEnabled() {
+				log.Debugf("no match index")
+			}
+			return false
+		}
 	}
+
+	// Rest is expensive
 	if f.selects != nil && !labels.Instance(getLabelSelector(object)).SubsetOf(f.selects) {
 		if log.DebugEnabled() {
 			log.Debugf("no match selects: %q vs %q", f.selects, getLabelSelector(object))
@@ -148,15 +165,6 @@ func (f filter) Matches(object any, forList bool) bool {
 			log.Debugf("no match generic")
 		}
 		return false
-	}
-	// If we are listing, we already did this. Do not redundantly check
-	if !forList {
-		if f.indexMatches != nil && !f.indexMatches(object) {
-			if log.DebugEnabled() {
-				log.Debugf("no match index")
-			}
-			return false
-		}
 	}
 	return true
 }

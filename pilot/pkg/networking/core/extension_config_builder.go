@@ -15,11 +15,15 @@
 package core
 
 import (
+	"strings"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/extension"
+	"istio.io/istio/pkg/log"
 )
 
 // BuildExtensionConfiguration returns the list of extension configuration for the given proxy and list of names.
@@ -29,7 +33,24 @@ func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
 ) []*core.TypedExtensionConfig {
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	extensions := envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
-	wasmPlugins := push.WasmPlugins(proxy)
+	wasmPlugins := push.WasmPluginsByName(proxy, parseExtensionName(extensionConfigNames))
 	extensions = append(extensions, extension.InsertedExtensionConfigurations(wasmPlugins, extensionConfigNames, pullSecrets)...)
 	return extensions
+}
+
+func parseExtensionName(names []string) []types.NamespacedName {
+	res := make([]types.NamespacedName, 0, len(names))
+	for _, n := range names {
+		if !strings.HasPrefix(n, model.WasmPluginResourceNamePrefix) {
+			log.Warnf("ignoring unknown ECDS: %v", n)
+			continue
+		}
+		ns, name, ok := strings.Cut(n[len(model.WasmPluginResourceNamePrefix):], ".")
+		if !ok {
+			log.Warnf("ignoring unknown ECDS: %v", n)
+			continue
+		}
+		res = append(res, types.NamespacedName{Namespace: ns, Name: name})
+	}
+	return res
 }

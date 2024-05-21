@@ -273,6 +273,11 @@ func TestAddRegistry(t *testing.T) {
 			ClusterID:           "cluster2",
 			DiscoveryController: memory.NewServiceDiscovery(),
 		},
+		{
+			ProviderID:          provider.Kubernetes,
+			ClusterID:           "cluster3",
+			DiscoveryController: memory.NewServiceDiscovery(),
+		},
 	}
 	ctrl := NewController(Options{})
 
@@ -280,8 +285,11 @@ func TestAddRegistry(t *testing.T) {
 	registry2Counter := atomic.NewInt32(0)
 
 	for _, r := range registries {
+		counter := atomic.NewInt32(0)
 		clusterID := r.Cluster()
-		counter := registry1Counter
+		if clusterID == "cluster1" {
+			counter = registry1Counter
+		}
 		if clusterID == "cluster2" {
 			counter = registry2Counter
 		}
@@ -290,8 +298,13 @@ func TestAddRegistry(t *testing.T) {
 		})
 		ctrl.AddRegistry(r)
 	}
-	if l := len(ctrl.registries); l != 2 {
-		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
+	if l := len(ctrl.registries); l != 3 {
+		t.Fatalf("Expected length of the registries slice should be 3, got %d", l)
+	}
+
+	if ctrl.registries[0].Instance.Provider() != provider.Kubernetes {
+		t.Errorf("expected first registry should be %s, but got %s", provider.Kubernetes,
+			ctrl.registries[0].Instance.Provider())
 	}
 
 	registries[0].DiscoveryController.(*memory.ServiceDiscovery).AddService(mock.HelloService)

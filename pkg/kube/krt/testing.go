@@ -24,7 +24,7 @@ type TestingDummyContext struct{}
 func (t TestingDummyContext) _internalHandler() {
 }
 
-func (t TestingDummyContext) registerDependency(d dependency) {
+func (t TestingDummyContext) registerDependency(d *dependency, s Syncer, f func(f erasedEventHandler)) {
 }
 
 func (t TestingDummyContext) name() string {

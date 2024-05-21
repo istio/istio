@@ -871,3 +871,49 @@ func BenchmarkEqualUnordered(b *testing.B) {
 		EqualUnordered(l, notEqual)
 	}
 }
+
+func TestFilterDuplicates(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []string
+		out  []string
+	}{
+		{
+			name: "empty",
+			in:   nil,
+			out:  nil,
+		},
+		{
+			name: "one",
+			in:   []string{"a"},
+			out:  []string{"a"},
+		},
+		{
+			name: "no dupes",
+			in:   []string{"a", "b", "c", "d"},
+			out:  []string{"a", "b", "c", "d"},
+		},
+		{
+			name: "dupes first",
+			in:   []string{"a", "a", "c", "d"},
+			out:  []string{"a", "c", "d"},
+		},
+		{
+			name: "dupes last",
+			in:   []string{"a", "b", "c", "c"},
+			out:  []string{"a", "b", "c"},
+		},
+		{
+			name: "dupes middle",
+			in:   []string{"a", "b", "b", "c"},
+			out:  []string{"a", "b", "c"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FilterDuplicatesPresorted(tt.in)
+			assert.Equal(t, tt.out, got)
+			assert.Equal(t, tt.out, tt.in[:len(tt.out)])
+		})
+	}
+}

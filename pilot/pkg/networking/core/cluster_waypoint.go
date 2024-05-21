@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -90,12 +91,22 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 }
 
 // `inbound-vip||hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, port model.Port, subset string) *clusterWrapper {
+func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(proxy *model.Proxy, svc *model.Service, port model.Port, subset string) *clusterWrapper {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
-	clusterType := cluster.Cluster_EDS
-	localCluster := cb.buildCluster(clusterName, clusterType, nil,
-		model.TrafficDirectionInbound, &port, nil, nil)
+	discoveryType := convertResolution(cb.proxyType, svc)
+	var lbEndpoints []*endpoint.LocalityLbEndpoints
+	if discoveryType == cluster.Cluster_STRICT_DNS || discoveryType == cluster.Cluster_LOGICAL_DNS {
+		lbEndpoints = endpoints.NewCDSEndpointBuilder(
+			proxy,
+			cb.req.Push,
+			clusterName,
+			model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port,
+			svc, nil,
+		).FromServiceEndpoints()
+	}
+	localCluster := cb.buildCluster(clusterName, discoveryType, lbEndpoints,
+		model.TrafficDirectionInboundVIP, &port, svc, nil, subset)
 
 	// Ensure VIP cluster has services metadata for stats filter usage
 	im := getOrCreateIstioMetadata(localCluster.cluster)
@@ -126,20 +137,20 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				continue
 			}
 			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
-				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(svc, *port, "tcp").build())
+				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp").build())
 			}
 			if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
-				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(svc, *port, "http").build())
+				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "http").build())
 			}
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
 			if cfg != nil {
 				destinationRule := cfg.Spec.(*networking.DestinationRule)
 				for _, ss := range destinationRule.Subsets {
 					if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
-						clusters = append(clusters, cb.buildWaypointInboundVIPCluster(svc, *port, "tcp/"+ss.Name).build())
+						clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp/"+ss.Name).build())
 					}
 					if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
-						clusters = append(clusters, cb.buildWaypointInboundVIPCluster(svc, *port, "http/"+ss.Name).build())
+						clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "http/"+ss.Name).build())
 					}
 				}
 			}

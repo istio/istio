@@ -7909,6 +7909,16 @@ spec:
                           description: Specifies how long the results of a preflight
                             request can be cached.
                           type: string
+                        unmatchedPreflights:
+                          description: |-
+                            Indicates whether preflight requests not matching the configured allowed origin shouldn't be forwarded to the upstream.
+
+                            Valid Options: FORWARD, IGNORE
+                          enum:
+                          - UNSPECIFIED
+                          - FORWARD
+                          - IGNORE
+                          type: string
                       type: object
                     delegate:
                       description: Delegate is used to specify the particular VirtualService
@@ -8852,6 +8862,16 @@ spec:
                           description: Specifies how long the results of a preflight
                             request can be cached.
                           type: string
+                        unmatchedPreflights:
+                          description: |-
+                            Indicates whether preflight requests not matching the configured allowed origin shouldn't be forwarded to the upstream.
+
+                            Valid Options: FORWARD, IGNORE
+                          enum:
+                          - UNSPECIFIED
+                          - FORWARD
+                          - IGNORE
+                          type: string
                       type: object
                     delegate:
                       description: Delegate is used to specify the particular VirtualService
@@ -9794,6 +9814,16 @@ spec:
                         maxAge:
                           description: Specifies how long the results of a preflight
                             request can be cached.
+                          type: string
+                        unmatchedPreflights:
+                          description: |-
+                            Indicates whether preflight requests not matching the configured allowed origin shouldn't be forwarded to the upstream.
+
+                            Valid Options: FORWARD, IGNORE
+                          enum:
+                          - UNSPECIFIED
+                          - FORWARD
+                          - IGNORE
                           type: string
                       type: object
                     delegate:
@@ -10880,10 +10910,8 @@ spec:
       openAPIV3Schema:
         properties:
           spec:
-            description: '`WorkloadGroup` enables specifying the properties of a single
-              workload for bootstrap and provides a template for `WorkloadEntry`,
-              similar to how `Deployment` specifies properties of workloads via `Pod`
-              templates.'
+            description: 'Describes a collection of workload instances. See more details
+              at: https://istio.io/docs/reference/config/networking/workload-group.html'
             properties:
               metadata:
                 description: Metadata that will be used for all corresponding `WorkloadEntries`.
@@ -11228,10 +11256,8 @@ spec:
       openAPIV3Schema:
         properties:
           spec:
-            description: '`WorkloadGroup` enables specifying the properties of a single
-              workload for bootstrap and provides a template for `WorkloadEntry`,
-              similar to how `Deployment` specifies properties of workloads via `Pod`
-              templates.'
+            description: 'Describes a collection of workload instances. See more details
+              at: https://istio.io/docs/reference/config/networking/workload-group.html'
             properties:
               metadata:
                 description: Metadata that will be used for all corresponding `WorkloadEntries`.

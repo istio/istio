@@ -89,6 +89,12 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, iptV *dep.Iptable
 // TODO BML drop `HandleDSNUDP` and friends, no real need to tread UDP rules specially
 // or create unique abstractions for them
 func cleanupDNSUDP(cfg *config.Config, ext dep.Dependencies, iptV, ipt6V *dep.IptablesVersion) {
+	// Remove UDP jumps from OUTPUT chain to ISTIOOUTPUT chain
+	ext.RunQuietlyAndIgnore(constants.IPTables, iptV, nil, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
+	ext.RunQuietlyAndIgnore(constants.IPTables, iptV, nil, "-t", constants.RAW, "-D", constants.OUTPUT, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
+	ext.RunQuietlyAndIgnore(constants.IPTables, ipt6V, nil, "-t", constants.NAT, "-D", constants.OUTPUT, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
+	ext.RunQuietlyAndIgnore(constants.IPTables, ipt6V, nil, "-t", constants.RAW, "-D", constants.OUTPUT, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
+
 	// Remove the old DNS UDP rules
 	if cfg.RedirectDNS {
 		ownerGroupsFilter := types.ParseInterceptFilter(cfg.OwnerGroupsInclude, cfg.OwnerGroupsExclude)

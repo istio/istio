@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.22-2024-04-26T19-01-49
+BASE_VERSION ?= master-2024-05-08T22-56-43
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -290,17 +290,19 @@ lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles li
 # (proto) Envoy TLS proto for SDS
 # (proto) Envoy Wasm filters for wasm xDS proxy
 # (proto) xDS discovery service for xDS proxy
+# (proto) SDS secret and contrib QAT and cryptomb
 .PHONY: check-agent-deps
 check-agent-deps:
 	@go list -f '{{ join .Deps "\n" }}' -tags=agent \
-			./pilot/cmd/pilot-agent/app \
+			./pilot/cmd/pilot-agent/... \
 			./pkg/istio-agent/... | sort | uniq |\
 		grep -Pv '^k8s.io/(utils|klog|apimachinery)/' |\
 		grep -Pv 'envoy/type/|envoy/annotations|envoy/config/core/' |\
 		grep -Pv 'envoy/extensions/transport_sockets/tls/' |\
-		grep -Pv 'envoy/service/discovery/v3' |\
+		grep -Pv 'envoy/service/(discovery|secret)/v3' |\
 		grep -Pv 'envoy/extensions/wasm/' |\
 		grep -Pv 'envoy/extensions/filters/(http|network)/wasm/' |\
+		grep -Pv 'contrib/envoy/extensions/private_key_providers/' |\
 		grep -Pv 'istio\.io/api/(annotation|label|mcp|mesh|networking|security/v1alpha1|type)' |\
 		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|jwx/jwk|envoy/|istio.io/api')
 

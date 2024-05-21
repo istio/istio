@@ -272,14 +272,6 @@ func AnyToUnnamedResources(r []*anypb.Any) Resources {
 	return a
 }
 
-func ResourcesToAny(r Resources) []*anypb.Any {
-	a := make([]*anypb.Any, 0, len(r))
-	for _, rr := range r {
-		a = append(a, rr.Resource)
-	}
-	return a
-}
-
 // XdsUpdates include information about the subset of updated resources.
 // See for example EDS incremental updates.
 type XdsUpdates = sets.Set[ConfigKey]
@@ -362,6 +354,9 @@ type Proxy struct {
 
 	// The merged gateways associated with the proxy if this is a Router
 	MergedGateway *MergedGateway
+
+	// PrevMergedGateway contains information about merged gateway associated with the proxy previously
+	PrevMergedGateway *PrevMergedGateway
 
 	// ServiceTargets contains a list of all Services associated with the proxy, contextualized for this particular proxy.
 	// These are unique to this proxy, as the port information is specific to it - while a ServicePort is shared with the
@@ -520,6 +515,13 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	node.PrevSidecarScope = sidecarScope
 }
 
+func (node *Proxy) VersionGreaterAndEqual(inv *IstioVersion) bool {
+	if inv == nil {
+		return true
+	}
+	return node.IstioVersion.Compare(inv) >= 0
+}
+
 // SetGatewaysForProxy merges the Gateway objects associated with this
 // proxy and caches the merged object in the proxy Node. This is a convenience hack so that
 // callers can simply call push.MergedGateways(node) instead of having to
@@ -529,7 +531,15 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	if node.Type != Router {
 		return
 	}
+	var prevMergedGateway MergedGateway
+	if node.MergedGateway != nil {
+		prevMergedGateway = *node.MergedGateway
+	}
 	node.MergedGateway = ps.mergeGateways(node)
+	node.PrevMergedGateway = &PrevMergedGateway{
+		ContainsAutoPassthroughGateways: prevMergedGateway.ContainsAutoPassthroughGateways,
+		AutoPassthroughSNIHosts:         prevMergedGateway.GetAutoPassthrughGatewaySNIHosts(),
+	}
 }
 
 func (node *Proxy) SetServiceTargets(serviceDiscovery ServiceDiscovery) {

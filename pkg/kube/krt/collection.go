@@ -37,6 +37,7 @@ import (
 type manyCollection[I, O any] struct {
 	// collectionName provides the collectionName for this collection.
 	collectionName string
+	id             collectionUID
 	// parent is the input collection we are building off of.
 	parent Collection[I]
 
@@ -52,11 +53,11 @@ type manyCollection[I, O any] struct {
 	mu              sync.Mutex
 	collectionState multiIndex[I, O]
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
-	// These are keyed by the internal hash() function on collections.
+	// These are keyed by the internal uid() function on collections.
 	// Note this does not include `parent`, which is the *primary* dependency declared outside of transformation functions.
-	collectionDependencies sets.Set[untypedCollection]
+	collectionDependencies sets.Set[collectionUID]
 	// Stores a map of I -> secondary dependencies (added via Fetch)
-	objectDependencies map[Key[I]][]dependency
+	objectDependencies map[Key[I]][]*dependency
 
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
 	eventHandlers *handlers[O]
@@ -97,8 +98,6 @@ func (o *handlers[O]) Get() []func(o []Event[O], initialSync bool) {
 	return slices.Clone(o.h)
 }
 
-type untypedCollection = any
-
 // multiIndex stores input and output objects.
 // Each input and output can be looked up by its key.
 // Additionally, a mapping of input key -> output keys stores the transformation.
@@ -124,7 +123,7 @@ func (h *manyCollection[I, O]) dump() {
 	h.log.Errorf(">>> BEGIN DUMP")
 	for k, deps := range h.objectDependencies {
 		for _, dep := range deps {
-			h.log.Errorf("Dependencies for: %v: %v (%v)", k, dep.collection.name, dep.filter)
+			h.log.Errorf("Dependencies for: %v: %v (%v)", k, dep.collectionName, dep.filter)
 		}
 	}
 	for i, os := range h.collectionState.mappings {
@@ -339,10 +338,11 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 	h := &manyCollection[I, O]{
 		transformation:         hf,
 		collectionName:         opts.name,
+		id:                     nextUID(),
 		log:                    log.WithLabels("owner", opts.name),
 		parent:                 c,
-		collectionDependencies: sets.New[any](),
-		objectDependencies:     map[Key[I]][]dependency{},
+		collectionDependencies: sets.New[collectionUID](),
+		objectDependencies:     map[Key[I]][]*dependency{},
 		collectionState: multiIndex[I, O]{
 			inputs:   map[Key[I]]I{},
 			outputs:  map[Key[O]]O{},
@@ -388,7 +388,7 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 
 // Handler is called when a dependency changes. We will take as inputs the item that changed.
 // Then we find all of our own values (I) that changed and onPrimaryInputEvent() them
-func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, events []Event[any]) {
+func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUID, events []Event[any]) {
 	h.recomputeMu.Lock()
 	defer h.recomputeMu.Unlock()
 	// A secondary dependency changed...
@@ -441,9 +441,10 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, 
 	h.onPrimaryInputEventLocked(toRun)
 }
 
-func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []dependency, sourceCollection any, ev Event[any]) bool {
+func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []*dependency, sourceCollection collectionUID, ev Event[any]) bool {
 	for _, dep := range dependencies {
-		if dep.collection.original != sourceCollection {
+		id := dep.id
+		if id != sourceCollection {
 			continue
 		}
 		// For each input, we will check if it depends on this event.
@@ -522,6 +523,11 @@ func (h *manyCollection[I, O]) name() string {
 	return h.collectionName
 }
 
+// nolint: unused // (not true, its to implement an interface)
+func (h *manyCollection[I, O]) uid() collectionUID {
+	return h.id
+}
+
 // collectionDependencyTracker tracks, for a single transformation call, all dependencies registered.
 // These are inserted on each call to Fetch().
 // Once the transformation function is complete, the set of dependencies for the provided input will be replaced
@@ -531,7 +537,7 @@ func (h *manyCollection[I, O]) name() string {
 // for a given transformation call at once, then apply it in a single transaction to the manyCollection.
 type collectionDependencyTracker[I, O any] struct {
 	*manyCollection[I, O]
-	d   []dependency
+	d   []*dependency
 	key Key[I]
 }
 
@@ -541,15 +547,19 @@ func (i *collectionDependencyTracker[I, O]) name() string {
 
 // registerDependency track a dependency. This is in the context of a specific input I type, as we create a collectionDependencyTracker
 // per I.
-func (i *collectionDependencyTracker[I, O]) registerDependency(d dependency) {
+func (i *collectionDependencyTracker[I, O]) registerDependency(
+	d *dependency,
+	syncer Syncer,
+	register func(f erasedEventHandler),
+) {
 	i.d = append(i.d, d)
 
 	// For any new collections we depend on, start watching them if its the first time we have watched them.
-	if !i.collectionDependencies.InsertContains(d.collection.original) {
-		i.log.WithLabels("collection", d.collection.name).Debugf("register new dependency")
-		d.collection.synced.WaitUntilSynced(i.stop)
-		d.collection.register(func(o []Event[any], initialSync bool) {
-			i.onSecondaryDependencyEvent(d.collection.original, o)
+	if !i.collectionDependencies.InsertContains(d.id) {
+		i.log.WithLabels("collection", d.collectionName).Debugf("register new dependency")
+		syncer.WaitUntilSynced(i.stop)
+		register(func(o []Event[any], initialSync bool) {
+			i.onSecondaryDependencyEvent(d.id, o)
 		})
 	}
 }

@@ -340,8 +340,15 @@ spec:
 }
 
 func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
+	setWaypointInternal(t, svc, apps.Namespace.Name(), waypoint, true)
+}
+
+func SetWaypointServiceEntry(t framework.TestContext, se, namespace string, waypoint string) {
+	setWaypointInternal(t, se, namespace, waypoint, false)
+}
+
+func setWaypointInternal(t framework.TestContext, name, ns string, waypoint string, service bool) {
 	for _, c := range t.Clusters().Kube() {
-		client := c.Kube().CoreV1().Services(apps.Namespace.Name())
 		setWaypoint := func(waypoint string) error {
 			if waypoint == "" {
 				waypoint = "null"
@@ -350,7 +357,11 @@ func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
 			}
 			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
 				constants.AmbientUseWaypointLabel, waypoint))
-			_, err := client.Patch(context.TODO(), svc, types.MergePatchType, label, metav1.PatchOptions{})
+			if service {
+				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
+				return err
+			}
+			_, err := c.Istio().NetworkingV1beta1().ServiceEntries(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
 			return err
 		}
 
@@ -359,9 +370,38 @@ func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
 		}
 		t.Cleanup(func() {
 			if err := setWaypoint(""); err != nil {
-				scopes.Framework.Errorf("failed resetting waypoint for %s", svc)
+				scopes.Framework.Errorf("failed resetting waypoint for %s", name)
 			}
 		})
-
 	}
+}
+
+func TestWaypointDNS(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			// Update use-waypoint for Captured service
+			SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint")
+
+			// ensure HTTP traffic works with all hostname variants
+			for _, src := range apps.All {
+				src := src
+				if !hboneClient(src) {
+					continue
+				}
+				t.NewSubTestf("from %s", src.ServiceName()).Run(func(t framework.TestContext) {
+					if src.Config().HasSidecar() {
+						t.Skip("TODO: sidecars don't properly handle use-waypoint")
+					}
+					src.CallOrFail(t, echo.CallOptions{
+						To:      apps.MockExternal,
+						Address: apps.MockExternal.Config().DefaultHostHeader,
+						Port:    echo.Port{Name: "http"},
+						Scheme:  scheme.HTTP,
+						Count:   1,
+						Check:   check.And(check.OK(), IsL7()),
+					})
+				})
+			}
+		})
 }

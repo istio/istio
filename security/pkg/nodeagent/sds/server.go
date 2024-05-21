@@ -22,11 +22,8 @@ import (
 	"google.golang.org/grpc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
-	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -58,11 +55,7 @@ func (s *Server) OnSecretUpdate(resourceName string) {
 	}
 
 	sdsServiceLog.Debugf("Trigger on secret update, resource name: %s", resourceName)
-	s.workloadSds.XdsServer.Push(&model.PushRequest{
-		Full:           false,
-		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: resourceName}),
-		Reason:         model.NewReasonStats(model.SecretTrigger),
-	})
+	s.workloadSds.push(resourceName)
 }
 
 // Stop closes the gRPC server and debug server.

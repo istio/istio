@@ -156,7 +156,7 @@ func TestServerAddPod(t *testing.T) {
 		netip.MustParseAddr("99.9.9.9"),
 		uint8(unix.IPPROTO_TCP),
 		string(podMeta.UID),
-		true,
+		false,
 	).Return(nil)
 
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "fakenetns")
@@ -253,7 +253,7 @@ func expectPodAddedToIPSet(ipsetDeps *ipset.MockedIpsetDeps, podMeta metav1.Obje
 		netip.MustParseAddr("99.9.9.9"),
 		uint8(unix.IPPROTO_TCP),
 		string(podMeta.UID),
-		true,
+		false,
 	).Return(nil)
 }
 
@@ -371,7 +371,7 @@ func TestAddPodToHostNSIPSets(t *testing.T) {
 		netip.MustParseAddr("99.9.9.9"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(nil)
 
 	fakeIPSetDeps.On("addIP",
@@ -379,7 +379,7 @@ func TestAddPodToHostNSIPSets(t *testing.T) {
 		netip.MustParseAddr("2.2.2.2"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(nil)
 
 	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
@@ -402,7 +402,7 @@ func TestAddPodToHostNSIPSetsV6(t *testing.T) {
 		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(nil)
 
 	fakeIPSetDeps.On("addIP",
@@ -410,7 +410,7 @@ func TestAddPodToHostNSIPSetsV6(t *testing.T) {
 		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(nil)
 
 	podIPs := []netip.Addr{netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"), netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")}
@@ -433,7 +433,7 @@ func TestAddPodToHostNSIPSetsDualstack(t *testing.T) {
 		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(nil)
 
 	fakeIPSetDeps.On("addIP",
@@ -441,7 +441,7 @@ func TestAddPodToHostNSIPSetsDualstack(t *testing.T) {
 		netip.MustParseAddr("99.9.9.9"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(nil)
 
 	podIPs := []netip.Addr{netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"), netip.MustParseAddr("99.9.9.9")}
@@ -451,7 +451,7 @@ func TestAddPodToHostNSIPSetsDualstack(t *testing.T) {
 	fakeIPSetDeps.AssertExpectations(t)
 }
 
-func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
+func TestAddPodIPToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 	pod := buildConvincingPod(false)
 
 	var podUID string = string(pod.ObjectMeta.UID)
@@ -464,7 +464,7 @@ func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 		netip.MustParseAddr("99.9.9.9"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(nil)
 
 	fakeIPSetDeps.On("addIP",
@@ -472,7 +472,7 @@ func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 		netip.MustParseAddr("2.2.2.2"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(errors.New("bwoah"))
 
 	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
@@ -483,7 +483,7 @@ func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 	fakeIPSetDeps.AssertExpectations(t)
 }
 
-func TestRemovePodProbePortsFromHostNSIPSets(t *testing.T) {
+func TestRemovePodIPFromHostNSIPSets(t *testing.T) {
 	pod := buildConvincingPod(false)
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
@@ -522,7 +522,7 @@ func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 		netip.MustParseAddr("3.3.3.3"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(nil)
 
 	fixture.ipsetDeps.On("addIP",
@@ -530,7 +530,7 @@ func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 		netip.MustParseAddr("2.2.2.2"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(nil)
 
 	fixture.ipsetDeps.On("listEntriesByIP",
@@ -584,7 +584,7 @@ func TestSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 		netip.MustParseAddr("3.3.3.3"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(nil)
 
 	fixture.ipsetDeps.On("addIP",
@@ -592,7 +592,7 @@ func TestSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 		netip.MustParseAddr("2.2.2.2"),
 		ipProto,
 		podUID,
-		true,
+		false,
 	).Return(nil)
 
 	// List should return one IP not in our "pod snapshot", which means we prune

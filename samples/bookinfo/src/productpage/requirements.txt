@@ -12,6 +12,6 @@ opentelemetry-sdk==1.22.0
 opentelemetry-semantic-conventions==0.43b0
 opentelemetry-util-http==0.43b0
 prometheus-client==0.19.0
-requests==2.31.0
+requests==2.32.0
 simplejson==3.19.2
 urllib3==2.2.0

@@ -60,7 +60,7 @@ func TestCNIVersionSkew(t *testing.T) {
 			}
 			for _, v := range versions {
 				installCNIOrFail(t, v)
-				podFetchFn := kube.NewSinglePodFetch(t.Clusters().Default(), "kube-system", "k8s-app=istio-cni-node")
+				podFetchFn := kube.NewSinglePodFetch(t.Clusters().Default(), i.Settings().SystemNamespace, "k8s-app=istio-cni-node")
 				// Make sure CNI pod is using image with applied version.
 				retry.UntilSuccessOrFail(t, func() error {
 					pods, err := podFetchFn()
@@ -111,5 +111,6 @@ func installCNIOrFail(t framework.TestContext, ver string) {
 	if err != nil {
 		t.Fatalf("Failed to read CNI manifest %v", err)
 	}
+	config = strings.ReplaceAll(config, "kube-system", i.Settings().SystemNamespace)
 	t.ConfigIstio().YAML("", config).ApplyOrFail(t)
 }

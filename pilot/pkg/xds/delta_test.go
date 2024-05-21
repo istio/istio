@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
+	xdsserver "istio.io/istio/pkg/xds"
 )
 
 func TestDeltaAds(t *testing.T) {
@@ -53,7 +54,7 @@ func TestDeltaAdsClusterUpdate(t *testing.T) {
 			ResourceNamesUnsubscribe: remove,
 		})
 		nonce = res.Nonce
-		got := xdstest.MapKeys(xdstest.ExtractLoadAssignments(xdstest.UnmarshalClusterLoadAssignment(t, model.ResourcesToAny(res.Resources))))
+		got := xdstest.MapKeys(xdstest.ExtractLoadAssignments(xdstest.UnmarshalClusterLoadAssignment(t, xdsserver.ResourcesToAny(res.Resources))))
 		if !reflect.DeepEqual(expect, got) {
 			t.Fatalf("expected clusters %v got %v", expect, got)
 		}

@@ -72,11 +72,11 @@ type VMDistro = string
 
 const (
 	UbuntuBionic VMDistro = "UbuntuBionic"
-	UbuntuJammy  VMDistro = "UbuntuJammy"
-	Debian11     VMDistro = "Debian11"
-	Rockylinux8  VMDistro = "Centos8"
+	UbuntuNoble  VMDistro = "UbuntuNoble"
+	Debian12     VMDistro = "Debian12"
+	Rockylinux9  VMDistro = "Rockylinux9"
 
-	DefaultVMDistro = UbuntuJammy
+	DefaultVMDistro = UbuntuNoble
 )
 
 // Config defines the options for creating an Echo component.
