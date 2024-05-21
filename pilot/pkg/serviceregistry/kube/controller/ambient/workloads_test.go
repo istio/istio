@@ -15,14 +15,12 @@
 package ambient
 
 import (
-	"fmt"
 	"net/netip"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
@@ -30,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
@@ -301,18 +300,20 @@ func TestPodWorkloads(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			inputs := tt.inputs
+			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest()
-			AuthorizationPolicies := krt.NewStaticCollection(extractType[model.WorkloadAuthorization](&inputs))
-			PeerAuths := krt.NewStaticCollection(extractType[*securityclient.PeerAuthentication](&inputs))
-			Waypoints := krt.NewStaticCollection(extractType[Waypoint](&inputs))
-			WorkloadServices := krt.NewStaticCollection(extractType[model.ServiceInfo](&inputs))
-			MeshConfig := krt.NewStatic(&MeshConfig{slices.First(extractType[meshapi.MeshConfig](&inputs))})
-			Namespaces := krt.NewStaticCollection(extractType[*v1.Namespace](&inputs))
-			Nodes := krt.NewStaticCollection(extractType[*v1.Node](&inputs))
-			assert.Equal(t, len(inputs), 0, fmt.Sprintf("some inputs were not consumed: %v", inputs))
+			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
-			builder := a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, WorkloadServicesNamespaceIndex, Namespaces, Nodes)
+			builder := a.podWorkloadBuilder(
+				GetMeshConfig(mock),
+				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
+				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
+				krttest.GetMockCollection[Waypoint](mock),
+				WorkloadServices,
+				WorkloadServicesNamespaceIndex,
+				krttest.GetMockCollection[*v1.Namespace](mock),
+				krttest.GetMockCollection[*v1.Node](mock),
+			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.pod)
 			var res *workloadapi.Workload
 			if wrapper != nil {
@@ -553,24 +554,18 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			inputs := tt.inputs
+			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest()
-			AuthorizationPolicies := krt.NewStaticCollection(extractType[model.WorkloadAuthorization](&inputs))
-			PeerAuths := krt.NewStaticCollection(extractType[*securityclient.PeerAuthentication](&inputs))
-			Waypoints := krt.NewStaticCollection(extractType[Waypoint](&inputs))
-			WorkloadServices := krt.NewStaticCollection(extractType[model.ServiceInfo](&inputs))
-			Namespaces := krt.NewStaticCollection(extractType[*v1.Namespace](&inputs))
-			MeshConfig := krt.NewStatic(&MeshConfig{slices.First(extractType[meshapi.MeshConfig](&inputs))})
-			assert.Equal(t, len(inputs), 0, fmt.Sprintf("some inputs were not consumed: %v", inputs))
+			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 			builder := a.workloadEntryWorkloadBuilder(
-				MeshConfig,
-				AuthorizationPolicies,
-				PeerAuths,
-				Waypoints,
+				GetMeshConfig(mock),
+				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
+				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
+				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
 				WorkloadServicesNamespaceIndex,
-				Namespaces,
+				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.we)
 			var res *workloadapi.Workload
@@ -578,6 +573,97 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 				res = wrapper.Workload
 			}
 			assert.Equal(t, res, tt.result)
+		})
+	}
+}
+
+func TestServiceEntryWorkloads(t *testing.T) {
+	cases := []struct {
+		name   string
+		inputs []any
+		se     *networkingclient.ServiceEntry
+		result []*workloadapi.Workload
+	}{
+		{
+			name:   "dns without endpoints",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"a.example.com", "b.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Workload{
+				{
+					Uid:               "cluster0/networking.istio.io/ServiceEntry/ns/name/a.example.com",
+					Name:              "name",
+					Namespace:         "ns",
+					Hostname:          "a.example.com",
+					Network:           testNW,
+					CanonicalName:     "name",
+					CanonicalRevision: "latest",
+					WorkloadType:      workloadapi.WorkloadType_POD,
+					WorkloadName:      "name",
+					Status:            workloadapi.WorkloadStatus_HEALTHY,
+					ClusterId:         testC,
+					Services: map[string]*workloadapi.PortList{
+						"ns/a.example.com": {
+							Ports: []*workloadapi.Port{{
+								ServicePort: 80,
+								TargetPort:  80,
+							}},
+						},
+					},
+				},
+				{
+					Uid:               "cluster0/networking.istio.io/ServiceEntry/ns/name/b.example.com",
+					Name:              "name",
+					Namespace:         "ns",
+					Hostname:          "b.example.com",
+					Network:           testNW,
+					CanonicalName:     "name",
+					CanonicalRevision: "latest",
+					WorkloadType:      workloadapi.WorkloadType_POD,
+					WorkloadName:      "name",
+					Status:            workloadapi.WorkloadStatus_HEALTHY,
+					ClusterId:         testC,
+					Services: map[string]*workloadapi.PortList{
+						"ns/b.example.com": {
+							Ports: []*workloadapi.Port{{
+								ServicePort: 80,
+								TargetPort:  80,
+							}},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := krttest.NewMock(t, tt.inputs)
+			a := newAmbientUnitTest()
+			builder := a.serviceEntryWorkloadBuilder(
+				GetMeshConfig(mock),
+				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
+				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
+				krttest.GetMockCollection[Waypoint](mock),
+				krttest.GetMockCollection[*v1.Namespace](mock),
+			)
+			res := builder(krt.TestingDummyContext{}, tt.se)
+			wl := slices.Map(res, func(e model.WorkloadInfo) *workloadapi.Workload {
+				return e.Workload
+			})
+			assert.Equal(t, wl, tt.result)
 		})
 	}
 }
@@ -592,26 +678,19 @@ func newAmbientUnitTest() *index {
 	}
 }
 
-func extractType[T any](items *[]any) []T {
-	var matched []T
-	var unmatched []any
-	arr := *items
-	for _, val := range arr {
-		if c, ok := val.(T); ok {
-			matched = append(matched, c)
-		} else {
-			unmatched = append(unmatched, val)
-		}
-	}
-
-	*items = unmatched
-	return matched
-}
-
 var podReady = []v1.PodCondition{
 	{
 		Type:               v1.PodReady,
 		Status:             v1.ConditionTrue,
 		LastTransitionTime: metav1.Now(),
 	},
+}
+
+// Special case to handle wrapper type. Can this be generic?
+func GetMeshConfig(mc *krttest.MockCollection) krt.StaticSingleton[MeshConfig] {
+	attempt := krttest.GetMockSingleton[MeshConfig](mc)
+	if attempt.Get() == nil {
+		return krt.NewStatic(&MeshConfig{})
+	}
+	return attempt
 }
