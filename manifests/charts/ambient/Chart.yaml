@@ -24,6 +24,7 @@ dependencies:
   - name: istiod
     version: 1.0.0
     repository: "file://../istio-control/istio-discovery"
+    condition: enable.istiod
   - name: ztunnel
     version: 1.0.0
     repository: "file://../ztunnel"
