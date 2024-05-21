@@ -257,8 +257,8 @@ func (a *index) serviceEntryWorkloadBuilder(
 		if len(eps) == 0 && !implicitEndpoints {
 			return nil
 		}
-		waypoint := fetchWaypointForWorkload(ctx, Waypoints, Namespaces, se.ObjectMeta)
-		// here we don't care about the *service* waypoint; we are only going to use a subset of the
+		// here we don't care about the *service* waypoint (hence it is nil); we are only going to use a subset of the info in
+		// `allServices` (since we are building workloads here, not services).
 		allServices := a.serviceEntriesInfo(se, nil)
 		if implicitEndpoints {
 			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
@@ -302,11 +302,10 @@ func (a *index) serviceEntryWorkloadBuilder(
 					Labels:    wle.Labels,
 				}); waypoint != nil {
 					waypointAddress = a.getWaypointAddress(waypoint)
+					// enforce traversing waypoints
+					policies = append(policies, implicitWaypointPolicies(ctx, Waypoints, waypoint, services)...)
 				}
 			}
-
-			// enforce traversing waypoints
-			policies = append(policies, implicitWaypointPolicies(ctx, Waypoints, waypoint, services)...)
 
 			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 			network := a.Network(wle.Address, wle.Labels).String()
