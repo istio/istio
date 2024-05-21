@@ -486,9 +486,9 @@ type IstioEndpoint struct {
 	// 1. Each address of the endpoint must have the same metadata.
 	// 2. The function Key() of IstioEndpoint returns the first IP address of this field in string format.
 	// 3. The IP address of field `address` in Envoy Endpoint is equal to the first address of this field.
-	// When the additional_addresses field is populated for EDS in Envoy configuration, there would be a Happy Eyeballs algorithm to
-	// instantiate for the Envoy Endpoint, the first attempt connecting to the IP address in the `address` field of Envoy Endpoint.
-	// Thereafter it will interleave IP addresses in the `additional_addresses` field based on IP version, as described in rfc8305,
+	// When the additional_addresses field is populated for EDS in Envoy configuration, Envoy will use an Happy Eyeballs algorithm.
+	// Therefore Envoy will first attempt connecting to the IP address in the `address` field of Envoy Endpoint.
+	// If the first attempt fails, then it will interleave IP addresses in the `additional_addresses` field based on IP version, as described in rfc8305,
 	// and attempt connections with them with a delay of 300ms each. The first connection to succeed will be used.
 	// Note: it uses Hash Based Load Balancing Policies for multiple addresses support Endpoint, and only the first address of the
 	// endpoint will be used as the hash key for the ring or maglev list, however, the upstream address that load balancer ends up
