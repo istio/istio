@@ -56,9 +56,10 @@ const (
 // Internal constants
 const (
 	DefaultKubeconfigMode = 0o600
-
-	CNIAddEventPath = "/cmdadd"
-	UDSLogPath      = "/log"
+	CNIAgentLogScope      = "cni-agent"
+	CNIPluginLogScope     = "cni-plugin"
+	CNIAddEventPath       = "/cmdadd"
+	UDSLogPath            = "/log"
 
 	// K8s liveness and readiness endpoints
 	LivenessEndpoint   = "/healthz"

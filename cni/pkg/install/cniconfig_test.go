@@ -365,7 +365,7 @@ const (
   "cniVersion": "0.3.1",
   "name": "istio-cni",
   "type": "istio-cni",
-  "log_level": "__LOG_LEVEL__",
+  "plugin_log_level": "__LOG_LEVEL__",
   "kubernetes": {
       "kubeconfig": "__KUBECONFIG_FILENAME__",
       "cni_bin_dir": "/path/cni/bin"
@@ -449,14 +449,14 @@ func TestCreateCNIConfigFile(t *testing.T) {
 		cfgFile := config.InstallConfig{
 			CNIConfName:        c.specifiedConfName,
 			ChainedCNIPlugin:   c.chainedCNIPlugin,
-			LogLevel:           "debug",
+			PluginLogLevel:     "debug",
 			KubeconfigFilename: kubeconfigFilename,
 		}
 
 		cfg := config.InstallConfig{
 			CNIConfName:        c.specifiedConfName,
 			ChainedCNIPlugin:   c.chainedCNIPlugin,
-			LogLevel:           "debug",
+			PluginLogLevel:     "debug",
 			KubeconfigFilename: kubeconfigFilename,
 		}
 		test := func(cfg config.InstallConfig) func(t *testing.T) {

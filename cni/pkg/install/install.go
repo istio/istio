@@ -22,14 +22,14 @@ import (
 	"sync/atomic"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
-// TODO this should share parent scope, in practice it isn't useful to hide it within its own granular scope.
-var installLog = log.RegisterScope("install", "CNI install")
+var installLog = log.FindScope(constants.CNIAgentLogScope).WithLabels("plugin-install")
 
 type Installer struct {
 	cfg                *config.InstallConfig

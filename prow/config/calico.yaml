@@ -63,7 +63,7 @@ data:
       "plugins": [
         {
           "type": "calico",
-          "log_level": "info",
+          "plugin_log_level": "info",
           "log_file_path": "/var/log/calico/cni/cni.log",
           "datastore_type": "kubernetes",
           "nodename": "__KUBERNETES_NODE_NAME__",

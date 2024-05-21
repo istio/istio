@@ -18,11 +18,12 @@ import (
 	"context"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
-var repairLog = log.RegisterScope("repair", "CNI race condition repair")
+var repairLog = log.FindScope(constants.CNIAgentLogScope).WithLabels("repair")
 
 func StartRepair(ctx context.Context, cfg config.RepairConfig) {
 	if !cfg.Enabled {
