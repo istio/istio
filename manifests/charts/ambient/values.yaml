@@ -4,7 +4,7 @@ global:
   variant: distroless
 
 # Overrides for the `istiod-remote` dep
-istiod-remote:
+istiod:
   pilot:
     env:
       PILOT_ENABLE_AMBIENT: "true"
