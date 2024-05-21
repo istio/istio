@@ -62,6 +62,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 					for _, addr := range instance.Addresses {
 						if !netutil.IsValidIPAddress(addr) {
 							isValidInstance = false
+							break
 						}
 					}
 					if len(instance.Addresses) == 0 || !isValidInstance {
