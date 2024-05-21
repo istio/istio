@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
@@ -328,6 +329,12 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 	a.envoyOpts.AdminPort = a.proxyConfig.ProxyAdminPort
 	a.envoyOpts.DrainDuration = a.proxyConfig.DrainDuration
 	a.envoyOpts.Concurrency = a.proxyConfig.Concurrency.GetValue()
+	// Set the drain duration to the minimum drain duration if the proxy is configured to exit on zero active connections.
+	if a.cfg.ExitOnZeroActiveConnections {
+		if a.cfg.MinimumDrainDuration.Nanoseconds() > 0 {
+			a.envoyOpts.DrainDuration = &durationpb.Duration{Seconds: int64(a.cfg.MinimumDrainDuration.Seconds())}
+		}
+	}
 
 	// Checking only uid should be sufficient - but tests also run as root and
 	// will break due to permission errors if we start envoy as 1337.
