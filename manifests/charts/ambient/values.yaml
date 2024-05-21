@@ -1,6 +1,9 @@
 global:
   variant: distroless
 
+enable:
+  istiod: true
+
 # Overrides for the `istiod-remote` dep
 istiod:
   profile: ambient
