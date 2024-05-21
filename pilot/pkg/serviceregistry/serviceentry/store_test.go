@@ -37,9 +37,11 @@ func TestServiceInstancesStore(t *testing.T) {
 		instancesByHostAndPort: sets.Set[hostPort]{},
 	}
 	instances := []*model.ServiceInstance{
-		makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
-		makeInstance(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
-		makeInstance(dnsSelector, "1.1.1.1", 444, dnsSelector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(dnsSelector, []string{"1.1.1.1"}, 444, dnsSelector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}
 	cKey := configKey{
 		namespace: "default",
@@ -66,8 +68,10 @@ func TestServiceInstancesStore(t *testing.T) {
 		namespace: "selector",
 	})
 	expected := []*model.ServiceInstance{
-		makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
-		makeInstance(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}
 	if !reflect.DeepEqual(gotInstances, expected) {
 		t.Errorf("got unexpected instances : %v", gotInstances)
@@ -75,8 +79,10 @@ func TestServiceInstancesStore(t *testing.T) {
 
 	// 4. test getServiceEntryInstances
 	expectedSeInstances := map[configKey][]*model.ServiceInstance{cKey: {
-		makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
-		makeInstance(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}}
 	key := selector.NamespacedName()
 	store.updateServiceEntryInstances(key, expectedSeInstances)
@@ -155,8 +161,9 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		instancesByHostAndPort: sets.Set[hostPort]{},
 	}
 	instances := []*model.ServiceInstance{
-		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
-		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 445, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE1, []string{"1.1.1.1"}, 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE1, []string{"1.1.1.1"}, 445, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE3, []string{"3.3.3.3", "2001:1::3"}, 444, dnsRoundRobinLBSE3.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 	}
 	cKey := configKey{
 		namespace: "dns",
@@ -165,29 +172,46 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	cpKey := configKeyWithParent{configKey: cKey, parent: config.NamespacedName(selector)}
 	// Add instance related to first Service Entry and validate they are added correctly.
 	store.addInstances(cpKey, instances)
+	gotInstances1 := store.getByKey(instancesKey{
+		hostname:  "example.com",
+		namespace: "dns",
+	})
+	gotInstances2 := store.getByKey(instancesKey{
+		hostname:  "muladdrs.example.com",
+		namespace: "dns",
+	})
+	gotInstances := []*model.ServiceInstance{}
+	gotInstances = append(gotInstances, gotInstances1...)
+	gotInstances = append(gotInstances, gotInstances2...)
+
+	expected := instances
+	if !reflect.DeepEqual(gotInstances, expected) {
+		t.Errorf("got unexpected instances : %+v", gotInstances)
+	}
 
 	store.addInstances(
 		configKeyWithParent{
 			configKey: configKey{namespace: otherNs.Namespace, name: otherNs.Name},
 		},
 		[]*model.ServiceInstance{
-			makeInstance(otherNs, "1.1.1.1", 444, otherNs.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
-			makeInstance(otherNs, "1.1.1.1", 445, otherNs.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+			makeInstance(otherNs, []string{"1.1.1.1"}, 444, otherNs.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+			makeInstance(otherNs, []string{"1.1.1.1"}, 445, otherNs.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 		},
 	)
 
-	expected := []*model.ServiceInstance{
-		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
-		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 445, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+	expected = []*model.ServiceInstance{
+		makeInstance(dnsRoundRobinLBSE1, []string{"1.1.1.1"}, 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE1, []string{"1.1.1.1"}, 445, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}
+
 	assert.Equal(t, store.getByKey(instancesKey{
 		hostname:  "example.com",
 		namespace: "dns",
 	}), expected)
 
 	otherNsExpected := []*model.ServiceInstance{
-		makeInstance(otherNs, "1.1.1.1", 444, otherNs.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
-		makeInstance(otherNs, "1.1.1.1", 445, otherNs.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(otherNs, []string{"1.1.1.1"}, 444, otherNs.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(otherNs, []string{"1.1.1.1"}, 445, otherNs.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}
 	assert.Equal(t, store.getByKey(instancesKey{
 		hostname:  "example.com",
@@ -196,7 +220,7 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 
 	// Add instance related to second Service Entry and validate it is ignored.
 	instances = []*model.ServiceInstance{
-		makeInstance(dnsRoundRobinLBSE2, "2.2.2.2", 444, dnsRoundRobinLBSE2.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE2, []string{"2.2.2.2"}, 444, dnsRoundRobinLBSE2.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 	}
 	cpKey = configKeyWithParent{
 		configKey: configKey{
@@ -206,6 +230,10 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	}
 	store.addInstances(cpKey, instances)
 
+	if !reflect.DeepEqual(gotInstances, instances) {
+		t.Errorf("got unexpected instances : %+v", gotInstances)
+	}
+
 	assert.Equal(t, store.getByKey(instancesKey{
 		hostname:  "example.com",
 		namespace: "dns",
@@ -214,4 +242,37 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		hostname:  "example.com",
 		namespace: otherNs.Namespace,
 	}), otherNsExpected)
+}
+
+func TestUpdateInstances(t *testing.T) {
+	store := serviceInstancesStore{
+		ip2instance:            map[string][]*model.ServiceInstance{},
+		instances:              map[instancesKey]map[configKeyWithParent][]*model.ServiceInstance{},
+		instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
+		instancesByHostAndPort: sets.Set[hostPort]{},
+	}
+	expectedInstances := []*model.ServiceInstance{
+		makeInstance(selector, []string{"1.1.1.1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+	}
+	cKey := configKey{
+		namespace: "default",
+		name:      "test-wle",
+	}
+	cpKey := configKeyWithParent{configKey: cKey, parent: config.NamespacedName(selector)}
+	store.addInstances(cpKey, expectedInstances)
+	gotInstances := store.getAll()
+	if !reflect.DeepEqual(gotInstances, expectedInstances) {
+		t.Errorf("got unexpected instances : %v", gotInstances)
+	}
+
+	// 4. test update instances
+	expectedSeInstances := []*model.ServiceInstance{
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::2"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+	}
+	store.updateInstances(cpKey, expectedSeInstances)
+
+	gotSeInstances := store.getAll()
+	if !reflect.DeepEqual(gotSeInstances, expectedSeInstances) {
+		t.Errorf("got unexpected se instances : %v", gotSeInstances)
+	}
 }

@@ -862,24 +862,24 @@ func testShards() *model.EndpointIndex {
 	shards := &model.EndpointShards{Shards: map[model.ShardKey][]*model.IstioEndpoint{
 		// network1 has one endpoint in each cluster
 		{Cluster: "cluster1a"}: {
-			{Network: "network1", Address: "10.0.0.1"},
-			{Network: "network1", Address: "foo.bar"}, // endpoint generated from ServiceEntry
+			{Network: "network1", Addresses: []string{Address: "10.0.0.1"}},
+			{Network: "network1", Addresses: []string{"foo.bar"}}, // endpoint generated from ServiceEntry
 			{
-				Network: "network1", Address: "10.0.0.3", // endpoint when using HBONE
+				Network: "network1", Addresses: []string{"10.0.0.3}", // endpoint when using HBONE
 				Labels: map[string]string{model.TunnelLabel: model.TunnelHTTP},
 			},
 		},
 		{Cluster: "cluster1b"}: {
-			{Network: "network1", Address: "10.0.0.2"},
+			{Network: "network1", Addresses: []string{"10.0.0.2", "2001:1::10.2"}},
 		},
 
 		// network2 has an imbalance of endpoints between its clusters
 		{Cluster: "cluster2a"}: {
-			{Network: "network2", Address: "20.0.0.1"},
+			{Network: "network2", Addresses: []string{"20.0.0.1"}},
 		},
 		{Cluster: "cluster2b"}: {
-			{Network: "network2", Address: "20.0.0.2"},
-			{Network: "network2", Address: "20.0.0.3"},
+			{Network: "network2", Addresses: []string{"20.0.0.2"}},
+			{Network: "network2", Addresses: []string{"20.0.0.3", "2001:1::20.3"}},
 		},
 
 		// network3 has no endpoints.
@@ -887,7 +887,7 @@ func testShards() *model.EndpointIndex {
 		// network4 has a single endpoint, but not gateway so it will always
 		// be considered directly reachable.
 		{Cluster: "cluster4"}: {
-			{Network: "network4", Address: "40.0.0.1"},
+			{Network: "network4", Addresses: []string{"40.0.0.1"}},
 		},
 	}}
 	// apply common properties
