@@ -54,10 +54,10 @@ func ZtunnelConfig(ctx cli.Context) *cobra.Command {
 		Short: "Update or retrieve current Ztunnel configuration.",
 		Long:  "A group of commands used to update or retrieve Ztunnel configuration from a Ztunnel instance.",
 		Example: `  # Retrieve summary about workload configuration
-  istioctl x ztunnel-config workload
+  istioctl ztunnel-config workload
 
   # Retrieve summary about certificates
-  istioctl x ztunnel-config certificates`,
+  istioctl ztunnel-config certificates`,
 		Aliases: []string{"zc"},
 	}
 
@@ -83,10 +83,10 @@ func certificatesConfigCmd(ctx cli.Context) *cobra.Command {
 		Short: "Retrieves certificate for the specified Ztunnel pod.",
 		Long:  `Retrieve information about certificates for the Ztunnel instance.`,
 		Example: `  # Retrieve summary about workload configuration for a randomly chosen ztunnel.
-  istioctl x ztunnel-config certificates
+  istioctl ztunnel-config certificates
 
   # Retrieve full certificate dump of workloads for a given Ztunnel instance.
-  istioctl x ztunnel-config certificates <ztunnel-name[.namespace]> -o json
+  istioctl ztunnel-config certificates <ztunnel-name[.namespace]> -o json
 `,
 		Aliases: []string{"certificates", "certs", "cert"},
 		Args:    common.validateArgs,
@@ -116,10 +116,10 @@ func servicesCmd(ctx cli.Context) *cobra.Command {
 		Short: "Retrieves services for the specified Ztunnel pod.",
 		Long:  `Retrieve information about services for the Ztunnel instance.`,
 		Example: `  # Retrieve summary about services configuration for a randomly chosen ztunnel.
-  istioctl x ztunnel-config services
+  istioctl ztunnel-config services
 
   # Retrieve full certificate dump of workloads for a given Ztunnel instance.
-  istioctl x ztunnel-config services <ztunnel-name[.namespace]> -o json
+  istioctl ztunnel-config services <ztunnel-name[.namespace]> -o json
 `,
 		Aliases: []string{"services", "s", "svc"},
 		Args:    common.validateArgs,
@@ -154,10 +154,10 @@ func policiesCmd(ctx cli.Context) *cobra.Command {
 		Short: "Retrieves policies for the specified Ztunnel pod.",
 		Long:  `Retrieve information about policies for the Ztunnel instance.`,
 		Example: `  # Retrieve summary about policy configuration for a randomly chosen ztunnel.
-  istioctl x ztunnel-config policies
+  istioctl ztunnel-config policies
 
   # Retrieve full policy dump of workloads for a given Ztunnel instance.
-  istioctl x ztunnel-config policies <ztunnel-name[.namespace]> -o json
+  istioctl ztunnel-config policies <ztunnel-name[.namespace]> -o json
 `,
 		Aliases: []string{"policies", "p", "pol"},
 		Args:    common.validateArgs,
@@ -191,10 +191,10 @@ func allCmd(ctx cli.Context) *cobra.Command {
 		Short: "Retrieves all configuration for the specified Ztunnel pod.",
 		Long:  `Retrieve information about all configuration for the Ztunnel instance.`,
 		Example: `  # Retrieve summary about all configuration for a randomly chosen ztunnel.
-  istioctl x ztunnel-config all
+  istioctl ztunnel-config all
 
   # Retrieve full configuration dump of workloads for a given Ztunnel instance.
-  istioctl x ztunnel-config policies <ztunnel-name[.namespace]> -o json
+  istioctl ztunnel-config policies <ztunnel-name[.namespace]> -o json
 `,
 		Args: common.validateArgs,
 		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
@@ -228,20 +228,20 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 		Short: "Retrieves workload configuration for the specified Ztunnel pod.",
 		Long:  `Retrieve information about workload configuration for the Ztunnel instance.`,
 		Example: `  # Retrieve summary about workload configuration for a randomly chosen ztunnel.
-  istioctl x ztunnel-config workload
+  istioctl ztunnel-config workload
 
   # Retrieve summary of workloads on node XXXX for a given Ztunnel instance.
-  istioctl x ztunnel-config workload <ztunnel-name[.namespace]> --node ambient-worker
+  istioctl ztunnel-config workload <ztunnel-name[.namespace]> --node ambient-worker
 
   # Retrieve full workload dump of workloads with address XXXX for a given Ztunnel instance.
-  istioctl x ztunnel-config workload <ztunnel-name[.namespace]> --address 0.0.0.0 -o json
+  istioctl ztunnel-config workload <ztunnel-name[.namespace]> --address 0.0.0.0 -o json
 
   # Retrieve Ztunnel config dump separately and inspect from file.
   kubectl exec -it $ZTUNNEL -n istio-system -- curl localhost:15000/config_dump > ztunnel-config.json
-  istioctl x ztunnel-config workloads --file ztunnel-config.json
+  istioctl ztunnel-config workloads --file ztunnel-config.json
 
   # Retrieve workload summary for a specific namespace
-  istioctl x ztunnel-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
+  istioctl ztunnel-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
 `,
 		Aliases: []string{"w", "workloads"},
 		Args:    common.validateArgs,
@@ -288,10 +288,10 @@ func connectionsCmd(ctx cli.Context) *cobra.Command {
 		Short:  "Retrieves connections for the specified Ztunnel pod.",
 		Long:   `Retrieve information about connections for the Ztunnel instance.`,
 		Example: `  # Retrieve summary about connections for the ztunnel on a specific node.
-  istioctl x ztunnel-config connections --node ambient-worker
+  istioctl ztunnel-config connections --node ambient-worker
 
   # Retrieve summary of connections for a given Ztunnel instance.
-  istioctl x ztunnel-config workload <ztunnel-name[.namespace]>
+  istioctl ztunnel-config workload <ztunnel-name[.namespace]>
 `,
 		Aliases: []string{"cons"},
 		Args:    common.validateArgs,
@@ -392,16 +392,16 @@ func logCmd(ctx cli.Context) *cobra.Command {
 		Short: "Retrieves logging levels of the Ztunnel instance in the specified pod.",
 		Long:  "Retrieve information about logging levels of the Ztunnel instance in the specified pod, and update optionally.",
 		Example: `  # Retrieve information about logging levels from all Ztunnel pods
- istioctl x ztunnel-config log
+ istioctl ztunnel-config log
 
  # Update levels of the all loggers for a specific Ztunnel pod
- istioctl x ztunnel-config log <pod-name[.namespace]> --level off
+ istioctl ztunnel-config log <pod-name[.namespace]> --level off
 
  # Update levels of the specified loggers for all Ztunnl pods
- istioctl x ztunnel-config log --level access:debug,info
+ istioctl ztunnel-config log --level access:debug,info
 
  # Reset levels of all the loggers to default value (warning)  for a specific Ztunnel pod.
- istioctl x ztunnel-config log <pod-name[.namespace]> -r
+ istioctl ztunnel-config log <pod-name[.namespace]> -r
 `,
 		Aliases: []string{"o"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -507,7 +507,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
 			" [<logger>:]<level>,[<logger>:]<level>,... or <level> to change all active loggers, "+
-			"where logger components can be listed by running \"istioctl x ztunnel-config log <pod-name[.namespace]>\""+
+			"where logger components can be listed by running \"istioctl ztunnel-config log <pod-name[.namespace]>\""+
 			", and level can be one of %s", levelListString))
 	return cmd
 }
