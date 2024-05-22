@@ -30,6 +30,8 @@ message ZdsHello {
 }
 
 message WorkloadInfo {
+  reserved "trust_domain"; // Deprecated
+  reserved 4;
   string name = 1;
   string namespace = 2;
   string service_account = 3;
