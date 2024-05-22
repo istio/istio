@@ -350,7 +350,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		if ec.httpProtocolOptions == nil {
 			ec.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
-		ec.httpProtocolOptions.HttpFilters = append(ec.httpProtocolOptions.HttpFilters, xdsfilters.InjectIstioHeaders)
+		ec.httpProtocolOptions.HttpFilters = append(ec.httpProtocolOptions.HttpFilters, xdsfilters.InjectIstioHeaders, xdsfilters.UpstreamCodec)
 	}
 
 	return ec
