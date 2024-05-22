@@ -293,7 +293,7 @@ var (
 	}
 
 	UpstreamCodec = &hcm.HttpFilter{
-		Name: "upstream_codec",
+		Name: "envoy.filters.http.upstream_codec",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.MessageToAny(&uc.UpstreamCodec{}),
 		},
