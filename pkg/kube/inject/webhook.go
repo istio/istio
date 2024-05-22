@@ -515,7 +515,7 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 	for _, c := range templatePod.Spec.Containers {
 		// sidecarStatus annotation is added on the pod by webhook. We should use new container template
 		// instead of restoring what may be previously injected. Doing this ensures we are correctly calculating
-		// env variables like ISTIO_META_APP_CONTAINERS and ISTIO_META_POD_PORTS.
+		// env variables like ISTIO_META_POD_PORTS.
 		if match := FindContainer(c.Name, parsedInjectedStatus.Containers); match != nil {
 			continue
 		}

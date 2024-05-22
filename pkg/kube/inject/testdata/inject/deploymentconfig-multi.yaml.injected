@@ -96,8 +96,6 @@ items:
               [
                   {"name":"http","containerPort":80}
               ]
-          - name: ISTIO_META_APP_CONTAINERS
-            value: hello
           - name: GOMEMLIMIT
             valueFrom:
               resourceFieldRef:

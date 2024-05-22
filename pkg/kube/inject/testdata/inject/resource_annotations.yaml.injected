@@ -83,8 +83,6 @@ spec:
             [
                 {"name":"http","containerPort":80}
             ]
-        - name: ISTIO_META_APP_CONTAINERS
-          value: resource
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:

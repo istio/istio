@@ -81,8 +81,6 @@ spec:
                 ,{"name":"http","containerPort":90}
                 ,{"name":"http","containerPort":8008}
             ]
-        - name: ISTIO_META_APP_CONTAINERS
-          value: hello,world,new
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
@@ -93,6 +91,8 @@ spec:
             resourceFieldRef:
               divisor: "0"
               resource: limits.cpu
+        - name: ISTIO_META_APP_CONTAINERS
+          value: hello,world
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_NODE_NAME

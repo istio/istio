@@ -293,8 +293,6 @@ spec:
           {{- end}}
         {{- end}}
         ]
-    - name: ISTIO_META_APP_CONTAINERS
-      value: "{{ $containers | join "," }}"
     - name: GOMEMLIMIT
       valueFrom:
         resourceFieldRef:

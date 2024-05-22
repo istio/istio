@@ -173,9 +173,6 @@ type BootstrapNodeMetadata struct {
 	// OutlierLogPath is the cluster manager outlier event log path.
 	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
 
-	// AppContainers is the list of containers in the pod.
-	AppContainers string `json:"APP_CONTAINERS,omitempty"`
-
 	// IstioProxySHA is the SHA of the proxy version.
 	IstioProxySHA string `json:"ISTIO_PROXY_SHA,omitempty"`
 }

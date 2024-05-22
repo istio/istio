@@ -70,7 +70,6 @@ spec:
           value: |-
             [
             ]
-        - name: ISTIO_META_APP_CONTAINERS
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:

@@ -77,8 +77,6 @@ spec:
             [
                 {"containerPort":80}
             ]
-        - name: ISTIO_META_APP_CONTAINERS
-          value: nginx
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:

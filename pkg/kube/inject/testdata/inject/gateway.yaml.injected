@@ -80,7 +80,6 @@ spec:
             resourceFieldRef:
               divisor: "0"
               resource: limits.cpu
-        - name: ISTIO_META_APP_CONTAINERS
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_NODE_NAME

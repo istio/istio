@@ -102,8 +102,6 @@ spec:
             {}
         - name: ISTIO_META_POD_PORTS
           value: '[]'
-        - name: ISTIO_META_APP_CONTAINERS
-          value: ""
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
