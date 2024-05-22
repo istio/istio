@@ -21,6 +21,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
@@ -59,6 +60,19 @@ var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOp
 			Http2ProtocolOptions: http2ProtocolOptions(),
 		},
 	},
+})
+
+var passthroughHttpProtocolOptionsWithMx = protoconv.MessageToAny(&http.HttpProtocolOptions{
+	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+		IdleTimeout: durationpb.New(5 * time.Minute),
+	},
+	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+			Http2ProtocolOptions: http2ProtocolOptions(),
+		},
+	},
+	HttpFilters: []*hcm.HttpFilter{xdsfilters.InjectIstioHeaders, xdsfilters.UpstreamCodec},
 })
 
 // clusterWrapper wraps Cluster object along with upstream protocol options.
@@ -463,7 +477,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
 	clusters := make([]*cluster.Cluster, 0, 2)
 	if cb.supportsIPv4 {
-		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
+		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster(false)
 		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
 		inboundPassthroughClusterIpv4.Filters = nil
 		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
@@ -477,7 +491,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 		clusters = append(clusters, inboundPassthroughClusterIpv4)
 	}
 	if cb.supportsIPv6 {
-		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
+		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster(false)
 		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
 		inboundPassthroughClusterIpv6.Filters = nil
 		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
@@ -507,7 +521,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 
 // generates a cluster that sends traffic to the original destination.
 // This cluster is used to catch all traffic to unknown listener ports
-func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
+func (cb *ClusterBuilder) buildDefaultPassthroughCluster(mx bool) *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
@@ -518,7 +532,10 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		},
 	}
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
-	cb.applyMetadataExchange(cluster)
+	if mx {
+		cb.applyMetadataExchange(cluster)
+		cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = passthroughHttpProtocolOptionsWithMx
+	}
 	return cluster
 }
 
