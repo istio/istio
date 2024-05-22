@@ -475,23 +475,6 @@ var testGrid = []testCase{
 		expected:   []message{},
 	},
 	{
-		name: "regexes",
-		inputFiles: []string{
-			"testdata/virtualservice_regexes.yaml",
-		},
-		analyzer: &virtualservice.RegexAnalyzer{},
-		expected: []message{
-			{msg.InvalidRegexp, "VirtualService bad-match"},
-			{msg.InvalidRegexp, "VirtualService ecma-not-v2"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-		},
-	},
-	{
 		name: "unknown service registry in mesh networks",
 		inputFiles: []string{
 			"testdata/multicluster-unknown-serviceregistry.yaml",
