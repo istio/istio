@@ -346,6 +346,12 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 				string(service.Hostname), subset, port, 0, &service.Attributes)
 		}
 	}
+	if direction == model.TrafficDirectionOutbound {
+		if ec.httpProtocolOptions == nil {
+			ec.httpProtocolOptions = &http.HttpProtocolOptions{}
+		}
+		ec.httpProtocolOptions.HttpFilters = append(ec.httpProtocolOptions.HttpFilters, xdsfilters.InjectIstioHeaders)
+	}
 
 	return ec
 }

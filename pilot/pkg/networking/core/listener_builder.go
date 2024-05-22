@@ -443,9 +443,5 @@ func appendMxFilter(httpOpts *httpListenerOpts, filters []*hcm.HttpFilter) []*hc
 	if httpOpts.class == istionetworking.ListenerClassSidecarInbound {
 		return append(filters, xdsfilters.SidecarInboundMetadataFilter)
 	}
-
-	if httpOpts.skipIstioMXHeaders {
-		return append(filters, xdsfilters.SidecarOutboundMetadataFilterSkipHeaders)
-	}
-	return append(filters, xdsfilters.SidecarOutboundMetadataFilter)
+	return filters
 }

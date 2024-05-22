@@ -16,6 +16,7 @@ package istioagent
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -321,6 +322,15 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 		}
 		a.envoyOpts.ConfigPath = out
 		a.envoyOpts.ConfigCleanup = true
+
+		bytes, err := proto.Marshal(node.Metadata.ToStruct())
+		if err != nil {
+			return err
+		}
+		metadata := base64.RawStdEncoding.EncodeToString(bytes)
+		// Set metadata exchange environment variables
+		_ = os.Setenv("ISTIO_PEER_METADATA_ID", node.ID)
+		_ = os.Setenv("ISTIO_PEER_METADATA", metadata)
 	}
 
 	// Back-fill envoy options from proxy config options
