@@ -105,3 +105,39 @@ func Test_getNamespaces(t *testing.T) {
 		assert.Equal(t, true, expected.Contains(ns.Name))
 	}
 }
+
+func Test_injectionDisabled(t *testing.T) {
+	cases := []struct {
+		name             string
+		pod              *corev1.Pod
+		expectedRevision bool
+	}{
+		{
+			name: "is disabled",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarInject.Name: false,
+					},
+				},
+			},
+			expectedRevision: true,
+		},
+		{
+			name: "not disabled",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarInject.Name: true,
+					},
+				},
+			},
+			expectedRevision: false,
+		},
+	}
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, c.name), func(t *testing.T) {
+			assert.Equal(t, c.expectedRevision, injectionDisabled(c.pod))
+		})
+	}
+}
