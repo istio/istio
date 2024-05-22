@@ -233,13 +233,13 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		monitoringMux:           http.NewServeMux(),
 		readinessProbes:         make(map[string]readinessProbe),
 		readinessFlags:          &readinessFlags{},
-		workloadTrustBundle:     tb.NewTrustBundle(nil),
 		server:                  server.New(),
 		shutdownDuration:        args.ShutdownDuration,
 		internalStop:            make(chan struct{}),
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 		webhookInfo:             &webhookInfo{},
 	}
+	s.workloadTrustBundle = tb.NewTrustBundle(nil, e.Watcher)
 
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
@@ -269,7 +269,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 
 	s.initMeshConfiguration(args, s.fileWatcher)
-	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 	// Setup Kubernetes watch filters
 	// Because this relies on meshconfig, it needs to be outside initKubeClient
 	if s.kubeClient != nil {
@@ -326,7 +325,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
-	if err := s.initSecureDiscoveryService(args); err != nil {
+	if err := s.initSecureDiscoveryService(args, s.environment.Mesh().GetTrustDomain()); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
@@ -358,7 +357,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		&authenticate.ClientCertAuthenticator{},
 	}
 	if args.JwtRule != "" {
-		jwtAuthn, err := initOIDC(args)
+		jwtAuthn, err := initOIDC(args, s.environment.Watcher)
 		if err != nil {
 			return nil, fmt.Errorf("error initializing OIDC: %v", err)
 		}
@@ -400,7 +399,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	return s, nil
 }
 
-func initOIDC(args *PilotArgs) (security.Authenticator, error) {
+func initOIDC(args *PilotArgs, meshWatcher mesh.Watcher) (security.Authenticator, error) {
 	// JWTRule is from the JWT_RULE environment variable.
 	// An example of json string for JWTRule is:
 	// `{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`.
@@ -410,7 +409,7 @@ func initOIDC(args *PilotArgs) (security.Authenticator, error) {
 		return nil, fmt.Errorf("failed to unmarshal JWT rule: %v", err)
 	}
 	log.Infof("Istiod authenticating using JWTRule: %v", jwtRule)
-	jwtAuthn, err := authenticate.NewJwtAuthenticator(jwtRule)
+	jwtAuthn, err := authenticate.NewJwtAuthenticator(jwtRule, meshWatcher)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the JWT authenticator: %v", err)
 	}
@@ -739,13 +738,13 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 }
 
 // initialize secureGRPCServer.
-func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
+func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string) error {
 	if args.ServerOptions.SecureGRPCAddr == "" {
 		log.Info("The secure discovery port is disabled, multiplexing on httpAddr ")
 		return nil
 	}
 
-	peerCertVerifier, err := s.createPeerCertVerifier(args.ServerOptions.TLSOptions)
+	peerCertVerifier, err := s.createPeerCertVerifier(args.ServerOptions.TLSOptions, trustDomain)
 	if err != nil {
 		return err
 	}
@@ -1018,7 +1017,7 @@ func getDNSNames(args *PilotArgs, host string) []string {
 }
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
-func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
+func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions, trustDomain string) (*spiffe.PeerCertVerifier, error) {
 	customTLSCertsExists, _, _, caCertPath := hasCustomTLSCerts(tlsOptions)
 	if !customTLSCertsExists && s.CA == nil && !s.isCADisabled() {
 		// Running locally without configured certs - no TLS mode
@@ -1047,7 +1046,8 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 	}
 
 	if len(rootCertBytes) != 0 {
-		err := peerCertVerifier.AddMappingFromPEM(spiffe.GetTrustDomain(), rootCertBytes)
+		// TODO: trustDomain here is static and will not update if it dynamically changes in mesh config
+		err := peerCertVerifier.AddMappingFromPEM(trustDomain, rootCertBytes)
 		if err != nil {
 			return nil, fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
 		}
@@ -1228,7 +1228,6 @@ func (s *Server) initMeshHandlers(changeHandler func(_ *meshconfig.MeshConfig)) 
 	log.Info("initializing mesh handlers")
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
-		spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 		changeHandler(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,

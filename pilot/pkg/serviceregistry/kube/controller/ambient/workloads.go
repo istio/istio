@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -132,7 +131,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 			AuthorizationPolicies: policies,
 			Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
 			Waypoint:              waypointAddress,
-			TrustDomain:           pickTrustDomain(),
+			TrustDomain:           pickTrustDomain(meshCfg),
 			Locality:              getWorkloadEntryLocality(&wle.Spec),
 		}
 
@@ -229,7 +228,7 @@ func (a *index) podWorkloadBuilder(
 			Services:              constructServices(p, services),
 			AuthorizationPolicies: policies,
 			Status:                status,
-			TrustDomain:           pickTrustDomain(),
+			TrustDomain:           pickTrustDomain(meshCfg),
 			Locality:              getPodLocality(ctx, Nodes, p),
 		}
 
@@ -323,7 +322,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 				AuthorizationPolicies: policies,
 				Status:                workloadapi.WorkloadStatus_HEALTHY,
 				Waypoint:              waypointAddress,
-				TrustDomain:           pickTrustDomain(),
+				TrustDomain:           pickTrustDomain(meshCfg),
 				Locality:              getWorkloadEntryLocality(wle),
 			}
 
@@ -355,8 +354,8 @@ func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Wor
 	}
 }
 
-func pickTrustDomain() string {
-	if td := spiffe.GetTrustDomain(); td != "cluster.local" {
+func pickTrustDomain(mesh *MeshConfig) string {
+	if td := mesh.GetTrustDomain(); td != "cluster.local" {
 		return td
 	}
 	return ""

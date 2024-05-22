@@ -29,7 +29,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/monitoring"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/zdsapi"
 )
 
@@ -278,7 +277,7 @@ func podToWorkload(pod *v1.Pod) *zdsapi.WorkloadInfo {
 	namespace := pod.ObjectMeta.Namespace
 	name := pod.ObjectMeta.Name
 	svcAccount := pod.Spec.ServiceAccountName
-	trustDomain := spiffe.GetTrustDomain()
+	trustDomain := ""
 	return &zdsapi.WorkloadInfo{
 		Namespace:      namespace,
 		Name:           name,

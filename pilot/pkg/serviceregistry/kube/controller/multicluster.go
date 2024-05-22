@@ -174,6 +174,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			configStore := createWleConfigStore(client, m.revision, options)
 			kubeController.workloadEntryController = serviceentry.NewWorkloadEntryController(
 				configStore, options.XDSUpdater,
+				m.opts.MeshWatcher,
 				serviceentry.WithClusterID(cluster.ID),
 				serviceentry.WithNetworkIDCb(kubeRegistry.Network))
 			// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.

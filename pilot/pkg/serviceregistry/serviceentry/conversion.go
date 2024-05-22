@@ -271,7 +271,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 	tlsMode := getTLSModeFromWorkloadEntry(wle)
 	sa := ""
 	if wle.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, wle.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(s.meshWatcher.Mesh(), service.Attributes.Namespace, wle.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(wle)
 	locality := wle.Locality
@@ -428,7 +428,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 	tlsMode := getTLSModeFromWorkloadEntry(we)
 	sa := ""
 	if we.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(s.meshWatcher.Mesh(), cfg.Namespace, we.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(we)
 	locality := we.Locality

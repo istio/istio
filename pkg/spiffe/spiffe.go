@@ -24,11 +24,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	jose "github.com/go-jose/go-jose/v3"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
@@ -48,9 +48,6 @@ const (
 )
 
 var (
-	trustDomain      = defaultTrustDomain
-	trustDomainMutex sync.RWMutex
-
 	firstRetryBackOffTime = time.Millisecond * 50
 
 	spiffeLog = log.RegisterScope("spiffe", "SPIFFE library logging")
@@ -90,33 +87,32 @@ type bundleDoc struct {
 	RefreshHint int    `json:"spiffe_refresh_hint,omitempty"`
 }
 
-func SetTrustDomain(value string) {
-	// Replace special characters in spiffe
-	v := strings.Replace(value, "@", ".", -1)
-	trustDomainMutex.Lock()
-	trustDomain = v
-	trustDomainMutex.Unlock()
-}
-
-func GetTrustDomain() string {
-	trustDomainMutex.RLock()
-	defer trustDomainMutex.RUnlock()
-	return trustDomain
+func sanitizeTrustDomain(td string) string {
+	return strings.Replace(td, "@", ".", -1)
 }
 
 // GenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate.
-func GenSpiffeURI(ns, serviceAccount string) (string, error) {
+func genSpiffeURI(td string, ns, serviceAccount string) (string, error) {
 	var err error
 	if ns == "" || serviceAccount == "" {
 		err = fmt.Errorf(
 			"namespace or service account empty for SPIFFE uri ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
-	return URIPrefix + GetTrustDomain() + "/ns/" + ns + "/sa/" + serviceAccount, err
+	return URIPrefix + sanitizeTrustDomain(td) + "/ns/" + ns + "/sa/" + serviceAccount, err
 }
 
 // MustGenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate and logs if there was an error.
-func MustGenSpiffeURI(ns, serviceAccount string) string {
-	uri, err := GenSpiffeURI(ns, serviceAccount)
+func MustGenSpiffeURI(meshCfg *meshconfig.MeshConfig, ns, serviceAccount string) string {
+	uri, err := genSpiffeURI(meshCfg.GetTrustDomain(), ns, serviceAccount)
+	if err != nil {
+		spiffeLog.Debug(err.Error())
+	}
+	return uri
+}
+
+// MustGenSpiffeURIForTrustDomain returns the formatted uri(SPIFFE format for now) for the certificate and logs if there was an error.
+func MustGenSpiffeURIForTrustDomain(td, ns, serviceAccount string) string {
+	uri, err := genSpiffeURI(td, ns, serviceAccount)
 	if err != nil {
 		spiffeLog.Debug(err.Error())
 	}
