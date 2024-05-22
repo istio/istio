@@ -64,10 +64,6 @@ var (
 	// Description: Port name is not under naming convention. Protocol detection is applied to the port.
 	PortNameIsNotUnderNamingConvention = diag.NewMessageType(diag.Info, "IST0118", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port.")
 
-	// InvalidRegexp defines a diag.MessageType for message "InvalidRegexp".
-	// Description: Invalid Regex
-	InvalidRegexp = diag.NewMessageType(diag.Warning, "IST0122", "Field %q regular expression invalid: %q (%s)")
-
 	// NamespaceMultipleInjectionLabels defines a diag.MessageType for message "NamespaceMultipleInjectionLabels".
 	// Description: A namespace has more than one type of injection labels
 	NamespaceMultipleInjectionLabels = diag.NewMessageType(diag.Warning, "IST0123", "The namespace has more than one type of injection labels %v, which may lead to undefined behavior. Make sure only one injection label exists.")
@@ -274,7 +270,6 @@ func All() []*diag.MessageType {
 		VirtualServiceDestinationPortSelectorRequired,
 		DeploymentAssociatedToMultipleServices,
 		PortNameIsNotUnderNamingConvention,
-		InvalidRegexp,
 		NamespaceMultipleInjectionLabels,
 		InvalidAnnotation,
 		UnknownMeshNetworksServiceRegistry,
@@ -460,17 +455,6 @@ func NewPortNameIsNotUnderNamingConvention(r *resource.Instance, portName string
 		portName,
 		port,
 		targetPort,
-	)
-}
-
-// NewInvalidRegexp returns a new diag.Message based on InvalidRegexp.
-func NewInvalidRegexp(r *resource.Instance, where string, re string, problem string) diag.Message {
-	return diag.NewMessage(
-		InvalidRegexp,
-		r,
-		where,
-		re,
-		problem,
 	)
 }
 
