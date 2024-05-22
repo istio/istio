@@ -117,7 +117,7 @@ func Test_injectionDisabled(t *testing.T) {
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						annotation.SidecarInject.Name: false,
+						annotation.SidecarInject.Name: "false",
 					},
 				},
 			},
@@ -128,7 +128,7 @@ func Test_injectionDisabled(t *testing.T) {
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						annotation.SidecarInject.Name: true,
+						annotation.SidecarInject.Name: "true",
 					},
 				},
 			},
