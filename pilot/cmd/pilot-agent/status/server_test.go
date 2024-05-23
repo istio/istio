@@ -38,7 +38,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
@@ -695,24 +694,24 @@ func TestAppProbe(t *testing.T) {
 		"/app-health/hello-world/readyz": &Prober{
 			HTTPGet: &apimirror.HTTPGetAction{
 				Path: "/hello/sunnyvale",
-				Port: intstr.IntOrString{IntVal: int32(appPort)},
+				Port: apimirror.IntOrString{IntVal: int32(appPort)},
 			},
 		},
 		"/app-health/hello-world/livez": &Prober{
 			HTTPGet: &apimirror.HTTPGetAction{
-				Port: intstr.IntOrString{IntVal: int32(appPort)},
+				Port: apimirror.IntOrString{IntVal: int32(appPort)},
 			},
 		},
 	}
 	simpleTCPConfig := KubeAppProbers{
 		"/app-health/hello-world/readyz": &Prober{
 			TCPSocket: &apimirror.TCPSocketAction{
-				Port: intstr.IntOrString{IntVal: int32(appPort)},
+				Port: apimirror.IntOrString{IntVal: int32(appPort)},
 			},
 		},
 		"/app-health/hello-world/livez": &Prober{
 			TCPSocket: &apimirror.TCPSocketAction{
-				Port: intstr.IntOrString{IntVal: int32(appPort)},
+				Port: apimirror.IntOrString{IntVal: int32(appPort)},
 			},
 		},
 	}
@@ -757,7 +756,7 @@ func TestAppProbe(t *testing.T) {
 			config: KubeAppProbers{
 				"/app-health/header/readyz": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
 						HTTPHeaders: []apimirror.HTTPHeader{
 							{Name: testHeader, Value: testHeaderValue},
@@ -775,7 +774,7 @@ func TestAppProbe(t *testing.T) {
 				"/app-health/hello-world/readyz": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "hello/texas",
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 					},
 				},
 			},
@@ -788,7 +787,7 @@ func TestAppProbe(t *testing.T) {
 				"/app-health/hello-world/livez": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "hello/texas",
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 					},
 				},
 			},
@@ -843,7 +842,7 @@ func TestAppProbe(t *testing.T) {
 				"/app-health/redirect/livez": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "redirect",
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 					},
 				},
 			},
@@ -856,7 +855,7 @@ func TestAppProbe(t *testing.T) {
 				"/app-health/redirect-loop/livez": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "redirect-loop",
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 					},
 				},
 			},
@@ -869,7 +868,7 @@ func TestAppProbe(t *testing.T) {
 				"/app-health/remote-redirect/livez": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "remote-redirect",
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 					},
 				},
 			},
@@ -937,7 +936,7 @@ func TestAppProbe(t *testing.T) {
 							TimeoutSeconds: 1,
 							HTTPGet: &apimirror.HTTPGetAction{
 								Path: fmt.Sprintf("status/%d", code),
-								Port: intstr.IntOrString{IntVal: int32(appPort)},
+								Port: apimirror.IntOrString{IntVal: int32(appPort)},
 							},
 						},
 					},
@@ -1374,7 +1373,7 @@ func TestProbeHeader(t *testing.T) {
 			appProber, err := json.Marshal(KubeAppProbers{
 				probePath: &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
-						Port:        intstr.IntOrString{IntVal: int32(appAddress.Port)},
+						Port:        apimirror.IntOrString{IntVal: int32(appAddress.Port)},
 						Host:        appAddress.IP.String(),
 						Path:        "/header",
 						HTTPHeaders: tc.proxyHeaders,

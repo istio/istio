@@ -338,7 +338,7 @@ func TestToOpts(t *testing.T) {
 func TestFilterNamespace(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
-	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*metav1.LabelSelector{{
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 	}}})
 	testns := clienttest.NewWriter[*corev1.Namespace](t, c)
@@ -432,7 +432,7 @@ func TestFilter(t *testing.T) {
 	assert.Equal(t, len(tester.List("", klabels.Everything())), 2)
 
 	// Update the selectors...
-	assert.NoError(t, meshWatcher.Update(&meshconfig.MeshConfig{DiscoverySelectors: []*metav1.LabelSelector{{
+	assert.NoError(t, meshWatcher.Update(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 	}}}, time.Second))
 	tracker.WaitOrdered("delete/1")

@@ -252,7 +252,7 @@ func TestObjectFilter(t *testing.T) {
 		t:      t,
 	}
 	mesh := mesh.NewFixedWatcher(&meshconfig.MeshConfig{
-		DiscoverySelectors: []*metav1.LabelSelector{
+		DiscoverySelectors: []*meshconfig.LabelSelector{
 			{
 				MatchLabels: map[string]string{
 					"kubernetes.io/metadata.name": "allowed",
