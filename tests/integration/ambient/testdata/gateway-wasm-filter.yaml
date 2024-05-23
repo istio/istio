@@ -1,0 +1,21 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: {{ .WasmPluginName }}
+  {{- if .WasmPluginVersion }}
+  annotations:
+    wasmPluginVersion: {{ .WasmPluginVersion }}
+  {{- end }}
+spec:
+  phase: STATS
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: {{ .TargetGatewayName}}
+  {{- if .TestWasmModuleURL }}
+  url: {{ .TestWasmModuleURL }}
+  {{- end }}
+  imagePullSecret: reg-cred
+  {{- if .ImagePullPolicy }}
+  imagePullPolicy: {{ .ImagePullPolicy }}
+  {{- end }}
