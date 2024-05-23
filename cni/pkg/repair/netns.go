@@ -21,8 +21,8 @@ import (
 	"strconv"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
-	vishnetns "github.com/vishvananda/netns"
 	"github.com/prometheus/procfs"
+	vishnetns "github.com/vishvananda/netns"
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/log"
@@ -50,27 +50,27 @@ func runInHost[T any](f func() (T, error)) (T, error) {
 }
 
 func getInterfaceAddr(interfaceName string) (addr string, err error) {
-    var (
-        ief   *net.Interface
-        addrs []net.Addr
-    )
-    if ief, err = net.InterfaceByName(interfaceName); err != nil {
-        return
-    }
-    if addrs, err = ief.Addrs(); err != nil {
-        return
-    }
-    for _, addr := range addrs {
-        switch v := addr.(type) {
+	var (
+		ief   *net.Interface
+		addrs []net.Addr
+	)
+	if ief, err = net.InterfaceByName(interfaceName); err != nil {
+		return
+	}
+	if addrs, err = ief.Addrs(); err != nil {
+		return
+	}
+	for _, addr := range addrs {
+		switch v := addr.(type) {
 		case *net.IPNet:
-        	    if v.IP.To4() != nil {
-        	        return v.IP.String(), nil
-        	    } else if v.IP.To16() != nil {
-        	        return v.IP.String(), nil
-        	    }
-        	}
-    }
-    return "", fmt.Errorf("interface %s doesn't have an IP address\n", interfaceName)
+			if v.IP.To4() != nil {
+				return v.IP.String(), nil
+			} else if v.IP.To16() != nil {
+				return v.IP.String(), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("interface %s doesn't have an IP address\n", interfaceName)
 }
 
 // getPodNetNs finds the network namespace for a given pod. There is not a great way to do this. Network namespaces live
@@ -104,22 +104,22 @@ func getPodNetNs(pod *corev1.Pod) (string, error) {
 	for _, p := range procs {
 		ns := getPidNamespace(p.PID)
 		id, err := vishnetns.GetFromPath(ns)
-                defer id.Close()
+		defer id.Close()
 		if err != nil {
-                        log.Warnf("failed to get netns for pid %v: %v", p.PID, err)
-                        continue
-                }
+			log.Warnf("failed to get netns for pid %v: %v", p.PID, err)
+			continue
+		}
 		if err := vishnetns.Set(id); err != nil {
-                        log.Warnf("failed to switch to pid %v netns: %v", p.PID, err)
-                        continue
-                }
-                gip, err := getInterfaceAddr("eth0")
-                if err != nil {
+			log.Warnf("failed to switch to pid %v netns: %v", p.PID, err)
+			continue
+		}
+		gip, err := getInterfaceAddr("eth0")
+		if err != nil {
 			log.Warnf("failed to read addr for eth0 in ns of pid %v ns: %v", p.PID, err)
-                        continue
-                }
+			continue
+		}
 
-		if gip != pod.Status.PodIP  {
+		if gip != pod.Status.PodIP {
 			// Not the network we want, skip
 			continue
 		}
