@@ -29,6 +29,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
@@ -102,9 +103,6 @@ var (
 )
 
 func TestGenSpiffeURI(t *testing.T) {
-	oldTrustDomain := GetTrustDomain()
-	defer SetTrustDomain(oldTrustDomain)
-
 	testCases := []struct {
 		namespace      string
 		trustDomain    string
@@ -142,8 +140,7 @@ func TestGenSpiffeURI(t *testing.T) {
 		},
 	}
 	for id, tc := range testCases {
-		SetTrustDomain(tc.trustDomain)
-		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
+		got, err := genSpiffeURI(tc.trustDomain, tc.namespace, tc.serviceAccount)
 		if tc.expectedError == "" && err != nil {
 			t.Errorf("teste case [%v] failed, error %v", id, tc)
 		}
@@ -161,35 +158,9 @@ func TestGenSpiffeURI(t *testing.T) {
 	}
 }
 
-func TestGetSetTrustDomain(t *testing.T) {
-	oldTrustDomain := GetTrustDomain()
-	defer SetTrustDomain(oldTrustDomain)
-
-	cases := []struct {
-		in  string
-		out string
-	}{
-		{
-			in:  "test.local",
-			out: "test.local",
-		},
-		{
-			in:  "test@local",
-			out: "test.local",
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.in, func(t *testing.T) {
-			SetTrustDomain(c.in)
-			if GetTrustDomain() != c.out {
-				t.Errorf("expected=%s, actual=%s", c.out, GetTrustDomain())
-			}
-		})
-	}
-}
-
 func TestMustGenSpiffeURI(t *testing.T) {
-	if nonsense := MustGenSpiffeURI("", ""); nonsense != "spiffe://cluster.local/ns//sa/" {
+	mesh := &meshconfig.MeshConfig{TrustDomain: "something.local"}
+	if nonsense := MustGenSpiffeURI(mesh, "", ""); nonsense != "spiffe://something.local/ns//sa/" {
 		t.Errorf("Unexpected spiffe URI for empty namespace and service account: %s", nonsense)
 	}
 }

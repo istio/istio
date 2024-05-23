@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	istiolog "istio.io/istio/pkg/log"
@@ -117,6 +118,8 @@ type Controller struct {
 	// Indicates whether this controller is for workload entries.
 	workloadEntryController bool
 
+	meshWatcher mesh.Watcher
+
 	model.NoopAmbientIndexes
 	model.NetworkGatewaysHandler
 }
@@ -137,9 +140,10 @@ func WithNetworkIDCb(cb func(endpointIP string, labels labels.Instance) network.
 
 // NewController creates a new ServiceEntry discovery service.
 func NewController(configController model.ConfigStoreController, xdsUpdater model.XDSUpdater,
+	meshConfig mesh.Watcher,
 	options ...Option,
 ) *Controller {
-	s := newController(configController, xdsUpdater, options...)
+	s := newController(configController, xdsUpdater, meshConfig, options...)
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
@@ -149,9 +153,10 @@ func NewController(configController model.ConfigStoreController, xdsUpdater mode
 
 // NewWorkloadEntryController creates a new WorkloadEntry discovery service.
 func NewWorkloadEntryController(configController model.ConfigStoreController, xdsUpdater model.XDSUpdater,
+	meshConfig mesh.Watcher,
 	options ...Option,
 ) *Controller {
-	s := newController(configController, xdsUpdater, options...)
+	s := newController(configController, xdsUpdater, meshConfig, options...)
 	// Disable service entry processing for workload entry controller.
 	s.workloadEntryController = true
 	for _, o := range options {
@@ -164,10 +169,11 @@ func NewWorkloadEntryController(configController model.ConfigStoreController, xd
 	return s
 }
 
-func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options ...Option) *Controller {
+func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, meshConfig mesh.Watcher, options ...Option) *Controller {
 	s := &Controller{
-		XdsUpdater: xdsUpdater,
-		store:      store,
+		XdsUpdater:  xdsUpdater,
+		store:       store,
+		meshWatcher: meshConfig,
 		serviceInstances: serviceInstancesStore{
 			ip2instance:            map[string][]*model.ServiceInstance{},
 			instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},

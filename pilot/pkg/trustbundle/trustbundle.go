@@ -24,6 +24,7 @@ import (
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
@@ -75,6 +76,7 @@ type TrustBundle struct {
 	endpoints          []string
 	endpointUpdateChan chan struct{}
 	remoteCaCertPool   *x509.CertPool
+	meshConfig         mesh.Watcher
 }
 
 var (
@@ -83,7 +85,7 @@ var (
 )
 
 // NewTrustBundle returns a new trustbundle
-func NewTrustBundle(remoteCaCertPool *x509.CertPool) *TrustBundle {
+func NewTrustBundle(remoteCaCertPool *x509.CertPool, meshConfig mesh.Watcher) *TrustBundle {
 	var err error
 	tb := &TrustBundle{
 		sourceConfig: map[Source]TrustAnchorConfig{
@@ -96,6 +98,7 @@ func NewTrustBundle(remoteCaCertPool *x509.CertPool) *TrustBundle {
 		updatecb:           nil,
 		endpointUpdateChan: make(chan struct{}, 1),
 		endpoints:          []string{},
+		meshConfig:         meshConfig,
 	}
 	if remoteCaCertPool == nil {
 		tb.remoteCaCertPool, err = x509.SystemCertPool()
@@ -245,7 +248,7 @@ func (tb *TrustBundle) fetchRemoteTrustAnchors() {
 	tb.endpointMutex.RUnlock()
 	remoteCerts := []string{}
 
-	currentTrustDomain := spiffe.GetTrustDomain()
+	currentTrustDomain := tb.meshConfig.Mesh().GetTrustDomain()
 	for _, endpoint := range remoteEndpoints {
 		trustDomainAnchorMap, err := spiffe.RetrieveSpiffeBundleRootCerts(
 			map[string]string{currentTrustDomain: endpoint}, tb.remoteCaCertPool, remoteTimeout)

@@ -2883,16 +2883,16 @@ func TestServiceUpdateNeedsPush(t *testing.T) {
 			name:     "target ports changed",
 			prev:     &svc,
 			curr:     &updatedSvc,
-			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
-			currConv: kube.ConvertService(updatedSvc, constants.DefaultClusterLocalDomain, ""),
+			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", nil),
+			currConv: kube.ConvertService(updatedSvc, constants.DefaultClusterLocalDomain, "", nil),
 			expect:   true,
 		},
 		testcase{
 			name:     "target ports unchanged",
 			prev:     &svc,
 			curr:     &svc,
-			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
-			currConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
+			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", nil),
+			currConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", nil),
 			expect:   false,
 		})
 
