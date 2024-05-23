@@ -244,50 +244,29 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 	// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
 
 	// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+	// CLI: -t mangle -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
 	//
 	// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
-	iptablesBuilder.AppendRuleV4(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-		"-s", hostProbeSNAT.String(),
+	iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
+		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
+		"-s", iptablesconstants.IPVersionSpecific,
 		"-p", "tcp",
 		"-m", "tcp",
 		"-j", "ACCEPT",
 	)
 
 	// CLI: -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp -j ACCEPT
+	// CLI: -t NAT -A ISTIO_OUTPUT -d fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp -j ACCEPT
 	//
 	// DESC: Anything coming BACK from the pod healthcheck port with a dest of our SNAT-ed hostside IP
 	// we also short-circuit.
-	iptablesBuilder.AppendRuleV4(
+	iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
 		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
-		"-d", hostProbeSNAT.String(),
+		"-d", iptablesconstants.IPVersionSpecific,
 		"-p", "tcp",
 		"-m", "tcp",
 		"-j", "ACCEPT",
 	)
-
-	if cfg.cfg.EnableIPv6 {
-		// CLI: -t mangle -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
-		//
-		// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
-		iptablesBuilder.AppendRuleV6(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-			"-s", hostProbeV6SNAT.String(),
-			"-p", "tcp",
-			"-m", "tcp",
-			"-j", "ACCEPT",
-		)
-
-		// CLI: -t NAT -A ISTIO_OUTPUT -d fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp -j ACCEPT
-		//
-		// DESC: Anything coming BACK from the pod healthcheck port with a dest of our SNAT-ed hostside IP
-		// we also short-circuit.
-		iptablesBuilder.AppendRuleV6(
-			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
-			"-d", hostProbeV6SNAT.String(),
-			"-p", "tcp",
-			"-m", "tcp",
-			"-j", "ACCEPT",
-		)
-	}
 
 	// prevent intercept traffic from app ==> app by pod ip
 	iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
