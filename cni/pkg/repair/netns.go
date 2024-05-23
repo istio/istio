@@ -70,7 +70,7 @@ func getInterfaceAddr(interfaceName string) (addr string, err error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("interface %s doesn't have an IP address\n", interfaceName)
+	return "", fmt.Errorf("interface %s doesn't have an IP address", interfaceName)
 }
 
 // getPodNetNs finds the network namespace for a given pod. There is not a great way to do this. Network namespaces live
@@ -104,11 +104,12 @@ func getPodNetNs(pod *corev1.Pod) (string, error) {
 	for _, p := range procs {
 		ns := getPidNamespace(p.PID)
 		id, err := vishnetns.GetFromPath(ns)
-		defer id.Close()
 		if err != nil {
 			log.Warnf("failed to get netns for pid %v: %v", p.PID, err)
+			id.Close()
 			continue
 		}
+		defer id.Close()
 		if err := vishnetns.Set(id); err != nil {
 			log.Warnf("failed to switch to pid %v netns: %v", p.PID, err)
 			continue
