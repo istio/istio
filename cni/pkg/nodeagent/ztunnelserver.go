@@ -277,12 +277,10 @@ func podToWorkload(pod *v1.Pod) *zdsapi.WorkloadInfo {
 	namespace := pod.ObjectMeta.Namespace
 	name := pod.ObjectMeta.Name
 	svcAccount := pod.Spec.ServiceAccountName
-	trustDomain := ""
 	return &zdsapi.WorkloadInfo{
 		Namespace:      namespace,
 		Name:           name,
 		ServiceAccount: svcAccount,
-		TrustDomain:    trustDomain,
 	}
 }
 
