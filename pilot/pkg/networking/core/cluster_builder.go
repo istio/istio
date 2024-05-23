@@ -47,33 +47,22 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+var defaultHttpOptions = &http.HttpProtocolOptions{
+	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+		IdleTimeout: durationpb.New(5 * time.Minute),
+	},
+	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+			Http2ProtocolOptions: http2ProtocolOptions(),
+		},
+	},
+}
+
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
 // revive:disable-next-line
-var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOptions{
-	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-		IdleTimeout: durationpb.New(5 * time.Minute),
-	},
-	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
-		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
-			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
-			Http2ProtocolOptions: http2ProtocolOptions(),
-		},
-	},
-})
-
-var passthroughHttpProtocolOptionsWithMx = protoconv.MessageToAny(&http.HttpProtocolOptions{
-	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-		IdleTimeout: durationpb.New(5 * time.Minute),
-	},
-	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
-		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
-			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
-			Http2ProtocolOptions: http2ProtocolOptions(),
-		},
-	},
-	HttpFilters: []*hcm.HttpFilter{xdsfilters.InjectIstioHeaders, xdsfilters.UpstreamCodec},
-})
+var passthroughHttpProtocolOptions = protoconv.MessageToAny(defaultHttpOptions)
 
 // clusterWrapper wraps Cluster object along with upstream protocol options.
 type clusterWrapper struct {
@@ -290,6 +279,16 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 	if features.MetadataExchange {
 		c.Filters = append(c.Filters, xdsfilters.TCPClusterMx)
+
+		options := http.HttpProtocolOptions{}
+		optionsAny, ok := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
+		if ok {
+			_ = optionsAny.UnmarshalTo(&options)
+		} else {
+			options = *defaultHttpOptions
+		}
+		options.HttpFilters = []*hcm.HttpFilter{xdsfilters.InjectIstioHeaders, xdsfilters.UpstreamCodec}
+		c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = protoconv.MessageToAny(&options)
 	}
 }
 
@@ -359,12 +358,6 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 			ec.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
 				string(service.Hostname), subset, port, 0, &service.Attributes)
 		}
-	}
-	if direction == model.TrafficDirectionOutbound {
-		if ec.httpProtocolOptions == nil {
-			ec.httpProtocolOptions = &http.HttpProtocolOptions{}
-		}
-		ec.httpProtocolOptions.HttpFilters = append(ec.httpProtocolOptions.HttpFilters, xdsfilters.InjectIstioHeaders, xdsfilters.UpstreamCodec)
 	}
 
 	return ec
@@ -534,7 +527,6 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster(mx bool) *cluster.Clust
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
 	if mx {
 		cb.applyMetadataExchange(cluster)
-		cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = passthroughHttpProtocolOptionsWithMx
 	}
 	return cluster
 }
