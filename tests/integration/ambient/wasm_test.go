@@ -47,11 +47,11 @@ type wasmTestConfigs struct {
 var generation = 0
 
 func GetClientInstances() echo.Instances {
-	return apps.MockExternal
+	return apps.Captured
 }
 
 func GetTarget() echo.Target {
-	return apps.SidecarCaptured
+	return apps.ServiceAddressedWaypoint
 }
 
 func mapTagToVersionOrFail(t framework.TestContext, tag, version string) {
