@@ -280,6 +280,9 @@ func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 	if features.MetadataExchange {
 		c.Filters = append(c.Filters, xdsfilters.TCPClusterMx)
 
+		if c.TypedExtensionProtocolOptions == nil {
+			c.TypedExtensionProtocolOptions = make(map[string]*anypb.Any)
+		}
 		options := http.HttpProtocolOptions{}
 		optionsAny, ok := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
 		if ok {
