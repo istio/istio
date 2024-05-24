@@ -7,17 +7,23 @@
 {% block scripts %}
 <script src="static/tailwind/tailwind.css"></script>
 <script type="text/javascript">
-  const dialog = document.querySelector("dialog");
-  const showButton = document.querySelector("#sign-in-button");
-  const closeButton = document.querySelector("#close-dialog");
+  window.addEventListener("DOMContentLoaded", (event) => {
+    const dialog = document.querySelector("dialog");
+    const showButton = document.querySelector("#sign-in-button");
+    const closeButton = document.querySelector("#close-dialog");
 
-  showButton.addEventListener("click", () => {
-    dialog.showModal();
-  });
+    if (showButton) {
+      showButton.addEventListener("click", () => {
+        dialog.showModal();
+      });
+    }
 
-  closeButton.addEventListener("click", () => {
-    dialog.close();
-  });
+    if (closeButton) {
+      closeButton.addEventListener("click", () => {
+        dialog.close();
+      });
+    }
+  })
 </script>
 {% endblock %}
 {% block content %}
@@ -50,7 +56,7 @@
 </nav>
 
 <!-- Sign in dialog -->
-<dialog class="w-full sm:w-2/3 lg:w-1/3 border rounded-md shadow-xl">
+<dialog id="dialog" class="w-full sm:w-2/3 lg:w-1/3 border rounded-md shadow-xl">
   <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
     <div class="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
       <button id="close-dialog" type="button" class="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
