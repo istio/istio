@@ -4,6 +4,7 @@ GEM
     webrick (1.8.1)
 
 PLATFORMS
+  aarch64-linux
   ruby
   x86_64-linux
 
