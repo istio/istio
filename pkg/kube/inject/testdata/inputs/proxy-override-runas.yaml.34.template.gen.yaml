@@ -570,9 +570,13 @@ templates:
       }
     spec:
       securityContext:
+      {{- if .Values.global.securityContext }}
+        {{- toYaml .Values.global.securityContext | nindent 4 }}
+      {{- else }}
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
+      {{- end }}
       containers:
       - name: istio-proxy
       {{- if contains "/" .Values.global.proxy.image }}
@@ -1555,9 +1559,13 @@ templates:
               ) | nindent 8 }}
         spec:
           securityContext:
+          {{- if .Values.global.securityContext }}
+            {{- toYaml .Values.global.securityContext | nindent 8 }}
+          {{- else }}
             sysctls:
             - name: net.ipv4.ip_unprivileged_port_start
               value: "0"
+          {{- end }}
           serviceAccountName: {{.ServiceAccount | quote}}
           containers:
           - name: istio-proxy
