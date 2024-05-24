@@ -13,9 +13,13 @@ metadata:
   }
 spec:
   securityContext:
+  {{- if .Values.global.securityContext }}
+    {{- toYaml .Values.global.securityContext | nindent 4 }}
+  {{- else }}
     sysctls:
     - name: net.ipv4.ip_unprivileged_port_start
       value: "0"
+  {{- end }}
   containers:
   - name: istio-proxy
   {{- if contains "/" .Values.global.proxy.image }}
