@@ -47,9 +47,10 @@ var networkFiltered = []networkFilterCase{
 		want: []xdstest.LocLbEpInfo{
 			{
 				LbEps: []xdstest.LbEpInfo{
-					// 2 local endpoints on network1
+					// 3 local endpoints on network1
 					{Address: "10.0.0.1", Weight: 6},
 					{Address: "10.0.0.2", Weight: 6},
+					{Address: "10.0.0.3", Weight: 6},
 					// 1 endpoint on network2, cluster2a
 					{Address: "2.2.2.2", Weight: 6},
 					// 2 endpoints on network2, cluster2b
@@ -58,10 +59,11 @@ var networkFiltered = []networkFilterCase{
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
 					{Address: "40.0.0.1", Weight: 6},
 				},
-				Weight: 36,
+				Weight: 42,
 			},
 		},
 		wantWorkloadMetadata: []string{
+			";ns;example;;cluster1a",
 			";ns;example;;cluster1a",
 			";ns;example;;cluster1b",
 			";ns;example;;cluster4",
@@ -76,9 +78,10 @@ var networkFiltered = []networkFilterCase{
 		want: []xdstest.LocLbEpInfo{
 			{
 				LbEps: []xdstest.LbEpInfo{
-					// 2 local endpoints on network1
+					// 3 local endpoints on network1
 					{Address: "10.0.0.1", Weight: 6},
 					{Address: "10.0.0.2", Weight: 6},
+					{Address: "10.0.0.3", Weight: 6},
 					// 1 endpoint on network2, cluster2a
 					{Address: "2.2.2.2", Weight: 6},
 					// 2 endpoints on network2, cluster2b
@@ -87,10 +90,11 @@ var networkFiltered = []networkFilterCase{
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
 					{Address: "40.0.0.1", Weight: 6},
 				},
-				Weight: 36,
+				Weight: 42,
 			},
 		},
 		wantWorkloadMetadata: []string{
+			";ns;example;;cluster1a",
 			";ns;example;;cluster1a",
 			";ns;example;;cluster1b",
 			";ns;example;;cluster4",
@@ -475,6 +479,7 @@ var mtlsCases = map[string]map[string]struct {
 
 func TestEndpointsByNetworkFilter(t *testing.T) {
 	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+	test.SetForTest(t, &features.PreferHBONESend, true)
 	env := environment(t)
 	env.Env().InitNetworksManager(env.Discovery)
 	// The tests below are calling the endpoints filter from each one of the
@@ -484,6 +489,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 
 func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+	test.SetForTest(t, &features.PreferHBONESend, true)
 	noCrossNetwork := []networkFilterCase{
 		{
 			name:  "from_network1_cluster1a",
@@ -491,16 +497,18 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 			want: []xdstest.LocLbEpInfo{
 				{
 					LbEps: []xdstest.LbEpInfo{
-						// 2 local endpoints on network1
+						// 3 local endpoints on network1
 						{Address: "10.0.0.1", Weight: 6},
 						{Address: "10.0.0.2", Weight: 6},
+						{Address: "10.0.0.3", Weight: 6},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
 						{Address: "40.0.0.1", Weight: 6},
 					},
-					Weight: 18,
+					Weight: 24,
 				},
 			},
 			wantWorkloadMetadata: []string{
+				";ns;example;;cluster1a",
 				";ns;example;;cluster1a",
 				";ns;example;;cluster1b",
 				";ns;example;;cluster4",
@@ -512,16 +520,18 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 			want: []xdstest.LocLbEpInfo{
 				{
 					LbEps: []xdstest.LbEpInfo{
-						// 2 local endpoints on network1
+						// 3 local endpoints on network1
 						{Address: "10.0.0.1", Weight: 6},
 						{Address: "10.0.0.2", Weight: 6},
+						{Address: "10.0.0.3", Weight: 6},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
 						{Address: "40.0.0.1", Weight: 6},
 					},
-					Weight: 18,
+					Weight: 24,
 				},
 			},
 			wantWorkloadMetadata: []string{
+				";ns;example;;cluster1a",
 				";ns;example;;cluster1a",
 				";ns;example;;cluster1b",
 				";ns;example;;cluster4",
@@ -631,6 +641,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 
 func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+	test.SetForTest(t, &features.PreferHBONESend, true)
 	//  - 1 IP gateway for network1
 	//  - 1 DNS gateway for network2
 	//  - 1 IP gateway for network3
@@ -703,6 +714,7 @@ func runNetworkFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []net
 }
 
 func TestEndpointsWithMTLSFilter(t *testing.T) {
+	test.SetForTest(t, &features.PreferHBONESend, true)
 	casesMtlsDisabled := []networkFilterCase{
 		{
 			name:  "from_network1_cluster1a",
@@ -714,6 +726,23 @@ func TestEndpointsWithMTLSFilter(t *testing.T) {
 				},
 			},
 		},
+	}
+	var networkFilteredForSniDnatCluster = []networkFilterCase{}
+	for _, testcase := range networkFiltered {
+		testcase.want = slices.Clone(testcase.want)
+		for i := range testcase.want {
+			locLbEpInfo := &testcase.want[i]
+			// HBONE endpoints are not included for SNI-DNAT clusters
+			locLbEpInfo.LbEps = slices.Filter(locLbEpInfo.LbEps, func(e xdstest.LbEpInfo) bool {
+				return e.Address != "10.0.0.3"
+			})
+			var weight uint32
+			for _, e := range locLbEpInfo.LbEps {
+				weight += e.Weight
+			}
+			locLbEpInfo.Weight = weight
+		}
+		networkFilteredForSniDnatCluster = append(networkFilteredForSniDnatCluster, testcase)
 	}
 
 	for configType, cases := range mtlsCases {
@@ -729,7 +758,7 @@ func TestEndpointsWithMTLSFilter(t *testing.T) {
 					if pa.IsMtlsDisabled {
 						tests = casesMtlsDisabled
 					} else {
-						tests = networkFiltered
+						tests = networkFilteredForSniDnatCluster
 					}
 					runMTLSFilterTest(t, env, tests, pa.SubsetName)
 				})
@@ -835,6 +864,9 @@ func testShards() *model.EndpointIndex {
 		{Cluster: "cluster1a"}: {
 			{Network: "network1", Address: "10.0.0.1"},
 			{Network: "network1", Address: "foo.bar"}, // endpoint generated from ServiceEntry
+			{Network: "network1", Address: "10.0.0.3", // endpoint when using HBONE
+				Labels: map[string]string{model.TunnelLabel: model.TunnelHTTP},
+			},
 		},
 		{Cluster: "cluster1b"}: {
 			{Network: "network1", Address: "10.0.0.2"},
@@ -865,7 +897,10 @@ func testShards() *model.EndpointIndex {
 			ep.HostName = "example.ns.svc.cluster.local"
 			ep.EndpointPort = 8080
 			ep.TLSMode = "istio"
-			ep.Labels = map[string]string{"app": "example"}
+			if ep.Labels == nil {
+				ep.Labels = make(map[string]string)
+			}
+			ep.Labels["app"] = "example"
 			ep.Locality.ClusterID = sk.Cluster
 			shards.Shards[sk][i] = ep
 		}
