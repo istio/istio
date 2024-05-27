@@ -232,9 +232,8 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	if iop.Spec == nil {
 		iop.Spec = &v1alpha1.IstioOperatorSpec{Profile: name.DefaultProfileName}
 	}
-	operatorRevision, _ := os.LookupEnv("REVISION")
-	if operatorRevision != "" && operatorRevision != iop.Spec.Revision {
-		scope.Infof("Ignoring IstioOperator CR %s with revision %s, since operator revision is %s.", iopName, iop.Spec.Revision, operatorRevision)
+	if operatorRevision, revisionEnvExists := os.LookupEnv("REVISION"); revisionEnvExists && operatorRevision != iop.Spec.Revision {
+		scope.Infof("Ignoring IstioOperator CR %s with revision %s, since operator revision is %q.", iopName, iop.Spec.Revision, operatorRevision)
 		return reconcile.Result{}, nil
 	}
 	if iop.Annotations != nil {
