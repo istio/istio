@@ -85,7 +85,6 @@
         "aud": "istio-ca"
       }
     },
-    "securityContext": null,
     "sts": {
       "servicePort": 0
     },

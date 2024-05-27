@@ -570,8 +570,8 @@ templates:
       }
     spec:
       securityContext:
-      {{- if .Values.global.securityContext }}
-        {{- toYaml .Values.global.securityContext | nindent 4 }}
+      {{- if .Values.gateways.securityContext }}
+        {{- toYaml .Values.gateways.securityContext | nindent 4 }}
       {{- else }}
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
@@ -1559,8 +1559,8 @@ templates:
               ) | nindent 8 }}
         spec:
           securityContext:
-          {{- if .Values.global.securityContext }}
-            {{- toYaml .Values.global.securityContext | nindent 8 }}
+          {{- if .Values.gateways.securityContext }}
+            {{- toYaml .Values.gateways.securityContext | nindent 8 }}
           {{- else }}
             sysctls:
             - name: net.ipv4.ip_unprivileged_port_start

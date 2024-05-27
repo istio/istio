@@ -5,4 +5,4 @@ issue:
   - 49549
 releaseNotes:
   - |
-    **Added** manifests: add `global.securityContext` option to custom gateway securityContext.
+    **Added** manifests: add `gateways.securityContext` option to custom gateway securityContext.
