@@ -25,10 +25,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/spiffe"
 )
 
 var (
@@ -135,10 +135,6 @@ func TestServiceConversion(t *testing.T) {
 	saC := "spiffe://accounts.google.com/serviceaccountC@cloudservices.gserviceaccount.com"
 	saD := "spiffe://accounts.google.com/serviceaccountD@developer.gserviceaccount.com"
 
-	oldTrustDomain := spiffe.GetTrustDomain()
-	spiffe.SetTrustDomain(domainSuffix)
-	defer spiffe.SetTrustDomain(oldTrustDomain)
-
 	ip := "10.0.0.1"
 
 	tnow := time.Now()
@@ -171,7 +167,7 @@ func TestServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(localSvc, domainSuffix, clusterID)
+	service := ConvertService(localSvc, domainSuffix, clusterID, &meshconfig.MeshConfig{TrustDomain: domainSuffix})
 	if service == nil {
 		t.Fatalf("could not convert service")
 	}
@@ -257,7 +253,7 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(localSvc, domainSuffix, clusterID)
+	service := ConvertService(localSvc, domainSuffix, clusterID, nil)
 	if service == nil {
 		t.Fatalf("could not convert service")
 	}
@@ -290,7 +286,7 @@ func TestExternalServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(extSvc, domainSuffix, clusterID)
+	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
 	if service == nil {
 		t.Fatalf("could not convert external service")
 	}
@@ -340,7 +336,7 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 
 	domainSuffix := "cluster.local"
 
-	service := ConvertService(extSvc, domainSuffix, clusterID)
+	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
 	if service == nil {
 		t.Fatalf("could not convert external service")
 	}
@@ -401,7 +397,7 @@ func TestLBServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(extSvc, domainSuffix, clusterID)
+	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
 	if service == nil {
 		t.Fatalf("could not convert external service")
 	}
@@ -447,7 +443,7 @@ func TestInternalTrafficPolicyServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(svc, domainSuffix, clusterID)
+	service := ConvertService(svc, domainSuffix, clusterID, nil)
 	if service == nil {
 		t.Fatalf("could not convert service")
 	}
@@ -467,9 +463,11 @@ func TestSecureNamingSAN(t *testing.T) {
 	pod.Namespace = ns
 	pod.Spec.ServiceAccountName = sa
 
-	san := SecureNamingSAN(pod)
+	mesh := &meshconfig.MeshConfig{TrustDomain: "td.local"}
 
-	expectedSAN := fmt.Sprintf("spiffe://%v/ns/%v/sa/%v", spiffe.GetTrustDomain(), ns, sa)
+	san := SecureNamingSAN(pod, mesh)
+
+	expectedSAN := fmt.Sprintf("spiffe://td.local/ns/%v/sa/%v", ns, sa)
 
 	if san != expectedSAN {
 		t.Fatalf("SAN match failed, SAN:%v  expectedSAN:%v", san, expectedSAN)

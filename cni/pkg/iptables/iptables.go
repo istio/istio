@@ -176,9 +176,9 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSNAT *netip.Addr) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSNAT, hostProbeV6SNAT *netip.Addr) error {
 	// Append our rules here
-	builder := cfg.appendInpodRules(hostProbeSNAT)
+	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT)
 
 	if err := cfg.addLoopbackRoute(); err != nil {
 		return err
@@ -197,7 +197,7 @@ func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSNAT *netip.Addr) err
 	return nil
 }
 
-func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT *netip.Addr) *builder.IptablesRuleBuilder {
 	redirectDNS := cfg.cfg.RedirectDNS
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
@@ -242,26 +242,27 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 	//
 	// We do this so we can exempt this traffic from ztunnel capture/proxy - otherwise both kube-proxy (legit)
 	// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
-	//
-	// Note that SortedList is used here because the istio sets class has no order guarantees,
-	// and our unit tests will flake if rules have a nondeterministic ordering.
+
 	// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+	// CLI: -t mangle -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
 	//
 	// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
-	iptablesBuilder.AppendRule(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-		"-s", hostProbeSNAT.String(),
+	iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
+		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
+		"-s", iptablesconstants.IPVersionSpecific,
 		"-p", "tcp",
 		"-m", "tcp",
 		"-j", "ACCEPT",
 	)
 
 	// CLI: -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp -j ACCEPT
+	// CLI: -t NAT -A ISTIO_OUTPUT -d fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp -j ACCEPT
 	//
 	// DESC: Anything coming BACK from the pod healthcheck port with a dest of our SNAT-ed hostside IP
 	// we also short-circuit.
-	iptablesBuilder.AppendRule(
+	iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
 		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
-		"-d", hostProbeSNAT.String(),
+		"-d", iptablesconstants.IPVersionSpecific,
 		"-p", "tcp",
 		"-m", "tcp",
 		"-j", "ACCEPT",

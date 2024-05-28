@@ -154,7 +154,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.iptablesConfigurator.CreateInpodRules(&HostProbeSNATIP)
+		return s.iptablesConfigurator.CreateInpodRules(&HostProbeSNATIP, &HostProbeSNATIPV6)
 	}); err != nil {
 		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
 		return err

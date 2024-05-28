@@ -136,6 +136,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 
 	env := model.NewEnvironment()
+	env.Watcher = mesh.NewFixedWatcher(m)
 
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
@@ -146,6 +147,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	se := serviceentry.NewController(
 		configController,
 		xdsUpdater,
+		env.Watcher,
 		serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
@@ -165,7 +167,6 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	for _, reg := range opts.ServiceRegistries {
 		serviceDiscovery.AddRegistry(reg)
 	}
-	env.Watcher = mesh.NewFixedWatcher(m)
 	if opts.NetworksWatcher == nil {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
 	}
