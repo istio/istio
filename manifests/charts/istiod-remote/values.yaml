@@ -155,6 +155,8 @@ defaults:
       # stackdriver filter settings.
       stackdriver:
         enabled: false
+  # Custom namespace selector for MutatingWebhookConfiguration.    
+  namespaceSelector: {}
   # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
   revision: ""
   # Revision tags are aliases to Istio control plane revisions
