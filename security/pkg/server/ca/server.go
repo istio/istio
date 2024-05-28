@@ -94,7 +94,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		if s.nodeAuthorizer == nil {
 			s.monitoring.AuthnError.Increment()
 			// Return an opaque error (for security purposes) but log the full reason
-			serverCaLog.Warnf("impersonation not allowed, as node authorizer is not configured")
+			serverCaLog.Warnf("impersonation not allowed, as node authorizer (CA_TRUSTED_NODE_ACCOUNTS) is not configured")
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 
 		}
