@@ -54,7 +54,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 			for _, w := range v.(map[string]interface{}) {
 				wj, err := json.Marshal(w)
 				if err != nil {
-					return fmt.Errorf("error marshalling workload: %v", err)
+					return fmt.Errorf("error marshaling workload: %v", err)
 				}
 				curr := &ZtunnelWorkload{}
 				err = json.Unmarshal(wj, curr)
@@ -68,7 +68,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 			for _, c := range v.([]interface{}) {
 				cj, err := json.Marshal(c)
 				if err != nil {
-					return fmt.Errorf("error marshalling certificate: %v", err)
+					return fmt.Errorf("error marshaling certificate: %v", err)
 				}
 				curr := &CertsDump{}
 				err = json.Unmarshal(cj, curr)
@@ -82,7 +82,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 			for _, p := range v.([]interface{}) {
 				pj, err := json.Marshal(p)
 				if err != nil {
-					return fmt.Errorf("error marshalling policy: %v", err)
+					return fmt.Errorf("error marshaling policy: %v", err)
 				}
 				curr := &ZtunnelPolicy{}
 				err = json.Unmarshal(pj, curr)
@@ -96,7 +96,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 			for _, s := range v.(map[string]interface{}) {
 				sj, err := json.Marshal(s)
 				if err != nil {
-					return fmt.Errorf("error marshalling service: %v", err)
+					return fmt.Errorf("error marshaling service: %v", err)
 				}
 				curr := &ZtunnelService{}
 				err = json.Unmarshal(sj, curr)
