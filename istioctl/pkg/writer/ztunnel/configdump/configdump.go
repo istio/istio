@@ -32,14 +32,83 @@ type ConfigWriter struct {
 
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	cd := ZtunnelDump{}
+	cd := map[string]interface{}{}
+	zDump := &ZtunnelDump{}
+	var (
+		zw []*ZtunnelWorkload
+		zc []*CertsDump
+		zp []*ZtunnelPolicy
+		zs []*ZtunnelService
+	)
+
 	// TODO(fisherxu): migrate this to jsonpb when issue fixed in golang
 	// Issue to track -> https://github.com/golang/protobuf/issues/632
 	err := json.Unmarshal(b, &cd)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from ztunnel: %v", err)
 	}
-	c.ztunnelDump = &cd
+	// ensure that data gets unmarshalled into the right data type
+	for k, v := range cd {
+		switch k {
+		case "workloads":
+			for _, w := range v.(map[string]interface{}) {
+				wj, err := json.Marshal(w)
+				if err != nil {
+					return fmt.Errorf("error marshalling workload: %v", err)
+				}
+				curr := &ZtunnelWorkload{}
+				err = json.Unmarshal(wj, curr)
+				if err != nil {
+					return fmt.Errorf("error unmarshalling workload: %v", err)
+				}
+				zw = append(zw, curr)
+			}
+			zDump.Workloads = zw
+		case "certificates":
+			for _, c := range v.([]interface{}) {
+				cj, err := json.Marshal(c)
+				if err != nil {
+					return fmt.Errorf("error marshalling certificate: %v", err)
+				}
+				curr := &CertsDump{}
+				err = json.Unmarshal(cj, curr)
+				if err != nil {
+					return fmt.Errorf("error unmarshalling certificate: %v", err)
+				}
+				zc = append(zc, curr)
+			}
+			zDump.Certificates = zc
+		case "policies":
+			for _, p := range v.([]interface{}) {
+				pj, err := json.Marshal(p)
+				if err != nil {
+					return fmt.Errorf("error marshalling policy: %v", err)
+				}
+				curr := &ZtunnelPolicy{}
+				err = json.Unmarshal(pj, curr)
+				if err != nil {
+					return fmt.Errorf("error unmarshalling policy: %v", err)
+				}
+				zp = append(zp, curr)
+			}
+			zDump.Policies = zp
+		case "services":
+			for _, s := range v.(map[string]interface{}) {
+				sj, err := json.Marshal(s)
+				if err != nil {
+					return fmt.Errorf("error marshalling service: %v", err)
+				}
+				curr := &ZtunnelService{}
+				err = json.Unmarshal(sj, curr)
+				if err != nil {
+					return fmt.Errorf("error unmarshalling service: %v", err)
+				}
+				zs = append(zs, curr)
+			}
+			zDump.Services = zs
+		}
+	}
+	c.ztunnelDump = zDump
 	return nil
 }
 
