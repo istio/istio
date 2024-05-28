@@ -22,7 +22,6 @@ import (
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/prometheus/procfs"
-	vishnetns "github.com/vishvananda/netns"
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/log"
@@ -32,11 +31,11 @@ func getPidNamespace(pid int) string {
 	return "/host/proc/" + strconv.Itoa(pid) + "/ns/net"
 }
 
-func runInHost[T any](f func() (T, error)) (T, error) {
+func runInNS[T any](pidNs string, f func() (T, error)) (T, error) {
 	var res T
-	ns, err := netns.GetNS(getPidNamespace(1))
+	ns, err := netns.GetNS(pidNs)
 	if err != nil {
-		return res, fmt.Errorf("failed to get host network: %v", err)
+		return res, fmt.Errorf("failed to get network namespace %v: %v", pidNs, err)
 	}
 	err = ns.Do(func(ns netns.NetNS) error {
 		var err error
@@ -44,9 +43,13 @@ func runInHost[T any](f func() (T, error)) (T, error) {
 		return err
 	})
 	if err != nil {
-		return res, fmt.Errorf("in host network: %v", err)
+		return res, fmt.Errorf("in network namespace %v: %v", ns, err)
 	}
 	return res, nil
+}
+
+func runInHost[T any](f func() (T, error)) (T, error) {
+	return runInNS(getPidNamespace(1), f)
 }
 
 func getInterfaceAddr(interfaceName string) (addr string, err error) {
@@ -103,18 +106,9 @@ func getPodNetNs(pod *corev1.Pod) (string, error) {
 	// We do this by detecting the longest running process. We could look at `cmdline`, but is likely more reliable to weird platforms.
 	for _, p := range procs {
 		ns := getPidNamespace(p.PID)
-		id, err := vishnetns.GetFromPath(ns)
-		if err != nil {
-			log.Warnf("failed to get netns for pid %v: %v", p.PID, err)
-			id.Close()
-			continue
-		}
-		defer id.Close()
-		if err := vishnetns.Set(id); err != nil {
-			log.Warnf("failed to switch to pid %v netns: %v", p.PID, err)
-			continue
-		}
-		gip, err := getInterfaceAddr("eth0")
+		gip, err := runInNS(ns, func() (string, error) {
+			return getInterfaceAddr("eth0")
+		})
 		if err != nil {
 			log.Warnf("failed to read addr for eth0 in ns of pid %v ns: %v", p.PID, err)
 			continue
