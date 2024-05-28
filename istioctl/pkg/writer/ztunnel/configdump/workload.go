@@ -134,17 +134,12 @@ func waypointName(wl *ZtunnelWorkload, services []*ZtunnelService) string {
 		return "None"
 	}
 
-	// populate a map of address to service name
-	addressMap := make(map[string]string)
 	for _, svc := range services {
 		for _, addr := range svc.Addresses {
-			addressMap[addr] = svc.Name
+			if addr == wl.Waypoint.Destination {
+				return svc.Name
+			}
 		}
-	}
-
-	// check if workload waypoint destination is in the map
-	if name, found := addressMap[wl.Waypoint.Destination]; found {
-		return name
 	}
 
 	return "NA" // Shouldn't normally reach here
@@ -155,17 +150,12 @@ func serviceWaypointName(svc *ZtunnelService, services []*ZtunnelService) string
 		return "None"
 	}
 
-	// populate a map of address to service name
-	addressMap := make(map[string]string)
 	for _, service := range services {
 		for _, addr := range service.Addresses {
-			addressMap[addr] = service.Name
+			if addr == svc.Waypoint.Destination {
+				return service.Name
+			}
 		}
-	}
-
-	// check if service waypoint destination is in the map
-	if name, found := addressMap[svc.Waypoint.Destination]; found {
-		return name
 	}
 
 	return "NA" // Shouldn't normally reach here
