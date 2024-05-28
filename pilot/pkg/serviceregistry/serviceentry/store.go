@@ -43,7 +43,7 @@ func (s *serviceInstancesStore) getByIP(ip string) []*model.ServiceInstance {
 }
 
 func (s *serviceInstancesStore) getAll() []*model.ServiceInstance {
-	all := []*model.ServiceInstance{}
+	all := make([]*model.ServiceInstance, 0, countSliceValue(s.ip2instance))
 	for _, instances := range s.ip2instance {
 		all = append(all, instances...)
 	}
@@ -51,7 +51,7 @@ func (s *serviceInstancesStore) getAll() []*model.ServiceInstance {
 }
 
 func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInstance {
-	all := []*model.ServiceInstance{}
+	all := make([]*model.ServiceInstance, 0, countSliceValue(s.instances[key]))
 	for _, instances := range s.instances[key] {
 		all = append(all, instances...)
 	}
@@ -148,7 +148,7 @@ type serviceStore struct {
 
 // getAllServices return all the services.
 func (s *serviceStore) getAllServices() []*model.Service {
-	var out []*model.Service
+	out := make([]*model.Service, 0, countSliceValue(s.servicesBySE))
 	for _, svcs := range s.servicesBySE {
 		out = append(out, svcs...)
 	}
