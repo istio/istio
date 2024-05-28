@@ -1,165 +1,213 @@
-{% extends "bootstrap/base.html" %}
 {% block metas %}
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 {% endblock %}
 
-{% block styles %}
-<!-- Latest compiled and minified CSS -->
-<link rel="stylesheet" href="static/bootstrap/css/bootstrap.min.css">
-
-<!-- Optional theme -->
-<link rel="stylesheet" href="static/bootstrap/css/bootstrap-theme.min.css">
-{% endblock %}
+<title>Simple Bookstore App</title>
 {% block scripts %}
-<!-- Latest compiled and minified JavaScript -->
-<script src="static/jquery.min.js"></script>
-
-<!-- Latest compiled and minified JavaScript -->
-<script src="static/bootstrap/js/bootstrap.min.js"></script>
-
+<script src="static/tailwind/tailwind.css"></script>
 <script type="text/javascript">
-  $('#login-modal').on('shown.bs.modal', function () {
-    $('#username').focus();
-  });
+  window.addEventListener("DOMContentLoaded", (event) => {
+    const dialog = document.querySelector("dialog");
+    const showButton = document.querySelector("#sign-in-button");
+    const closeButton = document.querySelector("#close-dialog");
+
+    if (showButton) {
+      showButton.addEventListener("click", () => {
+        dialog.showModal();
+      });
+    }
+
+    if (closeButton) {
+      closeButton.addEventListener("click", () => {
+        dialog.close();
+      });
+    }
+  })
 </script>
 {% endblock %}
-{% block title %}Simple Bookstore App{% endblock %}
 {% block content %}
 
-<nav class="navbar navbar-inverse navbar-static-top">
-  <div class="container">
-    <div class="navbar-header">
-      <a class="navbar-brand" href="#">BookInfo Sample</a>
+<nav class="bg-gray-800">
+  <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="relative flex h-16 items-center justify-between">
+      <a href="#" class="text-white px-3 py-2 text-lg font-medium" aria-current="page">BookInfo Sample</a>
+      <div class="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+        {% if user: %}
+        <a href="#" class="group block flex-shrink-0">
+          <div class="flex items-center">
+            <div>
+              <img class="inline-block h-9 w-9 rounded-full bg-blue-50" src="/static/img/izzy.png" alt="">
+            </div>
+            <div class="ml-4">
+              <p class="text-base font-medium text-gray-50">{{ user }}</p>
+              <a href="logout" class="text-xs font-medium text-gray-400 hover:text-gray-300">Sign out</a>
+            </div>
+          </div>
+        </a>
+        {% else %}
+          <button type="button" id="sign-in-button" class="rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+            Sign in
+          </button>
+        {% endif %}
+      </div>
     </div>
-    {% if user: %}
-    <p class="navbar-text navbar-right">
-      <i class="glyphicon glyphicon-user" aria-hidden="true"></i>
-      <span style="padding-left: 5px;">{{ user }} ( <a href="logout">sign out</a> )</span>
-    </p>
-    {% else %}
-    <button type="button" class="btn btn-default navbar-btn navbar-right" data-toggle="modal" href="#login-modal">Sign
-      in</button>
-    {% endif %}
   </div>
 </nav>
 
-<!---
-<div class="navbar navbar-inverse navbar-fixed-top">
-  <div class="container">
-    <div class="navbar-header pull-left">
-      <a class="navbar-brand" href="#">Microservices Fabric BookInfo Demo</a>
-    </div>
-    <div class="navbar-header pull-right">
-      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
+<!-- Sign in dialog -->
+<dialog id="dialog" class="w-full sm:w-2/3 lg:w-1/3 border rounded-md shadow-xl">
+  <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+    <div class="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
+      <button id="close-dialog" type="button" class="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+        <span class="sr-only">Close</span>
+        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
       </button>
     </div>
-    <div class="navbar-collapse collapse">
-{% if user %}
-      <a href="logout"><button type="button" class="btn btn-default navbar-btn pull-right">Sign out</button></a>
-      <p class="navbar-text pull-right">Signed in as {{ user }}</p>
-{% else %}
-      <button type="button" class="btn btn-default navbar-btn pull-right" data-toggle="modal" data-target="#login-modal">Sign in</button>
-{% endif %}
+    <div class="sm:mx-auto sm:w-full sm:max-w-sm">
+        <svg  class="mx-auto h-24 w-auto" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 320 320"><g id="logo" fill="#466BB0"><polygon id="hull" points="80 250 240 250 140 280 80 250"/><polygon id="mainsail" points="80 240 140 230 140 120 80 240"/><polygon id="headsail" points="150 230 240 240 150 40 150 230"/></g></svg>
+        <h2 class="mt-5 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">Sign in to BookInfo</h2>
     </div>
+    <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+      <form class="space-y-6" method="post" action='login' name="login_form">
+        <div>
+          <label for="email" class="block text-sm font-medium leading-6 text-gray-900">Username</label>
+          <div class="mt-2">
+            <input id="username" name="username" required class="block w-full px-3 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6">
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between">
+            <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
+          </div>
+          <div class="mt-2">
+            <input id="password" name="passwd" type="password" required class="block w-full px-3 rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6">
+          </div>
+        </div>
+        <div>
+          <button type="submit" class="flex w-full justify-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">Sign in</button>
+        </div>
+      </form>
+      <p class="mt-10 text-center text-sm text-gray-500">
+        Not using Istio yet?
+        <a href="https://istio.io" target="_blank" class="font-semibold leading-6 text-blue-600 hover:text-blue-500">Start here</a>
+      </p>
+    </div>
+  </div>
+</dialog>
+
+<!-- Book description section -->
+<div class="container mt-8 mx-auto px-4 sm:px-6 lg:px-8">
+  <h1 class="text-5xl font-bold tracking-tight text-blue-900">{{ product.title }}</h1>
+  <div class="mt-6 max-w-4xl">
+    {% autoescape false %}
+    <p class="mt-6 text-xl leading-8 text-gray-600">{{ product.descriptionHtml }}</p>
+    {% endautoescape %}
+    <div class="mt-6">
+      <a href="https://istio.io" target="_blank" class="text-sm font-semibold leading-6 text-blue-600 hover:text-blue-700">Learn more about Istio <span aria-hidden="true">→</span></a>
+    </div>
+
   </div>
 </div>
--->
 
-<div id="login-modal" class="modal fade" role="dialog">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal">&times;</button>
-        <h4 class="modal-title">Please sign in</h4>
+<!-- Book details table -->
+<div class="container mt-8 mx-auto px-4 sm:px-6 lg:px-8">
+  <div class="mt-4 py-10">
+      <div class="max-w-2xl">
+        <div class="flow-root">
+          {% if detailsStatus == 200: %}
+          <h4 class="text-3xl font-semibold">Book Details</h4>
+          <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+              <table class="min-w-full divide-y divide-gray-300">
+                <thead>
+                  <tr>
+                    <th scope="col" class="whitespace-nowrap py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">ISBN-10</th>
+                    <th scope="col" class="whitespace-nowrap px-2 py-3.5 text-left text-sm font-semibold text-gray-900">Publisher</th>
+                    <th scope="col" class="whitespace-nowrap px-2 py-3.5 text-left text-sm font-semibold text-gray-900">Pages</th>
+                    <th scope="col" class="whitespace-nowrap px-2 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
+                    <th scope="col" class="whitespace-nowrap px-2 py-3.5 text-left text-sm font-semibold text-gray-900">Language</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white">
+                  <tr>
+                    <td class="whitespace-nowrap py-2 pl-4 pr-3 text-sm text-gray-500 sm:pl-0">{{ details['ISBN-10'] }}</td>
+                    <td class="whitespace-nowrap px-2 py-2 text-sm font-medium text-gray-900">{{ details.publisher }}</td>
+                    <td class="whitespace-nowrap px-2 py-2 text-sm text-gray-900">{{ details.pages }}</td>
+                    <td class="whitespace-nowrap px-2 py-2 text-sm text-gray-500">{{ details.type }}</td>
+                    <td class="whitespace-nowrap px-2 py-2 text-sm text-gray-500">{{ details.language }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% else %}
+          <p class="text-2xl text-red-500">Error fetching product details</p>
+          {% if details: %}
+          <p class="text-lg text-gray-600">{{ details.error }}</p>
+          {% endif %}
+          {% endif %}
+        </div>
       </div>
-      <div class="modal-body">
-        <form method="post" action='login' name="login_form">
-          <p><input type="text" class="form-control" name="username" id="username" placeholder="User Name"></p>
-          <p><input type="password" class="form-control" name="passwd" placeholder="Password"></p>
-          <p>
-            <button type="submit" class="btn btn-primary">Sign in</button>
-            <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-          </p>
-        </form>
-      </div>
-    </div>
-
   </div>
 </div>
 
-<div class="container-fluid">
-  <div class="row">
-    <div class="col-md-12">
-      <h3 class="text-center text-primary">{{ product.title }}</h3>
-      {% autoescape false %}
-      <p>Summary: {{ product.descriptionHtml }}</p>
-      {% endautoescape %}
-    </div>
-  </div>
-
-  <div class="row">
-    <div class="col-md-6">
-      {% if detailsStatus == 200: %}
-      <h4 class="text-center text-primary">Book Details</h4>
-      <dl>
-        <dt>Type:</dt>{{ details.type }}
-        <dt>Pages:</dt>{{ details.pages }}
-        <dt>Publisher:</dt>{{ details.publisher }}
-        <dt>Language:</dt>{{ details.language }}
-        <dt>ISBN-10:</dt>{{ details['ISBN-10'] }}
-        <dt>ISBN-13:</dt>{{ details['ISBN-13'] }}
-      </dl>
-      {% else %}
-      <h4 class="text-center text-primary">Error fetching product details!</h4>
-      {% if details: %}
-      <p>{{ details.error }}</p>
-      {% endif %}
-      {% endif %}
-    </div>
-
-    <div class="col-md-6">
+<!-- Book reviews section -->
+<div class="bg-blue-600/5 py-12 mx-auto" >
+  <div class="container mx-auto px-4 sm:px-6 lg:px-8>
+    <div class="max-w-2xl">
       {% if reviewsStatus == 200: %}
-      <h4 class="text-center text-primary">Book Reviews</h4>
-      {% for review in reviews.reviews %}
-      <blockquote>
-        <p>{{ review.text }}</p>
-        <small>{{ review.reviewer }}</small>
-        {% if review.rating: %}
-        {% if review.rating.stars: %}
-        <font color="{{ review.rating.color }}">
-          <!-- full stars: -->
-          {% for n in range(review.rating.stars) %}
-          <span class="glyphicon glyphicon-star"></span>
-          {% endfor %}
-          <!-- empty stars: -->
-          {% for n in range(5 - review.rating.stars) %}
-          <span class="glyphicon glyphicon-star-empty"></span>
-          {% endfor %}
-        </font>
-        {% elif review.rating.error: %}
-        <p><i>{{ review.rating.error }}</i></p>
-        {% endif %}
-        {% endif %}
-      </blockquote>
-      {% endfor %}
-      <dl>
-        <dt>Reviews served by:</dt>
-        <u>{{ reviews.podname }}</u>
-        {% if reviews.clustername != "null" %}
-        on cluster <u>{{ reviews.clustername }}</u>
-        {% endif %}
-      </dl>
+      <h4 class="text-3xl font-semibold">Book Reviews</h4>
+      <div class="flex flex-col md:flex-row">
+        {% for review in reviews.reviews %}
+        <section class="px-6 py-12 sm:py-8 lg:px-8">
+          <div class="mx-auto max-w-2xl">
+            {% if review.rating: %}
+            {% if review.rating.stars: %}
+            <div class="flex gap-x-1 text-{{ review.rating.color }}-500">
+              {% for n in range(review.rating.stars) %}
+              <svg class="h-5 w-5 flex-none" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clip-rule="evenodd" />
+              </svg>
+              {% endfor %}
+              {% for n in range(5 - review.rating.stars) %}
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5 flex-none">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+              </svg>
+              {% endfor %}
+            </div>
+            {% elif review.rating.error: %}
+            <p class="text-red-500">{{ review.rating.error }}</p>
+            {% endif %}
+            {% endif %}
+            <blockquote class="mt-10 text-xl font-semibold leading-8 tracking-tight text-gray-900 sm:text-2xl sm:leading-9">
+              <p>"{{ review.text }}"</p>
+            </blockquote>
+            <div class="mt-4 flex items-center gap-x-6">
+              <img class="h-16 w-16 rounded-full bg-gray-50" src="/static/img/izzy.png" alt="Izzy">
+  
+              <div class="text-sm leading-6">
+                <div class="font-semibold text-gray-900">{{ review.reviewer }}</div>
+                <div class="mt-0.5 text-gray-600 font-mono">Reviews served by: {{ reviews.podname }}
+                  {% if reviews.clustername != "null" %}
+                  on cluster <div>{{ reviews.clustername }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+        </section>
+        {% endfor %}
+      </div>
       {% else %}
-      <h4 class="text-center text-primary">Error fetching product reviews!</h4>
+      <p class="text-2xl text-red-500">Error fetching product reviews</p>
       {% if reviews: %}
-      <p>{{ reviews.error }}</p>
+      <p class="text-lg text-gray-600">{{ reviews.error }}</p>
       {% endif %}
       {% endif %}
+    </div>
     </div>
   </div>
 </div>
