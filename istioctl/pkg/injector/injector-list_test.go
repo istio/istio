@@ -214,7 +214,7 @@ func Test_injectionDisabled(t *testing.T) {
 			},
 			expected: true,
 		},
-                {
+		{
 			name: "No annotations or labels",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
