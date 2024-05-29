@@ -65,7 +65,7 @@ spec:
     spec:
       containers:
       - image: redis:alpine
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: redis
         ports:
         - name: redis
@@ -114,7 +114,7 @@ spec:
     spec:
       containers:
       - image: envoyproxy/ratelimit:9d8d70a8 # 2022/08/16
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: ratelimit
         command: ["/bin/ratelimit"]
         env:

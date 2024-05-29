@@ -81,6 +81,14 @@ const (
 	podConfigType
 )
 
+// configKeyWithParent is a superset of configKey that also encodes the parent resource. For instance, if something comes
+// from a ServiceEntry selector, the parent is the ServiceEntry
+// This is used to distinguish between 1 config (Pod/SE) selected by 2 different parents (ServiceEntry).
+type configKeyWithParent struct {
+	configKey
+	parent types.NamespacedName
+}
+
 // configKey unique identifies a config object managed by this registry (ServiceEntry and WorkloadEntry)
 type configKey struct {
 	kind      configType
@@ -159,9 +167,6 @@ func NewWorkloadEntryController(configController model.ConfigStoreController, xd
 	s := newController(configController, xdsUpdater, meshConfig, options...)
 	// Disable service entry processing for workload entry controller.
 	s.workloadEntryController = true
-	for _, o := range options {
-		o(s)
-	}
 
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
@@ -176,7 +181,7 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, meshCon
 		meshWatcher: meshConfig,
 		serviceInstances: serviceInstancesStore{
 			ip2instance:            map[string][]*model.ServiceInstance{},
-			instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
+			instances:              map[instancesKey]map[configKeyWithParent][]*model.ServiceInstance{},
 			instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
 			instancesByHostAndPort: sets.New[hostPort](),
 		},
@@ -190,19 +195,6 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, meshCon
 		o(s)
 	}
 	return s
-}
-
-// ConvertServiceEntry convert se from Config.Spec.
-func ConvertServiceEntry(cfg config.Config) *networking.ServiceEntry {
-	se := cfg.Spec.(*networking.ServiceEntry)
-	if se == nil {
-		return nil
-	}
-
-	// shallow copy
-	copied := &networking.ServiceEntry{}
-	protomarshal.ShallowCopy(copied, se)
-	return copied
 }
 
 // ConvertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
@@ -257,7 +249,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	addConfigs := func(se *networking.ServiceEntry, services []*model.Service) {
 		// If serviceentry's resolution is DNS, make a full push
 		// TODO: maybe cds?
-		if se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
+		if isDNSTypeServiceEntry(se) {
 			fullPush = true
 			for key, value := range getUpdatedConfigs(services) {
 				configsUpdated[key] = value
@@ -283,16 +275,21 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	for namespacedName, cfg := range currSes {
 		services := s.services.getServices(namespacedName)
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if wi.DNSServiceEntryOnly && se.Resolution != networking.ServiceEntry_DNS &&
-			se.Resolution != networking.ServiceEntry_DNS_ROUND_ROBIN {
+		if wi.DNSServiceEntryOnly && !isDNSTypeServiceEntry(se) {
 			log.Debugf("skip selecting workload instance %v/%v for DNS service entry %v", wi.Namespace, wi.Name, se.Hosts)
 			continue
 		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesUpdated = append(instancesUpdated, instance...)
+		parentKey := configKeyWithParent{
+			configKey: key,
+			parent:    namespacedName,
+		}
 		if event == model.EventDelete {
 			s.serviceInstances.deleteServiceEntryInstances(namespacedName, key)
+			s.serviceInstances.deleteInstanceKeys(parentKey, instancesUpdated)
 		} else {
+			s.serviceInstances.updateInstances(parentKey, instancesUpdated)
 			s.serviceInstances.updateServiceEntryInstancesPerConfig(namespacedName, key, instance)
 		}
 		addConfigs(se, services)
@@ -302,24 +299,25 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		services := s.services.getServices(namespacedName)
 		cfg := oldSes[namespacedName]
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if wi.DNSServiceEntryOnly && se.Resolution != networking.ServiceEntry_DNS &&
-			se.Resolution != networking.ServiceEntry_DNS_ROUND_ROBIN {
+		if wi.DNSServiceEntryOnly && !isDNSTypeServiceEntry(se) {
 			log.Debugf("skip selecting workload instance %v/%v for DNS service entry %v", wi.Namespace, wi.Name, se.Hosts)
 			continue
 		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
+		parentKey := configKeyWithParent{
+			configKey: key,
+			parent:    namespacedName,
+		}
 		instancesDeleted = append(instancesDeleted, instance...)
 		s.serviceInstances.deleteServiceEntryInstances(namespacedName, key)
+		s.serviceInstances.deleteInstanceKeys(parentKey, instance)
 		addConfigs(se, services)
 	}
 
-	s.serviceInstances.deleteInstanceKeys(key, instancesDeleted)
 	if event == model.EventDelete {
 		s.workloadInstances.Delete(wi)
-		s.serviceInstances.deleteInstanceKeys(key, instancesUpdated)
 	} else {
 		s.workloadInstances.Insert(wi)
-		s.serviceInstances.updateInstances(key, instancesUpdated)
 	}
 	s.mutex.Unlock()
 
@@ -353,7 +351,7 @@ func (s *Controller) NotifyWorkloadInstanceHandlers(wi *model.WorkloadInstance, 
 
 // getUpdatedConfigs returns related service entries when full push
 func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
-	configsUpdated := sets.New[model.ConfigKey]()
+	configsUpdated := sets.NewWithLength[model.ConfigKey](len(services))
 	for _, svc := range services {
 		configsUpdated.Insert(model.ConfigKey{
 			Kind:      kind.ServiceEntry,
@@ -403,14 +401,14 @@ func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Ev
 	serviceInstancesByConfig, serviceInstances := s.buildServiceInstances(curr, cs)
 	oldInstances := s.serviceInstances.getServiceEntryInstances(key)
 	for configKey, old := range oldInstances {
-		s.serviceInstances.deleteInstanceKeys(configKey, old)
+		s.serviceInstances.deleteInstanceKeys(configKeyWithParent{configKey: configKey, parent: key}, old)
 	}
 	if event == model.EventDelete {
 		s.serviceInstances.deleteAllServiceEntryInstances(key)
 	} else {
 		// Update the indexes with new instances.
 		for ckey, value := range serviceInstancesByConfig {
-			s.serviceInstances.addInstances(ckey, value)
+			s.serviceInstances.addInstances(configKeyWithParent{configKey: ckey, parent: key}, value)
 		}
 		s.serviceInstances.updateServiceEntryInstances(key, serviceInstancesByConfig)
 	}
@@ -445,7 +443,7 @@ func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Ev
 	// If the service entry had endpoints with FQDNs (i.e. resolution DNS), then we need to do
 	// full push (as fqdn endpoints go via strict_dns clusters in cds).
 	if len(unchangedSvcs) > 0 {
-		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
+		if isDNSTypeServiceEntry(currentServiceEntry) {
 			for _, svc := range unchangedSvcs {
 				configsUpdated.Insert(makeConfigKey(svc))
 			}
@@ -548,6 +546,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			// If the labels didn't change. And the new SE doesn't match then the old didn't match either and we can skip processing it.
 			continue
 		}
+		cpKey := configKeyWithParent{configKey: key, parent: config.NamespacedName(cfg)}
 
 		// If we are here, then there are 3 possible cases :
 		// Case 1 : The new wi is a subset of se
@@ -563,20 +562,27 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			// If the workload instance still matches. We take care of the possible events.
 			instances = append(instances, currInstance...)
 			if addressToDelete != "" {
+				cfgInstancesDeleted := []*model.ServiceInstance{}
 				for _, i := range currInstance {
 					di := i.DeepCopy()
 					di.Endpoint.Address = addressToDelete
-					instancesDeleted = append(instancesDeleted, di)
+					cfgInstancesDeleted = append(cfgInstancesDeleted, di)
 				}
+				s.serviceInstances.deleteInstanceKeys(cpKey, cfgInstancesDeleted)
 				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 			} else if event == model.EventDelete {
 				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 			} else {
 				s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, currInstance)
 			}
+			if event == model.EventDelete {
+				s.serviceInstances.deleteInstanceKeys(cpKey, currInstance)
+			} else {
+				s.serviceInstances.updateInstances(cpKey, currInstance)
+			}
 			// If serviceentry's resolution is DNS, make a full push
 			// TODO: maybe cds?
-			if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
+			if isDNSTypeServiceEntry(se) &&
 				se.WorkloadSelector != nil {
 
 				fullPush = true
@@ -594,19 +600,11 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			// Since the instance doesn't match the SE anymore. We remove it from the list.
 			oldInstance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
 			instancesDeleted = append(instancesDeleted, oldInstance...)
+			s.serviceInstances.deleteInstanceKeys(cpKey, oldInstance)
 			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 		}
 	}
 
-	if len(instancesDeleted) > 0 {
-		s.serviceInstances.deleteInstanceKeys(key, instancesDeleted)
-	}
-
-	if event == model.EventDelete {
-		s.serviceInstances.deleteInstanceKeys(key, instances)
-	} else {
-		s.serviceInstances.updateInstances(key, instances)
-	}
 	s.mutex.Unlock()
 
 	s.edsUpdate(append(instances, instancesDeleted...))
@@ -1030,8 +1028,7 @@ func (s *Controller) buildServiceInstances(
 		selector := workloadinstances.ByServiceSelector(curr.Namespace, currentServiceEntry.WorkloadSelector.Labels)
 		workloadInstances := workloadinstances.FindAllInIndex(s.workloadInstances, selector)
 		for _, wi := range workloadInstances {
-			if wi.DNSServiceEntryOnly && currentServiceEntry.Resolution != networking.ServiceEntry_DNS &&
-				currentServiceEntry.Resolution != networking.ServiceEntry_DNS_ROUND_ROBIN {
+			if wi.DNSServiceEntryOnly && !isDNSTypeServiceEntry(currentServiceEntry) {
 				log.Debugf("skip selecting workload instance %v/%v for DNS service entry %v", wi.Namespace, wi.Name,
 					currentServiceEntry.Hosts)
 				continue

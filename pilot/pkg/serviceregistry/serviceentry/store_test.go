@@ -22,6 +22,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
@@ -31,7 +32,7 @@ import (
 func TestServiceInstancesStore(t *testing.T) {
 	store := serviceInstancesStore{
 		ip2instance:            map[string][]*model.ServiceInstance{},
-		instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		instances:              map[instancesKey]map[configKeyWithParent][]*model.ServiceInstance{},
 		instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
 		instancesByHostAndPort: sets.Set[hostPort]{},
 	}
@@ -44,7 +45,8 @@ func TestServiceInstancesStore(t *testing.T) {
 		namespace: "default",
 		name:      "test-wle",
 	}
-	store.addInstances(cKey, instances)
+	cpKey := configKeyWithParent{configKey: cKey, parent: config.NamespacedName(selector)}
+	store.addInstances(cpKey, instances)
 
 	// 1. test getByIP
 	gotInstances := store.getByIP("1.1.1.1")
@@ -99,7 +101,7 @@ func TestServiceInstancesStore(t *testing.T) {
 	}
 
 	// 7. test deleteInstanceKeys
-	store.deleteInstanceKeys(cKey, instances)
+	store.deleteInstanceKeys(cpKey, instances)
 	gotInstances = store.getAll()
 	if len(gotInstances) != 0 {
 		t.Errorf("got unexpected instances %v", gotSeInstances)
@@ -132,7 +134,7 @@ func TestServiceStore(t *testing.T) {
 	store.allocateNeeded = false
 	store.deleteServices(httpDNSRR.NamespacedName())
 	got = store.getAllServices()
-	if got != nil {
+	if len(got) != 0 {
 		t.Errorf("got unexpected services %v", got)
 	}
 	if store.allocateNeeded {
@@ -148,7 +150,7 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	otherNs.Namespace = "other"
 	store := serviceInstancesStore{
 		ip2instance:            map[string][]*model.ServiceInstance{},
-		instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		instances:              map[instancesKey]map[configKeyWithParent][]*model.ServiceInstance{},
 		instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
 		instancesByHostAndPort: sets.Set[hostPort]{},
 	}
@@ -160,11 +162,14 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		namespace: "dns",
 		name:      "dns-round-robin-1",
 	}
+	cpKey := configKeyWithParent{configKey: cKey, parent: config.NamespacedName(selector)}
 	// Add instance related to first Service Entry and validate they are added correctly.
-	store.addInstances(cKey, instances)
+	store.addInstances(cpKey, instances)
 
 	store.addInstances(
-		configKey{namespace: otherNs.Namespace, name: otherNs.Name},
+		configKeyWithParent{
+			configKey: configKey{namespace: otherNs.Namespace, name: otherNs.Name},
+		},
 		[]*model.ServiceInstance{
 			makeInstance(otherNs, "1.1.1.1", 444, otherNs.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 			makeInstance(otherNs, "1.1.1.1", 445, otherNs.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
@@ -193,11 +198,13 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	instances = []*model.ServiceInstance{
 		makeInstance(dnsRoundRobinLBSE2, "2.2.2.2", 444, dnsRoundRobinLBSE2.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 	}
-	cKey = configKey{
-		namespace: "dns",
-		name:      "dns-round-robin-2",
+	cpKey = configKeyWithParent{
+		configKey: configKey{
+			namespace: "dns",
+			name:      "dns-round-robin-2",
+		},
 	}
-	store.addInstances(cKey, instances)
+	store.addInstances(cpKey, instances)
 
 	assert.Equal(t, store.getByKey(instancesKey{
 		hostname:  "example.com",

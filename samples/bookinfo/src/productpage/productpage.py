@@ -16,7 +16,6 @@
 
 
 from flask import Flask, request, session, render_template, redirect
-from flask_bootstrap import Bootstrap
 from json2html import json2html
 from opentelemetry import trace
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
@@ -49,8 +48,6 @@ app.logger.setLevel(logging.DEBUG)
 
 # Set the secret key to some random bytes. Keep this really secret!
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
-
-Bootstrap(app)
 
 servicesDomain = "" if (os.environ.get("SERVICES_DOMAIN") is None) else "." + os.environ.get("SERVICES_DOMAIN")
 detailsHostname = "details" if (os.environ.get("DETAILS_HOSTNAME") is None) else os.environ.get("DETAILS_HOSTNAME")
