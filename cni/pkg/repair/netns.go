@@ -52,29 +52,29 @@ func runInHost[T any](f func() (T, error)) (T, error) {
 	return runInNS(getPidNamespace(1), f)
 }
 
-func getInterfaceAddr(interfaceName string) (addr string, err error) {
-	var (
-		ief   *net.Interface
-		addrs []net.Addr
-	)
-	if ief, err = net.InterfaceByName(interfaceName); err != nil {
-		return
+func checkInterfacesForMatchingAddr(targetAddr string) (match bool, err error) {
+	var interfaces []net.Interface
+	if interfaces, err = net.Interfaces(); err != nil {
+		return false, fmt.Errorf("failed to get interfaces")
 	}
-	if addrs, err = ief.Addrs(); err != nil {
-		return
-	}
-	for _, addr := range addrs {
-		switch v := addr.(type) {
-		case *net.IPNet:
-			if v.IP.To4() != nil {
-				return v.IP.String(), nil
-			} else if v.IP.To16() != nil {
-				return v.IP.String(), nil
+
+	for _, ief := range interfaces {
+		var addrs []net.Addr
+		if addrs, err = ief.Addrs(); err != nil {
+			return
+		}
+		for _, addr := range addrs {
+			switch v := addr.(type) {
+			case *net.IPNet:
+				if v.IP.String() == targetAddr {
+					return true, nil
+				}
 			}
 		}
 	}
-	return "", fmt.Errorf("interface %s doesn't have an IP address", interfaceName)
+	return false, fmt.Errorf("no interface has the address %s", targetAddr)
 }
+
 
 // getPodNetNs finds the network namespace for a given pod. There is not a great way to do this. Network namespaces live
 // under the procfs, /proc/<pid>/ns/net. In majority of cases, this is not used directly, but is rather bind mounted to
@@ -105,16 +105,18 @@ func getPodNetNs(pod *corev1.Pod) (string, error) {
 	// We want the pause container, as the istio-validation one may exit before we are done.
 	// We do this by detecting the longest running process. We could look at `cmdline`, but is likely more reliable to weird platforms.
 	for _, p := range procs {
+		match := false
 		ns := getPidNamespace(p.PID)
-		gip, err := runInNS(ns, func() (string, error) {
-			return getInterfaceAddr("eth0")
+
+		match, err := runInNS(ns, func() (bool, error) {
+			return checkInterfacesForMatchingAddr(pod.Status.PodIP)
 		})
 		if err != nil {
-			log.Warnf("failed to read addr for eth0 in ns of pid %v ns: %v", p.PID, err)
+			log.Warnf("failed to read addr for intfs in ns of pid %v ns: %v", p.PID, err)
 			continue
 		}
 
-		if gip != pod.Status.PodIP {
+		if !match {
 			// Not the network we want, skip
 			continue
 		}
