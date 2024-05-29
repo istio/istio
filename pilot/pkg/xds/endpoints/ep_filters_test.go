@@ -727,7 +727,7 @@ func TestEndpointsWithMTLSFilter(t *testing.T) {
 			},
 		},
 	}
-	var networkFilteredForSniDnatCluster = []networkFilterCase{}
+	networkFilteredForSniDnatCluster := []networkFilterCase{}
 	for _, testcase := range networkFiltered {
 		testcase.want = slices.Clone(testcase.want)
 		for i := range testcase.want {
@@ -864,7 +864,8 @@ func testShards() *model.EndpointIndex {
 		{Cluster: "cluster1a"}: {
 			{Network: "network1", Address: "10.0.0.1"},
 			{Network: "network1", Address: "foo.bar"}, // endpoint generated from ServiceEntry
-			{Network: "network1", Address: "10.0.0.3", // endpoint when using HBONE
+			{
+				Network: "network1", Address: "10.0.0.3", // endpoint when using HBONE
 				Labels: map[string]string{model.TunnelLabel: model.TunnelHTTP},
 			},
 		},

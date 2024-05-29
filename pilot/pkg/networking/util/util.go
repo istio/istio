@@ -675,9 +675,9 @@ func GetEndpointHost(e *endpoint.LbEndpoint) string {
 	if host := addr.GetSocketAddress().GetAddress(); host != "" {
 		return host
 	}
-	if endpointId := addr.GetEnvoyInternalAddress().GetEndpointId(); endpointId != "" {
+	if endpointID := addr.GetEnvoyInternalAddress().GetEndpointId(); endpointID != "" {
 		// extract host from endpoint id
-		host, _, _ := net.SplitHostPort(endpointId)
+		host, _, _ := net.SplitHostPort(endpointID)
 		return host
 	}
 	return ""
