@@ -67,7 +67,10 @@ func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 	serviceNames := map[string]string{}
 	workloadNames := map[string]string{}
 	for _, s := range d.Services {
-		_, ip, _ := strings.Cut(s.Addresses[0], "/")
+		var ip string
+		if len(s.Addresses) != 0 {
+			_, ip, _ = strings.Cut(s.Addresses[0], "/")
+		}
 		if ip == "" {
 			// fallback to None when a service does not have a VIP
 			ip = "None"
