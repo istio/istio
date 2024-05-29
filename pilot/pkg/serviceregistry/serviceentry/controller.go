@@ -81,6 +81,14 @@ const (
 	podConfigType
 )
 
+// configKeyWithParent is a superset of configKey that also encodes the parent resource. For instance, if something comes
+// from a ServiceEntry selector, the parent is the ServiceEntry
+// This is used to distinguish between 1 config (Pod/SE) selected by 2 different parents (ServiceEntry).
+type configKeyWithParent struct {
+	configKey
+	parent types.NamespacedName
+}
+
 // configKey unique identifies a config object managed by this registry (ServiceEntry and WorkloadEntry)
 type configKey struct {
 	kind      configType
@@ -173,7 +181,7 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, meshCon
 		meshWatcher: meshConfig,
 		serviceInstances: serviceInstancesStore{
 			ip2instance:            map[string][]*model.ServiceInstance{},
-			instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
+			instances:              map[instancesKey]map[configKeyWithParent][]*model.ServiceInstance{},
 			instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
 			instancesByHostAndPort: sets.New[hostPort](),
 		},
@@ -273,9 +281,15 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesUpdated = append(instancesUpdated, instance...)
+		parentKey := configKeyWithParent{
+			configKey: key,
+			parent:    namespacedName,
+		}
 		if event == model.EventDelete {
 			s.serviceInstances.deleteServiceEntryInstances(namespacedName, key)
+			s.serviceInstances.deleteInstanceKeys(parentKey, instancesUpdated)
 		} else {
+			s.serviceInstances.updateInstances(parentKey, instancesUpdated)
 			s.serviceInstances.updateServiceEntryInstancesPerConfig(namespacedName, key, instance)
 		}
 		addConfigs(se, services)
@@ -290,18 +304,20 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 			continue
 		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
+		parentKey := configKeyWithParent{
+			configKey: key,
+			parent:    namespacedName,
+		}
 		instancesDeleted = append(instancesDeleted, instance...)
 		s.serviceInstances.deleteServiceEntryInstances(namespacedName, key)
+		s.serviceInstances.deleteInstanceKeys(parentKey, instance)
 		addConfigs(se, services)
 	}
 
-	s.serviceInstances.deleteInstanceKeys(key, instancesDeleted)
 	if event == model.EventDelete {
 		s.workloadInstances.Delete(wi)
-		s.serviceInstances.deleteInstanceKeys(key, instancesUpdated)
 	} else {
 		s.workloadInstances.Insert(wi)
-		s.serviceInstances.updateInstances(key, instancesUpdated)
 	}
 	s.mutex.Unlock()
 
@@ -385,14 +401,14 @@ func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Ev
 	serviceInstancesByConfig, serviceInstances := s.buildServiceInstances(curr, cs)
 	oldInstances := s.serviceInstances.getServiceEntryInstances(key)
 	for configKey, old := range oldInstances {
-		s.serviceInstances.deleteInstanceKeys(configKey, old)
+		s.serviceInstances.deleteInstanceKeys(configKeyWithParent{configKey: configKey, parent: key}, old)
 	}
 	if event == model.EventDelete {
 		s.serviceInstances.deleteAllServiceEntryInstances(key)
 	} else {
 		// Update the indexes with new instances.
 		for ckey, value := range serviceInstancesByConfig {
-			s.serviceInstances.addInstances(ckey, value)
+			s.serviceInstances.addInstances(configKeyWithParent{configKey: ckey, parent: key}, value)
 		}
 		s.serviceInstances.updateServiceEntryInstances(key, serviceInstancesByConfig)
 	}
@@ -530,6 +546,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			// If the labels didn't change. And the new SE doesn't match then the old didn't match either and we can skip processing it.
 			continue
 		}
+		cpKey := configKeyWithParent{configKey: key, parent: config.NamespacedName(cfg)}
 
 		// If we are here, then there are 3 possible cases :
 		// Case 1 : The new wi is a subset of se
@@ -545,16 +562,23 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			// If the workload instance still matches. We take care of the possible events.
 			instances = append(instances, currInstance...)
 			if addressToDelete != "" {
+				cfgInstancesDeleted := []*model.ServiceInstance{}
 				for _, i := range currInstance {
 					di := i.DeepCopy()
 					di.Endpoint.Address = addressToDelete
-					instancesDeleted = append(instancesDeleted, di)
+					cfgInstancesDeleted = append(cfgInstancesDeleted, di)
 				}
+				s.serviceInstances.deleteInstanceKeys(cpKey, cfgInstancesDeleted)
 				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 			} else if event == model.EventDelete {
 				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 			} else {
 				s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, currInstance)
+			}
+			if event == model.EventDelete {
+				s.serviceInstances.deleteInstanceKeys(cpKey, currInstance)
+			} else {
+				s.serviceInstances.updateInstances(cpKey, currInstance)
 			}
 			// If serviceentry's resolution is DNS, make a full push
 			// TODO: maybe cds?
@@ -576,19 +600,11 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			// Since the instance doesn't match the SE anymore. We remove it from the list.
 			oldInstance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
 			instancesDeleted = append(instancesDeleted, oldInstance...)
+			s.serviceInstances.deleteInstanceKeys(cpKey, oldInstance)
 			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 		}
 	}
 
-	if len(instancesDeleted) > 0 {
-		s.serviceInstances.deleteInstanceKeys(key, instancesDeleted)
-	}
-
-	if event == model.EventDelete {
-		s.serviceInstances.deleteInstanceKeys(key, instances)
-	} else {
-		s.serviceInstances.updateInstances(key, instances)
-	}
 	s.mutex.Unlock()
 
 	s.edsUpdate(append(instances, instancesDeleted...))
