@@ -1393,7 +1393,10 @@ templates:
             securityContext:
               privileged: false
               runAsGroup: 1337
-              runAsUser: 0
+              runAsUser: 1337
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
               capabilities:
                 drop:
                 - ALL
