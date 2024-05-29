@@ -862,10 +862,10 @@ func testShards() *model.EndpointIndex {
 	shards := &model.EndpointShards{Shards: map[model.ShardKey][]*model.IstioEndpoint{
 		// network1 has one endpoint in each cluster
 		{Cluster: "cluster1a"}: {
-			{Network: "network1", Addresses: []string{Address: "10.0.0.1"}},
+			{Network: "network1", Addresses: []string{"10.0.0.1"}},
 			{Network: "network1", Addresses: []string{"foo.bar"}}, // endpoint generated from ServiceEntry
 			{
-				Network: "network1", Addresses: []string{"10.0.0.3}", // endpoint when using HBONE
+				Network: "network1", Addresses: []string{"10.0.0.3"}, // endpoint when using HBONE
 				Labels: map[string]string{model.TunnelLabel: model.TunnelHTTP},
 			},
 		},

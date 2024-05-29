@@ -1041,7 +1041,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Addresses:      []string{"2.2.2.2"},
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: genTestSpiffe(selectorDNS.Name, "default"),
+			ServiceAccount: genTestSpiffe(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
