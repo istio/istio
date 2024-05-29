@@ -9,7 +9,7 @@ spec:
     myapp: private-ingressgateway
   servers:
   - port:
-      number: 8004
+      number: 80
       name: http2
       protocol: HTTP
     hosts:
