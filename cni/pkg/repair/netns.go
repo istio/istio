@@ -75,7 +75,6 @@ func checkInterfacesForMatchingAddr(targetAddr string) (match bool, err error) {
 	return false, fmt.Errorf("no interface has the address %s", targetAddr)
 }
 
-
 // getPodNetNs finds the network namespace for a given pod. There is not a great way to do this. Network namespaces live
 // under the procfs, /proc/<pid>/ns/net. In majority of cases, this is not used directly, but is rather bind mounted to
 // /var/run/netns/<name>. However, this pattern is not ubiquitous. Some platforms bind mount to other places. As we run
