@@ -17,10 +17,10 @@ package kube
 import (
 	"strings"
 
-	"istio.io/istio/pkg/util/sets"
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
