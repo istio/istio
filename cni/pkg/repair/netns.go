@@ -16,12 +16,13 @@ package repair
 
 import (
 	"fmt"
-	netns "github.com/containernetworking/plugins/pkg/ns"
-	"github.com/prometheus/procfs"
-	corev1 "k8s.io/api/core/v1"
 	"math"
 	"net"
 	"strconv"
+
+	netns "github.com/containernetworking/plugins/pkg/ns"
+	"github.com/prometheus/procfs"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/log"
 )
