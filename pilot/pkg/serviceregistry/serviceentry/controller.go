@@ -159,9 +159,6 @@ func NewWorkloadEntryController(configController model.ConfigStoreController, xd
 	s := newController(configController, xdsUpdater, meshConfig, options...)
 	// Disable service entry processing for workload entry controller.
 	s.workloadEntryController = true
-	for _, o := range options {
-		o(s)
-	}
 
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
@@ -190,19 +187,6 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, meshCon
 		o(s)
 	}
 	return s
-}
-
-// ConvertServiceEntry convert se from Config.Spec.
-func ConvertServiceEntry(cfg config.Config) *networking.ServiceEntry {
-	se := cfg.Spec.(*networking.ServiceEntry)
-	if se == nil {
-		return nil
-	}
-
-	// shallow copy
-	copied := &networking.ServiceEntry{}
-	protomarshal.ShallowCopy(copied, se)
-	return copied
 }
 
 // ConvertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
@@ -257,7 +241,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	addConfigs := func(se *networking.ServiceEntry, services []*model.Service) {
 		// If serviceentry's resolution is DNS, make a full push
 		// TODO: maybe cds?
-		if se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
+		if isDNSTypeServiceEntry(se) {
 			fullPush = true
 			for key, value := range getUpdatedConfigs(services) {
 				configsUpdated[key] = value
@@ -283,8 +267,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	for namespacedName, cfg := range currSes {
 		services := s.services.getServices(namespacedName)
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if wi.DNSServiceEntryOnly && se.Resolution != networking.ServiceEntry_DNS &&
-			se.Resolution != networking.ServiceEntry_DNS_ROUND_ROBIN {
+		if wi.DNSServiceEntryOnly && !isDNSTypeServiceEntry(se) {
 			log.Debugf("skip selecting workload instance %v/%v for DNS service entry %v", wi.Namespace, wi.Name, se.Hosts)
 			continue
 		}
@@ -302,8 +285,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		services := s.services.getServices(namespacedName)
 		cfg := oldSes[namespacedName]
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if wi.DNSServiceEntryOnly && se.Resolution != networking.ServiceEntry_DNS &&
-			se.Resolution != networking.ServiceEntry_DNS_ROUND_ROBIN {
+		if wi.DNSServiceEntryOnly && !isDNSTypeServiceEntry(se) {
 			log.Debugf("skip selecting workload instance %v/%v for DNS service entry %v", wi.Namespace, wi.Name, se.Hosts)
 			continue
 		}
@@ -353,7 +335,7 @@ func (s *Controller) NotifyWorkloadInstanceHandlers(wi *model.WorkloadInstance, 
 
 // getUpdatedConfigs returns related service entries when full push
 func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
-	configsUpdated := sets.New[model.ConfigKey]()
+	configsUpdated := sets.NewWithLength[model.ConfigKey](len(services))
 	for _, svc := range services {
 		configsUpdated.Insert(model.ConfigKey{
 			Kind:      kind.ServiceEntry,
@@ -445,7 +427,7 @@ func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Ev
 	// If the service entry had endpoints with FQDNs (i.e. resolution DNS), then we need to do
 	// full push (as fqdn endpoints go via strict_dns clusters in cds).
 	if len(unchangedSvcs) > 0 {
-		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
+		if isDNSTypeServiceEntry(currentServiceEntry) {
 			for _, svc := range unchangedSvcs {
 				configsUpdated.Insert(makeConfigKey(svc))
 			}
@@ -576,7 +558,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			}
 			// If serviceentry's resolution is DNS, make a full push
 			// TODO: maybe cds?
-			if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
+			if isDNSTypeServiceEntry(se) &&
 				se.WorkloadSelector != nil {
 
 				fullPush = true
@@ -1030,8 +1012,7 @@ func (s *Controller) buildServiceInstances(
 		selector := workloadinstances.ByServiceSelector(curr.Namespace, currentServiceEntry.WorkloadSelector.Labels)
 		workloadInstances := workloadinstances.FindAllInIndex(s.workloadInstances, selector)
 		for _, wi := range workloadInstances {
-			if wi.DNSServiceEntryOnly && currentServiceEntry.Resolution != networking.ServiceEntry_DNS &&
-				currentServiceEntry.Resolution != networking.ServiceEntry_DNS_ROUND_ROBIN {
+			if wi.DNSServiceEntryOnly && !isDNSTypeServiceEntry(currentServiceEntry) {
 				log.Debugf("skip selecting workload instance %v/%v for DNS service entry %v", wi.Namespace, wi.Name,
 					currentServiceEntry.Hosts)
 				continue

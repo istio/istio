@@ -132,7 +132,7 @@ func TestServiceStore(t *testing.T) {
 	store.allocateNeeded = false
 	store.deleteServices(httpDNSRR.NamespacedName())
 	got = store.getAllServices()
-	if got != nil {
+	if len(got) != 0 {
 		t.Errorf("got unexpected services %v", got)
 	}
 	if store.allocateNeeded {
