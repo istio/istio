@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/framework"
@@ -35,13 +36,11 @@ const (
 )
 
 type wasmTestConfigs struct {
-	desc            string
-	name            string
-	policy          string
-	tag             string
-	upstreamVersion string
-	expectedVersion string
-	testHostname    string
+	desc         string
+	name         string
+	tag          string
+	version      string
+	testHostname string
 }
 
 var generation = 0
@@ -68,15 +67,15 @@ func applyAndTestCustomWasmConfigWithOCI(ctx framework.TestContext, c wasmTestCo
 		defer func() {
 			generation++
 		}()
-		mapTagToVersionOrFail(t, c.tag, c.upstreamVersion)
-		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), imageName, c.tag)
-		if err := installWasmExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", generation), path); err != nil {
+		mapTagToVersionOrFail(t, "latest", "0.0.1")
+		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), imageName, "latest")
+		if err := installWasmExtension(t, c.name, wasmModuleURL, "", fmt.Sprintf("g-%d", generation), path); err != nil {
 			t.Fatalf("failed to install WasmPlugin: %v", err)
 		}
 		if c.testHostname != "" {
-			sendTrafficToHostname(t, check.ResponseHeader(injectedHeader, c.expectedVersion), c.testHostname)
+			sendTrafficToHostname(t, check.ResponseHeader(injectedHeader, "0.0.1"), c.testHostname)
 		} else {
-			sendTraffic(t, check.ResponseHeader(injectedHeader, c.expectedVersion))
+			sendTraffic(t, check.ResponseHeader(injectedHeader, "0.0.1"))
 		}
 	})
 }
@@ -96,11 +95,13 @@ func applyWasmConfig(ctx framework.TestContext, ns string, args map[string]any, 
 
 func installWasmExtension(ctx framework.TestContext, pluginName, wasmModuleURL, imagePullPolicy, pluginVersion, path string) error {
 	args := map[string]any{
-		"WasmPluginName":    pluginName,
-		"TestWasmModuleURL": wasmModuleURL,
-		"WasmPluginVersion": pluginVersion,
-		"TargetAppName":     GetTarget().(echo.Instances).NamespacedName().Name,
-		"TargetGatewayName": GetTarget().(echo.Instances).ServiceName() + "-gateway",
+		"WasmPluginName":     pluginName,
+		"TestWasmModuleURL":  wasmModuleURL,
+		"WasmPluginVersion":  pluginVersion,
+		"TargetAppName":      GetTarget().(echo.Instances).NamespacedName().Name,
+		"TargetGatewayName":  GetTarget().(echo.Instances).ServiceName() + "-gateway",
+		"TargetServiceName":  GetTarget().(echo.Instances).ServiceName(),
+		"TargetWaypointName": constants.DefaultNamespaceWaypoint,
 	}
 
 	if len(imagePullPolicy) != 0 {
@@ -190,16 +191,39 @@ func TestGatewaySelection(t *testing.T) {
 				"To": GetTarget().(echo.Instances),
 			}
 			t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/gateway-api.yaml").ApplyOrFail(t)
-			applyAndTestCustomWasmConfigWithOCI(t, wasmTestConfigs{
-				desc:            "initial creation with latest for a gateway",
-				name:            "wasm-test-module",
-				tag:             "latest",
-				policy:          "",
-				upstreamVersion: "0.0.1",
-				expectedVersion: "0.0.1",
-				testHostname:    fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", GetTarget().ServiceName(), apps.Namespace.Name()),
-			}, "testdata/gateway-wasm-filter.yaml")
 
-			resetCustomWasmConfig(t, "wasm-test-module", "testdata/gateway-wasm-filter.yaml")
+			testCases := []struct {
+				desc         string
+				name         string
+				testHostname string
+				yamlFilePath string
+			}{
+				{
+					desc:         "initial creation with latest for a gateway",
+					name:         "gateway-wasm-test",
+					testHostname: fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", GetTarget().ServiceName(), apps.Namespace.Name()),
+					yamlFilePath: "testdata/gateway-wasm-filter.yaml",
+				},
+				{
+					desc:         "Configure WebAssembly filter for waypoint gateway",
+					name:         "waypoint-wasm-test",
+					yamlFilePath: "testdata/wasm-filter.yaml",
+				},
+				// {
+				// 	desc:         "Configure WebAssembly filter for specific service",
+				// 	name:         "service-wasm-test",
+				// 	yamlFilePath: "testdata/wasm-filter-service.yaml",
+				// },
+			}
+
+			for _, tc := range testCases {
+				applyAndTestCustomWasmConfigWithOCI(t, wasmTestConfigs{
+					desc:         tc.desc,
+					name:         tc.name,
+					testHostname: tc.testHostname,
+				}, tc.yamlFilePath)
+
+				resetCustomWasmConfig(t, tc.name, tc.yamlFilePath)
+			}
 		})
 }
