@@ -16,13 +16,12 @@ package repair
 
 import (
 	"fmt"
-	"math"
-	"net"
-	"strconv"
-
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/prometheus/procfs"
 	corev1 "k8s.io/api/core/v1"
+	"math"
+	"net"
+	"strconv"
 
 	"istio.io/istio/pkg/log"
 )
@@ -31,13 +30,10 @@ func getPidNamespace(pid int) string {
 	return "/host/proc/" + strconv.Itoa(pid) + "/ns/net"
 }
 
-func runInNS[T any](pidNs string, f func() (T, error)) (T, error) {
+func runInHost[T any](f func() (T, error)) (T, error) {
 	var res T
-	ns, err := netns.GetNS(pidNs)
-	if err != nil {
-		return res, fmt.Errorf("failed to get network namespace %v: %v", pidNs, err)
-	}
-	err = ns.Do(func(ns netns.NetNS) error {
+	ns := getPidNamespace(1)
+	err := netns.WithNetNSPath(ns, func(_ netns.NetNS) error {
 		var err error
 		res, err = f()
 		return err
@@ -45,14 +41,11 @@ func runInNS[T any](pidNs string, f func() (T, error)) (T, error) {
 	if err != nil {
 		return res, fmt.Errorf("in network namespace %v: %v", ns, err)
 	}
+
 	return res, nil
 }
 
-func runInHost[T any](f func() (T, error)) (T, error) {
-	return runInNS(getPidNamespace(1), f)
-}
-
-func checkInterfacesForMatchingAddr(targetAddr string) (match bool, err error) {
+func checkInterfacesForMatchingAddr(targetAddr net.IP) (match bool, err error) {
 	var interfaces []net.Interface
 	if interfaces, err = net.Interfaces(); err != nil {
 		return false, fmt.Errorf("failed to get interfaces")
@@ -66,7 +59,7 @@ func checkInterfacesForMatchingAddr(targetAddr string) (match bool, err error) {
 		for _, addr := range addrs {
 			switch v := addr.(type) {
 			case *net.IPNet:
-				if v.IP.String() == targetAddr {
+				if v.IP.Equal(targetAddr) {
 					return true, nil
 				}
 			}
@@ -88,6 +81,11 @@ func checkInterfacesForMatchingAddr(targetAddr string) (match bool, err error) {
 //
 // Instead, we traverse the procfs. Comments on this method are inline.
 func getPodNetNs(pod *corev1.Pod) (string, error) {
+	parsedPodAddr := net.ParseIP(pod.Status.PodIP)
+	if parsedPodAddr == nil {
+		return "", fmt.Errorf("failed to parse addr: %s", pod.Status.PodIP)
+	}
+
 	fs, err := procfs.NewFS("/host/proc")
 	if err != nil {
 		return "", fmt.Errorf("read procfs: %v", err)
@@ -107,11 +105,13 @@ func getPodNetNs(pod *corev1.Pod) (string, error) {
 		match := false
 		ns := getPidNamespace(p.PID)
 
-		match, err := runInNS(ns, func() (bool, error) {
-			return checkInterfacesForMatchingAddr(pod.Status.PodIP)
+		err := netns.WithNetNSPath(ns, func(_ netns.NetNS) error {
+			var err error
+			match, err = checkInterfacesForMatchingAddr(parsedPodAddr)
+			return err
 		})
 		if err != nil {
-			log.Warnf("failed to read addr for intfs in ns of pid %v ns: %v", p.PID, err)
+			log.Warnf("failed to check proc %d netns interfaces: %v", p.PID, err)
 			continue
 		}
 
