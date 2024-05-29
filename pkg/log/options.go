@@ -84,8 +84,8 @@ type Options struct {
 	ErrorOutputPaths []string
 
 	// RotateOutputPath is the path to a rotating log file. This file should
-	// be automatically rotated over time, based on the rotation parameter:
-	// RotationMaxSize.
+	// be automatically rotated over time, based on the rotation parameters such
+	// as RotationMaxSize and RotationMaxAge. The default is to not rotate.
 	//
 	// This path is used as a foundational path. This is where log output is normally
 	// saved. When a rotation needs to take place because the file got too big,
