@@ -30,7 +30,7 @@ type hostPort struct {
 type serviceInstancesStore struct {
 	ip2instance map[string][]*model.ServiceInstance
 	// service instances by hostname -> config
-	instances map[instancesKey]map[configKey][]*model.ServiceInstance
+	instances map[instancesKey]map[configKeyWithParent][]*model.ServiceInstance
 	// instances only for serviceentry
 	instancesBySE map[types.NamespacedName]map[configKey][]*model.ServiceInstance
 	// instancesByHostAndPort tells whether the host has instances.
@@ -61,7 +61,7 @@ func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInsta
 // deleteInstanceKeys deletes all instances with the given configKey and instanceKey
 // Note: as a convenience, this takes a []ServiceInstance instead of []instanceKey, as most callers have this format
 // However, this function only operates on the instance keys
-func (s *serviceInstancesStore) deleteInstanceKeys(key configKey, instances []*model.ServiceInstance) {
+func (s *serviceInstancesStore) deleteInstanceKeys(key configKeyWithParent, instances []*model.ServiceInstance) {
 	for _, i := range instances {
 		ikey := makeInstanceKey(i)
 		s.instancesByHostAndPort.Delete(hostPort{ikey, i.ServicePort.Port})
@@ -80,7 +80,7 @@ func (s *serviceInstancesStore) deleteInstanceKeys(key configKey, instances []*m
 }
 
 // addInstances add the instances to the store.
-func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.ServiceInstance) {
+func (s *serviceInstancesStore) addInstances(key configKeyWithParent, instances []*model.ServiceInstance) {
 	for _, instance := range instances {
 		ikey := makeInstanceKey(instance)
 		hostPort := hostPort{ikey, instance.ServicePort.Port}
@@ -95,7 +95,7 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 			continue
 		}
 		if _, f := s.instances[ikey]; !f {
-			s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
+			s.instances[ikey] = map[configKeyWithParent][]*model.ServiceInstance{}
 		}
 		s.instancesByHostAndPort.Insert(hostPort)
 		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
@@ -105,7 +105,7 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 	}
 }
 
-func (s *serviceInstancesStore) updateInstances(key configKey, instances []*model.ServiceInstance) {
+func (s *serviceInstancesStore) updateInstances(key configKeyWithParent, instances []*model.ServiceInstance) {
 	// first delete
 	s.deleteInstanceKeys(key, instances)
 
