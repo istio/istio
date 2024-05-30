@@ -33,12 +33,12 @@ func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
 ) []*core.TypedExtensionConfig {
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	extensions := envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
-	wasmPlugins := push.WasmPluginsByName(proxy, parseExtensionName(extensionConfigNames))
+	wasmPlugins := push.WasmPluginsByName(proxy, ParseExtensionName(extensionConfigNames))
 	extensions = append(extensions, extension.InsertedExtensionConfigurations(wasmPlugins, extensionConfigNames, pullSecrets)...)
 	return extensions
 }
 
-func parseExtensionName(names []string) []types.NamespacedName {
+func ParseExtensionName(names []string) []types.NamespacedName {
 	res := make([]types.NamespacedName, 0, len(names))
 	for _, n := range names {
 		if !strings.HasPrefix(n, model.WasmPluginResourceNamePrefix) {

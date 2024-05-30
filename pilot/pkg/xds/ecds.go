@@ -167,7 +167,7 @@ func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceName
 	// TODO: we get the WasmPlugins here to get the secrets reference in order to decide whether ECDS push is needed,
 	//       and we will get it again at extension config build. Avoid getting it twice if this becomes a problem.
 	watched := sets.New(resourceNames...)
-	wasmPlugins := push.WasmPlugins(proxy)
+	wasmPlugins := push.WasmPluginsByName(proxy, core.ParseExtensionName(resourceNames))
 	referencedSecrets := sets.String{}
 	for _, wps := range wasmPlugins {
 		for _, wp := range wps {
