@@ -79,6 +79,14 @@ defaults:
     # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
     ipFamilyPolicy: ""
     ipFamilies: []
+
+    # Ambient mode only.
+    # Set this if you install ztunnel to a different namespace from `istiod`.
+    # If set, `istiod` will allow connections from trusted node proxy ztunnels
+    # in the provided namespace.
+    # If unset, `istiod` will assume the trusted node proxy ztunnel resides
+    # in the same namespace as itself.
+    trustedZtunnelNamespace: ""
   sidecarInjectorWebhook:
     # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
     # always skip the injection on pods that match that label selector, regardless of the global policy.
