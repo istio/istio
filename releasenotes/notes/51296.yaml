@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 51296
+releaseNotes:
+  - |
+    **Improved** Improved the error output for `istioctl version` to be more user-friendly.

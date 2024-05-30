@@ -857,7 +857,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		}
 	}
 	if len(readyPods) == 0 {
-		return nil, fmt.Errorf("no ready Istio pods in %q", namespace)
+		return nil, fmt.Errorf("no running Istio pods in namespace %q", namespace)
 	}
 
 	var errs error
