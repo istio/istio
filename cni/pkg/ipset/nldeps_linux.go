@@ -60,7 +60,7 @@ func (m *realDeps) addIP(name string, ip netip.Addr, ipProto uint8, comment stri
 		Replace:  replace,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to add IP %s with and proto %d to ipset %s: %w", ip, ipProto, name, err)
+		return fmt.Errorf("failed to add IP %s to ipset %s: %w", ip, name, err)
 	}
 	return nil
 }
@@ -71,7 +71,7 @@ func (m *realDeps) deleteIP(name string, ip netip.Addr, ipProto uint8) error {
 		Protocol: &ipProto,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to delete IP %s with and proto %d from ipset %s: %w", ip, ipProto, name, err)
+		return fmt.Errorf("failed to delete IP %s from ipset %s: %w", ip, name, err)
 	}
 	return nil
 }
