@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/registryredirector"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 )
 
 var registry registryredirector.Instance
@@ -41,6 +42,14 @@ func testRegistrySetup(ctx resource.Context) (err error) {
 		return
 	}
 
+	args := map[string]any{
+		"DockerConfigJson": base64.StdEncoding.EncodeToString(
+			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
+	}
+	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/registry-secret.yaml").
+		Apply(apply.CleanupConditionally); err != nil {
+		return err
+	}
 	return nil
 }
 

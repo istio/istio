@@ -19,7 +19,6 @@ package ambient
 
 import (
 	"context"
-	"encoding/base64"
 	"strings"
 	"testing"
 
@@ -133,7 +132,6 @@ values:
 			return SetupApps(t, i, apps)
 		}).
 		Setup(testRegistrySetup).
-		Setup(SetupSuite).
 		Run()
 }
 
@@ -421,17 +419,5 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 
 	}
 
-	return nil
-}
-
-func SetupSuite(ctx resource.Context) (err error) {
-	args := map[string]any{
-		"DockerConfigJson": base64.StdEncoding.EncodeToString(
-			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
-	}
-	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/registry-secret.yaml").
-		Apply(apply.CleanupConditionally); err != nil {
-		return err
-	}
 	return nil
 }

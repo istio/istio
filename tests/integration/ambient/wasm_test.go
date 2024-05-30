@@ -185,16 +185,9 @@ func sendTrafficToHostname(ctx framework.TestContext, checker echo.Checker, host
 	_ = cltInstance.CallOrFail(ctx, httpOpts)
 }
 
-// TestTargetRef vs workloadSelector for gateways
-func TestGatewaySelection(t *testing.T) {
+func TestWasmPluginConfigurations(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			crd.DeployGatewayAPIOrSkip(t)
-			args := map[string]any{
-				"To": GetTarget().(echo.Instances),
-			}
-			t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/gateway-api.yaml").ApplyOrFail(t)
-
 			testCases := []struct {
 				desc         string
 				name         string
@@ -220,6 +213,14 @@ func TestGatewaySelection(t *testing.T) {
 			}
 
 			for _, tc := range testCases {
+				if tc.name == "gateway-wasm-test" {
+					crd.DeployGatewayAPIOrSkip(t)
+					args := map[string]any{
+						"To": GetTarget().(echo.Instances),
+					}
+					t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/gateway-api.yaml").ApplyOrFail(t)
+				}
+
 				applyAndTestCustomWasmConfigWithOCI(t, wasmTestConfigs{
 					desc:         tc.desc,
 					name:         tc.name,
