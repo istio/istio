@@ -147,6 +147,15 @@ spec:
                 fieldPath: spec.serviceAccountName
           - name: KUBECONFIG
             value: /var/run/secrets/remote/config
+          # If you explicitly told us where ztunnel lives, use that.
+          # Otherwise, assume it lives in our namespace
+          # Also, check for an explicit ENV override (legacy approach) and prefer that
+          # if present
+          {{ $ztTrustedNS := or .Values.pilot.trustedZtunnelNamespace .Release.Namespace }}
+          {{- if not .Values.pilot.env.CA_TRUSTED_NODE_ACCOUNTS }}
+          - name: CA_TRUSTED_NODE_ACCOUNTS
+            value: "{{ $ztTrustedNS }}/ztunnel"
+          {{- end }}
           {{- if .Values.pilot.env }}
           {{- range $key, $val := .Values.pilot.env }}
           - name: {{ $key }}
