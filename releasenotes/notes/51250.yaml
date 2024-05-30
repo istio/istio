@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** istio operator with `REVISION` env set to blank reconciling revisioned IOPs. The change limits the reconciliation in this case to only IOPs which have `revision` field set to blank.
