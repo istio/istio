@@ -79,7 +79,6 @@ defaults:
     # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
     ipFamilyPolicy: ""
     ipFamilies: []
-
     # Ambient mode only.
     # Set this if you install ztunnel to a different namespace from `istiod`.
     # If set, `istiod` will allow connections from trusted node proxy ztunnels
