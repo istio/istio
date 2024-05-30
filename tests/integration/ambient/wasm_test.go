@@ -205,11 +205,11 @@ func TestWasmPluginConfigurations(t *testing.T) {
 					name:         "waypoint-wasm-test",
 					yamlFilePath: "testdata/wasm-filter.yaml",
 				},
-				// {
-				// 	desc:         "Configure WebAssembly filter for specific service",
-				// 	name:         "service-wasm-test",
-				// 	yamlFilePath: "testdata/wasm-filter-service.yaml",
-				// },
+				{
+					desc:         "Configure WebAssembly filter for specific service",
+					name:         "service-wasm-test",
+					yamlFilePath: "testdata/wasm-filter-service.yaml",
+				},
 			}
 
 			for _, tc := range testCases {
