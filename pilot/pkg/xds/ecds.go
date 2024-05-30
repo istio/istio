@@ -33,7 +33,7 @@ import (
 // EcdsGenerator generates ECDS configuration.
 type EcdsGenerator struct {
 	ConfigGenerator  core.ConfigGenerator
-	secretController credscontroller.MulticlusterController
+	SecretController credscontroller.MulticlusterController
 }
 
 var _ model.XdsResourceGenerator = &EcdsGenerator{}
@@ -106,9 +106,9 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	var secrets map[string][]byte
 	if len(wasmSecrets) > 0 {
 		// Generate the pull secrets first, which will be used when populating the extension config.
-		if e.secretController != nil {
+		if e.SecretController != nil {
 			var err error
-			secretController, err := e.secretController.ForCluster(proxy.Metadata.ClusterID)
+			secretController, err := e.SecretController.ForCluster(proxy.Metadata.ClusterID)
 			if err != nil {
 				log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates for Wasm image pull: %v", proxy.ID, err)
 				return nil, model.DefaultXdsLogDetails, nil
@@ -154,10 +154,6 @@ func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, secretResources 
 		}
 	}
 	return results
-}
-
-func (e *EcdsGenerator) SetCredController(creds credscontroller.MulticlusterController) {
-	e.secretController = creds
 }
 
 func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceNames []string) []SecretResource {

@@ -43,7 +43,7 @@ func InitGenerators(
 	ecdsGen := &xds.EcdsGenerator{ConfigGenerator: cg}
 	if env.CredentialsController != nil {
 		generators[v3.SecretType] = xds.NewSecretGen(env.CredentialsController, s.Cache, clusterID, env.Mesh())
-		ecdsGen.SetCredController(env.CredentialsController)
+		ecdsGen.SecretController = env.CredentialsController
 	}
 	generators[v3.ExtensionConfigurationType] = ecdsGen
 	generators[v3.NameTableType] = &xds.NdsGenerator{ConfigGenerator: cg}

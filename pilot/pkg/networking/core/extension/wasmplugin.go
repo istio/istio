@@ -141,7 +141,7 @@ func InsertedExtensionConfigurations(
 
 func updatePluginConfig(pluginConfig *wasmextensions.PluginConfig, pullSecrets map[string][]byte) {
 	// Find the pull secret resource name from wasm vm env variables.
-	// The Wasm extension config should already have a `ISTIO_META_WASM_IMAGE_PULL_SECRET` env variable
+	// The Wasm extension config should already have a `WASM_IMAGE_PULL_SECRET` env variable
 	// at in the VM env variables, with value being the secret resource name. We try to find the actual
 	// secret, and replace the env variable value with it. When ECDS config update reaches the proxy,
 	// agent will extract out the secret from env variable, use it for image pulling, and strip the

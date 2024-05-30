@@ -20,11 +20,11 @@ import (
 
 const (
 	// name of environment variable at Wasm VM, which will carry the Wasm image pull secret.
-	WasmSecretEnv = "ISTIO_META_WASM_IMAGE_PULL_SECRET"
+	WasmSecretEnv = "WASM_IMAGE_PULL_SECRET"
 	// name of environment variable at Wasm VM, which will carry the Wasm image pull policy.
-	WasmPolicyEnv = "ISTIO_META_WASM_IMAGE_PULL_POLICY"
+	WasmPolicyEnv = "WASM_IMAGE_PULL_POLICY"
 	// name of environment variable at Wasm VM, which will carry the resource version of WasmPlugin.
-	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
+	WasmResourceVersionEnv = "WASM_PLUGIN_RESOURCE_VERSION"
 
 	WasmHTTPFilterType    = APITypePrefix + wellknown.HTTPWasm
 	WasmNetworkFilterType = APITypePrefix + "envoy.extensions.filters.network.wasm.v3.Wasm"
