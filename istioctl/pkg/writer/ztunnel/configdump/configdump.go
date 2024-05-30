@@ -32,7 +32,7 @@ type ConfigWriter struct {
 
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	cd := map[string]interface{}{}
+	cd := map[string]json.RawMessage{}
 	zDump := &ZtunnelDump{}
 	var (
 		zw []*ZtunnelWorkload
@@ -51,7 +51,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 	for k, v := range cd {
 		switch k {
 		case "workloads":
-			for _, w := range v.(map[string]interface{}) {
+			for _, w := range v {
 				wj, err := json.Marshal(w)
 				if err != nil {
 					return fmt.Errorf("error marshaling workload: %v", err)
@@ -65,7 +65,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 			}
 			zDump.Workloads = zw
 		case "certificates":
-			for _, c := range v.([]interface{}) {
+			for _, c := range v {
 				cj, err := json.Marshal(c)
 				if err != nil {
 					return fmt.Errorf("error marshaling certificate: %v", err)
@@ -79,7 +79,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 			}
 			zDump.Certificates = zc
 		case "policies":
-			for _, p := range v.([]interface{}) {
+			for _, p := range v {
 				pj, err := json.Marshal(p)
 				if err != nil {
 					return fmt.Errorf("error marshaling policy: %v", err)
@@ -93,7 +93,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 			}
 			zDump.Policies = zp
 		case "services":
-			for _, s := range v.(map[string]interface{}) {
+			for _, s := range v {
 				sj, err := json.Marshal(s)
 				if err != nil {
 					return fmt.Errorf("error marshaling service: %v", err)
