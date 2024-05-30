@@ -191,7 +191,8 @@
   
               <div class="text-sm leading-6">
                 <div class="font-semibold text-gray-900">{{ review.reviewer }}</div>
-                <div class="mt-0.5 text-gray-600 font-mono">Reviews served by: {{ reviews.podname }}
+                <div class="mt-0.5 text-gray-600 font-mono">Reviews served by: 
+                  {{ reviews.podname }}
                   {% if reviews.clustername != "null" %}
                   on cluster <div>{{ reviews.clustername }}</div>
                   {% endif %}
