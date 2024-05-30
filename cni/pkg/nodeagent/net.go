@@ -24,17 +24,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/util"
-	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
-
-var log = istiolog.FindScope(constants.CNIAgentLogScope).WithLabels("server")
 
 // Adapts CNI to ztunnel server. decoupled from k8s for easier integration testing.
 type NetServer struct {
@@ -160,11 +156,14 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 		return err
 	}
 
+	// For *any* failures after calling `CreateInpodRules`, we must return PartialAdd error.
+	// The pod was injected with iptables rules, so it must be annotated as "inpod" - even if
+	// the following fails.
+	// This is so that if it is removed from the mesh, the inpod rules will unconditionally
+	// be removed.
+
 	log.Debug("notifying subscribed node proxies")
 	if err := s.sendPodToZtunnelAndWaitForAck(ctx, pod, openNetns); err != nil {
-		// we must return PartialAdd error here. the pod was injected with iptables rules,
-		// so it should be annotated, so if it is removed from the mesh, the rules will be removed.
-		// alternatively, we may not return an error at all, but we want this to fail on tests.
 		return NewErrPartialAdd(err)
 	}
 	return nil
