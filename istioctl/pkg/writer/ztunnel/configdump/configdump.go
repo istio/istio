@@ -21,6 +21,8 @@ import (
 	"text/tabwriter"
 
 	"sigs.k8s.io/yaml"
+
+	"istio.io/istio/pkg/maps"
 )
 
 // ConfigWriter is a writer for processing responses from the Ztunnel Admin config_dump endpoint
@@ -30,85 +32,54 @@ type ConfigWriter struct {
 	FullDump    []byte
 }
 
+type rawDump struct {
+	Services      json.RawMessage          `json:"services"`
+	Workloads     json.RawMessage          `json:"workloads"`
+	Policies      json.RawMessage          `json:"policies"`
+	Certificates  json.RawMessage          `json:"certificates"`
+	WorkloadState map[string]WorkloadState `json:"workloadstate"`
+}
+
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	cd := map[string]json.RawMessage{}
 	zDump := &ZtunnelDump{}
-	var (
-		zw []*ZtunnelWorkload
-		zc []*CertsDump
-		zp []*ZtunnelPolicy
-		zs []*ZtunnelService
-	)
-
+	rawDump := &rawDump{}
 	// TODO(fisherxu): migrate this to jsonpb when issue fixed in golang
 	// Issue to track -> https://github.com/golang/protobuf/issues/632
-	err := json.Unmarshal(b, &cd)
+	err := json.Unmarshal(b, rawDump)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from ztunnel: %v", err)
 	}
 	// ensure that data gets unmarshalled into the right data type
-	for k, v := range cd {
-		switch k {
-		case "workloads":
-			for _, w := range v {
-				wj, err := json.Marshal(w)
-				if err != nil {
-					return fmt.Errorf("error marshaling workload: %v", err)
-				}
-				curr := &ZtunnelWorkload{}
-				err = json.Unmarshal(wj, curr)
-				if err != nil {
-					return fmt.Errorf("error unmarshalling workload: %v", err)
-				}
-				zw = append(zw, curr)
-			}
-			zDump.Workloads = zw
-		case "certificates":
-			for _, c := range v {
-				cj, err := json.Marshal(c)
-				if err != nil {
-					return fmt.Errorf("error marshaling certificate: %v", err)
-				}
-				curr := &CertsDump{}
-				err = json.Unmarshal(cj, curr)
-				if err != nil {
-					return fmt.Errorf("error unmarshalling certificate: %v", err)
-				}
-				zc = append(zc, curr)
-			}
-			zDump.Certificates = zc
-		case "policies":
-			for _, p := range v {
-				pj, err := json.Marshal(p)
-				if err != nil {
-					return fmt.Errorf("error marshaling policy: %v", err)
-				}
-				curr := &ZtunnelPolicy{}
-				err = json.Unmarshal(pj, curr)
-				if err != nil {
-					return fmt.Errorf("error unmarshalling policy: %v", err)
-				}
-				zp = append(zp, curr)
-			}
-			zDump.Policies = zp
-		case "services":
-			for _, s := range v {
-				sj, err := json.Marshal(s)
-				if err != nil {
-					return fmt.Errorf("error marshaling service: %v", err)
-				}
-				curr := &ZtunnelService{}
-				err = json.Unmarshal(sj, curr)
-				if err != nil {
-					return fmt.Errorf("error unmarshalling service: %v", err)
-				}
-				zs = append(zs, curr)
-			}
-			zDump.Services = zs
-		}
+	if err := unmarshalListOrMap(rawDump.Services, &zDump.Services); err != nil {
+		return err
 	}
+	if err := unmarshalListOrMap(rawDump.Workloads, &zDump.Workloads); err != nil {
+		return err
+	}
+	if err := unmarshalListOrMap(rawDump.Certificates, &zDump.Certificates); err != nil {
+		return err
+	}
+	if err := unmarshalListOrMap(rawDump.Policies, &zDump.Policies); err != nil {
+		return err
+	}
+	zDump.WorkloadState = rawDump.WorkloadState
 	c.ztunnelDump = zDump
+	return nil
+}
+
+func unmarshalListOrMap[T any](input json.RawMessage, i *[]T) error {
+	if len(input) == 0 {
+		return nil
+	}
+	if input[0] == '[' {
+		return json.Unmarshal(input, i)
+	}
+	m := make(map[string]T)
+	if err := json.Unmarshal(input, &m); err != nil {
+		return err
+	}
+	*i = maps.Values(m)
 	return nil
 }
 

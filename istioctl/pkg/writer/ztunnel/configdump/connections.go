@@ -78,7 +78,15 @@ func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 		serviceNames[ip] = s.Hostname
 	}
 	for _, s := range d.Workloads {
-		workloadNames[s.WorkloadIPs[0]] = s.Name + "." + s.Namespace
+		var ip string
+		if len(s.WorkloadIPs) != 0 {
+			ip = s.WorkloadIPs[0]
+		}
+		if ip == "" {
+			// fallback to None when a workload does not have an IP
+			ip = "None"
+		}
+		workloadNames[ip] = s.Name + "." + s.Namespace
 	}
 	lookupIP := func(addr string) string {
 		if filter.Raw {
