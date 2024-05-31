@@ -93,12 +93,12 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240513163218-0867130af1f8
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240513163218-0867130af1f8
-	google.golang.org/grpc v1.63.2
+	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	helm.sh/helm/v3 v3.14.4
+	helm.sh/helm/v3 v3.15.1
 	istio.io/api v1.22.0-alpha.1.0.20240530150805-f347a4a2a4d4
 	istio.io/client-go v1.22.0-alpha.1.0.20240530151205-33f5ef77401e
 	k8s.io/api v0.30.0
