@@ -39,7 +39,7 @@ fi
 echo "using NAMESPACE=${NAMESPACE}"
 
 # clean up Istio traffic management resources that may have been used
-protos=( destinationrules virtualservices gateways )
+protos=( destinationrules virtualservices gateways authorizationpolicies )
 for proto in "${protos[@]}"; do
   for resource in $(kubectl get -n "${NAMESPACE}" "$proto" -o name); do
     kubectl delete -n "${NAMESPACE}" "$resource";
