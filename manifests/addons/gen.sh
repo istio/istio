@@ -63,7 +63,7 @@ function compressDashboard() {
     jb install
     for file in *.libsonnet; do
       dashboard="${file%.*}"
-      jsonnet -J vendor -J lib "${file}" > "${dashboard}.gen.json"
+      jsonnet -J vendor -J lib "${file}" > "${dashboard}-dashboard.gen.json"
     done
   )
   helm3 template grafana grafana \
@@ -79,12 +79,12 @@ function compressDashboard() {
   compressDashboard "istio-service-dashboard.json"
   compressDashboard "istio-mesh-dashboard.json"
   compressDashboard "istio-extension-dashboard.json"
-  compressDashboard "ztunnel.gen.json"
+  compressDashboard "ztunnel-dashboard.gen.json"
   echo -e "\n---\n"
   kubectl create configmap -n istio-system istio-grafana-dashboards \
     --dry-run=client -oyaml \
     --from-file=pilot-dashboard.json="${TMP}/pilot-dashboard.json" \
-    --from-file=ztunnel-dashboard.json="${TMP}/ztunnel.gen.json" \
+    --from-file=ztunnel-dashboard.json="${TMP}/ztunnel-dashboard.gen.json" \
     --from-file=istio-performance-dashboard.json="${TMP}/istio-performance-dashboard.json"
 
   echo -e "\n---\n"
