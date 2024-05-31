@@ -30,12 +30,12 @@ import (
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
+	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/kube"
-	istiolog "istio.io/istio/pkg/log"
 )
 
-var log = istiolog.RegisterScope(pconstants.CNIAgentLogScope, "ambient node agent server").WithLabels("server")
+var log = scopes.CNIAgent
 
 type MeshDataplane interface {
 	// called first, (even before Start()).
