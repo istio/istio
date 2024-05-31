@@ -190,9 +190,6 @@ func TestValidateValuesFromProfile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("fail to read profile: %s", tt.profile)
 			}
-            if tt.profile == "ambient" {
-                println(pf)
-            }
 			val, _, err := object.ParseK8SYAMLToIstioOperator(pf)
 			if err != nil {
 				t.Fatalf(" fail to parse profile to ISCP: (%s), got error %s", tt.profile, err)
