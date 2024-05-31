@@ -169,11 +169,9 @@ func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceName
 	watched := sets.New(resourceNames...)
 	wasmPlugins := push.WasmPluginsByName(proxy, core.ParseExtensionName(resourceNames))
 	referencedSecrets := sets.String{}
-	for _, wps := range wasmPlugins {
-		for _, wp := range wps {
-			if watched.Contains(wp.ResourceName) && wp.ImagePullSecret != "" {
-				referencedSecrets.Insert(wp.ImagePullSecret)
-			}
+	for _, wp := range wasmPlugins {
+		if watched.Contains(wp.ResourceName) && wp.ImagePullSecret != "" {
+			referencedSecrets.Insert(wp.ImagePullSecret)
 		}
 	}
 	var filtered []SecretResource

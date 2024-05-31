@@ -41,8 +41,6 @@ const (
 type wasmTestConfigs struct {
 	desc         string
 	name         string
-	tag          string
-	version      string
 	testHostname string
 }
 
