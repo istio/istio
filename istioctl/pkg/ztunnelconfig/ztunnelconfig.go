@@ -301,7 +301,6 @@ func connectionsCmd(ctx cli.Context) *cobra.Command {
 				Direction: direction,
 				Raw:       raw,
 			}
-
 			switch common.outputFormat {
 			case summaryOutput:
 				return cw.PrintConnectionsSummary(filter)
