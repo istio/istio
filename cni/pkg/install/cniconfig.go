@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/cni/pkg/plugin"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
+	installLog "istio.io/istio/pkg/log"
 )
 
 func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {

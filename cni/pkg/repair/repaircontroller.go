@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	repairLog "istio.io/istio/pkg/log"
 )
 
 type Controller struct {

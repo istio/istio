@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/zdsapi"
 )

@@ -32,10 +32,8 @@ import (
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/kube"
-	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/log"
 )
-
-var log = istiolog.RegisterScope(pconstants.CNIAgentLogScope, "ambient node agent server").WithLabels("server")
 
 type MeshDataplane interface {
 	// called first, (even before Start()).

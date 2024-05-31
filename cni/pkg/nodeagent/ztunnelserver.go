@@ -28,6 +28,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/zdsapi"
 )

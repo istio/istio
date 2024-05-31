@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test/util/assert"
 )

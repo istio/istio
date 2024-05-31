@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pkg/file"
+	installLog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 

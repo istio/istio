@@ -69,6 +69,7 @@ var rootCmd = &cobra.Command{
 		if cfg, err = constructConfig(); err != nil {
 			return
 		}
+		log.Infof("CNI logging level: \n%+v", istiolog.LevelToString(log.GetOutputLevel()))
 		log.Infof("CNI install configuration: \n%+v", cfg.InstallConfig)
 		log.Infof("CNI race repair configuration: \n%+v", cfg.RepairConfig)
 

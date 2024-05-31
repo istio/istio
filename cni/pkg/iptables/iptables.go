@@ -20,9 +20,8 @@ import (
 	"net/netip"
 	"strings"
 
-	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/ipset"
-	istiolog "istio.io/istio/pkg/log"
+	log "istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -48,8 +47,6 @@ const (
 	ZtunnelInboundPlaintextPort = 15006
 	ProbeIPSet                  = "istio-inpod-probes"
 )
-
-var log = istiolog.RegisterScope(constants.CNIAgentLogScope, "").WithLabels("iptables")
 
 type Config struct {
 	RestoreFormat bool `json:"RESTORE_FORMAT"`
