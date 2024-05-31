@@ -96,13 +96,12 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
 				// The endpoint is directly reachable - just add it.
 				// If there is no gateway, the address must not be empty
-				if lbEp.GetEndpoint().GetAddress().GetSocketAddress().GetAddress() != "" {
+				if util.GetEndpointHost(lbEp) != "" {
 					lbEndpoints.append(ep.istioEndpoints[i], lbEp)
 				}
 
 				continue
 			}
-
 			// Cross-network traffic relies on mTLS to be enabled for SNI routing
 			// TODO BTS may allow us to work around this
 			if !isMtlsEnabled(lbEp) {
