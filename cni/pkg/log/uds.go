@@ -24,12 +24,16 @@ import (
 	"time"
 
 	"istio.io/istio/cni/pkg/constants"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/cni/pkg/scopes"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/uds"
 )
 
-var pluginLog = log.RegisterScope(constants.CNIPluginLogScope, "CNI network plugin (forwarded logs)")
+var (
+	pluginLog = scopes.CNIPlugin
+	log       = scopes.CNIAgent
+)
 
 type UDSLogger struct {
 	mu            sync.Mutex
@@ -42,7 +46,7 @@ type cniLog struct {
 	Msg   string    `json:"msg"`
 }
 
-func NewUDSLogger(level log.Level) *UDSLogger {
+func NewUDSLogger(level istiolog.Level) *UDSLogger {
 	l := &UDSLogger{}
 	mux := http.NewServeMux()
 	mux.HandleFunc(constants.UDSLogPath, l.handleLog)
@@ -120,13 +124,13 @@ func (l *UDSLogger) processLog(body []byte) {
 		// There is no fatal log from CNI plugin
 		switch m.Level {
 		case "debug":
-			pluginLog.LogWithTime(log.DebugLevel, m.Msg, m.Time)
+			pluginLog.LogWithTime(istiolog.DebugLevel, m.Msg, m.Time)
 		case "info":
-			pluginLog.LogWithTime(log.InfoLevel, m.Msg, m.Time)
+			pluginLog.LogWithTime(istiolog.InfoLevel, m.Msg, m.Time)
 		case "warn":
-			pluginLog.LogWithTime(log.WarnLevel, m.Msg, m.Time)
+			pluginLog.LogWithTime(istiolog.WarnLevel, m.Msg, m.Time)
 		case "error":
-			pluginLog.LogWithTime(log.ErrorLevel, m.Msg, m.Time)
+			pluginLog.LogWithTime(istiolog.ErrorLevel, m.Msg, m.Time)
 		}
 	}
 }

@@ -28,7 +28,6 @@ import (
 
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/pluginlistener"
-	"istio.io/istio/pkg/log"
 )
 
 // Just a composite of the CNI plugin add event struct + some extracted "args"

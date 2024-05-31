@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/util"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"

@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/nodeagent"
 	"istio.io/istio/cni/pkg/repair"
+	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/env"
@@ -41,7 +42,7 @@ import (
 
 var (
 	logOptions   = istiolog.DefaultOptions()
-	log          = istiolog.RegisterScope(constants.CNIAgentLogScope, "CNI agent")
+	log          = scopes.CNIAgent
 	ctrlzOptions = func() *ctrlz.Options {
 		o := ctrlz.DefaultOptions()
 		o.EnablePprof = true

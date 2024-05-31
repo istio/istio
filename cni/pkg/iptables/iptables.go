@@ -21,13 +21,15 @@ import (
 	"strings"
 
 	"istio.io/istio/cni/pkg/ipset"
-	log "istio.io/istio/pkg/log"
+	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
 )
+
+var log = scopes.CNIAgent
 
 const (
 	// INPOD marks/masks

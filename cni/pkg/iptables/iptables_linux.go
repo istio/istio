@@ -21,8 +21,6 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-
-	log "istio.io/istio/pkg/log"
 )
 
 func AddInpodMarkIPRule(cfg *Config) error {

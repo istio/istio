@@ -303,7 +303,7 @@ func setupLogging(conf *Config) {
 			log.Error("Failed to configure istio-cni with UDS log")
 		}
 	}
-	log.RegisterScope(constants.CNIPluginLogScope, "CNI plugin").SetOutputLevel(log.StringToLevel(conf.PluginLogLevel))
+	log.FindScope("default").SetOutputLevel(log.StringToLevel(conf.PluginLogLevel))
 }
 
 func pluginResponse(conf *Config) error {

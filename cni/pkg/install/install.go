@@ -22,11 +22,13 @@ import (
 	"sync/atomic"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
-	installLog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
+
+var installLog = scopes.CNIAgent
 
 type Installer struct {
 	cfg                *config.InstallConfig

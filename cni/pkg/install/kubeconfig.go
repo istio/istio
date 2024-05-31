@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
-	installLog "istio.io/istio/pkg/log"
 )
 
 type kubeconfig struct {
