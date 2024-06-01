@@ -40,7 +40,7 @@ var (
 
 type K8sHandlers interface {
 	GetPodIfAmbient(podName, podNamespace string) (*corev1.Pod, error)
-	GetAmbientPods() []*corev1.Pod
+	GetActiveAmbientPodSnapshot() []*corev1.Pod
 	Start()
 }
 
@@ -99,7 +99,11 @@ func (s *InformerHandlers) Start() {
 	go s.queue.Run(s.ctx.Done())
 }
 
-func (s *InformerHandlers) GetAmbientPods() []*corev1.Pod {
+// Gets a point-in-time snapshot of all pods that are CURRENTLY ambient enabled
+// (as per control plane annotation)
+// Note that this is not the same thing as SHOULD be enabled or WILL be enabled.
+// This is only used for building the initial snapshot ATM.
+func (s *InformerHandlers) GetActiveAmbientPodSnapshot() []*corev1.Pod {
 	var pods []*corev1.Pod
 	for _, pod := range s.pods.List(metav1.NamespaceAll, klabels.Everything()) {
 		ns := s.namespaces.Get(pod.Namespace, "")
@@ -107,7 +111,7 @@ func (s *InformerHandlers) GetAmbientPods() []*corev1.Pod {
 			log.Warnf("failed to find namespace %s for pod %s", pod.Namespace, pod.Name)
 		}
 
-		if !util.IsZtunnelPod(s.systemNamespace, pod) && util.PodRedirectionEnabled(ns, pod) {
+		if !util.IsZtunnelPod(s.systemNamespace, pod) && util.PodRedirectionActive(pod) {
 			pods = append(pods, pod)
 		}
 	}
@@ -213,7 +217,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		changeNeeded := isAnnotated != shouldBeEnabled
 
 		log.Debugf("Pod %s events: wasAnnotated(%v), isAnnotated(%v), shouldBeEnabled(%v), changeNeeded(%v), oldPod(%+v), newPod(%+v)",
-			pod.Name, wasAnnotated, isAnnotated, shouldBeEnabled, changeNeeded, oldPod, newPod)
+			pod.Name, wasAnnotated, isAnnotated, shouldBeEnabled, changeNeeded, oldPod.ObjectMeta, newPod.ObjectMeta)
 		if !changeNeeded {
 			log.Debugf("Pod %s update event skipped, no change needed", pod.Name)
 			return nil

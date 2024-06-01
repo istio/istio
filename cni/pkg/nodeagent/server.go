@@ -32,7 +32,10 @@ import (
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/kube"
+	istiolog "istio.io/istio/pkg/log"
 )
+
+var log = istiolog.RegisterScope("cni-agent", "ambient node agent server").WithLabels("server")
 
 type MeshDataplane interface {
 	// called first, (even before Start()).
@@ -166,7 +169,7 @@ func (s *Server) Start() {
 	log.Info("CNI ambient server starting")
 	s.kubeClient.RunAndWait(s.ctx.Done())
 	log.Info("CNI ambient server kubeclient started")
-	pods := s.handlers.GetAmbientPods()
+	pods := s.handlers.GetActiveAmbientPodSnapshot()
 	err := s.dataplane.ConstructInitialSnapshot(pods)
 	if err != nil {
 		log.Warnf("failed to construct initial snapshot: %v", err)

@@ -398,6 +398,66 @@ func TestExistingPodRemovedWhenPodAnnotated(t *testing.T) {
 	fs.AssertExpectations(t)
 }
 
+func TestGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	enrolledNotRedirected := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "enrolled-not-redirected",
+			Namespace: "test",
+			UID:       "12345",
+			Labels:    map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+		},
+	}
+	redirectedNotEnrolled := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "redirected-not-enrolled",
+			Namespace:   "test",
+			UID:         "12346",
+			Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionEnabled},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.13",
+		},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+		},
+	}
+
+	client := kube.NewFakeClient(ns, enrolledNotRedirected, redirectedNotEnrolled)
+	fs := &fakeServer{}
+	fs.Start(ctx)
+	server := &meshDataplane{
+		kubeClient: client.Kube(),
+		netServer:  fs,
+	}
+
+	handlers := setupHandlers(ctx, client, server, "istio-system")
+	client.RunAndWait(ctx.Done())
+	pods := handlers.GetActiveAmbientPodSnapshot()
+
+	// Should only return pods with the annotation indicating they are actually redirected at this time,
+	// not pods that are just scheduled to be enrolled.
+	assert.Equal(t, len(pods), 1)
+	assert.Equal(t, pods[0], redirectedNotEnrolled)
+}
+
 func TestAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
