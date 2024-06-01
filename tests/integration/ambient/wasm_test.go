@@ -189,7 +189,7 @@ func getTargetRefValues(targetType, targetName string) (kind, group, name string
 	case "gateway":
 		return "Gateway", "gateway.networking.k8s.io", targetName
 	case "service":
-		return "Service", "", targetName
+		return "Service", nil, targetName
 	default:
 		return "", "", ""
 	}
