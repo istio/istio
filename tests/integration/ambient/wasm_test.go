@@ -193,7 +193,7 @@ func TestWasmPluginConfigurations(t *testing.T) {
 				yamlFilePath string
 			}{
 				{
-					desc:         "initial creation with latest for a gateway",
+					desc:         "Configure WebAssembly filter for gateway",
 					name:         "gateway-wasm-test",
 					testHostname: fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", GetTarget().ServiceName(), apps.Namespace.Name()),
 					yamlFilePath: "testdata/gateway-wasm-filter.yaml",
