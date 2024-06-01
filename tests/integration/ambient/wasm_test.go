@@ -199,7 +199,7 @@ func TestWasmPluginConfigurations(t *testing.T) {
 					yamlFilePath: "testdata/gateway-wasm-filter.yaml",
 				},
 				{
-					desc:         "Configure WebAssembly filter for waypoint gateway",
+					desc:         "Configure WebAssembly filter for waypoint",
 					name:         "waypoint-wasm-test",
 					yamlFilePath: "testdata/wasm-filter.yaml",
 				},
