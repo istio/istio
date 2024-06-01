@@ -129,25 +129,33 @@ func (c *ConfigWriter) PrintWorkloadDump(filter WorkloadFilter, outputFormat str
 	return nil
 }
 
-func waypointName(wl *ZtunnelWorkload, services map[string]*ZtunnelService) string {
+func waypointName(wl *ZtunnelWorkload, services []*ZtunnelService) string {
 	if wl.Waypoint == nil {
 		return "None"
 	}
 
-	if svc, ok := services[wl.Waypoint.Destination]; ok {
-		return svc.Name
+	for _, svc := range services {
+		for _, addr := range svc.Addresses {
+			if addr == wl.Waypoint.Destination {
+				return svc.Name
+			}
+		}
 	}
 
 	return "NA" // Shouldn't normally reach here
 }
 
-func serviceWaypointName(svc *ZtunnelService, services map[string]*ZtunnelService) string {
+func serviceWaypointName(svc *ZtunnelService, services []*ZtunnelService) string {
 	if svc.Waypoint == nil {
 		return "None"
 	}
 
-	if svc, ok := services[svc.Waypoint.Destination]; ok {
-		return svc.Name
+	for _, service := range services {
+		for _, addr := range service.Addresses {
+			if addr == svc.Waypoint.Destination {
+				return service.Name
+			}
+		}
 	}
 
 	return "NA" // Shouldn't normally reach here

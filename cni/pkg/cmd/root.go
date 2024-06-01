@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/nodeagent"
 	"istio.io/istio/cni/pkg/repair"
+	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/env"
@@ -41,7 +42,7 @@ import (
 
 var (
 	logOptions   = istiolog.DefaultOptions()
-	log          = istiolog.RegisterScope(constants.CNIAgentLogScope, "CNI agent")
+	log          = scopes.CNIAgent
 	ctrlzOptions = func() *ctrlz.Options {
 		o := ctrlz.DefaultOptions()
 		o.EnablePprof = true
@@ -69,6 +70,7 @@ var rootCmd = &cobra.Command{
 		if cfg, err = constructConfig(); err != nil {
 			return
 		}
+		log.Infof("CNI logging level: \n%+v", istiolog.LevelToString(log.GetOutputLevel()))
 		log.Infof("CNI install configuration: \n%+v", cfg.InstallConfig)
 		log.Infof("CNI race repair configuration: \n%+v", cfg.RepairConfig)
 

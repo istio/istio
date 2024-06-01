@@ -437,6 +437,9 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		InboundTrafficPolicyMode: InboundTrafficPolicyMode(meshConfig),
 		CompliancePolicy:         common_features.CompliancePolicy,
 	}
+	if params.valuesConfig.asMap == nil {
+		return nil, nil, fmt.Errorf("failed to parse values.yaml; check Istiod logs for errors")
+	}
 
 	mergedPod = params.pod
 	templatePod = &corev1.Pod{}

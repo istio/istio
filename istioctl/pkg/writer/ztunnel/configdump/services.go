@@ -22,7 +22,6 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -47,7 +46,7 @@ func (c *ConfigWriter) PrintServiceSummary(filter ServiceFilter) error {
 	w := c.tabwriter()
 	zDump := c.ztunnelDump
 
-	svcs := slices.Filter(maps.Values(zDump.Services), filter.Verify)
+	svcs := slices.Filter(zDump.Services, filter.Verify)
 	slices.SortFunc(svcs, func(a, b *ZtunnelService) int {
 		if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {
 			return r
@@ -74,7 +73,7 @@ func (c *ConfigWriter) PrintServiceSummary(filter ServiceFilter) error {
 // PrintServiceDump prints the relevant services in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintServiceDump(filter ServiceFilter, outputFormat string) error {
 	zDump := c.ztunnelDump
-	svcs := slices.Filter(maps.Values(zDump.Services), filter.Verify)
+	svcs := slices.Filter(zDump.Services, filter.Verify)
 	slices.SortFunc(svcs, func(a, b *ZtunnelService) int {
 		if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {
 			return r

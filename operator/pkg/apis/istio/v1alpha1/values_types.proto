@@ -976,6 +976,10 @@ message PilotConfig {
   CNIUsageConfig cni = 55;
 
   PilotTaintControllerConfig taint = 57;
+
+  // If set, `istiod` will allow connections from trusted node proxy ztunnels
+  // in the provided namespace.
+  string trustedZtunnelNamespace = 59;
 }
 
 message PilotTaintControllerConfig {
