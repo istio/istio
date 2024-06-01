@@ -63,14 +63,14 @@ func mapTagToVersionOrFail(t framework.TestContext, tag, version string) {
 	}
 }
 
-func applyAndTestCustomWasmConfigWithOCI(ctx framework.TestContext, c wasmTestConfigs, path string) {
+func applyAndTestCustomWasmConfigWithOCI(ctx framework.TestContext, c wasmTestConfigs, path, targetType, targetName string) {
 	ctx.NewSubTest("OCI_" + c.desc).Run(func(t framework.TestContext) {
 		defer func() {
 			generation++
 		}()
 		mapTagToVersionOrFail(t, "latest", "0.0.1")
 		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), imageName, "latest")
-		if err := installWasmExtension(t, c.name, wasmModuleURL, "", fmt.Sprintf("g-%d", generation), path); err != nil {
+		if err := installWasmExtension(t, c.name, wasmModuleURL, "", fmt.Sprintf("g-%d", generation), targetType, targetName, path); err != nil {
 			t.Fatalf("failed to install WasmPlugin: %v", err)
 		}
 		if c.testHostname != "" {
@@ -94,15 +94,16 @@ func applyWasmConfig(ctx framework.TestContext, ns string, args map[string]any, 
 	return ctx.ConfigIstio().EvalFile(ns, args, path).Apply()
 }
 
-func installWasmExtension(ctx framework.TestContext, pluginName, wasmModuleURL, imagePullPolicy, pluginVersion, path string) error {
+func installWasmExtension(ctx framework.TestContext, pluginName, wasmModuleURL, imagePullPolicy, pluginVersion, targetType, targetName, path string) error {
+	kind, group, name := getTargetRefValues(targetType, targetName)
+
 	args := map[string]any{
-		"WasmPluginName":     pluginName,
-		"TestWasmModuleURL":  wasmModuleURL,
-		"WasmPluginVersion":  pluginVersion,
-		"TargetAppName":      GetTarget().(echo.Instances).NamespacedName().Name,
-		"TargetGatewayName":  GetTarget().(echo.Instances).ServiceName() + "-gateway",
-		"TargetServiceName":  GetTarget().(echo.Instances).ServiceName(),
-		"TargetWaypointName": constants.DefaultNamespaceWaypoint,
+		"WasmPluginName":    pluginName,
+		"TestWasmModuleURL": wasmModuleURL,
+		"WasmPluginVersion": pluginVersion,
+		"TargetKind":        kind,
+		"TargetGroup":       group,
+		"TargetName":        name,
 	}
 
 	if len(imagePullPolicy) != 0 {
@@ -183,6 +184,17 @@ func sendTrafficToHostname(ctx framework.TestContext, checker echo.Checker, host
 	_ = cltInstance.CallOrFail(ctx, httpOpts)
 }
 
+func getTargetRefValues(targetType, targetName string) (kind, group, name string) {
+	switch targetType {
+	case "gateway":
+		return "Gateway", "gateway.networking.k8s.io", targetName
+	case "service":
+		return "Service", "", targetName
+	default:
+		return "", "", ""
+	}
+}
+
 func TestWasmPluginConfigurations(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
@@ -190,23 +202,27 @@ func TestWasmPluginConfigurations(t *testing.T) {
 				desc         string
 				name         string
 				testHostname string
-				yamlFilePath string
+				targetType   string
+				targetName   string
 			}{
 				{
 					desc:         "Configure WebAssembly filter for gateway",
 					name:         "gateway-wasm-test",
 					testHostname: fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", GetTarget().ServiceName(), apps.Namespace.Name()),
-					yamlFilePath: "testdata/gateway-wasm-filter.yaml",
+					targetType:   "gateway",
+					targetName:   fmt.Sprintf("%s-gateway", GetTarget().(echo.Instances).ServiceName()),
 				},
 				{
-					desc:         "Configure WebAssembly filter for waypoint",
-					name:         "waypoint-wasm-test",
-					yamlFilePath: "testdata/wasm-filter.yaml",
+					desc:       "Configure WebAssembly filter for waypoint",
+					name:       "waypoint-wasm-test",
+					targetType: "gateway",
+					targetName: constants.DefaultNamespaceWaypoint,
 				},
 				{
-					desc:         "Configure WebAssembly filter for specific service",
-					name:         "service-wasm-test",
-					yamlFilePath: "testdata/wasm-filter-service.yaml",
+					desc:       "Configure WebAssembly filter for specific service",
+					name:       "service-wasm-test",
+					targetType: "service",
+					targetName: GetTarget().(echo.Instances).ServiceName(),
 				},
 			}
 
@@ -223,9 +239,9 @@ func TestWasmPluginConfigurations(t *testing.T) {
 					desc:         tc.desc,
 					name:         tc.name,
 					testHostname: tc.testHostname,
-				}, tc.yamlFilePath)
+				}, wasmConfigFile, tc.targetType, tc.targetName)
 
-				resetCustomWasmConfig(t, tc.name, tc.yamlFilePath)
+				resetCustomWasmConfig(t, tc.name, wasmConfigFile)
 			}
 		})
 }

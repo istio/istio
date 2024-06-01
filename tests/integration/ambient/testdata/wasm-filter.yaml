@@ -9,9 +9,9 @@ metadata:
 spec:
   phase: STATS
   targetRef:
-    kind: Gateway
-    group: gateway.networking.k8s.io
-    name: {{ .TargetWaypointName }}
+    kind: {{ .TargetKind }}
+    group: {{ .TargetGroup }}
+    name: {{ .TargetName }}
   {{- if .TestWasmModuleURL }}
   url: {{ .TestWasmModuleURL }}
   {{- end }}
