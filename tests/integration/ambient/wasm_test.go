@@ -228,6 +228,7 @@ func TestWasmPluginConfigurations(t *testing.T) {
 
 			for _, tc := range testCases {
 				if tc.name == "service-wasm-test" {
+					// Skipping the third test case: service-wasm-test based on the issue https://github.com/istio/istio/issues/51288
 					t.Skip("Skipping the third test case: service-wasm-test")
 				}
 
