@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.21-2024-04-26T19-03-19
+BASE_VERSION ?= 1.21-2024-06-02T19-03-50
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
