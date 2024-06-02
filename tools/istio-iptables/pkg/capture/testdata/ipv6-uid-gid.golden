@@ -25,6 +25,7 @@ iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -
 iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 2 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -j RETURN
 ip6tables -t nat -N ISTIO_INBOUND
 ip6tables -t nat -N ISTIO_REDIRECT
 ip6tables -t nat -N ISTIO_IN_REDIRECT

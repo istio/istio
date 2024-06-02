@@ -27,6 +27,7 @@ iptables -t raw -A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j C
 iptables -t raw -A ISTIO_OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
 iptables -t raw -A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
 iptables -t raw -A ISTIO_OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
+iptables -t nat -A ISTIO_OUTPUT -j RETURN
 ip6tables -t nat -N ISTIO_INBOUND
 ip6tables -t nat -N ISTIO_REDIRECT
 ip6tables -t nat -N ISTIO_IN_REDIRECT
@@ -56,5 +57,6 @@ ip6tables -t raw -A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j 
 ip6tables -t raw -A ISTIO_OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
 ip6tables -t raw -A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
 ip6tables -t raw -A ISTIO_OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
+ip6tables -t nat -A ISTIO_OUTPUT -j RETURN
 iptables-save
 ip6tables-save

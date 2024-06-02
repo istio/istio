@@ -15,4 +15,5 @@ iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner ! --gid-owner java -m owner ! --gid-owner 202 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -j RETURN
 iptables-save

@@ -214,8 +214,6 @@ func (cfg *IptablesConfigurator) handleOutboundIncludeRules(
 			appendRule(iptableslog.UndefinedCommand,
 				constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 		}
-		// All other traffic is not redirected.
-		appendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-j", constants.RETURN)
 	}
 }
 
@@ -556,6 +554,8 @@ func (cfg *IptablesConfigurator) Run() error {
 		cfg.ruleBuilder.InsertRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 3,
 			"-p", constants.TCP, "-i", "lo", "-m", "mark", "!", "--mark", outboundMark, "-j", constants.RETURN)
 	}
+	// All other traffic is not redirected. Should be last rule in ISTIO_OUTPUT chain.
+	cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-j", constants.RETURN)
 	return cfg.executeCommands(&iptVer, &ipt6Ver)
 }
 

@@ -19,4 +19,5 @@ iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
 iptables -t nat -I PREROUTING 1 -i eth1 -j ISTIO_REDIRECT
 iptables -t nat -I PREROUTING 1 -i eth2 -j ISTIO_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -j RETURN
 iptables-save
