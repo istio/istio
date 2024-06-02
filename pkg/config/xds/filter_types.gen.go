@@ -244,6 +244,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/outlier_detection_monitors/consecutive_errors/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/path/match/uri_template/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/path/rewrite/uri_template/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/connection_debug_visitor/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/connection_id_generator/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/crypto_stream/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/proof_source/v3"
