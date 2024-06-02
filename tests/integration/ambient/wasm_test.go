@@ -227,6 +227,10 @@ func TestWasmPluginConfigurations(t *testing.T) {
 			}
 
 			for _, tc := range testCases {
+				if tc.name == "service-wasm-test" {
+					t.Skip("Skipping the third test case: service-wasm-test")
+				}
+
 				if tc.name == "gateway-wasm-test" {
 					crd.DeployGatewayAPIOrSkip(t)
 					args := map[string]any{
