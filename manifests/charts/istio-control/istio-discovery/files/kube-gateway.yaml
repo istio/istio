@@ -69,9 +69,13 @@ spec:
           ) | nindent 8 }}
     spec:
       securityContext:
+      {{- if .Values.gateways.securityContext }}
+        {{- toYaml .Values.gateways.securityContext | nindent 8 }}
+      {{- else }}
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
+      {{- end }}
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
       - name: istio-proxy
