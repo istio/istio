@@ -34,9 +34,6 @@ sed -i 's/out.initJwksResolver()/\/\/out.initJwksResolver()/g' "${SRC}"/istio/pi
 printf "package main\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/testing\"\n" > register.go
 go mod tidy
 
-mv "${SRC}"/istio/security/pkg/server/ca/server_test.go "${SRC}"/istio/security/pkg/server/ca/server_test_fuzz.go
-mv "${SRC}"/istio/pilot/pkg/networking/core/envoyfilter/listener_patch_test.go "${SRC}"/istio/pilot/pkg/networking/core/envoyfilter/listener_patch_test_fuzz.go
-
 # Find all native fuzzers and compile them
 # shellcheck disable=SC2016
 grep --line-buffered --include '*_test.go' -Pr 'func Fuzz.*\(.* \*testing\.F' | sed -E 's/(func Fuzz(.*)\(.*)/\2/' | xargs -I{} sh -c '
