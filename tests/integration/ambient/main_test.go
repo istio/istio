@@ -131,6 +131,7 @@ values:
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
+		Setup(testRegistrySetup).
 		Run()
 }
 
