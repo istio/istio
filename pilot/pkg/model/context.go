@@ -941,6 +941,38 @@ func (node *Proxy) GetWatchedResource(typeURL string) *WatchedResource {
 	return node.WatchedResources[typeURL]
 }
 
+func (node *Proxy) NonceSent(typeURL string) string {
+	node.RLock()
+	defer node.RUnlock()
+
+	wr := node.WatchedResources[typeURL]
+	if wr != nil {
+		return wr.NonceSent
+	}
+	return ""
+}
+
+func (node *Proxy) NonceAcked(typeURL string) string {
+	node.RLock()
+	defer node.RUnlock()
+
+	wr := node.WatchedResources[typeURL]
+	if wr != nil {
+		return wr.NonceAcked
+	}
+	return ""
+}
+
+func (node *Proxy) Clusters() []string {
+	node.RLock()
+	defer node.RUnlock()
+	wr := node.WatchedResources[v3.EndpointType]
+	if wr != nil {
+		return wr.ResourceNames
+	}
+	return nil
+}
+
 func (node *Proxy) NewWatchedResource(typeURL string, names []string) {
 	node.Lock()
 	defer node.Unlock()
