@@ -298,6 +298,8 @@ message GatewaysConfig {
 
   // Configuration for an ingress gateway.
   IngressGatewayConfig istio_ingressgateway = 4 [json_name="istio-ingressgateway"];
+
+  google.protobuf.Value securityContext = 10;
 }
 
 // Global Configuration for Istio components.
