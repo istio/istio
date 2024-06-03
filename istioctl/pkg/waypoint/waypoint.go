@@ -173,7 +173,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 						"adding the `"+"--overwrite"+"` flag to your apply command.\n", ns)
 					return nil
 				}
-				namespaceIsLabeledAmbient, err := namespaceHasLabel(kubeClient, ns, constants.DataplaneModeLabel)
+				namespaceIsLabeledAmbient, err := namespaceHasLabelWithValue(kubeClient, ns, constants.DataplaneModeLabel, constants.DataplaneModeAmbient)
 				if err != nil {
 					return fmt.Errorf("failed to check if namespace is labeled ambient: %v", err)
 				}
@@ -468,10 +468,18 @@ func namespaceHasLabel(kubeClient kube.CLIClient, ns string, label string) (bool
 	if nsObj.Labels == nil {
 		return false, nil
 	}
-	if label == constants.DataplaneModeLabel {
-		return nsObj.Labels[label] == constants.DataplaneModeAmbient, nil
-	}
 	return nsObj.Labels[label] != "", nil
+}
+
+func namespaceHasLabelWithValue(kubeClient kube.CLIClient, ns string, label, labelValue string) (bool, error) {
+	nsObj, err := getNamespace(kubeClient, ns)
+	if err != nil {
+		return false, err
+	}
+	if nsObj.Labels == nil {
+		return false, nil
+	}
+	return nsObj.Labels[label] == labelValue, nil
 }
 
 func getNamespace(kubeClient kube.CLIClient, ns string) (*corev1.Namespace, error) {
