@@ -567,9 +567,13 @@ templates:
       }
     spec:
       securityContext:
+      {{- if .Values.gateways.securityContext }}
+        {{- toYaml .Values.gateways.securityContext | nindent 4 }}
+      {{- else }}
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
+      {{- end }}
       containers:
       - name: istio-proxy
       {{- if contains "/" .Values.global.proxy.image }}
@@ -1557,9 +1561,13 @@ templates:
           {{- if ge .KubeVersion 122 }}
           {{/* safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326. */}}
           securityContext:
+          {{- if .Values.gateways.securityContext }}
+            {{- toYaml .Values.gateways.securityContext | nindent 8 }}
+          {{- else }}
             sysctls:
             - name: net.ipv4.ip_unprivileged_port_start
               value: "0"
+          {{- end }}
           {{- end }}
           serviceAccountName: {{.ServiceAccount | quote}}
           containers:
