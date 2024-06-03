@@ -263,12 +263,22 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 			}
 
 			err := s.dataplane.AddPodToMesh(s.ctx, pod, podIPs, "")
-			log.Debugf("AddPodToMesh(%s) returned %v", newPod.Name, err)
+			if err != nil {
+				log.Warnf("AddPodToMesh(%s) returned %v", newPod.Name, err)
+			}
 		}
 	case controllers.EventDelete:
-		// TODO: as every pod on our node will come through here, check if pod is annotated?
-		err := s.dataplane.DelPodFromMesh(s.ctx, pod)
-		log.Debugf("DelPodFromMesh(%s) returned %v", pod.Name, err)
+		// We are the only thing that should be annotating the pods for mesh inclusion.
+		// If we did, remove it from ztunnel
+		if util.PodRedirectionActive(pod) {
+			log.Debugf("pod %s is deleted and was annotated, removing from ztunnel", pod.Name)
+			err := s.dataplane.DelPodFromMesh(s.ctx, pod)
+			if err != nil {
+				log.Warnf("DelPodFromMesh(%s) returned %v", pod.Name, err)
+			}
+		} else {
+			log.Debugf("skipped deleting from mesh for pod (%s), pod not in mesh", pod.Name)
+		}
 	}
 	return nil
 }
