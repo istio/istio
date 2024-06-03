@@ -8,7 +8,6 @@ local variables = import './variables.libsonnet';
 local queries = import './queries.libsonnet';
 
 g.dashboard.new('Istio Ztunnel Dashboard')
-+ g.dashboard.withDescription('Monitoring for Istio Ztunnel.')
 + g.dashboard.graphTooltip.withSharedCrosshair()
 + g.dashboard.withVariables([
   variables.datasource,
