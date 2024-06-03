@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/trustbundle"
 	networkutil "istio.io/istio/pilot/pkg/util/network"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -971,6 +972,71 @@ func (node *Proxy) GetWatchedResource(typeURL string) *WatchedResource {
 	defer node.RUnlock()
 
 	return node.WatchedResources[typeURL]
+}
+
+func (node *Proxy) NonceSent(typeURL string) string {
+	node.RLock()
+	defer node.RUnlock()
+
+	wr := node.WatchedResources[typeURL]
+	if wr != nil {
+		return wr.NonceSent
+	}
+	return ""
+}
+
+func (node *Proxy) NonceAcked(typeURL string) string {
+	node.RLock()
+	defer node.RUnlock()
+
+	wr := node.WatchedResources[typeURL]
+	if wr != nil {
+		return wr.NonceAcked
+	}
+	return ""
+}
+
+func (node *Proxy) Clusters() []string {
+	node.RLock()
+	defer node.RUnlock()
+	wr := node.WatchedResources[v3.EndpointType]
+	if wr != nil {
+		return wr.ResourceNames
+	}
+	return nil
+}
+
+func (node *Proxy) NewWatchedResource(typeURL string, names []string) {
+	node.Lock()
+	defer node.Unlock()
+
+	node.WatchedResources[typeURL] = &WatchedResource{TypeUrl: typeURL, ResourceNames: names}
+	// For all EDS requests that we have already responded with in the same stream let us
+	// force the response. It is important to respond to those requests for Envoy to finish
+	// warming of those resources(Clusters).
+	// This can happen with the following sequence
+	// 1. Envoy disconnects and reconnects to Istiod.
+	// 2. Envoy sends EDS request and we respond with it.
+	// 3. Envoy sends CDS request and we respond with clusters.
+	// 4. Envoy detects a change in cluster state and tries to warm those clusters and send EDS request for them.
+	// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
+	// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
+	for _, dependent := range WarmingDependencies(typeURL) {
+		if dwr, exists := node.WatchedResources[dependent]; exists {
+			dwr.AlwaysRespond = true
+		}
+	}
+}
+
+// WarmingDependencies returns the dependent typeURLs that need to be responded with
+// for warming of this typeURL.
+func WarmingDependencies(typeURL string) []string {
+	switch typeURL {
+	case v3.ClusterType:
+		return []string{v3.EndpointType}
+	default:
+		return nil
+	}
 }
 
 func (node *Proxy) AddOrUpdateWatchedResource(r *WatchedResource) {
