@@ -120,7 +120,10 @@ type IstioCAOptions struct {
 
 type RootCertUpdateFunc func() error
 
-// NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
+// NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using secrets from K8S.
+// The istio_ca file operates on files mounted in /etc/certs and should be kept in sync.
+//
+// Both can load intemediary certs.
 func NewSelfSignedIstioCAOptions(ctx context.Context,
 	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, defaultCertTTL,
 	maxCertTTL time.Duration, org string, useCacertsSecretName, dualUse bool, namespace string, client corev1.CoreV1Interface,
@@ -151,14 +154,16 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 	err = b.RetryWithContext(ctx, func() error {
 		caCertName = CASecret
 		// 1. fetch `istio-ca-secret` in priority
-		err := loadSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caOpts)
+		err := loadCASecrets(client, namespace, caCertName, rootCertFile, caOpts)
 		if err == nil {
 			return nil
 		} else if apierror.IsNotFound(err) {
 			// 2. if `istio-ca-secret` not exist and use cacerts enabled, fallback to fetch `cacerts`
+			// To avoid confusion with the mounted path, it may be best to keep using istio-ca-secret for all 'load from K8S'
+			// and deprecate/phase out the mounted file in help/k8s. The code to use the filesystem is still useful.
 			if useCacertsSecretName {
 				caCertName = CACertsSecret
-				err := loadSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caOpts)
+				err := loadCASecrets(client, namespace, caCertName, rootCertFile, caOpts)
 				if err == nil {
 					return nil
 				} else if apierror.IsNotFound(err) { // if neither `istio-ca-secret` nor `cacerts` exists, we create a `cacerts`
@@ -194,6 +199,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 			}
 			// Write the key/cert back to secret, so they will be persistent when CA restarts.
+			// This uses the old-style Istio names, for compatibility.
 			secret := BuildSecret(caCertName, namespace, nil, nil, pemCert, pemCert, pemKey, istioCASecretType)
 			_, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err != nil {
@@ -210,19 +216,82 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 	return caOpts, err
 }
 
-func loadSelfSignedCaSecret(client corev1.CoreV1Interface, namespace string, caCertName string, rootCertFile string, caOpts *IstioCAOptions) error {
+// loadCASecrets loads the original istio-ca-secret Secret from K8S.
+// To simplify - this secret should be used for both self-generated and user defined intermediary certs.
+// TODO: rename to loadRootsFromSecret.
+func loadCASecrets(client corev1.CoreV1Interface, namespace string, caCertName string, rootCertFile string, caOpts *IstioCAOptions) error {
 	caSecret, err := client.Secrets(namespace).Get(context.TODO(), caCertName, metav1.GetOptions{})
 	if err == nil {
-		pkiCaLog.Infof("Load signing key and cert from existing secret %s/%s", caSecret.Namespace, caSecret.Name)
-		rootCerts, err := util.AppendRootCerts(caSecret.Data[CACertFile], rootCertFile)
+		// Detect tls.key. If found, use the new mode, assume cert may be a chain, etc.
+		// Otherwise - old self-signed code.
+		rootCertData := caSecret.Data[TLSSecretRootCertFile]
+		if rootCertData != nil {
+			pkiCaLog.Infof("Load signing key and cert from existing secret using ca.crt %s/%s and %s",
+				caSecret.Namespace, caSecret.Name, rootCertFile)
+
+			// Use only the cert - note that reloading will compare with that, so probably
+			// old code also eventually gets to this state - but not deterministic.
+			// If user has new cert - use it.
+			rootCerts := rootCertData //:= util.AppendRootCerts(rootCertData, rootCertFile)
+			if err != nil {
+				return fmt.Errorf("failed to append root certificates (%v)", err)
+			}
+			privData := caSecret.Data[TLSSecretCAPrivateKeyFile]
+			crtData := caSecret.Data[TLSSecretCACertFile]
+			chaincerts, _, _ := util.ParsePemEncodedCertificateChain(crtData)
+			intNames := []string{}
+			for _, r := range chaincerts {
+				intNames = append(intNames, r.Subject.String())
+			}
+
+			var certChainBytes []byte
+			if len(intNames) > 1 {
+				// tls.crt is a chain - first key is the actual certificate, the rest are intermediaries
+				// The rest of the code expects the cert and chain to be separated - probably it was easier to code, most
+				// systems use the tls.crt style which is the chain that will be sent in all requests.
+				_, rest := pem.Decode(crtData)
+				if len(rest) > 0 {
+					certChainBytes = rest
+				}
+			}
+
+			if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(crtData,
+				privData, certChainBytes, rootCerts); err != nil {
+				pkiCaLog.WithLabels("chain", intNames, "roots", rootNames, "error", err).Info("Failed to load CA")
+				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
+			}
+
+			cert, _, _, _ := caOpts.KeyCertBundle.GetAll()
+			// Provide detailed info - issuer, expiration, cert length, root length
+
+			pkiCaLog.WithLabels("issuer", cert.Issuer, "subject", cert.Subject, "exp", cert.NotAfter,
+				"chain", intNames, "roots", rootNames).Info("Loaded CA roots")
+
+			return err
+		}
+
+		rootCertData = caSecret.Data[CACertFile]
+
+		// Append the root CertFile to the istio_ca root list
+		rootCerts, err := util.AppendRootCerts(rootCertData, rootCertFile)
 		if err != nil {
 			return fmt.Errorf("failed to append root certificates (%v)", err)
 		}
-		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[CACertFile],
-			caSecret.Data[CAPrivateKeyFile], nil, rootCerts); err != nil {
+
+		privData := caSecret.Data[CAPrivateKeyFile]
+		crtData := caSecret.Data[CACertFile]
+
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(crtData,
+			privData, nil, rootCerts); err != nil {
 			return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
-		pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))
+
+		cert, _, _, _ := caOpts.KeyCertBundle.GetAll()
+		// Provide detailed info - issuer, expiration, cert length, root length
+
+		pkiCaLog.WithLabels("issuer", cert.Issuer, "subject", cert.Subject, "exp", cert.NotAfter,
+			"chain", intNames, "roots", rootNames).Info("Loaded CA roots")
+
 	}
 	return err
 }
@@ -264,7 +333,9 @@ func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCer
 	return caOpts, nil
 }
 
-// NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
+// NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate
+// from the file system. This is used only when "/etc/cacerts/" is mounted, using (in default install) cacerts secret.
+// It is simpler to just use the istio-ca-secret for all cases and k8s watching.
 func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int,
 ) (caOpts *IstioCAOptions, err error) {
@@ -327,7 +398,8 @@ func BuildSecret(scrtName, namespace string, certChain, privateKey, rootCert, ca
 	return secret
 }
 
-// IstioCA generates keys and certificates for Istio identities.
+// IstioCA provide the cert signing implementation using Istio root certificate.
+// It also handles rotation of the self-signed root CA and reloading for intermediary-certs.
 type IstioCA struct {
 	defaultCertTTL time.Duration
 	maxCertTTL     time.Duration

@@ -122,6 +122,10 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	if certSigner == "" {
 		cert, signErr = s.ca.Sign([]byte(request.Csr), certOpts)
 	} else {
+		// TODO(costin): this concatenates all PEMs in one response, doesn't seem to match the contract
+		// of the API ( an array of certs ) or what ztunnel is using. Not clear when this option is used.
+		// Seems to only be used with KubernetesRA (which returns concatenated chain) and if node meta is
+		// set - will not be the case with ztunnel.
 		serverCaLog.Debugf("signing CSR with cert chain")
 		respCertChain, signErr = s.ca.SignWithCertChain([]byte(request.Csr), certOpts)
 	}
