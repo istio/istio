@@ -151,8 +151,10 @@ BB6nORpwdv4LVt/BFgLwWQIdAKvHn7cxBJ+aAC25rIumRNKDzP7PkV0HDbxtX+M=
 -----END CERTIFICATE-----`
 )
 
-var certChainValid = loadPEMFile("../testdata/cert-chain.pem")
-var certChainValidTrailingLine = loadPEMFile("../testdata/cert-chain-trailing-line.pem")
+var (
+	certChainValid             = loadPEMFile("../testdata/cert-chain.pem")
+	certChainValidTrailingLine = loadPEMFile("../testdata/cert-chain-trailing-line.pem")
+)
 
 func TestParsePemEncodedCertificate(t *testing.T) {
 	testCases := map[string]struct {
