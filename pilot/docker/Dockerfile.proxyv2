@@ -13,7 +13,7 @@ FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION} as debug
 # It is built on the base distroless image, with iptables binary and libraries added
 # The source can be found at https://github.com/istio/distroless/tree/iptables
 # This version is from commit 86c4972a9f5f245cfb382c8e1e95f176d968c882.
-FROM ${ISTIO_BASE_REGISTRY}/iptables@sha256:ef4feb7af82634cebf76546f5047ecb10565bcd4808d643370a626073003434a as distroless
+FROM ${ISTIO_BASE_REGISTRY}/iptables@sha256:616f60fbdee8c9d32a9e0ec24ff1549f6c9d7b2dc2a96b5a1f2ccbbc298a31ea as distroless
 
 # This will build the final image based on either debug or distroless from above
 # hadolint ignore=DL3006
