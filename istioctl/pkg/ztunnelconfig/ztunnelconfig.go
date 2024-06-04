@@ -218,7 +218,6 @@ func allCmd(ctx cli.Context) *cobra.Command {
 func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 	var workloadsNamespace string
 	var workloadNode string
-	var verboseProxyConfig bool
 
 	var address string
 
@@ -250,9 +249,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 				Namespace: workloadsNamespace,
 				Address:   address,
 				Node:      workloadNode,
-				Verbose:   verboseProxyConfig,
 			}
-
 			switch common.outputFormat {
 			case summaryOutput:
 				return cw.PrintWorkloadSummary(filter)
@@ -267,7 +264,6 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 
 	common.attach(cmd)
 	cmd.PersistentFlags().StringVar(&address, "address", "", "Filter workloads by address field")
-	cmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 	cmd.PersistentFlags().StringVar(&workloadsNamespace, "workload-namespace", "",
 		"Filter workloads by namespace field")
 	cmd.PersistentFlags().StringVar(&workloadNode, "workload-node", "",
