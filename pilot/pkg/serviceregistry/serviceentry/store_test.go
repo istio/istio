@@ -16,6 +16,7 @@ package serviceentry
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -172,22 +173,15 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	cpKey := configKeyWithParent{configKey: cKey, parent: config.NamespacedName(selector)}
 	// Add instance related to first Service Entry and validate they are added correctly.
 	store.addInstances(cpKey, instances)
-	gotInstances1 := store.getByKey(instancesKey{
-		hostname:  "example.com",
-		namespace: "dns",
-	})
-	gotInstances2 := store.getByKey(instancesKey{
-		hostname:  "muladdrs.example.com",
-		namespace: "dns",
-	})
-	gotInstances := []*model.ServiceInstance{}
-	gotInstances = append(gotInstances, gotInstances1...)
-	gotInstances = append(gotInstances, gotInstances2...)
 
 	expected := instances
-	if !reflect.DeepEqual(gotInstances, expected) {
-		t.Errorf("got unexpected instances : %+v", gotInstances)
-	}
+	assert.Equal(t, slices.Concat(store.getByKey(instancesKey{
+		hostname:  "example.com",
+		namespace: "dns",
+	}), store.getByKey(instancesKey{
+		hostname:  "muladdrs.example.com",
+		namespace: "dns",
+	})), expected)
 
 	store.addInstances(
 		configKeyWithParent{
@@ -229,10 +223,6 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		},
 	}
 	store.addInstances(cpKey, instances)
-
-	if !reflect.DeepEqual(gotInstances, instances) {
-		t.Errorf("got unexpected instances : %+v", gotInstances)
-	}
 
 	assert.Equal(t, store.getByKey(instancesKey{
 		hostname:  "example.com",
