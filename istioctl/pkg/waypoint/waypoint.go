@@ -241,6 +241,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()),
 					constants.AmbientUseWaypointLabel, gw.Name)
 			}
+			fmt.Fprintf(cmd.OutOrStdout(), "monitor status of waypoint deployment with "+
+				"`"+"kubectl get gateways -n %s"+"`\n", ns)
 			return nil
 		},
 	}
