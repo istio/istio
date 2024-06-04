@@ -71,7 +71,7 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 		ca:                 ca,
 		onRootCertUpdate:   onRootCertUpdate,
 	}
-	if false && config.enableJitter {
+	if config.enableJitter {
 		// Select a back off time in seconds, which is in the range of [0, rotator.config.CheckInterval).
 		randSource := rand.NewSource(time.Now().UnixNano())
 		randBackOff := rand.New(randSource)
@@ -146,16 +146,16 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		// if the user or tools have updated it.
 		// We do more checks than self-signed - since key, cert and root can be updated.
 
-		caCrt := caSecret.Data[TLSSecretRootCertFile]
+		// WIP:
+		//caCrt := caSecret.Data[TLSSecretRootCertFile]
 
-		keyCrt := caSecret.Data[TLSSecretCAPrivateKeyFile]
+		//keyCrt := caSecret.Data[TLSSecretCAPrivateKeyFile]
 
 		return
 	}
 
 	// Check root certificate expiration time in CA secret
 	waitTime, err := rotator.config.certInspector.GetWaitTime(caSecret.Data[CACertFile], time.Now())
-	waitTime = 1
 	if err == nil && waitTime > 0 {
 		rootCertRotatorLog.Debugf("Root cert is not about to expire, skipping root cert rotation %v", waitTime)
 
@@ -187,7 +187,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		return
 	}
 
-	rootCertRotatorLog.Infof("Refresh root certificate, check %s", err.Error())
+	rootCertRotatorLog.Infof("Refresh root certificate, root cert is about to expire: %s", err.Error())
 
 	oldCertOptions, err := util.GetCertOptionsFromExistingCert(caSecret.Data[CACertFile])
 	if err != nil {

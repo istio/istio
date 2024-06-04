@@ -1165,7 +1165,8 @@ func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (
 		v = appendErrorf(v, "targetRef name must be set")
 	}
 	if targetRef.Namespace != "" {
-		v = appendErrorf(v, "targetRef namespace must not be set")
+		// cross namespace referencing is currently not supported
+		v = appendErrorf(v, "targetRef namespace must not be set; cross namespace referencing is not supported")
 	}
 
 	canoncalGroup := targetRef.Group

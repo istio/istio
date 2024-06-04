@@ -186,9 +186,6 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 
-	policies := e.Server.Env.ServiceDiscovery.Policies(updatedPolicies)
-
-	resources := make(model.Resources, 0)
 	expected := sets.New[string]()
 	if len(updatedPolicies) > 0 {
 		// Partial update. Removes are ones we request but didn't get back when querying the policies
@@ -200,17 +197,18 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 		expected.InsertAll(w.ResourceNames...)
 	}
 
-	removed := expected
+	resources := make(model.Resources, 0)
+	policies := e.Server.Env.ServiceDiscovery.Policies(updatedPolicies)
 	for _, p := range policies {
 		n := p.ResourceName()
-		removed.Delete(n) // We found it, so it isn't a removal
+		expected.Delete(n) // delete the generated policy name, left the removed ones
 		resources = append(resources, &discovery.Resource{
 			Name:     n,
 			Resource: protoconv.MessageToAny(p.Authorization),
 		})
 	}
 
-	return resources, sets.SortedList(removed), model.XdsLogDetails{}, true, nil
+	return resources, sets.SortedList(expected), model.XdsLogDetails{}, true, nil
 }
 
 func (e WorkloadRBACGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

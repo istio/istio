@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"istio.io/istio/cni/pkg/constants"
-	"istio.io/istio/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -30,8 +30,7 @@ func TestUDSLog(t *testing.T) {
 	// Start UDS log server
 	udsSockDir := t.TempDir()
 	udsSock := filepath.Join(udsSockDir, "cni.sock")
-	logger := NewUDSLogger()
-	pluginLog.SetOutputLevel(log.DebugLevel) // this will be configured by global.logging.level
+	logger := NewUDSLogger(istiolog.DebugLevel)
 	stop := make(chan struct{})
 	defer close(stop)
 	assert.NoError(t, logger.StartUDSLogServer(udsSock, stop))
@@ -40,21 +39,21 @@ func TestUDSLog(t *testing.T) {
 	stdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	loggingOptions := log.DefaultOptions()
+	loggingOptions := istiolog.DefaultOptions()
 	loggingOptions.WithTeeToUDS(udsSock, constants.UDSLogPath)
-	assert.NoError(t, log.Configure(loggingOptions))
-	log.FindScope("default").SetOutputLevel(log.DebugLevel)
-	log.Debug("debug log")
-	log.Info("info log")
-	log.Warn("warn log")
-	log.Error("error log")
+	assert.NoError(t, istiolog.Configure(loggingOptions))
+	istiolog.FindScope("default").SetOutputLevel(istiolog.DebugLevel)
+	istiolog.Debug("debug log")
+	istiolog.Info("info log")
+	istiolog.Warn("warn log")
+	istiolog.Error("error log")
 	// This will error because stdout cannot sync, but the UDS part should sync
 	// Ideally we would fail if the UDS part fails but the error library makes it kind of tricky
-	_ = log.Sync()
+	_ = istiolog.Sync()
 
 	// Restore os stdout.
 	os.Stdout = stdout
-	assert.NoError(t, log.Configure(loggingOptions))
+	assert.NoError(t, istiolog.Configure(loggingOptions))
 
 	assert.NoError(t, w.Close())
 	out, err := io.ReadAll(r)

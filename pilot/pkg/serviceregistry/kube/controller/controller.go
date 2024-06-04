@@ -150,9 +150,7 @@ type kubernetesNode struct {
 
 // controllerInterface is a simplified interface for the Controller used for testing.
 type controllerInterface interface {
-	getPodLocality(pod *v1.Pod) string
 	Network(endpointIP string, labels labels.Instance) network.ID
-	Cluster() cluster.ID
 }
 
 var (
@@ -219,7 +217,6 @@ type Controller struct {
 	configCluster bool
 
 	networksHandlerRegistration *mesh.WatcherHandlerRegistration
-	meshHandlerRegistration     *mesh.WatcherHandlerRegistration
 }
 
 // NewController creates a new Kubernetes controller
@@ -370,11 +367,6 @@ func (c *Controller) Cleanup() error {
 		c.opts.MeshNetworksWatcher.DeleteNetworksHandler(c.networksHandlerRegistration)
 	}
 
-	// Unregister mesh handler
-	if c.meshHandlerRegistration != nil {
-		c.opts.MeshWatcher.DeleteMeshHandler(c.meshHandlerRegistration)
-	}
-
 	return nil
 }
 
@@ -382,7 +374,7 @@ func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) er
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.
-	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster())
+	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster(), c.meshWatcher.Mesh())
 
 	switch event {
 	case model.EventDelete:

@@ -27,13 +27,10 @@ import (
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/util"
-	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
-
-var log = istiolog.RegisterScope("ambient", "ambient controller")
 
 // Adapts CNI to ztunnel server. decoupled from k8s for easier integration testing.
 type NetServer struct {
@@ -153,17 +150,20 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.iptablesConfigurator.CreateInpodRules(&HostProbeSNATIP)
+		return s.iptablesConfigurator.CreateInpodRules(&HostProbeSNATIP, &HostProbeSNATIPV6)
 	}); err != nil {
 		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
 		return err
 	}
 
+	// For *any* failures after calling `CreateInpodRules`, we must return PartialAdd error.
+	// The pod was injected with iptables rules, so it must be annotated as "inpod" - even if
+	// the following fails.
+	// This is so that if it is removed from the mesh, the inpod rules will unconditionally
+	// be removed.
+
 	log.Debug("notifying subscribed node proxies")
 	if err := s.sendPodToZtunnelAndWaitForAck(ctx, pod, openNetns); err != nil {
-		// we must return PartialAdd error here. the pod was injected with iptables rules,
-		// so it should be annotated, so if it is removed from the mesh, the rules will be removed.
-		// alternatively, we may not return an error at all, but we want this to fail on tests.
 		return NewErrPartialAdd(err)
 	}
 	return nil
@@ -231,8 +231,8 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) erro
 
 	openNetns := s.currentPodSnapshot.Take(string(pod.UID))
 	if openNetns == nil {
-		log.Warn("failed to find pod netns")
-		return fmt.Errorf("failed to find pod netns")
+		log.Warn("failed to find pod netns during removal")
+		return fmt.Errorf("failed to find pod netns during removal")
 	}
 	// pod is removed from the mesh, but is still running. remove iptables rules
 	log.Debugf("calling DeleteInpodRules.")
@@ -312,11 +312,17 @@ func addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet 
 	for _, pip := range podIPs {
 		// Add to host ipset
 		log.Debugf("adding pod %s probe to ipset %s with ip %s", pod.Name, hostsideProbeSet.Prefix, pip)
-		// Add IP/port combo to set. Note that we set Replace to true - a pod ip/port combo already being
-		// in the set is perfectly fine, and something we can always safely overwrite, so we will.
-		if err := hostsideProbeSet.AddIP(pip, ipProto, podUID, true); err != nil {
+		// Add IP/port combo to set. Note that we set Replace to false here - we _did_ previously
+		// set it to true, but in theory that could mask weird scenarios where K8S triggers events out of order ->
+		// an add(sameIPreused) then delete(originalIP).
+		// Which will result in the new pod starting to fail healthchecks.
+		//
+		// Since we purge on restart of CNI, and remove pod IPs from the set on every pod removal/deletion,
+		// we _shouldn't_ get any overwrite/overlap, unless something is wrong and we are asked to add
+		// a pod by an IP we already have in the set (which will give an error, which we want).
+		if err := hostsideProbeSet.AddIP(pip, ipProto, podUID, false); err != nil {
 			ipsetAddrErrs = append(ipsetAddrErrs, err)
-			log.Warnf("failed adding pod %s to ipset %s with ip %s, error was %s",
+			log.Errorf("failed adding pod %s to ipset %s with ip %s, error was %s",
 				pod.Name, hostsideProbeSet.Prefix, pip, err)
 		}
 	}

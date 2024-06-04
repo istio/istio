@@ -22,7 +22,6 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -47,7 +46,7 @@ func (c *ConfigWriter) PrintPolicySummary(filter PolicyFilter) error {
 	w := c.tabwriter()
 	zDump := c.ztunnelDump
 
-	pols := slices.Filter(maps.Values(zDump.Policies), filter.Verify)
+	pols := slices.Filter(zDump.Policies, filter.Verify)
 	slices.SortFunc(pols, func(a, b *ZtunnelPolicy) int {
 		if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {
 			return r
@@ -66,7 +65,7 @@ func (c *ConfigWriter) PrintPolicySummary(filter PolicyFilter) error {
 // PrintPolicyDump prints the relevant services in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintPolicyDump(filter PolicyFilter, outputFormat string) error {
 	zDump := c.ztunnelDump
-	policies := slices.Filter(maps.Values(zDump.Policies), filter.Verify)
+	policies := slices.Filter(zDump.Policies, filter.Verify)
 	slices.SortFunc(policies, func(a, b *ZtunnelPolicy) int {
 		if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {
 			return r

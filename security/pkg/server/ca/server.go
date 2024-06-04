@@ -88,13 +88,14 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	crMetadata := request.Metadata.GetFields()
 	impersonatedIdentity := crMetadata[security.ImpersonatedIdentity].GetStringValue()
 	if impersonatedIdentity != "" {
+		// This is used by ztunnel to create a cert for a pod on same node.
 		serverCaLog.Debugf("impersonated identity: %s", impersonatedIdentity)
 		// If there is an impersonated identity, we will override to use that identity (only single value
 		// supported), if the real caller is authorized.
 		if s.nodeAuthorizer == nil {
 			s.monitoring.AuthnError.Increment()
 			// Return an opaque error (for security purposes) but log the full reason
-			serverCaLog.Warnf("impersonation not allowed, as node authorizer is not configured")
+			serverCaLog.Warnf("impersonation not allowed, as node authorizer (CA_TRUSTED_NODE_ACCOUNTS) is not configured")
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 
 		}
@@ -109,6 +110,9 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	}
 	serverCaLog.Debugf("generating a certificate, sans: %v, requested ttl: %s", sans, time.Duration(request.ValidityDuration*int64(time.Second)))
 	certSigner := crMetadata[security.CertSigner].GetStringValue()
+
+	// rootCertBytes may be a list of PEM certificates.
+	// certChainBytes may be empty if it is the self-signed cert without intermediates.
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
 		SubjectIDs: sans,
@@ -120,6 +124,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	var cert []byte
 	var respCertChain []string
 	if certSigner == "" {
+		// Returns a single block, with the leaf certificate.
 		cert, signErr = s.ca.Sign([]byte(request.Csr), certOpts)
 	} else {
 		// TODO(costin): this concatenates all PEMs in one response, doesn't seem to match the contract
@@ -159,6 +164,12 @@ func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
 	}
 	rootCertExpiryTimestamp.Record(rootCertExpiry)
 
+	rootCertPem, err := util.ParsePemEncodedCertificate(keyCertBundle.GetRootCertPem())
+	if err != nil {
+		serverCaLog.Errorf("failed to parse the root cert: %v", err)
+	}
+	rootCertExpirySeconds.ValueFrom(func() float64 { return time.Until(rootCertPem.NotAfter).Seconds() })
+
 	if len(keyCertBundle.GetCertChainPem()) == 0 {
 		return
 	}
@@ -168,6 +179,12 @@ func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
 		serverCaLog.Errorf("failed to extract CA cert expiry timestamp (error %v)", err)
 	}
 	certChainExpiryTimestamp.Record(certChainExpiry)
+
+	certChainPem, err := util.ParsePemEncodedCertificate(keyCertBundle.GetCertChainPem())
+	if err != nil {
+		serverCaLog.Errorf("failed to parse the cert chain: %v", err)
+	}
+	certChainExpirySeconds.ValueFrom(func() float64 { return time.Until(certChainPem.NotAfter).Seconds() })
 }
 
 // Register registers a GRPC server on the specified port.

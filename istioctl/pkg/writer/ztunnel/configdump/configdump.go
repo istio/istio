@@ -21,6 +21,8 @@ import (
 	"text/tabwriter"
 
 	"sigs.k8s.io/yaml"
+
+	"istio.io/istio/pkg/maps"
 )
 
 // ConfigWriter is a writer for processing responses from the Ztunnel Admin config_dump endpoint
@@ -30,16 +32,54 @@ type ConfigWriter struct {
 	FullDump    []byte
 }
 
+type rawDump struct {
+	Services      json.RawMessage          `json:"services"`
+	Workloads     json.RawMessage          `json:"workloads"`
+	Policies      json.RawMessage          `json:"policies"`
+	Certificates  json.RawMessage          `json:"certificates"`
+	WorkloadState map[string]WorkloadState `json:"workloadstate"`
+}
+
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	cd := ZtunnelDump{}
+	zDump := &ZtunnelDump{}
+	rawDump := &rawDump{}
 	// TODO(fisherxu): migrate this to jsonpb when issue fixed in golang
 	// Issue to track -> https://github.com/golang/protobuf/issues/632
-	err := json.Unmarshal(b, &cd)
+	err := json.Unmarshal(b, rawDump)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from ztunnel: %v", err)
 	}
-	c.ztunnelDump = &cd
+	// ensure that data gets unmarshalled into the right data type
+	if err := unmarshalListOrMap(rawDump.Services, &zDump.Services); err != nil {
+		return err
+	}
+	if err := unmarshalListOrMap(rawDump.Workloads, &zDump.Workloads); err != nil {
+		return err
+	}
+	if err := unmarshalListOrMap(rawDump.Certificates, &zDump.Certificates); err != nil {
+		return err
+	}
+	if err := unmarshalListOrMap(rawDump.Policies, &zDump.Policies); err != nil {
+		return err
+	}
+	zDump.WorkloadState = rawDump.WorkloadState
+	c.ztunnelDump = zDump
+	return nil
+}
+
+func unmarshalListOrMap[T any](input json.RawMessage, i *[]T) error {
+	if len(input) == 0 {
+		return nil
+	}
+	if input[0] == '[' {
+		return json.Unmarshal(input, i)
+	}
+	m := make(map[string]T)
+	if err := json.Unmarshal(input, &m); err != nil {
+		return err
+	}
+	*i = maps.Values(m)
 	return nil
 }
 

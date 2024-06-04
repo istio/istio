@@ -178,7 +178,7 @@ func (s *Server) RunCA(grpc *grpc.Server) {
 		// Add a custom authenticator using standard JWT validation, if not running in K8S
 		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
 		jwtRule := v1beta1.JWTRule{Issuer: iss, Audiences: []string{aud}}
-		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule)
+		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule, nil)
 		if err == nil {
 			s.caServer.Authenticators = append(s.caServer.Authenticators, oidcAuth)
 			log.Info("Using out-of-cluster JWT authentication")
@@ -458,6 +458,8 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			// same way it handles the "istio-ca-secret" secret. Isitod utilizes a secret watch instead
 			// of file watch to check for secret updates. This may change in the future, and istiod
 			// will watch the file mount instead.
+
+			// TODO(costin): we can use the presence of intermediary certs to know if we can rotate.
 		}
 
 		// Either the secret is not mounted because it is named `istio-ca-secret`,

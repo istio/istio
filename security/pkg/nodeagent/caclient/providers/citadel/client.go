@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -41,7 +42,7 @@ type CitadelClient struct {
 	tlsOpts  *TLSOptions
 	client   pb.IstioCertificateServiceClient
 	conn     *grpc.ClientConn
-	provider *caclient.TokenProvider
+	provider credentials.PerRPCCredentials
 	opts     *security.Options
 }
 
@@ -56,7 +57,7 @@ func NewCitadelClient(opts *security.Options, tlsOpts *TLSOptions) (*CitadelClie
 	c := &CitadelClient{
 		tlsOpts:  tlsOpts,
 		opts:     opts,
-		provider: caclient.NewCATokenProvider(opts),
+		provider: caclient.NewDefaultTokenProvider(opts),
 	}
 
 	conn, err := c.buildConnection()

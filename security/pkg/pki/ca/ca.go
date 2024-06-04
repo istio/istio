@@ -153,6 +153,11 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 	b := backoff.NewExponentialBackOff(backoff.DefaultOption())
 	err = b.RetryWithContext(ctx, func() error {
 		caCertName = CASecret
+		// This seems wrong: with in-cluster Istiod the /etc/cacerts is checked first, and if found it is used.
+		// This code path is called either when /etc/cacerts is not found (so the secret doesn't exist) or if we run Istiod outside of the cluster.
+
+		// We should always check the cacerts first.
+
 		// 1. fetch `istio-ca-secret` in priority
 		err := loadCASecrets(client, namespace, caCertName, rootCertFile, caOpts)
 		if err == nil {
@@ -163,7 +168,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			// and deprecate/phase out the mounted file in help/k8s. The code to use the filesystem is still useful.
 			if useCacertsSecretName {
 				caCertName = CACertsSecret
-				err := loadCASecrets(client, namespace, caCertName, rootCertFile, caOpts)
+				err := loadCacertSecret(client, namespace, caCertName, rootCertFile, caOpts)
 				if err == nil {
 					return nil
 				} else if apierror.IsNotFound(err) { // if neither `istio-ca-secret` nor `cacerts` exists, we create a `cacerts`
@@ -222,57 +227,11 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 func loadCASecrets(client corev1.CoreV1Interface, namespace string, caCertName string, rootCertFile string, caOpts *IstioCAOptions) error {
 	caSecret, err := client.Secrets(namespace).Get(context.TODO(), caCertName, metav1.GetOptions{})
 	if err == nil {
-		// Detect tls.key. If found, use the new mode, assume cert may be a chain, etc.
-		// Otherwise - old self-signed code.
-		rootCertData := caSecret.Data[TLSSecretRootCertFile]
-		if rootCertData != nil {
-			pkiCaLog.Infof("Load signing key and cert from existing secret using ca.crt %s/%s and %s",
-				caSecret.Namespace, caSecret.Name, rootCertFile)
+		// Original simple case - self-generate root, no intermediaries.
+		rootCertData := caSecret.Data[CACertFile]
 
-			// Use only the cert - note that reloading will compare with that, so probably
-			// old code also eventually gets to this state - but not deterministic.
-			// If user has new cert - use it.
-			rootCerts := rootCertData //:= util.AppendRootCerts(rootCertData, rootCertFile)
-			if err != nil {
-				return fmt.Errorf("failed to append root certificates (%v)", err)
-			}
-			privData := caSecret.Data[TLSSecretCAPrivateKeyFile]
-			crtData := caSecret.Data[TLSSecretCACertFile]
-			chaincerts, _, _ := util.ParsePemEncodedCertificateChain(crtData)
-			intNames := []string{}
-			for _, r := range chaincerts {
-				intNames = append(intNames, r.Subject.String())
-			}
-
-			var certChainBytes []byte
-			if len(intNames) > 1 {
-				// tls.crt is a chain - first key is the actual certificate, the rest are intermediaries
-				// The rest of the code expects the cert and chain to be separated - probably it was easier to code, most
-				// systems use the tls.crt style which is the chain that will be sent in all requests.
-				_, rest := pem.Decode(crtData)
-				if len(rest) > 0 {
-					certChainBytes = rest
-				}
-			}
-
-			if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(crtData,
-				privData, certChainBytes, rootCerts); err != nil {
-				pkiCaLog.WithLabels("chain", intNames, "roots", rootNames, "error", err).Info("Failed to load CA")
-				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
-			}
-
-			cert, _, _, _ := caOpts.KeyCertBundle.GetAll()
-			// Provide detailed info - issuer, expiration, cert length, root length
-
-			pkiCaLog.WithLabels("issuer", cert.Issuer, "subject", cert.Subject, "exp", cert.NotAfter,
-				"chain", intNames, "roots", rootNames).Info("Loaded CA roots")
-
-			return err
-		}
-
-		rootCertData = caSecret.Data[CACertFile]
-
-		// Append the root CertFile to the istio_ca root list
+		// The file is typically the mounted ca - if the roots are present, they are added.
+		// Not sure if this is intentional or accidental.
 		rootCerts, err := util.AppendRootCerts(rootCertData, rootCertFile)
 		if err != nil {
 			return fmt.Errorf("failed to append root certificates (%v)", err)
@@ -286,14 +245,65 @@ func loadCASecrets(client corev1.CoreV1Interface, namespace string, caCertName s
 			return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
 
-		cert, _, _, _ := caOpts.KeyCertBundle.GetAll()
-		// Provide detailed info - issuer, expiration, cert length, root length
-
-		pkiCaLog.WithLabels("issuer", cert.Issuer, "subject", cert.Subject, "exp", cert.NotAfter,
-			"chain", intNames, "roots", rootNames).Info("Loaded CA roots")
-
 	}
 	return err
+}
+
+func loadCacertSecret(client corev1.CoreV1Interface, namespace string, caCertName string, rootCertFile string, caOpts *IstioCAOptions) error {
+	caSecret, err := client.Secrets(namespace).Get(context.TODO(), caCertName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	// Detect tls.key, load both ca-cert.pem and root-cert.pem
+	rootCertData := caSecret.Data[TLSSecretRootCertFile]
+	privData := caSecret.Data[TLSSecretCAPrivateKeyFile]
+	crtData := caSecret.Data[TLSSecretCACertFile]
+
+	if rootCertData != nil {
+		rootCertData = caSecret.Data[CACertFile]
+		rootCertData2 := caSecret.Data[CertChainFile]
+		if rootCertData2 != nil {
+			rootCertData = append(rootCertData, rootCertData2...)
+		}
+		privData = caSecret.Data[CAPrivateKeyFile]
+		crtData = caSecret.Data[CACertFile]
+	}
+
+	pkiCaLog.Infof("Load signing key and cert from existing secret using ca.crt %s/%s and %s",
+		caSecret.Namespace, caSecret.Name, rootCertFile)
+	rootCerts := rootCertData
+
+	rcerts, _, _ := util.SplitPemEncodedCertificates(rootCerts)
+	rootNames := []string{}
+	for _, r := range rcerts {
+		rootNames = append(rootNames, r.Subject.String())
+	}
+	chaincerts, _, _ := util.SplitPemEncodedCertificates(crtData)
+	intNames := []string{}
+	for _, r := range chaincerts {
+		intNames = append(intNames, r.Subject.String())
+	}
+	var certChainBytes []byte
+	if len(intNames) > 1 {
+		// tls.crt is a chain - first key is the actual certificate, the rest are intermediaries
+		// The rest of the code expects the cert and chain to be separated - probably it was easier to code, most
+		// systems use the tls.crt style which is the chain that will be sent in all requests.
+		_, rest := pem.Decode(crtData)
+		if len(rest) > 0 {
+			certChainBytes = rest
+		}
+	}
+	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(crtData,
+		privData, certChainBytes, rootCerts); err != nil {
+		pkiCaLog.WithLabels("chain", intNames, "roots", rootNames, "error", err).Info("Failed to load CA")
+		return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
+	}
+
+	cert, _, _, _ := caOpts.KeyCertBundle.GetAll()
+	// Provide detailed info - issuer, expiration, cert length, root length
+	pkiCaLog.WithLabels("issuer", cert.Issuer, "subject", cert.Subject, "exp", cert.NotAfter,
+		"chain", intNames, "roots", rootNames).Info("Loaded CA roots")
+	return nil
 }
 
 // NewSelfSignedDebugIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate produced by in-memory CA,

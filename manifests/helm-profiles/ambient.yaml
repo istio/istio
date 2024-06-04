@@ -8,7 +8,6 @@ global:
 pilot:
   env:
     PILOT_ENABLE_AMBIENT: "true"
-    CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
 cni:
   ambient:
     enabled: true

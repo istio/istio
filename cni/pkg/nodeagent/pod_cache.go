@@ -91,8 +91,7 @@ func (p *podNetnsCache) UpsertPodCacheWithNetns(uid string, workload WorkloadInf
 	return workload.Netns
 }
 
-// Update the cache with the given uid and nspath. Return the Netns for the given uid.
-// If uid is already present, a cached Netns is returned, and the given nspath is ignored.
+// Get the netns if it's in the cache
 func (p *podNetnsCache) Get(uid string) Netns {
 	// lock current snapshot pod map
 	p.mu.RLock()

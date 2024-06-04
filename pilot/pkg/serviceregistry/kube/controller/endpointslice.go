@@ -264,7 +264,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 			if pod == nil && expectedPod {
 				continue
 			}
-			builder := NewEndpointBuilder(esc.c, pod)
+			builder := esc.c.NewEndpointBuilder(pod)
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 			for _, port := range slice.Ports {
 				var portNum int32

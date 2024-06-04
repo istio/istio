@@ -144,57 +144,6 @@
       }
     }
   }
-  {{ if .stackdriver }}
-  ,
-  "tracing": {
-    "http": {
-      "name": "envoy.tracers.opencensus",
-      "typed_config": {
-      "@type": "type.googleapis.com/envoy.config.trace.v3.OpenCensusConfig",
-      "stackdriver_exporter_enabled": true,
-      "stackdriver_project_id": "{{ .stackdriverProjectID }}",
-      {{ if .sts_port }}
-      "stackdriver_grpc_service": {
-        "google_grpc": {
-          "target_uri": "cloudtrace.googleapis.com",
-          "stat_prefix": "oc_stackdriver_tracer",
-          "channel_credentials": {
-            "ssl_credentials": {}
-          },
-          "call_credentials": [{
-            "sts_service": {
-              "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
-              "subject_token_path": "./var/run/secrets/tokens/istio-token",
-              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-              "scope": "https://www.googleapis.com/auth/cloud-platform"
-            }
-          }]
-        },
-        "initial_metadata": [
-        {{ if .gcp_project_id }}
-          {
-            "key": "x-goog-user-project",
-            "value": "{{ .gcp_project_id }}"
-          }
-        {{ end }}
-        ]
-      },
-      {{ end }}
-      "stdout_exporter_enabled": {{ .stackdriverDebug }},
-      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
-      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
-      "trace_config":{
-        "constant_sampler":{
-          "decision": "ALWAYS_PARENT"
-        },
-        "max_number_of_annotations": {{ .stackdriverMaxAnnotations }},
-        "max_number_of_attributes": {{ .stackdriverMaxAttributes }},
-        "max_number_of_message_events": {{ .stackdriverMaxEvents }},
-        "max_number_of_links": 200
-      }
-    }
-  }}
-  {{ end }}
   ,
   "layered_runtime": {
     "layers": [

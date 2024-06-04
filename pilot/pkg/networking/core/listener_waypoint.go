@@ -288,14 +288,17 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					})
 				}
 			}
-			ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
-				&matcher.IPMatcher_IPRangeMatcher{
-					Ranges: ipRange,
-					OnMatch: match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
-						TCP:  match.ToChain(tcpChain.Name),
-						HTTP: match.ToChain(httpChain.Name),
-					})),
-				})
+			if len(ipRange) > 0 {
+				// Empty can happen if we have workloads, but none have an Address (DNS)
+				ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
+					&matcher.IPMatcher_IPRangeMatcher{
+						Ranges: ipRange,
+						OnMatch: match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
+							TCP:  match.ToChain(tcpChain.Name),
+							HTTP: match.ToChain(httpChain.Name),
+						})),
+					})
+			}
 		}
 	}
 	l := &listener.Listener{

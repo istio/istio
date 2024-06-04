@@ -179,6 +179,7 @@ func convertServices(cfg config.Config) []*model.Service {
 	if serviceEntry.WorkloadSelector != nil {
 		labelSelectors = serviceEntry.WorkloadSelector.Labels
 	}
+
 	hostAddresses := []*HostAddress{}
 	for _, hostname := range serviceEntry.Hosts {
 		if len(serviceEntry.Addresses) > 0 {
@@ -271,7 +272,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 	tlsMode := getTLSModeFromWorkloadEntry(wle)
 	sa := ""
 	if wle.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, wle.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(s.meshWatcher.Mesh(), service.Attributes.Namespace, wle.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(wle)
 	locality := wle.Locality
@@ -310,7 +311,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 func (s *Controller) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
 	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID,
 ) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+	out := make([]*model.ServiceInstance, 0, len(services)*len(se.Ports))
 	for _, service := range services {
 		for _, port := range se.Ports {
 			out = append(out, s.convertEndpoint(service, port, wle, configKey, clusterID))
@@ -320,7 +321,6 @@ func (s *Controller) convertWorkloadEntryToServiceInstances(wle *networking.Work
 }
 
 func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if serviceEntry == nil {
 		return nil
@@ -328,15 +328,22 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 	if services == nil {
 		services = convertServices(cfg)
 	}
+
+	endpointsNum := len(serviceEntry.Endpoints)
+	hostnameToServiceInstance := false
+	if len(serviceEntry.Endpoints) == 0 && serviceEntry.WorkloadSelector == nil && isDNSTypeServiceEntry(serviceEntry) {
+		hostnameToServiceInstance = true
+		endpointsNum = 1
+	}
+
+	out := make([]*model.ServiceInstance, 0, len(services)*len(serviceEntry.Ports)*endpointsNum)
 	for _, service := range services {
 		for _, serviceEntryPort := range serviceEntry.Ports {
-			if len(serviceEntry.Endpoints) == 0 && serviceEntry.WorkloadSelector == nil &&
-				(serviceEntry.Resolution == networking.ServiceEntry_DNS || serviceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) {
+			if hostnameToServiceInstance {
 				// Note: only convert the hostname to service instance if WorkloadSelector is not set
-				// when service entry has discovery type DNS and no endpoints
-				// we create endpoints from service's host
-				// Do not use serviceentry.hosts as a service entry is converted into
-				// multiple services (one for each host)
+				// when service entry has discovery type DNS and no endpoints.
+				// We create endpoints from service's host, do not use serviceentry.hosts
+				// as a service entry is converted into multiple services (one for each host)
 				endpointPort := serviceEntryPort.Number
 				if serviceEntryPort.TargetPort > 0 {
 					endpointPort = serviceEntryPort.TargetPort
@@ -381,7 +388,7 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadInstance, serviceEntryServices []*model.Service,
 	serviceEntry *networking.ServiceEntry,
 ) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+	out := make([]*model.ServiceInstance, 0, len(serviceEntryServices)*len(serviceEntry.Ports))
 	for _, service := range serviceEntryServices {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			// note: this is same as workloadentry handler
@@ -428,7 +435,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 	tlsMode := getTLSModeFromWorkloadEntry(we)
 	sa := ""
 	if we.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(s.meshWatcher.Mesh(), cfg.Namespace, we.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(we)
 	locality := we.Locality

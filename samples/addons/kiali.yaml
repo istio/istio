@@ -63,7 +63,7 @@ data:
         spec: {}
       image_digest: ""
       image_name: quay.io/kiali/kiali
-      image_pull_policy: Always
+      image_pull_policy: IfNotPresent
       image_pull_secrets: []
       image_version: v1.82
       ingress:
@@ -471,7 +471,7 @@ spec:
         app.kubernetes.io/part-of: "kiali"
         sidecar.istio.io/inject: "false"
       annotations:
-        checksum/config: 19405f971010f37081fa485f6c53616dfdf97d1d372e4ac9e09434cf0e71f02d
+        checksum/config: 6b7d7d5216a59ccfb88b071967efb577748b57707b9e59d966132412d0b710cc
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         kiali.io/dashboards: go,kiali
@@ -479,7 +479,7 @@ spec:
       serviceAccountName: kiali
       containers:
       - image: "quay.io/kiali/kiali:v1.82"
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: kiali
         command:
         - "/opt/kiali/kiali"

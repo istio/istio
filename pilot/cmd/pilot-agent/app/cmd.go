@@ -37,13 +37,10 @@ import (
 	istioagent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
-	stsserver "istio.io/istio/security/pkg/stsservice/server"
-	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
 	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
@@ -128,18 +125,6 @@ func newProxyCommand(sds istioagent.SDSServiceFactory) *cobra.Command {
 				return err
 			}
 
-			// If security token service (STS) port is not zero, start STS server and
-			// listen on STS port for STS requests. For STS, see
-			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
-			// STS is used for stackdriver or other Envoy services using google gRPC.
-			if proxyArgs.StsPort > 0 {
-				stsServer, err := initStsServer(secOpts.TokenManager)
-				if err != nil {
-					return err
-				}
-				defer stsServer.Stop()
-			}
-
 			// If we are using a custom template file (for control plane proxy, for example), configure this.
 			if proxyArgs.TemplateFile != "" && proxyConfig.CustomConfigFile == "" {
 				proxyConfig.ProxyBootstrapTemplatePath = proxyArgs.TemplateFile
@@ -192,7 +177,7 @@ func addFlags(proxyCmd *cobra.Command) {
 			"PROXY_CONFIG environment variable or proxy.istio.io/config annotation.")
 	proxyCmd.PersistentFlags().IntVar(&proxyArgs.StsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
-	proxyCmd.PersistentFlags().StringVar(&proxyArgs.TokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,
+	proxyCmd.PersistentFlags().StringVar(&proxyArgs.TokenManagerPlugin, "tokenManagerPlugin", "",
 		"Token provider specific plugin name.")
 	// DEPRECATED. Flags for proxy configuration
 	proxyCmd.PersistentFlags().StringVar(&proxyArgs.ServiceCluster, "serviceCluster", constants.ServiceClusterName, "Service cluster")
@@ -232,28 +217,6 @@ func initStatusServer(
 	}
 	go statusServer.Run(ctx)
 	return nil
-}
-
-func initStsServer(tokenManager security.TokenManager) (*stsserver.Server, error) {
-	localHostAddr := localHostIPv4
-	if proxyArgs.IsIPv6() {
-		localHostAddr = localHostIPv6
-	} else {
-		// if not ipv6-only, it can be ipv4-only or dual-stack
-		// let InstanceIP decide the localhost
-		netIP, _ := netip.ParseAddr(options.InstanceIPVar.Get())
-		if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
-			localHostAddr = localHostIPv6
-		}
-	}
-	stsServer, err := stsserver.NewServer(stsserver.Config{
-		LocalHostAddr: localHostAddr,
-		LocalPort:     proxyArgs.StsPort,
-	}, tokenManager)
-	if err != nil {
-		return nil, err
-	}
-	return stsServer, nil
 }
 
 func getDNSDomain(podNamespace, domain string) string {

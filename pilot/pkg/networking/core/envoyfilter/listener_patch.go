@@ -518,7 +518,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 	}
 	for _, httpFilter := range httpconn.HttpFilters {
-		patchHTTPFilter(patchContext, patches, lis, fc, filter, httpFilter)
+		mergeHTTPFilter(patchContext, patches, lis, fc, filter, httpFilter)
 	}
 	if filter.GetTypedConfig() != nil {
 		// convert to any type
@@ -526,9 +526,8 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 	}
 }
 
-// patchHTTPFilter patches passed in filter if it is MERGE operation.
-// The return value indicates whether the filter has been removed for REMOVE operations.
-func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
+// mergeHTTPFilter patches passed in filter if it is MERGE operation.
+func mergeHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *listener.Listener, fc *listener.FilterChain, filter *listener.Filter,
 	httpFilter *hcm.HttpFilter,

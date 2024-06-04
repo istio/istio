@@ -169,7 +169,7 @@ func (s *sdsservice) push(secretName string) {
 	}
 }
 
-func (c Context) XdsConnection() *xds.Connection {
+func (c *Context) XdsConnection() *xds.Connection {
 	return &c.BaseConnection
 }
 

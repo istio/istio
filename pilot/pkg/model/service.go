@@ -375,15 +375,11 @@ func (instance *WorkloadInstance) CmpOpts() []cmp.Option {
 
 // DeepCopy creates a copy of WorkloadInstance.
 func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
-	pmap := map[string]uint32{}
-	for k, v := range instance.PortMap {
-		pmap[k] = v
-	}
 	return &WorkloadInstance{
 		Name:      instance.Name,
 		Namespace: instance.Namespace,
 		Kind:      instance.Kind,
-		PortMap:   pmap,
+		PortMap:   maps.Clone(instance.PortMap),
 		Endpoint:  instance.Endpoint.DeepCopy(),
 	}
 }

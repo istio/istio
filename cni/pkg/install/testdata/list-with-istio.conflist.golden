@@ -28,12 +28,19 @@
       "type": "tuning"
     },
     {
+      "ambient_enabled": false,
+      "cni_event_address": "",
+      "dns": {},
+      "ipam": {},
       "kubernetes": {
-        "cni_bin_dir": "/path/cni/bin",
+        "exclude_namespaces": [
+          ""
+        ],
         "kubeconfig": "/path/to/kubeconfig"
       },
-      "log_level": "debug",
+      "log_uds_address": "",
       "name": "istio-cni",
+      "plugin_log_level": "debug",
       "type": "istio-cni"
     }
   ]

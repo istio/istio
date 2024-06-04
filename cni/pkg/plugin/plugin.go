@@ -65,7 +65,7 @@ type Config struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	LogLevel        string     `json:"log_level"`
+	PluginLogLevel  string     `json:"plugin_log_level"`
 	LogUDSAddress   string     `json:"log_uds_address"`
 	CNIEventAddress string     `json:"cni_event_address"`
 	AmbientEnabled  bool       `json:"ambient_enabled"`
@@ -80,6 +80,7 @@ type K8sArgs struct {
 	K8S_POD_NAME               types.UnmarshallableString // nolint: revive, stylecheck
 	K8S_POD_NAMESPACE          types.UnmarshallableString // nolint: revive, stylecheck
 	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: revive, stylecheck
+	K8S_POD_UID                types.UnmarshallableString // nolint: revive, stylecheck
 }
 
 // parseConfig parses the supplied configuration (and prevResult) from stdin.
@@ -110,20 +111,6 @@ func parseConfig(stdin []byte) (*Config, error) {
 	// End previous result parsing
 
 	return &conf, nil
-}
-
-func getLogLevel(logLevel string) log.Level {
-	switch logLevel {
-	case "debug":
-		return log.DebugLevel
-	case "warn":
-		return log.WarnLevel
-	case "error":
-		return log.ErrorLevel
-	case "info":
-		return log.InfoLevel
-	}
-	return log.InfoLevel
 }
 
 func GetLoggingOptions(udsAddress string) *log.Options {
@@ -316,7 +303,7 @@ func setupLogging(conf *Config) {
 			log.Error("Failed to configure istio-cni with UDS log")
 		}
 	}
-	log.FindScope("default").SetOutputLevel(getLogLevel(conf.LogLevel))
+	log.FindScope("default").SetOutputLevel(log.StringToLevel(conf.PluginLogLevel))
 }
 
 func pluginResponse(conf *Config) error {

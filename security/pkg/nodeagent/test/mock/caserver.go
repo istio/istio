@@ -30,7 +30,6 @@ import (
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/spiffe"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -73,25 +72,6 @@ func NewCAServerWithKeyCert(port int, key, cert []byte, opts ...grpc.ServerOptio
 	pb.RegisterIstioCertificateServiceServer(server.GRPCServer, server)
 	ghc.RegisterHealthServer(server.GRPCServer, server)
 	return server, server.start(port)
-}
-
-// NewCAServer creates a new CA server that listens on port.
-func NewCAServer(port int, opts ...grpc.ServerOption) (*CAServer, error) {
-	// Create root cert and private key.
-	options := util.CertOptions{
-		TTL:          3650 * 24 * time.Hour,
-		Org:          spiffe.GetTrustDomain(),
-		IsCA:         true,
-		IsSelfSigned: true,
-		RSAKeySize:   2048,
-		IsDualUse:    true,
-	}
-	cert, key, err := util.GenCertKeyFromOptions(options)
-	if err != nil {
-		caServerLog.Errorf("cannot create CA cert and private key: %+v", err)
-		return nil, err
-	}
-	return NewCAServerWithKeyCert(port, key, cert, opts...)
 }
 
 func (s *CAServer) start(port int) error {

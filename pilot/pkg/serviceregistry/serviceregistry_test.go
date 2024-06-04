@@ -81,7 +81,7 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 	stop := istiotest.NewStop(t)
 	go configController.Run(stop)
 
-	se := serviceentry.NewController(configController, xdsUpdater)
+	se := serviceentry.NewController(configController, xdsUpdater, meshWatcher)
 	client.RunAndWait(stop)
 
 	kc.AppendWorkloadHandler(se.WorkloadInstanceHandler)

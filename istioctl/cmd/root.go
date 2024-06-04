@@ -203,7 +203,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
 	experimentalCmd.AddCommand(checkinject.Cmd(ctx))
 	experimentalCmd.AddCommand(waypoint.Cmd(ctx))
-	experimentalCmd.AddCommand(ztunnelconfig.ZtunnelConfig(ctx))
+	rootCmd.AddCommand(ztunnelconfig.ZtunnelConfig(ctx))
 
 	analyzeCmd := analyze.Analyze(ctx)
 	hideInheritedFlags(analyzeCmd, cli.FlagIstioNamespace)

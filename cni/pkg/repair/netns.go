@@ -22,8 +22,6 @@ import (
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/prometheus/procfs"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/log"
@@ -35,44 +33,40 @@ func getPidNamespace(pid int) string {
 
 func runInHost[T any](f func() (T, error)) (T, error) {
 	var res T
-	ns, err := netns.GetNS(getPidNamespace(1))
-	if err != nil {
-		return res, fmt.Errorf("failed to get host network: %v", err)
-	}
-	err = ns.Do(func(ns netns.NetNS) error {
+	ns := getPidNamespace(1)
+	err := netns.WithNetNSPath(ns, func(_ netns.NetNS) error {
 		var err error
 		res, err = f()
 		return err
 	})
 	if err != nil {
-		return res, fmt.Errorf("in host network: %v", err)
+		return res, fmt.Errorf("in network namespace %v: %v", ns, err)
 	}
+
 	return res, nil
 }
 
-func findNetworkIDByIP(ip string) (int, error) {
-	link, err := getLinkWithDestinationOf(ip)
-	if err != nil {
-		return 0, fmt.Errorf("find link for %v: %v", ip, err)
-	}
-	return link.Attrs().NetNsID, nil
-}
-
-func getLinkWithDestinationOf(ip string) (netlink.Link, error) {
-	routes, err := netlink.RouteListFiltered(
-		netlink.FAMILY_V4,
-		&netlink.Route{Dst: &net.IPNet{IP: net.ParseIP(ip), Mask: net.CIDRMask(32, 32)}},
-		netlink.RT_FILTER_DST)
-	if err != nil {
-		return nil, err
+func checkInterfacesForMatchingAddr(targetAddr net.IP) (match bool, err error) {
+	var interfaces []net.Interface
+	if interfaces, err = net.Interfaces(); err != nil {
+		return false, fmt.Errorf("failed to get interfaces")
 	}
 
-	if len(routes) == 0 {
-		return nil, fmt.Errorf("no routes found for %s", ip)
+	for _, ief := range interfaces {
+		var addrs []net.Addr
+		if addrs, err = ief.Addrs(); err != nil {
+			return
+		}
+		for _, addr := range addrs {
+			switch v := addr.(type) {
+			case *net.IPNet:
+				if v.IP.Equal(targetAddr) {
+					return true, nil
+				}
+			}
+		}
 	}
-
-	linkIndex := routes[0].LinkIndex
-	return netlink.LinkByIndex(linkIndex)
+	return false, fmt.Errorf("no interface has the address %s", targetAddr)
 }
 
 // getPodNetNs finds the network namespace for a given pod. There is not a great way to do this. Network namespaces live
@@ -88,12 +82,11 @@ func getLinkWithDestinationOf(ip string) (netlink.Link, error) {
 //
 // Instead, we traverse the procfs. Comments on this method are inline.
 func getPodNetNs(pod *corev1.Pod) (string, error) {
-	// First, find the network namespace id by looking the interface with the given Pod IP.
-	// This could break on some platforms if they do not have an interface-per-pod.
-	wantID, err := findNetworkIDByIP(pod.Status.PodIP)
-	if err != nil {
-		return "", fmt.Errorf("network id: %v", err)
+	parsedPodAddr := net.ParseIP(pod.Status.PodIP)
+	if parsedPodAddr == nil {
+		return "", fmt.Errorf("failed to parse addr: %s", pod.Status.PodIP)
 	}
+
 	fs, err := procfs.NewFS("/host/proc")
 	if err != nil {
 		return "", fmt.Errorf("read procfs: %v", err)
@@ -104,27 +97,26 @@ func getPodNetNs(pod *corev1.Pod) (string, error) {
 	}
 	oldest := uint64(math.MaxUint64)
 	best := ""
-	// We will iterate over all processes. Our goal is to find a process with the same network ID as we found above.
+
+	// We will iterate over all processes. Our goal is to find a process whose namespace has a veth with an IP matching the pod.
 	// There should be 1 or 2 processes that match: the pause container should always be there, and the istio-validation *might*.
 	// We want the pause container, as the istio-validation one may exit before we are done.
 	// We do this by detecting the longest running process. We could look at `cmdline`, but is likely more reliable to weird platforms.
 	for _, p := range procs {
+		match := false
 		ns := getPidNamespace(p.PID)
-		fd, err := unix.Open(ns, unix.O_RDONLY, 0)
+
+		err := netns.WithNetNSPath(ns, func(_ netns.NetNS) error {
+			var err error
+			match, err = checkInterfacesForMatchingAddr(parsedPodAddr)
+			return err
+		})
 		if err != nil {
-			// Not uncommon, many processes are transient and we have a TOCTOU here.
-			// No problem, must not be the one we are after.
-			log.Debugf("failed to open pid %v: %v", p.PID, err)
-			continue
-		}
-		id, err := netlink.GetNetNsIdByFd(fd)
-		_ = unix.Close(fd)
-		if err != nil {
-			log.Debugf("failed to get netns for pid %v: %v", p.PID, err)
+			log.Warnf("failed to check proc %d netns interfaces: %v", p.PID, err)
 			continue
 		}
 
-		if id != wantID {
+		if !match {
 			// Not the network we want, skip
 			continue
 		}

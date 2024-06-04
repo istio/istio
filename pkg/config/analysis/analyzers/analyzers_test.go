@@ -197,6 +197,22 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gatewayCustomIngressGatewayBadPortWithoutTarget",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport-notarget.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
+		},
+	},
+	{
+		name:       "gatewayCustomIngressGatewayTranslation",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-translation.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
 		name:       "gatewayServiceMatchPod",
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-svcselector.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
@@ -473,23 +489,6 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/deployment-service-no-selector.yaml"},
 		analyzer:   &deployment.ServiceAssociationAnalyzer{},
 		expected:   []message{},
-	},
-	{
-		name: "regexes",
-		inputFiles: []string{
-			"testdata/virtualservice_regexes.yaml",
-		},
-		analyzer: &virtualservice.RegexAnalyzer{},
-		expected: []message{
-			{msg.InvalidRegexp, "VirtualService bad-match"},
-			{msg.InvalidRegexp, "VirtualService ecma-not-v2"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-		},
 	},
 	{
 		name: "unknown service registry in mesh networks",

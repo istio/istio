@@ -312,6 +312,15 @@ issues:
     - linters:
         - staticcheck
       text: 'SA1019: grpc.DialContext is deprecated: use NewClient instead'
+    - linters:
+        - staticcheck
+      text: "SA1019: grpc.WithBlock is deprecated"
+    - linters:
+        - staticcheck
+      text: "SA1019: grpc.FailOnNonTempDialError"
+    - linters:
+        - staticcheck
+      text: "SA1019: grpc.WithReturnConnectionError"
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all
   # excluded by default patterns execute `golangci-lint run --help`.

@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
@@ -557,7 +558,7 @@ func makeInstanceWithServiceAccount(cfg *config.Config, address string, port int
 	svcPort *networking.ServicePort, svcLabels map[string]string, serviceAccount string,
 ) *model.ServiceInstance {
 	i := makeInstance(cfg, address, port, svcPort, svcLabels, MTLSUnlabelled)
-	i.Endpoint.ServiceAccount = spiffe.MustGenSpiffeURI(i.Service.Attributes.Namespace, serviceAccount)
+	i.Endpoint.ServiceAccount = spiffe.MustGenSpiffeURIForTrustDomain("cluster.local", i.Service.Attributes.Namespace, serviceAccount)
 	return i
 }
 
@@ -944,7 +945,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
 			services := convertServices(*tt.se)
-			s := &Controller{}
+			s := &Controller{meshWatcher: mesh.NewFixedWatcher(mesh.DefaultMeshConfig())}
 			instances := s.convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry), &configKey{}, tt.clusterID)
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
@@ -1279,7 +1280,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 
 	for _, tt := range workloadInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Controller{networkIDCallback: tt.getNetworkIDCb}
+			s := &Controller{networkIDCallback: tt.getNetworkIDCb, meshWatcher: mesh.NewFixedWatcher(mesh.DefaultMeshConfig())}
 			instance := s.convertWorkloadEntryToWorkloadInstance(tt.wle, cluster.ID(clusterID))
 			if err := compare(t, instance, tt.out); err != nil {
 				t.Fatal(err)

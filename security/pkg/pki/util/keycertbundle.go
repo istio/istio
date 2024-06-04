@@ -36,12 +36,17 @@ import (
 // The cert should be verifiable from the rootCert through the certChain.
 // cert and priveKey are pointers to the cert/key parsed from certBytes/privKeyBytes.
 type KeyCertBundle struct {
-	certBytes      []byte
-	cert           *x509.Certificate
-	privKeyBytes   []byte
-	privKey        *crypto.PrivateKey
+	// certBytes holds the CA certificate - associated with the private key.
+	certBytes    []byte
+	cert         *x509.Certificate
+	privKeyBytes []byte
+	privKey      *crypto.PrivateKey
+
+	// certChainBytes holds the intermediary certificates. Empty for the auto-generated root.
 	certChainBytes []byte
-	rootCertBytes  []byte
+
+	// rootCertBytes has the PEM concatenated list of roots, loaded from secret or file.
+	rootCertBytes []byte
 	// mutex protects the R/W to all keys and certs.
 	mutex sync.RWMutex
 }
@@ -160,6 +165,11 @@ func (b *KeyCertBundle) GetRootCertPem() []byte {
 
 // VerifyAndSetAll verifies the key/certs, and sets all key/certs in KeyCertBundle together.
 // Setting all values together avoids inconsistency.
+//
+// This method expects 'certBytes' to include a single cert - corresponding to the
+// private key.
+// The intermediary certificates (if any) must be included in the certChainBytes.
+// RootCert and certChainBytes are concatenated PEM certs.
 func (b *KeyCertBundle) VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
 	if err := Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
 		return err

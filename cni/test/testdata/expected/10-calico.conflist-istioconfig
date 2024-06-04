@@ -10,8 +10,8 @@
       "kubernetes": {
         "kubeconfig": "/etc/cni/net.d/calico-kubeconfig"
       },
-      "log_level": "info",
       "mtu": 1500,
+      "plugin_log_level": "info",
       "policy": {
         "type": "k8s"
       },
@@ -25,14 +25,19 @@
       "type": "portmap"
     },
     {
+      "ambient_enabled": false,
+      "cni_event_address": "/tmp/cnieventfoo",
+      "dns": {},
+      "ipam": {},
       "kubernetes": {
-        "cni_bin_dir": "/opt/cni/bin",
         "exclude_namespaces": [
           "istio-system"
         ],
         "kubeconfig": "/etc/cni/net.d/ZZZ-istio-cni-kubeconfig"
       },
-      "log_level": "info",
+      "log_uds_address": "",
+      "name": "istio-cni",
+      "plugin_log_level": "debug",
       "type": "istio-cni"
     }
   ]
