@@ -299,20 +299,27 @@ issues:
     - path: _test\.go$
       text: "dot-imports: should not use dot imports"
     # We need to use the deprecated module since the jsonpb replacement is not backwards compatible.
-    - linters: [staticcheck]
+    - linters:
+        - staticcheck
       text: "SA1019: package github.com/golang/protobuf/jsonpb"
-    - linters: [staticcheck]
+    - linters:
+        - staticcheck
       text: 'SA1019: "github.com/golang/protobuf/jsonpb"'
     # This is not helpful. The new function is not very usable and the current function will not be removed
-    - linters: [staticcheck]
+    - linters:
+        - staticcheck
       text: 'SA1019: grpc.Dial is deprecated: use NewClient instead'
-    - linters: [staticcheck]
+    - linters:
+        - staticcheck
       text: 'SA1019: grpc.DialContext is deprecated: use NewClient instead'
-    - linters: [staticcheck]
+    - linters:
+        - staticcheck
       text: "SA1019: grpc.WithBlock is deprecated"
-    - linters: [staticcheck]
+    - linters:
+        - staticcheck
       text: "SA1019: grpc.FailOnNonTempDialError"
-    - linters: [staticcheck]
+    - linters:
+        - staticcheck
       text: "SA1019: grpc.WithReturnConnectionError"
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all
