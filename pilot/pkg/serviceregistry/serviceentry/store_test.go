@@ -16,7 +16,6 @@ package serviceentry
 
 import (
 	"reflect"
-	"slices"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -175,13 +174,17 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	store.addInstances(cpKey, instances)
 
 	expected := instances
-	assert.Equal(t, slices.Concat(store.getByKey(instancesKey{
+	gotInstances := []*model.ServiceInstance{}
+	gotInstances = append(gotInstances, store.getByKey(instancesKey{
 		hostname:  "example.com",
 		namespace: "dns",
-	}), store.getByKey(instancesKey{
+	})...)
+	gotInstances = append(gotInstances, store.getByKey(instancesKey{
 		hostname:  "muladdrs.example.com",
 		namespace: "dns",
-	})), expected)
+	})...)
+
+	assert.Equal(t, gotInstances, expected)
 
 	store.addInstances(
 		configKeyWithParent{
