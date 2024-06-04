@@ -197,6 +197,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gatewayCustomIngressGatewayBadPortWithoutTarget",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport-notarget.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
+		},
+	},
+	{
 		name:       "gatewayCustomIngressGatewayTranslation",
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-translation.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
