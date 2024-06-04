@@ -48,12 +48,12 @@ type EndpointBuilder struct {
 	nodeName string
 }
 
-func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
+func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 	var locality, sa, namespace, hostname, subdomain, ip, node string
 	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
-		sa = kube.SecureNamingSAN(pod)
+		sa = kube.SecureNamingSAN(pod, c.meshWatcher.Mesh())
 		podLabels = pod.Labels
 		namespace = pod.Namespace
 		subdomain = pod.Spec.Subdomain
@@ -87,7 +87,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 	return out
 }
 
-func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *EndpointBuilder {
+func (c *Controller) NewEndpointBuilderFromMetadata(proxy *model.Proxy) *EndpointBuilder {
 	locality := util.LocalityToString(proxy.Locality)
 	out := &EndpointBuilder{
 		controller:     c,

@@ -15,6 +15,7 @@
 package util
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -64,6 +65,7 @@ func SplitPemEncodedCertificates(certBytes []byte) ([]*x509.Certificate, []byte,
 		cb            *pem.Block
 		rootCertBytes []byte
 	)
+	certBytes = bytes.TrimSpace(certBytes)
 	for {
 		rootCertBytes = certBytes
 		cb, certBytes = pem.Decode(certBytes)

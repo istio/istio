@@ -50,6 +50,10 @@ For further documentation see https://istio.io website
     "global.tracer.datadog.address" "meshConfig.defaultConfig.tracing.datadog.address"
     "global.meshExpansion.enabled" "Gateway and other Istio networking resources, such as in samples/multicluster/"
     "istiocoredns.enabled" "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)"
+    "meshConfig.defaultConfig.tracing.stackdriver.debug" "Istio supported tracers"
+    "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes" "Istio supported tracers"
+    "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations" "Istio supported tracers"
+    "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents" "Istio supported tracers"
 }}
 {{- range $dep, $replace := $deps }}
 {{- /* Complex logic to turn the string above into a null-safe traversal like ((.Values.global).certificates */}}

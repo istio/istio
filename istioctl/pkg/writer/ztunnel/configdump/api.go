@@ -93,11 +93,11 @@ type ZtunnelPolicy struct {
 }
 
 type ZtunnelDump struct {
-	Workloads     map[string]*ZtunnelWorkload `json:"workloads"`
-	Services      map[string]*ZtunnelService  `json:"services"`
-	Policies      map[string]*ZtunnelPolicy   `json:"policies"`
-	Certificates  []*CertsDump                `json:"certificates"`
-	WorkloadState map[string]WorkloadState    `json:"workloadState"`
+	Workloads     []*ZtunnelWorkload       `json:"workloads"`
+	Services      []*ZtunnelService        `json:"services"`
+	Policies      []*ZtunnelPolicy         `json:"policies"`
+	Certificates  []*CertsDump             `json:"certificates"`
+	WorkloadState map[string]WorkloadState `json:"workloadState"`
 }
 
 type CertsDump struct {

@@ -110,6 +110,7 @@ func TestApplyDestinationRule(t *testing.T) {
 		port                   *model.Port
 		proxyView              model.ProxyView
 		destRule               *networking.DestinationRule
+		meshConfig             *meshconfig.MeshConfig
 		expectedSubsetClusters []*cluster.Cluster
 	}{
 		// TODO(ramaraochavali): Add more tests to cover additional conditions.
@@ -262,6 +263,56 @@ func TestApplyDestinationRule(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			name:        "destination rule with subset traffic policy and alt statname",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							ConnectionPool: &networking.ConnectionPoolSettings{
+								Http: &networking.ConnectionPoolSettings_HTTPSettings{
+									MaxRetries: 10,
+								},
+							},
+						},
+					},
+				},
+			},
+			meshConfig: &meshconfig.MeshConfig{
+				OutboundClusterStatName: "%SERVICE%_%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+				InboundTrafficPolicy:    &meshconfig.MeshConfig_InboundTrafficPolicy{},
+				EnableAutoMtls: &wrappers.BoolValue{
+					Value: false,
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{
+				{
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+						ServiceName: "outbound|8080|foobar|foo.default.svc.cluster.local",
+					},
+					CircuitBreakers: &cluster.CircuitBreakers{
+						Thresholds: []*cluster.CircuitBreakers_Thresholds{
+							{
+								MaxRetries: &wrappers.UInt32Value{
+									Value: 10,
+								},
+							},
+						},
+					},
+					AltStatName: "foo.default.svc.cluster.local_foobar_default_8080",
 				},
 			},
 		},
@@ -735,6 +786,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				Instances:      instances,
 				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
+				MeshConfig:     tt.meshConfig,
 			})
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
@@ -849,6 +901,11 @@ func compareClusters(t *testing.T, ec *cluster.Cluster, gc *cluster.Cluster) {
 	if ec.CircuitBreakers != nil {
 		if ec.CircuitBreakers.Thresholds[0].MaxRetries.Value != gc.CircuitBreakers.Thresholds[0].MaxRetries.Value {
 			t.Errorf("Unexpected circuit breaker thresholds want %v, got %v", ec.CircuitBreakers.Thresholds[0].MaxRetries, gc.CircuitBreakers.Thresholds[0].MaxRetries)
+		}
+	}
+	if ec.AltStatName != "" {
+		if ec.AltStatName != gc.AltStatName {
+			t.Errorf("Unexpected alt stat name want %s, got %s", ec.AltStatName, gc.AltStatName)
 		}
 	}
 }
@@ -1093,7 +1150,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				MeshExternal: false,
 				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
 			}
-			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
+			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil, "")
 			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push, tt.clusterName,
 				tt.direction, "", service.Hostname, servicePort.Port,
 				service, nil)
@@ -1201,7 +1258,7 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 				MeshExternal: false,
 				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
 			}
-			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil)
+			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil, "")
 
 			if defaultCluster.build().DnsLookupFamily != tt.expectedFamily {
 				t.Errorf("Unexpected DnsLookupFamily, got: %v, want: %v", defaultCluster.build().DnsLookupFamily, tt.expectedFamily)

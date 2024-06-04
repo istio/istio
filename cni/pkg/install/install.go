@@ -22,14 +22,13 @@ import (
 	"sync/atomic"
 
 	"istio.io/istio/cni/pkg/config"
-	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
-var installLog = log.RegisterScope("install", "CNI install")
+var installLog = scopes.CNIAgent
 
 type Installer struct {
 	cfg                *config.InstallConfig
@@ -192,7 +191,7 @@ func (in *Installer) sleepWatchInstall(ctx context.Context, installedBinFiles se
 	targets := append(
 		binPaths,
 		in.cfg.MountedCNINetDir,
-		constants.ServiceAccountPath,
+		in.cfg.K8sServiceAccountPath,
 	)
 	// Create file watcher before checking for installation
 	// so that no file modifications are missed while and after checking

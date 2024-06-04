@@ -96,10 +96,11 @@ func TestIsLessThanVersionVersion(t *testing.T) {
 
 func TestGetVersionAsInt(t *testing.T) {
 	tests := []struct {
-		name  string
-		major string
-		minor string
-		want  int
+		name       string
+		major      string
+		minor      string
+		want       int
+		gitVersion string
 	}{
 		{
 			name:  "1.22",
@@ -113,11 +114,19 @@ func TestGetVersionAsInt(t *testing.T) {
 			minor: "28",
 			want:  128,
 		},
+		{
+			// {"major": "1","minor": "28+","gitVersion": "v1.28.9-eks-036c24b",...}
+			name:       "EKS",
+			major:      "1",
+			minor:      "28+",
+			gitVersion: "v1.28.9-eks-036c24b",
+			want:       128,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := NewFakeClient()
-			c.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: tt.major, Minor: tt.minor}
+			c.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: tt.major, Minor: tt.minor, GitVersion: tt.gitVersion}
 			if got := GetVersionAsInt(c); got != tt.want {
 				t.Errorf("TestGetVersionAsInt() = %v, want %v", got, tt.want)
 			}

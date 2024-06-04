@@ -321,7 +321,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxyType, service)
-			defaultCluster := cb.buildCluster(clusterKey.clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
+			defaultCluster := cb.buildCluster(clusterKey.clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil, "")
 			if defaultCluster == nil {
 				continue
 			}
@@ -443,7 +443,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				lbEndpoints = endpointBuilder.FromServiceEndpoints()
 			}
 
-			defaultCluster := cb.buildCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
+			defaultCluster := cb.buildCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil, "")
 			if defaultCluster == nil {
 				continue
 			}

@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -65,89 +64,11 @@ func (a *index) WorkloadsCollection(
 		a.workloadEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, WorkloadServicesNamespaceIndex, Namespaces),
 		krt.WithName("WorkloadEntryWorkloads"),
 	)
-	ServiceEntryWorkloads := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
-		if len(se.Spec.Endpoints) == 0 {
-			return nil
-		}
-		res := make([]model.WorkloadInfo, 0, len(se.Spec.Endpoints))
-
-		wp := fetchWaypointForWorkload(ctx, Waypoints, Namespaces, se.ObjectMeta)
-
-		// this is some partial object meta we can pass through so that WL found in the Endpoints
-		// may inherit the namespace scope waypoint from the SE... the Endpoints do not have real object meta
-		// and therefore they can't be annotated with wl scope waypoints right now
-		someObjectMeta := metav1.ObjectMeta{
-			Namespace: se.Namespace,
-		}
-
-		svc := slices.First(a.serviceEntriesInfo(se, wp))
-		if svc == nil {
-			// Not ready yet
-			return nil
-		}
-		services := []model.ServiceInfo{*svc}
-
-		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
-		for _, wle := range se.Spec.Endpoints {
-			// We need to filter from the policies that are present, which apply to us.
-			// We only want label selector ones; global ones are not attached to the final WorkloadInfo
-			// In general we just take all of the policies
-			basePolicies := krt.Fetch(ctx, AllPolicies, krt.FilterSelects(se.Labels), krt.FilterGeneric(func(a any) bool {
-				return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
-			}))
-			policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {
-				return t.ResourceName()
-			}))
-			// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
-			auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, se.Namespace, wle.Labels)
-			policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
-			var waypoint *Waypoint
-			if wle.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-				// this is using object meta which simply defines the namespace since the endpoint doesn't have it's own object meta
-				waypoint = fetchWaypointForWorkload(ctx, Waypoints, Namespaces, someObjectMeta)
-			}
-			var waypointAddress *workloadapi.GatewayAddress
-			if waypoint != nil {
-				waypointAddress = a.getWaypointAddress(waypoint)
-			}
-
-			// enforce traversing waypoints
-			policies = append(policies, implicitWaypointPolicies(ctx, Waypoints, waypoint, services)...)
-
-			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-			network := a.Network(wle.Address, wle.Labels).String()
-			if wle.Network != "" {
-				network = wle.Network
-			}
-			w := &workloadapi.Workload{
-				Uid:                   a.generateServiceEntryUID(se.Namespace, se.Name, wle.Address),
-				Name:                  se.Name,
-				Namespace:             se.Namespace,
-				Network:               network,
-				ClusterId:             string(a.ClusterID),
-				ServiceAccount:        wle.ServiceAccount,
-				Services:              constructServicesFromWorkloadEntry(wle, services),
-				AuthorizationPolicies: policies,
-				Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
-				Waypoint:              waypointAddress,
-				TrustDomain:           pickTrustDomain(),
-				Locality:              getWorkloadEntryLocality(wle),
-			}
-
-			if addr, err := netip.ParseAddr(wle.Address); err == nil {
-				w.Addresses = [][]byte{addr.AsSlice()}
-			} else {
-				log.Warnf("skipping workload entry %s/%s; DNS Address resolution is not yet implemented", se.Namespace, se.Name)
-			}
-
-			w.WorkloadName, w.WorkloadType = se.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
-			w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(se.Labels, w.WorkloadName)
-
-			setTunnelProtocol(se.Labels, se.Annotations, w)
-			res = append(res, model.WorkloadInfo{Workload: w, Labels: se.Labels, Source: kind.WorkloadEntry, CreationTime: se.CreationTimestamp.Time})
-		}
-		return res
-	}, krt.WithName("ServiceEntryWorkloads"))
+	ServiceEntryWorkloads := krt.NewManyCollection(
+		ServiceEntries,
+		a.serviceEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, Namespaces),
+		krt.WithName("ServiceEntryWorkloads"),
+	)
 	Workloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{PodWorkloads, WorkloadEntryWorkloads, ServiceEntryWorkloads}, krt.WithName("Workloads"))
 	return Workloads
 }
@@ -210,7 +131,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 			AuthorizationPolicies: policies,
 			Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
 			Waypoint:              waypointAddress,
-			TrustDomain:           pickTrustDomain(),
+			TrustDomain:           pickTrustDomain(meshCfg),
 			Locality:              getWorkloadEntryLocality(&wle.Spec),
 		}
 
@@ -307,7 +228,7 @@ func (a *index) podWorkloadBuilder(
 			Services:              constructServices(p, services),
 			AuthorizationPolicies: policies,
 			Status:                status,
-			TrustDomain:           pickTrustDomain(),
+			TrustDomain:           pickTrustDomain(meshCfg),
 			Locality:              getPodLocality(ctx, Nodes, p),
 		}
 
@@ -316,6 +237,108 @@ func (a *index) podWorkloadBuilder(
 
 		setTunnelProtocol(p.Labels, p.Annotations, w)
 		return &model.WorkloadInfo{Workload: w, Labels: p.Labels, Source: kind.Pod, CreationTime: p.CreationTimestamp.Time}
+	}
+}
+
+func (a *index) serviceEntryWorkloadBuilder(
+	MeshConfig krt.Singleton[MeshConfig],
+	AuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
+	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
+	Waypoints krt.Collection[Waypoint],
+	Namespaces krt.Collection[*v1.Namespace],
+) func(krt.HandlerContext, *networkingclient.ServiceEntry) []model.WorkloadInfo {
+	return func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
+		eps := se.Spec.Endpoints
+		// If we have a DNS service, endpoints are not required
+		implicitEndpoints := len(eps) == 0 &&
+			(se.Spec.Resolution == networkingv1alpha3.ServiceEntry_DNS || se.Spec.Resolution == networkingv1alpha3.ServiceEntry_DNS_ROUND_ROBIN) &&
+			se.Spec.WorkloadSelector == nil
+		if len(eps) == 0 && !implicitEndpoints {
+			return nil
+		}
+		// here we don't care about the *service* waypoint (hence it is nil); we are only going to use a subset of the info in
+		// `allServices` (since we are building workloads here, not services).
+		allServices := a.serviceEntriesInfo(se, nil)
+		if implicitEndpoints {
+			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
+				return &networkingv1alpha3.WorkloadEntry{Address: si.Hostname}
+			})
+		}
+		if len(eps) == 0 {
+			return nil
+		}
+		res := make([]model.WorkloadInfo, 0, len(eps))
+
+		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
+
+		for i, wle := range eps {
+			services := allServices
+			if implicitEndpoints {
+				// For implicit endpoints, we generate each one from the hostname it was from.
+				// Otherwise, use all.
+				// [i] is safe here since we these are constructed to mirror each other
+				services = []model.ServiceInfo{allServices[i]}
+			}
+			// We need to filter from the policies that are present, which apply to us.
+			// We only want label selector ones; global ones are not attached to the final WorkloadInfo
+			// In general we just take all of the policies
+			basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(se.Labels), krt.FilterGeneric(func(a any) bool {
+				return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
+			}))
+			policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {
+				return t.ResourceName()
+			}))
+			// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
+			auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, se.Namespace, wle.Labels)
+			policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+
+			var waypointAddress *workloadapi.GatewayAddress
+			// Endpoint does not have a real ObjectMeta, so make one
+			if !implicitEndpoints {
+				if waypoint := fetchWaypointForWorkload(ctx, Waypoints, Namespaces, metav1.ObjectMeta{
+					Name:      se.Name,
+					Namespace: se.Namespace,
+					Labels:    wle.Labels,
+				}); waypoint != nil {
+					waypointAddress = a.getWaypointAddress(waypoint)
+					// enforce traversing waypoints
+					policies = append(policies, implicitWaypointPolicies(ctx, Waypoints, waypoint, services)...)
+				}
+			}
+
+			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
+			network := a.Network(wle.Address, wle.Labels).String()
+			if wle.Network != "" {
+				network = wle.Network
+			}
+			w := &workloadapi.Workload{
+				Uid:                   a.generateServiceEntryUID(se.Namespace, se.Name, wle.Address),
+				Name:                  se.Name,
+				Namespace:             se.Namespace,
+				Network:               network,
+				ClusterId:             string(a.ClusterID),
+				ServiceAccount:        wle.ServiceAccount,
+				Services:              constructServicesFromWorkloadEntry(wle, services),
+				AuthorizationPolicies: policies,
+				Status:                workloadapi.WorkloadStatus_HEALTHY,
+				Waypoint:              waypointAddress,
+				TrustDomain:           pickTrustDomain(meshCfg),
+				Locality:              getWorkloadEntryLocality(wle),
+			}
+
+			if addr, err := netip.ParseAddr(wle.Address); err == nil {
+				w.Addresses = [][]byte{addr.AsSlice()}
+			} else {
+				w.Hostname = wle.Address
+			}
+
+			w.WorkloadName, w.WorkloadType = se.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
+			w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(se.Labels, w.WorkloadName)
+
+			setTunnelProtocol(se.Labels, se.Annotations, w)
+			res = append(res, model.WorkloadInfo{Workload: w, Labels: se.Labels, Source: kind.WorkloadEntry, CreationTime: se.CreationTimestamp.Time})
+		}
+		return res
 	}
 }
 
@@ -331,8 +354,8 @@ func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Wor
 	}
 }
 
-func pickTrustDomain() string {
-	if td := spiffe.GetTrustDomain(); td != "cluster.local" {
+func pickTrustDomain(mesh *MeshConfig) string {
+	if td := mesh.GetTrustDomain(); td != "cluster.local" {
 		return td
 	}
 	return ""

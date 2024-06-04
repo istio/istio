@@ -62,7 +62,6 @@ func TestAuthenticate(t *testing.T) {
 	remoteCluster := cluster.ID("remote")
 	invlidToken := "invalid-token"
 	meshHolder := mockMeshConfigHolder{"example.com"}
-	spiffe.SetTrustDomain("example.com")
 
 	testCases := map[string]struct {
 		remoteCluster  bool
@@ -98,7 +97,7 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			expectedID:     spiffe.MustGenSpiffeURI("default", "example-pod-sa"),
+			expectedID:     spiffe.MustGenSpiffeURIForTrustDomain("example.com", "default", "example-pod-sa"),
 			expectedErrMsg: "",
 		},
 		"not found remote cluster results in error": {

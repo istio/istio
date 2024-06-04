@@ -76,7 +76,7 @@ var mockConfTmpl = `{
         "routes": []
 
     },
-    "log_level": "debug",
+    "plugin_log_level": "debug",
     "cni_event_address": "%s",
     "ambient_enabled": %t,
     "kubernetes": {

@@ -218,12 +218,6 @@ type Options struct {
 	// STS port
 	STSPort int
 
-	// authentication provider specific plugins, will exchange the token
-	// For example exchange long lived refresh with access tokens.
-	// Used by the secret fetcher when signing CSRs.
-	// Optional; if not present the token will be used directly
-	TokenExchanger TokenExchanger
-
 	// credential fetcher.
 	CredFetcher CredFetcher
 
@@ -238,9 +232,6 @@ type Options struct {
 
 	// XDS auth provider
 	XdsAuthProvider string
-
-	// Token manager for the token exchange of XDS
-	TokenManager TokenManager
 
 	// Cert signer info
 	CertSigner string
@@ -258,48 +249,6 @@ type Options struct {
 	KeyFilePath string
 	// The path for an existing root certificate bundle
 	RootCertFilePath string
-}
-
-// TokenManager contains methods for generating token.
-type TokenManager interface {
-	// GenerateToken takes STS request parameters and generates token. Returns
-	// StsResponseParameters in JSON.
-	GenerateToken(parameters StsRequestParameters) ([]byte, error)
-	// DumpTokenStatus dumps status of all generated tokens and returns status in JSON.
-	DumpTokenStatus() ([]byte, error)
-	// GetMetadata returns the metadata headers related to the token
-	GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error)
-}
-
-// StsRequestParameters stores all STS request attributes defined in
-// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.1
-type StsRequestParameters struct {
-	// REQUIRED. The value "urn:ietf:params:oauth:grant-type:token- exchange"
-	// indicates that a token exchange is being performed.
-	GrantType string
-	// OPTIONAL. Indicates the location of the target service or resource where
-	// the client intends to use the requested security token.
-	Resource string
-	// OPTIONAL. The logical name of the target service where the client intends
-	// to use the requested security token.
-	Audience string
-	// OPTIONAL. A list of space-delimited, case-sensitive strings, that allow
-	// the client to specify the desired Scope of the requested security token in the
-	// context of the service or Resource where the token will be used.
-	Scope string
-	// OPTIONAL. An identifier, for the type of the requested security token.
-	RequestedTokenType string
-	// REQUIRED. A security token that represents the identity of the party on
-	// behalf of whom the request is being made.
-	SubjectToken string
-	// REQUIRED. An identifier, that indicates the type of the security token in
-	// the "subject_token" parameter.
-	SubjectTokenType string
-	// OPTIONAL. A security token that represents the identity of the acting party.
-	ActorToken string
-	// An identifier, that indicates the type of the security token in the
-	// "actor_token" parameter.
-	ActorTokenType string
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
@@ -322,12 +271,6 @@ type SecretManager interface {
 	// the K8S format. No other JWTs are currently supported due to client logic. If JWT is
 	// missing/invalid, the resourceName is used.
 	GenerateSecret(resourceName string) (*SecretItem, error)
-}
-
-// TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
-type TokenExchanger interface {
-	// ExchangeToken provides a common interface to exchange an existing token for a new one.
-	ExchangeToken(serviceAccountToken string) (string, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.

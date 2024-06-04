@@ -163,19 +163,7 @@ messages:
   # IST0119 RETIRED
   # IST0120 RETIRED
   # IST0121 RETIRED
-
-  - name: "InvalidRegexp"
-    code: IST0122
-    level: Warning
-    description: "Invalid Regex"
-    template: "Field %q regular expression invalid: %q (%s)"
-    args:
-      - name: where
-        type: string
-      - name: re
-        type: string
-      - name: problem
-        type: string
+  # IST0122 RETIRED
 
   - name: "NamespaceMultipleInjectionLabels"
     code: IST0123

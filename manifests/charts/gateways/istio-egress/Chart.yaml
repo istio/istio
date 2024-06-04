@@ -1,4 +1,4 @@
-apiVersion: v1
+apiVersion: v2
 name: istio-egress
 # This version is never actually shipped. istio/release-builder will replace it at build-time
 # with the appropriate version
@@ -11,5 +11,4 @@ keywords:
   - gateways
 sources:
   - https://github.com/istio/istio
-engine: gotpl
 icon: https://istio.io/latest/favicons/android-192x192.png

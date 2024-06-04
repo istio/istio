@@ -129,7 +129,7 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	}
 	return &security.Caller{
 		AuthSource:     security.AuthSourceIDToken,
-		Identities:     []string{spiffe.MustGenSpiffeURI(id.PodNamespace, id.PodServiceAccount)},
+		Identities:     []string{spiffe.MustGenSpiffeURI(a.meshHolder.Mesh(), id.PodNamespace, id.PodServiceAccount)},
 		KubernetesInfo: id,
 	}, nil
 }

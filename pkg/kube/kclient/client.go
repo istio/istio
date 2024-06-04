@@ -333,17 +333,16 @@ func applyDynamicFilter[T controllers.ComparableObject](filter Filter, gvr schem
 				// Namespace is special; we query all namespaces
 				// Note: other cluster-scoped resources should just not use the filter
 				for _, item := range ic.ListUnfiltered(metav1.NamespaceAll, klabels.Everything()) {
-					if !added.Contains(item.GetName()) && !removed.Contains(item.GetName()) {
+					if !added.Contains(item.GetName()) {
 						continue
 					}
 					for _, c := range ic.registeredHandlers {
-						if added.Contains(item.GetName()) {
-							c.handler.OnAdd(item, false)
-						} else {
-							c.handler.OnDelete(item)
-						}
+						c.handler.OnAdd(item, false)
 					}
 				}
+				// Removes are currently NOT handled. We only have the namespace name here. We would need to have the object
+				// filter passthrough the entire namespace object, so we can pass the last known state to OnDelete.
+				// Fortunately, missing a namespace delete event usually doesn't matter since everything in the namespace gets torn down.
 			} else {
 				for ns := range added {
 					for _, item := range ic.ListUnfiltered(ns, klabels.Everything()) {

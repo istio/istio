@@ -17,6 +17,7 @@ package kclient_test
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -337,7 +338,7 @@ func TestToOpts(t *testing.T) {
 func TestFilterNamespace(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
-	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*metav1.LabelSelector{{
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 	}}})
 	testns := clienttest.NewWriter[*corev1.Namespace](t, c)
@@ -363,6 +364,18 @@ func TestFilterNamespace(t *testing.T) {
 		return slices.Equal(tracker.Events(), []string{"add/selected"}) ||
 			slices.Equal(tracker.Events(), []string{"add/selected", "add/selected"})
 	})
+	testns.Delete("selected", "")
+	// We may or may not get the deletion event, currently.
+	// Like above for adds, we cannot guarantee exactly once delivery. For adds we chose to give 1 or 2 events.
+	// For delete, it is usually not important to handle, so we choose to get 0 or 1 events here.
+	retry.UntilOrFail(t, func() bool {
+		events := slices.Filter(tracker.Events(), func(s string) bool {
+			// Ignore the adds
+			return !strings.HasPrefix(s, "add/")
+		})
+		return slices.Equal(events, []string{"delete/selected"}) ||
+			slices.Equal(events, nil)
+	}, retry.Timeout(time.Second*3))
 }
 
 func TestFilter(t *testing.T) {
@@ -419,7 +432,7 @@ func TestFilter(t *testing.T) {
 	assert.Equal(t, len(tester.List("", klabels.Everything())), 2)
 
 	// Update the selectors...
-	assert.NoError(t, meshWatcher.Update(&meshconfig.MeshConfig{DiscoverySelectors: []*metav1.LabelSelector{{
+	assert.NoError(t, meshWatcher.Update(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 	}}}, time.Second))
 	tracker.WaitOrdered("delete/1")

@@ -55,7 +55,9 @@ func PolicyCollections(
 			LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels()),
 		}
 	}, krt.WithName("PeerAuthDerivedPolicies"))
-	ImplicitWaypointPolicies := krt.NewCollection(Waypoints, implicitWaypointPolicy, krt.WithName("DefaultAllowFromWaypointPolicies"))
+	ImplicitWaypointPolicies := krt.NewCollection(Waypoints, func(ctx krt.HandlerContext, waypoint Waypoint) *model.WorkloadAuthorization {
+		return implicitWaypointPolicy(ctx, MeshConfig, waypoint)
+	}, krt.WithName("DefaultAllowFromWaypointPolicies"))
 	DefaultPolicy := krt.NewSingleton[model.WorkloadAuthorization](func(ctx krt.HandlerContext) *model.WorkloadAuthorization {
 		if len(krt.Fetch(ctx, PeerAuths)) == 0 {
 			return nil
@@ -107,10 +109,11 @@ func implicitWaypointPolicyName(waypoint *Waypoint) string {
 	return "istio_allow_waypoint_" + waypoint.Namespace + "_" + waypoint.Name
 }
 
-func implicitWaypointPolicy(ctx krt.HandlerContext, waypoint Waypoint) *model.WorkloadAuthorization {
+func implicitWaypointPolicy(ctx krt.HandlerContext, MeshConfig krt.Singleton[MeshConfig], waypoint Waypoint) *model.WorkloadAuthorization {
 	if !features.DefaultAllowFromWaypoint || len(waypoint.ServiceAccounts) == 0 {
 		return nil
 	}
+	meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
 	return &model.WorkloadAuthorization{
 		Authorization: &security.Authorization{
 			Name:      implicitWaypointPolicyName(&waypoint),
@@ -126,7 +129,7 @@ func implicitWaypointPolicy(ctx krt.HandlerContext, waypoint Waypoint) *model.Wo
 							{
 								Principals: slices.Map(waypoint.ServiceAccounts, func(sa string) *security.StringMatch {
 									return &security.StringMatch{MatchType: &security.StringMatch_Exact{
-										Exact: strings.TrimPrefix(spiffe.MustGenSpiffeURI(waypoint.Namespace, sa), spiffe.URIPrefix),
+										Exact: strings.TrimPrefix(spiffe.MustGenSpiffeURI(meshCfg.MeshConfig, waypoint.Namespace, sa), spiffe.URIPrefix),
 									}}
 								}),
 							},
