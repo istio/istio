@@ -959,16 +959,16 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 			return
 		}
 
-		if !canMergeServices(existing, s) {
-			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
-				existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
-			return
-		}
-
-		// if both services have the same ports, no need to merge them and save a deepcopy
+		// if both services have the same ports, no need to merge and we save a deepcopy
 		if existing.Ports.Equals(s.Ports) {
 			log.Debugf("Service %s/%s from registry %s ignored as it has the same ports as %s/%s/%s", s.Attributes.Namespace, s.Hostname,
 				s.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
+			return
+		}
+
+		if !canMergeServices(existing, s) {
+			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
+				existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
 			return
 		}
 
