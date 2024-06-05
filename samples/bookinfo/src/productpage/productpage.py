@@ -335,8 +335,7 @@ def getProductDetails(product_id, headers):
     try:
         url = details['name'] + "/" + details['endpoint'] + "/" + str(product_id)
         res = send_request(url, headers=headers, timeout=3.0)
-    except BaseException as e:
-        logging.info(f"err {e}")
+    except BaseException:
         res = None
     if res and res.status_code == 200:
         request_result_counter.labels(destination_app='details', response_code=200).inc()
