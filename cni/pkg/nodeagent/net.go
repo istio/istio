@@ -277,6 +277,12 @@ func (s *NetServer) DelPodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	return nil
 }
 
+// syncHostIPSets is called after the host node ipset has been created (or found + flushed)
+// during initial snapshot creation, it will insert every snapshotted pod's IP into the set.
+//
+// The set does not allow dupes (obviously, that would be undefined) - but in the real world due to misconfigured
+// IPAM or other things, we may see two pods with the same IP on the same node - we will skip the dupes,
+// which is all we can do - these pods will fail healthcheck until the IPAM issue is resolved (which seems reasonable)
 func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
 	var addedIPSnapshot []netip.Addr
 
@@ -287,7 +293,7 @@ func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
 		} else {
 			err := addPodToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
 			if err != nil {
-				return err
+				log.Errorf("pod %s has IPs %v, but previously inserted one of those IPs for a different pod, this indicates an IPAM problem, pod will be skipped and will fail healthchecks", pod.Name, podIPs)
 			}
 			addedIPSnapshot = append(addedIPSnapshot, podIPs...)
 		}
