@@ -15,7 +15,7 @@
 #   limitations under the License.
 
 import time
-from flask import Flask, request, session, render_template, redirect
+from flask import Flask, request, session, render_template, redirect, g
 from json2html import json2html
 from opentelemetry import trace
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
@@ -35,14 +35,14 @@ import sys
 # You will see the REQUEST, including HEADERS and DATA, and RESPONSE with HEADERS but without DATA.
 # The only thing missing will be the response.body which is not logged.
 import http.client as http_client
-# http_client.HTTPConnection.debuglevel = 1
+http_client.HTTPConnection.debuglevel = 1
 
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-# requests_log = logging.getLogger("requests.packages.urllib3")
-# requests_log.setLevel(logging.DEBUG)
-# requests_log.propagate = True
+requests_log = logging.getLogger("requests.packages.urllib3")
+requests_log.setLevel(logging.DEBUG)
+requests_log.propagate = True
 app.logger.addHandler(logging.StreamHandler(sys.stdout))
 app.logger.setLevel(logging.INFO)
 
@@ -335,7 +335,8 @@ def getProductDetails(product_id, headers):
     try:
         url = details['name'] + "/" + details['endpoint'] + "/" + str(product_id)
         res = send_request(url, headers=headers, timeout=3.0)
-    except BaseException:
+    except BaseException as e:
+        logging.info(f"err {e}")
         res = None
     if res and res.status_code == 200:
         request_result_counter.labels(destination_app='details', response_code=200).inc()
@@ -377,10 +378,12 @@ def getProductRatings(product_id, headers):
         request_result_counter.labels(destination_app='ratings', response_code=status).inc()
         return status, {'error': 'Sorry, product ratings are currently unavailable for this book.'}
 
-def send_request(url, params=None, **kwargs):
+sss = requests.Session()
+
+def send_request(url, **kwargs):
     start_time = time.time()
-    logging.info(f"Start 2 {url}")
-    res = requests.get(url, params, **kwargs)
+    logging.info(f"Start {url}")
+    res = sss.get(url, **kwargs)
     rt = time.time() - start_time
     logging.info(f"End {url} {rt}")
     return res
@@ -394,7 +397,6 @@ class Writer(object):
 
     def flush(self):
         self.file.flush()
-
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:

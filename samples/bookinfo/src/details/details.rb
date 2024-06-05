@@ -25,7 +25,11 @@ end
 
 port = Integer(ARGV[0])
 
-server = WEBrick::HTTPServer.new :BindAddress => '*', :Port => port
+sockets = WEBrick::Utils.create_listeners '*', port
+server = WEBrick::HTTPServer.new(
+    :DoNotListen => true
+)
+server.listeners.replace sockets
 
 trap 'INT' do server.shutdown end
 
