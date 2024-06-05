@@ -142,7 +142,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	}
 
 	// Handle node healthcheck probe rewrites
-	err = addPodToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
+	_, err = addPodToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
 	if err != nil {
 		log.Errorf("failed to add pod to ipset: %s/%s %v", pod.Namespace, pod.Name, err)
 		return err
@@ -277,6 +277,12 @@ func (s *NetServer) DelPodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	return nil
 }
 
+// syncHostIPSets is called after the host node ipset has been created (or found + flushed)
+// during initial snapshot creation, it will insert every snapshotted pod's IP into the set.
+//
+// The set does not allow dupes (obviously, that would be undefined) - but in the real world due to misconfigured
+// IPAM or other things, we may see two pods with the same IP on the same node - we will skip the dupes,
+// which is all we can do - these pods will fail healthcheck until the IPAM issue is resolved (which seems reasonable)
 func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
 	var addedIPSnapshot []netip.Addr
 
@@ -285,11 +291,11 @@ func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
 		if len(podIPs) == 0 {
 			log.Warnf("pod %s does not appear to have any assigned IPs, not syncing with ipset", pod.Name)
 		} else {
-			err := addPodToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
+			addedIps, err := addPodToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
 			if err != nil {
-				return err
+				log.Errorf("pod %s has IP collision, pod will be skipped and will fail healthchecks", pod.Name, podIPs)
 			}
-			addedIPSnapshot = append(addedIPSnapshot, podIPs...)
+			addedIPSnapshot = append(addedIPSnapshot, addedIps...)
 		}
 
 	}
@@ -300,13 +306,17 @@ func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
 // 1. get pod manifest
 // 2. Get all pod ips (might be several, v6/v4)
 // 3. update ipsets accordingly
-func addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet *ipset.IPSet) error {
+// 4. return the ones we added successfully, and errors for any we couldn't (dupes)
+//
+// Dupe IPs should be considered an IPAM error and should never happen.
+func addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet *ipset.IPSet) ([]netip.Addr, error) {
 	// Add the pod UID as an ipset entry comment, so we can (more) easily find and delete
 	// all relevant entries for a pod later.
 	podUID := string(pod.ObjectMeta.UID)
 	ipProto := uint8(unix.IPPROTO_TCP)
 
 	var ipsetAddrErrs []error
+	var addedIps []netip.Addr
 
 	// For each pod IP
 	for _, pip := range podIPs {
@@ -324,10 +334,12 @@ func addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet 
 			ipsetAddrErrs = append(ipsetAddrErrs, err)
 			log.Errorf("failed adding pod %s to ipset %s with ip %s, error was %s",
 				pod.Name, hostsideProbeSet.Name, pip, err)
+		} else {
+			addedIps = append(addedIps, pip)
 		}
 	}
 
-	return errors.Join(ipsetAddrErrs...)
+	return addedIps, errors.Join(ipsetAddrErrs...)
 }
 
 func removePodFromHostNSIpset(pod *corev1.Pod, hostsideProbeSet *ipset.IPSet) error {

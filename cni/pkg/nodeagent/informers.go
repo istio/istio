@@ -118,7 +118,11 @@ func (s *InformerHandlers) GetActiveAmbientPodSnapshot() []*corev1.Pod {
 			log.Warnf("failed to find namespace %s for pod %s", pod.Namespace, pod.Name)
 		}
 
-		if !util.IsZtunnelPod(s.systemNamespace, pod) && util.PodRedirectionActive(pod) {
+		// Exclude ztunnels, and terminated daemonset pods
+		// from the snapshot.
+		if !util.IsZtunnelPod(s.systemNamespace, pod) &&
+			!kube.CheckPodTerminal(pod) &&
+			util.PodRedirectionActive(pod) {
 			pods = append(pods, pod)
 		}
 	}
@@ -219,19 +223,42 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		wasAnnotated := oldPod.Annotations != nil && oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 		isAnnotated := newPod.Annotations != nil && newPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 		shouldBeEnabled := util.PodRedirectionEnabled(ns, newPod)
+		wasTerminated := kube.CheckPodTerminal(oldPod)
+		isTerminated := kube.CheckPodTerminal(newPod)
+		// only checks if the pod state just changed from not-terminated to terminated.
+		// if pod state changed in *any* other way, this should be false.
+		justTerminated := !wasTerminated && isTerminated
 
-		// We should check the latest annotation vs desired status
-		changeNeeded := isAnnotated != shouldBeEnabled
+		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
+		changeNeeded := (isAnnotated != shouldBeEnabled) && !isTerminated
 
-		log.Debugf("Pod %s events: wasAnnotated(%v), isAnnotated(%v), shouldBeEnabled(%v), changeNeeded(%v), oldPod(%+v), newPod(%+v)",
-			pod.Name, wasAnnotated, isAnnotated, shouldBeEnabled, changeNeeded, oldPod.ObjectMeta, newPod.ObjectMeta)
-		if !changeNeeded {
-			log.Debugf("Pod %s update event skipped, no change needed", pod.Name)
+		// nolint: lll
+		log.Debugf("pod %s events: wasAnnotated(%v), isAnnotated(%v), shouldBeEnabled(%v), changeNeeded(%v), wasTerminated(%v), isTerminated(%v), oldPod(%+v), newPod(%+v)",
+			pod.Name, wasAnnotated, isAnnotated, shouldBeEnabled, changeNeeded, wasTerminated, isTerminated, oldPod.ObjectMeta, newPod.ObjectMeta)
+
+		// If it was a job pod that (a) we captured and (b) just terminated (successfully or otherwise)
+		// remove it (the pod process is gone, but kube will keep the Pods around in
+		// a terminated || failed state - we should still do cleanup)
+		//
+		// Note that kube may either restart the same pod, or spawn a new one, depending on how
+		// the job/cronjob is configured. Either way, we will come back thru here.
+		if isAnnotated && justTerminated {
+			log.Debugf("deleting pod %s from mesh, reason: isAnnotated(%v), justTerminated(%v)", newPod.Name, isAnnotated, justTerminated)
+			// Unlike the other cases, we actually want to use the "old" event for terminated job pods
+			// - kubernetes will (weirdly) clear the ip from the pod status on termination (boo)
+			err := s.dataplane.RemovePodFromMesh(s.ctx, oldPod)
+			log.Debugf("RemovePodFromMesh(%s) returned %v", newPod.Name, err)
 			return nil
 		}
 
+		if !changeNeeded {
+			log.Debugf("pod %s update event skipped, reason: changeNeeded(%v)", pod.Name, changeNeeded)
+			return nil
+		}
+
+		// Pod is not terminated, and has changed in a way we care about - so reconcile
 		if !shouldBeEnabled {
-			log.Debugf("Pod %s no longer matches, removing from mesh", newPod.Name)
+			log.Debugf("removing pod %s from mesh, reason: shouldBeEnabled(%v)", newPod.Name, shouldBeEnabled)
 			err := s.dataplane.RemovePodFromMesh(s.ctx, pod)
 			log.Debugf("RemovePodFromMesh(%s) returned %v", newPod.Name, err)
 			// we ignore errors here as we don't want this event to be retried by the queue.
@@ -246,11 +273,11 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 			wasReady := kube.CheckPodReadyOrComplete(oldPod)
 			isReady := kube.CheckPodReadyOrComplete(newPod)
 			if wasReady != nil && isReady != nil && isAnnotated {
-				log.Infof("Pod %s update event skipped, added/labeled by CNI plugin", pod.Name)
+				log.Infof("pod %s update event skipped, reason: added/labeled by CNI plugin", pod.Name)
 				return nil
 			}
 
-			log.Debugf("Pod %s now matches, adding to mesh", newPod.Name)
+			log.Debugf("pod %s now matches, adding to mesh", newPod.Name)
 			// netns == ""; at this point netns should have been added via the initial snapshot,
 			// or via the cni plugin. If it happens to get here before the cni plugin somehow,
 			// then we will just fail to add the pod to the mesh, and it will be retried later when cni plugin adds it.

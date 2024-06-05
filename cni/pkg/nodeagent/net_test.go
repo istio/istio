@@ -373,13 +373,13 @@ func TestAddPodToHostNSIPSets(t *testing.T) {
 	).Return(nil)
 
 	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
-	err := addPodToHostNSIpset(pod, podIPs, &set)
+	_, err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.NoError(t, err)
 
 	fakeIPSetDeps.AssertExpectations(t)
 }
 
-func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
+func TestAddPodIPToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 	pod := buildConvincingPod()
 
 	var podUID string = string(pod.ObjectMeta.UID)
@@ -405,8 +405,9 @@ func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 
 	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
 
-	err := addPodToHostNSIpset(pod, podIPs, &set)
+	addedPIPs, err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.Error(t, err)
+	assert.Equal(t, 1, len(addedPIPs), "only expected one IP to be added")
 
 	fakeIPSetDeps.AssertExpectations(t)
 }
@@ -467,6 +468,65 @@ func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 
 	netServer := fixture.netServer
 	err := netServer.syncHostIPSets([]*corev1.Pod{pod})
+	assert.NoError(t, err)
+	fakeIPSetDeps.AssertExpectations(t)
+}
+
+func TestSyncHostIPSetsIgnoresPodIPAddErrorAndContinues(t *testing.T) {
+	pod1 := buildConvincingPod()
+	pod2 := buildConvincingPod()
+
+	pod2.ObjectMeta.SetUID("4455")
+
+	fakeIPSetDeps := ipset.FakeNLDeps()
+
+	var pod1UID string = string(pod1.ObjectMeta.UID)
+	var pod2UID string = string(pod2.ObjectMeta.UID)
+	ipProto := uint8(unix.IPPROTO_TCP)
+	ctx, cancel := context.WithCancel(context.Background())
+	fixture := getTestFixure(ctx)
+	defer cancel()
+	setupLogging()
+
+	// First IP of first pod should error, but we should add the rest
+	fixture.ipsetDeps.On("addIP",
+		"foo",
+		netip.MustParseAddr("3.3.3.3"),
+		ipProto,
+		pod1UID,
+		false,
+	).Return(errors.New("CANNOT ADD"))
+
+	fixture.ipsetDeps.On("addIP",
+		"foo",
+		netip.MustParseAddr("2.2.2.2"),
+		ipProto,
+		pod1UID,
+		false,
+	).Return(nil)
+
+	fixture.ipsetDeps.On("addIP",
+		"foo",
+		netip.MustParseAddr("3.3.3.3"),
+		ipProto,
+		pod2UID,
+		false,
+	).Return(errors.New("CANNOT ADD"))
+
+	fixture.ipsetDeps.On("addIP",
+		"foo",
+		netip.MustParseAddr("2.2.2.2"),
+		ipProto,
+		pod2UID,
+		false,
+	).Return(nil)
+
+	fixture.ipsetDeps.On("listEntriesByIP",
+		"foo",
+	).Return([]netip.Addr{}, nil)
+
+	netServer := fixture.netServer
+	err := netServer.syncHostIPSets([]*corev1.Pod{pod1, pod2})
 	assert.NoError(t, err)
 	fakeIPSetDeps.AssertExpectations(t)
 }
