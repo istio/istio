@@ -35,13 +35,13 @@ import sys
 # You will see the REQUEST, including HEADERS and DATA, and RESPONSE with HEADERS but without DATA.
 # The only thing missing will be the response.body which is not logged.
 import http.client as http_client
-http_client.HTTPConnection.debuglevel = 1
+http_client.HTTPConnection.debuglevel = 0
 
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 requests_log = logging.getLogger("requests.packages.urllib3")
-requests_log.setLevel(logging.DEBUG)
+requests_log.setLevel(logging.INFO)
 requests_log.propagate = True
 app.logger.addHandler(logging.StreamHandler(sys.stdout))
 app.logger.setLevel(logging.INFO)
@@ -378,15 +378,11 @@ def getProductRatings(product_id, headers):
         request_result_counter.labels(destination_app='ratings', response_code=status).inc()
         return status, {'error': 'Sorry, product ratings are currently unavailable for this book.'}
 
-sss = requests.Session()
+# Build a shared session to re-use connections
+session = requests.Session()
 
 def send_request(url, **kwargs):
-    start_time = time.time()
-    logging.info(f"Start {url}")
-    res = sss.get(url, **kwargs)
-    rt = time.time() - start_time
-    logging.info(f"End {url} {rt}")
-    return res
+    return session.get(url, **kwargs)
 
 class Writer(object):
     def __init__(self, filename):
