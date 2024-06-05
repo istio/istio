@@ -527,19 +527,28 @@ func gatewayRDSRouteName(server *networking.Server, portNumber uint32, cfg confi
 // ParseGatewayRDSRouteName is used by the EnvoyFilter patching logic to match
 // a specific route configuration to patch.
 func ParseGatewayRDSRouteName(name string) (portNumber int, portName, gatewayName string) {
-	parts := strings.Split(name, ".")
 	if strings.HasPrefix(name, "http.") {
 		// this is a http gateway. Parse port number and return empty string for rest
-		if len(parts) >= 2 {
-			portNumber, _ = strconv.Atoi(parts[1])
+		port := name[len("http."):]
+		portNumber, _ = strconv.Atoi(port)
+		return
+	} else if strings.HasPrefix(name, "https.") && strings.Count(name, ".") == 4 {
+		name = name[len("https."):]
+		// format: https.<port>.<port_name>.<gw name>.<gw namespace>
+		portNums, rest, ok := strings.Cut(name, ".")
+		if !ok {
+			return
 		}
-	} else if strings.HasPrefix(name, "https.") {
-		if len(parts) >= 5 {
-			portNumber, _ = strconv.Atoi(parts[1])
-			portName = parts[2]
-			// gateway name should be ns/name
-			gatewayName = parts[4] + "/" + parts[3]
+		portNumber, _ = strconv.Atoi(portNums)
+		portName, rest, ok = strings.Cut(rest, ".")
+		if !ok {
+			return
 		}
+		gwName, gwNs, ok := strings.Cut(rest, ".")
+		if !ok {
+			return
+		}
+		gatewayName = gwNs + "/" + gwName
 	}
 	return
 }
