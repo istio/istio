@@ -233,7 +233,9 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// the job/cronjob is configured. Either way, we will come back thru here.
 		if isAnnotated && justTerminated {
 			log.Debugf("deleting pod %s from mesh, reason: isAnnotated(%v), justTerminated(%v)", newPod.Name, isAnnotated, justTerminated)
-			err := s.dataplane.RemovePodFromMesh(s.ctx, pod)
+			// Unlike the other cases, we actually want to use the "old" event for terminated job pods
+			// - kubernetes will (weirdly) clear the ip from the pod status on termination (boo)
+			err := s.dataplane.RemovePodFromMesh(s.ctx, oldPod)
 			log.Debugf("RemovePodFromMesh(%s) returned %v", newPod.Name, err)
 			return nil
 		}
