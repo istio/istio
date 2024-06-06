@@ -188,9 +188,9 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 }
 
 func (s *CniPluginServer) getPodWithRetry(log *istiolog.Scope, name, namespace string) (*corev1.Pod, error) {
-	log.Debugf("Checking pod: %s in ns: %s is enabled for ambient", name, namespace)
-	maxStaleRetries := 10
-	msInterval := 10
+	log.Debugf("Checking if pod %s/%s is enabled for ambient", namespace, name)
+	const maxStaleRetries = 10
+	const msInterval = 10
 	retries := 0
 	var ambientPod *corev1.Pod
 	var err error
