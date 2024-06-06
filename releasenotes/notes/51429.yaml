@@ -3,4 +3,4 @@ kind: bug-fix
 area: traffic-management
 releaseNotes:
 - |
-  **Fixed** If we are asked to enroll a pod with a duplicate IP as another pod on the same node, skip that pod and continue attempting the rest, rather than erroring out.
+  **Fixed** K8S job pod IPs may not be fully unenrolled from ambient despite being in a terminated state
