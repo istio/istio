@@ -102,7 +102,6 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 	}
 	// TODO: detect from UseWaypointProxy in echo.Config
 	_, _, err = ik.Invoke([]string{
-		"x",
 		"waypoint",
 		"apply",
 		"--namespace",
@@ -203,7 +202,6 @@ func SetWaypointForService(t framework.TestContext, ns namespace.Instance, servi
 
 func DeleteWaypoint(t framework.TestContext, ns namespace.Instance, waypoint string) {
 	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-		"x",
 		"waypoint",
 		"delete",
 		"--namespace",
