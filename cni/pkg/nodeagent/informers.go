@@ -82,12 +82,19 @@ func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDa
 	return s
 }
 
+// GetPodIfAmbient looks up a pod. It returns:
+// * An error if the pod cannot be found
+// * nil if the pod is found, but does not have ambient enabled
+// * the pod, if it is found and ambient is enabled
 func (s *InformerHandlers) GetPodIfAmbient(podName, podNamespace string) (*corev1.Pod, error) {
 	ns := s.namespaces.Get(podNamespace, "")
 	if ns == nil {
 		return nil, fmt.Errorf("failed to find namespace %v", ns)
 	}
 	pod := s.pods.Get(podName, podNamespace)
+	if pod == nil {
+		return nil, fmt.Errorf("failed to find pod %v", ns)
+	}
 	if util.PodRedirectionEnabled(ns, pod) {
 		return pod, nil
 	}
