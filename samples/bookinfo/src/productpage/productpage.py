@@ -377,9 +377,11 @@ def getProductRatings(product_id, headers):
         request_result_counter.labels(destination_app='ratings', response_code=status).inc()
         return status, {'error': 'Sorry, product ratings are currently unavailable for this book.'}
 
+
 def send_request(url, **kwargs):
     # We intentionally do not pool so that we can easily test load distribution across many versions of our backends
     return requests.get(url, **kwargs)
+
 
 class Writer(object):
     def __init__(self, filename):
@@ -388,7 +390,8 @@ class Writer(object):
     def write(self, data):
         self.file.write(data)
 
-    def flush(self):
+
+        def flush(self):
         self.file.flush()
 
 if __name__ == '__main__':
