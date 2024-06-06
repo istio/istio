@@ -182,7 +182,7 @@ func (esc *endpointSliceController) serviceTargets(ep *v1.EndpointSlice, proxy *
 				log.Warnf("unexpected state, svc %v missing port %v", svc.Hostname, instance.ServicePortName)
 				continue
 			}
-			if proxy.Key() != instance.Key() {
+			if proxy.FirstAddressOrNil() != instance.FirstAddressOrNil() {
 				continue
 			}
 			// If the endpoint isn't ready, report this
@@ -378,7 +378,7 @@ func (e *endpointSliceCache) get(hostname host.Name) []*model.IstioEndpoint {
 	found := sets.New[endpointKey]()
 	for _, eps := range e.endpointsByServiceAndSlice[hostname] {
 		for _, ep := range eps {
-			key := endpointKey{ep.Key(), ep.ServicePortName}
+			key := endpointKey{ep.FirstAddressOrNil(), ep.ServicePortName}
 			if found.InsertContains(key) {
 				// This a duplicate. Update() already handles conflict resolution, so we don't
 				// need to pick the "right" one here.

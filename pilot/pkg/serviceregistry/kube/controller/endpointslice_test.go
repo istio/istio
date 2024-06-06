@@ -162,10 +162,10 @@ func testEndpointsEqual(a, b []*model.IstioEndpoint) bool {
 	m1 := make(map[endpointKey]int)
 	m2 := make(map[endpointKey]int)
 	for _, i := range a {
-		m1[endpointKey{i.Key(), i.ServicePortName}]++
+		m1[endpointKey{i.FirstAddressOrNil(), i.ServicePortName}]++
 	}
 	for _, i := range b {
-		m2[endpointKey{i.Key(), i.ServicePortName}]++
+		m2[endpointKey{i.FirstAddressOrNil(), i.ServicePortName}]++
 	}
 	return reflect.DeepEqual(m1, m2)
 }

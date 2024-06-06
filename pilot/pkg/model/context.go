@@ -492,8 +492,7 @@ func compareVersion(ov, nv int) int {
 
 var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
 
-// Key returns the key of Proxy based on its addresses, have the same logic as Key() of IstioEndpoint
-func (node *Proxy) Key() string {
+func (node *Proxy) FirstAddressOrNil() string {
 	if node == nil {
 		return ""
 	}

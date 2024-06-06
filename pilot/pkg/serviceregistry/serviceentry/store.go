@@ -70,11 +70,11 @@ func (s *serviceInstancesStore) deleteInstanceKeys(key configKeyWithParent, inst
 		if len(s.instances[ikey]) == 0 {
 			delete(s.instances, ikey)
 		}
-		delete(s.ip2instance, i.Endpoint.Key())
+		delete(s.ip2instance, i.Endpoint.FirstAddressOrNil())
 		// Cleanup stale IPs, if the IPs changed
 		for _, oi := range oldInstances {
 			s.instancesByHostAndPort.Delete(hostPort{ikey, oi.ServicePort.Port})
-			delete(s.ip2instance, oi.Endpoint.Key())
+			delete(s.ip2instance, oi.Endpoint.FirstAddressOrNil())
 		}
 	}
 }
@@ -100,7 +100,7 @@ func (s *serviceInstancesStore) addInstances(key configKeyWithParent, instances 
 		s.instancesByHostAndPort.Insert(hostPort)
 		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
 		if len(instance.Endpoint.Addresses) > 0 {
-			s.ip2instance[instance.Endpoint.Key()] = append(s.ip2instance[instance.Endpoint.Key()], instance)
+			s.ip2instance[instance.Endpoint.FirstAddressOrNil()] = append(s.ip2instance[instance.Endpoint.FirstAddressOrNil()], instance)
 		}
 	}
 }
