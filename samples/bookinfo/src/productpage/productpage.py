@@ -390,9 +390,9 @@ class Writer(object):
     def write(self, data):
         self.file.write(data)
 
-
-        def flush(self):
+    def flush(self):
         self.file.flush()
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
