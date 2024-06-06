@@ -225,6 +225,10 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
 		changeNeeded := (isAnnotated != shouldBeEnabled) && !isTerminated
 
+		// nolint: lll
+		log.Debugf("pod %s events: wasAnnotated(%v), isAnnotated(%v), shouldBeEnabled(%v), changeNeeded(%v), wasTerminated(%v), isTerminated(%v), oldPod(%+v), newPod(%+v)",
+			pod.Name, wasAnnotated, isAnnotated, shouldBeEnabled, changeNeeded, wasTerminated, isTerminated, oldPod.ObjectMeta, newPod.ObjectMeta)
+
 		// If it was a job pod that (a) we captured and (b) just terminated (successfully or otherwise)
 		// remove it (the pod process is gone, but kube will keep the Pods around in
 		// a terminated || failed state - we should still do cleanup)
@@ -244,9 +248,6 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 			log.Debugf("pod %s update event skipped, reason: changeNeeded(%v)", pod.Name, changeNeeded)
 			return nil
 		}
-
-		log.Debugf("pod %s events: wasAnnotated(%v), isAnnotated(%v), shouldBeEnabled(%v), changeNeeded(%v), wasTerminated(%v), isTerminated(%v), oldPod(%+v), newPod(%+v)",
-			pod.Name, wasAnnotated, isAnnotated, shouldBeEnabled, changeNeeded, wasTerminated, isTerminated, oldPod.ObjectMeta, newPod.ObjectMeta)
 
 		// Pod is not terminated, and has changed in a way we care about - so reconcile
 		if !shouldBeEnabled {
