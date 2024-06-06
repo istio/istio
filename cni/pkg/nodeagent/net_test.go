@@ -383,7 +383,7 @@ func TestAddPodToHostNSIPSets(t *testing.T) {
 	).Return(nil)
 
 	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
-	err := addPodToHostNSIpset(pod, podIPs, &set)
+	_, err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.NoError(t, err)
 
 	fakeIPSetDeps.AssertExpectations(t)
@@ -414,7 +414,7 @@ func TestAddPodToHostNSIPSetsV6(t *testing.T) {
 	).Return(nil)
 
 	podIPs := []netip.Addr{netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"), netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")}
-	err := addPodToHostNSIpset(pod, podIPs, &set)
+	_, err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.NoError(t, err)
 
 	fakeIPSetDeps.AssertExpectations(t)
@@ -445,7 +445,7 @@ func TestAddPodToHostNSIPSetsDualstack(t *testing.T) {
 	).Return(nil)
 
 	podIPs := []netip.Addr{netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"), netip.MustParseAddr("99.9.9.9")}
-	err := addPodToHostNSIpset(pod, podIPs, &set)
+	_, err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.NoError(t, err)
 
 	fakeIPSetDeps.AssertExpectations(t)
@@ -477,8 +477,9 @@ func TestAddPodIPToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 
 	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
 
-	err := addPodToHostNSIpset(pod, podIPs, &set)
+	addedPIPs, err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.Error(t, err)
+	assert.Equal(t, 1, len(addedPIPs), "only expected one IP to be added")
 
 	fakeIPSetDeps.AssertExpectations(t)
 }
