@@ -216,29 +216,25 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		wasAnnotated := oldPod.Annotations != nil && oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 		isAnnotated := newPod.Annotations != nil && newPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 		shouldBeEnabled := util.PodRedirectionEnabled(ns, newPod)
-		wasTerminated := kube.CheckPodTerminal(oldPod)
 		isTerminated := kube.CheckPodTerminal(newPod)
-		// only checks if the pod state just changed from not-terminated to terminated.
-		// if pod state changed in *any* other way, this should be false.
-		justTerminated := !wasTerminated && isTerminated
-
 		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
 		changeNeeded := (isAnnotated != shouldBeEnabled) && !isTerminated
 
 		// nolint: lll
-		log.Debugf("pod %s events: wasAnnotated(%v), isAnnotated(%v), shouldBeEnabled(%v), changeNeeded(%v), wasTerminated(%v), isTerminated(%v), oldPod(%+v), newPod(%+v)",
-			pod.Name, wasAnnotated, isAnnotated, shouldBeEnabled, changeNeeded, wasTerminated, isTerminated, oldPod.ObjectMeta, newPod.ObjectMeta)
+		log.Debugf("pod %s events: wasAnnotated(%v), isAnnotated(%v), shouldBeEnabled(%v), changeNeeded(%v), isTerminated(%v), oldPod(%+v), newPod(%+v)",
+			pod.Name, wasAnnotated, isAnnotated, shouldBeEnabled, changeNeeded, isTerminated, oldPod.ObjectMeta, newPod.ObjectMeta)
 
 		// If it was a job pod that (a) we captured and (b) just terminated (successfully or otherwise)
 		// remove it (the pod process is gone, but kube will keep the Pods around in
 		// a terminated || failed state - we should still do cleanup)
-		//
-		// Note that kube may either restart the same pod, or spawn a new one, depending on how
-		// the job/cronjob is configured. Either way, we will come back thru here.
-		if isAnnotated && justTerminated {
-			log.Debugf("deleting pod %s from mesh, reason: isAnnotated(%v), justTerminated(%v)", newPod.Name, isAnnotated, justTerminated)
+		if isAnnotated && isTerminated {
+			log.Debugf("deleting pod %s from mesh, reason: isAnnotated(%v), isTerminated(%v)", newPod.Name, isAnnotated, isTerminated)
 			// Unlike the other cases, we actually want to use the "old" event for terminated job pods
-			// - kubernetes will (weirdly) clear the ip from the pod status on termination (boo)
+			// - kubernetes will (weirdly) issue a new status to the pod with no IP on termination, meaning
+			// our check of `pod.status` will fail for (some) termination events.
+			//
+			// We will get subsequent events that append a new status with the IP put back, but it's simpler
+			// and safer to just check the old pod status for the IP.
 			err := s.dataplane.RemovePodFromMesh(s.ctx, oldPod)
 			log.Debugf("RemovePodFromMesh(%s) returned %v", newPod.Name, err)
 			return nil
