@@ -214,8 +214,6 @@ func (cfg *IptablesConfigurator) handleOutboundIncludeRules(
 			appendRule(iptableslog.UndefinedCommand,
 				constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 		}
-		// All other traffic is not redirected.
-		appendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-j", constants.RETURN)
 	}
 }
 
