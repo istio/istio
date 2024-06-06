@@ -202,7 +202,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(precheck.Cmd(ctx))
 	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
 	experimentalCmd.AddCommand(checkinject.Cmd(ctx))
-	experimentalCmd.AddCommand(waypoint.Cmd(ctx))
+	rootCmd.AddCommand(waypoint.Cmd(ctx))
 	rootCmd.AddCommand(ztunnelconfig.ZtunnelConfig(ctx))
 
 	analyzeCmd := analyze.Analyze(ctx)
