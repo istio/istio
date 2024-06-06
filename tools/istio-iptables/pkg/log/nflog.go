@@ -16,9 +16,10 @@ package log
 
 import (
 	"context"
+	"net"
+
 	"github.com/florianl/go-nflog/v2"
 	"golang.org/x/net/ipv4"
-	"net"
 
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
