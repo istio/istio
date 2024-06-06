@@ -111,7 +111,11 @@ func (s *InformerHandlers) GetActiveAmbientPodSnapshot() []*corev1.Pod {
 			log.Warnf("failed to find namespace %s for pod %s", pod.Namespace, pod.Name)
 		}
 
-		if !util.IsZtunnelPod(s.systemNamespace, pod) && util.PodRedirectionActive(pod) {
+		// Exclude ztunnels, and terminated daemonset pods
+		// from the snapshot.
+		if !util.IsZtunnelPod(s.systemNamespace, pod) &&
+			!kube.CheckPodTerminal(pod) &&
+			util.PodRedirectionActive(pod) {
 			pods = append(pods, pod)
 		}
 	}
@@ -212,6 +216,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		wasAnnotated := oldPod.Annotations != nil && oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 		isAnnotated := newPod.Annotations != nil && newPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 		shouldBeEnabled := util.PodRedirectionEnabled(ns, newPod)
+		isTerminatedJob := kube.CheckPodTerminal(pod)
 
 		// We should check the latest annotation vs desired status
 		changeNeeded := isAnnotated != shouldBeEnabled
@@ -223,8 +228,8 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 			return nil
 		}
 
-		if !shouldBeEnabled {
-			log.Debugf("Pod %s no longer matches, removing from mesh", newPod.Name)
+		if !shouldBeEnabled || isTerminatedJob {
+			log.Debugf("removing pod %s from mesh, reason: notLabeled(%v), isTerminatedJob(%v)", newPod.Name, shouldBeEnabled, isTerminatedJob)
 			err := s.dataplane.RemovePodFromMesh(s.ctx, pod)
 			log.Debugf("RemovePodFromMesh(%s) returned %v", newPod.Name, err)
 			// we ignore errors here as we don't want this event to be retried by the queue.
