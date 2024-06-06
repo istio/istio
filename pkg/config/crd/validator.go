@@ -149,7 +149,12 @@ func (v *Validator) ValidateCustomResource(o runtime.Object) error {
 		return fmt.Errorf("%v/%v/%v: %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), err)
 	}
 	pruneOpts := structuralschema.UnknownFieldPathOptions{TrackUnknownFieldPaths: true}
-	if unknownFieldPaths := structuralpruning.PruneWithOptions(un.DeepCopy().Object, structural, false, pruneOpts); len(unknownFieldPaths) > 0 {
+	unknownFieldPaths := structuralpruning.PruneWithOptions(un.DeepCopy().Object, structural, false, pruneOpts)
+	unknownFieldPaths = slices.FilterInPlace(unknownFieldPaths, func(s string) bool {
+		// Some CRDs don't spell out all the fields in metadata, and k8s doesn't care
+		return !strings.HasPrefix(s, "metadata.")
+	})
+	if len(unknownFieldPaths) > 0 {
 		return fmt.Errorf("%v/%v/%v: unknown fields %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), unknownFieldPaths)
 	}
 
