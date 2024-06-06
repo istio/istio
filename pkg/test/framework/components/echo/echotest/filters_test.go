@@ -25,12 +25,18 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
+
+func init() {
+	allClusters[cls1.Name()] = cls1
+	allClusters[cls2.Name()] = cls2
+}
 
 var (
 	// TODO set this up with echobuilder/cluster builder in Fake mode
@@ -39,8 +45,23 @@ var (
 	echo2NS = namespace.Static("echo2")
 
 	// 2 clusters on 2 networks
-	cls1 = &cluster.FakeCluster{Topology: cluster.Topology{ClusterName: "cls1", Network: "n1", Index: 0, ClusterKind: cluster.Fake}}
-	cls2 = &cluster.FakeCluster{Topology: cluster.Topology{ClusterName: "cls2", Network: "n2", Index: 1, ClusterKind: cluster.Fake}}
+	allClusters = make(cluster.Map)
+	cls1        = &kube.Cluster{Topology: cluster.Topology{
+		ClusterName:        "cls1",
+		Network:            "n1",
+		PrimaryClusterName: "cls1",
+		ConfigClusterName:  "cls1",
+		Index:              0,
+		AllClusters:        allClusters,
+	}}
+	cls2 = &kube.Cluster{Topology: cluster.Topology{
+		ClusterName:        "cls2",
+		Network:            "n2",
+		PrimaryClusterName: "cls2",
+		ConfigClusterName:  "cls2",
+		Index:              1,
+		AllClusters:        allClusters,
+	}}
 
 	// simple pod
 	a1 = &fakeInstance{Cluster: cls1, Namespace: echo1NS, Service: "a"}

@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
+	"istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -51,15 +51,20 @@ func (f FakeEnvironment) EnvironmentName() string {
 }
 
 func (f FakeEnvironment) AllClusters() cluster.Clusters {
-	factory := clusterboot.NewFactory()
+	res := cluster.Clusters{}
+	allClusters := make(cluster.Map)
+
 	for i := 0; i < f.NumClusters; i++ {
-		factory = factory.With(cluster.Config{Kind: cluster.Fake, Name: fmt.Sprintf("cluster-%d", i)})
+		topo := cluster.NewTopology(cluster.Config{
+			Name:               fmt.Sprintf("cluster-%d", i),
+			PrimaryClusterName: fmt.Sprintf("cluster-%d", i),
+			ConfigClusterName:  fmt.Sprintf("cluster-%d", i),
+		}, allClusters)
+		c := &kube.Cluster{Topology: topo}
+		res = append(res, c)
+		allClusters[c.Name()] = c
 	}
-	out, err := factory.Build()
-	if err != nil {
-		panic(err)
-	}
-	return out
+	return res
 }
 
 func (f FakeEnvironment) Clusters() cluster.Clusters {

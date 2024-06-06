@@ -373,7 +373,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 
 	// All does not include external
 	echos = match.Not(match.ServiceName(echo.NamespacedName{Name: cdeployment.ExternalSvc, Namespace: apps.ExternalNamespace})).GetMatches(echos)
-	apps.MockExternal = external.All
 	apps.All = echos
 	apps.WorkloadAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: WorkloadAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.ServiceAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: ServiceAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)

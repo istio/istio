@@ -49,10 +49,10 @@ func (i *istioImpl) Close() error {
 		errG := multierror.Group{}
 		// Make sure to clean up primary clusters before remotes, or istiod will recreate some of the CMs that we delete
 		// in the remote clusters before it's deleted.
-		for _, c := range i.ctx.AllClusters().Primaries().Kube() {
+		for _, c := range i.ctx.AllClusters().Primaries() {
 			i.cleanupCluster(c, &errG)
 		}
-		for _, c := range i.ctx.Clusters().Remotes().Kube() {
+		for _, c := range i.ctx.Clusters().Remotes() {
 			i.cleanupCluster(c, &errG)
 		}
 		return errG.Wait().ErrorOrNil()
@@ -81,7 +81,7 @@ func (i *istioImpl) Dump(ctx resource.Context) {
 		kube2.DumpWebhooks(ctx, d)
 		return nil
 	})
-	for _, c := range ctx.Clusters().Kube().Primaries() {
+	for _, c := range ctx.Clusters().Primaries() {
 		c := c
 		g.Go(func() error {
 			kube2.DumpDebug(ctx, c, d, "configz", ns)
