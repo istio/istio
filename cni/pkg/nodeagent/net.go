@@ -293,8 +293,7 @@ func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
 		} else {
 			err := addPodToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
 			if err != nil {
-				// nolint: lll
-				log.Errorf("pod %s has IPs %v, but previously inserted one of those IPs for a different pod, this indicates an IPAM problem, pod will be skipped and will fail healthchecks", pod.Name, podIPs)
+				log.Errorf("pod %s has IP collision, pod will be skipped and will fail healthchecks", pod.Name, podIPs)
 			}
 			addedIPSnapshot = append(addedIPSnapshot, podIPs...)
 		}
