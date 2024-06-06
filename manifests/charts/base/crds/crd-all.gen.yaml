@@ -8550,7 +8550,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           type: array
@@ -8751,7 +8751,7 @@ spec:
                             description: 'HTTP Authority values are case-sensitive
                               and formatted as follows: - `exact: "value"` for exact
                               string match - `prefix: "value"` for prefix-based match
-                              - `regex: "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              - `regex: "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -8773,7 +8773,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           gateways:
@@ -8805,7 +8805,7 @@ spec:
                                 prefix:
                                   type: string
                                 regex:
-                                  description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                  description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                   type: string
                               type: object
                             description: The header keys must be lowercase and use
@@ -8819,7 +8819,7 @@ spec:
                             description: 'HTTP Method values are case-sensitive and
                               formatted as follows: - `exact: "value"` for exact string
                               match - `prefix: "value"` for prefix-based match - `regex:
-                              "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -8841,7 +8841,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           name:
@@ -8876,7 +8876,7 @@ spec:
                                 prefix:
                                   type: string
                                 regex:
-                                  description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                  description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                   type: string
                               type: object
                             description: Query parameters for matching.
@@ -8885,7 +8885,7 @@ spec:
                             description: 'URI Scheme values are case-sensitive and
                               formatted as follows: - `exact: "value"` for exact string
                               match - `prefix: "value"` for prefix-based match - `regex:
-                              "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -8907,7 +8907,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           sourceLabels:
@@ -8929,7 +8929,7 @@ spec:
                             description: 'URI to match values are case-sensitive and
                               formatted as follows: - `exact: "value"` for exact string
                               match - `prefix: "value"` for prefix-based match - `regex:
-                              "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -8951,7 +8951,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           withoutHeaders:
@@ -8977,7 +8977,7 @@ spec:
                                 prefix:
                                   type: string
                                 regex:
-                                  description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                  description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                   type: string
                               type: object
                             description: withoutHeader has the same syntax with the
@@ -9158,7 +9158,7 @@ spec:
                             specified regex.
                           properties:
                             match:
-                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                              description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                               type: string
                             rewrite:
                               description: The string that should replace into matching
@@ -9518,7 +9518,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           type: array
@@ -9719,7 +9719,7 @@ spec:
                             description: 'HTTP Authority values are case-sensitive
                               and formatted as follows: - `exact: "value"` for exact
                               string match - `prefix: "value"` for prefix-based match
-                              - `regex: "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              - `regex: "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -9741,7 +9741,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           gateways:
@@ -9773,7 +9773,7 @@ spec:
                                 prefix:
                                   type: string
                                 regex:
-                                  description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                  description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                   type: string
                               type: object
                             description: The header keys must be lowercase and use
@@ -9787,7 +9787,7 @@ spec:
                             description: 'HTTP Method values are case-sensitive and
                               formatted as follows: - `exact: "value"` for exact string
                               match - `prefix: "value"` for prefix-based match - `regex:
-                              "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -9809,7 +9809,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           name:
@@ -9844,7 +9844,7 @@ spec:
                                 prefix:
                                   type: string
                                 regex:
-                                  description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                  description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                   type: string
                               type: object
                             description: Query parameters for matching.
@@ -9853,7 +9853,7 @@ spec:
                             description: 'URI Scheme values are case-sensitive and
                               formatted as follows: - `exact: "value"` for exact string
                               match - `prefix: "value"` for prefix-based match - `regex:
-                              "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -9875,7 +9875,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           sourceLabels:
@@ -9897,7 +9897,7 @@ spec:
                             description: 'URI to match values are case-sensitive and
                               formatted as follows: - `exact: "value"` for exact string
                               match - `prefix: "value"` for prefix-based match - `regex:
-                              "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -9919,7 +9919,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           withoutHeaders:
@@ -9945,7 +9945,7 @@ spec:
                                 prefix:
                                   type: string
                                 regex:
-                                  description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                  description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                   type: string
                               type: object
                             description: withoutHeader has the same syntax with the
@@ -10126,7 +10126,7 @@ spec:
                             specified regex.
                           properties:
                             match:
-                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                              description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                               type: string
                             rewrite:
                               description: The string that should replace into matching
@@ -10486,7 +10486,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           type: array
@@ -10687,7 +10687,7 @@ spec:
                             description: 'HTTP Authority values are case-sensitive
                               and formatted as follows: - `exact: "value"` for exact
                               string match - `prefix: "value"` for prefix-based match
-                              - `regex: "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              - `regex: "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -10709,7 +10709,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           gateways:
@@ -10741,7 +10741,7 @@ spec:
                                 prefix:
                                   type: string
                                 regex:
-                                  description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                  description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                   type: string
                               type: object
                             description: The header keys must be lowercase and use
@@ -10755,7 +10755,7 @@ spec:
                             description: 'HTTP Method values are case-sensitive and
                               formatted as follows: - `exact: "value"` for exact string
                               match - `prefix: "value"` for prefix-based match - `regex:
-                              "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -10777,7 +10777,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           name:
@@ -10812,7 +10812,7 @@ spec:
                                 prefix:
                                   type: string
                                 regex:
-                                  description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                  description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                   type: string
                               type: object
                             description: Query parameters for matching.
@@ -10821,7 +10821,7 @@ spec:
                             description: 'URI Scheme values are case-sensitive and
                               formatted as follows: - `exact: "value"` for exact string
                               match - `prefix: "value"` for prefix-based match - `regex:
-                              "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -10843,7 +10843,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           sourceLabels:
@@ -10865,7 +10865,7 @@ spec:
                             description: 'URI to match values are case-sensitive and
                               formatted as follows: - `exact: "value"` for exact string
                               match - `prefix: "value"` for prefix-based match - `regex:
-                              "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).'
+                              "value"` for [RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                             oneOf:
                             - not:
                                 anyOf:
@@ -10887,7 +10887,7 @@ spec:
                               prefix:
                                 type: string
                               regex:
-                                description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                 type: string
                             type: object
                           withoutHeaders:
@@ -10913,7 +10913,7 @@ spec:
                                 prefix:
                                   type: string
                                 regex:
-                                  description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                                  description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                                   type: string
                               type: object
                             description: withoutHeader has the same syntax with the
@@ -11094,7 +11094,7 @@ spec:
                             specified regex.
                           properties:
                             match:
-                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                              description: '[RE2 style regex-based match](https://github.com/google/re2/wiki/Syntax).'
                               type: string
                             rewrite:
                               description: The string that should replace into matching
