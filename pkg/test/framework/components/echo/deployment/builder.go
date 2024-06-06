@@ -71,7 +71,7 @@ type Builder interface {
 	BuildOrFail(t test.Failer) echo.Instances
 }
 
-var _ Builder = builder{}
+var _ Builder = &builder{}
 
 // New builder for echo deployments.
 func New(ctx resource.Context, clusters ...cluster.Cluster) Builder {
@@ -79,7 +79,7 @@ func New(ctx resource.Context, clusters ...cluster.Cluster) Builder {
 	if len(clusters) == 0 {
 		clusters = ctx.Clusters()
 	}
-	b := builder{
+	b := &builder{
 		ctx:        ctx,
 		configs:    []echo.Config{},
 		refs:       []*echo.Instance{},
@@ -117,14 +117,14 @@ type builder struct {
 	errs error
 }
 
-func (b builder) WithConfig(cfg echo.Config) Builder {
-	return b.With(nil, cfg).(builder)
+func (b *builder) WithConfig(cfg echo.Config) Builder {
+	return b.With(nil, cfg)
 }
 
 // With adds a new Echo configuration to the Builder. When a cluster is provided in the Config, it will only be applied
 // to that cluster, otherwise the Config is applied to all WithClusters. Once built, if being built for a single cluster,
 // the instance pointer will be updated to point at the new Instance.
-func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
+func (b *builder) With(i *echo.Instance, cfg echo.Config) Builder {
 	if b.ctx.Settings().SkipWorkloadClassesAsSet().Contains(cfg.WorkloadClass()) {
 		return b
 	}
@@ -188,18 +188,18 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
 }
 
 // WithClusters will cause subsequent With calls to be applied to the given clusters.
-func (b builder) WithClusters(clusters ...cluster.Cluster) Builder {
+func (b *builder) WithClusters(clusters ...cluster.Cluster) Builder {
 	next := b
 	next.clusters = clusters
 	return next
 }
 
-func (b builder) Build() (out echo.Instances, err error) {
+func (b *builder) Build() (out echo.Instances, err error) {
 	return build(b)
 }
 
 // injectionTemplates lists the set of templates for each Kube cluster
-func (b builder) injectionTemplates() (map[string]sets.String, error) {
+func (b *builder) injectionTemplates() (map[string]sets.String, error) {
 	ns := "istio-system"
 	i, err := istio.Get(b.ctx)
 	if err != nil {
@@ -250,7 +250,7 @@ func (b builder) injectionTemplates() (map[string]sets.String, error) {
 }
 
 // build inner allows assigning to b (assignment to receiver would be ineffective)
-func build(b builder) (out echo.Instances, err error) {
+func build(b *builder) (out echo.Instances, err error) {
 	start := time.Now()
 	scopes.Framework.Info("=== BEGIN: Deploy echo instances ===")
 	defer func() {
@@ -267,7 +267,7 @@ func build(b builder) (out echo.Instances, err error) {
 		// swap the namespace.Static for a namespace.kube
 		b, cfg.Namespace = b.getOrCreateNamespace(cfg.Namespace.Prefix())
 		// register the extra config
-		b = b.WithConfig(cfg).(builder)
+		b = b.WithConfig(cfg).(*builder)
 	}
 
 	// bail early if there were issues during the configuration stage
@@ -284,7 +284,7 @@ func build(b builder) (out echo.Instances, err error) {
 	return
 }
 
-func (b builder) getOrCreateNamespace(prefix string) (builder, namespace.Instance) {
+func (b *builder) getOrCreateNamespace(prefix string) (*builder, namespace.Instance) {
 	ns, ok := b.namespaces[prefix]
 	if ok {
 		return b, ns
@@ -299,7 +299,7 @@ func (b builder) getOrCreateNamespace(prefix string) (builder, namespace.Instanc
 
 // deployServices deploys the kubernetes Service to all clusters. Multicluster meshes should have "sameness"
 // per cluster. This avoids concurrent writes later.
-func (b builder) deployServices() (err error) {
+func (b *builder) deployServices() (err error) {
 	services := make(map[string]string)
 	for _, cfg := range b.configs {
 		svc, err := kube.GenerateService(cfg)
@@ -325,7 +325,7 @@ func (b builder) deployServices() (err error) {
 	return cfg.Apply(apply.NoCleanup)
 }
 
-func (b builder) deployInstances() (echo.Instances, error) {
+func (b *builder) deployInstances() (echo.Instances, error) {
 	// run the builder func for each kind of config in parallel
 	instances, err := kube.Build(b.ctx, b.configs)
 	if err != nil {
@@ -353,7 +353,7 @@ func assignRefs(refs []*echo.Instance, instances echo.Instances) error {
 	return nil
 }
 
-func (b builder) BuildOrFail(t test.Failer) echo.Instances {
+func (b *builder) BuildOrFail(t test.Failer) echo.Instances {
 	t.Helper()
 	out, err := b.Build()
 	if err != nil {
@@ -363,7 +363,7 @@ func (b builder) BuildOrFail(t test.Failer) echo.Instances {
 }
 
 // validateTemplates returns true if the templates specified by inject.istio.io/templates on the config exist on c
-func (b builder) validateTemplates(config echo.Config, c cluster.Cluster) bool {
+func (b *builder) validateTemplates(config echo.Config, c cluster.Cluster) bool {
 	expected := sets.New[string]()
 	for _, subset := range config.Subsets {
 		expected.InsertAll(parseList(subset.Annotations[annotation.InjectTemplates.Name])...)
