@@ -458,6 +458,66 @@ func TestGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) {
 	assert.Equal(t, pods[0], redirectedNotEnrolled)
 }
 
+func TestGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	enrolledNotRedirected := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "enrolled-not-redirected",
+			Namespace: "test",
+			UID:       "12345",
+			Labels:    map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+		},
+	}
+	enrolledButTerminated := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "enrolled-but-terminated",
+			Namespace: "test",
+			UID:       "12345",
+			Labels:    map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+			Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionEnabled},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+			Phase: corev1.PodFailed,
+		},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+		},
+	}
+
+	client := kube.NewFakeClient(ns, enrolledNotRedirected, enrolledButTerminated)
+	fs := &fakeServer{}
+	fs.Start(ctx)
+	server := &meshDataplane{
+		kubeClient: client.Kube(),
+		netServer:  fs,
+	}
+
+	handlers := setupHandlers(ctx, client, server, "istio-system")
+	client.RunAndWait(ctx.Done())
+	pods := handlers.GetActiveAmbientPodSnapshot()
+
+	//Should skip both pods - the one that's labeled but not annotated, and the one that's annotated but terminated.
+	assert.Equal(t, len(pods), 0)
+}
+
 func TestAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
