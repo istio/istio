@@ -513,7 +513,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// Simultaneously, it will be duplicate with inbound listener.
 							// should continue if current IstioEndpoint instance has the same ip with the
 							// first ip of node IPaddresses
-							if instance.Key() == node.Key() {
+							if instance.FirstAddressOrNil() == node.FirstAddressOrNil() {
 								continue
 							}
 							listenerOpts.bind.binds = instance.Addresses

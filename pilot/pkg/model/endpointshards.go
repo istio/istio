@@ -313,19 +313,19 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 		// Add new endpoints only if they are ever ready once to shards
 		// so that full push does not send them from shards.
 		for _, oie := range oldIstioEndpoints {
-			if oie.Key() == "" {
+			if oie.FirstAddressOrNil() == "" {
 				continue
 			}
-			omap[oie.Key()] = oie
+			omap[oie.FirstAddressOrNil()] = oie
 		}
 		for _, nie := range istioEndpoints {
-			if nie.Key() == "" {
+			if nie.FirstAddressOrNil() == "" {
 				continue
 			}
-			nmap[nie.Key()] = nie
+			nmap[nie.FirstAddressOrNil()] = nie
 		}
 		for _, nie := range istioEndpoints {
-			if oie, exists := omap[nie.Key()]; exists {
+			if oie, exists := omap[nie.FirstAddressOrNil()]; exists {
 				// If endpoint exists already, we should push if it's changed.
 				// Skip this check if we already decide we need to push to avoid expensive checks
 				if !needPush && !oie.Equals(nie) {
@@ -347,7 +347,7 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 		// removal so we need to push an update.
 		if !needPush {
 			for _, oie := range oldIstioEndpoints {
-				if _, f := nmap[oie.Key()]; !f {
+				if _, f := nmap[oie.FirstAddressOrNil()]; !f {
 					needPush = true
 					break
 				}

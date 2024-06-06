@@ -81,12 +81,12 @@ func (i *index) Insert(wi *model.WorkloadInstance) *model.WorkloadInstance {
 	key := i.keyFunc(wi)
 	// Check to see if the workload entry changed. If it did, clear the old entry
 	previous := i.keyToInstance[key]
-	if previous != nil && previous.Endpoint.Key() != wi.Endpoint.Key() {
-		i.ipToKeys.Delete(previous.Endpoint.Key(), key)
+	if previous != nil && previous.Endpoint.FirstAddressOrNil() != wi.Endpoint.FirstAddressOrNil() {
+		i.ipToKeys.Delete(previous.Endpoint.FirstAddressOrNil(), key)
 	}
 	i.keyToInstance[key] = wi
 	if len(wi.Endpoint.Addresses) > 0 {
-		i.ipToKeys.Insert(wi.Endpoint.Key(), key)
+		i.ipToKeys.Insert(wi.Endpoint.FirstAddressOrNil(), key)
 	}
 	return previous
 }
@@ -99,9 +99,9 @@ func (i *index) Delete(wi *model.WorkloadInstance) *model.WorkloadInstance {
 	key := i.keyFunc(wi)
 	previous := i.keyToInstance[key]
 	if previous != nil {
-		i.ipToKeys.Delete(previous.Endpoint.Key(), key)
+		i.ipToKeys.Delete(previous.Endpoint.FirstAddressOrNil(), key)
 	}
-	i.ipToKeys.Delete(wi.Endpoint.Key(), key)
+	i.ipToKeys.Delete(wi.Endpoint.FirstAddressOrNil(), key)
 	delete(i.keyToInstance, key)
 	return previous
 }

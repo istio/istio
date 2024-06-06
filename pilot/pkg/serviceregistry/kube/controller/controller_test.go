@@ -144,11 +144,11 @@ func TestServices(t *testing.T) {
 		t.Fatalf("Invalid response for GetEndpoints %v", ep)
 	}
 
-	if ep[0].Key() == "10.10.1.1" && ep[0].Network != "network1" {
+	if ep[0].FirstAddressOrNil() == "10.10.1.1" && ep[0].Network != "network1" {
 		t.Fatalf("Endpoint with IP 10.10.1.1 is expected to be in network1 but get: %s", ep[0].Network)
 	}
 
-	if ep[1].Key() == "10.11.1.2" && ep[1].Network != "network2" {
+	if ep[1].FirstAddressOrNil() == "10.11.1.2" && ep[1].Network != "network2" {
 		t.Fatalf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Network)
 	}
 
@@ -1783,7 +1783,7 @@ func TestController_ExternalNameService(t *testing.T) {
 		}
 		endpoints := GetEndpoints(svcList[i], controller.Endpoints)
 		assert.Equal(t, len(endpoints), 1)
-		assert.Equal(t, endpoints[0].Key(), k8sSvcs[i].Spec.ExternalName)
+		assert.Equal(t, endpoints[0].FirstAddressOrNil(), k8sSvcs[i].Spec.ExternalName)
 	}
 
 	deleteWg.Add(len(k8sSvcs))

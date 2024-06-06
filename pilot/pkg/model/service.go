@@ -616,8 +616,7 @@ func (ep *IstioEndpoint) CmpOpts() []cmp.Option {
 	return istioEndpointCmpOpts
 }
 
-// Key returns the key of IstioEndpoint based on its addresses
-func (ep *IstioEndpoint) Key() string {
+func (ep *IstioEndpoint) FirstAddressOrNil() string {
 	if ep == nil {
 		return ""
 	}

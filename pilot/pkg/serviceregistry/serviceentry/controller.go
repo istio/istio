@@ -507,7 +507,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		redundantEventForPod = s.workloadInstances.Delete(wi) == nil
 	default: // add or update
 		if oldWi = s.workloadInstances.Insert(wi); oldWi != nil {
-			if oldWi.Endpoint.Key() != wi.Endpoint.Key() {
+			if oldWi.Endpoint.FirstAddressOrNil() != wi.Endpoint.FirstAddressOrNil() {
 				addressesToDelete = oldWi.Endpoint.Addresses
 			}
 			// Check if the old labels still match the new labels. If they don't then we need to
