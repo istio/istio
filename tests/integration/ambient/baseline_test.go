@@ -257,65 +257,53 @@ func TestPodIP(t *testing.T) {
 }
 
 func TestServerSideLB(t *testing.T) {
-	// TODO: test that naked client reusing connections will load balance
-	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-		if src.Config().ZTunnelCaptured() && dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy() {
-			// This is to-service traffic without a service waypoint but with a workload waypoint
-			// Ztunnel is going to specifically skip the workload waypoint because this is service addressed but
-			// there is a later check for having a waypoint but not coming from a waypoint which drops the traffic.
-			// That's a bug in ztunnel to sort out
-			t.Skip("TODO: ztunnel bug will cause this to fail")
-		}
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			// Need HTTP
+			if opt.Scheme != scheme.HTTP {
+				return
+			}
+			var singleHost echo.Checker = func(result echo.CallResult, _ error) error {
+				hostnames := make([]string, len(result.Responses))
+				for i, r := range result.Responses {
+					hostnames[i] = r.Hostname
+				}
+				unique := sets.SortedList(sets.New(hostnames...))
+				if len(unique) != 1 {
+					return fmt.Errorf("excepted only one destination, got: %v", unique)
+				}
+				return nil
+			}
+			var multipleHost echo.Checker = func(result echo.CallResult, _ error) error {
+				hostnames := make([]string, len(result.Responses))
+				for i, r := range result.Responses {
+					hostnames[i] = r.Hostname
+				}
+				unique := sets.SortedList(sets.New(hostnames...))
+				want := dst.WorkloadsOrFail(t)
+				wn := []string{}
+				for _, w := range want {
+					wn = append(wn, w.PodName())
+				}
+				if len(unique) != len(wn) {
+					return fmt.Errorf("excepted all destinations (%v), got: %v", wn, unique)
+				}
+				return nil
+			}
 
-		// Need HTTP
-		if opt.Scheme != scheme.HTTP {
-			return
-		}
-		if src.Config().IsUncaptured() {
-			// For this case, it is broken if the src and dst are on the same node.
-			// TODO: fix this and remove this skip
-			t.Skip("broken")
-		}
-		var singleHost echo.Checker = func(result echo.CallResult, _ error) error {
-			hostnames := make([]string, len(result.Responses))
-			for i, r := range result.Responses {
-				hostnames[i] = r.Hostname
+			shouldBalance := dst.Config().HasServiceAddressedWaypointProxy()
+			// Istio client will not reuse connections for HTTP/1.1
+			opt.HTTP.HTTP2 = true
+			// Make sure we make multiple calls
+			opt.Count = 10
+			c := singleHost
+			if shouldBalance {
+				c = multipleHost
 			}
-			unique := sets.SortedList(sets.New(hostnames...))
-			if len(unique) != 1 {
-				return fmt.Errorf("excepted only one destination, got: %v", unique)
-			}
-			return nil
-		}
-		var multipleHost echo.Checker = func(result echo.CallResult, _ error) error {
-			hostnames := make([]string, len(result.Responses))
-			for i, r := range result.Responses {
-				hostnames[i] = r.Hostname
-			}
-			unique := sets.SortedList(sets.New(hostnames...))
-			want := dst.WorkloadsOrFail(t)
-			wn := []string{}
-			for _, w := range want {
-				wn = append(wn, w.PodName())
-			}
-			if len(unique) != len(wn) {
-				return fmt.Errorf("excepted all destinations (%v), got: %v", wn, unique)
-			}
-			return nil
-		}
-
-		shouldBalance := dst.Config().HasServiceAddressedWaypointProxy()
-		// Istio client will not reuse connections for HTTP/1.1
-		opt.HTTP.HTTP2 = true
-		// Make sure we make multiple calls
-		opt.Count = 10
-		c := singleHost
-		if shouldBalance {
-			c = multipleHost
-		}
-		opt.Check = check.And(check.OK(), c)
-		opt.NewConnectionPerRequest = false
-		src.CallOrFail(t, opt)
+			opt.Check = check.And(check.OK(), c)
+			opt.NewConnectionPerRequest = false
+			src.CallOrFail(t, opt)
+		})
 	})
 }
 
@@ -373,11 +361,16 @@ func TestOtherRevisionIgnored(t *testing.T) {
 		})
 		waypointError := retry.UntilSuccess(func() error {
 			fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"sa")
-			if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
-				return fmt.Errorf("gateway is not ready: %v", err)
+			pods, err := fetch()
+			if err != nil {
+				return err
 			}
-			return nil
-		}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
+			if len(pods) > 0 {
+				// found (this is actually bad, but the failure condition is inverted later a bit awkward)
+				return nil
+			}
+			return fmt.Errorf("no waypoints found")
+		}, retry.Timeout(1*time.Second), retry.BackoffDelay(time.Millisecond*100))
 		if waypointError == nil {
 			t.Fatal("Waypoint for non-existent tag foo created deployment!")
 		}
@@ -486,22 +479,16 @@ func TestBogusUseWaypoint(t *testing.T) {
 }
 
 func TestServerRouting(t *testing.T) {
-	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-		// Need waypoint proxy and HTTP
-		if opt.Scheme != scheme.HTTP {
-			return
-		}
-		if !dst.Config().HasServiceAddressedWaypointProxy() {
-			return
-		}
-		if src.Config().IsUncaptured() {
-			// TODO: fix this and remove this skip
-			t.Skip("https://github.com/istio/istio/issues/43238")
-		}
-		t.NewSubTest("set header").Run(func(t framework.TestContext) {
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": dst.Config().Service,
-			}, `apiVersion: networking.istio.io/v1alpha3
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			// Need waypoint proxy and HTTP
+			if opt.Scheme != scheme.HTTP {
+				return
+			}
+			t.NewSubTest("set header").Run(func(t framework.TestContext) {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+				}, `apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: route
@@ -517,15 +504,15 @@ spec:
     - destination:
         host: "{{.Destination}}"
 `).ApplyOrFail(t)
-			opt.Check = check.And(
-				check.OK(),
-				check.RequestHeader("Istio-Custom-Header", "user-defined-value"))
-			src.CallOrFail(t, opt)
-		})
-		t.NewSubTest("subset").Run(func(t framework.TestContext) {
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": dst.Config().Service,
-			}, `apiVersion: networking.istio.io/v1alpha3
+				opt.Check = check.And(
+					check.OK(),
+					check.RequestHeader("Istio-Custom-Header", "user-defined-value"))
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("subset").Run(func(t framework.TestContext) {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+				}, `apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: route
@@ -553,37 +540,32 @@ spec:
       version: v2
     name: v2
 `).ApplyOrFail(t)
-			var exp string
-			for _, w := range dst.WorkloadsOrFail(t) {
-				if strings.Contains(w.PodName(), "-v1") {
-					exp = w.PodName()
+				var exp string
+				for _, w := range dst.WorkloadsOrFail(t) {
+					if strings.Contains(w.PodName(), "-v1") {
+						exp = w.PodName()
+					}
 				}
-			}
-			opt.Count = 10
-			opt.Check = check.And(
-				check.OK(),
-				check.Hostname(exp))
-			src.CallOrFail(t, opt)
+				opt.Count = 10
+				opt.Check = check.And(
+					check.OK(),
+					check.Hostname(exp))
+				src.CallOrFail(t, opt)
+			})
 		})
 	})
 }
 
 func TestWaypointEnvoyFilter(t *testing.T) {
-	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-		// Need at least one waypoint proxy and HTTP
-		if opt.Scheme != scheme.HTTP {
-			return
-		}
-		if !dst.Config().HasServiceAddressedWaypointProxy() {
-			return
-		}
-		if src.Config().IsUncaptured() {
-			// TODO: fix this and remove this skip
-			t.Skip("https://github.com/istio/istio/issues/43238")
-		}
-		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-			"Destination": "waypoint",
-		}, `apiVersion: networking.istio.io/v1alpha3
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			// Need at least one waypoint proxy and HTTP
+			if opt.Scheme != scheme.HTTP {
+				return
+			}
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": "waypoint",
+			}, `apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: inbound
@@ -630,34 +612,29 @@ spec:
       value:
         http2_protocol_options: {}
 `).ApplyOrFail(t)
-		opt.Count = 5
-		opt.Timeout = time.Second * 10
-		opt.Check = check.And(
-			check.OK(),
-			check.RequestHeaders(map[string]string{
-				"X-Lua-Inbound":   "hello world",
-				"X-Vhost-Inbound": "hello world",
-			}))
-		src.CallOrFail(t, opt)
+			opt.Count = 5
+			opt.Timeout = time.Second * 10
+			opt.Check = check.And(
+				check.OK(),
+				check.RequestHeaders(map[string]string{
+					"X-Lua-Inbound":   "hello world",
+					"X-Vhost-Inbound": "hello world",
+				}))
+			src.CallOrFail(t, opt)
+		})
 	})
 }
 
 func TestTrafficSplit(t *testing.T) {
-	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-		// Need at least one waypoint proxy and HTTP
-		if opt.Scheme != scheme.HTTP {
-			return
-		}
-		if !dst.Config().HasServiceAddressedWaypointProxy() {
-			return
-		}
-		if src.Config().IsUncaptured() {
-			// TODO: fix this and remove this skip
-			t.Skip("https://github.com/istio/istio/issues/43238")
-		}
-		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-			"Destination": dst.Config().Service,
-		}, `apiVersion: networking.istio.io/v1alpha3
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			// Need at least one waypoint proxy and HTTP
+			if opt.Scheme != scheme.HTTP {
+				return
+			}
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.Config().Service,
+			}, `apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: route
@@ -678,9 +655,9 @@ spec:
         host: "{{.Destination}}"
         subset: v1
 `).ApplyOrFail(t)
-		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-			"Destination": dst.Config().Service,
-		}, `apiVersion: networking.istio.io/v1alpha3
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.Config().Service,
+			}, `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: dr
@@ -694,59 +671,50 @@ spec:
     labels:
       version: v2
 `).ApplyOrFail(t)
-		t.NewSubTest("v1").Run(func(t framework.TestContext) {
-			opt = opt.DeepCopy()
-			opt.Count = 5
-			opt.Timeout = time.Second * 10
-			opt.Check = check.And(
-				check.OK(),
-				func(result echo.CallResult, _ error) error {
-					for _, r := range result.Responses {
-						if r.Version != "v1" {
-							return fmt.Errorf("expected service version %q, got %q", "v1", r.Version)
+			t.NewSubTest("v1").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.Count = 5
+				opt.Timeout = time.Second * 10
+				opt.Check = check.And(
+					check.OK(),
+					func(result echo.CallResult, _ error) error {
+						for _, r := range result.Responses {
+							if r.Version != "v1" {
+								return fmt.Errorf("expected service version %q, got %q", "v1", r.Version)
+							}
 						}
-					}
-					return nil
-				})
-			src.CallOrFail(t, opt)
-		})
+						return nil
+					})
+				src.CallOrFail(t, opt)
+			})
 
-		t.NewSubTest("v2").Run(func(t framework.TestContext) {
-			opt = opt.DeepCopy()
-			opt.Count = 5
-			opt.Timeout = time.Second * 10
-			if opt.HTTP.Headers == nil {
-				opt.HTTP.Headers = map[string][]string{}
-			}
-			opt.HTTP.Headers.Set("user", "istio-custom-user")
-			opt.Check = check.And(
-				check.OK(),
-				func(result echo.CallResult, _ error) error {
-					for _, r := range result.Responses {
-						if r.Version != "v2" {
-							return fmt.Errorf("expected service version %q, got %q", "v2", r.Version)
+			t.NewSubTest("v2").Run(func(t framework.TestContext) {
+				opt = opt.DeepCopy()
+				opt.Count = 5
+				opt.Timeout = time.Second * 10
+				if opt.HTTP.Headers == nil {
+					opt.HTTP.Headers = map[string][]string{}
+				}
+				opt.HTTP.Headers.Set("user", "istio-custom-user")
+				opt.Check = check.And(
+					check.OK(),
+					func(result echo.CallResult, _ error) error {
+						for _, r := range result.Responses {
+							if r.Version != "v2" {
+								return fmt.Errorf("expected service version %q, got %q", "v2", r.Version)
+							}
 						}
-					}
-					return nil
-				})
-			src.CallOrFail(t, opt)
+						return nil
+					})
+				src.CallOrFail(t, opt)
+			})
 		})
 	})
 }
 
 func TestPeerAuthentication(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		// Workaround https://github.com/istio/istio/issues/43239
-		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: single-request
-spec:
-  host: '*.svc.cluster.local'
-  trafficPolicy:
-    connectionPool:
-      http:
-        maxRequestsPerConnection: 1`).ApplyOrFail(t)
+		applyDrainingWorkaround(t)
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.TCP {
 				return
@@ -754,19 +722,6 @@ spec:
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
-			if src.Config().IsUncaptured() {
-				// For this case, it is broken if the src and dst are on the same node.
-				// TODO: fix this and remove this skip
-				t.Skip("https://github.com/istio/istio/issues/43238")
-			}
-
-			if src.Config().ZTunnelCaptured() && dst.Config().HasWorkloadAddressedWaypointProxy() {
-				// this case should bypass waypoints because traffic is svc addressed but
-				// presently a ztunnel bug will drop this traffic because it doesn't differentiate
-				// between svc and wl addressed traffic when determining if the connection
-				// should have gone through a waypoint.
-				t.Skip("TODO: open an issue to address this ztunnel issue")
-			}
 
 			t.NewSubTest("permissive").Run(func(t framework.TestContext) {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
@@ -848,20 +803,9 @@ func TestAuthorizationL4(t *testing.T) {
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
-			if src.Config().IsUncaptured() {
-				// For this case, it is broken if the src and dst are on the same node.
-				// TODO: fix this and remove this skip
-				t.Skip("https://github.com/istio/istio/issues/43238")
-			}
 
 			overrideCheck := func(src echo.Instance, dst echo.Instance, opt *echo.CallOptions) {
-				switch {
-				case src.Config().IsUncaptured() && dst.Config().HasAnyWaypointProxy():
-					// For this case, it is broken if the src and dst are on the same node.
-					// Because client request is not captured to perform the hairpin
-					// TODO: fix this and remove this skip
-					opt.Check = check.OK()
-				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
+				if !dst.Config().HasProxyCapabilities() {
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
 					opt.Check = check.OK()
 				}
@@ -1128,9 +1072,9 @@ func TestAuthorizationL7(t *testing.T) {
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
-			if src.Config().IsUncaptured() {
-				// TODO: fix this and remove this skip
-				t.Skip("https://github.com/istio/istio/issues/43238")
+			if src.Config().HasSidecar() && dst.Config().HasAnyWaypointProxy() {
+				// TODO: sidecar -> workload waypoint support
+				t.Skip("https://github.com/istio/istio/issues/51445")
 			}
 
 			policySpec := `
@@ -1243,6 +1187,9 @@ spec:
 `+denySpec).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
+				case !src.Config().HasProxyCapabilities() && !dst.Config().HasSidecar():
+					// Always denied, doesn't respect the waypoint and the policies require waypoint
+					opt.Check = CheckDeny
 				case dst.Config().IsUncaptured() && !dst.Config().HasSidecar():
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
 					opt.Check = check.OK()
@@ -1256,7 +1203,7 @@ spec:
 				}
 			}
 			if src == dst {
-				t.Skip("self call is not captured, L7 features will not work")
+				return
 			}
 			t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
 				opt := opt.DeepCopy()
@@ -1333,24 +1280,15 @@ spec:
 }
 
 func TestL7JWT(t *testing.T) {
-	// Workaround https://github.com/istio/istio/issues/43239
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
-			if src.Config().IsUncaptured() {
-				// TODO: fix this and remove this skip
-				t.Skip("https://github.com/istio/istio/issues/43238")
-			}
-
-			if !dst.Config().HasAnyWaypointProxy() {
-				t.Skip("L7 JWT is only for waypoints")
-			}
 
 			switch {
 			case dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy():
@@ -1684,60 +1622,18 @@ func TestMTLS(t *testing.T) {
 		})
 }
 
+// Verify we can call
 func TestOutboundPolicyAllowAny(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			skipOnNativeZtunnel(t, "TODO? not sure why this is broken")
 			svcs := apps.All
 			for _, svc := range svcs {
 				if svc.Config().IsUncaptured() || svc.Config().HasSidecar() {
 					continue
 				}
 				t.NewSubTestf("ALLOW_ANY %v to external service", svc.Config().Service).Run(func(t framework.TestContext) {
-					// TODO use Sidecar to simulate external service (see tests/integration/pilot/mirror_test.go)
 					svc.CallOrFail(t, echo.CallOptions{
-						Address: "httpbin.org",
-						Port:    echo.Port{Name: "http", ServicePort: 80},
-						Scheme:  scheme.HTTP,
-						HTTP: echo.HTTP{
-							Path: "/headers",
-						},
-						Check: check.OK(),
-					})
-				})
-			}
-		})
-}
-
-func TestServiceEntryDNS(t *testing.T) {
-	framework.NewTest(t).
-		Run(func(t framework.TestContext) {
-			skipOnNativeZtunnel(t, "ServiceEntry not supported")
-			svcs := apps.All
-			for _, svc := range svcs {
-				if svc.Config().IsUncaptured() || svc.Config().HasSidecar() {
-					continue
-				}
-				if err := t.ConfigIstio().YAML(svc.NamespaceName(), `apiVersion: networking.istio.io/v1beta1
-kind: ServiceEntry
-metadata:
-  name: externalservice-httpbin
-spec:
-  exportTo:
-  - .
-  hosts:
-  - httpbin.org
-  ports:
-  - name: http
-    number: 80
-    protocol: HTTP
-  resolution: DNS`).Apply(apply.NoCleanup); err != nil {
-					t.Fatal(err)
-				}
-				t.NewSubTestf("%v to ServiceEntry", svc.Config().Service).Run(func(t framework.TestContext) {
-					// TODO use Sidecar to simulate external service (see tests/integration/pilot/mirror_test.go)
-					svc.CallOrFail(t, echo.CallOptions{
-						Address: "httpbin.org",
+						Address: apps.MockExternal.ClusterLocalFQDN(),
 						Port:    echo.Port{Name: "http", ServicePort: 80},
 						Scheme:  scheme.HTTP,
 						HTTP: echo.HTTP{
@@ -1850,6 +1746,8 @@ spec:
 								from.CallOrFail(t, echo.CallOptions{
 									Address: "111.111.222.222",
 									Port:    to.PortForName("http"),
+									// If request is sent before service is processed it will hit 10s timeout, so fail faster
+									Timeout: time.Millisecond * 500,
 								})
 							})
 					})
@@ -2266,9 +2164,28 @@ var CheckDeny = check.Or(
 	check.NoErrorAndStatus(http.StatusServiceUnavailable),     // HTTP client, TCP server
 )
 
+// runTest runs a given function against every src/dst pair
 func runTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		runTestContext(t, f)
+	})
+}
+
+// runTestToServiceWaypoint runs a given function against every src/dst pair where a call will traverse a service waypoint
+func runTestToServiceWaypoint(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+	runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		if !dst.Config().HasServiceAddressedWaypointProxy() {
+			return
+		}
+		if !src.Config().HasProxyCapabilities() {
+			// Only respected if the client knows about waypoints
+			return
+		}
+		if src.Config().HasSidecar() {
+			// TODO: sidecars do not currently respect waypoints
+			t.Skip("https://github.com/istio/istio/issues/51445")
+		}
+		f(t, src, dst, opt)
 	})
 }
 
@@ -2311,12 +2228,6 @@ func runIngressTest(t *testing.T, f func(t framework.TestContext, src ingress.In
 			})
 		}
 	})
-}
-
-// skipOnNativeZtunnel used to skip only when on rust based ztunnel; now this is the only option so it always skips
-// TODO: fix all these cases and remove
-func skipOnNativeZtunnel(tc framework.TestContext, reason string) {
-	tc.Skipf("Not currently supported: %v", reason)
 }
 
 func TestL7Telemetry(t *testing.T) {
