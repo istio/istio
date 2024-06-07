@@ -1372,10 +1372,10 @@ honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 honnef.co/go/tools v0.0.1-2020.1.3/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
 honnef.co/go/tools v0.0.1-2020.1.4/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
-istio.io/api v1.20.7-0.20240515155511-75a5b25a3fe0 h1:2t+ZL2p3c2LMDVXCnq3TPWcswUd15hWvNtPtl1tuAIw=
-istio.io/api v1.20.7-0.20240515155511-75a5b25a3fe0/go.mod h1:hm1PE/mGdIAsjCDkTIAplP53H7TjO5LUQCiVvF26SVg=
-istio.io/client-go v1.20.7-0.20240515155938-9601796eacaf h1:T4VuXHbR5TtcWNB/TyPnRJhy2MZf0xpqwzKTisqxS18=
-istio.io/client-go v1.20.7-0.20240515155938-9601796eacaf/go.mod h1:HhJS4If+CJ4Vgn6poxR2tKWBpRveYrZuo8lEqw8XNIc=
+istio.io/api v1.20.8-0.20240605015048-facdc129e7c0 h1:2WNYqW1Dnv3OeCFvmOJ2VXhixxNf4+lUsvy+fCkMdkc=
+istio.io/api v1.20.8-0.20240605015048-facdc129e7c0/go.mod h1:hm1PE/mGdIAsjCDkTIAplP53H7TjO5LUQCiVvF26SVg=
+istio.io/client-go v1.20.8-0.20240605020009-1032b442d5e2 h1:kYR4pocYoFER6XzlrP3DnIxDB2Ciqdq/ahbofyxnI4o=
+istio.io/client-go v1.20.8-0.20240605020009-1032b442d5e2/go.mod h1:ZSWY3/42aSd8T7QjY6CvgczSvsErV4mKnFBmqTIdJQc=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.4/go.mod h1:lOIQAKYgai1+vz9J7YcDZwC26Z0zQewYOGWdyIPUUQ4=
 k8s.io/api v0.28.3 h1:Gj1HtbSdB4P08C8rs9AR94MfSGpRhJgsS+GF9V26xMM=
