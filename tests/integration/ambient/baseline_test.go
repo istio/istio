@@ -804,7 +804,7 @@ func TestAuthorizationL4(t *testing.T) {
 			// due to draining.
 			opt.NewConnectionPerRequest = true
 
-			overrideCheck := func(src echo.Instance, dst echo.Instance, opt *echo.CallOptions) {
+			overrideCheck := func(_ echo.Instance, dst echo.Instance, opt *echo.CallOptions) {
 				if !dst.Config().HasProxyCapabilities() {
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
 					opt.Check = check.OK()
