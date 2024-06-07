@@ -27,7 +27,6 @@ import (
 type WorkloadFilter struct {
 	Address   string
 	Node      string
-	Verbose   bool
 	Namespace string
 }
 
@@ -85,24 +84,17 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 		return iNode < jNode
 	})
 
-	if filter.Verbose {
-		fmt.Fprintln(w, "NAMESPACE\tPOD NAME\tIP\tNODE\tWAYPOINT\tPROTOCOL")
-	} else {
-		fmt.Fprintln(w, "NAMESPACE\tPOD NAME\tIP\tNODE")
-	}
+	fmt.Fprintln(w, "NAMESPACE\tPOD NAME\tIP\tNODE\tWAYPOINT\tPROTOCOL")
 
 	for _, wl := range verifiedWorkloads {
 		var ip string
 		if len(wl.WorkloadIPs) > 0 {
 			ip = wl.WorkloadIPs[0]
 		}
-		if filter.Verbose {
-			waypoint := waypointName(wl, zDump.Services)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
-				wl.Namespace, wl.Name, ip, wl.Node, waypoint, wl.Protocol)
-		} else {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Namespace, wl.Name, ip, wl.Node)
-		}
+		waypoint := waypointName(wl, zDump.Services)
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
+			wl.Namespace, wl.Name, ip, wl.Node, waypoint, wl.Protocol)
+
 	}
 	return w.Flush()
 }

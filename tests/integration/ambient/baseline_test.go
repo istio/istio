@@ -364,7 +364,6 @@ func TestOtherRevisionIgnored(t *testing.T) {
 			t.Fatal(err)
 		}
 		istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-			"x",
 			"waypoint",
 			"apply",
 			"--namespace",
@@ -388,7 +387,6 @@ func TestOtherRevisionIgnored(t *testing.T) {
 func TestRemoveAddWaypoint(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-			"x",
 			"waypoint",
 			"apply",
 			"--namespace",
@@ -398,7 +396,6 @@ func TestRemoveAddWaypoint(t *testing.T) {
 		})
 		t.Cleanup(func() {
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"delete",
 				"--namespace",

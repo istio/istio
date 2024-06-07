@@ -115,7 +115,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Short: "Generate a waypoint configuration",
 		Long:  "Generate a waypoint configuration as YAML",
 		Example: `  # Generate a waypoint as yaml
-  istioctl x waypoint generate --namespace default`,
+  istioctl waypoint generate --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gw, err := makeGateway(false)
 			if err != nil {
@@ -144,10 +144,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Short: "Apply a waypoint configuration",
 		Long:  "Apply a waypoint configuration to the cluster",
 		Example: `  # Apply a waypoint to the current namespace
-  istioctl x waypoint apply
+  istioctl waypoint apply
 
   # Apply a waypoint to a specific namespace and wait for it to be ready
-  istioctl x waypoint apply --namespace default --wait`,
+  istioctl waypoint apply --namespace default --wait`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := ctx.CLIClientWithRevision(revision)
 			if err != nil {
@@ -261,16 +261,16 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Short: "Delete a waypoint configuration",
 		Long:  "Delete a waypoint configuration from the cluster",
 		Example: `  # Delete a waypoint from the default namespace
-  istioctl x waypoint delete
+  istioctl waypoint delete
 
-  # Delete a waypoint by name, which can obtain from istioctl x waypoint list
-  istioctl x waypoint delete waypoint-name --namespace default
+  # Delete a waypoint by name, which can obtain from istioctl waypoint list
+  istioctl waypoint delete waypoint-name --namespace default
 
   # Delete several waypoints by name
-  istioctl x waypoint delete waypoint-name1 waypoint-name2 --namespace default
+  istioctl waypoint delete waypoint-name1 waypoint-name2 --namespace default
 
   # Delete all waypoints in a specific namespace
-  istioctl x waypoint delete --all --namespace default`,
+  istioctl waypoint delete --all --namespace default`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if deleteAll && len(args) > 0 {
 				return fmt.Errorf("cannot specify waypoint names when deleting all waypoints")
@@ -303,10 +303,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Short: "List managed waypoint configurations",
 		Long:  "List managed waypoint configurations in the cluster",
 		Example: `  # List all waypoints in a specific namespace
-  istioctl x waypoint list --namespace default
+  istioctl waypoint list --namespace default
 
   # List all waypoints in the cluster
-  istioctl x waypoint list -A`,
+  istioctl waypoint list -A`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			writer := cmd.OutOrStdout()
 			kubeClient, err := ctx.CLIClient()
@@ -374,13 +374,13 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Short: "Manage waypoint configuration",
 		Long:  "A group of commands used to manage waypoint configuration",
 		Example: `  # Apply a waypoint to the current namespace
-  istioctl x waypoint apply
+  istioctl waypoint apply
 
   # Generate a waypoint as yaml
-  istioctl x waypoint generate --namespace default
+  istioctl waypoint generate --namespace default
 
   # List all waypoints in a specific namespace
-  istioctl x waypoint list --namespace default`,
+  istioctl waypoint list --namespace default`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown subcommand %q", args[0])

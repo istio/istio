@@ -112,7 +112,7 @@ func TestConfigWriter_PrintSecretSummary(t *testing.T) {
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputSecret)
 			}
 			if tt.wantOutputWorkload != "" {
-				wf := WorkloadFilter{Verbose: true}
+				wf := WorkloadFilter{}
 				if tt.configNamespace != "" {
 					wf.Namespace = tt.configNamespace
 				}

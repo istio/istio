@@ -228,9 +228,6 @@ type AgentOptions struct {
 
 	WASMOptions wasm.Options
 
-	// Is the proxy in Dual Stack environment
-	DualStack bool
-
 	UseExternalWorkloadSDS bool
 
 	// Enable metadata discovery bootstrap extension
@@ -334,8 +331,6 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 	// This is a mode used for permission-less docker, where iptables can't be
 	// used.
 	a.envoyOpts.AgentIsRoot = os.Getuid() == 0 && strings.HasSuffix(a.cfg.DNSAddr, ":53")
-
-	a.envoyOpts.DualStack = a.cfg.DualStack
 
 	envoyProxy := envoy.NewProxy(a.envoyOpts)
 

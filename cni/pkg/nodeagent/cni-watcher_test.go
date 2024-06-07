@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -139,6 +140,84 @@ func TestCNIPluginServer(t *testing.T) {
 	assertPodAnnotated(t, client, pod)
 	// Assert expected calls actually made
 	fs.AssertExpectations(t)
+}
+
+func TestGetPodWithRetry(t *testing.T) {
+	fakePodIP := "11.1.1.12"
+
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-bingo",
+			Namespace: "funkyns",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: fakePodIP,
+		},
+	}
+	podOutOfAmbient := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-noambient",
+			Namespace: "funkyns",
+			Labels: map[string]string{
+				constants.DataplaneModeLabel: constants.DataplaneModeNone,
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: fakePodIP,
+		},
+	}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "funkyns"}}
+
+	client := kube.NewFakeClient(ns, pod, podOutOfAmbient)
+
+	wg, _ := NewWaitForNCalls(t, 1)
+	fs := &fakeServer{testWG: wg}
+
+	dpServer := &meshDataplane{
+		kubeClient: client.Kube(),
+		netServer:  fs,
+	}
+
+	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
+
+	// We are not going to start the server, so the sockpath is irrelevant
+	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)
+
+	// label the namespace
+	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
+		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
+	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
+		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
+	assert.NoError(t, err)
+
+	client.RunAndWait(ctx.Done())
+
+	t.Run("found pod", func(t *testing.T) {
+		p, err := pluginServer.getPodWithRetry(log, pod.Name, pod.Namespace)
+		assert.NoError(t, err)
+		assert.Equal(t, p, pod)
+	})
+	t.Run("no pod", func(t *testing.T) {
+		p, err := pluginServer.getPodWithRetry(log, "fake", pod.Namespace)
+		assert.Error(t, err)
+		assert.Equal(t, p, nil)
+	})
+	t.Run("pod out of ambient", func(t *testing.T) {
+		p, err := pluginServer.getPodWithRetry(log, podOutOfAmbient.Name, pod.Namespace)
+		assert.Error(t, err)
+		assert.Equal(t, true, strings.Contains(err.Error(), "unexpectedly not enrolled in ambient"))
+		assert.Equal(t, p, nil)
+	})
 }
 
 func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {

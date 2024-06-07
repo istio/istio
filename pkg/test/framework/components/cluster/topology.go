@@ -29,7 +29,6 @@ type Map = map[string]Cluster
 func NewTopology(config Config, allClusters Map) Topology {
 	return Topology{
 		ClusterName:             config.Name,
-		ClusterKind:             config.Kind,
 		Network:                 config.Network,
 		ClusterHTTPProxy:        config.HTTPProxy,
 		PrimaryClusterName:      config.PrimaryClusterName,
@@ -45,7 +44,6 @@ func NewTopology(config Config, allClusters Map) Topology {
 // Cluster implementations can embed this struct to include common functionality.
 type Topology struct {
 	ClusterName             string
-	ClusterKind             Kind
 	Network                 string
 	ClusterHTTPProxy        string
 	PrimaryClusterName      string
@@ -93,35 +91,26 @@ var knownClusterNames = map[string]struct{}{
 // can be consistent when the underlying cluster names are dynamic.
 func (c Topology) StableName() string {
 	var prefix string
-	switch c.Kind() {
-	case Kubernetes:
-		// If its a known cluster name, use that directly.
-		// This will not be dynamic, and allows 1:1 correlation of cluster name and test name for simplicity.
-		if _, f := knownClusterNames[c.Name()]; f {
-			return c.Name()
+	// If its a known cluster name, use that directly.
+	// This will not be dynamic, and allows 1:1 correlation of cluster name and test name for simplicity.
+	if _, f := knownClusterNames[c.Name()]; f {
+		return c.Name()
+	}
+	if c.IsPrimary() {
+		if c.IsConfig() {
+			prefix = "primary"
+		} else {
+			prefix = "externalistiod"
 		}
-		if c.IsPrimary() {
-			if c.IsConfig() {
-				prefix = "primary"
-			} else {
-				prefix = "externalistiod"
-			}
-		} else if c.IsRemote() {
-			if c.IsConfig() {
-				prefix = "config"
-			} else {
-				prefix = "remote"
-			}
+	} else if c.IsRemote() {
+		if c.IsConfig() {
+			prefix = "config"
+		} else {
+			prefix = "remote"
 		}
-	default:
-		prefix = string(c.Kind())
 	}
 
 	return fmt.Sprintf("%s-%d", prefix, c.Index)
-}
-
-func (c Topology) Kind() Kind {
-	return c.ClusterKind
 }
 
 func (c Topology) IsPrimary() bool {
@@ -178,17 +167,11 @@ func (c Topology) WithConfig(configClusterName string) Topology {
 
 func (c Topology) MinKubeVersion(minor uint) bool {
 	cluster := c.AllClusters[c.ClusterName]
-	if cluster.Kind() != Kubernetes && cluster.Kind() != Fake {
-		return c.Primary().MinKubeVersion(minor)
-	}
 	return kube.IsAtLeastVersion(cluster, minor)
 }
 
 func (c Topology) MaxKubeVersion(minor uint) bool {
 	cluster := c.AllClusters[c.ClusterName]
-	if cluster.Kind() != Kubernetes && cluster.Kind() != Fake {
-		return c.Primary().MaxKubeVersion(minor)
-	}
 	return kube.IsLessThanVersion(cluster, minor+1)
 }
 
@@ -197,7 +180,6 @@ func (c Topology) String() string {
 
 	_, _ = fmt.Fprintf(buf, "Name:               %s\n", c.Name())
 	_, _ = fmt.Fprintf(buf, "StableName:         %s\n", c.StableName())
-	_, _ = fmt.Fprintf(buf, "Kind:               %s\n", c.Kind())
 	_, _ = fmt.Fprintf(buf, "PrimaryCluster:     %s\n", c.Primary().Name())
 	_, _ = fmt.Fprintf(buf, "ConfigCluster:      %s\n", c.Config().Name())
 	_, _ = fmt.Fprintf(buf, "Network:            %s\n", c.NetworkName())

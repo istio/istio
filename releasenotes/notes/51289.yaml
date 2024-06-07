@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - https://github.com/istio/istio/issues/51289
+
+releaseNotes:
+- |
+  **Fixed** service account annotation formatting error fixed by removing dashes

@@ -248,6 +248,14 @@ func makeConfig(name, namespace, host, portName, portProtocol string, portNumber
 	return c
 }
 
+func BenchmarkParseGatewayRDSRouteName(b *testing.B) {
+	for range b.N {
+		ParseGatewayRDSRouteName("https.443.app1.gw1.ns1")
+		ParseGatewayRDSRouteName("https.scooby.dooby.doo")
+		ParseGatewayRDSRouteName("http.80")
+	}
+}
+
 func TestParseGatewayRDSRouteName(t *testing.T) {
 	type args struct {
 		name string

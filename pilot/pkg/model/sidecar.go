@@ -929,6 +929,12 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 		sc.servicesByHostname[s.Hostname] = s
 	} else {
 		existing := foundSvc.svc
+		// Skip services which are already added, this can happen when a service is explicitly requested
+		// but is also a virtualservice destination, or if the service is a destination of multiple virtualservices
+		if s == existing {
+			log.Debugf("Service %s/%s from registry %s ignored as it is already added", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry)
+			return
+		}
 		// We do not merge k8s service with any other services from other registries
 		if existing.Attributes.ServiceRegistry == provider.Kubernetes && s.Attributes.ServiceRegistry != provider.Kubernetes {
 			log.Debugf("Service %s/%s from registry %s ignored as there is an existing service in Kubernetes already %s/%s/%s",
@@ -950,6 +956,13 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 			foundSvc.svc = s
 			servicesAdded[foundSvc.svc.Hostname] = foundSvc
 			sc.servicesByHostname[s.Hostname] = s
+			return
+		}
+
+		// if both services have the same ports, no need to merge and we save a deepcopy
+		if existing.Ports.Equals(s.Ports) {
+			log.Debugf("Service %s/%s from registry %s ignored as it has the same ports as %s/%s/%s", s.Attributes.Namespace, s.Hostname,
+				s.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
 			return
 		}
 

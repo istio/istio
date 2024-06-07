@@ -16,9 +16,7 @@ package log
 
 import (
 	"context"
-	golog "log"
 	"net"
-	"os"
 
 	"github.com/florianl/go-nflog/v2"
 	"golang.org/x/net/ipv4"
@@ -47,7 +45,7 @@ func ReadNFLOGSocket(ctx context.Context) {
 	config := nflog.Config{
 		Group:    1337,
 		Copymode: nflog.CopyPacket,
-		Logger:   golog.New(os.Stdout, "nflog log", 0),
+		Logger:   iptablesTrace,
 	}
 
 	nf, err := nflog.Open(&config)

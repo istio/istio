@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func defaultExitFn(_ int) {}
@@ -199,9 +200,6 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			defer cleanupRT()
-			g := NewWithT(t)
-
 			var runCalled bool
 			var runSkipped bool
 			runFn := func(ctx *suiteContext) int {
@@ -224,11 +222,11 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 			s.RequireMaxClusters(c.max)
 			s.Run()
 
-			g.Expect(runCalled).To(BeTrue())
+			assert.Equal(t, runCalled, true)
 			if c.expectSkip {
-				g.Expect(runSkipped).To(BeTrue())
+				assert.Equal(t, runSkipped, true)
 			} else {
-				g.Expect(runSkipped).To(BeFalse())
+				assert.Equal(t, runSkipped, false)
 			}
 		})
 	}
