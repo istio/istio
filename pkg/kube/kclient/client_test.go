@@ -452,3 +452,28 @@ func TestFilter(t *testing.T) {
 	})
 	tracker.WaitOrdered("add/name4")
 }
+
+func TestFilterClusterScoped(t *testing.T) {
+	tracker := assert.NewTracker[string](t)
+	c := kube.NewFakeClient()
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+	// Note: it is silly to filter cluster scoped resources, but if it is done we should not break.
+	namespaces := kclient.New[*corev1.Namespace](c)
+	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+		namespaces,
+		meshWatcher,
+		test.NewStop(t),
+	)
+	nodes := kclient.NewFiltered[*corev1.Node](c, kubetypes.Filter{
+		ObjectFilter: discoveryNamespacesFilter,
+	})
+	nodes.AddEventHandler(clienttest.TrackerHandler(tracker))
+	c.RunAndWait(test.NewStop(t))
+
+	tester := clienttest.Wrap(t, nodes)
+	obj1 := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "1"},
+	}
+	tester.Create(obj1)
+	tracker.WaitOrdered("add/1")
+}
