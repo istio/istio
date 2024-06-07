@@ -10,3 +10,5 @@ updates:
     # Limit number of open PRs to 0 so that we only get security updates
     # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates
     open-pull-requests-limit: 0
+    labels:
+      - "release-notes-none"
