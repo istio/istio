@@ -104,7 +104,7 @@ func (s *Server) initWorkloadSdsService() {
 				}
 			}
 			if s.grpcWorkloadListener != nil {
-				sdsServiceLog.Infof("Starting SDS server for workload certificates, listening on %q", security.WorkloadIdentitySocketPath)
+				sdsServiceLog.Infof("Starting SDS server for workload certificates, will listen on %q", security.WorkloadIdentitySocketPath)
 				if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
 					sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
 					serverOk = false
