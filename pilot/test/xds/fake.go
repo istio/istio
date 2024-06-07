@@ -191,8 +191,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			ConfigCluster:   k8sCluster == opts.DefaultClusterName,
 			MeshWatcher:     mesh.NewFixedWatcher(m),
 			CRDs: []schema.GroupVersionResource{
+				// Install all CRDs used (mostly in Ambient)
 				gvr.AuthorizationPolicy,
 				gvr.PeerAuthentication,
+				gvr.KubernetesGateway,
 				gvr.KubernetesGateway,
 				gvr.WorkloadEntry,
 				gvr.ServiceEntry,
