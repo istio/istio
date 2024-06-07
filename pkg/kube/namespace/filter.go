@@ -105,6 +105,16 @@ func (d *discoveryNamespacesFilter) notifyHandlersLocked(added sets.Set[string],
 }
 
 func (d *discoveryNamespacesFilter) Filter(obj any) bool {
+	// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
+	ns, ok := extractObjectNamespace(obj)
+	if !ok {
+		return false
+	}
+	if ns == "" {
+		// Cluster scoped resources. Always included
+		return true
+	}
+
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	// permit all objects if discovery selectors are not specified
@@ -112,21 +122,23 @@ func (d *discoveryNamespacesFilter) Filter(obj any) bool {
 		return true
 	}
 
-	if ns, ok := obj.(string); ok {
-		return d.discoveryNamespaces.Contains(ns)
-	}
-
-	// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
-	object := controllers.ExtractObject(obj)
-	if object == nil {
-		return false
-	}
-	ns := object.GetNamespace()
-	if _, ok := object.(*corev1.Namespace); ok {
-		ns = object.GetName()
-	}
 	// permit if object resides in a namespace labeled for discovery
 	return d.discoveryNamespaces.Contains(ns)
+}
+
+func extractObjectNamespace(obj any) (string, bool) {
+	if ns, ok := obj.(string); ok {
+		return ns, true
+	}
+	object := controllers.ExtractObject(obj)
+	if object == nil {
+		// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
+		return "", false
+	}
+	if _, ok := object.(*corev1.Namespace); ok {
+		return object.GetName(), true
+	}
+	return object.GetNamespace(), true
 }
 
 func LabelSelectorAsSelector(ps *meshapi.LabelSelector) (labels.Selector, error) {
