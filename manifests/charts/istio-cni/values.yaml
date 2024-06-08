@@ -115,7 +115,8 @@ defaults:
     tag: latest
 
     # Variant of the image to use.
-    # Currently supported are: [debug, distroless]
+    # Currently supported are: [debug, distroless, ""]
+    # The empty string deploys the unmodified tag, the others are added as suffix to the tag.
     variant: ""
 
     # Specify image pull policy if default behavior isn't desired.

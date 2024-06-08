@@ -250,6 +250,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *mode
 
 	dc.tagWatcher.AddHandler(dc.HandleTagChange)
 
+	log.WithLabels("classes", maps.Keys(builtinClasses)).Info("GatewayDeploymentController")
 	return dc
 }
 

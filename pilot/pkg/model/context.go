@@ -899,6 +899,15 @@ func (node *Proxy) FuzzValidate() bool {
 	return len(node.IPAddresses) != 0
 }
 
+// EnableHBONEListen is used to decide if Envoy will start a HBONE listener.
+// This is controlled by Istiod admin by the PILOT_ENABLE_SIDECAR_LISTENING_HBONE (default true)
+// setting combined with the per-node ENABLE_HBONE label, making the
+// Gateway/Waypoint/Sidecar directly act as a HBONE node. This applies to gateways and sidecars.
+//
+// This is enabled if node 'type' is Waypoint or ztunnel, both are native hbone components.
+//
+// A regular gateway and sidecar can be 'sandwiched' by having ENABLE_HBONE set to false, or all
+// gateways/sidecars can be automatically sandwitched by disabling istiod hbone listening mode.
 func (node *Proxy) EnableHBONEListen() bool {
 	return node.IsAmbient() || (features.EnableSidecarHBONEListening && bool(node.Metadata.EnableHBONE))
 }
