@@ -232,12 +232,8 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 	if _, err := os.Stat(tlsSigningFile); err == nil {
 		log.Infof("Using kubernetes.io/tls secret type for signing ca files %s", LocalCertDir.Get())
 		return ca.SigningCAFileBundle{
-			RootCertFile: path.Join(LocalCertDir.Get(), ca.TLSSecretRootCertFile),
-			CertChainFiles: []string{
-				tlsSigningFile,
-				// This is the root CA = not intermediate
-				//path.Join(LocalCertDir.Get(), ca.TLSSecretRootCertFile),
-			},
+			RootCertFile:   path.Join(LocalCertDir.Get(), ca.TLSSecretRootCertFile),
+			CertChainFiles: nil,
 			// tls.crt is concatenanted, multiple certs.
 			SigningCertFile: tlsSigningFile,
 			SigningKeyFile:  path.Join(LocalCertDir.Get(), ca.TLSSecretCAPrivateKeyFile),
@@ -246,7 +242,7 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 		return ca.SigningCAFileBundle{}, err
 	}
 
-	// default ca file format
+	// default ca file format - SigningCertFile holds the leaf CertChain the chain.
 	return ca.SigningCAFileBundle{
 		RootCertFile:    path.Join(LocalCertDir.Get(), ca.RootCertFile),
 		CertChainFiles:  []string{path.Join(LocalCertDir.Get(), ca.CertChainFile)},

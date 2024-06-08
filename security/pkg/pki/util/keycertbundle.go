@@ -24,6 +24,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
@@ -36,7 +37,7 @@ import (
 // The cert should be verifiable from the rootCert through the certChain.
 // cert and priveKey are pointers to the cert/key parsed from certBytes/privKeyBytes.
 type KeyCertBundle struct {
-	// certBytes holds the CA certificate - associated with the private key.
+	// certBytes holds the leaf certificate - associated with the private key.
 	certBytes    []byte
 	cert         *x509.Certificate
 	privKeyBytes []byte
@@ -56,6 +57,19 @@ func NewKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBy
 	bundle := &KeyCertBundle{}
 	bundle.setAllFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBytes)
 	return bundle
+}
+
+// SplitTlsCrt will break a tls.crt PEM containing leaf plus intermediaries into
+// 2 PEMs, one containing the leaf and the other the intermediaries, as is expected
+// by the Istiod internals, verifications, etc.
+//
+// If the input contains only one certificate - it will be returned unchanged.
+func SplitTlsCrt(tlsCrt []byte) ([]byte, []byte) {
+	p, rest := pem.Decode(tlsCrt)
+	if p == nil || rest == nil {
+		return tlsCrt, nil
+	}
+	return pem.EncodeToMemory(p), rest
 }
 
 // NewVerifiedKeyCertBundleFromPem returns a new KeyCertBundle, or error if the provided certs failed the
@@ -79,11 +93,22 @@ func NewVerifiedKeyCertBundleFromFile(certFile string, privKeyFile string, certC
 	if err != nil {
 		return nil, err
 	}
+	chaincerts, _ := SplitPemEncodedCertificates(certBytes)
+	intNames := []string{}
+	for _, r := range chaincerts {
+		intNames = append(intNames, r.Subject.String())
+	}
+
+	// If the cert file is tls.key - it holds both leaf and intermediaries.
+	leafBytes, certChainBytes := SplitTlsCrt(certBytes)
+	certBytes = leafBytes
+
 	privKeyBytes, err := os.ReadFile(privKeyFile)
 	if err != nil {
 		return nil, err
 	}
-	var certChainBytes []byte
+
+	// Standalone, separate certChainFiles
 	if len(certChainFiles) > 0 {
 		for _, f := range certChainFiles {
 			var b []byte

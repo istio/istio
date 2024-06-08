@@ -68,8 +68,13 @@ const (
 
 // SigningCAFileBundle locations of the files used for the signing CA
 type SigningCAFileBundle struct {
-	RootCertFile    string
-	CertChainFiles  []string
+	// RootCertFile is the detected file holding multiple root CAs
+	RootCertFile string
+	// CertChainFile is the detected file holding the intermeidary certificates (old style)
+	// and the tls.crt holding both the leaf cert and intermdediaries.
+	CertChainFiles []string
+	// SigningCertFile is the detected file holding the leaf cert (old style)
+	// or tls.crt - holding both leaf and intermediaries.
 	SigningCertFile string
 	SigningKeyFile  string
 }
@@ -273,27 +278,22 @@ func loadCacertSecret(client corev1.CoreV1Interface, namespace string, caCertNam
 		caSecret.Namespace, caSecret.Name, rootCertFile)
 	rootCerts := rootCertData
 
-	rcerts, _, _ := util.SplitPemEncodedCertificates(rootCerts)
+	rcerts, _ := util.SplitPemEncodedCertificates(rootCerts)
 	rootNames := []string{}
 	for _, r := range rcerts {
 		rootNames = append(rootNames, r.Subject.String())
 	}
-	chaincerts, _, _ := util.SplitPemEncodedCertificates(crtData)
+	chaincerts, _ := util.SplitPemEncodedCertificates(crtData)
 	intNames := []string{}
 	for _, r := range chaincerts {
 		intNames = append(intNames, r.Subject.String())
 	}
-	var certChainBytes []byte
-	if len(intNames) > 1 {
-		// tls.crt is a chain - first key is the actual certificate, the rest are intermediaries
-		// The rest of the code expects the cert and chain to be separated - probably it was easier to code, most
-		// systems use the tls.crt style which is the chain that will be sent in all requests.
-		_, rest := pem.Decode(crtData)
-		if len(rest) > 0 {
-			certChainBytes = rest
-		}
-	}
-	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(crtData,
+	// tls.crt is a chain - first key is the actual certificate, the rest are intermediaries
+	// The rest of the code expects the cert and chain to be separated - probably it was easier to code, most
+	// systems use the tls.crt style which is the chain that will be sent in all requests.
+	leafBytes, certChainBytes := util.SplitTlsCrt(crtData)
+
+	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(leafBytes,
 		privData, certChainBytes, rootCerts); err != nil {
 		pkiCaLog.WithLabels("chain", intNames, "roots", rootNames, "error", err).Info("Failed to load CA")
 		return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
