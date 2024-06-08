@@ -233,8 +233,10 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 			RootCertFile: path.Join(LocalCertDir.Get(), ca.TLSSecretRootCertFile),
 			CertChainFiles: []string{
 				tlsSigningFile,
-				path.Join(LocalCertDir.Get(), ca.TLSSecretRootCertFile),
+				// This is the root CA = not intermediate
+				//path.Join(LocalCertDir.Get(), ca.TLSSecretRootCertFile),
 			},
+			// tls.crt is concatenanted, multiple certs.
 			SigningCertFile: tlsSigningFile,
 			SigningKeyFile:  path.Join(LocalCertDir.Get(), ca.TLSSecretCAPrivateKeyFile),
 		}, nil

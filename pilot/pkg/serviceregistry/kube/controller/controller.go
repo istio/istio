@@ -104,6 +104,9 @@ type Options struct {
 	// MeshServiceController is a mesh-wide service Controller.
 	MeshServiceController *aggregate.Controller
 
+	// DomainSuffix is the DNS suffix for the K8S cluster - usually 'cluster.local'
+	// K8S allows setting custom values - like 'clusterA.us-east.example.com'
+	// Originally set using '--domain' Istiod setting, derived from ProxyConfig.ClusterDomain
 	DomainSuffix string
 
 	// ClusterID identifies the cluster which the controller communicate with.

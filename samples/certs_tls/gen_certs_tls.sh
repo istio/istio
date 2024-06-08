@@ -16,6 +16,15 @@
 
 set -e
 
+# Expects root directory to be the base of the Istio repo.
+
+export TESTDATA=$(cd ./tests/testdata && pwd)
+
+# Where to put the generated certs:
+# rootca - the roots
+# clusters/NAME - one for each cluster
+# clusters/NAME/etc/cacerts - the Istio CA for the cluster
+export OUT=${OUT:-${TESTDATA}/certs_tls}
 
 # This is a new version of the old script in security/samples/certs, using the new naming.
 # It can generate root CA, cluster CA, Istio CA and workload certificates using only openssl
@@ -34,11 +43,12 @@ set -e
 #
 # Normally ca.crt should include old roots when rotating the keys.
 #
+
 function rootCA() {
   local meshname=${1:-mesh.internal}
 
-  mkdir -p rootca
-  cd rootca
+  mkdir -p ${OUT}/rootca
+  cd ${OUT}/rootca
 
   # Save the meshname - will be used as Org name in the certs.
   echo $meshname > meshname
@@ -91,11 +101,11 @@ EOF
 function clusterCA() {
   local cluster=${1:-cluster1}
 
-  mkdir -p $cluster
-  cd $cluster
+  mkdir -p ${OUT}/clusters/$cluster
+  cd ${OUT}/clusters/$cluster
 
   # Copy root CA, the template and meshname
-  local parentDir=${ROOT_CA:-../rootca}
+  local parentDir=${ROOT_CA:-${OUT}/rootca}
   cp ${parentDir}/ca.crt .
   cp ${parentDir}/meshname .
   cp ${parentDir}/ca.cfg .
@@ -128,12 +138,13 @@ function clusterCA() {
 function istioCA() {
   local cluster=${1:-cluster1}
 
-  mkdir -p $cluster/istioca
-  cd $cluster/istioca
+  WD=${OUT}/clusters/${cluster}/etc/cacerts
+  mkdir -p ${WD}
+  cd ${WD}
 
   local trustDomain=${TRUST_DOMAIN:-cluster.local}
 
-  local parentDir=${CLUSTER_CA:-..}
+  local parentDir=${CLUSTER_CA:-${OUT}/clusters/${cluster}}
   cp ${parentDir}/ca.crt .
   cp ${parentDir}/meshname .
   cp ${parentDir}/ca.cfg .
@@ -176,10 +187,11 @@ function workload() {
   local ns=${2:-default}
   local ksa=${3:-default}
 
-  mkdir -p $cluster/${ns}/${ksa}
-  cd $cluster/${ns}/${ksa}
+  local WD=${OUT}/clusters/${cluster}/${ns}_${ksa}/var/run/secrets/workload-spiffe-credentials
+  mkdir -p ${WD}
+  cd ${WD}
 
-  local parentDir=${ISTIO_CA:-../../istioca}
+  local parentDir=${ISTIO_CA:-${OUT}/clusters/${cluster}/etc/cacerts}
 
   cp ${parentDir}/ca.crt .
   cp ${parentDir}/tls.crt parent_tls.crt
