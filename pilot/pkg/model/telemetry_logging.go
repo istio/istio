@@ -16,6 +16,8 @@ package model
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"sort"
 	"strings"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -62,6 +64,7 @@ const (
 	reqWithoutQueryCommandOperator = "%REQ_WITHOUT_QUERY"
 	metadataCommandOperator        = "%METADATA"
 	celCommandOperator             = "%CEL"
+	maxFormatterLength             = 3
 
 	DevStdout = "/dev/stdout"
 
@@ -284,12 +287,12 @@ func buildFileAccessJSONLogFormat(
 }
 
 func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtensionConfig {
+	if jsonLogStruct == nil {
+		return nil
+	}
+
 	reqWithoutQuery, metadata, cel := false, false, false
 	for _, value := range jsonLogStruct.Fields {
-		if reqWithoutQuery && metadata {
-			break
-		}
-
 		if !reqWithoutQuery && strings.Contains(value.GetStringValue(), reqWithoutQueryCommandOperator) {
 			reqWithoutQuery = true
 		}
@@ -301,7 +304,7 @@ func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtens
 		}
 	}
 
-	formatters := make([]*core.TypedExtensionConfig, 0, 2)
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormatterLength)
 	if reqWithoutQuery {
 		formatters = append(formatters, reqWithoutQueryFormatter)
 	}
@@ -316,7 +319,7 @@ func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtens
 }
 
 func accessLogTextFormatters(text string) []*core.TypedExtensionConfig {
-	formatters := make([]*core.TypedExtensionConfig, 0, 2)
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormatterLength)
 	if strings.Contains(text, reqWithoutQueryCommandOperator) {
 		formatters = append(formatters, reqWithoutQueryFormatter)
 	}
@@ -506,7 +509,41 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 		}
 	}
 
+	// it's unnecessary to check proxy version here,
+	// users should add CEL/METADATA/REQ_WITHOUT_QUERY commands after all proxy upgraded to 1.23+.
+	// Otherwise, the configuration will be rejected.
+	cfg.Formatters = accessLogFormatters(format, labels)
+
 	return cfg
+}
+
+func accessLogFormatters(text string, labels *structpb.Struct) []*core.TypedExtensionConfig {
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormatterLength)
+	defer func() {
+		sort.Slice(formatters, func(i, j int) bool {
+			return formatters[i].Name < formatters[j].Name
+		})
+	}()
+
+	formatters = append(formatters, accessLogTextFormatters(text)...)
+	if len(formatters) >= maxFormatterLength {
+		// all formatters are added, return if we have reached the limit
+		return formatters
+	}
+
+	names := sets.NewString()
+	for _, f := range formatters {
+		names.Insert(f.Name)
+	}
+
+	for _, f := range accessLogJSONFormatters(labels) {
+		if !names.Has(f.Name) {
+			formatters = append(formatters, f)
+			names.Insert(f.Name)
+		}
+	}
+
+	return formatters
 }
 
 func ConvertStructToAttributeKeyValues(labels map[string]*structpb.Value) []*otlpcommon.KeyValue {
