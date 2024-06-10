@@ -29,7 +29,6 @@ import (
 	reqwithoutquery "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -531,13 +531,13 @@ func accessLogFormatters(text string, labels *structpb.Struct) []*core.TypedExte
 		return formatters
 	}
 
-	names := sets.NewString()
+	names := sets.New[string]()
 	for _, f := range formatters {
 		names.Insert(f.Name)
 	}
 
 	for _, f := range accessLogJSONFormatters(labels) {
-		if !names.Has(f.Name) {
+		if !names.Contains(f.Name) {
 			formatters = append(formatters, f)
 			names.Insert(f.Name)
 		}
