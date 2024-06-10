@@ -352,7 +352,12 @@ func (cl *Client) addCRD(name string) {
 	if of, f := cl.filtersByGVK[resourceGVK]; f && of.ObjectFilter != nil {
 		extraFilter = of.ObjectFilter.Filter
 	}
-	filter := kubetypes.Filter{ObjectFilter: composeFilters(kube.FilterIfEnhancedFilteringEnabled(cl.client), cl.inRevision, extraFilter)}
+
+	var namespaceFilter kubetypes.DynamicObjectFilter
+	if !s.IsClusterScoped() {
+		namespaceFilter = kube.FilterIfEnhancedFilteringEnabled(cl.client)
+	}
+	filter := kubetypes.Filter{ObjectFilter: composeFilters(namespaceFilter, cl.inRevision, extraFilter)}
 
 	var kc kclient.Untyped
 	if s.IsBuiltin() {
