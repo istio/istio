@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -64,7 +63,8 @@ const (
 	reqWithoutQueryCommandOperator = "%REQ_WITHOUT_QUERY"
 	metadataCommandOperator        = "%METADATA"
 	celCommandOperator             = "%CEL"
-	maxFormatterLength             = 3
+	// count of all supported fotmatter, right now is 3(CEL, METADATA and REQ_WITHOUT_QUERY).
+	maxFormattersLength = 3
 
 	DevStdout = "/dev/stdout"
 
@@ -304,7 +304,7 @@ func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtens
 		}
 	}
 
-	formatters := make([]*core.TypedExtensionConfig, 0, maxFormatterLength)
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormattersLength)
 	if reqWithoutQuery {
 		formatters = append(formatters, reqWithoutQueryFormatter)
 	}
@@ -319,7 +319,7 @@ func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtens
 }
 
 func accessLogTextFormatters(text string) []*core.TypedExtensionConfig {
-	formatters := make([]*core.TypedExtensionConfig, 0, maxFormatterLength)
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormattersLength)
 	if strings.Contains(text, reqWithoutQueryCommandOperator) {
 		formatters = append(formatters, reqWithoutQueryFormatter)
 	}
@@ -518,15 +518,15 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 }
 
 func accessLogFormatters(text string, labels *structpb.Struct) []*core.TypedExtensionConfig {
-	formatters := make([]*core.TypedExtensionConfig, 0, maxFormatterLength)
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormattersLength)
 	defer func() {
-		sort.Slice(formatters, func(i, j int) bool {
-			return formatters[i].Name < formatters[j].Name
+		slices.SortBy(formatters, func(f *core.TypedExtensionConfig) string {
+			return f.Name
 		})
 	}()
 
 	formatters = append(formatters, accessLogTextFormatters(text)...)
-	if len(formatters) >= maxFormatterLength {
+	if len(formatters) >= maxFormattersLength {
 		// all formatters are added, return if we have reached the limit
 		return formatters
 	}
