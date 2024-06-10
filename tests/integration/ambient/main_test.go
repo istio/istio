@@ -164,6 +164,9 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.ExternalNamespace, err = namespace.New(t, namespace.Config{
 		Prefix: "external",
 		Inject: false,
+		Labels: map[string]string{
+			"istio.io/test-exclude-namespace": "true",
+		},
 	})
 	if err != nil {
 		return err
