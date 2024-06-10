@@ -302,8 +302,8 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// setup cert watches.
-	if err := s.initCertificateWatches(tlsOptions); err != nil {
-		t.Fatalf("initCertificateWatches failed: %v", err)
+	if err := s.initFileCertificateWatches(tlsOptions); err != nil {
+		t.Fatalf("initFileCertificateWatches failed: %v", err)
 	}
 
 	if err := s.initIstiodCertLoader(); err != nil {

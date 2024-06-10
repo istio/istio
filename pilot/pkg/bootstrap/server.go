@@ -149,9 +149,13 @@ type Server struct {
 	caServer *caserver.Server
 
 	// TrustAnchors for workload to workload mTLS
-	workloadTrustBundle     *tb.TrustBundle
-	certMu                  sync.RWMutex
-	istiodCert              *tls.Certificate
+	workloadTrustBundle *tb.TrustBundle
+	certMu              sync.RWMutex
+	istiodCert          *tls.Certificate
+
+	// istiodCertBundleWatche provides callbacks when the Istiod certs or roots are changed.
+	// The roots are used by the namespace controller to update Istiod roots and patch webhooks.
+	// The certs are used to refresh Istiod credentials.
 	istiodCertBundleWatcher *keycertbundle.Watcher
 	server                  server.Instance
 
@@ -937,6 +941,8 @@ func (s *Server) initRegistryEventHandlers() {
 	}
 }
 
+// initIstiodCertLoader will make sure istiodCertBundleWatcher is updating
+// the certs and updates Server.istiodCert - which is returned on all TLS requests.
 func (s *Server) initIstiodCertLoader() error {
 	if err := s.loadIstiodCert(); err != nil {
 		return fmt.Errorf("first time load IstiodCert failed: %v", err)
@@ -957,7 +963,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	s.dnsNames = getDNSNames(args, host)
 	if hasCustomCertArgsOrWellKnown, tlsCertPath, tlsKeyPath, caCertPath := hasCustomTLSCerts(args.ServerOptions.TLSOptions); hasCustomCertArgsOrWellKnown {
 		// Use the DNS certificate provided via args or in well known location.
-		err = s.initCertificateWatches(TLSOptions{
+		err = s.initFileCertificateWatches(TLSOptions{
 			CaCertFile: caCertPath,
 			KeyFile:    tlsKeyPath,
 			CertFile:   tlsCertPath,
@@ -1097,7 +1103,7 @@ func hasCustomTLSCertArgs(tlsOptions TLSOptions) bool {
 	return tlsOptions.CaCertFile != "" && tlsOptions.CertFile != "" && tlsOptions.KeyFile != ""
 }
 
-// getIstiodCertificate returns the istiod certificate.
+// getIstiodCertificate returns the istiod certificate, used in GetCertificate hook.
 func (s *Server) getIstiodCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	s.certMu.RLock()
 	defer s.certMu.RUnlock()
@@ -1181,6 +1187,7 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 
 func (s *Server) shouldStartNsController() bool {
 	if s.isCADisabled() {
+		// TODO(costin): Why ?
 		return true
 	}
 	if s.CA == nil {
@@ -1188,6 +1195,8 @@ func (s *Server) shouldStartNsController() bool {
 	}
 
 	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
+	// TODO(costin): isCADisabled returns true of RA is set and provider is k8s.
+	// Not clear what this means.
 	if features.PilotCertProvider == constants.CertProviderKubernetes {
 		return false
 	}
@@ -1308,6 +1317,8 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 }
 
 // isCADisabled returns whether CA functionality is disabled in istiod.
+// That means istiod is not responsible for signing certs or distributing its roots.
+//
 // It returns true only if istiod certs is signed by Kubernetes or
 // workload certs are signed by external CA
 func (s *Server) isCADisabled() bool {
@@ -1322,6 +1333,8 @@ func (s *Server) isCADisabled() bool {
 	if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
 		return true
 	}
+
+	// TODO: if RA is set - but not using K8S - should this be trye ?
 	return false
 }
 

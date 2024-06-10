@@ -236,6 +236,8 @@ spec:
                 expirationSeconds: 43200
                 path: istio-token
       # Optional: user-generated root
+      # TODO: option to remove this mount - and use Secret directly.
+      # The files are useful for avoiding the use of a Secret.
       - name: cacerts
         secret:
           secretName: cacerts
@@ -244,11 +246,15 @@ spec:
         secret:
           secretName: istio-kubeconfig
           optional: true
-      # Optional: istio-csr dns pilot certs
+      # Optional: external dns pilot certs, if present will be used for Istiod own certificate instead of using Istio CA
+      # to sign the Istiod certs. If ca.crt is included - it will be used as trust anchors and replicated in namespaces
+      # unless istio-ca-root-cert is present.
       - name: istio-csr-dns-cert
         secret:
           secretName: istiod-tls
           optional: true
+      # If this config map is present in istio-system and istiod-tls is also present - this will be used for mesh cert
+      # verification and distributed in namespaces.
       - name: istio-csr-ca-configmap
         configMap:
           name: istio-ca-root-cert

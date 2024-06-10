@@ -274,8 +274,7 @@ func loadCacertSecret(client corev1.CoreV1Interface, namespace string, caCertNam
 		crtData = caSecret.Data[CACertFile]
 	}
 
-	pkiCaLog.Infof("Load signing key and cert from existing secret using ca.crt %s/%s and %s",
-		caSecret.Namespace, caSecret.Name, rootCertFile)
+	pkiCaLog.Infof("Load signing key and cert from existing secret using ca.crt %s/%s", caSecret.Namespace, caSecret.Name)
 	rootCerts := rootCertData
 
 	rcerts, _ := util.SplitPemEncodedCertificates(rootCerts)
