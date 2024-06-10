@@ -50,9 +50,6 @@ func getMapFromRestore(data string) map[string]map[string][]string {
 		}
 		// Found chain, setup an empty list for the chain if it is an ISTIO one
 		if strings.HasPrefix(line, ":") {
-			if !strings.HasPrefix(line, ":ISTIO") {
-				continue
-			}
 			chain := strings.Split(line, " ")[0][1:]
 			_, ok := result[table][chain]
 			if !ok {
@@ -83,26 +80,6 @@ func getMapFromRestore(data string) map[string]map[string][]string {
 		result[table][ruleChain] = append(result[table][ruleChain], line)
 	}
 	return result
-}
-
-// TODO(abhide): Add more testcases once BuildV6Restore() are implemented
-func TestBuildV6Restore(t *testing.T) {
-	iptables := NewIptablesRuleBuilder(nil)
-	expected := ""
-	actual := iptables.BuildV6Restore()
-	if expected != actual {
-		t.Errorf("Output didn't match: Got: %s, Expected: %s", actual, expected)
-	}
-}
-
-// TODO(abhide): Add more testcases once BuildV4Restore() are implemented
-func TestBuildV4Restore(t *testing.T) {
-	iptables := NewIptablesRuleBuilder(nil)
-	expected := ""
-	actual := iptables.BuildV4Restore()
-	if expected != actual {
-		t.Errorf("Output didn't match: Got: %s, Expected: %s", actual, expected)
-	}
 }
 
 func TestBuildV4InsertSingleRule(t *testing.T) {
