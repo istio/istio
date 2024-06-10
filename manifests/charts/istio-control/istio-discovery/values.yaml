@@ -504,6 +504,16 @@ defaults:
     # for internal usage only, not to be configured by users.
     autoscalingv2API: true
 
+    waypoint:
+      # Resources for the waypoint proxy.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: "2"
+          memory: 1Gi
+
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
