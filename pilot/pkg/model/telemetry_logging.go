@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"sort"
 	"strings"
 
@@ -30,6 +29,7 @@ import (
 	reqwithoutquery "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
