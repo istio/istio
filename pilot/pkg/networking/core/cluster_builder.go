@@ -452,39 +452,32 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 	return localCluster
 }
 
-// buildInboundPassthroughClusters builds passthrough clusters for inbound.
-func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
-	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
-	clusters := make([]*cluster.Cluster, 0, 2)
-	if cb.supportsIPv4 {
-		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
-		inboundPassthroughClusterIpv4.Filters = nil
-		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
-				Address: InboundPassthroughBindIpv4,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
-				},
-			},
-		}
-		clusters = append(clusters, inboundPassthroughClusterIpv4)
+// buildInboundPassthroughCluster builds passthrough cluster for inbound.
+func (cb *ClusterBuilder) buildInboundPassthroughCluster() *cluster.Cluster {
+	src := InboundPassthroughBindIpv4
+	if !cb.supportsIPv4 {
+		src = InboundPassthroughBindIpv6
 	}
-	if cb.supportsIPv6 {
-		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
-		inboundPassthroughClusterIpv6.Filters = nil
-		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
-				Address: InboundPassthroughBindIpv6,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
-				},
+	var extraSrc []*core.ExtraSourceAddress
+	if cb.supportsIPv4 && cb.supportsIPv6 {
+		extraSrc = append(extraSrc, &core.ExtraSourceAddress{
+			Address: &core.SocketAddress{
+				Address:       InboundPassthroughBindIpv6,
+				PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(0)},
 			},
-		}
-		clusters = append(clusters, inboundPassthroughClusterIpv6)
+		})
 	}
-	return clusters
+	c := cb.buildDefaultPassthroughCluster()
+	c.Name = util.InboundPassthroughCluster
+	c.Filters = nil
+	c.UpstreamBindConfig = &core.BindConfig{
+		SourceAddress: &core.SocketAddress{
+			Address:       src,
+			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(0)},
+		},
+		ExtraSourceAddresses: extraSrc,
+	}
+	return c
 }
 
 // generates a cluster that sends traffic to dummy localport 0
