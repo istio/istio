@@ -220,12 +220,8 @@ func WaypointsCollection(
 	}, krt.WithName("Waypoints"))
 }
 
-func makeInboundBinding(gatewayClass *v1beta1.GatewayClass) InboundBinding {
-	if gatewayClass == nil {
-		// zero-value has no dataplane effect
-		return InboundBinding{}
-	}
-	annotation, ok := gatewayClass.Annotations[constants.AmbientWaypointInboundBinding]
+func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayClass) InboundBinding {
+	annotation, ok := getGatewayOrGatewayClassAnnotation(gateway, gatewayClass)
 	if !ok {
 		return InboundBinding{}
 	}
@@ -266,6 +262,21 @@ func makeInboundBinding(gatewayClass *v1beta1.GatewayClass) InboundBinding {
 	}
 }
 
+func getGatewayOrGatewayClassAnnotation(gateway *v1beta1.Gateway, class *v1beta1.GatewayClass) (string, bool) {
+	// Gateway > GatewayClass
+	annotation, ok := gateway.Annotations[constants.AmbientWaypointInboundBinding]
+	if ok {
+		return annotation, true
+	}
+	if class != nil {
+		annotation, ok := class.Annotations[constants.AmbientWaypointInboundBinding]
+		if ok {
+			return annotation, true
+		}
+	}
+	return "", false
+}
+
 func makeWaypoint(
 	gateway *v1beta1.Gateway,
 	gatewayClass *v1beta1.GatewayClass,
@@ -275,7 +286,7 @@ func makeWaypoint(
 	return &Waypoint{
 		Named:           krt.NewNamed(gateway),
 		Addresses:       getGatewayAddrs(gateway),
-		DefaultBinding:  makeInboundBinding(gatewayClass),
+		DefaultBinding:  makeInboundBinding(gateway, gatewayClass),
 		TrafficType:     trafficType,
 		ServiceAccounts: slices.Sort(serviceAccounts),
 	}
