@@ -15,6 +15,7 @@ defaults:
     hub: ""
     tag: ""
     variant: ""
+    pullPolicy: ""
     # Can be a full hub/image:tag
     image: pilot
     traceSampling: 1.0
