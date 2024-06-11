@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package gatewayapiconformance
 
 import (
 	"testing"
@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/pilot/gatewayapiconformance"
 )
 
 var (
@@ -42,13 +41,15 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&i, nil)).
-		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(t resource.Context) error {
-			gatewayapiconformance.GatewayConformanceTestInputs.Client = t.Clusters().Default()
-			gatewayapiconformance.GatewayConformanceTestInputs.Cleanup = !t.Settings().NoCleanup
+			GatewayConformanceTestInputs.Client = t.Clusters().Default()
+			GatewayConformanceTestInputs.Cleanup = !t.Settings().NoCleanup
 
 			return nil
 		}).
 		Run()
+}
+
+func TestGatewayConformance(t *testing.T) {
+	RunGatewayConformance(t)
 }
