@@ -423,6 +423,65 @@ func TestAuthz_NotNamespace(t *testing.T) {
 		})
 }
 
+func TestAuthz_NotHostViaDeployment(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			from := apps.Ns1.A
+			fromMatch := match.AnyServiceName(from.NamespacedNames())
+			toMatch := match.Not(fromMatch)
+			to := toMatch.GetServiceMatches(apps.Ns1.All)
+			fromAndTo := to.Instances().Append(from)
+
+			config.New(t).
+				Source(config.File("testdata/authz/not-host-deployment.yaml.tmpl").WithParams(param.Params{
+					param.Namespace.String(): apps.Ns1.Namespace,
+				})).
+				BuildAll(nil, to).
+				Apply()
+
+			newTrafficTest(t, fromAndTo).
+				FromMatch(fromMatch).
+				ToMatch(toMatch).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+					cases := []struct {
+						host  string
+						allow allowValue
+					}{
+						{
+							host:  fmt.Sprintf("allow.%s.com", to.Config().Service),
+							allow: true,
+						},
+						{
+							host:  fmt.Sprintf("deny.%s.com", to.Config().Service),
+							allow: false,
+						},
+					}
+
+					for _, c := range cases {
+						c := c
+						testName := fmt.Sprintf("%s(%s)/http", c.host, c.allow)
+						t.NewSubTest(testName).Run(func(t framework.TestContext) {
+							wantCode := http.StatusOK
+							if !c.allow {
+								wantCode = http.StatusForbidden
+							}
+							opts := echo.CallOptions{
+								To: to,
+								Port: echo.Port{
+									Protocol: protocol.HTTP,
+								},
+								HTTP: echo.HTTP{
+									Headers: headers.New().WithHost(c.host).Build(),
+								},
+								Check: check.And(check.NoError(), check.Status(wantCode)),
+							}
+							from.CallOrFail(t, opts)
+						})
+					}
+				})
+		})
+}
+
 func TestAuthz_NotHost(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
