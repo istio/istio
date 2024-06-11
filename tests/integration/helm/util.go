@@ -210,6 +210,7 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 	}
 	overrideValues = adjustValuesForOpenShift(ctx, overrideValues)
 
+	fmt.Printf("Helm Values Overrides: %s", overrideValues)
 	overrideValuesFile := filepath.Join(workDir, "values.yaml")
 	if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 		ctx.Fatalf("failed to write iop cr file: %v", err)
@@ -319,7 +320,6 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	}
 
 	if ambientProfile {
-
 		// Install ztunnel chart
 		err = h.InstallChart(ZtunnelReleaseName, ztunnelChartPath, nsConfig.Get(ZtunnelReleaseName), overrideValuesFile, Timeout, versionArgs)
 		if err != nil {

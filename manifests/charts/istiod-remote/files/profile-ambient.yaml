@@ -15,6 +15,3 @@ pilot:
 cni:
   ambient:
     enabled: true
-
-# Ztunnel doesn't use a namespace, so everything here is mostly for ztunnel
-variant: distroless
