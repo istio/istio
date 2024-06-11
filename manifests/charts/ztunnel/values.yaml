@@ -10,7 +10,7 @@ defaults:
 
   # Image name to pull from. Image will be `Hub/Image:Tag-Variant`
   # If Image contains a "/", it will replace the entire `image` in the pod.
-  image: ztunnel
+  image: ""
 
   # Labels to apply to all top level resources
   labels: {}
