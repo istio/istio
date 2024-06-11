@@ -1171,6 +1171,7 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 			}
 		}
 		// May return nil, if the CA is missing required configs - This is not an error.
+		// This is currently only used for K8S signing.
 		if caOpts.ExternalCAType != "" {
 			if s.RA, err = s.createIstioRA(caOpts); err != nil {
 				return fmt.Errorf("failed to create RA: %v", err)
@@ -1317,7 +1318,7 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	return nil
 }
 
-// isK8SSigning returns whether K8S is used to sign certs instead of private keys known by Istiod
+// isK8SSigning returns whether K8S (as a RA) is used to sign certs instead of private keys known by Istiod
 func (s *Server) isK8SSigning() bool {
 	if s.RA == nil {
 		return false

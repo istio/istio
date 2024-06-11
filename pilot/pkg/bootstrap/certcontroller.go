@@ -49,7 +49,8 @@ const (
 )
 
 // initDNSCerts will create the certificates to be used by Istiod GRPC server and webhooks.
-// Only called if ./var/run/secrets/istiod/tls is not set - which has priority.
+// Only called if hasCustomTLSCerts() does not find a custom cert in ./var/run/secrets/istiod/tls or the
+// custom location set using cli flags - which have priority over self-signing.
 //
 // If the certificate creation fails - for example no support in K8S - returns an error.
 // TODO(costin): not sure what the next statement means:
@@ -95,7 +96,7 @@ func (s *Server) initDNSCerts() error {
 			return nil
 		})
 	} else if pilotCertProviderName == constants.CertProviderIstiod {
-		// Generate certificates for Istiod DNS names, signed by Istiod CA or K8S.
+		// Generate certificates for Istiod DNS names, signed by Istiod CA
 		certChain, keyPEM, err = s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
 		if err != nil {
 			return fmt.Errorf("failed generating istiod key cert %v", err)
