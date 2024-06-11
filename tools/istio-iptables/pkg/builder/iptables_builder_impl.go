@@ -16,9 +16,10 @@ package builder
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -181,15 +182,7 @@ func (rb *IptablesRuleBuilder) BuildV6() [][]string {
 
 func (rb *IptablesRuleBuilder) constructIptablesRestoreContents(tableRulesMap map[string][]string) string {
 	var b strings.Builder
-	keys := make([]string, 0, len(tableRulesMap))
-	for table := range tableRulesMap {
-		keys = append(keys, table)
-	}
-
-	// Sort the keys to have a consistent output
-	sort.Strings(keys)
-
-	for _, table := range keys {
+	for _, table := range slices.Sort(maps.Keys(tableRulesMap)) {
 		rules := tableRulesMap[table]
 		if len(rules) > 0 {
 			_, _ = fmt.Fprintln(&b, "*", table)
