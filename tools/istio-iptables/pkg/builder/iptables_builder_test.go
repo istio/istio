@@ -165,11 +165,11 @@ func TestBuilder(t *testing.T) {
 	checkFunc := func(goldenName string, rules [][]string, rulesRestore string, expected bool) {
 		// check that rules are set
 		if expected {
-			var b strings.Builder
+			var actual strings.Builder
 			for _, rule := range rules {
-				fmt.Fprintln(&b, strings.Join(rule, " "))
+				fmt.Fprintln(&actual, strings.Join(rule, " "))
 			}
-			compareToGolden(t, goldenName, b.String())
+			compareToGolden(t, goldenName, actual.String())
 
 			// Check build restore
 			compareToGolden(t, goldenName+"-restore", rulesRestore)
