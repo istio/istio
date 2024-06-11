@@ -2559,8 +2559,6 @@ func validateWorkloadEntry(we *networking.WorkloadEntry, servicePorts sets.Strin
 		}
 	}
 
-	errs = AppendValidation(errs,
-		labels.Instance(we.Labels).Validate())
 	for name, port := range we.Ports {
 		if servicePorts != nil && !servicePorts.Contains(name) {
 			errs = AppendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
