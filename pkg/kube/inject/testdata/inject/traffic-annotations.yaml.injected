@@ -195,6 +195,7 @@ spec:
         - -o
         - 7,8,9
         - --log_output_level=default:info
+        - --no-reconcile
         env:
         - name: FOO
           value: bar

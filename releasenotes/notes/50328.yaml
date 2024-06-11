@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issues:
+  - 30393
+  - 42792
+
+releaseNotes:
+- |
+  **Fixed** Allow for re-executions of istio-init container by running a preemtive cleanup beforehand
