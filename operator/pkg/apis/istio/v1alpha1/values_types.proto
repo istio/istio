@@ -984,6 +984,10 @@ message PilotConfig {
   // If set, `istiod` will allow connections from trusted node proxy ztunnels
   // in the provided namespace.
   string trustedZtunnelNamespace = 59;
+
+  // The image pullPolicy
+  string pullPolicy = 61;
+
 }
 
 message PilotTaintControllerConfig {
