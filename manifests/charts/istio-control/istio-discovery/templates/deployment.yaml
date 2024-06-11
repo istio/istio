@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "name" . }}{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "name" . }}
+    app: istiod
     istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
@@ -26,7 +26,7 @@ spec:
   selector:
     matchLabels:
       {{- if ne .Values.revision "" }}
-      app: {{ template "name" . }}
+      app: istiod
       istio.io/rev: {{ .Values.revision | default "default" | quote }}
       {{- else }}
       istio: pilot
@@ -34,13 +34,13 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "name" . }}
+        app: istiod
         istio.io/rev: {{ .Values.revision | default "default" | quote }}
         install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         sidecar.istio.io/inject: "false"
         operator.istio.io/component: "Pilot"
         {{- if ne .Values.revision "" }}
-        istio: {{ template "name" . }}
+        istio: istiod
         {{- else }}
         istio: pilot
         {{- end }}
@@ -76,7 +76,7 @@ spec:
       topologySpreadConstraints:
 {{- toYaml . | nindent 8 }}
 {{- end }}
-      serviceAccountName: {{ template "name" . }}{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+      serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
