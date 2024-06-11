@@ -159,13 +159,13 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		opts := getFilterChainMatchOptions(mtls, lp)
 		chains := lb.inboundChainForOpts(cc, mtls, opts)
 		for _, c := range chains {
-			fcm := c.GetFilterChainMatch()
-			if fcm != nil {
-				// Clear out settings that do not matter anymore
-				fcm.TransportProtocol = ""
-			}
+			lb.sanitizeFilterChainForHBONE(c)
 		}
 		l.FilterChains = append(l.FilterChains, chains...)
+	}
+	for _, passthrough := range buildInboundHBONEPassthroughChain(lb) {
+		lb.sanitizeFilterChainForHBONE(passthrough)
+		l.FilterChains = append(l.FilterChains, passthrough)
 	}
 	// If there are no filter chains, populate a dummy one that never matches. Envoy doesn't allow no chains, but removing the
 	// entire listeners makes the errors logs more confusing (instead of "no filter chain found" we have no listener at all).
@@ -187,6 +187,20 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	// TODO: Exclude inspectors from some inbound ports.
 	l.ListenerFilters = append(l.ListenerFilters, populateListenerFilters(lb.node, l, true)...)
 	return []*listener.Listener{terminate, l}
+}
+
+func (lb *ListenerBuilder) sanitizeFilterChainForHBONE(c *listener.FilterChain) {
+	fcm := c.GetFilterChainMatch()
+	if fcm != nil {
+		// Clear out settings that do not matter anymore
+		fcm.TransportProtocol = ""
+	}
+	if fcm == nil {
+		fcm = &listener.FilterChainMatch{}
+		c.FilterChainMatch = fcm
+	}
+	// Filter to only allowed ranges. This ensures we do not get HBONE requests to garbage IPs
+	fcm.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(lb.node.IPAddresses[0])}
 }
 
 // buildInboundListeners creates inbound listeners.
@@ -686,6 +700,31 @@ func reportInboundConflict(lb *ListenerBuilder, old inboundChainConfig, cc inbou
 			cc.port.TargetPort,
 			old.telemetryMetadata.InstanceHostname, cc.telemetryMetadata.InstanceHostname)
 	}
+}
+
+func buildInboundHBONEPassthroughChain(lb *ListenerBuilder) []*listener.FilterChain {
+	mtls := authn.MTLSSettings{
+		Port: 0,
+		Mode: model.MTLSDisable,
+	}
+	cc := inboundChainConfig{
+		port: model.ServiceInstancePort{
+			ServicePort: &model.Port{
+				Name: model.VirtualInboundListenerName,
+				// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
+				// but this is backwards compatible and there aren't any perfect options.
+				Port:     0,
+				Protocol: protocol.Unsupported,
+			},
+			TargetPort: mtls.Port,
+		},
+		clusterName: util.InboundPassthroughCluster,
+		passthrough: true,
+		hbone:       lb.node.IsWaypointProxy(),
+	}
+
+	opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto)
+	return lb.inboundChainForOpts(cc, mtls, opts)
 }
 
 // buildInboundPassthroughChains builds the passthrough chains. These match any unmatched traffic.
