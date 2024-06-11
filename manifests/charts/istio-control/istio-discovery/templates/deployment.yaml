@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: {{ template "name" . }}{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istiod
+    app: {{ template "name" . }}
     istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
@@ -26,7 +26,7 @@ spec:
   selector:
     matchLabels:
       {{- if ne .Values.revision "" }}
-      app: istiod
+      app: {{ template "name" . }}
       istio.io/rev: {{ .Values.revision | default "default" | quote }}
       {{- else }}
       istio: pilot
@@ -34,13 +34,13 @@ spec:
   template:
     metadata:
       labels:
-        app: istiod
+        app: {{ template "name" . }}
         istio.io/rev: {{ .Values.revision | default "default" | quote }}
         install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         sidecar.istio.io/inject: "false"
         operator.istio.io/component: "Pilot"
         {{- if ne .Values.revision "" }}
-        istio: istiod
+        istio: {{ template "name" . }}
         {{- else }}
         istio: pilot
         {{- end }}
@@ -76,20 +76,13 @@ spec:
       topologySpreadConstraints:
 {{- toYaml . | nindent 8 }}
 {{- end }}
-      serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+      serviceAccountName: {{ template "name" . }}{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
         - name: discovery
-{{- if contains "/" .Values.pilot.image }}
-          image: "{{ .Values.pilot.image }}"
-{{- else }}
-          image: "{{ .Values.pilot.hub | default .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.pilot.tag | default .Values.global.tag }}{{with (.Values.pilot.variant | default .Values.global.variant)}}-{{.}}{{end}}"
-{{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
+          {{- include "istio-image" . | indent 2}}
           args:
           - "discovery"
           - --monitoringAddr=:15014
