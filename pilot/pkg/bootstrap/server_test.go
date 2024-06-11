@@ -582,6 +582,7 @@ func TestIstiodReadinessHandler(t *testing.T) {
 
 	c := http.Client{}
 	c.Transport = &http.Transport{
+		// nolint: gosec
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
