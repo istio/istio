@@ -56,7 +56,7 @@ spec:
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
-        image: "{{ .Values.hub }}/{{ .Values.image | default "ztunnel" }}:{{ .Values.tag }}{{with (.Values.variant )}}-{{.}}{{end}}"
+        image: "{{ .Values.hub | default .Values.global.hub }}/{{ .Values.image | default "ztunnel" }}:{{ template "istio-tag" . }}"
 {{- end }}
         ports:
         - containerPort: 15020

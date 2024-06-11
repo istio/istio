@@ -2,9 +2,9 @@
 # For instance, instead of `--set defaults.foo=bar`, just set `--set foo=bar`.
 defaults:
   # Hub to pull from. Image will be `Hub/Image:Tag-Variant`
-  hub: gcr.io/istio-testing
+  hub: ""
   # Tag to pull from. Image will be `Hub/Image:Tag-Variant`
-  tag: latest
+  tag: ""
   # Variant to pull. Options are "debug" or "distroless". Unset will use the default for the given version.
   variant: ""
 
@@ -93,3 +93,16 @@ defaults:
   # TODO Ambient inpod - for OpenShift, set to the following to get writable sockets in hostmounts to work, eventually consider CSI driver instead
   #seLinuxOptions:
   #  type: spc_t
+
+  global:
+    # Default hub for Istio images.
+    # Releases are published to docker hub under 'istio' project.
+    # Dev builds from prow are on gcr.io
+    hub: gcr.io/istio-testing
+
+    # Default tag for Istio images.
+    tag: latest
+
+    # Variant of the image to use.
+    # Currently supported are: [debug, distroless]
+    variant: ""
