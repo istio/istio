@@ -182,13 +182,10 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
         {{- end }}
+        {{- if .Values.global.proxy.resources }}
         resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 128Mi
+        {{- toYaml .Values.global.proxy.resources | nindent 10 }}
+        {{- end }}
         startupProbe:
           failureThreshold: 30
           httpGet:
