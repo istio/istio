@@ -148,11 +148,11 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 	}
 
 	if o.EnablePprof && o.Address == "localhost" {
-		router.NewRoute().PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 		router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 		router.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		router.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		router.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 	}
 	registerHome(router, mainLayout)
 
@@ -173,7 +173,7 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 		httpServer: http.Server{
 			Addr:           listener.Addr().(*net.TCPAddr).String(),
 			ReadTimeout:    10 * time.Second,
-			WriteTimeout:   10 * time.Second,
+			WriteTimeout:   time.Minute, // High timeout to allow profiles to run
 			MaxHeaderBytes: 1 << 20,
 			Handler:        router,
 		},
