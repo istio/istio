@@ -454,6 +454,9 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 
 // buildInboundPassthroughCluster builds passthrough cluster for inbound.
 func (cb *ClusterBuilder) buildInboundPassthroughCluster() *cluster.Cluster {
+	// We need to set a local bind address, which we will match in iptables to avoid looping back to ourselves.
+	// This needs a per-IP-version, since we cannot bind to IPv4 and send to IPv6 (or the inverse).
+	// Fortunately, Envoy can natively handle this by giving it a local v4 and v6 address, and it will pick which to use for us.
 	src := InboundPassthroughBindIpv4
 	if !cb.supportsIPv4 {
 		src = InboundPassthroughBindIpv6
