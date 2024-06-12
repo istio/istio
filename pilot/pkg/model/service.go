@@ -617,11 +617,7 @@ func (ep *IstioEndpoint) CmpOpts() []cmp.Option {
 }
 
 func (ep *IstioEndpoint) FirstAddressOrNil() string {
-	if ep == nil {
-		return ""
-	}
-
-	if len(ep.Addresses) == 0 {
+	if ep == nil || len(ep.Addresses) == 0 {
 		return ""
 	}
 	return ep.Addresses[0]
