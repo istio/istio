@@ -955,7 +955,15 @@ func (s *Server) initIstiodCertLoader() error {
 	return nil
 }
 
-// initIstiodCerts creates Istiod certificates and also sets up watches to them.
+// initIstiodCerts creates Istiod certificates to be used by gRPC and webhook TLS servers
+// and also sets up watches to them. It also detects and sets the root certificates
+// for replication.
+//
+// This will also detect the root CAs (mesh trust) and set it up for Istiod as well as
+// namespace replication, if the controller is enabled.
+//
+// Will prefer local certificates, and fallback to using the CA to sign a fresh, temporary
+// certificate.
 func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	// Skip all certificates
 	var err error
@@ -975,14 +983,31 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 		}
 	} else if features.EnableCAServer && features.PilotCertProvider == constants.CertProviderIstiod {
 		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts()
+		err = s.initDNSCertsIstiod()
 	} else if features.PilotCertProvider == constants.CertProviderKubernetes {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts()
+		// This will not work - better to fail Istiod startup so it can be detected early.
+		// Unlike other failures that we can recover from, this has no mitigation, user must
+		// choose a different source.
+		// The feature didn't work for few releases, but a skip-version upgrade may still
+		// encounter it.
+		log.Fatalf("PILOT_CERT_PROVIDER=kubernetes is no longer supported by upstream K8S", host, features.IstiodServiceCustomHost)
 	} else if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
 		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts()
+		err = s.initDNSCertsK8SRA()
 	} else {
+		// This code is the original default/else in initDNSCerts - Istio 1.22 never called
+		// that, but I think it was not intentional.
+		customCACertPath := security.DefaultRootCertFilePath
+		caBundle, err := os.ReadFile(customCACertPath)
+		if err != nil {
+			return fmt.Errorf("failed reading %s: %v", customCACertPath, err)
+		}
+
+		// TODO(costin): this should probably be fatal as well.
+		log.Warnf("Unknown PILOT_CERT_PROVIDER: %s and mounted certs not found, mTLS will"+
+			"not work. Root CAs from %s", features.PilotCertProvider, customCACertPath)
+		s.istiodCertBundleWatcher.SetAndNotify(nil, nil, caBundle)
+		// Skip invoking initIstiodCertLoader - we have no cert.
 		return nil
 	}
 
@@ -1159,7 +1184,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	})
 }
 
-// maybeCreateCA creates and initializes CA Key if needed.
+// maybeCreateCA creates and initializes the built-in CA if needed.
 func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 	// CA signing certificate must be created only if CA is enabled.
 	if features.EnableCAServer {
@@ -1177,6 +1202,7 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 				return fmt.Errorf("failed to create RA: %v", err)
 			}
 		}
+		// If K8S signs - we don't need to use the built-in istio CA.
 		if !s.isK8SSigning() {
 			if s.CA, err = s.createIstioCA(caOpts); err != nil {
 				return fmt.Errorf("failed to create CA: %v", err)
@@ -1320,19 +1346,7 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 
 // isK8SSigning returns whether K8S (as a RA) is used to sign certs instead of private keys known by Istiod
 func (s *Server) isK8SSigning() bool {
-	if s.RA == nil {
-		return false
-	}
-	// do not create CA server if PilotCertProvider is `kubernetes` and RA server exists
-	// TODO(costin): this is dead code
-	if features.PilotCertProvider == constants.CertProviderKubernetes {
-		return true
-	}
-	// do not create CA server if PilotCertProvider is `k8s.io/*` and RA server exists
-	if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-		return true
-	}
-	return false
+	return s.RA != nil && strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix)
 }
 
 func (s *Server) initStatusManager(_ *PilotArgs) {
