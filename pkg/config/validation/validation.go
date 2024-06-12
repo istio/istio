@@ -69,6 +69,8 @@ const (
 	matchPrefix = "prefix:"
 )
 
+var validHeaderRegex = regexp.MustCompile("^[-_A-Za-z0-9]+$")
+
 const (
 	kb = 1024
 	mb = 1024 * kb
@@ -227,6 +229,25 @@ func checkDryRunAnnotation(cfg config.Config, allowed bool) error {
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
+	}
+	if !validHeaderRegex.MatchString(name) {
+		return fmt.Errorf("header name %s is not a valid header name", name)
+	}
+	return nil
+}
+
+// ValidateHTTPHeaderNameOrJwtClaimRoute validates a header name, allowing special @request.auth.claims syntax
+func ValidateHTTPHeaderNameOrJwtClaimRoute(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
+	if jwt.ToRoutingClaim(name).Match {
+		// Jwt claim form
+		return nil
+	}
+	// Else ensure its a valid header
+	if !validHeaderRegex.MatchString(name) {
+		return fmt.Errorf("header name %s is not a valid header name", name)
 	}
 	return nil
 }
@@ -1483,7 +1504,7 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 			errs = multierror.Append(errs, errors.New("outputClaimToHeaders header and claim value must be non-empty string"))
 			continue
 		}
-		if err := ValidateHTTPHeaderValue(claimAndHeaders.Header); err != nil {
+		if err := ValidateHTTPHeaderName(claimAndHeaders.Header); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
