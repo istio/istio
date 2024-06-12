@@ -47,7 +47,7 @@ const (
 
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
-func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string, nsConfig helmtest.NamespaceConfig, isAmbient bool) {
+func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string, nsConfig helmtest.NamespaceConfig, profileName string) {
 	execCmd := fmt.Sprintf(
 		"kubectl apply -n %v -f %v",
 		helmtest.IstioNamespace,
@@ -71,7 +71,7 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.IstiodReleaseName)
 	}
 
-	if isAmbient || ctx.Settings().OpenShift {
+	if profileName == "ambient" || ctx.Settings().OpenShift {
 		// Upgrade istio-cni chart
 		err = h.UpgradeChart(helmtest.CniReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.CniChartsDir),
 			nsConfig.Get(helmtest.CniReleaseName), overrideValuesFile, helmtest.Timeout)
@@ -80,7 +80,7 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 		}
 	}
 
-	if isAmbient {
+	if profileName == "ambient" {
 		// Upgrade ztunnel chart
 		err = h.UpgradeChart(helmtest.ZtunnelReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.ZtunnelChartsDir),
 			nsConfig.Get(helmtest.ZtunnelReleaseName), overrideValuesFile, helmtest.Timeout)
@@ -139,7 +139,7 @@ func deleteIstioRevision(h *helm.Helm, revision string) error {
 
 // performInPlaceUpgradeFunc returns the provided function necessary to run inside an integration test
 // for upgrade capability
-func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(framework.TestContext) {
+func performInPlaceUpgradeFunc(previousVersion, profileName string) func(framework.TestContext) {
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
@@ -147,19 +147,24 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 		t.CleanupConditionally(func() {
 			// only need to do call this once as helm doesn't need to remove
 			// all versions
-			helmtest.DeleteIstio(t, h, cs, nsConfig, isAmbient)
+			helmtest.DeleteIstio(t, h, cs, nsConfig, profileName)
 		})
 		s := t.Settings()
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", isAmbient)
-		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
-		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
+		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", profileName)
+		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, profileName, nsConfig)
+
+		var verifyAmbient bool
+		if profileName == "ambient" {
+			verifyAmbient = true
+		}
+		helmtest.VerifyInstallation(t, cs, nsConfig, true, verifyAmbient, "")
 
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
-		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", isAmbient)
-		upgradeCharts(t, h, overrideValuesFile, nsConfig, isAmbient)
-		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
+		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", profileName)
+		upgradeCharts(t, h, overrideValuesFile, nsConfig, profileName)
+		helmtest.VerifyInstallation(t, cs, nsConfig, true, verifyAmbient, "")
 
 		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
@@ -187,14 +192,14 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 		})
 
 		s := t.Settings()
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", false)
-		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, false, false, helmtest.DefaultNamespaceConfig)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", "")
+		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, false, "", helmtest.DefaultNamespaceConfig)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
-		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, canaryTag, false)
+		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, canaryTag, "")
 		helmtest.InstallIstioWithRevision(t, cs, h, "", canaryTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
@@ -238,7 +243,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		// helm install istio-base istio/base --version 1.15.0 --namespace istio-system -f values.yaml
 		// helm install istiod-1-15 istio/istiod --version 1.15.0 -f values.yaml
 		previousRevision := strings.ReplaceAll(previousVersion, ".", "-")
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, previousRevision, false)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, previousRevision, "")
 		helmtest.InstallIstioWithRevision(t, cs, h, previousVersion, previousRevision, overrideValuesFile, false, true)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
@@ -256,7 +261,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		// install the charts from this branch with revision set to "latest"
 		// helm upgrade istio-base ../manifests/charts/base --namespace istio-system -f values.yaml
 		// helm install istiod-latest ../manifests/charts/istio-control/istio-discovery -f values.yaml
-		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, latestRevisionTag, false)
+		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, latestRevisionTag, "")
 		helmtest.InstallIstioWithRevision(t, cs, h, "", latestRevisionTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
