@@ -755,9 +755,8 @@ spec:
     mode: STRICT
 				`).ApplyOrFail(t)
 				opt = opt.DeepCopy()
-				if inMesh.All([]echo.Instance{src, dst}) { // If both src and dst are in the mesh, the request should succeed
-					opt.Check = check.OK()
-				} else { // If not, the request should fail
+				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
+					// Expect deny if the dest is in the mesh (enforcing mTLS) but src is not (not sending mTLS)
 					opt.Check = CheckDeny
 				}
 				src.CallOrFail(t, opt)
@@ -808,6 +807,10 @@ func TestAuthorizationL4(t *testing.T) {
 				if !dst.Config().HasProxyCapabilities() {
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
 					opt.Check = check.OK()
+				}
+				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
+					// Expect deny if the dest is in the mesh (enforcing policy) but src is not
+					opt.Check = CheckDeny
 				}
 			}
 
