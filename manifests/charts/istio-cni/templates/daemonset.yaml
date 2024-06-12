@@ -6,13 +6,15 @@
       "/home/kubernetes/bin"
       "/opt/cni/bin"
 }}
+
+{{- $name := "istio-cni"}}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: {{ template "name" . }}-node
+  name: {{ $name }}-node
   namespace: {{ .Release.Namespace }}
   labels:
-    k8s-app: {{ template "name" . }}-node
+    k8s-app: {{ $name }}-node
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
@@ -20,7 +22,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      k8s-app: {{ template "name" . }}-node
+      k8s-app: {{ $name }}-node
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
@@ -28,7 +30,7 @@ spec:
   template:
     metadata:
       labels:
-        k8s-app: {{ template "name" . }}-node
+        k8s-app: {{ $name }}-node
         sidecar.istio.io/inject: "false"
         istio.io/dataplane-mode: none
       annotations:
@@ -60,7 +62,7 @@ spec:
         - effect: NoExecute
           operator: Exists
       priorityClassName: system-node-critical
-      serviceAccountName: {{ template "name" . }}
+      serviceAccountName: {{ $name }}
       # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
       # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
       terminationGracePeriodSeconds: 5
@@ -68,7 +70,7 @@ spec:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          {{- include "istio-image" . | indent 2}}
+          {{- include "istio-cni.istio-image" . | indent 2}}
           readinessProbe:
             httpGet:
               path: /readyz
@@ -109,7 +111,7 @@ spec:
             {{- end}}
           envFrom:
             - configMapRef:
-                name: {{ template "name" . }}-config
+                name: {{ $name }}-config
           env:
             - name: REPAIR_NODE_NAME
               valueFrom:

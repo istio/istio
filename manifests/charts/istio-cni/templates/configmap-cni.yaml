@@ -1,10 +1,12 @@
+{{- $name := "istio-cni"}}
+
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: {{ template "name" . }}-config
+  name: {{ $name }}-config
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "name" . }}
+    app: {{ $name }}
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}

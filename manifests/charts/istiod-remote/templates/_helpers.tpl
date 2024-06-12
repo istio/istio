@@ -22,7 +22,7 @@
 }}
 {{- end }}
 
-{{- define "istio-image" -}}
+{{- define "istiod.istio-image" -}}
     {{- if contains "/" .Values.pilot.image }}
         image: "{{ .Values.pilot.image }}"
     {{- else }}
