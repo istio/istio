@@ -606,13 +606,16 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	return c.queue.HasSynced() || c.initialSyncTimedout.Load()
-}
-
-func (c *Controller) informersSynced() bool {
+	if c.initialSyncTimedout.Load() {
+		return true
+	}
 	if c.ambientIndex != nil && !c.ambientIndex.HasSynced() {
 		return false
 	}
+	return c.queue.HasSynced()
+}
+
+func (c *Controller) informersSynced() bool {
 	return c.namespaces.HasSynced() &&
 		c.services.HasSynced() &&
 		c.endpoints.slices.HasSynced() &&
@@ -649,6 +652,18 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.exports.Run(stop)
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
+	if c.ambientIndex != nil {
+		go func() {
+			// Wait until we have everything ready, then we can notify ambient everything is ready
+			// This ensures it gets the initial network state.
+			kubelib.WaitForCacheSync("kube controller queue", stop, func() bool {
+				return c.queue.HasSynced() || c.initialSyncTimedout.Load()
+			})
+
+			c.ambientIndex.NetworksSynced()
+		}()
+	}
+
 	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
 	log.Infof("Controller terminated")

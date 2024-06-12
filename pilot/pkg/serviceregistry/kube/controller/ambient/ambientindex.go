@@ -48,6 +48,7 @@ type Index interface {
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	SyncAll()
+	NetworksSynced()
 	HasSynced() bool
 	model.AmbientIndexes
 }
@@ -105,7 +106,7 @@ type Options struct {
 
 func New(options Options) Index {
 	a := &index{
-		networkUpdateTrigger: krt.NewRecomputeTrigger(),
+		networkUpdateTrigger: krt.NewRecomputeTrigger(false),
 
 		SystemNamespace:       options.SystemNamespace,
 		DomainSuffix:          options.DomainSuffix,
@@ -444,6 +445,10 @@ func (a *index) AdditionalPodSubscriptions(
 
 func (a *index) SyncAll() {
 	a.networkUpdateTrigger.TriggerRecomputation()
+}
+
+func (a *index) NetworksSynced() {
+	a.networkUpdateTrigger.MarkSynced()
 }
 
 func (a *index) HasSynced() bool {

@@ -1492,6 +1492,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 			return nil
 		},
 	})
+	idx.NetworksSynced()
 	cl.RunAndWait(test.NewStop(t))
 
 	t.Cleanup(func() {

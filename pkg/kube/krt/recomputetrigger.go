@@ -34,8 +34,8 @@ type RecomputeTrigger struct {
 	i *atomic.Int32
 }
 
-func NewRecomputeTrigger() *RecomputeTrigger {
-	inner := NewStatic[int32](ptr.Of(int32(0)))
+func NewRecomputeTrigger(startSynced bool) *RecomputeTrigger {
+	inner := NewStatic[int32](ptr.Of(int32(0)), startSynced)
 	return &RecomputeTrigger{inner: inner, i: atomic.NewInt32(0)}
 }
 
@@ -49,4 +49,11 @@ func (r *RecomputeTrigger) TriggerRecomputation() {
 // is called.
 func (r *RecomputeTrigger) MarkDependant(ctx HandlerContext) {
 	_ = Fetch(ctx, r.inner.AsCollection())
+}
+
+// MarkSynced marks this trigger as ready. Before this is called, dependant collections will be blocked.
+// This ensures initial state is populated.
+func (r *RecomputeTrigger) MarkSynced() *RecomputeTrigger {
+	r.inner.MarkSynced()
+	return r
 }

@@ -917,7 +917,7 @@ func TestEndpointSliceWorkloads(t *testing.T) {
 
 func newAmbientUnitTest() *index {
 	return &index{
-		networkUpdateTrigger: krt.NewRecomputeTrigger(),
+		networkUpdateTrigger: krt.NewRecomputeTrigger(true),
 		ClusterID:            testC,
 		DomainSuffix:         "domain.suffix",
 		Network: func(endpointIP string, labels labels.Instance) network.ID {
@@ -953,7 +953,7 @@ var podReady = []v1.PodCondition{
 func GetMeshConfig(mc *krttest.MockCollection) krt.StaticSingleton[MeshConfig] {
 	attempt := krttest.GetMockSingleton[MeshConfig](mc)
 	if attempt.Get() == nil {
-		return krt.NewStatic(&MeshConfig{mesh.DefaultMeshConfig()})
+		return krt.NewStatic(&MeshConfig{mesh.DefaultMeshConfig()}, true)
 	}
 	return attempt
 }
