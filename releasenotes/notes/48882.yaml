@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+releaseNotes:
+  - |
+    **Removed** JSON access logs no longer emit keys in a stable ordering awaiting fix https://github.com/envoyproxy/envoy/issues/34420.
