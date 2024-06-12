@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 func TestPodWorkloads(t *testing.T) {
@@ -294,6 +295,64 @@ func TestPodWorkloads(t *testing.T) {
 				Locality: &workloadapi.Locality{
 					Region: "region",
 					Zone:   "zone",
+				},
+			},
+		},
+		{
+			name: "pod with authz",
+			inputs: []any{
+				model.WorkloadAuthorization{
+					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+					RootNamespace: false,
+					Authorization: &security.Authorization{Name: "wrong-ns", Namespace: "not-ns"},
+				},
+				model.WorkloadAuthorization{
+					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+					RootNamespace: false,
+					Authorization: &security.Authorization{Name: "local-ns", Namespace: "ns"},
+				},
+				model.WorkloadAuthorization{
+					LabelSelector: model.NewSelector(map[string]string{"app": "not-foo"}),
+					RootNamespace: false,
+					Authorization: &security.Authorization{Name: "local-ns-wrong-labels", Namespace: "ns"},
+				},
+				model.WorkloadAuthorization{
+					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+					RootNamespace: true,
+					Authorization: &security.Authorization{Name: "root-ns", Namespace: "istio-system"},
+				},
+			},
+			pod: &v1.Pod{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						"app": "foo",
+					},
+				},
+				Spec: v1.PodSpec{},
+				Status: v1.PodStatus{
+					Phase:      v1.PodRunning,
+					Conditions: podReady,
+					PodIP:      "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/ns/name",
+				Name:              "name",
+				Namespace:         "ns",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "foo",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "name",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
+				AuthorizationPolicies: []string{
+					"istio-system/root-ns",
+					"ns/local-ns",
 				},
 			},
 		},

@@ -1024,6 +1024,8 @@ func (i WorkloadInfo) ResourceName() string {
 type WorkloadAuthorization struct {
 	// LabelSelectors for the workload. Note these are only used internally, not sent over XDS
 	LabelSelector
+	// RootNamespace indicates if this is a root namespace policy whose label selector applies across namespaces
+	RootNamespace bool
 	Authorization *security.Authorization
 }
 
