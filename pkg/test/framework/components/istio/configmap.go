@@ -109,7 +109,7 @@ func (ic *injectConfig) UpdateInjectionConfig(t resource.Context, update func(*i
 	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
 
-	for _, c := range ic.ctx.AllClusters().Kube() {
+	for _, c := range ic.ctx.AllClusters() {
 		c := c
 		errG.Go(func() error {
 			cfgMap, err := ic.getConfigMap(c, ic.configMapName())
@@ -290,7 +290,7 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
 
-	for _, c := range mc.ctx.AllClusters().Kube() {
+	for _, c := range mc.ctx.AllClusters() {
 		c := c
 		errG.Go(func() error {
 			cfgMapName, err := mc.configMapName()

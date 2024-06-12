@@ -570,9 +570,13 @@ templates:
       }
     spec:
       securityContext:
+      {{- if .Values.gateways.securityContext }}
+        {{- toYaml .Values.gateways.securityContext | nindent 4 }}
+      {{- else }}
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
+      {{- end }}
       containers:
       - name: istio-proxy
       {{- if contains "/" .Values.global.proxy.image }}
@@ -1393,7 +1397,10 @@ templates:
             securityContext:
               privileged: false
               runAsGroup: 1337
-              runAsUser: 0
+              runAsUser: 1337
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
               capabilities:
                 drop:
                 - ALL
@@ -1555,9 +1562,13 @@ templates:
               ) | nindent 8 }}
         spec:
           securityContext:
+          {{- if .Values.gateways.securityContext }}
+            {{- toYaml .Values.gateways.securityContext | nindent 8 }}
+          {{- else }}
             sysctls:
             - name: net.ipv4.ip_unprivileged_port_start
               value: "0"
+          {{- end }}
           serviceAccountName: {{.ServiceAccount | quote}}
           containers:
           - name: istio-proxy

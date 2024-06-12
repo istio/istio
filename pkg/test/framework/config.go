@@ -50,7 +50,7 @@ func newConfigFactory(ctx resource.Context, clusters cluster.Clusters) config.Fa
 	}
 	return &configFactory{
 		ctx:      ctx,
-		clusters: clusters.Kube(),
+		clusters: clusters,
 	}
 }
 

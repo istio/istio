@@ -94,9 +94,15 @@ spec:
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
         {{- end }}
         - name: XDS_ADDRESS
+        {{- if .Values.xdsAddress }}
+          value: {{ .Values.xdsAddress }}
+        {{- else }}
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
+        {{- end }}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
+        - name: RUST_BACKTRACE
+          value: "1"
         - name: ISTIO_META_CLUSTER_ID
           value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         - name: INPOD_ENABLED

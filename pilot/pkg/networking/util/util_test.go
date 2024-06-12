@@ -916,6 +916,80 @@ func TestBuildAddress(t *testing.T) {
 	}
 }
 
+func TestGetEndpointHost(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint *endpoint.LbEndpoint
+		want     string
+	}{
+		{
+			name: "socket address",
+			endpoint: &endpoint.LbEndpoint{
+				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: &core.Address{
+							Address: &core.Address_SocketAddress{
+								SocketAddress: &core.SocketAddress{
+									Address: "10.0.0.1",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: "10.0.0.1",
+		},
+		{
+			name: "internal address",
+			endpoint: &endpoint.LbEndpoint{
+				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: &core.Address{
+							Address: &core.Address_EnvoyInternalAddress{
+								EnvoyInternalAddress: &core.EnvoyInternalAddress{
+									AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
+										ServerListenerName: "connect_originate",
+									},
+									EndpointId: "10.0.0.1:80",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: "10.0.0.1",
+		},
+		{
+			name: "internal address(ipv6)",
+			endpoint: &endpoint.LbEndpoint{
+				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: &core.Address{
+							Address: &core.Address_EnvoyInternalAddress{
+								EnvoyInternalAddress: &core.EnvoyInternalAddress{
+									AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
+										ServerListenerName: "connect_originate",
+									},
+									EndpointId: "[fd00:10:96::7fc7]:80",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: "fd00:10:96::7fc7",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetEndpointHost(tt.endpoint); got != tt.want {
+				t.Errorf("GetEndpointHost got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCidrRangeSliceEqual(t *testing.T) {
 	tests := []struct {
 		name   string

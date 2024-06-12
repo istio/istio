@@ -84,7 +84,7 @@ func outputPath(workDir string, cluster cluster.Cluster, prefix, suffix string) 
 
 func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 	errG := multierror.Group{}
-	for _, c := range ctx.AllClusters().Kube() {
+	for _, c := range ctx.AllClusters() {
 		deps, err := c.Kube().AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			scopes.Framework.Warnf("Error getting deployments for cluster %s: %v", c.Name(), err)
@@ -106,7 +106,7 @@ func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 
 func DumpWebhooks(ctx resource.Context, workDir string) {
 	errG := multierror.Group{}
-	for _, c := range ctx.AllClusters().Kube() {
+	for _, c := range ctx.AllClusters() {
 		mwhs, err := c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			scopes.Framework.Warnf("Error getting mutating webhook configurations for cluster %s: %v", c.Name(), err)
@@ -157,7 +157,7 @@ func DumpPods(ctx resource.Context, workDir, namespace string, selectors []strin
 	}
 
 	wg := sync.WaitGroup{}
-	for _, c := range ctx.AllClusters().Kube() {
+	for _, c := range ctx.AllClusters() {
 		pods, err := c.PodsForSelector(context.TODO(), namespace, selectors...)
 		if err != nil {
 			scopes.Framework.Warnf("Error getting pods list for cluster %s via kubectl: %v", c.Name(), err)

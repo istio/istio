@@ -180,6 +180,9 @@ func TestValidateValuesFromProfile(t *testing.T) {
 		{
 			profile: "minimal",
 		},
+		{
+			profile: "ambient",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.profile, func(t *testing.T) {

@@ -627,28 +627,16 @@ func (s *DiscoveryServer) removeCon(conID string) {
 
 // nolint
 func (conn *Connection) NonceAcked(typeUrl string) string {
-	wr := conn.proxy.GetWatchedResource(typeUrl)
-	if wr != nil {
-		return wr.NonceAcked
-	}
-	return ""
+	return conn.proxy.NonceAcked(typeUrl)
 }
 
 // nolint
 func (conn *Connection) NonceSent(typeUrl string) string {
-	wr := conn.proxy.GetWatchedResource(typeUrl)
-	if wr != nil {
-		return wr.NonceSent
-	}
-	return ""
+	return conn.proxy.NonceSent(typeUrl)
 }
 
 func (conn *Connection) Clusters() []string {
-	wr := conn.proxy.GetWatchedResource(v3.EndpointType)
-	if wr != nil {
-		return wr.ResourceNames
-	}
-	return []string{}
+	return conn.proxy.Clusters()
 }
 
 // watchedResourcesByOrder returns the ordered list of

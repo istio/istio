@@ -15,6 +15,7 @@
 package util
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -56,6 +57,7 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 		cb            *pem.Block
 		rootCertBytes []byte
 	)
+	certBytes = bytes.TrimSpace(certBytes)
 	for {
 		rootCertBytes = certBytes
 		cb, certBytes = pem.Decode(certBytes)

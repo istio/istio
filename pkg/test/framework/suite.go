@@ -299,7 +299,7 @@ func (s *suiteImpl) RequireExternalControlPlaneTopology() Suite {
 
 func (s *suiteImpl) RequireMinVersion(minorVersion uint) Suite {
 	fn := func(ctx resource.Context) error {
-		for _, c := range ctx.Clusters().Kube() {
+		for _, c := range ctx.Clusters() {
 			ver, err := c.GetKubernetesVersion()
 			if err != nil {
 				return fmt.Errorf("failed to get Kubernetes version: %v", err)
@@ -318,7 +318,7 @@ func (s *suiteImpl) RequireMinVersion(minorVersion uint) Suite {
 
 func (s *suiteImpl) RequireMaxVersion(minorVersion uint) Suite {
 	fn := func(ctx resource.Context) error {
-		for _, c := range ctx.Clusters().Kube() {
+		for _, c := range ctx.Clusters() {
 			ver, err := c.GetKubernetesVersion()
 			if err != nil {
 				return fmt.Errorf("failed to get Kubernetes version: %v", err)

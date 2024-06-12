@@ -105,7 +105,6 @@ func (s *Settings) clusterConfigsFromFlags() ([]cluster.Config, error) {
 		ci := clusterIndex(i)
 		cfg := cluster.Config{
 			Name:    fmt.Sprintf("cluster-%d", i),
-			Kind:    cluster.Kubernetes,
 			Network: s.networkTopology[ci],
 			Meta:    config.Map{"kubeconfig": kc},
 		}
@@ -196,16 +195,15 @@ func replaceKubeconfigs(configs []cluster.Config, kubeconfigs []string) ([]clust
 	kube := 0
 	out := []cluster.Config{}
 	for _, cfg := range configs {
-		if cfg.Kind == cluster.Kubernetes {
-			if kube >= len(kubeconfigs) {
-				// not enough to cover all clusters in file
-				return nil, fmt.Errorf("istio.test.kube.cfg should have a kubeconfig for each kube cluster")
-			}
-			if cfg.Meta == nil {
-				cfg.Meta = config.Map{}
-			}
-			cfg.Meta["kubeconfig"] = kubeconfigs[kube]
+		if kube >= len(kubeconfigs) {
+			// not enough to cover all clusters in file
+			return nil, fmt.Errorf("istio.test.kube.cfg should have a kubeconfig for each kube cluster")
 		}
+		if cfg.Meta == nil {
+			cfg.Meta = config.Map{}
+		}
+		cfg.Meta["kubeconfig"] = kubeconfigs[kube]
+
 		kube++
 		out = append(out, cfg)
 	}

@@ -34,9 +34,6 @@ type Cluster interface {
 	// Use Name for validation/interaction with the actual cluster.
 	StableName() string
 
-	// Kind of cluster
-	Kind() Kind
-
 	// NetworkName the cluster is on
 	NetworkName() string
 

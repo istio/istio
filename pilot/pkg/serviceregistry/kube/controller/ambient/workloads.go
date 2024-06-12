@@ -81,7 +81,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 	WorkloadServices krt.Collection[model.ServiceInfo],
 	WorkloadServicesNamespaceIndex *krt.Index[model.ServiceInfo, string],
 	Namespaces krt.Collection[*v1.Namespace],
-) func(ctx krt.HandlerContext, wle *networkingclient.WorkloadEntry) *model.WorkloadInfo {
+) krt.TransformationSingle[*networkingclient.WorkloadEntry, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, wle *networkingclient.WorkloadEntry) *model.WorkloadInfo {
 		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
 		// We need to filter from the policies that are present, which apply to us.
@@ -158,7 +158,7 @@ func (a *index) podWorkloadBuilder(
 	WorkloadServicesNamespaceIndex *krt.Index[model.ServiceInfo, string],
 	Namespaces krt.Collection[*v1.Namespace],
 	Nodes krt.Collection[*v1.Node],
-) func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
+) krt.TransformationSingle[*v1.Pod, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
 		// Pod Is Pending but have a pod IP should be a valid workload, we should build it ,
 		// Such as the pod have initContainer which is initialing.
@@ -246,7 +246,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
 	Waypoints krt.Collection[Waypoint],
 	Namespaces krt.Collection[*v1.Namespace],
-) func(krt.HandlerContext, *networkingclient.ServiceEntry) []model.WorkloadInfo {
+) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
 		eps := se.Spec.Endpoints
 		// If we have a DNS service, endpoints are not required

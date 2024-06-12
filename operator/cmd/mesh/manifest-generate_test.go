@@ -164,6 +164,10 @@ func copyDir(src string, dest string) error {
 			return err
 		}
 
+		if strings.Contains(path, "vendor/") {
+			return filepath.SkipDir
+		}
+
 		outpath := filepath.Join(dest, strings.TrimPrefix(path, src))
 
 		if info.IsDir() {

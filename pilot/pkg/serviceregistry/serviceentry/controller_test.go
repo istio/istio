@@ -180,6 +180,52 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	}
 }
 
+func TestServiceDiscoveryServiceDeleteOverlapping(t *testing.T) {
+	store, sd, events := initServiceDiscovery(t)
+	se1 := selector
+	se2 := func() *config.Config {
+		c := selector.DeepCopy()
+		c.Name = "alt"
+		return &c
+	}()
+	wle := createWorkloadEntry("wl", selector.Name,
+		&networking.WorkloadEntry{
+			Address:        "2.2.2.2",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: "default",
+		})
+
+	expected := []*model.ServiceInstance{
+		makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
+			selector.Spec.(*networking.ServiceEntry).Ports[0],
+			map[string]string{"app": "wle"}, "default"),
+		makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
+			selector.Spec.(*networking.ServiceEntry).Ports[1],
+			map[string]string{"app": "wle"}, "default"),
+	}
+	for _, i := range expected {
+		i.Endpoint.WorkloadName = "wl"
+		i.Endpoint.Namespace = selector.Name
+	}
+
+	// Creating SE should give us instances
+	createConfigs([]*config.Config{wle, se1}, store, t)
+	events.WaitOrFail(t, "service")
+	expectServiceInstances(t, sd, se1, 0, expected)
+
+	// Create another identical SE (different name) gives us duplicate instances
+	// Arguable whether this is correct or not...
+	createConfigs([]*config.Config{se2}, store, t)
+	events.WaitOrFail(t, "service")
+	expectServiceInstances(t, sd, se1, 0, append(slices.Clone(expected), expected...))
+	events.Clear()
+
+	// When we delete, we should get back to the original state, not delete all instances
+	deleteConfigs([]*config.Config{se1}, store, t)
+	events.WaitOrFail(t, "xds full")
+	expectServiceInstances(t, sd, se1, 0, expected)
+}
+
 // TestServiceDiscoveryServiceUpdate test various add/update/delete events for ServiceEntry
 // nolint: lll
 func TestServiceDiscoveryServiceUpdate(t *testing.T) {

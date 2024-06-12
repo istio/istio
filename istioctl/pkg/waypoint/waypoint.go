@@ -25,6 +25,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,6 +55,7 @@ var (
 
 	waypointName    = constants.DefaultNamespaceWaypoint
 	enrollNamespace bool
+	overwrite       bool
 )
 
 const waitTimeout = 90 * time.Second
@@ -93,7 +95,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		// this will allow for gateway class to provide a default for that class rather than always forcing service or requiring users to configure correctly
 		if trafficType != "" {
 			if !validTrafficTypes.Contains(trafficType) {
-				return nil, fmt.Errorf("invalid traffic type: %s. Valid options are: %s", trafficType, validTrafficTypes.String())
+				return nil, fmt.Errorf("invalid traffic type: %s. Valid options are: %v", trafficType, validTrafficTypes)
 			}
 
 			if gw.Labels == nil {
@@ -113,7 +115,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Short: "Generate a waypoint configuration",
 		Long:  "Generate a waypoint configuration as YAML",
 		Example: `  # Generate a waypoint as yaml
-  istioctl x waypoint generate --namespace default`,
+  istioctl waypoint generate --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gw, err := makeGateway(false)
 			if err != nil {
@@ -142,10 +144,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Short: "Apply a waypoint configuration",
 		Long:  "Apply a waypoint configuration to the cluster",
 		Example: `  # Apply a waypoint to the current namespace
-  istioctl x waypoint apply
+  istioctl waypoint apply
 
   # Apply a waypoint to a specific namespace and wait for it to be ready
-  istioctl x waypoint apply --namespace default --wait`,
+  istioctl waypoint apply --namespace default --wait`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := ctx.CLIClientWithRevision(revision)
 			if err != nil {
@@ -159,8 +161,19 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			// NOTE: This is a warning and not an error because the user may not intend to label their namespace as ambient.
 			//
 			// e.g. Users are handling ambient redirection per workload rather than at the namespace level.
+			hasWaypoint, err := namespaceHasLabel(kubeClient, ns, constants.AmbientUseWaypointLabel)
+			if err != nil {
+				return err
+			}
 			if enrollNamespace {
-				namespaceIsLabeledAmbient, err := namespaceIsLabeledAmbient(kubeClient, ns)
+				if !overwrite && hasWaypoint {
+					// we don't want to error on the user when they don't explicitly overwrite namespaced Waypoints,
+					// we just warn them and provide a suggestion
+					fmt.Fprintf(cmd.OutOrStdout(), "Warning: namespace (%s) already has an enrolled Waypoint. Consider "+
+						"adding the `"+"--overwrite"+"` flag to your apply command.\n", ns)
+					return nil
+				}
+				namespaceIsLabeledAmbient, err := namespaceHasLabelWithValue(kubeClient, ns, constants.DataplaneModeLabel, constants.DataplaneModeAmbient)
 				if err != nil {
 					return fmt.Errorf("failed to check if namespace is labeled ambient: %v", err)
 				}
@@ -240,21 +253,24 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	waypointApplyCmd.PersistentFlags().BoolVarP(&enrollNamespace, "enroll-namespace", "", false,
 		"If set, the namespace will be labeled with the waypoint name")
 
+	waypointApplyCmd.PersistentFlags().BoolVarP(&overwrite, "overwrite", "", false,
+		"Overwrite the existing Waypoint used by the namespace")
+
 	waypointDeleteCmd := &cobra.Command{
 		Use:   "delete",
 		Short: "Delete a waypoint configuration",
 		Long:  "Delete a waypoint configuration from the cluster",
 		Example: `  # Delete a waypoint from the default namespace
-  istioctl x waypoint delete
+  istioctl waypoint delete
 
-  # Delete a waypoint by name, which can obtain from istioctl x waypoint list
-  istioctl x waypoint delete waypoint-name --namespace default
+  # Delete a waypoint by name, which can obtain from istioctl waypoint list
+  istioctl waypoint delete waypoint-name --namespace default
 
   # Delete several waypoints by name
-  istioctl x waypoint delete waypoint-name1 waypoint-name2 --namespace default
+  istioctl waypoint delete waypoint-name1 waypoint-name2 --namespace default
 
   # Delete all waypoints in a specific namespace
-  istioctl x waypoint delete --all --namespace default`,
+  istioctl waypoint delete --all --namespace default`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if deleteAll && len(args) > 0 {
 				return fmt.Errorf("cannot specify waypoint names when deleting all waypoints")
@@ -287,10 +303,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Short: "List managed waypoint configurations",
 		Long:  "List managed waypoint configurations in the cluster",
 		Example: `  # List all waypoints in a specific namespace
-  istioctl x waypoint list --namespace default
+  istioctl waypoint list --namespace default
 
   # List all waypoints in the cluster
-  istioctl x waypoint list -A`,
+  istioctl waypoint list -A`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			writer := cmd.OutOrStdout()
 			kubeClient, err := ctx.CLIClient()
@@ -358,13 +374,13 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Short: "Manage waypoint configuration",
 		Long:  "A group of commands used to manage waypoint configuration",
 		Example: `  # Apply a waypoint to the current namespace
-  istioctl x waypoint apply
+  istioctl waypoint apply
 
   # Generate a waypoint as yaml
-  istioctl x waypoint generate --namespace default
+  istioctl waypoint generate --namespace default
 
   # List all waypoints in a specific namespace
-  istioctl x waypoint list --namespace default`,
+  istioctl waypoint list --namespace default`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown subcommand %q", args[0])
@@ -430,11 +446,9 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 }
 
 func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
-	nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		return fmt.Errorf("namespace: %s not found", ns)
-	} else if err != nil {
-		return fmt.Errorf("failed to get namespace %s: %v", ns, err)
+	nsObj, err := getNamespace(kubeClient, ns)
+	if err != nil {
+		return err
 	}
 	if nsObj.Labels == nil {
 		nsObj.Labels = map[string]string{}
@@ -446,15 +460,34 @@ func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
 	return nil
 }
 
-func namespaceIsLabeledAmbient(kubeClient kube.CLIClient, ns string) (bool, error) {
-	nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		return false, fmt.Errorf("namespace: %s not found", ns)
-	} else if err != nil {
-		return false, fmt.Errorf("failed to get namespace %s: %v", ns, err)
+func namespaceHasLabel(kubeClient kube.CLIClient, ns string, label string) (bool, error) {
+	nsObj, err := getNamespace(kubeClient, ns)
+	if err != nil {
+		return false, err
 	}
 	if nsObj.Labels == nil {
 		return false, nil
 	}
-	return nsObj.Labels[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient, nil
+	return nsObj.Labels[label] != "", nil
+}
+
+func namespaceHasLabelWithValue(kubeClient kube.CLIClient, ns string, label, labelValue string) (bool, error) {
+	nsObj, err := getNamespace(kubeClient, ns)
+	if err != nil {
+		return false, err
+	}
+	if nsObj.Labels == nil {
+		return false, nil
+	}
+	return nsObj.Labels[label] == labelValue, nil
+}
+
+func getNamespace(kubeClient kube.CLIClient, ns string) (*corev1.Namespace, error) {
+	nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return nil, fmt.Errorf("namespace: %s not found", ns)
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get namespace %s: %v", ns, err)
+	}
+	return nsObj, nil
 }
