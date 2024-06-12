@@ -203,7 +203,6 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 	if tag != "" {
 		tag = "tag: " + tag
 	}
-
 	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, revision)
 	if isAmbient {
 		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag, variant)
