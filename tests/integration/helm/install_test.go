@@ -192,14 +192,15 @@ func baseSetup(isAmbient bool, config NamespaceConfig,
 
 		overrideValuesFile := GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, revision, isAmbient)
 		t.Cleanup(func() {
-			if !t.Failed() {
-				return
-			}
-			if t.Settings().CIMode {
-				for _, ns := range config.AllNamespaces() {
-					namespace.Dump(t, ns)
+			if t.Failed() {
+				if t.Settings().CIMode {
+					for _, ns := range config.AllNamespaces() {
+						namespace.Dump(t, ns)
+					}
 				}
 			}
+
+			DeleteIstio(t, h, cs, config, isAmbient)
 		})
 
 		InstallIstio(t, cs, h, overrideValuesFile, "", true, isAmbient, config)
@@ -208,8 +209,5 @@ func baseSetup(isAmbient bool, config NamespaceConfig,
 		verifyValidation(t, revision)
 
 		check(t)
-		t.Cleanup(func() {
-			DeleteIstio(t, h, cs, config, isAmbient)
-		})
 	}
 }
