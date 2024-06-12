@@ -73,7 +73,7 @@ function compressDashboard() {
     -f "${WD}/values-grafana.yaml"
 
   # Set up grafana dashboards. Split into 2 and compress to single line json to avoid Kubernetes size limits
-  compressDashboard "pilot-dashboard.json"
+  compressDashboard "pilot-dashboard.gen.json"
   compressDashboard "istio-performance-dashboard.json"
   compressDashboard "istio-workload-dashboard.json"
   compressDashboard "istio-service-dashboard.json"
@@ -83,7 +83,7 @@ function compressDashboard() {
   echo -e "\n---\n"
   kubectl create configmap -n istio-system istio-grafana-dashboards \
     --dry-run=client -oyaml \
-    --from-file=pilot-dashboard.json="${TMP}/pilot-dashboard.json" \
+    --from-file=pilot-dashboard.json="${TMP}/pilot-dashboard.gen.json" \
     --from-file=ztunnel-dashboard.json="${TMP}/ztunnel-dashboard.gen.json" \
     --from-file=istio-performance-dashboard.json="${TMP}/istio-performance-dashboard.json"
 

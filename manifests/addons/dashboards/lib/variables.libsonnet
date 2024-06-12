@@ -16,6 +16,17 @@ local var = g.dashboard.variable;
     + var.query.selectionOptions.withMulti()
     + var.query.selectionOptions.withIncludeAll(),
 
+  pod:
+    var.query.new('pod')
+    + var.query.withDatasourceFromVariable(self.datasource)
+    + var.query.queryTypes.withLabelValues(
+      'cluster',
+      'process_cpu_seconds_total',
+    )
+    + var.query.withRefresh('time')
+    + var.query.selectionOptions.withMulti()
+    + var.query.selectionOptions.withIncludeAll(),
+
   namespace:
     var.query.new('namespace')
     + var.query.withDatasourceFromVariable(self.datasource)
