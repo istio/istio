@@ -83,11 +83,11 @@ func getRemoteInfoWrapper(ctx cli.Context, pc **cobra.Command, opts *clioptions.
 		}
 
 		if err != nil {
-			errMses = append(errMses, fmt.Sprintf("-- %v", err))
+			errMses = append(errMses, fmt.Sprintf(": %v", err))
 		}
 
 		if len(errMses) > 0 {
-			fmt.Fprintln((*pc).OutOrStderr(), strings.Join(errMses, " "))
+			fmt.Fprintln((*pc).OutOrStderr(), strings.Join(errMses, ""))
 		}
 
 		return remInfo, err

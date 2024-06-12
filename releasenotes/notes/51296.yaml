@@ -5,4 +5,4 @@ issue:
   - 51296
 releaseNotes:
   - |
-    **Improved** Improved the error output for `istioctl version` to be more user-friendly.
+    **Improved** the output for `istioctl version` to be more user-friendly.
