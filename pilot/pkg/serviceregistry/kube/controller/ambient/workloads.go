@@ -17,6 +17,7 @@ package ambient
 
 import (
 	"net/netip"
+	"strconv"
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -38,6 +39,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -78,11 +80,17 @@ func (a *index) WorkloadsCollection(
 		a.endpointSlicesBuilder(MeshConfig, WorkloadServices),
 		krt.WithName("EndpointSliceWorkloads"))
 
+	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
+		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
+		return slices.Map(a.LookupNetworkGateways(), convertGateway)
+	}, krt.WithName("NetworkGatewayWorkloads"))
+
 	Workloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{
 		PodWorkloads,
 		WorkloadEntryWorkloads,
 		ServiceEntryWorkloads,
 		EndpointSliceWorkloads,
+		NetworkGatewayWorkloads,
 	}, krt.WithName("Workloads"))
 	return Workloads
 }
@@ -128,6 +136,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 			Name:                  wle.Name,
 			Namespace:             wle.Namespace,
 			Network:               network,
+			NetworkGateway:        a.getNetworkGatewayAddress(network),
 			ClusterId:             string(a.ClusterID),
 			ServiceAccount:        wle.Spec.ServiceAccount,
 			Services:              constructServicesFromWorkloadEntry(&wle.Spec, services),
@@ -227,6 +236,7 @@ func (a *index) podWorkloadBuilder(
 			Name:                  p.Name,
 			Namespace:             p.Namespace,
 			Network:               network,
+			NetworkGateway:        a.getNetworkGatewayAddress(network),
 			ClusterId:             string(a.ClusterID),
 			Addresses:             podIPs,
 			ServiceAccount:        p.Spec.ServiceAccountName,
@@ -339,6 +349,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 				Name:                  se.Name,
 				Namespace:             se.Namespace,
 				Network:               network,
+				NetworkGateway:        a.getNetworkGatewayAddress(network),
 				ClusterId:             string(a.ClusterID),
 				ServiceAccount:        wle.ServiceAccount,
 				Services:              constructServicesFromWorkloadEntry(wle, services),
@@ -695,4 +706,60 @@ func implicitWaypointPolicies(ctx krt.HandlerContext, Waypoints krt.Collection[W
 		}
 		return ptr.Of(w.Namespace + "/" + policy)
 	})
+}
+
+func gatewayUID(gw model.NetworkGateway) string {
+	return "NetworkGateway/" + string(gw.Network) + "/" + gw.Addr + "/" + strconv.Itoa(int(gw.HBONEPort))
+}
+
+// convertGateway always converts a NetworkGateway into a Workload
+func convertGateway(gw model.NetworkGateway) model.WorkloadInfo {
+	wl := &workloadapi.Workload{
+		Uid:            gatewayUID(gw),
+		ServiceAccount: gw.ServiceAccount.Name,
+		Namespace:      gw.ServiceAccount.Namespace,
+		Network:        gw.Network.String(),
+	}
+
+	if ip, err := netip.ParseAddr(gw.Addr); err == nil {
+		wl.Addresses = append(wl.Addresses, ip.AsSlice())
+	} else {
+		wl.Hostname = gw.Addr
+	}
+
+	return model.WorkloadInfo{Workload: wl}
+}
+
+func (a *index) getNetworkGateway(id string) []model.NetworkGateway {
+	gtws := a.LookupNetworkGateways()
+	slices.FilterInPlace(gtws, func(gateway model.NetworkGateway) bool {
+		return gateway.Network == network.ID(id)
+	})
+	return gtws
+}
+
+func (a *index) getNetworkGatewayAddress(network string) *workloadapi.GatewayAddress {
+	if networks := a.getNetworkGateway(network); len(networks) > 0 {
+		// Currently only support one, so find the first one that is valid
+		for _, net := range networks {
+			if net.HBONEPort == 0 {
+				continue
+			}
+			ip, err := netip.ParseAddr(net.Addr)
+			if err != nil {
+				continue
+			}
+			return &workloadapi.GatewayAddress{
+				Destination: &workloadapi.GatewayAddress_Address{
+					// probably use from Cidr instead?
+					Address: &workloadapi.NetworkAddress{
+						Network: net.Network.String(),
+						Address: ip.AsSlice(),
+					},
+				},
+				HboneMtlsPort: net.HBONEPort,
+			}
+		}
+	}
+	return nil
 }

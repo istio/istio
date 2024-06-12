@@ -381,6 +381,10 @@ func (n *networkManager) handleGatewayResource(_ *v1beta1.Gateway, gw *v1beta1.G
 	base := model.NetworkGateway{
 		Network: network.ID(gw.GetLabels()[label.TopologyNetwork.Name]),
 		Cluster: n.clusterID,
+		ServiceAccount: types.NamespacedName{
+			Namespace: gw.Namespace,
+			Name:      kube.GatewaySA(gw),
+		},
 	}
 	newGateways := model.NetworkGatewaySet{}
 	for _, addr := range gw.Spec.Addresses {
@@ -395,6 +399,15 @@ func (n *networkManager) handleGatewayResource(_ *v1beta1.Gateway, gw *v1beta1.G
 			networkGateway.Addr = addr.Value
 			networkGateway.Port = uint32(l.Port)
 			newGateways.Insert(networkGateway)
+		}
+		for _, l := range gw.Spec.Listeners {
+			if l.Protocol == "HBONE" {
+				networkGateway := base
+				networkGateway.Addr = addr.Value
+				networkGateway.Port = uint32(l.Port)
+				networkGateway.HBONEPort = uint32(l.Port)
+				newGateways.Insert(networkGateway)
+			}
 		}
 	}
 	n.gatewaysFromResource[gw.UID] = newGateways

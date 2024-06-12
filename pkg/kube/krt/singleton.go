@@ -175,3 +175,13 @@ func NewSingleton[O any](hf TransformationEmpty[O], opts ...CollectionOption) Si
 	}, opts...)
 	return collectionAdapter[O]{col}
 }
+
+// NewManyFromNothing is a niche Collection type that doesn't have any input dependencies. This is useful where things
+// only rely on out-of-band data via RecomputeTrigger, for instance.
+func NewManyFromNothing[O any](hf TransformationEmptyToMulti[O], opts ...CollectionOption) Collection[O] {
+	dummyCollection := NewStatic[dummyValue](&dummyValue{}).AsCollection()
+	col := NewManyCollection[dummyValue, O](dummyCollection, func(ctx HandlerContext, _ dummyValue) []O {
+		return hf(ctx)
+	}, opts...)
+	return col
+}

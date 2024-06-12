@@ -276,13 +276,14 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	if features.EnableAmbient {
 		c.ambientIndex = ambient.New(ambient.Options{
-			Client:          kubeClient,
-			SystemNamespace: options.SystemNamespace,
-			DomainSuffix:    options.DomainSuffix,
-			ClusterID:       options.ClusterID,
-			Revision:        options.Revision,
-			XDSUpdater:      options.XDSUpdater,
-			LookupNetwork:   c.Network,
+			Client:                kubeClient,
+			SystemNamespace:       options.SystemNamespace,
+			DomainSuffix:          options.DomainSuffix,
+			ClusterID:             options.ClusterID,
+			Revision:              options.Revision,
+			XDSUpdater:            options.XDSUpdater,
+			LookupNetwork:         c.Network,
+			LookupNetworkGateways: c.NetworkGateways,
 		})
 	}
 	c.exports = newServiceExportCache(c)

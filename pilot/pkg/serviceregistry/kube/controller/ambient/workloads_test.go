@@ -20,6 +20,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -607,6 +608,42 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "cross network we",
+			inputs: []any{},
+			we: &networkingclient.WorkloadEntry{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: networking.WorkloadEntry{
+					Ports: map[string]uint32{
+						"80": 80,
+					},
+					Network: "remote-network",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0/networking.istio.io/WorkloadEntry/ns/name",
+				Name:              "name",
+				Namespace:         "ns",
+				Network:           "remote-network",
+				CanonicalName:     "name",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "name",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
+				NetworkGateway: &workloadapi.GatewayAddress{
+					Destination: &workloadapi.GatewayAddress_Address{Address: &workloadapi.NetworkAddress{
+						Network: "remote-network",
+						Address: netip.MustParseAddr("9.9.9.9").AsSlice(),
+					}},
+					HboneMtlsPort: 15008,
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -731,6 +768,21 @@ func newAmbientUnitTest() *index {
 		DomainSuffix:         "domain.suffix",
 		Network: func(endpointIP string, labels labels.Instance) network.ID {
 			return testNW
+		},
+		LookupNetworkGateways: func() []model.NetworkGateway {
+			return []model.NetworkGateway{
+				{
+					Network:   "remote-network",
+					Addr:      "9.9.9.9",
+					Cluster:   "cluster-a",
+					Port:      15008,
+					HBONEPort: 15008,
+					ServiceAccount: types.NamespacedName{
+						Namespace: "ns-gtw",
+						Name:      "sa-gtw",
+					},
+				},
+			}
 		},
 	}
 }
