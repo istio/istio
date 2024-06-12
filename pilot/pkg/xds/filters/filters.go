@@ -16,6 +16,7 @@ package filters
 
 import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	mutations "github.com/envoyproxy/go-control-plane/envoy/config/common/mutation_rules/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -24,9 +25,11 @@ import (
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcweb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
+	hm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_mutation/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	uc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/upstream_codec/v3"
 	httpinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/http_inspector/v3"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
@@ -251,38 +254,48 @@ var (
 							"workload_discovery": map[string]any{},
 						},
 					},
-					"upstream_propagation": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-					},
 				}),
 		},
 	}
-	// TODO https://github.com/istio/istio/issues/46740
-	// false values can be omitted in protobuf, results in diff JSON values between control plane and envoy config dumps
-	// long term fix will be to add the metadata config to istio/api and use that over TypedStruct
-	SidecarOutboundMetadataFilterSkipHeaders = &hcm.HttpFilter{
-		Name: MxFilterName,
+
+	InjectIstioHeaders = &hcm.HttpFilter{
+		Name: "inject-istio-headers",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
-				map[string]any{
-					"upstream_discovery": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
+			TypedConfig: protoconv.MessageToAny(&hm.HeaderMutation{
+				Mutations: &hm.Mutations{
+					RequestMutations: []*mutations.HeaderMutation{
+						{
+							Action: &mutations.HeaderMutation_Append{
+								Append: &core.HeaderValueOption{
+									Header: &core.HeaderValue{
+										Key:   "x-envoy-peer-metadata",
+										Value: "%ENVIRONMENT(ISTIO_PEER_METADATA)%",
+									},
+									AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS,
+								},
+							},
 						},
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
-					"upstream_propagation": []any{
-						map[string]any{
-							"istio_headers": map[string]any{
-								"skip_external_clusters": true,
+						{
+							Action: &mutations.HeaderMutation_Append{
+								Append: &core.HeaderValueOption{
+									Header: &core.HeaderValue{
+										Key:   "x-envoy-peer-metadata-id",
+										Value: "%ENVIRONMENT(ISTIO_PEER_METADATA_ID)%",
+									},
+									AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS,
+								},
 							},
 						},
 					},
-				}),
+				},
+			}),
+		},
+	}
+
+	UpstreamCodec = &hcm.HttpFilter{
+		Name: "envoy.filters.http.upstream_codec",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&uc.UpstreamCodec{}),
 		},
 	}
 
