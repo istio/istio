@@ -19,8 +19,6 @@ package helm
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -38,7 +36,7 @@ func TestDefaultInstall(t *testing.T) {
 	overrideValuesStr := `
 global:
   hub: %s
-  tag: %s
+  %s
   variant: %q
 `
 	framework.
@@ -94,7 +92,7 @@ func TestReleaseChannels(t *testing.T) {
 	overrideValuesStr := `
 global:
   hub: %s
-  tag: %s
+  %s
   variant: %q
 profile: stable
 `
@@ -135,7 +133,7 @@ func TestRevisionedReleaseChannels(t *testing.T) {
 	overrideValuesStr := `
 global:
   hub: %s
-  tag: %s
+  %s
   variant: %q
 profile: stable
 revision: 1-x
@@ -188,27 +186,11 @@ func baseSetup(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
 	check func(t framework.TestContext), revision string,
 ) func(t framework.TestContext) {
 	return func(t framework.TestContext) {
-		workDir, err := t.CreateTmpDirectory("helm-install-test")
-		if err != nil {
-			t.Fatal("failed to create test directory")
-		}
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
 		s := t.Settings()
 
-		// Some templates contain a tag definition, in which we just replace %s it with the tag value,
-		// others just contain a %s placeholder for the whole tag: line
-		tag := s.Image.Tag
-		if !strings.Contains(overrideValuesStr, "tag: ") {
-			tag = "tag: " + tag
-		}
-		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, tag, s.Image.Variant)
-		overrideValues = adjustValuesForOpenShift(t, overrideValues)
-
-		overrideValuesFile := filepath.Join(workDir, "values.yaml")
-		if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
-			t.Fatalf("failed to write iop cr file: %v", err)
-		}
+		overrideValuesFile := GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, revision, isAmbient)
 		t.Cleanup(func() {
 			if !t.Failed() {
 				return
