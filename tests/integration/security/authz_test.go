@@ -423,7 +423,7 @@ func TestAuthz_NotNamespace(t *testing.T) {
 		})
 }
 
-func TestAuthz_NotHostViaDeployment(t *testing.T) {
+func TestAuthz_NotHost(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			from := apps.Ns1.A
@@ -433,7 +433,7 @@ func TestAuthz_NotHostViaDeployment(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/authz/not-host-deployment.yaml.tmpl").WithParams(param.Params{
+				Source(config.File("testdata/authz/not-host.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Ns1.Namespace,
 				})).
 				BuildAll(nil, to).
@@ -482,7 +482,7 @@ func TestAuthz_NotHostViaDeployment(t *testing.T) {
 		})
 }
 
-func TestAuthz_NotHost(t *testing.T) {
+func TestAuthz_NotHostViaIngress(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			from := apps.Ns1.A
@@ -492,7 +492,7 @@ func TestAuthz_NotHost(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/authz/not-host.yaml.tmpl").WithParams(param.Params{
+				Source(config.File("testdata/authz/not-host-via-ingress.yaml.tmpl").WithParams(param.Params{
 					"GatewayIstioLabel": i.Settings().IngressGatewayIstioLabel,
 				})).
 				BuildAll(nil, to).
