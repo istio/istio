@@ -53,7 +53,7 @@ spec:
           operator: Exists
       containers:
       - name: istio-proxy
-        {{- include "istio-image" . }}
+        {{- include "ztunnel.istio-image" . }}
         ports:
         - containerPort: 15020
           name: ztunnel-stats

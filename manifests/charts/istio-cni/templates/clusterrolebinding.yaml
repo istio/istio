@@ -1,9 +1,11 @@
+{{- $name := "istio-cni"}}
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ template "name" . }}
+  name: {{ $name }}
   labels:
-    app: {{ template "name" . }}
+    app: {{ $name }}
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
@@ -11,50 +13,50 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ template "name" . }}
+  name: {{ $name }}
 subjects:
 - kind: ServiceAccount
-  name: {{ template "name" . }}
+  name: {{ $name }}
   namespace: {{ .Release.Namespace }}
 ---
 {{- if .Values.cni.repair.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ template "name" . }}-repair-rolebinding
+  name: {{ $name }}-repair-rolebinding
   labels:
-    k8s-app: {{ template "name" . }}-repair
+    k8s-app: {{ $name }}-repair
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Cni"
 subjects:
 - kind: ServiceAccount
-  name: {{ template "name" . }}
+  name: {{ $name }}
   namespace: {{ .Release.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ template "name" . }}-repair-role
+  name: {{ $name }}-repair-role
 {{- end }}
 ---
 {{- if .Values.cni.ambient.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ template "name" . }}-ambient
+  name: {{ $name }}-ambient
   labels:
-    k8s-app: {{ template "name" . }}-repair
+    k8s-app: {{ $name }}-repair
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Cni"
 subjects:
   - kind: ServiceAccount
-    name: {{ template "name" . }}
+    name: {{ $name }}
     namespace: {{ .Release.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ template "name" . }}-ambient
+  name: {{ $name }}-ambient
 {{- end }}

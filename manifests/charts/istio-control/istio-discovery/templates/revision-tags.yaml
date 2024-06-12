@@ -7,7 +7,7 @@
   "injectionURL" .Values.istiodRemote.injectionURL
   "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
   "namespace" .Release.Namespace }}
-{{- define "core" }}
+{{- define "revtag-shared" }}
 {{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
 a unique prefix to each. */}}
 - name: {{.Prefix}}sidecar-injector.istio.io
@@ -47,7 +47,7 @@ metadata:
     app: sidecar-injector
     release: {{ $.Release.Name }}
 webhooks:
-{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.namespace.") ) }}
+{{- include "revtag-shared" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.namespace.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio.io/rev
@@ -62,7 +62,7 @@ webhooks:
       operator: NotIn
       values:
       - "false"
-{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.object.") ) }}
+{{- include "revtag-shared" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.object.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio.io/rev
@@ -85,7 +85,7 @@ webhooks:
 {{- if (eq $tagName "default") }}
 
 {{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
-{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "namespace.") ) }}
+{{- include "revtag-shared" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "namespace.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio-injection
@@ -100,7 +100,7 @@ webhooks:
       - "false"
 
 {{- /* Case 2: no namespace label, but object selector is enabled (and revision label is not, which has priority) */}}
-{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "object.") ) }}
+{{- include "revtag-shared" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "object.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio-injection
@@ -118,7 +118,7 @@ webhooks:
 
 {{- if $.Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
 {{- /* Special case 3: no labels at all */}}
-{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "auto.") ) }}
+{{- include "revtag-shared" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "auto.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio-injection
