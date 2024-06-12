@@ -41,7 +41,7 @@ global:
 `
 	framework.
 		NewTest(t).
-		Run(setupInstallation(overrideValuesStr, false, DefaultNamespaceConfig, ""))
+		Run(setupInstallation(false, DefaultNamespaceConfig, ""))
 }
 
 // TestAmbientInstall tests Istio ambient profile installation using Helm
@@ -170,19 +170,19 @@ defaultRevision: ""
 		}, revision))
 }
 
-func setupInstallation(overrideValuesStr string, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
+func setupInstallation(isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
 	return baseSetup(overrideValuesStr, isAmbient, config, func(t framework.TestContext) {
 		sanitycheck.RunTrafficTest(t, t)
 	}, revision)
 }
 
-func setupInstallationWithCustomCheck(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
+func setupInstallationWithCustomCheck(isAmbient bool, config NamespaceConfig,
 	check func(t framework.TestContext), revision string,
 ) func(t framework.TestContext) {
-	return baseSetup(overrideValuesStr, isAmbient, config, check, revision)
+	return baseSetup(isAmbient, config, check, revision)
 }
 
-func baseSetup(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
+func baseSetup(isAmbient bool, config NamespaceConfig,
 	check func(t framework.TestContext), revision string,
 ) func(t framework.TestContext) {
 	return func(t framework.TestContext) {
