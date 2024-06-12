@@ -115,6 +115,7 @@ type Server struct {
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string
 	httpsServer *http.Server // webhooks HTTPS Server.
+	httpsAddr   string
 
 	grpcServer        *grpc.Server
 	grpcAddress       string
@@ -489,6 +490,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 				log.Errorf("error serving https server: %v", err)
 			}
 		}()
+		s.httpsAddr = httpsListener.Addr().String()
 	}
 
 	s.waitForShutdown(stop)

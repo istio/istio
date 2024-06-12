@@ -19,7 +19,6 @@ package ambient
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -140,13 +139,7 @@ const (
 )
 
 var inMesh = match.Matcher(func(instance echo.Instance) bool {
-	names := []string{"waypoint", "captured", "sidecar"}
-	for _, name := range names {
-		if strings.Contains(instance.Config().Service, name) {
-			return true
-		}
-	}
-	return false
+	return instance.Config().HasProxyCapabilities()
 })
 
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {

@@ -101,6 +101,8 @@ spec:
         {{- end }}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
+        - name: RUST_BACKTRACE
+          value: "1"
         - name: ISTIO_META_CLUSTER_ID
           value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         - name: INPOD_ENABLED

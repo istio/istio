@@ -458,7 +458,9 @@ func TestFilter(t *testing.T) {
 func TestFilterClusterScoped(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
-	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
+		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
+	}}})
 	// Note: it is silly to filter cluster scoped resources, but if it is done we should not break.
 	namespaces := kclient.New[*corev1.Namespace](c)
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(

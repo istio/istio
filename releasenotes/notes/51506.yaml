@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 51506
+releaseNotes:
+- |
+  **Added** Istiod's readiness check is now also available over https for use in clusters utilizing a remote control plane for sidecar injection.
