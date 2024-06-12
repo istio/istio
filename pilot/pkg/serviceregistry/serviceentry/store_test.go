@@ -258,7 +258,7 @@ func TestUpdateInstances(t *testing.T) {
 		t.Errorf("got unexpected instances : %v", gotInstances)
 	}
 
-	// 4. test update instances
+	// Verify that updates to service instances are correctly applied
 	expectedSeInstances := []*model.ServiceInstance{
 		makeInstance(selector, []string{"1.1.1.1", "2001:1::2"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 	}

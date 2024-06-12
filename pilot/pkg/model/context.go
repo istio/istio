@@ -493,14 +493,9 @@ func compareVersion(ov, nv int) int {
 var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
 
 func (node *Proxy) FirstAddressOrNil() string {
-	if node == nil {
+	if node == nil || len(node.IPAddresses) == 0 {
 		return ""
 	}
-
-	if len(node.IPAddresses) == 0 {
-		return ""
-	}
-
 	return node.IPAddresses[0]
 }
 
