@@ -76,14 +76,8 @@ global:
   hub: %s
   %s
   variant: %q
+%s
 revision: "%s"
-`
-	ambientProfileOverride = `
-global:
-  hub: %s
-  %s
-  variant: %q
-profile: ambient
 `
 	sampleEnvoyFilter = `
 apiVersion: networking.istio.io/v1alpha3
@@ -196,17 +190,21 @@ func adjustValuesForOpenShift(ctx framework.TestContext, values string) string {
 // tag. In other words, the tag will come from the chart. This is useful in the upgrade
 // tests, where we deploy an old Istio version using the chart, and we want to use
 // the tag that comes with the chart.
-func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision string, isAmbient bool) string {
+func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision, profile string) string {
 	workDir := ctx.CreateTmpDirectoryOrFail("helm")
 
 	// Only use a tag value if not empty. Not having a tag in values means: Use the tag directly from the chart
 	if tag != "" {
 		tag = "tag: " + tag
 	}
-	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, revision)
-	if isAmbient {
-		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag, variant)
+
+	// Only use a profile value ("ambient", "stable", etc) if not empty.
+	if profile != "" {
+		profile = "profile: " + profile
 	}
+
+	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, profile, revision)
+
 	overrideValues = adjustValuesForOpenShift(ctx, overrideValues)
 
 	fmt.Printf("Helm Values Overrides: %s", overrideValues)
@@ -254,7 +252,7 @@ type NamespaceConfig interface {
 // InstallIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
 func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, overrideValuesFile,
-	version string, installGateway bool, ambientProfile bool, nsConfig NamespaceConfig,
+	version string, installGateway bool, profile string, nsConfig NamespaceConfig,
 ) {
 	for _, ns := range nsConfig.AllNamespaces() {
 		CreateNamespace(t, cs, ns)
@@ -279,9 +277,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		// So, this is a workaround until we move to 1.21 where we can use --set profile=ambient for the install/upgrade.
 		// TODO: Remove this once the previous release version for the test becomes 1.21
 		// refer: https://github.com/istio/istio/issues/49242
-		if ambientProfile {
-			gatewayOverrideValuesFile = GetValuesOverrides(t, t.Settings().Image.Hub, version, t.Settings().Image.Variant, "", false)
-		}
+		gatewayOverrideValuesFile = GetValuesOverrides(t, t.Settings().Image.Hub, version, t.Settings().Image.Variant, "", profile)
 	} else {
 		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
 		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
@@ -310,7 +306,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		}
 	}
 
-	if ambientProfile || t.Settings().OpenShift {
+	if profile == "ambient" || t.Settings().OpenShift {
 		// Install cni chart
 		err = h.InstallChart(CniReleaseName, cniChartPath, nsConfig.Get(CniReleaseName), overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
@@ -318,7 +314,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		}
 	}
 
-	if ambientProfile {
+	if profile == "ambient" {
 		// Install ztunnel chart
 		err = h.InstallChart(ZtunnelReleaseName, ztunnelChartPath, nsConfig.Get(ZtunnelReleaseName), overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
@@ -389,7 +385,7 @@ func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
 }
 
 // DeleteIstio deletes installed Istio Helm charts and resources
-func DeleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster, config NamespaceConfig, isAmbient bool) {
+func DeleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster, config NamespaceConfig, profile string) {
 	scopes.Framework.Infof("cleaning up resources")
 	if err := h.DeleteChart(IngressReleaseName, config.Get(IngressReleaseName)); err != nil {
 		t.Errorf("failed to delete %s release: %v", IngressReleaseName, err)
@@ -397,12 +393,12 @@ func DeleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster, config
 	if err := h.DeleteChart(IstiodReleaseName, config.Get(IstiodReleaseName)); err != nil {
 		t.Errorf("failed to delete %s release: %v", IstiodReleaseName, err)
 	}
-	if isAmbient {
+	if profile == "ambient" {
 		if err := h.DeleteChart(ZtunnelReleaseName, config.Get(ZtunnelReleaseName)); err != nil {
 			t.Errorf("failed to delete %s release: %v", ZtunnelReleaseName, err)
 		}
 	}
-	if isAmbient || t.Settings().OpenShift {
+	if profile == "ambient" || t.Settings().OpenShift {
 		if err := h.DeleteChart(CniReleaseName, config.Get(CniReleaseName)); err != nil {
 			t.Errorf("failed to delete %s release: %v", CniReleaseName, err)
 		}

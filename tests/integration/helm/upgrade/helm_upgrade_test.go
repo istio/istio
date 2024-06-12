@@ -67,7 +67,7 @@ func initVersions(ctx resource.Context) error {
 func TestDefaultInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performInPlaceUpgradeFunc(previousSupportedVersion, false))
+		Run(performInPlaceUpgradeFunc(previousSupportedVersion, ""))
 }
 
 // TestCanaryUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
@@ -102,5 +102,5 @@ func TestStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
 func TestAmbientInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performInPlaceUpgradeFunc(previousSupportedVersion, true))
+		Run(performInPlaceUpgradeFunc(previousSupportedVersion, "ambient"))
 }
