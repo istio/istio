@@ -306,7 +306,7 @@ func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 	vs := &istio.HTTPRoute{}
 	// Auto-name the route. If upstream defines an explicit name, will use it instead
 	// The position within the route is unique
-	vs.Name = obj.Namespace + "." + obj.Name + strconv.Itoa(pos) // format:%s.%s.%d
+	vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format:%s.%s.%d
 
 	for _, match := range r.Matches {
 		uri, err := createGRPCURIMatch(match)

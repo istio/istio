@@ -109,7 +109,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	if !features.EnableRDSCaching {
 		return routeConfigurations, model.DefaultXdsLogDetails
 	}
-	return routeConfigurations, model.XdsLogDetails{AdditionalInfo: "cached:" + strconv.Itoa(hit) + "/" + strconv.Itoa((hit + miss))}
+	return routeConfigurations, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", hit, hit+miss)}
 }
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
