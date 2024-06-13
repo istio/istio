@@ -26,6 +26,7 @@ import (
 	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
@@ -303,22 +304,18 @@ func TestPodWorkloads(t *testing.T) {
 			inputs: []any{
 				model.WorkloadAuthorization{
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-					RootNamespace: false,
 					Authorization: &security.Authorization{Name: "wrong-ns", Namespace: "not-ns"},
 				},
 				model.WorkloadAuthorization{
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-					RootNamespace: false,
 					Authorization: &security.Authorization{Name: "local-ns", Namespace: "ns"},
 				},
 				model.WorkloadAuthorization{
 					LabelSelector: model.NewSelector(map[string]string{"app": "not-foo"}),
-					RootNamespace: false,
 					Authorization: &security.Authorization{Name: "local-ns-wrong-labels", Namespace: "ns"},
 				},
 				model.WorkloadAuthorization{
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-					RootNamespace: true,
 					Authorization: &security.Authorization{Name: "root-ns", Namespace: "istio-system"},
 				},
 			},
@@ -749,7 +746,7 @@ var podReady = []v1.PodCondition{
 func GetMeshConfig(mc *krttest.MockCollection) krt.StaticSingleton[MeshConfig] {
 	attempt := krttest.GetMockSingleton[MeshConfig](mc)
 	if attempt.Get() == nil {
-		return krt.NewStatic(&MeshConfig{})
+		return krt.NewStatic(&MeshConfig{mesh.DefaultMeshConfig()})
 	}
 	return attempt
 }

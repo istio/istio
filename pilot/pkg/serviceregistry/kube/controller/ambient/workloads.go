@@ -231,7 +231,7 @@ func (a *index) buildWorkloadPolicies(
 	// In general we just take all of the policies
 	basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(workloadLabels), krt.FilterGeneric(func(a any) bool {
 		wa := a.(model.WorkloadAuthorization)
-		nsMatch := wa.RootNamespace || wa.Authorization.Namespace == workloadNamespace
+		nsMatch := wa.Authorization.Namespace == meshCfg.RootNamespace || wa.Authorization.Namespace == workloadNamespace
 		return nsMatch && wa.GetLabelSelector() != nil
 	}))
 	policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {

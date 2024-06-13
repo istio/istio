@@ -44,7 +44,6 @@ func PolicyCollections(
 		}
 		return &model.WorkloadAuthorization{
 			Authorization: pol,
-			RootNamespace: meshCfg.GetRootNamespace() == i.Namespace,
 			LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels()),
 		}
 	}, krt.WithName("AuthzDerivedPolicies"))
