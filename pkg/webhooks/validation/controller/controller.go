@@ -271,7 +271,9 @@ func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmiss
 	}
 	updated := current.DeepCopy()
 	for i := range updated.Webhooks {
-		updated.Webhooks[i].ClientConfig.CABundle = caBundle
+		if caChangeNeeded {
+			updated.Webhooks[i].ClientConfig.CABundle = caBundle
+		}
 		if updateFailurePolicy {
 			updated.Webhooks[i].FailurePolicy = ptr.Of(kubeApiAdmission.Fail)
 		}
