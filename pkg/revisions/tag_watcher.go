@@ -104,11 +104,11 @@ func (p *tagWatcher) notifyHandlers() {
 }
 
 func isTagWebhook(uobj any) bool {
-	obj, ok := uobj.(controllers.Object)
-	if !ok {
+	obj := controllers.ExtractObject(uobj)
+	if obj == nil {
 		return false
 	}
-	_, ok = obj.GetLabels()[IstioTagLabel]
+	_, ok := obj.GetLabels()[IstioTagLabel]
 	return ok
 }
 
