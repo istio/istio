@@ -190,7 +190,7 @@ func adjustValuesForOpenShift(ctx framework.TestContext, values string) string {
 // tag. In other words, the tag will come from the chart. This is useful in the upgrade
 // tests, where we deploy an old Istio version using the chart, and we want to use
 // the tag that comes with the chart.
-func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision, profile string) string {
+func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision, profile, extraValues string) string {
 	workDir := ctx.CreateTmpDirectoryOrFail("helm")
 
 	// Only use a tag value if not empty. Not having a tag in values means: Use the tag directly from the chart
@@ -203,6 +203,10 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision, 
 		profile = "profile: " + profile
 	}
 
+	// if tests want random other values appended, chuck those in
+	if extraValues != "" {
+		profile += fmt.Sprintf("\n%s\n", extraValues)
+	}
 	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, profile, revision)
 
 	overrideValues = adjustValuesForOpenShift(ctx, overrideValues)
@@ -277,7 +281,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		// So, this is a workaround until we move to 1.21 where we can use --set profile=ambient for the install/upgrade.
 		// TODO: Remove this once the previous release version for the test becomes 1.21
 		// refer: https://github.com/istio/istio/issues/49242
-		gatewayOverrideValuesFile = GetValuesOverrides(t, t.Settings().Image.Hub, version, t.Settings().Image.Variant, "", profile)
+		gatewayOverrideValuesFile = GetValuesOverrides(t, t.Settings().Image.Hub, version, t.Settings().Image.Variant, "", profile, "")
 	} else {
 		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
 		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
