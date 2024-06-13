@@ -15,7 +15,6 @@
 package model
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -561,7 +560,7 @@ func sanitizeServerHostNamespace(server *networking.Server, namespace string) {
 		if strings.Contains(h, "/") {
 			parts := strings.Split(h, "/")
 			if parts[0] == "." {
-				server.Hosts[i] = fmt.Sprintf("%s/%s", namespace, parts[1])
+				server.Hosts[i] = namespace + "/" + parts[1] // format: %s/%s
 			} else if parts[0] == "*" {
 				if parts[1] == "*" {
 					server.Hosts = []string{"*"}
