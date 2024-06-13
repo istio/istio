@@ -41,22 +41,31 @@ type CaExternalType string
 // IstioRAOptions : Configuration Options for the IstioRA
 type IstioRAOptions struct {
 	// ExternalCAType: Integration API type with external CA
+	// Only ISTIOD_RA_KUBERNETES_API is supported
+	// deprecated - when we add a different kind we can add the right setting.
 	ExternalCAType CaExternalType
+
 	// DefaultCertTTL: Default Certificate TTL
 	DefaultCertTTL time.Duration
+
 	// MaxCertTTL: Maximum Certificate TTL that can be requested
 	MaxCertTTL time.Duration
+
 	// CaCertFile : File containing PEM encoded CA root certificate of external CA
+	// Mounted from ./etc/external-ca-cert/root-cert.pem (external-ca-cert volume)
+	// or /var/run/secrets/kubernetes.io/serviceaccount/ca.crt for legacy signer
 	CaCertFile string
+
 	// CaSigner : To indicate custom CA Signer name when using external K8s CA
 	CaSigner string
+
 	// VerifyAppendCA : Whether to use caCertFile containing CA root cert to verify and append to signed cert-chain
 	VerifyAppendCA bool
 	// K8sClient : K8s API client
 	K8sClient clientset.Interface
 	// TrustDomain
 	TrustDomain string
-	// CertSignerDomain info
+	// CertSignerDomain is based on CERT_SIGNER_DOMAIN env variable
 	CertSignerDomain string
 }
 

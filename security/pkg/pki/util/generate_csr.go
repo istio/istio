@@ -111,7 +111,9 @@ func GenCSRTemplate(options CertOptions) (*x509.CertificateRequest, error) {
 	return template, nil
 }
 
-// AppendRootCerts appends root certificates in RootCertFile to the input certificate.
+// AppendRootCerts adds the root certificates loaded from the rootCertFile (containing locally mounted
+// roots - typically etc/cacerts/root-cert.pem) to the certs loaded from a secret.
+// Both sources may contain multiple root certificates.
 func AppendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 	rootCerts := pemCert
 	if len(rootCertFile) > 0 {

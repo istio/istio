@@ -48,9 +48,11 @@ type caOptions struct {
 	ExternalCAType   ra.CaExternalType
 	ExternalCASigner string
 	// domain to use in SPIFFE identity URLs
-	TrustDomain      string
-	Namespace        string
-	Authenticators   []security.Authenticator
+	TrustDomain    string
+	Namespace      string
+	Authenticators []security.Authenticator
+	// CertSignerDomain is based on CERT_SIGNER_DOMAIN, combined with the user-supplied name
+        // to form the K8S signer for RA.
 	CertSignerDomain string
 }
 
@@ -128,6 +130,7 @@ var (
 		"Specify the RSA key size to use for self-signed Istio CA certificates.")
 
 	// TODO: Likely to be removed and added to mesh config
+	// deprecated - it is only used to enable k8s signing - use presence of K8S_SIGNER instead.
 	externalCaType = env.Register("EXTERNAL_CA", "",
 		"External CA Integration Type. Permitted value is ISTIOD_RA_KUBERNETES_API.").Get()
 
@@ -227,14 +230,14 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 	tlsSigningFile := path.Join(LocalCertDir.Get(), ca.TLSSecretCACertFile)
 
 	// looking for tls file format (tls.crt)
+	// If tls.crt is used - the cert may include intermediaries, but not the root cert(s)
+	//
 	if _, err := os.Stat(tlsSigningFile); err == nil {
-		log.Info("Using kubernetes.io/tls secret type for signing ca files")
+		log.Infof("Using kubernetes.io/tls secret type for signing ca files %s", LocalCertDir.Get())
 		return ca.SigningCAFileBundle{
-			RootCertFile: path.Join(LocalCertDir.Get(), ca.TLSSecretRootCertFile),
-			CertChainFiles: []string{
-				tlsSigningFile,
-				path.Join(LocalCertDir.Get(), ca.TLSSecretRootCertFile),
-			},
+			RootCertFile:   path.Join(LocalCertDir.Get(), ca.TLSSecretRootCertFile),
+			CertChainFiles: nil,
+			// tls.crt is concatenanted, multiple certs.
 			SigningCertFile: tlsSigningFile,
 			SigningKeyFile:  path.Join(LocalCertDir.Get(), ca.TLSSecretCAPrivateKeyFile),
 		}, nil
@@ -242,8 +245,7 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 		return ca.SigningCAFileBundle{}, err
 	}
 
-	log.Info("Using istiod file format for signing ca files")
-	// default ca file format
+	// default ca file format - SigningCertFile holds the leaf CertChain the chain.
 	return ca.SigningCAFileBundle{
 		RootCertFile:    path.Join(LocalCertDir.Get(), ca.RootCertFile),
 		CertChainFiles:  []string{path.Join(LocalCertDir.Get(), ca.CertChainFile)},
@@ -295,7 +297,7 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 // handleEvent handles the events on cacerts related files.
 // If create/write(modified) event occurs, then it verifies that
 // newly introduced cacerts are intermediate CA which is generated
-// from cuurent root-cert.pem. Then it updates and keycertbundle
+// from curent root-cert.pem. Then it updates and keycertbundle
 // and generates new dns certs.
 func handleEvent(s *Server) {
 	log.Info("Update Istiod cacerts")
@@ -429,18 +431,28 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	var istioGenerated bool
 	var err error
 
+	// For mounted certificates (if any) determine the set of files.
+	// If not found - we'll load from K8S Secret.
 	fileBundle, err := detectSigningCABundle()
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine signing file format %v", err)
 	}
+	// the fileBundle will have file paths - but they may not exist.
+	// TODO: if no file is mounted we may fallback to loading from secrets.
+
 	if _, err := os.Stat(fileBundle.SigningKeyFile); err == nil {
 		detectedSigningCABundle = true
 		if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
 			istioGenerated = true
 		}
 	}
+	// TODO: if the cert chain length > 1 - we can't refresh so we can use the other
+	// code path, and ignore detectedSigningCABundle file (which really triggers issuing
+	// refresh certs)
 
 	if !detectedSigningCABundle || (features.UseCacertsForSelfSignedCA && istioGenerated) {
+		// No mounted certs or mounted, but istio-generated.
+		// To simplify - don't mount, use Secret code path in all cases.
 		if features.UseCacertsForSelfSignedCA && istioGenerated {
 			log.Infof("IstioGenerated %s secret found, use it as the CA certificate", ca.CACertsSecret)
 
@@ -449,18 +461,20 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			// same way it handles the "istio-ca-secret" secret. Isitod utilizes a secret watch instead
 			// of file watch to check for secret updates. This may change in the future, and istiod
 			// will watch the file mount instead.
+
+			// TODO(costin): we can use the presence of intermediary certs to know if we can rotate.
 		}
 
 		// Either the secret is not mounted because it is named `istio-ca-secret`,
 		// or it is `cacerts` secret mounted with "istio-generated" key set.
-		caOpts, err = s.createSelfSignedCACertificateOptions(&fileBundle, opts)
+		caOpts, err = s.loadCAFromSecrets(&fileBundle, opts)
 		if err != nil {
 			return nil, err
 		}
 		caOpts.OnRootCertUpdate = s.updateRootCertAndGenKeyCert
 	} else {
 		// The secret is mounted and the "istio-generated" key is not used.
-		log.Info("Use local CA certificate")
+		log.Info("Use local CA certificate from /etc/cacert, not auto-generated by Istiod")
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(fileBundle, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), caRSAKeySize.Get())
 		if err != nil {
@@ -479,11 +493,13 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	return istioCA, nil
 }
 
-func (s *Server) createSelfSignedCACertificateOptions(fileBundle *ca.SigningCAFileBundle, opts *caOptions) (*ca.IstioCAOptions, error) {
+// loadCAFromSecrets will initialize the Istio CA using istio-ca-secrets or cacerts.
+// This is only called if mounted files
+func (s *Server) loadCAFromSecrets(fileBundle *ca.SigningCAFileBundle, opts *caOptions) (*ca.IstioCAOptions, error) {
 	var caOpts *ca.IstioCAOptions
 	var err error
 	if s.kubeClient != nil {
-		log.Info("Use self-signed certificate as the CA certificate")
+		log.Info("Use cluster secret  as the CA certificate")
 
 		// Abort after 20 minutes.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*20)
@@ -515,16 +531,35 @@ func (s *Server) createSelfSignedCACertificateOptions(fileBundle *ca.SigningCAFi
 // createIstioRA initializes the Istio RA signing functionality.
 // the caOptions defines the external provider
 // ca cert can come from three sources, order matters:
-// 1. Define ca cert via kubernetes secret and mount the secret through `external-ca-cert` volume
+// 1. Define ca cert via kubernetes secret and mount the secret through `external-ca-cert` volume mounted as ./etc/external-ca-cert/root-cert.pem
 // 2. Use kubernetes ca cert `/var/run/secrets/kubernetes.io/serviceaccount/ca.crt` if signer is
 //
 //	kubernetes built-in `kubernetes.io/legacy-unknown" signer
 //
 // 3. Extract from the cert-chain signed by other CSR signer.
 func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error) {
+	if s.kubeClient == nil {
+		return nil, fmt.Errorf("kubeClient is nil")
+	}
+	raOpts := &ra.IstioRAOptions{
+		DefaultCertTTL:   workloadCertTTL.Get(),
+		MaxCertTTL:       maxWorkloadCertTTL.Get(),
+		CaSigner:         opts.ExternalCASigner,
+		VerifyAppendCA:   true,
+		K8sClient:        s.kubeClient.Kube(),
+		TrustDomain:      opts.TrustDomain,
+		CertSignerDomain: opts.CertSignerDomain,
+	}
+	// TODO(costin): This works by accident in K8S - since the default signer file is present (usually).
+	// Breaks on a VM or dev env.
+	raServer, err := ra.NewKubernetesRA(raOpts)
+	if err != nil {
+		return nil, err
+	}
+
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
 	certSignerDomain := opts.CertSignerDomain
-	_, err := os.Stat(caCertFile)
+	_, err = os.Stat(caCertFile)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to get file info: %v", err)
@@ -533,31 +568,21 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 		// File does not exist.
 		if certSignerDomain == "" {
 			log.Infof("CA cert file %q not found, using %q.", caCertFile, defaultCACertPath)
+			// TODO: only if legacy-unknown is used !
 			caCertFile = defaultCACertPath
+			raOpts.CaCertFile = caCertFile
+			raServer.SetCACertificatesFromFile(caCertFile)
 		} else {
 			log.Infof("CA cert file %q not found - ignoring.", caCertFile)
 			caCertFile = ""
 		}
+	} else {
+		raOpts.CaCertFile = caCertFile
+		raServer.SetCACertificatesFromFile(caCertFile)
 	}
 
-	if s.kubeClient == nil {
-		return nil, fmt.Errorf("kubeClient is nil")
-	}
-	raOpts := &ra.IstioRAOptions{
-		ExternalCAType:   opts.ExternalCAType,
-		DefaultCertTTL:   workloadCertTTL.Get(),
-		MaxCertTTL:       maxWorkloadCertTTL.Get(),
-		CaSigner:         opts.ExternalCASigner,
-		CaCertFile:       caCertFile,
-		VerifyAppendCA:   true,
-		K8sClient:        s.kubeClient.Kube(),
-		TrustDomain:      opts.TrustDomain,
-		CertSignerDomain: opts.CertSignerDomain,
-	}
-	raServer, err := ra.NewIstioRA(raOpts)
-	if err != nil {
-		return nil, err
-	}
+	// Will populate the CA certs for each signer - the API allows multiple signers.
+	// This is in addition to the mounted file
 	raServer.SetCACertificatesFromMeshConfig(s.environment.Mesh().CaCertificates)
 	s.environment.AddMeshHandler(func() {
 		meshConfig := s.environment.Mesh()

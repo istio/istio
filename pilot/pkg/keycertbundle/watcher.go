@@ -21,8 +21,10 @@ import (
 
 // KeyCertBundle stores the cert, private key and root cert for istiod.
 type KeyCertBundle struct {
-	CertPem  []byte
-	KeyPem   []byte
+	CertPem []byte
+	KeyPem  []byte
+	// CABundle is distributed to all namespaces by namespace controller (if enable), even if 
+        // KeyPem and CertPem are not set.
 	CABundle []byte
 }
 
@@ -63,6 +65,11 @@ func (w *Watcher) RemoveWatcher(id int32) {
 }
 
 // SetAndNotify sets the key cert and root cert and notify the watchers.
+// This is used either from /var/run/secrets/istiod files or by the certcontroller.
+//
+// key and cert may be nil - which may happen if no root CA is configured and no mounted certificates are found.
+// In this case, Istiod should disable the TLS port - and use a gateway or waypoint as frontend.
+// The caBundle will still be replicated to namespaces.
 func (w *Watcher) SetAndNotify(key, cert, caBundle []byte) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
@@ -84,6 +91,9 @@ func (w *Watcher) SetAndNotify(key, cert, caBundle []byte) {
 }
 
 // SetFromFilesAndNotify sets the key cert and root cert from files and notify the watchers.
+// This is a wrapper around SetAndNotify that reads the 3 files - not to confuse with the
+// /etc/cacerts, this is used for Istiod having its own certs and roots set
+// in /var/run/secrets/istiod/tls/ca.crt root /var/run/secrets/istiod/ca/root-cert.pem
 func (w *Watcher) SetFromFilesAndNotify(keyFile, certFile, rootCert string) error {
 	cert, err := os.ReadFile(certFile)
 	if err != nil {

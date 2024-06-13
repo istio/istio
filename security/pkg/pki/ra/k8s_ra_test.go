@@ -208,7 +208,6 @@ func createFakeK8sRA(client kube.Client, caCertFile string) (*KubernetesRA, erro
 	maxCertTTL := time.Hour
 	caSigner := "kubernates.io/kube-apiserver-client"
 	raOpts := &IstioRAOptions{
-		ExternalCAType: ExtCAK8s,
 		DefaultCertTTL: defaultCertTTL,
 		MaxCertTTL:     maxCertTTL,
 		CaSigner:       caSigner,

@@ -38,8 +38,13 @@ var serverCaLog = log.RegisterScope("serverca", "Citadel server log")
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and cert opts.
+	// Returns the leaf certificate only.
 	Sign(csrPEM []byte, opts ca.CertOpts) ([]byte, error)
 	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
+	// IstioCA returns an array of 1 string, with the full chain (tls.crt format)
+	// KubernetesRA can return a similar array of 1 string, or add a second element with the
+	//  extracted root CA, as the last element in the signing chain if no roots
+	//  are explicitly configured.
 	SignWithCertChain(csrPEM []byte, opts ca.CertOpts) ([]string, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
 	GetCAKeyCertBundle() *util.KeyCertBundle
@@ -88,6 +93,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	crMetadata := request.Metadata.GetFields()
 	impersonatedIdentity := crMetadata[security.ImpersonatedIdentity].GetStringValue()
 	if impersonatedIdentity != "" {
+		// This is used by ztunnel to create a cert for a pod on same node.
 		serverCaLog.Debugf("impersonated identity: %s", impersonatedIdentity)
 		// If there is an impersonated identity, we will override to use that identity (only single value
 		// supported), if the real caller is authorized.
@@ -105,10 +111,17 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 		}
 		// Node is authorized to impersonate; overwrite the SAN to the impersonated identity.
+		// TODO(costin) extract it from the CSR - and verify it. For IstioCA - we ignore the SANs in the CSR, and K8S RA
+		// is using them - but checks the SANs.
+		// RA will not accept a different CSR, we don't have the key - so original SAN needs to be proper and is passed to the
+		// real CA.
 		sans = []string{impersonatedIdentity}
 	}
 	serverCaLog.Debugf("generating a certificate, sans: %v, requested ttl: %s", sans, time.Duration(request.ValidityDuration*int64(time.Second)))
 	certSigner := crMetadata[security.CertSigner].GetStringValue()
+
+	// rootCertBytes may be a list of PEM certificates.
+	// certChainBytes may be empty if it is the self-signed cert without intermediates.
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
 		SubjectIDs: sans,
@@ -120,8 +133,13 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	var cert []byte
 	var respCertChain []string
 	if certSigner == "" {
+		// Returns a single block, with the leaf certificate.
 		cert, signErr = s.ca.Sign([]byte(request.Csr), certOpts)
 	} else {
+		// TODO(costin): this concatenates all PEMs in one response, doesn't seem to match the contract
+		// of the API ( an array of certs ) or what ztunnel is using. Not clear when this option is used.
+		// Seems to only be used with KubernetesRA (which returns concatenated chain) and if node meta is
+		// set - will not be the case with ztunnel.
 		serverCaLog.Debugf("signing CSR with cert chain")
 		respCertChain, signErr = s.ca.SignWithCertChain([]byte(request.Csr), certOpts)
 	}
@@ -145,6 +163,9 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	}
 	s.monitoring.Success.Increment()
 	serverCaLog.Debugf("CSR successfully signed, sans %v.", caller.Identities)
+	// For audit - issuing a cert is an important operation.
+	serverCaLog.WithLabels("identities", caller.Identities, "authSource", caller.AuthSource, "k8sInfo", caller.KubernetesInfo,
+		"sans", sans).Info("CertificateIssued")
 	return response, nil
 }
 
