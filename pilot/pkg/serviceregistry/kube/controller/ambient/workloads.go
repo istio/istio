@@ -89,18 +89,7 @@ func (a *index) WorkloadsCollection(
 
 		for _, p := range se.Spec.Endpoints {
 			meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
-			// We need to filter from the policies that are present, which apply to us.
-			// We only want label selector ones; global ones are not attached to the final WorkloadInfo
-			// In general we just take all of the policies
-			basePolicies := krt.Fetch(ctx, AllPolicies, krt.FilterSelects(se.Labels), krt.FilterGeneric(func(a any) bool {
-				return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
-			}))
-			policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {
-				return t.ResourceName()
-			}))
-			// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
-			auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, se.Namespace, p.Labels)
-			policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+			policies := a.buildWorkloadPolicies(ctx, AuthorizationPolicies, PeerAuths, meshCfg, se.Labels, se.Namespace)
 			var waypoint *Waypoint
 			if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 				// Waypoints do not have waypoints, but anything else does
@@ -165,18 +154,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 ) func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
 	return func(ctx krt.HandlerContext, p *networkingclient.WorkloadEntry) *model.WorkloadInfo {
 		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
-		// We need to filter from the policies that are present, which apply to us.
-		// We only want label selector ones; global ones are not attached to the final WorkloadInfo
-		// In general we just take all of the policies
-		basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(p.Labels), krt.FilterGeneric(func(a any) bool {
-			return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
-		}))
-		policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {
-			return t.ResourceName()
-		}))
-		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
-		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
-		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+		policies := a.buildWorkloadPolicies(ctx, AuthorizationPolicies, PeerAuths, meshCfg, p.Labels, p.Namespace)
 		var waypoint *Waypoint
 		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			waypoint = fetchWaypointForWorkload(ctx, Waypoints, Namespaces, p.ObjectMeta)
@@ -253,18 +231,7 @@ func (a *index) podWorkloadBuilder(
 			return nil
 		}
 		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
-		// We need to filter from the policies that are present, which apply to us.
-		// We only want label selector ones; global ones are not attached to the final WorkloadInfo
-		// In general we just take all of the policies
-		basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(p.Labels), krt.FilterGeneric(func(a any) bool {
-			return a.(model.WorkloadAuthorization).GetLabelSelector() != nil
-		}))
-		policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {
-			return t.ResourceName()
-		}))
-		// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
-		auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, p.Namespace, p.Labels)
-		policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+		policies := a.buildWorkloadPolicies(ctx, AuthorizationPolicies, PeerAuths, meshCfg, p.Labels, p.Namespace)
 		fo := []krt.FetchOption{krt.FilterIndex(WorkloadServicesNamespaceIndex, p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableServiceEntrySelectPods {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
@@ -319,6 +286,31 @@ func (a *index) podWorkloadBuilder(
 		setTunnelProtocol(p.Labels, p.Annotations, w)
 		return &model.WorkloadInfo{Workload: w, Labels: p.Labels, Source: kind.Pod, CreationTime: p.CreationTimestamp.Time}
 	}
+}
+
+func (a *index) buildWorkloadPolicies(
+	ctx krt.HandlerContext,
+	AuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
+	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
+	meshCfg *MeshConfig,
+	workloadLabels map[string]string,
+	workloadNamespace string,
+) []string {
+	// We need to filter from the policies that are present, which apply to us.
+	// We only want label selector ones; global ones are not attached to the final WorkloadInfo
+	// In general we just take all of the policies
+	basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(workloadLabels), krt.FilterGeneric(func(a any) bool {
+		wa := a.(model.WorkloadAuthorization)
+		nsMatch := wa.Authorization.Namespace == meshCfg.RootNamespace || wa.Authorization.Namespace == workloadNamespace
+		return nsMatch && wa.GetLabelSelector() != nil
+	}))
+	policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {
+		return t.ResourceName()
+	}))
+	// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
+	auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, workloadNamespace, workloadLabels)
+	policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
+	return policies
 }
 
 func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Workload) {

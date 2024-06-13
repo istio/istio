@@ -28,12 +28,14 @@ import (
 	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 func TestPodWorkloads(t *testing.T) {
@@ -298,6 +300,60 @@ func TestPodWorkloads(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "pod with authz",
+			inputs: []any{
+				model.WorkloadAuthorization{
+					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+					Authorization: &security.Authorization{Name: "wrong-ns", Namespace: "not-ns"},
+				},
+				model.WorkloadAuthorization{
+					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+					Authorization: &security.Authorization{Name: "local-ns", Namespace: "ns"},
+				},
+				model.WorkloadAuthorization{
+					LabelSelector: model.NewSelector(map[string]string{"app": "not-foo"}),
+					Authorization: &security.Authorization{Name: "local-ns-wrong-labels", Namespace: "ns"},
+				},
+				model.WorkloadAuthorization{
+					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+					Authorization: &security.Authorization{Name: "root-ns", Namespace: "istio-system"},
+				},
+			},
+			pod: &v1.Pod{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						"app": "foo",
+					},
+				},
+				Spec: v1.PodSpec{},
+				Status: v1.PodStatus{
+					Phase:      v1.PodRunning,
+					Conditions: podReady,
+					PodIP:      "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/ns/name",
+				Name:              "name",
+				Namespace:         "ns",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "foo",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "name",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
+				AuthorizationPolicies: []string{
+					"istio-system/root-ns",
+					"ns/local-ns",
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -307,7 +363,11 @@ func TestPodWorkloads(t *testing.T) {
 			PeerAuths := krt.NewStaticCollection(extractType[*securityclient.PeerAuthentication](&inputs))
 			Waypoints := krt.NewStaticCollection(extractType[Waypoint](&inputs))
 			WorkloadServices := krt.NewStaticCollection(extractType[model.ServiceInfo](&inputs))
-			MeshConfig := krt.NewStatic(&MeshConfig{slices.First(extractType[meshapi.MeshConfig](&inputs))})
+			m := slices.First(extractType[meshapi.MeshConfig](&inputs))
+			if m == nil {
+				m = mesh.DefaultMeshConfig()
+			}
+			MeshConfig := krt.NewStatic(&MeshConfig{m})
 			Namespaces := krt.NewStaticCollection(extractType[*v1.Namespace](&inputs))
 			Nodes := krt.NewStaticCollection(extractType[*v1.Node](&inputs))
 			assert.Equal(t, len(inputs), 0, fmt.Sprintf("some inputs were not consumed: %v", inputs))
