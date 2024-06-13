@@ -68,7 +68,7 @@ func (m *MulticlusterNodeAuthorizor) authenticateImpersonation(ctx context.Conte
 type ClusterNodeAuthorizer struct {
 	trustedNodeAccounts sets.Set[types.NamespacedName]
 	pods                kclient.Client[*v1.Pod]
-	nodeIndex           *kclient.Index[SaNode, *v1.Pod]
+	nodeIndex           kclient.Index[SaNode, *v1.Pod]
 }
 
 func NewClusterNodeAuthorizer(client kube.Client, trustedNodeAccounts sets.Set[types.NamespacedName]) *ClusterNodeAuthorizer {
