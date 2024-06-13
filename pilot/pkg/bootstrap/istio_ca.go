@@ -48,9 +48,10 @@ type caOptions struct {
 	ExternalCAType   ra.CaExternalType
 	ExternalCASigner string
 	// domain to use in SPIFFE identity URLs
-	TrustDomain      string
-	Namespace        string
-	Authenticators   []security.Authenticator
+	TrustDomain    string
+	Namespace      string
+	Authenticators []security.Authenticator
+	// CertSignerDomain is based on CERT_SIGNER_DOMAIN
 	CertSignerDomain string
 }
 
@@ -128,6 +129,7 @@ var (
 		"Specify the RSA key size to use for self-signed Istio CA certificates.")
 
 	// TODO: Likely to be removed and added to mesh config
+	// deprecated - it is only used to enable k8s signing - use K8S_SIGNER instead.
 	externalCaType = env.Register("EXTERNAL_CA", "",
 		"External CA Integration Type. Permitted value is ISTIOD_RA_KUBERNETES_API.").Get()
 
@@ -216,6 +218,7 @@ func detectAuthEnv(jwt string) (*authenticate.JwtPayload, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal jwt: %v", err.Error())
 	}
+	log.Infof("XXX JWT payload: %v", string(payloadBytes))
 
 	return structuredPayload, nil
 }
@@ -526,16 +529,35 @@ func (s *Server) loadCAFromSecrets(fileBundle *ca.SigningCAFileBundle, opts *caO
 // createIstioRA initializes the Istio RA signing functionality.
 // the caOptions defines the external provider
 // ca cert can come from three sources, order matters:
-// 1. Define ca cert via kubernetes secret and mount the secret through `external-ca-cert` volume
+// 1. Define ca cert via kubernetes secret and mount the secret through `external-ca-cert` volume mounted as ./etc/external-ca-cert/root-cert.pem
 // 2. Use kubernetes ca cert `/var/run/secrets/kubernetes.io/serviceaccount/ca.crt` if signer is
 //
 //	kubernetes built-in `kubernetes.io/legacy-unknown" signer
 //
 // 3. Extract from the cert-chain signed by other CSR signer.
 func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error) {
+	if s.kubeClient == nil {
+		return nil, fmt.Errorf("kubeClient is nil")
+	}
+	raOpts := &ra.IstioRAOptions{
+		DefaultCertTTL:   workloadCertTTL.Get(),
+		MaxCertTTL:       maxWorkloadCertTTL.Get(),
+		CaSigner:         opts.ExternalCASigner,
+		VerifyAppendCA:   true,
+		K8sClient:        s.kubeClient.Kube(),
+		TrustDomain:      opts.TrustDomain,
+		CertSignerDomain: opts.CertSignerDomain,
+	}
+	// TODO(costin): This works by accident in K8S - since the default signer file is present (usually).
+	// Breaks on a VM or dev env.
+	raServer, err := ra.NewKubernetesRA(raOpts)
+	if err != nil {
+		return nil, err
+	}
+
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
 	certSignerDomain := opts.CertSignerDomain
-	_, err := os.Stat(caCertFile)
+	_, err = os.Stat(caCertFile)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to get file info: %v", err)
@@ -544,31 +566,21 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 		// File does not exist.
 		if certSignerDomain == "" {
 			log.Infof("CA cert file %q not found, using %q.", caCertFile, defaultCACertPath)
+			// TODO: only if legacy-unknown is used !
 			caCertFile = defaultCACertPath
+			raOpts.CaCertFile = caCertFile
+			raServer.SetCACertificatesFromFile(caCertFile)
 		} else {
 			log.Infof("CA cert file %q not found - ignoring.", caCertFile)
 			caCertFile = ""
 		}
+	} else {
+		raOpts.CaCertFile = caCertFile
+		raServer.SetCACertificatesFromFile(caCertFile)
 	}
 
-	if s.kubeClient == nil {
-		return nil, fmt.Errorf("kubeClient is nil")
-	}
-	raOpts := &ra.IstioRAOptions{
-		ExternalCAType:   opts.ExternalCAType,
-		DefaultCertTTL:   workloadCertTTL.Get(),
-		MaxCertTTL:       maxWorkloadCertTTL.Get(),
-		CaSigner:         opts.ExternalCASigner,
-		CaCertFile:       caCertFile,
-		VerifyAppendCA:   true,
-		K8sClient:        s.kubeClient.Kube(),
-		TrustDomain:      opts.TrustDomain,
-		CertSignerDomain: opts.CertSignerDomain,
-	}
-	raServer, err := ra.NewIstioRA(raOpts)
-	if err != nil {
-		return nil, err
-	}
+	// Will populate the CA certs for each signer - the API allows multiple signers.
+	// This is in addition to the mounted file
 	raServer.SetCACertificatesFromMeshConfig(s.environment.Mesh().CaCertificates)
 	s.environment.AddMeshHandler(func() {
 		meshConfig := s.environment.Mesh()

@@ -95,7 +95,7 @@ type CertOpts struct {
 	// If true, the signed certificate is a CA certificate, otherwise, it is a workload certificate.
 	ForCA bool
 
-	// Cert Signer info
+	// Cert Signer info. From the gRPC CertSigner metadata in case of Istio CA.
 	CertSigner string
 }
 
@@ -452,14 +452,15 @@ func (ca *IstioCA) Run(stopChan chan struct{}) {
 	}
 }
 
-// Sign takes a PEM-encoded CSR and cert opts, and returns a signed certificate.
+// Sign takes a PEM-encoded CSR and cert opts, and returns a signed leaf certificate.
 func (ca *IstioCA) Sign(csrPEM []byte, certOpts CertOpts) (
 	[]byte, error,
 ) {
 	return ca.sign(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
 }
 
-// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
+// SignWithCertChain is similar to Sign but returns the leaf concatented with the chain.
+// Roots are not returned.
 func (ca *IstioCA) SignWithCertChain(csrPEM []byte, certOpts CertOpts) (
 	[]string, error,
 ) {
@@ -477,6 +478,7 @@ func (ca *IstioCA) GetCAKeyCertBundle() *util.KeyCertBundle {
 
 // GenKeyCert generates a certificate signed by the CA,
 // returns the certificate chain and the private key.
+// Used for Istiod own certificate.
 func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration, checkLifetime bool) ([]byte, []byte, error) {
 	opts := util.CertOptions{
 		RSAKeySize: rsaKeySize,
@@ -531,6 +533,7 @@ func (ca *IstioCA) minTTL(defaultCertTTL time.Duration) (time.Duration, error) {
 	return defaultCertTTL, nil
 }
 
+// sign will check the request and return the signed leaf certificate.
 func (ca *IstioCA) sign(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, checkLifetime, forCA bool) ([]byte, error) {
 	signingCert, signingKey, _, _ := ca.keyCertBundle.GetAll()
 	if signingCert == nil {
@@ -574,6 +577,7 @@ func (ca *IstioCA) sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 func (ca *IstioCA) signWithCertChain(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, lifetimeCheck,
 	forCA bool,
 ) ([]byte, error) {
+	// cert is the leaf certificate.
 	cert, err := ca.sign(csrPEM, subjectIDs, requestedLifetime, lifetimeCheck, forCA)
 	if err != nil {
 		return nil, err

@@ -34,11 +34,22 @@ import (
 
 // KubernetesRA integrated with an external CA using Kubernetes CSR API
 type KubernetesRA struct {
-	csrInterface                 clientset.Interface
-	keyCertBundle                *util.KeyCertBundle
-	raOpts                       *IstioRAOptions
+	csrInterface clientset.Interface
+
+	// Set if the ./etc/external-ca-cert/root-cert.pem is mounted
+	keyCertBundle *util.KeyCertBundle
+
+	raOpts *IstioRAOptions
+
+	// Key is the signer name
+	// Value is Root CAs (PEM list)
 	caCertificatesFromMeshConfig map[string]string
-	certSignerDomain             string
+
+	// certSignerDomain is based on CERT_SIGNER_DOMAIN env variable
+	// it is concatenanted with CertSigner metadata from the request to get the key for
+	// the root certificates in caCertificatesFromMeshConfig
+	certSignerDomain string
+
 	// mutex protects the R/W to caCertificatesFromMeshConfig.
 	mutex sync.RWMutex
 }
@@ -47,20 +58,28 @@ var pkiRaLog = log.RegisterScope("pkira", "Istiod RA log")
 
 // NewKubernetesRA : Create a RA that interfaces with K8S CSR CA
 func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
-	keyCertBundle, err := util.NewKeyCertBundleWithRootCertFromFile(raOpts.CaCertFile)
-	if err != nil {
-		return nil, raerror.NewError(raerror.CAInitFail, fmt.Errorf("error processing Certificate Bundle for Kubernetes RA"))
-	}
 	istioRA := &KubernetesRA{
-		csrInterface:                 raOpts.K8sClient,
-		raOpts:                       raOpts,
-		keyCertBundle:                keyCertBundle,
+		csrInterface: raOpts.K8sClient,
+		raOpts:       raOpts,
+		// CertSignerDomain is based on CERT_SIGNER_DOMAIN env variable
 		certSignerDomain:             raOpts.CertSignerDomain,
 		caCertificatesFromMeshConfig: make(map[string]string),
 	}
 	return istioRA, nil
 }
 
+// kubernetesSign will use the Kubernetes CSR API to sign - the call may include a 'certSigner' from the incoming
+// gRPC metadata 'CertSigner', allowing the use of different signers for different workloads.
+// This feature requires 'certSignerDomain' to be set -  based on CERT_SIGNER_DOMAIN env variable - which is used as
+// prefix. If CERT_SIGNER_DOMAIN is empty the only cert signer is set via K8S_SIGNER, which is also the default if
+// 'CertSigner' metadata is not set.
+//
+// For example, K8S_SIGNER=issuers.cert-manager.io/sandbox.my-issuer can be used as default, and
+// CERT_SIGNER_DOMAIN=issuers.cert-manager.io will allow users to pick different issuers.
+// Istio does not check the value of the issuer.
+//
+// Istiod will do the validation and auth - and auto-approve the certificate - so in the previous example a user
+// will be able to use any issuer from any namespace. Use with caution.
 func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSigner string,
 	requestedLifetime time.Duration,
 ) ([]byte, error) {
@@ -87,6 +106,7 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSign
 }
 
 // Sign takes a PEM-encoded CSR and cert opts, and returns a certificate signed by k8s CA.
+// It returns the leaf certificate only.
 func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error) {
 	_, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
 	if err != nil {
@@ -124,7 +144,11 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 	respCertChain := []string{string(cert)}
 	var possibleRootCert, rootCertFromMeshConfig, rootCertFromCertChain []byte
 	certSigner := r.certSignerDomain + "/" + certOpts.CertSigner
+
 	if len(r.GetCAKeyCertBundle().GetRootCertPem()) == 0 {
+		// If the key bundle does not have a root - missing config - we use the last
+		// element in the returned chain as root.
+
 		rootCertFromCertChain, err = util.FindRootCertFromCertificateChainBytes(cert)
 		if err != nil {
 			pkiRaLog.Infof("failed to find root cert from signed cert-chain (%v)", err.Error())
@@ -151,9 +175,19 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 	return respCertChain, nil
 }
 
-// GetCAKeyCertBundle returns the KeyCertBundle for the CA.
+// GetCAKeyCertBundle returns the KeyCertBundle for the CA, if ./etc/external-ca-cert/root-cert.pem is mounted
 func (r *KubernetesRA) GetCAKeyCertBundle() *util.KeyCertBundle {
 	return r.keyCertBundle
+}
+
+func (r *KubernetesRA) SetCACertificatesFromFile(roots string) error {
+	keyCertBundle, err := util.NewKeyCertBundleWithRootCertFromFile(roots)
+	if err != nil {
+		return raerror.NewError(raerror.CAInitFail, fmt.Errorf("error processing Certificate Bundle for Kubernetes RA"))
+	}
+	r.keyCertBundle = keyCertBundle
+
+	return nil
 }
 
 func (r *KubernetesRA) SetCACertificatesFromMeshConfig(caCertificates []*meshconfig.MeshConfig_CertificateData) {
