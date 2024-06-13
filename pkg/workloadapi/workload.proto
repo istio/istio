@@ -306,10 +306,8 @@ message GatewayAddress {
   }
   // port to reach the gateway at for mTLS HBONE connections
   uint32 hbone_mtls_port = 3;
-  // port to reach the gateway at for single tls HBONE connections
-  // used for sending unauthenticated traffic originating outside the mesh to a waypoint-enabled destination
-  // A value of 0 = unset
-  uint32 hbone_single_tls_port = 4;
+  reserved "hbone_single_tls_port";
+  reserved 4;
 }
 
 // NetworkAddress represents an address bound to a specific network.

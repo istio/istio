@@ -928,11 +928,11 @@ spec:
 				CallMode: simulation.CallModeInbound,
 			},
 			Disabled: simulation.Result{
-				ClusterMatched:     "InboundPassthroughClusterIpv4",
+				ClusterMatched:     "InboundPassthroughCluster",
 				FilterChainMatched: "virtualInbound-catchall-http",
 			},
 			Permissive: simulation.Result{
-				ClusterMatched:     "InboundPassthroughClusterIpv4",
+				ClusterMatched:     "InboundPassthroughCluster",
 				FilterChainMatched: "virtualInbound-catchall-http",
 			},
 			Strict: simulation.Result{
@@ -949,11 +949,11 @@ spec:
 				CallMode: simulation.CallModeInbound,
 			},
 			Disabled: simulation.Result{
-				ClusterMatched:     "InboundPassthroughClusterIpv4",
+				ClusterMatched:     "InboundPassthroughCluster",
 				FilterChainMatched: "virtualInbound",
 			},
 			Permissive: simulation.Result{
-				ClusterMatched:     "InboundPassthroughClusterIpv4",
+				ClusterMatched:     "InboundPassthroughCluster",
 				FilterChainMatched: "virtualInbound",
 			},
 			Strict: simulation.Result{
@@ -971,11 +971,11 @@ spec:
 				CallMode: simulation.CallModeInbound,
 			},
 			Disabled: simulation.Result{
-				ClusterMatched:     "InboundPassthroughClusterIpv4",
+				ClusterMatched:     "InboundPassthroughCluster",
 				FilterChainMatched: "virtualInbound",
 			},
 			Permissive: simulation.Result{
-				ClusterMatched: "InboundPassthroughClusterIpv4",
+				ClusterMatched: "InboundPassthroughCluster",
 			},
 			Strict: simulation.Result{
 				// tls, but not mTLS
@@ -992,10 +992,10 @@ spec:
 				CallMode: simulation.CallModeInbound,
 			},
 			Disabled: simulation.Result{
-				ClusterMatched: "InboundPassthroughClusterIpv4",
+				ClusterMatched: "InboundPassthroughCluster",
 			},
 			Permissive: simulation.Result{
-				ClusterMatched: "InboundPassthroughClusterIpv4",
+				ClusterMatched: "InboundPassthroughCluster",
 			},
 			Strict: simulation.Result{
 				// tls, but not mTLS
@@ -1012,13 +1012,13 @@ spec:
 				CallMode: simulation.CallModeInbound,
 			},
 			Disabled: simulation.Result{
-				ClusterMatched: "InboundPassthroughClusterIpv4",
+				ClusterMatched: "InboundPassthroughCluster",
 			},
 			Permissive: simulation.Result{
-				ClusterMatched: "InboundPassthroughClusterIpv4",
+				ClusterMatched: "InboundPassthroughCluster",
 			},
 			Strict: simulation.Result{
-				ClusterMatched: "InboundPassthroughClusterIpv4",
+				ClusterMatched: "InboundPassthroughCluster",
 			},
 		},
 	}

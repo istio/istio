@@ -58,7 +58,9 @@ var (
 			"Multiple custom host names are supported, and multiple values are separated by commas.").Get()
 
 	PilotCertProvider = env.Register("PILOT_CERT_PROVIDER", constants.CertProviderIstiod,
-		"The provider of Pilot DNS certificate.").Get()
+		"The provider of Pilot DNS certificate. K8S RA will be used for k8s.io/NAME. 'istiod' value will sign"+
+			" using Istio build in CA. Other values will not not generate TLS certs, but still "+
+			" distribute ./etc/certs/root-cert.pem. Only used if custom certificates are not mounted.").Get()
 
 	ClusterName = env.Register("CLUSTER_ID", constants.DefaultClusterName,
 		"Defines the cluster and service registry that this Istiod instance belongs to").Get()

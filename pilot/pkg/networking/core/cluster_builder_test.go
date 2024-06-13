@@ -58,6 +58,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestApplyDestinationRule(t *testing.T) {
@@ -1949,24 +1950,20 @@ func TestBuildPassthroughClusters(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 
 			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
-			clusters := cb.buildInboundPassthroughClusters()
-
-			var hasIpv4, hasIpv6 bool
-			for _, c := range clusters {
-				hasIpv4 = hasIpv4 || c.Name == util.InboundPassthroughClusterIpv4
-				hasIpv6 = hasIpv6 || c.Name == util.InboundPassthroughClusterIpv6
+			passthrough := cb.buildInboundPassthroughCluster()
+			ips := sets.New[string]()
+			ips.Insert(passthrough.GetUpstreamBindConfig().GetSourceAddress().Address)
+			for _, extra := range passthrough.GetUpstreamBindConfig().GetExtraSourceAddresses() {
+				ips.Insert(extra.GetAddress().GetAddress())
 			}
-			if hasIpv4 != tt.ipv4Expected {
-				t.Errorf("Unexpected Ipv4 Passthrough Cluster, want %v got %v", tt.ipv4Expected, hasIpv4)
+			want := sets.New[string]()
+			if tt.ipv4Expected {
+				want.Insert("127.0.0.6")
 			}
-			if hasIpv6 != tt.ipv6Expected {
-				t.Errorf("Unexpected Ipv6 Passthrough Cluster, want %v got %v", tt.ipv6Expected, hasIpv6)
+			if tt.ipv6Expected {
+				want.Insert("::6")
 			}
-
-			passthrough := xdstest.ExtractCluster(util.InboundPassthroughClusterIpv4, clusters)
-			if passthrough == nil {
-				passthrough = xdstest.ExtractCluster(util.InboundPassthroughClusterIpv6, clusters)
-			}
+			assert.Equal(t, want, ips)
 			// Validate that Passthrough Cluster LB Policy is set correctly.
 			if passthrough.GetType() != cluster.Cluster_ORIGINAL_DST || passthrough.GetLbPolicy() != cluster.Cluster_CLUSTER_PROVIDED {
 				t.Errorf("Unexpected Discovery type or Lb policy, got Discovery type: %v, Lb Policy: %v", passthrough.GetType(), passthrough.GetLbPolicy())

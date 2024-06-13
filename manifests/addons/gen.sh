@@ -26,15 +26,15 @@ ADDONS="${WD}/../../samples/addons"
 DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
 TMP=$(mktemp -d)
-LOKI_VERSION=${LOKI_VERSION:-"6.0.0"}
-GRAFANA_VERSION=${GRAFANA_VERSION:-"7.3.7"}
+LOKI_VERSION=${LOKI_VERSION:-"6.6.3"}
+GRAFANA_VERSION=${GRAFANA_VERSION:-"8.0.1"}
 
 # Set up kiali
 {
 helm3 template kiali-server \
   --namespace istio-system \
-  --version 1.82.0 \
-  --set deployment.image_version=v1.82 \
+  --version 1.85.0 \
+  --set deployment.image_version=v1.85 \
   --include-crds \
   --set nameOverride=kiali \
   --set fullnameOverride=kiali \
@@ -46,7 +46,7 @@ helm3 template kiali-server \
 # Set up prometheus
 helm3 template prometheus prometheus \
   --namespace istio-system \
-  --version 25.19.1 \
+  --version 25.21.0 \
   --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"
@@ -73,7 +73,7 @@ function compressDashboard() {
     -f "${WD}/values-grafana.yaml"
 
   # Set up grafana dashboards. Split into 2 and compress to single line json to avoid Kubernetes size limits
-  compressDashboard "pilot-dashboard.json"
+  compressDashboard "pilot-dashboard.gen.json"
   compressDashboard "istio-performance-dashboard.json"
   compressDashboard "istio-workload-dashboard.json"
   compressDashboard "istio-service-dashboard.json"
@@ -83,7 +83,7 @@ function compressDashboard() {
   echo -e "\n---\n"
   kubectl create configmap -n istio-system istio-grafana-dashboards \
     --dry-run=client -oyaml \
-    --from-file=pilot-dashboard.json="${TMP}/pilot-dashboard.json" \
+    --from-file=pilot-dashboard.json="${TMP}/pilot-dashboard.gen.json" \
     --from-file=ztunnel-dashboard.json="${TMP}/ztunnel-dashboard.gen.json" \
     --from-file=istio-performance-dashboard.json="${TMP}/istio-performance-dashboard.json"
 

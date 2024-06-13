@@ -61,7 +61,11 @@ func (i *informer[I]) Synced() Syncer {
 
 // nolint: unused // (not true, its to implement an interface)
 func (i *informer[I]) dump() {
-	// TODO: implement some useful dump here
+	i.log.Errorf(">>> BEGIN DUMP")
+	for _, obj := range i.inf.List(metav1.NamespaceAll, klabels.Everything()) {
+		i.log.Errorf("%s/%s", obj.GetNamespace(), obj.GetName())
+	}
+	i.log.Errorf("<<< END DUMP")
 }
 
 func (i *informer[I]) name() string {

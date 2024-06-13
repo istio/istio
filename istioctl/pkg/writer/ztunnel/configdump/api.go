@@ -21,25 +21,26 @@ type Locality struct {
 }
 
 type ZtunnelWorkload struct {
-	WorkloadIPs       []string          `json:"workloadIps"`
-	Waypoint          *GatewayAddress   `json:"waypoint,omitempty"`
-	NetworkGateway    *GatewayAddress   `json:"networkGateway,omitempty"`
-	Protocol          string            `json:"protocol"`
-	Name              string            `json:"name"`
-	Namespace         string            `json:"namespace"`
-	ServiceAccount    string            `json:"serviceAccount"`
-	WorkloadName      string            `json:"workloadName"`
-	WorkloadType      string            `json:"workloadType"`
-	CanonicalName     string            `json:"canonicalName"`
-	CanonicalRevision string            `json:"canonicalRevision"`
-	ClusterID         string            `json:"clusterId"`
-	TrustDomain       string            `json:"trustDomain,omitempty"`
-	Locality          Locality          `json:"locality,omitempty"`
-	Node              string            `json:"node"`
-	Network           string            `json:"network,omitempty"`
-	Status            string            `json:"status"`
-	Hostname          string            `json:"hostname"`
-	ApplicationTunnel ApplicationTunnel `json:"applicationTunnel,omitempty"`
+	WorkloadIPs           []string          `json:"workloadIps"`
+	Waypoint              *GatewayAddress   `json:"waypoint,omitempty"`
+	NetworkGateway        *GatewayAddress   `json:"networkGateway,omitempty"`
+	Protocol              string            `json:"protocol"`
+	Name                  string            `json:"name"`
+	Namespace             string            `json:"namespace"`
+	ServiceAccount        string            `json:"serviceAccount"`
+	WorkloadName          string            `json:"workloadName"`
+	WorkloadType          string            `json:"workloadType"`
+	CanonicalName         string            `json:"canonicalName"`
+	CanonicalRevision     string            `json:"canonicalRevision"`
+	ClusterID             string            `json:"clusterId"`
+	TrustDomain           string            `json:"trustDomain,omitempty"`
+	Locality              Locality          `json:"locality,omitempty"`
+	Node                  string            `json:"node"`
+	Network               string            `json:"network,omitempty"`
+	Status                string            `json:"status"`
+	Hostname              string            `json:"hostname"`
+	ApplicationTunnel     ApplicationTunnel `json:"applicationTunnel,omitempty"`
+	AuthorizationPolicies []string          `json:"authorizationPolicies,omitempty"`
 }
 
 type ApplicationTunnel struct {

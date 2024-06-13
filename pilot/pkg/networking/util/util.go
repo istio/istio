@@ -69,8 +69,7 @@ const (
 	PassthroughFilterChain = "PassthroughFilterChain"
 
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
-	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
-	InboundPassthroughClusterIpv6 = "InboundPassthroughClusterIpv6"
+	InboundPassthroughCluster = "InboundPassthroughCluster"
 
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
