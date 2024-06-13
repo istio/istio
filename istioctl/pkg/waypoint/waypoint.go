@@ -44,9 +44,10 @@ import (
 )
 
 var (
-	revision      = ""
-	waitReady     bool
-	allNamespaces bool
+	revision       = ""
+	waitReady      bool
+	waypointStatus bool
+	allNamespaces  bool
 
 	deleteAll bool
 
@@ -201,31 +202,41 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}
 				return err
 			}
-			if waitReady {
+			writer := cmd.OutOrStdout()
+			w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
+			if waitingOnWaypointInfo() {
+				var cond metav1.Condition
 				startTime := time.Now()
 				ticker := time.NewTicker(1 * time.Second)
 				defer ticker.Stop()
+				if waypointStatus {
+					fmt.Fprintln(w, "NAMESPACE\tNAME\tSTATUS\tTYPE\tREASON\tMESSAGE")
+				}
 				for range ticker.C {
 					programmed := false
 					gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), gw.Name, metav1.GetOptions{})
 					if err == nil {
 						// Check if gateway has Programmed condition set to true
-						for _, cond := range gwc.Status.Conditions {
+						for _, cond = range gwc.Status.Conditions {
 							if cond.Type == string(gateway.GatewayConditionProgrammed) && string(cond.Status) == "True" {
 								programmed = true
 								break
 							}
 						}
 					}
+					if waypointStatus {
+						fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", gwc.Namespace, gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
+					}
 					if programmed {
 						break
 					}
 					if time.Since(startTime) > waitTimeout {
-						errorMsg := fmt.Sprintf("timed out while waiting for waypoint %v/%v", gw.Namespace, gw.Name)
-						if err != nil {
-							errorMsg += fmt.Sprintf(": %s", err)
+						if waypointStatus {
+							return errorWithMessage("timed out while retrieving status for waypoint", gwc, err)
 						}
-						return fmt.Errorf(errorMsg)
+						if waitReady {
+							return errorWithMessage("timed out while waiting for waypoint", gwc, err)
+						}
 					}
 				}
 			}
@@ -241,19 +252,23 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()),
 					constants.AmbientUseWaypointLabel, gw.Name)
 			}
-			return nil
+			return w.Flush()
 		},
 	}
+
+	waypointApplyCmd.PersistentFlags().BoolVarP(&waypointStatus, "status", "s", false,
+		"Show the status of the waypoint after applying")
+
 	waypointApplyCmd.PersistentFlags().StringVar(&trafficType,
 		"for",
 		"",
 		fmt.Sprintf("Specify the traffic type %s for the waypoint", sets.SortedList(validTrafficTypes)),
 	)
 
-	waypointApplyCmd.PersistentFlags().BoolVarP(&enrollNamespace, "enroll-namespace", "", false,
+	waypointApplyCmd.Flags().BoolVarP(&enrollNamespace, "enroll-namespace", "", false,
 		"If set, the namespace will be labeled with the waypoint name")
 
-	waypointApplyCmd.PersistentFlags().BoolVarP(&overwrite, "overwrite", "", false,
+	waypointApplyCmd.Flags().BoolVarP(&overwrite, "overwrite", "", false,
 		"Overwrite the existing Waypoint used by the namespace")
 
 	waypointDeleteCmd := &cobra.Command{
@@ -395,11 +410,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 
 	waypointApplyCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointApplyCmd.PersistentFlags().BoolVarP(&waitReady, "wait", "w", false, "Wait for the waypoint to be ready")
-	waypointCmd.AddCommand(waypointApplyCmd)
 	waypointGenerateCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointCmd.AddCommand(waypointGenerateCmd)
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
+	waypointCmd.AddCommand(waypointApplyCmd)
 	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", constants.DefaultNamespaceWaypoint, "name of the waypoint")
 
 	return waypointCmd
@@ -490,4 +505,16 @@ func getNamespace(kubeClient kube.CLIClient, ns string) (*corev1.Namespace, erro
 		return nil, fmt.Errorf("failed to get namespace %s: %v", ns, err)
 	}
 	return nsObj, nil
+}
+
+func errorWithMessage(errMsg string, gwc *gateway.Gateway, err error) error {
+	errorMsg := fmt.Sprintf("%s\t%v/%v", errMsg, gwc.Namespace, gwc.Name)
+	if err != nil {
+		errorMsg += fmt.Sprintf(": %s", err)
+	}
+	return fmt.Errorf(errorMsg)
+}
+
+func waitingOnWaypointInfo() bool {
+	return waitReady || waypointStatus
 }
