@@ -177,8 +177,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 // continue to function when `istio-cni` has been removed from the node.
 //
 // New pods would be "missed" in this scenario, so it is not recommended to do
-// this, but it is an effective way to test that, once configured, pods and ztunnel
-// can tolerate `istio-cni` disruptions, without disrupting the dataplane
+// this in the real world, but it is an effective way to test that, once configured, pods and ztunnel
+// can tolerate `istio-cni` disruptions, without disrupting the actual established dataplane
 func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 	framework.NewTest(t).
 		TopLevel().
