@@ -992,23 +992,21 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 		// choose a different source.
 		// The feature didn't work for few releases, but a skip-version upgrade may still
 		// encounter it.
-		log.Fatalf("PILOT_CERT_PROVIDER=kubernetes is no longer supported by upstream K8S", host, features.IstiodServiceCustomHost)
+		log.Fatalf("PILOT_CERT_PROVIDER=kubernetes is no longer supported by upstream K8S")
 	} else if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		log.Infof("initializing Istiod DNS certificates using K8S RA:%s  host: %s, custom host: %s", features.PilotCertProvider,
+			host, features.IstiodServiceCustomHost)
 		err = s.initDNSCertsK8SRA()
 	} else {
-		// This code is the original default/else in initDNSCerts - Istio 1.22 never called
-		// that, but I think it was not intentional.
-		customCACertPath := security.DefaultRootCertFilePath
-		caBundle, err := os.ReadFile(customCACertPath)
-		if err != nil {
-			return fmt.Errorf("failed reading %s: %v", customCACertPath, err)
-		}
+		log.Warnf("PILOT_CERT_PROVIDER=%s is not implemented", features.PilotCertProvider)
 
-		// TODO(costin): this should probably be fatal as well.
-		log.Warnf("Unknown PILOT_CERT_PROVIDER: %s and mounted certs not found, mTLS will"+
-			"not work. Root CAs from %s", features.PilotCertProvider, customCACertPath)
-		s.istiodCertBundleWatcher.SetAndNotify(nil, nil, caBundle)
+		// In Istio 1.22 - we return nil here - the old code in s.initDNSCerts used to have
+		// an 'else' to handle the unknown providers by not initializing the TLS certs but
+		// still seting the root from /etc/certs/root-cert.pem for distribution in the
+		// namespace controller.
+		// The new behavior appears safer - IMO we may also do a fatal unless provider is
+		// set to "none" because it is not clear what the user intends.
+
 		// Skip invoking initIstiodCertLoader - we have no cert.
 		return nil
 	}
