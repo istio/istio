@@ -96,7 +96,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		// this will allow for gateway class to provide a default for that class rather than always forcing service or requiring users to configure correctly
 		if trafficType != "" {
 			if !validTrafficTypes.Contains(trafficType) {
-				return nil, fmt.Errorf("invalid traffic type: %s. Valid options are: %v", trafficType, validTrafficTypes)
+				return nil, fmt.Errorf("invalid traffic type: %s. Valid options are: %v", trafficType, sets.SortedList(validTrafficTypes))
 			}
 
 			if gw.Labels == nil {
