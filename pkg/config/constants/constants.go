@@ -136,6 +136,8 @@ const (
 	// CertProviderIstiod uses istiod self signed DNS certificates for the control plane
 	CertProviderIstiod = "istiod"
 	// CertProviderKubernetes uses the Kubernetes CSR API to generate a DNS certificate for the control plane
+	// This used to use the no longer supported default K8S signer.
+	// Deprecated - used to detect the old setting and generate the error message.
 	CertProviderKubernetes = "kubernetes"
 	// CertProviderKubernetesSignerPrefix uses the Kubernetes CSR API and the specified signer to generate a DNS certificate for the control plane
 	CertProviderKubernetesSignerPrefix = "k8s.io/"

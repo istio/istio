@@ -203,9 +203,11 @@ type Options struct {
 	// PilotCertProvider is the provider of the Pilot certificate (PILOT_CERT_PROVIDER env)
 	// Determines the root CA file to use for connecting to CA gRPC:
 	// - istiod
-	// - kubernetes
-	// - custom
+	// - k8s.io/NAME
+	// - custom - requires Istiod TLS certs to be available as files
 	// - none
+	//
+	// This is used only in agent.
 	PilotCertProvider string
 
 	// secret TTL.

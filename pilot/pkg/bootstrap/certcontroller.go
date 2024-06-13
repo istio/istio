@@ -28,7 +28,6 @@ import (
 	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -48,118 +47,117 @@ const (
 	defaultCACertPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
-// initDNSCerts will create the certificates to be used by Istiod GRPC server and webhooks.
-// If the certificate creation fails - for example no support in K8S - returns an error.
-// Will use the mesh.yaml DiscoveryAddress to find the default expected address of the control plane,
-// with an environment variable allowing override.
-func (s *Server) initDNSCerts() error {
+// initDNSCertsK8SRA will create the certificates using K8S RA.
+// Only called by initIstiodCerts if provider (PILOT_CERT_PROVIDER) has k8s.io prefix
+// and local certificates are not found.
+//
+// The roots are loaded from mesh config.
+func (s *Server) initDNSCertsK8SRA() error {
 	var certChain, keyPEM, caBundle []byte
 	var err error
 	pilotCertProviderName := features.PilotCertProvider
-	if strings.HasPrefix(pilotCertProviderName, constants.CertProviderKubernetesSignerPrefix) && s.RA != nil {
-		signerName := strings.TrimPrefix(pilotCertProviderName, constants.CertProviderKubernetesSignerPrefix)
-		log.Infof("Generating K8S-signed cert for %v using signer %v", s.dnsNames, signerName)
-		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
-			strings.Join(s.dnsNames, ","), "", signerName, true, SelfSignedCACertTTL.Get())
-		if err != nil {
-			return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)
-		}
-		caBundle, err = s.RA.GetRootCertFromMeshConfig(signerName)
-		if err != nil {
-			return err
-		}
-		// MeshConfig:Add callback for mesh config update
-		s.environment.AddMeshHandler(func() {
-			newCaBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
-			if newCaBundle != nil && !bytes.Equal(newCaBundle, s.istiodCertBundleWatcher.GetKeyCertBundle().CABundle) {
-				newCertChain, newKeyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
-					strings.Join(s.dnsNames, ","), "", signerName, true, SelfSignedCACertTTL.Get())
-				if err != nil {
-					log.Fatalf("failed regenerating key and cert for istiod by kubernetes: %v", err)
-				}
-				s.istiodCertBundleWatcher.SetAndNotify(newKeyPEM, newCertChain, newCaBundle)
-			}
-		})
 
-		s.addStartFunc("istiod server certificate rotation", func(stop <-chan struct{}) error {
-			go func() {
-				// Track TTL of DNS cert and renew cert in accordance to grace period.
-				s.RotateDNSCertForK8sCA(stop, "", signerName, true, SelfSignedCACertTTL.Get())
-			}()
-			return nil
-		})
-	} else if pilotCertProviderName == constants.CertProviderKubernetes {
-		log.Infof("Generating K8S-signed cert for %v", s.dnsNames)
-		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
-			strings.Join(s.dnsNames, ","), defaultCACertPath, "", true, SelfSignedCACertTTL.Get())
-		if err != nil {
-			return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)
-		}
-		caBundle, err = os.ReadFile(defaultCACertPath)
-		if err != nil {
-			return fmt.Errorf("failed reading %s: %v", defaultCACertPath, err)
-		}
+	signerName := strings.TrimPrefix(pilotCertProviderName, constants.CertProviderKubernetesSignerPrefix)
+	log.Infof("Generating K8S-signed cert for %v using signer %v", s.dnsNames, signerName)
+	certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
+		strings.Join(s.dnsNames, ","), "", signerName, true, SelfSignedCACertTTL.Get())
+	if err != nil {
+		return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)
+	}
+	caBundle, err = s.RA.GetRootCertFromMeshConfig(signerName)
+	if err != nil {
+		return err
+	}
 
-		s.addStartFunc("istiod server certificate rotation", func(stop <-chan struct{}) error {
-			go func() {
-				// Track TTL of DNS cert and renew cert in accordance to grace period.
-				s.RotateDNSCertForK8sCA(stop, defaultCACertPath, "", true, SelfSignedCACertTTL.Get())
-			}()
-			return nil
-		})
-	} else if pilotCertProviderName == constants.CertProviderIstiod {
-		certChain, keyPEM, err = s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
-		if err != nil {
-			return fmt.Errorf("failed generating istiod key cert %v", err)
-		}
-		log.Infof("Generating istiod-signed cert for %v:\n %s", s.dnsNames, certChain)
-
-		fileBundle, err := detectSigningCABundle()
-		if err != nil {
-			return fmt.Errorf("unable to determine signing file format %v", err)
-		}
-
-		istioGenerated, detectedSigningCABundle := false, false
-		if _, err := os.Stat(fileBundle.SigningKeyFile); err == nil {
-			detectedSigningCABundle = true
-			if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
-				istioGenerated = true
-			}
-		}
-		// check if signing key file exists the cert dir and if the istio-generated file
-		// exists (only if USE_CACERTS_FOR_SELF_SIGNED_CA is enabled)
-		if !detectedSigningCABundle || (features.UseCacertsForSelfSignedCA && istioGenerated) {
-			log.Infof("Use istio-generated cacerts at %v or istio-ca-secret", fileBundle.SigningKeyFile)
-
-			caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
-			s.addStartFunc("istiod server certificate rotation", func(stop <-chan struct{}) error {
-				go func() {
-					// regenerate istiod key cert when root cert changes.
-					s.watchRootCertAndGenKeyCert(stop)
-				}()
-				return nil
-			})
-		} else {
-			log.Infof("DNS certs use plugged-in cert at %v", fileBundle.SigningKeyFile)
-
-			caBundle, err = os.ReadFile(fileBundle.RootCertFile)
+	// MeshConfig:Add callback for mesh config update
+	s.environment.AddMeshHandler(func() {
+		newCaBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
+		if newCaBundle != nil && !bytes.Equal(newCaBundle, s.istiodCertBundleWatcher.GetKeyCertBundle().CABundle) {
+			newCertChain, newKeyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
+				strings.Join(s.dnsNames, ","), "", signerName, true, SelfSignedCACertTTL.Get())
 			if err != nil {
-				return fmt.Errorf("failed reading %s: %v", fileBundle.RootCertFile, err)
+				log.Fatalf("failed regenerating key and cert for istiod by kubernetes: %v", err)
 			}
+			s.istiodCertBundleWatcher.SetAndNotify(newKeyPEM, newCertChain, newCaBundle)
 		}
+	})
+
+	s.addStartFunc("istiod server certificate rotation", func(stop <-chan struct{}) error {
+		go func() {
+			// Track TTL of DNS cert and renew cert in accordance to grace period.
+			s.RotateDNSCertForK8sCA(stop, "", signerName, true, SelfSignedCACertTTL.Get())
+		}()
+		return nil
+	})
+	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
+	return nil
+}
+
+// initDNSCertsIstiod will issue DNS certs using Istiod CA, and set the root certs for
+// distribution. Only called from initIstiodCerts if PILOT_CERT_PROVIDER=istiod (default)
+func (s *Server) initDNSCertsIstiod() error {
+	var certChain, keyPEM, caBundle []byte
+	var err error
+	// Generate certificates for Istiod DNS names, signed by Istiod CA
+	certChain, keyPEM, err = s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
+	if err != nil {
+		return fmt.Errorf("failed generating istiod key cert %v", err)
+	}
+	log.Infof("Generating istiod-signed cert for %v:\n %s", s.dnsNames, certChain)
+
+	fileBundle, err := detectSigningCABundle()
+	if err != nil {
+		return fmt.Errorf("unable to determine signing file format %v", err)
+	}
+
+	istioGenerated, detectedSigningCABundle := false, false
+	if _, err := os.Stat(fileBundle.SigningKeyFile); err == nil {
+		detectedSigningCABundle = true
+		if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
+			istioGenerated = true
+		}
+	}
+
+	// check if signing key file exists the cert dir and if the istio-generated file
+	// exists (only if USE_CACERTS_FOR_SELF_SIGNED_CA is enabled)
+	if !detectedSigningCABundle {
+		log.Infof("Use roots from istio-ca-secret")
+
+		caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
+		s.addStartFunc("istiod server certificate rotation", func(stop <-chan struct{}) error {
+			go func() {
+				// regenerate istiod key cert when root cert changes.
+				s.watchRootCertAndGenKeyCert(stop)
+			}()
+			return nil
+		})
+	} else if features.UseCacertsForSelfSignedCA && istioGenerated {
+		log.Infof("Use roots from %v and watch", fileBundle.RootCertFile)
+
+		caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
+		// Similar code to istio-ca-secret: refresh the root cert, but in casecrets
+		s.addStartFunc("istiod server certificate rotation", func(stop <-chan struct{}) error {
+			go func() {
+				// regenerate istiod key cert when root cert changes.
+				s.watchRootCertAndGenKeyCert(stop)
+			}()
+			return nil
+		})
+
 	} else {
-		customCACertPath := security.DefaultRootCertFilePath
-		log.Infof("User specified cert provider: %v, mounted in a well known location %v",
-			features.PilotCertProvider, customCACertPath)
-		caBundle, err = os.ReadFile(customCACertPath)
+		log.Infof("Use root cert from %v", fileBundle.RootCertFile)
+
+		caBundle, err = os.ReadFile(fileBundle.RootCertFile)
 		if err != nil {
-			return fmt.Errorf("failed reading %s: %v", customCACertPath, err)
+			return fmt.Errorf("failed reading %s: %v", fileBundle.RootCertFile, err)
 		}
 	}
 	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
 	return nil
 }
 
+// watchRootCertAndgenKeyCert will watch for the root certs, and regenerate Istiod DNS TLS certificates if the root
+// has changed. This is not used if TLS certificates are loaded from ./var/run/secrets/istiod/tls.
 // TODO(hzxuzonghu): support async notification instead of polling the CA root cert.
 func (s *Server) watchRootCertAndGenKeyCert(stop <-chan struct{}) {
 	caBundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
@@ -229,8 +227,9 @@ func (s *Server) updateRootCertAndGenKeyCert() error {
 	return nil
 }
 
-// initCertificateWatches sets up watches for the plugin dns certs.
-func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
+// initFileCertificateWatches sets up watches for the plugin dns certs
+// when /var/run/secrets/istiod/tls is used. Not to be confused with the /etc/cacerts path.
+func (s *Server) initFileCertificateWatches(tlsOptions TLSOptions) error {
 	if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
 		return fmt.Errorf("set keyCertBundle failed: %v", err)
 	}
@@ -287,6 +286,8 @@ func (s *Server) reloadIstiodCert(watchCh <-chan struct{}, stopCh <-chan struct{
 }
 
 // loadIstiodCert load IstiodCert received from watchCh once
+// The Istiod certs are the DNS-based certs used by Istiod GRPC server and webhooks.
+// saved as s.istiodCert.
 func (s *Server) loadIstiodCert() error {
 	keyCertBundle := s.istiodCertBundleWatcher.GetKeyCertBundle()
 	keyPair, err := tls.X509KeyPair(keyCertBundle.CertPem, keyCertBundle.KeyPem)

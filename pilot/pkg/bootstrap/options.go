@@ -104,6 +104,7 @@ type InjectionOptions struct {
 
 // TLSOptions is optional TLS parameters for Istiod server.
 type TLSOptions struct {
+	// CaCertFile and related are set using CLI flags.
 	CaCertFile      string
 	CertFile        string
 	KeyFile         string
