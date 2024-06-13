@@ -39,7 +39,7 @@ import (
 // 3. If the original rule did not have any exportTo, exportTo settings from the new rule will be used.
 func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleConfig config.Config, exportToSet sets.Set[visibility.Instance]) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
-	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.Meta)
+	resolvedHost := host.Name(rule.Host)
 
 	var destRules map[host.Name][]*ConsolidatedDestRule
 
@@ -81,7 +81,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			for _, subset := range mergedRule.Subsets {
 				existingSubset.Insert(subset.Name)
 			}
-			// we have an another destination rule for same host.
+			// we have another destination rule for same host.
 			// concatenate both of them -- essentially add subsets from one to other.
 			// Note: we only add the subsets and do not overwrite anything else like exportTo or top level
 			// traffic policies if they already exist
