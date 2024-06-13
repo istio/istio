@@ -433,6 +433,7 @@ func TestAuthz_NotHost(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
 				Source(config.File("testdata/authz/not-host.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Ns1.Namespace,
 				})).
