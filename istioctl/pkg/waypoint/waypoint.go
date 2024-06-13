@@ -135,7 +135,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 	}
-	waypointGenerateCmd.PersistentFlags().StringVar(&trafficType,
+	waypointGenerateCmd.Flags().StringVar(&trafficType,
 		"for",
 		"",
 		fmt.Sprintf("Specify the traffic type %s for the waypoint", sets.SortedList(validTrafficTypes)),
@@ -256,10 +256,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		},
 	}
 
-	waypointApplyCmd.PersistentFlags().BoolVarP(&waypointStatus, "status", "s", false,
+	waypointApplyCmd.Flags().BoolVarP(&waypointStatus, "status", "s", false,
 		"Show the status of the waypoint after applying")
 
-	waypointApplyCmd.PersistentFlags().StringVar(&trafficType,
+	waypointApplyCmd.Flags().StringVar(&trafficType,
 		"for",
 		"",
 		fmt.Sprintf("Specify the traffic type %s for the waypoint", sets.SortedList(validTrafficTypes)),
@@ -382,7 +382,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			return w.Flush()
 		},
 	}
-	waypointListCmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List all waypoints in all namespaces")
+	waypointListCmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List all waypoints in all namespaces")
 
 	waypointCmd := &cobra.Command{
 		Use:   "waypoint",
@@ -408,9 +408,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		},
 	}
 
-	waypointApplyCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
-	waypointApplyCmd.PersistentFlags().BoolVarP(&waitReady, "wait", "w", false, "Wait for the waypoint to be ready")
-	waypointGenerateCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
+	waypointApplyCmd.Flags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
+	waypointApplyCmd.Flags().BoolVarP(&waitReady, "wait", "w", false, "Wait for the waypoint to be ready")
+	waypointGenerateCmd.Flags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointCmd.AddCommand(waypointGenerateCmd)
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
