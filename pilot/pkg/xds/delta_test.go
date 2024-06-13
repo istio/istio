@@ -71,7 +71,7 @@ func TestDeltaAdsClusterUpdate(t *testing.T) {
 }
 
 func TestDeltaCDS(t *testing.T) {
-	base := sets.New("BlackHoleCluster", "PassthroughCluster", "InboundPassthroughClusterIpv4")
+	base := sets.New("BlackHoleCluster", "PassthroughCluster", "InboundPassthroughCluster")
 	assertResources := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
 		t.Helper()
 		got := slices.Map(resp.Resources, (*discovery.Resource).GetName)
@@ -110,7 +110,7 @@ func TestDeltaCDS(t *testing.T) {
 }
 
 func TestDeltaCDSReconnect(t *testing.T) {
-	base := sets.New("BlackHoleCluster", "PassthroughCluster", "InboundPassthroughClusterIpv4")
+	base := sets.New("BlackHoleCluster", "PassthroughCluster", "InboundPassthroughCluster")
 	assertResources := func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
 		t.Helper()
 		got := slices.Map(resp.Resources, (*discovery.Resource).GetName)

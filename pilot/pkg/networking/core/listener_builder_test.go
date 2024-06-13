@@ -30,8 +30,8 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/listenertest"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
@@ -145,67 +145,24 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	if l == nil {
 		t.Fatalf("failed to find virtual inbound listener")
 	}
-	sawIpv4PassthroughCluster := 0
-	sawIpv6PassthroughCluster := false
-	sawIpv4PassthroughFilterChainMatchTLSFromFakePlugin := false
-	for _, fc := range l.FilterChains {
-		if fc.TransportSocket != nil && fc.FilterChainMatch.TransportProtocol != "tls" {
-			t.Fatalf("expect passthrough filter chain sets transport protocol to tls if transport socket is set")
-		}
-
-		if f := getTCPFilter(fc); f != nil && fc.Name == model.VirtualInboundListenerName {
-			if ipLen := len(fc.FilterChainMatch.PrefixRanges); ipLen != 1 {
-				t.Fatalf("expect passthrough filter chain has 1 ip address, found %d", ipLen)
-			}
-
-			if fc.TransportSocket != nil {
-				sawIpv4PassthroughFilterChainMatchTLSFromFakePlugin = true
-			}
-			if fc.FilterChainMatch.PrefixRanges[0].AddressPrefix == util.ConvertAddressToCidr("0.0.0.0/0").AddressPrefix &&
-				fc.FilterChainMatch.PrefixRanges[0].PrefixLen.Value == 0 {
-				if sawIpv4PassthroughCluster == 3 {
-					t.Fatalf("duplicated ipv4 passthrough cluster filter chain in listener %v", l)
-				}
-				sawIpv4PassthroughCluster++
-			} else if fc.FilterChainMatch.PrefixRanges[0].AddressPrefix == util.ConvertAddressToCidr("::0/0").AddressPrefix &&
-				fc.FilterChainMatch.PrefixRanges[0].PrefixLen.Value == 0 {
-				if sawIpv6PassthroughCluster {
-					t.Fatalf("duplicated ipv6 passthrough cluster filter chain in listener %v", l)
-				}
-				sawIpv6PassthroughCluster = true
-			}
-		}
-
-		if f := getHTTPFilter(fc); f != nil && fc.Name == model.VirtualInboundCatchAllHTTPFilterChainName {
-			if fc.TransportSocket != nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, mtlsHTTPALPNs) {
-				t.Fatalf("expect %v application protocols, found %v", mtlsHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
-			}
-
-			if fc.TransportSocket == nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, plaintextHTTPALPNs) {
-				t.Fatalf("expect %v application protocols, found %v", plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
-			}
-		}
-	}
-
-	if sawIpv4PassthroughCluster != 3 {
-		t.Fatalf("fail to find the ipv4 passthrough filter chain in listener, got %v: %v", sawIpv4PassthroughCluster, xdstest.Dump(t, l))
-	}
-
-	if !sawIpv4PassthroughFilterChainMatchTLSFromFakePlugin {
-		t.Fatalf("fail to find the fake plugin filter chain match with TLS in listener %v", l)
-	}
-
-	if len(l.ListenerFilters) != 3 {
-		t.Fatalf("expected %d listener filters, found %d", 3, len(l.ListenerFilters))
-	}
-
-	if l.ListenerFilters[0].Name != wellknown.OriginalDestination ||
-		l.ListenerFilters[1].Name != wellknown.TLSInspector ||
-		l.ListenerFilters[2].Name != wellknown.HTTPInspector {
-		t.Fatalf("expect listener filters [%q, %q, %q], found [%q, %q, %q]",
-			wellknown.OriginalDestination, wellknown.TLSInspector, wellknown.HTTPInspector,
-			l.ListenerFilters[0].Name, l.ListenerFilters[1].Name, l.ListenerFilters[2].Name)
-	}
+	listenertest.VerifyListener(t, l, listenertest.ListenerTest{
+		FilterChains: []listenertest.FilterChainTest{
+			{Name: "virtualInbound-blackhole"},
+			{Name: "virtualInbound-catchall-http", Type: listenertest.MTLSHTTP},
+			{Name: "virtualInbound-catchall-http", Type: listenertest.PlainHTTP},
+			{Name: "virtualInbound", Type: listenertest.MTLSTCP},
+			{Name: "virtualInbound", Type: listenertest.PlainTCP},
+			{Name: "virtualInbound", Type: listenertest.StandardTLS},
+			{Name: "0.0.0.0_8080", Type: listenertest.MTLSHTTP},
+			{Name: "0.0.0.0_8080", Type: listenertest.PlainTCP},
+		},
+		Filters: []string{
+			wellknown.OriginalDestination,
+			wellknown.TLSInspector,
+			wellknown.HTTPInspector,
+		},
+		TotalMatch: true,
+	})
 }
 
 func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
