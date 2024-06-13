@@ -337,6 +337,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceO
 	push := func(req *model.PushRequest, debouncedEvents int, startDebounce time.Time) {
 		pushFn(req)
 		updateSent.Add(int64(debouncedEvents))
+		debounceTime.Record(time.Since(startDebounce).Seconds())
 		freeCh <- struct{}{}
 	}
 
@@ -356,7 +357,6 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceO
 						pushCounter, debouncedEvents, configsUpdated(req),
 						quietTime, eventDelay, req.Full)
 				}
-				debounceTime.Record(eventDelay.Seconds())
 				free = false
 				go push(req, debouncedEvents, startDebounce)
 				req = nil
