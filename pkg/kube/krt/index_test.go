@@ -128,7 +128,7 @@ func TestIndexCollection(t *testing.T) {
 	pod.Status.PodIP = "1.2.3.5"
 	pc.UpdateStatus(pod)
 	tt.WaitUnordered("update/namespace/name")
-	assert.Equal(t, Collection.Get(), ptr.Of("namespace/name"))
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name"))
 
 	pod2 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -139,7 +139,7 @@ func TestIndexCollection(t *testing.T) {
 	}
 	pc.CreateOrUpdateStatus(pod2)
 	tt.WaitUnordered("add/namespace/name2")
-	assert.Equal(t, Collection.Get(), ptr.Of("namespace/name,namespace/name2"))
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name,namespace/name2"))
 
 	pc.Delete(pod.Name, pod.Namespace)
 	pc.Delete(pod2.Name, pod2.Namespace)

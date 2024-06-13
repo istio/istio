@@ -50,7 +50,7 @@ func SimplePodCollection(pods krt.Collection[*corev1.Pod]) krt.Collection[Simple
 			Labeled: NewLabeled(i.Labels),
 			IP:      i.Status.PodIP,
 		}
-	})
+	}, krt.WithDebugging(krt.GlobalDebugHandler), krt.WithName("SimplePods"))
 }
 
 type SizedPod struct {
@@ -68,7 +68,7 @@ func SizedPodCollection(pods krt.Collection[*corev1.Pod]) krt.Collection[SizedPo
 			Named: NewNamed(i),
 			Size:  s,
 		}
-	})
+	}, krt.WithName("SizedPods"))
 }
 
 func NewNamed(n config.Namer) Named {
@@ -110,7 +110,7 @@ func SimpleServiceCollection(services krt.Collection[*corev1.Service]) krt.Colle
 			Named:    NewNamed(i),
 			Selector: i.Spec.Selector,
 		}
-	})
+	}, krt.WithName("SimpleService"))
 }
 
 func SimpleServiceCollectionFromEntries(entries krt.Collection[*istioclient.ServiceEntry]) krt.Collection[SimpleService] {
@@ -148,7 +148,7 @@ func SimpleEndpointsCollection(pods krt.Collection[SimplePod], services krt.Coll
 				IP:        pod.IP,
 			}
 		})
-	})
+	}, krt.WithName("SimpleEndpoints"))
 }
 
 func init() {
@@ -305,7 +305,7 @@ func TestCollectionCycle(t *testing.T) {
 			Named:         pd.Named,
 			MatchingSizes: len(matches),
 		}
-	})
+	}, krt.WithName("Thingys"))
 	tt := assert.NewTracker[string](t)
 	Thingys.RegisterBatch(BatchedTrackerHandler[PodSizeCount](tt), true)
 

@@ -36,6 +36,7 @@ type Queue struct {
 	name        string
 	maxAttempts int
 	workFn      func(key any) error
+	onSync      func()
 	closed      chan struct{}
 	log         *istiolog.Scope
 }
@@ -76,6 +77,13 @@ func WithGenericReconciler(f func(key any) error) func(q *Queue) {
 		q.workFn = func(key any) error {
 			return f(key)
 		}
+	}
+}
+
+// WithSyncedCallback registers a callback to run when the queue has synced
+func WithSyncedCallback(f func()) func(q *Queue) {
+	return func(q *Queue) {
+		q.onSync = f
 	}
 }
 
@@ -156,6 +164,9 @@ func (q Queue) processNextItem() bool {
 	if key == defaultSyncSignal {
 		q.log.Debugf("synced")
 		q.initialSync.Store(true)
+		if q.onSync != nil {
+			q.onSync()
+		}
 		return true
 	}
 

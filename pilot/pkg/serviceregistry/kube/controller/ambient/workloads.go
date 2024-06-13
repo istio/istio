@@ -64,7 +64,7 @@ func (a *index) WorkloadsCollection(
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	endpointSlices krt.Collection[*discovery.EndpointSlice],
 	namespaces krt.Collection[*v1.Namespace],
-	withDebug krt.CollectionOption,
+	opts KrtOptions,
 ) krt.Collection[model.WorkloadInfo] {
 	WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(workloadServices)
 	EndpointSlicesByIPIndex := endpointSliceAddressIndex(endpointSlices)
@@ -83,20 +83,20 @@ func (a *index) WorkloadsCollection(
 			namespaces,
 			nodes,
 		),
-		krt.WithName("PodWorkloads"), withDebug,
+		opts.WithName("PodWorkloads")...,
 	)
 	// Workloads coming from workloadEntries. These are 1:1 with WorkloadEntry.
 	WorkloadEntryWorkloads := krt.NewCollection(
 		workloadEntries,
 		a.workloadEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, workloadServices, WorkloadServicesNamespaceIndex, namespaces),
-		krt.WithName("WorkloadEntryWorkloads"), withDebug,
+		opts.WithName("WorkloadEntryWorkloads")...,
 	)
 	// Workloads coming from serviceEntries. These are inlined workloadEntries (under `spec.endpoints`); these serviceEntries will
 	// also be generating `workloadapi.Service` definitions in the `ServicesCollection` logic.
 	ServiceEntryWorkloads := krt.NewManyCollection(
 		serviceEntries,
 		a.serviceEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, namespaces),
-		krt.WithName("ServiceEntryWorkloads"), withDebug,
+		opts.WithName("ServiceEntryWorkloads")...,
 	)
 	// Workloads coming from endpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
 	// into the EndpointSlice. This is because Kubernetes has 3 APIs in its model: Service, Pod, and EndpointSlice.
@@ -106,12 +106,12 @@ func (a *index) WorkloadsCollection(
 	EndpointSliceWorkloads := krt.NewManyCollection(
 		endpointSlices,
 		a.endpointSlicesBuilder(meshConfig, workloadServices),
-		krt.WithName("EndpointSliceWorkloads"), withDebug)
+		opts.WithName("EndpointSliceWorkloads")...)
 
 	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		return slices.Map(a.LookupNetworkGateways(), convertGateway)
-	}, krt.WithName("NetworkGatewayWorkloads"), withDebug)
+	}, opts.WithName("NetworkGatewayWorkloads")...)
 
 	Workloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{
 		PodWorkloads,
@@ -119,7 +119,7 @@ func (a *index) WorkloadsCollection(
 		ServiceEntryWorkloads,
 		EndpointSliceWorkloads,
 		NetworkGatewayWorkloads,
-	}, krt.WithName("Workloads"))
+	}, opts.WithName("Workloads")...)
 	return Workloads
 }
 
@@ -141,7 +141,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 		appTunnel, targetWaypoint := computeWaypoint(ctx, waypoints, namespaces, wle.ObjectMeta)
 
 		fo := []krt.FetchOption{krt.FilterIndex(workloadServicesNamespaceIndex, wle.Namespace), krt.FilterSelectsNonEmpty(wle.GetLabels())}
-		if !features.EnableK8SServiceSelectWorkloadEntries {
+		if !a.Flags.EnableK8SServiceSelectWorkloadEntries {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
 				return a.(model.ServiceInfo).Source.Kind == kind.ServiceEntry
 			}))
@@ -154,7 +154,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 		}
 
 		// enforce traversing waypoints
-		policies = append(policies, implicitWaypointPolicies(ctx, waypoints, targetWaypoint, services)...)
+		policies = append(policies, implicitWaypointPolicies(a.Flags, ctx, waypoints, targetWaypoint, services)...)
 
 		w := &workloadapi.Workload{
 			Uid:                   a.generateWorkloadEntryUID(wle.Namespace, wle.Name),
@@ -268,7 +268,7 @@ func (a *index) podWorkloadBuilder(
 		appTunnel, targetWaypoint := computeWaypoint(ctx, waypoints, namespaces, p.ObjectMeta)
 
 		// enforce traversing waypoints
-		policies = append(policies, implicitWaypointPolicies(ctx, waypoints, targetWaypoint, services)...)
+		policies = append(policies, implicitWaypointPolicies(a.Flags, ctx, waypoints, targetWaypoint, services)...)
 
 		w := &workloadapi.Workload{
 			Uid:                   a.generatePodUID(p),
@@ -454,7 +454,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 			}
 
 			// enforce traversing waypoints
-			policies = append(policies, implicitWaypointPolicies(ctx, waypoints, targetWaypoint, services)...)
+			policies = append(policies, implicitWaypointPolicies(a.Flags, ctx, waypoints, targetWaypoint, services)...)
 
 			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 			network := a.Network(wle.Address, wle.Labels).String()
@@ -796,8 +796,14 @@ func getWorkloadEntryLocality(p *networkingv1alpha3.WorkloadEntry) *workloadapi.
 	}
 }
 
-func implicitWaypointPolicies(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], waypoint *Waypoint, services []model.ServiceInfo) []string {
-	if !features.DefaultAllowFromWaypoint {
+func implicitWaypointPolicies(
+	flags FeatureFlags,
+	ctx krt.HandlerContext,
+	Waypoints krt.Collection[Waypoint],
+	waypoint *Waypoint,
+	services []model.ServiceInfo,
+) []string {
+	if !flags.DefaultAllowFromWaypoint {
 		return nil
 	}
 	serviceWaypointKeys := slices.MapFilter(services, func(si model.ServiceInfo) *string {
@@ -808,7 +814,7 @@ func implicitWaypointPolicies(ctx krt.HandlerContext, Waypoints krt.Collection[W
 	})
 	if len(serviceWaypointKeys) == 0 {
 		if waypoint != nil {
-			n := implicitWaypointPolicyName(waypoint)
+			n := implicitWaypointPolicyName(flags, waypoint)
 			if n != "" {
 				return []string{waypoint.Namespace + "/" + n}
 			}
@@ -821,7 +827,7 @@ func implicitWaypointPolicies(ctx krt.HandlerContext, Waypoints krt.Collection[W
 	}
 
 	return slices.MapFilter(waypoints, func(w Waypoint) *string {
-		policy := implicitWaypointPolicyName(&w)
+		policy := implicitWaypointPolicyName(flags, &w)
 		if policy == "" {
 			return nil
 		}

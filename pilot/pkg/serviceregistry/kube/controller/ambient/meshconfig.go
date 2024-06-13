@@ -35,7 +35,7 @@ func (m MeshConfig) ResourceName() string { return "MeshConfig" }
 
 func (m MeshConfig) Equals(other MeshConfig) bool { return proto.Equal(m.MeshConfig, other.MeshConfig) }
 
-func MeshConfigCollection(configMaps krt.Collection[*v1.ConfigMap], options Options, withDebug krt.CollectionOption) krt.Singleton[MeshConfig] {
+func MeshConfigCollection(configMaps krt.Collection[*v1.ConfigMap], options Options, opts KrtOptions) krt.Singleton[MeshConfig] {
 	cmName := "istio"
 	if options.Revision != "" && options.Revision != "default" {
 		cmName = cmName + "-" + options.Revision
@@ -60,7 +60,7 @@ func MeshConfigCollection(configMaps krt.Collection[*v1.ConfigMap], options Opti
 				meshCfg = n
 			}
 			return &MeshConfig{meshCfg}
-		}, krt.WithName("MeshConfig"), withDebug,
+		}, opts.WithName("MeshConfig")...,
 	)
 }
 

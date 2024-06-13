@@ -107,10 +107,7 @@ func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runE
 			f([]Event[I]{o}, initialSync)
 		}))
 	}
-	return pollSyncer{
-		name: fmt.Sprintf("%v handler", i.name()),
-		f:    i.inf.HasSynced,
-	}
+	return i.Synced()
 }
 
 // nolint: unused // (not true)
@@ -151,7 +148,7 @@ func informerEventHandler[I controllers.ComparableObject](handler func(o Event[I
 func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...CollectionOption) Collection[I] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
-		o.name = fmt.Sprintf("NewInformer[%v]", ptr.TypeName[I]())
+		o.name = fmt.Sprintf("Informer[%v]", ptr.TypeName[I]())
 	}
 	h := &informer[I]{
 		inf:            c,
@@ -180,6 +177,7 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 			c.ShutdownHandlers()
 			return
 		}
+
 		close(h.synced)
 		h.log.Infof("%v synced", h.name())
 	}()

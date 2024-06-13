@@ -23,6 +23,7 @@ import (
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -44,13 +45,10 @@ type manyCollection[I, O any] struct {
 
 	// log is a logger for the collection, with additional labels already added to identify it.
 	log *istiolog.Scope
-
-	// recomputeMu blocks a recomputation of I->O.
-	recomputeMu sync.Mutex
-
 	// mu protects all items grouped below.
 	// This is acquired for reads and writes of data.
 	// This can be acquired with recomputeMu held, but only with strict ordering (mu inside recomputeMu)
+	blockNewEvents  sync.Mutex
 	mu              sync.Mutex
 	collectionState multiIndex[I, O]
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
@@ -63,7 +61,7 @@ type manyCollection[I, O any] struct {
 	indexes []collectionIndex[I, O]
 
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
-	eventHandlers *handlers[O]
+	eventHandlers *handlerSet[O]
 
 	transformation TransformationMulti[I, O]
 
@@ -71,6 +69,7 @@ type manyCollection[I, O any] struct {
 	augmentation func(a any) any
 	synced       chan struct{}
 	stop         <-chan struct{}
+	queue        queue.Instance
 }
 
 type collectionIndex[I, O any] struct {
@@ -160,8 +159,6 @@ func (h *manyCollection[I, O]) Synced() Syncer {
 
 // nolint: unused // (not true, its to implement an interface)
 func (h *manyCollection[I, O]) dump() CollectionDump {
-	h.recomputeMu.Lock()
-	defer h.recomputeMu.Unlock()
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -226,11 +223,9 @@ func (h *manyCollection[I, O]) index(extract func(o O) []string) kclient.RawInde
 // onPrimaryInputEvent takes a list of I's that changed and reruns the handler over them.
 // This is called either when I directly changes, or if a secondary dependency changed. In this case, we compute which I's depended
 // on the secondary dependency, and call onPrimaryInputEvent with them
-func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I], lock bool) {
-	if lock {
-		h.recomputeMu.Lock()
-		defer h.recomputeMu.Unlock()
-	}
+func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
+	h.blockNewEvents.Lock()
+	defer h.blockNewEvents.Unlock()
 	// Between the events being enqueued and now, the input may have changed. Update with latest info.
 	// Note we now have the recomputeMu so this is safe; any futures calls will do the same so always have up-to-date information.
 	for idx, ev := range items {
@@ -350,14 +345,10 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	if len(events) == 0 {
 		return
 	}
-	handlers := h.eventHandlers.Get()
-
 	if h.log.DebugEnabled() {
-		h.log.WithLabels("events", len(events), "handlers", len(handlers)).Debugf("calling handlers")
+		h.log.WithLabels("events", len(events)).Debugf("calling handlers")
 	}
-	for _, handler := range handlers {
-		handler(slices.Clone(events), false)
-	}
+	h.eventHandlers.Distribute(events, false)
 }
 
 // WithName allows explicitly naming a controller. This is a best practice to make debugging easier.
@@ -442,50 +433,54 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 			outputs:  map[Key[O]]O{},
 			mappings: map[Key[I]]sets.Set[Key[O]]{},
 		},
-		eventHandlers: &handlers[O]{},
+		eventHandlers: &handlerSet[O]{},
 		augmentation:  opts.augmentation,
 		synced:        make(chan struct{}),
 		stop:          opts.stop,
 	}
 	maybeRegisterCollectionForDebugging(h, opts.debugger)
-	go func() {
-		// Wait for primary dependency to be ready
-		if !c.Synced().WaitUntilSynced(h.stop) {
-			return
-		}
-		// Now, register our handler. This will call Add() for the initial state
-		// Locking here is tricky. We want to make sure we don't get duplicate events.
-		// When we run RegisterBatch, it will trigger events for the initial state. However, other events could trigger
-		// while we are processing these.
-		// By holding the lock, we ensure we have exclusive access during this time.
-		h.recomputeMu.Lock()
-		h.eventHandlers.MarkInitialized()
-		handlerReg := c.RegisterBatch(func(events []Event[I], initialSync bool) {
-			if log.DebugEnabled() {
-				h.log.WithLabels("dep", "primary", "batch", len(events)).
-					Debugf("got event")
-			}
-			// Lock after the initial sync only
-			// For initial sync we explicitly hold the lock ourselves to ensure we have a broad enough critical section.
-			lock := !initialSync
-			h.onPrimaryInputEvent(events, lock)
-		}, true)
-		if !handlerReg.WaitUntilSynced(h.stop) {
-			h.recomputeMu.Unlock()
-			return
-		}
-		h.recomputeMu.Unlock()
+
+	// Create our queue. When it syncs (that is, all items that were present when Run() was called), we mark ourselves as synced.
+	h.queue = queue.NewWithSync(func() {
 		close(h.synced)
 		h.log.Infof("%v synced", h.name())
-	}()
+	}, h.collectionName)
+
+	// Finally, async wait for the primary to be synced. Once it has, we know it has enqueued the initial state.
+	// After this, we can run our queue.
+	// The queue will process the initial state and mark ourselves as synced (from the NewWithSync callback)
+	go h.runQueue()
+	// Run the goroutines to process handler notifications
+	go h.eventHandlers.Run(h.stop)
+
 	return h
+}
+
+func (h *manyCollection[I, O]) runQueue() {
+	c := h.parent
+	// Wait for primary dependency to be ready
+	if !c.Synced().WaitUntilSynced(h.stop) {
+		return
+	}
+	// Now register to our primary collection. On any event, we will enqueue the update.
+	syncer := c.RegisterBatch(func(o []Event[I], initialSync bool) {
+		h.queue.Push(func() error {
+			h.onPrimaryInputEvent(o)
+			return nil
+		})
+	}, true)
+	// Wait for everything initial state to be enqueued
+	if !syncer.WaitUntilSynced(h.stop) {
+		return
+	}
+	h.queue.Run(h.stop)
 }
 
 // Handler is called when a dependency changes. We will take as inputs the item that changed.
 // Then we find all of our own values (I) that changed and onPrimaryInputEvent() them
 func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUID, events []Event[any]) {
-	h.recomputeMu.Lock()
-	defer h.recomputeMu.Unlock()
+	h.blockNewEvents.Lock()
+	defer h.blockNewEvents.Unlock()
 	// A secondary dependency changed...
 	// Got an event. Now we need to find out who depends on it..
 	changedInputKeys := sets.Set[Key[I]]{}
@@ -582,35 +577,27 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) Syncer {
 }
 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bool), runExistingState bool) Syncer {
-	if runExistingState {
-		h.recomputeMu.Lock()
-		defer h.recomputeMu.Unlock()
+	if !runExistingState {
+		// If we don't to run the initial state this is simple, we just register the handler.
+		return h.eventHandlers.Insert(f, h.Synced(), nil)
 	}
-	initialized := !h.eventHandlers.Insert(f)
-	if initialized && runExistingState {
-		// Already started. Pause everything, and run through the handler.
-		h.mu.Lock()
-		events := make([]Event[O], 0, len(h.collectionState.outputs))
-		for _, o := range h.collectionState.outputs {
-			events = append(events, Event[O]{
-				New:   &o,
-				Event: controllers.EventAdd,
-			})
-		}
-		h.mu.Unlock()
-		if len(events) > 0 {
-			if log.DebugEnabled() {
-				h.log.WithLabels("items", len(events)).Debugf("call handler with initial state")
-			}
-			f(events, true)
-		}
-		// We handle events in sequence here, so its always synced at this point/
-		return alwaysSynced{}
+	// We need to run the initial state, but we don't want to get duplicate events.
+	// We should get "ADD initialObject1, ADD initialObjectN, UPDATE someLaterUpdate" without mixing the initial ADDs
+	// To do this we block any new event processing
+	h.blockNewEvents.Lock()
+	defer h.blockNewEvents.Unlock()
+	// Get initial state
+	h.mu.Lock()
+	events := make([]Event[O], 0, len(h.collectionState.outputs))
+	for _, o := range h.collectionState.outputs {
+		events = append(events, Event[O]{
+			New:   &o,
+			Event: controllers.EventAdd,
+		})
 	}
-	return channelSyncer{
-		name:   h.collectionName + " handler",
-		synced: h.synced,
-	}
+	h.mu.Unlock()
+	// Send out all the initial objects to the handler. We will then unlock the new events so it gets the future updates.
+	return h.eventHandlers.Insert(f, h.Synced(), events)
 }
 
 func (h *manyCollection[I, O]) name() string {
@@ -644,7 +631,7 @@ func (i *collectionDependencyTracker[I, O]) name() string {
 func (i *collectionDependencyTracker[I, O]) registerDependency(
 	d *dependency,
 	syncer Syncer,
-	register func(f erasedEventHandler),
+	register func(f erasedEventHandler) Syncer,
 ) {
 	i.d = append(i.d, d)
 
@@ -653,8 +640,11 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(
 		i.log.WithLabels("collection", d.collectionName).Debugf("register new dependency")
 		syncer.WaitUntilSynced(i.stop)
 		register(func(o []Event[any], initialSync bool) {
-			i.onSecondaryDependencyEvent(d.id, o)
-		})
+			i.queue.Push(func() error {
+				i.onSecondaryDependencyEvent(d.id, o)
+				return nil
+			})
+		}).WaitUntilSynced(i.stop)
 	}
 }
 
