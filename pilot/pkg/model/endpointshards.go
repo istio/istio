@@ -15,7 +15,6 @@
 package model
 
 import (
-	"fmt"
 	"sort"
 	"sync"
 
@@ -44,7 +43,7 @@ type ShardKey struct {
 }
 
 func (sk ShardKey) String() string {
-	return fmt.Sprintf("%s/%s", sk.Provider, sk.Cluster)
+	return string(sk.Provider) + "/" + string(sk.Cluster) // format: %s/%s
 }
 
 // MarshalText implements the TextMarshaler interface (for json key usage)

@@ -570,8 +570,10 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		if recordSendError(w.TypeUrl, err) {
 			logger = deltaLog.Warnf
 		}
-		logger("%s: Send failure for node:%s resources:%d size:%s%s: %v",
-			v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
+		if deltaLog.DebugEnabled() {
+			logger("%s: Send failure for node:%s resources:%d size:%s%s: %v",
+				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
+		}
 		return err
 	}
 

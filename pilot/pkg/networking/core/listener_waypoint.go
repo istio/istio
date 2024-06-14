@@ -194,7 +194,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			portString := fmt.Sprintf("%d", port.Port)
+			portString := strconv.Itoa(port.Port)
 			cc := inboundChainConfig{
 				clusterName:   model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
 				policyService: svc,
