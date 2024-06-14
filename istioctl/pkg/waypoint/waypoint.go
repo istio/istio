@@ -44,10 +44,9 @@ import (
 )
 
 var (
-	revision       = ""
-	waitReady      bool
-	waypointStatus bool
-	allNamespaces  bool
+	revision      = ""
+	waitReady     bool
+	allNamespaces bool
 
 	deleteAll bool
 
@@ -57,6 +56,8 @@ var (
 	waypointName    = constants.DefaultNamespaceWaypoint
 	enrollNamespace bool
 	overwrite       bool
+
+	waypointStatus bool
 )
 
 const waitTimeout = 90 * time.Second
@@ -114,10 +115,13 @@ func Cmd(ctx cli.Context) *cobra.Command {
 
 	waypointStatusCmd := &cobra.Command{
 		Use:   "status",
-		Short: "Show the status of the waypoint",
-		Long:  "Show the status of the waypoint after applying",
-		Example: `  # Show the status of the waypoint after applying
-		  istioctl waypoint status`,
+		Short: "Show the status of waypoints in a namespace",
+		Long:  "Show the status of waypoints for the namespace provided or default namespace if none is provided",
+		Example: `  # Show the status of the waypoint in the default namespace
+		 istioctl waypoint status
+		  
+		 # Show the status of the waypoint in a specific namespace
+  		 istioctl waypoint status --namespace default`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown subcommand %q", args[0])
@@ -129,12 +133,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			// var ns string
-			// if allNamespaces {
-			// 	ns = ""
-			// } else {
 			ns := ctx.NamespaceOrDefault(ctx.Namespace())
-			// }
 			gws, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).
 				List(context.Background(), metav1.ListOptions{})
 			if err != nil {
@@ -159,35 +158,15 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}
 				filteredGws = append(filteredGws, gw)
 			}
-			// if allNamespaces {
-			// 	fmt.Fprintln(w, "NAMESPACE\tNAME\tREVISION\tPROGRAMMED")
-			// } else {
-			// 	fmt.Fprintln(w, "NAME\tREVISION\tPROGRAMMED")
-			// }
-			for _, gw := range filteredGws {
-				// programmed := kstatus.StatusFalse
-				// rev := gw.Labels[label.IoIstioRev.Name]
-				// if rev == "" {
-				// 	rev = "default"
-				// }
-				// for _, cond := range gw.Status.Conditions {
-				// 	if cond.Type == string(gateway.GatewayConditionProgrammed) {
-				// 		programmed = string(cond.Status)
-				// 	}
-				// }
-				// if allNamespaces {
-				// 	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, rev, programmed)
-				// } else {
-				// 	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", gw.Name, rev, programmed)
-				// }
-				err = printWaypointStatus(ctx, w, kubeClient, gw)
-				if err != nil {
-					return fmt.Errorf("failed to print waypoint status: %v", err)
-				}
+			err = printWaypointStatus(ctx, w, kubeClient, filteredGws)
+			if err != nil {
+				return fmt.Errorf("failed to print waypoint status: %v", err)
 			}
 			return w.Flush()
 		},
 	}
+
+	waypointStatusCmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List all waypoints in all namespaces")
 
 	waypointGenerateCmd := &cobra.Command{
 		Use:   "generate",
@@ -583,34 +562,32 @@ func errorWithMessage(errMsg string, gwc *gateway.Gateway, err error) error {
 	return fmt.Errorf(errorMsg)
 }
 
-// writer := cmd.OutOrStdout()
-// w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-// getWaypointStatus(w)
-
-func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.CLIClient, gw gateway.Gateway) error {
+func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.CLIClient, gw []gateway.Gateway) error {
 	var cond metav1.Condition
 	startTime := time.Now()
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	fmt.Fprintln(w, "NAMESPACE\tNAME\tSTATUS\tTYPE\tREASON\tMESSAGE")
-	for range ticker.C {
-		programmed := false
-		gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), gw.Name, metav1.GetOptions{})
-		if err == nil {
-			// Check if gateway has Programmed condition set to true
-			for _, cond = range gwc.Status.Conditions {
-				if cond.Type == string(gateway.GatewayConditionProgrammed) && string(cond.Status) == "True" {
-					programmed = true
-					break
+	for _, gw := range gw {
+		for range ticker.C {
+			programmed := false
+			gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), gw.Name, metav1.GetOptions{})
+			if err == nil {
+				// Check if gateway has Programmed condition set to true
+				for _, cond = range gwc.Status.Conditions {
+					if cond.Type == string(gateway.GatewayConditionProgrammed) && string(cond.Status) == "True" {
+						programmed = true
+						break
+					}
 				}
 			}
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", gwc.Namespace, gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
-		if programmed {
-			break
-		}
-		if time.Since(startTime) > waitTimeout {
-			return errorWithMessage("timed out while retrieving status for waypoint", gwc, err)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", gwc.Namespace, gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
+			if programmed {
+				break
+			}
+			if time.Since(startTime) > waitTimeout {
+				return errorWithMessage("timed out while retrieving status for waypoint", gwc, err)
+			}
 		}
 	}
 	return w.Flush()
