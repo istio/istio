@@ -155,7 +155,20 @@ func (a *index) podWorkloadBuilder(
 		if (!IsPodRunning(p) && !IsPodPending(p)) || p.Spec.HostNetwork {
 			return nil
 		}
-		podIP, err := netip.ParseAddr(p.Status.PodIP)
+		k8sPodIPs := p.Status.PodIPs
+		if len(k8sPodIPs) == 0 && p.Status.PodIP != "" {
+			k8sPodIPs = []v1.PodIP{{IP: p.Status.PodIP}}
+		}
+		if len(k8sPodIPs) == 0 {
+			return nil
+		}
+		podIPs, err := slices.MapErr(k8sPodIPs, func(e v1.PodIP) ([]byte, error) {
+			n, err := netip.ParseAddr(e.IP)
+			if err != nil {
+				return nil, err
+			}
+			return n.AsSlice(), nil
+		})
 		if err != nil {
 			// Is this possible? Probably not in typical case, but anyone could put garbage there.
 			return nil
@@ -174,6 +187,7 @@ func (a *index) podWorkloadBuilder(
 			status = workloadapi.WorkloadStatus_UNHEALTHY
 		}
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
+		// We only check the network of the first IP. This should be fine; it is not supported for a single pod to span multiple networks
 		network := a.Network(p.Status.PodIP, p.Labels).String()
 
 		var appTunnel *workloadapi.ApplicationTunnel
@@ -198,7 +212,7 @@ func (a *index) podWorkloadBuilder(
 			Namespace:             p.Namespace,
 			Network:               network,
 			ClusterId:             string(a.ClusterID),
-			Addresses:             [][]byte{podIP.AsSlice()},
+			Addresses:             podIPs,
 			ServiceAccount:        p.Spec.ServiceAccountName,
 			Waypoint:              a.getWaypointAddress(targetWaypoint),
 			Node:                  p.Spec.NodeName,
