@@ -5,4 +5,4 @@ issue:
   - 51294
 releaseNotes:
   - |
-    **Added** a status subcommand that prints out the status of an applied gateway for a given namespace.
+    **Added** a status subcommand that prints out the status of gateway(s) for a given namespace.
