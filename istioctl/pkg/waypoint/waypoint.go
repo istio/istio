@@ -255,8 +255,6 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}
 				return err
 			}
-			writer := cmd.OutOrStdout()
-			w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
 
 			if waitReady {
 				startTime := time.Now()
@@ -294,7 +292,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()),
 					constants.AmbientUseWaypointLabel, gw.Name)
 			}
-			return w.Flush()
+			return nil
 		},
 	}
 
