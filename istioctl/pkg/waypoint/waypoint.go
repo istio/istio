@@ -56,8 +56,6 @@ var (
 	waypointName    = constants.DefaultNamespaceWaypoint
 	enrollNamespace bool
 	overwrite       bool
-
-	waypointStatus bool
 )
 
 const waitTimeout = 90 * time.Second
@@ -165,8 +163,6 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			return w.Flush()
 		},
 	}
-
-	waypointStatusCmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List all waypoints in all namespaces")
 
 	waypointGenerateCmd := &cobra.Command{
 		Use:   "generate",
@@ -301,9 +297,6 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			return w.Flush()
 		},
 	}
-
-	waypointApplyCmd.Flags().BoolVarP(&waypointStatus, "status", "s", false,
-		"Show the status of the waypoint after applying")
 
 	waypointApplyCmd.Flags().StringVar(&trafficType,
 		"for",
