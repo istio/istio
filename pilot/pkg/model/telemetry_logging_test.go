@@ -1339,7 +1339,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 						},
 					},
 				},
-				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
+				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
 			},
 		},
 	}
