@@ -42,8 +42,12 @@ func PolicyCollections(
 		if pol == nil {
 			return nil
 		}
-		return &model.WorkloadAuthorization{Authorization: pol, LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels())}
+		return &model.WorkloadAuthorization{
+			Authorization: pol,
+			LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels()),
+		}
 	}, krt.WithName("AuthzDerivedPolicies"))
+
 	PeerAuthDerivedPolicies := krt.NewCollection(PeerAuths, func(ctx krt.HandlerContext, i *securityclient.PeerAuthentication) *model.WorkloadAuthorization {
 		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
 		pol := convertPeerAuthentication(meshCfg.GetRootNamespace(), i)
@@ -55,6 +59,7 @@ func PolicyCollections(
 			LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels()),
 		}
 	}, krt.WithName("PeerAuthDerivedPolicies"))
+
 	ImplicitWaypointPolicies := krt.NewCollection(Waypoints, implicitWaypointPolicy, krt.WithName("DefaultAllowFromWaypointPolicies"))
 	DefaultPolicy := krt.NewSingleton[model.WorkloadAuthorization](func(ctx krt.HandlerContext) *model.WorkloadAuthorization {
 		if len(krt.Fetch(ctx, PeerAuths)) == 0 {
@@ -89,6 +94,7 @@ func PolicyCollections(
 			},
 		}
 	}, krt.WithName("DefaultPolicy"))
+
 	// Policies contains all of the policies we will send down to clients
 	Policies := krt.JoinCollection([]krt.Collection[model.WorkloadAuthorization]{
 		AuthzDerivedPolicies,
