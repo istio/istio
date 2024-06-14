@@ -182,7 +182,7 @@ func (esc *endpointSliceController) serviceTargets(ep *v1.EndpointSlice, proxy *
 				log.Warnf("unexpected state, svc %v missing port %v", svc.Hostname, instance.ServicePortName)
 				continue
 			}
-			if proxy.FirstAddressOrNil() != instance.FirstAddressOrNil() {
+			if proxy.IPAddresses[0] != instance.FirstAddressOrNil() {
 				continue
 			}
 			// If the endpoint isn't ready, report this
