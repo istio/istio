@@ -38,7 +38,7 @@ webhooks:
           - "*"
     failurePolicy: Ignore
     sideEffects: None
-    admissionReviewVersions: ["v1beta1", "v1"]
+    admissionReviewVersions: ["v1"]
     objectSelector:
       matchExpressions:
         - key: istio.io/rev
