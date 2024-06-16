@@ -1,5 +1,5 @@
 apiVersion: release-notes/v2
-kind: api-change
+kind: feature
 area: installation
 
 # issue is a list of GitHub issues resolved in this note.
