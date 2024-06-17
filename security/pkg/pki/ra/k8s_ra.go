@@ -36,7 +36,9 @@ import (
 type KubernetesRA struct {
 	csrInterface clientset.Interface
 
-	// Set if the ./etc/external-ca-cert/root-cert.pem is mounted
+	// has roots from ./etc/external-ca-cert/root-cert.pem (if mounted).
+	// May fallback to legacy-unknown or have no roots.
+	// This does not have any key or cert - only roots.
 	keyCertBundle *util.KeyCertBundle
 
 	raOpts *IstioRAOptions
@@ -58,6 +60,10 @@ var pkiRaLog = log.RegisterScope("pkira", "Istiod RA log")
 
 // NewKubernetesRA : Create a RA that interfaces with K8S CSR CA
 func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
+	keyCertBundle, err := util.NewKeyCertBundleWithRootCertFromFile(raOpts.CaCertFile)
+	if err != nil {
+		return nil, raerror.NewError(raerror.CAInitFail, fmt.Errorf("error processing Certificate Bundle for Kubernetes RA"))
+	}
 	istioRA := &KubernetesRA{
 		csrInterface: raOpts.K8sClient,
 		raOpts:       raOpts,
@@ -65,6 +71,8 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 		certSignerDomain:             raOpts.CertSignerDomain,
 		caCertificatesFromMeshConfig: make(map[string]string),
 	}
+	// This must be set - even if empty.
+	istioRA.keyCertBundle = keyCertBundle
 	return istioRA, nil
 }
 
@@ -176,20 +184,14 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA, if ./etc/external-ca-cert/root-cert.pem is mounted
+// This only happens with the 'kubernetes' signer, where SetCACertificatesFromFile is called.
 func (r *KubernetesRA) GetCAKeyCertBundle() *util.KeyCertBundle {
 	return r.keyCertBundle
 }
 
-func (r *KubernetesRA) SetCACertificatesFromFile(roots string) error {
-	keyCertBundle, err := util.NewKeyCertBundleWithRootCertFromFile(roots)
-	if err != nil {
-		return raerror.NewError(raerror.CAInitFail, fmt.Errorf("error processing Certificate Bundle for Kubernetes RA"))
-	}
-	r.keyCertBundle = keyCertBundle
-
-	return nil
-}
-
+// SetCACertificatesFromMeshConfig will configure a map of signer to roots.
+// This does not create a keyCertBundle - we don't know which one is the default.
+// It is not clear how this feature is used .
 func (r *KubernetesRA) SetCACertificatesFromMeshConfig(caCertificates []*meshconfig.MeshConfig_CertificateData) {
 	r.mutex.Lock()
 	for _, pemCert := range caCertificates {

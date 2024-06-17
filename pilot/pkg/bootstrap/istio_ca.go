@@ -52,7 +52,7 @@ type caOptions struct {
 	Namespace      string
 	Authenticators []security.Authenticator
 	// CertSignerDomain is based on CERT_SIGNER_DOMAIN, combined with the user-supplied name
-        // to form the K8S signer for RA.
+	// to form the K8S signer for RA.
 	CertSignerDomain string
 }
 
@@ -550,16 +550,10 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 		TrustDomain:      opts.TrustDomain,
 		CertSignerDomain: opts.CertSignerDomain,
 	}
-	// TODO(costin): This works by accident in K8S - since the default signer file is present (usually).
-	// Breaks on a VM or dev env.
-	raServer, err := ra.NewKubernetesRA(raOpts)
-	if err != nil {
-		return nil, err
-	}
 
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
 	certSignerDomain := opts.CertSignerDomain
-	_, err = os.Stat(caCertFile)
+	_, err := os.Stat(caCertFile)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to get file info: %v", err)
@@ -567,18 +561,23 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 
 		// File does not exist.
 		if certSignerDomain == "" {
-			log.Infof("CA cert file %q not found, using %q.", caCertFile, defaultCACertPath)
+			log.Infof("CA cert file %q not found, using legacy-unknown %q.", caCertFile, defaultCACertPath)
 			// TODO: only if legacy-unknown is used !
 			caCertFile = defaultCACertPath
 			raOpts.CaCertFile = caCertFile
-			raServer.SetCACertificatesFromFile(caCertFile)
 		} else {
 			log.Infof("CA cert file %q not found - ignoring.", caCertFile)
 			caCertFile = ""
 		}
 	} else {
 		raOpts.CaCertFile = caCertFile
-		raServer.SetCACertificatesFromFile(caCertFile)
+	}
+
+	// TODO(costin): This works by accident in K8S - since the default signer file is present (usually).
+	// Breaks on a VM or dev env.
+	raServer, err := ra.NewKubernetesRA(raOpts)
+	if err != nil {
+		return nil, err
 	}
 
 	// Will populate the CA certs for each signer - the API allows multiple signers.
