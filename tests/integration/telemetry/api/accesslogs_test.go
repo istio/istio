@@ -131,7 +131,7 @@ func applyTelemetryResourceWithTargetRef(t framework.TestContext, enableLogs boo
 }
 
 func applyTelemetryResource(t framework.TestContext, enableLogs bool) {
-	config := fmt.Sprintf(`apiVersion: telemetry.istio.io/v1alpha1
+	config := fmt.Sprintf(`apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: logs
@@ -145,7 +145,7 @@ spec:
 }
 
 func deleteTelemetryResource(t framework.TestContext, enableLogs bool) {
-	config := fmt.Sprintf(`apiVersion: telemetry.istio.io/v1alpha1
+	config := fmt.Sprintf(`apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: logs

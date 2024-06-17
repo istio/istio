@@ -43,7 +43,7 @@ Next, add a Telemetry resource that tells Istio to send access logs to the OpenT
 
 ```bash
 cat <<EOF | kubectl apply -n istio-system -f -
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: mesh-default

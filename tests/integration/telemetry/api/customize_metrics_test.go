@@ -44,7 +44,7 @@ func TestCustomizeMetrics(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			setupWasmExtension(t)
 			t.ConfigIstio().YAML(apps.Namespace.Name(), `
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: ns-default
