@@ -297,7 +297,7 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 // handleEvent handles the events on cacerts related files.
 // If create/write(modified) event occurs, then it verifies that
 // newly introduced cacerts are intermediate CA which is generated
-// from curent root-cert.pem. Then it updates and keycertbundle
+// from current root-cert.pem. Then it updates and keycertbundle
 // and generates new dns certs.
 func handleEvent(s *Server) {
 	log.Info("Update Istiod cacerts")
@@ -561,13 +561,14 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 
 		// File does not exist.
 		if certSignerDomain == "" {
-			log.Infof("CA cert file %q not found, using legacy-unknown %q.", caCertFile, defaultCACertPath)
+			log.Warnf("CA cert file %q not found with signer domain %s, using K8S legacy-unknown %q.", caCertFile,
+				certSignerDomain, defaultCACertPath)
 			// TODO: only if legacy-unknown is used !
+			// This is probably the wrong thing to do.
 			caCertFile = defaultCACertPath
 			raOpts.CaCertFile = caCertFile
 		} else {
-			log.Infof("CA cert file %q not found - ignoring.", caCertFile)
-			caCertFile = ""
+			log.Infof("CA cert file %q not found for K8S RA %s - ignoring.", certSignerDomain, caCertFile)
 		}
 	} else {
 		raOpts.CaCertFile = caCertFile

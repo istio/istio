@@ -25,8 +25,9 @@ import (
 	"istio.io/istio/pkg/env"
 )
 
-// Disabling the Istiod 15012 should be done if Istiod is behind a Gateway/Waypoint or
-// has a ztunnel - or in 'trusted networks'.
+// AuthPlaintext allows non TLS connections, for cases when Istiod is collocated with a gateway or on a secure
+// network (like ambient). For Istio CA it also requires disabling the TLS port on 15012, which will activate
+// the gRPC service on 15010
 var AuthPlaintext = env.Register("XDS_AUTH_PLAINTEXT", false,
 	"authenticate plain text requests - used if Istiod is running on a secure/trusted network. Only valid if the main TLS server is disabled").Get()
 

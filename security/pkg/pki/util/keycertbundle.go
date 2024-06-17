@@ -59,12 +59,12 @@ func NewKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBy
 	return bundle
 }
 
-// SplitTlsCrt will break a tls.crt PEM containing leaf plus intermediaries into
+// SplitTLSCerts will break a tls.crt PEM containing leaf plus intermediaries into
 // 2 PEMs, one containing the leaf and the other the intermediaries, as is expected
 // by the Istiod internals, verifications, etc.
 //
 // If the input contains only one certificate - it will be returned unchanged.
-func SplitTlsCrt(tlsCrt []byte) ([]byte, []byte) {
+func SplitTLSCerts(tlsCrt []byte) ([]byte, []byte) {
 	p, rest := pem.Decode(tlsCrt)
 	if p == nil || rest == nil {
 		return tlsCrt, nil
@@ -93,14 +93,9 @@ func NewVerifiedKeyCertBundleFromFile(certFile string, privKeyFile string, certC
 	if err != nil {
 		return nil, err
 	}
-	chaincerts, _ := SplitPemEncodedCertificates(certBytes)
-	intNames := []string{}
-	for _, r := range chaincerts {
-		intNames = append(intNames, r.Subject.String())
-	}
 
 	// If the cert file is tls.key - it holds both leaf and intermediaries.
-	leafBytes, certChainBytes := SplitTlsCrt(certBytes)
+	leafBytes, certChainBytes := SplitTLSCerts(certBytes)
 	certBytes = leafBytes
 
 	privKeyBytes, err := os.ReadFile(privKeyFile)

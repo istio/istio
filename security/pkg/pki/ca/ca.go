@@ -173,7 +173,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			// and deprecate/phase out the mounted file in help/k8s. The code to use the filesystem is still useful.
 			if useCacertsSecretName {
 				caCertName = CACertsSecret
-				err := loadCacertSecret(client, namespace, caCertName, rootCertFile, caOpts)
+				err := loadCacertSecret(client, namespace, caCertName, caOpts)
 				if err == nil {
 					return nil
 				} else if apierror.IsNotFound(err) { // if neither `istio-ca-secret` nor `cacerts` exists, we create a `cacerts`
@@ -254,7 +254,7 @@ func loadCASecrets(client corev1.CoreV1Interface, namespace string, caCertName s
 	return err
 }
 
-func loadCacertSecret(client corev1.CoreV1Interface, namespace string, caCertName string, rootCertFile string, caOpts *IstioCAOptions) error {
+func loadCacertSecret(client corev1.CoreV1Interface, namespace string, caCertName string, caOpts *IstioCAOptions) error {
 	caSecret, err := client.Secrets(namespace).Get(context.TODO(), caCertName, metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -290,7 +290,7 @@ func loadCacertSecret(client corev1.CoreV1Interface, namespace string, caCertNam
 	// tls.crt is a chain - first key is the actual certificate, the rest are intermediaries
 	// The rest of the code expects the cert and chain to be separated - probably it was easier to code, most
 	// systems use the tls.crt style which is the chain that will be sent in all requests.
-	leafBytes, certChainBytes := util.SplitTlsCrt(crtData)
+	leafBytes, certChainBytes := util.SplitTLSCerts(crtData)
 
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(leafBytes,
 		privData, certChainBytes, rootCerts); err != nil {
