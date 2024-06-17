@@ -122,54 +122,55 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 				OutboundListenerExactBalance: model.StringBool(tt.useExactBalance),
 			},
 		}
-		listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
-		if vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners); vo == nil {
-			t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
+		testCases := [][]*listener.Listener{
+			buildListeners(t, TestOptions{Services: testServices}, proxy),
+			// test instance with multiple addresses
+			buildListenersWithMulAddrsEP(t, TestOptions{Services: testServices}, proxy),
 		}
-		vi := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
-		if vi == nil {
-			t.Fatalf("expect virtual inbound listener, found %s", listeners[0].Name)
-		}
-
-		// test for instance with multiple addresses
-		listeners = buildListenersWithMulAddrsEP(t, TestOptions{Services: testServices}, proxy)
-		if vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners); vo == nil {
-			t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
-		}
-		vi = xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
-		if vi == nil {
-			t.Fatalf("expect virtual inbound listener, found %s", listeners[0].Name)
-		}
-
-		byListenerName := map[string]int{}
-
-		for _, fc := range vi.FilterChains {
-			byListenerName[fc.Name]++
-		}
-
-		for k, v := range byListenerName {
-			if k == model.VirtualInboundListenerName && v != 3 {
-				t.Fatalf("expect virtual listener has 3 passthrough filter chains, found %d", v)
+		for _, listeners := range testCases {
+			if vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners); vo == nil {
+				t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
 			}
-			if k == model.VirtualInboundCatchAllHTTPFilterChainName && v != 2 {
-				t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
+			vi := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+			if vi == nil {
+				t.Fatalf("expect virtual inbound listener, found %s", listeners[0].Name)
 			}
-		}
 
-		if tt.useExactBalance {
-			if vi.ConnectionBalanceConfig == nil || vi.ConnectionBalanceConfig.GetExactBalance() == nil {
-				t.Fatal("expected virtual listener to have connection balance config set to exact_balance")
+			byListenerName := map[string]int{}
+
+			for _, fc := range vi.FilterChains {
+				byListenerName[fc.Name]++
 			}
-		} else {
-			if vi.ConnectionBalanceConfig != nil {
-				t.Fatal("expected virtual listener to not have connection balance config set")
+
+			for k, v := range byListenerName {
+				if k == model.VirtualInboundListenerName && v != 3 {
+					t.Fatalf("expect virtual listener has 3 passthrough filter chains, found %d", v)
+				}
+				if k == model.VirtualInboundCatchAllHTTPFilterChainName && v != 2 {
+					t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
+				}
+			}
+
+			if tt.useExactBalance {
+				if vi.ConnectionBalanceConfig == nil || vi.ConnectionBalanceConfig.GetExactBalance() == nil {
+					t.Fatal("expected virtual listener to have connection balance config set to exact_balance")
+				}
+			} else {
+				if vi.ConnectionBalanceConfig != nil {
+					t.Fatal("expected virtual listener to not have connection balance config set")
+				}
 			}
 		}
 	}
 }
 
 func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
-	for _, listeners := range [][]*listener.Listener{buildListeners(t, TestOptions{Services: testServices}, nil), buildListenersWithMulAddrsEP(t, TestOptions{Services: testServices}, nil)} {
+	testCases := [][]*listener.Listener{
+		buildListeners(t, TestOptions{Services: testServices}, nil),
+		// test instance with multiple addresses
+		buildListenersWithMulAddrsEP(t, TestOptions{Services: testServices}, nil),
+	}
+	for _, listeners := range testCases {
 		l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 		if l == nil {
 			t.Fatalf("failed to find virtual inbound listener")
@@ -199,23 +200,19 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{InterceptionMode: model.InterceptionTproxy},
 	}
-	listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
-	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
-	if l == nil {
-		t.Fatalf("failed to find virtual inbound listener")
+	testCases := [][]*listener.Listener{
+		buildListeners(t, TestOptions{Services: testServices}, proxy),
+		// test instance with multiple addresses
+		buildListenersWithMulAddrsEP(t, TestOptions{Services: testServices}, proxy),
 	}
-	if _, f := xdstest.ExtractListenerFilters(l)[wellknown.OriginalSource]; !f {
-		t.Fatalf("missing %v filter", wellknown.OriginalSource)
-	}
-
-	// test instance with multiple addresses
-	listeners = buildListenersWithMulAddrsEP(t, TestOptions{Services: testServices}, proxy)
-	l = xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
-	if l == nil {
-		t.Fatalf("failed to find virtual inbound listener")
-	}
-	if _, f := xdstest.ExtractListenerFilters(l)[wellknown.OriginalSource]; !f {
-		t.Fatalf("missing %v filter", wellknown.OriginalSource)
+	for _, listeners := range testCases {
+		l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+		if l == nil {
+			t.Fatalf("failed to find virtual inbound listener")
+		}
+		if _, f := xdstest.ExtractListenerFilters(l)[wellknown.OriginalSource]; !f {
+			t.Fatalf("missing %v filter", wellknown.OriginalSource)
+		}
 	}
 }
 
@@ -229,23 +226,19 @@ func TestSidecarInboundListenerWithQUICAndExactBalance(t *testing.T) {
 			OutboundListenerExactBalance: true,
 		},
 	}
-	listeners := buildListeners(t, TestOptions{Services: testServicesWithQUIC}, proxy)
-	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
-	if l == nil {
-		t.Fatalf("failed to find virtual inbound listener")
+	testCases := [][]*listener.Listener{
+		buildListeners(t, TestOptions{Services: testServicesWithQUIC}, proxy),
+		// test instance with multiple addresses
+		buildListenersWithMulAddrsEP(t, TestOptions{Services: testServicesWithQUIC}, proxy),
 	}
-	if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
-		t.Fatal("expected listener to have exact_balance set, but was empty")
-	}
-
-	// test instance with multiple addresses
-	listeners = buildListenersWithMulAddrsEP(t, TestOptions{Services: testServicesWithQUIC}, proxy)
-	l = xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
-	if l == nil {
-		t.Fatalf("failed to find virtual inbound listener")
-	}
-	if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
-		t.Fatal("expected listener to have exact_balance set, but was empty")
+	for _, listeners := range testCases {
+		l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+		if l == nil {
+			t.Fatalf("failed to find virtual inbound listener")
+		}
+		if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
+			t.Fatal("expected listener to have exact_balance set, but was empty")
+		}
 	}
 }
 
