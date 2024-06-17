@@ -16,6 +16,7 @@ package krt
 
 import (
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 )
@@ -60,6 +61,30 @@ func (s *staticList[T]) dump() {
 // nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) augment(a any) any {
 	return a
+}
+
+type staticListIndex[T any] struct {
+	extract func(o T) []string
+	parent  *staticList[T]
+}
+
+func (s staticListIndex[T]) Lookup(key string) []any {
+	var res []any
+	for _, v := range s.parent.vals {
+		have := s.extract(v)
+		if slices.Contains(have, key) {
+			res = append(res, v)
+		}
+	}
+	return res
+}
+
+// nolint: unused // (not true, its to implement an interface)
+func (s *staticList[T]) index(extract func(o T) []string) kclient.RawIndexer {
+	return staticListIndex[T]{
+		extract: extract,
+		parent:  s,
+	}
 }
 
 func (s *staticList[T]) List() []T {

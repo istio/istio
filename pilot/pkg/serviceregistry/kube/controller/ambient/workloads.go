@@ -101,7 +101,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
 	Waypoints krt.Collection[Waypoint],
 	WorkloadServices krt.Collection[model.ServiceInfo],
-	WorkloadServicesNamespaceIndex *krt.Index[model.ServiceInfo, string],
+	WorkloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
 	Namespaces krt.Collection[*v1.Namespace],
 ) krt.TransformationSingle[*networkingclient.WorkloadEntry, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, wle *networkingclient.WorkloadEntry) *model.WorkloadInfo {
@@ -167,7 +167,7 @@ func (a *index) podWorkloadBuilder(
 	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
 	Waypoints krt.Collection[Waypoint],
 	WorkloadServices krt.Collection[model.ServiceInfo],
-	WorkloadServicesNamespaceIndex *krt.Index[model.ServiceInfo, string],
+	WorkloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
 	Namespaces krt.Collection[*v1.Namespace],
 	Nodes krt.Collection[*v1.Node],
 ) krt.TransformationSingle[*v1.Pod, model.WorkloadInfo] {
