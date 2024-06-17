@@ -558,6 +558,11 @@ func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.C
 	startTime := time.Now()
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
+	if ctx.Namespace() == "" {
+		fmt.Fprintln(w, "NAMESPACE\tNAME\tSTATUS\tTYPE\tREASON\tMESSAGE")
+	} else {
+		fmt.Fprintln(w, "NAME\tSTATUS\tTYPE\tREASON\tMESSAGE")
+	}
 	fmt.Fprintln(w, "NAMESPACE\tNAME\tSTATUS\tTYPE\tREASON\tMESSAGE")
 	for _, gw := range gw {
 		for range ticker.C {
@@ -572,7 +577,12 @@ func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.C
 					}
 				}
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", gwc.Namespace, gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
+			if ctx.Namespace() == "" {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", gwc.Namespace, gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
+			} else {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
+			}
+
 			if programmed {
 				break
 			}
