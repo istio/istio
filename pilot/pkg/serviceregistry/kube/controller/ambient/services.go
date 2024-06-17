@@ -207,8 +207,14 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 
 func getVIPs(svc *v1.Service) []string {
 	res := []string{}
-	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
-		res = append(res, svc.Spec.ClusterIP)
+	cips := svc.Spec.ClusterIPs
+	if len(cips) == 0 {
+		cips = []string{svc.Spec.ClusterIP}
+	}
+	for _, cip := range cips {
+		if cip != "" && cip != v1.ClusterIPNone {
+			res = append(res, cip)
+		}
 	}
 	return res
 }
