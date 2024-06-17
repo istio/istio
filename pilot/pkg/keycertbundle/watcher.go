@@ -23,8 +23,8 @@ import (
 type KeyCertBundle struct {
 	CertPem []byte
 	KeyPem  []byte
-	// CABundle is distributed to all namespaces by namespace controller (if enable), even if 
-        // KeyPem and CertPem are not set.
+	// CABundle is distributed to all namespaces by namespace controller (if enable), even if
+	// KeyPem and CertPem are not set.
 	CABundle []byte
 }
 

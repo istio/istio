@@ -147,9 +147,9 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		// We do more checks than self-signed - since key, cert and root can be updated.
 
 		// WIP:
-		//caCrt := caSecret.Data[TLSSecretRootCertFile]
+		// caCrt := caSecret.Data[TLSSecretRootCertFile]
 
-		//keyCrt := caSecret.Data[TLSSecretCAPrivateKeyFile]
+		// keyCrt := caSecret.Data[TLSSecretCAPrivateKeyFile]
 
 		return
 	}
