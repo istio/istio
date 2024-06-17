@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio/issues/51595
+
+releaseNotes:
+- |
+  **Improved** the Helm installation for Istiod multi-cluster for primary-remote. Now, Helm installation only requires setting global.externalIstiod, instead of also requiring pilot.env.EXTERNAL_ISTIOD to be set.
