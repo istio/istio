@@ -20,7 +20,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/discovery/v1"
-	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -399,7 +398,7 @@ func (e *endpointSliceCache) has(hostname host.Name) bool {
 
 func endpointSliceSelectorForService(name string) klabels.Selector {
 	return klabels.Set(map[string]string{
-		v1beta1.LabelServiceName: name,
+		v1.LabelServiceName: name,
 	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
 }
 
