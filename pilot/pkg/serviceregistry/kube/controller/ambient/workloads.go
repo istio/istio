@@ -354,37 +354,52 @@ func (a *index) endpointSlicesBuilder(
 	WorkloadServices krt.Collection[model.ServiceInfo],
 ) krt.TransformationMulti[*discovery.EndpointSlice, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, es *discovery.EndpointSlice) []model.WorkloadInfo {
+		// EndpointSlices carry port information and a list of IPs.
 		// We only care about EndpointSlices that are for a Service.
+		// Otherwise, it is just an arbitrary bag of IP addresses for some user-specific purpose, which doesn't have a clear
+		// usage for us (if it had some additional info like service account, etc, then perhaps it would be useful).
 		serviceName, f := es.Labels[discovery.LabelServiceName]
 		if !f {
+			return nil
+		}
+		if es.AddressType == discovery.AddressTypeFQDN {
+			// Currently we do not support FQDN. In theory, we could, but its' support in Kubernetes entirely is questionable and
+			// may be removed in the near future.
 			return nil
 		}
 		var res []model.WorkloadInfo
 		seen := sets.New[string]()
 		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
+
+		// The slice must be for a single service, based on the label above.
 		serviceKey := es.Namespace + "/" + string(kube.ServiceHostname(serviceName, es.Namespace, a.DomainSuffix))
 		svcs := krt.Fetch(ctx, WorkloadServices, krt.FilterKey(serviceKey), krt.FilterGeneric(func(a any) bool {
+			// Only find Service, not Service Entry
 			return a.(model.ServiceInfo).Source == kind.Service
 		}))
 		if len(svcs) == 0 {
 			// no service found
 			return nil
 		}
-		// There SHOULD only be one. This is only Service
+		// There SHOULD only be one. This is only Service which has unique hostnames.
 		svc := svcs[0]
 
+		// Translate slice ports to our port.
 		pl := &workloadapi.PortList{Ports: make([]*workloadapi.Port, 0, len(es.Ports))}
 		for _, p := range es.Ports {
+			// We must have name and port (Kubernetes should always set these)
 			if p.Name == nil {
 				continue
 			}
 			if p.Port == nil {
 				continue
 			}
+			// We only support TCP for now
 			if p.Protocol == nil || *p.Protocol != v1.ProtocolTCP {
 				continue
 			}
 			// Endpoint slice port has name (service port name, not containerPort) and port (targetPort)
+			// We need to join with the Service port list to translate the port name to
 			for _, svcPort := range svc.Ports {
 				portName := svc.PortNames[int32(svcPort.ServicePort)]
 				if portName.PortName != *p.Name {
@@ -400,14 +415,18 @@ func (a *index) endpointSlicesBuilder(
 		services := map[string]*workloadapi.PortList{
 			serviceKey: pl,
 		}
+
+		// Each endpoint in the slice is going to create a Workload
 		for _, ep := range es.Endpoints {
 			if ep.TargetRef != nil && ep.TargetRef.Kind == gvk.Pod.Kind {
-				// Normal case; this is a slice for a pod. We already handle pods.
+				// Normal case; this is a slice for a pod. We already handle pods, with much more information, so we can skip them
 				continue
 			}
+			// This should not be possible
 			if len(ep.Addresses) == 0 {
 				continue
 			}
+			// We currently only support 1 address. Kubernetes will never set more (IPv4 and IPv6 will be two slices), so its mostly undefined.
 			key := ep.Addresses[0]
 			if seen.InsertContains(key) {
 				// Shouldn't happen. Make sure our UID is actually unique
@@ -418,14 +437,19 @@ func (a *index) endpointSlicesBuilder(
 			if ep.Conditions.Ready == nil || *ep.Conditions.Ready {
 				health = workloadapi.WorkloadStatus_HEALTHY
 			}
+			// Translate our addresses.
+			// Note: users may put arbitrary addresses here. It is recommended by Kubernetes to not
+			// give untrusted users EndpointSlice write access.
 			addresses, err := slices.MapErr(ep.Addresses, func(e string) ([]byte, error) {
 				n, err := netip.ParseAddr(e)
 				if err != nil {
+					log.Warnf("invalid address in endpointslice %v: %v", e, err)
 					return nil, err
 				}
 				return n.AsSlice(), nil
 			})
 			if err != nil {
+				// If any invalid, skip
 				continue
 			}
 			w := &workloadapi.Workload{
