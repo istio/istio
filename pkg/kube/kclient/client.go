@@ -100,7 +100,7 @@ type internalIndex struct {
 func (i internalIndex) Lookup(key string) []interface{} {
 	res, err := i.indexer.ByIndex(i.key, key)
 	if err != nil {
-		// This should only happen if the key does not exist which should be impossible
+		// This should only happen if the index key (i.key, not key) does not exist which should be impossible.
 		log.Fatalf("index lookup failed: %v", err)
 	}
 	return res

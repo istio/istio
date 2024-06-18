@@ -76,7 +76,7 @@ func TestSwappingClientIndex(t *testing.T) {
 
 	// Make the CRD
 	clienttest.MakeCRD(t, c, gvr.WasmPlugin)
-	// Still no response since we haven't started yet
+	// CRD is added, make sure index now works
 	assertIndex("secret1", wasm1)
 }
 
