@@ -35,7 +35,9 @@ func main() {
 }
 
 func runPlugin() error {
-	if err := log.Configure(plugin.GetLoggingOptions("")); err != nil {
+	// Setup initial logging now. We will override it with proper logging over UDS later, but at this point we don't have the config
+	// read yet and do not want to be completely blind to logs.
+	if err := log.Configure(plugin.GetLoggingOptions(nil)); err != nil {
 		return err
 	}
 	defer func() {

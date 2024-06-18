@@ -6,7 +6,7 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.0.0
+    helm.sh/chart: loki-6.6.3
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.0.0"
@@ -20,7 +20,7 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.0.0
+    helm.sh/chart: loki-6.6.3
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.0.0"
@@ -50,9 +50,12 @@ data:
       reject_old_samples: true
       reject_old_samples_max_age: 168h
       split_queries_by_interval: 15m
+      volume_enabled: true
     memberlist:
       join_members:
       - loki-memberlist
+    pattern_ingester:
+      enabled: false
     query_range:
       align_queries_with_step: true
     ruler:
@@ -66,7 +69,7 @@ data:
         index:
           period: 24h
           prefix: index_
-        object_store: filesystem
+        object_store: 'filesystem'
         schema: v13
         store: tsdb
     server:
@@ -95,7 +98,7 @@ metadata:
   name: loki-runtime
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.0.0
+    helm.sh/chart: loki-6.6.3
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.0.0"
@@ -111,7 +114,7 @@ metadata:
   name: loki-memberlist
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.0.0
+    helm.sh/chart: loki-6.6.3
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.0.0"
@@ -136,7 +139,7 @@ metadata:
   name: loki-headless
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.0.0
+    helm.sh/chart: loki-6.6.3
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.0.0"
@@ -162,7 +165,7 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.0.0
+    helm.sh/chart: loki-6.6.3
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.0.0"
@@ -191,7 +194,7 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.0.0
+    helm.sh/chart: loki-6.6.3
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.0.0"
@@ -218,7 +221,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: d378803f8e80ff751fb2c3d0262d651fc521f91169c30b550b3003701ee357cb
+        checksum/config: 9985254dee51d616c56718f21b010a70c65f6eb0c2f6df4255259cfe23da533f
       labels:
         app.kubernetes.io/name: loki
         app.kubernetes.io/instance: loki

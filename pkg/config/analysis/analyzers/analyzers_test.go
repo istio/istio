@@ -550,6 +550,42 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "destinationrule with credentialname, simple at destinationlevel, no workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination-credentialname.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at destinationlevel, workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination-credentialname-selector.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "destinationrule with credentialname, simple at portlevel, no workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port-credentialname.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at portlevel, workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port-credentialname-selector.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
+	},
+	{
 		name: "destinationrule with no cacert, mutual at portlevel",
 		inputFiles: []string{
 			"testdata/destinationrule-mutual-port.yaml",

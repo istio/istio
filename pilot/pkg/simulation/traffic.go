@@ -570,7 +570,7 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 	// We do not implement the "source" based filters as we do not use them
 	if len(chains) > 1 {
 		for _, c := range chains {
-			log.Warnf("Matched chain %v", c.Name)
+			log.Warnf("Matched chain %v: %+v", c.Name, c.FilterChainMatch)
 		}
 		return nil, ErrMultipleFilterChain
 	}

@@ -166,6 +166,12 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.pilot.traceSampling }}"
 {{- end }}
+# If externalIstiod is set via Values.Global, then enable the pilot env variable. However, if it's set via Values.pilot.env, then
+# don't set it here to avoid duplication.
+{{- if and .Values.global.externalIstiod (eq .Values.pilot.env.EXTERNAL_ISTIOD "")}}
+          - name: EXTERNAL_ISTIOD
+            value: "{{ .Values.global.externalIstiod }}"
+{{- end }}
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID

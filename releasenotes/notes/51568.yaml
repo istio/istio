@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl  
+issue:
+- 51567
+releaseNotes:
+- |
+  **Fixed** false positives in IST0128 and IST0129 when credentialName and workloadSelector are set. 

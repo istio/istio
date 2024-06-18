@@ -112,25 +112,11 @@ func (cc inboundChainConfig) Name(protocol istionetworking.ListenerProtocol) str
 	return getListenerName(cc.bind, int(cc.port.TargetPort), istionetworking.TransportProtocolTCP)
 }
 
-var (
-	IPv4PassthroughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("0.0.0.0/0")}
-	IPv6PassthroughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("::/0")}
-)
-
 // ToFilterChainMatch builds the FilterChainMatch for the config
 func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *listener.FilterChainMatch {
 	match := &listener.FilterChainMatch{}
 	match.ApplicationProtocols = opt.ApplicationProtocols
 	match.TransportProtocol = opt.TransportProtocol
-	if cc.passthrough {
-		// Pasthrough listeners do an IP match - but matching all IPs. This is really an IP *version* match,
-		// but Envoy doesn't explicitly have version check.
-		if cc.clusterName == util.InboundPassthroughClusterIpv4 {
-			match.PrefixRanges = IPv4PassthroughCIDR
-		} else {
-			match.PrefixRanges = IPv6PassthroughCIDR
-		}
-	}
 	if cc.port.TargetPort > 0 {
 		match.DestinationPort = &wrappers.UInt32Value{Value: cc.port.TargetPort}
 	}
@@ -705,40 +691,30 @@ func reportInboundConflict(lb *ListenerBuilder, old inboundChainConfig, cc inbou
 // buildInboundPassthroughChains builds the passthrough chains. These match any unmatched traffic.
 // This allows traffic to ports not exposed by any Service, for example.
 func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain {
-	// ipv4 and ipv6 feature detect
-	ipVersions := make([]string, 0, 2)
-	if lb.node.SupportsIPv4() {
-		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
-	}
-	if lb.node.SupportsIPv6() {
-		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
-	}
 	// Setup enough slots for common max size (permissive mode is 5 filter chains). This is not
 	// exact, just best effort optimization
-	filterChains := make([]*listener.FilterChain, 0, 1+5*len(ipVersions))
+	filterChains := make([]*listener.FilterChain, 0, 1+5)
 	filterChains = append(filterChains, buildInboundBlackhole(lb))
 
-	for _, clusterName := range ipVersions {
-		mtlsOptions := lb.authnBuilder.ForPassthrough()
-		for _, mtls := range mtlsOptions {
-			cc := inboundChainConfig{
-				port: model.ServiceInstancePort{
-					ServicePort: &model.Port{
-						Name: model.VirtualInboundListenerName,
-						// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
-						// but this is backwards compatible and there aren't any perfect options.
-						Port:     0,
-						Protocol: protocol.Unsupported,
-					},
-					TargetPort: mtls.Port,
+	mtlsOptions := lb.authnBuilder.ForPassthrough()
+	for _, mtls := range mtlsOptions {
+		cc := inboundChainConfig{
+			port: model.ServiceInstancePort{
+				ServicePort: &model.Port{
+					Name: model.VirtualInboundListenerName,
+					// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
+					// but this is backwards compatible and there aren't any perfect options.
+					Port:     0,
+					Protocol: protocol.Unsupported,
 				},
-				clusterName: clusterName,
-				passthrough: true,
-				hbone:       lb.node.IsWaypointProxy(),
-			}
-			opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto)
-			filterChains = append(filterChains, lb.inboundChainForOpts(cc, mtls, opts)...)
+				TargetPort: mtls.Port,
+			},
+			clusterName: util.InboundPassthroughCluster,
+			passthrough: true,
+			hbone:       lb.node.IsWaypointProxy(),
 		}
+		opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto)
+		filterChains = append(filterChains, lb.inboundChainForOpts(cc, mtls, opts)...)
 	}
 
 	return filterChains

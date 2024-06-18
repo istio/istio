@@ -84,7 +84,7 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		if cp.Patch == nil {
 			// Should be caught by validation, but sometimes its disabled and we don't want to crash
 			// as a result.
-			log.Debugf("envoyfilter %v/%v discarded due to missing patch", local.Namespace, local.Name)
+			log.Debugf("envoyfilter %s/%s discarded due to missing patch", local.Namespace, local.Name)
 			continue
 		}
 		cpw := &EnvoyFilterConfigPatchWrapper{
@@ -102,7 +102,7 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		// There generally won't be an error here because validation catches mismatched types
 		// Should only happen in tests or without validation
 		if err != nil {
-			log.Errorf("failed to build envoy filter value: %v", err)
+			log.Errorf("envoyfilter %s/%s failed to build envoy filter value: %+v", local.Namespace, local.Name, err)
 			continue
 		}
 		if cp.Match == nil {

@@ -210,6 +210,7 @@ var replacer = strings.NewReplacer(
 	// Test runs in istio-system
 	`destination_workload_namespace!="istio-system"`, `destination_workload_namespace=~".*"`,
 	`source_workload_namespace!="istio-system"`, `source_workload_namespace=~".*"`,
+	"$__rate_interval", "1m",
 )
 
 func checkMetric(cl cluster.Cluster, p prometheus.Instance, query string, excluded []string) error {

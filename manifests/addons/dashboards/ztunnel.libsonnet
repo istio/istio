@@ -3,15 +3,17 @@ local g = import 'g.libsonnet';
 local row = g.panel.row;
 
 local grid = import 'lib-grid.libsonnet';
+local dashboard = import './dashboard.libsonnet';
 local panels = import './panels.libsonnet';
 local variables = import './variables.libsonnet';
-local queries = import './queries.libsonnet';
+local queries = (import './queries.libsonnet').queries({
+  container: "istio-proxy",
+  pod: "ztunnel-.*",
+  component: "ztunnel",
+  app: "ztunnel",
+});
 
-g.dashboard.new('Istio Ztunnel Dashboard')
-+ g.dashboard.graphTooltip.withSharedCrosshair()
-+ g.dashboard.withVariables([
-  variables.datasource,
-])
+dashboard.new('Istio Ztunnel Dashboard')
 + g.dashboard.withPanels(
   grid.makeGrid([
     row.new('Process')
@@ -29,7 +31,7 @@ g.dashboard.new('Istio Ztunnel Dashboard')
     row.new('Operations')
     + row.withPanels([
       panels.timeSeries.base(
-        'XDS', queries.xdsConnections, |||
+        'XDS', queries.ztunnelXdsConnections, |||
           Count of XDS connection terminations.
           This will typically spike every 30min for each instance.
         |||

@@ -246,8 +246,10 @@ func constructConfig() (*config.Config, error) {
 		CNIConfName:      viper.GetString(constants.CNIConfName),
 		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
 
-		// make plugin (which runs out-of-process) inherit our current log level
-		PluginLogLevel:        istiolog.LevelToString(istiolog.FindScope(constants.CNIAgentLogScope).GetOutputLevel()),
+		// Whatever user has set (with --log_output_level) for 'cni-plugin', pass it down to the plugin. It will use this to determine
+		// what level to use for itself.
+		// This masks the fact we are doing this weird log-over-UDS to users, and allows them to configure it the same way.
+		PluginLogLevel:        istiolog.LevelToString(istiolog.FindScope(constants.CNIPluginLogScope).GetOutputLevel()),
 		KubeconfigFilename:    viper.GetString(constants.KubeconfigFilename),
 		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
 		KubeCAFile:            viper.GetString(constants.KubeCAFile),
