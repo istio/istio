@@ -33,10 +33,16 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"istio.io/api/label"
+	mcp "istio.io/api/mcp/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/memory"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -259,7 +265,6 @@ func TestDeltaClient(t *testing.T) {
 
 	descs := []struct {
 		desc            string
-		inClient        *Client
 		serverResponses []*discovery.DeltaDiscoveryResponse
 		expectedTree    string
 	}{
@@ -494,4 +499,261 @@ LDS/:
 			}
 		})
 	}
+}
+
+func TestDeltaClient_handleMCP(t *testing.T) {
+	rev := "test-rev"
+	store := memory.Make(collections.Pilot)
+	respCh := make(chan *discovery.DeltaDiscoveryResponse)
+	deltaHandler = func(delta discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+		for response := range respCh {
+			_ = delta.Send(response)
+		}
+		return nil
+	}
+
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Errorf("Unable to listen with tcp err %v", err)
+		return
+	}
+	cfg := &DeltaADSConfig{
+		Config: Config{
+			Address: l.Addr().String(),
+		},
+	}
+	xds := grpc.NewServer()
+	discovery.RegisterAggregatedDiscoveryServiceServer(xds, new(mockDeltaXdsServer))
+	go func() {
+		err = xds.Serve(l)
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+	defer xds.GracefulStop()
+	if err != nil {
+		t.Errorf("Could not start serving ads server %v", err)
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	client := NewDeltaWithBackoffPolicy(cfg.Address, cfg, nil, WatchMcpOptions(rev, WithConfigStore(store))...)
+	if err := client.Run(ctx); err != nil {
+		t.Errorf("ADSC: failed running %v", err)
+		return
+	}
+
+	tests := []struct {
+		desc                 string
+		serverResponses      []*discovery.DeltaDiscoveryResponse
+		expectedLastReceived map[string]*discovery.DeltaDiscoveryResponse
+		expectedResources    [][]string
+		run                  bool
+	}{
+		{
+			run:  true,
+			desc: "create-resources",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: gvk.ServiceEntry.String(),
+					Resources: []*discovery.Resource{
+						{
+							Name:     "default/foo1",
+							Resource: constructMcpResourceWithOptions("foo1", "foo1.bar.com", "192.1.1.1", "1"),
+						},
+						{
+							Name:     "default/foo2",
+							Resource: constructMcpResourceWithOptions("foo2", "foo2.bar.com", "192.1.1.2", "1"),
+						},
+					},
+				},
+			},
+			expectedResources: [][]string{
+				{"foo1", "foo1.bar.com", "192.1.1.1"},
+				{"foo2", "foo2.bar.com", "192.1.1.2"},
+			},
+		},
+		{
+			run:  true,
+			desc: "create-resources-rev-1",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: gvk.ServiceEntry.String(),
+					Resources: []*discovery.Resource{
+						{
+							Name: "default/foo2",
+							Resource: constructMcpResourceWithOptions("foo2", "foo2.bar.com", "192.1.1.2", "1", func(resource *mcp.Resource) {
+								resource.Metadata.Labels = patchLabel(resource.Metadata.Labels, label.IoIstioRev.Name, rev+"wrong") // to del
+							}),
+						},
+						{
+							Name: "default/foo3",
+							Resource: constructMcpResourceWithOptions("foo3", "foo3.bar.com", "192.1.1.3", "1", func(resource *mcp.Resource) {
+								resource.Metadata.Labels = patchLabel(resource.Metadata.Labels, label.IoIstioRev.Name, rev) // to add
+							}),
+						},
+					},
+				},
+			},
+			expectedResources: [][]string{
+				{"foo1", "foo1.bar.com", "192.1.1.1"},
+				{"foo3", "foo3.bar.com", "192.1.1.3"},
+			},
+		},
+		{
+			desc: "create-resources-rev-2",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: gvk.ServiceEntry.String(),
+					Resources: []*discovery.Resource{
+						{
+							Name: "default/foo2",
+							Resource: constructMcpResourceWithOptions("foo2", "foo2.bar.com", "192.1.1.2", "1", func(resource *mcp.Resource) {
+								resource.Metadata.Labels = patchLabel(resource.Metadata.Labels, label.IoIstioRev.Name, rev) // to add back
+							}),
+						},
+						{
+							Name: "default/foo3",
+							Resource: constructMcpResourceWithOptions("foo3", "foo3.bar.com", "192.1.1.3", "1", func(resource *mcp.Resource) {
+								resource.Metadata.Labels = patchLabel(resource.Metadata.Labels, label.IoIstioRev.Name, rev+"wrong") // to del
+							}),
+						},
+					},
+				},
+			},
+			expectedResources: [][]string{
+				{"foo1", "foo1.bar.com", "192.1.1.1"},
+				{"foo2", "foo2.bar.com", "192.1.1.2"},
+			},
+		},
+		{
+			desc: "update-and-create-resources",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: gvk.ServiceEntry.String(),
+					Resources: []*discovery.Resource{
+						{
+							Name:     "default/foo1",
+							Resource: constructMcpResourceWithOptions("foo1", "foo1.bar.com", "192.1.1.11", "2"),
+						},
+						{
+							Name:     "default/foo2",
+							Resource: constructMcpResourceWithOptions("foo2", "foo2.bar.com", "192.1.1.22", "1"),
+						},
+						{
+							Name:     "default/foo3",
+							Resource: constructMcpResourceWithOptions("foo3", "foo3.bar.com", "192.1.1.3", ""),
+						},
+					},
+				},
+			},
+			expectedResources: [][]string{
+				{"foo1", "foo1.bar.com", "192.1.1.11"},
+				{"foo2", "foo2.bar.com", "192.1.1.2"},
+				{"foo3", "foo3.bar.com", "192.1.1.3"},
+			},
+		},
+		{
+			desc: "update-delete-and-create-resources",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: gvk.ServiceEntry.String(),
+					Resources: []*discovery.Resource{
+						{
+							Name:     "default/foo2",
+							Resource: constructMcpResourceWithOptions("foo2", "foo2.bar.com", "192.1.1.222", "4"),
+						},
+						{
+							Name:     "default/foo4",
+							Resource: constructMcpResourceWithOptions("foo4", "foo4.bar.com", "192.1.1.4", "1"),
+						},
+					},
+					RemovedResources: []string{"default/foo1", "default/foo3"},
+				},
+			},
+			expectedResources: [][]string{
+				{"foo2", "foo2.bar.com", "192.1.1.222"},
+				{"foo4", "foo4.bar.com", "192.1.1.4"},
+			},
+		},
+		{
+			desc: "update-delete-and-create-resources",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: gvk.ServiceEntry.String(),
+					Resources: []*discovery.Resource{
+						{
+							Name:     "default/foo2",
+							Resource: constructMcpResourceWithOptions("foo2", "foo2.bar.com", "192.2.2.22", "3"),
+						},
+						{
+							Name:     "default/foo3",
+							Resource: constructMcpResourceWithOptions("foo3", "foo3.bar.com", "192.1.1.33", ""),
+						},
+					},
+					RemovedResources: []string{"default/foo4"},
+				},
+			},
+			expectedResources: [][]string{
+				{"foo2", "foo2.bar.com", "192.2.2.22"},
+				{"foo3", "foo3.bar.com", "192.1.1.33"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			expectedLastReceived := make(map[string]*discovery.DeltaDiscoveryResponse)
+			for _, response := range tt.serverResponses {
+				expectedLastReceived[response.TypeUrl] = response
+				respCh <- response
+			}
+
+			assert.EventuallyEqual(t, func() bool {
+				client.mutex.Lock()
+				defer client.mutex.Unlock()
+				rec := client.lastReceived
+
+				if rec == nil && len(rec) != len(expectedLastReceived) {
+					return false
+				}
+				for tpe, rsrcs := range expectedLastReceived {
+					if _, ok := rec[tpe]; !ok {
+						return false
+					}
+					if len(rsrcs.Resources) != len(rec[tpe].Resources) {
+						return false
+					}
+				}
+				return true
+			}, true, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
+
+			// wait for the callback updates the store
+			time.Sleep(1 * time.Millisecond)
+
+			configs := store.List(gvk.ServiceEntry, "")
+			if len(configs) != len(tt.expectedResources) {
+				t.Errorf("expected %v got %v", len(tt.expectedResources), len(configs))
+			}
+			configMap := make(map[string][]string)
+			for _, conf := range configs {
+				service, _ := conf.Spec.(*networking.ServiceEntry)
+				configMap[conf.Name] = []string{conf.Name, service.Hosts[0], service.Addresses[0]}
+			}
+			for _, expected := range tt.expectedResources {
+				got, ok := configMap[expected[0]]
+				if !ok {
+					t.Errorf("expected %v got none", expected)
+				} else {
+					for i, value := range expected {
+						if value != got[i] {
+							t.Errorf("expected %v got %v", value, got[i])
+						}
+					}
+				}
+			}
+		})
+	}
+	close(respCh)
 }

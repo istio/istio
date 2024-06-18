@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 
@@ -52,6 +53,9 @@ const (
 	// xds://ADDRESS - load XDS-over-MCP sources
 	// example xds://127.0.0.1:49133
 	XDS ConfigSourceAddressScheme = "xds"
+	// delta-xds://ADDRESS - load XDS-over-MCP sources using delta xds
+	// example delta-xds://127.0.0.1:49133
+	DelataXDS ConfigSourceAddressScheme = "delta-xds"
 	// k8s:// - load in-cluster k8s controller
 	// example k8s://
 	Kubernetes ConfigSourceAddressScheme = "k8s"
@@ -263,6 +267,44 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			}
 			s.ConfigStores = append(s.ConfigStores, configController)
 			log.Infof("Started XDS configSource %s", configSource.Address)
+		case DelataXDS:
+			store := memory.Make(collections.Pilot)
+			// TODO: enable namespace filter for memory controller
+			configController := memory.NewController(store)
+
+			delta := adsc.NewDelta(srcAddress.Host,
+				&adsc.DeltaADSConfig{
+					Config: adsc.Config{
+						Namespace: args.Namespace,
+						Workload:  args.PodName,
+						Revision:  args.Revision,
+						Meta: model.NodeMetadata{
+							Generator:     "api",
+							IstioRevision: args.Revision,
+						}.ToStruct(),
+						GrpcOpts: []grpc.DialOption{
+							args.KeepaliveOptions.ConvertToClientOption(),
+							grpc.WithTransportCredentials(insecure.NewCredentials()),
+						},
+					},
+				},
+				adsc.WatchMcpOptions(args.Revision, adsc.WithConfigStore(store))...,
+			)
+			ctx, cancel := context.WithCancel(context.Background())
+			err = delta.Run(ctx)
+			if err != nil {
+				cancel()
+				return fmt.Errorf("delta-MCP: failed running %v", err)
+			}
+			s.ConfigStores = append(s.ConfigStores, configController)
+			s.addStartFunc("delta-xds configSource", func(stop <-chan struct{}) error {
+				go func() {
+					<-stop
+					cancel()
+				}()
+				return nil
+			})
+			log.Infof("Started delta-XDS configSource %s", configSource.Address)
 		case Kubernetes:
 			if srcAddress.Path == "" || srcAddress.Path == "/" {
 				err2 := s.initK8SConfigStore(args)
