@@ -147,9 +147,6 @@ type JwksResolver struct {
 
 	// How many times refresh job failed to fetch the public key from network, used in unit test.
 	refreshJobFetchFailedCount uint64
-
-	// Whenever istiod fails to fetch the pubkey from jwksuri in main flow this variable becomes true for background trigger
-	jwksUribackgroundChannel bool
 }
 
 // NewJwksResolver creates new instance of JwksResolver.
@@ -395,22 +392,20 @@ func (r *JwksResolver) refresher() {
 	for {
 		select {
 		case <-r.refreshTicker.C:
-			if !r.jwksUribackgroundChannel {
-				lastHasError = r.refreshCache(lastHasError)
-			}
+			lastHasError = r.refreshCache(lastHasError)
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return
 		case <-jwksuriChannel:
-			r.jwksUribackgroundChannel = true
-			lastHasError = r.refreshCache(lastHasError)
-			r.jwksUribackgroundChannel = false
+			// When triggered due to an error in the main flow, only URIs without a cached value
+			// get fetched, so don't modify the ticker or interval used for the background refresh.
+			r.refresh(true)
 		}
 	}
 }
 
 func (r *JwksResolver) refreshCache(lastHasError bool) bool {
-	currentHasError := r.refresh()
+	currentHasError := r.refresh(false)
 	if currentHasError {
 		if lastHasError {
 			// update to exponential backoff if last time also failed.
@@ -430,7 +425,7 @@ func (r *JwksResolver) refreshCache(lastHasError bool) bool {
 	return currentHasError
 }
 
-func (r *JwksResolver) refresh() bool {
+func (r *JwksResolver) refresh(jwksURIBackgroundChannel bool) bool {
 	var wg sync.WaitGroup
 	var hasChange, hasErrors atomic.Bool
 	r.keyEntries.Range(func(key any, value any) bool {
@@ -438,7 +433,10 @@ func (r *JwksResolver) refresh() bool {
 		k := key.(jwtKey)
 		e := value.(jwtPubKeyEntry)
 
-		if e.pubKey != "" && r.jwksUribackgroundChannel {
+		// If the refresh was triggered by a failure in the main flow, only fetch URIs that don't
+		// have an entry in the cache. Cached entries will be fetched when triggered by the
+		// background refresh ticker.
+		if e.pubKey != "" && jwksURIBackgroundChannel {
 			return true
 		}
 		// Remove cached item for either of the following 2 situations
