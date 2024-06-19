@@ -62,7 +62,6 @@ func CobraCommandWithOptions(options CobraOptions) *cobra.Command {
 		remote        bool
 		version       Version
 		remoteVersion *MeshInfo
-		serverErr     error
 	)
 
 	cmd := &cobra.Command{
@@ -76,10 +75,7 @@ func CobraCommandWithOptions(options CobraOptions) *cobra.Command {
 			version.ClientVersion = &Info
 
 			if options.GetRemoteVersion != nil && remote {
-				remoteVersion, serverErr = options.GetRemoteVersion()
-				if serverErr != nil {
-					return serverErr
-				}
+				remoteVersion, _ = options.GetRemoteVersion()
 				version.MeshVersion = remoteVersion
 			}
 			if options.GetProxyVersions != nil && remote {
@@ -89,27 +85,22 @@ func CobraCommandWithOptions(options CobraOptions) *cobra.Command {
 			switch output {
 			case "":
 				if short {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "client version: %s\n", version.ClientVersion.Version)
 					if remoteVersion != nil {
 						remoteVersion = coalesceVersions(remoteVersion)
-						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "client version: %s\n", version.ClientVersion.Version)
 						for _, remote := range *remoteVersion {
 							_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s version: %s\n", remote.Component, remote.Info.Version)
 						}
-
-					} else {
-						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n", version.ClientVersion.Version)
 					}
 					if version.DataPlaneVersion != nil {
 						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "data plane version: %s\n", renderProxyVersions(version.DataPlaneVersion))
 					}
 				} else {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "client version: %s\n", version.ClientVersion.LongForm())
 					if remoteVersion != nil {
-						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "client version: %s\n", version.ClientVersion.LongForm())
 						for _, remote := range *remoteVersion {
 							_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s version: %s\n", remote.Component, remote.Info.LongForm())
 						}
-					} else {
-						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s\n", version.ClientVersion.LongForm())
 					}
 					if version.DataPlaneVersion != nil {
 						for _, proxy := range *version.DataPlaneVersion {
