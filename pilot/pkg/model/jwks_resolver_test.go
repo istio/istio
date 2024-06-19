@@ -15,6 +15,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -195,7 +196,7 @@ func TestGetPublicKeyReorderedKey(t *testing.T) {
 		if c.expectedJwtPubkey != pk {
 			t.Errorf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
-		r.refresh()
+		r.refresh(false)
 	}
 
 	// Verify refresh job key changed count is zero.
@@ -509,6 +510,62 @@ func TestJwtPubKeyMetric(t *testing.T) {
 			return c.expectedJwtPubkey == pk
 		}, retry.Delay(time.Millisecond))
 		mt.Assert(c.metric, nil, monitortest.AtLeast(1))
+	}
+}
+
+func TestJwtPubKeyRefreshedWhenErrorsGettingOtherURLs(t *testing.T) {
+	refreshInterval := 50 * time.Millisecond
+	r := NewJwksResolver(
+		JwtPubKeyEvictionDuration,
+		refreshInterval,
+		JwtPubKeyRefreshIntervalOnFailure,
+		time.Millisecond, /*RetryInterval*/
+	)
+	defer r.Close()
+
+	ms := startMockServer(t)
+	defer ms.Stop()
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+	mockInvalidCertURL := ms.URL + "/invalid"
+
+	// Get a key added to the cache
+	pk, err := r.GetPublicKey("", mockCertURL, testRequestTimeout)
+	if err != nil {
+		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
+	}
+	// Mock server returns JwtPubKey1 for the first call
+	if test.JwtPubKey1 != pk {
+		t.Fatalf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey1, pk)
+	}
+
+	// Start a goroutine that requests an invalid URL repeatedly
+	goroutineCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		for {
+			select {
+			case <-time.After(refreshInterval / 2):
+				pk, err = r.GetPublicKey("", mockInvalidCertURL, testRequestTimeout)
+				if err == nil {
+					t.Fatalf("GetPublicKey(\"\", %+v): expected error, got (%s)", mockInvalidCertURL, pk)
+				}
+			case <-goroutineCtx.Done():
+				return
+			}
+		}
+	}()
+
+	// Ensure that the good URL is still refreshed, and updated to JwtPubKey2
+	time.Sleep(2 * refreshInterval)
+
+	pk, err = r.GetPublicKey("", mockCertURL, testRequestTimeout)
+	if err != nil {
+		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
+	}
+	// Mock server returns JwtPubKey2 for later calls
+	if test.JwtPubKey2 != pk {
+		t.Fatalf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey2, pk)
 	}
 }
 
