@@ -116,21 +116,29 @@ type AdsClients struct {
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
-	ClusterID            string         `json:"cluster_id,omitempty"`
-	ProxyID              string         `json:"proxy,omitempty"`
-	ProxyType            model.NodeType `json:"proxy_type,omitempty"`
-	ProxyVersion         string         `json:"proxy_version,omitempty"`
-	IstioVersion         string         `json:"istio_version,omitempty"`
-	ClusterSent          string         `json:"cluster_sent,omitempty"`
-	ClusterAcked         string         `json:"cluster_acked,omitempty"`
-	ListenerSent         string         `json:"listener_sent,omitempty"`
-	ListenerAcked        string         `json:"listener_acked,omitempty"`
-	RouteSent            string         `json:"route_sent,omitempty"`
-	RouteAcked           string         `json:"route_acked,omitempty"`
-	EndpointSent         string         `json:"endpoint_sent,omitempty"`
-	EndpointAcked        string         `json:"endpoint_acked,omitempty"`
-	ExtensionConfigSent  string         `json:"extensionconfig_sent,omitempty"`
-	ExtensionConfigAcked string         `json:"extensionconfig_acked,omitempty"`
+	ClusterID            string                    `json:"cluster_id,omitempty"`
+	ProxyID              string                    `json:"proxy,omitempty"`
+	ProxyType            model.NodeType            `json:"proxy_type,omitempty"`
+	ProxyVersion         string                    `json:"proxy_version,omitempty"`
+	IstioVersion         string                    `json:"istio_version,omitempty"`
+	ClusterSent          string                    `json:"cluster_sent,omitempty"`
+	ClusterAcked         string                    `json:"cluster_acked,omitempty"`
+	ListenerSent         string                    `json:"listener_sent,omitempty"`
+	ListenerAcked        string                    `json:"listener_acked,omitempty"`
+	RouteSent            string                    `json:"route_sent,omitempty"`
+	RouteAcked           string                    `json:"route_acked,omitempty"`
+	EndpointSent         string                    `json:"endpoint_sent,omitempty"`
+	EndpointAcked        string                    `json:"endpoint_acked,omitempty"`
+	ExtensionConfigSent  string                    `json:"extensionconfig_sent,omitempty"`
+	ExtensionConfigAcked string                    `json:"extensionconfig_acked,omitempty"`
+	Resources            map[string]ResourceStatus `json:"resources,omitempty""`
+}
+
+type ResourceStatus struct {
+	Sent      string    `json:"sent,omitempty"`
+	Acked     string    `json:"acked,omitempty"`
+	SentTime  time.Time `json:"sentTime,omitempty"`
+	LastError string    `json:"lastError,omitempty"`
 }
 
 // SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
@@ -273,22 +281,34 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, req *http.Request) {
 	syncz := make([]SyncStatus, 0)
 	for _, con := range s.SortedClients() {
 		node := con.proxy
+		node.CloneWatchedResources()
 		if node != nil && (namespace == "" || node.GetNamespace() == namespace) {
+			wrs := node.CloneWatchedResources()
+			res := make(map[string]ResourceStatus, len(wrs))
+			for _, wr := range wrs {
+				res[wr.TypeUrl] = ResourceStatus{
+					Sent:      wr.NonceSent,
+					Acked:     wr.NonceAcked,
+					SentTime:  wr.LastSendTime,
+					LastError: wr.LastError,
+				}
+			}
 			syncz = append(syncz, SyncStatus{
 				ProxyID:              node.ID,
 				ProxyType:            node.Type,
 				ClusterID:            node.GetClusterID().String(),
 				IstioVersion:         node.GetIstioVersion(),
-				ClusterSent:          con.NonceSent(v3.ClusterType),
-				ClusterAcked:         con.NonceAcked(v3.ClusterType),
-				ListenerSent:         con.NonceSent(v3.ListenerType),
-				ListenerAcked:        con.NonceAcked(v3.ListenerType),
-				RouteSent:            con.NonceSent(v3.RouteType),
-				RouteAcked:           con.NonceAcked(v3.RouteType),
-				EndpointSent:         con.NonceSent(v3.EndpointType),
-				EndpointAcked:        con.NonceAcked(v3.EndpointType),
-				ExtensionConfigSent:  con.NonceSent(v3.ExtensionConfigurationType),
-				ExtensionConfigAcked: con.NonceAcked(v3.ExtensionConfigurationType),
+				ClusterSent:          node.NonceSent(v3.ClusterType),
+				ClusterAcked:         node.NonceAcked(v3.ClusterType),
+				ListenerSent:         node.NonceSent(v3.ListenerType),
+				ListenerAcked:        node.NonceAcked(v3.ListenerType),
+				RouteSent:            node.NonceSent(v3.RouteType),
+				RouteAcked:           node.NonceAcked(v3.RouteType),
+				EndpointSent:         node.NonceSent(v3.EndpointType),
+				EndpointAcked:        node.NonceAcked(v3.EndpointType),
+				ExtensionConfigSent:  node.NonceSent(v3.ExtensionConfigurationType),
+				ExtensionConfigAcked: node.NonceAcked(v3.ExtensionConfigurationType),
+				Resources:            res,
 			})
 		}
 	}

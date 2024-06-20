@@ -625,16 +625,6 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	}
 }
 
-// nolint
-func (conn *Connection) NonceAcked(typeUrl string) string {
-	return conn.proxy.NonceAcked(typeUrl)
-}
-
-// nolint
-func (conn *Connection) NonceSent(typeUrl string) string {
-	return conn.proxy.NonceSent(typeUrl)
-}
-
 func (conn *Connection) Clusters() []string {
 	return conn.proxy.Clusters()
 }
