@@ -505,9 +505,9 @@ func TestJwtPubKeyRefreshedWhenErrorsGettingOtherURLs(t *testing.T) {
 		for {
 			select {
 			case <-time.After(refreshInterval / 2):
-				pk, err = r.GetPublicKey("", mockInvalidCertURL, testRequestTimeout)
+				invalidKey, err := r.GetPublicKey("", mockInvalidCertURL, testRequestTimeout)
 				if err == nil {
-					t.Logf("expected error for %q, but got key %q", mockInvalidCertURL, pk)
+					t.Logf("expected error for %q, but got key %q", mockInvalidCertURL, invalidKey)
 				}
 			case <-goroutineCtx.Done():
 				return
