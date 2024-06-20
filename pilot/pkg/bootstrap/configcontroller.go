@@ -211,6 +211,26 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 // initConfigSources will process mesh config 'configSources' and initialize
 // associated configs.
 func (s *Server) initConfigSources(args *PilotArgs) (err error) {
+	getAdscConfig := func(args *PilotArgs) adsc.Config {
+		return adsc.Config{
+			Namespace: args.Namespace,
+			Workload:  args.PodName,
+			Revision:  args.Revision,
+			Meta: model.NodeMetadata{
+				Generator: "api",
+				// To reduce transported data if upstream server supports. Especially for custom servers.
+				IstioRevision: args.Revision,
+			}.ToStruct(),
+			GrpcOpts: []grpc.DialOption{
+				args.KeepaliveOptions.ConvertToClientOption(),
+				// Because we use the custom grpc options for adsc, here we should
+				// explicitly set transport credentials.
+				// TODO: maybe we should use the tls settings within ConfigSource
+				// to secure the connection between istiod and remote xds server.
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+			},
+		}
+	}
 	for _, configSource := range s.environment.Mesh().ConfigSources {
 		srcAddress, err := url.Parse(configSource.Address)
 		if err != nil {
@@ -234,24 +254,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 		case XDS:
 			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.ADSConfig{
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
-				Config: adsc.Config{
-					Namespace: args.Namespace,
-					Workload:  args.PodName,
-					Revision:  args.Revision,
-					Meta: model.NodeMetadata{
-						Generator: "api",
-						// To reduce transported data if upstream server supports. Especially for custom servers.
-						IstioRevision: args.Revision,
-					}.ToStruct(),
-					GrpcOpts: []grpc.DialOption{
-						args.KeepaliveOptions.ConvertToClientOption(),
-						// Because we use the custom grpc options for adsc, here we should
-						// explicitly set transport credentials.
-						// TODO: maybe we should use the tls settings within ConfigSource
-						// to secure the connection between istiod and remote xds server.
-						grpc.WithTransportCredentials(insecure.NewCredentials()),
-					},
-				},
+				Config:                   getAdscConfig(args),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
@@ -271,25 +274,13 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			store := memory.Make(collections.Pilot)
 			// TODO: enable namespace filter for memory controller
 			configController := memory.NewController(store)
-
 			delta := adsc.NewDelta(srcAddress.Host,
 				&adsc.DeltaADSConfig{
-					Config: adsc.Config{
-						Namespace: args.Namespace,
-						Workload:  args.PodName,
-						Revision:  args.Revision,
-						Meta: model.NodeMetadata{
-							Generator:     "api",
-							IstioRevision: args.Revision,
-						}.ToStruct(),
-						GrpcOpts: []grpc.DialOption{
-							args.KeepaliveOptions.ConvertToClientOption(),
-							grpc.WithTransportCredentials(insecure.NewCredentials()),
-						},
-					},
+					Config: getAdscConfig(args),
 				},
-				adsc.WatchMcpOptions(args.Revision, adsc.WithConfigStore(store))...,
+				adsc.WatchMcpOptions(args.Revision, adsc.WithConfigStore(configController))...,
 			)
+			configController.RegisterHasSyncedHandler(delta.HasSynced)
 			ctx, cancel := context.WithCancel(context.Background())
 			err = delta.Run(ctx)
 			if err != nil {

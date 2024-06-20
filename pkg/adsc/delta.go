@@ -205,6 +205,7 @@ type Client struct {
 
 	// initialWatches is the list of resources we are watching on startup
 	initialWatches []resourceKey
+	sync           map[string]time.Time
 
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta
 	sendNodeMeta atomic.Bool
@@ -298,6 +299,21 @@ func (c *Client) Run(ctx context.Context) error {
 	return nil
 }
 
+func (c *Client) HasSynced() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	for _, w := range c.initialWatches {
+		_, isMCP := convertTypeURLToMCPGVK(w.TypeURL)
+		if !isMCP {
+			continue
+		}
+		if _, ok := c.sync[w.TypeURL]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *Client) Dial() error {
 	conn, err := dialWithConfig(&c.cfg.Config)
 	if err != nil {
@@ -341,6 +357,7 @@ func NewDelta(discoveryAddr string, config *DeltaADSConfig, opts ...Option) *Cli
 		deltaXDSUpdates: make(chan *discovery.DeltaDiscoveryResponse, 100),
 		lastReceived:    map[string]*discovery.DeltaDiscoveryResponse{},
 		mutex:           sync.RWMutex{},
+		sync:            map[string]time.Time{},
 	}
 	for _, o := range opts {
 		o(c)
@@ -547,10 +564,10 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		// No need to ack and type check for debug types
 		return nil
 	}
+	isMeshConfig := d.TypeUrl == gvk.MeshConfig.String()
+	_, isMcp := convertTypeURLToMCPGVK(d.TypeUrl)
 	for _, r := range d.Resources {
-		_, isMcp := convertTypeURLToMCPGVK(d.TypeUrl)
-		if d.TypeUrl != gvk.MeshConfig.String() && !isMcp &&
-			d.TypeUrl != r.Resource.TypeUrl {
+		if !isMeshConfig && !isMcp && d.TypeUrl != r.Resource.TypeUrl {
 			deltaLog.Errorf("Invalid response: mismatch of type url: %v vs %v", d.TypeUrl, r.Resource.TypeUrl)
 			continue
 		}
@@ -604,7 +621,16 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		allRemoves[key.TypeURL].Insert(key.Name)
 		c.drop(key)
 	}
+
+	c.mutex.Lock()
+	if isMcp {
+		if _, exist := c.sync[d.TypeUrl]; !exist {
+			c.sync[d.TypeUrl] = time.Now()
+		}
+	}
 	c.send(resourceKey{TypeURL: d.TypeUrl}, d.Nonce, joinError(rejects))
+	c.mutex.Unlock()
+
 	for t, sub := range allAdds {
 		unsub, f := allRemoves[t]
 		if f {
