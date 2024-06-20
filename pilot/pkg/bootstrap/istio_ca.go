@@ -51,8 +51,9 @@ type caOptions struct {
 	TrustDomain    string
 	Namespace      string
 	Authenticators []security.Authenticator
-	// CertSignerDomain is based on CERT_SIGNER_DOMAIN, combined with the user-supplied name
-	// to form the K8S signer for RA.
+	// CertSignerDomain is based on the CERT_SIGNER_DOMAIN env variable
+	// It is combined with the user-supplied name to form the K8S signer for the RA:
+	// CertSignerDomain + "/" + CertSigner
 	CertSignerDomain string
 }
 
