@@ -53,7 +53,7 @@ type caOptions struct {
 	Authenticators []security.Authenticator
 	// CertSignerDomain is based on the CERT_SIGNER_DOMAIN env variable
 	// It is combined with the user-supplied name to form the K8S signer for the RA:
-	// CertSignerDomain + "/" + CertSigner
+	// CertSignerDomain + "/" + CertSigner ( which is passed via injector CERT_SIGNER)
 	CertSignerDomain string
 }
 

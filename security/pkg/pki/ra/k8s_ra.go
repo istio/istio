@@ -92,14 +92,20 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSign
 	requestedLifetime time.Duration,
 ) ([]byte, error) {
 	certSignerDomain := r.certSignerDomain
-	if certSignerDomain == "" && certSigner != "" {
-		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is required for signer %s", certSigner))
-	}
-	if certSignerDomain != "" && certSigner != "" {
-		certSigner = certSignerDomain + "/" + certSigner
-	} else {
+	if certSigner == "" {
 		certSigner = r.raOpts.CaSigner
+		if certSignerDomain != "" && certSigner == "" {
+			log.Warnf("Attempting to sign a cert without explicit signer but signer domain set %s", certSignerDomain)
+		}
+		// Else - normal K8S signing, with K8S_SIGNER - user did not specify an explicit suffix to be added to domain
+	} else {
+		// Explicit user request for a domain-signer
+		if certSignerDomain == "" {
+			return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is required for signer %s", certSigner))
+		}
+		certSigner = certSignerDomain + "/" + certSigner
 	}
+
 	usages := []cert.KeyUsage{
 		cert.UsageDigitalSignature,
 		cert.UsageKeyEncipherment,
@@ -108,6 +114,7 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSign
 	}
 	certChain, _, err := chiron.SignCSRK8s(r.csrInterface, csrPEM, certSigner, usages, "", caCertFile, true, false, requestedLifetime)
 	if err != nil {
+		log.Infof("K8S RA error %s %v", certSigner, err)
 		return nil, raerror.NewError(raerror.CertGenError, err)
 	}
 	return certChain, err
