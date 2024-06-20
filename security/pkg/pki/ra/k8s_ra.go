@@ -152,7 +152,13 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 // 3. root cert is not specified in mesh config but can be extracted in signed cert chain, in this case
 // we verify the signed cert chain against the root cert and return the cert chain directly.
 func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([]string, error) {
-	cert, err := r.Sign(csrPEM, certOpts)
+	_, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
+	if err != nil {
+		return nil, err
+	}
+
+	// certOpts.CertSigner will always be set in this case - this is the path with domains and user-supplied suffix
+	cert, err := r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, certOpts.CertSigner, certOpts.TTL)
 	if err != nil {
 		return nil, err
 	}
