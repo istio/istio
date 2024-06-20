@@ -384,7 +384,10 @@ func Register[T proto.Message](f func(ctx HandlerContext, resourceName string, r
 	return registerWithTypeURL[T](typeName[T](), f)
 }
 
-func registerWithTypeURL[T proto.Message](typeURL string, f func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity T, event Event)) Option {
+func registerWithTypeURL[T proto.Message](
+	typeURL string,
+	f func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity T, event Event),
+) Option {
 	return func(c *Client) {
 		c.handlers[typeURL] = func(ctx HandlerContext, res *Resource, event Event) {
 			if res.Entity == nil {
@@ -479,8 +482,8 @@ func WithLocalCacheDir(localCacheDir string) DeltaMcpConfigHandler {
 }
 
 func WatchMcpOptions(rev string, configHandlers ...DeltaMcpConfigHandler) []Option {
-	handlerForGvk := func(gvk config.GroupVersionKind) func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *mcp.Resource, event Event) {
-		// the format of mcp resource's name is namespace/name
+	handlerForGvk := func(gvk config.GroupVersionKind) func(HandlerContext, string, string, *mcp.Resource, Event) {
+		// the format of mcp resource's name is "namespace/name"
 		// for delete case, the resource entity may be empty, the resource name is required
 		// for add/update case, extract the resource name and resource version from the resource entity
 		return func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *mcp.Resource, event Event) {
@@ -516,9 +519,8 @@ func WatchMcpOptions(rev string, configHandlers ...DeltaMcpConfigHandler) []Opti
 	// TODO: support watch mesh config
 	out := make([]Option, 0, len(collections.Pilot.All()))
 	for _, sch := range collections.Pilot.All() {
-		typeUrl := sch.GroupVersionKind().String()
-		out = append(out, initWatch(typeUrl, "*"))
-		out = append(out, registerWithTypeURL(typeUrl, handlerForGvk(sch.GroupVersionKind())))
+		typeURL := sch.GroupVersionKind().String()
+		out = append(out, initWatch(typeURL, "*"), registerWithTypeURL(typeURL, handlerForGvk(sch.GroupVersionKind())))
 	}
 
 	return out

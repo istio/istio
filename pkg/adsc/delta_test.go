@@ -741,11 +741,10 @@ func TestDeltaClient_handleMCP(t *testing.T) {
 					got, ok := configMap[expected[0]]
 					if !ok {
 						return fmt.Sprintf("expected %v got none", expected)
-					} else {
-						for i, value := range expected {
-							if value != got[i] {
-								return fmt.Sprintf("expected %v got %v", expected, got)
-							}
+					}
+					for i, value := range expected {
+						if value != got[i] {
+							return fmt.Sprintf("expected %v got %v", expected, got)
 						}
 					}
 				}
