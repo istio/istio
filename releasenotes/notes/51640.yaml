@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+releaseNotes:
+- |
+  **Fixed** statsMatcher's regex which didn't match route's stat_prefix
