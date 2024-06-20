@@ -131,7 +131,7 @@ type SyncStatus struct {
 	EndpointAcked        string                    `json:"endpoint_acked,omitempty"`
 	ExtensionConfigSent  string                    `json:"extensionconfig_sent,omitempty"`
 	ExtensionConfigAcked string                    `json:"extensionconfig_acked,omitempty"`
-	Resources            map[string]ResourceStatus `json:"resources,omitempty""`
+	Resources            map[string]ResourceStatus `json:"resources,omitempty"`
 }
 
 type ResourceStatus struct {

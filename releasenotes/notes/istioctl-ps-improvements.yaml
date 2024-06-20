@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Improved** the `istioctl proxy-status` command.
+      * Each status now includes the time since the last change.
+      * If a proxy is not subscribed to a resource, it will now be shown as `IGNORED` instead of `NOT SENT`.
+        `NOT SENT` continues to be used for resources that are requested, but never sent.
+      * Include a new `ERROR` status when configuration is rejected.
