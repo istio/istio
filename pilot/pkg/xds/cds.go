@@ -67,14 +67,29 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if len(req.ConfigsUpdated) == 0 {
 		return true
 	}
+
+	checkGateway := false
 	for config := range req.ConfigsUpdated {
-		if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-			if _, f := pushCdsGatewayConfig[config.Kind]; f {
-				return true
+		if proxy.Type == model.Router {
+			if features.FilterGatewayClusterConfig {
+				if _, f := pushCdsGatewayConfig[config.Kind]; f {
+					return true
+				}
+			}
+			if config.Kind == kind.Gateway {
+				// Do the check outside of the loop since its slow; just trigger we need it
+				checkGateway = true
 			}
 		}
 
 		if _, f := skippedCdsConfigs[config.Kind]; !f {
+			return true
+		}
+	}
+	if checkGateway {
+		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
+		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthrughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
+		if autoPassthroughModeChanged || autoPassthroughHostsChanged {
 			return true
 		}
 	}
