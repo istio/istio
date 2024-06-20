@@ -66,7 +66,10 @@ func (w *Watcher) RemoveWatcher(id int32) {
 }
 
 // SetAndNotify sets the key cert and root cert and notify the watchers.
-// This is used either from /var/run/secrets/istiod files or by the certcontroller.
+// This is used either:
+// - from /var/run/secrets/istiod/{tls,ca} files, used for the Istiod DNS cert and trusted CAs - mounted from
+// istiod-tls secret and istio-ca-root-cert configmap in default install.
+// - by the certcontroller, for the other detected paths
 //
 // key and cert may be nil - which may happen if no root CA is configured and no mounted certificates are found.
 // In this case, Istiod should disable the TLS port - and use a gateway or waypoint as frontend.
@@ -94,9 +97,10 @@ func (w *Watcher) SetAndNotify(key, cert, caBundle []byte) {
 // SetFromFilesAndNotify sets the key cert and root cert from files and notifies the watchers.
 // This is a wrapper around SetAndNotify that reads the 3 files - not to confuse with the
 // /etc/cacerts, this is used for Istiod having its own certs and roots
-//     /var/run/secrets/istiod/tls/tls.crt
-//     /var/run/secrets/istiod/tls/tls.key
-//     /var/run/secrets/istiod/ca/root-cert.pem
+//
+//	/var/run/secrets/istiod/tls/tls.crt
+//	/var/run/secrets/istiod/tls/tls.key
+//	/var/run/secrets/istiod/ca/root-cert.pem
 func (w *Watcher) SetFromFilesAndNotify(keyFile, certFile, rootCert string) error {
 	cert, err := os.ReadFile(certFile)
 	if err != nil {

@@ -28,6 +28,8 @@ import (
 // AuthPlaintext allows non TLS connections, for cases when Istiod is collocated with a gateway or on a secure
 // network (like ambient). For Istio CA it also requires disabling the TLS port on 15012, which will activate
 // the gRPC service on 15010
+// The cert signing gRPC interface is not added on port 15010 unless TLS is off, and it won't work with plaintext (or
+// ambient) unless this env is set.
 var AuthPlaintext = env.Register("XDS_AUTH_PLAINTEXT", false,
 	"authenticate plain text requests - used if Istiod is running on a secure/trusted network. Only valid if the main TLS server is disabled").Get()
 

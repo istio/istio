@@ -114,18 +114,22 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSign
 }
 
 // Sign takes a PEM-encoded CSR and cert opts, and returns a certificate signed by k8s CA.
-// It returns the leaf certificate only.
+// Should return the full chain (tls.crt style) - we don't have the intermediaries.
+// The roots are returned from the normal files (same as Istiod's own trusted roots).
 func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error) {
 	_, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
 	if err != nil {
 		return nil, err
 	}
-	certSigner := certOpts.CertSigner
 
-	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, certSigner, certOpts.TTL)
+	// certOpts.CertSigner will never be set - Sign is only called if certSigner is empty
+	// Passing anything else as certSigner will break because kubernetesSign checks if domain is set.
+	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, "", certOpts.TTL)
 }
 
-// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
+// SignWithCertChain is similar to Sign but uses a user-supplied signer (CertSigner metadata in the gRPC call)
+// as well as CERT_SIGNER_DOMAIN.
+//
 // root cert comes from two sources, order matters:
 // 1. Specified in mesh config
 // 2. Extract from the cert-chain signed by the CSR signer.
@@ -153,6 +157,7 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 	var possibleRootCert, rootCertFromMeshConfig, rootCertFromCertChain []byte
 	certSigner := r.certSignerDomain + "/" + certOpts.CertSigner
 
+	// If rootCertPem is set (normal case) - will not return the roots as last element, the caller will add it.
 	if len(r.GetCAKeyCertBundle().GetRootCertPem()) == 0 {
 		// If the key bundle does not have a root - missing config - we use the last
 		// element in the returned chain as root.

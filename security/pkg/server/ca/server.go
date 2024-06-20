@@ -38,15 +38,23 @@ var serverCaLog = log.RegisterScope("serverca", "Citadel server log")
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and cert opts.
-	// Returns the leaf certificate only.
+	// The Istio signer returns the leaf certificate only, result must be concatenated with the intermediaries.
+	// The RA (with K8_SIGNER) returns the full chain, there are no separate intermediaries.
 	Sign(csrPEM []byte, opts ca.CertOpts) ([]byte, error)
-	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
+
+	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain, and is used
+	// if the user supplies a custom signer header.
+	//
 	// IstioCA returns an array of 1 string, with the full chain (tls.crt format)
 	// KubernetesRA can return a similar array of 1 string, or add a second element with the
 	//  extracted root CA, as the last element in the signing chain if no roots
 	//  are explicitly configured.
+	//
+	// TODO: rename to "SignWithCustomSigner"
 	SignWithCertChain(csrPEM []byte, opts ca.CertOpts) ([]string, error)
+
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
+	// The CA service is using the roots and (optional) intermediates.
 	GetCAKeyCertBundle() *util.KeyCertBundle
 }
 
@@ -118,6 +126,8 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		sans = []string{impersonatedIdentity}
 	}
 	serverCaLog.Debugf("generating a certificate, sans: %v, requested ttl: %s", sans, time.Duration(request.ValidityDuration*int64(time.Second)))
+
+	// "CertSigner" metadata is used together with the CERT_SIGNER_DOMAIN.
 	certSigner := crMetadata[security.CertSigner].GetStringValue()
 
 	// rootCertBytes may be a list of PEM certificates.
@@ -132,32 +142,53 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	var signErr error
 	var cert []byte
 	var respCertChain []string
+
+	// Normal signing - using Istio CA or RA with a fixed signer name (K8S_SIGNER)
 	if certSigner == "" {
-		// Returns a single block, with the leaf certificate.
+		// Istio CA with generated certs: no intermediaryes, sign returns the leaf, return roots as 2nd elementy
+		// Istio CA with cacerts ( intermediaries) - sign return the leaf, we add certChainBytes as second element and roots as 3rd.
+		// RA with K8S_SIGNER: Sign returns the full chain - return 1st element as leaf+intermediaries, 2nd is roots.
 		cert, signErr = s.ca.Sign([]byte(request.Csr), certOpts)
+		if signErr != nil {
+			serverCaLog.Errorf("CSR signing error: %v", signErr.Error())
+			s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
+			return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
+		}
+		respCertChain = []string{string(cert)}
+		if len(certChainBytes) != 0 {
+			respCertChain = append(respCertChain, string(certChainBytes))
+			serverCaLog.Debugf("Append cert chain to response, %s", string(certChainBytes))
+		}
+		if len(rootCertBytes) != 0 {
+			respCertChain = append(respCertChain, string(rootCertBytes))
+		} else {
+			// The client normally expects the last element in the response to be the root certs.
+			// This is likely a bug.
+			log.Warnf("Returned certificate without roots %s", caller.Identities)
+		}
 	} else {
+		// Signing with a user-supplied signer name, combined with a Istiod configured CERT_SIGNER_DOMAIN
+
 		// TODO(costin): this concatenates all PEMs in one response, doesn't seem to match the contract
 		// of the API ( an array of certs ) or what ztunnel is using. Not clear when this option is used.
 		// Seems to only be used with KubernetesRA (which returns concatenated chain) and if node meta is
 		// set - will not be the case with ztunnel.
 		serverCaLog.Debugf("signing CSR with cert chain")
 		respCertChain, signErr = s.ca.SignWithCertChain([]byte(request.Csr), certOpts)
-	}
-	if signErr != nil {
-		serverCaLog.Errorf("CSR signing error: %v", signErr.Error())
-		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
-		return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
-	}
-	if certSigner == "" {
-		respCertChain = []string{string(cert)}
-		if len(certChainBytes) != 0 {
-			respCertChain = append(respCertChain, string(certChainBytes))
-			serverCaLog.Debugf("Append cert chain to response, %s", string(certChainBytes))
+		if signErr != nil {
+			serverCaLog.Errorf("CSR signing error: %v", signErr.Error())
+			s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
+			return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
+		}
+		// If rootCertBytes is not set (not clear in which case - the roots are required for Istiod mTLS to work)
+		// the SignWithCertChain will actually add a root - either from mesh config or the last element in the chain.
+		// It is not clear how the roots from MeshConfig will be handled if Istiod root cert chains are set properly.
+		// This is likely a bug.
+		if len(rootCertBytes) != 0 {
+			respCertChain = append(respCertChain, string(rootCertBytes))
 		}
 	}
-	if len(rootCertBytes) != 0 {
-		respCertChain = append(respCertChain, string(rootCertBytes))
-	}
+
 	response := &pb.IstioCertificateResponse{
 		CertChain: respCertChain,
 	}

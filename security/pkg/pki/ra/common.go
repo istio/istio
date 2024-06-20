@@ -57,6 +57,7 @@ type IstioRAOptions struct {
 	CaCertFile string
 
 	// CaSigner : To indicate custom CA Signer name when using external K8s CA
+	// Set using K8S_SIGNER
 	CaSigner string
 
 	// VerifyAppendCA : Whether to use caCertFile containing CA root cert to verify and append to signed cert-chain
@@ -66,6 +67,9 @@ type IstioRAOptions struct {
 	// TrustDomain
 	TrustDomain string
 	// CertSignerDomain is based on CERT_SIGNER_DOMAIN env variable
+	// It is concatenated with a user-supplied header - and used to dynamically select the K8S signer.
+	// This can be dangerous - Istio does not enforce any namespace or policy check, and the signer doesn't
+	// have any information about the client.
 	CertSignerDomain string
 }
 
