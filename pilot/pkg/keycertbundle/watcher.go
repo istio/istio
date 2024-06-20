@@ -24,7 +24,7 @@ type KeyCertBundle struct {
 	CertPem []byte
 	KeyPem  []byte
 
-	// CABundle is distributed to all namespaces by namespace controller (if enable), even if
+	// CABundle is distributed to all namespaces by namespace controller (if enabled), even if
 	// KeyPem and CertPem are not set.
 	CABundle []byte
 }
@@ -91,10 +91,12 @@ func (w *Watcher) SetAndNotify(key, cert, caBundle []byte) {
 	}
 }
 
-// SetFromFilesAndNotify sets the key cert and root cert from files and notify the watchers.
+// SetFromFilesAndNotify sets the key cert and root cert from files and notifies the watchers.
 // This is a wrapper around SetAndNotify that reads the 3 files - not to confuse with the
-// /etc/cacerts, this is used for Istiod having its own certs and roots set
-// in /var/run/secrets/istiod/tls/ca.crt root /var/run/secrets/istiod/ca/root-cert.pem
+// /etc/cacerts, this is used for Istiod having its own certs and roots
+//     /var/run/secrets/istiod/tls/tls.crt
+//     /var/run/secrets/istiod/tls/tls.key
+//     /var/run/secrets/istiod/ca/root-cert.pem
 func (w *Watcher) SetFromFilesAndNotify(keyFile, certFile, rootCert string) error {
 	cert, err := os.ReadFile(certFile)
 	if err != nil {

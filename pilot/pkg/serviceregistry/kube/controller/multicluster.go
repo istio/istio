@@ -195,15 +195,16 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 	go func() {
 		var shouldLead bool
 		if !configCluster {
-			// If feature.externalIstiod is enabled - that's a central Istiod that controls multiple clusters.
+			// If feature.externalIstiod is enabled, check if leader election should be attempted
 			shouldLead = m.checkShouldLead(client, options.SystemNamespace, clusterStopCh)
 			if shouldLead {
 				log.Infof("should join leader-election for cluster %s: %t", cluster.ID, shouldLead)
 			}
 		}
-		// startNsController is based on bootstrap/server.go shouldStartNsController -
-		// off if using K8S or none as PILOT_CERT_PROVIDER.
-		// TODO: logic is a bit confoluted, may be best to have an explicit option
+		// startNsController is set via bootstrap/server.go shouldStartNsController
+		// Root cert replication in namespaces is disabled if PILOT_CERT_PROVIDER
+		// is set to kubernetes or none.
+		// TODO: logic is a bit convoluted, may be best to have an explicit option
 		// for replicating CA roots for this cluster or remote clusters.
 		if m.startNsController && (shouldLead || configCluster) {
 			// Block server exit on graceful termination of the leader controller.

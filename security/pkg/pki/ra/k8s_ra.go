@@ -48,7 +48,7 @@ type KubernetesRA struct {
 	caCertificatesFromMeshConfig map[string]string
 
 	// certSignerDomain is based on CERT_SIGNER_DOMAIN env variable
-	// it is concatenanted with CertSigner metadata from the request to get the key for
+	// it is concatenated with CertSigner metadata from the CSR request to get the key for
 	// the root certificates in caCertificatesFromMeshConfig
 	certSignerDomain string
 

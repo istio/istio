@@ -43,7 +43,6 @@ var certWatchTimeout = 60 * time.Second
 
 // GenKeyCertK8sCA : Generates a key pair and gets public certificate signed by K8s_CA
 // Options are meant to sign DNS certs - used for Istiod certificates.
-// The CA is using SignK8SCSR method.
 //
 // signerName is required.
 //

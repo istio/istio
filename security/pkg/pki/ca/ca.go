@@ -70,8 +70,8 @@ const (
 type SigningCAFileBundle struct {
 	// RootCertFile is the detected file holding multiple root CAs
 	RootCertFile string
-	// CertChainFile is the detected file holding the intermeidary certificates (old style)
-	// and the tls.crt holding both the leaf cert and intermdediaries.
+	// CertChainFile is the detected file holding the intermediary certificates (old style)
+	// and the tls.crt holding both the leaf cert and intermediaries.
 	CertChainFiles []string
 	// SigningCertFile is the detected file holding the leaf cert (old style)
 	// or tls.crt - holding both leaf and intermediaries.
@@ -242,8 +242,8 @@ func loadCASecrets(client corev1.CoreV1Interface, namespace string, caCertName s
 			return fmt.Errorf("failed to append root certificates (%v)", err)
 		}
 
-		privData := caSecret.Data[CAPrivateKeyFile]
-		crtData := caSecret.Data[CACertFile]
+		caKeyData := caSecret.Data[CAPrivateKeyFile]
+		caCertData := caSecret.Data[CACertFile]
 
 		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(crtData,
 			privData, nil, rootCerts); err != nil {

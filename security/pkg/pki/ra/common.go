@@ -42,7 +42,7 @@ type CaExternalType string
 type IstioRAOptions struct {
 	// ExternalCAType: Integration API type with external CA
 	// Only ISTIOD_RA_KUBERNETES_API is supported
-	// deprecated - when we add a different kind we can add the right setting.
+	// DEPRECATED - when a different CA type is supported, we can add the appropriate options in another field.
 	ExternalCAType CaExternalType
 
 	// DefaultCertTTL: Default Certificate TTL

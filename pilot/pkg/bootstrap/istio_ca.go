@@ -131,9 +131,9 @@ var (
 		"Specify the RSA key size to use for self-signed Istio CA certificates.")
 
 	// TODO: Likely to be removed and added to mesh config
-	// deprecated - it is only used to enable k8s signing - use presence of K8S_SIGNER instead.
+	// DEPRECATED - Only used to enable k8s signing - presence of K8S_SIGNER used instead to indicate use of external CA.
 	externalCaType = env.Register("EXTERNAL_CA", "",
-		"External CA Integration Type. Permitted value is ISTIOD_RA_KUBERNETES_API.").Get()
+		"DEPRECATED - External CA Integration Type. Permitted value is ISTIOD_RA_KUBERNETES_API.").Get()
 
 	// TODO: Likely to be removed and added to mesh config
 	k8sSigner = env.Register("K8S_SIGNER", "",
