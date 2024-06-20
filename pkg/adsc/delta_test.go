@@ -16,6 +16,7 @@ package adsc
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -729,30 +730,27 @@ func TestDeltaClient_handleMCP(t *testing.T) {
 				return true
 			}, true, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
 
-			// wait for the callback updates the store
-			time.Sleep(1 * time.Millisecond)
-
-			configs := store.List(gvk.ServiceEntry, "")
-			if len(configs) != len(tt.expectedResources) {
-				t.Errorf("expected %v got %v", len(tt.expectedResources), len(configs))
-			}
-			configMap := make(map[string][]string)
-			for _, conf := range configs {
-				service, _ := conf.Spec.(*networking.ServiceEntry)
-				configMap[conf.Name] = []string{conf.Name, service.Hosts[0], service.Addresses[0]}
-			}
-			for _, expected := range tt.expectedResources {
-				got, ok := configMap[expected[0]]
-				if !ok {
-					t.Errorf("expected %v got none", expected)
-				} else {
-					for i, value := range expected {
-						if value != got[i] {
-							t.Errorf("expected %v got %v", value, got[i])
+			assert.EventuallyEqual(t, func() string {
+				configs := store.List(gvk.ServiceEntry, "")
+				configMap := make(map[string][]string)
+				for _, conf := range configs {
+					service, _ := conf.Spec.(*networking.ServiceEntry)
+					configMap[conf.Name] = []string{conf.Name, service.Hosts[0], service.Addresses[0]}
+				}
+				for _, expected := range tt.expectedResources {
+					got, ok := configMap[expected[0]]
+					if !ok {
+						return fmt.Sprintf("expected %v got none", expected)
+					} else {
+						for i, value := range expected {
+							if value != got[i] {
+								return fmt.Sprintf("expected %v got %v", expected, got)
+							}
 						}
 					}
 				}
-			}
+				return ""
+			}, "", retry.Timeout(time.Second), retry.Delay(time.Millisecond))
 		})
 	}
 	close(respCh)
