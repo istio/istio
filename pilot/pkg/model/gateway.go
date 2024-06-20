@@ -97,6 +97,34 @@ type MergedGateway struct {
 	VerifiedCertificateReferences sets.String
 }
 
+func (g *MergedGateway) HasAutoPassthroughGateways() bool {
+	if g != nil {
+		return g.ContainsAutoPassthroughGateways
+	}
+	return false
+}
+
+// PrevMergedGateway describes previous state of the gateway.
+// Currently, it only contains information relevant for CDS.
+type PrevMergedGateway struct {
+	ContainsAutoPassthroughGateways bool
+	AutoPassthroughSNIHosts         sets.Set[string]
+}
+
+func (g *PrevMergedGateway) HasAutoPassthroughGateway() bool {
+	if g != nil {
+		return g.ContainsAutoPassthroughGateways
+	}
+	return false
+}
+
+func (g *PrevMergedGateway) GetAutoPassthroughSNIHosts() sets.Set[string] {
+	if g != nil {
+		return g.AutoPassthroughSNIHosts
+	}
+	return sets.Set[string]{}
+}
+
 var (
 	typeTag = monitoring.CreateLabel("type")
 	nameTag = monitoring.CreateLabel("name")
@@ -346,6 +374,23 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		PortMap:                         getTargetPortMap(serversByRouteName),
 		VerifiedCertificateReferences:   verifiedCertificateReferences,
 	}
+}
+
+func (g *MergedGateway) GetAutoPassthrughGatewaySNIHosts() sets.Set[string] {
+	hosts := sets.Set[string]{}
+	if g == nil {
+		return hosts
+	}
+	if g.ContainsAutoPassthroughGateways {
+		for _, tls := range g.MergedServers {
+			for _, s := range tls.Servers {
+				if s.GetTls().GetMode() == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
+					hosts.InsertAll(s.Hosts...)
+				}
+			}
+		}
+	}
+	return hosts
 }
 
 func udpSupportedPort(number uint32, instances []ServiceTarget) bool {
