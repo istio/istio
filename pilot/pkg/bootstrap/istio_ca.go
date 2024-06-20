@@ -571,9 +571,8 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 			log.Errorf("K8S RA %s without external-ca-cert secret mounted on /etc/external-ca-cert/root-cert.pem",
 				opts.ExternalCASigner)
 			return nil, err
-		} else {
-			log.Infof("K8S RA with domain %q using MeshConfig roots", certSignerDomain)
 		}
+		log.Infof("K8S RA with domain %q using MeshConfig roots", certSignerDomain)
 	} else {
 		if certSignerDomain == "" {
 			log.Infof("K8S RA %s using roots from %s", opts.ExternalCASigner, caCertFile)

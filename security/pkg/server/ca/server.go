@@ -145,7 +145,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 
 	// Normal signing - using Istio CA or RA with a fixed signer name (K8S_SIGNER)
 	if certSigner == "" {
-		// Istio CA with generated certs: no intermediaryes, sign returns the leaf, return roots as 2nd elementy
+		// Istio CA with generated certs: no intermediaryes, sign returns the leaf, return roots as 2nd element
 		// Istio CA with cacerts ( intermediaries) - sign return the leaf, we add certChainBytes as second element and roots as 3rd.
 		// RA with K8S_SIGNER: Sign returns the full chain - return 1st element as leaf+intermediaries, 2nd is roots.
 		cert, signErr = s.ca.Sign([]byte(request.Csr), certOpts)
