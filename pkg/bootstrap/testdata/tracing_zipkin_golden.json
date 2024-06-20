@@ -133,7 +133,7 @@
           "suffix": "shadow_denied"
           },
           {
-          "safe_regex": {"regex":"vhost\\.*\\.route\\.*"}
+          "safe_regex": {"regex":"vhost\\..*\\.route\\..*"}
           },
           {
           "prefix": "component"
