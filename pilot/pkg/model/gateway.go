@@ -389,7 +389,10 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 }
 
 func (g *MergedGateway) GetAutoPassthroughGatewaySNIHosts() sets.Set[string] {
-	return g.AutoPassthroughSNIHosts
+	if g != nil {
+		return g.AutoPassthroughSNIHosts
+	}
+	return sets.Set[string]{}
 }
 
 func udpSupportedPort(number uint32, instances []ServiceTarget) bool {
