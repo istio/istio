@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -191,16 +192,14 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 
 func (lb *ListenerBuilder) sanitizeFilterChainForHBONE(c *listener.FilterChain) {
 	fcm := c.GetFilterChainMatch()
-	if fcm != nil {
-		// Clear out settings that do not matter anymore
-		fcm.TransportProtocol = ""
-	}
 	if fcm == nil {
 		fcm = &listener.FilterChainMatch{}
 		c.FilterChainMatch = fcm
 	}
+	// Clear out settings that do not matter anymore
+	fcm.TransportProtocol = ""
 	// Filter to only allowed ranges. This ensures we do not get HBONE requests to garbage IPs
-	fcm.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(lb.node.IPAddresses[0])}
+	fcm.PrefixRanges = slices.Map(lb.node.IPAddresses, util.ConvertAddressToCidr)
 }
 
 // buildInboundListeners creates inbound listeners.
