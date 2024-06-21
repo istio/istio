@@ -2079,7 +2079,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 }
 
 func TestGatewayHTTPRouteConfig(t *testing.T) {
-	test.SetForTest(t, &features.EnablePersistentSessionFilter, true)
+	test.SetAtomicBoolForTest(t, features.EnablePersistentSessionFilter, true)
 	httpRedirectGateway := config.Config{
 		Meta: config.Meta{
 			Name:             "gateway-redirect",

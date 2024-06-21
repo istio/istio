@@ -577,7 +577,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 }
 
 func TestSidecarStatefulsessionFilter(t *testing.T) {
-	test.SetForTest(t, &features.EnablePersistentSessionFilter, true)
+	test.SetAtomicBoolForTest(t, features.EnablePersistentSessionFilter, true)
 	virtualServiceSpec := &networking.VirtualService{
 		Hosts:    []string{"test-service.default.svc.cluster.local", "test-service.svc.mesh.acme.net"},
 		Gateways: []string{"mesh"},

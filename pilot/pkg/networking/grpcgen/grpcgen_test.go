@@ -217,7 +217,7 @@ func TestGRPC(t *testing.T) {
 	})
 
 	t.Run("persistent", func(t *testing.T) {
-		test.SetForTest(t, &features.EnablePersistentSessionFilter, true)
+		test.SetAtomicBoolForTest(t, features.EnablePersistentSessionFilter, true)
 		proxy := ds.SetupProxy(&model.Proxy{Metadata: &model.NodeMetadata{
 			Generator: "grpc",
 		}})

@@ -707,7 +707,7 @@ func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
 }
 
 func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.StatefulSession {
-	if svc == nil || !features.EnablePersistentSessionFilter {
+	if svc == nil || !features.EnablePersistentSessionFilter.Load() {
 		return nil
 	}
 	sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]

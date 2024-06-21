@@ -1381,7 +1381,7 @@ func TestDomainName(t *testing.T) {
 }
 
 func TestStatefulSessionFilterConfig(t *testing.T) {
-	test.SetForTest(t, &features.EnablePersistentSessionFilter, true)
+	test.SetAtomicBoolForTest(t, features.EnablePersistentSessionFilter, true)
 	cases := []struct {
 		name           string
 		service        *model.Service
