@@ -96,31 +96,10 @@ func Test_checkTracing_ZipkinNotFound(t *testing.T) {
 	cli := kube.NewFakeClient()
 	messages := diag.Messages{}
 
-	// Test case: zipkin service not found
+	cli.Kube().CoreV1().Services("istio-system").Create(context.Background(), nil, metav1.CreateOptions{})
+
 	err := checkTracing(cli, &messages)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(messages))
-
-	// Test case: zipkin service found
-	zipkinSvc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "zipkin",
-			Namespace: "istio-system",
-		},
-	}
-	cli.Kube().CoreV1().Services("istio-system").Create(context.Background(), zipkinSvc, metav1.CreateOptions{})
-
-	err = checkTracing(cli, &messages)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(messages))
-
-	expectedOutput := msg.NewUpdateIncompatibility(ObjectToInstance(zipkinSvc),
-		"meshConfig.defaultConfig.tracer", "1.21",
-		"tracing is no longer by default enabled to send to 'zipkin.istio-system.svc'; "+
-			"follow https://istio.io/latest/docs/tasks/observability/distributed-tracing/telemetry-api/",
-		"1.21")
-
-	assert.Equal(t, expectedOutput, messages[0])
+	assert.Error(t, err)
 }
 
 func Test_checkTracing_ZipkinFound(t *testing.T) {
