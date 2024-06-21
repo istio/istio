@@ -712,7 +712,9 @@ func gatewayUID(gw model.NetworkGateway) string {
 	return "NetworkGateway/" + string(gw.Network) + "/" + gw.Addr + "/" + strconv.Itoa(int(gw.HBONEPort))
 }
 
-// convertGateway always converts a NetworkGateway into a Workload
+// convertGateway always converts a NetworkGateway into a Workload.
+// Workloads have a NetworkGateway field, which is effectively a pointer to another object (Service or Workload); in order
+// to facilitate this we need to translate our Gateway model down into a WorkloadInfo ztunnel can understand.
 func convertGateway(gw model.NetworkGateway) model.WorkloadInfo {
 	wl := &workloadapi.Workload{
 		Uid:            gatewayUID(gw),

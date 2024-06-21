@@ -81,11 +81,13 @@ type index struct {
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
 	networkUpdateTrigger  *krt.RecomputeTrigger
 
-	SystemNamespace       string
-	DomainSuffix          string
-	ClusterID             cluster.ID
-	XDSUpdater            model.XDSUpdater
-	Network               LookupNetwork
+	SystemNamespace string
+	DomainSuffix    string
+	ClusterID       cluster.ID
+	XDSUpdater      model.XDSUpdater
+	// Network provides a way to lookup which network a given workload is running on
+	Network LookupNetwork
+	// LookupNetworkGateways provides a function to lookup all the known network gateways in the system.
 	LookupNetworkGateways LookupNetworkGateways
 }
 
