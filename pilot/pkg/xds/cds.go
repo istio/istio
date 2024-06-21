@@ -112,7 +112,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	}
 	if checkGateway {
 		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
-		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthrughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
+		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
 		if autoPassthroughModeChanged || autoPassthroughHostsChanged {
 			return true
 		}

@@ -217,7 +217,7 @@ func TestGetAutoPassthroughSNIHosts(t *testing.T) {
 	}
 	instances := []gatewayWithInstances{{gateway: gateway, instances: gatewayServiceTargets}}
 	mgw := MergeGateways(instances, &Proxy{}, nil)
-	hosts := mgw.GetAutoPassthrughGatewaySNIHosts()
+	hosts := mgw.GetAutoPassthroughGatewaySNIHosts()
 	expectedHosts := sets.Set[string]{}
 	expectedHosts.InsertAll("a.apps.svc.cluster.local", "b.apps.svc.cluster.local")
 	if !hosts.Equals(expectedHosts) {
