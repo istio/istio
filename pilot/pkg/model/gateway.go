@@ -85,6 +85,9 @@ type MergedGateway struct {
 	// clusters to be sent to the workload
 	ContainsAutoPassthroughGateways bool
 
+	// AutoPassthroughSNIHosts
+	AutoPassthroughSNIHosts sets.Set[string]
+
 	// PortMap defines a mapping of targetPorts to the set of Service ports that reference them
 	PortMap GatewayPortMap
 
@@ -104,7 +107,7 @@ func (g *MergedGateway) HasAutoPassthroughGateways() bool {
 }
 
 // PrevMergedGateway describes previous state of the gateway.
-// Currently, it only contains information relevant for CDS.
+// Currently, it only contains information relevant for auto passthrough gateways used by CDS.
 type PrevMergedGateway struct {
 	ContainsAutoPassthroughGateways bool
 	AutoPassthroughSNIHosts         sets.Set[string]
@@ -360,7 +363,16 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 		}
 	}
-
+	autoPassthroughSNIHosts := sets.Set[string]{}
+	if autoPassthrough {
+		for _, tls := range mergedServers {
+			for _, s := range tls.Servers {
+				if s.GetTls().GetMode() == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
+					autoPassthroughSNIHosts.InsertAll(s.Hosts...)
+				}
+			}
+		}
+	}
 	return &MergedGateway{
 		MergedServers:                   mergedServers,
 		MergedQUICTransportServers:      mergedQUICServers,
@@ -370,26 +382,14 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		ServersByRouteName:              serversByRouteName,
 		HTTP3AdvertisingRoutes:          http3AdvertisingRoutes,
 		ContainsAutoPassthroughGateways: autoPassthrough,
+		AutoPassthroughSNIHosts:         autoPassthroughSNIHosts,
 		PortMap:                         getTargetPortMap(serversByRouteName),
 		VerifiedCertificateReferences:   verifiedCertificateReferences,
 	}
 }
 
-func (g *MergedGateway) GetAutoPassthrughGatewaySNIHosts() sets.Set[string] {
-	hosts := sets.Set[string]{}
-	if g == nil {
-		return hosts
-	}
-	if g.ContainsAutoPassthroughGateways {
-		for _, tls := range g.MergedServers {
-			for _, s := range tls.Servers {
-				if s.GetTls().GetMode() == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
-					hosts.InsertAll(s.Hosts...)
-				}
-			}
-		}
-	}
-	return hosts
+func (g *MergedGateway) GetAutoPassthroughGatewaySNIHosts() sets.Set[string] {
+	return g.AutoPassthroughSNIHosts
 }
 
 func udpSupportedPort(number uint32, instances []ServiceTarget) bool {
