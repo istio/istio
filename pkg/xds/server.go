@@ -84,6 +84,12 @@ type WatchedResource struct {
 	// Typically, this should be set to 'false' after response; keeping it true would likely result in an endless loop.
 	AlwaysRespond bool
 
+	// LastSendTime tracks the last time we sent a message. This should change every time NonceSent changes.
+	LastSendTime time.Time
+
+	// LastError records the last error returned, if any. This is cleared on any successful ACK.
+	LastError string
+
 	// LastResources tracks the contents of the last push.
 	// This field is extremely expensive to maintain and is typically disabled
 	LastResources Resources
@@ -353,6 +359,10 @@ func ShouldRespond(w Watcher, id string, request *discovery.DiscoveryRequest) (b
 		errCode := codes.Code(request.ErrorDetail.Code)
 		log.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, id, errCode.String(), request.ErrorDetail.GetMessage())
 		IncrementXDSRejects(request.TypeUrl, w.GetID(), errCode.String())
+		w.UpdateWatchedResource(request.TypeUrl, func(wr *WatchedResource) *WatchedResource {
+			wr.LastError = request.ErrorDetail.GetMessage()
+			return wr
+		})
 		return false, emptyResourceDelta
 	}
 
@@ -393,6 +403,8 @@ func ShouldRespond(w Watcher, id string, request *discovery.DiscoveryRequest) (b
 	var previousResources []string
 	var alwaysRespond bool
 	w.UpdateWatchedResource(request.TypeUrl, func(wr *WatchedResource) *WatchedResource {
+		// Clear last error, we got an ACK.
+		wr.LastError = ""
 		previousResources = wr.ResourceNames
 		wr.NonceAcked = request.ResponseNonce
 		wr.ResourceNames = request.ResourceNames
@@ -457,6 +469,7 @@ func Send(ctx ConnectionContext, res *discovery.DiscoveryResponse) error {
 					wr = &WatchedResource{TypeUrl: res.TypeUrl}
 				}
 				wr.NonceSent = res.Nonce
+				wr.LastSendTime = time.Now()
 				return wr
 			})
 		}
