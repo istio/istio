@@ -111,11 +111,11 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 					addressList = append(addressList, instance.Address)
 				}
 			}
-			if len(addressList) == 0 {
-				// could not reliably determine the addresses of endpoints of headless service
-				// or this is not a k8s service
-				continue
-			}
+		}
+		if len(addressList) == 0 {
+			// could not reliably determine the addresses of endpoints of headless service
+			// or this is not a k8s service
+			continue
 		}
 
 		if ni, f := out.Table[hostName.String()]; !f {

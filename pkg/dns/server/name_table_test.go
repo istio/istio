@@ -21,13 +21,16 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	dnsServer "istio.io/istio/pkg/dns/server"
+	"istio.io/istio/pkg/test"
 )
 
 // nolint
@@ -44,6 +47,7 @@ func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, 
 }
 
 func TestNameTable(t *testing.T) {
+	test.SetForTest(t, &features.EnableDualStack, true)
 	mesh := &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	proxy := &model.Proxy{
 		IPAddresses: []string{"9.9.9.9"},
@@ -191,6 +195,29 @@ func TestNameTable(t *testing.T) {
 	decoratedService := serviceWithVIP1.DeepCopy()
 	decoratedService.DefaultAddress = "10.0.0.7"
 	decoratedService.Attributes.ServiceRegistry = provider.Kubernetes
+
+	dualStackService := &model.Service{
+		Hostname:       host.Name("dual.foo.bar"),
+		DefaultAddress: "10.0.0.8",
+		ClusterVIPs: model.AddressMap{
+			Addresses: map[cluster.ID][]string{
+				"cl1": {"2001:2::", "10.0.0.8"},
+			},
+		},
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp",
+				Port:     3306,
+				Protocol: protocol.TCP,
+			},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Name:            "mysql-svc",
+			Namespace:       "testns",
+			ServiceRegistry: provider.External,
+		},
+	}
 
 	push := model.NewPushContext()
 	push.Mesh = mesh
@@ -413,6 +440,24 @@ func TestNameTable(t *testing.T) {
 				Table: map[string]*dnsProto.NameTable_NameInfo{
 					"foo.bar.com": {
 						Ips:      []string{"1.2.3.4", "9.6.7.8", "19.6.7.8", "9.16.7.8"},
+						Registry: "External",
+					},
+				},
+			},
+		},
+		{
+			name:  "dual stack",
+			proxy: cl1proxy,
+			push: func() *model.PushContext {
+				push := model.NewPushContext()
+				push.Mesh = mesh
+				push.AddPublicServices([]*model.Service{dualStackService})
+				return push
+			}(),
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
+					"dual.foo.bar": {
+						Ips:      []string{"2001:2::", "10.0.0.8"},
 						Registry: "External",
 					},
 				},
