@@ -193,15 +193,15 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 			Mode: workloadapi.LoadBalancing_STRICT,
 		}
 	}
-	ipPolicy := workloadapi.IPFamilies_AUTOMATIC
+	ipFamily := workloadapi.IPFamilies_AUTOMATIC
 	if len(svc.Spec.IPFamilies) == 2 {
-		ipPolicy = workloadapi.IPFamilies_DUAL
+		ipFamily = workloadapi.IPFamilies_DUAL
 	} else if len(svc.Spec.IPFamilies) == 1 {
 		family := svc.Spec.IPFamilies[0]
 		if family == v1.IPv4Protocol {
-			ipPolicy = workloadapi.IPFamilies_IPV4_ONLY
+			ipFamily = workloadapi.IPFamilies_IPV4_ONLY
 		} else {
-			ipPolicy = workloadapi.IPFamilies_IPV6_ONLY
+			ipFamily = workloadapi.IPFamilies_IPV6_ONLY
 		}
 	}
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
@@ -213,7 +213,7 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 		Ports:         ports,
 		Waypoint:      waypointAddress,
 		LoadBalancing: lb,
-		IpFamilies:    ipPolicy,
+		IpFamilies:    ipFamily,
 	}
 }
 
