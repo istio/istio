@@ -42,17 +42,22 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 		Table: make(map[string]*dnsProto.NameTable_NameInfo),
 	}
 	for _, svc := range cfg.Node.SidecarScope.Services() {
-		svcAddress := svc.GetAddressForProxy(cfg.Node)
 		var addressList []string
 		hostName := svc.Hostname
-		if svcAddress != constants.UnspecifiedIP {
+		headless := false
+		for _, svcAddress := range svc.GetAllAddressesForProxy(cfg.Node) {
+			if svcAddress == constants.UnspecifiedIP {
+				headless = true
+				break
+			}
 			// Filter out things we cannot parse as IP. Generally this means CIDRs, as anything else
 			// should be caught in validation.
 			if !netutil.IsValidIPAddress(svcAddress) {
 				continue
 			}
 			addressList = append(addressList, svcAddress)
-		} else {
+		}
+		if headless {
 			// The IP will be unspecified here if its headless service or if the auto
 			// IP allocation logic for service entry was unable to allocate an IP.
 			if svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
@@ -106,11 +111,11 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 					addressList = append(addressList, instance.Address)
 				}
 			}
-			if len(addressList) == 0 {
-				// could not reliably determine the addresses of endpoints of headless service
-				// or this is not a k8s service
-				continue
-			}
+		}
+		if len(addressList) == 0 {
+			// could not reliably determine the addresses of endpoints of headless service
+			// or this is not a k8s service
+			continue
 		}
 
 		if ni, f := out.Table[hostName.String()]; !f {
