@@ -124,14 +124,14 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSign
 // Should return the full chain (tls.crt style) - we don't have the intermediaries.
 // The roots are returned from the normal files (same as Istiod's own trusted roots).
 func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error) {
-	_, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
+	ttl, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
 	if err != nil {
 		return nil, err
 	}
 
 	// certOpts.CertSigner will never be set - Sign is only called if certSigner is empty
 	// Passing anything else as certSigner will break because kubernetesSign checks if domain is set.
-	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, "", certOpts.TTL)
+	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, "", ttl)
 }
 
 // SignWithCertChain is similar to Sign but uses a user-supplied signer (CertSigner metadata in the gRPC call)
@@ -152,13 +152,13 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 // 3. root cert is not specified in mesh config but can be extracted in signed cert chain, in this case
 // we verify the signed cert chain against the root cert and return the cert chain directly.
 func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([]string, error) {
-	_, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
+	ttl, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
 	if err != nil {
 		return nil, err
 	}
 
 	// certOpts.CertSigner will always be set in this case - this is the path with domains and user-supplied suffix
-	cert, err := r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, certOpts.CertSigner, certOpts.TTL)
+	cert, err := r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, certOpts.CertSigner, ttl)
 	if err != nil {
 		return nil, err
 	}

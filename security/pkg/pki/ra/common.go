@@ -116,6 +116,8 @@ func NewIstioRA(opts *IstioRAOptions) (RegistrationAuthority, error) {
 }
 
 // preSign : Validation checks to execute before signing certificates
+// Will set the requestedLifetime to default (24h unless set by flag) and reject
+// CA certs and lifetime longer than max (which defaults to 24h as well)
 func preSign(raOpts *IstioRAOptions, csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) (time.Duration, error) {
 	if forCA {
 		return requestedLifetime, raerror.NewError(raerror.CSRError,
