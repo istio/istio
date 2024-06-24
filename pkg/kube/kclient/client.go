@@ -90,6 +90,43 @@ func (n *informerClient[T]) Start(stopCh <-chan struct{}) {
 	n.startInformer(stopCh)
 }
 
+// internalIndex is the type we use to store a Kubernetes set of index, as well as the key to the index we care about.
+// Users should not interact with this directly, and should instead use CreateIndex.
+type internalIndex struct {
+	key     string
+	indexer cache.Indexer
+}
+
+func (i internalIndex) Lookup(key string) []interface{} {
+	res, err := i.indexer.ByIndex(i.key, key)
+	if err != nil {
+		// This should only happen if the index key (i.key, not key) does not exist which should be impossible.
+		log.Fatalf("index lookup failed: %v", err)
+	}
+	return res
+}
+
+var _ RawIndexer = internalIndex{}
+
+func (n *informerClient[T]) Index(extract func(o T) []string) RawIndexer {
+	// We just need some unique key, any will do
+	key := fmt.Sprintf("%p", extract)
+	if err := n.informer.AddIndexers(map[string]cache.IndexFunc{
+		key: func(obj interface{}) ([]string, error) {
+			t := controllers.Extract[T](obj)
+			return extract(t), nil
+		},
+	}); err != nil {
+		// Should only happen on key conflict or on stop
+		log.Warnf("failed to add indexer: %v", err)
+	}
+	ret := internalIndex{
+		key:     key,
+		indexer: n.informer.GetIndexer(),
+	}
+	return ret
+}
+
 func (n *writeClient[T]) Create(object T) (T, error) {
 	api := kubeclient.GetWriteClient[T](n.client, object.GetNamespace())
 	return api.Create(context.Background(), object, metav1.CreateOptions{})
