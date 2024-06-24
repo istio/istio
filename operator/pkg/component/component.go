@@ -21,6 +21,7 @@ package component
 
 import (
 	"fmt"
+	"helm.sh/helm/v3/pkg/release"
 
 	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
@@ -71,7 +72,7 @@ type IstioComponent interface {
 	// Run starts the component. Must be called before the component is used.
 	Run() error
 	// RenderManifest returns a string with the rendered manifest for the component.
-	RenderManifest() (string, error)
+	RenderManifest() (*release.Release, error)
 }
 
 // CommonComponentFields is a struct common to all components.
@@ -117,7 +118,7 @@ func (c *IstioComponentBase) Run() error {
 	return runComponent(c.CommonComponentFields)
 }
 
-func (c *IstioComponentBase) RenderManifest() (string, error) {
+func (c *IstioComponentBase) RenderManifest() (*release.Release, error) {
 	return renderManifest(c)
 }
 
@@ -283,20 +284,20 @@ func runComponent(c *CommonComponentFields) error {
 }
 
 // renderManifest renders the manifest for the component defined by c and returns the resulting string.
-func renderManifest(cf *IstioComponentBase) (string, error) {
+func renderManifest(cf *IstioComponentBase) (*release.Release, error) {
 	if !cf.started {
 		metrics.CountManifestRenderError(cf.ComponentName(), metrics.RenderNotStartedError)
-		return "", fmt.Errorf("component %s not started in RenderManifest", cf.CommonComponentFields.ComponentName)
+		return nil, fmt.Errorf("component %s not started in RenderManifest", cf.CommonComponentFields.ComponentName)
 	}
 
 	if !cf.Enabled() {
-		return disabledYAMLStr(cf.ComponentName(), cf.CommonComponentFields.ResourceName), nil
+		return nil, nil
 	}
 
 	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentSpec, cf.ComponentName())
 	if err != nil {
 		metrics.CountManifestRenderError(cf.ComponentName(), metrics.HelmTranslateIOPToValuesError)
-		return "", err
+		return nil, err
 	}
 
 	scope.Debugf("Merged values:\n%s\n", mergedYAML)
@@ -310,7 +311,7 @@ func renderManifest(cf *IstioComponentBase) (string, error) {
 	if err != nil {
 		log.Errorf("Error rendering the manifest: %s", err)
 		metrics.CountManifestRenderError(cf.ComponentName(), metrics.HelmChartRenderError)
-		return "", err
+		return nil, err
 	}
 	my += helm.YAMLSeparator + "\n"
 	scope.Debugf("Initial manifest with merged values:\n%s\n", my)
@@ -320,11 +321,12 @@ func renderManifest(cf *IstioComponentBase) (string, error) {
 		cf.CommonComponentFields.ResourceName, cf.index)
 	if err != nil {
 		metrics.CountManifestRenderError(cf.ComponentName(), metrics.K8SSettingsOverlayError)
-		return "", err
+		return nil, err
 	}
 	cnOutput := string(cf.CommonComponentFields.ComponentName)
 	my = "# Resources for " + cnOutput + " component\n\n" + my
 	scope.Debugf("Manifest after k8s API settings:\n%s\n", my)
+	rel.Manifest = my
 
 	// Add the k8s resource overlays from IstioOperatorSpec.
 	pathToK8sOverlay := fmt.Sprintf("Components.%s.", cf.CommonComponentFields.ComponentName)
@@ -336,27 +338,28 @@ func renderManifest(cf *IstioComponentBase) (string, error) {
 	var overlays []*v1alpha1.K8SObjectOverlay
 	found, err := tpath.SetFromPath(cf.InstallSpec, pathToK8sOverlay, &overlays)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if !found {
 		scope.Debugf("Manifest after resources: \n%s\n", my)
 		metrics.CountManifestRender(cf.ComponentName())
-		return my, nil
+		return rel, nil
 	}
 	kyo, err := yaml.Marshal(overlays)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	scope.Infof("Applying Kubernetes overlay: \n%s\n", kyo)
 	ret, err := patch.YAMLManifestPatch(my, cf.Namespace(), overlays)
 	if err != nil {
 		metrics.CountManifestRenderError(cf.ComponentName(), metrics.K8SManifestPatchError)
-		return "", err
+		return nil, err
 	}
 
+	rel.Manifest = ret
 	scope.Debugf("Manifest after resources and overlay: \n%s\n", ret)
 	metrics.CountManifestRender(cf.ComponentName())
-	return ret, nil
+	return rel, nil
 }
 
 // createHelmRenderer creates a helm renderer for the component defined by c and returns a ptr to it.
