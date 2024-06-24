@@ -199,6 +199,17 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 			Mode: workloadapi.LoadBalancing_STRICT,
 		}
 	}
+	ipFamily := workloadapi.IPFamilies_AUTOMATIC
+	if len(svc.Spec.IPFamilies) == 2 {
+		ipFamily = workloadapi.IPFamilies_DUAL
+	} else if len(svc.Spec.IPFamilies) == 1 {
+		family := svc.Spec.IPFamilies[0]
+		if family == v1.IPv4Protocol {
+			ipFamily = workloadapi.IPFamilies_IPV4_ONLY
+		} else {
+			ipFamily = workloadapi.IPFamilies_IPV6_ONLY
+		}
+	}
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	return &workloadapi.Service{
 		Name:          svc.Name,
@@ -208,13 +219,20 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 		Ports:         ports,
 		Waypoint:      waypointAddress,
 		LoadBalancing: lb,
+		IpFamilies:    ipFamily,
 	}
 }
 
 func getVIPs(svc *v1.Service) []string {
 	res := []string{}
-	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
-		res = append(res, svc.Spec.ClusterIP)
+	cips := svc.Spec.ClusterIPs
+	if len(cips) == 0 {
+		cips = []string{svc.Spec.ClusterIP}
+	}
+	for _, cip := range cips {
+		if cip != "" && cip != v1.ClusterIPNone {
+			res = append(res, cip)
+		}
 	}
 	return res
 }
