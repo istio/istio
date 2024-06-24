@@ -1,4 +1,7 @@
 {
+  "gateways": {
+    "securityContext": {}
+  },
   "global": {
     "autoscalingv2API": true,
     "caAddress": "",
