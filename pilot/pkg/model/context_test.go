@@ -426,49 +426,45 @@ func TestProxyWatchedResourceRace(t *testing.T) {
 		},
 	}
 	stop := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-			}
-			wr := proxy.GetWatchedResource(typeURL)
-			_ = wr.NonceAcked
-			for _, name := range wr.ResourceNames {
-				_ = name
-			}
+	runFunc := func(f func()) {
+		for i := 0; i < 5; i++ {
+			go func() {
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+						f()
+					}
+				}
+			}()
 		}
-	}()
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-			}
-			wrs := proxy.CloneWatchedResources()
-			for _, wr := range wrs {
-				_ = wr.NonceAcked
-			}
-		}
-	}()
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-			}
-			proxy.UpdateWatchedResource(typeURL, func(wr *model.WatchedResource) *model.WatchedResource {
-				wr.NonceAcked = "ack"
-				wr.ResourceNames = []string{"name"}
-				return wr
-			})
-		}
-	}()
+	}
 
-	timer := time.After(time.Millisecond * 500)
+	runFunc(func() {
+		wr := proxy.GetWatchedResource(typeURL)
+		_ = wr.NonceAcked
+		for _, name := range wr.ResourceNames {
+			_ = name
+		}
+	})
+
+	runFunc(func() {
+		wrs := proxy.CloneWatchedResources()
+		for _, wr := range wrs {
+			_ = wr.NonceAcked
+		}
+	})
+
+	runFunc(func() {
+		proxy.UpdateWatchedResource(typeURL, func(wr *model.WatchedResource) *model.WatchedResource {
+			wr.NonceAcked = "ack"
+			wr.ResourceNames = []string{"name"}
+			return wr
+		})
+	})
+
+	timer := time.After(time.Millisecond * 100)
 	<-timer
 	close(stop)
 }
