@@ -16,8 +16,6 @@ package helm
 
 import (
 	"fmt"
-	"helm.sh/helm/v3/pkg/release"
-	"helm.sh/helm/v3/pkg/time"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,6 +25,8 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
+	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/time"
 	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
@@ -93,32 +93,31 @@ func ReadProfileYAML(profile, manifestsPath string) (string, error) {
 	return globalValues, nil
 }
 
-
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
 func renderChart(namespace, componentName, values string, chrt *chart.Chart, filterFunc TemplateFilterFunc, version *version.Info) (*release.Release, error) {
-
 	valuesMap := map[string]any{}
 	if err := yaml.Unmarshal([]byte(values), &valuesMap); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal values: %v", err)
 	}
 	rel := &release.Release{
-		Name:      componentName,
+		// TODO: for gateways this isn't right
+		Name:      strings.ToLower(componentName),
 		Namespace: namespace,
-		Info:      &release.Info{
+		Info: &release.Info{
 			FirstDeployed: time.Now(),
 			LastDeployed:  time.Now(),
 			Deleted:       time.Time{},
 			Description:   "Istio " + componentName,
 			Status:        release.StatusDeployed,
-			Notes:         "", // TODO
+			Notes:         "",  // TODO
 			Resources:     nil, //?
 		},
-		Chart:     chrt,
-		Config:    valuesMap,
-		Manifest:  "",
-		Hooks:     nil,
-		Version:   0, // TODO
-		Labels:    nil,
+		Chart:    chrt,
+		Config:   valuesMap,
+		Manifest: "",
+		Hooks:    nil,
+		Version:  1, // TODO
+		Labels:   nil,
 	}
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",

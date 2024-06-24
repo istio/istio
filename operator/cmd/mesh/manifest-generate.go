@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"helm.sh/helm/v3/pkg/release"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/helm"
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/slices"
 )
 
 type ManifestGenerateArgs struct {
@@ -175,7 +177,9 @@ func orderedManifests(mm name.ManifestMap) ([]string, error) {
 	var rawOutput []string
 	var output []string
 	for _, mfs := range mm {
-		rawOutput = append(rawOutput, mfs...)
+		for _, m := range mfs {
+			rawOutput = append(rawOutput, m.Manifest)
+		}
 	}
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(rawOutput, helm.YAMLSeparator))
 	if err != nil {
@@ -204,8 +208,11 @@ func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun bool, l cl
 func renderRecursive(manifests name.ManifestMap, installTree helmreconciler.ComponentTree, outputDir string, dryRun bool, l clog.Logger) error {
 	for k, v := range installTree {
 		componentName := string(k)
+		manifestStrings := slices.Map(manifests[k], func(e *release.Release) string {
+			return e.Manifest
+		})
 		// In cases (like gateways) where multiple instances can exist, concatenate the manifests and apply as one.
-		ym := strings.Join(manifests[k], helm.YAMLSeparator)
+		ym := strings.Join(manifestStrings, helm.YAMLSeparator)
 		l.LogAndPrintf("Rendering: %s", componentName)
 		dirName := filepath.Join(outputDir, componentName)
 		if !dryRun {

@@ -17,9 +17,6 @@ package mesh
 import (
 	"context"
 	"fmt"
-	"helm.sh/helm/v3/pkg/release"
-	"helm.sh/helm/v3/pkg/storage"
-	"helm.sh/helm/v3/pkg/storage/driver"
 	"io"
 	"os"
 	"sort"
@@ -216,10 +213,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		p.Println("Made this installation the default for cluster-wide operations.")
 	}
 
-	if err := CreateHelmSecret(kubeClient); err != nil {
-		return fmt.Errorf("failed to build helm release")
-	}
-
 	if iArgs.Verify {
 		if rootArgs.DryRun {
 			l.LogAndPrint("Control plane health check is not applicable in dry-run mode")
@@ -244,25 +237,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		p.Println("The ambient profile has been installed successfully, enjoy Istio without sidecars!")
 	}
 	return nil
-}
-
-func CreateHelmSecret(kubeClient kube.CLIClient) error {
-	rel := &release.Release{
-		Name:      "",
-		Info:      nil,
-		Chart:     nil,
-		Config:    nil,
-		Manifest:  "",
-		Hooks:     nil,
-		Version:   0,
-		Namespace: "",
-		Labels:    nil,
-	}
-	d := driver.NewSecrets(kubeClient.Kube().CoreV1().Secrets(rel.Namespace))
-	return d.Create(makeKey(rel.Name, rel.Version), rel)
-}
-func makeKey(rlsname string, version int) string {
-	return fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, rlsname, version)
 }
 
 // InstallManifests generates manifests from the given istiooperator instance and applies them to the
@@ -290,7 +264,7 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 		return fmt.Errorf("errors occurred during operation: %v", err)
 	}
 	if status.Status != v1alpha1.InstallStatus_HEALTHY {
-		return fmt.Errorf("errors occurred during operation")
+		return fmt.Errorf("errors occurred during operation (status is %+v)", status)
 	}
 
 	// Previously we may install IOP file from the old version of istioctl. Now since we won't install IOP file

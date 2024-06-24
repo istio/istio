@@ -16,13 +16,14 @@ package helmreconciler
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"istio.io/istio/pkg/log"
+	"strings"
+
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage"
 	"helm.sh/helm/v3/pkg/storage/driver"
-	"istio.io/istio/pkg/kube"
-	"strings"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -31,7 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/kube"
 )
 
 const fieldOwnerOperator = "istio-operator"
@@ -52,7 +53,7 @@ func (r AppliedResult) Succeed() bool {
 
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
 // objects and the number of objects in the manifests.
-func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedResult, _ error) {
+func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedResult, err error) {
 	cname := string(manifest.Name)
 	crHash, err := h.getCRHash(cname)
 	if err != nil {
@@ -91,13 +92,19 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedRe
 		changedObjectKeys = append(changedObjectKeys, oh)
 	}
 
-	var plog *progress.ManifestLog
+	plog := h.opts.ProgressLog.NewComponent(cname)
 	if len(changedObjectKeys) > 0 {
-		plog = h.opts.ProgressLog.NewComponent(cname)
 		scope.Infof("The following objects differ between generated manifest and cache: \n - %s", strings.Join(changedObjectKeys, "\n - "))
 	} else {
 		scope.Infof("Generated manifest objects are the same as cached for component %s.", cname)
 	}
+
+	defer func () {
+		if err != nil {
+			log.Errorf("howardjohn: %v %v", plog, err)
+			plog.ReportError(err.Error())
+		}
+	}()
 
 	// Objects are applied in groups: namespaces, CRDs, everything else, with wait for ready in between.
 	nsObjs := object.KindObjects(changedObjects, name.NamespaceStr)
@@ -112,7 +119,6 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedRe
 				return result, err
 			}
 			if err := h.ApplyObject(obj.UnstructuredObject()); err != nil {
-				plog.ReportError(err.Error())
 				return result, err
 			}
 			plog.ReportProgress()
@@ -134,52 +140,44 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedRe
 		scope.Infof("Pruning object %s from cache.", k)
 		delete(objectCache.Cache, k)
 	}
+	if err := CreateHelmSecret(h.kubeClient, manifest.Releases[0]); err != nil {
+		return result, err
+	}
 
 	if len(changedObjectKeys) > 0 {
 		err := WaitForResources(result.processedObjects, h.kubeClient,
 			h.opts.WaitTimeout, h.opts.DryRun, plog)
 		if err != nil {
 			werr := fmt.Errorf("failed to wait for resource: %v", err)
-			plog.ReportError(werr.Error())
 			return result, werr
 		}
 		plog.ReportFinished()
-
 	}
-	//rel := &release.Release{
-	//	Name:      "",
-	//	Info:      nil,
-	//	Chart:     nil,
-	//	Config:    nil,
-	//	Manifest:  "",
-	//	Hooks:     nil,
-	//	Version:   0,
-	//	Namespace: "",
-	//	Labels:    nil,
-	//}
 	return result, nil
 }
 
-
-func CreateHelmSecret(kubeClient kube.CLIClient) error {
-	rel := &release.Release{
-		Name:      "",
-		Info:      nil,
-		Chart:     nil,
-		Config:    nil,
-		Manifest:  "",
-		Hooks:     nil,
-		Version:   0,
-		Namespace: "",
-		Labels:    nil,
-	}
+func CreateHelmSecret(kubeClient kube.Client, rel *release.Release) error {
 	d := driver.NewSecrets(kubeClient.Kube().CoreV1().Secrets(rel.Namespace))
-	return d.Create(makeKey(rel.Name, rel.Version), rel)
+	store := storage.Init(d)
+	cur, err := store.Last(rel.Name)
+	if err != nil {
+		if ! errors.Is(err, driver.ErrReleaseNotFound) {
+			return err
+		}
+	}
+	key := makeKey(rel.Name, rel.Version)
+	if cur != nil {
+		// todo safety
+		rel.Info.LastDeployed = cur.Info.LastDeployed
+		rel.Version = cur.Version + 1
+		return d.Update(key, rel)
+	}
+	return d.Create(key, rel)
 }
+
 func makeKey(rlsname string, version int) string {
 	return fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, rlsname, version)
 }
-
 
 // ApplyObject creates or updates an object in the API server depending on whether it already exists.
 // It mutates obj.
