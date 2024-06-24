@@ -505,7 +505,7 @@ func TestJwtPubKeyRefreshedWhenErrorsGettingOtherURLs(t *testing.T) {
 		for {
 			select {
 			case <-time.After(refreshInterval / 2):
-				invalidKey, err := r.GetPublicKey("", mockInvalidCertURL, testRequestTimeout)
+				invalidKey, err := r.GetPublicKey("", mockInvalidCertURL)
 				if err == nil {
 					t.Logf("expected error for %q, but got key %q", mockInvalidCertURL, invalidKey)
 				}
@@ -518,7 +518,7 @@ func TestJwtPubKeyRefreshedWhenErrorsGettingOtherURLs(t *testing.T) {
 	// Ensure that the good URL is still refreshed, and updated to JwtPubKey2
 	time.Sleep(2 * refreshInterval)
 
-	pk, err = r.GetPublicKey("", mockCertURL, testRequestTimeout)
+	pk, err = r.GetPublicKey("", mockCertURL)
 	if err != nil {
 		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
 	}
