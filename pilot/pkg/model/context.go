@@ -1019,6 +1019,7 @@ func (node *Proxy) UpdateWatchedResource(typeURL string, updateFn func(*WatchedR
 	node.Lock()
 	defer node.Unlock()
 	r := node.WatchedResources[typeURL]
+	r = r.DeepCopy() // copy before update to prevent data race
 	r = updateFn(r)
 	if r != nil {
 		node.WatchedResources[typeURL] = r

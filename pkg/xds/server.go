@@ -23,10 +23,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
-
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -91,8 +91,19 @@ type WatchedResource struct {
 	LastError string
 
 	// LastResources tracks the contents of the last push.
-	// This field is extremely expensive to maintain and is typically disabled
+	// This field is extremely expensive to maintain and is typically disabled.
+	// It is only used for testing now.
 	LastResources Resources
+}
+
+func (r *WatchedResource) DeepCopy() *WatchedResource {
+	out := *r
+	if len(r.ResourceNames) > 0 {
+		out.ResourceNames = slices.Clone(r.ResourceNames)
+	}
+	// `LastResources` is only used for testing, only shallow copy.
+
+	return &out
 }
 
 type Watcher interface {

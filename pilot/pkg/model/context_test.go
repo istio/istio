@@ -21,11 +21,11 @@ import (
 	"time"
 
 	structpb "google.golang.org/protobuf/types/known/structpb"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
+	pkgmodel "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -415,4 +415,59 @@ func TestGlobalUnicastIP(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProxyWatchedResourceRace(t *testing.T) {
+	typeURL := pkgmodel.ClusterType
+	proxy := &model.Proxy{
+		WatchedResources: map[string]*model.WatchedResource{
+			typeURL: {},
+		},
+	}
+	stop := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			wr := proxy.GetWatchedResource(typeURL)
+			_ = wr.NonceAcked
+			for _, name := range wr.ResourceNames {
+				_ = name
+			}
+		}
+	}()
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			wrs := proxy.CloneWatchedResources()
+			for _, wr := range wrs {
+				_ = wr.NonceAcked
+			}
+		}
+	}()
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			proxy.UpdateWatchedResource(typeURL, func(wr *model.WatchedResource) *model.WatchedResource {
+				wr.NonceAcked = "ack"
+				wr.ResourceNames = []string{"name"}
+				return wr
+			})
+		}
+	}()
+
+	timer := time.After(time.Millisecond * 500)
+	<-timer
+	close(stop)
 }
