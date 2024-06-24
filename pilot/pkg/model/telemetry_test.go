@@ -1026,34 +1026,6 @@ func TestTelemetryFilters(t *testing.T) {
 	}
 }
 
-func TestGetInterval(t *testing.T) {
-	cases := []struct {
-		name              string
-		input, defaultVal time.Duration
-		expected          *durationpb.Duration
-	}{
-		{
-			name:       "return nil",
-			input:      0,
-			defaultVal: 0,
-			expected:   nil,
-		},
-		{
-			name:       "return input",
-			input:      1 * time.Second,
-			defaultVal: 0,
-			expected:   durationpb.New(1 * time.Second),
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			actual := getInterval(tc.input, tc.defaultVal)
-			assert.Equal(t, tc.expected, actual)
-		})
-	}
-}
-
 func Test_appendApplicableTelemetries(t *testing.T) {
 	namespacedName := types.NamespacedName{
 		Name:      "my-telemetry",
