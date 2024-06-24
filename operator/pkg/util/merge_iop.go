@@ -85,8 +85,9 @@ type values struct {
 }
 
 type gatewaysConfig struct {
-	IstioEgressgateway  *egressGatewayConfig  `json:"istio-egressgateway" patchStrategy:"merge"`
-	IstioIngressgateway *ingressGatewayConfig `json:"istio-ingressgateway" patchStrategy:"merge"`
+	SecurityContext     *v1alpha1.PodSecurityContext `json:"securityContext" patchStrategy:"merge"`
+	IstioEgressgateway  *egressGatewayConfig         `json:"istio-egressgateway" patchStrategy:"merge"`
+	IstioIngressgateway *ingressGatewayConfig        `json:"istio-ingressgateway" patchStrategy:"merge"`
 }
 
 // Configuration for an ingress gateway.
