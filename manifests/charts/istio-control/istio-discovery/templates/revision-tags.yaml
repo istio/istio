@@ -28,7 +28,7 @@ a unique prefix to each. */}}
     apiVersions: ["v1"]
     resources: ["pods"]
   failurePolicy: Fail
-  admissionReviewVersions: ["v1beta1", "v1"]
+  admissionReviewVersions: ["v1"]
 {{- end }}
 {{- range $tagName := $.Values.revisionTags }}
 apiVersion: admissionregistration.k8s.io/v1

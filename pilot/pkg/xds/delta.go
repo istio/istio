@@ -258,6 +258,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newReso
 					wr.ResourceNames = newResourceNames
 				}
 				wr.NonceSent = res.Nonce
+				wr.LastSendTime = time.Now()
 				if features.EnableUnsafeDeltaTest {
 					wr.LastResources = applyDelta(wr.LastResources, res)
 				}
@@ -373,6 +374,10 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		errCode := codes.Code(request.ErrorDetail.Code)
 		deltaLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ID(), errCode.String(), request.ErrorDetail.GetMessage())
 		xds.IncrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
+		con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
+			wr.LastError = request.ErrorDetail.GetMessage()
+			return wr
+		})
 		return false
 	}
 
@@ -421,6 +426,8 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
 		previousResources = wr.ResourceNames
 		currentResources, _ = deltaWatchedResources(previousResources, request)
+		// Clear last error, we got an ACK.
+		wr.LastError = ""
 		wr.NonceAcked = request.ResponseNonce
 		wr.ResourceNames = currentResources
 		alwaysRespond = wr.AlwaysRespond
@@ -570,8 +577,10 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		if recordSendError(w.TypeUrl, err) {
 			logger = deltaLog.Warnf
 		}
-		logger("%s: Send failure for node:%s resources:%d size:%s%s: %v",
-			v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
+		if deltaLog.DebugEnabled() {
+			logger("%s: Send failure for node:%s resources:%d size:%s%s: %v",
+				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
+		}
 		return err
 	}
 

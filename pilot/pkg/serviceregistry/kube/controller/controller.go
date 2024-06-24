@@ -1069,7 +1069,7 @@ func (c *Controller) GetProxyServiceTargetsByPod(pod *v1.Pod, service *v1.Servic
 			// find target port
 			portNum, err := FindPort(pod, &port)
 			if err != nil {
-				log.Warnf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
+				log.Debugf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
 				continue
 			}
 			// Dedupe the target ports here - Service might have configured multiple ports to the same target port,

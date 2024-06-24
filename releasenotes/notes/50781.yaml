@@ -21,6 +21,8 @@ kind: feature
 # - istioctl
 # - documentation
 area: installation
+issue:
+  - 50781
 
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.

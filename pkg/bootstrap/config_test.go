@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"regexp"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -317,5 +318,12 @@ func TestGetStatOptions(t *testing.T) {
 				tt.Errorf("unexpected inclusion suffixes. want: %v, got: %v", tc.wantInclusionSuffixes, inclusionSuffixes)
 			}
 		})
+	}
+}
+
+func TestRequiredEnvoyStatsMatcherInclusionRegexes(t *testing.T) {
+	ok, _ := regexp.MatchString(requiredEnvoyStatsMatcherInclusionRegexes, "vhost.default.local:18000.route.routev1.upstream_rq_200")
+	if !ok {
+		t.Fatalf("requiredEnvoyStatsMatcherInclusionRegexes doesn't match the route's stat_prefix")
 	}
 }

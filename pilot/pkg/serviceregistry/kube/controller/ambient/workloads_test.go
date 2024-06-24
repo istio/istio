@@ -728,6 +728,7 @@ func newAmbientUnitTest() *index {
 	return &index{
 		networkUpdateTrigger: krt.NewRecomputeTrigger(),
 		ClusterID:            testC,
+		DomainSuffix:         "domain.suffix",
 		Network: func(endpointIP string, labels labels.Instance) network.ID {
 			return testNW
 		},

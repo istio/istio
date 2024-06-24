@@ -150,10 +150,10 @@ spec:
 {{- end }}
 {{- end }}
         env:
-        - name: INSTANCE_IP
+        - name: INSTANCE_IPS
           valueFrom:
             fieldRef:
-              fieldPath: status.podIP
+              fieldPath: status.podIPs
         - name: NAMESPACE
           valueFrom:
             fieldRef:
