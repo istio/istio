@@ -21,6 +21,7 @@ import (
 	"time"
 
 	structpb "google.golang.org/protobuf/types/known/structpb"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
