@@ -489,7 +489,7 @@ func TestJwtPubKeyRefreshedWhenErrorsGettingOtherURLs(t *testing.T) {
 	mockInvalidCertURL := ms.URL + "/invalid"
 
 	// Get a key added to the cache
-	pk, err := r.GetPublicKey("", mockCertURL, testRequestTimeout)
+	pk, err := r.GetPublicKey("", mockCertURL)
 	if err != nil {
 		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
 	}
