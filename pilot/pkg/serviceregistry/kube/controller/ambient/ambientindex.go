@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -149,6 +150,10 @@ func New(options Options) Index {
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
 	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, krt.WithName("Namespaces"))
 
+	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
+		ObjectFilter: options.Client.ObjectFilter(),
+	}, krt.WithName("EndpointSlices"))
+
 	MeshConfig := MeshConfigCollection(ConfigMaps, options)
 	Waypoints := WaypointsCollection(Gateways, GatewayClasses, Pods)
 
@@ -202,7 +207,7 @@ func New(options Options) Index {
 		WorkloadServices,
 		WorkloadEntries,
 		ServiceEntries,
-		AllPolicies,
+		EndpointSlices,
 		Namespaces,
 	)
 	WorkloadAddressIndex := krt.NewIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
