@@ -1,4 +1,11 @@
 defaults:
+  hub: "defkey"
+  tag: ""
+  variant: ""
+  imagePullPolicy: ""
+  image: "pilot"
+  # Can be a full hub/image:tag
+
   #.Values.pilot for discovery and mesh wide config
 
   ## Discovery Settings
@@ -10,12 +17,15 @@ defaults:
     replicaCount: 1
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
-    hub: ""
+    ## BEGIN DEPRECATED - prefer `values.hub/tag` or `global.hub/tag` instead of `values.pilot.hub/tag`
+    hub: "pilotkey"
     tag: ""
     variant: ""
     pullPolicy: ""
     # Can be a full hub/image:tag
     image: pilot
+    ## END DEPRECATED
+
     traceSampling: 1.0
     # Resources for a small pilot install
     resources:
@@ -175,6 +185,8 @@ defaults:
     enablePrometheusMerge: true
   experimental:
     stableValidationPolicy: false
+  # TODO this chart has way too many globals.
+  # All globals except (hub, tag, variant, imagePullPolicy) should be rescoped locally
   global:
     # Used to locate istiod.
     istioNamespace: istio-system
@@ -203,7 +215,7 @@ defaults:
     # Default hub for Istio images.
     # Releases are published to docker hub under 'istio' project.
     # Dev builds from prow are on gcr.io
-    hub: gcr.io/istio-testing
+    hub: globkey
     # Default tag for Istio images.
     tag: latest
     # Variant of the image to use.

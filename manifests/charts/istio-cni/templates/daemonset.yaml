@@ -70,7 +70,7 @@ spec:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          {{- include "istio-cni.istio-image" . | indent 2}}
+          {{- include "istio.image" . | indent 2}}
           readinessProbe:
             httpGet:
               path: /readyz
