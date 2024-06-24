@@ -231,7 +231,7 @@ base:
 			Strict: true,
 		})
 
-	whObject, _, err := deserializer.Decode([]byte(validatingWebhookYAML), nil, &admitv1.ValidatingWebhookConfiguration{})
+	whObject, _, err := deserializer.Decode([]byte(validatingWebhookYAML.Manifest), nil, &admitv1.ValidatingWebhookConfiguration{})
 	if err != nil {
 		return "", fmt.Errorf("could not decode generated webhook: %w", err)
 	}
@@ -308,7 +308,7 @@ istiodRemote:
 			Strict: true,
 		})
 
-	whObject, _, err := deserializer.Decode([]byte(tagWebhookYaml), nil, &admitv1.MutatingWebhookConfiguration{})
+	whObject, _, err := deserializer.Decode([]byte(tagWebhookYaml.Manifest), nil, &admitv1.MutatingWebhookConfiguration{})
 	if err != nil {
 		return "", fmt.Errorf("could not decode generated webhook: %w", err)
 	}

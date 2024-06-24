@@ -16,6 +16,7 @@ package helm
 
 import (
 	"fmt"
+	"helm.sh/helm/v3/pkg/release"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -71,19 +72,19 @@ func (h *Renderer) Run() error {
 }
 
 // RenderManifest renders the current helm templates with the current values and returns the resulting YAML manifest string.
-func (h *Renderer) RenderManifest(values string) (string, error) {
+func (h *Renderer) RenderManifest(values string) (*release.Release, error) {
 	if !h.started {
-		return "", fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
+		return nil, fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
 	}
-	return renderChart(h.namespace, values, h.chart, nil, h.version)
+	return renderChart(h.namespace, h.componentName, values, h.chart, nil, h.version)
 }
 
 // RenderManifestFiltered filters templates to render using the supplied filter function.
-func (h *Renderer) RenderManifestFiltered(values string, filter TemplateFilterFunc) (string, error) {
+func (h *Renderer) RenderManifestFiltered(values string, filter TemplateFilterFunc) (*release.Release, error) {
 	if !h.started {
-		return "", fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
+		return nil, fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
 	}
-	return renderChart(h.namespace, values, h.chart, filter, h.version)
+	return renderChart(h.namespace, h.componentName, values, h.chart, filter, h.version)
 }
 
 func GetFilesRecursive(f fs.FS, root string) ([]string, error) {

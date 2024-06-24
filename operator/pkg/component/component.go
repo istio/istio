@@ -301,9 +301,12 @@ func renderManifest(cf *IstioComponentBase) (string, error) {
 
 	scope.Debugf("Merged values:\n%s\n", mergedYAML)
 
-	my, err := cf.renderer.RenderManifestFiltered(mergedYAML, func(s string) bool {
+	rel, err := cf.renderer.RenderManifestFiltered(mergedYAML, func(s string) bool {
 		return cf.Filter.IsEmpty() || cf.Filter.Contains(s)
 	})
+	// TODO: we need to overlay in the rel.manifest
+	// return manifest from here
+	my := rel.Manifest
 	if err != nil {
 		log.Errorf("Error rendering the manifest: %s", err)
 		metrics.CountManifestRenderError(cf.ComponentName(), metrics.HelmChartRenderError)

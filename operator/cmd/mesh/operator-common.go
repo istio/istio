@@ -103,7 +103,7 @@ revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 		return "", "", err
 	}
 	manifest, err := r.RenderManifest(vals)
-	return vals, manifest, err
+	return vals, manifest.Manifest, err
 }
 
 // deploymentExists returns true if the given deployment in the namespace exists.

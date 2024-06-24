@@ -17,6 +17,10 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
+	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/storage"
+	"helm.sh/helm/v3/pkg/storage/driver"
+	"istio.io/istio/pkg/kube"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -142,8 +146,40 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedRe
 		plog.ReportFinished()
 
 	}
+	//rel := &release.Release{
+	//	Name:      "",
+	//	Info:      nil,
+	//	Chart:     nil,
+	//	Config:    nil,
+	//	Manifest:  "",
+	//	Hooks:     nil,
+	//	Version:   0,
+	//	Namespace: "",
+	//	Labels:    nil,
+	//}
 	return result, nil
 }
+
+
+func CreateHelmSecret(kubeClient kube.CLIClient) error {
+	rel := &release.Release{
+		Name:      "",
+		Info:      nil,
+		Chart:     nil,
+		Config:    nil,
+		Manifest:  "",
+		Hooks:     nil,
+		Version:   0,
+		Namespace: "",
+		Labels:    nil,
+	}
+	d := driver.NewSecrets(kubeClient.Kube().CoreV1().Secrets(rel.Namespace))
+	return d.Create(makeKey(rel.Name, rel.Version), rel)
+}
+func makeKey(rlsname string, version int) string {
+	return fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, rlsname, version)
+}
+
 
 // ApplyObject creates or updates an object in the API server depending on whether it already exists.
 // It mutates obj.
