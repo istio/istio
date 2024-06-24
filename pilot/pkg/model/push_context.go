@@ -15,6 +15,7 @@
 package model
 
 import (
+	"bytes"
 	"cmp"
 	"encoding/json"
 	"fmt"
@@ -1616,16 +1617,25 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 
 // SortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
 func SortServicesByCreationTime(services []*Service) []*Service {
-	slices.SortStableFunc(services, func(a, b *Service) int {
-		if r := a.CreationTime.Compare(b.CreationTime); r != 0 {
+	in := bytes.NewBuffer(make([]byte, 0, 100))
+	jn := bytes.NewBuffer(make([]byte, 0, 100))
+	slices.SortStableFunc(services, func(i, j *Service) int {
+		if r := i.CreationTime.Compare(j.CreationTime); r != 0 {
 			return r
 		}
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		an := a.Attributes.Name + "." + a.Attributes.Namespace
-		bn := b.Attributes.Name + "." + b.Attributes.Namespace
-		return cmp.Compare(an, bn)
+		in.Reset()
+		in.WriteString(i.Attributes.Name)
+		in.WriteString("/")
+		in.WriteString(i.Attributes.Namespace)
+
+		jn.Reset()
+		jn.WriteString(j.Attributes.Name)
+		jn.WriteString("/")
+		jn.WriteString(j.Attributes.Namespace)
+		return bytes.Compare(in.Bytes(), jn.Bytes())
 	})
 	return services
 }

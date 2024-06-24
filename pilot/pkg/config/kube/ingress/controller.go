@@ -17,6 +17,7 @@
 package ingress
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sort"
@@ -270,14 +271,23 @@ func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 
 // sortIngressByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
 func sortIngressByCreationTime(ingr []*knetworking.Ingress) []*knetworking.Ingress {
+	in := bytes.NewBuffer(make([]byte, 0, 100))
+	jn := bytes.NewBuffer(make([]byte, 0, 100))
 	sort.Slice(ingr, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
 		if ingr[i].CreationTimestamp == ingr[j].CreationTimestamp {
-			in := ingr[i].Name + "." + ingr[i].Namespace
-			jn := ingr[j].Name + "." + ingr[j].Namespace
-			return in < jn
+			in.Reset()
+			in.WriteString(ingr[i].Name)
+			in.WriteString("/")
+			in.WriteString(ingr[i].Namespace)
+
+			jn.Reset()
+			jn.WriteString(ingr[j].Name)
+			jn.WriteString("/")
+			jn.WriteString(ingr[j].Namespace)
+			return bytes.Compare(in.Bytes(), jn.Bytes()) == -1
 		}
 		return ingr[i].CreationTimestamp.Before(&ingr[j].CreationTimestamp)
 	})

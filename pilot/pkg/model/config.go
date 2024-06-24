@@ -15,6 +15,7 @@
 package model
 
 import (
+	"bytes"
 	"sort"
 	"strings"
 
@@ -354,14 +355,23 @@ func OldestMatchingHost(needle host.Name, specific map[host.Name]config.Config, 
 
 // sortByCreationComparator is a comparator function for sorting config objects by creation time.
 func sortByCreationComparator(configs []config.Config) func(i, j int) bool {
+	in := bytes.NewBuffer(make([]byte, 0, 100))
+	jn := bytes.NewBuffer(make([]byte, 0, 100))
 	return func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
 		if configs[i].CreationTimestamp == configs[j].CreationTimestamp {
-			in := configs[i].Name + "." + configs[i].Namespace
-			jn := configs[j].Name + "." + configs[j].Namespace
-			return in < jn
+			in.Reset()
+			in.WriteString(configs[i].Name)
+			in.WriteString("/")
+			in.WriteString(configs[i].Namespace)
+
+			jn.Reset()
+			jn.WriteString(configs[j].Name)
+			jn.WriteString("/")
+			jn.WriteString(configs[j].Namespace)
+			return bytes.Compare(in.Bytes(), jn.Bytes()) == -1
 		}
 		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
 	}
