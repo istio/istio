@@ -55,9 +55,9 @@ type Scope struct {
 	callerSkip  int
 
 	// set by the Configure method and adjustable dynamically
-	outputLevel     atomic.Value
-	stackTraceLevel atomic.Value
-	logCallers      atomic.Value
+	outputLevel     *atomic.Value
+	stackTraceLevel *atomic.Value
+	logCallers      *atomic.Value
 
 	// labels data - key slice to preserve ordering
 	labelKeys []string
@@ -89,9 +89,12 @@ func registerScope(name string, description string, callerSkip int) *Scope {
 	s, ok := scopes[name]
 	if !ok {
 		s = &Scope{
-			name:        name,
-			description: description,
-			callerSkip:  callerSkip,
+			name:            name,
+			description:     description,
+			callerSkip:      callerSkip,
+			outputLevel:     &atomic.Value{},
+			stackTraceLevel: &atomic.Value{},
+			logCallers:      &atomic.Value{},
 		}
 		s.SetOutputLevel(InfoLevel)
 		s.SetStackTraceLevel(NoneLevel)
