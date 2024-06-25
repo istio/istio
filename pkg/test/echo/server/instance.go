@@ -51,6 +51,7 @@ type Config struct {
 	IstioVersion          string
 	Namespace             string
 	DisableALPN           bool
+	ReportRequest         func()
 }
 
 func (c Config) String() string {
@@ -233,6 +234,7 @@ func (s *Instance) newEndpoint(port *common.Port, listenerIP string, udsServer s
 		Port:          port,
 		UDSServer:     udsServer,
 		IsServerReady: s.isReady,
+		ReportRequest: s.ReportRequest,
 		Version:       s.Version,
 		Cluster:       s.Cluster,
 		TLSCert:       s.TLSCert,
