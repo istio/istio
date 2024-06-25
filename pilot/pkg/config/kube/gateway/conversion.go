@@ -15,7 +15,7 @@
 package gateway
 
 import (
-	"bytes"
+	"cmp"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -51,22 +51,14 @@ import (
 )
 
 func sortConfigByCreationTime(configs []config.Config) {
-	in := bytes.NewBuffer(make([]byte, 0, 100))
-	jn := bytes.NewBuffer(make([]byte, 0, 100))
 	sort.Slice(configs, func(i, j int) bool {
-		if configs[i].CreationTimestamp.Equal(configs[j].CreationTimestamp) {
-			in.Reset()
-			in.WriteString(configs[i].Namespace)
-			in.WriteString("/")
-			in.WriteString(configs[i].Name)
-
-			jn.Reset()
-			jn.WriteString(configs[j].Namespace)
-			jn.WriteString("/")
-			jn.WriteString(configs[j].Name)
-			return bytes.Compare(in.Bytes(), jn.Bytes()) == -1
+		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
+			return r == -1 // -1 means i is less than j, so return true
 		}
-		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
+		if r := cmp.Compare(configs[i].Namespace, configs[j].Namespace); r != 0 {
+			return r == -1
+		}
+		return cmp.Compare(configs[i].Name, configs[j].Name) == -1
 	})
 }
 

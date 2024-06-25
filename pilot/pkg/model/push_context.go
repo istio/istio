@@ -15,7 +15,6 @@
 package model
 
 import (
-	"bytes"
 	"cmp"
 	"encoding/json"
 	"fmt"
@@ -1617,8 +1616,6 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 
 // SortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
 func SortServicesByCreationTime(services []*Service) []*Service {
-	in := bytes.NewBuffer(make([]byte, 0, 100))
-	jn := bytes.NewBuffer(make([]byte, 0, 100))
 	slices.SortStableFunc(services, func(i, j *Service) int {
 		if r := i.CreationTime.Compare(j.CreationTime); r != 0 {
 			return r
@@ -1626,16 +1623,10 @@ func SortServicesByCreationTime(services []*Service) []*Service {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		in.Reset()
-		in.WriteString(i.Attributes.Name)
-		in.WriteString("/")
-		in.WriteString(i.Attributes.Namespace)
-
-		jn.Reset()
-		jn.WriteString(j.Attributes.Name)
-		jn.WriteString("/")
-		jn.WriteString(j.Attributes.Namespace)
-		return bytes.Compare(in.Bytes(), jn.Bytes())
+		if r := cmp.Compare(i.Attributes.Name, j.Attributes.Name); r != 0 {
+			return r
+		}
+		return cmp.Compare(i.Attributes.Namespace, j.Attributes.Namespace)
 	})
 	return services
 }
@@ -1953,25 +1944,26 @@ func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
 
 // sortConfigBySelectorAndCreationTime sorts the list of config objects based on priority and creation time.
 func sortConfigBySelectorAndCreationTime(configs []config.Config) []config.Config {
-	creationTimeComparator := sortByCreationComparator(configs)
-	// Define a comparator function for sorting configs by priority and creation time
-	comparator := func(i, j int) bool {
+	sort.Slice(configs, func(i, j int) bool {
+		// check if one of the configs has priority
 		idr := configs[i].Spec.(*networking.DestinationRule)
 		jdr := configs[j].Spec.(*networking.DestinationRule)
-
-		// Check if one of the configs has priority set to true
 		if idr.GetWorkloadSelector() != nil && jdr.GetWorkloadSelector() == nil {
 			return true
-		} else if idr.GetWorkloadSelector() == nil && jdr.GetWorkloadSelector() != nil {
+		}
+		if idr.GetWorkloadSelector() == nil && jdr.GetWorkloadSelector() != nil {
 			return false
 		}
 
 		// If priority is the same or neither has priority, fallback to creation time ordering
-		return creationTimeComparator(i, j)
-	}
-
-	// Sort the configs using the defined comparator function
-	sort.Slice(configs, comparator)
+		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
+			return r == -1 // -1 means i is less than j, so return true.
+		}
+		if r := cmp.Compare(configs[i].Name, configs[j].Name); r != 0 {
+			return r == -1
+		}
+		return cmp.Compare(configs[i].Namespace, configs[j].Namespace) == -1
+	})
 	return configs
 }
 
