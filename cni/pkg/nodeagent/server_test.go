@@ -153,6 +153,7 @@ func TestMeshDataplaneRemovePodRemovesAnnotation(t *testing.T) {
 	server.On("RemovePodFromMesh",
 		fakeCtx,
 		pod,
+		false,
 	).Return(nil)
 
 	fakeClientSet := fake.NewSimpleClientset(pod)
@@ -161,7 +162,7 @@ func TestMeshDataplaneRemovePodRemovesAnnotation(t *testing.T) {
 		netServer:  server,
 	}
 
-	err := m.RemovePodFromMesh(fakeCtx, pod)
+	err := m.RemovePodFromMesh(fakeCtx, pod, false)
 	assert.NoError(t, err)
 
 	pod, err = fakeClientSet.CoreV1().Pods("test").Get(fakeCtx, "test", metav1.GetOptions{})
@@ -178,6 +179,7 @@ func TestMeshDataplaneRemovePodErrorDoesntRemoveAnnotation(t *testing.T) {
 	server.On("RemovePodFromMesh",
 		fakeCtx,
 		pod,
+		false,
 	).Return(errors.New("fake error"))
 
 	fakeClientSet := fake.NewSimpleClientset(pod)
@@ -186,7 +188,7 @@ func TestMeshDataplaneRemovePodErrorDoesntRemoveAnnotation(t *testing.T) {
 		netServer:  server,
 	}
 
-	err := m.RemovePodFromMesh(fakeCtx, pod)
+	err := m.RemovePodFromMesh(fakeCtx, pod, false)
 	assert.Error(t, err)
 
 	pod, err = fakeClientSet.CoreV1().Pods("test").Get(fakeCtx, "test", metav1.GetOptions{})
@@ -201,9 +203,10 @@ func TestMeshDataplaneDelPod(t *testing.T) {
 	server := &fakeServer{}
 	server.Start(fakeCtx)
 
-	server.On("DelPodFromMesh",
+	server.On("RemovePodFromMesh",
 		fakeCtx,
 		pod,
+		true,
 	).Return(nil)
 
 	fakeClientSet := fake.NewSimpleClientset()
@@ -213,7 +216,7 @@ func TestMeshDataplaneDelPod(t *testing.T) {
 	}
 
 	// pod is not in fake client, so if this will try to remove annotation, it will fail.
-	err := m.DelPodFromMesh(fakeCtx, pod)
+	err := m.RemovePodFromMesh(fakeCtx, pod, true)
 	assert.NoError(t, err)
 }
 
@@ -224,9 +227,10 @@ func TestMeshDataplaneDelPodErrorDoesntPatchPod(t *testing.T) {
 	server := &fakeServer{}
 	server.Start(fakeCtx)
 
-	server.On("DelPodFromMesh",
+	server.On("RemovePodFromMesh",
 		fakeCtx,
 		pod,
+		true,
 	).Return(errors.New("fake error"))
 
 	fakeClientSet := fake.NewSimpleClientset()
@@ -236,7 +240,7 @@ func TestMeshDataplaneDelPodErrorDoesntPatchPod(t *testing.T) {
 	}
 
 	// pod is not in fake client, so if this will try to remove annotation, it will fail.
-	err := m.DelPodFromMesh(fakeCtx, pod)
+	err := m.RemovePodFromMesh(fakeCtx, pod, true)
 	assert.Error(t, err)
 }
 
@@ -266,19 +270,11 @@ func (f *fakeServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs [
 	return args.Error(0)
 }
 
-func (f *fakeServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) error {
+func (f *fakeServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error {
 	if f.testWG != nil {
 		defer f.testWG.Done()
 	}
-	args := f.Called(ctx, pod)
-	return args.Error(0)
-}
-
-func (f *fakeServer) DelPodFromMesh(ctx context.Context, pod *corev1.Pod) error {
-	if f.testWG != nil {
-		defer f.testWG.Done()
-	}
-	args := f.Called(ctx, pod)
+	args := f.Called(ctx, pod, isDelete)
 	return args.Error(0)
 }
 

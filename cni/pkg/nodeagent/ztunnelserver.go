@@ -291,15 +291,23 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 	}
 	uid := string(pod.ObjectMeta.UID)
 
+	add := &zdsapi.AddWorkload{
+		WorkloadInfo: podToWorkload(pod),
+		Uid:          uid,
+	}
 	r := &zdsapi.WorkloadRequest{
 		Payload: &zdsapi.WorkloadRequest_Add{
-			Add: &zdsapi.AddWorkload{
-				WorkloadInfo: podToWorkload(pod),
-				Uid:          uid,
-			},
+			Add: add,
 		},
 	}
-	log.Infof("About to send added pod: %s to ztunnel: %+v", uid, r)
+	log := log.WithLabels(
+		"uid", add.Uid,
+		"name", add.WorkloadInfo.Name,
+		"namespace", add.WorkloadInfo.Namespace,
+		"serviceAccount", add.WorkloadInfo.ServiceAccount,
+	)
+
+	log.Infof("sending pod add to ztunnel")
 	data, err := proto.Marshal(r)
 	if err != nil {
 		return err
@@ -312,7 +320,7 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 	}
 
 	if resp.GetAck().GetError() != "" {
-		log.Errorf("add-workload: got ack error: %s", resp.GetAck().GetError())
+		log.Errorf("failed to add workload: %s", resp.GetAck().GetError())
 		return fmt.Errorf("got ack error: %s", resp.GetAck().GetError())
 	}
 	return nil

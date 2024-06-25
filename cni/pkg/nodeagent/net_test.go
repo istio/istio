@@ -189,7 +189,7 @@ func TestServerRemovePod(t *testing.T) {
 		Netns:    fakens,
 	}
 	fixture.podNsMap.UpsertPodCacheWithNetns(string(pod.UID), workload)
-	err := netServer.RemovePodFromMesh(ctx, pod)
+	err := netServer.RemovePodFromMesh(ctx, pod, false)
 	assert.NoError(t, err)
 	assert.Equal(t, ztunnelServer.deletedPods.Load(), 1)
 	assert.Equal(t, nlDeps.DelInpodMarkIPRuleCnt.Load(), 1)

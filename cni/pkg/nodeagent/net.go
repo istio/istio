@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/netip"
 
+	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/util/sets"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -133,7 +135,8 @@ func (s *NetServer) getNetns(pod *corev1.Pod) (Netns, error) {
 // which always has the firsthand info of the IPs, even before K8S does - so we pass them separately here because
 // we actually may have them before K8S in the Pod object.
 func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
-	log.Infof("in pod mode - adding pod %s/%s to ztunnel ", pod.Namespace, pod.Name)
+	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
+	log.Infof("adding pod to the mesh")
 	// make sure the cache is aware of the pod, even if we don't have the netns yet.
 	s.currentPodSnapshot.Ensure(string(pod.UID))
 	openNetns, err := s.getOrOpenNetns(pod, netNs)
@@ -224,33 +227,40 @@ func realDependencies() *dep.RealDependencies {
 	}
 }
 
-// Remove pod from mesh: pod is not deleted, we just want to remove it from the mesh.
-func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) error {
+// RemovePodFromMesh is called when a pod needs to be removed from the mesh
+func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
-	log.Debugf("Pod is now opt out... cleaning up.")
+	log.WithLabels("delete", isDelete).Debugf("removing pod from the mesh")
 
-	openNetns := s.currentPodSnapshot.Take(string(pod.UID))
-	if openNetns == nil {
-		log.Warn("failed to find pod netns during removal")
-		return fmt.Errorf("failed to find pod netns during removal")
-	}
-	// pod is removed from the mesh, but is still running. remove iptables rules
-	log.Debugf("calling DeleteInpodRules.")
-	if err := s.netnsRunner(openNetns, func() error { return s.iptablesConfigurator.DeleteInpodRules() }); err != nil {
-		log.Errorf("failed to delete inpod rules %v", err)
-		return fmt.Errorf("failed to delete inpod rules %w", err)
+	// Aggregate errors together, so that if part of the cleanup fails we still proceed with other steps.
+	errs := istiomultierror.New()
+
+	// If the pod is already deleted or terminated, we do not need to clean up the pod network -- only the host side.
+	if !isDelete {
+		openNetns := s.currentPodSnapshot.Take(string(pod.UID))
+		if openNetns == nil {
+			log.Warn("failed to find pod netns during removal")
+			errs = multierror.Append(errs, fmt.Errorf("failed to find pod netns during removal"))
+		} else {
+			// pod is removed from the mesh, but is still running. remove iptables rules
+			log.Debugf("calling DeleteInpodRules.")
+			if err := s.netnsRunner(openNetns, func() error { return s.iptablesConfigurator.DeleteInpodRules() }); err != nil {
+				return fmt.Errorf("failed to delete inpod rules: %w", err)
+			}
+		}
 	}
 
 	if err := removePodFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
 		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)
-		return err
+		errs = multierror.Append(errs, err)
 	}
 
-	log.Debug("in pod mode - removing pod from ztunnel")
+	log.Debug("removing pod from ztunnel")
 	if err := s.ztunnelServer.PodDeleted(ctx, string(pod.UID)); err != nil {
 		log.Errorf("failed to delete pod from ztunnel: %v", err)
+		errs = multierror.Append(errs, err)
 	}
-	return nil
+	return errs.ErrorOrNil()
 }
 
 // Delete pod from mesh: pod is deleted. iptables rules will die with it, we just need to update ztunnel
