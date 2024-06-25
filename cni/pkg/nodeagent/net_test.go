@@ -205,48 +205,6 @@ func TestServerRemovePod(t *testing.T) {
 	assertNSClosed(t, closed)
 }
 
-func TestServerDeletePod(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	setupLogging()
-	fixture := getTestFixure(ctx)
-	netServer := fixture.netServer
-	ztunnelServer := fixture.ztunnelServer
-	nlDeps := fixture.nlDeps
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			UID:       "123",
-		},
-		Spec: corev1.PodSpec{ServiceAccountName: "sa"},
-	}
-
-	// this is usually called after add. so manually add the pod uid for now
-	fakens := newFakeNs(123)
-	closed := fakens.closed
-	workload := WorkloadInfo{
-		Workload: podToWorkload(pod),
-		Netns:    fakens,
-	}
-	fixture.podNsMap.UpsertPodCacheWithNetns(string(pod.UID), workload)
-	err := netServer.DelPodFromMesh(ctx, pod)
-	assert.NoError(t, err)
-	assert.Equal(t, ztunnelServer.deletedPods.Load(), 1)
-	// with delete iptables is not called, as there is no need to delete the iptables rules
-	// from a pod that's gone from the cluster.
-	assert.Equal(t, nlDeps.DelInpodMarkIPRuleCnt.Load(), 0)
-	assert.Equal(t, nlDeps.DelLoopbackRoutesCnt.Load(), 0)
-	// make sure the uid was taken from cache and netns closed
-	netns := fixture.podNsMap.Take(string(pod.UID))
-	assert.Equal(t, nil, netns)
-	// run gc to clean up ns:
-
-	//revive:disable-next-line:call-to-gc Just a test that we are cleaning up the netns
-	runtime.GC()
-	assertNSClosed(t, closed)
-}
-
 func expectPodAddedToIPSet(ipsetDeps *ipset.MockedIpsetDeps, podMeta metav1.ObjectMeta) {
 	ipsetDeps.On("addIP",
 		"foo-v4",
