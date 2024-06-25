@@ -806,10 +806,6 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 					}
 				}
 			}
-
-			if len(m.Overrides) == 0 {
-
-			}
 		}
 	}
 
