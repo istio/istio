@@ -16,11 +16,9 @@ package adsc
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -430,16 +428,40 @@ func initWatch(typeURL string, resourceName string) Option {
 	}
 }
 
-// DeltaMcpHandler is a function that will be called when a delta MCP config resource is received.
-// The entity is converted from a original `mcp.Resource`.
-type DeltaMcpConfigHandler func(gvk config.GroupVersionKind, namespaced, name string, entity *config.Config)
+func deltaMcpConfigHandlerForGvk(rev string, store model.ConfigStore, gvk config.GroupVersionKind) func(HandlerContext, string, string, *mcp.Resource, Event) {
+	return func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *mcp.Resource, event Event) {
+		// the format of mcp resource's name is "namespace/name"
+		// for delete case, the resource entity may be empty, the resource name is required
+		// for add/update case, extract the resource name and resource version from the resource entity
+		var ns, name string
+		var cfg *config.Config
+		if event == EventDelete {
+			nsn := strings.Split(resourceName, "/")
+			if len(nsn) != 2 {
+				ctx.Reject(fmt.Errorf("invalid resource name %s", resourceName))
+				return
+			}
+			ns, name, cfg = nsn[0], nsn[1], nil
+		} else {
+			newCfg, matchRev, err := mcpToPilot(resourceEntity, rev, false)
+			if err != nil {
+				ctx.Reject(fmt.Errorf("invalid data: %v (%v)", err, resourceEntity.Body))
+				return
+			}
+			if newCfg == nil {
+				return
+			}
+			newCfg.GroupVersionKind = gvk
+			ns, name, cfg = newCfg.Namespace, newCfg.Name, newCfg
+			if !matchRev {
+				cfg = nil
+			}
+		}
 
-func WithConfigStore(store model.ConfigStore) DeltaMcpConfigHandler {
-	return func(gvk config.GroupVersionKind, namespace, name string, cfg *config.Config) {
 		// if cfg is nil, means a delete case
 		if cfg == nil {
-			if err := store.Delete(gvk, name, namespace, nil); err != nil {
-				deltaLog.Warnf("unable to delete %s %s/%s: %v", gvk, namespace, name, err)
+			if err := store.Delete(gvk, name, ns, nil); err != nil {
+				deltaLog.Warnf("unable to delete %s %s/%s: %v", gvk, ns, name, err)
 			}
 			return
 		}
@@ -447,7 +469,7 @@ func WithConfigStore(store model.ConfigStore) DeltaMcpConfigHandler {
 		// if oldCfg is nil, means a add case
 		if oldCfg == nil {
 			if _, err := store.Create(*cfg); err != nil {
-				deltaLog.Warnf("adding a new %s %s/%s to the store failed: %v", gvk, namespace, name, err)
+				deltaLog.Warnf("adding a new %s %s/%s to the store failed: %v", gvk, ns, name, err)
 			}
 			return
 		}
@@ -463,64 +485,12 @@ func WithConfigStore(store model.ConfigStore) DeltaMcpConfigHandler {
 	}
 }
 
-func WithLocalCacheDir(localCacheDir string) DeltaMcpConfigHandler {
-	return func(gvk config.GroupVersionKind, namespace, name string, newCfg *config.Config) {
-		if newCfg == nil {
-			return
-		}
-		strResponse, err := json.MarshalIndent(newCfg, "  ", "  ")
-		if err != nil {
-			deltaLog.Warnf("Error marshaling received MCP config %v", err)
-			return
-		}
-		err = os.WriteFile(localCacheDir+"_res."+
-			newCfg.GroupVersionKind.Kind+"."+newCfg.Namespace+"."+newCfg.Name+".json", strResponse, 0o644)
-		if err != nil {
-			deltaLog.Warnf("Error writing received MCP config to local file %v", err)
-		}
-	}
-}
-
-func WatchMcpOptions(rev string, configHandlers ...DeltaMcpConfigHandler) []Option {
-	handlerForGvk := func(gvk config.GroupVersionKind) func(HandlerContext, string, string, *mcp.Resource, Event) {
-		// the format of mcp resource's name is "namespace/name"
-		// for delete case, the resource entity may be empty, the resource name is required
-		// for add/update case, extract the resource name and resource version from the resource entity
-		return func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *mcp.Resource, event Event) {
-			var ns, name string
-			var cfg *config.Config
-			if event == EventDelete {
-				nsn := strings.Split(resourceName, "/")
-				if len(nsn) != 2 {
-					ctx.Reject(fmt.Errorf("invalid resource name %s", resourceName))
-					return
-				}
-				ns, name, cfg = nsn[0], nsn[1], nil
-			} else {
-				newCfg, matchRev, err := mcpToPilot(resourceEntity, rev, false)
-				if err != nil {
-					ctx.Reject(fmt.Errorf("invalid data: %v (%v)", err, resourceEntity.Body))
-					return
-				}
-				if newCfg == nil {
-					return
-				}
-				newCfg.GroupVersionKind = gvk
-				ns, name, cfg = newCfg.Namespace, newCfg.Name, newCfg
-				if !matchRev {
-					cfg = nil
-				}
-			}
-			for _, handler := range configHandlers {
-				handler(gvk, ns, name, cfg)
-			}
-		}
-	}
+func WatchMcpOptions(rev string, store model.ConfigStore) []Option {
 	// TODO: support watch mesh config
 	out := make([]Option, 0, len(collections.Pilot.All()))
 	for _, sch := range collections.Pilot.All() {
 		typeURL := sch.GroupVersionKind().String()
-		out = append(out, initWatch(typeURL, "*"), registerWithTypeURL(typeURL, handlerForGvk(sch.GroupVersionKind())))
+		out = append(out, initWatch(typeURL, "*"), registerWithTypeURL(typeURL, deltaMcpConfigHandlerForGvk(rev, store, sch.GroupVersionKind())))
 	}
 
 	return out

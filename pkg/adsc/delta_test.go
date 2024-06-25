@@ -539,7 +539,7 @@ func TestDeltaClient_handleMCP(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	client := NewDeltaWithBackoffPolicy(cfg.Address, cfg, nil, WatchMcpOptions(rev, WithConfigStore(store))...)
+	client := NewDeltaWithBackoffPolicy(cfg.Address, cfg, nil, WatchMcpOptions(rev, store)...)
 	if err := client.Run(ctx); err != nil {
 		t.Errorf("ADSC: failed running %v", err)
 		return
