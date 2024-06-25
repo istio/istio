@@ -749,9 +749,22 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 			}
 
 			mp := providers[provider]
+			overrides := m.GetOverrides()
+			if len(overrides) == 0 {
+				overrides = []*tpb.MetricsOverrides{
+					{
+						Match: &tpb.MetricSelector{
+							MetricMatch: &tpb.MetricSelector_Metric{
+								Metric: tpb.MetricSelector_ALL_METRICS,
+							},
+							Mode: tpb.WorkloadMode_CLIENT_AND_SERVER,
+						},
+					},
+				}
+			}
 			// For each override, we normalize the configuration. The metrics list is an ordered list - latter
 			// elements have precedence. As a result, we will apply updates on top of previous entries.
-			for _, o := range m.Overrides {
+			for _, o := range overrides {
 				// if we disable all metrics, we should drop the entire filter
 				if isAllMetrics(o.GetMatch()) && o.Disabled.GetValue() {
 					for _, mode := range getModes(o.GetMatch().GetMode()) {
@@ -792,6 +805,10 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 						mp[mode][metricName] = override
 					}
 				}
+			}
+
+			if len(m.Overrides) == 0 {
+
 			}
 		}
 	}
@@ -855,7 +872,36 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 		})
 		processed[provider] = tmm
 	}
+
+	processed = postProcessMetrics(processed)
 	return processed
+}
+
+// postProcessMetrics tries to minimize the metricsConfig
+func postProcessMetrics(cfg map[string]metricsConfig) map[string]metricsConfig {
+	for key, m := range cfg {
+		m.ClientMetrics = simplyMetricConfig(m.ClientMetrics)
+		m.ServerMetrics = simplyMetricConfig(m.ServerMetrics)
+		cfg[key] = m
+	}
+	return cfg
+}
+
+func simplyMetricConfig(cfg metricConfig) metricConfig {
+	var processed []metricsOverride
+	for _, override := range cfg.Overrides {
+		if override.Disabled || len(override.Tags) == 0 {
+			continue
+		}
+
+		processed = append(processed, override)
+	}
+
+	// TODO: is it possible to fix https://github.com/istio/istio/issues/46858 here?
+
+	cfg.Overrides = processed
+
+	return cfg
 }
 
 func metricProviderModeKey(provider string, mode tpb.WorkloadMode) string {
