@@ -141,6 +141,8 @@ type (
 	TransformationSingle[I, O any] func(ctx HandlerContext, i I) *O
 	// TransformationMulti represents a one-to-many relationship between I and O.
 	TransformationMulti[I, O any] func(ctx HandlerContext, i I) []O
+	// TransformationEmptyToMulti represents a singleton operator that returns a set of objects. There are no inputs.
+	TransformationEmptyToMulti[T any] func(ctx HandlerContext) []T
 )
 
 // Key is a string, but with a type associated to avoid mixing up keys

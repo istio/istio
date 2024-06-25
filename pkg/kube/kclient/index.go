@@ -15,106 +15,56 @@
 package kclient
 
 import (
-	"sync"
+	"fmt"
 
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
-
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/slices"
 )
 
-// Index maintains a simple index over an informer
-type Index[K comparable, O controllers.ComparableObject] struct {
-	mu      sync.RWMutex
-	objects map[K]sets.Set[types.NamespacedName]
-	client  Informer[O]
+type Index[K any, O controllers.ComparableObject] interface {
+	Lookup(k K) []O
+}
+
+type index[K any, O controllers.ComparableObject] struct {
+	RawIndexer
 }
 
 // Lookup finds all objects matching a given key
-func (i *Index[K, O]) Lookup(k K) []O {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	res := make([]O, 0)
-	for obj := range i.objects[k] {
-		item := i.client.Get(obj.Name, obj.Namespace)
-		if controllers.IsNil(item) {
-			// This should be extremely rare, maybe impossible due to the mutex.
-			continue
-		}
-		res = append(res, item)
+func (i index[K, O]) Lookup(k K) []O {
+	if i.RawIndexer == nil {
+		return nil
 	}
-	return res
+	rk := any(k)
+	tk, ok := rk.(string)
+	if !ok {
+		tk = rk.(fmt.Stringer).String()
+	}
+	res := i.RawIndexer.Lookup(tk)
+	return slices.Map(res, func(e any) O {
+		return e.(O)
+	})
 }
 
-// CreateIndexWithDelegate creates a simple index, keyed by key K, over an informer for O. This is similar to
+// CreateStringIndex creates a simple index, keyed by a string, over an informer for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
-// An additional ResourceEventHandler can be passed in that is guaranteed to happen *after* the index is updated.
-// This allows the delegate to depend on the contents of the index.
-// TODO(https://github.com/kubernetes/kubernetes/pull/117046) remove this.
-func CreateIndexWithDelegate[K comparable, O controllers.ComparableObject](
+// This is split from CreateIndex because string does not implement fmt.Stringer.
+func CreateStringIndex[O controllers.ComparableObject](
 	client Informer[O],
-	extract func(o O) []K,
-	delegate cache.ResourceEventHandler,
-) *Index[K, O] {
-	idx := Index[K, O]{
-		objects: make(map[K]sets.Set[types.NamespacedName]),
-		client:  client,
-		mu:      sync.RWMutex{},
-	}
-	addObj := func(obj any) {
-		ro := controllers.ExtractObject(obj)
-		o := ro.(O)
-		objectKey := config.NamespacedName(o)
-		for _, indexKey := range extract(o) {
-			sets.InsertOrNew(idx.objects, indexKey, objectKey)
-		}
-	}
-	deleteObj := func(obj any) {
-		ro := controllers.ExtractObject(obj)
-		o := ro.(O)
-		objectKey := config.NamespacedName(o)
-		for _, indexKey := range extract(o) {
-			sets.DeleteCleanupLast(idx.objects, indexKey, objectKey)
-		}
-	}
-	handler := cache.ResourceEventHandlerDetailedFuncs{
-		AddFunc: func(obj any, initialList bool) {
-			idx.mu.Lock()
-			addObj(obj)
-			idx.mu.Unlock()
-			if delegate != nil {
-				delegate.OnAdd(obj, initialList)
-			}
-		},
-		UpdateFunc: func(oldObj, newObj any) {
-			idx.mu.Lock()
-			deleteObj(oldObj)
-			addObj(newObj)
-			idx.mu.Unlock()
-			if delegate != nil {
-				delegate.OnUpdate(oldObj, newObj)
-			}
-		},
-		DeleteFunc: func(obj any) {
-			idx.mu.Lock()
-			deleteObj(obj)
-			idx.mu.Unlock()
-			if delegate != nil {
-				delegate.OnDelete(obj)
-			}
-		},
-	}
-	client.AddEventHandler(handler)
-	return &idx
+	extract func(o O) []string,
+) Index[string, O] {
+	return index[string, O]{client.Index(extract)}
 }
 
 // CreateIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
-func CreateIndex[K comparable, O controllers.ComparableObject](
+// Keys can be any object, but they must encode down to a *unique* value with String().
+func CreateIndex[K fmt.Stringer, O controllers.ComparableObject](
 	client Informer[O],
 	extract func(o O) []K,
-) *Index[K, O] {
-	return CreateIndexWithDelegate(client, extract, nil)
+) Index[K, O] {
+	x := client.Index(func(o O) []string {
+		return slices.Map(extract(o), K.String)
+	})
+
+	return index[K, O]{x}
 }

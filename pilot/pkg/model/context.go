@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/trustbundle"
 	networkutil "istio.io/istio/pilot/pkg/util/network"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -848,10 +847,7 @@ func (node *Proxy) GetNodeName() string {
 	if node.Metadata != nil && len(node.Metadata.NodeName) > 0 {
 		return node.Metadata.NodeName
 	}
-	// fall back to get the node name from labels
-	// this can happen for an "old" proxy with no `Metadata.NodeName` set
-	// TODO: remove this when 1.16 is EOL?
-	return node.Labels[label.LabelHostname]
+	return ""
 }
 
 func (node *Proxy) GetClusterID() cluster.ID {

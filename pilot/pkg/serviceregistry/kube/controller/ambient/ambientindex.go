@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -84,29 +85,34 @@ type index struct {
 	DomainSuffix    string
 	ClusterID       cluster.ID
 	XDSUpdater      model.XDSUpdater
-	Network         LookupNetwork
+	// Network provides a way to lookup which network a given workload is running on
+	Network LookupNetwork
+	// LookupNetworkGateways provides a function to lookup all the known network gateways in the system.
+	LookupNetworkGateways LookupNetworkGateways
 }
 
 type Options struct {
 	Client kubeclient.Client
 
-	Revision        string
-	SystemNamespace string
-	DomainSuffix    string
-	ClusterID       cluster.ID
-	XDSUpdater      model.XDSUpdater
-	LookupNetwork   LookupNetwork
+	Revision              string
+	SystemNamespace       string
+	DomainSuffix          string
+	ClusterID             cluster.ID
+	XDSUpdater            model.XDSUpdater
+	LookupNetwork         LookupNetwork
+	LookupNetworkGateways LookupNetworkGateways
 }
 
 func New(options Options) Index {
 	a := &index{
 		networkUpdateTrigger: krt.NewRecomputeTrigger(),
 
-		SystemNamespace: options.SystemNamespace,
-		DomainSuffix:    options.DomainSuffix,
-		ClusterID:       options.ClusterID,
-		XDSUpdater:      options.XDSUpdater,
-		Network:         options.LookupNetwork,
+		SystemNamespace:       options.SystemNamespace,
+		DomainSuffix:          options.DomainSuffix,
+		ClusterID:             options.ClusterID,
+		XDSUpdater:            options.XDSUpdater,
+		Network:               options.LookupNetwork,
+		LookupNetworkGateways: options.LookupNetworkGateways,
 	}
 
 	filter := kclient.Filter{
@@ -148,6 +154,10 @@ func New(options Options) Index {
 
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
 	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, krt.WithName("Namespaces"))
+
+	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
+		ObjectFilter: options.Client.ObjectFilter(),
+	}, krt.WithName("EndpointSlices"))
 
 	MeshConfig := MeshConfigCollection(ConfigMaps, options)
 	Waypoints := WaypointsCollection(Gateways, GatewayClasses, Pods)
@@ -202,7 +212,7 @@ func New(options Options) Index {
 		WorkloadServices,
 		WorkloadEntries,
 		ServiceEntries,
-		AllPolicies,
+		EndpointSlices,
 		Namespaces,
 	)
 	WorkloadAddressIndex := krt.NewIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
@@ -464,7 +474,10 @@ func (a *index) HasSynced() bool {
 		a.authorizationPolicies.Synced().HasSynced()
 }
 
-type LookupNetwork func(endpointIP string, labels labels.Instance) network.ID
+type (
+	LookupNetwork         func(endpointIP string, labels labels.Instance) network.ID
+	LookupNetworkGateways func() []model.NetworkGateway
+)
 
 func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T], initialSync bool) {
 	return func(events []krt.Event[T], initialSync bool) {

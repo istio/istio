@@ -77,7 +77,7 @@ func byteIPToAddr(b []byte) netip.Addr {
 	return ip
 }
 
-func (a index) getWaypointAddress(w *Waypoint) *workloadapi.GatewayAddress {
+func (a *index) getWaypointAddress(w *Waypoint) *workloadapi.GatewayAddress {
 	// probably overly cautious... I don't think the ambient index impl counts something with zero addresses as waypoint
 	if w != nil && len(w.Addresses) >= 1 {
 		return &workloadapi.GatewayAddress{

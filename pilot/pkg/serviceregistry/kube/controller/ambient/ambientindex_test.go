@@ -1489,6 +1489,9 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		LookupNetwork: func(endpointIP string, labels labels.Instance) network.ID {
 			return networkID
 		},
+		LookupNetworkGateways: func() []model.NetworkGateway {
+			return nil
+		},
 	})
 	cl.RunAndWait(test.NewStop(t))
 
