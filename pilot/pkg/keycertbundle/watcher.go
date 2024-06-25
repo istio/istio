@@ -65,7 +65,7 @@ func (w *Watcher) RemoveWatcher(id int32) {
 	delete(w.watchers, id)
 }
 
-// SetAndNotify sets the key cert and root cert and notify the watchers.
+// SetAndNotify sets the key, cert, and root cert and notifies the watchers.
 // This is used either:
 // - from /var/run/secrets/istiod/{tls,ca} files, used for the Istiod DNS cert and trusted CAs - mounted from
 // istiod-tls secret and istio-ca-root-cert configmap in default install.
