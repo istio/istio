@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pkg/model"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -97,13 +96,8 @@ type WatchedResource struct {
 	LastResources Resources
 }
 
-func (r *WatchedResource) DeepCopy() *WatchedResource {
+func (r *WatchedResource) ShallowCopy() *WatchedResource {
 	out := *r
-	if len(r.ResourceNames) > 0 {
-		out.ResourceNames = slices.Clone(r.ResourceNames)
-	}
-	// `LastResources` is only used for testing, only shallow copy.
-
 	return &out
 }
 

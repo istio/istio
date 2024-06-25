@@ -1006,20 +1006,11 @@ func WarmingDependencies(typeURL string) []string {
 	}
 }
 
-func (node *Proxy) AddOrUpdateWatchedResource(r *WatchedResource) {
-	if r == nil {
-		return
-	}
-	node.Lock()
-	defer node.Unlock()
-	node.WatchedResources[r.TypeUrl] = r
-}
-
 func (node *Proxy) UpdateWatchedResource(typeURL string, updateFn func(*WatchedResource) *WatchedResource) {
 	node.Lock()
 	defer node.Unlock()
 	r := node.WatchedResources[typeURL]
-	r = r.DeepCopy() // copy before update to prevent data race
+	r = r.ShallowCopy() // copy before update to prevent data race
 	r = updateFn(r)
 	if r != nil {
 		node.WatchedResources[typeURL] = r

@@ -418,6 +418,7 @@ func TestGlobalUnicastIP(t *testing.T) {
 	}
 }
 
+// This test case is used to detect WatchedResource data race.
 func TestProxyWatchedResourceRace(t *testing.T) {
 	typeURL := pkgmodel.ClusterType
 	proxy := &model.Proxy{
@@ -453,6 +454,9 @@ func TestProxyWatchedResourceRace(t *testing.T) {
 		wrs := proxy.CloneWatchedResources()
 		for _, wr := range wrs {
 			_ = wr.NonceAcked
+			for _, name := range wr.ResourceNames {
+				_ = name
+			}
 		}
 	})
 
