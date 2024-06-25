@@ -17,9 +17,9 @@
 package ingress
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"sort"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -270,16 +271,17 @@ func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 
 // sortIngressByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
 func sortIngressByCreationTime(ingr []*knetworking.Ingress) []*knetworking.Ingress {
-	sort.Slice(ingr, func(i, j int) bool {
+	slices.SortFunc(ingr, func(i, j *knetworking.Ingress) int {
+		if r := i.CreationTimestamp.Compare(j.CreationTimestamp.Time); r != 0 {
+			return r
+		}
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if ingr[i].CreationTimestamp == ingr[j].CreationTimestamp {
-			in := ingr[i].Name + "." + ingr[i].Namespace
-			jn := ingr[j].Name + "." + ingr[j].Namespace
-			return in < jn
+		if r := cmp.Compare(i.Name, j.Name); r != 0 {
+			return r
 		}
-		return ingr[i].CreationTimestamp.Before(&ingr[j].CreationTimestamp)
+		return cmp.Compare(i.Namespace, j.Namespace)
 	})
 	return ingr
 }
