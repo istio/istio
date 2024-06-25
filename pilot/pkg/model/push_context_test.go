@@ -1205,8 +1205,8 @@ func TestWasmPlugins(t *testing.T) {
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
 					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
 				},
 			},
