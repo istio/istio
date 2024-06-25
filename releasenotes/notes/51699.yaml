@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issues:
+  - 51697
+releaseNotes:
+  - |
+    **Fixed** Telemetry API won't re-enabled metric without overrides.
