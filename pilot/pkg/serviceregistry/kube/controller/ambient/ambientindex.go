@@ -85,29 +85,34 @@ type index struct {
 	DomainSuffix    string
 	ClusterID       cluster.ID
 	XDSUpdater      model.XDSUpdater
-	Network         LookupNetwork
+	// Network provides a way to lookup which network a given workload is running on
+	Network LookupNetwork
+	// LookupNetworkGateways provides a function to lookup all the known network gateways in the system.
+	LookupNetworkGateways LookupNetworkGateways
 }
 
 type Options struct {
 	Client kubeclient.Client
 
-	Revision        string
-	SystemNamespace string
-	DomainSuffix    string
-	ClusterID       cluster.ID
-	XDSUpdater      model.XDSUpdater
-	LookupNetwork   LookupNetwork
+	Revision              string
+	SystemNamespace       string
+	DomainSuffix          string
+	ClusterID             cluster.ID
+	XDSUpdater            model.XDSUpdater
+	LookupNetwork         LookupNetwork
+	LookupNetworkGateways LookupNetworkGateways
 }
 
 func New(options Options) Index {
 	a := &index{
 		networkUpdateTrigger: krt.NewRecomputeTrigger(),
 
-		SystemNamespace: options.SystemNamespace,
-		DomainSuffix:    options.DomainSuffix,
-		ClusterID:       options.ClusterID,
-		XDSUpdater:      options.XDSUpdater,
-		Network:         options.LookupNetwork,
+		SystemNamespace:       options.SystemNamespace,
+		DomainSuffix:          options.DomainSuffix,
+		ClusterID:             options.ClusterID,
+		XDSUpdater:            options.XDSUpdater,
+		Network:               options.LookupNetwork,
+		LookupNetworkGateways: options.LookupNetworkGateways,
 	}
 
 	filter := kclient.Filter{
@@ -469,7 +474,10 @@ func (a *index) HasSynced() bool {
 		a.authorizationPolicies.Synced().HasSynced()
 }
 
-type LookupNetwork func(endpointIP string, labels labels.Instance) network.ID
+type (
+	LookupNetwork         func(endpointIP string, labels labels.Instance) network.ID
+	LookupNetworkGateways func() []model.NetworkGateway
+)
 
 func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T], initialSync bool) {
 	return func(events []krt.Event[T], initialSync bool) {
