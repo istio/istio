@@ -241,6 +241,7 @@ type EchoGrpcHandler struct {
 }
 
 func (h *EchoGrpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
+	h.ReportRequest()
 	defer common.Metrics.GrpcRequests.With(common.PortLabel.Value(strconv.Itoa(h.Port.Port))).Increment()
 	body := bytes.Buffer{}
 	md, ok := metadata.FromIncomingContext(ctx)

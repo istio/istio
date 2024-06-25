@@ -19,8 +19,10 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/atomic"
 	// To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
 
@@ -61,6 +63,7 @@ var (
 		Long:              `Echo application for testing Istio E2E`,
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
+			shutdown := NewShutdown()
 			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts))
 			tlsByPort := map[int]bool{}
 			for _, p := range tlsPorts {
@@ -152,6 +155,7 @@ var (
 				Namespace:             os.Getenv("NAMESPACE"),
 				UDSServer:             uds,
 				DisableALPN:           disableALPN,
+				ReportRequest:         shutdown.ReportRequest,
 			})
 
 			if err := s.Start(); err != nil {
@@ -161,14 +165,47 @@ var (
 			defer func() {
 				_ = s.Close()
 			}()
-
-			// Wait for the process to be shutdown.
-			sigs := make(chan os.Signal, 1)
-			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-			<-sigs
+			shutdown.WaitForShutdown()
 		},
 	}
 )
+
+const shutdownTime = time.Second
+
+type Shutdown struct {
+	timer *atomic.Pointer[time.Timer]
+}
+
+func NewShutdown() *Shutdown {
+	return &Shutdown{timer: atomic.NewPointer[time.Timer](nil)}
+}
+
+func (s *Shutdown) ReportRequest() {
+	// On every request, reset our shutdown timer. This lets us dynamically drain: if we continue to receive requests, we will
+	// keep alive up to 10s. If not, we will shutdown quickly (shutdownTimer)
+	if timer := s.timer.Load(); timer != nil {
+		timer.Reset(shutdownTime)
+	}
+}
+
+func (s *Shutdown) WaitForShutdown() {
+	// Wait for the process to be shutdown.
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	<-sigs
+	// Keep alive while we are still receiving requests.
+	log.Infof("Draining server")
+	maxShutdownTime := time.After(time.Second * 10)
+	ti := time.NewTimer(shutdownTime)
+	s.timer.Store(ti)
+	select {
+	case <-maxShutdownTime:
+		log.Warnf("Shutdown after 10s while requests were still incoming")
+		return
+	case <-ti.C:
+		log.Infof("Shutdown complete")
+	}
+}
 
 func configureLogging(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
