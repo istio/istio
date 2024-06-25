@@ -827,7 +827,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 			}
 
 			for metric, override := range metricMap {
-				tags := []tagOverride{}
+				tags := make([]tagOverride, 0, len(metricToPrometheusMetric))
 				for k, v := range override.TagOverrides {
 					o := tagOverride{Name: k}
 					switch v.Operation {

@@ -698,7 +698,9 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
 			nil,
-			map[string]string{},
+			map[string]string{
+				"istio.stats": "{}",
+			},
 		},
 		{
 			"disabled-then-overrides",
