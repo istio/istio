@@ -211,6 +211,7 @@ func (r *KubernetesRA) GetCAKeyCertBundle() *util.KeyCertBundle {
 // This does not create a keyCertBundle - we don't know which one is the default.
 // It is not clear how this feature is used .
 func (r *KubernetesRA) SetCACertificatesFromMeshConfig(caCertificates []*meshconfig.MeshConfig_CertificateData) {
+	// TODO(costin): clarify mesh config certificates (when they are used, how)
 	r.mutex.Lock()
 	for _, pemCert := range caCertificates {
 		// TODO:  take care of spiffe bundle format as well
