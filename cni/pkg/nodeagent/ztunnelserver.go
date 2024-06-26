@@ -422,14 +422,14 @@ func (z *ZtunnelConnection) send(ctx context.Context, data []byte, fd *int) (*zd
 	select {
 	case z.Updates <- req:
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("context expired before request sent: %v", ctx.Err())
 	}
 
 	select {
 	case r := <-ret:
 		return r.resp, r.err
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("context expired before response received: %v", ctx.Err())
 	}
 }
 
