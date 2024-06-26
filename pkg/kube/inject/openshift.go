@@ -44,10 +44,10 @@ func getPreallocatedUIDRange(ns *corev1.Namespace) (*int64, *int64, error) {
 		return nil, nil, err
 	}
 
-	min := int64(uidBlock.Start)
-	max := int64(uidBlock.End)
-	log.Debugf("got preallocated values for min: %d, max: %d for uid range in namespace %s", min, max, ns.Name)
-	return &min, &max, nil
+	minimum := int64(uidBlock.Start)
+	maximum := int64(uidBlock.End)
+	log.Debugf("got preallocated values for minimum: %d, maximum: %d for uid range in namespace %s", minimum, maximum, ns.Name)
+	return &minimum, &maximum, nil
 }
 
 // getPreallocatedSupplementalGroups gets the annotated value from the namespace.

@@ -619,7 +619,7 @@ func fastWaitForCacheSync(stop <-chan struct{}, informerFactory informerfactory.
 // expensive checks this function may not be suitable.
 func WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) (r bool) {
 	t0 := time.Now()
-	max := time.Millisecond * 100
+	maximum := time.Millisecond * 100
 	delay := time.Millisecond
 	f := func() bool {
 		for _, syncFunc := range cacheSyncs {
@@ -649,8 +649,8 @@ func WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs ...cache.Inf
 			return true
 		}
 		delay *= 2
-		if delay > max {
-			delay = max
+		if delay > maximum {
+			delay = maximum
 		}
 		log.WithLabels("name", name, "attempt", attempt, "time", time.Since(t0)).Debugf("waiting for sync...")
 		if attempt%50 == 0 {

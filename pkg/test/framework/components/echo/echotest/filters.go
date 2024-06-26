@@ -102,10 +102,10 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 //   - This filter would result in a, d, e, headless, naked and vm.
 //
 // TODO this name is not good
-func SimplePodServiceAndAllSpecial(min int, exclude ...echo.Instance) Filter {
+func SimplePodServiceAndAllSpecial(minimum int, exclude ...echo.Instance) Filter {
 	return func(instances echo.Instances) echo.Instances {
 		nonRegular := notRegularPods()(instances)
-		needed := min - len(nonRegular)
+		needed := minimum - len(nonRegular)
 		if needed <= 0 {
 			needed = 1
 		}
