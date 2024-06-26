@@ -107,8 +107,6 @@ spec:
           value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         - name: INPOD_ENABLED
           value: "true"
-        - name: ISTIO_META_DNS_PROXY_ADDR
-          value: "127.0.0.1:15053"
         - name: POD_NAME
           valueFrom:
             fieldRef:
