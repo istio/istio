@@ -275,6 +275,7 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 	fs.On("RemovePodFromMesh",
 		ctx,
 		mock.Anything,
+		false,
 	).Once().Return(nil)
 
 	// unlabel the namespace
@@ -367,6 +368,7 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 	fs.On("RemovePodFromMesh",
 		ctx,
 		mock.Anything,
+		false,
 	).Once().Return(nil)
 
 	// label the pod for exclusion
@@ -469,6 +471,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	fs.On("RemovePodFromMesh",
 		ctx,
 		mock.Anything,
+		true,
 	).Once().Return(nil)
 
 	// Patch the pod to a succeeded status

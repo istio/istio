@@ -70,14 +70,14 @@ func forEachInpodMarkIPRule(cfg *Config, f func(*netlink.Rule) error) error {
 }
 
 func AddLoopbackRoutes(cfg *Config) error {
-	return forEachLoopbackRoute(cfg, netlink.RouteReplace)
+	return forEachLoopbackRoute(cfg, "add", netlink.RouteReplace)
 }
 
 func DelLoopbackRoutes(cfg *Config) error {
-	return forEachLoopbackRoute(cfg, netlink.RouteDel)
+	return forEachLoopbackRoute(cfg, "remove", netlink.RouteDel)
 }
 
-func forEachLoopbackRoute(cfg *Config, f func(*netlink.Route) error) error {
+func forEachLoopbackRoute(cfg *Config, operation string, f func(*netlink.Route) error) error {
 	loopbackLink, err := netlink.LinkByName("lo")
 	if err != nil {
 		return fmt.Errorf("failed to find 'lo' link: %v", err)
@@ -108,10 +108,9 @@ func forEachLoopbackRoute(cfg *Config, f func(*netlink.Route) error) error {
 		}
 
 		for _, route := range netlinkRoutes {
-			log.Debugf("Iterating netlink route : %+v", route)
+			log.Debugf("Iterating netlink route: %+v", route)
 			if err := f(route); err != nil {
-				log.Errorf("Failed to add netlink route : %+v", route)
-				return fmt.Errorf("failed to add route: %v", err)
+				return fmt.Errorf("failed to %v route (%+v): %v", operation, route, err)
 			}
 		}
 	}
