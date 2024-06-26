@@ -1,0 +1,20 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** a bug in ambient mode causing requests at the start of a Pod lifetime to be rejected with `unknown source`.
+  - |
+    **Fixed** an issue in ztunnel where some expected connection terminations were reported as errors.
+  - |
+    **Fixed** an issue in ztunnel when connecting to a service with a targetPort that exists only on a subset of pods.
+  - |
+    **Added** a new option in ztunnel to completely disable IPv6, to enable running on kernels with IPv6 disabled.
+  - |
+    **Improved** waypoint proxies to no longer run as root.
+  - |
+    **Fixed** an issue when deleting a `ServiceEntry` when there are duplicate hostnames across multiple `ServiceEntries`.
+  - |
+    **Fixed** an issue where ztunnel would send directly to pods when connecting to a `LoadBalancer` IP, instead of going through the `LoadBalancer`.
+  - |
+    **Fixed** an issue where ztunnel would send traffic to terminating pods.
