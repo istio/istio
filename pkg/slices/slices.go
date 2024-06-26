@@ -186,3 +186,14 @@ func Flatten[E any](s [][]E) []E {
 	}
 	return res
 }
+
+// Insert inserts the values v... into s at index i,
+// returning the modified slice.
+// The elements at s[i:] are shifted up to make room.
+// In the returned slice r, r[i] == v[0],
+// and r[i+len(v)] == value originally at r[i].
+// Insert panics if i is out of range.
+// This function is O(len(s) + len(v)).
+func Insert[S ~[]E, E any](s S, i int, v ...E) S {
+	return slices.Insert(s, i, v...)
+}
