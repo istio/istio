@@ -398,26 +398,8 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// i.e. non empty response nonce.
 	// We should always respond with the current resource names.
 	if request.ResponseNonce == "" || previousInfo == nil {
-		con.proxy.Lock()
-		defer con.proxy.Unlock()
-
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
-		// For all EDS requests that we have already responded with in the same stream let us
-		// force the response. It is important to respond to those requests for Envoy to finish
-		// warming of those resources(Clusters).
-		// This can happen with the following sequence
-		// 1. Envoy disconnects and reconnects to Istiod.
-		// 2. Envoy sends EDS request and we respond with it.
-		// 3. Envoy sends CDS request and we respond with clusters.
-		// 4. Envoy detects a change in cluster state and tries to warm those clusters and send EDS request for them.
-		// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
-		// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
-		for _, dependent := range warmingDependencies(request.TypeUrl) {
-			if dwr, exists := con.proxy.WatchedResources[dependent]; exists {
-				dwr.AlwaysRespond = true
-			}
-		}
+		con.proxy.NewWatchedResource(request.TypeUrl, request.ResourceNames)
 		return true, emptyResourceDelta
 	}
 
@@ -507,17 +489,6 @@ func isWildcardTypeURL(typeURL string) bool {
 	default:
 		// All of our internal types use wildcard semantics
 		return true
-	}
-}
-
-// warmingDependencies returns the dependent typeURLs that need to be responded with
-// for warming of this typeURL.
-func warmingDependencies(typeURL string) []string {
-	switch typeURL {
-	case v3.ClusterType:
-		return []string{v3.EndpointType}
-	default:
-		return nil
 	}
 }
 
@@ -921,28 +892,16 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 
 // nolint
 func (conn *Connection) NonceAcked(typeUrl string) string {
-	wr := conn.proxy.GetWatchedResource(typeUrl)
-	if wr != nil {
-		return wr.NonceAcked
-	}
-	return ""
+	return conn.proxy.NonceAcked(typeUrl)
 }
 
 // nolint
 func (conn *Connection) NonceSent(typeUrl string) string {
-	wr := conn.proxy.GetWatchedResource(typeUrl)
-	if wr != nil {
-		return wr.NonceSent
-	}
-	return ""
+	return conn.proxy.NonceSent(typeUrl)
 }
 
 func (conn *Connection) Clusters() []string {
-	wr := conn.proxy.GetWatchedResource(v3.EndpointType)
-	if wr != nil {
-		return wr.ResourceNames
-	}
-	return []string{}
+	return conn.proxy.Clusters()
 }
 
 // watchedResourcesByOrder returns the ordered list of
