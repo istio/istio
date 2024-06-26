@@ -39,6 +39,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/controllers/untaint"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
@@ -1137,6 +1138,8 @@ func (s *Server) initControllers(args *PilotArgs) error {
 		s.initNodeUntaintController(args)
 	}
 
+	s.initIpAutoallocateController(args)
+
 	if err := s.initConfigController(args); err != nil {
 		return fmt.Errorf("error initializing config controller: %v", err)
 	}
@@ -1153,6 +1156,18 @@ func (s *Server) initNodeUntaintController(args *PilotArgs) {
 			AddRunFunction(func(leaderStop <-chan struct{}) {
 				nodeUntainter := untaint.NewNodeUntainter(leaderStop, s.kubeClient, args.CniNamespace, args.Namespace)
 				nodeUntainter.Run(leaderStop)
+			}).Run(stop)
+		return nil
+	})
+}
+
+func (s *Server) initIpAutoallocateController(args *PilotArgs) {
+	s.addStartFunc("ipAutoallocat controller", func(stop <-chan struct{}) error {
+		go leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.IpAutoallocateController, args.Revision, s.kubeClient).
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				ipallocate := ipallocate.NewIPAllocate(leaderStop, s.kubeClient)
+				ipallocate.Run(leaderStop)
 			}).Run(stop)
 		return nil
 	})
