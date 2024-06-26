@@ -56,6 +56,11 @@ func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 		// Pod explicitly asked to not have ambient redirection enabled
 		return false
 	}
+	if pod.Spec.HostNetwork {
+		// Host network pods cannot be captured, as we require inserting rules into the pod network namespace.
+		// If we were to allow them, we would be writing these rules into the host network namespace, effectively breaking the host.
+		return false
+	}
 	return true
 }
 
