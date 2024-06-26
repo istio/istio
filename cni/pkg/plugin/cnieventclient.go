@@ -45,7 +45,7 @@ func buildClient(address, path string) CNIEventClient {
 				return net.Dial("unix", address)
 			},
 		},
-		Timeout: 1000 * time.Millisecond,
+		Timeout: 5 * time.Second,
 	}
 	eventC := CNIEventClient{
 		client: c,
