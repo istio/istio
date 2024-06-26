@@ -41,6 +41,20 @@ func TestMergeMetrics(t *testing.T) {
 			{Name: "prometheus"},
 		},
 	}
+	enableAllWithMode := &tpb.Metrics{
+		Providers: []*tpb.ProviderRef{
+			{Name: "prometheus"},
+		},
+		Overrides: []*tpb.MetricsOverrides{
+			{
+				Match: &tpb.MetricSelector{
+					MetricMatch: &tpb.MetricSelector_Metric{
+						Metric: tpb.MetricSelector_ALL_METRICS,
+					},
+				},
+			},
+		},
+	}
 	disableAll := &tpb.Metrics{
 		Providers: []*tpb.ProviderRef{
 			{Name: "prometheus"},
@@ -235,6 +249,36 @@ func TestMergeMetrics(t *testing.T) {
 					},
 					ServerMetrics: metricConfig{
 						Disabled: true,
+					},
+				},
+			},
+		},
+		{
+			name:    "disabled and re-enabled",
+			metrics: []*tpb.Metrics{disableAll, enablePrometheus},
+			mesh:    withMetricsProviders,
+			expected: map[string]metricsConfig{
+				"prometheus": {
+					ClientMetrics: metricConfig{
+						Disabled: false,
+					},
+					ServerMetrics: metricConfig{
+						Disabled: false,
+					},
+				},
+			},
+		},
+		{
+			name:    "disabled and re-enabled with mode",
+			metrics: []*tpb.Metrics{disableAll, enableAllWithMode},
+			mesh:    withMetricsProviders,
+			expected: map[string]metricsConfig{
+				"prometheus": {
+					ClientMetrics: metricConfig{
+						Disabled: false,
+					},
+					ServerMetrics: metricConfig{
+						Disabled: false,
 					},
 				},
 			},

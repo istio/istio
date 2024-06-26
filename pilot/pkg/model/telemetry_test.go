@@ -1518,3 +1518,287 @@ func Test_computedTelemetries_Equal(t *testing.T) {
 		})
 	}
 }
+
+func TestSimplyMetricConfig(t *testing.T) {
+	cases := []struct {
+		name     string
+		input    metricConfig
+		expected metricConfig
+	}{
+		{
+			name: "merge all metrics",
+			input: metricConfig{
+				Overrides: func() []metricsOverride {
+					var result []metricsOverride
+
+					for _, n := range allMetrics {
+						result = append(result, metricsOverride{
+							Name: n,
+							Tags: []tagOverride{
+								{
+									Name:  "add",
+									Value: "add_val",
+								},
+							},
+						})
+					}
+
+					return result
+				}(),
+			},
+			expected: metricConfig{
+				Overrides: []metricsOverride{
+					{
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "cannot merge",
+			input: metricConfig{
+				Overrides: func() []metricsOverride {
+					var result []metricsOverride
+
+					for _, n := range allMetrics {
+						if n == "REQUEST_COUNT" {
+							continue
+						}
+
+						result = append(result, metricsOverride{
+							Name: n,
+							Tags: []tagOverride{
+								{
+									Name:  "add",
+									Value: "add_val",
+								},
+							},
+						})
+					}
+
+					return result
+				}(),
+			},
+			expected: metricConfig{
+				Overrides: []metricsOverride{
+					{
+						Name: "GRPC_REQUEST_MESSAGES",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "GRPC_RESPONSE_MESSAGES",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "REQUEST_DURATION",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "REQUEST_SIZE",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "RESPONSE_SIZE",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "TCP_CLOSED_CONNECTIONS",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "TCP_OPENED_CONNECTIONS",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "TCP_RECEIVED_BYTES",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "TCP_SENT_BYTES",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "merge metrics with different tags",
+			input: metricConfig{
+				Overrides: func() []metricsOverride {
+					var result []metricsOverride
+
+					for _, n := range allMetrics {
+						if n == "REQUEST_COUNT" {
+							result = append(result, metricsOverride{
+								Name: n,
+								Tags: []tagOverride{
+									{
+										Name:  "add",
+										Value: "add_val",
+									},
+									{
+										Name:  "add2",
+										Value: "add_val2",
+									},
+								},
+							})
+							continue
+						}
+
+						result = append(result, metricsOverride{
+							Name: n,
+							Tags: []tagOverride{
+								{
+									Name:  "add",
+									Value: "add_val",
+								},
+							},
+						})
+					}
+
+					return result
+				}(),
+			},
+			expected: metricConfig{
+				Overrides: []metricsOverride{
+					{
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "REQUEST_COUNT",
+						Tags: []tagOverride{
+							{
+								Name:  "add2",
+								Value: "add_val2",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "merge metrics with remove tags",
+			input: metricConfig{
+				Overrides: func() []metricsOverride {
+					var result []metricsOverride
+
+					for _, n := range allMetrics {
+						if n == "REQUEST_COUNT" {
+							result = append(result, metricsOverride{
+								Name: n,
+								Tags: []tagOverride{
+									{
+										Name:  "add",
+										Value: "add_val",
+									},
+									{
+										Name:   "add2",
+										Remove: true,
+										Value:  "add_val2",
+									},
+								},
+							})
+							continue
+						}
+
+						result = append(result, metricsOverride{
+							Name: n,
+							Tags: []tagOverride{
+								{
+									Name:  "add",
+									Value: "add_val",
+								},
+							},
+						})
+					}
+
+					return result
+				}(),
+			},
+			expected: metricConfig{
+				Overrides: []metricsOverride{
+					{
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "REQUEST_COUNT",
+						Tags: []tagOverride{
+							{
+								Name:   "add2",
+								Remove: true,
+								Value:  "add_val2",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := simplyMetricConfig(tc.input)
+
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}

@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/ptr"
+	istioslices "istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -814,7 +816,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 			}
 
 			for metric, override := range metricMap {
-				tags := []tagOverride{}
+				tags := make([]tagOverride, 0, len(metricToPrometheusMetric))
 				for k, v := range override.TagOverrides {
 					o := tagOverride{Name: k}
 					switch v.Operation {
@@ -855,7 +857,92 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 		})
 		processed[provider] = tmm
 	}
+
+	processed = postProcessMetrics(processed)
 	return processed
+}
+
+// postProcessMetrics tries to minimize the metricsConfig
+func postProcessMetrics(cfg map[string]metricsConfig) map[string]metricsConfig {
+	for key, m := range cfg {
+		m.ClientMetrics = simplyMetricConfig(m.ClientMetrics)
+		m.ServerMetrics = simplyMetricConfig(m.ServerMetrics)
+		cfg[key] = m
+	}
+	return cfg
+}
+
+// maxVal equals to 2^(len(tpb.MetricSelector_IstioMetric_name)-) - 1, currently it is 1023
+var maxVal = func() int {
+	res := 0
+	for k := range tpb.MetricSelector_IstioMetric_name {
+		if k == int32(tpb.MetricSelector_ALL_METRICS) {
+			continue
+		}
+		res |= 1 << int(k-1)
+	}
+	return res
+}()
+
+func simplyMetricConfig(cfg metricConfig) metricConfig {
+	var processed []metricsOverride
+	tagKeys := make(map[tagOverride]int)
+	for _, override := range cfg.Overrides {
+		if override.Disabled || len(override.Tags) == 0 {
+			continue
+		}
+		processed = append(processed, override)
+
+		idx := slices.Index(allMetrics, override.Name)
+		for _, tag := range override.Tags {
+			v, ok := tagKeys[tag]
+			if !ok {
+				v = 0
+			}
+
+			v |= 1 << idx
+			tagKeys[tag] = v
+		}
+	}
+
+	var allMetricsTags []tagOverride
+	for tag, val := range tagKeys {
+		if val != maxVal {
+			continue
+		}
+		// if all metrics are overridden, we can remove the tag override
+		for i, override := range processed {
+			for j, removedTag := range override.Tags {
+				if tag == removedTag {
+					processed[i].Tags = append(override.Tags[:j], override.Tags[j+1:]...)
+					continue
+				}
+			}
+		}
+
+		// add tag for all metrics
+		allMetricsTags = append(allMetricsTags, tag)
+	}
+	if len(allMetricsTags) != 0 {
+		processed = append(processed, metricsOverride{
+			Tags: allMetricsTags,
+		})
+	}
+
+	var result []metricsOverride
+	for _, override := range processed {
+		if override.Disabled || len(override.Tags) == 0 {
+			continue
+		}
+
+		result = append(result, override)
+	}
+	istioslices.SortBy(result, func(o metricsOverride) string {
+		return o.Name
+	})
+	cfg.Overrides = result
+
+	return cfg
 }
 
 func metricProviderModeKey(provider string, mode tpb.WorkloadMode) string {
