@@ -492,17 +492,6 @@ func isWildcardTypeURL(typeURL string) bool {
 	}
 }
 
-// warmingDependencies returns the dependent typeURLs that need to be responded with
-// for warming of this typeURL.
-func warmingDependencies(typeURL string) []string {
-	switch typeURL {
-	case v3.ClusterType:
-		return []string{v3.EndpointType}
-	default:
-		return nil
-	}
-}
-
 // update the node associated with the connection, after receiving a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, identities []string) error {
