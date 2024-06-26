@@ -452,12 +452,12 @@ func TestUpdateScope(t *testing.T) {
 	}
 
 	go func() {
-		for range 100 {
+		for i := 0; i < 100; i++ {
 			defaultScope.SetOutputLevel(DebugLevel)
 		}
 	}()
 	go func() {
-		for range 100 {
+		for i := 0; i < 100; i++ {
 			defaultScope.WithLabels("foo", "bar")
 		}
 	}()
