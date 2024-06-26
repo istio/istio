@@ -144,9 +144,9 @@ func ValidateDuration(pd *durationpb.Duration) error {
 }
 
 // ValidateDurationRange verifies range is in specified duration
-func ValidateDurationRange(dur, min, max time.Duration) error {
-	if dur > max || dur < min {
-		return fmt.Errorf("time %v must be >%v and <%v", dur.String(), min.String(), max.String())
+func ValidateDurationRange(dur, minimum, maximum time.Duration) error {
+	if dur > maximum || dur < minimum {
+		return fmt.Errorf("time %v must be >%v and <%v", dur.String(), minimum.String(), maximum.String())
 	}
 
 	return nil

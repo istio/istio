@@ -6,10 +6,10 @@ ARG BASE_VERSION=latest
 ARG ISTIO_BASE_REGISTRY=gcr.io/istio-release
 
 # The following section is used as base image if BASE_DISTRIBUTION=debug
-FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION} as debug
+FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION} AS debug
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM ${ISTIO_BASE_REGISTRY}/distroless:${BASE_VERSION} as distroless
+FROM ${ISTIO_BASE_REGISTRY}/distroless:${BASE_VERSION} AS distroless
 
 # This will build the final image based on either debug or distroless from above
 # hadolint ignore=DL3006
