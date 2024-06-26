@@ -444,6 +444,25 @@ func TestBadWriter(t *testing.T) {
 	defaultScope.Error("TestBadWriter")
 }
 
+// Regression test for a race condition
+func TestUpdateScope(t *testing.T) {
+	o := testOptions()
+	if err := Configure(o); err != nil {
+		t.Errorf("Got err '%v', expecting success", err)
+	}
+
+	go func() {
+		for i := 0; i < 100; i++ {
+			defaultScope.SetOutputLevel(DebugLevel)
+		}
+	}()
+	go func() {
+		for i := 0; i < 100; i++ {
+			defaultScope.WithLabels("foo", "bar")
+		}
+	}()
+}
+
 func BenchmarkLog(b *testing.B) {
 	run := func(name string, f func()) {
 		b.Run(name, func(b *testing.B) {
