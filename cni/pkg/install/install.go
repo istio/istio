@@ -68,7 +68,7 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
 	// unless it's missing or the contents are not what we expect.
 	if err := checkValidCNIConfig(in.cfg, in.cniConfigFilepath); err != nil {
-		installLog.Infof("missing (or invalid) configuration detected, (re)writing CNI config file at %s", in.cniConfigFilepath)
+		installLog.Infof("configuration requires updates, (re)writing CNI config file at %q: %v", in.cniConfigFilepath, err)
 		cfgPath, err := createCNIConfigFile(ctx, in.cfg)
 		if err != nil {
 			cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
@@ -93,7 +93,7 @@ func (in *Installer) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	installLog.Info("Installation succeed, start watching for re-installation.")
+	installLog.Info("initial installation complete, start watching for re-installation")
 
 	for {
 		// if sleepWatchInstall yields without error, that means the config might have been modified in some fashion.
@@ -101,25 +101,25 @@ func (in *Installer) Run(ctx context.Context) error {
 		// our desired state
 		err := in.sleepWatchInstall(ctx, installedBins)
 		if err != nil {
-			installLog.Error("error watching node CNI config")
+			installLog.Errorf("error watching node CNI config: %v", err)
 			return err
 		}
-		installLog.Info("Detected changes to the node-level CNI setup, checking to see if configs or binaries need redeploying")
+		installLog.Info("detected changes to the node-level CNI setup, checking to see if configs or binaries need redeploying")
 		// We don't support (or want) to silently (re)deploy any binaries that were not in the initial "snapshot"
 		// so we intentionally discard/do not update the list of installedBins on redeploys.
 		if _, err := in.installAll(ctx); err != nil {
 			return err
 		}
-		installLog.Info("Istio CNI configuration and binaries validated/reinstalled.")
+		installLog.Info("Istio CNI configuration and binaries validated/reinstalled")
 	}
 }
 
 // Cleanup remove Istio CNI's config, kubeconfig file, and binaries.
 func (in *Installer) Cleanup() error {
-	installLog.Info("Cleaning up.")
+	installLog.Info("cleaning up CNI installation")
 	if len(in.cniConfigFilepath) > 0 && file.Exists(in.cniConfigFilepath) {
 		if in.cfg.ChainedCNIPlugin {
-			installLog.Infof("Removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
+			installLog.Infof("removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
 
 			// Read JSON from CNI config file
 			cniConfigMap, err := util.ReadCNIConfigMap(in.cniConfigFilepath)
@@ -150,7 +150,7 @@ func (in *Installer) Cleanup() error {
 				return err
 			}
 		} else {
-			installLog.Infof("Removing Istio CNI config file: %s", in.cniConfigFilepath)
+			installLog.Infof("removing Istio CNI config file: %s", in.cniConfigFilepath)
 			if err := os.Remove(in.cniConfigFilepath); err != nil {
 				return err
 			}
@@ -158,7 +158,7 @@ func (in *Installer) Cleanup() error {
 	}
 
 	if len(in.kubeconfigFilepath) > 0 && file.Exists(in.kubeconfigFilepath) {
-		installLog.Infof("Removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
+		installLog.Infof("removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
 		if err := os.Remove(in.kubeconfigFilepath); err != nil {
 			return err
 		}
@@ -166,7 +166,7 @@ func (in *Installer) Cleanup() error {
 
 	for _, targetDir := range in.cfg.CNIBinTargetDirs {
 		if istioCNIBin := filepath.Join(targetDir, "istio-cni"); file.Exists(istioCNIBin) {
-			installLog.Infof("Removing binary: %s", istioCNIBin)
+			installLog.Infof("removing binary: %s", istioCNIBin)
 			if err := os.Remove(istioCNIBin); err != nil {
 				return err
 			}
@@ -246,9 +246,9 @@ func checkValidCNIConfig(cfg *config.InstallConfig, cniConfigFilepath string) er
 		if len(cfg.CNIConfName) > 0 || !cfg.ChainedCNIPlugin {
 			// Install was run with overridden CNI config file so don't error out on preempt check
 			// Likely the only use for this is testing the script
-			installLog.Warnf("CNI config file %s preempted by %s", cniConfigFilepath, defaultCNIConfigFilepath)
+			installLog.Warnf("CNI config file %q preempted by %q", cniConfigFilepath, defaultCNIConfigFilepath)
 		} else {
-			return fmt.Errorf("CNI config file %s preempted by %s", cniConfigFilepath, defaultCNIConfigFilepath)
+			return fmt.Errorf("CNI config file %q preempted by %q", cniConfigFilepath, defaultCNIConfigFilepath)
 		}
 	}
 

@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/cni/pkg/scopes"
 	testutil "istio.io/istio/pilot/test/util"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -47,7 +48,7 @@ func TestIptables(t *testing.T) {
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
 				iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
-				err := iptConfigurator.CreateInpodRules(&probeSNATipv4, &probeSNATipv6)
+				err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, &probeSNATipv4, &probeSNATipv6)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -109,7 +110,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 	tt.config(cfg)
 	ext := &dep.DependenciesStub{}
 	iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
-	err := iptConfigurator.CreateInpodRules(&probeSNATipv4, &probeSNATipv6)
+	err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, &probeSNATipv4, &probeSNATipv6)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +118,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 
 	*ext = dep.DependenciesStub{}
 	// run another time to make sure we are idempotent
-	err = iptConfigurator.CreateInpodRules(&probeSNATipv4, &probeSNATipv6)
+	err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, &probeSNATipv4, &probeSNATipv6)
 	if err != nil {
 		t.Fatal(err)
 	}

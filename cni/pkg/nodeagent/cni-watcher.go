@@ -89,7 +89,7 @@ func (s *CniPluginServer) Start() error {
 	if s.sockAddress == "" {
 		return fmt.Errorf("no socket address provided")
 	}
-	log.Info("Start a listen server for CNI plugin events")
+	log.Infof("starting listener for CNI plugin events at %v", s.sockAddress)
 	unixListener, err := pluginlistener.NewListener(s.sockAddress)
 	if err != nil {
 		return fmt.Errorf("failed to create CNI listener: %v", err)
@@ -175,7 +175,7 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 		ip, _ := netip.AddrFromSlice(configuredPodIPs.Address.IP)
 		// We ignore the mask of the IPNet - it's fine if the IPNet defines
 		// a block grant of addresses, we just need one for checking routes.
-		podIps = append(podIps, ip)
+		podIps = append(podIps, ip.Unmap())
 	}
 	// Note that we use the IP info from the CNI plugin here - the Pod struct as reported by K8S doesn't have this info
 	// yet (because the K8S control plane doesn't), so it will be empty there.

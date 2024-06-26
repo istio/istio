@@ -112,7 +112,8 @@ func getPodNetNs(pod *corev1.Pod) (string, error) {
 			return err
 		})
 		if err != nil {
-			log.Warnf("failed to check proc %d netns interfaces: %v", p.PID, err)
+			// It is expected this will fail for all but one of the procs, so keep this at debug level
+			log.Debugf("failed to check proc %d netns interfaces: %v", p.PID, err)
 			continue
 		}
 

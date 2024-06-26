@@ -70,7 +70,7 @@ var rootCmd = &cobra.Command{
 		if cfg, err = constructConfig(); err != nil {
 			return
 		}
-		log.Infof("CNI logging level: \n%+v", istiolog.LevelToString(log.GetOutputLevel()))
+		log.Infof("CNI logging level: %+v", istiolog.LevelToString(log.GetOutputLevel()))
 		log.Infof("CNI install configuration: \n%+v", cfg.InstallConfig)
 		log.Infof("CNI race repair configuration: \n%+v", cfg.RepairConfig)
 
@@ -121,7 +121,7 @@ var rootCmd = &cobra.Command{
 
 		repair.StartRepair(ctx, cfg.RepairConfig)
 
-		log.Info("Installer created, watching node CNI dir")
+		log.Info("initialization complete, watching node CNI dir")
 		// installer.Run() will block indefinitely, and attempt to permanently "keep"
 		// the CNI binary installed.
 		if err = installer.Run(ctx); err != nil {
