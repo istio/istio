@@ -1533,8 +1533,8 @@ var ValidatePeerAuthentication = RegisterValidateFunc("ValidatePeerAuthenticatio
 		}
 
 		for port := range in.PortLevelMtls {
-			if port == 0 {
-				errs = appendErrors(errs, fmt.Errorf("port cannot be 0"))
+			if port <= 0 || port > 65535 {
+				errs = appendErrors(errs, fmt.Errorf("port must be in range 1..65535"))
 			}
 		}
 
@@ -3066,6 +3066,8 @@ var ValidateWasmPlugin = RegisterValidateFunc("ValidateWasmPlugin",
 			validatePolicyTargetReferences(spec.GetTargetRefs()),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
+			validateWasmPluginImagePullSecret(spec),
+			validateWasmPluginName(spec),
 			validateWasmPluginVMConfig(spec.VmConfig),
 			validateWasmPluginMatch(spec.Match),
 		)
@@ -3080,14 +3082,34 @@ func validateWasmPluginURL(pluginURL string) error {
 		"": true, "file": true, "http": true, "https": true, "oci": true,
 	}
 
-	u, err := url.Parse(pluginURL)
+	u, err := strictParseURL(pluginURL)
 	if err != nil {
-		return fmt.Errorf("failed to parse url: %s", err)
+		return err
 	}
 	if _, found := validSchemes[u.Scheme]; !found {
 		return fmt.Errorf("url contains unsupported scheme: %s", u.Scheme)
 	}
 	return nil
+}
+
+func strictParseURL(originalURL string) (*url.URL, error) {
+	u := originalURL
+	ur, err := url.ParseRequestURI(u)
+	if err != nil {
+		u = "http://" + originalURL
+		nu, nerr := url.ParseRequestURI(u)
+		if nerr != nil {
+			return nil, fmt.Errorf("failed to parse url: %s", err) // return original err
+		}
+		if _, err := url.Parse(u); err != nil {
+			return nil, fmt.Errorf("failed to strict parse url: %s", err)
+		}
+		return nu, nil
+	}
+	if _, err := url.Parse(u); err != nil {
+		return nil, fmt.Errorf("failed to strict parse url: %s", err)
+	}
+	return ur, nil
 }
 
 func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
@@ -3101,6 +3123,20 @@ func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
 		if !('a' <= r && r <= 'f' || '0' <= r && r <= '9') {
 			return fmt.Errorf("sha256 field must match [a-f0-9]{64} pattern")
 		}
+	}
+	return nil
+}
+
+func validateWasmPluginImagePullSecret(plugin *extensions.WasmPlugin) error {
+	if len(plugin.ImagePullSecret) > 253 {
+		return fmt.Errorf("imagePullSecret field must be less than 253 characters long")
+	}
+	return nil
+}
+
+func validateWasmPluginName(plugin *extensions.WasmPlugin) error {
+	if len(plugin.PluginName) > 256 {
+		return fmt.Errorf("pluginName field must be less than 255 characters long")
 	}
 	return nil
 }
@@ -3120,8 +3156,16 @@ func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 			return fmt.Errorf("spec.vmConfig.env invalid")
 		}
 
+		if len(env.Name) > 256 {
+			return fmt.Errorf("env.name field must be less than 255 characters long")
+		}
+
 		if keys.InsertContains(env.Name) {
 			return fmt.Errorf("duplicate env")
+		}
+
+		if env.ValueFrom != extensions.EnvValueSource_INLINE && env.Value != "" {
+			return fmt.Errorf("value may only be set when valueFrom is INLINE")
 		}
 	}
 

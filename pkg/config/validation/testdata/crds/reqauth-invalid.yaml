@@ -1,0 +1,212 @@
+# Missing cases
+# * Invalid JWKS (not feasible with CEL)
+
+_err: only one of targetRefs or workloadSelector can be set
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: multi-refs
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: foo
+    namespace: bar
+  targetRef:
+    group: ""
+    kind: Service
+    name: foo
+    namespace: bar
+---
+_err: only one of targetRefs or workloadSelector can be set
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: ref-and-selector
+spec:
+  selector:
+    matchLabels:
+      a: b
+  targetRef:
+    group: ""
+    kind: Service
+    name: foo
+---
+_err: "spec.targetRef.name: Required value"
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: bad-target-name
+spec:
+  targetRef:
+    group: ""
+    kind: Service
+---
+_err: cross namespace referencing is not currently supported
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: bad-target-namespace
+spec:
+  targetRef:
+    group: ""
+    kind: Service
+    name: foo
+    namespace: bar
+---
+_err: spec.targetRef.group in body should match
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: bad-target-group
+spec:
+  targetRef:
+    group: "__"
+    kind: Service
+    name: foo
+    namespace: bar
+---
+_err: spec.targetRef.kind in body should match
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: bad-target-kind
+spec:
+  targetRef:
+    group: ""
+    kind: Serv_ice
+    name: foo
+    namespace: bar
+---
+_err: 'spec.jwtRules[0] in body must be of type object'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: no-issuer
+spec:
+  jwtRules:
+  -
+---
+_err: 'audiences[0] in body should be at least 1 chars long'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: empty-aud
+spec:
+  jwtRules:
+  - issuer: example
+    audiences:
+    - ""
+---
+_err: url must have scheme
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-jwks
+spec:
+  jwtRules:
+  - issuer: example
+    jwksUri: "hTPp\\\blah"
+---
+_err: 'spec.jwtRules[0].fromHeaders[0].name: Required value'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-from-headers-no-name
+spec:
+  jwtRules:
+  - issuer: example
+    fromHeaders:
+    - prefix: baz
+---
+_err: 'spec.jwtRules[0].fromHeaders[0].name in body should be at least 1 chars long'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-from-headers-empty-name
+spec:
+  jwtRules:
+  - issuer: example
+    fromHeaders:
+    - name: ""
+      prefix: baz
+---
+_err: 'fromParams[0] in body should be at least 1 chars long'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-from-params
+spec:
+  jwtRules:
+  - issuer: example
+    fromParams:
+    - ""
+---
+_err: 'fromCookies[0] in body should be at least 1 chars long'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-from-cookies
+spec:
+  jwtRules:
+  - issuer: example
+    fromCookies:
+    - ""
+---
+_err: 'spec.jwtRules[0].outputClaimToHeaders[0] in body must be of type object'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-claim-to-header-unset
+spec:
+  jwtRules:
+  - issuer: example
+    outputClaimToHeaders:
+      - ~
+---
+_err: 'spec.jwtRules[0].outputClaimToHeaders[0].claim in body should be at least 1 chars long'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-claim-to-header-claim-empty
+spec:
+  jwtRules:
+  - issuer: example
+    outputClaimToHeaders:
+      - claim: ""
+        header: "h"
+---
+_err: 'header in body should be at least 1 chars long'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-claim-to-header-header-empty
+spec:
+  jwtRules:
+  - issuer: example
+    outputClaimToHeaders:
+      - claim: "x"
+        header: ""
+---
+_err: 'header in body should match'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-claim-to-header-bad-header
+spec:
+  jwtRules:
+  - issuer: example
+    outputClaimToHeaders:
+      - claim: "x"
+        header: ":authority"
+---
+_err: must be a valid duration greater than
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: bad-timeout
+spec:
+  jwtRules:
+  - issuer: example
+    timeout: "apple"
+---

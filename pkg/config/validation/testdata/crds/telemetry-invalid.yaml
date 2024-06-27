@@ -1,0 +1,46 @@
+_err: "name in body should be at least 1 chars long"
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: bad-provider
+spec:
+  metrics:
+  - providers:
+    - name: ""
+---
+_err: "customMetric in body should be at least 1 chars lon"
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: bad-custom-metric
+spec:
+  metrics:
+  - overrides:
+    - match:
+        customMetric: ""
+---
+_err: "value must be set when operation is UPSERT"
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: bad-tag-upsert
+spec:
+  metrics:
+  - overrides:
+    - tagOverrides:
+        foo:
+          operation: UPSERT
+---
+_err: "value must not be set when operation is REMOVE"
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: bad-tag-remove
+spec:
+  metrics:
+  - overrides:
+    - tagOverrides:
+        foo:
+          operation: REMOVE
+          value: oops
+---
