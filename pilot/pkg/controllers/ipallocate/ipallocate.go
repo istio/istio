@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/netip"
-	"sync"
 
 	"istio.io/api/meta/v1alpha1"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -27,6 +26,8 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -37,44 +38,122 @@ type IPAllocate struct {
 	stopChan           <-chan struct{}
 	queue              controllers.Queue
 
-	// use this mutext when access these fields
-	// TODO: is locking just a function of the ipAllocator type instead? probably should be
-	mu          sync.Mutex
+	// This controller is not safe for concurency but it exists outside the critical path performing important but minimal functionality in a single thread.
+	// If we want the multi-thread this controller we must add locking around accessing the allocators which would otherwise be racy
 	v4allocator *ipAllocator
 	v6allocator *ipAllocator
 }
 
 const (
+	controllerName           = "IP Autoallocate"
 	IpAutoallocateStatusType = "ip-autoallocate"
 	IpV4Prefix               = "240.240.0.0/16"
 	IpV6Prefix               = "2001:2::/48"
 )
 
 func NewIPAllocate(stop <-chan struct{}, c kubelib.Client) *IPAllocate {
-	log.Debugf("starting serviceentry ip autoallocate controller")
 	client := kclient.New[*networkingclient.ServiceEntry](c)
 	allocator := &IPAllocate{
 		serviceEntryClient: client,
-		mu:                 sync.Mutex{},
 		stopChan:           stop,
 		v4allocator:        newIpAllocator(netip.MustParsePrefix(IpV4Prefix)),
 		v6allocator:        newIpAllocator(netip.MustParsePrefix(IpV6Prefix)),
 	}
-
-	allocator.queue = controllers.NewQueue("ip autoallocate", controllers.WithReconciler(allocator.reconcile), controllers.WithMaxAttempts(5))
+	allocator.queue = controllers.NewQueue(controllerName, controllers.WithReconciler(allocator.reconcile), controllers.WithMaxAttempts(5))
 	client.AddEventHandler(controllers.ObjectHandler(allocator.queue.AddObject))
 	return allocator
 }
 
 func (c *IPAllocate) Run(stop <-chan struct{}) {
-	kubelib.WaitForCacheSync("node untainer", stop, c.serviceEntryClient.HasSynced)
+	log.Debugf("starting %s controller", controllerName)
+	kubelib.WaitForCacheSync(controllerName, stop, c.serviceEntryClient.HasSynced)
+	// it is important that we always warm cache before we try to run the queue
+	// failing to warm cache first could result in allocating IP which are already in use
+	c.warmCache()
+	// begin reconcile
 	c.queue.Run(stop)
 	c.serviceEntryClient.ShutdownHandlers()
 }
 
+func (c *IPAllocate) warmCache() {
+	serviceentries := c.serviceEntryClient.List(metav1.NamespaceAll, klabels.Everything())
+	count := 0
+	for _, serviceentry := range serviceentries {
+		count++
+		log.Infof("%s/%s found during warming", serviceentry.Namespace, serviceentry.Name)
+		if len(serviceentry.Spec.Addresses) > 0 {
+			// user assiged there own
+			// TODO: we should record this just to be safe, at least if it is without our range
+			log.Infof("%s/%s supplied its own addresses", serviceentry.Namespace, serviceentry.Name)
+
+			continue
+		}
+
+		if serviceentry.Status.String() != "" {
+			addresses := kludgeFromStatus(serviceentry.Status.GetConditions())
+			log.Infof("status: %v", addresses)
+			if len(addresses) > 0 {
+				for _, a := range addresses {
+					if a.Is6() {
+						if c.v6allocator.MarkUsed(a) {
+							panic("collision v6")
+						}
+					} else {
+						if c.v4allocator.MarkUsed(a) {
+							panic("collision v4")
+						}
+					}
+				}
+			}
+		}
+	}
+	log.Infof("discovered %v during warming", count)
+}
+
+func (c *IPAllocate) reconcile(se types.NamespacedName) error {
+	log.Infof("reconciling service entry %s/%s", se.Namespace, se.Name)
+	serviceentry := c.serviceEntryClient.Get(se.Name, se.Namespace)
+	if serviceentry == nil {
+		// probably a delete so we should remove ips from our addresses most likely
+		// TODO: we never actually remove IP right now, likely this should be done a little more slowly anyway to prevent reuse if we are too fast
+		log.Infof("deleted %s", se.String())
+		return nil
+	}
+	// TODO: check if we are supposed to assign
+
+	if len(serviceentry.Spec.Addresses) > 0 {
+		// user assiged
+		// TODO: we should record this just to be safe, at least if it is without our range
+		log.Infof("%s supplied its own addresses", se.String())
+		return nil
+	}
+
+	if serviceentry.Status.String() == "" {
+		// initialize status field
+		serviceentry.Status = v1alpha1.IstioStatus{}
+	} else {
+		log.Infof("found a status for %s", se.String())
+		foundAddresses := kludgeFromStatus(serviceentry.Status.GetConditions())
+		if len(foundAddresses) > 0 {
+			// this is a noop, if we already assigned addresses we do not mess with them
+			log.Infof("found addresses %v", foundAddresses)
+			return nil // nothing to do
+		}
+	}
+	// begin allocating new addresses
+	kludge := conditionKludge(c.nextAddresses())
+
+	serviceentry.Status.Conditions = append(serviceentry.Status.Conditions, &kludge)
+	// TODO: patch don't update so we don't accidentally remove status written by another controller during our reconcile
+	_, e := c.serviceEntryClient.UpdateStatus(serviceentry)
+	if e != nil {
+		log.Errorf("darn... %s", e.Error())
+	}
+
+	return nil
+}
+
 func (c *IPAllocate) nextAddresses() []netip.Addr {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	v4address, err := c.v4allocator.AllocateNext()
 	if err != nil {
 		panic("failed to allocate v4 address")
@@ -87,85 +166,6 @@ func (c *IPAllocate) nextAddresses() []netip.Addr {
 		v4address,
 		v6address,
 	}
-}
-
-func (c *IPAllocate) reconcile(se types.NamespacedName) error {
-	log.Debugf("reconciling service entry %s/%s", se.Namespace, se.Name)
-	serviceentry := c.serviceEntryClient.Get(se.Name, se.Namespace)
-	if serviceentry == nil {
-		// probably a delete so we should remove ips from our addresses most likely
-		log.Infof("deleted %s", se.String())
-		return nil
-	}
-	// check if we are supposed to assign
-	if !c.queue.HasSynced() {
-		// warming: we need to record any IPs from the status
-		log.Info("beep boop, we're not synced yet")
-		log.Info("we can still look for IPs though")
-		if len(serviceentry.Spec.Addresses) > 0 {
-			// user assiged there own
-			// TODO: we should record this just to be safe, at least if it is without our range
-			log.Infof("%s supplied its own addresses", se.String())
-
-			return nil
-		}
-
-		if serviceentry.Status.String() == "" {
-			log.Info("found no status")
-		} else {
-			log.Infof("status: %s", serviceentry.Status.String())
-			addresses := kludgeFromStatus(serviceentry.Status.GetConditions())
-			if len(addresses) > 0 {
-				c.mu.Lock()
-				defer c.mu.Unlock()
-				for _, a := range addresses {
-					if a.Is6() {
-						if c.v6allocator.MarkUsed(a) {
-							panic("collision v6")
-						}
-					} else {
-						if c.v4allocator.MarkUsed(a) {
-							panic("collision v4")
-						}
-					}
-				}
-				return nil // we found some addresses, lets go
-			}
-		}
-		return fmt.Errorf("unable to assign IPs for %s becuase controller has not synced completely", se.String())
-	}
-	log.Info("now we are synced so we could do something")
-	if len(serviceentry.Spec.Addresses) > 0 {
-		// user assiged there own
-		// TODO: we should record this just to be safe, at least if it is without our range
-		log.Infof("%s supplied its own addresses", se.String())
-
-		return nil
-	}
-	if serviceentry.Status.String() == "" {
-		log.Info("found no status")
-		serviceentry.Status = v1alpha1.IstioStatus{}
-	} else {
-		log.Infof("found a status for %s", se.String())
-		addresses := kludgeFromStatus(serviceentry.Status.GetConditions())
-		if len(addresses) > 0 {
-
-			log.Infof("found addresses %v", addresses)
-			return nil // nothing to do
-		}
-	}
-	addresses := c.nextAddresses()
-	kludge := conditionFromKludge(addresses)
-
-	serviceentry.Status.Conditions = append(serviceentry.Status.Conditions, &kludge)
-
-	_, e := c.serviceEntryClient.UpdateStatus(serviceentry)
-	if e != nil {
-		log.Errorf("darn... %s", e.Error())
-	}
-	log.Info("looks like this all worked")
-
-	return nil
 }
 
 // ==========================================================================================================================================================
@@ -260,7 +260,7 @@ func kludgeFromStatus(conditions []*v1alpha1.IstioCondition) []netip.Addr {
 	return result
 }
 
-func conditionFromKludge(input []netip.Addr) v1alpha1.IstioCondition {
+func conditionKludge(input []netip.Addr) v1alpha1.IstioCondition {
 	addresses := []string{}
 	for _, addr := range input {
 		addresses = append(addresses, addr.String())
