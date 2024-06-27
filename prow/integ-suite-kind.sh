@@ -171,6 +171,16 @@ fi
 if [[ -z "${SKIP_BUILD:-}" ]]; then
   trace "setup kind registry" setup_kind_registry
   trace "build images" build_images "${PARAMS[*]}"
+  WASM_ATTRGEN_TAG="359dcd3a19f109c50e97517fe6b1e2676e870c4d"
+  docker pull gcr.io/istio-testing/wasm/attributegen:$WASM_ATTRGEN_TAG
+  docker tag gcr.io/istio-testing/wasm/attributegen:$WASM_ATTRGEN_TAG localhost:5000/istio-testing/wasm/attributegen:$WASM_ATTRGEN_TAG
+  docker push localhost:5000/istio-testing/wasm/attributegen:$WASM_ATTRGEN_TAG
+  if [[ "$IP_FAMILY" == "ipv6" ]]; then
+    kind_registry_ip=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{if eq $k "kind"}}{{.GlobalIPv6Address}}{{end}}{{end}}' kind-registry)
+  else
+    kind_registry_ip=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{if eq $k "kind"}}{{.IPAddress}}{{end}}{{end}}' kind-registry)
+  fi
+  kubectl create cm kind-registry-addr --from-literal=ip="$kind_registry_ip"
 fi
 
 # Run the test target if provided.
