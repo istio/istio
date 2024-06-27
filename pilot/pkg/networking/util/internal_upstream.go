@@ -30,13 +30,15 @@ var TunnelHostMetadata = []*internalupstream.InternalUpstreamTransport_MetadataV
 	},
 }
 
+var RawBufferTransport = &core.TransportSocket{
+	Name:       "raw_buffer",
+	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
+}
+
 var DefaultInternalUpstreamTransportSocket = &core.TransportSocket{
 	Name: "internal_upstream",
 	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-		TransportSocket: &core.TransportSocket{
-			Name:       "raw_buffer",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
-		},
+		TransportSocket: RawBufferTransport,
 	})},
 }
 
@@ -44,9 +46,6 @@ var TunnelHostInternalUpstreamTransportSocket = &core.TransportSocket{
 	Name: "internal_upstream",
 	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
 		PassthroughMetadata: TunnelHostMetadata,
-		TransportSocket: &core.TransportSocket{
-			Name:       "raw_buffer",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
-		},
+		TransportSocket:     RawBufferTransport,
 	})},
 }

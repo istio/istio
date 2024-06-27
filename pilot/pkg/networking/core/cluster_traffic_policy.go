@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
@@ -472,6 +473,19 @@ func (cb *ClusterBuilder) applyUpstreamProxyProtocol(
 		return
 	}
 	c := opts.mutable
+
+	// No existing transport; wrap RawBuffer.
+	if c.cluster.TransportSocket == nil && len(c.cluster.TransportSocketMatches) == 0 {
+		c.cluster.TransportSocket = &core.TransportSocket{
+			Name: "envoy.transport_sockets.upstream_proxy_protocol",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocolUpstreamTransport{
+				Config:          &core.ProxyProtocolConfig{Version: core.ProxyProtocolConfig_Version(proxyProtocol.Version)},
+				TransportSocket: util.RawBufferTransport,
+			})},
+		}
+		return
+	}
+
 	if c.cluster.TransportSocket != nil {
 		// add an upstream proxy protocol wrapper for transportSocket
 		c.cluster.TransportSocket = &core.TransportSocket{
