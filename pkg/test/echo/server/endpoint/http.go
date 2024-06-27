@@ -220,7 +220,6 @@ type codeAndSlices struct {
 
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	id := uuid.New()
-	// r
 	remoteAddr, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		epLog.Warnf("failed to get host from remote address: %s", err)

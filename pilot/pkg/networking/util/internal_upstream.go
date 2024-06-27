@@ -48,6 +48,6 @@ var TunnelHostInternalUpstreamTransportSocket = &core.TransportSocket{
 	Name: "internal_upstream",
 	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
 		PassthroughMetadata: TunnelHostMetadata,
-		TransportSocket:     RawBufferTransport,
+		TransportSocket:     RawBufferTransport(),
 	})},
 }

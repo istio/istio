@@ -203,7 +203,7 @@ func TestApplyUpstreamProxyProtocol(t *testing.T) {
 					}
 				}
 				if test.expectRawBuffer {
-					assert.Equal(t, upstreamProxyProtocol.TransportSocket.Name, util.RawBufferTransport.Name)
+					assert.Equal(t, upstreamProxyProtocol.TransportSocket.Name, util.RawBufferTransport().Name)
 				}
 			}
 
