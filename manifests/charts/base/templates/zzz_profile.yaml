@@ -12,6 +12,8 @@ if you do not compose.
 
 To ensure consistent image templating, and to remain consistent with the below auto-descope+merge of `Values.defaults` into `Values`, we will un-nest
 just the image tags from that deprecated prefix, respecting them for back compat purposes only if they are manually specified via user input.
+
+Note that we MUST use `mustMerge` versus `mustMergeOverwrite` here so that user-defined CLI values win.
 */}}
 
 {{ if and (hasKey $.Values "pilot") (hasKey $.Values.defaults "pilot") }}
@@ -60,7 +62,7 @@ helm-style resolution in a template.
 {{- end }}
 {{- with .Values.compatibilityVersion }}
 {{- with $.Files.Get (printf "files/profile-compatibility-version-%s.yaml" .) }}
-{{- $ignore := mustMergeOverwrite $profile (. | fromYaml ) }}
+{{- $ignore := mustMergeOverwrite $profile (. | fromYaml) }}
 {{- else }}
 {{ fail (cat "unknown compatibility version" $.Values.compatibilityVersion) }}
 {{- end }}

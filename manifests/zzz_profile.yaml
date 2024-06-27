@@ -62,7 +62,7 @@ helm-style resolution in a template.
 {{- end }}
 {{- with .Values.compatibilityVersion }}
 {{- with $.Files.Get (printf "files/profile-compatibility-version-%s.yaml" .) }}
-{{- $ignore := mustMergeOverwrite $profile (. | fromYaml ) }}
+{{- $ignore := mustMergeOverwrite $profile (. | fromYaml) }}
 {{- else }}
 {{ fail (cat "unknown compatibility version" $.Values.compatibilityVersion) }}
 {{- end }}
