@@ -480,7 +480,7 @@ func (cb *ClusterBuilder) applyUpstreamProxyProtocol(
 			Name: "envoy.transport_sockets.upstream_proxy_protocol",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocolUpstreamTransport{
 				Config:          &core.ProxyProtocolConfig{Version: core.ProxyProtocolConfig_Version(proxyProtocol.Version)},
-				TransportSocket: util.RawBufferTransport,
+				TransportSocket: util.RawBufferTransport(),
 			})},
 		}
 		return

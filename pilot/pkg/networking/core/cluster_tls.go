@@ -80,9 +80,11 @@ var hboneTransportSocket = &cluster.Cluster_TransportSocketMatch{
 	TransportSocket: internalUpstreamSocket,
 }
 
-var hboneOrPlaintextSocket = []*cluster.Cluster_TransportSocketMatch{
-	hboneTransportSocket,
-	defaultTransportSocketMatch(),
+func hboneOrPlaintextSocket() []*cluster.Cluster_TransportSocketMatch {
+	return []*cluster.Cluster_TransportSocketMatch{
+		hboneTransportSocket,
+		defaultTransportSocketMatch(),
+	}
 }
 
 // applyUpstreamTLSSettings applies upstream tls context to the cluster
@@ -358,7 +360,7 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 	istioAutoDetectedMtls bool,
 ) {
 	if tls == nil {
-		c.TransportSocketMatches = hboneOrPlaintextSocket
+		c.TransportSocketMatches = hboneOrPlaintextSocket()
 		return
 	}
 	// For headless service, discovery type will be `Cluster_ORIGINAL_DST`
@@ -379,7 +381,7 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 			}
 		} else {
 			if c.TransportSocket == nil {
-				c.TransportSocketMatches = hboneOrPlaintextSocket
+				c.TransportSocketMatches = hboneOrPlaintextSocket()
 			} else {
 				ts := c.TransportSocket
 				c.TransportSocket = nil
