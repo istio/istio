@@ -378,6 +378,32 @@ func TestApplyDestinationRule(t *testing.T) {
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
 		{
+			name:        "destination rule with retry budget",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							RetryBudget: &networking.RetryBudget{
+								MinRetryConcurrency: &wrappers.UInt32Value{
+									Value: 10,
+								},
+								BudgetPercent: &networking.Percent{
+									Value: 10,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
 			name:        "subset without labels in both",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,

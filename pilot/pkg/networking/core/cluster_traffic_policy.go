@@ -117,6 +117,16 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 			threshold.MaxRetries = &wrapperspb.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
 		}
 
+        if settings.Http.RetryBudget != nil {
+			threshold.RetryBudget = getDefaultCircuitBreakerThresholdsRetryBudget()
+			if settings.Http.RetryBudget.MinRetryConcurrency != nil {
+				threshold.RetryBudget.MinRetryConcurrency = &wrapperspb.UInt32Value{Value: settings.Http.RetryBudget.MinRetryConcurrency.Value}
+			}
+			if settings.Http.RetryBudget.BudgetPercent != nil {
+				threshold.RetryBudget.BudgetPercent = &xdstype.Percent{Value: settings.Http.RetryBudget.BudgetPercent.Value}
+			}
+		}
+
 		idleTimeout = settings.Http.IdleTimeout
 		maxRequestsPerConnection = uint32(settings.Http.MaxRequestsPerConnection)
 		maxConcurrentStreams = uint32(settings.Http.MaxConcurrentStreams)
@@ -345,6 +355,14 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 		MaxConnections:     &wrapperspb.UInt32Value{Value: math.MaxUint32},
 		MaxPendingRequests: &wrapperspb.UInt32Value{Value: math.MaxUint32},
 		TrackRemaining:     true,
+	}
+}
+
+// getDefaultCircuitBreakerThresholdsRetryBudget returns a copy of the default circuit breaker thresholds retry budget for the given traffic direction.
+func getDefaultCircuitBreakerThresholdsRetryBudget() *cluster.CircuitBreakers_Thresholds_RetryBudget {
+	return &cluster.CircuitBreakers_Thresholds_RetryBudget{
+		BudgetPercent: &xdstype.Percent{Value: math.MaxFloat64},
+		MinRetryConcurrency: &wrapperspb.UInt32Value{Value: math.MaxUint32},
 	}
 }
 
