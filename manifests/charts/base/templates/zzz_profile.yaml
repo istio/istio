@@ -16,12 +16,12 @@ just the image tags from that deprecated prefix, respecting them for back compat
 
 {{ if and (hasKey $.Values "pilot") (hasKey $.Values.defaults "pilot") }}
     {{ $rescopePilotImgVars := pick $.Values.pilot "hub" "image" "tag" "variant" "pullPolicy" }}
-    {{ $_ := set $ "Values" (mustMergeOverwrite $rescopePilotImgVars $.Values) }}
+    {{ $_ := set $ "Values" (mustMerge $rescopePilotImgVars $.Values) }}
 {{ end }}
 
 {{ if and (hasKey $.Values "cni") (hasKey $.Values.defaults "cni") }}
     {{ $rescopeCNIImgVars := pick $.Values.cni "hub" "image" "tag" "variant" "pullPolicy" }}
-    {{ $_ := set $ "Values" (mustMergeOverwrite $rescopeCNIImgVars $.Values) }}
+    {{ $_ := set $ "Values" (mustMerge $rescopeCNIImgVars $.Values) }}
 {{ end }}
 
 {{/*
