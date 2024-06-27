@@ -189,7 +189,7 @@ func adjustValuesForOpenShift(ctx framework.TestContext, values string) string {
 	return values
 }
 
-// getValuesOverrides returns the values file created to pass into Helm override default values
+// GetValuesOverrides returns the values file created to pass into Helm override default values
 // for the hub and tag.
 //
 // Tag can be the empty string, which means the values file will not have a
@@ -290,7 +290,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		ztunnelChartPath = filepath.Join(ManifestsChartPath, version, ZtunnelChartsDir)
 
 	}
-
+	t.Logf("Installing Istio with version %s", version)
 	// Install base chart
 	err := h.InstallChart(BaseReleaseName, baseChartPath, nsConfig.Get(BaseReleaseName), overrideValuesFile, Timeout, versionArgs)
 	if err != nil {
