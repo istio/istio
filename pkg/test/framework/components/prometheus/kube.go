@@ -74,6 +74,7 @@ func installPrometheus(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
+	yaml = strings.ReplaceAll(yaml, "namespace: istio-system", fmt.Sprintf("namespace: %s", ns))
 	if err := ctx.ConfigKube().YAML(ns, yaml).Apply(apply.NoCleanup); err != nil {
 		return err
 	}
