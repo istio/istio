@@ -45,44 +45,48 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
-var internalUpstreamSocket = &core.TransportSocket{
-	Name: "envoy.transport_sockets.internal_upstream",
-	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-		PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
-			{
-				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
-				Name: util.OriginalDstMetadataKey,
+func internalUpstreamSocket() *core.TransportSocket {
+	return &core.TransportSocket{
+		Name: "envoy.transport_sockets.internal_upstream",
+		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
+			PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
+				{
+					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
+					Name: util.OriginalDstMetadataKey,
+				},
+				{
+					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
+						Cluster: &metadata.MetadataKind_Cluster{},
+					}},
+					Name: "istio",
+				},
+				{
+					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{
+						Host: &metadata.MetadataKind_Host{},
+					}},
+					Name: "istio",
+				},
 			},
-			{
-				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
-					Cluster: &metadata.MetadataKind_Cluster{},
-				}},
-				Name: "istio",
-			},
-			{
-				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{
-					Host: &metadata.MetadataKind_Host{},
-				}},
-				Name: "istio",
-			},
-		},
-		TransportSocket: xdsfilters.RawBufferTransportSocket,
-	})},
+			TransportSocket: xdsfilters.RawBufferTransportSocket,
+		})},
+	}
 }
 
-var hboneTransportSocket = &cluster.Cluster_TransportSocketMatch{
-	Name: "hbone",
-	Match: &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+func hboneTransportSocket() *cluster.Cluster_TransportSocketMatch {
+	return &cluster.Cluster_TransportSocketMatch{
+		Name: "hbone",
+		Match: &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+			},
 		},
-	},
-	TransportSocket: internalUpstreamSocket,
+		TransportSocket: internalUpstreamSocket(),
+	}
 }
 
 func hboneOrPlaintextSocket() []*cluster.Cluster_TransportSocketMatch {
 	return []*cluster.Cluster_TransportSocketMatch{
-		hboneTransportSocket,
+		hboneTransportSocket(),
 		defaultTransportSocketMatch(),
 	}
 }
@@ -371,7 +375,7 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 			transportSocket := c.TransportSocket
 			c.TransportSocket = nil
 			c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-				hboneTransportSocket,
+				hboneTransportSocket(),
 				{
 					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
 					Match:           istioMtlsTransportSocketMatch,
@@ -387,7 +391,7 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 				c.TransportSocket = nil
 
 				c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-					hboneTransportSocket,
+					hboneTransportSocket(),
 					{
 						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
 						TransportSocket: ts,
