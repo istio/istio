@@ -16,6 +16,7 @@ package kube
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -113,6 +114,8 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]corev1.Pod, error) {
 	}
 
 	if err != nil {
+		data, _ := json.Marshal(fetched)
+		scopes.Framework.Info("Pods: " + string(data))
 		return nil, err
 	}
 
