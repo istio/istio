@@ -12,16 +12,18 @@ if you do not compose.
 
 To ensure consistent image templating, and to remain consistent with the below auto-descope+merge of `Values.defaults` into `Values`, we will un-nest
 just the image tags from that deprecated prefix, respecting them for back compat purposes only if they are manually specified via user input.
+
+Note that we MUST use `mustMerge` versus `mustMergeOverwrite` here so that user-defined CLI values win.
 */}}
 
 {{ if and (hasKey $.Values "pilot") (hasKey $.Values.defaults "pilot") }}
     {{ $rescopePilotImgVars := pick $.Values.pilot "hub" "image" "tag" "variant" "pullPolicy" }}
-    {{ $_ := set $ "Values" (mustMergeOverwrite $rescopePilotImgVars $.Values) }}
+    {{ $_ := set $ "Values" (mustMerge $rescopePilotImgVars $.Values) }}
 {{ end }}
 
 {{ if and (hasKey $.Values "cni") (hasKey $.Values.defaults "cni") }}
     {{ $rescopeCNIImgVars := pick $.Values.cni "hub" "image" "tag" "variant" "pullPolicy" }}
-    {{ $_ := set $ "Values" (mustMergeOverwrite $rescopeCNIImgVars $.Values) }}
+    {{ $_ := set $ "Values" (mustMerge $rescopeCNIImgVars $.Values) }}
 {{ end }}
 
 {{/*

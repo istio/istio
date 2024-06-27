@@ -1,6 +1,6 @@
 defaults:
-  hub: "defkey"
-  tag: ""
+  hub: "gcr.io/istio-testing"
+  tag: "latest"
   variant: ""
   imagePullPolicy: ""
   image: "pilot"
@@ -18,12 +18,12 @@ defaults:
     rollingMaxSurge: 100%
     rollingMaxUnavailable: 25%
     ## BEGIN DEPRECATED - prefer `values.hub/tag` or `global.hub/tag` instead of `values.pilot.hub/tag`
-    hub: "pilotkey"
+    hub: ""
     tag: ""
     variant: ""
     pullPolicy: ""
     # Can be a full hub/image:tag
-    image: pilot
+    image: ""
     ## END DEPRECATED
 
     traceSampling: 1.0
@@ -215,9 +215,9 @@ defaults:
     # Default hub for Istio images.
     # Releases are published to docker hub under 'istio' project.
     # Dev builds from prow are on gcr.io
-    hub: globkey
+    hub: ""
     # Default tag for Istio images.
-    tag: latest
+    tag: ""
     # Variant of the image to use.
     # Currently supported are: [debug, distroless]
     variant: ""

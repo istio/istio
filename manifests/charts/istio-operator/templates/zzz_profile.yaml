@@ -7,19 +7,21 @@ If you want to make a change in this file, edit the original one and run "make g
 
 
 {{/*
-BACK-COMPAT: `istiod` previously prefixed image props with `pilot.xxx` - to ensure consistent image templating,
-and to remain consistent with the below auto-descope+merge of `Values.defaults` into `Values`, we will un-nest
+BACK-COMPAT: `istiod` and `istio-cni` previously prefixed image props with `pilot.xxx/cni.xxx` respectively - which breaks helm scoping (you end up with `cni.cni.hub` if you compose) and is unnecessary with singleton charts
+if you do not compose.
+
+To ensure consistent image templating, and to remain consistent with the below auto-descope+merge of `Values.defaults` into `Values`, we will un-nest
 just the image tags from that deprecated prefix, respecting them for back compat purposes only if they are manually specified via user input.
 */}}
 
 {{ if and (hasKey $.Values "pilot") (hasKey $.Values.defaults "pilot") }}
     {{ $rescopePilotImgVars := pick $.Values.pilot "hub" "image" "tag" "variant" "pullPolicy" }}
-    {{ $_ := set $ "Values" (mustMergeOverwrite $rescopePilotImgVars $.Values) }}
+    {{ $_ := set $ "Values" (mustMerge $rescopePilotImgVars $.Values) }}
 {{ end }}
 
 {{ if and (hasKey $.Values "cni") (hasKey $.Values.defaults "cni") }}
     {{ $rescopeCNIImgVars := pick $.Values.cni "hub" "image" "tag" "variant" "pullPolicy" }}
-    {{ $_ := set $ "Values" (mustMergeOverwrite $rescopeCNIImgVars $.Values) }}
+    {{ $_ := set $ "Values" (mustMerge $rescopeCNIImgVars $.Values) }}
 {{ end }}
 
 {{/*

@@ -211,7 +211,7 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision, 
 
 	overrideValues = adjustValuesForOpenShift(ctx, overrideValues)
 
-	fmt.Printf("Helm Values Overrides: %s", overrideValues)
+	log.Debugf("Helm Values Overrides: %s", overrideValues)
 	overrideValuesFile := filepath.Join(workDir, "values.yaml")
 	if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 		ctx.Fatalf("failed to write iop cr file: %v", err)
