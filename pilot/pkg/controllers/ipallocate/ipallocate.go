@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"net/netip"
 
+	jsonpatch "github.com/evanphx/json-patch"
+	// "gomodules.xyz/jsonpatch/v2"
 	"istio.io/api/meta/v1alpha1"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	kubelib "istio.io/istio/pkg/kube"
@@ -31,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var log = istiolog.RegisterScope("ipallocate", "IP autoallocate controller")
+var log = istiolog.RegisterScope("ip-autoallocate", "IP autoallocate controller")
 
 type IPAllocate struct {
 	serviceEntryClient kclient.Client[*networkingclient.ServiceEntry]
@@ -47,8 +49,9 @@ type IPAllocate struct {
 const (
 	controllerName           = "IP Autoallocate"
 	IpAutoallocateStatusType = "ip-autoallocate"
-	IpV4Prefix               = "240.240.0.0/16"
-	IpV6Prefix               = "2001:2::/48"
+	// these are the ranges of the v1 logic, do we need to choose new ranges?
+	IpV4Prefix = "240.240.0.0/16"
+	IpV6Prefix = "2001:2::/48"
 )
 
 func NewIPAllocate(stop <-chan struct{}, c kubelib.Client) *IPAllocate {
@@ -56,8 +59,9 @@ func NewIPAllocate(stop <-chan struct{}, c kubelib.Client) *IPAllocate {
 	allocator := &IPAllocate{
 		serviceEntryClient: client,
 		stopChan:           stop,
-		v4allocator:        newIpAllocator(netip.MustParsePrefix(IpV4Prefix)),
-		v6allocator:        newIpAllocator(netip.MustParsePrefix(IpV6Prefix)),
+		// MustParsePrefix is OK because these are const. If we allow user configuration we must not use this function.
+		v4allocator: newIpAllocator(netip.MustParsePrefix(IpV4Prefix)),
+		v6allocator: newIpAllocator(netip.MustParsePrefix(IpV6Prefix)),
 	}
 	allocator.queue = controllers.NewQueue(controllerName, controllers.WithReconciler(allocator.reconcile), controllers.WithMaxAttempts(5))
 	client.AddEventHandler(controllers.ObjectHandler(allocator.queue.AddObject))
@@ -70,11 +74,14 @@ func (c *IPAllocate) Run(stop <-chan struct{}) {
 	// it is important that we always warm cache before we try to run the queue
 	// failing to warm cache first could result in allocating IP which are already in use
 	c.warmCache()
+	// logically the v1 behavior is a state of the world function which cannot be replicated in reconcile
+	// if we wish to replicate v1 assignment behavior for existing serviceentry it should go here and must include a change to respect the used IPs from the warmed cache
 	// begin reconcile
 	c.queue.Run(stop)
 	c.serviceEntryClient.ShutdownHandlers()
 }
 
+// warmCache reads all serviceentries and records any auto-assigned addresses as in use
 func (c *IPAllocate) warmCache() {
 	serviceentries := c.serviceEntryClient.List(metav1.NamespaceAll, klabels.Everything())
 	count := 0
@@ -128,6 +135,11 @@ func (c *IPAllocate) reconcile(se types.NamespacedName) error {
 		return nil
 	}
 
+	orig, err := json.Marshal(serviceentry)
+	if err != nil {
+		panic("failed to marshal original service entry")
+	}
+
 	if serviceentry.Status.String() == "" {
 		// initialize status field
 		serviceentry.Status = v1alpha1.IstioStatus{}
@@ -144,11 +156,27 @@ func (c *IPAllocate) reconcile(se types.NamespacedName) error {
 	kludge := conditionKludge(c.nextAddresses())
 
 	serviceentry.Status.Conditions = append(serviceentry.Status.Conditions, &kludge)
+	modified, err := json.Marshal(serviceentry)
+	if err != nil {
+		panic("failed to marshal modified service entry")
+	}
 	// TODO: patch don't update so we don't accidentally remove status written by another controller during our reconcile
-	_, e := c.serviceEntryClient.UpdateStatus(serviceentry)
+	// _, e := c.serviceEntryClient.UpdateStatus(serviceentry)
+	patch, err := jsonpatch.CreateMergePatch(orig, modified)
+	// patch, err := jsonpatch.CreatePatch(orig, modified)
+	if err != nil {
+		panic("failed to create merge patch")
+	}
+	// patchjson, err := patch[0].MarshalJSON()
+	// if err != nil {
+	// 	panic("failed to marshal patch")
+	// }
+	log.Infof("patch: %v", string(patch))
+	result, e := c.serviceEntryClient.Patch(se.Name, se.Namespace, types.MergePatchType, patch)
 	if e != nil {
 		log.Errorf("darn... %s", e.Error())
 	}
+	log.Infof("patching result: %v", result.Status)
 
 	return nil
 }
@@ -227,7 +255,7 @@ func (i ipAllocator) IsUsed(n netip.Addr) bool {
 }
 
 // MarkUsed will store the provided addr as used in this ipAllocator
-// MarkUsed return true if the addr was already used and false if it was a new insert
+// MarkUsed returns true if the addr was already used and false if it was a new insert
 func (i ipAllocator) MarkUsed(n netip.Addr) bool {
 	inUse := i.IsUsed(n)
 	if inUse {
