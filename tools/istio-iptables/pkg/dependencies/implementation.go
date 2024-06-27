@@ -53,8 +53,8 @@ var exittypeToString = map[XTablesExittype]string{
 
 // RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct {
-	NetworkNamespace string
-	CNIMode          bool
+	NetworkNamespace         string
+	HostFilesystemPodNetwork bool
 }
 
 const iptablesVersionPattern = `v([0-9]+(\.[0-9]+)+)`

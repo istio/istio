@@ -85,21 +85,20 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
 	}
 
-	iptablesConfigurator, err := iptables.NewIptablesConfigurator(cfg, realDependencies(), iptables.RealNlDeps())
+	hostIptables, podIptables, err := iptables.NewIptablesConfigurator(cfg, realDependenciesHost(), realDependenciesInpod(), iptables.RealNlDeps())
 	if err != nil {
 		return nil, fmt.Errorf("error configuring iptables: %w", err)
 	}
 
 	// Create hostprobe rules now, in the host netns
-	// Later we will reuse this same configurator inside the pod netns for adding other rules
-	iptablesConfigurator.DeleteHostRules()
+	hostIptables.DeleteHostRules()
 
-	if err := iptablesConfigurator.CreateHostRulesForHealthChecks(&HostProbeSNATIP, &HostProbeSNATIPV6); err != nil {
+	if err := hostIptables.CreateHostRulesForHealthChecks(&HostProbeSNATIP, &HostProbeSNATIPV6); err != nil {
 		return nil, fmt.Errorf("error initializing the host rules for health checks: %w", err)
 	}
 
 	podNetns := NewPodNetnsProcFinder(os.DirFS(filepath.Join(pconstants.HostMountsPath, "proc")))
-	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, podNetns, set)
+	netServer := newNetServer(ztunnelServer, podNsMap, hostIptables, podIptables, podNetns, set)
 
 	// Set some defaults
 	s := &Server{

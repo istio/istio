@@ -34,10 +34,11 @@ import (
 
 // Adapts CNI to ztunnel server. decoupled from k8s for easier integration testing.
 type NetServer struct {
-	ztunnelServer        ZtunnelServer
-	currentPodSnapshot   *podNetnsCache
-	iptablesConfigurator *iptables.IptablesConfigurator
-	podNs                PodNetnsFinder
+	ztunnelServer      ZtunnelServer
+	currentPodSnapshot *podNetnsCache
+	hostIptables       *iptables.IptablesConfigurator
+	podIptables        *iptables.IptablesConfigurator
+	podNs              PodNetnsFinder
 	// allow overriding for tests
 	netnsRunner        func(fdable NetnsFd, toRun func() error) error
 	hostsideProbeIPSet ipset.IPSet
@@ -46,16 +47,17 @@ type NetServer struct {
 var _ MeshDataplane = &NetServer{}
 
 func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache,
-	iptablesConfigurator *iptables.IptablesConfigurator, podNs PodNetnsFinder,
+	hostIptables *iptables.IptablesConfigurator, podIptables *iptables.IptablesConfigurator, podNs PodNetnsFinder,
 	probeSet ipset.IPSet,
 ) *NetServer {
 	return &NetServer{
-		ztunnelServer:        ztunnelServer,
-		currentPodSnapshot:   podNsMap,
-		podNs:                podNs,
-		iptablesConfigurator: iptablesConfigurator,
-		netnsRunner:          NetnsDo,
-		hostsideProbeIPSet:   probeSet,
+		ztunnelServer:      ztunnelServer,
+		currentPodSnapshot: podNsMap,
+		podNs:              podNs,
+		hostIptables:       hostIptables,
+		podIptables:        podIptables,
+		netnsRunner:        NetnsDo,
+		hostsideProbeIPSet: probeSet,
 	}
 }
 
@@ -66,7 +68,7 @@ func (s *NetServer) Start(ctx context.Context) {
 
 func (s *NetServer) Stop() {
 	log.Debug("removing host iptables rules")
-	s.iptablesConfigurator.DeleteHostRules()
+	s.hostIptables.DeleteHostRules()
 
 	log.Debug("destroying host ipset")
 	s.hostsideProbeIPSet.Flush()
@@ -151,7 +153,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.iptablesConfigurator.CreateInpodRules(log, &HostProbeSNATIP, &HostProbeSNATIPV6)
+		return s.podIptables.CreateInpodRules(log, &HostProbeSNATIP, &HostProbeSNATIPV6)
 	}); err != nil {
 		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
 		return err
@@ -218,10 +220,19 @@ func (s *NetServer) scanProcForPodsAndCache(pods map[types.UID]*corev1.Pod) erro
 	return nil
 }
 
-func realDependencies() *dep.RealDependencies {
+func realDependenciesHost() *dep.RealDependencies {
 	return &dep.RealDependencies{
-		CNIMode:          false, // we are in cni, but as we do the netns ourselves, we should keep this as false.
-		NetworkNamespace: "",
+		// We are in the host FS *and* the Host network
+		HostFilesystemPodNetwork: false,
+		NetworkNamespace:         "",
+	}
+}
+
+func realDependenciesInpod() *dep.RealDependencies {
+	return &dep.RealDependencies{
+		// We are running the host FS, but the pod network -- setup rules differently (locking, etc)
+		HostFilesystemPodNetwork: true,
+		NetworkNamespace:         "",
 	}
 }
 
@@ -251,7 +262,7 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 		if openNetns != nil {
 			// pod is removed from the mesh, but is still running. remove iptables rules
 			log.Debugf("calling DeleteInpodRules")
-			if err := s.netnsRunner(openNetns, func() error { return s.iptablesConfigurator.DeleteInpodRules() }); err != nil {
+			if err := s.netnsRunner(openNetns, func() error { return s.podIptables.DeleteInpodRules() }); err != nil {
 				return fmt.Errorf("failed to delete inpod rules: %w", err)
 			}
 		} else {

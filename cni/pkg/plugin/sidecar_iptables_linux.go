@@ -34,7 +34,7 @@ var getNs = ns.GetNS
 // provided in Redirect.
 func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	cfg := config.DefaultConfig()
-	cfg.CNIMode = true
+	cfg.HostFilesystemPodNetwork = true
 	cfg.NetworkNamespace = netns
 	cfg.ProxyPort = rdrct.targetPort
 	cfg.ProxyUID = rdrct.noRedirectUID
