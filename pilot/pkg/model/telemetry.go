@@ -16,7 +16,7 @@ package model
 
 import (
 	"fmt"
-	"slices"
+	"slices" // nolint: depguard
 	"sort"
 	"strings"
 	"sync"
@@ -884,6 +884,9 @@ var maxVal = func() int {
 	return res
 }()
 
+// simplyMetricConfig tries to minimize the metricConfig
+// 1. if all metrics are overridden, we can combine then into a single tag override with empty name(means all metrics)
+// 2. Remove the override if it's disabled or no tags
 func simplyMetricConfig(cfg metricConfig) metricConfig {
 	var processed []metricsOverride
 	tagKeys := make(map[tagOverride]int)

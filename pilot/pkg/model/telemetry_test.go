@@ -726,18 +726,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stats": `{"metrics":[` +
-					`{"name":"request_messages_total"},` +
-					`{"name":"response_messages_total"},` +
-					`{"name":"requests_total"},` +
-					`{"name":"request_duration_milliseconds"},` +
-					`{"name":"request_bytes"},` +
-					`{"name":"response_bytes"},` +
-					`{"name":"tcp_connections_closed_total"},` +
-					`{"name":"tcp_connections_opened_total"},` +
-					`{"name":"tcp_received_bytes_total"},` +
-					`{"name":"tcp_sent_bytes_total"}` +
-					`]}`,
+				"istio.stats": `{}`,
 			},
 		},
 		{
@@ -816,16 +805,7 @@ func TestTelemetryFilters(t *testing.T) {
 			// TODO: the following should be simple to `{"metrics":[{"dimensions":{"add":"bar"},"tags_to_remove":["remove"]}]}`
 			map[string]string{
 				"istio.stats": `{"metrics":[` +
-					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`{"dimensions":{"add":"bar"},"tags_to_remove":["remove"]}` +
 					`]}`,
 			},
 		},
@@ -869,16 +849,17 @@ func TestTelemetryFilters(t *testing.T) {
 			nil,
 			map[string]string{
 				"istio.stats": `{"metrics":[` +
-					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"add-override"},"name":"requests_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`{"tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_messages_total"},` +
+					`{"dimensions":{"add":"bar"},"name":"response_messages_total"},` +
+					`{"dimensions":{"add":"add-override"},"name":"requests_total"},` +
+					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds"},` +
+					`{"dimensions":{"add":"bar"},"name":"request_bytes"},` +
+					`{"dimensions":{"add":"bar"},"name":"response_bytes"},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total"},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total"},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total"},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total"}` +
 					`]}`,
 			},
 		},
@@ -922,16 +903,7 @@ func TestTelemetryFilters(t *testing.T) {
 			nil,
 			map[string]string{
 				"istio.stats": `{"metrics":[` +
-					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`{"dimensions":{"add":"bar"},"tags_to_remove":["remove"]}` +
 					`]}`,
 			},
 		},

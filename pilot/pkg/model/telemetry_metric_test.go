@@ -260,10 +260,10 @@ func TestMergeMetrics(t *testing.T) {
 			expected: map[string]metricsConfig{
 				"prometheus": {
 					ClientMetrics: metricConfig{
-						Disabled: false,
+						Disabled: true,
 					},
 					ServerMetrics: metricConfig{
-						Disabled: false,
+						Disabled: true,
 					},
 				},
 			},
