@@ -27,6 +27,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestApplyUpstreamProxyProtocol(t *testing.T) {
@@ -58,6 +59,7 @@ func TestApplyUpstreamProxyProtocol(t *testing.T) {
 		proxyProtocolSettings      *networking.TrafficPolicy_ProxyProtocol
 		expectTransportSocket      bool
 		expectTransportSocketMatch bool
+		expectRawBuffer            bool
 
 		validateTLSContext func(t *testing.T, ctx *tls.UpstreamTlsContext)
 	}{
@@ -69,7 +71,7 @@ func TestApplyUpstreamProxyProtocol(t *testing.T) {
 			proxyProtocolSettings: &networking.TrafficPolicy_ProxyProtocol{
 				Version: networking.TrafficPolicy_ProxyProtocol_V2,
 			},
-			expectTransportSocket:      false,
+			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 		},
 		{
@@ -199,6 +201,9 @@ func TestApplyUpstreamProxyProtocol(t *testing.T) {
 					if err := upstreamProxyProtocol.TransportSocket.GetTypedConfig().UnmarshalTo(ctx); err != nil {
 						t.Fatal(err)
 					}
+				}
+				if test.expectRawBuffer {
+					assert.Equal(t, upstreamProxyProtocol.TransportSocket.Name, util.RawBufferTransport.Name)
 				}
 			}
 
