@@ -38,6 +38,8 @@ type Config struct {
 	Cluster cluster.Cluster
 	// Upstream registry. Default is "gcr.io".
 	TargetRegistry string
+	// URL scheme for the registry. Default is "https".
+	Scheme string
 	// Docker image location of the fake registry. Default is "gcr.io/istio-testing/fake-registry:x.x".
 	// Please refer to registry_redirector_server.yaml for the exact default image.
 	Image string
