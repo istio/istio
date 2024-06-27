@@ -443,7 +443,7 @@ func deltaMcpConfigHandlerForGvk(rev string, store model.ConfigStore, gvk config
 			}
 			ns, name, cfg = nsn[0], nsn[1], nil
 		} else {
-			newCfg, matchRev, err := mcpToPilot(resourceEntity, rev, false)
+			newCfg, inRev, err := mcpToPilot(resourceEntity, rev)
 			if err != nil {
 				ctx.Reject(fmt.Errorf("invalid data: %v (%v)", err, resourceEntity.Body))
 				return
@@ -453,7 +453,7 @@ func deltaMcpConfigHandlerForGvk(rev string, store model.ConfigStore, gvk config
 			}
 			newCfg.GroupVersionKind = gvk
 			ns, name, cfg = newCfg.Namespace, newCfg.Name, newCfg
-			if !matchRev {
+			if !inRev {
 				cfg = nil
 			}
 		}

@@ -562,13 +562,16 @@ func (a *ADSC) handleRecv() {
 }
 
 func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
-	res, _, err := mcpToPilot(m, a.cfg.Revision, true)
+	res, inRev, err := mcpToPilot(m, a.cfg.Revision)
+	if !inRev { // In case upstream does not support rev in node meta.
+		return nil, err
+	}
 	return res, err
 }
 
-func mcpToPilot(m *mcp.Resource, rev string, strict bool) (*config.Config, bool, error) {
+func mcpToPilot(m *mcp.Resource, rev string) (*config.Config, bool, error) {
 	if m == nil || m.Metadata == nil {
-		return &config.Config{}, true, nil
+		return nil, false, nil
 	}
 	c := &config.Config{
 		Meta: config.Meta{
@@ -578,33 +581,24 @@ func mcpToPilot(m *mcp.Resource, rev string, strict bool) (*config.Config, bool,
 		},
 	}
 
-	matchRev := config.ObjectInRevision(c, rev)
-	if !matchRev && strict { // In case upstream does not support rev in node meta.
-		return nil, matchRev, nil
-	}
-
+	inRev := config.ObjectInRevision(c, rev)
 	if c.Meta.Annotations == nil {
 		c.Meta.Annotations = make(map[string]string)
 	}
 	nsn := strings.Split(m.Metadata.Name, "/")
 	if len(nsn) != 2 {
-		return nil, matchRev, fmt.Errorf("invalid name %s", m.Metadata.Name)
+		return nil, inRev, fmt.Errorf("invalid name %s", m.Metadata.Name)
 	}
 	c.Namespace = nsn[0]
 	c.Name = nsn[1]
-	if !matchRev {
-		return c, matchRev, nil
-	}
-
-	var err error
 	c.CreationTimestamp = m.Metadata.CreateTime.AsTime()
 
 	pb, err := m.Body.UnmarshalNew()
 	if err != nil {
-		return nil, matchRev, err
+		return nil, inRev, err
 	}
 	c.Spec = pb
-	return c, matchRev, nil
+	return c, inRev, nil
 }
 
 // nolint: staticcheck
