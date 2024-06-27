@@ -32,6 +32,7 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/ptr"
@@ -2560,6 +2561,96 @@ func TestDirect(t *testing.T) {
 				Scheme:  scheme.HTTP,
 				HBONE:   hbsvc,
 				Check:   check.Error(),
+			})
+		})
+		t.NewSubTest("sidecar").Run(func(t framework.TestContext) {
+			c := common.NewCaller()
+			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			wl := apps.Sidecar[0].WorkloadsOrFail(t)[0]
+			pf, err := wl.Cluster().NewPortForwarder(wl.PodName(), apps.Namespace.Name(), "", 0, 15008)
+			assert.NoError(t, err)
+			assert.NoError(t, pf.Start())
+
+			// this is real odd but we're going to assume for now that we've just got the one waypoint I guess?
+			hbone := echo.HBONE{
+				Address:            pf.Address(),
+				Headers:            nil,
+				Cert:               string(cert.ClientCert),
+				Key:                string(cert.Key),
+				CaCert:             string(cert.RootCert),
+				InsecureSkipVerify: true,
+			}
+			run := func(name string, options echo.CallOptions) {
+				t.NewSubTest(name).Run(func(t framework.TestContext) {
+					_, err := c.CallEcho(nil, options)
+					if err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+			internalPorts := []int{15000, 15001, 15006, 15008}
+			for _, p := range internalPorts {
+				run(fmt.Sprintf("admin port %d localhost", p), echo.CallOptions{
+					Count:   1,
+					Address: "127.0.0.1",
+					Port:    echo.Port{ServicePort: p, Protocol: protocol.HTTP},
+					HBONE:   hbone,
+					// This ought to deny!
+					Check: check.Error(),
+				})
+			}
+			for _, p := range internalPorts {
+				run(fmt.Sprintf("admin port %d pod ip", p), echo.CallOptions{
+					Count:   1,
+					Address: wl.Address(),
+					Port:    echo.Port{ServicePort: p, Protocol: protocol.HTTP},
+					HBONE:   hbone,
+					// This ought to deny!
+					Check: check.Or(check.Error(), check.Status(503)),
+				})
+			}
+			run("exposed port localhost", echo.CallOptions{
+				Count:   1,
+				Address: "127.0.0.1",
+				Port:    echo.Port{ServicePort: ports.HTTP.WorkloadPort, Protocol: protocol.HTTP},
+				HBONE:   hbone,
+				// This port is exposed so it technically doesn't really matter if it was exposed, but they requested localhost which is unaccepted.
+				Check: check.Error(),
+			})
+			run("exposed port podip", echo.CallOptions{
+				Count:   1,
+				Address: wl.Address(),
+				Port:    echo.Port{ServicePort: ports.HTTP.WorkloadPort, Protocol: protocol.HTTP},
+				HBONE:   hbone,
+				// normal request, allow
+				Check: check.OK(),
+			})
+			run("workload port", echo.CallOptions{
+				Count:   1,
+				Address: wl.Address(),
+				Port:    echo.Port{ServicePort: ports.HTTPWorkloadOnly.WorkloadPort, Protocol: protocol.HTTP},
+				HBONE:   hbone,
+				// This port is not exposed in a service but should be call-able
+				Check: check.OK(),
+			})
+			run("local port localhost", echo.CallOptions{
+				Count:   1,
+				Address: "127.0.0.1",
+				Port:    echo.Port{ServicePort: ports.HTTPLocalHost.WorkloadPort, Protocol: protocol.HTTP},
+				HBONE:   hbone,
+				// This port is NOT exposed, so it must not be callable
+				Check: check.Error(),
+			})
+			run("local port pod ip", echo.CallOptions{
+				Count:   1,
+				Address: wl.Address(),
+				Port:    echo.Port{ServicePort: ports.HTTPLocalHost.WorkloadPort, Protocol: protocol.HTTP},
+				HBONE:   hbone,
+				// This port is NOT exposed, so it must not be callable
+				Check: check.Status(503),
 			})
 		})
 	})
