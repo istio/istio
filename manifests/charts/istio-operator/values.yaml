@@ -3,6 +3,7 @@
 defaults:
   hub: gcr.io/istio-testing
   tag: latest
+  image: "operator"
 
   # ImagePullSecrets for operator ServiceAccount, list of secrets in the same namespace
   # used to pull operator image. Must be set for any cluster configured with private docker registry.
@@ -52,3 +53,18 @@ defaults:
   # Additional labels and annotations to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
   podAnnotations: {}
+
+  global:
+    # Default hub for Istio images.
+    # Releases are published to docker hub under 'istio' project.
+    # Dev builds from prow are on gcr.io
+    hub: ""
+    # Default tag for Istio images.
+    tag: ""
+    # Variant of the image to use.
+    # Currently supported are: [debug, distroless]
+    variant: ""
+
+    # Specify image pull policy if default behavior isn't desired.
+    # Default behavior: latest images will be Always else IfNotPresent.
+    imagePullPolicy: ""
