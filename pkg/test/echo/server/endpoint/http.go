@@ -498,5 +498,9 @@ type contextKey struct {
 var ConnContextKey = &contextKey{"http-conn"}
 
 func GetConn(r *http.Request) net.Conn {
-	return r.Context().Value(ConnContextKey).(net.Conn)
+	v, ok := r.Context().Value(ConnContextKey).(net.Conn)
+	if ok {
+		return v
+	}
+	return nil
 }
