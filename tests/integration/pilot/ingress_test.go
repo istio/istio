@@ -286,6 +286,18 @@ spec:
 				},
 			}
 
+			// wait until ingress ip is set
+			retry.UntilSuccess(func() error {
+				for _, ingr := range istio.IngressesOrFail(t, t) {
+					if len(ingr.DiscoveryAddresses()) == 0 || !ingr.DiscoveryAddresses()[0].Addr().IsValid() {
+						t.Logf("ingress gateway not ready yet")
+						return fmt.Errorf("ingress gateway not ready yet")
+					}
+					t.Logf("Ingress : %v %v", ingr, ingr.DiscoveryAddresses()[0])
+				}
+				return nil
+			}, retry.Timeout(20*time.Minute), retry.Delay(5*time.Second))
+
 			for _, ingr := range istio.IngressesOrFail(t, t) {
 				ingr := ingr
 				t.NewSubTestf("from %s", ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
