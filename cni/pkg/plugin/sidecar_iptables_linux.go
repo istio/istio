@@ -53,9 +53,6 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	cfg.CaptureAllDNS = rdrct.dnsRedirect
 	cfg.DropInvalid = rdrct.invalidDrop
 	cfg.DualStack = rdrct.dualStack
-	if err := cfg.FillConfigFromEnvironment(); err != nil {
-		return err
-	}
 
 	netNs, err := getNs(netns)
 	if err != nil {
@@ -65,6 +62,10 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	defer netNs.Close()
 
 	return netNs.Do(func(_ ns.NetNS) error {
+		// Important: run within the pod network namespace since some attributes are namespace specific
+		if err := cfg.FillConfigFromEnvironment(); err != nil {
+			return err
+		}
 		log.Infof("============= Start iptables configuration for %v =============", podName)
 		defer log.Infof("============= End iptables configuration for %v =============", podName)
 		return cmd.ProgramIptables(cfg)
