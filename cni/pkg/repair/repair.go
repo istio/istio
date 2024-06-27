@@ -26,10 +26,10 @@ var repairLog = scopes.CNIAgent
 
 func StartRepair(ctx context.Context, cfg config.RepairConfig) {
 	if !cfg.Enabled {
-		repairLog.Info("CNI repair controller is disable")
+		repairLog.Info("CNI repair controller is disabled")
 		return
 	}
-	repairLog.Info("starting CNI repair controller")
+	repairLog.Info("starting CNI sidecar repair controller")
 
 	client, err := clientSetup()
 	if err != nil {
