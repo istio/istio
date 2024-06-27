@@ -18,8 +18,11 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework/components/registryredirector"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -34,8 +37,20 @@ const (
 )
 
 func testRegistrySetup(ctx resource.Context) (err error) {
+	cm, err := ctx.Clusters().Default().Kube().CoreV1().ConfigMaps("default").Get(context.TODO(), "kind-registry-addr", metav1.GetOptions{})
+	if err != nil {
+		return
+	}
+	ip, found := cm.Data["ip"]
+	if !found {
+		err = fmt.Errorf("kind-registry IP not found in the config map kind-registry-addr/default")
+		return
+	}
 	registry, err = registryredirector.New(ctx, registryredirector.Config{
-		Cluster: ctx.AllClusters().Default(),
+		Cluster:        ctx.AllClusters().Default(),
+		TargetRegistry: fmt.Sprintf("%s:5000", ip),
+		Scheme:         "http",
+		Image:          "quay.io/jewertow/fake-registry:latest",
 	})
 	if err != nil {
 		return
