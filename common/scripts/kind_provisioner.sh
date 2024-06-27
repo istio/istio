@@ -174,13 +174,9 @@ function setup_kind_cluster() {
     CONFIG=${DEFAULT_CLUSTER_YAML}
   fi
 
-  # Configure the cluster IP Family if explicitly set
-  if [ "${IP_FAMILY}" != "ipv4" ]; then
-    grep "ipFamily: ${IP_FAMILY}" "${CONFIG}" || \
-    cat <<EOF >> "${CONFIG}"
-networking:
-  ipFamily: ${IP_FAMILY}
-EOF
+  # Configure the ipFamily of the cluster
+  if [ -n "${IP_FAMILY}" ]; then
+      yq eval ".networking.ipFamily = \"${IP_FAMILY}\"" -i "${CONFIG}"
   fi
 
   KIND_WAIT_FLAG="--wait=180s"
