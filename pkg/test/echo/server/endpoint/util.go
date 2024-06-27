@@ -103,5 +103,8 @@ func forceClose(conn net.Conn) error {
 	defer func() { _ = conn.Close() }()
 
 	// Force the connection closed (should result in sending RST)
-	return conn.(*net.TCPConn).SetLinger(0)
+	if tcp, ok := conn.(*net.TCPConn); ok {
+		return tcp.SetLinger(0)
+	}
+	return nil
 }

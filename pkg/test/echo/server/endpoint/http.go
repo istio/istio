@@ -30,6 +30,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/pires/go-proxyproto"
 	"golang.org/x/net/http2"
 
 	"istio.io/istio/pkg/h2c"
@@ -77,6 +78,9 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		Handler: h2c.NewHandler(&httpHandler{
 			Config: s.Config,
 		}, h2s),
+		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+			return context.WithValue(ctx, ConnContextKey, c)
+		},
 	}
 
 	var listener net.Listener
@@ -129,6 +133,10 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	} else {
 		s.server.Addr = fmt.Sprintf(":%d", port)
 		epLog.Infof("Listening HTTP/1.1 on %v\n", port)
+	}
+
+	if s.Port.ProxyProtocol {
+		listener = &proxyproto.Listener{Listener: listener}
 	}
 
 	// Start serving HTTP traffic.
@@ -212,6 +220,7 @@ type codeAndSlices struct {
 
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	id := uuid.New()
+	// r
 	remoteAddr, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		epLog.Warnf("failed to get host from remote address: %s", err)
@@ -338,6 +347,11 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	}
 	echo.AlpnField.WriteNonEmpty(body, alpn)
 
+	if conn := GetConn(r); conn != nil {
+		if p, ok := conn.(*proxyproto.Conn); ok && p.ProxyHeader() != nil {
+			echo.ProxyProtocolField.Write(body, fmt.Sprint(p.ProxyHeader().Version))
+		}
+	}
 	var keys []string
 	for k := range r.Header {
 		keys = append(keys, k)
@@ -475,4 +489,14 @@ func validateCodeAndSlices(codecount string) (codeAndSlices, error) {
 	}
 
 	return codeAndSlices{n, count}, nil
+}
+
+type contextKey struct {
+	key string
+}
+
+var ConnContextKey = &contextKey{"http-conn"}
+
+func GetConn(r *http.Request) net.Conn {
+	return r.Context().Value(ConnContextKey).(net.Conn)
 }
