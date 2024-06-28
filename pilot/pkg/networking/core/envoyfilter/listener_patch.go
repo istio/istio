@@ -61,8 +61,6 @@ func patchListeners(
 	listeners []*listener.Listener,
 	skipAdds bool,
 ) []*listener.Listener {
-	listenersRemoved := false
-
 	// do all the changes for a single envoy filter crd object. [including adds]
 	// then move on to the next one
 
@@ -72,7 +70,7 @@ func patchListeners(
 			// removed by another op
 			continue
 		}
-		patchListener(patchContext, efw.Patches, lis, &listenersRemoved)
+		patchListener(patchContext, efw.Patches, lis)
 	}
 	// adds at listener level if enabled
 	if !skipAdds {
@@ -94,18 +92,14 @@ func patchListeners(
 			}
 		}
 	}
-	if listenersRemoved {
-		return slices.FilterInPlace(listeners, func(l *listener.Listener) bool {
-			return l.Name != ""
-		})
-	}
-	return listeners
+
+	return slices.FilterInPlace(listeners, func(l *listener.Listener) bool {
+		return l.Name != ""
+	})
 }
 
 func patchListener(patchContext networking.EnvoyFilter_PatchContext,
-	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	lis *listener.Listener, listenersRemoved *bool,
-) {
+	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper, lis *listener.Listener) {
 	for _, lp := range patches[networking.EnvoyFilter_LISTENER] {
 		if !commonConditionMatch(patchContext, lp) ||
 			!listenerMatch(lis, lp) {
@@ -114,9 +108,8 @@ func patchListener(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), Listener, true)
 		if lp.Operation == networking.EnvoyFilter_Patch_REMOVE {
+			// empty name means this listener will be removed, we can return directly.
 			lis.Name = ""
-			*listenersRemoved = true
-			// terminate the function here as we have nothing more do to for this listener
 			return
 		} else if lp.Operation == networking.EnvoyFilter_Patch_MERGE {
 			merge.Merge(lis, lp.Value)
@@ -204,20 +197,20 @@ func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	lis *listener.Listener,
 ) {
-	filterChainsRemoved := false
 	for i, fc := range lis.FilterChains {
 		if fc.Filters == nil {
 			continue
 		}
-		patchFilterChain(patchContext, patches, lis, lis.FilterChains[i], &filterChainsRemoved)
+		patchFilterChain(patchContext, patches, lis, lis.FilterChains[i])
 	}
+
 	if fc := lis.GetDefaultFilterChain(); fc.GetFilters() != nil {
-		removed := false
-		patchFilterChain(patchContext, patches, lis, fc, &removed)
-		if removed {
+		patchFilterChain(patchContext, patches, lis, fc)
+		if fc.Filters == nil {
 			lis.DefaultFilterChain = nil
 		}
 	}
+
 	for _, lp := range patches[networking.EnvoyFilter_FILTER_CHAIN] {
 		if lp.Operation == networking.EnvoyFilter_Patch_ADD {
 			if !commonConditionMatch(patchContext, lp) ||
@@ -229,17 +222,16 @@ func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 			lis.FilterChains = append(lis.FilterChains, proto.Clone(lp.Value).(*listener.FilterChain))
 		}
 	}
-	if filterChainsRemoved {
-		lis.FilterChains = slices.FilterInPlace(lis.FilterChains, func(fc *listener.FilterChain) bool {
-			return fc.Filters != nil
-		})
-	}
+
+	lis.FilterChains = slices.FilterInPlace(lis.FilterChains, func(fc *listener.FilterChain) bool {
+		return fc.Filters != nil
+	})
 }
 
 func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	lis *listener.Listener,
-	fc *listener.FilterChain, filterChainRemoved *bool,
+	fc *listener.FilterChain,
 ) {
 	for _, lp := range patches[networking.EnvoyFilter_FILTER_CHAIN] {
 		if !commonConditionMatch(patchContext, lp) ||
@@ -250,9 +242,8 @@ func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), FilterChain, true)
 		if lp.Operation == networking.EnvoyFilter_Patch_REMOVE {
+			// nil means this filter chain will be removed, we can return directly.
 			fc.Filters = nil
-			*filterChainRemoved = true
-			// nothing more to do in other patches as we removed this filter chain
 			return
 		} else if lp.Operation == networking.EnvoyFilter_Patch_MERGE {
 			merged, err := mergeTransportSocketListener(fc, lp)
