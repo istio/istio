@@ -92,9 +92,12 @@ func (h *Handler) getFirstLayerURL(imageName string, tag string) (string, error)
 		return "", fmt.Errorf("could not parse url in image reference: %v", err)
 	}
 
-	t := remote.DefaultTransport.(*http.Transport).Clone()
+	var t *http.Transport
 	if *scheme == "https" {
+		t = remote.DefaultTransport.(*http.Transport).Clone()
 		t.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // nolint: gosec // test only code
+	} else {
+		t = &http.Transport{}
 	}
 	desc, err := remote.Get(ref, remote.WithTransport(t))
 	if err != nil {
