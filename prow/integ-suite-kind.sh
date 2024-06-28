@@ -171,6 +171,7 @@ fi
 if [[ -z "${SKIP_BUILD:-}" ]]; then
   trace "setup kind registry" setup_kind_registry
   trace "build images" build_images "${PARAMS[*]}"
+
   WASM_ATTRGEN_TAG="359dcd3a19f109c50e97517fe6b1e2676e870c4d"
   docker pull gcr.io/istio-testing/wasm/attributegen:$WASM_ATTRGEN_TAG
   docker tag gcr.io/istio-testing/wasm/attributegen:$WASM_ATTRGEN_TAG localhost:5000/istio-testing/wasm/attributegen:$WASM_ATTRGEN_TAG
@@ -180,7 +181,14 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   else
     kind_registry_ip=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{if eq $k "kind"}}{{.IPAddress}}{{end}}{{end}}' kind-registry)
   fi
-  kubectl create cm kind-registry-addr --from-literal=ip="$kind_registry_ip"
+  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
+    kubectl create cm kind-registry-addr --from-literal=ip="$kind_registry_ip"
+  else
+    for cluster_name in "${CLUSTER_NAMES[@]}"
+    do
+       kubectl --context=kind-"$cluster_name" create cm kind-registry-addr --from-literal=ip="$kind_registry_ip"
+    done
+  fi
 fi
 
 # Run the test target if provided.
