@@ -62,7 +62,7 @@ func forEachInpodMarkIPRule(cfg *Config, f func(*netlink.Rule) error) error {
 	}
 
 	for _, rule := range rules {
-		log.Debugf("Iterating netlink rule : %+v", rule)
+		log.Debugf("processing netlink rule: %+v", rule)
 		if err := f(rule); err != nil {
 			return fmt.Errorf("failed to configure netlink rule: %w", err)
 		}
@@ -130,7 +130,7 @@ func forEachLoopbackRoute(cfg *Config, operation string, f func(*netlink.Route) 
 		}
 
 		for _, route := range netlinkRoutes {
-			log.Debugf("Iterating netlink route: %+v", route)
+			log.Debugf("processing netlink route: %+v", route)
 			if err := f(route); err != nil {
 				return fmt.Errorf("failed to %v route (%+v): %v", operation, route, err)
 			}

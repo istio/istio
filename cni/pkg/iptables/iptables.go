@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/scopes"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -175,7 +176,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSNAT, hostProbeV6SNAT *netip.Addr) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbeSNAT, hostProbeV6SNAT *netip.Addr) error {
 	// Append our rules here
 	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT)
 
@@ -188,7 +189,7 @@ func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSNAT, hostProbeV6SNAT
 	}
 
 	log.Debug("Adding iptables rules")
-	if err := cfg.executeCommands(builder); err != nil {
+	if err := cfg.executeCommands(log, builder); err != nil {
 		log.Errorf("failed to restore iptables rules: %v", err)
 		return err
 	}
@@ -380,15 +381,15 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 	return iptablesBuilder
 }
 
-func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.IptablesRuleBuilder) error {
+func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBuilder *builder.IptablesRuleBuilder) error {
 	var execErrs []error
 
 	if cfg.cfg.RestoreFormat {
 		// Execute iptables-restore
-		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, &cfg.iptV, true))
+		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder, &cfg.iptV, true))
 		// Execute ip6tables-restore
 		if cfg.cfg.EnableIPv6 {
-			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(iptablesBuilder, &cfg.ipt6V, false))
+			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder, &cfg.ipt6V, false))
 		}
 	} else {
 		// Execute iptables commands
@@ -405,13 +406,19 @@ func (cfg *IptablesConfigurator) executeCommands(iptablesBuilder *builder.Iptabl
 
 func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, args [][]string) error {
 	var iptErrs []error
+	// TODO: pass log all the way through
 	for _, argSet := range args {
 		iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IPTables, iptVer, nil, argSet...))
 	}
 	return errors.Join(iptErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptablesBuilder *builder.IptablesRuleBuilder, iptVer *dep.IptablesVersion, isIpv4 bool) error {
+func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(
+	log *istiolog.Scope,
+	iptablesBuilder *builder.IptablesRuleBuilder,
+	iptVer *dep.IptablesVersion,
+	isIpv4 bool,
+) error {
 	cmd := iptablesconstants.IPTablesRestore
 	var data string
 
@@ -455,7 +462,7 @@ func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks(hostSNATIP, host
 
 	log.Info("Adding host netnamespace iptables rules")
 
-	if err := cfg.executeCommands(builder); err != nil {
+	if err := cfg.executeCommands(log.WithLabels("component", "host"), builder); err != nil {
 		log.Errorf("failed to add host netnamespace iptables rules: %v", err)
 		return err
 	}
@@ -487,10 +494,8 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	}
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
-			if err != nil {
-				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
-			}
+			// Ignore errors, as it is expected to fail in cases where the node is already cleaned up.
+			cfg.ext.RunQuietlyAndIgnore(iptablesconstants.IPTables, &iptVer, nil, cmd...)
 		}
 	}
 }

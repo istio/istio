@@ -179,7 +179,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 	defer conn.Close()
 
 	context.AfterFunc(ctx, func() {
-		log.Debug("context cancelled - closing conn")
+		log.Debug("context cancelled, closing ztunnel server")
 		conn.Close()
 	})
 
@@ -192,7 +192,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 	if err != nil {
 		return err
 	}
-	log.Infof("received hello from ztunnel. %v", m.Version)
+	log.WithLabels("version", m.Version).Infof("received hello from ztunnel")
 	log.Debug("sending snapshot to ztunnel")
 	if err := z.sendSnapshot(ctx, conn); err != nil {
 		return err
@@ -333,9 +333,16 @@ func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn *ZtunnelConnectio
 	for uid, wl := range snap {
 		var resp *zdsapi.WorkloadResponse
 		var err error
+		log := log.WithLabels("uid", uid)
+		if wl.Workload != nil {
+			log = log.WithLabels(
+				"name", wl.Workload.Name,
+				"namespace", wl.Workload.Namespace,
+				"serviceAccount", wl.Workload.ServiceAccount)
+		}
 		if wl.Netns != nil {
 			fd := int(wl.Netns.Fd())
-			log.Infof("Sending local pod %s ztunnel", uid)
+			log.Infof("sending pod to ztunnel as part of snapshot")
 			resp, err = conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 				Payload: &zdsapi.WorkloadRequest_Add{
 					Add: &zdsapi.AddWorkload{
@@ -345,7 +352,7 @@ func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn *ZtunnelConnectio
 				},
 			}, &fd)
 		} else {
-			log.Infof("netns not available for local pod %s. sending keep to ztunnel", uid)
+			log.Infof("netns is not available for pod, sending 'keep' to ztunnel")
 			resp, err = conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 				Payload: &zdsapi.WorkloadRequest_Keep{
 					Keep: &zdsapi.KeepWorkload{
