@@ -968,7 +968,6 @@ func TestPatchHTTPRoute(t *testing.T) {
 		routeConfiguration *route.RouteConfiguration
 		virtualHost        *route.VirtualHost
 		routeIndex         int
-		routesRemoved      *bool
 		portMap            model.GatewayPortMap
 		clonedVhostRoutes  bool
 		sharedRoutesVHost  *route.VirtualHost
@@ -1106,7 +1105,7 @@ func TestPatchHTTPRoute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			savedSharedVHost := proto.Clone(tt.args.sharedRoutesVHost).(*route.VirtualHost)
 			patchHTTPRoute(tt.args.patchContext, tt.args.patches, tt.args.routeConfiguration,
-				tt.args.virtualHost, tt.args.routeIndex, tt.args.routesRemoved, tt.args.portMap, &tt.args.clonedVhostRoutes)
+				tt.args.virtualHost, tt.args.routeIndex, tt.args.portMap, &tt.args.clonedVhostRoutes)
 			if diff := cmp.Diff(tt.want, tt.args.virtualHost, protocmp.Transform()); diff != "" {
 				t.Errorf("PatchHTTPRoute(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}
