@@ -209,15 +209,15 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 	var p1conn1, p1conn2 *fakeConn
 	p := fakeProxy("1.2.3.4", wgA, "nw1", "sa-a")
-	p.Locality = n.Locality
+	p.XdsNode = n
 
 	var p2conn1 *fakeConn
 	p2 := fakeProxy("1.2.3.4", wgA, "nw2", "sa-a")
-	p2.Locality = n.Locality
+	p2.XdsNode = n
 
 	var p3conn1 *fakeConn
 	p3 := fakeProxy("1.2.3.5", wgA, "nw1", "sa-a")
-	p3.Locality = n.Locality
+	p3.XdsNode = n
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
@@ -432,7 +432,6 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 	proxy := fakeProxy("10.0.0.1", group, "nw1", "sa")
 	proxy.Labels[model.LocalityLabel] = "rgn2/zone2/subzone2"
 	proxy.XdsNode = fakeNode("rgn2", "zone2", "subzone2")
-	proxy.Locality = proxy.XdsNode.Locality
 
 	wantLabels := map[string]string{
 		"app":   "a",   // from WorkloadEntry template
