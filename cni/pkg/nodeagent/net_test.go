@@ -200,7 +200,7 @@ func TestServerRemovePod(t *testing.T) {
 	assertNSClosed(t, closed)
 }
 
-func TestServerRemovePodAlwaysRemovesIPSetEntryEvenOnFail (t *testing.T) {
+func TestServerRemovePodAlwaysRemovesIPSetEntryEvenOnFail(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	setupLogging()

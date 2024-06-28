@@ -33,7 +33,7 @@ type fakeZtunnel struct {
 	deletedPods atomic.Int32
 	addedPods   atomic.Int32
 	addError    error
-	delError	error
+	delError    error
 }
 
 func (f *fakeZtunnel) Run(ctx context.Context) {
