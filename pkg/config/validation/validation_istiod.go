@@ -25,10 +25,10 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 )
 
+var celEnv, _ = cel.NewEnv()
+
 func validateTelemetryFilter(filter *telemetry.AccessLogging_Filter) error {
-	expr := filter.Expression
-	env, _ := cel.NewEnv()
-	_, issue := env.Parse(expr)
+	_, issue := celEnv.Parse(filter.Expression)
 	if issue.Err() != nil {
 		return fmt.Errorf("must be a valid CEL expression, %w", issue.Err())
 	}
