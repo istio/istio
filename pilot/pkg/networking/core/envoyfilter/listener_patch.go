@@ -99,7 +99,8 @@ func patchListeners(
 }
 
 func patchListener(patchContext networking.EnvoyFilter_PatchContext,
-	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper, lis *listener.Listener) {
+	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper, lis *listener.Listener,
+) {
 	for _, lp := range patches[networking.EnvoyFilter_LISTENER] {
 		if !commonConditionMatch(patchContext, lp) ||
 			!listenerMatch(lis, lp) {
