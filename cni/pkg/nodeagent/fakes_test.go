@@ -33,6 +33,7 @@ type fakeZtunnel struct {
 	deletedPods atomic.Int32
 	addedPods   atomic.Int32
 	addError    error
+	delError    error
 }
 
 func (f *fakeZtunnel) Run(ctx context.Context) {
@@ -40,7 +41,7 @@ func (f *fakeZtunnel) Run(ctx context.Context) {
 
 func (f *fakeZtunnel) PodDeleted(ctx context.Context, uid string) error {
 	f.deletedPods.Add(1)
-	return nil
+	return f.delError
 }
 
 func (f *fakeZtunnel) PodAdded(ctx context.Context, pod *corev1.Pod, netns Netns) error {
