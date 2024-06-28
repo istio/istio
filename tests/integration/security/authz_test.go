@@ -967,8 +967,13 @@ func TestAuthz_PathPrecedence(t *testing.T) {
 }
 
 func TestAuthz_PathTemplating(t *testing.T) {
+	minIstioVersion := "1.22.0"
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(minIstioVersion))
+			if skipMV {
+				t.SkipNow()
+			}
 			from := apps.Ns1.A
 			fromMatch := match.ServiceName(from.NamespacedName())
 			toMatch := match.Not(fromMatch)
