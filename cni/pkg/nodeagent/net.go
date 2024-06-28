@@ -243,7 +243,7 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 	// Whether pod is already deleted or not, we need to let go of our netns ref.
 	openNetns := s.currentPodSnapshot.Take(string(pod.UID))
 	if openNetns == nil {
-		log.Warn("failed to find pod netns during removal")
+		log.Debug("failed to find pod netns during removal")
 	}
 
 	// If the pod is already deleted or terminated, we do not need to clean up the pod network -- only the host side.
