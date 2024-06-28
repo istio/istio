@@ -233,24 +233,30 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 	// Aggregate errors together, so that if part of the cleanup fails we still proceed with other steps.
 	var errs []error
 
-	// If the pod is already deleted or terminated, we do not need to clean up the pod network -- only the host side.
-	if !isDelete {
-		openNetns := s.currentPodSnapshot.Take(string(pod.UID))
-		if openNetns == nil {
-			log.Warn("failed to find pod netns during removal")
-			errs = append(errs, fmt.Errorf("failed to find pod netns during removal"))
-		} else {
-			// pod is removed from the mesh, but is still running. remove iptables rules
-			log.Debugf("calling DeleteInpodRules.")
-			if err := s.netnsRunner(openNetns, func() error { return s.iptablesConfigurator.DeleteInpodRules() }); err != nil {
-				return fmt.Errorf("failed to delete inpod rules: %w", err)
-			}
-		}
-	}
-
+	// Remove the hostside ipset entry first, and unconditionally - if later failures happen, we never
+	// want to leave stale entries
 	if err := removePodFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
 		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)
 		errs = append(errs, err)
+	}
+
+	// Whether pod is already deleted or not, we need to let go of our netns ref.
+	openNetns := s.currentPodSnapshot.Take(string(pod.UID))
+	if openNetns == nil {
+		log.Debug("failed to find pod netns during removal")
+	}
+
+	// If the pod is already deleted or terminated, we do not need to clean up the pod network -- only the host side.
+	if !isDelete {
+		if openNetns != nil {
+			// pod is removed from the mesh, but is still running. remove iptables rules
+			log.Debugf("calling DeleteInpodRules")
+			if err := s.netnsRunner(openNetns, func() error { return s.iptablesConfigurator.DeleteInpodRules() }); err != nil {
+				return fmt.Errorf("failed to delete inpod rules: %w", err)
+			}
+		} else {
+			log.Warn("pod netns already gone, not deleting inpod rules")
+		}
 	}
 
 	log.Debug("removing pod from ztunnel")
