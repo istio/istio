@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 51726
+releaseNotes:
+  - |
+    **Fixed** an bug when router associated service created or updated, the router's merged gateway does not recomputed immediately.
