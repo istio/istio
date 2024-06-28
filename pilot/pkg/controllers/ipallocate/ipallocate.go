@@ -20,7 +20,6 @@ import (
 	"net/netip"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	// "gomodules.xyz/jsonpatch/v2"
 	"istio.io/api/meta/v1alpha1"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	kubelib "istio.io/istio/pkg/kube"
@@ -160,23 +159,14 @@ func (c *IPAllocate) reconcile(se types.NamespacedName) error {
 	if err != nil {
 		panic("failed to marshal modified service entry")
 	}
-	// TODO: patch don't update so we don't accidentally remove status written by another controller during our reconcile
-	// _, e := c.serviceEntryClient.UpdateStatus(serviceentry)
 	patch, err := jsonpatch.CreateMergePatch(orig, modified)
-	// patch, err := jsonpatch.CreatePatch(orig, modified)
 	if err != nil {
 		panic("failed to create merge patch")
 	}
-	// patchjson, err := patch[0].MarshalJSON()
-	// if err != nil {
-	// 	panic("failed to marshal patch")
-	// }
-	log.Infof("patch: %v", string(patch))
-	result, e := c.serviceEntryClient.Patch(se.Name, se.Namespace, types.MergePatchType, patch)
+	_, e := c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.MergePatchType, patch)
 	if e != nil {
 		log.Errorf("darn... %s", e.Error())
 	}
-	log.Infof("patching result: %v", result.Status)
 
 	return nil
 }
