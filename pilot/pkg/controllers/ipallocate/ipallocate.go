@@ -21,7 +21,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"istio.io/api/meta/v1alpha1"
-	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	autoallocate "istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -35,7 +36,7 @@ import (
 var log = istiolog.RegisterScope("ip-autoallocate", "IP autoallocate controller")
 
 type IPAllocate struct {
-	serviceEntryClient kclient.Client[*networkingclient.ServiceEntry]
+	serviceEntryClient kclient.Client[*networkingv1alpha3.ServiceEntry]
 	stopChan           <-chan struct{}
 	queue              controllers.Queue
 
@@ -46,15 +47,14 @@ type IPAllocate struct {
 }
 
 const (
-	controllerName           = "IP Autoallocate"
-	IpAutoallocateStatusType = "ip-autoallocate"
+	controllerName = "IP Autoallocate"
 	// these are the ranges of the v1 logic, do we need to choose new ranges?
 	IpV4Prefix = "240.240.0.0/16"
 	IpV6Prefix = "2001:2::/48"
 )
 
 func NewIPAllocate(stop <-chan struct{}, c kubelib.Client) *IPAllocate {
-	client := kclient.New[*networkingclient.ServiceEntry](c)
+	client := kclient.New[*networkingv1alpha3.ServiceEntry](c)
 	allocator := &IPAllocate{
 		serviceEntryClient: client,
 		stopChan:           stop,
@@ -96,7 +96,7 @@ func (c *IPAllocate) warmCache() {
 		}
 
 		if serviceentry.Status.String() != "" {
-			addresses := kludgeFromStatus(serviceentry.Status.GetConditions())
+			addresses := autoallocate.GetV2AddressesFromServiceEntry(serviceentry)
 			log.Infof("status: %v", addresses)
 			if len(addresses) > 0 {
 				for _, a := range addresses {
@@ -125,44 +125,21 @@ func (c *IPAllocate) reconcile(se types.NamespacedName) error {
 		log.Infof("deleted %s", se.String())
 		return nil
 	}
-	// TODO: check if we are supposed to assign
 
-	if len(serviceentry.Spec.Addresses) > 0 {
-		// user assiged
-		// TODO: we should record this just to be safe, at least if it is without our range
-		log.Infof("%s supplied its own addresses", se.String())
-		return nil
+	// TODO: also what do we do if we already allocated IPs in a previous reconcile but are not longer meant to or IP would not be usabled due to an update? write a condition "IP unsabled due to wildcard host or something similar"
+	if !autoallocate.ShouldV2AutoAllocateIP(serviceentry) {
+		return nil // nothing to do
 	}
 
-	orig, err := json.Marshal(serviceentry)
+	patch, err := c.statusPatchForAddresses(serviceentry)
 	if err != nil {
-		panic("failed to marshal original service entry")
+		panic("failed generating status patch for addresses")
 	}
 
-	if serviceentry.Status.String() == "" {
-		// initialize status field
-		serviceentry.Status = v1alpha1.IstioStatus{}
-	} else {
-		log.Infof("found a status for %s", se.String())
-		foundAddresses := kludgeFromStatus(serviceentry.Status.GetConditions())
-		if len(foundAddresses) > 0 {
-			// this is a noop, if we already assigned addresses we do not mess with them
-			log.Infof("found addresses %v", foundAddresses)
-			return nil // nothing to do
-		}
+	if patch == nil {
+		return nil // nothing to patch
 	}
-	// begin allocating new addresses
-	kludge := conditionKludge(c.nextAddresses())
 
-	serviceentry.Status.Conditions = append(serviceentry.Status.Conditions, &kludge)
-	modified, err := json.Marshal(serviceentry)
-	if err != nil {
-		panic("failed to marshal modified service entry")
-	}
-	patch, err := jsonpatch.CreateMergePatch(orig, modified)
-	if err != nil {
-		panic("failed to create merge patch")
-	}
 	_, e := c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.MergePatchType, patch)
 	if e != nil {
 		log.Errorf("darn... %s", e.Error())
@@ -186,12 +163,45 @@ func (c *IPAllocate) nextAddresses() []netip.Addr {
 	}
 }
 
+func (c *IPAllocate) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry) ([]byte, error) {
+	if se == nil {
+		return nil, nil
+	}
+	orig, err := json.Marshal(se)
+	if err != nil {
+		panic("failed to marshal original service entry")
+	}
+
+	if se.Status.String() == "" {
+		// initialize status field
+		se.Status = v1alpha1.IstioStatus{}
+	} else {
+		foundAddresses := autoallocate.GetV2AddressesFromServiceEntry(se)
+		if len(foundAddresses) > 0 {
+			// this is a noop, if we already assigned addresses we do not mess with them
+			log.Infof("found addresses %v", foundAddresses)
+			// TODO: potentially check if foundAddresses == addresses and error if not
+			return nil, nil // nothing to patch
+		}
+	}
+	addresses := c.nextAddresses()
+	// begin allocating new addresses
+	kludge := autoallocate.ConditionKludge(addresses)
+
+	se.Status.Conditions = append(se.Status.Conditions, &kludge)
+	modified, err := json.Marshal(se)
+	if err != nil {
+		panic("failed to marshal modified service entry")
+	}
+	return jsonpatch.CreateMergePatch(orig, modified)
+}
+
 // ==========================================================================================================================================================
 // ==========================================================================================================================================================
 // ==========================================================================================================================================================
 // ==========================================================================================================================================================
 // ==========================================================================================================================================================
-// probably doesn't belong here
+// probably doesn't belong here, although nothing else would ever really use it...
 // ==========================================================================================================================================================
 // ==========================================================================================================================================================
 // ==========================================================================================================================================================
@@ -253,44 +263,4 @@ func (i ipAllocator) MarkUsed(n netip.Addr) bool {
 	}
 	i.used.Insert(n)
 	return false
-}
-
-type ServiceEntryStatusKludge struct {
-	Addresses []string // json:"addresses"
-}
-
-func kludgeFromStatus(conditions []*v1alpha1.IstioCondition) []netip.Addr {
-	result := []netip.Addr{}
-	for _, c := range conditions {
-		if c == nil {
-			continue
-		}
-		if c.Type != IpAutoallocateStatusType {
-			continue
-		}
-		jsonAddresses := c.Message
-		kludge := ServiceEntryStatusKludge{}
-		json.Unmarshal([]byte(jsonAddresses), &kludge)
-		for _, address := range kludge.Addresses {
-			result = append(result, netip.MustParseAddr(address))
-		}
-	}
-	return result
-}
-
-func conditionKludge(input []netip.Addr) v1alpha1.IstioCondition {
-	addresses := []string{}
-	for _, addr := range input {
-		addresses = append(addresses, addr.String())
-	}
-	kludge := ServiceEntryStatusKludge{
-		Addresses: addresses,
-	}
-	result, _ := json.Marshal(kludge)
-	return v1alpha1.IstioCondition{
-		Type:    IpAutoallocateStatusType,
-		Status:  "true",
-		Reason:  "AutoAllocatedAddress",
-		Message: string(result),
-	}
 }

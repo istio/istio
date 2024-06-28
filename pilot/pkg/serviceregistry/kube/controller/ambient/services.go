@@ -21,6 +21,7 @@ import (
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -109,6 +110,11 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
 		return nil
+	}
+	if serviceentry.ShouldV2AutoAllocateIP(svc) {
+		for _, ipaddr := range serviceentry.GetV2AddressesFromServiceEntry(svc) {
+			addresses = append(addresses, a.toNetworkAddressFromIP(ipaddr))
+		}
 	}
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
