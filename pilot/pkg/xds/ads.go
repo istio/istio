@@ -402,7 +402,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// 1. If request == nil(initiation phase) or request.ConfigsUpdated == nil(global push), set proxy serviceTargets.
 	// 2. otherwise only set when svc update, this is for the case that a service may select the proxy
 	if request == nil || len(request.ConfigsUpdated) == 0 ||
-		model.HasConfigsOfKind(request.ConfigsUpdated, kind.Service) {
+		model.HasConfigsOfKind(request.ConfigsUpdated, kind.ServiceEntry) {
 		proxy.SetServiceTargets(s.Env.ServiceDiscovery)
 		// proxy.SetGatewaysForProxy depends on the serviceTargets,
 		// so when we reset serviceTargets, should reset gateway as well.

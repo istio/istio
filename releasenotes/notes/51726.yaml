@@ -5,4 +5,4 @@ issue:
   - 51726
 releaseNotes:
   - |
-    **Fixed** an bug when router associated service created or updated, the router's merged gateway does not recomputed immediately.
+    **Fixed** a bug where router's merged gateway was not immediately recomputed when a service was created or updated.
