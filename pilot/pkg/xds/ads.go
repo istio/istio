@@ -422,7 +422,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	push := proxy.LastPushContext
-	if request == nil || len(request.ConfigsUpdated) == 0 {
+	if request == nil {
 		shouldResetSidecarScope = true
 	} else {
 		push = request.Push
