@@ -214,7 +214,7 @@ func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *Ipt
 	run := func(c *exec.Cmd) error {
 		return c.Run()
 	}
-	if r.CNIMode {
+	if r.HostFilesystemPodNetwork {
 		c = exec.Command(cmdBin, args...)
 		// In CNI, we are running the pod network namespace, but the host filesystem, so we need to do some tricks
 		// Call our binary again, but with <original binary> "unshare (subcommand to trigger mounts)" --lock-file=<network namespace> <original command...>

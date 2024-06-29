@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/scopes"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -75,7 +76,12 @@ func ipbuildConfig(c *Config) *iptablesconfig.Config {
 	}
 }
 
-func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDependencies) (*IptablesConfigurator, error) {
+func NewIptablesConfigurator(
+	cfg *Config,
+	hostDeps dep.Dependencies,
+	podDeps dep.Dependencies,
+	nlDeps NetlinkDependencies,
+) (*IptablesConfigurator, *IptablesConfigurator, error) {
 	if cfg == nil {
 		cfg = &Config{
 			RestoreFormat: true,
@@ -83,7 +89,7 @@ func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDe
 	}
 
 	configurator := &IptablesConfigurator{
-		ext:    ext,
+		ext:    hostDeps,
 		nlDeps: nlDeps,
 		cfg:    cfg,
 	}
@@ -102,25 +108,28 @@ func NewIptablesConfigurator(cfg *Config, ext dep.Dependencies, nlDeps NetlinkDe
 	// `nft`, we would still inject our rules in-pod into nft tables, which is a bit wonky.
 	//
 	// But that's stunningly unlikely (and would still work either way)
-	iptVer, err := ext.DetectIptablesVersion(false)
+	iptVer, err := hostDeps.DetectIptablesVersion(false)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	log.Debugf("found iptables binary: %+v", iptVer)
 
 	configurator.iptV = iptVer
 
-	ipt6Ver, err := ext.DetectIptablesVersion(true)
+	ipt6Ver, err := hostDeps.DetectIptablesVersion(true)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	log.Debugf("found iptables v6 binary: %+v", iptVer)
 
 	configurator.ipt6V = ipt6Ver
 
-	return configurator, nil
+	// Setup another configurator with inpod configuration. Basically this will just change how locking is done.
+	inPodConfigurator := ptr.Of(*configurator)
+	inPodConfigurator.ext = podDeps
+	return configurator, inPodConfigurator, nil
 }
 
 func (cfg *IptablesConfigurator) DeleteInpodRules() error {

@@ -57,13 +57,13 @@ type netTestFixture struct {
 func getTestFixure(ctx context.Context) netTestFixture {
 	podNsMap := newPodNetnsCache(openNsTestOverride)
 	nlDeps := &fakeIptablesDeps{}
-	iptablesConfigurator, _ := iptables.NewIptablesConfigurator(nil, &dependencies.DependenciesStub{}, nlDeps)
+	iptablesConfigurator, _, _ := iptables.NewIptablesConfigurator(nil, &dependencies.DependenciesStub{}, &dependencies.DependenciesStub{}, nlDeps)
 
 	ztunnelServer := &fakeZtunnel{}
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
-	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, NewPodNetnsProcFinder(fakeFs()), set)
+	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, iptablesConfigurator, NewPodNetnsProcFinder(fakeFs()), set)
 
 	netServer.netnsRunner = func(fdable NetnsFd, toRun func() error) error {
 		return toRun()
