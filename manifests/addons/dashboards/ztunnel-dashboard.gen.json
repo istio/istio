@@ -226,7 +226,7 @@
             "type": "datasource",
             "uid": "-- Mixed --"
          },
-         "description": "Bytes sent and recieved per instance",
+         "description": "Bytes sent and received per instance",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -281,7 +281,7 @@
             "type": "datasource",
             "uid": "-- Mixed --"
          },
-         "description": "DNS queries recieved per instance",
+         "description": "DNS queries received per instance",
          "fieldConfig": {
             "defaults": {
                "custom": {
