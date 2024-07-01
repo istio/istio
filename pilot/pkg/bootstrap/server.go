@@ -1138,7 +1138,9 @@ func (s *Server) initControllers(args *PilotArgs) error {
 		s.initNodeUntaintController(args)
 	}
 
-	s.initIpAutoallocateController(args)
+	if features.EnableV2IPAutoallocate {
+		s.initIPAutoallocateController(args)
+	}
 
 	if err := s.initConfigController(args); err != nil {
 		return fmt.Errorf("error initializing config controller: %v", err)
@@ -1161,10 +1163,10 @@ func (s *Server) initNodeUntaintController(args *PilotArgs) {
 	})
 }
 
-func (s *Server) initIpAutoallocateController(args *PilotArgs) {
-	s.addStartFunc("ipAutoallocat controller", func(stop <-chan struct{}) error {
+func (s *Server) initIPAutoallocateController(args *PilotArgs) {
+	s.addStartFunc("ipAutoallocate controller", func(stop <-chan struct{}) error {
 		go leaderelection.
-			NewLeaderElection(args.Namespace, args.PodName, leaderelection.IpAutoallocateController, args.Revision, s.kubeClient).
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.IPAutoallocateController, args.Revision, s.kubeClient).
 			AddRunFunction(func(leaderStop <-chan struct{}) {
 				ipallocate := ipallocate.NewIPAllocate(leaderStop, s.kubeClient)
 				ipallocate.Run(leaderStop)
