@@ -12,23 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipallocate
+package ipallocate_test
 
-// import (
-// 	"testing"
-// 	"time"
+import (
+	"net/netip"
+	"testing"
+	"time"
 
-// 	corev1 "k8s.io/api/core/v1"
-// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-// 	"istio.io/istio/pilot/pkg/features"
-// 	kubelib "istio.io/istio/pkg/kube"
-// 	"istio.io/istio/pkg/kube/kclient/clienttest"
-// 	istiolog "istio.io/istio/pkg/log"
-// 	"istio.io/istio/pkg/test"
-// 	"istio.io/istio/pkg/test/util/assert"
-// 	"istio.io/istio/pkg/test/util/retry"
-// )
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
+	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/controllers/ipallocate"
+	"istio.io/istio/pilot/pkg/features"
+	autoallocate "istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pkg/config/constants"
+	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // const systemNS = "istio-system"
 
@@ -37,202 +40,133 @@ package ipallocate
 // 	"some-other": "label",
 // }
 
-// type nodeTainterTestServer struct {
-// 	client kubelib.Client
-// 	pc     clienttest.TestClient[*corev1.Pod]
-// 	nc     clienttest.TestClient[*corev1.Node]
-// 	t      *testing.T
-// }
+type ipAllocateTestRig struct {
+	client kubelib.Client
+	se     clienttest.TestClient[*networkingv1alpha3.ServiceEntry]
+	stop   chan struct{}
+	t      *testing.T
+}
 
-// func setupLogging() {
-// 	opts := istiolog.DefaultOptions()
-// 	opts.SetDefaultOutputLevel(istiolog.OverrideScopeName, istiolog.DebugLevel)
-// 	istiolog.Configure(opts)
-// 	for _, scope := range istiolog.Scopes() {
-// 		scope.SetOutputLevel(istiolog.DebugLevel)
-// 	}
-// }
+func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocate, ipAllocateTestRig) {
+	t.Helper()
+	// t.Setenv("PILOT_ENABLE_V2_IP_AUTOALLOCATE", "true")
+	features.EnableV2IPAutoallocate = true
+	s := make(chan struct{})
+	t.Cleanup(func() { close(s) })
+	c := kubelib.NewFakeClient()
 
-// func newNodeUntainterTestServer(t *testing.T) *nodeTainterTestServer {
-// 	stop := make(chan struct{})
-// 	t.Cleanup(func() { close(stop) })
-// 	client := kubelib.NewFakeClient()
+	se := clienttest.NewDirectClient[*networkingv1alpha3.ServiceEntry, networkingv1alpha3.ServiceEntry, *networkingv1alpha3.ServiceEntryList](t, c)
+	ipController := ipallocate.NewIPAllocate(s, c)
+	// these would normally be the first addresses consumed, we should check that warming works by asserting that we get their nexts when we reconcile
+	v4 := netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next()
+	v6 := netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next()
+	kludge := autoallocate.ConditionKludge([]netip.Addr{v4, v6})
+	se.CreateOrUpdateStatus(
+		&networkingv1alpha3.ServiceEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pre-existing",
+				Namespace: "default",
+			},
+			Spec: v1alpha3.ServiceEntry{
+				Hosts: []string{
+					"test.testing.io",
+				},
+			},
+			Status: v1alpha1.IstioStatus{
+				Conditions: []*v1alpha1.IstioCondition{&kludge},
+			},
+		},
+	)
+	go ipController.Run(s)
+	c.RunAndWait(s)
 
-// 	nodeUntainter := NewNodeUntainter(stop, client, systemNS, systemNS)
-// 	go nodeUntainter.Run(stop)
-// 	client.RunAndWait(stop)
-// 	kubelib.WaitForCacheSync("test", stop, nodeUntainter.HasSynced)
+	return ipController, ipAllocateTestRig{
+		client: c,
+		se:     se,
+		stop:   s,
+		t:      t,
+	}
+}
 
-// 	pc := clienttest.Wrap(t, nodeUntainter.podsClient)
-// 	nc := clienttest.Wrap(t, nodeUntainter.nodesClient)
-
-// 	return &nodeTainterTestServer{
-// 		client: client,
-// 		t:      t,
-// 		pc:     pc,
-// 		nc:     nc,
-// 	}
-// }
-
-// func TestNodeUntainter(t *testing.T) {
-// 	setupLogging()
-// 	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
-// 	s := newNodeUntainterTestServer(t)
-// 	s.addTaintedNodes(t, "node1", "node2", "node3")
-// 	s.addPod(t, "node3", true, map[string]string{"k8s-app": "other-app"}, "")
-// 	s.addCniPod(t, "node2", false)
-// 	s.addCniPod(t, "node1", true)
-// 	s.assertNodeUntainted(t, "node1")
-// 	s.assertNodeTainted(t, "node2")
-// 	s.assertNodeTainted(t, "node3")
-// }
-
-// func TestNodeUntainterOnlyUntaintsWhenIstiocniInourNs(t *testing.T) {
-// 	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
-// 	s := newNodeUntainterTestServer(t)
-// 	s.addTaintedNodes(t, "node1", "node2")
-// 	s.addPod(t, "node2", true, cniPodLabels, "default")
-// 	s.addCniPod(t, "node1", true)
-
-// 	// wait for the untainter to run
-// 	s.assertNodeUntainted(t, "node1")
-// 	s.assertNodeTainted(t, "node2")
-// }
-
-// func (s *nodeTainterTestServer) assertNodeTainted(t *testing.T, node string) {
-// 	t.Helper()
-// 	assert.Equal(t, s.isNodeUntainted(node), false)
-// }
-
-// func (s *nodeTainterTestServer) assertNodeUntainted(t *testing.T, node string) {
-// 	t.Helper()
-// 	assert.EventuallyEqual(t, func() bool {
-// 		return s.isNodeUntainted(node)
-// 	}, true, retry.Timeout(time.Second*3))
-// }
-
-// func (s *nodeTainterTestServer) isNodeUntainted(node string) bool {
-// 	n := s.nc.Get(node, "")
-// 	if n == nil {
-// 		return false
-// 	}
-// 	for _, t := range n.Spec.Taints {
-// 		if t.Key == TaintName {
-// 			return false
-// 		}
-// 	}
-// 	return true
-// }
-
-// func (s *nodeTainterTestServer) addTaintedNodes(t *testing.T, nodes ...string) {
-// 	t.Helper()
-// 	for _, node := range nodes {
-// 		node := generateNode(node, nil)
-// 		// add our special taint
-// 		node.Spec.Taints = append(node.Spec.Taints, corev1.Taint{
-// 			Key:    TaintName,
-// 			Value:  "true",
-// 			Effect: corev1.TaintEffectNoSchedule,
-// 		})
-// 		s.nc.Create(node)
-// 	}
-// }
-
-// func (s *nodeTainterTestServer) addCniPod(t *testing.T, node string, markReady bool) {
-// 	s.addPod(t, node, markReady, cniPodLabels, systemNS)
-// }
-
-// func (s *nodeTainterTestServer) addPod(t *testing.T, node string, markReady bool, labels map[string]string, ns string) {
-// 	t.Helper()
-// 	ip := "1.2.3.4"
-// 	name := "istio-cni-" + node
-// 	if ns == "" {
-// 		ns = systemNS
-// 	}
-// 	pod := generatePod(ip, name, ns, "sa", node, labels, nil)
-
-// 	p := s.pc.Get(name, pod.Namespace)
-// 	if p == nil {
-// 		// Apiserver doesn't allow Create to modify the pod status; in real world it's a 2 part process
-// 		pod.Status = corev1.PodStatus{}
-// 		newPod := s.pc.Create(pod)
-// 		if markReady {
-// 			setPodReady(newPod)
-// 		}
-// 		newPod.Status.PodIP = ip
-// 		newPod.Status.Phase = corev1.PodRunning
-// 		newPod.Status.PodIPs = []corev1.PodIP{
-// 			{
-// 				IP: ip,
-// 			},
-// 		}
-// 		s.pc.UpdateStatus(newPod)
-// 	} else {
-// 		s.pc.Update(pod)
-// 	}
-// }
-
-// func generateNode(name string, labels map[string]string) *corev1.Node {
-// 	return &corev1.Node{
-// 		TypeMeta: metav1.TypeMeta{
-// 			Kind:       "Node",
-// 			APIVersion: "v1",
-// 		},
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:   name,
-// 			Labels: labels,
-// 		},
-// 	}
-// }
-
-// func generatePod(ip, name, namespace, saName, node string, labels map[string]string, annotations map[string]string) *corev1.Pod {
-// 	automount := false
-// 	return &corev1.Pod{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:        name,
-// 			Labels:      labels,
-// 			Annotations: annotations,
-// 			Namespace:   namespace,
-// 		},
-// 		Spec: corev1.PodSpec{
-// 			ServiceAccountName:           saName,
-// 			NodeName:                     node,
-// 			AutomountServiceAccountToken: &automount,
-// 			// Validation requires this
-// 			Containers: []corev1.Container{
-// 				{
-// 					Name:  "test",
-// 					Image: "ununtu",
-// 				},
-// 			},
-// 		},
-// 		// The cache controller uses this as key, required by our impl.
-// 		Status: corev1.PodStatus{
-// 			Conditions: []corev1.PodCondition{
-// 				{
-// 					Type:               corev1.PodReady,
-// 					Status:             corev1.ConditionTrue,
-// 					LastTransitionTime: metav1.Now(),
-// 				},
-// 			},
-// 			PodIP:  ip,
-// 			HostIP: ip,
-// 			PodIPs: []corev1.PodIP{
-// 				{
-// 					IP: ip,
-// 				},
-// 			},
-// 			Phase: corev1.PodRunning,
-// 		},
-// 	}
-// }
-
-// func setPodReady(pod *corev1.Pod) {
-// 	pod.Status.Conditions = []corev1.PodCondition{
-// 		{
-// 			Type:               corev1.PodReady,
-// 			Status:             corev1.ConditionTrue,
-// 			LastTransitionTime: metav1.Now(),
-// 		},
-// 	}
-// }
+func TestIPAllocate(t *testing.T) {
+	_, rig := setupIPAllocateTest(t)
+	rig.se.Create(
+		&networkingv1alpha3.ServiceEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "with-address",
+				Namespace: "boop",
+			},
+			Spec: v1alpha3.ServiceEntry{
+				Hosts: []string{
+					"wa.boop.testing.io",
+				},
+				Addresses: []string{
+					"1.2.3.4",
+				},
+			},
+		},
+	)
+	rig.se.Create(
+		&networkingv1alpha3.ServiceEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opt-out",
+				Namespace: "boop",
+				Labels: map[string]string{
+					constants.DisableV2AutoAllocationLabel: "true",
+				},
+			},
+			Spec: v1alpha3.ServiceEntry{
+				Hosts: []string{
+					"nope.boop.testing.io",
+				},
+			},
+		},
+	)
+	rig.se.Create(
+		&networkingv1alpha3.ServiceEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "beep",
+				Namespace: "boop",
+			},
+			Spec: v1alpha3.ServiceEntry{
+				Hosts: []string{
+					"beep.boop.testing.io",
+				},
+			},
+			Status: v1alpha1.IstioStatus{
+				Conditions: []*v1alpha1.IstioCondition{
+					{
+						Type:    "test",
+						Status:  "asserting",
+						Reason:  "controllerTest",
+						Message: "this is a test condition, don't overwrite me",
+					},
+				},
+			},
+		},
+	)
+	// this effectively asserts that allocation did work for boop/beep and also that with-address and opt-out did not get addresses
+	assert.EventuallyEqual(t, func() []string {
+		addr := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("beep", "boop"))
+		var res []string
+		for _, a := range addr {
+			res = append(res, a.String())
+		}
+		return res
+	}, []string{
+		netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next().Next().String(),
+		netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().Next().String(),
+	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	assert.Equal(t,
+		len(rig.se.Get("beep", "boop").Status.Conditions),
+		2,
+		"assert that test SE still has 2 conditions")
+	assert.Equal(t,
+		len(autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("opt-out", "boop"))),
+		0,
+		"assert that we did not did not assign addresses when use opted out")
+	assert.Equal(t,
+		len(autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("with-address", "boop"))),
+		0,
+		"assert that we did not assign addresses when user supplied their own")
+}
