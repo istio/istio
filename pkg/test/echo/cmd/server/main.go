@@ -32,24 +32,25 @@ import (
 )
 
 var (
-	httpPorts        []int
-	grpcPorts        []int
-	tcpPorts         []int
-	udpPorts         []int
-	tlsPorts         []int
-	hbonePorts       []int
-	instanceIPPorts  []int
-	localhostIPPorts []int
-	serverFirstPorts []int
-	xdsGRPCServers   []int
-	metricsPort      int
-	uds              string
-	version          string
-	cluster          string
-	crt              string
-	key              string
-	istioVersion     string
-	disableALPN      bool
+	httpPorts          []int
+	grpcPorts          []int
+	tcpPorts           []int
+	udpPorts           []int
+	tlsPorts           []int
+	hbonePorts         []int
+	instanceIPPorts    []int
+	localhostIPPorts   []int
+	serverFirstPorts   []int
+	proxyProtocolPorts []int
+	xdsGRPCServers     []int
+	metricsPort        int
+	uds                string
+	version            string
+	cluster            string
+	crt                string
+	key                string
+	istioVersion       string
+	disableALPN        bool
 
 	loggingOptions = log.DefaultOptions()
 
@@ -69,6 +70,10 @@ var (
 			for _, p := range serverFirstPorts {
 				serverFirstByPort[p] = true
 			}
+			proxyProtocolByPort := map[int]bool{}
+			for _, p := range proxyProtocolPorts {
+				proxyProtocolByPort[p] = true
+			}
 			xdsGRPCByPort := map[int]bool{}
 			for _, p := range xdsGRPCServers {
 				xdsGRPCByPort[p] = true
@@ -76,32 +81,35 @@ var (
 			portIndex := 0
 			for i, p := range httpPorts {
 				ports[portIndex] = &common.Port{
-					Name:        "http-" + strconv.Itoa(i),
-					Protocol:    protocol.HTTP,
-					Port:        p,
-					TLS:         tlsByPort[p],
-					ServerFirst: serverFirstByPort[p],
+					Name:          "http-" + strconv.Itoa(i),
+					Protocol:      protocol.HTTP,
+					Port:          p,
+					TLS:           tlsByPort[p],
+					ServerFirst:   serverFirstByPort[p],
+					ProxyProtocol: proxyProtocolByPort[p],
 				}
 				portIndex++
 			}
 			for i, p := range grpcPorts {
 				ports[portIndex] = &common.Port{
-					Name:        "grpc-" + strconv.Itoa(i),
-					Protocol:    protocol.GRPC,
-					Port:        p,
-					TLS:         tlsByPort[p],
-					ServerFirst: serverFirstByPort[p],
-					XDSServer:   xdsGRPCByPort[p],
+					Name:          "grpc-" + strconv.Itoa(i),
+					Protocol:      protocol.GRPC,
+					Port:          p,
+					TLS:           tlsByPort[p],
+					ServerFirst:   serverFirstByPort[p],
+					XDSServer:     xdsGRPCByPort[p],
+					ProxyProtocol: proxyProtocolByPort[p],
 				}
 				portIndex++
 			}
 			for i, p := range tcpPorts {
 				ports[portIndex] = &common.Port{
-					Name:        "tcp-" + strconv.Itoa(i),
-					Protocol:    protocol.TCP,
-					Port:        p,
-					TLS:         tlsByPort[p],
-					ServerFirst: serverFirstByPort[p],
+					Name:          "tcp-" + strconv.Itoa(i),
+					Protocol:      protocol.TCP,
+					Port:          p,
+					TLS:           tlsByPort[p],
+					ServerFirst:   serverFirstByPort[p],
+					ProxyProtocol: proxyProtocolByPort[p],
 				}
 				portIndex++
 			}
@@ -179,6 +187,7 @@ func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&instanceIPPorts, "bind-ip", []int{}, "Ports that are bound to INSTANCE_IP rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&localhostIPPorts, "bind-localhost", []int{}, "Ports that are bound to localhost rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&serverFirstPorts, "server-first", []int{}, "Ports that are server first. These must be defined as tcp.")
+	rootCmd.PersistentFlags().IntSliceVar(&proxyProtocolPorts, "proxy-protocol", []int{}, "Ports that are wrapped in HA-PROXY protocol.")
 	rootCmd.PersistentFlags().IntSliceVar(&xdsGRPCServers, "xds-grpc-server", []int{}, "Ports that should rely on XDS configuration to serve.")
 	rootCmd.PersistentFlags().IntVar(&metricsPort, "metrics", 0, "Metrics port")
 	rootCmd.PersistentFlags().StringVar(&uds, "uds", "", "HTTP server on unix domain socket")

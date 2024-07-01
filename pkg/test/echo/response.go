@@ -40,6 +40,8 @@ type Response struct {
 	Protocol string
 	// Alpn value (for HTTP).
 	Alpn string
+	// ProxyProtocol value.
+	ProxyProtocol string
 	// RawContent is the original unparsed content for this response
 	RawContent string
 	// ID is a unique identifier of the resource in the response

@@ -38,6 +38,7 @@ var (
 	methodFieldRegex         = regexp.MustCompile(string(MethodField) + "=(.*)")
 	protocolFieldRegex       = regexp.MustCompile(string(ProtocolField) + "=(.*)")
 	alpnFieldRegex           = regexp.MustCompile(string(AlpnField) + "=(.*)")
+	proxyProtocolFieldRegex  = regexp.MustCompile(string(ProxyProtocolField) + "=(.*)")
 )
 
 func ParseResponses(req *proto.ForwardEchoRequest, resp *proto.ForwardEchoResponse) Responses {
@@ -74,6 +75,11 @@ func parseResponse(output string) Response {
 	match = alpnFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Alpn = match[1]
+	}
+
+	match = proxyProtocolFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.ProxyProtocol = match[1]
 	}
 
 	match = serviceVersionFieldRegex.FindStringSubmatch(output)

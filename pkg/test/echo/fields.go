@@ -70,6 +70,7 @@ const (
 	NamespaceField        Field = "Namespace"
 	MethodField           Field = "Method"
 	ProtocolField         Field = "Proto"
+	ProxyProtocolField    Field = "ProxyProtocol"
 	AlpnField             Field = "Alpn"
 	RequestHeaderField    Field = "RequestHeader"
 	ResponseHeaderField   Field = "ResponseHeader"

@@ -72,6 +72,9 @@ type Port struct {
 
 	// XDSReadinessTLS determines if the XDS server should expect a TLS server, used for readiness probes
 	XDSReadinessTLS bool
+
+	// ProxyProtocol indicates this listener should terminate HA PROXY protocol (v1 or v2)
+	ProxyProtocol bool
 }
 
 // PortList is a set of ports
