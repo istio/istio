@@ -130,7 +130,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	// listener port -> host/bind
 	tlsHostsByPort := map[uint32]map[string]string{}
 	for _, port := range mergedGateway.ServerPorts {
-		// Skip ports we cannot bind to. Note that MergeGateways will already translate Service port to
+		// Skip ports we cannot bind to. Note that mergeGateways will already translate Service port to
 		// targetPort, which handles the common case of exposing ports like 80 and 443 but listening on
 		// higher numbered ports.
 		if builder.node.IsUnprivileged() && port.Number < 1024 {
