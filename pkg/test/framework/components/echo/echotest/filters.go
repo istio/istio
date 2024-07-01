@@ -73,10 +73,9 @@ func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 
 // WithDefaultFilters applies common filters that work for most tests.
 // Example:
-//   - The full set of apps is a, b, c, d, e, headless, naked, and vm (one simple pod).
-//   - Only a, d, e, headless, naked and vm are used as sources. (d and e applicable are only for dual-stack mode)
+//   - The full set of apps is a, b, c, d (dualStack), e (IPv6), headless, naked, and vm (one simple pod).
+//   - Services d and e are used only when dualStack mode is enabled as part of the tests.
 //   - Subtests are generated only for reachable destinations.
-//   - Pod a will not be in destinations, but b will (one simpe pod not in sources)
 func (t *T) WithDefaultFilters(minimumFrom, minimumTo int) *T {
 	return t.
 		From(FilterMatch(match.NotExternal)).
