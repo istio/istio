@@ -21,6 +21,7 @@ import (
 	"istio.io/api/meta/v1alpha1"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/constants"
 )
 
 const (
@@ -39,8 +40,15 @@ func ShouldV2AutoAllocateIP(se *networkingv1alpha3.ServiceEntry) bool {
 	if !features.EnableV2IPAutoallocate {
 		return false
 	}
-	// TODO: opt-in/opt-out via lable/annotation
 	if se == nil {
+		return false
+	}
+
+	// check for opt-out by user
+	// TODO: namespace opt-out?
+	disabledValue, disabledFound := se.Labels[constants.DisableV2AutoAllocationLabel]
+	if disabledFound && disabledValue == "true" {
+		// user did not opt in
 		return false
 	}
 
@@ -49,20 +57,6 @@ func ShouldV2AutoAllocateIP(se *networkingv1alpha3.ServiceEntry) bool {
 		return false
 	}
 
-	// // only assign addresses for DNS resolution
-	// if se.Spec.Resolution != apinetworking.ServiceEntry_DNS && se.Spec.Resolution != apinetworking.ServiceEntry_DNS_ROUND_ROBIN {
-	// 	return false
-	// }
-
-	// old behavior was to calulate this at the last second per model.svc so maybe it does not belong here
-	// // check for wildcard hosts
-	// for _, h := range se.Spec.Hosts {
-	// 	// this is a bit overzealous
-	// 	// we could technivally allocate if any of the hosts are !IsWildeCarded() and then just not use the allocated IP for wildcard hosts
-	// 	if host.Name(h).IsWildCarded() {
-	// 		return false
-	// 	}
-	// }
 	return true
 }
 
