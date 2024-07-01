@@ -87,7 +87,11 @@ func (h *Handler) getFirstLayerURL(imageName string, tag string) (string, error)
 	}
 
 	u := fmt.Sprintf("%v/%v:%v", *registry, imageName, convertedTag)
-	ref, err := name.ParseReference(u)
+	var opts []name.Option
+	if *scheme == "http" {
+		opts = append(opts, name.Insecure)
+	}
+	ref, err := name.ParseReference(u, opts...)
 	if err != nil {
 		return "", fmt.Errorf("could not parse url in image reference: %v", err)
 	}
