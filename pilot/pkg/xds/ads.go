@@ -662,7 +662,17 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 }
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
-	proxy.SetServiceTargets(s.Env.ServiceDiscovery)
+	var shouldResetGateway, shouldResetSidecarScope bool
+	// 1. If request == nil(initiation phase) or request.ConfigsUpdated == nil(global push), set proxy serviceTargets.
+	// 2. otherwise only set when svc update, this is for the case that a service may select the proxy
+	if request == nil || len(request.ConfigsUpdated) == 0 ||
+		model.HasConfigsOfKind(request.ConfigsUpdated, kind.ServiceEntry) {
+		proxy.SetServiceTargets(s.Env.ServiceDiscovery)
+		// proxy.SetGatewaysForProxy depends on the serviceTargets,
+		// so when we reset serviceTargets, should reset gateway as well.
+		shouldResetGateway = true
+	}
+
 	// only recompute workload labels when
 	// 1. stream established and proxy first time initialization
 	// 2. proxy update
@@ -675,38 +685,35 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
-	var sidecar, gateway bool
 	push := proxy.LastPushContext
 	if request == nil {
-		sidecar = true
-		gateway = true
+		shouldResetSidecarScope = true
 	} else {
 		push = request.Push
 		if len(request.ConfigsUpdated) == 0 {
-			sidecar = true
-			gateway = true
+			shouldResetSidecarScope = true
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
 			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.Sidecar, kind.HTTPRoute, kind.TCPRoute:
-				sidecar = true
+				shouldResetSidecarScope = true
 			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferenceGrant:
-				gateway = true
+				shouldResetGateway = true
 			case kind.Ingress:
-				sidecar = true
-				gateway = true
+				shouldResetSidecarScope = true
+				shouldResetGateway = true
 			}
-			if sidecar && gateway {
+			if shouldResetSidecarScope && shouldResetGateway {
 				break
 			}
 		}
 	}
 	// compute the sidecarscope for both proxy type whenever it changes.
-	if sidecar {
+	if shouldResetSidecarScope {
 		proxy.SetSidecarScope(push)
 	}
 	// only compute gateways for "router" type proxy.
-	if gateway && proxy.Type == model.Router {
+	if shouldResetGateway && proxy.Type == model.Router {
 		proxy.SetGatewaysForProxy(push)
 	}
 	proxy.LastPushContext = push
