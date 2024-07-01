@@ -152,10 +152,10 @@ func RecordRejectedConfig(gatewayName string) {
 // use.
 const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gateway-port-translation"
 
-// MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
+// mergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
 // Note that today any Servers in the combined gateways listening on the same port must have the same protocol.
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
-func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
+func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
 	gatewayPorts := sets.New[uint32]()
 	nonPlainTextGatewayPortsBindMap := map[uint32]sets.String{}
 	mergedServers := make(map[ServerPort]*MergedServers)
@@ -170,12 +170,12 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
 	autoPassthrough := false
 
-	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
+	log.Debugf("mergeGateways: merging %d gateways", len(gateways))
 	for _, gwAndInstance := range gateways {
 		gatewayConfig := gwAndInstance.gateway
 		gatewayName := gatewayConfig.Namespace + "/" + gatewayConfig.Name // Format: %s/%s
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
-		log.Debugf("MergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
+		log.Debugf("mergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
 		snames := sets.String{}
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
@@ -192,7 +192,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 			sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
-			log.Debugf("MergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
+			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
 			cn := s.GetTls().GetCredentialName()
 			if cn != "" && proxy.VerifiedIdentity != nil {
@@ -359,7 +359,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}, RouteName: routeName}
 					serverPorts = append(serverPorts, serverPort)
 				}
-				log.Debugf("MergeGateways: gateway %q merged server %v", gatewayName, s.Hosts)
+				log.Debugf("mergeGateways: gateway %q merged server %v", gatewayName, s.Hosts)
 			}
 		}
 	}
