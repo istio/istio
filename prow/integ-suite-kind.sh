@@ -176,6 +176,12 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   docker pull gcr.io/istio-testing/wasm/attributegen:$WASM_ATTRGEN_TAG
   docker tag gcr.io/istio-testing/wasm/attributegen:$WASM_ATTRGEN_TAG localhost:5000/istio-testing/wasm/attributegen:$WASM_ATTRGEN_TAG
   docker push localhost:5000/istio-testing/wasm/attributegen:$WASM_ATTRGEN_TAG
+  docker pull gcr.io/istio-testing/wasm/header-injector:0.0.1
+  docker tag gcr.io/istio-testing/wasm/header-injector:0.0.1 localhost:5000/istio-testing/wasm/header-injector:0.0.1
+  docker push localhost:5000/istio-testing/wasm/header-injector:0.0.1
+  docker pull gcr.io/istio-testing/wasm/header-injector:0.0.2
+  docker tag gcr.io/istio-testing/wasm/header-injector:0.0.2 localhost:5000/istio-testing/wasm/header-injector:0.0.2
+  docker push localhost:5000/istio-testing/wasm/header-injector:0.0.2
   if [[ "$IP_FAMILY" == "ipv6" ]]; then
     kind_registry_ip=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{if eq $k "kind"}}{{.GlobalIPv6Address}}{{end}}{{end}}' kind-registry)
   else

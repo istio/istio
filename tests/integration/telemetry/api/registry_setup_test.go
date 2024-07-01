@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net/netip"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -46,9 +47,20 @@ func testRegistrySetup(ctx resource.Context) (err error) {
 		err = fmt.Errorf("kind-registry IP not found in the config map kind-registry-addr/default")
 		return
 	}
+	ipAddr, err := netip.ParseAddr(ip)
+	if err != nil {
+		err = fmt.Errorf("failed to parse IP address '%s': %s", ip, err)
+		return
+	}
+	var formattedAddr string
+	if ipAddr.Is6() {
+		formattedAddr = fmt.Sprintf("'[%s]:5000'", ipAddr.String())
+	} else {
+		formattedAddr = fmt.Sprintf("%s:5000", ipAddr.String())
+	}
 	registry, err = registryredirector.New(ctx, registryredirector.Config{
 		Cluster:        ctx.AllClusters().Default(),
-		TargetRegistry: fmt.Sprintf("%s:5000", ip),
+		TargetRegistry: formattedAddr,
 		Scheme:         "http",
 		Image:          "quay.io/jewertow/fake-registry:latest",
 	})
