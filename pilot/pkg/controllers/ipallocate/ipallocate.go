@@ -49,8 +49,8 @@ type IPAllocate struct {
 const (
 	controllerName = "IP Autoallocate"
 	// these are the ranges of the v1 logic, do we need to choose new ranges?
-	IpV4Prefix = "240.240.0.0/16"
-	IpV6Prefix = "2001:2::/48"
+	IPV4Prefix = "240.240.0.0/16"
+	IPV6Prefix = "2001:2::/48"
 )
 
 func NewIPAllocate(stop <-chan struct{}, c kubelib.Client) *IPAllocate {
@@ -59,8 +59,8 @@ func NewIPAllocate(stop <-chan struct{}, c kubelib.Client) *IPAllocate {
 		serviceEntryClient: client,
 		stopChan:           stop,
 		// MustParsePrefix is OK because these are const. If we allow user configuration we must not use this function.
-		v4allocator: newIpAllocator(netip.MustParsePrefix(IpV4Prefix)),
-		v6allocator: newIpAllocator(netip.MustParsePrefix(IpV6Prefix)),
+		v4allocator: newIPAllocator(netip.MustParsePrefix(IPV4Prefix)),
+		v6allocator: newIPAllocator(netip.MustParsePrefix(IPV6Prefix)),
 	}
 	allocator.queue = controllers.NewQueue(controllerName, controllers.WithReconciler(allocator.reconcile), controllers.WithMaxAttempts(5))
 	client.AddEventHandler(controllers.ObjectHandler(allocator.queue.AddObject))
@@ -214,7 +214,7 @@ type ipAllocator struct {
 	next   netip.Addr
 }
 
-func newIpAllocator(p netip.Prefix) *ipAllocator {
+func newIPAllocator(p netip.Prefix) *ipAllocator {
 	n := p.Addr().Next()
 	return &ipAllocator{
 		prefix: p,
@@ -227,7 +227,7 @@ func (i *ipAllocator) AllocateNext() (netip.Addr, error) {
 	n := i.next
 	var looped bool
 	if !n.IsValid() || !i.prefix.Contains(n) {
-		// unlucky inital looping, start over
+		// unlucky initial looping, start over
 		looped = true
 		n = i.prefix.Addr().Next() // take the net address of the prefix and select next, this should be the first usable
 	}

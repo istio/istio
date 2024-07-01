@@ -20,10 +20,11 @@ import (
 
 	"istio.io/api/meta/v1alpha1"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 )
 
 const (
-	IpAutoallocateStatusType = "ip-autoallocate"
+	IPAutoallocateStatusType = "ip-autoallocate"
 )
 
 func GetV2AddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) []netip.Addr {
@@ -33,17 +34,35 @@ func GetV2AddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) []netip
 	return kludgeFromStatus(se.Status.GetConditions())
 }
 
-// TODO: impl this
 func ShouldV2AutoAllocateIP(se *networkingv1alpha3.ServiceEntry) bool {
+	// if the feature is off we should not assign/use addresses
+	if !features.EnableV2IPAutoallocate {
+		return false
+	}
+	// TODO: opt-in/opt-out via lable/annotation
 	if se == nil {
 		return false
 	}
+
+	// if the user assigned their own we don't alloate or use autoassigned addresses
 	if len(se.Spec.Addresses) > 0 {
-		// user assiged
-		// TODO: we should record this just to be safe, at least if it is without our range
-		log.Infof("%s/%s supplied its own addresses", se.Namespace, se.Name)
 		return false
 	}
+
+	// // only assign addresses for DNS resolution
+	// if se.Spec.Resolution != apinetworking.ServiceEntry_DNS && se.Spec.Resolution != apinetworking.ServiceEntry_DNS_ROUND_ROBIN {
+	// 	return false
+	// }
+
+	// old behavior was to calulate this at the last second per model.svc so maybe it does not belong here
+	// // check for wildcard hosts
+	// for _, h := range se.Spec.Hosts {
+	// 	// this is a bit overzealous
+	// 	// we could technivally allocate if any of the hosts are !IsWildeCarded() and then just not use the allocated IP for wildcard hosts
+	// 	if host.Name(h).IsWildCarded() {
+	// 		return false
+	// 	}
+	// }
 	return true
 }
 
@@ -57,7 +76,7 @@ func kludgeFromStatus(conditions []*v1alpha1.IstioCondition) []netip.Addr {
 		if c == nil {
 			continue
 		}
-		if c.Type != IpAutoallocateStatusType {
+		if c.Type != IPAutoallocateStatusType {
 			continue
 		}
 		jsonAddresses := c.Message
@@ -80,7 +99,7 @@ func ConditionKludge(input []netip.Addr) v1alpha1.IstioCondition {
 	}
 	result, _ := json.Marshal(kludge)
 	return v1alpha1.IstioCondition{
-		Type:    IpAutoallocateStatusType,
+		Type:    IPAutoallocateStatusType,
 		Status:  "true",
 		Reason:  "AutoAllocatedAddress",
 		Message: string(result),

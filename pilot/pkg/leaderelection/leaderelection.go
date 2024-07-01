@@ -55,7 +55,7 @@ const (
 	// * Other types use "prioritized leader election", which isn't implemented for Lease
 	GatewayDeploymentController = "istio-gateway-deployment"
 	NodeUntaintController       = "istio-node-untaint"
-	IpAutoallocateController    = "istio-ip-autoallocate"
+	IPAutoallocateController    = "istio-ip-autoallocate"
 )
 
 // Leader election key prefix for remote istiod managed clusters
