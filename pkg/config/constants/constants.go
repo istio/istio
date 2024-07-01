@@ -206,4 +206,6 @@ const (
 	AllTraffic = "all"
 	// NoTraffic indicates that no traffic should go through the intended waypoint.
 	NoTraffic = "none"
+
+	DisableV2AutoAllocationLabel = "networking.istio.io/disable-autoallocate-ip"
 )
