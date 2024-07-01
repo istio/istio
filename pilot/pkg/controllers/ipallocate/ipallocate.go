@@ -86,18 +86,15 @@ func (c *IPAllocate) warmCache() {
 	count := 0
 	for _, serviceentry := range serviceentries {
 		count++
-		log.Infof("%s/%s found during warming", serviceentry.Namespace, serviceentry.Name)
+		log.Debugf("%s/%s found during warming", serviceentry.Namespace, serviceentry.Name)
 		if len(serviceentry.Spec.Addresses) > 0 {
 			// user assiged there own
 			// TODO: we should record this just to be safe, at least if it is without our range
-			log.Infof("%s/%s supplied its own addresses", serviceentry.Namespace, serviceentry.Name)
-
 			continue
 		}
 
 		if serviceentry.Status.String() != "" {
 			addresses := autoallocate.GetV2AddressesFromServiceEntry(serviceentry)
-			log.Infof("status: %v", addresses)
 			if len(addresses) > 0 {
 				for _, a := range addresses {
 					if a.Is6() {
@@ -113,16 +110,15 @@ func (c *IPAllocate) warmCache() {
 			}
 		}
 	}
-	log.Infof("discovered %v during warming", count)
+	log.Debugf("discovered %v during warming", count)
 }
 
 func (c *IPAllocate) reconcile(se types.NamespacedName) error {
-	log.Infof("reconciling service entry %s/%s", se.Namespace, se.Name)
+	log.Debugf("reconciling ServiceEntry %s/%s", se.Namespace, se.Name)
 	serviceentry := c.serviceEntryClient.Get(se.Name, se.Namespace)
 	if serviceentry == nil {
 		// probably a delete so we should remove ips from our addresses most likely
 		// TODO: we never actually remove IP right now, likely this should be done a little more slowly anyway to prevent reuse if we are too fast
-		log.Infof("deleted %s", se.String())
 		return nil
 	}
 
@@ -140,9 +136,10 @@ func (c *IPAllocate) reconcile(se types.NamespacedName) error {
 		return nil // nothing to patch
 	}
 
-	_, e := c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.MergePatchType, patch)
-	if e != nil {
-		log.Errorf("darn... %s", e.Error())
+	_, err = c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.MergePatchType, patch)
+	if err != nil {
+		log.Errorf("unable to patch %s, received error %s", se.String(), err.Error())
+		return err
 	}
 
 	return nil
@@ -179,7 +176,6 @@ func (c *IPAllocate) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry
 		foundAddresses := autoallocate.GetV2AddressesFromServiceEntry(se)
 		if len(foundAddresses) > 0 {
 			// this is a noop, if we already assigned addresses we do not mess with them
-			log.Infof("found addresses %v", foundAddresses)
 			// TODO: potentially check if foundAddresses == addresses and error if not
 			return nil, nil // nothing to patch
 		}
