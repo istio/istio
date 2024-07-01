@@ -1404,6 +1404,10 @@ templates:
               capabilities:
                 drop:
                 - ALL
+    {{- if .Values.gateways.seccompProfile }}
+              seccompProfile:
+    {{- toYaml .Values.gateways.seccompProfile | nindent 12 }}
+    {{- end }}
             volumeMounts:
             - name: workload-socket
               mountPath: /var/run/secrets/workload-spiffe-uds
