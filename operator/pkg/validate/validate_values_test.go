@@ -149,6 +149,31 @@ cni:
 `,
 			wantErrs: makeErrors([]string{`unknown field "foo" in v1alpha1.CNIConfig`}),
 		},
+		{
+			desc: "pilot volumes",
+			yamlStr: `
+pilot:
+  extraContainerArgs:
+  - --tlsCertFile=/etc/cert-manager/tls/tls.crt
+  - --tlsKeyFile=/etc/cert-manager/tls/tls.key
+  - --caCertFile=/etc/cert-manager/ca/root-cert.pem
+  volumeMounts:
+  - name: cert-manager
+    mountPath: /etc/cert-manager/tls
+    readOnly: true
+  - name: ca-root-cert
+    mountPath: /etc/cert-manager/ca
+    readOnly: true
+  volumes:
+  - name: cert-manager
+    secret:
+      secretName: istiod-tls
+  - name: ca-root-cert
+    configMap:
+      defaultMode: 420
+      name: istio-ca-root-cert
+`,
+		},
 	}
 
 	for _, tt := range tests {

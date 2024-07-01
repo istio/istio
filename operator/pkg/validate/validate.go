@@ -66,10 +66,10 @@ func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequiredFields 
 		return util.Errors{}
 	}
 
-	return Validate2(DefaultValidations, is)
+	return runValidate(DefaultValidations, is)
 }
 
-func Validate2(validations map[string]ValidatorFunc, iop *v1alpha1.IstioOperatorSpec) (errs util.Errors) {
+func runValidate(validations map[string]ValidatorFunc, iop *v1alpha1.IstioOperatorSpec) (errs util.Errors) {
 	for path, validator := range validations {
 		v, f, _ := tpath.GetFromStructPath(iop, path)
 		if f {
