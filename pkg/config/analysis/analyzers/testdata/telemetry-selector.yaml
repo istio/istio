@@ -31,7 +31,7 @@ metadata:
   name: ratings
   namespace: default
 ---
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: maps-correctly-no-conflicts
@@ -48,7 +48,7 @@ spec:
             metric: ALL_METRICS
           disabled: false
 ---
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: maps-to-nonexistent
@@ -65,7 +65,7 @@ spec:
             metric: ALL_METRICS
           disabled: false
 ---
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: maps-to-different-ns
@@ -82,7 +82,7 @@ spec:
             metric: ALL_METRICS
           disabled: false
 ---
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: dupe-1
@@ -99,7 +99,7 @@ spec:
             metric: ALL_METRICS
           disabled: false
 ---
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: dupe-2
@@ -116,7 +116,7 @@ spec:
             metric: ALL_METRICS
           disabled: false
 ---
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: overlap-1
@@ -133,7 +133,7 @@ spec:
             metric: ALL_METRICS
           disabled: false
 ---
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: overlap-2
