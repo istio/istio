@@ -1,0 +1,35 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Removed** nesting of `values.yaml` configuration under `defaults`. See Upgrade Notes for more information.
+upgradeNotes:
+  - title: "Helm `values.yaml` implementation changes"
+    content: |
+      In Istio 1.21, Helm charts were changed to nest all values under `defaults` in the default `values.yaml`.
+      However, users were expected to still set these values as before, with the `defaults` prefix (see [here](https://blog.howardjohn.info/posts/advanced-helm/#profiles) for more information).
+
+      This caused a few problems:
+      * In some documentation, this would show up, leading to confusion.
+      * Due to the above, some users were explicitly writing to `defaults`, which was unintended.
+
+      In this release, we have reverted this change (while still retaining the behavior it was originally added to support, profiles).
+
+      This has no impact to users who are setting values as expected without the `defaults` prefix.
+      However, if you are setting these, you will now see an error:
+
+      ```
+      $ helm install istiod istio/istiod --set defaults.revision=my-revision
+      Error: execution error at (istiod/templates/zzz_profile.yaml:21:39): Do not set 'defaults.X=Y'; instead just set 'X=Y
+      ```
+
+      Following the error messages, we should instead install without the `defaults.` suffix:
+
+      ```
+      $ helm install istiod istio/istiod --set revision=my-revision
+      Error: execution error at (istiod/templates/zzz_profile.yaml:21:39): Do not set 'defaults.X=Y'; instead just set 'X=Y
+      ```
+
+      Note: this recommendation applies to all versions of Istio; setting the `defaults.` suffix is never recommended.
+      This change just makes the silent failure into an explicit failure.
