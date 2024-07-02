@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"istio.io/istio/pilot/pkg/config/file"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -34,7 +33,7 @@ import (
 )
 
 // NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.
-func NewContext(stores map[cluster.ID]model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
+func NewContext(stores []*clusterStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
 	return &istiodContext{
 		stores:             stores,
 		cancelCh:           cancelCh,
@@ -46,7 +45,7 @@ func NewContext(stores map[cluster.ID]model.ConfigStore, cancelCh <-chan struct{
 }
 
 type istiodContext struct {
-	stores             map[cluster.ID]model.ConfigStore
+	stores             []*clusterStore
 	cancelCh           <-chan struct{}
 	messages           map[string]*diag.Messages
 	collectionReporter CollectionReporterFn
@@ -58,6 +57,7 @@ type istiodContext struct {
 type key struct {
 	collectionName config.GroupVersionKind
 	name           resource.FullName
+	uid            resource.UID
 	cluster        cluster.ID
 }
 
@@ -93,7 +93,11 @@ func (i *istiodContext) GetMessages(analyzerNames ...string) diag.Messages {
 
 func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName) *resource.Instance {
 	i.collectionReporter(col)
-	k := key{col, name, "default"}
+	k := key{
+		collectionName: col,
+		name:           name,
+		cluster:        "default",
+	}
 	if result, ok := i.found[k]; ok {
 		return result
 	}
@@ -107,12 +111,12 @@ func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName
 		log.Warnf("collection %s could not be found", col.String())
 		return nil
 	}
-	for id, store := range i.stores {
-		cfg := store.Get(colschema.GroupVersionKind(), name.Name.String(), name.Namespace.String())
+	for _, store := range i.stores {
+		cfg := store.configStoreController.Get(colschema.GroupVersionKind(), name.Name.String(), name.Namespace.String())
 		if cfg == nil {
 			continue
 		}
-		result, err := cfgToInstance(*cfg, col, colschema, id)
+		result, err := cfgToInstance(*cfg, col, colschema, store.clusterID)
 		if err != nil {
 			log.Errorf("failed converting found config %s %s/%s to instance: %s, ",
 				cfg.Meta.GroupVersionKind.Kind, cfg.Meta.Namespace, cfg.Meta.Namespace, err)
@@ -148,16 +152,19 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 		return
 	}
 	cache := map[key]*resource.Instance{}
-	for id, store := range i.stores {
+	for _, store := range i.stores {
 		// TODO: this needs to include file source as well
-		cfgs := store.List(colschema.GroupVersionKind(), "")
+		cfgs := store.configStoreController.List(colschema.GroupVersionKind(), "")
 		broken := false
 		for _, cfg := range cfgs {
 			k := key{
-				col, resource.FullName{
+				collectionName: col,
+				name: resource.FullName{
 					Name:      resource.LocalName(cfg.Name),
 					Namespace: resource.Namespace(cfg.Namespace),
-				}, id,
+				},
+				uid:     resource.UID(cfg.UID), // Identify resource uniquely across multiple clusters with same name.
+				cluster: store.clusterID,
 			}
 			if res, ok := i.found[k]; ok {
 				if !broken && !fn(res) {
@@ -166,7 +173,7 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 				cache[k] = res
 				continue
 			}
-			res, err := cfgToInstance(cfg, col, colschema, id)
+			res, err := cfgToInstance(cfg, col, colschema, store.clusterID)
 			if err != nil {
 				// TODO: demote this log before merging
 				log.Error(err)

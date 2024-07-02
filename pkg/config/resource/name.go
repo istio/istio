@@ -33,6 +33,13 @@ func (n LocalName) String() string {
 	return string(n)
 }
 
+// UID that uniquely identifies the resource within the cluster.
+type UID string
+
+func (u UID) String() string {
+	return string(u)
+}
+
 // FullName is a name that uniquely identifies a resource within the mesh.
 type FullName struct {
 	Namespace Namespace

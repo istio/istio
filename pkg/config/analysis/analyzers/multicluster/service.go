@@ -46,18 +46,27 @@ func (s *ServiceAnalyzer) Metadata() analysis.Metadata {
 	}
 }
 
+// clusterService holds details about a service instance in a cluster.
+type clusterService struct {
+	clusterID cluster.ID
+	instance  *resource.Instance
+}
+
 // Analyze implements Analyzer
 func (s *ServiceAnalyzer) Analyze(c analysis.Context) {
-	services := map[resource.FullName]map[cluster.ID]*resource.Instance{}
+	services := map[resource.FullName][]*clusterService{}
 	c.ForEach(gvk.Service, func(r *resource.Instance) bool {
 		clusterID := r.Origin.ClusterName()
 		if clusterID == "" {
 			return true
 		}
 		if _, ok := services[r.Metadata.FullName]; !ok {
-			services[r.Metadata.FullName] = map[cluster.ID]*resource.Instance{}
+			services[r.Metadata.FullName] = []*clusterService{}
 		}
-		services[r.Metadata.FullName][clusterID] = r
+		services[r.Metadata.FullName] = append(services[r.Metadata.FullName], &clusterService{
+			clusterID: clusterID,
+			instance:  r,
+		})
 		return true
 	})
 
@@ -68,9 +77,9 @@ func (s *ServiceAnalyzer) Analyze(c analysis.Context) {
 		inconsistents, errors := findInconsistencies(clusterServices)
 		if len(inconsistents) > 0 {
 			var serviceInstance *resource.Instance
-			for _, r := range clusterServices {
-				if r != nil {
-					serviceInstance = r
+			for _, svc := range clusterServices {
+				if svc != nil {
+					serviceInstance = svc.instance
 					break
 				}
 			}
@@ -82,43 +91,43 @@ func (s *ServiceAnalyzer) Analyze(c analysis.Context) {
 	}
 }
 
-func findInconsistencies(services map[cluster.ID]*resource.Instance) (clusters []string, errors string) {
+func findInconsistencies(services []*clusterService) (clusters []string, errors string) {
 	inconsistentClusters := sets.New[string]()
 	inconsistentReasons := sets.New[string]()
 
 	// Convert the first service from resource.Instance to corev1.Service
 	var firstService *corev1.ServiceSpec
 	var firstCluster cluster.ID
-	for id, instance := range services {
-		firstCluster = id
-		firstService = instance.Message.(*corev1.ServiceSpec)
+	for _, svc := range services {
+		firstCluster = svc.clusterID
+		firstService = svc.instance.Message.(*corev1.ServiceSpec)
 		if firstService != nil {
 			break
 		}
 	}
 
 	var addedHeadless bool
-	for id, instance := range services {
-		service := instance.Message.(*corev1.ServiceSpec)
+	for _, svc := range services {
+		service := svc.instance.Message.(*corev1.ServiceSpec)
 
 		// Compare if service has mixed mode like headless and clusterIP
 		if !addedHeadless && (firstService.ClusterIP == corev1.ClusterIPNone) != (service.ClusterIP == corev1.ClusterIPNone) {
 			addedHeadless = true
-			for c := range services {
-				inconsistentClusters.Insert(c.String())
+			for _, s := range services {
+				inconsistentClusters.Insert(s.clusterID.String())
 			}
 			inconsistentReasons.Insert("service has mixed mode like headless and clusterIP")
 		}
 
 		// Compare service types
 		if firstService.Type != service.Type {
-			inconsistentClusters.Insert(id.String())
+			inconsistentClusters.Insert(svc.clusterID.String())
 			inconsistentReasons.Insert("service type is inconsistent")
 		}
 
 		// Compare ports
 		if !compareServicePorts(firstService.Ports, service.Ports) {
-			inconsistentClusters.Insert(id.String())
+			inconsistentClusters.Insert(svc.clusterID.String())
 			inconsistentReasons.Insert("service ports are inconsistent")
 		}
 	}
