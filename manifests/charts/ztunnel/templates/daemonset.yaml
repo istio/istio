@@ -107,6 +107,8 @@ spec:
           value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         - name: INPOD_ENABLED
           value: "true"
+        - name: TERMINATION_GRACE_PERIOD_SECONDS
+          value: "{{ .Values.terminationGracePeriodSeconds }}"
         - name: POD_NAME
           valueFrom:
             fieldRef:
