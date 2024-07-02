@@ -250,11 +250,11 @@ func allAddresses(se *networkingv1alpha3.ServiceEntry) ([]netip.Addr, []netip.Ad
 }
 
 func (c *IPAllocate) nextAddresses(owner types.NamespacedName) []netip.Addr {
-	v4address, err := c.v4allocator.AllocateNext(owner)
+	v4address, err := c.v4allocator.allocateNext(owner)
 	if err != nil {
 		panic("failed to allocate v4 address")
 	}
-	v6address, err := c.v6allocator.AllocateNext(owner)
+	v6address, err := c.v6allocator.allocateNext(owner)
 	if err != nil {
 		panic("failed to allocate v6 address")
 	}
@@ -265,6 +265,7 @@ func (c *IPAllocate) nextAddresses(owner types.NamespacedName) []netip.Addr {
 }
 
 func (c *IPAllocate) inOurRange(a netip.Addr) bool {
+	a = a.Unmap()
 	if a.Is6() {
 		return c.v6allocator.prefix.Contains(a)
 	}
@@ -274,14 +275,14 @@ func (c *IPAllocate) inOurRange(a netip.Addr) bool {
 
 func (c *IPAllocate) markUsedOrQueueConflict(a netip.Addr, owner types.NamespacedName) {
 	if a.Is6() {
-		if used, usedByOwner := c.v6allocator.MarkUsed(a, owner); used && !usedByOwner {
+		if used, usedByOwner := c.v6allocator.markUsed(a, owner); used && !usedByOwner {
 			c.queue.Add(conflictDetectedEvent{
 				conflictingResourceIdentifier: owner,
 				conflictingAddress:            a,
 			})
 		}
 	} else {
-		if used, usedByOwner := c.v4allocator.MarkUsed(a, owner); used && !usedByOwner {
+		if used, usedByOwner := c.v4allocator.markUsed(a, owner); used && !usedByOwner {
 			c.queue.Add(conflictDetectedEvent{
 				conflictingResourceIdentifier: owner,
 				conflictingAddress:            a,
@@ -331,18 +332,6 @@ func (c *IPAllocate) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry
 	return jsonpatch.CreateMergePatch(orig, modified)
 }
 
-// ==========================================================================================================================================================
-// ==========================================================================================================================================================
-// ==========================================================================================================================================================
-// ==========================================================================================================================================================
-// ==========================================================================================================================================================
-// probably doesn't belong here, although nothing else would ever really use it...
-// ==========================================================================================================================================================
-// ==========================================================================================================================================================
-// ==========================================================================================================================================================
-// ==========================================================================================================================================================
-// ==========================================================================================================================================================
-
 type ipAllocator struct {
 	prefix netip.Prefix
 	used   map[netip.Addr]types.NamespacedName
@@ -358,16 +347,16 @@ func newIPAllocator(p netip.Prefix) *ipAllocator {
 	}
 }
 
-func (i *ipAllocator) AllocateNext(owner types.NamespacedName) (netip.Addr, error) {
+func (i *ipAllocator) allocateNext(owner types.NamespacedName) (netip.Addr, error) {
 	n := i.next
 	var looped bool
 	if !n.IsValid() || !i.prefix.Contains(n) {
-		// unlucky initial looping, start over
+		// we started outside of our range, that is unlucky but we can start over
 		looped = true
 		n = i.prefix.Addr().Next() // take the net address of the prefix and select next, this should be the first usable
 	}
 
-	for i.IsUsed(n) {
+	for i.isUsed(n) {
 		n = n.Next()
 		if !n.IsValid() || !i.prefix.Contains(n) {
 			if looped {
@@ -378,19 +367,19 @@ func (i *ipAllocator) AllocateNext(owner types.NamespacedName) (netip.Addr, erro
 			n = i.prefix.Addr().Next() // take the net address of the prefix and select next, this should be the first usable
 		}
 	}
-	i.MarkUsed(n, owner)
+	i.markUsed(n, owner)
 
 	i.next = n.Next()
 
 	return n, nil
 }
 
-func (i ipAllocator) IsUsed(n netip.Addr) bool {
+func (i ipAllocator) isUsed(n netip.Addr) bool {
 	_, found := i.used[n]
 	return found
 }
 
-func (i ipAllocator) IsUsedBy(n netip.Addr, owner types.NamespacedName) (used, usedByOwner bool) {
+func (i ipAllocator) isUsedBy(n netip.Addr, owner types.NamespacedName) (used, usedByOwner bool) {
 	if foundOwner, found := i.used[n]; found {
 		used = true // it is in use
 		res := strings.Compare(foundOwner.String(), owner.String())
@@ -400,10 +389,10 @@ func (i ipAllocator) IsUsedBy(n netip.Addr, owner types.NamespacedName) (used, u
 	return
 }
 
-// MarkUsed will store the provided addr as used in this ipAllocator
-// MarkUsed returns true if the addr was already used and false if it was a new insert
-func (i ipAllocator) MarkUsed(n netip.Addr, owner types.NamespacedName) (used, usedByOwner bool) {
-	used, usedByOwner = i.IsUsedBy(n, owner)
+// markUsed will store the provided addr as used in this ipAllocator
+// markUsed returns true if the addr was already used and false if it was a new insert
+func (i ipAllocator) markUsed(n netip.Addr, owner types.NamespacedName) (used, usedByOwner bool) {
+	used, usedByOwner = i.isUsedBy(n, owner)
 	if used {
 		return
 	}
