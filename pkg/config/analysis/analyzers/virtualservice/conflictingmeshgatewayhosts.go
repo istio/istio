@@ -44,6 +44,7 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks if multiple virtual services associated with the mesh gateway have conflicting hosts",
 		Inputs: []config.GroupVersionKind{
 			gvk.VirtualService,
+			gvk.MeshConfig,
 		},
 	}
 }
@@ -137,9 +138,10 @@ func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.
 				hostsNamespaceScope = nss.UnsortedList()
 			}
 
+			cusClusterDomain := util.GetCustomClusterDomain(ctx)
 			for _, nsScope := range hostsNamespaceScope {
 				for _, h := range vs.Hosts {
-					scopedFqdn := util.NewScopedFqdn(nsScope, vsNamespace, h)
+					scopedFqdn := util.NewScopedFqdn(nsScope, vsNamespace, h, cusClusterDomain)
 					vsNames := hostsVirtualServices[scopedFqdn]
 					if len(vsNames) == 0 {
 						hostsVirtualServices[scopedFqdn] = []*resource.Instance{r}
