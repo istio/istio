@@ -264,7 +264,7 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 		return fmt.Errorf("errors occurred during operation: %v", err)
 	}
 	if status.Status != v1alpha1.InstallStatus_HEALTHY {
-		return fmt.Errorf("errors occurred during operation")
+		return fmt.Errorf("errors occurred during operation (status is %+v)", status)
 	}
 
 	// Previously we may install IOP file from the old version of istioctl. Now since we won't install IOP file

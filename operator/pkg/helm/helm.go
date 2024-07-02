@@ -25,6 +25,8 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
+	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/time"
 	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
@@ -57,9 +59,9 @@ type TemplateRenderer interface {
 	Run() error
 	// RenderManifest renders the associated helm charts with the given values YAML string and returns the resulting
 	// string.
-	RenderManifest(values string) (string, error)
+	RenderManifest(values string) (*release.Release, error)
 	// RenderManifestFiltered filters manifests to render by template file name
-	RenderManifestFiltered(values string, filter TemplateFilterFunc) (string, error)
+	RenderManifestFiltered(values string, filter TemplateFilterFunc) (*release.Release, error)
 }
 
 // NewHelmRenderer creates a new helm renderer with the given parameters and returns an interface to it.
@@ -92,14 +94,34 @@ func ReadProfileYAML(profile, manifestsPath string) (string, error) {
 }
 
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
-func renderChart(namespace, values string, chrt *chart.Chart, filterFunc TemplateFilterFunc, version *version.Info) (string, error) {
+func renderChart(namespace, componentName, values string, chrt *chart.Chart, filterFunc TemplateFilterFunc, version *version.Info) (*release.Release, error) {
+	valuesMap := map[string]any{}
+	if err := yaml.Unmarshal([]byte(values), &valuesMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal values: %v", err)
+	}
+	rel := &release.Release{
+		// TODO: for gateways this isn't right
+		Name:      strings.ToLower(componentName),
+		Namespace: namespace,
+		Info: &release.Info{
+			FirstDeployed: time.Now(),
+			LastDeployed:  time.Now(),
+			Deleted:       time.Time{},
+			Description:   "Istio " + componentName,
+			Status:        release.StatusDeployed,
+			Notes:         "",  // TODO
+			Resources:     nil, //?
+		},
+		Chart:    chrt,
+		Config:   valuesMap,
+		Manifest: "",
+		Hooks:    nil,
+		Version:  1, // TODO
+		Labels:   nil,
+	}
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Namespace: namespace,
-	}
-	valuesMap := map[string]any{}
-	if err := yaml.Unmarshal([]byte(values), &valuesMap); err != nil {
-		return "", fmt.Errorf("failed to unmarshal values: %v", err)
 	}
 
 	caps := *chartutil.DefaultCapabilities
@@ -117,7 +139,7 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 	}
 	vals, err := chartutil.ToRenderValues(chrt, valuesMap, options, &caps)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if filterFunc != nil {
@@ -134,7 +156,7 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 	files, err := engine.Render(chrt, vals)
 	crdFiles := chrt.CRDObjects()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if chrt.Metadata.Name == "base" {
 		base, _ := valuesMap["base"].(map[string]any)
@@ -163,7 +185,7 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 		}
 		_, err := sb.WriteString(f)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
@@ -178,11 +200,12 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 		}
 		_, err := sb.WriteString(f)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
-	return sb.String(), nil
+	rel.Manifest = sb.String()
+	return rel, nil
 }
 
 // GenerateHubTagOverlay creates an IstioOperatorSpec overlay YAML for hub and tag.

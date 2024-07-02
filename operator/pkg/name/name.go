@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	"helm.sh/helm/v3/pkg/release"
+
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
@@ -137,12 +139,13 @@ var (
 
 // Manifest defines a manifest for a component.
 type Manifest struct {
-	Name    ComponentName
-	Content string
+	Name     ComponentName
+	Content  string
+	Releases []*release.Release
 }
 
 // ManifestMap is a map of ComponentName to its manifest string.
-type ManifestMap map[ComponentName][]string
+type ManifestMap map[ComponentName][]*release.Release
 
 // Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
 // manifest.
@@ -151,7 +154,7 @@ func (mm ManifestMap) Consolidated() map[string]string {
 	for cname, ms := range mm {
 		allM := ""
 		for _, m := range ms {
-			allM += m + helm.YAMLSeparator
+			allM += m.Manifest + helm.YAMLSeparator
 		}
 		out[string(cname)] = allM
 	}
@@ -168,7 +171,7 @@ func (mm ManifestMap) String() string {
 	out := ""
 	for _, ms := range mm {
 		for _, m := range ms {
-			out += m + helm.YAMLSeparator
+			out += m.Manifest + helm.YAMLSeparator
 		}
 	}
 	return out
