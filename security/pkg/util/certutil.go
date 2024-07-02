@@ -41,6 +41,7 @@ func NewCertUtil(gracePeriodPercentage int) CertUtilImpl {
 
 // GetWaitTime returns the waiting time before renewing the cert, based on current time, the timestamps in cert and
 // grace period.
+// If the certificate can't be parsed, is expired or about to expire - return 0 and an error indicating why.
 func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time) (time.Duration, error) {
 	cert, certErr := util.ParsePemEncodedCertificate(certBytes)
 	if certErr != nil {

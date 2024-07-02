@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 22161
+releaseNotes:
+- |
+  **Updated** Following "PILOT_CERT_PROVIDER=kubernetes not beeing honored in 1.22+", Istiod will warn and exit if the feature flag is set instead of soft-fail. K8S signing with explicit names continues to work.

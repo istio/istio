@@ -195,9 +195,17 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 	go func() {
 		var shouldLead bool
 		if !configCluster {
+			// If feature.externalIstiod is enabled, check if leader election should be attempted
 			shouldLead = m.checkShouldLead(client, options.SystemNamespace, clusterStopCh)
-			log.Infof("should join leader-election for cluster %s: %t", cluster.ID, shouldLead)
+			if shouldLead {
+				log.Infof("should join leader-election for cluster %s: %t", cluster.ID, shouldLead)
+			}
 		}
+		// startNsController is set via bootstrap/server.go shouldStartNsController
+		// Root cert replication in namespaces is disabled if PILOT_CERT_PROVIDER
+		// is set to kubernetes or none.
+		// TODO: logic is a bit convoluted, may be best to have an explicit option
+		// for replicating CA roots for this cluster or remote clusters.
 		if m.startNsController && (shouldLead || configCluster) {
 			// Block server exit on graceful termination of the leader controller.
 			m.s.RunComponentAsyncAndWait("namespace controller", func(_ <-chan struct{}) error {
@@ -270,40 +278,41 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 
 // checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
 func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace string, stop <-chan struct{}) bool {
+	if !features.ExternalIstiod {
+		return false
+	}
 	var res bool
-	if features.ExternalIstiod {
-		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
-		ctx, cancel := context.WithCancel(context.Background())
-		go func() {
-			select {
-			case <-stop:
-				cancel()
-			case <-ctx.Done():
+	b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		select {
+		case <-stop:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	defer cancel()
+	_ = b.RetryWithContext(ctx, func() error {
+		namespace, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), systemNamespace, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil
 			}
-		}()
-		defer cancel()
-		_ = b.RetryWithContext(ctx, func() error {
-			namespace, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), systemNamespace, metav1.GetOptions{})
-			if err != nil {
-				if errors.IsNotFound(err) {
+			return err
+		}
+		// found same system namespace on the remote cluster so check if we are a selected istiod to lead
+		istiodCluster, found := namespace.Annotations[annotation.TopologyControlPlaneClusters.Name]
+		if found {
+			localCluster := string(m.opts.ClusterID)
+			for _, cluster := range strings.Split(istiodCluster, ",") {
+				if cluster == "*" || cluster == localCluster {
+					res = true
 					return nil
 				}
-				return err
 			}
-			// found same system namespace on the remote cluster so check if we are a selected istiod to lead
-			istiodCluster, found := namespace.Annotations[annotation.TopologyControlPlaneClusters.Name]
-			if found {
-				localCluster := string(m.opts.ClusterID)
-				for _, cluster := range strings.Split(istiodCluster, ",") {
-					if cluster == "*" || cluster == localCluster {
-						res = true
-						return nil
-					}
-				}
-			}
-			return nil
-		})
-	}
+		}
+		return nil
+	})
 	return res
 }
 

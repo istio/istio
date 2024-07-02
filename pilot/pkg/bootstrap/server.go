@@ -1063,6 +1063,9 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions, trustDomain strin
 		}
 	} else {
 		if s.RA != nil {
+			// If a 'default' root cert was found for RA - usually with single singer.
+			// If signer domains is used - there are multiple roots as well.
+			// TODO: should all be considered valid ?
 			if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
 				signerName := strings.TrimPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix)
 				caBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)

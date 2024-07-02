@@ -34,11 +34,24 @@ import (
 
 // KubernetesRA integrated with an external CA using Kubernetes CSR API
 type KubernetesRA struct {
-	csrInterface                 clientset.Interface
-	keyCertBundle                *util.KeyCertBundle
-	raOpts                       *IstioRAOptions
+	csrInterface clientset.Interface
+
+	// has roots from ./etc/external-ca-cert/root-cert.pem (if mounted).
+	// May fallback to legacy-unknown or have no roots.
+	// This does not have any key or cert - only roots.
+	keyCertBundle *util.KeyCertBundle
+
+	raOpts *IstioRAOptions
+
+	// Key is the signer name
+	// Value is Root CAs (PEM list)
 	caCertificatesFromMeshConfig map[string]string
-	certSignerDomain             string
+
+	// certSignerDomain is based on CERT_SIGNER_DOMAIN env variable
+	// it is concatenated with CertSigner metadata from the CSR request to get the key for
+	// the root certificates in caCertificatesFromMeshConfig
+	certSignerDomain string
+
 	// mutex protects the R/W to caCertificatesFromMeshConfig.
 	mutex sync.RWMutex
 }
@@ -52,27 +65,47 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 		return nil, raerror.NewError(raerror.CAInitFail, fmt.Errorf("error processing Certificate Bundle for Kubernetes RA"))
 	}
 	istioRA := &KubernetesRA{
-		csrInterface:                 raOpts.K8sClient,
-		raOpts:                       raOpts,
-		keyCertBundle:                keyCertBundle,
+		csrInterface: raOpts.K8sClient,
+		raOpts:       raOpts,
+		// CertSignerDomain is based on CERT_SIGNER_DOMAIN env variable
 		certSignerDomain:             raOpts.CertSignerDomain,
 		caCertificatesFromMeshConfig: make(map[string]string),
 	}
+	// This must be set - even if empty.
+	istioRA.keyCertBundle = keyCertBundle
 	return istioRA, nil
 }
 
+// kubernetesSign will use the Kubernetes CSR API to sign - the call may include a 'certSigner' from the incoming
+// gRPC metadata 'CertSigner', allowing the use of different signers for different workloads.
+// This feature requires 'certSignerDomain' to be set -  based on CERT_SIGNER_DOMAIN env variable - which is used as
+// prefix. If CERT_SIGNER_DOMAIN is empty the only cert signer is set via K8S_SIGNER, which is also the default if
+// 'CertSigner' metadata is not set.
+//
+// For example, K8S_SIGNER=issuers.cert-manager.io/sandbox.my-issuer can be used as default, and
+// CERT_SIGNER_DOMAIN=issuers.cert-manager.io will allow users to pick different issuers.
+// Istio does not check the value of the issuer.
+//
+// Istiod will do the validation and auth - and auto-approve the certificate - so in the previous example a user
+// will be able to use any issuer from any namespace. Use with caution.
 func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSigner string,
 	requestedLifetime time.Duration,
 ) ([]byte, error) {
 	certSignerDomain := r.certSignerDomain
-	if certSignerDomain == "" && certSigner != "" {
-		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is required for signer %s", certSigner))
-	}
-	if certSignerDomain != "" && certSigner != "" {
-		certSigner = certSignerDomain + "/" + certSigner
-	} else {
+	if certSigner == "" {
 		certSigner = r.raOpts.CaSigner
+		if certSignerDomain != "" && certSigner == "" {
+			log.Warnf("Attempting to sign a cert without explicit signer but signer domain set %s", certSignerDomain)
+		}
+		// Else - normal K8S signing, with K8S_SIGNER - user did not specify an explicit suffix to be added to domain
+	} else {
+		// Explicit user request for a domain-signer
+		if certSignerDomain == "" {
+			return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is required for signer %s", certSigner))
+		}
+		certSigner = certSignerDomain + "/" + certSigner
 	}
+
 	usages := []cert.KeyUsage{
 		cert.UsageDigitalSignature,
 		cert.UsageKeyEncipherment,
@@ -81,23 +114,29 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSign
 	}
 	certChain, _, err := chiron.SignCSRK8s(r.csrInterface, csrPEM, certSigner, usages, "", caCertFile, true, false, requestedLifetime)
 	if err != nil {
+		log.Infof("K8S RA error %s %v", certSigner, err)
 		return nil, raerror.NewError(raerror.CertGenError, err)
 	}
 	return certChain, err
 }
 
 // Sign takes a PEM-encoded CSR and cert opts, and returns a certificate signed by k8s CA.
+// Should return the full chain (tls.crt style) - we don't have the intermediaries.
+// The roots are returned from the normal files (same as Istiod's own trusted roots).
 func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error) {
-	_, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
+	ttl, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
 	if err != nil {
 		return nil, err
 	}
-	certSigner := certOpts.CertSigner
 
-	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, certSigner, certOpts.TTL)
+	// certOpts.CertSigner will never be set - Sign is only called if certSigner is empty
+	// Passing anything else as certSigner will break because kubernetesSign checks if domain is set.
+	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, "", ttl)
 }
 
-// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
+// SignWithCertChain is similar to Sign but uses a user-supplied signer (CertSigner metadata in the gRPC call)
+// as well as CERT_SIGNER_DOMAIN.
+//
 // root cert comes from two sources, order matters:
 // 1. Specified in mesh config
 // 2. Extract from the cert-chain signed by the CSR signer.
@@ -113,7 +152,13 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 // 3. root cert is not specified in mesh config but can be extracted in signed cert chain, in this case
 // we verify the signed cert chain against the root cert and return the cert chain directly.
 func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([]string, error) {
-	cert, err := r.Sign(csrPEM, certOpts)
+	ttl, err := preSign(r.raOpts, csrPEM, certOpts.SubjectIDs, certOpts.TTL, certOpts.ForCA)
+	if err != nil {
+		return nil, err
+	}
+
+	// certOpts.CertSigner will always be set in this case - this is the path with domains and user-supplied suffix
+	cert, err := r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, certOpts.CertSigner, ttl)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +169,12 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 	respCertChain := []string{string(cert)}
 	var possibleRootCert, rootCertFromMeshConfig, rootCertFromCertChain []byte
 	certSigner := r.certSignerDomain + "/" + certOpts.CertSigner
+
+	// If rootCertPem is set (normal case) - will not return the roots as last element, the caller will add it.
 	if len(r.GetCAKeyCertBundle().GetRootCertPem()) == 0 {
+		// If the key bundle does not have a root - missing config - we use the last
+		// element in the returned chain as root.
+
 		rootCertFromCertChain, err = util.FindRootCertFromCertificateChainBytes(cert)
 		if err != nil {
 			pkiRaLog.Infof("failed to find root cert from signed cert-chain (%v)", err.Error())
@@ -151,12 +201,17 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 	return respCertChain, nil
 }
 
-// GetCAKeyCertBundle returns the KeyCertBundle for the CA.
+// GetCAKeyCertBundle returns the KeyCertBundle for the CA, if ./etc/external-ca-cert/root-cert.pem is mounted
+// This only happens with the 'kubernetes' signer, where SetCACertificatesFromFile is called.
 func (r *KubernetesRA) GetCAKeyCertBundle() *util.KeyCertBundle {
 	return r.keyCertBundle
 }
 
+// SetCACertificatesFromMeshConfig will configure a map of signer to roots.
+// This does not create a keyCertBundle - we don't know which one is the default.
+// It is not clear how this feature is used .
 func (r *KubernetesRA) SetCACertificatesFromMeshConfig(caCertificates []*meshconfig.MeshConfig_CertificateData) {
+	// TODO(costin): clarify mesh config certificates (when they are used, how)
 	r.mutex.Lock()
 	for _, pemCert := range caCertificates {
 		// TODO:  take care of spiffe bundle format as well

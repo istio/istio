@@ -49,8 +49,41 @@ func ParsePemEncodedCertificate(certBytes []byte) (*x509.Certificate, error) {
 	return cert, nil
 }
 
+// SplitPemEncodedCertificates will break a concatenated PEM file into parts and
+// parse each block as a x509 certificate. Useful for cert chains and root certs.
+// The last element in the list is returned as PEM - in the case of cert chain, it should
+// be the root certificate, as Istio appends the root at the end.
+// Unlike ParsePemEncodedCertificateChain, this returns the entire chain - including the last element, while the
+// other doesn't parse the last element, returning it as bytes.
+func SplitPemEncodedCertificates(certBytes []byte) ([]*x509.Certificate, error) {
+	var (
+		certs []*x509.Certificate
+		cb    *pem.Block
+	)
+	certBytes = bytes.TrimSpace(certBytes)
+	for {
+		cb, certBytes = pem.Decode(certBytes)
+		if cb == nil {
+			return nil, fmt.Errorf("invalid PEM encoded certificate")
+		}
+		cert, err := x509.ParseCertificate(cb.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse X.509 certificate")
+		}
+		certs = append(certs, cert)
+		if len(certBytes) == 0 {
+			break
+		}
+	}
+	if len(certs) == 0 {
+		return nil, fmt.Errorf("no PEM encoded X.509 certificates parsed")
+	}
+	return certs, nil
+}
+
 // ParsePemEncodedCertificateChain constructs a slice of `x509.Certificate` and `rootCertBytes`
 // objects using the given a PEM-encoded certificate chain.
+// Returns the last block in the chains as []byte, and all previous blocks as certificates.
 func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []byte, error) {
 	var (
 		certs         []*x509.Certificate
