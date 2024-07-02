@@ -147,6 +147,8 @@ func InstallCmd(ctx cli.Context) *cobra.Command {
 	return InstallCmdWithArgs(ctx, &RootArgs{}, &InstallArgs{})
 }
 
+const ambientProfile = "ambient"
+
 func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, stdOut io.Writer, l clog.Logger, p Printer,
 ) error {
 	kubeClient, client, err := KubernetesClients(kubeClient, l)
@@ -176,6 +178,11 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	profile, ns, enabledComponents, err := getProfileNSAndEnabledComponents(iop)
 	if err != nil {
 		return fmt.Errorf("failed to get profile, namespace or enabled components: %v", err)
+	}
+
+	// detect ambiet distroless tag
+	if profile == ambientProfile && strings.HasSuffix(tag, "-distroless") {
+		return fmt.Errorf("ambient profile ambient variant is already set to 'distroless'; there is no need to add the '-distroless' tag: %q", tag)
 	}
 
 	// Ignore the err because we don't want to show
@@ -233,7 +240,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	}
 
 	// Post-install message
-	if profile == "ambient" {
+	if profile == ambientProfile {
 		p.Println("The ambient profile has been installed successfully, enjoy Istio without sidecars!")
 	}
 	return nil
