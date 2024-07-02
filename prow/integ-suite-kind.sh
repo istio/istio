@@ -182,18 +182,20 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   docker pull gcr.io/istio-testing/wasm/header-injector:0.0.2
   docker tag gcr.io/istio-testing/wasm/header-injector:0.0.2 localhost:5000/istio-testing/wasm/header-injector:0.0.2
   docker push localhost:5000/istio-testing/wasm/header-injector:0.0.2
+  # Make "kind-registry" resolvable in IPv6 cluster
   if [[ "$IP_FAMILY" == "ipv6" ]]; then
     kind_registry_ip=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{if eq $k "kind"}}{{.GlobalIPv6Address}}{{end}}{{end}}' kind-registry)
-  else
-    kind_registry_ip=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{if eq $k "kind"}}{{.IPAddress}}{{end}}{{end}}' kind-registry)
-  fi
-  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    kubectl create cm kind-registry-addr --from-literal=ip="$kind_registry_ip"
-  else
-    for cluster_name in "${CLUSTER_NAMES[@]}"
-    do
-       kubectl --context=kind-"$cluster_name" create cm kind-registry-addr --from-literal=ip="$kind_registry_ip"
-    done
+    coredns_config=$(kubectl get -oyaml -n=kube-system configmap/coredns)
+    echo "Current CoreDNS config:"
+    echo "${coredns_config}"
+    patched_coredns_config=$(kubectl get -oyaml -n=kube-system configmap/coredns | sed -e '/^ *ready/i\
+        hosts {\
+            '"$kind_registry_ip"' kind-registry.lan\
+            fallthrough\
+        }')
+    echo "Patched CoreDNS config:"
+    echo "${patched_coredns_config}"
+    printf '%s' "${patched_coredns_config}" | kubectl apply -f -
   fi
 fi
 

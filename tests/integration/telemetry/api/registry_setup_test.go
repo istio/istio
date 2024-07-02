@@ -18,12 +18,8 @@
 package api
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
-	"net/netip"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework/components/registryredirector"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -38,29 +34,9 @@ const (
 )
 
 func testRegistrySetup(ctx resource.Context) (err error) {
-	cm, err := ctx.Clusters().Default().Kube().CoreV1().ConfigMaps("default").Get(context.TODO(), "kind-registry-addr", metav1.GetOptions{})
-	if err != nil {
-		return
-	}
-	ip, found := cm.Data["ip"]
-	if !found {
-		err = fmt.Errorf("kind-registry IP not found in the config map kind-registry-addr/default")
-		return
-	}
-	ipAddr, err := netip.ParseAddr(ip)
-	if err != nil {
-		err = fmt.Errorf("failed to parse IP address '%s': %s", ip, err)
-		return
-	}
-	var formattedAddr string
-	if ipAddr.Is6() {
-		formattedAddr = fmt.Sprintf("'[%s]:5000'", ipAddr.String())
-	} else {
-		formattedAddr = fmt.Sprintf("%s:5000", ipAddr.String())
-	}
 	registry, err = registryredirector.New(ctx, registryredirector.Config{
 		Cluster:        ctx.AllClusters().Default(),
-		TargetRegistry: formattedAddr,
+		TargetRegistry: "kind-registry:5000",
 		Scheme:         "http",
 		Image:          "quay.io/jewertow/fake-registry:latest",
 	})
