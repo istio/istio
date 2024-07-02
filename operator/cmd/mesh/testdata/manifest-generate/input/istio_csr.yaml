@@ -1,0 +1,32 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+spec:
+  meshConfig:
+    trustDomain: cluster.local
+  values:
+    global:
+      caAddress: cert-manager-istio-csr.cert-manager.svc:443
+    pilot:
+      env:
+        ENABLE_CA_SERVER: false
+      extraContainerArgs:
+        - --tlsCertFile=/etc/cert-manager/tls/tls.crt
+        - --tlsKeyFile=/etc/cert-manager/tls/tls.key
+        - --caCertFile=/etc/cert-manager/ca/root-cert.pem
+      volumeMounts:
+        - name: cert-manager
+          mountPath: /etc/cert-manager/tls
+          readOnly: true
+        - name: ca-root-cert
+          mountPath: /etc/cert-manager/ca
+          readOnly: true
+      volumes:
+        - name: cert-manager
+          secret:
+            secretName: istiod-tls
+        - name: ca-root-cert
+          configMap:
+            defaultMode: 420
+            name: istio-ca-root-cert

@@ -951,13 +951,13 @@ message PilotConfig {
   repeated k8s.io.api.core.v1.TopologySpreadConstraint topologySpreadConstraints = 41;
 
   // Additional container arguments for the Pilot container.
-  repeated google.protobuf.Struct extraContainerArgs = 42;
+  repeated string extraContainerArgs = 42;
 
   // Additional volumeMounts to add to the Pilot container.
-  repeated k8s.io.api.core.v1.VolumeMount volumeMounts = 49;
+  repeated google.protobuf.Struct volumeMounts = 49;
 
   // Additional volumes to add to the Pilot Pod.
-  repeated k8s.io.api.core.v1.Volume volumes = 51;
+  repeated google.protobuf.Struct volumes = 51;
 
   // Defines which IP family to use for single stack or the order of IP families for dual-stack.
   // Valid list items are "IPv4", "IPv6".

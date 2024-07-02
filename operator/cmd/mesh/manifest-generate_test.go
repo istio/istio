@@ -605,6 +605,10 @@ func TestManifestGeneratePilot(t *testing.T) {
 			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
 			fileSelect: []string{"templates/autoscale.yaml"},
 		},
+		{
+			desc:       "istio_csr",
+			diffSelect: "Deployment:*:istiod",
+		},
 	})
 }
 
