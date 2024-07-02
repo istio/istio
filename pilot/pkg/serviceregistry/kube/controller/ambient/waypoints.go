@@ -148,29 +148,17 @@ func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt
 	if labelValue, ok := meta.Labels[constants.AmbientUseWaypointLabel]; ok {
 		// NOTE: this means Istio reserves the word "none" in this field with a special meaning
 		//   a waypoint named "none" cannot be used and will be ignored
-		//   also reserve anything with suffix "/none" to prevent use of "namespace/none" as a work around
-		// ~ is used in other portions of the API, reserve it with special meaning although it's unlikely to be documented
-		if labelValue == "none" || labelValue == "~" || strings.HasSuffix(labelValue, "/none") {
+		if labelValue == "none" {
 			return nil, true
 		}
-		namespacedName := strings.Split(labelValue, "/")
-		switch len(namespacedName) {
-		case 1:
-			return &krt.Named{
-				Name:      namespacedName[0],
-				Namespace: defaultNamespace,
-			}, false
-		case 2:
-			return &krt.Named{
-				Name:      namespacedName[1],
-				Namespace: namespacedName[0],
-			}, false
-		default:
-			// malformed label error
-			log.Errorf("%s/%s, has a malformed %s label, value found: %s", meta.GetNamespace(), meta.GetName(), constants.AmbientUseWaypointLabel, labelValue)
-			return nil, false
+		namespace := defaultNamespace
+		if override, f := meta.Labels[constants.AmbientUseWaypointNamespaceLabel]; f {
+			namespace = override
 		}
-
+		return &krt.Named{
+			Name:      labelValue,
+			Namespace: namespace,
+		}, false
 	}
 	return nil, false
 }
