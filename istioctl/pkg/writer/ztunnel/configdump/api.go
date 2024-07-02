@@ -21,6 +21,7 @@ type Locality struct {
 }
 
 type ZtunnelWorkload struct {
+	UID                   string            `json:"uid"`
 	WorkloadIPs           []string          `json:"workloadIps"`
 	Waypoint              *GatewayAddress   `json:"waypoint,omitempty"`
 	NetworkGateway        *GatewayAddress   `json:"networkGateway,omitempty"`
@@ -57,14 +58,22 @@ type LoadBalancer struct {
 	RoutingPreferences []string `json:"routingPreferences"`
 }
 
+type ZtunnelEndpoint struct {
+	WorkloadUID string            `json:"workloadUid"`
+	Service     string            `json:"service"`
+	Address     string            `json:"address,omitempty"`
+	Port        map[uint16]uint16 `json:"port"`
+}
+
 type ZtunnelService struct {
-	Name         string          `json:"name"`
-	Namespace    string          `json:"namespace"`
-	Hostname     string          `json:"hostname"`
-	Addresses    []string        `json:"vips"`
-	Ports        map[string]int  `json:"ports"`
-	LoadBalancer *LoadBalancer   `json:"loadBalancer"`
-	Waypoint     *GatewayAddress `json:"waypoint"`
+	Name         string                      `json:"name"`
+	Namespace    string                      `json:"namespace"`
+	Hostname     string                      `json:"hostname"`
+	Addresses    []string                    `json:"vips"`
+	Ports        map[string]int              `json:"ports"`
+	LoadBalancer *LoadBalancer               `json:"loadBalancer"`
+	Waypoint     *GatewayAddress             `json:"waypoint"`
+	Endpoints    map[string]*ZtunnelEndpoint `json:"endpoints"`
 }
 
 type PolicyMatch struct {
