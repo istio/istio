@@ -26,7 +26,7 @@ spec:
       serviceAccountName: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
       containers:
         - name: istio-operator
-          image: {{.Values.hub}}/operator:{{.Values.tag}}
+          {{- include "istio.image" . | indent 2}}
           command:
           - operator
           - server

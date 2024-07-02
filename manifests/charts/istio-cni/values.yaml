@@ -1,10 +1,18 @@
 defaults:
+  hub: ""
+  tag: ""
+  variant: ""
+  image: install-cni
+  imagePullPolicy: ""
+
   cni:
+    ## BEGIN DEPRECATED - prefer `values.hub/tag` or `global.hub/tag` instead of `values.cni.hub/tag`
     hub: ""
     tag: ""
     variant: ""
     image: install-cni
     pullPolicy: ""
+    ## END DEPRECATED
 
     # Configuration log level of istio-cni binary
     # by default istio-cni send all logs to UDS server

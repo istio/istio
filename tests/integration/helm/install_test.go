@@ -19,8 +19,6 @@ package helm
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -35,22 +33,16 @@ import (
 
 // TestDefaultInstall tests Istio installation using Helm with default options
 func TestDefaultInstall(t *testing.T) {
-	overrideValuesStr := `
-global:
-  hub: %s
-  tag: %s
-  variant: %q
-`
 	framework.
 		NewTest(t).
-		Run(setupInstallation(overrideValuesStr, false, DefaultNamespaceConfig, ""))
+		Run(setupInstallation("", "", DefaultNamespaceConfig))
 }
 
 // TestAmbientInstall tests Istio ambient profile installation using Helm
 func TestAmbientInstall(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(setupInstallation(ambientProfileOverride, true, DefaultNamespaceConfig, ""))
+		Run(setupInstallation("ambient", "", DefaultNamespaceConfig))
 }
 
 func TestAmbientInstallMultiNamespace(t *testing.T) {
@@ -83,7 +75,7 @@ func TestAmbientInstallMultiNamespace(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			framework.
 				NewTest(t).
-				Run(setupInstallation(ambientProfileOverride, true, tt.nsConfig, ""))
+				Run(setupInstallation("ambient", "", tt.nsConfig))
 		})
 	}
 }
@@ -91,18 +83,10 @@ func TestAmbientInstallMultiNamespace(t *testing.T) {
 // TestReleaseChannels tests that non-stable CRDs and fields get blocked
 // by the default ValidatingAdmissionPolicy
 func TestReleaseChannels(t *testing.T) {
-	overrideValuesStr := `
-global:
-  hub: %s
-  tag: %s
-  variant: %q
-profile: stable
-`
-
 	framework.
 		NewTest(t).
 		RequireKubernetesMinorVersion(30).
-		Run(setupInstallationWithCustomCheck(overrideValuesStr, false, DefaultNamespaceConfig, func(t framework.TestContext) {
+		Run(setupInstallationWithExtraValues("stable", "", "", DefaultNamespaceConfig, func(t framework.TestContext) {
 			// Try to apply an EnvoyFilter (it should be rejected)
 			expectedErrorPrefix := `%s "sample" is forbidden: ValidatingAdmissionPolicy 'stable-channel-default-policy.istio.io' ` +
 				`with binding 'stable-channel-default-policy-binding.istio.io' denied request`
@@ -126,26 +110,18 @@ profile: stable
 					t.Errorf("Expected error %q to contain %q", err.Error(), msg)
 				}
 			}
-		}, ""))
+		}))
 }
 
 // TestRevisionedReleaseChannels tests that non-stable CRDs and fields get blocked
 // by the revisioned ValidatingAdmissionPolicy
 func TestRevisionedReleaseChannels(t *testing.T) {
-	overrideValuesStr := `
-global:
-  hub: %s
-  tag: %s
-  variant: %q
-profile: stable
-revision: 1-x
-defaultRevision: ""
-`
 	revision := "1-x"
+	extraValues := `defaultRevision: ""`
 	framework.
 		NewTest(t).
 		RequireKubernetesMinorVersion(30).
-		Run(setupInstallationWithCustomCheck(overrideValuesStr, false, DefaultNamespaceConfig, func(t framework.TestContext) {
+		Run(setupInstallationWithExtraValues("stable", revision, extraValues, DefaultNamespaceConfig, func(t framework.TestContext) {
 			// Try to apply an EnvoyFilter (it should be rejected)
 			expectedErrorPrefix := `%s "sample" is forbidden: ValidatingAdmissionPolicy 'stable-channel-policy-1-x-istio-system.istio.io' ` +
 				`with binding 'stable-channel-policy-binding-1-x-istio-system.istio.io' denied request`
@@ -169,65 +145,57 @@ defaultRevision: ""
 					t.Errorf("Expected error %q to contain %q", err.Error(), msg)
 				}
 			}
-		}, revision))
+		}))
 }
 
-func setupInstallation(overrideValuesStr string, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
-	return baseSetup(overrideValuesStr, isAmbient, config, func(t framework.TestContext) {
+func setupInstallation(profile, revision string, config NamespaceConfig) func(t framework.TestContext) {
+	return baseSetup(profile, revision, "", config, func(t framework.TestContext) {
 		sanitycheck.RunTrafficTest(t, t)
-	}, revision)
+	})
 }
 
-func setupInstallationWithCustomCheck(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
-	check func(t framework.TestContext), revision string,
+func setupInstallationWithExtraValues(profile, revision, extraValues string, config NamespaceConfig,
+	check func(t framework.TestContext),
 ) func(t framework.TestContext) {
-	return baseSetup(overrideValuesStr, isAmbient, config, check, revision)
+	return baseSetup(profile, revision, extraValues, config, check)
 }
 
-func baseSetup(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
-	check func(t framework.TestContext), revision string,
+func baseSetup(profileName, revision, extraValues string, config NamespaceConfig,
+	check func(t framework.TestContext),
 ) func(t framework.TestContext) {
 	return func(t framework.TestContext) {
-		workDir, err := t.CreateTmpDirectory("helm-install-test")
-		if err != nil {
-			t.Fatal("failed to create test directory")
-		}
+		templatedValuesFile := genTemplatedValuesFile(t, profileName, revision, extraValues)
+
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
-		s := t.Settings()
 
-		// Some templates contain a tag definition, in which we just replace %s it with the tag value,
-		// others just contain a %s placeholder for the whole tag: line
-		tag := s.Image.Tag
-		if !strings.Contains(overrideValuesStr, "tag: ") {
-			tag = "tag: " + tag
-		}
-		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, tag, s.Image.Variant)
-		overrideValues = adjustValuesForOpenShift(t, overrideValues)
-
-		overrideValuesFile := filepath.Join(workDir, "values.yaml")
-		if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
-			t.Fatalf("failed to write iop cr file: %v", err)
-		}
 		t.Cleanup(func() {
-			if !t.Failed() {
-				return
-			}
-			if t.Settings().CIMode {
-				for _, ns := range config.AllNamespaces() {
-					namespace.Dump(t, ns)
+			if t.Failed() {
+				if t.Settings().CIMode {
+					for _, ns := range config.AllNamespaces() {
+						namespace.Dump(t, ns)
+					}
 				}
 			}
+
+			DeleteIstio(t, h, cs, config, profileName)
 		})
 
-		InstallIstio(t, cs, h, overrideValuesFile, "", true, isAmbient, config)
+		InstallIstio(t, cs, h, templatedValuesFile, "", true, profileName, config)
 
-		VerifyInstallation(t, cs, config, true, isAmbient, revision)
+		var checkAmbient bool
+		if profileName == "ambient" {
+			checkAmbient = true
+		}
+
+		VerifyInstallation(t, cs, config, true, checkAmbient, revision)
 		verifyValidation(t, revision)
 
 		check(t)
-		t.Cleanup(func() {
-			DeleteIstio(t, h, cs, config, isAmbient)
-		})
 	}
+}
+
+func genTemplatedValuesFile(t framework.TestContext, profileName, revision, extraValues string) string {
+	s := t.Settings()
+	return GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, revision, profileName, extraValues)
 }

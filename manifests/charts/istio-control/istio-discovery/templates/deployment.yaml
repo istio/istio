@@ -82,14 +82,7 @@ spec:
 {{- end }}
       containers:
         - name: discovery
-{{- if contains "/" .Values.pilot.image }}
-          image: "{{ .Values.pilot.image }}"
-{{- else }}
-          image: "{{ .Values.pilot.hub | default .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.pilot.tag | default .Values.global.tag }}{{with (.Values.pilot.variant | default .Values.global.variant)}}-{{.}}{{end}}"
-{{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
+          {{- include "istio.image" . | indent 2}}
           args:
           - "discovery"
           - --monitoringAddr=:15014
