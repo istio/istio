@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -291,7 +292,9 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
-		AltStatName:          name + ";", // Add our own delimeter so we can know where the cluster name ends
+	}
+	if strings.Contains(name, ".") {
+		c.AltStatName = name + ";" // Add our own delimeter so we can know where the cluster name ends
 	}
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
