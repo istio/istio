@@ -17,6 +17,10 @@ metadata:
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Cni"
+    {{- if .Values.cni.labels }}
+    # Custom Labels
+{{ toYaml .Values.cni.labels | indent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:
@@ -31,6 +35,10 @@ spec:
         k8s-app: {{ template "name" . }}-node
         sidecar.istio.io/inject: "false"
         istio.io/dataplane-mode: none
+        {{- if .Values.cni.podLabels }}
+        # Custom Labels
+{{ toYaml .Values.cni.podLabels | indent 8 }}
+        {{- end }}        
       annotations:
         sidecar.istio.io/inject: "false"
         # Add Prometheus Scrape annotations
