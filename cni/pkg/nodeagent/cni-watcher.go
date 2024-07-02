@@ -126,19 +126,19 @@ func (s *CniPluginServer) handleAddEvent(w http.ResponseWriter, req *http.Reques
 	defer req.Body.Close()
 	data, err := io.ReadAll(req.Body)
 	if err != nil {
-		log.Errorf("Failed to read event report from cni plugin: %v", err)
+		log.Errorf("failed to read event report from cni plugin: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	msg, err := processAddEvent(data)
 	if err != nil {
-		log.Errorf("Failed to process CNI event payload: %v", err)
+		log.Errorf("failed to process CNI event payload: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if err := s.ReconcileCNIAddEvent(req.Context(), msg); err != nil {
-		log.Errorf("Failed to handle add event: %v", err)
+		log.WithLabels("ns", msg.PodNamespace, "name", msg.PodName).Errorf("failed to handle add event: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
