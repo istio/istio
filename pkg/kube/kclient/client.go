@@ -142,6 +142,11 @@ func (n *writeClient[T]) Patch(name, namespace string, pt apitypes.PatchType, da
 	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{})
 }
 
+func (n *writeClient[T]) PatchStatus(name, namespace string, pt apitypes.PatchType, data []byte) (T, error) {
+	api := kubeclient.GetWriteClient[T](n.client, namespace)
+	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{}, "status")
+}
+
 func (n *writeClient[T]) UpdateStatus(object T) (T, error) {
 	api, ok := kubeclient.GetWriteClient[T](n.client, object.GetNamespace()).(kubetypes.WriteStatusAPI[T])
 	if !ok {
