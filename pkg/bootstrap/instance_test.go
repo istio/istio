@@ -341,6 +341,7 @@ func TestGolden(t *testing.T) {
 			}
 
 			checkStatsMatcher(t, realM, goldenM, c.stats)
+			checkStatsTags(t, goldenM)
 
 			if c.check != nil {
 				c.check(realM, t)
@@ -415,6 +416,74 @@ func checkOpencensusConfig(t *testing.T, got, want *bootstrap.Bootstrap) {
 
 	if diff := cmp.Diff(got.Tracing.Http, want.Tracing.Http, protocmp.Transform()); diff != "" {
 		t.Fatalf("t diff: %v\ngot:\n %v\nwant:\n %v\n", diff, got.Tracing.Http, want.Tracing.Http)
+	}
+}
+
+// Test that our golden files all have proper stat tags
+func checkStatsTags(t *testing.T, got *bootstrap.Bootstrap) {
+	for _, tag := range got.StatsConfig.StatsTags {
+		// TODO: Add checks for other tags
+		if tag.TagName == "cluster_name" {
+			checkClusterNameTag(t, tag.GetRegex())
+		}
+	}
+}
+
+// Envoy will remove the first capture group and set the tag to the second capture group.
+// We double check that the regex returns what we want here.
+func checkClusterNameTag(t *testing.T, regex string) {
+	if regex == "" {
+		t.Fatalf("cluster_name tag regex is empty")
+	}
+
+	compiledRegex, err := regexp.Compile(regex)
+	if err != nil {
+		t.Fatalf("invalid regex for cluster_name tag: %v", err)
+	}
+
+	tc := []struct {
+		name               string
+		clusterName        string
+		firstCaptureGroup  string
+		secondCaptureGroup string
+	}{
+		{
+			name:               "cluster_name stats tag - external service",
+			clusterName:        "cluster.outbound|443||api.facebook.com;.upstream_rq_retry",
+			firstCaptureGroup:  "outbound|443||api.facebook.com;",
+			secondCaptureGroup: "outbound|443||api.facebook.com",
+		},
+		{
+			name:               "cluster_name stats tag - internal kubernetes service",
+			clusterName:        "cluster.outbound|443||kubernetes.default.svc.cluster.local;.upstream_rq_retry",
+			firstCaptureGroup:  "outbound|443||kubernetes.default.svc.cluster.local;",
+			secondCaptureGroup: "outbound|443||kubernetes.default.svc.cluster.local",
+		},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			subMatches := compiledRegex.FindStringSubmatch(tt.clusterName)
+			if subMatches == nil {
+				t.Fatalf("cluster_name tag regex does not match cluster name %s", tt.clusterName)
+			}
+
+			// The first index is the whole match followed by N number of capture groups.
+			// There are 2 capture groups we expect in the regex, so we always check for 3
+			if len(subMatches) != 3 {
+				t.Fatalf("unexpected number of capture groups: %d. Submatches: %v", len(subMatches), subMatches)
+			}
+
+			// Now we examine both of the capture groups (which start at index 1)
+			if subMatches[1] != tt.firstCaptureGroup {
+				t.Fatalf("first capture group does not match %s, got %s", tt.firstCaptureGroup, subMatches[1])
+			}
+
+			// Finally, check the second capture group
+			if subMatches[2] != tt.secondCaptureGroup {
+				t.Fatalf("second capture group does not match %s, got %s", tt.secondCaptureGroup, subMatches[2])
+			}
+		})
 	}
 }
 

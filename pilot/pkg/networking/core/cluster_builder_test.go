@@ -996,6 +996,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			external:    false,
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
+				AltStatName:          "foo;",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
@@ -1083,6 +1084,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			external:  false,
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
+				AltStatName:          "foo;",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
