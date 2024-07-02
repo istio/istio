@@ -212,7 +212,8 @@ func TestIPAllocate(t *testing.T) {
 
 	// let's generate an even worse conflict now
 	// this is almost certainly caused by some bug in, none the less test we can recover
-	status := rig.se.Get("beep", "boop").Status
+	conflictingAddresses := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("beep", "boop"))
+	conflictingCondition := autoallocate.ConditionKludge(conflictingAddresses)
 	rig.se.Create(
 		&networkingv1alpha3.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
@@ -225,7 +226,11 @@ func TestIPAllocate(t *testing.T) {
 					"status-conflict.boop.testing.io",
 				},
 			},
-			Status: status,
+			Status: v1alpha1.IstioStatus{
+				Conditions: []*v1alpha1.IstioCondition{
+					&conflictingCondition,
+				},
+			},
 		},
 	)
 
