@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -32,6 +33,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/workloadapi"
@@ -354,6 +356,98 @@ func TestPodWorkloads(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "pod as part of selectorless service",
+			inputs: []any{
+				model.ServiceInfo{
+					Service: &workloadapi.Service{
+						Name:      "svc",
+						Namespace: "default",
+						Hostname:  "svc.default.svc.domain.suffix",
+						Ports: []*workloadapi.Port{
+							{
+								ServicePort: 80,
+								TargetPort:  80,
+							},
+						},
+					},
+					PortNames: map[int32]model.ServicePortName{
+						80: {PortName: "80"},
+					},
+					// no selector!
+					LabelSelector: model.LabelSelector{},
+					Source:        kind.Service,
+				},
+				// EndpointSlice manually associates the pod with a service
+				&discovery.EndpointSlice{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc-123",
+						Namespace: "default",
+						Labels: map[string]string{
+							discovery.LabelServiceName: "svc",
+						},
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						{
+							Addresses: []string{"1.2.3.4"},
+							Conditions: discovery.EndpointConditions{
+								Ready: ptr.Of(true),
+							},
+							TargetRef: &v1.ObjectReference{
+								Kind:      "Pod",
+								Name:      "pod-123",
+								Namespace: "default",
+							},
+						},
+					},
+					Ports: []discovery.EndpointPort{
+						{
+							Name:     ptr.Of("http"),
+							Protocol: ptr.Of(v1.ProtocolTCP),
+							Port:     ptr.Of(int32(80)),
+						},
+					},
+				},
+			},
+			pod: &v1.Pod{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-123",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app": "foo",
+					},
+				},
+				Spec: v1.PodSpec{},
+				Status: v1.PodStatus{
+					Phase:      v1.PodRunning,
+					Conditions: podReady,
+					PodIP:      "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/default/pod-123",
+				Name:              "pod-123",
+				Namespace:         "default",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "foo",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "pod-123",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
+				Services: map[string]*workloadapi.PortList{
+					"default/svc.default.svc.domain.suffix": {
+						Ports: []*workloadapi.Port{{
+							ServicePort: 80,
+							TargetPort:  80,
+						}},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -361,6 +455,8 @@ func TestPodWorkloads(t *testing.T) {
 			a := newAmbientUnitTest()
 			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
+			EndpointSlices := krttest.GetMockCollection[*discovery.EndpointSlice](mock)
+			EndpointSlicesAddressIndex := endpointSliceAddressIndex(EndpointSlices)
 			builder := a.podWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
@@ -368,6 +464,8 @@ func TestPodWorkloads(t *testing.T) {
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
 				WorkloadServicesNamespaceIndex,
+				EndpointSlices,
+				EndpointSlicesAddressIndex,
 				krttest.GetMockCollection[*v1.Namespace](mock),
 				krttest.GetMockCollection[*v1.Node](mock),
 			)
@@ -753,6 +851,62 @@ func TestServiceEntryWorkloads(t *testing.T) {
 				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
 			res := builder(krt.TestingDummyContext{}, tt.se)
+			wl := slices.Map(res, func(e model.WorkloadInfo) *workloadapi.Workload {
+				return e.Workload
+			})
+			assert.Equal(t, wl, tt.result)
+		})
+	}
+}
+
+func TestEndpointSliceWorkloads(t *testing.T) {
+	cases := []struct {
+		name   string
+		inputs []any
+		slice  *discovery.EndpointSlice
+		result []*workloadapi.Workload
+	}{
+		{
+			name:   "api server",
+			inputs: []any{},
+			slice: &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubernetes",
+					Namespace: "default",
+					Labels: map[string]string{
+						discovery.LabelServiceName: "kubernetes",
+					},
+				},
+				AddressType: discovery.AddressTypeIPv4,
+				Endpoints: []discovery.Endpoint{
+					{
+						Addresses: []string{"172.18.0.5"},
+						Conditions: discovery.EndpointConditions{
+							Ready: ptr.Of(true),
+						},
+					},
+				},
+				Ports: []discovery.EndpointPort{
+					{
+						Name:     ptr.Of("https"),
+						Protocol: ptr.Of(v1.ProtocolTCP),
+						Port:     ptr.Of(int32(6443)),
+					},
+				},
+			},
+			result: nil,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := krttest.NewMock(t, tt.inputs)
+			a := newAmbientUnitTest()
+			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
+			builder := a.endpointSlicesBuilder(
+				GetMeshConfig(mock),
+				WorkloadServices,
+			)
+			res := builder(krt.TestingDummyContext{}, tt.slice)
 			wl := slices.Map(res, func(e model.WorkloadInfo) *workloadapi.Workload {
 				return e.Workload
 			})
