@@ -483,7 +483,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 	allConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 
 	// route
-	allConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
+	allConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter routes by route name field")
 
 	return allConfigCmd
 }
