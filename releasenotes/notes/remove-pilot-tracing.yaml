@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Removed** pilot flag `PILOT_TRACE_SAMPLING`.
+
+upgradeNotes:
+  - title: Removed pilot flag `PILOT_TRACE_SAMPLING` supported in Istio.
+    content: |
+      If you are using the pilot environment flag `PILOT_TRACE_SAMPLING`, you should
+      replace it with `defaultConfig.tracing.sampling` in the [MeshConfig](https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#ProxyConfig)
+      or `randomSamplingPercentage`in [Telemetry API](https://istio.io/latest/docs/reference/config/telemetry/).

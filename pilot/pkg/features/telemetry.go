@@ -18,27 +18,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
 )
 
 // Define telemetry related features here.
 var (
-	traceSamplingVar = env.Register(
-		"PILOT_TRACE_SAMPLING",
-		1.0,
-		"Sets the mesh-wide trace sampling percentage. Should be 0.0 - 100.0. Precision to 0.01. "+
-			"Default is 1.0.",
-	)
-
-	TraceSampling = func() float64 {
-		f := traceSamplingVar.Get()
-		if f < 0.0 || f > 100.0 {
-			log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
-			return 1.0
-		}
-		return f
-	}()
-
 	EnableTelemetryLabel = env.Register("PILOT_ENABLE_TELEMETRY_LABEL", true,
 		"If true, pilot will add telemetry related metadata to cluster and endpoint resources, which will be consumed by telemetry filter.",
 	).Get()
