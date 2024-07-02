@@ -1,6 +1,7 @@
-# Ztunnel Lifecyle
+# Ztunnel Lifecyle On Kubernetes
 
-This document describes the lifecycle of various aspects of Ztunnel, and its relationship to workloads and the CNI.
+This document describes the lifecycle of various aspects of Ztunnel, and its relationship to workloads and the CNI, when running
+as a Kubernetes DaemonSet.
 
 At a high level, our goal is to provide complete connectivity to a workload throughout its entire lifetime.
 Failing to do so can be an availability risk (if we deny traffic that should succeed) or a security risk (if we allow traffic that should be denied).
@@ -22,12 +23,15 @@ flowchart TD
 ```
 
 The CNI Plugin is a binary installed as a [CNI plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) on the node.
-Kubernetes is responsible for invoking this when a Pod is being started (before the containers run).
+The container runtime is responsible for invoking this when a Pod is being started (before the containers run).
 When this occurs, the plugin will call out to the CNI Agent to program the network.
-This includes setting up networking rules both within the pod network namespace, and also on the host network.
+This includes setting up networking rules within both the pod network namespace and the host network.
+For more information on the rules, see the [CNI README](../../cni/README.md).
+This is done by an HTTP server running on `/var/run/istio-cni/pluginevent.sock`.
 
-An alternative flow is when a pod is enabled after startup.
+An alternative flow is when a pod is enrolled into ambient mode after it starts up.
 In this case, the CNI Agent is watching for Pod events from the API server directly and performing the same setup.
+Note this is done while the Pod is running, unlike the CNI plugin flow which occurs before the Pod starts.
 
 Once the network is configured, the CNI Agent will signal to Ztunnel to start running within the Pod.
 This is done by the [ZDS](../../pkg/zdsapi/zds.proto) API.
@@ -42,14 +46,16 @@ Ztunnel will use this to enter the Pod network namespace and start various liste
 
 ### Pod Startup Requirements
 
-During Pod startup, we MUST meet the constraint that the network is ready the instant the application starts (including `initContainers`!).
+During new Pod startup, we MUST meet the constraint that the network is ready the instant the application starts (including `initContainers`!).
 This is critical -- issues around this were the [top issue with sidecars](https://github.com/istio/istio/issues/11130).
 
 ### Pod Startup Implementation
 
 The key mechanism to maintain this property is the CNI plugin.
-The CNI plugin synchronously runs before application containers start, ensure we can setup the network configuration and start Ztunnel.
-Only once those two conditions are met do we mark the CNI plugin as successfully complete.
+The CNI plugin is executed synchronously  during the creation of the Pod sandbox by the container runtime, before processes or containers are run within the Pod.
+This ensures we can setup the network configuration and start Ztunnel.
+Only once those two conditions are met does the CNI plugin return success - effectively allowing our plugin to block Pod scheduling until we are ready.
+Otherwise, the CNI plugin will continually be retried, blocking Pod startup until it succeeds.
 
 From the above we are ensured that when the application starts and opens a connection, Ztunnel will be ready to `accept()` it.
 However, this is not enough to fully serve the request - Ztunnel will need the certificate (from the CA) and full workload information (from the XDS server).
@@ -61,7 +67,7 @@ For applications that do, they will see a slight latency increase during startup
 
 ### Pod Shutdown Requirements
 
-During Pod shutdown, we MUST meet the constraint that the Pod shutting down can send traffic up until its full stopped.
+During Pod shutdown, we MUST meet the constraint that Pod traffic will be handled until all containerized processes within the Pod have terminated.
 Pod shutdown can be a long process; while `terminationGracePeriodSeconds` is typically ~30s, it can be extremely high, leaving terminating pods running for extended periods of time with an expectation of networking.
 
 Additionally, we MUST accept incoming traffic during this time, both new and existing.
@@ -85,7 +91,6 @@ Furthermore, because the Pod is torn down, we cannot even send any data at all (
 Notably, this prevents us from sending a GOAWAY to notify peers we have shutdown.
 
 As a result, while we meet our two must-haves (send and accept traffic throughout the entire pod lifetime), we do not have an optimal solution here yet.
-Perhaps hooking into the [CNI `DEL`](https://github.com/containernetworking/cni/blob/main/SPEC.md#del-remove-container-from-network-or-un-apply-modifications) could be a path forward here.
 Alternatively, we could send the GOAWAY prior to the pod termination (assuming this allows existing and new connections to function still).
 
 ## Ztunnel Shutdown/Upgrade/Restart
@@ -111,12 +116,12 @@ Depending on the application, this may have a range of impacts (terminating in-f
 
 ### Ztunnel Shutdown Implementation
 
-The key to this "handoff" between Ztunnels is `SO_REUSEPORT`, which Ztunnel sets on all of its listeners.
-This enables multiple processes to bind to the same port.
-Linux will then send new connections to one of the processes.
+The key to this "handoff" between Ztunnels is `SO_REUSEPORT`, which Ztunnel by default sets on all of its listeners.
+This enables multiple processes with the same effective UID to bind to the same port (see `man 7 socket` for details).
+Linux will then send new connections to one of the processes (first to accept wins, so effectively random).
 
 This still requires delicate sequencing.
-Consider a rolling restart of the DaemonSet.
+Consider a rolling restart of the DaemonSet; the default configuration for Istio's installation.
 We will do the following:
 
 1. `ztunnel-new` starts, connects to CNI.
