@@ -148,6 +148,9 @@ func addFlags(c *cobra.Command) {
 	// RegistryOptions Controller options
 	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.FileDir, "configDir", "",
 		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
+
+	// Deprecated: use ProxyConfig.ClusterDomain, must match. That's the value set by the
+	// default chart.
 	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.DomainSuffix, "domain", constants.DefaultClusterLocalDomain,
 		"DNS domain suffix")
 	c.PersistentFlags().StringVar((*string)(&serverArgs.RegistryOptions.KubeOptions.ClusterID), "clusterID", features.ClusterName,

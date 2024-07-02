@@ -48,10 +48,16 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	log.Infof("initializing mesh configuration %v", args.MeshConfigFile)
 	defer func() {
 		if s.environment.Watcher != nil {
-			log.Infof("mesh configuration: %s", mesh.PrettyFormatOfMeshConfig(s.environment.Mesh()))
+			meshCfg := s.environment.Mesh()
+			log.Infof("mesh configuration: %s", mesh.PrettyFormatOfMeshConfig(meshCfg))
 			log.Infof("version: %s", version.Info.String())
 			argsdump, _ := json.MarshalIndent(args, "", "   ")
 			log.Infof("flags: %s", argsdump)
+
+			// Make sure the DNS suffix is matching in Istiod and proxies.
+			//if s.environment.DomainSuffix != meshCfg.DefaultConfig.ClusterName {
+			//
+			//}
 		}
 	}()
 

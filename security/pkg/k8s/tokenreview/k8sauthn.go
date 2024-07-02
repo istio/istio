@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/pkg/log"
 	k8sauth "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -104,6 +105,7 @@ func getTokenReviewResult(tokenReview *k8sauth.TokenReview) (security.Kubernetes
 		return security.KubernetesInfo{}, fmt.Errorf("invalid username field in the token review result")
 	}
 
+	log.Infof("Token review %v", tokenReview)
 	return security.KubernetesInfo{
 		PodName:           extractExtra(tokenReview, PodNameKey),
 		PodNamespace:      subStrings[2],

@@ -39,6 +39,7 @@ import (
 func DefaultProxyConfig() *meshconfig.ProxyConfig {
 	// TODO: include revision based on REVISION env
 	// TODO: set default namespace based on POD_NAMESPACE env
+	// TODO: set default ClusterDomain
 	return &meshconfig.ProxyConfig{
 		ConfigPath:               constants.ConfigPathDir,
 		ClusterName:              &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: constants.ServiceClusterName},

@@ -170,8 +170,12 @@ func newProxyCommand(sds istioagent.SDSServiceFactory) *cobra.Command {
 
 func addFlags(proxyCmd *cobra.Command) {
 	proxyArgs = options.NewProxyArgs()
+
+	// DEPRECATED. This is set by the cart to Values.global.proxy.clusterDomain, which has the
+	// default value "cluster.local". The old comment was also miss-leading - this is just the suffix. Setting it to a different value than proxy.clusterDomain is likely to break things.
 	proxyCmd.PersistentFlags().StringVar(&proxyArgs.DNSDomain, "domain", "",
-		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
+		"DNS domain suffix. Should match clusterDomain in Istiod, defaults to 'cluster.local'.")
+
 	proxyCmd.PersistentFlags().StringVar(&proxyArgs.MeshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
 			"PROXY_CONFIG environment variable or proxy.istio.io/config annotation.")

@@ -47,6 +47,7 @@ var configMapLabel = map[string]string{"istio.io/config": "true"}
 
 // NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {
+	// caBundleWatcher in normal startup is set to server.istiodCertBundleWatcher.
 	caBundleWatcher *keycertbundle.Watcher
 
 	queue controllers.Queue
@@ -59,6 +60,7 @@ type NamespaceController struct {
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
 func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher) *NamespaceController {
+	// This is typically server.istiodCertBundleWatcher
 	c := &NamespaceController{
 		caBundleWatcher: caBundleWatcher,
 	}
@@ -125,6 +127,7 @@ func (nc *NamespaceController) startCaBundleWatcher(stop <-chan struct{}) {
 // reconcileCACert will reconcile the ca root cert configmap for the specified namespace
 // If the configmap is not found, it will be created.
 // If the namespace is filtered out by discovery selector, the configmap will be deleted.
+// TODO: find the code where delete happens or update the previous line.
 func (nc *NamespaceController) reconcileCACert(o types.NamespacedName) error {
 	ns := o.Namespace
 	if ns == "" {

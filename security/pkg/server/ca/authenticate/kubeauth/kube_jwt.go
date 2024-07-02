@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"google.golang.org/grpc/metadata"
+	"istio.io/istio/pkg/log"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/cluster"
@@ -127,6 +128,9 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	if id.PodNamespace == "" {
 		return nil, fmt.Errorf("failed to parse the JWT; namespace required")
 	}
+
+	log.Infof("Authenticated with %v", id)
+
 	return &security.Caller{
 		AuthSource:     security.AuthSourceIDToken,
 		Identities:     []string{spiffe.MustGenSpiffeURI(a.meshHolder.Mesh(), id.PodNamespace, id.PodServiceAccount)},
