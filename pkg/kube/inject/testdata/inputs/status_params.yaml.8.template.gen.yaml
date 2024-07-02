@@ -1573,6 +1573,10 @@ templates:
             - name: net.ipv4.ip_unprivileged_port_start
               value: "0"
           {{- end }}
+          {{- if .Values.gateways.seccompProfile }}
+            seccompProfile:
+          {{- toYaml .Values.gateways.seccompProfile | nindent 10 }}
+          {{- end }}
           serviceAccountName: {{.ServiceAccount | quote}}
           containers:
           - name: istio-proxy
