@@ -393,6 +393,8 @@ message GatewaysConfig {
   IngressGatewayConfig istio_ingressgateway = 4 [json_name = "istio-ingressgateway"];
 
   google.protobuf.Value securityContext = 10;
+
+  google.protobuf.Value seccompProfile = 12;
 }
 
 // Global Configuration for Istio components.

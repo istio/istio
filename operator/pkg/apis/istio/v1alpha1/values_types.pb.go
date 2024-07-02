@@ -1562,6 +1562,7 @@ type GatewaysConfig struct {
 	// Configuration for an ingress gateway.
 	IstioIngressgateway *IngressGatewayConfig `protobuf:"bytes,4,opt,name=istio_ingressgateway,json=istio-ingressgateway,proto3" json:"istio_ingressgateway,omitempty"`
 	SecurityContext     *structpb.Value       `protobuf:"bytes,10,opt,name=securityContext,proto3" json:"securityContext,omitempty"`
+	SeccompProfile      *structpb.Value       `protobuf:"bytes,12,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
 }
 
 func (x *GatewaysConfig) Reset() {
@@ -1620,6 +1621,13 @@ func (x *GatewaysConfig) GetIstioIngressgateway() *IngressGatewayConfig {
 func (x *GatewaysConfig) GetSecurityContext() *structpb.Value {
 	if x != nil {
 		return x.SecurityContext
+	}
+	return nil
+}
+
+func (x *GatewaysConfig) GetSeccompProfile() *structpb.Value {
+	if x != nil {
+		return x.SeccompProfile
 	}
 	return nil
 }
@@ -5853,7 +5861,7 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_rawDesc = []byte{
 	0x6c, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01,
 	0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c,
 	0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a,
-	0x02, 0x38, 0x01, 0x22, 0xad, 0x02, 0x0a, 0x0e, 0x47, 0x61, 0x74, 0x65, 0x77, 0x61, 0x79, 0x73,
+	0x02, 0x38, 0x01, 0x22, 0xed, 0x02, 0x0a, 0x0e, 0x47, 0x61, 0x74, 0x65, 0x77, 0x61, 0x79, 0x73,
 	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x4f, 0x0a, 0x13, 0x69, 0x73, 0x74, 0x69, 0x6f, 0x5f,
 	0x65, 0x67, 0x72, 0x65, 0x73, 0x73, 0x67, 0x61, 0x74, 0x65, 0x77, 0x61, 0x79, 0x18, 0x01, 0x20,
 	0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x2e, 0x45,
@@ -5872,7 +5880,11 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_rawDesc = []byte{
 	0x74, 0x65, 0x78, 0x74, 0x18, 0x0a, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x67, 0x6f, 0x6f,
 	0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x56, 0x61, 0x6c,
 	0x75, 0x65, 0x52, 0x0f, 0x73, 0x65, 0x63, 0x75, 0x72, 0x69, 0x74, 0x79, 0x43, 0x6f, 0x6e, 0x74,
-	0x65, 0x78, 0x74, 0x22, 0xaf, 0x12, 0x0a, 0x0c, 0x47, 0x6c, 0x6f, 0x62, 0x61, 0x6c, 0x43, 0x6f,
+	0x65, 0x78, 0x74, 0x12, 0x3e, 0x0a, 0x0e, 0x73, 0x65, 0x63, 0x63, 0x6f, 0x6d, 0x70, 0x50, 0x72,
+	0x6f, 0x66, 0x69, 0x6c, 0x65, 0x18, 0x0c, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x67, 0x6f,
+	0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x56, 0x61,
+	0x6c, 0x75, 0x65, 0x52, 0x0e, 0x73, 0x65, 0x63, 0x63, 0x6f, 0x6d, 0x70, 0x50, 0x72, 0x6f, 0x66,
+	0x69, 0x6c, 0x65, 0x22, 0xaf, 0x12, 0x0a, 0x0c, 0x47, 0x6c, 0x6f, 0x62, 0x61, 0x6c, 0x43, 0x6f,
 	0x6e, 0x66, 0x69, 0x67, 0x12, 0x2c, 0x0a, 0x04, 0x61, 0x72, 0x63, 0x68, 0x18, 0x01, 0x20, 0x01,
 	0x28, 0x0b, 0x32, 0x14, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x2e, 0x41, 0x72,
 	0x63, 0x68, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x42, 0x02, 0x18, 0x01, 0x52, 0x04, 0x61, 0x72,
@@ -6882,146 +6894,147 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
 	56,  // 49: v1alpha1.GatewaysConfig.enabled:type_name -> google.protobuf.BoolValue
 	20,  // 50: v1alpha1.GatewaysConfig.istio_ingressgateway:type_name -> v1alpha1.IngressGatewayConfig
 	57,  // 51: v1alpha1.GatewaysConfig.securityContext:type_name -> google.protobuf.Value
-	3,   // 52: v1alpha1.GlobalConfig.arch:type_name -> v1alpha1.ArchConfig
-	56,  // 53: v1alpha1.GlobalConfig.configValidation:type_name -> google.protobuf.BoolValue
-	59,  // 54: v1alpha1.GlobalConfig.defaultNodeSelector:type_name -> google.protobuf.Struct
-	12,  // 55: v1alpha1.GlobalConfig.defaultPodDisruptionBudget:type_name -> v1alpha1.DefaultPodDisruptionBudgetConfig
-	13,  // 56: v1alpha1.GlobalConfig.defaultResources:type_name -> v1alpha1.DefaultResourcesConfig
-	62,  // 57: v1alpha1.GlobalConfig.defaultTolerations:type_name -> k8s.io.api.core.v1.Toleration
-	56,  // 58: v1alpha1.GlobalConfig.logAsJson:type_name -> google.protobuf.BoolValue
-	19,  // 59: v1alpha1.GlobalConfig.logging:type_name -> v1alpha1.GlobalLoggingConfig
-	59,  // 60: v1alpha1.GlobalConfig.meshNetworks:type_name -> google.protobuf.Struct
-	22,  // 61: v1alpha1.GlobalConfig.multiCluster:type_name -> v1alpha1.MultiClusterConfig
-	56,  // 62: v1alpha1.GlobalConfig.omitSidecarInjectorConfigMap:type_name -> google.protobuf.BoolValue
-	56,  // 63: v1alpha1.GlobalConfig.operatorManageWebhooks:type_name -> google.protobuf.BoolValue
-	34,  // 64: v1alpha1.GlobalConfig.proxy:type_name -> v1alpha1.ProxyConfig
-	36,  // 65: v1alpha1.GlobalConfig.proxy_init:type_name -> v1alpha1.ProxyInitConfig
-	38,  // 66: v1alpha1.GlobalConfig.sds:type_name -> v1alpha1.SDSConfig
-	57,  // 67: v1alpha1.GlobalConfig.tag:type_name -> google.protobuf.Value
-	41,  // 68: v1alpha1.GlobalConfig.tracer:type_name -> v1alpha1.TracerConfig
-	56,  // 69: v1alpha1.GlobalConfig.useMCP:type_name -> google.protobuf.BoolValue
-	18,  // 70: v1alpha1.GlobalConfig.istiod:type_name -> v1alpha1.IstiodConfig
-	17,  // 71: v1alpha1.GlobalConfig.sts:type_name -> v1alpha1.STSConfig
-	56,  // 72: v1alpha1.GlobalConfig.mountMtlsCerts:type_name -> google.protobuf.BoolValue
-	56,  // 73: v1alpha1.GlobalConfig.externalIstiod:type_name -> google.protobuf.BoolValue
-	56,  // 74: v1alpha1.GlobalConfig.configCluster:type_name -> google.protobuf.BoolValue
-	56,  // 75: v1alpha1.GlobalConfig.autoscalingv2API:type_name -> google.protobuf.BoolValue
-	56,  // 76: v1alpha1.IstiodConfig.enableAnalysis:type_name -> google.protobuf.BoolValue
-	56,  // 77: v1alpha1.IngressGatewayConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
-	9,   // 78: v1alpha1.IngressGatewayConfig.memory:type_name -> v1alpha1.TargetUtilizationConfig
-	9,   // 79: v1alpha1.IngressGatewayConfig.cpu:type_name -> v1alpha1.TargetUtilizationConfig
-	56,  // 80: v1alpha1.IngressGatewayConfig.customService:type_name -> google.protobuf.BoolValue
-	56,  // 81: v1alpha1.IngressGatewayConfig.enabled:type_name -> google.protobuf.BoolValue
-	59,  // 82: v1alpha1.IngressGatewayConfig.env:type_name -> google.protobuf.Struct
-	55,  // 83: v1alpha1.IngressGatewayConfig.labels:type_name -> v1alpha1.IngressGatewayConfig.LabelsEntry
-	59,  // 84: v1alpha1.IngressGatewayConfig.nodeSelector:type_name -> google.protobuf.Struct
-	59,  // 85: v1alpha1.IngressGatewayConfig.podAnnotations:type_name -> google.protobuf.Struct
-	61,  // 86: v1alpha1.IngressGatewayConfig.podAntiAffinityLabelSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
-	61,  // 87: v1alpha1.IngressGatewayConfig.podAntiAffinityTermLabelSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
-	33,  // 88: v1alpha1.IngressGatewayConfig.ports:type_name -> v1alpha1.PortsConfig
-	59,  // 89: v1alpha1.IngressGatewayConfig.resources:type_name -> google.protobuf.Struct
-	39,  // 90: v1alpha1.IngressGatewayConfig.secretVolumes:type_name -> v1alpha1.SecretVolume
-	59,  // 91: v1alpha1.IngressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
-	21,  // 92: v1alpha1.IngressGatewayConfig.zvpn:type_name -> v1alpha1.IngressGatewayZvpnConfig
-	51,  // 93: v1alpha1.IngressGatewayConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
-	51,  // 94: v1alpha1.IngressGatewayConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
-	62,  // 95: v1alpha1.IngressGatewayConfig.tolerations:type_name -> k8s.io.api.core.v1.Toleration
-	59,  // 96: v1alpha1.IngressGatewayConfig.ingressPorts:type_name -> google.protobuf.Struct
-	59,  // 97: v1alpha1.IngressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
-	59,  // 98: v1alpha1.IngressGatewayConfig.configVolumes:type_name -> google.protobuf.Struct
-	56,  // 99: v1alpha1.IngressGatewayConfig.runAsRoot:type_name -> google.protobuf.BoolValue
-	11,  // 100: v1alpha1.IngressGatewayConfig.serviceAccount:type_name -> v1alpha1.ServiceAccount
-	56,  // 101: v1alpha1.IngressGatewayZvpnConfig.enabled:type_name -> google.protobuf.BoolValue
-	56,  // 102: v1alpha1.MultiClusterConfig.enabled:type_name -> google.protobuf.BoolValue
-	56,  // 103: v1alpha1.MultiClusterConfig.includeEnvoyFilter:type_name -> google.protobuf.BoolValue
-	2,   // 104: v1alpha1.OutboundTrafficPolicyConfig.mode:type_name -> v1alpha1.OutboundTrafficPolicyConfig.Mode
-	56,  // 105: v1alpha1.PilotConfig.enabled:type_name -> google.protobuf.BoolValue
-	56,  // 106: v1alpha1.PilotConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
-	59,  // 107: v1alpha1.PilotConfig.autoscaleBehavior:type_name -> google.protobuf.Struct
-	10,  // 108: v1alpha1.PilotConfig.resources:type_name -> v1alpha1.Resources
-	9,   // 109: v1alpha1.PilotConfig.cpu:type_name -> v1alpha1.TargetUtilizationConfig
-	59,  // 110: v1alpha1.PilotConfig.nodeSelector:type_name -> google.protobuf.Struct
-	63,  // 111: v1alpha1.PilotConfig.keepaliveMaxServerConnectionAge:type_name -> google.protobuf.Duration
-	59,  // 112: v1alpha1.PilotConfig.deploymentLabels:type_name -> google.protobuf.Struct
-	59,  // 113: v1alpha1.PilotConfig.podLabels:type_name -> google.protobuf.Struct
-	56,  // 114: v1alpha1.PilotConfig.configMap:type_name -> google.protobuf.BoolValue
-	56,  // 115: v1alpha1.PilotConfig.useMCP:type_name -> google.protobuf.BoolValue
-	59,  // 116: v1alpha1.PilotConfig.env:type_name -> google.protobuf.Struct
-	58,  // 117: v1alpha1.PilotConfig.affinity:type_name -> k8s.io.api.core.v1.Affinity
-	51,  // 118: v1alpha1.PilotConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
-	51,  // 119: v1alpha1.PilotConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
-	62,  // 120: v1alpha1.PilotConfig.tolerations:type_name -> k8s.io.api.core.v1.Toleration
-	56,  // 121: v1alpha1.PilotConfig.enableProtocolSniffingForOutbound:type_name -> google.protobuf.BoolValue
-	56,  // 122: v1alpha1.PilotConfig.enableProtocolSniffingForInbound:type_name -> google.protobuf.BoolValue
-	59,  // 123: v1alpha1.PilotConfig.podAnnotations:type_name -> google.protobuf.Struct
-	59,  // 124: v1alpha1.PilotConfig.serviceAnnotations:type_name -> google.protobuf.Struct
-	59,  // 125: v1alpha1.PilotConfig.serviceAccountAnnotations:type_name -> google.protobuf.Struct
-	32,  // 126: v1alpha1.PilotConfig.configSource:type_name -> v1alpha1.PilotConfigSource
-	57,  // 127: v1alpha1.PilotConfig.tag:type_name -> google.protobuf.Value
-	60,  // 128: v1alpha1.PilotConfig.seccompProfile:type_name -> k8s.io.api.core.v1.SeccompProfile
-	64,  // 129: v1alpha1.PilotConfig.topologySpreadConstraints:type_name -> k8s.io.api.core.v1.TopologySpreadConstraint
-	59,  // 130: v1alpha1.PilotConfig.extraContainerArgs:type_name -> google.protobuf.Struct
-	65,  // 131: v1alpha1.PilotConfig.volumeMounts:type_name -> k8s.io.api.core.v1.VolumeMount
-	66,  // 132: v1alpha1.PilotConfig.volumes:type_name -> k8s.io.api.core.v1.Volume
-	9,   // 133: v1alpha1.PilotConfig.memory:type_name -> v1alpha1.TargetUtilizationConfig
-	5,   // 134: v1alpha1.PilotConfig.cni:type_name -> v1alpha1.CNIUsageConfig
-	25,  // 135: v1alpha1.PilotConfig.taint:type_name -> v1alpha1.PilotTaintControllerConfig
-	0,   // 136: v1alpha1.PilotIngressConfig.ingressControllerMode:type_name -> v1alpha1.ingressControllerMode
-	56,  // 137: v1alpha1.PilotPolicyConfig.enabled:type_name -> google.protobuf.BoolValue
-	56,  // 138: v1alpha1.TelemetryConfig.enabled:type_name -> google.protobuf.BoolValue
-	29,  // 139: v1alpha1.TelemetryConfig.v2:type_name -> v1alpha1.TelemetryV2Config
-	56,  // 140: v1alpha1.TelemetryV2Config.enabled:type_name -> google.protobuf.BoolValue
-	30,  // 141: v1alpha1.TelemetryV2Config.prometheus:type_name -> v1alpha1.TelemetryV2PrometheusConfig
-	31,  // 142: v1alpha1.TelemetryV2Config.stackdriver:type_name -> v1alpha1.TelemetryV2StackDriverConfig
-	56,  // 143: v1alpha1.TelemetryV2PrometheusConfig.enabled:type_name -> google.protobuf.BoolValue
-	56,  // 144: v1alpha1.TelemetryV2StackDriverConfig.enabled:type_name -> google.protobuf.BoolValue
-	56,  // 145: v1alpha1.ProxyConfig.enableCoreDump:type_name -> google.protobuf.BoolValue
-	56,  // 146: v1alpha1.ProxyConfig.privileged:type_name -> google.protobuf.BoolValue
-	35,  // 147: v1alpha1.ProxyConfig.startupProbe:type_name -> v1alpha1.StartupProbe
-	10,  // 148: v1alpha1.ProxyConfig.resources:type_name -> v1alpha1.Resources
-	1,   // 149: v1alpha1.ProxyConfig.tracer:type_name -> v1alpha1.tracer
-	67,  // 150: v1alpha1.ProxyConfig.lifecycle:type_name -> k8s.io.api.core.v1.Lifecycle
-	56,  // 151: v1alpha1.ProxyConfig.holdApplicationUntilProxyStarts:type_name -> google.protobuf.BoolValue
-	56,  // 152: v1alpha1.StartupProbe.enabled:type_name -> google.protobuf.BoolValue
-	10,  // 153: v1alpha1.ProxyInitConfig.resources:type_name -> v1alpha1.Resources
-	59,  // 154: v1alpha1.SDSConfig.token:type_name -> google.protobuf.Struct
-	56,  // 155: v1alpha1.SidecarInjectorConfig.enableNamespacesByDefault:type_name -> google.protobuf.BoolValue
-	61,  // 156: v1alpha1.SidecarInjectorConfig.neverInjectSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
-	61,  // 157: v1alpha1.SidecarInjectorConfig.alwaysInjectSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
-	56,  // 158: v1alpha1.SidecarInjectorConfig.rewriteAppHTTPProbe:type_name -> google.protobuf.BoolValue
-	59,  // 159: v1alpha1.SidecarInjectorConfig.injectedAnnotations:type_name -> google.protobuf.Struct
-	59,  // 160: v1alpha1.SidecarInjectorConfig.objectSelector:type_name -> google.protobuf.Struct
-	59,  // 161: v1alpha1.SidecarInjectorConfig.templates:type_name -> google.protobuf.Struct
-	56,  // 162: v1alpha1.SidecarInjectorConfig.useLegacySelectors:type_name -> google.protobuf.BoolValue
-	42,  // 163: v1alpha1.TracerConfig.datadog:type_name -> v1alpha1.TracerDatadogConfig
-	43,  // 164: v1alpha1.TracerConfig.lightstep:type_name -> v1alpha1.TracerLightStepConfig
-	44,  // 165: v1alpha1.TracerConfig.zipkin:type_name -> v1alpha1.TracerZipkinConfig
-	45,  // 166: v1alpha1.TracerConfig.stackdriver:type_name -> v1alpha1.TracerStackdriverConfig
-	56,  // 167: v1alpha1.TracerStackdriverConfig.debug:type_name -> google.protobuf.BoolValue
-	56,  // 168: v1alpha1.BaseConfig.enableCRDTemplates:type_name -> google.protobuf.BoolValue
-	56,  // 169: v1alpha1.BaseConfig.enableIstioConfigCRDs:type_name -> google.protobuf.BoolValue
-	56,  // 170: v1alpha1.BaseConfig.validateGateway:type_name -> google.protobuf.BoolValue
-	4,   // 171: v1alpha1.Values.cni:type_name -> v1alpha1.CNIConfig
-	15,  // 172: v1alpha1.Values.gateways:type_name -> v1alpha1.GatewaysConfig
-	16,  // 173: v1alpha1.Values.global:type_name -> v1alpha1.GlobalConfig
-	24,  // 174: v1alpha1.Values.pilot:type_name -> v1alpha1.PilotConfig
-	57,  // 175: v1alpha1.Values.ztunnel:type_name -> google.protobuf.Value
-	28,  // 176: v1alpha1.Values.telemetry:type_name -> v1alpha1.TelemetryConfig
-	40,  // 177: v1alpha1.Values.sidecarInjectorWebhook:type_name -> v1alpha1.SidecarInjectorConfig
-	5,   // 178: v1alpha1.Values.istio_cni:type_name -> v1alpha1.CNIUsageConfig
-	57,  // 179: v1alpha1.Values.meshConfig:type_name -> google.protobuf.Value
-	46,  // 180: v1alpha1.Values.base:type_name -> v1alpha1.BaseConfig
-	47,  // 181: v1alpha1.Values.istiodRemote:type_name -> v1alpha1.IstiodRemoteConfig
-	50,  // 182: v1alpha1.Values.experimental:type_name -> v1alpha1.ExperimentalConfig
-	56,  // 183: v1alpha1.ZeroVPNConfig.enabled:type_name -> google.protobuf.BoolValue
-	56,  // 184: v1alpha1.ExperimentalConfig.stableValidationPolicy:type_name -> google.protobuf.BoolValue
-	68,  // 185: v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
-	69,  // 186: v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
-	187, // [187:187] is the sub-list for method output_type
-	187, // [187:187] is the sub-list for method input_type
-	187, // [187:187] is the sub-list for extension type_name
-	187, // [187:187] is the sub-list for extension extendee
-	0,   // [0:187] is the sub-list for field type_name
+	57,  // 52: v1alpha1.GatewaysConfig.seccompProfile:type_name -> google.protobuf.Value
+	3,   // 53: v1alpha1.GlobalConfig.arch:type_name -> v1alpha1.ArchConfig
+	56,  // 54: v1alpha1.GlobalConfig.configValidation:type_name -> google.protobuf.BoolValue
+	59,  // 55: v1alpha1.GlobalConfig.defaultNodeSelector:type_name -> google.protobuf.Struct
+	12,  // 56: v1alpha1.GlobalConfig.defaultPodDisruptionBudget:type_name -> v1alpha1.DefaultPodDisruptionBudgetConfig
+	13,  // 57: v1alpha1.GlobalConfig.defaultResources:type_name -> v1alpha1.DefaultResourcesConfig
+	62,  // 58: v1alpha1.GlobalConfig.defaultTolerations:type_name -> k8s.io.api.core.v1.Toleration
+	56,  // 59: v1alpha1.GlobalConfig.logAsJson:type_name -> google.protobuf.BoolValue
+	19,  // 60: v1alpha1.GlobalConfig.logging:type_name -> v1alpha1.GlobalLoggingConfig
+	59,  // 61: v1alpha1.GlobalConfig.meshNetworks:type_name -> google.protobuf.Struct
+	22,  // 62: v1alpha1.GlobalConfig.multiCluster:type_name -> v1alpha1.MultiClusterConfig
+	56,  // 63: v1alpha1.GlobalConfig.omitSidecarInjectorConfigMap:type_name -> google.protobuf.BoolValue
+	56,  // 64: v1alpha1.GlobalConfig.operatorManageWebhooks:type_name -> google.protobuf.BoolValue
+	34,  // 65: v1alpha1.GlobalConfig.proxy:type_name -> v1alpha1.ProxyConfig
+	36,  // 66: v1alpha1.GlobalConfig.proxy_init:type_name -> v1alpha1.ProxyInitConfig
+	38,  // 67: v1alpha1.GlobalConfig.sds:type_name -> v1alpha1.SDSConfig
+	57,  // 68: v1alpha1.GlobalConfig.tag:type_name -> google.protobuf.Value
+	41,  // 69: v1alpha1.GlobalConfig.tracer:type_name -> v1alpha1.TracerConfig
+	56,  // 70: v1alpha1.GlobalConfig.useMCP:type_name -> google.protobuf.BoolValue
+	18,  // 71: v1alpha1.GlobalConfig.istiod:type_name -> v1alpha1.IstiodConfig
+	17,  // 72: v1alpha1.GlobalConfig.sts:type_name -> v1alpha1.STSConfig
+	56,  // 73: v1alpha1.GlobalConfig.mountMtlsCerts:type_name -> google.protobuf.BoolValue
+	56,  // 74: v1alpha1.GlobalConfig.externalIstiod:type_name -> google.protobuf.BoolValue
+	56,  // 75: v1alpha1.GlobalConfig.configCluster:type_name -> google.protobuf.BoolValue
+	56,  // 76: v1alpha1.GlobalConfig.autoscalingv2API:type_name -> google.protobuf.BoolValue
+	56,  // 77: v1alpha1.IstiodConfig.enableAnalysis:type_name -> google.protobuf.BoolValue
+	56,  // 78: v1alpha1.IngressGatewayConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
+	9,   // 79: v1alpha1.IngressGatewayConfig.memory:type_name -> v1alpha1.TargetUtilizationConfig
+	9,   // 80: v1alpha1.IngressGatewayConfig.cpu:type_name -> v1alpha1.TargetUtilizationConfig
+	56,  // 81: v1alpha1.IngressGatewayConfig.customService:type_name -> google.protobuf.BoolValue
+	56,  // 82: v1alpha1.IngressGatewayConfig.enabled:type_name -> google.protobuf.BoolValue
+	59,  // 83: v1alpha1.IngressGatewayConfig.env:type_name -> google.protobuf.Struct
+	55,  // 84: v1alpha1.IngressGatewayConfig.labels:type_name -> v1alpha1.IngressGatewayConfig.LabelsEntry
+	59,  // 85: v1alpha1.IngressGatewayConfig.nodeSelector:type_name -> google.protobuf.Struct
+	59,  // 86: v1alpha1.IngressGatewayConfig.podAnnotations:type_name -> google.protobuf.Struct
+	61,  // 87: v1alpha1.IngressGatewayConfig.podAntiAffinityLabelSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
+	61,  // 88: v1alpha1.IngressGatewayConfig.podAntiAffinityTermLabelSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
+	33,  // 89: v1alpha1.IngressGatewayConfig.ports:type_name -> v1alpha1.PortsConfig
+	59,  // 90: v1alpha1.IngressGatewayConfig.resources:type_name -> google.protobuf.Struct
+	39,  // 91: v1alpha1.IngressGatewayConfig.secretVolumes:type_name -> v1alpha1.SecretVolume
+	59,  // 92: v1alpha1.IngressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
+	21,  // 93: v1alpha1.IngressGatewayConfig.zvpn:type_name -> v1alpha1.IngressGatewayZvpnConfig
+	51,  // 94: v1alpha1.IngressGatewayConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
+	51,  // 95: v1alpha1.IngressGatewayConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
+	62,  // 96: v1alpha1.IngressGatewayConfig.tolerations:type_name -> k8s.io.api.core.v1.Toleration
+	59,  // 97: v1alpha1.IngressGatewayConfig.ingressPorts:type_name -> google.protobuf.Struct
+	59,  // 98: v1alpha1.IngressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
+	59,  // 99: v1alpha1.IngressGatewayConfig.configVolumes:type_name -> google.protobuf.Struct
+	56,  // 100: v1alpha1.IngressGatewayConfig.runAsRoot:type_name -> google.protobuf.BoolValue
+	11,  // 101: v1alpha1.IngressGatewayConfig.serviceAccount:type_name -> v1alpha1.ServiceAccount
+	56,  // 102: v1alpha1.IngressGatewayZvpnConfig.enabled:type_name -> google.protobuf.BoolValue
+	56,  // 103: v1alpha1.MultiClusterConfig.enabled:type_name -> google.protobuf.BoolValue
+	56,  // 104: v1alpha1.MultiClusterConfig.includeEnvoyFilter:type_name -> google.protobuf.BoolValue
+	2,   // 105: v1alpha1.OutboundTrafficPolicyConfig.mode:type_name -> v1alpha1.OutboundTrafficPolicyConfig.Mode
+	56,  // 106: v1alpha1.PilotConfig.enabled:type_name -> google.protobuf.BoolValue
+	56,  // 107: v1alpha1.PilotConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
+	59,  // 108: v1alpha1.PilotConfig.autoscaleBehavior:type_name -> google.protobuf.Struct
+	10,  // 109: v1alpha1.PilotConfig.resources:type_name -> v1alpha1.Resources
+	9,   // 110: v1alpha1.PilotConfig.cpu:type_name -> v1alpha1.TargetUtilizationConfig
+	59,  // 111: v1alpha1.PilotConfig.nodeSelector:type_name -> google.protobuf.Struct
+	63,  // 112: v1alpha1.PilotConfig.keepaliveMaxServerConnectionAge:type_name -> google.protobuf.Duration
+	59,  // 113: v1alpha1.PilotConfig.deploymentLabels:type_name -> google.protobuf.Struct
+	59,  // 114: v1alpha1.PilotConfig.podLabels:type_name -> google.protobuf.Struct
+	56,  // 115: v1alpha1.PilotConfig.configMap:type_name -> google.protobuf.BoolValue
+	56,  // 116: v1alpha1.PilotConfig.useMCP:type_name -> google.protobuf.BoolValue
+	59,  // 117: v1alpha1.PilotConfig.env:type_name -> google.protobuf.Struct
+	58,  // 118: v1alpha1.PilotConfig.affinity:type_name -> k8s.io.api.core.v1.Affinity
+	51,  // 119: v1alpha1.PilotConfig.rollingMaxSurge:type_name -> v1alpha1.IntOrString
+	51,  // 120: v1alpha1.PilotConfig.rollingMaxUnavailable:type_name -> v1alpha1.IntOrString
+	62,  // 121: v1alpha1.PilotConfig.tolerations:type_name -> k8s.io.api.core.v1.Toleration
+	56,  // 122: v1alpha1.PilotConfig.enableProtocolSniffingForOutbound:type_name -> google.protobuf.BoolValue
+	56,  // 123: v1alpha1.PilotConfig.enableProtocolSniffingForInbound:type_name -> google.protobuf.BoolValue
+	59,  // 124: v1alpha1.PilotConfig.podAnnotations:type_name -> google.protobuf.Struct
+	59,  // 125: v1alpha1.PilotConfig.serviceAnnotations:type_name -> google.protobuf.Struct
+	59,  // 126: v1alpha1.PilotConfig.serviceAccountAnnotations:type_name -> google.protobuf.Struct
+	32,  // 127: v1alpha1.PilotConfig.configSource:type_name -> v1alpha1.PilotConfigSource
+	57,  // 128: v1alpha1.PilotConfig.tag:type_name -> google.protobuf.Value
+	60,  // 129: v1alpha1.PilotConfig.seccompProfile:type_name -> k8s.io.api.core.v1.SeccompProfile
+	64,  // 130: v1alpha1.PilotConfig.topologySpreadConstraints:type_name -> k8s.io.api.core.v1.TopologySpreadConstraint
+	59,  // 131: v1alpha1.PilotConfig.extraContainerArgs:type_name -> google.protobuf.Struct
+	65,  // 132: v1alpha1.PilotConfig.volumeMounts:type_name -> k8s.io.api.core.v1.VolumeMount
+	66,  // 133: v1alpha1.PilotConfig.volumes:type_name -> k8s.io.api.core.v1.Volume
+	9,   // 134: v1alpha1.PilotConfig.memory:type_name -> v1alpha1.TargetUtilizationConfig
+	5,   // 135: v1alpha1.PilotConfig.cni:type_name -> v1alpha1.CNIUsageConfig
+	25,  // 136: v1alpha1.PilotConfig.taint:type_name -> v1alpha1.PilotTaintControllerConfig
+	0,   // 137: v1alpha1.PilotIngressConfig.ingressControllerMode:type_name -> v1alpha1.ingressControllerMode
+	56,  // 138: v1alpha1.PilotPolicyConfig.enabled:type_name -> google.protobuf.BoolValue
+	56,  // 139: v1alpha1.TelemetryConfig.enabled:type_name -> google.protobuf.BoolValue
+	29,  // 140: v1alpha1.TelemetryConfig.v2:type_name -> v1alpha1.TelemetryV2Config
+	56,  // 141: v1alpha1.TelemetryV2Config.enabled:type_name -> google.protobuf.BoolValue
+	30,  // 142: v1alpha1.TelemetryV2Config.prometheus:type_name -> v1alpha1.TelemetryV2PrometheusConfig
+	31,  // 143: v1alpha1.TelemetryV2Config.stackdriver:type_name -> v1alpha1.TelemetryV2StackDriverConfig
+	56,  // 144: v1alpha1.TelemetryV2PrometheusConfig.enabled:type_name -> google.protobuf.BoolValue
+	56,  // 145: v1alpha1.TelemetryV2StackDriverConfig.enabled:type_name -> google.protobuf.BoolValue
+	56,  // 146: v1alpha1.ProxyConfig.enableCoreDump:type_name -> google.protobuf.BoolValue
+	56,  // 147: v1alpha1.ProxyConfig.privileged:type_name -> google.protobuf.BoolValue
+	35,  // 148: v1alpha1.ProxyConfig.startupProbe:type_name -> v1alpha1.StartupProbe
+	10,  // 149: v1alpha1.ProxyConfig.resources:type_name -> v1alpha1.Resources
+	1,   // 150: v1alpha1.ProxyConfig.tracer:type_name -> v1alpha1.tracer
+	67,  // 151: v1alpha1.ProxyConfig.lifecycle:type_name -> k8s.io.api.core.v1.Lifecycle
+	56,  // 152: v1alpha1.ProxyConfig.holdApplicationUntilProxyStarts:type_name -> google.protobuf.BoolValue
+	56,  // 153: v1alpha1.StartupProbe.enabled:type_name -> google.protobuf.BoolValue
+	10,  // 154: v1alpha1.ProxyInitConfig.resources:type_name -> v1alpha1.Resources
+	59,  // 155: v1alpha1.SDSConfig.token:type_name -> google.protobuf.Struct
+	56,  // 156: v1alpha1.SidecarInjectorConfig.enableNamespacesByDefault:type_name -> google.protobuf.BoolValue
+	61,  // 157: v1alpha1.SidecarInjectorConfig.neverInjectSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
+	61,  // 158: v1alpha1.SidecarInjectorConfig.alwaysInjectSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
+	56,  // 159: v1alpha1.SidecarInjectorConfig.rewriteAppHTTPProbe:type_name -> google.protobuf.BoolValue
+	59,  // 160: v1alpha1.SidecarInjectorConfig.injectedAnnotations:type_name -> google.protobuf.Struct
+	59,  // 161: v1alpha1.SidecarInjectorConfig.objectSelector:type_name -> google.protobuf.Struct
+	59,  // 162: v1alpha1.SidecarInjectorConfig.templates:type_name -> google.protobuf.Struct
+	56,  // 163: v1alpha1.SidecarInjectorConfig.useLegacySelectors:type_name -> google.protobuf.BoolValue
+	42,  // 164: v1alpha1.TracerConfig.datadog:type_name -> v1alpha1.TracerDatadogConfig
+	43,  // 165: v1alpha1.TracerConfig.lightstep:type_name -> v1alpha1.TracerLightStepConfig
+	44,  // 166: v1alpha1.TracerConfig.zipkin:type_name -> v1alpha1.TracerZipkinConfig
+	45,  // 167: v1alpha1.TracerConfig.stackdriver:type_name -> v1alpha1.TracerStackdriverConfig
+	56,  // 168: v1alpha1.TracerStackdriverConfig.debug:type_name -> google.protobuf.BoolValue
+	56,  // 169: v1alpha1.BaseConfig.enableCRDTemplates:type_name -> google.protobuf.BoolValue
+	56,  // 170: v1alpha1.BaseConfig.enableIstioConfigCRDs:type_name -> google.protobuf.BoolValue
+	56,  // 171: v1alpha1.BaseConfig.validateGateway:type_name -> google.protobuf.BoolValue
+	4,   // 172: v1alpha1.Values.cni:type_name -> v1alpha1.CNIConfig
+	15,  // 173: v1alpha1.Values.gateways:type_name -> v1alpha1.GatewaysConfig
+	16,  // 174: v1alpha1.Values.global:type_name -> v1alpha1.GlobalConfig
+	24,  // 175: v1alpha1.Values.pilot:type_name -> v1alpha1.PilotConfig
+	57,  // 176: v1alpha1.Values.ztunnel:type_name -> google.protobuf.Value
+	28,  // 177: v1alpha1.Values.telemetry:type_name -> v1alpha1.TelemetryConfig
+	40,  // 178: v1alpha1.Values.sidecarInjectorWebhook:type_name -> v1alpha1.SidecarInjectorConfig
+	5,   // 179: v1alpha1.Values.istio_cni:type_name -> v1alpha1.CNIUsageConfig
+	57,  // 180: v1alpha1.Values.meshConfig:type_name -> google.protobuf.Value
+	46,  // 181: v1alpha1.Values.base:type_name -> v1alpha1.BaseConfig
+	47,  // 182: v1alpha1.Values.istiodRemote:type_name -> v1alpha1.IstiodRemoteConfig
+	50,  // 183: v1alpha1.Values.experimental:type_name -> v1alpha1.ExperimentalConfig
+	56,  // 184: v1alpha1.ZeroVPNConfig.enabled:type_name -> google.protobuf.BoolValue
+	56,  // 185: v1alpha1.ExperimentalConfig.stableValidationPolicy:type_name -> google.protobuf.BoolValue
+	68,  // 186: v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
+	69,  // 187: v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
+	188, // [188:188] is the sub-list for method output_type
+	188, // [188:188] is the sub-list for method input_type
+	188, // [188:188] is the sub-list for extension type_name
+	188, // [188:188] is the sub-list for extension extendee
+	0,   // [0:188] is the sub-list for field type_name
 }
 
 func init() { file_pkg_apis_istio_v1alpha1_values_types_proto_init() }

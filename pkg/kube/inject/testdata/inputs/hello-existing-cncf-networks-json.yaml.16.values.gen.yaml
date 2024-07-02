@@ -1,5 +1,6 @@
 {
   "gateways": {
+    "seccompProfile": {},
     "securityContext": {}
   },
   "global": {
