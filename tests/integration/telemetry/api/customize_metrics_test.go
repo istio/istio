@@ -111,8 +111,7 @@ spec:
 }
 
 func setupWasmExtension(t framework.TestContext) {
-	proxySHA := "359dcd3a19f109c50e97517fe6b1e2676e870c4d"
-	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:%v", registry.Address(), proxySHA)
+	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:0.0.1", registry.Address())
 	args := map[string]any{
 		"AttributeGenURL": attrGenImageURL,
 	}
