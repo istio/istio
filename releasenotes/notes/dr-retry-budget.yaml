@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/27419
+releaseNotes:
+  - |
+    **Added** DestinationRule ConnectionPoolSettings retry_budget configuration.
