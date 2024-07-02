@@ -1366,6 +1366,148 @@ func TestL7JWT(t *testing.T) {
 	})
 }
 
+func TestDestinationRule(t *testing.T) {
+	dst := apps.ServiceAddressedWaypoint
+	cases := []struct {
+		name   string
+		config string
+		call   echo.CallOptions
+	}{
+		{
+			name: "TLS",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "{{.Host}}"
+spec:
+  host: "{{.Host}}"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
+`,
+			call: echo.CallOptions{
+				// Send to HTTPS port but over HTTP
+				Port:   dst.PortForName("https"),
+				Scheme: scheme.HTTP,
+			},
+		},
+		{
+			name: "Subset policy",
+			config: `
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  hosts:
+  - "{{.Host}}"
+  http:
+  - route:
+    - destination:
+        host: "{{.Host}}"
+        subset: v1
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: route
+  namespace:
+spec:
+  host: "{{.Destination}}"
+  subsets:
+  - labels:
+      version: v1
+    name: v1
+  - labels:
+      version: v2
+    name: v2
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "{{.Host}}"
+spec:
+  host: "{{.Host}}"
+  subsets:
+  - labels:
+      version: v1
+    name: v1
+    trafficPolicy:
+      connectionPool:
+        http:
+          h2UpgradePolicy: UPGRADE
+`,
+			call: echo.CallOptions{
+				Port:   ports.HTTP,
+				Scheme: scheme.HTTP,
+				Check:  check.And(check.OK(), check.Protocol("HTTP/2.0")),
+			},
+		},
+		{
+			name: "PROXY",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "{{.Host}}"
+spec:
+  host: "{{.Host}}"
+  trafficPolicy:
+    proxyProtocol:
+      version: V1
+`,
+			call: echo.CallOptions{
+				Port:   ports.HTTPWithProxy,
+				Scheme: scheme.HTTP,
+			},
+		},
+		{
+			name: "H2",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "{{.Host}}"
+spec:
+  host: "{{.Host}}"
+  trafficPolicy:
+    connectionPool:
+      http:
+        h2UpgradePolicy: UPGRADE
+`,
+			call: echo.CallOptions{
+				Port:   ports.HTTP,
+				Scheme: scheme.HTTP,
+				Check:  check.And(check.OK(), check.Protocol("HTTP/2.0")),
+			},
+		},
+	}
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		for _, tt := range cases {
+			t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
+				for _, src := range apps.All {
+					if !src.Config().HasProxyCapabilities() {
+						continue
+					}
+					t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+						if src.Config().HasSidecar() && dst.Config().HasAnyWaypointProxy() {
+							// TODO: sidecar -> workload waypoint support
+							t.Skip("https://github.com/istio/istio/issues/51445")
+						}
+						t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+							"Host": dst.Config().Service,
+						}, tt.config).ApplyOrFail(t)
+						call := tt.call
+						call.To = dst
+						t.Log(src.CallOrFail(t, call))
+					})
+				}
+			})
+		}
+	})
+}
+
 func applyDrainingWorkaround(t framework.TestContext) {
 	// Workaround https://github.com/istio/istio/issues/43239
 	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3

@@ -729,7 +729,8 @@ type buildClusterOpts struct {
 	// Indicates the service registry of the cluster being built.
 	serviceRegistry provider.ID
 	// Indicates if the destinationRule has a workloadSelector
-	isDrWithSelector bool
+	isDrWithSelector      bool
+	credentialSocketExist bool
 }
 
 func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {
