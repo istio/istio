@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -55,9 +56,6 @@ func TestCNIVersionSkew(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			if !i.Settings().EnableCNI {
-				t.Skip("CNI version skew test is only tested when CNI is enabled.")
-			}
 			for _, v := range versions {
 				installCNIOrFail(t, v)
 				podFetchFn := kube.NewSinglePodFetch(t.Clusters().Default(), i.Settings().SystemNamespace, "k8s-app=istio-cni-node")
@@ -94,6 +92,10 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		SkipIf("CNI version skew test is only tested when CNI is enabled.", func(ctx resource.Context) bool {
+			cfg, _ := istio.DefaultConfig(ctx)
+			return !cfg.EnableCNI
+		}).
 		Label(label.Postsubmit).
 		Label(label.CustomSetup).
 		RequireMultiPrimary().
