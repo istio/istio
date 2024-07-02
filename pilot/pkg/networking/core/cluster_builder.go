@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -279,6 +280,23 @@ func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 	}
 }
 
+// If there is a "." in the cluster name (besides .svc.cluster.local), it will be replaced with "_"
+// in order to prevent broken telemetry
+func sanitizeName(c *cluster.Cluster) {
+	// We have a very specific regex in envoy_bootstrap.json that matches this suffix
+	// specifically. If we find it in the cluster name, we won't add an alt stat name.
+	prefix, found := strings.CutSuffix(c.Name, ".svc.cluster.local")
+	if found {
+		return
+	}
+
+	// We found a "." in the cluster name that's not a part of the above suffix
+	// so we set the alt name where the "."s are replaced with "_"
+	if strings.Contains(prefix, ".") {
+		c.AltStatName = strings.ReplaceAll(prefix, ".", "_")
+	}
+}
+
 // buildCluster builds the default cluster and also applies global options.
 // It is used for building both inbound and outbound cluster.
 func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
@@ -291,6 +309,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
+	sanitizeName(c)
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
 		if networkutil.AllIPv4(cb.proxyIPAddresses) {
