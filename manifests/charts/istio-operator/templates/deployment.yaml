@@ -62,8 +62,10 @@ spec:
               value: {{.Release.Namespace | quote}}
             - name: WAIT_FOR_RESOURCES_TIMEOUT
               value: {{.Values.waitForResourcesTimeout | quote}}
+{{- if ne .Values.revision "" }}
             - name: REVISION
               value: {{.Values.revision | quote}}
+{{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
