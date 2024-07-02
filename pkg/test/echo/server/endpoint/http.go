@@ -219,6 +219,7 @@ type codeAndSlices struct {
 }
 
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.ReportRequest()
 	id := uuid.New()
 	remoteAddr, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
