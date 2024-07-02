@@ -71,11 +71,9 @@ func (c *ConfigWriter) PrintServiceSummary(filter ServiceFilter) error {
 		for _, ep := range svc.Endpoints {
 			w, f := workloadsByUID[ep.WorkloadUID]
 			if !f {
-				fmt.Println("not found!", ep.WorkloadUID)
 				continue
 			}
 			if w.Status != "Healthy" {
-				fmt.Println("not health", w)
 				continue
 			}
 			healthyEndpoints++
