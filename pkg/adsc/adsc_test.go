@@ -414,14 +414,6 @@ func TestADSC_handleMCP(t *testing.T) {
 		},
 	}
 
-	patchLabel := func(lbls map[string]string, name, value string) map[string]string {
-		if lbls == nil {
-			lbls = map[string]string{}
-		}
-		lbls[name] = value
-		return lbls
-	}
-
 	tests := []struct {
 		desc              string
 		resources         []*anypb.Any
@@ -534,7 +526,7 @@ func TestADSC_handleMCP(t *testing.T) {
 	}
 }
 
-func constructResourceWithOptions(name string, host string, address, version string, options ...func(resource *mcp.Resource)) *anypb.Any {
+func constructMcpResourceWithOptions(name string, host string, address, version string, options ...func(resource *mcp.Resource)) *anypb.Any {
 	service := &networking.ServiceEntry{
 		Hosts:     []string{host},
 		Addresses: []string{address},
@@ -553,7 +545,11 @@ func constructResourceWithOptions(name string, host string, address, version str
 		o(resource)
 	}
 
-	resAny := protoconv.MessageToAny(resource)
+	return protoconv.MessageToAny(resource)
+}
+
+func constructResourceWithOptions(name string, host string, address, version string, options ...func(resource *mcp.Resource)) *anypb.Any {
+	resAny := constructMcpResourceWithOptions(name, host, address, version, options...)
 	return &anypb.Any{
 		TypeUrl: resAny.TypeUrl,
 		Value:   resAny.Value,
@@ -562,4 +558,12 @@ func constructResourceWithOptions(name string, host string, address, version str
 
 func constructResource(name string, host string, address, version string) *anypb.Any {
 	return constructResourceWithOptions(name, host, address, version)
+}
+
+func patchLabel(lbls map[string]string, name, value string) map[string]string {
+	if lbls == nil {
+		lbls = map[string]string{}
+	}
+	lbls[name] = value
+	return lbls
 }

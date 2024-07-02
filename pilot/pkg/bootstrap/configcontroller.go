@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 
@@ -52,6 +53,9 @@ const (
 	// xds://ADDRESS - load XDS-over-MCP sources
 	// example xds://127.0.0.1:49133
 	XDS ConfigSourceAddressScheme = "xds"
+	// delta-xds://ADDRESS - load XDS-over-MCP sources using delta xds
+	// example delta-xds://127.0.0.1:49133
+	DeltaXDS ConfigSourceAddressScheme = "delta-xds"
 	// k8s:// - load in-cluster k8s controller
 	// example k8s://
 	Kubernetes ConfigSourceAddressScheme = "k8s"
@@ -230,24 +234,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 		case XDS:
 			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.ADSConfig{
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
-				Config: adsc.Config{
-					Namespace: args.Namespace,
-					Workload:  args.PodName,
-					Revision:  args.Revision,
-					Meta: model.NodeMetadata{
-						Generator: "api",
-						// To reduce transported data if upstream server supports. Especially for custom servers.
-						IstioRevision: args.Revision,
-					}.ToStruct(),
-					GrpcOpts: []grpc.DialOption{
-						args.KeepaliveOptions.ConvertToClientOption(),
-						// Because we use the custom grpc options for adsc, here we should
-						// explicitly set transport credentials.
-						// TODO: maybe we should use the tls settings within ConfigSource
-						// to secure the connection between istiod and remote xds server.
-						grpc.WithTransportCredentials(insecure.NewCredentials()),
-					},
-				},
+				Config:                   initAdscConfig(args),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
@@ -263,6 +250,32 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			}
 			s.ConfigStores = append(s.ConfigStores, configController)
 			log.Infof("Started XDS configSource %s", configSource.Address)
+		case DeltaXDS:
+			store := memory.Make(collections.Pilot)
+			// TODO: enable namespace filter for memory controller
+			configController := memory.NewController(store)
+			delta := adsc.NewDelta(srcAddress.Host,
+				&adsc.DeltaADSConfig{
+					Config: initAdscConfig(args),
+				},
+				adsc.WatchMcpOptions(args.Revision, configController)...,
+			)
+			configController.RegisterHasSyncedHandler(delta.HasSynced)
+			ctx, cancel := context.WithCancel(context.Background())
+			err = delta.Run(ctx)
+			if err != nil {
+				cancel()
+				return fmt.Errorf("delta-MCP: failed running %v", err)
+			}
+			s.ConfigStores = append(s.ConfigStores, configController)
+			s.addStartFunc("delta-xds configSource", func(stop <-chan struct{}) error {
+				go func() {
+					<-stop
+					cancel()
+				}()
+				return nil
+			})
+			log.Infof("Started delta-XDS configSource %s", configSource.Address)
 		case Kubernetes:
 			if srcAddress.Path == "" || srcAddress.Path == "/" {
 				err2 := s.initK8SConfigStore(args)
@@ -281,6 +294,27 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 		}
 	}
 	return nil
+}
+
+func initAdscConfig(args *PilotArgs) adsc.Config {
+	return adsc.Config{
+		Namespace: args.Namespace,
+		Workload:  args.PodName,
+		Revision:  args.Revision,
+		Meta: model.NodeMetadata{
+			Generator: "api",
+			// To reduce transported data if upstream server supports. Especially for custom servers.
+			IstioRevision: args.Revision,
+		}.ToStruct(),
+		GrpcOpts: []grpc.DialOption{
+			args.KeepaliveOptions.ConvertToClientOption(),
+			// Because we use the custom grpc options for adsc, here we should
+			// explicitly set transport credentials.
+			// TODO: maybe we should use the tls settings within ConfigSource
+			// to secure the connection between istiod and remote xds server.
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		},
+	}
 }
 
 // initInprocessAnalysisController spins up an instance of Galley which serves no purpose other than

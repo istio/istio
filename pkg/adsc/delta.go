@@ -34,8 +34,15 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"k8s.io/utils/set"
 
+	mcp "istio.io/api/mcp/v1alpha1"
+	mesh "istio.io/api/mesh/v1alpha1"
+	mem "istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/backoff"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -196,6 +203,7 @@ type Client struct {
 
 	// initialWatches is the list of resources we are watching on startup
 	initialWatches []resourceKey
+	sync           map[string]time.Time
 
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta
 	sendNodeMeta atomic.Bool
@@ -250,6 +258,17 @@ func (c *Client) trigger(ctx *handlerContext, typeURL string, r *discovery.Resou
 
 // getProtoMessageType returns the Golang type of the proto with the specified name.
 func newProto(tt string) proto.Message {
+	// case mesh config
+	if tt == gvk.MeshConfig.String() {
+		return &mesh.MeshConfig{}
+	}
+
+	// case mcp resources
+	_, isMCP := convertTypeURLToMCPGVK(tt)
+	if isMCP {
+		return &mcp.Resource{}
+	}
+
 	name := protoreflect.FullName(strings.TrimPrefix(tt, resource.APITypePrefix))
 	t, err := protoregistry.GlobalTypes.FindMessageByName(name)
 	if err != nil || t == nil {
@@ -271,10 +290,26 @@ func (c *Client) Run(ctx context.Context) error {
 	c.sendNodeMeta.Store(true)
 	c.xdsClient = xdsClient
 	go c.handleRecv()
+	// TODO: if reconnect, may add subscribe info to the request.
 	for _, w := range c.initialWatches {
 		c.request(w)
 	}
 	return nil
+}
+
+func (c *Client) HasSynced() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	for _, w := range c.initialWatches {
+		_, isMCP := convertTypeURLToMCPGVK(w.TypeURL)
+		if !isMCP {
+			continue
+		}
+		if _, ok := c.sync[w.TypeURL]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *Client) Dial() error {
@@ -320,6 +355,7 @@ func NewDelta(discoveryAddr string, config *DeltaADSConfig, opts ...Option) *Cli
 		deltaXDSUpdates: make(chan *discovery.DeltaDiscoveryResponse, 100),
 		lastReceived:    map[string]*discovery.DeltaDiscoveryResponse{},
 		mutex:           sync.RWMutex{},
+		sync:            map[string]time.Time{},
 	}
 	for _, o := range opts {
 		o(c)
@@ -343,8 +379,15 @@ func typeName[T proto.Message]() string {
 
 // Register registers a handler for a type which is reflected by the proto message.
 func Register[T proto.Message](f func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity T, event Event)) Option {
+	return registerWithTypeURL[T](typeName[T](), f)
+}
+
+func registerWithTypeURL[T proto.Message](
+	typeURL string,
+	f func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity T, event Event),
+) Option {
 	return func(c *Client) {
-		c.handlers[typeName[T]()] = func(ctx HandlerContext, res *Resource, event Event) {
+		c.handlers[typeURL] = func(ctx HandlerContext, res *Resource, event Event) {
 			if res.Entity == nil {
 				var nilEntity T
 				f(ctx, res.Name, res.Version, nilEntity, event)
@@ -383,6 +426,74 @@ func initWatch(typeURL string, resourceName string) Option {
 		}
 		c.initialWatches = append(c.initialWatches, key)
 	}
+}
+
+func deltaMcpConfigHandlerForGvk(rev string, store model.ConfigStore, gvk config.GroupVersionKind) func(HandlerContext, string, string, *mcp.Resource, Event) {
+	return func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *mcp.Resource, event Event) {
+		// the format of mcp resource's name is "namespace/name"
+		// for delete case, the resource entity may be empty, the resource name is required
+		// for add/update case, extract the resource name and resource version from the resource entity
+		var ns, name string
+		var cfg *config.Config
+		if event == EventDelete {
+			nsn := strings.Split(resourceName, "/")
+			if len(nsn) != 2 {
+				ctx.Reject(fmt.Errorf("invalid resource name %s", resourceName))
+				return
+			}
+			ns, name, cfg = nsn[0], nsn[1], nil
+		} else {
+			newCfg, inRev, err := mcpToPilot(resourceEntity, rev)
+			if err != nil {
+				ctx.Reject(fmt.Errorf("invalid data: %v (%v)", err, resourceEntity.Body))
+				return
+			}
+			if newCfg == nil {
+				return
+			}
+			newCfg.GroupVersionKind = gvk
+			ns, name, cfg = newCfg.Namespace, newCfg.Name, newCfg
+			if !inRev {
+				cfg = nil
+			}
+		}
+
+		// if cfg is nil, means a delete case
+		if cfg == nil {
+			if err := store.Delete(gvk, name, ns, nil); err != nil {
+				deltaLog.Warnf("unable to delete %s %s/%s: %v", gvk, ns, name, err)
+			}
+			return
+		}
+		oldCfg := store.Get(gvk, cfg.Name, cfg.Namespace)
+		// if oldCfg is nil, means a add case
+		if oldCfg == nil {
+			if _, err := store.Create(*cfg); err != nil {
+				deltaLog.Warnf("adding a new %s %s/%s to the store failed: %v", gvk, ns, name, err)
+			}
+			return
+		}
+		// update case
+		if oldCfg.ResourceVersion != cfg.ResourceVersion || cfg.ResourceVersion == "" {
+			// update the store only when resource version differs or unset.
+			cfg.Annotations[mem.ResourceVersion] = cfg.ResourceVersion
+			cfg.ResourceVersion = oldCfg.ResourceVersion
+			if _, err := store.Update(*cfg); err != nil {
+				deltaLog.Warnf("Error updating an existing resource in the store %v", err)
+			}
+		}
+	}
+}
+
+func WatchMcpOptions(rev string, store model.ConfigStore) []Option {
+	// TODO: support watch mesh config
+	out := make([]Option, 0, len(collections.Pilot.All()))
+	for _, sch := range collections.Pilot.All() {
+		typeURL := sch.GroupVersionKind().String()
+		out = append(out, initWatch(typeURL, "*"), registerWithTypeURL(typeURL, deltaMcpConfigHandlerForGvk(rev, store, sch.GroupVersionKind())))
+	}
+
+	return out
 }
 
 func (c *Client) handleRecv() {
@@ -425,8 +536,10 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		// No need to ack and type check for debug types
 		return nil
 	}
+	isMeshConfig := d.TypeUrl == gvk.MeshConfig.String()
+	_, isMcp := convertTypeURLToMCPGVK(d.TypeUrl)
 	for _, r := range d.Resources {
-		if d.TypeUrl != r.Resource.TypeUrl {
+		if !isMeshConfig && !isMcp && d.TypeUrl != r.Resource.TypeUrl {
 			deltaLog.Errorf("Invalid response: mismatch of type url: %v vs %v", d.TypeUrl, r.Resource.TypeUrl)
 			continue
 		}
@@ -436,7 +549,7 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		}
 		parentKey := resourceKey{
 			Name:    r.Name,
-			TypeURL: r.Resource.TypeUrl,
+			TypeURL: d.TypeUrl,
 		}
 		c.establishResource(parentKey)
 		if ctx.nack != nil {
@@ -480,7 +593,16 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		allRemoves[key.TypeURL].Insert(key.Name)
 		c.drop(key)
 	}
+
+	c.mutex.Lock()
+	if isMcp {
+		if _, exist := c.sync[d.TypeUrl]; !exist {
+			c.sync[d.TypeUrl] = time.Now()
+		}
+	}
 	c.send(resourceKey{TypeURL: d.TypeUrl}, d.Nonce, joinError(rejects))
+	c.mutex.Unlock()
+
 	for t, sub := range allAdds {
 		unsub, f := allRemoves[t]
 		if f {
