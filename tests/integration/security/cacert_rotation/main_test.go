@@ -120,7 +120,7 @@ func TestReachability(t *testing.T) {
 			// step 2: Update CA signing key/cert with cacert to trigger workload cert resigning
 			if err := cert.CreateCustomCASecret(t,
 				"ca-cert-alt.pem", "ca-key-alt.pem",
-				"cert-chain-alt.pem", "root-cert-combined-2.pem"); err != nil {
+				"cert-chain-alt.pem", "root-cert-combined.pem"); err != nil {
 				t.Errorf("failed to update CA secret: %v", err)
 			}
 

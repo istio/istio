@@ -70,7 +70,7 @@ func TestIntermediateCertificateRefresh(t *testing.T) {
 			}
 
 			// perform one retry to handle race condition where ztunnel cert is refreshed before Istiod certificates are reloaded
-			retry.UntilSuccess(func() error {
+			retry.UntilSuccessOrFail(t, func() error {
 				newWorkloadCert := waitForWorkloadCertUpdate(t, ztunnelPod, sa, istioCtl, originalWorkloadSecret)
 				return verifyWorkloadCert(t, newWorkloadCert, newX509)
 			}, retry.MaxAttempts(2), retry.Timeout(5*time.Minute))

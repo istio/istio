@@ -16,13 +16,11 @@ package istio
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"helm.sh/helm/v3/pkg/time"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -429,32 +427,35 @@ func (cm *configMap) updateConfigMap(c cluster.Cluster, cfgMap *corev1.ConfigMap
 	if err != nil {
 		return err
 	}
+
+	// Normal control plane uses ConfigMap informers to load mesh config. This is ~instant.
+	// The external config uses a file mounted ConfigMap/Secret. This is super slow, but we can trigger it explicitly:
+	// https://github.com/kubernetes/kubernetes/issues/30189
 	if c.IsExternalControlPlane() {
-		// Normal control plane uses ConfigMap informers to load mesh config. This is ~instant.
-		// The external config uses a file mounted ConfigMap. This is super slow, but we can trigger it explicitly:
-		// https://github.com/kubernetes/kubernetes/issues/30189
-		pl, err := c.Kube().CoreV1().Pods(cm.namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=istiod"})
-		if err != nil {
+		if err := ReloadMounts(c, cm.namespace); err != nil {
 			return err
-		}
-		for _, pod := range pl.Items {
-			patchBytes := fmt.Sprintf(`{ "metadata": {"annotations": { "test.istio.io/mesh-config-hash": "%s" } } }`, hash(cfgMap.Data["mesh"]))
-			_, err := c.Kube().CoreV1().Pods(cm.namespace).Patch(context.TODO(), pod.Name,
-				types.MergePatchType, []byte(patchBytes), metav1.PatchOptions{FieldManager: "istio-ci"})
-			if err != nil {
-				return fmt.Errorf("patch %v: %v", patchBytes, err)
-			}
 		}
 	}
 	return nil
 }
 
-func hash(s string) string {
-	// nolint: gosec
-	// Test only code
-	h := md5.New()
-	_, _ = io.WriteString(h, s)
-	return hex.EncodeToString(h.Sum(nil))
+// ReloadMounts reloads file mounts instantly.
+// File mounted ConfigMap/Secret are super slow to update, but we can trigger it explicitly:
+// https://github.com/kubernetes/kubernetes/issues/30189
+func ReloadMounts(c cluster.Cluster, systemNamespace string) error {
+	pl, err := c.Kube().CoreV1().Pods(systemNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=istiod"})
+	if err != nil {
+		return err
+	}
+	for _, pod := range pl.Items {
+		patchBytes := fmt.Sprintf(`{ "metadata": {"annotations": { "test.istio.io/config-update": "%s" } } }`, time.Now().String())
+		_, err := c.Kube().CoreV1().Pods(systemNamespace).Patch(context.TODO(), pod.Name,
+			types.MergePatchType, []byte(patchBytes), metav1.PatchOptions{FieldManager: "istio-ci"})
+		if err != nil {
+			return fmt.Errorf("patch %v: %v", patchBytes, err)
+		}
+	}
+	return nil
 }
 
 func getMeshConfigData(c cluster.Cluster, cm *corev1.ConfigMap) (string, error) {
