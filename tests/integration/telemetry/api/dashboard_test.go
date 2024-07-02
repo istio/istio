@@ -181,7 +181,7 @@ func TestDashboard(t *testing.T) {
 						}
 
 						for _, query := range queries {
-							retry.UntilSuccessOrFail(t, func() error {
+								retry.UntilSuccessOrFail(t, func() error {
 								return checkMetric(cl, p, query, d.excluded)
 							}, retry.Timeout(time.Minute))
 						}

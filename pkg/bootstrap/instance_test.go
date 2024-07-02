@@ -459,6 +459,12 @@ func checkClusterNameTag(t *testing.T, regex string) {
 			firstCaptureGroup:  "outbound|443||kubernetes.default.svc.cluster.local;",
 			secondCaptureGroup: "outbound|443||kubernetes.default.svc.cluster.local",
 		},
+		{
+			name:               "cluster_name stats tag - no dots in cluster name",
+			clusterName:        "cluster.foo_cluster;.upstream_rq_retry",
+			firstCaptureGroup:  "foo_cluster;",
+			secondCaptureGroup: "foo_cluster",
+		},
 	}
 
 	for _, tt := range tc {
