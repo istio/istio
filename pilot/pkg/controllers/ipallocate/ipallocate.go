@@ -19,7 +19,11 @@ import (
 	"fmt"
 	"net/netip"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/meta/v1alpha1"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	autoallocate "istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
@@ -28,9 +32,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var log = istiolog.RegisterScope("ip-autoallocate", "IP autoallocate controller")
@@ -74,8 +75,8 @@ func (c *IPAllocate) Run(stop <-chan struct{}) {
 	// failing to warm cache first could result in allocating IP which are already in use
 	c.warmCache()
 	// logically the v1 behavior is a state of the world function which cannot be replicated in reconcile
-	// if we wish to replicate v1 assignment behavior for existing serviceentry it should go here and must include a change to respect the used IPs from the warmed cache
-	// begin reconcile
+	// if we wish to replicate v1 assignment behavior for existing serviceentry it should go here and must
+	// include a change to respect the used IPs from the warmed cache begin reconcile
 	c.queue.Run(stop)
 	c.serviceEntryClient.ShutdownHandlers()
 }
@@ -122,7 +123,8 @@ func (c *IPAllocate) reconcile(se types.NamespacedName) error {
 		return nil
 	}
 
-	// TODO: also what do we do if we already allocated IPs in a previous reconcile but are not longer meant to or IP would not be usabled due to an update? write a condition "IP unsabled due to wildcard host or something similar"
+	// TODO: also what do we do if we already allocated IPs in a previous reconcile but are not longer meant to
+	// or IP would not be usabled due to an update? write a condition "IP unsabled due to wildcard host or something similar"
 	if !autoallocate.ShouldV2AutoAllocateIP(serviceentry) {
 		return nil // nothing to do
 	}

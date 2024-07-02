@@ -75,7 +75,10 @@ func kludgeFromStatus(conditions []*v1alpha1.IstioCondition) []netip.Addr {
 		}
 		jsonAddresses := c.Message
 		kludge := ServiceEntryStatusKludge{}
-		json.Unmarshal([]byte(jsonAddresses), &kludge)
+		err := json.Unmarshal([]byte(jsonAddresses), &kludge)
+		if err != nil {
+			continue
+		}
 		for _, address := range kludge.Addresses {
 			result = append(result, netip.MustParseAddr(address))
 		}

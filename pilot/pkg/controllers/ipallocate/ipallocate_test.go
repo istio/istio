@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -30,15 +32,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// const systemNS = "istio-system"
-
-// var cniPodLabels = map[string]string{
-// 	"k8s-app":    "istio-cni-node",
-// 	"some-other": "label",
-// }
 
 type ipAllocateTestRig struct {
 	client kubelib.Client
@@ -49,7 +43,6 @@ type ipAllocateTestRig struct {
 
 func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocate, ipAllocateTestRig) {
 	t.Helper()
-	// t.Setenv("PILOT_ENABLE_V2_IP_AUTOALLOCATE", "true")
 	features.EnableV2IPAutoallocate = true
 	s := make(chan struct{})
 	t.Cleanup(func() { close(s) })
