@@ -48,8 +48,10 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -203,6 +205,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
 	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 	s.addDebugHandler(mux, internalMux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
+	s.addDebugHandler(mux, internalMux, "/debug/ambientz", "Debug support for ambient", s.ambientz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/authorizationz", "Internal authorization policies", s.authorizationz)
 	s.addDebugHandler(mux, internalMux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
@@ -1089,6 +1092,54 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 		con.proxy.RUnlock()
 	}
 	writeJSON(w, instances, req)
+}
+
+func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
+	addresses, _ := s.Env.ServiceDiscovery.AddressInformation(nil)
+	res := struct {
+		Workloads []jsonMarshalProto `json:"workloads"`
+		Services  []jsonMarshalProto `json:"services"`
+	}{}
+	// WDS stores IPs as raw byte form. We want to view them as strings, so convert.
+	// This doesn't quite work ideally, since json marshal will write as base64, but its better than nothing
+	rewriteAddress := func(b []byte) []byte {
+		ip, ok := netip.AddrFromSlice(b)
+		if !ok {
+			return b
+		}
+		return []byte(ip.String())
+	}
+	rewriteNetworkAddress := func(b *workloadapi.NetworkAddress) *workloadapi.NetworkAddress {
+		b.Address = rewriteAddress(b.Address)
+		return b
+	}
+	rewriteGatewayAddress := func(b *workloadapi.GatewayAddress) *workloadapi.GatewayAddress {
+		if b == nil {
+			return nil
+		}
+		switch t := b.Destination.(type) {
+		case *workloadapi.GatewayAddress_Address:
+			t.Address = rewriteNetworkAddress(t.Address)
+		}
+		return b
+	}
+	for _, addr := range addresses {
+		switch addr := addr.Type.(type) {
+		case *workloadapi.Address_Workload:
+			w := addr.Workload
+			w.Addresses = slices.Map(w.Addresses, rewriteAddress)
+			w.Waypoint = rewriteGatewayAddress(w.Waypoint)
+			w.NetworkGateway = rewriteGatewayAddress(w.NetworkGateway)
+			res.Workloads = append(res.Workloads, jsonMarshalProto{w})
+		case *workloadapi.Address_Service:
+			s := addr.Service
+			s.Addresses = slices.Map(s.Addresses, rewriteNetworkAddress)
+			s.Waypoint = rewriteGatewayAddress(s.Waypoint)
+			res.Services = append(res.Services, jsonMarshalProto{s})
+		}
+	}
+
+	writeJSON(w, res, req)
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
