@@ -788,9 +788,12 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 }
 
 // GetProxyServiceTargets returns service targets co-located with a given proxy
-// TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
-// To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {
+	if !c.isControllerForProxy(proxy) {
+		log.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.Cluster())
+		return nil
+	}
+
 	if len(proxy.IPAddresses) > 0 {
 		proxyIP := proxy.IPAddresses[0]
 		// look up for a WorkloadEntry; if there are multiple WorkloadEntry(s)
@@ -802,11 +805,6 @@ func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceT
 		pod := c.pods.getPodByProxy(proxy)
 		if pod != nil && !proxy.IsVM() {
 			// we don't want to use this block for our test "VM" which is actually a Pod.
-
-			if !c.isControllerForProxy(proxy) {
-				log.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.Cluster())
-				return nil
-			}
 
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
@@ -834,12 +832,6 @@ func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceT
 		return out
 	}
 
-	// TODO: This could not happen, remove?
-	if c.opts.Metrics != nil {
-		c.opts.Metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy.ID, "")
-	} else {
-		log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
-	}
 	return nil
 }
 
@@ -948,10 +940,6 @@ func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
 func (c *Controller) GetProxyServiceTargetsFromMetadata(proxy *model.Proxy) ([]model.ServiceTarget, error) {
 	if len(proxy.Labels) == 0 {
 		return nil, nil
-	}
-
-	if !c.isControllerForProxy(proxy) {
-		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.Cluster())
 	}
 
 	// Create a pod with just the information needed to find the associated Services

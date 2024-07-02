@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 51726
+releaseNotes:
+  - |
+    **Fixed** a bug where router's merged gateway was not immediately recomputed when a service was created or updated.
