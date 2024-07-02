@@ -56,7 +56,19 @@ webhooks:
 {{- /* Case 1: namespace selector matches, and object doesn't disable */}}
 {{- /* Note: if both revision and legacy selector, we give precedence to the legacy one */}}
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.namespace.") ) }}
-  namespaceSelector:
+  namespaceSelector: {{- if .Values.namespaceSelector }}
+    matchExpressions:
+    {{- range .Values.namespaceSelector.matchExpressions }}
+    - key: {{ .key }}
+      operator: {{ .operator }}
+    {{- if .values }}
+      values:
+      {{- range .values }}
+      - {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+  {{- else }}
     matchExpressions:
     - key: istio.io/rev
       operator: In
@@ -68,6 +80,7 @@ webhooks:
       {{- end }}
     - key: istio-injection
       operator: DoesNotExist
+  {{- end }}      
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject
@@ -77,12 +90,25 @@ webhooks:
 
 {{- /* Case 2: No namespace selector, but object selects our revision (and doesn't disable) */}}
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.object.") ) }}
-  namespaceSelector:
+  namespaceSelector: {{- if .Values.namespaceSelector }}
+    matchExpressions:
+    {{- range .Values.namespaceSelector.matchExpressions }}
+    - key: {{ .key }}
+      operator: {{ .operator }}
+    {{- if .values }}
+      values:
+      {{- range .values }}
+      - {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+  {{- else }}
     matchExpressions:
     - key: istio.io/rev
       operator: DoesNotExist
     - key: istio-injection
       operator: DoesNotExist
+  {{- end }}      
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject
@@ -104,12 +130,25 @@ webhooks:
 
 {{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "namespace.") ) }}
-  namespaceSelector:
+  namespaceSelector: {{- if .Values.namespaceSelector }}
+    matchExpressions:
+    {{- range .Values.namespaceSelector.matchExpressions }}
+    - key: {{ .key }}
+      operator: {{ .operator }}
+    {{- if .values }}
+      values:
+      {{- range .values }}
+      - {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+  {{- else }}
     matchExpressions:
     - key: istio-injection
       operator: In
       values:
       - enabled
+  {{- end }}      
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject
@@ -119,12 +158,25 @@ webhooks:
 
 {{- /* Case 2: no namespace label, but object selector is enabled (and revision label is not, which has priority) */}}
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "object.") ) }}
-  namespaceSelector:
+  namespaceSelector: {{- if .Values.namespaceSelector }}
+    matchExpressions:
+    {{- range .Values.namespaceSelector.matchExpressions }}
+    - key: {{ .key }}
+      operator: {{ .operator }}
+    {{- if .values }}
+      values:
+      {{- range .values }}
+      - {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+  {{- else }}
     matchExpressions:
     - key: istio-injection
       operator: DoesNotExist
     - key: istio.io/rev
       operator: DoesNotExist
+  {{- end }}      
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject
@@ -137,7 +189,19 @@ webhooks:
 {{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
 {{- /* Special case 3: no labels at all */}}
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "auto.") ) }}
-  namespaceSelector:
+  namespaceSelector: {{- if .Values.namespaceSelector }}
+    matchExpressions:
+    {{- range .Values.namespaceSelector.matchExpressions }}
+    - key: {{ .key }}
+      operator: {{ .operator }}
+    {{- if .values }}
+      values:
+      {{- range .values }}
+      - {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+  {{- else }}
     matchExpressions:
     - key: istio-injection
       operator: DoesNotExist
@@ -146,6 +210,7 @@ webhooks:
     - key: "kubernetes.io/metadata.name"
       operator: "NotIn"
       values: ["kube-system","kube-public","kube-node-lease","local-path-storage"]
+  {{- end }}      
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject
