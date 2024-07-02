@@ -261,9 +261,6 @@ type PushContext struct {
 	// PushVersion describes the push version this push context was computed for
 	PushVersion string
 
-	// LedgerVersion is the version of the configuration ledger
-	LedgerVersion string
-
 	// JwtKeyResolver holds a reference to the JWT key resolver instance.
 	JwtKeyResolver *JwksResolver
 
@@ -1251,7 +1248,6 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	ps.Mesh = env.Mesh()
 	ps.Networks = env.MeshNetworks()
-	ps.LedgerVersion = env.Version()
 
 	// Must be initialized first as initServiceRegistry/VirtualServices/Destrules
 	// use the default export map.

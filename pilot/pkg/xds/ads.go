@@ -151,10 +151,6 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 
-	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ID(), req.TypeUrl, req.ResponseNonce)
-	}
-
 	shouldRespond, delta := xds.ShouldRespond(con.proxy, con.ID(), req)
 	if !shouldRespond {
 		return nil
@@ -293,20 +289,12 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 		return
 	}
 	s.removeCon(con.ID())
-	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterDisconnect(con.ID(), AllTrackingEventTypes)
-	}
 	s.WorkloadEntryController.OnDisconnect(con)
 }
 
 func connectionID(node string) string {
 	id := atomic.AddInt64(&connectionNumber, 1)
 	return node + "-" + strconv.FormatInt(id, 10)
-}
-
-// Only used for test
-func ResetConnectionNumberForTest() {
-	atomic.StoreInt64(&connectionNumber, 0)
 }
 
 // initProxyMetadata initializes just the basic metadata of a proxy. This is decoupled from
@@ -492,10 +480,6 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
 		log.Debugf("Skipping push to %v, no updates required", con.ID())
-		if pushRequest.Full {
-			// Only report for full versions, incremental pushes do not have a new version.
-			reportAllEventsForProxyNoPush(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
-		}
 		return nil
 	}
 
@@ -507,11 +491,6 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			return err
 		}
 	}
-	if pushRequest.Full {
-		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportEventsForUnWatched(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
-	}
-
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
 }
@@ -654,35 +633,4 @@ func (conn *Connection) watchedResourcesByOrder() []*model.WatchedResource {
 		}
 	}
 	return ordered
-}
-
-// reportAllEventsForProxyNoPush reports all tracking events for a proxy without need to push xds.
-func reportAllEventsForProxyNoPush(con *Connection, statusReporter DistributionStatusCache, nonce string) {
-	if statusReporter == nil {
-		return
-	}
-	for distributionType := range AllTrackingEventTypes {
-		statusReporter.RegisterEvent(con.ID(), distributionType, nonce)
-	}
-}
-
-// reportEventsForUnWatched is to report events for unwatched types after push.
-// e.g. there is no rds if no route configured for gateway.
-// nolint
-func reportEventsForUnWatched(con *Connection, statusReporter DistributionStatusCache, nonce string) {
-	if statusReporter == nil {
-		return
-	}
-
-	// if typeUrl is not empty, report all events that are not being watched
-	unWatched := sets.NewWithLength[EventType](len(AllTrackingEventTypes))
-	watchedTypes := con.proxy.GetWatchedResourceTypes()
-	for tyeUrl := range AllTrackingEventTypes {
-		if _, exists := watchedTypes[tyeUrl]; !exists {
-			unWatched.Insert(tyeUrl)
-		}
-	}
-	for tyeUrl := range unWatched {
-		statusReporter.RegisterEvent(con.ID(), tyeUrl, nonce)
-	}
 }

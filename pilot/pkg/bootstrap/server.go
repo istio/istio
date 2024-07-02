@@ -53,7 +53,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
-	"istio.io/istio/pilot/pkg/status/distribution"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/cluster"
@@ -174,8 +173,7 @@ type Server struct {
 
 	webhookInfo *webhookInfo
 
-	statusReporter *distribution.Reporter
-	statusManager  *status.Manager
+	statusManager *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreController
 }
@@ -223,7 +221,6 @@ func (w *webhookInfo) addHandler(fn func()) {
 func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e := model.NewEnvironment()
 	e.DomainSuffix = args.RegistryOptions.KubeOptions.DomainSuffix
-	e.SetLedger(buildLedger(args.RegistryOptions))
 
 	ac := aggregate.NewController(aggregate.Options{
 		MeshHolder: e,
@@ -879,15 +876,6 @@ func (s *Server) initRegistryEventHandlers() {
 
 	if s.configController != nil {
 		configHandler := func(prev config.Config, curr config.Config, event model.Event) {
-			if s.statusReporter != nil {
-				defer func() {
-					if event != model.EventDelete {
-						s.statusReporter.AddInProgressResource(curr)
-					} else {
-						s.statusReporter.DeleteInProgressResource(curr)
-					}
-				}()
-			}
 			log.Debugf("Handle event %s for configuration %s", event, curr.Key())
 			// For update events, trigger push only if spec has changed.
 			if event == model.EventUpdate && !needsPush(prev, curr) {

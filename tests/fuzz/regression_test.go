@@ -153,7 +153,6 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzConvertIngressV1alpha3", FuzzConvertIngressV1alpha3},
 		{"FuzzAggregateController", FuzzAggregateController},
 		{"FuzzKubeCRD", FuzzKubeCRD},
-		{"FuzzReconcileStatuses", FuzzReconcileStatuses},
 		{"FuzzWE", FuzzWE},
 		{"FuzzVerifyCertificate", FuzzVerifyCertificate},
 		{"FuzzExtractIDs", FuzzExtractIDs},

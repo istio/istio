@@ -193,7 +193,6 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
-	s.addDebugHandler(mux, internalMux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
 
 	s.addDebugHandler(mux, internalMux, "/debug/registryz", "Debug support for registry", s.registryz)
 	s.addDebugHandler(mux, internalMux, "/debug/endpointz", "Obsolete, use endpointShardz", s.endpointShardz)
@@ -374,72 +373,6 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 		resources[resourceType] = append(resources[resourceType], resource.Name)
 	}
 	writeJSON(w, resources, req)
-}
-
-const DistributionTrackingDisabledMessage = "Pilot Version tracking is disabled. It may be enabled by setting the " +
-	"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING environment variable to true."
-
-func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
-	if !features.EnableDistributionTracking {
-		w.WriteHeader(http.StatusConflict)
-		_, _ = fmt.Fprint(w, DistributionTrackingDisabledMessage)
-		return
-	}
-	if resourceID := req.URL.Query().Get("resource"); resourceID != "" {
-		proxyNamespace := req.URL.Query().Get("proxy_namespace")
-		knownVersions := make(map[string]string)
-		var results []SyncedVersions
-		for _, con := range s.SortedClients() {
-			// wrap this in independent scope so that panic's don't bypass Unlock...
-			con.proxy.RLock()
-
-			if con.proxy != nil && (proxyNamespace == "" || proxyNamespace == con.proxy.ConfigNamespace) {
-				// read nonces from our statusreporter to allow for skipped nonces, etc.
-				results = append(results, SyncedVersions{
-					ProxyID: con.proxy.ID,
-					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.ClusterType),
-						resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.ListenerType),
-						resourceID, knownVersions),
-					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.RouteType),
-						resourceID, knownVersions),
-					EndpointVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.EndpointType),
-						resourceID, knownVersions),
-				})
-			}
-			con.proxy.RUnlock()
-		}
-
-		writeJSON(w, results, req)
-	} else {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		_, _ = fmt.Fprintf(w, "querystring parameter 'resource' is required\n")
-	}
-}
-
-// VersionLen is the Config Version and is only used as the nonce prefix, but we can reconstruct
-// it because is is a b64 encoding of a 64 bit array, which will always be 12 chars in length.
-// len = ceil(bitlength/(2^6))+1
-const VersionLen = 12
-
-func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string]string) string {
-	if len(nonce) < VersionLen {
-		return ""
-	}
-	configVersion := nonce[:VersionLen]
-	result, ok := cache[configVersion]
-	if !ok {
-		lookupResult, err := s.Env.GetLedger().GetPreviousValue(configVersion, key)
-		if err != nil {
-			istiolog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
-			lookupResult = ""
-		}
-		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
-		// repeat the same error for many s.adsClients.
-		cache[configVersion] = lookupResult
-		return lookupResult
-	}
-	return result
 }
 
 // kubernetesConfig wraps a config.Config with a custom marshaling method that matches a Kubernetes
