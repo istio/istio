@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 				return err
 			}
 			return ctx.ConfigIstio().YAML(i.Settings().SystemNamespace, `
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: mesh-default
