@@ -91,8 +91,14 @@ type WatchedResource struct {
 	LastError string
 
 	// LastResources tracks the contents of the last push.
-	// This field is extremely expensive to maintain and is typically disabled
+	// This field is extremely expensive to maintain and is typically disabled.
+	// It is only used for testing now.
 	LastResources Resources
+}
+
+func (r *WatchedResource) ShallowCopy() *WatchedResource {
+	out := *r
+	return &out
 }
 
 type Watcher interface {

@@ -219,7 +219,8 @@ func (w *Watch) NewWatchedResource(typeURL string, names []string) {
 func (w *Watch) UpdateWatchedResource(_ string, f func(*xds.WatchedResource) *xds.WatchedResource) {
 	w.Lock()
 	defer w.Unlock()
-	w.watch = f(w.watch)
+	r := w.watch.ShallowCopy()
+	w.watch = f(r)
 }
 
 func (w *Watch) GetID() string {

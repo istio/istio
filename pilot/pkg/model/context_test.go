@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
+	pkgmodel "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -415,4 +416,59 @@ func TestGlobalUnicastIP(t *testing.T) {
 			}
 		})
 	}
+}
+
+// This test case is used to detect WatchedResource data race.
+func TestProxyWatchedResourceRace(t *testing.T) {
+	typeURL := pkgmodel.ClusterType
+	proxy := &model.Proxy{
+		WatchedResources: map[string]*model.WatchedResource{
+			typeURL: {},
+		},
+	}
+	stop := make(chan struct{})
+	runFunc := func(f func()) {
+		for i := 0; i < 5; i++ {
+			go func() {
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+						f()
+					}
+				}
+			}()
+		}
+	}
+
+	runFunc(func() {
+		wr := proxy.GetWatchedResource(typeURL)
+		_ = wr.NonceAcked
+		for _, name := range wr.ResourceNames {
+			_ = name
+		}
+	})
+
+	runFunc(func() {
+		wrs := proxy.CloneWatchedResources()
+		for _, wr := range wrs {
+			_ = wr.NonceAcked
+			for _, name := range wr.ResourceNames {
+				_ = name
+			}
+		}
+	})
+
+	runFunc(func() {
+		proxy.UpdateWatchedResource(typeURL, func(wr *model.WatchedResource) *model.WatchedResource {
+			wr.NonceAcked = "ack"
+			wr.ResourceNames = []string{"name"}
+			return wr
+		})
+	})
+
+	timer := time.After(time.Millisecond * 100)
+	<-timer
+	close(stop)
 }
