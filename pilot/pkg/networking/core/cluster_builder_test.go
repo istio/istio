@@ -1062,6 +1062,63 @@ func TestBuildDefaultCluster(t *testing.T) {
 			expectedCluster: nil,
 		},
 		{
+			name:        "static external cluster with . in the name",
+			clusterName: "foo.bar.com",
+			discovery:   cluster.Cluster_EDS,
+			endpoints:   nil,
+			direction:   model.TrafficDirectionOutbound,
+			external:    false,
+			expectedCluster: &cluster.Cluster{
+				Name:                 "foo.bar.com",
+				AltStatName:          "foo_bar_com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
+				CircuitBreakers: &cluster.CircuitBreakers{
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
+				},
+				Filters:  []*cluster.Filter{xdsfilters.TCPClusterMx},
+				LbPolicy: defaultLBAlgorithm(),
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						util.IstioMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								"services": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+									{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+										"host": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "host",
+											},
+										},
+										"name": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "svc",
+											},
+										},
+										"namespace": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "default",
+											},
+										},
+									}}}},
+								}}}},
+							},
+						},
+					},
+				},
+				EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+					ServiceName: "foo.bar.com",
+					EdsConfig: &core.ConfigSource{
+						ConfigSourceSpecifier: &core.ConfigSource_Ads{
+							Ads: &core.AggregatedConfigSource{},
+						},
+						InitialFetchTimeout: durationpb.New(0),
+						ResourceApiVersion:  core.ApiVersion_V3,
+					},
+				},
+			},
+		},
+		{
 			name:        "static cluster with endpoints",
 			clusterName: "foo",
 			discovery:   cluster.Cluster_STATIC,
