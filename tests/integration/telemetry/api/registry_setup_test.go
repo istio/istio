@@ -38,7 +38,6 @@ func testRegistrySetup(ctx resource.Context) (err error) {
 		Cluster:        ctx.AllClusters().Default(),
 		TargetRegistry: "kind-registry:5000",
 		Scheme:         "http",
-		Image:          "quay.io/jewertow/fake-registry:latest",
 	})
 	if err != nil {
 		return
