@@ -94,6 +94,7 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 			IncrementEnvoyFilterMetric(rp.Key(), VirtualHost, false)
 		}
 	}
+
 	if removedVirtualHosts.Len() > 0 {
 		routeConfiguration.VirtualHosts = slices.FilterInPlace(routeConfiguration.VirtualHosts, func(virtualHost *route.VirtualHost) bool {
 			return !removedVirtualHosts.Contains(virtualHost.Name)
@@ -115,6 +116,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 			virtualHostMatch(virtualHosts[idx], rp) {
 			applied = true
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
+				// this virtual host will be removed
 				return true
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
 				merge.Merge(virtualHosts[idx], rp.Value)
@@ -147,10 +149,9 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap,
 ) {
 	clonedVhostRoutes := false
-	routesRemoved := false
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
-		patchHTTPRoute(patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved, portMap, &clonedVhostRoutes)
+		patchHTTPRoute(patchContext, patches, routeConfiguration, virtualHost, index, portMap, &clonedVhostRoutes)
 	}
 
 	// now for the adds
@@ -223,16 +224,15 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		IncrementEnvoyFilterMetric(rp.Key(), Route, applied)
 	}
-	if routesRemoved {
-		virtualHost.Routes = slices.FilterInPlace(virtualHost.Routes, func(r *route.Route) bool {
-			return r != nil
-		})
-	}
+
+	virtualHost.Routes = slices.FilterInPlace(virtualHost.Routes, func(r *route.Route) bool {
+		return r != nil
+	})
 }
 
 func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool, portMap model.GatewayPortMap,
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, portMap model.GatewayPortMap,
 	clonedVhostRoutes *bool,
 ) {
 	for _, rp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
@@ -247,8 +247,8 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 				*clonedVhostRoutes = true
 			}
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
+				// nil means this route will be removed
 				virtualHost.Routes[routeIndex] = nil
-				*routesRemoved = true
 				return
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
 				cloneVhostRouteByRouteIndex(virtualHost, routeIndex)
