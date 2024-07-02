@@ -189,6 +189,9 @@ const (
 
 	// AmbientUseWaypointLabelLabel is the label used to specify which waypoint should be used for a given pod, service, etc...
 	AmbientUseWaypointLabel = "istio.io/use-waypoint"
+	// AmbientUseWaypointNamespaceLabel is a label used to indicate the namespace of the waypoint (referred to by AmbientUseWaypointLabel).
+	// This allows cross-namespace waypoint references. If unset, the same namespace is assumed.
+	AmbientUseWaypointNamespaceLabel = "istio.io/use-waypoint-namespace"
 	// AmbientWaypointForTrafficTypeLabel is the label used to specify which traffic is allowed through the Waypoint.
 	// This label is applied to the Waypoint. Valid traffic types are "service", "workload", "all", and "none".
 	AmbientWaypointForTrafficTypeLabel = "istio.io/waypoint-for"
