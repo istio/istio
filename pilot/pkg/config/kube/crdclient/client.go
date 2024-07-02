@@ -349,15 +349,24 @@ func (cl *Client) addCRD(name string) {
 	// 2. Does it match the discovery selector?
 	// 3. Does it have a special per-type object filter?
 	var extraFilter func(obj any) bool
-	if of, f := cl.filtersByGVK[resourceGVK]; f && of.ObjectFilter != nil {
-		extraFilter = of.ObjectFilter.Filter
+	var transform func(obj any) (any, error)
+	if of, f := cl.filtersByGVK[resourceGVK]; f {
+		if of.ObjectFilter != nil {
+			extraFilter = of.ObjectFilter.Filter
+		}
+		if of.ObjectTransform != nil {
+			transform = of.ObjectTransform
+		}
 	}
 
 	var namespaceFilter kubetypes.DynamicObjectFilter
 	if !s.IsClusterScoped() {
 		namespaceFilter = kube.FilterIfEnhancedFilteringEnabled(cl.client)
 	}
-	filter := kubetypes.Filter{ObjectFilter: composeFilters(namespaceFilter, cl.inRevision, extraFilter)}
+	filter := kubetypes.Filter{
+		ObjectFilter:    composeFilters(namespaceFilter, cl.inRevision, extraFilter),
+		ObjectTransform: transform,
+	}
 
 	var kc kclient.Untyped
 	if s.IsBuiltin() {
