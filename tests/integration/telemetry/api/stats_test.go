@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
@@ -470,7 +469,6 @@ func ValidateBucket(cluster cluster.Cluster, prom prometheus.Instance, sourceApp
 // Kiali depends on these metrics
 func TestGRPCCountMetrics(t *testing.T) {
 	framework.NewTest(t).
-		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
 			// Metrics to be queried and tested
 			metrics := []string{"istio_request_messages_total", "istio_response_messages_total"}
