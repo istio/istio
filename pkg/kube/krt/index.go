@@ -53,6 +53,7 @@ type index[K comparable, O any] struct {
 	extract func(o O) []K
 }
 
+// nolint: unused // (not true)
 func (i index[K, O]) objectHasKey(obj O, k K) bool {
 	for _, got := range i.extract(obj) {
 		if got == k {

@@ -187,6 +187,7 @@ func (h *manyCollection[I, O]) augment(a any) any {
 	return a
 }
 
+// nolint: unused // (not true)
 func (h *manyCollection[I, O]) index(extract func(o O) []string) kclient.RawIndexer {
 	idx := collectionIndex[I, O]{
 		extract: extract,

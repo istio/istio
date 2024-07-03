@@ -87,10 +87,12 @@ func (j *join[I]) dump() {
 	log.Errorf("< END DUMP (join %v)", j.collectionName)
 }
 
+// nolint: unused // (not true)
 type joinIndexer struct {
 	indexers []kclient.RawIndexer
 }
 
+// nolint: unused // (not true)
 func (j joinIndexer) Lookup(key string) []any {
 	var res []any
 	for _, i := range j.indexers {

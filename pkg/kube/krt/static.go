@@ -63,11 +63,13 @@ func (s *staticList[T]) augment(a any) any {
 	return a
 }
 
+// nolint: unused // (not true)
 type staticListIndex[T any] struct {
 	extract func(o T) []string
 	parent  *staticList[T]
 }
 
+// nolint: unused // (not true)
 func (s staticListIndex[T]) Lookup(key string) []any {
 	var res []any
 	for _, v := range s.parent.vals {
