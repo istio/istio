@@ -450,20 +450,20 @@ func checkClusterNameTag(t *testing.T, regex string) {
 		{
 			name:               "cluster_name stats tag - external service",
 			clusterName:        "cluster.outbound|443||api.facebook.com;.upstream_rq_retry",
-			firstCaptureGroup:  "outbound|443||api.facebook.com;",
+			firstCaptureGroup:  ".outbound|443||api.facebook.com;",
 			secondCaptureGroup: "outbound|443||api.facebook.com",
 		},
 		{
 			name:               "cluster_name stats tag - internal kubernetes service",
 			clusterName:        "cluster.outbound|443||kubernetes.default.svc.cluster.local;.upstream_rq_retry",
-			firstCaptureGroup:  "outbound|443||kubernetes.default.svc.cluster.local;",
+			firstCaptureGroup:  ".outbound|443||kubernetes.default.svc.cluster.local;",
 			secondCaptureGroup: "outbound|443||kubernetes.default.svc.cluster.local",
 		},
 		{
 			name:               "cluster_name stats tag - no dots in cluster name",
-			clusterName:        "cluster.foo_cluster;.upstream_rq_retry",
-			firstCaptureGroup:  "foo_cluster;",
-			secondCaptureGroup: "foo_cluster",
+			clusterName:        "cluster.xds-grpc;.upstream_rq_retry",
+			firstCaptureGroup:  ".xds-grpc;",
+			secondCaptureGroup: "xds-grpc",
 		},
 	}
 
