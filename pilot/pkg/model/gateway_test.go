@@ -135,7 +135,7 @@ func TestMergeGateways(t *testing.T) {
 			for _, c := range tt.gwConfig {
 				instances = append(instances, gatewayWithInstances{c, true, nil})
 			}
-			mgw := MergeGateways(instances, &Proxy{}, nil)
+			mgw := mergeGateways(instances, &Proxy{}, nil)
 			if len(mgw.MergedServers) != tt.mergedServersNum {
 				t.Errorf("Incorrect number of merged servers. Expected: %v Got: %d", tt.mergedServersNum, len(mgw.MergedServers))
 			}
@@ -216,7 +216,7 @@ func TestGetAutoPassthroughSNIHosts(t *testing.T) {
 		},
 	}
 	instances := []gatewayWithInstances{{gateway: gateway, instances: gatewayServiceTargets}}
-	mgw := MergeGateways(instances, &Proxy{}, nil)
+	mgw := mergeGateways(instances, &Proxy{}, nil)
 	hosts := mgw.GetAutoPassthrughGatewaySNIHosts()
 	expectedHosts := sets.Set[string]{}
 	expectedHosts.InsertAll("a.apps.svc.cluster.local", "b.apps.svc.cluster.local")
