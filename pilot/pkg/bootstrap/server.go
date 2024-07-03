@@ -1164,7 +1164,7 @@ func (s *Server) initNodeUntaintController(args *PilotArgs) {
 }
 
 func (s *Server) initIPAutoallocateController(args *PilotArgs) {
-	s.addStartFunc("ipAutoallocate controller", func(stop <-chan struct{}) error {
+	s.addStartFunc("ip autoallocate controller", func(stop <-chan struct{}) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.IPAutoallocateController, args.Revision, s.kubeClient).
 			AddRunFunction(func(leaderStop <-chan struct{}) {

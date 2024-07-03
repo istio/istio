@@ -96,6 +96,7 @@ func TestIPAllocate(t *testing.T) {
 				Addresses: []string{
 					"1.2.3.4",
 				},
+				Resolution: v1alpha3.ServiceEntry_DNS,
 			},
 		},
 	)
@@ -112,6 +113,7 @@ func TestIPAllocate(t *testing.T) {
 				Addresses: []string{
 					"1:2::3::4",
 				},
+				Resolution: v1alpha3.ServiceEntry_DNS,
 			},
 		},
 	)
@@ -128,6 +130,7 @@ func TestIPAllocate(t *testing.T) {
 				Hosts: []string{
 					"nope.boop.testing.io",
 				},
+				Resolution: v1alpha3.ServiceEntry_DNS,
 			},
 		},
 	)
@@ -142,6 +145,7 @@ func TestIPAllocate(t *testing.T) {
 				Hosts: []string{
 					"beep.boop.testing.io",
 				},
+				Resolution: v1alpha3.ServiceEntry_DNS,
 			},
 			Status: v1alpha1.IstioStatus{
 				Conditions: []*v1alpha1.IstioCondition{
@@ -201,6 +205,7 @@ func TestIPAllocate(t *testing.T) {
 				Addresses: []string{
 					addr[0].String(),
 				},
+				Resolution: v1alpha3.ServiceEntry_DNS,
 			},
 		},
 	)
@@ -225,6 +230,7 @@ func TestIPAllocate(t *testing.T) {
 				Hosts: []string{
 					"status-conflict.boop.testing.io",
 				},
+				Resolution: v1alpha3.ServiceEntry_DNS,
 			},
 			Status: v1alpha1.IstioStatus{
 				Conditions: []*v1alpha1.IstioCondition{

@@ -18,6 +18,7 @@ package ambient
 import (
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -140,9 +141,10 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
-		// if we have no user-provided addresses and h is not wildcarded we can try to use autoassigned addresses
+		// if we have no user-provided addresses and h is not wildcarded and we have a supported resolution
+		// we can try to use autoassigned addresses
 		a := addresses
-		if len(a) == 0 && !host.Name(h).IsWildCarded() {
+		if len(a) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
 			a = autoassignedAddresses
 		}
 		res = append(res, &workloadapi.Service{

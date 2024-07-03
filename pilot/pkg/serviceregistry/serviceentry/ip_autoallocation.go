@@ -19,6 +19,7 @@ import (
 	"net/netip"
 
 	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
@@ -40,7 +41,13 @@ func ShouldV2AutoAllocateIP(se *networkingv1alpha3.ServiceEntry) bool {
 	if !features.EnableV2IPAutoallocate {
 		return false
 	}
+
 	if se == nil {
+		return false
+	}
+
+	// if resolution is none we cannot honor the assigned IP in the dataplane and should not assign
+	if se.Spec.Resolution == v1alpha3.ServiceEntry_NONE {
 		return false
 	}
 
@@ -48,7 +55,6 @@ func ShouldV2AutoAllocateIP(se *networkingv1alpha3.ServiceEntry) bool {
 	// TODO: namespace opt-out?
 	disabledValue, disabledFound := se.Labels[constants.DisableV2AutoAllocationLabel]
 	if disabledFound && disabledValue == "true" {
-		// user did not opt in
 		return false
 	}
 

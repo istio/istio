@@ -29,6 +29,7 @@ import (
 	"istio.io/api/meta/v1alpha1"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	autoallocate "istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pkg/config"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -40,6 +41,7 @@ var log = istiolog.RegisterScope("ip-autoallocate", "IP autoallocate controller"
 
 type IPAllocate struct {
 	serviceEntryClient kclient.Client[*networkingv1alpha3.ServiceEntry]
+	index              kclient.Index[netip.Addr, *networkingv1alpha3.ServiceEntry]
 	stopChan           <-chan struct{}
 	queue              controllers.Queue
 
@@ -63,8 +65,20 @@ const (
 
 func NewIPAllocate(stop <-chan struct{}, c kubelib.Client) *IPAllocate {
 	client := kclient.New[*networkingv1alpha3.ServiceEntry](c)
+	index := kclient.CreateIndex[netip.Addr, *networkingv1alpha3.ServiceEntry](client, func(serviceentry *networkingv1alpha3.ServiceEntry) []netip.Addr {
+		addresses := autoallocate.GetV2AddressesFromServiceEntry(serviceentry)
+		for _, addr := range serviceentry.Spec.Addresses {
+			a, err := netip.ParseAddr(addr)
+			if err != nil {
+				continue
+			}
+			addresses = append(addresses, a)
+		}
+		return addresses
+	})
 	allocator := &IPAllocate{
 		serviceEntryClient: client,
+		index:              index,
 		stopChan:           stop,
 		// MustParsePrefix is OK because these are const. If we allow user configuration we must not use this function.
 		v4allocator: newIPAllocator(netip.MustParsePrefix(IPV4Prefix)),
@@ -94,11 +108,9 @@ func (c *IPAllocate) warmCache() {
 	count := 0
 	for _, serviceentry := range serviceentries {
 		count++
-		owner := types.NamespacedName{
-			Name:      serviceentry.Name,
-			Namespace: serviceentry.Namespace,
-		}
+		owner := config.NamespacedName(serviceentry)
 		log.Debugf("%s/%s found during warming", serviceentry.Namespace, serviceentry.Name)
+
 		if len(serviceentry.Spec.Addresses) > 0 {
 			for _, addr := range serviceentry.Spec.Addresses {
 				a, err := netip.ParseAddr(addr)
@@ -115,15 +127,14 @@ func (c *IPAllocate) warmCache() {
 			}
 		}
 
-		if serviceentry.Status.String() != "" {
-			addresses := autoallocate.GetV2AddressesFromServiceEntry(serviceentry)
-			if len(addresses) > 0 {
-				for _, a := range addresses {
-					c.markUsedOrQueueConflict(a, owner)
-				}
+		addresses := autoallocate.GetV2AddressesFromServiceEntry(serviceentry)
+		if len(addresses) > 0 {
+			for _, a := range addresses {
+				c.markUsedOrQueueConflict(a, owner)
 			}
 		}
 	}
+
 	log.Debugf("discovered %v during warming", count)
 }
 
@@ -179,7 +190,6 @@ func (c *IPAllocate) reconcileServiceEntry(se types.NamespacedName) error {
 
 	_, err = c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.MergePatchType, patch)
 	if err != nil {
-		log.Errorf("unable to patch %s, received error %s", se.String(), err.Error())
 		return err
 	}
 
@@ -187,9 +197,8 @@ func (c *IPAllocate) reconcileServiceEntry(se types.NamespacedName) error {
 }
 
 func (c *IPAllocate) resolveConflict(conflict conflictDetectedEvent) error {
-	log.Errorf("I guess I should resolve this %v", conflict)
 	var autoConflicts, userConflicts []*networkingv1alpha3.ServiceEntry
-	serviceentries := c.serviceEntryClient.List(metav1.NamespaceAll, klabels.Everything())
+	serviceentries := c.index.Lookup(conflict.conflictingAddress)
 	for _, serviceentry := range serviceentries {
 		auto, user := allAddresses(serviceentry)
 		if slices.Contains(auto, conflict.conflictingAddress) {
@@ -211,7 +220,7 @@ func (c *IPAllocate) resolveConflict(conflict conflictDetectedEvent) error {
 	}
 	var errs error
 	for _, resolveMe := range autoConflicts[start:] {
-		log.Errorf("I should re-assign %s/%s", resolveMe.Namespace, resolveMe.Name)
+		log.Debugf("reassigned %s/%s due to IP Address conflict", resolveMe.Namespace, resolveMe.Name)
 		patch, err := c.statusPatchForAddresses(resolveMe, true)
 		if err != nil {
 			errs = errors.Join(errs, err)
@@ -223,7 +232,6 @@ func (c *IPAllocate) resolveConflict(conflict conflictDetectedEvent) error {
 
 		_, err = c.serviceEntryClient.PatchStatus(resolveMe.Name, resolveMe.Namespace, types.MergePatchType, patch)
 		if err != nil {
-			log.Errorf("unable to patch %s/%s, received error %s", resolveMe.Namespace, resolveMe.Name, err.Error())
 			errs = errors.Join(errs, err)
 		}
 	}
@@ -250,18 +258,20 @@ func allAddresses(se *networkingv1alpha3.ServiceEntry) ([]netip.Addr, []netip.Ad
 }
 
 func (c *IPAllocate) nextAddresses(owner types.NamespacedName) []netip.Addr {
+	results := []netip.Addr{}
 	v4address, err := c.v4allocator.allocateNext(owner)
 	if err != nil {
-		panic("failed to allocate v4 address")
+		log.Error("failed to allocate v4 address")
+	} else {
+		results = append(results, v4address)
 	}
 	v6address, err := c.v6allocator.allocateNext(owner)
 	if err != nil {
-		panic("failed to allocate v6 address")
+		log.Error("failed to allocate v6 address")
+	} else {
+		results = append(results, v6address)
 	}
-	return []netip.Addr{
-		v4address,
-		v6address,
-	}
+	return results
 }
 
 func (c *IPAllocate) inOurRange(a netip.Addr) bool {
@@ -297,25 +307,25 @@ func (c *IPAllocate) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry
 	}
 	orig, err := json.Marshal(se)
 	if err != nil {
-		panic("failed to marshal original service entry")
+		return nil, err
 	}
 
-	if se.Status.String() == "" || forcedReassign {
+	if forcedReassign {
+		// TODO: this is a kludge and incorrect, we should not overwrite status in the final commit
 		// initialize status field
 		se.Status = v1alpha1.IstioStatus{}
-	} else {
-		foundAddresses := autoallocate.GetV2AddressesFromServiceEntry(se)
-		if len(foundAddresses) > 0 && !forcedReassign {
+	}
+	foundAddresses := autoallocate.GetV2AddressesFromServiceEntry(se)
+	if len(foundAddresses) > 0 && !forcedReassign {
 
-			// this is likely a noop, but just to be safe we should check and potentially resolve conflict
-			for _, a := range foundAddresses {
-				c.markUsedOrQueueConflict(a, types.NamespacedName{
-					Name:      se.Name,
-					Namespace: se.Namespace,
-				})
-			}
-			return nil, nil // nothing to patch
+		// this is likely a noop, but just to be safe we should check and potentially resolve conflict
+		for _, a := range foundAddresses {
+			c.markUsedOrQueueConflict(a, types.NamespacedName{
+				Name:      se.Name,
+				Namespace: se.Namespace,
+			})
 		}
+		return nil, nil // nothing to patch
 	}
 	addresses := c.nextAddresses(types.NamespacedName{
 		Name:      se.Name,
@@ -327,7 +337,7 @@ func (c *IPAllocate) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry
 	se.Status.Conditions = append(se.Status.Conditions, &kludge)
 	modified, err := json.Marshal(se)
 	if err != nil {
-		panic("failed to marshal modified service entry")
+		return nil, err
 	}
 	return jsonpatch.CreateMergePatch(orig, modified)
 }
