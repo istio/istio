@@ -186,6 +186,7 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
     patched_coredns_config=$(kubectl get -oyaml -n=kube-system configmap/coredns | sed -e '/^ *ready/i\
         hosts {\
             '"$kind_registry_ip"' kind-registry.lan\
+            '"$kind_registry_ip"' kind-registry.\
             fallthrough\
         }')
     echo "Patched CoreDNS config:"
