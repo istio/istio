@@ -811,23 +811,18 @@ func (node *Proxy) IsUnprivileged() bool {
 	return unprivileged
 }
 
-// CanBindToPort returns true if the proxy can bind to a given port.
-func (node *Proxy) CanBindToPort(bindTo bool, port uint32) bool {
+// CanBindToPrivilegedPort returns true if the proxy can bind to a given port.
+func (node *Proxy) CanBindToPrivilegedPort(bindTo bool, port uint32) bool {
 	if bindTo {
-		if IsPrivilegedPort(port) && node.IsUnprivileged() {
-			return false
-		}
-		if node.Metadata != nil &&
-			(node.Metadata.EnvoyPrometheusPort == int(port) || node.Metadata.EnvoyStatusPort == int(port)) {
-			// can not bind to port that already bound by proxy static listener
+		if isPrivilegedPort(port) && node.IsUnprivileged() {
 			return false
 		}
 	}
 	return true
 }
 
-// IsPrivilegedPort returns true if a given port is in the range 1-1023.
-func IsPrivilegedPort(port uint32) bool {
+// isPrivilegedPort returns true if a given port is in the range 1-1023.
+func isPrivilegedPort(port uint32) bool {
 	// check for 0 is important because:
 	// 1) technically, 0 is not a privileged port; any process can ask to bind to 0
 	// 2) this function will be receiving 0 on input in the case of UDS listeners

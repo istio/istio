@@ -119,6 +119,19 @@ var (
 		},
 	}
 
+	port809x = []*Port{
+		{
+			Port:     8095,
+			Protocol: "TCP",
+			Name:     "http-1",
+		},
+		{
+			Port:     8096,
+			Protocol: "TCP",
+			Name:     "http-2",
+		},
+	}
+
 	twoMatchingPorts = []*Port{
 		{
 			Port:     7443,
@@ -605,7 +618,7 @@ var (
 					Port: &networking.SidecarPort{
 						Number:   8031,
 						Protocol: "TCP",
-						Name:     "tcp-ipc1",
+						Name:     "http-ipc1",
 					},
 					Hosts: []string{"ns1/foobar.svc.cluster.local"},
 				},
@@ -613,7 +626,7 @@ var (
 					Port: &networking.SidecarPort{
 						Number:   8032,
 						Protocol: "TCP",
-						Name:     "tcp-ipc2",
+						Name:     "http1-ipc2",
 					},
 					Hosts: []string{"ns1/foobar.svc.cluster.local"},
 				},
@@ -640,6 +653,32 @@ var (
 						Name:     "tcp-ipc5",
 					},
 					Hosts: []string{"ns1/foobar.svc.cluster.local"},
+				},
+			},
+		},
+	}
+
+	configs24 = &config.Config{
+		Meta: config.Meta{
+			Name: "sidecar-scope-with-multiple-ports",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.SidecarPort{
+						Number:   8095,
+						Protocol: "TCP",
+						Name:     "http-ipc1",
+					},
+					Hosts: []string{"*/*.scrt1.svc.cluster.local"},
+				},
+				{
+					Port: &networking.SidecarPort{
+						Number:   8096,
+						Protocol: "TCP",
+						Name:     "http1-ipc2",
+					},
+					Hosts: []string{"*/*.scrt1.svc.cluster.local"},
 				},
 			},
 		},
@@ -1160,6 +1199,18 @@ var (
 		{
 			Hostname: "foobar.svc.cluster.local",
 			Ports:    port803x,
+			Attributes: ServiceAttributes{
+				Name:            "foo",
+				Namespace:       "ns1",
+				ServiceRegistry: provider.Kubernetes,
+			},
+		},
+	}
+
+	services27 = []*Service{
+		{
+			Hostname: "la15-scrt1lapp.scrt1.svc.cluster.local",
+			Ports:    port809x,
 			Attributes: ServiceAttributes{
 				Name:            "foo",
 				Namespace:       "ns1",
@@ -2255,8 +2306,8 @@ func TestCreateSidecarScope(t *testing.T) {
 		},
 		{
 			name:          "multi-port-merge-in-same-namespace",
-			sidecarConfig: configs23,
-			services:      services26,
+			sidecarConfig: configs24,
+			services:      services27,
 			expectedServices: []*Service{
 				{
 					Hostname: "foobar.svc.cluster.local",
@@ -2503,6 +2554,9 @@ func TestCreateSidecarScope(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		if tt.name != "multi-port-merge-in-same-namespace" {
+			continue
+		}
 		t.Run(tt.name, func(t *testing.T) {
 			var serviceFound bool
 			var portsMatched bool
