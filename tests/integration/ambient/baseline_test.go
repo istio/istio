@@ -1869,6 +1869,7 @@ spec:
         host: "{{.Destination}}"
 `).ApplyOrFail(t)
 
+			// TODO(https://github.com/istio/istio/issues/51747) use a single SE instead of one for v4 and one for v6
 			cfg := config.YAML(`
 {{ $to := .To }}
 apiVersion: networking.istio.io/v1beta1
@@ -1885,12 +1886,12 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
-  name: test-se
+  name: test-se-v4
 spec:
   hosts:
-  - serviceentry.istio.io # not used
+  - dummy-v4.example.com
   addresses:
-  - 111.111.222.222
+  - 240.240.240.255
   ports:
   - number: 80
     name: http
@@ -1899,14 +1900,36 @@ spec:
   location: {{.Location}}
   workloadSelector:
     labels:
-      app: selected`).
+      app: selected
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: test-se-v6
+spec:
+  hosts:
+  - dummy-v6.example.com
+  addresses:
+  - 2001:2::f0f0:255
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: {{.Resolution}}
+  location: {{.Location}}
+  workloadSelector:
+    labels:
+      app: selected
+---
+`).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
+			v4, v6 := getSupportedIPFamilies(t)
 			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
 				tc := tc
 				for i, ip := range ips {
-					t.NewSubTestf("%s %s %s", tc.location, tc.resolution, ip).Run(func(t framework.TestContext) {
+					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
 						echotest.
 							New(t, apps.All).
 							// TODO eventually we can do this for uncaptured -> l7
@@ -1922,10 +1945,20 @@ spec:
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
-								from.CallOrFail(t, echo.CallOptions{
-									Address: "111.111.222.222",
-									Port:    to.PortForName("http"),
-								})
+								if v4 {
+									from.CallOrFail(t, echo.CallOptions{
+										Address: "240.240.240.255",
+										Port:    to.PortForName("http"),
+										Timeout: time.Millisecond * 500,
+									})
+								}
+								if v6 {
+									from.CallOrFail(t, echo.CallOptions{
+										Address: "2001:2::f0f0:255",
+										Port:    to.PortForName("http"),
+										Timeout: time.Millisecond * 500,
+									})
+								}
 							})
 					})
 				}
