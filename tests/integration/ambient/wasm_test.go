@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -197,6 +198,7 @@ func getTargetRefValues(targetType, targetName string) (kind, group, name string
 
 func TestWasmPluginConfigurations(t *testing.T) {
 	framework.NewTest(t).
+		Label(label.IPv4). // TODO(https://github.com/istio/istio/issues/35915
 		Run(func(t framework.TestContext) {
 			testCases := []struct {
 				desc         string

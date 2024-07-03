@@ -1999,6 +1999,7 @@ spec:
   - serviceentry.istio.io
   addresses:
   - 111.111.222.222
+  - 2001:2::f0f0:255
   ports:
   - number: 80
     name: http
@@ -2017,10 +2018,16 @@ spec:
 					echotest.
 						New(t, apps.All).
 						// TODO eventually we can do this for uncaptured -> l7
-						FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
-							Name:      "uncaptured",
-							Namespace: apps.Namespace,
-						}))).
+						FromMatch(match.And(
+							match.Not(match.ServiceName(echo.NamespacedName{
+								Name:      "uncaptured",
+								Namespace: apps.Namespace,
+							})),
+							match.Not(match.ServiceName(echo.NamespacedName{
+								Name:      "sidecar",
+								Namespace: apps.Namespace,
+							})),
+						)).
 						ToMatch(match.ServiceName(echo.NamespacedName{
 							Name:      "uncaptured",
 							Namespace: apps.Namespace,

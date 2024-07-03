@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -393,6 +394,7 @@ func TestWaypointDNS(t *testing.T) {
 	}
 	framework.
 		NewTest(t).
+		Label(label.IPv4). // TODO(https://github.com/istio/istio/issues/51886)
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("without waypoint").Run(func(t framework.TestContext) {
 				runTest(t, check.OK())

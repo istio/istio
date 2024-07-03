@@ -280,7 +280,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			ipRange := []*xds.CidrRange{}
 			for _, wl := range wls {
 				for _, ip := range wl.Addresses {
-					addr, _ := netip.AddrFromSlice(ip)
+					addr, ok := netip.AddrFromSlice(ip)
+					if !ok {
+						continue
+					}
 					cidr := util.ConvertAddressToCidr(addr.String())
 					ipRange = append(ipRange, &xds.CidrRange{
 						AddressPrefix: cidr.AddressPrefix,
