@@ -94,7 +94,7 @@ func (c *IPAllocate) Run(stop <-chan struct{}) {
 	kubelib.WaitForCacheSync(controllerName, stop, c.serviceEntryClient.HasSynced)
 	// it is important that we always warm cache before we try to run the queue
 	// failing to warm cache first could result in allocating IP which are already in use
-	c.warmCache()
+	c.populateControllerDatastructures()
 	// logically the v1 behavior is a state of the world function which cannot be replicated in reconcile
 	// if we wish to replicate v1 assignment behavior for existing serviceentry it should go here and must
 	// include a change to respect the used IPs from the warmed cache begin reconcile
@@ -102,8 +102,8 @@ func (c *IPAllocate) Run(stop <-chan struct{}) {
 	c.serviceEntryClient.ShutdownHandlers()
 }
 
-// warmCache reads all serviceentries and records any auto-assigned addresses as in use
-func (c *IPAllocate) warmCache() {
+// populateControllerDatastructures reads all serviceentries and records any addresses in our ranges as in use
+func (c *IPAllocate) populateControllerDatastructures() {
 	serviceentries := c.serviceEntryClient.List(metav1.NamespaceAll, klabels.Everything())
 	count := 0
 	for _, serviceentry := range serviceentries {
