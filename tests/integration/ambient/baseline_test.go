@@ -1998,8 +1998,8 @@ spec:
   hosts:
   - test.example.com
   addresses:
-  - 111.111.222.222
-  - 2001:2::f0f0:255
+  - 240.240.240.251
+  - 2001:2::f0f0:251
   ports:
   - number: 80
     name: http
