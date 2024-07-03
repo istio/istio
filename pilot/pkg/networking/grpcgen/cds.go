@@ -153,6 +153,7 @@ func (b *clusterBuilder) build() []*cluster.Cluster {
 func edsCluster(name string) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 name,
+		AltStatName:          name + ";",
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 		EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 			ServiceName: name,

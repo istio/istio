@@ -51,6 +51,7 @@ import (
 func buildInternalUpstreamCluster(name string, internalListener string) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 name,
+		AltStatName:          name + ";",
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
 			ClusterName: name,
@@ -289,6 +290,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 	sec_model.EnforceCompliance(ctx)
 	return &cluster.Cluster{
 		Name:                          ConnectOriginate,
+		AltStatName:                   ConnectOriginate + ";",
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:                durationpb.New(2 * time.Second),

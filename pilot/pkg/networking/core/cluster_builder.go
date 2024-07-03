@@ -490,6 +490,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughCluster() *cluster.Cluster {
 func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
+		AltStatName:          util.BlackHoleCluster + ";",
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
@@ -502,6 +503,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
+		AltStatName:          util.PassthroughCluster + ";",
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
@@ -708,6 +710,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 	}
 	c := &cluster.Cluster{
 		Name:                 security.SDSExternalClusterName,
+		AltStatName:          security.SDSExternalClusterName + ";",
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
