@@ -111,27 +111,22 @@ func (c *IPAllocate) warmCache() {
 		owner := config.NamespacedName(serviceentry)
 		log.Debugf("%s/%s found during warming", serviceentry.Namespace, serviceentry.Name)
 
-		if len(serviceentry.Spec.Addresses) > 0 {
-			for _, addr := range serviceentry.Spec.Addresses {
-				a, err := netip.ParseAddr(addr)
-				if err != nil {
-					log.Debugf("unable to parse address %s for %s/%s, received error: %s", addr, serviceentry.Namespace, serviceentry.Name, err.Error())
-					continue
-				}
-				// these are not assigned by us but could conflict with our IP ranges and cause issues
-				if !c.inOurRange(a) {
-					// don't need to worry about this one
-					continue
-				}
-				c.markUsedOrQueueConflict(a, owner)
+		for _, addr := range serviceentry.Spec.Addresses {
+			a, err := netip.ParseAddr(addr)
+			if err != nil {
+				log.Debugf("unable to parse address %s for %s/%s, received error: %s", addr, serviceentry.Namespace, serviceentry.Name, err.Error())
+				continue
 			}
+			// these are not assigned by us but could conflict with our IP ranges and cause issues
+			if !c.inOurRange(a) {
+				// don't need to worry about this one
+				continue
+			}
+			c.markUsedOrQueueConflict(a, owner)
 		}
 
-		addresses := autoallocate.GetV2AddressesFromServiceEntry(serviceentry)
-		if len(addresses) > 0 {
-			for _, a := range addresses {
-				c.markUsedOrQueueConflict(a, owner)
-			}
+		for _, a := range autoallocate.GetV2AddressesFromServiceEntry(serviceentry) {
+			c.markUsedOrQueueConflict(a, owner)
 		}
 	}
 
