@@ -2135,8 +2135,7 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[ConfigKey], previousIndex map[string][]*EnvoyFilterWrapper) {
 	envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
-	var previous map[ConfigKey]*EnvoyFilterWrapper
-	previous = make(map[ConfigKey]*EnvoyFilterWrapper)
+	previous := make(map[ConfigKey]*EnvoyFilterWrapper)
 	for namespace, nsEnvoyFilters := range previousIndex {
 		for _, envoyFilter := range nsEnvoyFilters {
 			previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
