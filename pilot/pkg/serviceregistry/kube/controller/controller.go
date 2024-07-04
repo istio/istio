@@ -1172,9 +1172,6 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 }
 
 func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Service) bool {
-	if !features.EnableOptimizedServicePush {
-		return true
-	}
 	if preConv == nil {
 		return !currConv.Attributes.ExportTo.Contains(visibility.None)
 	}
