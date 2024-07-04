@@ -97,9 +97,9 @@ func findInconsistencies(services []*clusterService) (clusters []string, errors 
 
 	// Convert the first service from resource.Instance to corev1.Service
 	var firstService *corev1.ServiceSpec
-	var firstCluster cluster.ID
+	var firstClusterID cluster.ID
 	for _, svc := range services {
-		firstCluster = svc.clusterID
+		firstClusterID = svc.clusterID
 		firstService = svc.instance.Message.(*corev1.ServiceSpec)
 		if firstService != nil {
 			break
@@ -132,7 +132,7 @@ func findInconsistencies(services []*clusterService) (clusters []string, errors 
 		}
 	}
 	if len(inconsistentClusters) > 0 {
-		inconsistentClusters.Insert(firstCluster.String())
+		inconsistentClusters.Insert(firstClusterID.String())
 	}
 	slices.Sort(inconsistentReasons.UnsortedList())
 	errStr := ""

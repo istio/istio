@@ -53,8 +53,8 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// clusterStore stores the config sources in a cluster to analyze.
-type clusterStore struct {
+// clusterStoreWithController stores the config sources in a cluster (with additional handlers) to analyze.
+type clusterStoreWithController struct {
 	clusterID             cluster.ID
 	configStoreController model.ConfigStoreController
 }
@@ -66,7 +66,7 @@ type IstiodAnalyzer struct {
 	// stores contains all the (non file) config sources to analyze
 	stores []model.ConfigStoreController
 	// multiClusterStores contains all the multi-cluster config sources to analyze
-	multiClusterStores []*clusterStore
+	multiClusterStores []*clusterStoreWithController
 	// cluster is the cluster ID for the environment we are analyzing
 	cluster cluster.ID
 	// fileSource contains all file bases sources
@@ -128,7 +128,7 @@ func NewIstiodAnalyzer(analyzer analysis.CombinedAnalyzer, namespace,
 		kubeResources:      kubeResources,
 		collectionReporter: cr,
 		clientsToRun:       []kubelib.Client{},
-		multiClusterStores: []*clusterStore{},
+		multiClusterStores: []*clusterStoreWithController{},
 	}
 
 	return sa
@@ -159,8 +159,13 @@ func (sa *IstiodAnalyzer) internalAnalyze(a analysis.CombinedAnalyzer, cancel <-
 		kubelib.WaitForCacheSync("istiod analyzer", cancel, store.configStoreController.HasSynced)
 	}
 
-	var stores []*clusterStore
-	stores = append(stores, sa.multiClusterStores...)
+	var stores []*ClusterStore
+	for _, mcs := range sa.multiClusterStores {
+		stores = append(stores, &ClusterStore{
+			ClusterID:   mcs.clusterID,
+			ConfigStore: mcs.configStoreController,
+		})
+	}
 
 	ctx := NewContext(stores, cancel, sa.collectionReporter)
 
@@ -240,7 +245,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	sa.multiClusterStores = append(sa.multiClusterStores, &clusterStore{
+	sa.multiClusterStores = append(sa.multiClusterStores, &clusterStoreWithController{
 		clusterID:             sa.cluster,
 		configStoreController: store,
 	})
@@ -429,7 +434,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		if clusterID == "" {
 			clusterID = "default"
 		}
-		sa.multiClusterStores = append(sa.multiClusterStores, &clusterStore{
+		sa.multiClusterStores = append(sa.multiClusterStores, &clusterStoreWithController{
 			clusterID:             clusterID,
 			configStoreController: store,
 		})
@@ -558,7 +563,7 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 // AddSourceForCluster adds a source based on user supplied configstore to the current IstiodAnalyzer with cluster specified.
 // It functions like the same as AddSource, but it adds the source to the specified cluster.
 func (sa *IstiodAnalyzer) AddSourceForCluster(src model.ConfigStoreController, clusterName cluster.ID) {
-	sa.multiClusterStores = append(sa.multiClusterStores, &clusterStore{
+	sa.multiClusterStores = append(sa.multiClusterStores, &clusterStoreWithController{
 		clusterID:             clusterName,
 		configStoreController: src,
 	})

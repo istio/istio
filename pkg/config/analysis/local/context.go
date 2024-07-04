@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/pilot/pkg/config/file"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -32,8 +33,14 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// ClusterStore stores the config sources in a cluster to analyze.
+type ClusterStore struct {
+	ClusterID   cluster.ID
+	ConfigStore model.ConfigStore
+}
+
 // NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.
-func NewContext(stores []*clusterStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
+func NewContext(stores []*ClusterStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
 	return &istiodContext{
 		stores:             stores,
 		cancelCh:           cancelCh,
@@ -45,7 +52,7 @@ func NewContext(stores []*clusterStore, cancelCh <-chan struct{}, collectionRepo
 }
 
 type istiodContext struct {
-	stores             []*clusterStore
+	stores             []*ClusterStore
 	cancelCh           <-chan struct{}
 	messages           map[string]*diag.Messages
 	collectionReporter CollectionReporterFn
@@ -112,11 +119,11 @@ func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName
 		return nil
 	}
 	for _, store := range i.stores {
-		cfg := store.configStoreController.Get(colschema.GroupVersionKind(), name.Name.String(), name.Namespace.String())
+		cfg := store.ConfigStore.Get(colschema.GroupVersionKind(), name.Name.String(), name.Namespace.String())
 		if cfg == nil {
 			continue
 		}
-		result, err := cfgToInstance(*cfg, col, colschema, store.clusterID)
+		result, err := cfgToInstance(*cfg, col, colschema, store.ClusterID)
 		if err != nil {
 			log.Errorf("failed converting found config %s %s/%s to instance: %s, ",
 				cfg.Meta.GroupVersionKind.Kind, cfg.Meta.Namespace, cfg.Meta.Namespace, err)
@@ -154,7 +161,7 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 	cache := map[key]*resource.Instance{}
 	for _, store := range i.stores {
 		// TODO: this needs to include file source as well
-		cfgs := store.configStoreController.List(colschema.GroupVersionKind(), "")
+		cfgs := store.ConfigStore.List(colschema.GroupVersionKind(), "")
 		broken := false
 		for _, cfg := range cfgs {
 			k := key{
@@ -164,7 +171,7 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 					Namespace: resource.Namespace(cfg.Namespace),
 				},
 				uid:     resource.UID(cfg.UID), // Identify resource uniquely across multiple clusters with same name.
-				cluster: store.clusterID,
+				cluster: store.ClusterID,
 			}
 			if res, ok := i.found[k]; ok {
 				if !broken && !fn(res) {
@@ -173,7 +180,7 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 				cache[k] = res
 				continue
 			}
-			res, err := cfgToInstance(cfg, col, colschema, store.clusterID)
+			res, err := cfgToInstance(cfg, col, colschema, store.ClusterID)
 			if err != nil {
 				// TODO: demote this log before merging
 				log.Error(err)
