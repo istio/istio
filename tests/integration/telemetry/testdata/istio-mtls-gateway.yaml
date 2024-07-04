@@ -11,6 +11,6 @@ spec:
       name: mtls-tcp
       protocol: TLS
     hosts:
-    - fake.external.com
+    - server.default.svc
     tls:
       mode: ISTIO_MUTUAL
