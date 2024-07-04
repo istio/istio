@@ -1328,9 +1328,7 @@ func (ps *PushContext) updateContext(
 			wasmPluginsChanged = true
 		case kind.EnvoyFilter:
 			envoyFiltersChanged = true
-			if features.OptimizedConfigRebuild {
-				changedEnvoyFilters.Insert(conf)
-			}
+			changedEnvoyFilters.Insert(conf)
 		case kind.AuthorizationPolicy:
 			authzChanged = true
 		case kind.RequestAuthentication,
@@ -2137,13 +2135,10 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[ConfigKey], previousIndex map[string][]*EnvoyFilterWrapper) {
 	envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
-	var previous map[ConfigKey]*EnvoyFilterWrapper
-	if features.OptimizedConfigRebuild {
-		previous = make(map[ConfigKey]*EnvoyFilterWrapper)
-		for namespace, nsEnvoyFilters := range previousIndex {
-			for _, envoyFilter := range nsEnvoyFilters {
-				previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
-			}
+	previous := make(map[ConfigKey]*EnvoyFilterWrapper)
+	for namespace, nsEnvoyFilters := range previousIndex {
+		for _, envoyFilter := range nsEnvoyFilters {
+			previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
 		}
 	}
 
@@ -2167,12 +2162,10 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 
 	for _, envoyFilterConfig := range envoyFilterConfigs {
 		var efw *EnvoyFilterWrapper
-		if features.OptimizedConfigRebuild {
-			key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
-			if prev, ok := previous[key]; ok && !changed.Contains(key) {
-				// Reuse the previous EnvoyFilterWrapper if it exists and hasn't changed when optimized config rebuild is enabled
-				efw = prev
-			}
+		key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
+		if prev, ok := previous[key]; ok && !changed.Contains(key) {
+			// Reuse the previous EnvoyFilterWrapper if it exists and hasn't changed when optimized config rebuild is enabled
+			efw = prev
 		}
 		// Rebuild the envoy filter in all other cases.
 		if efw == nil {

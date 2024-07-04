@@ -203,9 +203,6 @@ var (
 	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
 		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
 
-	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
-		"If enabled, pilot will only rebuild config for resources that have changed").Get()
-
 	PassthroughTargetPort = env.Register("ENABLE_RESOLUTION_NONE_TARGET_PORT", true,
 		"If enabled, targetPort will be supported for resolution=NONE ServiceEntry").Get()
 
