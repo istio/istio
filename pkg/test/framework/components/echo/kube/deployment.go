@@ -391,6 +391,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"WorkloadClass":           cfg.WorkloadClass(),
 		"OverlayIstioProxy":       canCreateIstioProxy(settings.Revisions.Minimum()) && !settings.Ambient,
 		"Ambient":                 settings.Ambient,
+		"BindFamily":              cfg.BindFamily,
 	}
 
 	vmIstioHost, vmIstioIP := "", ""

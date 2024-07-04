@@ -121,7 +121,7 @@ func parseResponse(output string) Response {
 		out.IP = match[1]
 	}
 
-	out.rawBody = map[string]string{}
+	out.RawBody = map[string]string{}
 
 	matches := requestHeaderFieldRegex.FindAllStringSubmatch(output, -1)
 	for _, kv := range matches {
@@ -150,7 +150,7 @@ func parseResponse(output string) Response {
 		if len(kv) != 2 {
 			continue
 		}
-		out.rawBody[kv[0]] = kv[1]
+		out.RawBody[kv[0]] = kv[1]
 	}
 
 	return out

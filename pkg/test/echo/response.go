@@ -62,8 +62,8 @@ type Response struct {
 	IstioVersion string
 	// IP is the requester's ip address
 	IP string
-	// rawBody gives a map of all key/values in the body of the response.
-	rawBody         map[string]string
+	// RawBody gives a map of all key/values in the body of the response.
+	RawBody         map[string]string
 	RequestHeaders  http.Header
 	ResponseHeaders http.Header
 }
@@ -91,8 +91,8 @@ func (r Response) Body() []string {
 		k, v string
 	}
 	var keyValues []keyValue
-	// rawBody is in random order, so get the order back via sorting.
-	for k, v := range r.rawBody {
+	// RawBody is in random order, so get the order back via sorting.
+	for k, v := range r.RawBody {
 		keyValues = append(keyValues, keyValue{k, v})
 	}
 	sort.Slice(keyValues, func(i, j int) bool {
