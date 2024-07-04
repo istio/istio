@@ -1984,7 +1984,7 @@ func testInboundListenerConfigWithSidecarConflictPort(t *testing.T, proxy *model
 						Name:     "uds",
 					},
 					CaptureMode:     2, // None
-					Bind:            "1.1.1.1",
+					Bind:            "0.0.0.0",
 					DefaultEndpoint: "127.0.0.1:80",
 				},
 			},
