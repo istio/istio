@@ -2332,7 +2332,6 @@ func runIngressTest(t *testing.T, f func(t framework.TestContext, src ingress.In
 
 func TestL7Telemetry(t *testing.T) {
 	framework.NewTest(t).
-		Label(label.IPv4). // pending https://github.com/istio/proxy/pull/5653
 		Run(func(tc framework.TestContext) {
 			// ensure that some traffic from each captured workload is
 			// sent to each waypoint proxy. This will likely have happened in
