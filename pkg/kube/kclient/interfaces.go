@@ -63,7 +63,7 @@ type Informer[T controllers.Object] interface {
 
 // RawIndexer is an internal-ish interface for indexes. Strongly recommended to use NewIndex.
 type RawIndexer interface {
-	Lookup(key string) []interface{}
+	Lookup(key string) []any
 }
 
 type Writer[T controllers.Object] interface {

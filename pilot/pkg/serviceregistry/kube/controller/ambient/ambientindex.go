@@ -56,9 +56,9 @@ var _ Index = &index{}
 
 type workloadsCollection struct {
 	krt.Collection[model.WorkloadInfo]
-	ByAddress        *krt.Index[model.WorkloadInfo, networkAddress]
-	ByServiceKey     *krt.Index[model.WorkloadInfo, string]
-	ByOwningWaypoint *krt.Index[model.WorkloadInfo, networkAddress]
+	ByAddress        krt.Index[networkAddress, model.WorkloadInfo]
+	ByServiceKey     krt.Index[string, model.WorkloadInfo]
+	ByOwningWaypoint krt.Index[networkAddress, model.WorkloadInfo]
 }
 
 type waypointsCollection struct {
@@ -67,8 +67,8 @@ type waypointsCollection struct {
 
 type servicesCollection struct {
 	krt.Collection[model.ServiceInfo]
-	ByAddress        *krt.Index[model.ServiceInfo, networkAddress]
-	ByOwningWaypoint *krt.Index[model.ServiceInfo, networkAddress]
+	ByAddress        krt.Index[networkAddress, model.ServiceInfo]
+	ByOwningWaypoint krt.Index[networkAddress, model.ServiceInfo]
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -170,8 +170,8 @@ func New(options Options) Index {
 
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
-	ServiceAddressIndex := krt.NewIndex[model.ServiceInfo, networkAddress](WorkloadServices, networkAddressFromService)
-	ServiceInfosByOwningWaypoint := krt.NewIndex[model.ServiceInfo, networkAddress](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
+	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
+	ServiceInfosByOwningWaypoint := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -215,11 +215,11 @@ func New(options Options) Index {
 		EndpointSlices,
 		Namespaces,
 	)
-	WorkloadAddressIndex := krt.NewIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
-	WorkloadServiceIndex := krt.NewIndex[model.WorkloadInfo, string](Workloads, func(o model.WorkloadInfo) []string {
+	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, networkAddressFromWorkload)
+	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Services)
 	})
-	WorkloadWaypointIndex := krt.NewIndex[model.WorkloadInfo, networkAddress](Workloads, func(w model.WorkloadInfo) []networkAddress {
+	WorkloadWaypointIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, func(w model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -241,7 +241,6 @@ func New(options Options) Index {
 		}
 		return append(make([]networkAddress, 1), netaddr)
 	})
-	// Subtle: make sure we register the event after the Index are created. This ensures when we get the event, the index is populated.
 	Workloads.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.WorkloadInfo) *workloadapi.Workload {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others

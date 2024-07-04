@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
@@ -58,6 +59,8 @@ type manyCollection[I, O any] struct {
 	collectionDependencies sets.Set[collectionUID]
 	// Stores a map of I -> secondary dependencies (added via Fetch)
 	objectDependencies map[Key[I]][]*dependency
+	// internal indexes
+	indexes []collectionIndex[I, O]
 
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
 	eventHandlers *handlers[O]
@@ -68,6 +71,47 @@ type manyCollection[I, O any] struct {
 	augmentation func(a any) any
 	synced       chan struct{}
 	stop         <-chan struct{}
+}
+
+type collectionIndex[I, O any] struct {
+	extract func(o O) []string
+	index   map[string]sets.Set[Key[O]]
+	parent  *manyCollection[I, O]
+}
+
+func (c collectionIndex[I, O]) Lookup(key string) []any {
+	c.parent.mu.Lock()
+	defer c.parent.mu.Unlock()
+	keys := c.index[key]
+	res := make([]any, 0, len(keys))
+	for k := range keys {
+		v, f := c.parent.collectionState.outputs[k]
+		if !f {
+			log.WithLabels("key", k).Errorf("invalid index state, object does not exist")
+			continue
+		}
+		res = append(res, v)
+	}
+	return res
+}
+
+func (c collectionIndex[I, O]) delete(o O, oKey Key[O]) {
+	oldIndexKeys := c.extract(o)
+	for _, oldIndexKey := range oldIndexKeys {
+		sets.DeleteCleanupLast(c.index, oldIndexKey, oKey)
+	}
+}
+
+func (c collectionIndex[I, O]) update(ev Event[O], oKey Key[O]) {
+	if ev.Old != nil {
+		c.delete(*ev.Old, oKey)
+	}
+	if ev.New != nil {
+		newIndexKeys := c.extract(*ev.New)
+		for _, newIndexKey := range newIndexKeys {
+			sets.InsertOrNew(c.index, newIndexKey, oKey)
+		}
+	}
 }
 
 var _ internalCollection[any] = &manyCollection[any, any]{}
@@ -143,6 +187,26 @@ func (h *manyCollection[I, O]) augment(a any) any {
 	return a
 }
 
+// nolint: unused // (not true)
+func (h *manyCollection[I, O]) index(extract func(o O) []string) kclient.RawIndexer {
+	idx := collectionIndex[I, O]{
+		extract: extract,
+		index:   make(map[string]sets.Set[Key[O]]),
+		parent:  h,
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for k, v := range h.collectionState.outputs {
+		idx.update(Event[O]{
+			Old:   nil,
+			New:   &v,
+			Event: controllers.EventAdd,
+		}, k)
+	}
+	h.indexes = append(h.indexes, idx)
+	return idx
+}
+
 // onPrimaryInputEvent takes a list of I's that changed and reruns the handler over them.
 // This is called either when I directly changes, or if a secondary dependency changed. In this case, we compute which I's depended
 // on the secondary dependency, and call onPrimaryInputEvent with them
@@ -209,6 +273,9 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 				}
 				events = append(events, e)
 				delete(h.collectionState.outputs, oKey)
+				for _, index := range h.indexes {
+					index.delete(oldRes, oKey)
+				}
 				if h.log.DebugEnabled() {
 					h.log.WithLabels("res", oKey).Debugf("handled delete")
 				}
@@ -248,6 +315,10 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 					e.Event = controllers.EventDelete
 					e.Old = &oldRes
 					delete(h.collectionState.outputs, key)
+				}
+
+				for _, index := range h.indexes {
+					index.update(e, key)
 				}
 
 				if h.log.DebugEnabled() {

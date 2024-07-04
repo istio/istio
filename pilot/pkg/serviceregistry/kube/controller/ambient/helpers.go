@@ -228,6 +228,6 @@ type networkAddress struct {
 	ip      string
 }
 
-func (n *networkAddress) String() string {
+func (n networkAddress) String() string {
 	return n.network + "/" + n.ip
 }
