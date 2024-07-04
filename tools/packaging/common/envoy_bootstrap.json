@@ -82,7 +82,7 @@
       },
       {
         "tag_name": "tcp_prefix",
-        "regex": "^tcp(\\.(.+);)"
+        "regex": "^tcp\\.((.*?)\\.)\\w+?$"
       },
       {
         "regex": "_rq(_(\\d{3}))$",

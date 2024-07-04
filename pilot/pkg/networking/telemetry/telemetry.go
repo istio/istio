@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -43,7 +42,7 @@ func BuildStatPrefix(statPattern string, host string, subset string, port *model
 	prefix = strings.ReplaceAll(prefix, serviceTargetPortStatPattern, strconv.Itoa(targetPort))
 	prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(port.Port))
 	prefix = strings.ReplaceAll(prefix, servicePortNameStatPattern, port.Name)
-	return prefix + constants.AltStatNameDelimeter
+	return prefix
 }
 
 // BuildInboundStatPrefix builds a stat prefix based on the stat pattern and filter chain telemetry data.
@@ -53,7 +52,7 @@ func BuildInboundStatPrefix(statPattern string, tm FilterChainMetadata, subset s
 	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
 	prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(int(port)))
 	prefix = strings.ReplaceAll(prefix, servicePortNameStatPattern, portName)
-	return prefix + constants.AltStatNameDelimeter
+	return prefix
 }
 
 // shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).

@@ -268,6 +268,40 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 		},
 		{
+			name:        "cluster with OutboundClusterStatName",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+					},
+				},
+			},
+			meshConfig: &meshconfig.MeshConfig{
+				OutboundClusterStatName: "%SERVICE%_%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%;",
+				InboundTrafficPolicy:    &meshconfig.MeshConfig_InboundTrafficPolicy{},
+				EnableAutoMtls: &wrappers.BoolValue{
+					Value: false,
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{
+				{
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+						ServiceName: "outbound|8080|foobar|foo.default.svc.cluster.local",
+					},
+					AltStatName: "foo.default.svc.cluster.local_foobar_default_8080;",
+				},
+			},
+		},
+		{
 			name:        "destination rule with subset traffic policy and alt statname",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
@@ -313,7 +347,7 @@ func TestApplyDestinationRule(t *testing.T) {
 							},
 						},
 					},
-					AltStatName: "foo.default.svc.cluster.local_foobar_default_8080",
+					AltStatName: "foo.default.svc.cluster.local_foobar_default_8080;",
 				},
 			},
 		},
