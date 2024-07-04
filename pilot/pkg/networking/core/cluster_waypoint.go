@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
@@ -51,7 +52,7 @@ import (
 func buildInternalUpstreamCluster(name string, internalListener string) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 name,
-		AltStatName:          name + ";",
+		AltStatName:          name + constants.AltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
 			ClusterName: name,
@@ -290,7 +291,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 	sec_model.EnforceCompliance(ctx)
 	return &cluster.Cluster{
 		Name:                          ConnectOriginate,
-		AltStatName:                   ConnectOriginate + ";",
+		AltStatName:                   ConnectOriginate + constants.AltStatNameDelimeter,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:                durationpb.New(2 * time.Second),

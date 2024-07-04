@@ -40,6 +40,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
@@ -289,7 +290,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 ) *clusterWrapper {
 	c := &cluster.Cluster{
 		Name:                 name,
-		AltStatName:          name + ";",
+		AltStatName:          name + constants.AltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
@@ -490,7 +491,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughCluster() *cluster.Cluster {
 func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
-		AltStatName:          util.BlackHoleCluster + ";",
+		AltStatName:          util.BlackHoleCluster + constants.AltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
@@ -503,7 +504,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
-		AltStatName:          util.PassthroughCluster + ";",
+		AltStatName:          util.PassthroughCluster + constants.AltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
@@ -710,7 +711,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 	}
 	c := &cluster.Cluster{
 		Name:                 security.SDSExternalClusterName,
-		AltStatName:          security.SDSExternalClusterName + ";",
+		AltStatName:          security.SDSExternalClusterName + constants.AltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
