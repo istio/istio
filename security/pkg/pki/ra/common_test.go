@@ -106,8 +106,10 @@ func TestCheckIsCAExtension(t *testing.T) {
 			exts: []pkix.Extension{
 				{Id: asn1.ObjectIdentifier{2, 5, 29, 19}, Value: []byte("bad BasicConstraints bytes")},
 			},
-			expectedIsCA:   false,
-			expectedErrMsg: "failed to extract CA value from BasicConstraints extension (error asn1: structure error: tags don't match (16 vs {class:1 tag:2 length:97 isCompound:true}) {optional:false explicit:false application:false private:false defaultValue:<nil> tag:<nil> stringType:0 timeType:0 set:false omitEmpty:false} basicConstraints @2)",
+			expectedIsCA: false,
+			expectedErrMsg: "failed to extract CA value from BasicConstraints extension (error asn1: structure error: tags don't match (16 vs {class:1" +
+				" tag:2 length:97 isCompound:true}) {optional:false explicit:false application:false private:false defaultValue:<nil> tag:<nil>" +
+				" stringType:0 timeType:0 set:false omitEmpty:false} basicConstraints @2)",
 		},
 		"Extensions with incorrectly encoded BasicConstraints": {
 			exts: []pkix.Extension{
