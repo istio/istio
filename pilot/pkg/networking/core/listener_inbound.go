@@ -348,16 +348,23 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(enableSidecarServiceInbo
 	if sidecarScope.HasIngressListener() {
 		ingressPortListSet = getSidecarIngressPortList(lb.node)
 	}
+	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 	for _, i := range lb.node.ServiceTargets {
 		bindToPort := getBindToPort(networking.CaptureMode_DEFAULT, lb.node)
 		// Skip ports we cannot bind to
-		if !lb.node.CanBindToPort(bindToPort, i.Port.TargetPort) {
-			log.Debugf("buildInboundListeners: skipping privileged service port %d for node %s as it is an unprivileged proxy",
-				i.Port.TargetPort, lb.node.ID)
+		wildcard := wildCards[lb.node.GetIPMode()][0]
+		if canbind, knownlistener := lb.node.CanBindToPort(bindToPort, lb.node, lb.push, actualWildcards[0],
+			int(i.Port.TargetPort), i.Port.Protocol, wildcard); !canbind {
+			if knownlistener {
+				log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+					i.Port.TargetPort, lb.node.ID)
+			} else {
+				log.Warnf("buildInboundListeners: skipping privileged service port %d for node %s as it is an unprivileged proxy",
+					i.Port.TargetPort, lb.node.ID)
+			}
 			continue
 		}
 		port := i.Port
-		actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
 			// ingress listener port means the target port, may not equal to service port
 			ingressPortListSet.Contains(int(port.TargetPort)) {
@@ -374,12 +381,6 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(enableSidecarServiceInbo
 			bind:              actualWildcards[0],
 			bindToPort:        bindToPort,
 			hbone:             lb.node.IsWaypointProxy(),
-		}
-		// for inbound only generate a standalone listener when bindToPort=true
-		if bindToPort && conflictWithReservedListener(lb.node, nil, cc.bind, int(port.TargetPort), port.Protocol) {
-			log.Debugf("buildInboundListeners: skipping service port %d for node %s as it conflicts with static listener",
-				port.TargetPort, lb.node.ID)
-			continue
 		}
 
 		// add extra binding addresses
@@ -433,10 +434,16 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				TargetPort: i.Port.Number, // No targetPort support in the API
 			}
 			bindtoPort := getBindToPort(i.CaptureMode, lb.node)
+			wildcard := wildCards[lb.node.GetIPMode()][0]
 			// Skip ports we cannot bind to
-			if !lb.node.CanBindToPort(bindtoPort, port.TargetPort) {
-				log.Warnf("buildInboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
-					port.TargetPort, lb.node.ID)
+			if canbind, knownlistener := lb.node.CanBindToPort(bindtoPort, lb.node, nil, i.Bind, port.Port, port.Protocol, wildcard); !canbind {
+				if knownlistener {
+					log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+						port.TargetPort, lb.node.ID)
+				} else {
+					log.Warnf("buildInboundListeners: skipping privileged service port %d for node %s as it is an unprivileged proxy",
+						port.TargetPort, lb.node.ID)
+				}
 				continue
 			}
 			cc := inboundChainConfig{
@@ -457,12 +464,6 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				if len(actualWildcards) > 1 {
 					cc.extraBind = actualWildcards[1:]
 				}
-			}
-			// for inbound only generate a standalone listener when bindToPort=true
-			if bindtoPort && conflictWithReservedListener(lb.node, nil, cc.bind, port.Port, port.Protocol) {
-				log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
-					port.TargetPort, lb.node.ID)
-				continue
 			}
 
 			// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.
