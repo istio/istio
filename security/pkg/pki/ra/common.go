@@ -70,7 +70,7 @@ const (
 	DefaultExtCACertDir string = "./etc/external-ca-cert"
 )
 
-// The OID for the SAN extension (See
+// The OID for the BasicConstraints extension (See
 // https://www.alvestrand.no/objectid/2.5.29.19.html).
 var oidBasicConstraints = asn1.ObjectIdentifier{2, 5, 29, 19}
 
