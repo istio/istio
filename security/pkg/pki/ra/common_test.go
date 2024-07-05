@@ -92,31 +92,29 @@ func TestCheckIsCAExtension(t *testing.T) {
 		expectedErrMsg string
 	}{
 		"Empty extension list": {
-			exts:           []pkix.Extension{},
-			expectedIsCA:   false,
-			expectedErrMsg: "the BasicConstraints extension does not exist",
+			exts:         []pkix.Extension{},
+			expectedIsCA: false,
 		},
 		"Extensions without SAN": {
 			exts: []pkix.Extension{
 				{Id: asn1.ObjectIdentifier{1, 2, 3, 4}},
 				{Id: asn1.ObjectIdentifier{3, 2, 1}},
 			},
-			expectedIsCA:   false,
-			expectedErrMsg: "the BasicConstraints extension does not exist",
+			expectedIsCA: false,
 		},
 		"Extensions with bad BasicConstraints value": {
 			exts: []pkix.Extension{
-				{Id: asn1.ObjectIdentifier{2, 5, 29, 19}, Value: []byte("bad san bytes")},
+				{Id: asn1.ObjectIdentifier{2, 5, 29, 19}, Value: []byte("bad BasicConstraints bytes")},
 			},
 			expectedIsCA:   false,
-			expectedErrMsg: "failed to extract CA value from BasicConstraints extension (error asn1: syntax error: data truncated)",
+			expectedErrMsg: "failed to extract CA value from BasicConstraints extension (error asn1: structure error: tags don't match (16 vs {class:1 tag:2 length:97 isCompound:true}) {optional:false explicit:false application:false private:false defaultValue:<nil> tag:<nil> stringType:0 timeType:0 set:false omitEmpty:false} basicConstraints @2)",
 		},
 		"Extensions with incorrectly encoded BasicConstraints": {
 			exts: []pkix.Extension{
 				{Id: asn1.ObjectIdentifier{2, 5, 29, 19}, Value: append(copyBytes(caFalseExt.Value), 'x')},
 			},
 			expectedIsCA:   false,
-			expectedErrMsg: "failed to extract CA value from BasicConstraints extension (error the SAN extension is incorrectly encoded)",
+			expectedErrMsg: "failed to extract CA value from BasicConstraints extension (error the BasicConstraints extension is incorrectly encoded)",
 		},
 		"Extensions with BasicConstraints and false CA": {
 			exts: []pkix.Extension{
