@@ -53,6 +53,69 @@ SpAJos6OfJqyok7JXDdOYRDD5/hBerj68R9llWzNJd27/1jZ0NF2sIE1W4QFddy/
 e+5z6MTAO6ktvHdQlSuH6ARn47bJrZOlkttAhg==
 -----END CERTIFICATE-----
 `
+
+	// Steps to recreate CSR for testCSRWithCAFalse
+	//
+	// cat > client.conf <<EOF
+	// [req]
+	// req_extensions = v3_req
+	// distinguished_name = req_distinguished_name
+	// [req_distinguished_name]
+	// [ v3_req ]
+	// basicConstraints = CA:FALSE
+	// keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+	// extendedKeyUsage = clientAuth, serverAuth
+	// subjectAltName = @alt_names
+	// [alt_names]
+	// URI = spiffe://cluster.local/ns/default/sa/bookinfo-productpage
+	// EOF
+	//
+	// openssl ecparam -out /key.pem -name prime256v1 -genkey
+	//
+	// openssl req -new -sha256 -key key.pem -out client.csr -subj "/CN=bookinfo-productpage.default.svc.cluster.local" -config client.conf
+	testCSRWithCAFalse = `-----BEGIN CERTIFICATE REQUEST-----
+MIIBhjCCASsCAQAwOTE3MDUGA1UEAwwuYm9va2luZm8tcHJvZHVjdHBhZ2UuZGVm
+YXVsdC5zdmMuY2x1c3Rlci5sb2NhbDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IA
+BDk5IB2oTY0MUFgZUNrJ2BGh9P0ZTnFn13z0DBRiQPhMOIBpXQNp1nwizIVjiLaV
+ybLorAUPJ7MESw6tcDCPZ4mggY8wgYwGCSqGSIb3DQEJDjF/MH0wCQYDVR0TBAIw
+ADALBgNVHQ8EBAMCBeAwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMBMEQG
+A1UdEQQ9MDuGOXNwaWZmZTovL2NsdXN0ZXIubG9jYWwvbnMvZGVmYXVsdC9zYS9i
+b29raW5mby1wcm9kdWN0cGFnZTAKBggqhkjOPQQDAgNJADBGAiEAkci45s9QOiPY
+Fu2Q+bQGQ8bXc6RI6f8Nt1sFo4A3zAgCIQDvmxT57t5d2hJNpH8f69E08e/Eg67R
+Uc1HhQeaoqYGWQ==
+-----END CERTIFICATE REQUEST-----
+`
+	// Steps to recreate CSR for testCSRWithCATrue
+	//
+	// cat > client.conf <<EOF
+	// [req]
+	// req_extensions = v3_req
+	// distinguished_name = req_distinguished_name
+	// [req_distinguished_name]
+	// [ v3_req ]
+	// basicConstraints = CA:TRUE
+	// keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+	// extendedKeyUsage = clientAuth, serverAuth
+	// subjectAltName = @alt_names
+	// [alt_names]
+	// URI = spiffe://cluster.local/ns/default/sa/bookinfo-productpage
+	// EOF
+	//
+	// openssl ecparam -out /key.pem -name prime256v1 -genkey
+	//
+	// openssl req -new -sha256 -key key.pem -out client.csr -subj "/CN=bookinfo-productpage.default.svc.cluster.local" -config client.conf
+	testCSRWithCATrue = `-----BEGIN CERTIFICATE REQUEST-----
+MIIBijCCATACAQAwOTE3MDUGA1UEAwwuYm9va2luZm8tcHJvZHVjdHBhZ2UuZGVm
+YXVsdC5zdmMuY2x1c3Rlci5sb2NhbDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IA
+BGb3pxKUWZGvxN+YWKNfihr8a1Lr2R/6YVQBk7aV4F+h693YLCs9EyANTN9PZj6s
+1moQdy5i8heGfR3/7MDjpMmggZQwgZEGCSqGSIb3DQEJDjGBgzCBgDAMBgNVHRME
+BTADAQH/MAsGA1UdDwQEAwIF4DAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUH
+AwEwRAYDVR0RBD0wO4Y5c3BpZmZlOi8vY2x1c3Rlci5sb2NhbC9ucy9kZWZhdWx0
+L3NhL2Jvb2tpbmZvLXByb2R1Y3RwYWdlMAoGCCqGSM49BAMCA0gAMEUCIE4dUA0d
+fyzrZRj9c7glvcV7Ve3+8tWnr32Vp4+JVDMTAiEAki5fjBSuGyRrF57SqhPGhzhm
+7mtRtsc0tM8zbu+/9u0=
+-----END CERTIFICATE REQUEST-----
+`
 )
 
 var (
@@ -256,5 +319,19 @@ func TestValidateCSR(t *testing.T) {
 	testSubjectIDs = []string{"Random-Host-Name"}
 	if ValidateCSR(csrPEM, testSubjectIDs) {
 		t.Errorf("Test 2: CSR Validation failed")
+	}
+
+	// Test Case 3
+	testSubjectIDs = []string{testCsrHostName}
+	if ValidateCSR([]byte(testCSRWithCATrue), testSubjectIDs) {
+		t.Errorf("Test 3: CSR Validation failed. CSR validation" +
+			"succeeded when expected failure due to isCA being true")
+	}
+
+	// Test Case 4
+	testSubjectIDs = []string{testCsrHostName}
+	if !ValidateCSR([]byte(testCSRWithCAFalse), testSubjectIDs) {
+		t.Errorf("Test 4: CSR Validation failed. CSR validation" +
+			"failed when expected success due to isCA being false")
 	}
 }

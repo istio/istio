@@ -14,6 +14,8 @@
 package ra
 
 import (
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"fmt"
 	"time"
 
@@ -68,13 +70,21 @@ const (
 	DefaultExtCACertDir string = "./etc/external-ca-cert"
 )
 
-// ValidateCSR : Validate all SAN extensions in csrPEM match authenticated identities
+// The OID for the SAN extension (See
+// https://www.alvestrand.no/objectid/2.5.29.19.html).
+var oidBasicConstraints = asn1.ObjectIdentifier{2, 5, 29, 19}
+
+// ValidateCSR : Validate all SAN extensions in csrPEM match authenticated identities,
+// validate the signature of the CSR, and verify isCA is false.
 func ValidateCSR(csrPEM []byte, subjectIDs []string) bool {
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
 		return false
 	}
 	if err := csr.CheckSignature(); err != nil {
+		return false
+	}
+	if isCA, err := checkIsCAExtension(csr.Extensions); err != nil || isCA {
 		return false
 	}
 	csrIDs, err := util.ExtractIDs(csr.Extensions)
@@ -87,6 +97,69 @@ func ValidateCSR(csrPEM []byte, subjectIDs []string) bool {
 		}
 	}
 	return true
+}
+
+// basicConstraints is a structure that represents the ASN.1 encoding of the
+// BasicConstraints extension.
+// The structure is borrowed from
+// https://github.com/golang/go/blob/master/src/crypto/x509/x509.go#L975
+type basicConstraints struct {
+	IsCA       bool `asn1:"optional"`
+	MaxPathLen int  `asn1:"optional,default:-1"`
+}
+
+func checkIsCAExtension(exts []pkix.Extension) (bool, error) {
+	basicExt := extractBasicConstraintsExtension(exts)
+	if basicExt == nil {
+		pkiRaLog.Debug("BasicConstraints extension is not populated in CSR. Assuming isCA is false.")
+		return false, nil
+	}
+	isCA, err := extractIsCAFromBasicConstraints(basicExt)
+	if err != nil {
+		return false, fmt.Errorf("failed to extract CA value from BasicConstraints extension (error %v)", err)
+	}
+	return isCA, nil
+}
+
+// extractBasicConstraintsExtension extracts the "basic" extension from
+// the given PKIX extension set.
+func extractBasicConstraintsExtension(exts []pkix.Extension) *pkix.Extension {
+	for _, ext := range exts {
+		if ext.Id.Equal(oidBasicConstraints) {
+			// We don't need to examine other extensions anymore since a certificate
+			// must not include more than one instance of a particular extension. See
+			// https://tools.ietf.org/html/rfc5280#section-4.2.
+			return &ext
+		}
+	}
+	return nil
+}
+
+// extractIsCAFromBasicConstraints takes a BasicConstraints extension and extracts the isCA value.
+// The logic is mostly borrowed from
+// https://github.com/golang/go/blob/master/src/crypto/x509/x509.go.
+func extractIsCAFromBasicConstraints(basicExt *pkix.Extension) (bool, error) {
+	if !basicExt.Id.Equal(oidBasicConstraints) {
+		return false, fmt.Errorf("the input is not a BasicConstraints extension")
+	}
+	basicConstraints := basicConstraints{}
+	if rest, err := asn1.Unmarshal(basicExt.Value, &basicConstraints); err != nil {
+		return false, err
+	} else if len(rest) != 0 {
+		return false, fmt.Errorf("the BasicConstraints extension is incorrectly encoded")
+	}
+	return basicConstraints.IsCA, nil
+}
+
+// marshalBasicConstraints marshals the isCA value into a BasicConstraints extension.
+func marshalBasicConstraints(isCA bool) (pkix.Extension, error) {
+	ext := pkix.Extension{Id: oidBasicConstraints, Critical: true}
+	// Leaving MaxPathLen as zero indicates that no maximum path
+	// length is desired, unless MaxPathLenZero is set. A value of
+	// -1 causes encoding/asn1 to omit the value as desired.
+	var err error
+	ext.Value, err = asn1.Marshal(basicConstraints{isCA, -1})
+	return ext, err
 }
 
 // NewIstioRA is a factory method that returns an RA that implements the RegistrationAuthority functionality.
