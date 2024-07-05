@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/slices"
 	"net/netip"
 	"strconv"
 	"time"
@@ -234,12 +235,15 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 		if len(portMapper.Map) > 0 {
-			cidr := util.ConvertAddressToCidr(svc.GetAddressForProxy(lb.node))
-			rangeMatcher := &matcher.IPMatcher_IPRangeMatcher{
-				Ranges: []*xds.CidrRange{{
+			ranges := slices.Map(svc.UnconditionallyGetAllAddressesForProxy(lb.node), func(e string) *xds.CidrRange {
+				cidr := util.ConvertAddressToCidr(e)
+				return &xds.CidrRange{
 					AddressPrefix: cidr.AddressPrefix,
 					PrefixLen:     cidr.PrefixLen,
-				}},
+				}
+			})
+			rangeMatcher := &matcher.IPMatcher_IPRangeMatcher{
+				Ranges:  ranges,
 				OnMatch: match.ToMatcher(portMapper.Matcher),
 			}
 			ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers, rangeMatcher)

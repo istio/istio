@@ -15,10 +15,6 @@
 package serviceentry
 
 import (
-	"net/netip"
-	"strings"
-	"time"
-
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -37,6 +33,8 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
+	"net/netip"
+	"strings"
 )
 
 func convertPort(port *networking.ServicePort) *model.Port {
@@ -48,8 +46,8 @@ func convertPort(port *networking.ServicePort) *model.Port {
 }
 
 type HostAddress struct {
-	host    string
-	address string
+	host      string
+	addresses []string
 }
 
 // ServiceToServiceEntry converts from internal Service representation to ServiceEntry
@@ -139,9 +137,8 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 }
 
 // convertServices transforms a ServiceEntry config to a list of internal Service objects.
-func convertServices(cfg config.Config) []*model.Service {
+func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
-	creationTime := cfg.CreationTimestamp
 
 	var resolution model.Resolution
 	switch serviceEntry.Resolution {
@@ -183,55 +180,52 @@ func convertServices(cfg config.Config) []*model.Service {
 	hostAddresses := []*HostAddress{}
 	for _, hostname := range serviceEntry.Hosts {
 		if len(serviceEntry.Addresses) > 0 {
+			addrs := make([]string, 0, len(serviceEntry.Addresses))
 			for _, address := range serviceEntry.Addresses {
 				// Check if address is an IP first because that is the most common case.
 				if netutil.IsValidIPAddress(address) {
-					hostAddresses = append(hostAddresses, &HostAddress{hostname, address})
+					addrs = append(addrs, address)
 				} else if cidr, cidrErr := netip.ParsePrefix(address); cidrErr == nil {
 					newAddress := address
 					if cidr.Bits() == cidr.Addr().BitLen() {
 						// /32 mask. Remove the /32 and make it a normal IP address
 						newAddress = cidr.Addr().String()
 					}
-					hostAddresses = append(hostAddresses, &HostAddress{hostname, newAddress})
+					addrs = append(addrs, newAddress)
 				}
 			}
+			hostAddresses = append(hostAddresses, &HostAddress{hostname, addrs})
 		} else {
-			hostAddresses = append(hostAddresses, &HostAddress{hostname, constants.UnspecifiedIP})
+			hostAddresses = append(hostAddresses, &HostAddress{hostname, []string{constants.UnspecifiedIP}})
 		}
 	}
 
-	return buildServices(hostAddresses, cfg.Name, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels, portOverrides)
-}
-
-func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
-	resolution model.Resolution, exportTo sets.Set[visibility.Instance], selectors map[string]string, saccounts []string,
-	ctime time.Time, labels map[string]string, overrides map[uint32]uint32,
-) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
-	lbls := labels
-	if features.CanonicalServiceForMeshExternalServiceEntry && location == networking.ServiceEntry_MESH_EXTERNAL {
-		lbls = ensureCanonicalServiceLabels(name, labels)
+	lbls := cfg.Labels
+	if features.CanonicalServiceForMeshExternalServiceEntry && serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL {
+		lbls = ensureCanonicalServiceLabels(cfg.Name, cfg.Labels)
 	}
 	for _, ha := range hostAddresses {
+		vips := model.AddressMap{}
+		vips.AddAddressesFor(clusterID, ha.addresses)
 		out = append(out, &model.Service{
-			CreationTime:   ctime,
-			MeshExternal:   location == networking.ServiceEntry_MESH_EXTERNAL,
+			CreationTime:   cfg.CreationTimestamp,
+			MeshExternal:   serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 			Hostname:       host.Name(ha.host),
-			DefaultAddress: ha.address,
-			Ports:          ports,
+			DefaultAddress: ha.addresses[0],
+			Ports:          svcPorts,
 			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
 				ServiceRegistry:        provider.External,
-				PassthroughTargetPorts: overrides,
+				PassthroughTargetPorts: portOverrides,
 				Name:                   ha.host,
-				Namespace:              namespace,
+				Namespace:              cfg.Namespace,
 				Labels:                 lbls,
 				ExportTo:               exportTo,
-				LabelSelectors:         selectors,
+				LabelSelectors:         labelSelectors,
 			},
-			ServiceAccounts: saccounts,
+			ClusterVIPs:     vips,
+			ServiceAccounts: serviceEntry.SubjectAltNames,
 		})
 	}
 	return out
@@ -326,7 +320,7 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 		return nil
 	}
 	if services == nil {
-		services = convertServices(cfg)
+		services = convertServices(cfg, "")
 	}
 
 	endpointsNum := len(serviceEntry.Endpoints)
