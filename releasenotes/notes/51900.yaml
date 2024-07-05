@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: traffic-management
+area: installation
 
 # issue is a list of GitHub issues resolved in this note.
 issue:
@@ -8,8 +8,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** an issue where sidecar.istio.io/proxyImage annotation was ignored during the gateway injection.
-
-# docs is a list of related docs to the change.
-docs:
- - '[reference] https://istio.io/latest/docs/reference/config/annotations/#SidecarProxyImage'
+  **Fixed** an issue where `sidecar.istio.io/proxyImage` annotation was ignored during the gateway injection.
