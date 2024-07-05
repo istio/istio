@@ -3604,7 +3604,7 @@ spec:
 			if tt.server != "" {
 				address += "&server=" + tt.server
 			}
-			expected := aInCluster[0].Address()
+			expected := aInCluster[0].Addresses()
 			t.RunTraffic(TrafficTestCase{
 				name: fmt.Sprintf("svc/%s/%s/%s", client.Config().Service, client.Config().Cluster.StableName(), tt.name),
 				call: client.CallOrFail,
@@ -3616,9 +3616,9 @@ spec:
 						for _, r := range result.Responses {
 							ips := r.Body()
 							sort.Strings(ips)
-							exp := []string{expected}
-							if !reflect.DeepEqual(ips, exp) {
-								return fmt.Errorf("unexpected dns response: wanted %v, got %v", exp, ips)
+							sort.Strings(expected)
+							if !reflect.DeepEqual(ips, expected) {
+								return fmt.Errorf("unexpected dns response: wanted %v, got %v", expected, ips)
 							}
 						}
 						return nil
