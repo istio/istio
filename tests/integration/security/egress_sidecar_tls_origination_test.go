@@ -254,7 +254,7 @@ spec:
           credentialName: {{.CredentialName}}
           sni: {{ .to.Config.ClusterLocalFQDN }}
 `
-	t.ConfigIstio().Eval(clientNamespace.Name(), args, se, dr).ApplyOrFail(t, apply.NoCleanup)
+	t.ConfigIstio().Eval(clientNamespace.Name(), args, se, dr).ApplyOrFail(t)
 }
 
 func newTLSSidecarCallOpts(to echo.Target, host string, exRsp ingressutil.ExpectedResponse) echo.CallOptions {
