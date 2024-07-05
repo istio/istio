@@ -21,16 +21,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/pkg/config/analysis/diag"
-	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/kube"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/rest/fake"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
+
+	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/kube"
 )
 
 type testCase struct {
@@ -92,6 +93,7 @@ func Test_checkFromVersion(t *testing.T) {
 		})
 	}
 }
+
 func Test_checkTracing_ZipkinNotFound(t *testing.T) {
 	cli := kube.NewFakeClient()
 	messages := diag.Messages{}
