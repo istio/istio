@@ -10,4 +10,4 @@ spec:
         number: 443
       tls:
         mode: ISTIO_MUTUAL
-        sni: fake.external.com
+        sni: server.default.svc
