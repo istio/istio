@@ -45,6 +45,9 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
+// WorkloadsCollection builds out the core Workload object type used in ambient mode.
+// A Workload represents a single addressable unit of compute -- typically a Pod or a VM.
+// Workloads can come from a variety of sources; these are joined together to build one complete `Collection[WorkloadInfo]`.
 func (a *index) WorkloadsCollection(
 	Pods krt.Collection[*v1.Pod],
 	Nodes krt.Collection[*v1.Node],
@@ -59,16 +62,32 @@ func (a *index) WorkloadsCollection(
 	Namespaces krt.Collection[*v1.Namespace],
 ) krt.Collection[model.WorkloadInfo] {
 	WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
+	EndpointSlicesByIPIndex := endpointSliceAddressIndex(EndpointSlices)
+	// Workloads coming from Pods. There should be one workload for each (running) Pod.
 	PodWorkloads := krt.NewCollection(
 		Pods,
-		a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, WorkloadServicesNamespaceIndex, Namespaces, Nodes),
+		a.podWorkloadBuilder(
+			MeshConfig,
+			AuthorizationPolicies,
+			PeerAuths,
+			Waypoints,
+			WorkloadServices,
+			WorkloadServicesNamespaceIndex,
+			EndpointSlices,
+			EndpointSlicesByIPIndex,
+			Namespaces,
+			Nodes,
+		),
 		krt.WithName("PodWorkloads"),
 	)
+	// Workloads coming from WorkloadEntries. These are 1:1 with WorkloadEntry.
 	WorkloadEntryWorkloads := krt.NewCollection(
 		WorkloadEntries,
 		a.workloadEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, WorkloadServicesNamespaceIndex, Namespaces),
 		krt.WithName("WorkloadEntryWorkloads"),
 	)
+	// Workloads coming from ServiceEntries. These are inlined WorkloadEntries (under `spec.endpoints`); these ServiceEntries will
+	// also be generating `workloadapi.Service` definitions in the `ServicesCollection` logic.
 	ServiceEntryWorkloads := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
 		if len(se.Spec.Endpoints) == 0 {
 			return nil
@@ -143,6 +162,11 @@ func (a *index) WorkloadsCollection(
 		}
 		return res
 	}, krt.WithName("ServiceEntryWorkloads"))
+	// Workloads coming from EndpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
+	// into the EndpointSlice. This is because Kubernetes has 3 APIs in its model: Service, Pod, and EndpointSlice.
+	// In our API, we only have two: Service and Workload.
+	// Pod provides much more information than EndpointSlice, so typically we just consume that directly; see method for more details
+	// on when we will build from an EndpointSlice.
 	EndpointSliceWorkloads := krt.NewManyCollection(
 		EndpointSlices,
 		a.endpointSlicesBuilder(MeshConfig, WorkloadServices),
@@ -229,6 +253,8 @@ func (a *index) podWorkloadBuilder(
 	Waypoints krt.Collection[Waypoint],
 	WorkloadServices krt.Collection[model.ServiceInfo],
 	WorkloadServicesNamespaceIndex *krt.Index[model.ServiceInfo, string],
+	EndpointSlices krt.Collection[*discovery.EndpointSlice],
+	EndpointSlicesAddressIndex *krt.Index[*discovery.EndpointSlice, string],
 	Namespaces krt.Collection[*v1.Namespace],
 	Nodes krt.Collection[*v1.Node],
 ) func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
@@ -253,7 +279,8 @@ func (a *index) podWorkloadBuilder(
 			}))
 		}
 		services := krt.Fetch(ctx, WorkloadServices, fo...)
-		// Logic from https://github.com/howardjohn/kubernetes/blob/7c873327b679a70337288da62b96dd610858181d/staging/src/k8s.io/endpointslice/utils.go#L37
+		services = append(services, a.matchingServicesWithoutSelectors(ctx, p, services, WorkloadServices, EndpointSlices, EndpointSlicesAddressIndex)...)
+		// Logic from https://github.com/kubernetes/kubernetes/blob/7c873327b679a70337288da62b96dd610858181d/staging/src/k8s.io/endpointslice/utils.go#L37
 		// Kubernetes has Ready, Serving, and Terminating. We only have a boolean, which is sufficient for our cases
 		status := workloadapi.WorkloadStatus_HEALTHY
 		if !IsPodReady(p) || p.DeletionTimestamp != nil {
@@ -302,6 +329,72 @@ func (a *index) podWorkloadBuilder(
 		setTunnelProtocol(p.Labels, p.Annotations, w)
 		return &model.WorkloadInfo{Workload: w, Labels: p.Labels, Source: kind.Pod, CreationTime: p.CreationTimestamp.Time}
 	}
+}
+
+func getPodIPs(p *v1.Pod) []v1.PodIP {
+	k8sPodIPs := p.Status.PodIPs
+	if len(k8sPodIPs) == 0 && p.Status.PodIP != "" {
+		k8sPodIPs = []v1.PodIP{{IP: p.Status.PodIP}}
+	}
+	return k8sPodIPs
+}
+
+// matchingServicesWithoutSelectors finds all Services that match a given pod that do not use selectors.
+// See https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors for more info.
+// For selector service, we query by the selector elsewhere, so this only handles the services that are NOT already found
+// by a selector.
+func (a *index) matchingServicesWithoutSelectors(
+	ctx krt.HandlerContext,
+	p *v1.Pod,
+	alreadyMatchingServices []model.ServiceInfo,
+	WorkloadServices krt.Collection[model.ServiceInfo],
+	EndpointSlices krt.Collection[*discovery.EndpointSlice],
+	EndpointSlicesAddressIndex *krt.Index[*discovery.EndpointSlice, string],
+) []model.ServiceInfo {
+	k8sPodIPs := getPodIPs(p)
+	if len(k8sPodIPs) == 0 {
+		return nil
+	}
+	var res []model.ServiceInfo
+	// Build out our set of already-matched services to avoid double-selecting a service
+	seen := sets.NewWithLength[string](len(alreadyMatchingServices))
+	for _, s := range alreadyMatchingServices {
+		seen.Insert(s.Hostname)
+	}
+	for _, ip := range k8sPodIPs {
+		// For each IP, find any EndpointSlices referencing it.
+		matchedSlices := krt.Fetch(ctx, EndpointSlices, krt.FilterIndex(EndpointSlicesAddressIndex, ip.IP))
+		for _, es := range matchedSlices {
+			if es.AddressType == discovery.AddressTypeFQDN {
+				// Currently we do not support FQDN.
+				continue
+			}
+			serviceName, f := es.Labels[discovery.LabelServiceName]
+			if !f {
+				// Not for a service; we don't care about it.
+				continue
+			}
+			hostname := string(kube.ServiceHostname(serviceName, es.Namespace, a.DomainSuffix))
+			if seen.Contains(hostname) {
+				// We already know about this service
+				continue
+			}
+			// This pod is included in the EndpointSlice. We need to fetch the Service object for it, by key.
+			serviceKey := es.Namespace + "/" + hostname
+			svcs := krt.Fetch(ctx, WorkloadServices, krt.FilterKey(serviceKey), krt.FilterGeneric(func(a any) bool {
+				// Only find Service, not Service Entry
+				return a.(model.ServiceInfo).Source == kind.Service
+			}))
+			if len(svcs) == 0 {
+				// no service found
+				continue
+			}
+			// There SHOULD only be one. This is only for `Service` which has unique hostnames.
+			svc := svcs[0]
+			res = append(res, svc)
+		}
+	}
+	return res
 }
 
 func (a *index) buildWorkloadPolicies(
@@ -648,5 +741,19 @@ func implicitWaypointPolicies(ctx krt.HandlerContext, Waypoints krt.Collection[W
 			return nil
 		}
 		return ptr.Of(w.Namespace + "/" + policy)
+	})
+}
+
+func endpointSliceAddressIndex(EndpointSlices krt.Collection[*discovery.EndpointSlice]) *krt.Index[*discovery.EndpointSlice, string] {
+	return krt.NewIndex(EndpointSlices, func(es *discovery.EndpointSlice) []string {
+		if es.AddressType == discovery.AddressTypeFQDN {
+			// Currently we do not support FQDN.
+			return nil
+		}
+		res := make([]string, 0, len(es.Endpoints))
+		for _, ep := range es.Endpoints {
+			res = append(res, ep.Addresses...)
+		}
+		return res
 	})
 }
