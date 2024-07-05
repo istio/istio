@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/annotation"
@@ -302,6 +303,10 @@ func (b *builder) getOrCreateNamespace(prefix string) (*builder, namespace.Insta
 func (b *builder) deployServices() (err error) {
 	services := make(map[string]string)
 	for _, cfg := range b.configs {
+		if b.ctx.Settings().EnableDualStack && cfg.IPFamilyPolicy == "" {
+			cfg.IPFamilies = "IPv6, IPv4"
+			cfg.IPFamilyPolicy = string(corev1.IPFamilyPolicyRequireDualStack)
+		}
 		svc, err := kube.GenerateService(cfg)
 		if err != nil {
 			return err

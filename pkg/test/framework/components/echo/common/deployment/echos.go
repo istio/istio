@@ -283,7 +283,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Ports:           ports.All(),
 			Subsets:         []echo.SubsetConfig{{}},
 			IncludeExtAuthz: c.IncludeExtAuthz,
-			IPFamilies:      "IPv6, IPv4",
+			IPFamilies:      "IPv4",
 			IPFamilyPolicy:  string(corev1.IPFamilyPolicyRequireDualStack),
 			DualStack:       true,
 		}
