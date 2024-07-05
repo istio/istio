@@ -392,26 +392,25 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 			// that will route to a proper Service.
 
 			// Skip ports we cannot bind to
-			if !node.CanBindToPrivilegedPort(bind.bindToPort, egressListener.IstioListener.Port.Number) {
-				log.Warnf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
-					egressListener.IstioListener.Port.Number, node.ID)
-				continue
-			}
-
+			wildcard := wildCards[node.GetIPMode()][0]
 			listenPort := &model.Port{
 				Port:     int(egressListener.IstioListener.Port.Number),
 				Protocol: protocol.Parse(egressListener.IstioListener.Port.Protocol),
 				Name:     egressListener.IstioListener.Port.Name,
 			}
-
-			if conflictWithReservedListener(node, push, bind.Primary(), listenPort.Port, listenPort.Protocol) {
-				log.Warnf("buildSidecarOutboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
-					egressListener.IstioListener.Port.Number, node.ID)
+			if canbind, knownlistener := lb.node.CanBindToPort(bind.bindToPort, node, push, bind.Primary(),
+				listenPort.Port, listenPort.Protocol, wildcard); !canbind {
+				if knownlistener {
+					log.Warnf("buildSidecarOutboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+						egressListener.IstioListener.Port.Number, lb.node.ID)
+				} else {
+					log.Warnf("buildSidecarOutboundListeners: skipping privileged service port %d for node %s as it is an unprivileged proxy",
+						egressListener.IstioListener.Port.Number, lb.node.ID)
+				}
 				continue
 			}
 
 			// TODO: dualstack wildcards
-
 			for _, service := range services {
 				listenerOpts := outboundListenerOpts{
 					push:    push,
@@ -452,20 +451,18 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				saddress := service.GetAddressForProxy(node)
 				for _, servicePort := range service.Ports {
 					// Skip ports we cannot bind to
-					if !node.CanBindToPrivilegedPort(bind.bindToPort, uint32(servicePort.Port)) {
-						// here, we log at DEBUG level instead of WARN to avoid noise
-						// when the catch all egress listener hits ports 80 and 443
-						log.Debugf("buildSidecarOutboundListeners: skipping privileged service port %s:%d for node %s as it is an unprivileged proxy",
-							service.Hostname, servicePort.Port, node.ID)
+					wildcard := wildCards[node.GetIPMode()][0]
+					if canbind, knownlistener := lb.node.CanBindToPort(bind.bindToPort, node, push, bind.Primary(),
+						servicePort.Port, servicePort.Protocol, wildcard); !canbind {
+						if knownlistener {
+							log.Warnf("buildSidecarOutboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+								servicePort.Port, lb.node.ID)
+						} else {
+							log.Warnf("buildSidecarOutboundListeners: skipping privileged service port %d for node %s as it is an unprivileged proxy",
+								servicePort.Port, lb.node.ID)
+						}
 						continue
 					}
-
-					if conflictWithReservedListener(node, push, bind.Primary(), servicePort.Port, servicePort.Protocol) {
-						log.Debugf("buildSidecarOutboundListeners: skipping service port %s:%d for node %s as it conflicts with static listener",
-							service.Hostname, servicePort.Port, node.ID)
-						continue
-					}
-
 					listenerOpts := outboundListenerOpts{
 						push:    push,
 						proxy:   node,
@@ -1363,30 +1360,4 @@ func buildDownstreamQUICTransportSocket(tlsContext *auth.DownstreamTlsContext) *
 type listenerKey struct {
 	bind string
 	port int
-}
-
-// conflictWithReservedListener checks whether the listener address bind:port conflicts with
-// - static listener port：default is 15021 and 15090
-// - virtual listener port: default is 15001 and 15006 (only need to check for outbound listener)
-func conflictWithReservedListener(proxy *model.Proxy, push *model.PushContext, bind string, port int, protocol protocol.Instance) bool {
-	if bind != "" {
-		if bind != wildCards[proxy.GetIPMode()][0] {
-			return false
-		}
-	} else if !protocol.IsHTTP() {
-		// if the protocol is HTTP and bind == "", the listener address will be 0.0.0.0:port
-		return false
-	}
-
-	var conflictWithStaticListener, conflictWithVirtualListener bool
-
-	// bind == wildcard
-	// or bind unspecified, but protocol is HTTP
-	if proxy.Metadata != nil {
-		conflictWithStaticListener = proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port
-	}
-	if push != nil {
-		conflictWithVirtualListener = int(push.Mesh.ProxyListenPort) == port || int(push.Mesh.ProxyInboundListenPort) == port
-	}
-	return conflictWithStaticListener || conflictWithVirtualListener
 }

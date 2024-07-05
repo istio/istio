@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/ledger"
 	"istio.io/istio/pkg/maps"
 	pm "istio.io/istio/pkg/model"
@@ -811,18 +812,51 @@ func (node *Proxy) IsUnprivileged() bool {
 	return unprivileged
 }
 
-// CanBindToPrivilegedPort returns true if the proxy can bind to a given port.
-func (node *Proxy) CanBindToPrivilegedPort(bindTo bool, port uint32) bool {
+// CanBindToPort returns true if the proxy can bind to a given port.
+// canbind indicates whether the proxy can bind to the port.
+// knownlistener indicates whether the check failed if the proxy is trying to bind to a port that is reserved for a static listener or virtual listener.
+func (node *Proxy) CanBindToPort(bindTo bool, proxy *Proxy, push *PushContext,
+	bind string, port int, protocol protocol.Instance, wildcard string,
+) (canbind bool, knownlistener bool) {
 	if bindTo {
 		if isPrivilegedPort(port) && node.IsUnprivileged() {
-			return false
+			return false, false
 		}
 	}
-	return true
+	if conflictWithReservedListener(proxy, push, bind, port, protocol, wildcard) {
+		return false, true
+	}
+	return true, false
+}
+
+// conflictWithReservedListener checks whether the listener address bind:port conflicts with
+// - static listener port：default is 15021 and 15090
+// - virtual listener port: default is 15001 and 15006 (only need to check for outbound listener)
+func conflictWithReservedListener(proxy *Proxy, push *PushContext, bind string, port int, protocol protocol.Instance, wildcard string) bool {
+	if bind != "" {
+		if bind != wildcard {
+			return false
+		}
+	} else if !protocol.IsHTTP() {
+		// if the protocol is HTTP and bind == "", the listener address will be 0.0.0.0:port
+		return false
+	}
+
+	var conflictWithStaticListener, conflictWithVirtualListener bool
+
+	// bind == wildcard
+	// or bind unspecified, but protocol is HTTP
+	if proxy.Metadata != nil {
+		conflictWithStaticListener = proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port
+	}
+	if push != nil {
+		conflictWithVirtualListener = int(push.Mesh.ProxyListenPort) == port || int(push.Mesh.ProxyInboundListenPort) == port
+	}
+	return conflictWithStaticListener || conflictWithVirtualListener
 }
 
 // isPrivilegedPort returns true if a given port is in the range 1-1023.
-func isPrivilegedPort(port uint32) bool {
+func isPrivilegedPort(port int) bool {
 	// check for 0 is important because:
 	// 1) technically, 0 is not a privileged port; any process can ask to bind to 0
 	// 2) this function will be receiving 0 on input in the case of UDS listeners
