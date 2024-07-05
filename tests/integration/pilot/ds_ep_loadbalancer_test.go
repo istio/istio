@@ -77,7 +77,7 @@ func getEchoConfigs() []echo.Config {
 	}
 }
 
-func TestDualStackLB(t *testing.T) {
+func TestDualStackEndpointLoadBalancer(t *testing.T) {
 	framework.NewTest(t).
 		RequiresDualStack().
 		Run(func(t framework.TestContext) {
