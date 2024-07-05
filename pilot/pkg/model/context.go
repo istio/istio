@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/ledger"
 	"istio.io/istio/pkg/maps"
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/monitoring"
@@ -127,8 +126,6 @@ type Environment struct {
 	// DomainSuffix provides a default domain for the Istio server.
 	DomainSuffix string
 
-	ledger ledger.Ledger
-
 	// TrustBundle: List of Mesh TrustAnchors
 	TrustBundle *trustbundle.TrustBundle
 
@@ -208,13 +205,6 @@ func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, m
 	}
 }
 
-func (e *Environment) Version() string {
-	if x := e.GetLedger(); x != nil {
-		return x.RootHash()
-	}
-	return ""
-}
-
 // Init initializes the Environment for use.
 func (e *Environment) Init() {
 	// Use a default DomainSuffix, if none was provided.
@@ -233,14 +223,6 @@ func (e *Environment) InitNetworksManager(updater XDSUpdater) (err error) {
 
 func (e *Environment) ClusterLocal() ClusterLocalProvider {
 	return e.clusterLocalServices
-}
-
-func (e *Environment) GetLedger() ledger.Ledger {
-	return e.ledger
-}
-
-func (e *Environment) SetLedger(l ledger.Ledger) {
-	e.ledger = l
 }
 
 func (e *Environment) GetProxyConfigOrDefault(ns string, labels, annotations map[string]string, meshConfig *meshconfig.MeshConfig) *meshconfig.ProxyConfig {

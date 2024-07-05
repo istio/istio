@@ -162,10 +162,6 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
 		deltaLog.Debugf("Skipping push to %v, no updates required", con.ID())
-		if pushRequest.Full {
-			// Only report for full versions, incremental pushes do not have a new version
-			reportAllEventsForProxyNoPush(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
-		}
 		return nil
 	}
 
@@ -176,11 +172,6 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		if err := s.pushDeltaXds(con, w, pushRequest); err != nil {
 			return err
 		}
-	}
-
-	if pushRequest.Full {
-		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportEventsForUnWatched(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -288,10 +279,6 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		return s.pushDeltaXds(con,
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
-	}
-
-	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ID(), req.TypeUrl, req.ResponseNonce)
 	}
 
 	shouldRespond := s.shouldRespondDelta(con, req)
@@ -512,10 +499,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		res, logdata, err = g.Generate(con.proxy, w, req)
 	}
 	if err != nil || (res == nil && deletedRes == nil) {
-		// If we have nothing to send, report that we got an ACK for this version.
-		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterEvent(con.ID(), w.TypeUrl, req.Push.LedgerVersion)
-		}
 		return err
 	}
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
@@ -524,7 +507,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		TypeUrl:      w.TypeUrl,
 		// TODO: send different version for incremental eds
 		SystemVersionInfo: req.Push.PushVersion,
-		Nonce:             nonce(req.Push.LedgerVersion),
+		Nonce:             nonce(req.Push.PushVersion),
 		Resources:         res,
 	}
 	currentResources := slices.Map(res, func(r *discovery.Resource) string {

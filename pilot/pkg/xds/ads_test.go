@@ -23,9 +23,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/status/distribution"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	xdsfake "istio.io/istio/pilot/test/xds"
@@ -36,10 +34,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/ledger"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tests/util/leak"
@@ -983,50 +978,4 @@ func TestPushQueueLeak(t *testing.T) {
 	}
 	ds.Discovery.AdsPushAll(&model.PushRequest{Push: ds.PushContext()})
 	p.Cleanup()
-}
-
-func TestDistribution(t *testing.T) {
-	xds.ResetConnectionNumberForTest()
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
-	expectNonce := func(nonce, ty string) {
-		t.Helper()
-		assert.EventuallyEqual(t, func() string {
-			return s.Discovery.StatusReporter.QueryLastNonce("test.default-1", ty)
-		}, nonce[:xds.VersionLen])
-	}
-
-	ledger := ledger.Make(time.Minute)
-	ledger.Put("key", "value") // If there is no config, ledger would be empty
-	s.Env().SetLedger(ledger)
-	reporter := &distribution.Reporter{
-		UpdateInterval: features.StatusUpdateInterval,
-	}
-	reporter.Init(s.Env().GetLedger(), test.NewStop(t))
-	s.Discovery.StatusReporter = reporter
-
-	ads := s.ConnectADS().WithType(v3.ClusterType)
-	// Subscribe to clusters
-	res1 := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
-	expectNonce(res1.Nonce, v3.ClusterType)
-
-	// Send a push
-	s.Discovery.Push(&model.PushRequest{Full: true, Push: s.Env().PushContext()})
-	res := ads.ExpectResponse(t)
-	// Not yet ACKed, should return last one
-	expectNonce(res1.Nonce, v3.ClusterType)
-	expectNonce(res.Nonce, v3.RouteType)
-
-	ads.Request(t, &discovery.DiscoveryRequest{
-		VersionInfo:   res.VersionInfo,
-		ResourceNames: []string{"fake-cluster"},
-		TypeUrl:       v3.ClusterType,
-		ResponseNonce: res.Nonce,
-	})
-	// After ACK, should be updated
-	expectNonce(res.Nonce, v3.ClusterType)
-	// Types we are not subscribed to are also updated
-	expectNonce(res.Nonce, v3.RouteType)
-	// Ledger has no explicit close, only through GC, so we need to make sure it can be GCed
-	s.Env().SetLedger(nil)
-	s.Discovery.StatusReporter = nil
 }

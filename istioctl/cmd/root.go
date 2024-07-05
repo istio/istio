@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/istioctl/pkg/version"
-	"istio.io/istio/istioctl/pkg/wait"
 	"istio.io/istio/istioctl/pkg/waypoint"
 	"istio.io/istio/istioctl/pkg/workload"
 	"istio.io/istio/istioctl/pkg/ztunnelconfig"
@@ -195,7 +194,6 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(metrics.Cmd(ctx))
 	experimentalCmd.AddCommand(describe.Cmd(ctx))
-	experimentalCmd.AddCommand(wait.Cmd(ctx))
 	experimentalCmd.AddCommand(config.Cmd())
 	experimentalCmd.AddCommand(workload.Cmd(ctx))
 	experimentalCmd.AddCommand(internaldebug.DebugCommand(ctx))

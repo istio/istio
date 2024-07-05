@@ -30,40 +30,10 @@ import (
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 )
-
-func TestWait(t *testing.T) {
-	// nolint: staticcheck
-	framework.NewTest(t).
-		RequiresSingleCluster().
-		RequiresLocalControlPlane().
-		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "default",
-				Inject: true,
-			})
-			t.ConfigIstio().YAML(ns.Name(), `
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: reviews
-spec:
-  gateways: [missing-gw]
-  hosts:
-  - reviews
-  http:
-  - route:
-    - destination:
-        host: reviews
-`).ApplyOrFail(t)
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
-			istioCtl.InvokeOrFail(t, []string{"x", "wait", "-v", "VirtualService", "reviews." + ns.Name()})
-		})
-}
 
 func TestAnalysisWritesStatus(t *testing.T) {
 	// nolint: staticcheck
@@ -110,7 +80,7 @@ spec:
 			// Status should report error
 			retry.UntilSuccessOrFail(t, func() error {
 				return expectVirtualServiceStatus(t, ns, true)
-			}, retry.Timeout(time.Minute*5))
+			}, retry.Timeout(time.Second*5))
 			// Apply config to make this not invalid
 			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
@@ -273,21 +243,6 @@ func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, 
 		return fmt.Errorf("expected no validation messages, but got %d", len(status.ValidationMessages))
 	}
 
-	if len(status.Conditions) < 1 {
-		return fmt.Errorf("expected conditions to exist, but got nothing")
-	}
-	found := false
-	for _, condition := range status.Conditions {
-		if condition.Type == "Reconciled" {
-			found = true
-			if condition.Status != "True" {
-				return fmt.Errorf("expected Reconciled to be true but was %v", condition.Status)
-			}
-		}
-	}
-	if !found {
-		return fmt.Errorf("expected Reconciled condition to exist, but got %v", status.Conditions)
-	}
 	return nil
 }
 

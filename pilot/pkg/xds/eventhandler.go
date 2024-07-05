@@ -28,12 +28,3 @@ var AllTrackingEventTypes = sets.New[EventType](
 	v3.RouteType,
 	v3.EndpointType,
 )
-
-// EventHandler allows for generic monitoring of xDS ACKS and disconnects, for the purpose of tracking
-// Config distribution through the mesh.
-type DistributionStatusCache interface {
-	// RegisterEvent notifies the implementer of an xDS ACK, and must be non-blocking
-	RegisterEvent(conID string, eventType EventType, nonce string)
-	RegisterDisconnect(s string, types sets.Set[EventType])
-	QueryLastNonce(conID string, eventType EventType) (noncePrefix string)
-}

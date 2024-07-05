@@ -63,7 +63,6 @@ require (
 	github.com/prometheus/prometheus v0.52.1
 	github.com/quic-go/quic-go v0.44.0
 	github.com/ryanuber/go-glob v1.0.0
-	github.com/spaolacci/murmur3 v1.1.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
