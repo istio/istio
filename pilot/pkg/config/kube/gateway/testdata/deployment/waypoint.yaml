@@ -243,6 +243,7 @@ metadata:
     name: namespace
     uid: ""
 spec:
+  ipFamilyPolicy: PreferDualStack
   ports:
   - appProtocol: tcp
     name: status-port
