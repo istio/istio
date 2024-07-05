@@ -19,7 +19,7 @@ import (
 	"testing"
 )
 
-func TestExtractIDsFromSANWithError(t *testing.T) {
+func TestExtractIsCAFromBasicConstraints(t *testing.T) {
 	testCases := map[string]struct {
 		ext *pkix.Extension
 	}{
@@ -58,7 +58,7 @@ func TestExtractBasicConstraintsExtension(t *testing.T) {
 			},
 			found: false,
 		},
-		"Correct SAN extension": {
+		"Correct BasicConstraint extension": {
 			exts: []pkix.Extension{
 				{Id: asn1.ObjectIdentifier{1, 2, 3}},
 				{Id: asn1.ObjectIdentifier{2, 5, 29, 19}},
@@ -121,7 +121,7 @@ func TestCheckIsCAExtension(t *testing.T) {
 		"Extensions with BasicConstraints and false CA": {
 			exts: []pkix.Extension{
 				{Id: asn1.ObjectIdentifier{1, 2, 3, 4}},
-				*&caFalseExt,
+				*caFalseExt,
 				{Id: asn1.ObjectIdentifier{3, 2, 1}},
 			},
 			expectedIsCA: false,
@@ -129,7 +129,7 @@ func TestCheckIsCAExtension(t *testing.T) {
 		"Extensions with BasicConstraints and true CA": {
 			exts: []pkix.Extension{
 				{Id: asn1.ObjectIdentifier{1, 2, 3, 4}},
-				*&caTrueExt,
+				*caTrueExt,
 				{Id: asn1.ObjectIdentifier{3, 2, 1}},
 			},
 			expectedIsCA: true,

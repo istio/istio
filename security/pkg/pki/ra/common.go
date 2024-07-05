@@ -152,8 +152,8 @@ func extractIsCAFromBasicConstraints(basicExt *pkix.Extension) (bool, error) {
 }
 
 // marshalBasicConstraints marshals the isCA value into a BasicConstraints extension.
-func marshalBasicConstraints(isCA bool) (pkix.Extension, error) {
-	ext := pkix.Extension{Id: oidBasicConstraints, Critical: true}
+func marshalBasicConstraints(isCA bool) (*pkix.Extension, error) {
+	ext := &pkix.Extension{Id: oidBasicConstraints, Critical: true}
 	// Leaving MaxPathLen as zero indicates that no maximum path
 	// length is desired, unless MaxPathLenZero is set. A value of
 	// -1 causes encoding/asn1 to omit the value as desired.
