@@ -151,10 +151,10 @@ func (p *Log) SetState(state InstallState) {
 		p.bar.SetTemplateString(inProgress + `Pruning removed resources`)
 		p.bar.Write()
 	case StateComplete:
-		p.bar.SetTemplateString(`{{ green "✅" }} Installation complete`)
+		p.bar.SetTemplateString(`{{ green "✔" }} Installation complete`)
 		p.bar.Write()
 	case StateUninstallComplete:
-		p.bar.SetTemplateString(`{{ green "✅" }} Uninstall complete`)
+		p.bar.SetTemplateString(`{{ green "✔" }} Uninstall complete`)
 		p.bar.Write()
 	}
 }
