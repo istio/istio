@@ -304,7 +304,7 @@ func (b *builder) deployServices() (err error) {
 	services := make(map[string]string)
 	for _, cfg := range b.configs {
 		if b.ctx.Settings().EnableDualStack && cfg.IPFamilyPolicy == "" {
-			cfg.IPFamilies = "IPv6, IPv4"
+			cfg.IPFamilies = "IPv4, IPv6"
 			cfg.IPFamilyPolicy = string(corev1.IPFamilyPolicyRequireDualStack)
 		}
 		svc, err := kube.GenerateService(cfg)
