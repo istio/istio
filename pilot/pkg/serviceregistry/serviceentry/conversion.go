@@ -202,33 +202,24 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 	}
 
 	return buildServices(hostAddresses, cfg.Name, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels, portOverrides, clusterID)
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels, portOverrides, clusterID, serviceEntry.Addresses)
 }
 
 // TODO(jewertow):
 func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo sets.Set[visibility.Instance], selectors map[string]string, saccounts []string,
-	ctime time.Time, labels map[string]string, overrides map[uint32]uint32, clusterID cluster.ID,
+	ctime time.Time, labels map[string]string, overrides map[uint32]uint32, clusterID cluster.ID, addresses []string,
 ) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
 	lbls := labels
 	if features.CanonicalServiceForMeshExternalServiceEntry && location == networking.ServiceEntry_MESH_EXTERNAL {
 		lbls = ensureCanonicalServiceLabels(name, labels)
 	}
-	var addrs []string
 	for _, ha := range hostAddresses {
-		addrs = append(addrs, ha.address)
-	}
-	for _, ha := range hostAddresses {
-		out = append(out, &model.Service{
-			CreationTime: ctime,
-			MeshExternal: location == networking.ServiceEntry_MESH_EXTERNAL,
-			Hostname:     host.Name(ha.host),
-			ClusterVIPs: model.AddressMap{
-				Addresses: map[cluster.ID][]string{
-					clusterID: addrs,
-				},
-			},
+		svc := &model.Service{
+			CreationTime:   ctime,
+			MeshExternal:   location == networking.ServiceEntry_MESH_EXTERNAL,
+			Hostname:       host.Name(ha.host),
 			DefaultAddress: ha.address,
 			Ports:          ports,
 			Resolution:     resolution,
@@ -242,7 +233,15 @@ func buildServices(hostAddresses []*HostAddress, name, namespace string, ports m
 				LabelSelectors:         selectors,
 			},
 			ServiceAccounts: saccounts,
-		})
+		}
+		if len(addresses) > 0 {
+			svc.ClusterVIPs = model.AddressMap{
+				Addresses: map[cluster.ID][]string{
+					clusterID: addresses,
+				},
+			}
+		}
+		out = append(out, svc)
 	}
 	return out
 }
