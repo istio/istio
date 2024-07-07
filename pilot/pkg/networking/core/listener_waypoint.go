@@ -234,12 +234,16 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 		if len(portMapper.Map) > 0 {
-			cidr := util.ConvertAddressToCidr(svc.GetAddressForProxy(lb.node))
-			rangeMatcher := &matcher.IPMatcher_IPRangeMatcher{
-				Ranges: []*xds.CidrRange{{
+			ranges := []*xds.CidrRange{}
+			for _, vip := range svc.GetAllAddressesForProxy(lb.node) {
+				cidr := util.ConvertAddressToCidr(vip)
+				ranges = append(ranges, &xds.CidrRange{
 					AddressPrefix: cidr.AddressPrefix,
 					PrefixLen:     cidr.PrefixLen,
-				}},
+				})
+			}
+			rangeMatcher := &matcher.IPMatcher_IPRangeMatcher{
+				Ranges:  ranges,
 				OnMatch: match.ToMatcher(portMapper.Matcher),
 			}
 			ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers, rangeMatcher)

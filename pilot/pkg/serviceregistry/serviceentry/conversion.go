@@ -139,7 +139,7 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 }
 
 // convertServices transforms a ServiceEntry config to a list of internal Service objects.
-func convertServices(cfg config.Config) []*model.Service {
+func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	creationTime := cfg.CreationTimestamp
 
@@ -202,23 +202,33 @@ func convertServices(cfg config.Config) []*model.Service {
 	}
 
 	return buildServices(hostAddresses, cfg.Name, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels, portOverrides)
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels, portOverrides, clusterID)
 }
 
+// TODO(jewertow):
 func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo sets.Set[visibility.Instance], selectors map[string]string, saccounts []string,
-	ctime time.Time, labels map[string]string, overrides map[uint32]uint32,
+	ctime time.Time, labels map[string]string, overrides map[uint32]uint32, clusterID cluster.ID,
 ) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
 	lbls := labels
 	if features.CanonicalServiceForMeshExternalServiceEntry && location == networking.ServiceEntry_MESH_EXTERNAL {
 		lbls = ensureCanonicalServiceLabels(name, labels)
 	}
+	var addrs []string
+	for _, ha := range hostAddresses {
+		addrs = append(addrs, ha.address)
+	}
 	for _, ha := range hostAddresses {
 		out = append(out, &model.Service{
-			CreationTime:   ctime,
-			MeshExternal:   location == networking.ServiceEntry_MESH_EXTERNAL,
-			Hostname:       host.Name(ha.host),
+			CreationTime: ctime,
+			MeshExternal: location == networking.ServiceEntry_MESH_EXTERNAL,
+			Hostname:     host.Name(ha.host),
+			ClusterVIPs: model.AddressMap{
+				Addresses: map[cluster.ID][]string{
+					clusterID: addrs,
+				},
+			},
 			DefaultAddress: ha.address,
 			Ports:          ports,
 			Resolution:     resolution,
@@ -326,7 +336,7 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 		return nil
 	}
 	if services == nil {
-		services = convertServices(cfg)
+		services = convertServices(cfg, s.clusterID)
 	}
 
 	endpointsNum := len(serviceEntry.Endpoints)
