@@ -62,7 +62,7 @@ var (
 
 	// The OID for the SAN extension (See
 	// http://www.alvestrand.no/objectid/2.5.29.17.html).
-	oidSubjectAlternativeName = asn1.ObjectIdentifier{2, 5, 29, 17}
+	OidSubjectAlternativeName = asn1.ObjectIdentifier{2, 5, 29, 17}
 )
 
 // Identity is an object holding both the encoded identifier bytes as well as
@@ -122,7 +122,7 @@ func BuildSANExtension(identites []Identity) (*pkix.Extension, error) {
 	}
 
 	// SAN is Critical because the subject is empty. This is compliant with X.509 and SPIFFE standards.
-	return &pkix.Extension{Id: oidSubjectAlternativeName, Critical: true, Value: bs}, nil
+	return &pkix.Extension{Id: OidSubjectAlternativeName, Critical: true, Value: bs}, nil
 }
 
 // ExtractIDsFromSAN takes a SAN extension and extracts the identities.
@@ -130,7 +130,7 @@ func BuildSANExtension(identites []Identity) (*pkix.Extension, error) {
 // https://github.com/golang/go/blob/master/src/crypto/x509/x509.go, with the
 // addition of supporting extracting URIs.
 func ExtractIDsFromSAN(sanExt *pkix.Extension) ([]Identity, error) {
-	if !sanExt.Id.Equal(oidSubjectAlternativeName) {
+	if !sanExt.Id.Equal(OidSubjectAlternativeName) {
 		return nil, fmt.Errorf("the input is not a SAN extension")
 	}
 
@@ -165,7 +165,7 @@ func ExtractIDsFromSAN(sanExt *pkix.Extension) ([]Identity, error) {
 // the given PKIX extension set.
 func ExtractSANExtension(exts []pkix.Extension) *pkix.Extension {
 	for _, ext := range exts {
-		if ext.Id.Equal(oidSubjectAlternativeName) {
+		if ext.Id.Equal(OidSubjectAlternativeName) {
 			// We don't need to examine other extensions anymore since a certificate
 			// must not include more than one instance of a particular extension. See
 			// https://tools.ietf.org/html/rfc5280#section-4.2.
