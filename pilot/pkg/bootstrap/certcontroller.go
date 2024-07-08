@@ -40,10 +40,6 @@ const (
 
 	// the interval polling root cert and resign istiod cert when it changes.
 	rootCertPollingInterval = 60 * time.Second
-
-	// Default CA certificate path
-	// Currently, custom CA path is not supported; no API to get custom CA cert yet.
-	defaultCACertPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 // initDNSCertsK8SRA will create the certificates using K8S RA.

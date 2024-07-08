@@ -1053,12 +1053,18 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions, trustDomain strin
 		if s.RA != nil {
 			// If a 'default' root cert was found for RA - usually with single singer.
 			// If signer domains is used - there are multiple roots as well.
-			// TODO: should all be considered valid ?
-			if features.PilotCertProvider != "" {
-				caBundle, _ := s.RA.GetRootCertFromMeshConfig(features.PilotCertProvider)
+
+			// First check if MeshConfig has the roots for the provider
+			caBundle, _ := s.RA.GetRootCertFromMeshConfig(features.PilotCertProvider)
+			if caBundle != nil {
 				rootCertBytes = append(rootCertBytes, caBundle...)
-				// TODO(costin): use the mounted roots if MeshConfig doesn't define roots. Use MeshConfig for istiod as well.
-			} else {
+			}
+
+			// Explicit config map - /etc/external-ca-cert/root-cert.pem
+			caBundleFile := s.RA.GetCAKeyCertBundle().GetRootCertPem()
+			if caBundleFile != nil {
+				// GetRootCertPem is implemented in RA using raOpts.CaCertFile, i.e. /etc/external-ca-cert/root-cert.pem,
+				// falling back to the (no longer supported) ./var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 				rootCertBytes = append(rootCertBytes, s.RA.GetCAKeyCertBundle().GetRootCertPem()...)
 			}
 		}

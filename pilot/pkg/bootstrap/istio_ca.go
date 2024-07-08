@@ -523,21 +523,14 @@ func (s *Server) createSelfSignedCACertificateOptions(fileBundle *ca.SigningCAFi
 // 3. Extract from the cert-chain signed by other CSR signer.
 func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error) {
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
-	certSignerDomain := opts.CertSignerDomain
 	_, err := os.Stat(caCertFile)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to get file info: %v", err)
 		}
 
-		// File does not exist.
-		if certSignerDomain == "" {
-			log.Infof("CA cert file %q not found, using %q.", caCertFile, defaultCACertPath)
-			caCertFile = defaultCACertPath
-		} else {
-			log.Infof("CA cert file %q not found - ignoring.", caCertFile)
-			caCertFile = ""
-		}
+		log.Infof("CA cert file %q not found, using MeshConfig for RA", caCertFile)
+		caCertFile = ""
 	}
 
 	if s.kubeClient == nil {

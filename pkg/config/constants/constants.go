@@ -139,8 +139,6 @@ const (
 	// This used to use the no longer supported default K8S signer.
 	// Deprecated - used to detect the old setting and generate the error message.
 	CertProviderKubernetes = "kubernetes"
-	// CertProviderKubernetesSignerPrefix uses the Kubernetes CSR API and the specified signer to generate a DNS certificate for the control plane
-	CertProviderKubernetesSignerPrefix = "k8s.io/"
 	// CertProviderCustom uses the custom root certificate mounted in a well known location for the control plane
 	CertProviderCustom = "custom"
 	// CertProviderNone does not create any certificates for the control plane. It is assumed that some external

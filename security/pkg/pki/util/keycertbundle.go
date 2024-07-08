@@ -98,6 +98,7 @@ func NewVerifiedKeyCertBundleFromFile(certFile string, privKeyFile string, certC
 }
 
 // NewKeyCertBundleWithRootCertFromFile returns a new KeyCertBundle with the root cert without verification.
+// Used by K8S RA.
 func NewKeyCertBundleWithRootCertFromFile(rootCertFile string) (*KeyCertBundle, error) {
 	var rootCertBytes []byte
 	var err error
@@ -106,7 +107,11 @@ func NewKeyCertBundleWithRootCertFromFile(rootCertFile string) (*KeyCertBundle, 
 	} else {
 		rootCertBytes, err = os.ReadFile(rootCertFile)
 		if err != nil {
-			return nil, err
+			if os.IsNotExist(err) {
+				rootCertBytes = []byte{}
+			} else {
+				return nil, err
+			}
 		}
 	}
 	return &KeyCertBundle{
