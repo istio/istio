@@ -47,6 +47,8 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+var maxSecondsValue = (math.MaxInt64 - 999999999) / (1000 * 1000 * 1000) // 9223372035, which is about 292 years.
+
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
 // revive:disable-next-line
@@ -376,8 +378,8 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 	}
 
 	if clusterType == cluster.Cluster_ORIGINAL_DST {
-		// Disable cleanup for inbound clusters.
-		localCluster.cluster.CleanupInterval = durationpb.New(math.MaxInt64 - 1)
+		// Disable cleanup for inbound clusters - set to Max possible duration.
+		localCluster.cluster.CleanupInterval = durationpb.New(time.Duration(maxSecondsValue) * time.Second)
 	}
 
 	opts := buildClusterOpts{
