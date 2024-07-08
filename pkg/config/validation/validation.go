@@ -1060,6 +1060,17 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if tcp.MaxConnectionDuration != nil {
 			errs = appendErrors(errs, agent.ValidateDuration(tcp.MaxConnectionDuration))
 		}
+		if tcp.IdleTimeout != nil {
+			errs = appendErrors(errs, agent.ValidateDuration(tcp.IdleTimeout))
+		}
+		if ka := tcp.TcpKeepalive; ka != nil {
+			if ka.Time != nil {
+				errs = appendErrors(errs, agent.ValidateDuration(ka.Time))
+			}
+			if ka.Interval != nil {
+				errs = appendErrors(errs, agent.ValidateDuration(ka.Interval))
+			}
+		}
 	}
 
 	return
@@ -1100,6 +1111,9 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 	}
 
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
+	if settings.WarmupDurationSecs != nil {
+		errs = AppendValidation(errs, agent.ValidateDuration(settings.WarmupDurationSecs))
+	}
 	return
 }
 
@@ -1505,6 +1519,11 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 			continue
 		}
 		if err := ValidateHTTPHeaderName(claimAndHeaders.Header); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	if rule.Timeout != nil {
+		if err := agent.ValidateDuration(rule.Timeout); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
