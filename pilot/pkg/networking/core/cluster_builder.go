@@ -377,7 +377,7 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 
 	if clusterType == cluster.Cluster_ORIGINAL_DST {
 		// Disable cleanup for inbound clusters.
-		localCluster.cluster.CleanupInterval = durationpb.New(time.Duration(math.MaxInt64))
+		localCluster.cluster.CleanupInterval = durationpb.New(math.MaxInt64 - 1)
 	}
 
 	opts := buildClusterOpts{
