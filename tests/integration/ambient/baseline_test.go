@@ -28,8 +28,10 @@ import (
 	"testing"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
@@ -50,6 +52,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/config/param"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -2750,4 +2753,123 @@ func TestDirect(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestServiceRestart(t *testing.T) {
+	const callInterval = 100 * time.Millisecond
+	const successThreshold = 1
+
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		dst := apps.Captured
+		generators := []traffic.Generator{}
+		mkGen := func(src echo.Caller) {
+			g := traffic.NewGenerator(t, traffic.Config{
+				Source: src,
+				Options: echo.CallOptions{
+					To:    dst,
+					Count: 1,
+					Check: check.OK(),
+					HTTP:  echo.HTTP{Path: "/?delay=10ms"},
+					Port: echo.Port{
+						Name: "http",
+					},
+					Retry: echo.Retry{NoRetry: true},
+				},
+				Interval: callInterval,
+			}).Start()
+			generators = append(generators, g)
+		}
+		mkGen(apps.Uncaptured[0])
+		mkGen(apps.Sidecar[0])
+		// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
+		mkGen(apps.WorkloadAddressedWaypoint[0])
+		if err := dst.Restart(); err != nil {
+			t.Fatal(err)
+		}
+		for _, gen := range generators {
+			// Stop the traffic generator and get the result.
+			gen.Stop().CheckSuccessRate(t, successThreshold)
+		}
+	})
+}
+
+func TestZtunnelRestart(t *testing.T) {
+	const callInterval = 50 * time.Millisecond
+	// TODO(https://github.com/istio/istio/issues/51952) make this 1.0
+	const successThreshold = .9
+	const sidecarSuccessThreshold = .9
+
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		dst := apps.Captured
+		mkGen := func(src echo.Caller) traffic.Generator {
+			g := traffic.NewGenerator(t, traffic.Config{
+				Source: src,
+				Options: echo.CallOptions{
+					To:    dst,
+					Count: 1,
+					Check: check.OK(),
+					HTTP:  echo.HTTP{Path: "/?delay=10ms"},
+					Port: echo.Port{
+						Name: "http",
+					},
+					Retry: echo.Retry{NoRetry: true},
+				},
+				Interval: callInterval,
+			}).Start()
+			return g
+		}
+		uncap := mkGen(apps.Uncaptured[0])
+		sidecar := mkGen(apps.Sidecar[0])
+		// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
+		captured := mkGen(apps.WorkloadAddressedWaypoint[0])
+		restartZtunnel(t)
+		// Stop the traffic generator and get the result.
+		uncap.Stop().CheckSuccessRate(t, successThreshold)
+		captured.Stop().CheckSuccessRate(t, successThreshold)
+		// We have a lighter check for sidecars. Sidecars will pool HTTP, so these are long lived connections.
+		// These we have no way to signal to Envoy (https://github.com/envoyproxy/envoy/issues/34897).
+		sidecar.Stop().CheckSuccessRate(t, sidecarSuccessThreshold)
+	})
+}
+
+func restartZtunnel(t framework.TestContext) {
+	patchOpts := metav1.PatchOptions{}
+	patchData := fmt.Sprintf(`{
+			"spec": {
+				"template": {
+					"metadata": {
+						"annotations": {
+							"kubectl.kubernetes.io/restartedAt": %q
+						}
+					}
+				}
+			}
+		}`, time.Now().Format(time.RFC3339)) // e.g., “2006-01-02T15:04:05Z07:00”
+	ds := t.Clusters().Default().Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace)
+	_, err := ds.Patch(context.Background(), "ztunnel", types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := retry.UntilSuccess(func() error {
+		d, err := ds.Get(context.Background(), "ztunnel", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !daemonsetsetComplete(d) {
+			return fmt.Errorf("rollout is not yet done")
+		}
+		return nil
+	}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
+		t.Fatalf("failed to wait for ztunnel rollout status for: %v", err)
+	}
+	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], i.Settings().SystemNamespace, "app=ztunnel")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func daemonsetsetComplete(ds *appsv1.DaemonSet) bool {
+	return ds.Status.UpdatedNumberScheduled == ds.Status.DesiredNumberScheduled &&
+		ds.Status.NumberReady == ds.Status.DesiredNumberScheduled &&
+		ds.Status.ObservedGeneration >= ds.Generation
 }
