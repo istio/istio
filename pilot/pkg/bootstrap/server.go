@@ -981,7 +981,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 		// The feature didn't work for few releases, but a skip-version upgrade may still
 		// encounter it.
 		log.Fatalf("PILOT_CERT_PROVIDER=kubernetes is no longer supported by upstream K8S")
-	} else if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
+	} else if features.PilotCertProvider != "" {
 		log.Infof("initializing Istiod DNS certificates using K8S RA:%s  host: %s, custom host: %s", features.PilotCertProvider,
 			host, features.IstiodServiceCustomHost)
 		err = s.initDNSCertsK8SRA()
@@ -1051,10 +1051,13 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions, trustDomain strin
 		}
 	} else {
 		if s.RA != nil {
-			if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-				signerName := strings.TrimPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix)
-				caBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
+			// If a 'default' root cert was found for RA - usually with single singer.
+			// If signer domains is used - there are multiple roots as well.
+			// TODO: should all be considered valid ?
+			if features.PilotCertProvider != "" {
+				caBundle, _ := s.RA.GetRootCertFromMeshConfig(features.PilotCertProvider)
 				rootCertBytes = append(rootCertBytes, caBundle...)
+				// TODO(costin): use the mounted roots if MeshConfig doesn't define roots. Use MeshConfig for istiod as well.
 			} else {
 				rootCertBytes = append(rootCertBytes, s.RA.GetCAKeyCertBundle().GetRootCertPem()...)
 			}
@@ -1203,6 +1206,10 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 // Returns true to indicate the K8S multicluster controller should enable replication of
 // root certificates to config maps in namespaces.
 func (s *Server) shouldStartNsController() bool {
+	// Explicit setting - if an external signer is used, it may have its own way to distribute the roots.
+	// For example CertManager has a trustmanager component, K8S signers may have their own as well.
+
+	// If not explicitly configured, and we use the K8S signer with roots from MeshConfig
 	if s.isK8SSigning() {
 		// Need to distribute the roots from MeshConfig
 		return true
@@ -1211,11 +1218,6 @@ func (s *Server) shouldStartNsController() bool {
 		return false
 	}
 
-	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
-	// This is never called - isK8SSigning is true.
-	if features.PilotCertProvider == constants.CertProviderKubernetes {
-		return false
-	}
 	// For no CA we don't distribute it either, as there is no cert
 	if features.PilotCertProvider == constants.CertProviderNone {
 		return false
@@ -1334,7 +1336,7 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 
 // isK8SSigning returns whether K8S (as a RA) is used to sign certs instead of private keys known by Istiod
 func (s *Server) isK8SSigning() bool {
-	return s.RA != nil && strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix)
+	return s.RA != nil && features.PilotCertProvider != ""
 }
 
 func (s *Server) initStatusManager(_ *PilotArgs) {

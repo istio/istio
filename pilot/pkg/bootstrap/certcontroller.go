@@ -26,7 +26,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/security/pkg/k8s/chiron"
@@ -55,9 +54,8 @@ const (
 func (s *Server) initDNSCertsK8SRA() error {
 	var certChain, keyPEM, caBundle []byte
 	var err error
-	pilotCertProviderName := features.PilotCertProvider
+	signerName := features.PilotCertProvider
 
-	signerName := strings.TrimPrefix(pilotCertProviderName, constants.CertProviderKubernetesSignerPrefix)
 	log.Infof("Generating K8S-signed cert for %v using signer %v", s.dnsNames, signerName)
 	certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
 		strings.Join(s.dnsNames, ","), "", signerName, true, SelfSignedCACertTTL.Get())
