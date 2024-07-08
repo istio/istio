@@ -23,8 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.uber.org/atomic"
-	// To install the xds resolvers and balancers.
-	_ "google.golang.org/grpc/xds"
+	_ "google.golang.org/grpc/xds" // To install the xds resolvers and balancers.
 
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/protocol"
