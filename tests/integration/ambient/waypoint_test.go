@@ -31,7 +31,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -392,11 +391,7 @@ func TestWaypointDNS(t *testing.T) {
 					HTTP: echo.HTTP{
 						Headers: http.Header{"Host": []string{apps.MockExternal.Config().DefaultHostHeader}},
 					},
-					Port: echo.Port{
-						Name:        "http",
-						ServicePort: 80,
-						Protocol:    protocol.HTTP,
-					},
+					Port:   echo.Port{Name: "http"},
 					Scheme: scheme.HTTP,
 					Count:  1,
 					Check:  check,
