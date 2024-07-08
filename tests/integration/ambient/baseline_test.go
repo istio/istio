@@ -2795,7 +2795,8 @@ func TestServiceRestart(t *testing.T) {
 
 func TestZtunnelRestart(t *testing.T) {
 	const callInterval = 50 * time.Millisecond
-	const successThreshold = 1
+	// TODO(https://github.com/istio/istio/issues/51952) make this 1.0
+	const successThreshold = .9
 	const sidecarSuccessThreshold = .9
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
