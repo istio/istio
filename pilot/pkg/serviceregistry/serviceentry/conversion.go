@@ -17,7 +17,6 @@ package serviceentry
 import (
 	"net/netip"
 	"strings"
-	"time"
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
@@ -201,39 +200,31 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 		}
 	}
 
-	return buildServices(hostAddresses, cfg.Name, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels, portOverrides, clusterID, serviceEntry.Addresses)
-}
-
-// TODO(jewertow):
-func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
-	resolution model.Resolution, exportTo sets.Set[visibility.Instance], selectors map[string]string, saccounts []string,
-	ctime time.Time, labels map[string]string, overrides map[uint32]uint32, clusterID cluster.ID, addresses []string,
-) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
-	lbls := labels
-	if features.CanonicalServiceForMeshExternalServiceEntry && location == networking.ServiceEntry_MESH_EXTERNAL {
-		lbls = ensureCanonicalServiceLabels(name, labels)
+	lbls := cfg.Labels
+	if features.CanonicalServiceForMeshExternalServiceEntry && serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL {
+		lbls = ensureCanonicalServiceLabels(cfg.Name, cfg.Labels)
 	}
 	for _, ha := range hostAddresses {
 		svc := &model.Service{
-			CreationTime:   ctime,
-			MeshExternal:   location == networking.ServiceEntry_MESH_EXTERNAL,
+			CreationTime:   creationTime,
+			MeshExternal:   serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 			Hostname:       host.Name(ha.host),
 			DefaultAddress: ha.address,
-			Ports:          ports,
+			Ports:          svcPorts,
 			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
 				ServiceRegistry:        provider.External,
-				PassthroughTargetPorts: overrides,
+				PassthroughTargetPorts: portOverrides,
 				Name:                   ha.host,
-				Namespace:              namespace,
+				Namespace:              cfg.Namespace,
 				Labels:                 lbls,
 				ExportTo:               exportTo,
-				LabelSelectors:         selectors,
+				LabelSelectors:         labelSelectors,
 			},
-			ServiceAccounts: saccounts,
+			ServiceAccounts: serviceEntry.SubjectAltNames,
 		}
+		addresses := serviceEntry.Addresses
 		if len(addresses) == 0 {
 			addresses = []string{constants.UnspecifiedIP}
 		}
@@ -241,7 +232,7 @@ func buildServices(hostAddresses []*HostAddress, name, namespace string, ports m
 		// It makes sure that the default address is always the first VIP in the list, so there is no difference
 		// between using DefaultAddress or ClusterVIPs[0] to create a listener.
 		notDefaultAddresses := sets.New[string](addresses...).Delete(ha.address)
-		addresses := []string{ha.address}
+		addresses = []string{ha.address}
 		addresses = append(addresses, notDefaultAddresses.UnsortedList()...)
 		svc.ClusterVIPs = model.AddressMap{
 			Addresses: map[cluster.ID][]string{
