@@ -234,12 +234,19 @@ func buildServices(hostAddresses []*HostAddress, name, namespace string, ports m
 			},
 			ServiceAccounts: saccounts,
 		}
-		if len(addresses) > 0 {
-			svc.ClusterVIPs = model.AddressMap{
-				Addresses: map[cluster.ID][]string{
-					clusterID: addresses,
-				},
-			}
+		if len(addresses) == 0 {
+			addresses = []string{constants.UnspecifiedIP}
+		}
+		// This logic ensures backward compatibility for non-ambient proxies.
+		// It makes sure that the default address is always the first VIP in the list, so there is no difference
+		// between using DefaultAddress or ClusterVIPs[0] to create a listener.
+		notDefaultAddresses := sets.New[string](addresses...).Delete(ha.address)
+		addresses := []string{ha.address}
+		addresses = append(addresses, notDefaultAddresses.UnsortedList()...)
+		svc.ClusterVIPs = model.AddressMap{
+			Addresses: map[cluster.ID][]string{
+				clusterID: addresses,
+			},
 		}
 		out = append(out, svc)
 	}
