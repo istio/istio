@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Improved** Istio feature TRUST_DISTRIBUTION="off" can be used to explicitly disable the creation of 'istio-ca-root-cert', if other means of trust distribution are used. If not set Istiod will continue to infer based on other settings.

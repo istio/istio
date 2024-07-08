@@ -88,6 +88,8 @@ var (
 		return res
 	}()
 
+	TrustDistribution = env.Register("TRUST_DISTRIBUTION", "", "Control the creation of istio-ca-root-cert configmap. 'off' disables the controller.").Get()
+
 	CertSignerDomain = env.Register("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
 
 	UseCacertsForSelfSignedCA = env.Register("USE_CACERTS_FOR_SELF_SIGNED_CA", false,

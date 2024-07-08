@@ -1203,6 +1203,10 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 // Returns true to indicate the K8S multicluster controller should enable replication of
 // root certificates to config maps in namespaces.
 func (s *Server) shouldStartNsController() bool {
+	// Explicitly disable NS controller - user is using other means ( like CertManager trust distribution or TrustBundle)
+	if features.TrustDistribution == "off" {
+		return false
+	}
 	if s.isK8SSigning() {
 		// Need to distribute the roots from MeshConfig
 		return true
