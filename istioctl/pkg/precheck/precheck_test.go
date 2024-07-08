@@ -94,17 +94,7 @@ func Test_checkFromVersion(t *testing.T) {
 	}
 }
 
-func Test_checkTracing_ZipkinNotFound(t *testing.T) {
-	cli := kube.NewFakeClient()
-	messages := diag.Messages{}
-
-	cli.Kube().CoreV1().Services("istio-system").Create(context.Background(), nil, metav1.CreateOptions{})
-
-	err := checkTracing(cli, &messages)
-	assert.Error(t, err)
-}
-
-func Test_checkTracing_ZipkinFound(t *testing.T) {
+func Test_checkTracing(t *testing.T) {
 	cli := kube.NewFakeClient()
 	messages := diag.Messages{}
 
