@@ -26,6 +26,8 @@ import (
 func FuzzShallowCopyTrafficPolicy(f *testing.F) {
 	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		r := fuzz.Struct[*networking.TrafficPolicy](fg)
+		// We do not copy these, so ignore them
+		r.PortLevelSettings = nil
 		copied := ShallowCopyTrafficPolicy(r)
 		assert.Equal(fg.T(), r, copied)
 	})
