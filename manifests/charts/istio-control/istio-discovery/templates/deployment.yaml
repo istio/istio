@@ -222,7 +222,7 @@ spec:
           - name: istio-csr-dns-cert
             mountPath: /var/run/secrets/istiod/tls
             readOnly: true
-          - name: istio-csr-ca-configmap
+          - name: istio-trust-bundle
             mountPath: /var/run/secrets/istiod/ca
             readOnly: true
           {{- with .Values.pilot.volumeMounts }}
@@ -255,9 +255,9 @@ spec:
         secret:
           secretName: istiod-tls
           optional: true
-      - name: istio-csr-ca-configmap
+      - name: istio-trust-bundle
         configMap:
-          name: istio-ca-root-cert
+          name: istio-trust-bundle
           defaultMode: 420
           optional: true
   {{- if .Values.pilot.jwksResolverExtraRootCA }}
