@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -372,6 +373,11 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort, &instance.Service.Attributes)
+	}
+
+	if clusterType == cluster.Cluster_ORIGINAL_DST {
+		// Disable cleanup for inbound clusters.
+		localCluster.cluster.CleanupInterval = durationpb.New(time.Duration(math.MaxInt64))
 	}
 
 	opts := buildClusterOpts{
