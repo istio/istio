@@ -20,17 +20,23 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/meta/v1alpha1"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeclient "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
@@ -49,6 +55,7 @@ type Index interface {
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	SyncAll()
 	NetworksSynced()
+	RunStatus(stop <-chan struct{})
 	HasSynced() bool
 	model.AmbientIndexes
 }
@@ -90,6 +97,8 @@ type index struct {
 
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
 	networkUpdateTrigger  *krt.RecomputeTrigger
+
+	statusQueue *statusqueue.StatusQueue
 
 	SystemNamespace string
 	DomainSuffix    string
@@ -152,7 +161,8 @@ func New(options Options) Index {
 	gatewayClassClient := kclient.NewDelayedInformer[*v1beta1.GatewayClass](options.Client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
 	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, krt.WithName("GatewayClasses"))
 
-	Services := krt.NewInformerFiltered[*v1.Service](options.Client, filter, krt.WithName("Services"))
+	servicesClient := kclient.NewFiltered[*v1.Service](options.Client, filter)
+	Services := krt.WrapClient[*v1.Service](servicesClient, krt.WithName("Services"))
 	Nodes := krt.NewInformerFiltered[*v1.Node](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripNodeUnusedFields,
@@ -178,8 +188,22 @@ func New(options Options) Index {
 		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 	}), false)
 
+	serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
+	servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
+
+	statusQueue := statusqueue.NewQueue()
+	if features.EnableAmbientStatus {
+		statusqueue.Register(statusQueue, "istio-ambient-service", WorkloadServices, func(info model.ServiceInfo) (kclient.Patcher, []string) {
+			// Since we have 1 collection for multiple types, we need to split these out
+			if info.Source.Kind == kind.ServiceEntry {
+				return kclient.ToPatcher(serviceEntriesWriter), getConditions(info.Source.NamespacedName, serviceEntries)
+			}
+			return kclient.ToPatcher(servicesWriter), getConditions(info.Source.NamespacedName, servicesClient)
+		})
+	}
+
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
 	ServiceInfosByOwningWaypoint := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
 		// Filter out waypoint services
@@ -269,8 +293,25 @@ func New(options Options) Index {
 		Collection: Waypoints,
 	}
 	a.authorizationPolicies = AllPolicies
+	a.statusQueue = statusQueue
 
 	return a
+}
+
+func getConditions[T controllers.ComparableObject](name types.NamespacedName, i kclient.Informer[T]) []string {
+	o := i.Get(name.Name, name.Namespace)
+	if controllers.IsNil(o) {
+		return nil
+	}
+	switch t := any(o).(type) {
+	case *v1.Service:
+		return slices.Map(t.Status.Conditions, func(c metav1.Condition) string { return c.Type })
+	case *networkingclient.ServiceEntry:
+		return slices.Map(t.Status.Conditions, (*v1alpha1.IstioCondition).GetType)
+	default:
+		log.Fatalf("unknown type %T; cannot write status", o)
+	}
+	return nil
 }
 
 // Lookup finds all addresses associated with a given key. Many different key formats are supported; see inline comments.
@@ -452,6 +493,10 @@ func (a *index) SyncAll() {
 
 func (a *index) NetworksSynced() {
 	a.networkUpdateTrigger.MarkSynced()
+}
+
+func (a *index) RunStatus(stop <-chan struct{}) {
+	go a.statusQueue.Run(stop)
 }
 
 func (a *index) HasSynced() bool {

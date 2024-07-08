@@ -45,7 +45,6 @@ const (
 	// this was formally "istio-gateway-leader"; because they are a different API group we need a different
 	// election to ensure we do not only handle one or the other.
 	GatewayStatusController = "istio-gateway-status-leader"
-	StatusController        = "istio-status-leader"
 	AnalyzeController       = "istio-analyze-leader"
 	// GatewayDeploymentController controls translating Kubernetes Gateway objects into various derived
 	// resources (Service, Deployment, etc).

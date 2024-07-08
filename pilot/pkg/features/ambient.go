@@ -39,6 +39,12 @@ var (
 		true, false,
 		"If enabled, HBONE support can be configured for proxies.")
 
+	EnableAmbientStatus = registerAmbient(
+		"AMBIENT_ENABLE_STATUS",
+		false, false,
+		"If enabled, status messages for ambient mode will be written to resources. "+
+			"Currently, this does not do leader election, so may be unsafe to enable with multiple replicas.")
+
 	// Not required for ambient, so disabled by default
 	PreferHBONESend = registerAmbient(
 		"PILOT_PREFER_SENDING_HBONE",

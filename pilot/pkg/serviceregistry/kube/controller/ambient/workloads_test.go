@@ -376,7 +376,7 @@ func TestPodWorkloads(t *testing.T) {
 					},
 					// no selector!
 					LabelSelector: model.LabelSelector{},
-					Source:        kind.Service,
+					Source:        model.TypedObject{Kind: kind.Service},
 				},
 				// EndpointSlice manually associates the pod with a service
 				&discovery.EndpointSlice{
@@ -468,7 +468,7 @@ func TestPodWorkloads(t *testing.T) {
 					},
 					// no selector!
 					LabelSelector: model.LabelSelector{},
-					Source:        kind.Service,
+					Source:        model.TypedObject{Kind: kind.Service},
 				},
 				// EndpointSlice manually created with the IP of the pod, but does NOT have a targetRef
 				&discovery.EndpointSlice{
@@ -545,7 +545,7 @@ func TestPodWorkloads(t *testing.T) {
 						80: {PortName: "80"},
 					},
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-					Source:        kind.Service,
+					Source:        model.TypedObject{Kind: kind.Service},
 				},
 				// Another endpointslice exists with the same IP... This should have no impact
 				kubernetesAPIServerEndpoint("1.1.1.1"),
@@ -561,7 +561,7 @@ func TestPodWorkloads(t *testing.T) {
 					PortNames: map[int32]model.ServicePortName{
 						80: {PortName: "80"},
 					},
-					Source: kind.Service,
+					Source: model.TypedObject{Kind: kind.Service},
 				},
 				&discovery.EndpointSlice{
 					ObjectMeta: metav1.ObjectMeta{
@@ -761,7 +761,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 						83: {PortName: "83", TargetPortName: "83-target"},
 					},
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-					Source:        kind.Service,
+					Source:        model.TypedObject{Kind: kind.Service},
 				},
 			},
 			we: &networkingclient.WorkloadEntry{
@@ -841,7 +841,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 						82: {PortName: "82"},
 					},
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-					Source:        kind.ServiceEntry,
+					Source:        model.TypedObject{Kind: kind.ServiceEntry},
 				},
 			},
 			we: &networkingclient.WorkloadEntry{
@@ -1097,7 +1097,7 @@ func TestEndpointSliceWorkloads(t *testing.T) {
 					},
 					// no selector!
 					LabelSelector: model.LabelSelector{},
-					Source:        kind.Service,
+					Source:        model.TypedObject{Kind: kind.Service},
 				},
 			},
 			// EndpointSlice manually created with the IP of the pod, but does NOT have a targetRef
@@ -1184,7 +1184,7 @@ func kubernetesAPIServerService(ip string) model.ServiceInfo {
 		PortNames: map[int32]model.ServicePortName{
 			443: {PortName: "https"},
 		},
-		Source: kind.Service,
+		Source: model.TypedObject{Kind: kind.Service},
 	}
 }
 

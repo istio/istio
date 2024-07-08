@@ -27,6 +27,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
@@ -90,14 +91,14 @@ func fetchWaypointForTarget(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 	o metav1.ObjectMeta,
-) *Waypoint {
+) (*Waypoint, *model.StatusMessage) {
 	// namespace to be used when the annotation doesn't include a namespace
 	fallbackNamespace := o.Namespace
 	// try fetching the waypoint defined on the object itself
 	wp, isNone := getUseWaypoint(o, fallbackNamespace)
 	if isNone {
 		// we've got a local override here opting out of waypoint
-		return nil
+		return nil, nil
 	}
 	if wp != nil {
 		// plausible the object has a waypoint defined but that waypoint's underlying gateway is not ready, in this case we'd return nil here even if
@@ -107,11 +108,12 @@ func fetchWaypointForTarget(
 		w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
 		if w != nil {
 			if !w.AllowsAttachmentFromNamespaceOrLookup(ctx, namespaces, fallbackNamespace) {
-				return nil
+				return nil, ReportWaypointAttachmentDenied(w.ResourceName())
 			}
-			return w
+			return w, nil
 		}
-		return nil
+		// Todo: we may need to pull this from Waypoint, it could be for other reasons
+		return nil, ReportWaypointIsNotReady(wp.ResourceName())
 	}
 
 	// try fetching the namespace-defined waypoint
@@ -124,50 +126,52 @@ func fetchWaypointForTarget(
 			w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
 			if w != nil {
 				if !w.AllowsAttachmentFromNamespace(namespace) {
-					return nil
+					return nil, ReportWaypointAttachmentDenied(w.ResourceName())
 				}
-				return w
+				return w, nil
 			}
-			return nil
+			return nil, ReportWaypointIsNotReady(wp.ResourceName())
 		}
 	}
 
 	// neither o nor it's namespace has a use-waypoint label
-	return nil
+	return nil, nil
 }
 
 func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
 	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
-) *Waypoint {
+) (*Waypoint, *model.StatusMessage) {
 	// This is a waypoint, so it cannot have a waypoint
 	if o.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-		return nil
+		return nil, nil
 	}
-	w := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
-	if w != nil {
-		if w.TrafficType == constants.ServiceTraffic || w.TrafficType == constants.AllTraffic {
-			return w
-		}
-		// Waypoint does not support Service traffic
-		log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported for %s/%s",
-			w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
+	w, err := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
+	if err != nil || w == nil {
+		return nil, err
 	}
-	return nil
+	if w.TrafficType == constants.ServiceTraffic || w.TrafficType == constants.AllTraffic {
+		return w, nil
+	}
+	// Waypoint does not support Service traffic
+	log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported for %s/%s",
+		w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
+	return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
 }
 
 func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
 	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
-) *Waypoint {
-	w := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
-	if w != nil {
-		if w.TrafficType == constants.WorkloadTraffic || w.TrafficType == constants.AllTraffic {
-			return w
-		}
-		// Waypoint does not support Workload traffic
-		log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported for %s/%s",
-			w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
+) (*Waypoint, *model.StatusMessage) {
+	w, err := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
+	if err != nil || w == nil {
+		return nil, err
 	}
-	return nil
+	if w.TrafficType == constants.WorkloadTraffic || w.TrafficType == constants.AllTraffic {
+		return w, nil
+	}
+	// Waypoint does not support Workload traffic
+	log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported for %s/%s",
+		w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
+	return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.WorkloadTraffic)
 }
 
 // getUseWaypoint takes objectMeta and a defaultNamespace
