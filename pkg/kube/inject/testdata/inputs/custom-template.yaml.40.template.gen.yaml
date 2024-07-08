@@ -1476,6 +1476,7 @@ templates:
         name: "{{.Name}}"
         uid: "{{.UID}}"
     spec:
+      ipFamilyPolicy: PreferDualStack
       ports:
       {{- range $key, $val := .Ports }}
       - name: {{ $val.Name | quote }}
