@@ -20,11 +20,14 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/ptr"
@@ -243,6 +246,124 @@ func TestServiceServices(t *testing.T) {
 					},
 					Mode: workloadapi.LoadBalancing_FAILOVER,
 				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+				}},
+			},
+		},
+		{
+			name: "cross namespace waypoint",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{
+						Name:      "waypoint",
+						Namespace: "waypoint-ns",
+					},
+					TrafficType: constants.AllTraffic,
+					Addresses:   []netip.Addr{netip.AddrFrom4([4]byte{5, 6, 7, 8})},
+					AllowedRoutes: WaypointSelector{
+						FromNamespaces: gatewayv1.NamespacesFromSelector,
+						Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+					},
+				},
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName: "ns",
+						},
+					},
+				},
+			},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						constants.AmbientUseWaypointLabel:          "waypoint",
+						constants.AmbientUseWaypointNamespaceLabel: "waypoint-ns",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint: &workloadapi.GatewayAddress{
+					Destination: &workloadapi.GatewayAddress_Address{
+						Address: &workloadapi.NetworkAddress{
+							Network: testNW,
+							Address: netip.AddrFrom4([4]byte{5, 6, 7, 8}).AsSlice(),
+						},
+					},
+					HboneMtlsPort: 15008,
+				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+				}},
+			},
+		},
+		{
+			name: "cross namespace waypoint denied",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{
+						Name:      "waypoint",
+						Namespace: "waypoint-ns",
+					},
+					TrafficType: constants.AllTraffic,
+					Addresses:   []netip.Addr{netip.AddrFrom4([4]byte{5, 6, 7, 8})},
+					AllowedRoutes: WaypointSelector{
+						FromNamespaces: gatewayv1.NamespacesFromSelector,
+						Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "not-ns"}),
+					},
+				},
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName: "ns",
+						},
+					},
+				},
+			},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						constants.AmbientUseWaypointLabel:          "waypoint",
+						constants.AmbientUseWaypointNamespaceLabel: "waypoint-ns",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint: nil,
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
