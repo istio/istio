@@ -233,7 +233,7 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 		// between using DefaultAddress or ClusterVIPs[0] to create a listener.
 		notDefaultAddresses := sets.New[string](addresses...).Delete(ha.address)
 		addresses = []string{ha.address}
-		addresses = append(addresses, notDefaultAddresses.UnsortedList()...)
+		addresses = append(addresses, sets.SortedList(notDefaultAddresses)...)
 		svc.ClusterVIPs = model.AddressMap{
 			Addresses: map[cluster.ID][]string{
 				clusterID: addresses,
