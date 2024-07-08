@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
-	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -635,13 +634,13 @@ func RunTestMultiQUICGateways(t framework.TestContext, inst istio.Instance, call
 	}
 }
 
-func CreateCustomInstances(apps *deployment.SingleNamespaceView) error {
-	for index, namespacedName := range apps.EchoNamespace.All.NamespacedNames() {
+func SetInstances(apps echo.Services) error {
+	for index, namespacedName := range apps.NamespacedNames() {
 		switch {
 		case namespacedName.Name == "a":
-			A = apps.EchoNamespace.All[index]
+			A = apps[index]
 		case namespacedName.Name == "vm":
-			VM = apps.EchoNamespace.All[index]
+			VM = apps[index]
 		}
 	}
 	return nil
