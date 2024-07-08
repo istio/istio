@@ -660,6 +660,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			})
 
 			c.ambientIndex.NetworksSynced()
+			c.ambientIndex.Run(stop)
 		}()
 	}
 

@@ -15,13 +15,19 @@
 package ambient
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/netip"
 	"strings"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/meta/v1alpha1"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/model"
@@ -31,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeclient "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
@@ -49,6 +56,7 @@ type Index interface {
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	SyncAll()
 	NetworksSynced()
+	Run(stop <-chan struct{})
 	HasSynced() bool
 	model.AmbientIndexes
 }
@@ -81,6 +89,8 @@ type index struct {
 
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
 	networkUpdateTrigger  *krt.RecomputeTrigger
+
+	queue *StatusQueue
 
 	SystemNamespace string
 	DomainSuffix    string
@@ -169,8 +179,55 @@ func New(options Options) Index {
 		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 	}), false)
 
+	statusQueue := NewStatusQueue()
+
+	serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
+	servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
+	WorkloadServices.Register(func(o krt.Event[model.ServiceInfo]) {
+		if o.Event == controllers.EventDelete {
+			return
+		}
+		obj := o.Latest()
+		client := kclient.ToPatcher(servicesWriter)
+		if obj.Source == kind.ServiceEntry {
+			client = kclient.ToPatcher(serviceEntriesWriter)
+		}
+		statusQueue.Push(func() error {
+			var cond *v1alpha1.IstioCondition
+			if obj.Waypoint.ResourceName != "" {
+				cond = &v1alpha1.IstioCondition{
+					Type:               "istio.io/WaypointBound",
+					Status:             string(metav1.ConditionTrue),
+					LastProbeTime:      nil,
+					LastTransitionTime: timestamppb.Now(),
+					Reason:             "WaypointAccepted",
+					Message:            fmt.Sprintf("Successfull attached to waypoint %v", obj.Waypoint.ResourceName),
+				}
+			} else if obj.Waypoint.Error != nil {
+				cond = &v1alpha1.IstioCondition{
+					Type:               "istio.io/WaypointBound",
+					Status:             string(metav1.ConditionFalse),
+					LastProbeTime:      nil,
+					LastTransitionTime: timestamppb.Now(),
+					Reason:             obj.Waypoint.Error.Reason,
+					Message:            obj.Waypoint.Error.Message,
+				}
+			}
+			// TODO: how can we remove?
+			if cond != nil {
+				condj, err := json.Marshal(cond)
+				if err != nil {
+					return err
+				}
+				patch := fmt.Sprintf(`{"status":{"conditions":[%s]}}`, condj)
+				return client.PatchStatus(obj.Name, obj.Namespace, types.MergePatchType, []byte(patch))
+			}
+			return nil
+		})
+	})
+
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
 	ServiceInfosByOwningWaypoint := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
@@ -266,6 +323,7 @@ func New(options Options) Index {
 		Collection: Waypoints,
 	}
 	a.authorizationPolicies = AllPolicies
+	a.queue = statusQueue
 
 	return a
 }
@@ -450,6 +508,10 @@ func (a *index) SyncAll() {
 
 func (a *index) NetworksSynced() {
 	a.networkUpdateTrigger.MarkSynced()
+}
+
+func (a *index) Run(stop <-chan struct{}) {
+	go a.queue.Run(stop)
 }
 
 func (a *index) HasSynced() bool {
