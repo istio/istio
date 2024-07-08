@@ -156,7 +156,7 @@ metadata:
   name: external-service
 spec:
 {{- if .ManuallyAllocate }}
-  addresses: [240.240.240.239] # Semi-random address for the range Istio allocates in
+  addresses: [240.240.240.239, 2001:2::f0f0:239] # Semi-random addresses for the range Istio allocates in
 {{- end }}
   exportTo: [.]
   hosts:
