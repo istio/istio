@@ -1289,17 +1289,15 @@ func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
 					continue
 				} else if prefix.Addr().Is4() {
 					ipv4Addresses = append(ipv4Addresses, addr)
-				} else if prefix.Addr().Is6() {
-					ipv6Addresses = append(ipv6Addresses, addr)
 				}
 			} else {
 				if ipAddr, err := netip.ParseAddr(addr); err != nil {
 					log.Warnf("failed to parse address '%s': %s", addr, err)
 					continue
 				} else if ipAddr.Is4() {
-					ipv4Addresses = append(ipv4Addresses, ipAddr.String())
+					ipv4Addresses = append(ipv4Addresses, addr)
 				} else if ipAddr.Is6() {
-					ipv6Addresses = append(ipv6Addresses, ipAddr.String())
+					ipv6Addresses = append(ipv6Addresses, addr)
 				}
 			}
 		}
