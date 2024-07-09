@@ -66,12 +66,7 @@ const (
 // eventually polls cond until it completes (returns true) or times out (resulting in a test failure).
 func eventually(t test.Failer, cond func() bool) {
 	t.Helper()
-	retry.UntilSuccessOrFail(t, func() error {
-		if !cond() {
-			return fmt.Errorf("failed to get positive condition")
-		}
-		return nil
-	}, retry.Timeout(time.Second), retry.Delay(time.Millisecond*10))
+	retry.UntilOrFail(t, cond, retry.Timeout(time.Second), retry.Delay(time.Millisecond*10))
 }
 
 func TestServices(t *testing.T) {
@@ -1294,17 +1289,19 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
 
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		MeshWatcher: meshWatcher,
-	})
-
 	nsA := "nsA"
 	nsB := "nsB"
 	nsC := "nsC"
 
-	createNamespace(t, controller.client.Kube(), nsA, map[string]string{"app": "foo"})
-	createNamespace(t, controller.client.Kube(), nsB, map[string]string{"app": "bar"})
-	createNamespace(t, controller.client.Kube(), nsC, map[string]string{"app": "baz"})
+	client := kubelib.NewFakeClient(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsA, Labels: map[string]string{"app": "foo"}}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsB, Labels: map[string]string{"app": "bar"}}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsC, Labels: map[string]string{"app": "baz"}}},
+	)
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		Client:      client,
+		MeshWatcher: meshWatcher,
+	})
 
 	// service event handlers should trigger for all svcs
 	createServiceWait(controller, "svc1", nsA,
