@@ -794,8 +794,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 		// ip:port. This will reduce the impact of a listener reload
 		if listenerOpts.bind.Primary() == "" { // TODO: make this better
 			svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
-			svcAddresses := listenerOpts.service.GetAllAddressesForProxy(listenerOpts.proxy)
-			svcExtraListenAddresses := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
+			svcListenAddresses := listenerOpts.service.GetAllAddressesForProxy(listenerOpts.proxy)
 			// Override the svcListenAddress, using the proxy ipFamily, for cases where the ipFamily cannot be detected easily.
 			// For example: due to the possibility of using hostnames instead of ips in ServiceEntry,
 			// it is hard to detect ipFamily for such services.
@@ -804,23 +803,17 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				svcListenAddress = constants.UnspecifiedIPv6
 			}
 
-			// For dualstack proxies we need to add the unspecifed ipv6 address to the list of extra listen addresses
-			if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsDualStack() &&
-				svcListenAddress == constants.UnspecifiedIP {
-				svcExtraListenAddresses = append(svcExtraListenAddresses, constants.UnspecifiedIPv6)
-			}
 			// We should never get an empty address.
 			// This is a safety guard, in case some platform adapter isn't doing things
 			// properly
 			if len(svcListenAddress) > 0 {
 				if !strings.Contains(svcListenAddress, "/") {
-					listenerOpts.bind.binds = append([]string{svcListenAddress}, svcExtraListenAddresses...)
+					listenerOpts.bind.binds = svcListenAddresses
 				} else {
 					// Address is a CIDR. Fall back to 0.0.0.0 and
 					// filter chain match
-					// TODO: this probably needs to handle dual stack better
 					listenerOpts.bind.binds = actualWildcards
-					listenerOpts.cidr = svcAddresses
+					listenerOpts.cidr = svcListenAddresses
 				}
 			}
 		}
