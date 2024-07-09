@@ -814,7 +814,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 			// properly
 			if len(svcListenAddress) > 0 {
 				if !strings.Contains(svcListenAddress, "/") {
-					listenerOpts.bind.binds = svcExtraListenAddresses
+					listenerOpts.bind.binds = append([]string{svcListenAddress}, svcExtraListenAddresses[1:]...)
 				} else {
 					// Address is a CIDR. Fall back to 0.0.0.0 and
 					// filter chain match
