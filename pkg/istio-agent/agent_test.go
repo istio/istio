@@ -618,6 +618,10 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		CaAuthenticator:  security.NewFakeAuthenticator("ca").Set("fake", ""),
 		ProxyConfig:      mesh.DefaultProxyConfig(),
 	}
+
+	// Set this, as we aren't loading defaults from env
+	resp.agent.cfg.WorkloadIdentitySocketFile = security.DefaultWorkloadIdentitySocketFile
+
 	// Run through opts one time just to get the authenticators.
 	for _, opt := range opts {
 		resp = opt(resp)
