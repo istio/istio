@@ -486,12 +486,17 @@ func CheckWorkloadCertificate(certChainFilePath, keyFilePath, rootCertFilePath s
 	return true
 }
 
+// This is the fixed-path, configurable filename location where the Istio agent will
+// look for a SDS workload identity server socket.
+//
 // If we are using Istio's SDS server, the SDS socket listen path == the serve path
 // If we are not using Istio's SDS server, the SDS socket listen path may != the Istio SDS serve path
 func GetWorkloadSDSSocketListenPath(sockfile string) string {
 	return filepath.Join(WorkloadIdentityPath, sockfile)
 }
 
+// This is the fixed-path, fixed-filename location where Istio's default SDS workload identity server
+// will put its socket.
 func GetIstioSDSServerSocketPath() string {
 	return filepath.Join(WorkloadIdentityPath, DefaultWorkloadIdentitySocketFile)
 }
