@@ -47,7 +47,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-var maxSecondsValue = (math.MaxInt64 - 999999999) / (1000 * 1000 * 1000) // 9223372035, which is about 292 years.
+var maxSecondsValue = int64((math.MaxInt64 - 999999999) / (1000 * 1000 * 1000)) // 9223372035, which is about 292 years.
 
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
