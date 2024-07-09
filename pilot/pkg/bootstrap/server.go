@@ -1168,7 +1168,7 @@ func (s *Server) initIPAutoallocateController(args *PilotArgs) {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.IPAutoallocateController, args.Revision, s.kubeClient).
 			AddRunFunction(func(leaderStop <-chan struct{}) {
-				ipallocate := ipallocate.NewIPAllocate(leaderStop, s.kubeClient)
+				ipallocate := ipallocate.NewIPAllocator(leaderStop, s.kubeClient)
 				ipallocate.Run(leaderStop)
 			}).Run(stop)
 		return nil

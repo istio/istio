@@ -41,7 +41,7 @@ type ipAllocateTestRig struct {
 	t      *testing.T
 }
 
-func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocate, ipAllocateTestRig) {
+func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocator, ipAllocateTestRig) {
 	t.Helper()
 	features.EnableV2IPAutoallocate = true
 	s := make(chan struct{})
@@ -49,7 +49,7 @@ func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocate, ipAllocateTestRi
 	c := kubelib.NewFakeClient()
 
 	se := clienttest.NewDirectClient[*networkingv1alpha3.ServiceEntry, networkingv1alpha3.ServiceEntry, *networkingv1alpha3.ServiceEntryList](t, c)
-	ipController := ipallocate.NewIPAllocate(s, c)
+	ipController := ipallocate.NewIPAllocator(s, c)
 	// these would normally be the first addresses consumed, we should check that warming works by asserting that we get their nexts when we reconcile
 	v4 := netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next()
 	v6 := netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next()

@@ -39,7 +39,7 @@ import (
 
 var log = istiolog.RegisterScope("ip-autoallocate", "IP autoallocate controller")
 
-type IPAllocate struct {
+type IPAllocator struct {
 	serviceEntryClient kclient.Client[*networkingv1alpha3.ServiceEntry]
 	index              kclient.Index[netip.Addr, *networkingv1alpha3.ServiceEntry]
 	stopChan           <-chan struct{}
@@ -47,8 +47,8 @@ type IPAllocate struct {
 
 	// This controller is not safe for concurency but it exists outside the critical path performing important but minimal functionality in a single thread.
 	// If we want the multi-thread this controller we must add locking around accessing the allocators which would otherwise be racy
-	v4allocator *ipAllocator
-	v6allocator *ipAllocator
+	v4allocator *prefixUse
+	v6allocator *prefixUse
 }
 
 type conflictDetectedEvent struct {
@@ -57,13 +57,13 @@ type conflictDetectedEvent struct {
 }
 
 const (
-	controllerName = "IP Autoallocate"
+	controllerName = "IP Autoallocator"
 	// these are the ranges of the v1 logic, do we need to choose new ranges?
 	IPV4Prefix = "240.240.0.0/16"
 	IPV6Prefix = "2001:2::/48"
 )
 
-func NewIPAllocate(stop <-chan struct{}, c kubelib.Client) *IPAllocate {
+func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 	client := kclient.New[*networkingv1alpha3.ServiceEntry](c)
 	index := kclient.CreateIndex[netip.Addr, *networkingv1alpha3.ServiceEntry](client, func(serviceentry *networkingv1alpha3.ServiceEntry) []netip.Addr {
 		addresses := autoallocate.GetV2AddressesFromServiceEntry(serviceentry)
@@ -76,20 +76,20 @@ func NewIPAllocate(stop <-chan struct{}, c kubelib.Client) *IPAllocate {
 		}
 		return addresses
 	})
-	allocator := &IPAllocate{
+	allocator := &IPAllocator{
 		serviceEntryClient: client,
 		index:              index,
 		stopChan:           stop,
 		// MustParsePrefix is OK because these are const. If we allow user configuration we must not use this function.
-		v4allocator: newIPAllocator(netip.MustParsePrefix(IPV4Prefix)),
-		v6allocator: newIPAllocator(netip.MustParsePrefix(IPV6Prefix)),
+		v4allocator: newPrefixUse(netip.MustParsePrefix(IPV4Prefix)),
+		v6allocator: newPrefixUse(netip.MustParsePrefix(IPV6Prefix)),
 	}
 	allocator.queue = controllers.NewQueue(controllerName, controllers.WithGenericReconciler(allocator.reconcile), controllers.WithMaxAttempts(5))
 	client.AddEventHandler(controllers.ObjectHandler(allocator.queue.AddObject))
 	return allocator
 }
 
-func (c *IPAllocate) Run(stop <-chan struct{}) {
+func (c *IPAllocator) Run(stop <-chan struct{}) {
 	log.Debugf("starting %s controller", controllerName)
 	kubelib.WaitForCacheSync(controllerName, stop, c.serviceEntryClient.HasSynced)
 	// it is important that we always warm cache before we try to run the queue
@@ -103,14 +103,12 @@ func (c *IPAllocate) Run(stop <-chan struct{}) {
 }
 
 // populateControllerDatastructures reads all serviceentries and records any addresses in our ranges as in use
-func (c *IPAllocate) populateControllerDatastructures() {
+func (c *IPAllocator) populateControllerDatastructures() {
 	serviceentries := c.serviceEntryClient.List(metav1.NamespaceAll, klabels.Everything())
 	count := 0
 	for _, serviceentry := range serviceentries {
 		count++
 		owner := config.NamespacedName(serviceentry)
-		log.Debugf("%s/%s found during warming", serviceentry.Namespace, serviceentry.Name)
-
 		for _, addr := range serviceentry.Spec.Addresses {
 			a, err := netip.ParseAddr(addr)
 			if err != nil {
@@ -118,10 +116,6 @@ func (c *IPAllocate) populateControllerDatastructures() {
 				continue
 			}
 			// these are not assigned by us but could conflict with our IP ranges and cause issues
-			if !c.inOurRange(a) {
-				// don't need to worry about this one
-				continue
-			}
 			c.markUsedOrQueueConflict(a, owner)
 		}
 
@@ -133,7 +127,7 @@ func (c *IPAllocate) populateControllerDatastructures() {
 	log.Debugf("discovered %v during warming", count)
 }
 
-func (c *IPAllocate) reconcile(a any) error {
+func (c *IPAllocator) reconcile(a any) error {
 	if nn, ok := a.(types.NamespacedName); ok {
 		return c.reconcileServiceEntry(nn)
 	}
@@ -144,7 +138,7 @@ func (c *IPAllocate) reconcile(a any) error {
 	return nil
 }
 
-func (c *IPAllocate) reconcileServiceEntry(se types.NamespacedName) error {
+func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 	log.Debugf("reconciling ServiceEntry %s/%s", se.Namespace, se.Name)
 	serviceentry := c.serviceEntryClient.Get(se.Name, se.Namespace)
 	if serviceentry == nil {
@@ -165,10 +159,6 @@ func (c *IPAllocate) reconcileServiceEntry(se types.NamespacedName) error {
 				continue
 			}
 			// these are not assigned by us but could conflict with our IP ranges and cause issues
-			if !c.inOurRange(a) {
-				// don't need to worry about this one
-				continue
-			}
 			c.markUsedOrQueueConflict(a, se)
 		}
 		return nil // nothing to do
@@ -191,7 +181,7 @@ func (c *IPAllocate) reconcileServiceEntry(se types.NamespacedName) error {
 	return nil
 }
 
-func (c *IPAllocate) resolveConflict(conflict conflictDetectedEvent) error {
+func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
 	var autoConflicts, userConflicts []*networkingv1alpha3.ServiceEntry
 	serviceentries := c.index.Lookup(conflict.conflictingAddress)
 	for _, serviceentry := range serviceentries {
@@ -244,7 +234,6 @@ func allAddresses(se *networkingv1alpha3.ServiceEntry) ([]netip.Addr, []netip.Ad
 	for _, a := range se.Spec.Addresses {
 		parsed, err := netip.ParseAddr(a)
 		if err != nil {
-			// maybe log
 			continue
 		}
 		userAssigned = append(userAssigned, parsed)
@@ -252,7 +241,7 @@ func allAddresses(se *networkingv1alpha3.ServiceEntry) ([]netip.Addr, []netip.Ad
 	return autoAssigned, userAssigned
 }
 
-func (c *IPAllocate) nextAddresses(owner types.NamespacedName) []netip.Addr {
+func (c *IPAllocator) nextAddresses(owner types.NamespacedName) []netip.Addr {
 	results := []netip.Addr{}
 	v4address, err := c.v4allocator.allocateNext(owner)
 	if err != nil {
@@ -269,16 +258,8 @@ func (c *IPAllocate) nextAddresses(owner types.NamespacedName) []netip.Addr {
 	return results
 }
 
-func (c *IPAllocate) inOurRange(a netip.Addr) bool {
-	a = a.Unmap()
-	if a.Is6() {
-		return c.v6allocator.prefix.Contains(a)
-	}
-
-	return c.v4allocator.prefix.Contains(a)
-}
-
-func (c *IPAllocate) markUsedOrQueueConflict(a netip.Addr, owner types.NamespacedName) {
+func (c *IPAllocator) markUsedOrQueueConflict(maybeMappedAddr netip.Addr, owner types.NamespacedName) {
+	a := maybeMappedAddr.Unmap()
 	if a.Is6() {
 		if used, usedByOwner := c.v6allocator.markUsed(a, owner); used && !usedByOwner {
 			c.queue.Add(conflictDetectedEvent{
@@ -296,7 +277,7 @@ func (c *IPAllocate) markUsedOrQueueConflict(a netip.Addr, owner types.Namespace
 	}
 }
 
-func (c *IPAllocate) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry, forcedReassign bool) ([]byte, error) {
+func (c *IPAllocator) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry, forcedReassign bool) ([]byte, error) {
 	if se == nil {
 		return nil, nil
 	}
@@ -337,22 +318,22 @@ func (c *IPAllocate) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry
 	return jsonpatch.CreateMergePatch(orig, modified)
 }
 
-type ipAllocator struct {
+type prefixUse struct {
 	prefix netip.Prefix
 	used   map[netip.Addr]types.NamespacedName
 	next   netip.Addr
 }
 
-func newIPAllocator(p netip.Prefix) *ipAllocator {
+func newPrefixUse(p netip.Prefix) *prefixUse {
 	n := p.Addr().Next()
-	return &ipAllocator{
+	return &prefixUse{
 		prefix: p,
 		used:   map[netip.Addr]types.NamespacedName{},
 		next:   n,
 	}
 }
 
-func (i *ipAllocator) allocateNext(owner types.NamespacedName) (netip.Addr, error) {
+func (i *prefixUse) allocateNext(owner types.NamespacedName) (netip.Addr, error) {
 	n := i.next
 	var looped bool
 	if !n.IsValid() || !i.prefix.Contains(n) {
@@ -379,12 +360,12 @@ func (i *ipAllocator) allocateNext(owner types.NamespacedName) (netip.Addr, erro
 	return n, nil
 }
 
-func (i ipAllocator) isUsed(n netip.Addr) bool {
+func (i prefixUse) isUsed(n netip.Addr) bool {
 	_, found := i.used[n]
 	return found
 }
 
-func (i ipAllocator) isUsedBy(n netip.Addr, owner types.NamespacedName) (used, usedByOwner bool) {
+func (i prefixUse) isUsedBy(n netip.Addr, owner types.NamespacedName) (used, usedByOwner bool) {
 	if foundOwner, found := i.used[n]; found {
 		used = true // it is in use
 		res := strings.Compare(foundOwner.String(), owner.String())
@@ -396,7 +377,11 @@ func (i ipAllocator) isUsedBy(n netip.Addr, owner types.NamespacedName) (used, u
 
 // markUsed will store the provided addr as used in this ipAllocator
 // markUsed returns true if the addr was already used and false if it was a new insert
-func (i ipAllocator) markUsed(n netip.Addr, owner types.NamespacedName) (used, usedByOwner bool) {
+func (i prefixUse) markUsed(n netip.Addr, owner types.NamespacedName) (used, usedByOwner bool) {
+	if !i.prefix.Contains(n) {
+		// not in our range, no need to track it
+		return
+	}
 	used, usedByOwner = i.isUsedBy(n, owner)
 	if used {
 		return
