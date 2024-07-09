@@ -47,12 +47,17 @@ func (a *analyzer) Analyze(Context) {
 
 type context struct{}
 
-func (ctx *context) Report(config.GroupVersionKind, diag.Message)                       {}
-func (ctx *context) Find(config.GroupVersionKind, resource.FullName) *resource.Instance { return nil }
-func (ctx *context) Exists(config.GroupVersionKind, resource.FullName) bool             { return false }
-func (ctx *context) ForEach(config.GroupVersionKind, IteratorFn)                        {}
-func (ctx *context) Canceled() bool                                                     { return false }
-func (ctx *context) SetAnalyzer(_ string)                                               {}
+func (ctx *context) Report(config.GroupVersionKind, diag.Message) {}
+func (ctx *context) Find(config.GroupVersionKind, resource.FullName, resource.UID) *resource.Instance {
+	return nil
+}
+
+func (ctx *context) Exists(config.GroupVersionKind, resource.FullName, resource.UID) bool {
+	return false
+}
+func (ctx *context) ForEach(config.GroupVersionKind, IteratorFn) {}
+func (ctx *context) Canceled() bool                              { return false }
+func (ctx *context) SetAnalyzer(_ string)                        {}
 
 func TestCombinedAnalyzer(t *testing.T) {
 	g := NewWithT(t)

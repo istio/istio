@@ -30,6 +30,7 @@ type Metadata struct {
 	Generation  int64
 	Labels      map[string]string
 	Annotations map[string]string
+	UID         UID
 }
 
 // Clone Metadata. Warning, this is expensive!

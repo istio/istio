@@ -98,7 +98,7 @@ func (i *istiodContext) GetMessages(analyzerNames ...string) diag.Messages {
 	return result
 }
 
-func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName) *resource.Instance {
+func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName, uid resource.UID) *resource.Instance {
 	i.collectionReporter(col)
 	k := key{
 		collectionName: col,
@@ -135,9 +135,9 @@ func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName
 	return nil
 }
 
-func (i *istiodContext) Exists(col config.GroupVersionKind, name resource.FullName) bool {
+func (i *istiodContext) Exists(col config.GroupVersionKind, name resource.FullName, uid resource.UID) bool {
 	i.collectionReporter(col)
-	return i.Find(col, name) != nil
+	return i.Find(col, name, uid) != nil
 }
 
 func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.IteratorFn) {
@@ -236,6 +236,7 @@ func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema sre
 		FieldsMap:       out,
 		Cluster:         cluster,
 	}
+	res.Metadata.UID = resource.UID(cfg.UID)
 	// MCP is not aware of generation, add that here.
 	res.Metadata.Generation = cfg.Generation
 	return res, nil

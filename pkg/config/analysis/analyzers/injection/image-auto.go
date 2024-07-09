@@ -81,7 +81,7 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 		if !hasAutoImage(&d.Template.Spec) {
 			return true
 		}
-		nsLabels := getNamespaceLabels(c, resource.Metadata.FullName.Namespace.String())
+		nsLabels := getNamespaceLabels(c, resource.Metadata.FullName.Namespace.String(), resource.Metadata.UID)
 		if !matchesWebhooks(nsLabels, d.Template.Labels, istioWebhooks) {
 			m := msg.NewImageAutoWithoutInjectionWarning(resource, "Deployment", resource.Metadata.FullName.Name.String())
 			c.Report(gvk.Deployment, m)
@@ -99,11 +99,11 @@ func hasAutoImage(spec *v1.PodSpec) bool {
 	return false
 }
 
-func getNamespaceLabels(c analysis.Context, nsName string) map[string]string {
+func getNamespaceLabels(c analysis.Context, nsName string, nsUID resource.UID) map[string]string {
 	if nsName == "" {
 		nsName = "default"
 	}
-	ns := c.Find(gvk.Namespace, resource.NewFullName("", resource.LocalName(nsName)))
+	ns := c.Find(gvk.Namespace, resource.NewFullName("", resource.LocalName(nsName)), nsUID)
 	if ns == nil {
 		return nil
 	}

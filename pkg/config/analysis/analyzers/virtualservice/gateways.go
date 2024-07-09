@@ -78,7 +78,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 
 		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
 
-		if !c.Exists(gvk.Gateway, gwFullName) {
+		if !c.Exists(gvk.Gateway, gwFullName, r.Metadata.UID) {
 			m := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {

@@ -30,14 +30,14 @@ import (
 func DeploymentInMesh(r *resource.Instance, c analysis.Context) bool {
 	d := r.Message.(*appsv1.DeploymentSpec)
 	return inMesh(d.Template.Annotations, d.Template.Labels,
-		resource.Namespace(r.Metadata.FullName.Namespace.String()), d.Template.Spec.Containers, c)
+		resource.Namespace(r.Metadata.FullName.Namespace.String()), d.Template.Spec.Containers, c, r.Metadata.UID)
 }
 
 // PodInMesh returns true if a Pod is in the service mesh (has sidecar)
 func PodInMesh(r *resource.Instance, c analysis.Context) bool {
 	p := r.Message.(*v1.PodSpec)
 	return inMesh(r.Metadata.Annotations, r.Metadata.Labels,
-		r.Metadata.FullName.Namespace, append(slices.Clone(p.Containers), p.InitContainers...), c)
+		r.Metadata.FullName.Namespace, append(slices.Clone(p.Containers), p.InitContainers...), c, r.Metadata.UID)
 }
 
 // PodInAmbientMode returns true if a Pod is in the service mesh with the ambient mode
@@ -64,7 +64,7 @@ func NamespaceInAmbientMode(r *resource.Instance) bool {
 	return r.Metadata.Labels[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient
 }
 
-func inMesh(annos, labels map[string]string, namespace resource.Namespace, containers []v1.Container, c analysis.Context) bool {
+func inMesh(annos, labels map[string]string, namespace resource.Namespace, containers []v1.Container, c analysis.Context, namespaceUID resource.UID) bool {
 	// If pod has the sidecar container set, then, the pod is in the mesh
 	if hasIstioProxy(containers) {
 		return true
@@ -82,7 +82,7 @@ func inMesh(annos, labels map[string]string, namespace resource.Namespace, conta
 
 	// In case the annotation is not present but there is a auto-injection label on the namespace,
 	// return the auto-injection label status
-	if niv, nivok := getNamesSidecarInjectionStatus(namespace, c); nivok {
+	if niv, nivok := getNamesSidecarInjectionStatus(namespace, c, namespaceUID); nivok {
 		return niv
 	}
 
@@ -100,10 +100,10 @@ func getPodSidecarInjectionStatus(metadata map[string]string) (enabled bool, ok 
 // autoInjectionEnabled returns two booleans: enabled and ok.
 // enabled is true when namespace ns has 'istio-injection' label set to 'enabled'
 // ok is true when the namespace doesn't have the label 'istio-injection'
-func getNamesSidecarInjectionStatus(ns resource.Namespace, c analysis.Context) (enabled bool, ok bool) {
+func getNamesSidecarInjectionStatus(ns resource.Namespace, c analysis.Context, namespaceUID resource.UID) (enabled bool, ok bool) {
 	enabled, ok = false, false
 
-	namespace := c.Find(gvk.Namespace, resource.NewFullName("", resource.LocalName(ns)))
+	namespace := c.Find(gvk.Namespace, resource.NewFullName("", resource.LocalName(ns)), namespaceUID)
 	if namespace != nil {
 		enabled, ok = namespace.Metadata.Labels[InjectionLabelName] == InjectionLabelEnableValue, true
 	}

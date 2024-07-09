@@ -82,7 +82,7 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 				continue
 			}
 
-			secret := ctx.Find(gvk.Secret, resource.NewShortOrFullName(gwNs, cn))
+			secret := ctx.Find(gvk.Secret, resource.NewShortOrFullName(gwNs, cn), r.Metadata.UID)
 			if secret == nil {
 				m := msg.NewReferencedResourceNotFound(r, "credentialName", cn)
 

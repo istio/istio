@@ -35,10 +35,14 @@ func (ctx *Context) Report(_ config.GroupVersionKind, t diag.Message) {
 }
 
 // Find implements analysis.Context
-func (ctx *Context) Find(config.GroupVersionKind, resource.FullName) *resource.Instance { return nil }
+func (ctx *Context) Find(config.GroupVersionKind, resource.FullName, resource.UID) *resource.Instance {
+	return nil
+}
 
 // Exists implements analysis.Context
-func (ctx *Context) Exists(config.GroupVersionKind, resource.FullName) bool { return false }
+func (ctx *Context) Exists(config.GroupVersionKind, resource.FullName, resource.UID) bool {
+	return false
+}
 
 // ForEach implements analysis.Context
 func (ctx *Context) ForEach(_ config.GroupVersionKind, fn analysis.IteratorFn) {
