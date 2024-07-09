@@ -803,12 +803,18 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				svcListenAddress = constants.UnspecifiedIPv6
 			}
 
+			// For dualstack proxies we need to add the unspecifed ipv6 address to the list of extra listen addresses
+			svcExtraListenAddresses := svcListenAddresses
+			if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsDualStack() &&
+				svcListenAddress == constants.UnspecifiedIP {
+				svcExtraListenAddresses = append(svcExtraListenAddresses, constants.UnspecifiedIPv6)
+			}
 			// We should never get an empty address.
 			// This is a safety guard, in case some platform adapter isn't doing things
 			// properly
 			if len(svcListenAddress) > 0 {
 				if !strings.Contains(svcListenAddress, "/") {
-					listenerOpts.bind.binds = svcListenAddresses
+					listenerOpts.bind.binds = svcExtraListenAddresses
 				} else {
 					// Address is a CIDR. Fall back to 0.0.0.0 and
 					// filter chain match
