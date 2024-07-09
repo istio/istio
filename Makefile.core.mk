@@ -305,7 +305,7 @@ check-agent-deps:
 		grep -Pv 'envoy/extensions/wasm/' |\
 		grep -Pv 'envoy/extensions/filters/(http|network)/wasm/' |\
 		grep -Pv 'contrib/envoy/extensions/private_key_providers/' |\
-		grep -Pv 'istio\.io/api/(annotation|label|mcp|mesh|networking|security/v1alpha1|type)' |\
+		grep -Pv 'istio\.io/api/(annotation|label|mcp|mesh|networking|analysis/v1alpha1|meta/v1alpha1|security/v1alpha1|type)' |\
 		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|jwx/jwk|envoy/|istio.io/api')
 
 go-gen:
