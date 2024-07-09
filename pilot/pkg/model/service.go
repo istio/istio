@@ -1283,10 +1283,24 @@ func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
 		var ipv4Addresses []string
 		var ipv6Addresses []string
 		for _, addr := range addresses {
-			if ipAddr, _ := netip.ParseAddr(addr); ipAddr.Is4() {
-				ipv4Addresses = append(ipv4Addresses, ipAddr.String())
-			} else if ipAddr.Is6() {
-				ipv6Addresses = append(ipv6Addresses, ipAddr.String())
+			if strings.Contains(addr, "/") {
+				if prefix, err := netip.ParsePrefix(addr); err != nil {
+					log.Warnf("failed to parse prefix address '%s': %s", addr, err)
+					continue
+				} else if prefix.Addr().Is4() {
+					ipv4Addresses = append(ipv4Addresses, addr)
+				} else if prefix.Addr().Is6() {
+					ipv6Addresses = append(ipv6Addresses, addr)
+				}
+			} else {
+				if ipAddr, err := netip.ParseAddr(addr); err != nil {
+					log.Warnf("failed to parse address '%s': %s", addr, err)
+					continue
+				} else if ipAddr.Is4() {
+					ipv4Addresses = append(ipv4Addresses, ipAddr.String())
+				} else if ipAddr.Is6() {
+					ipv6Addresses = append(ipv6Addresses, ipAddr.String())
+				}
 			}
 		}
 		if node.SupportsIPv4() && len(ipv4Addresses) > 0 {
