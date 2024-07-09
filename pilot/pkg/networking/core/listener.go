@@ -794,6 +794,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 		// ip:port. This will reduce the impact of a listener reload
 		if listenerOpts.bind.Primary() == "" { // TODO: make this better
 			svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
+			svcAddresses := listenerOpts.service.GetAllAddressesForProxy(listenerOpts.proxy)
 			svcExtraListenAddresses := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
 			// Override the svcListenAddress, using the proxy ipFamily, for cases where the ipFamily cannot be detected easily.
 			// For example: due to the possibility of using hostnames instead of ips in ServiceEntry,
@@ -819,7 +820,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 					// filter chain match
 					// TODO: this probably needs to handle dual stack better
 					listenerOpts.bind.binds = actualWildcards
-					listenerOpts.cidr = svcListenAddress
+					listenerOpts.cidr = svcAddresses
 				}
 			}
 		}
@@ -1058,7 +1059,7 @@ type outboundListenerOpts struct {
 	proxy *model.Proxy
 
 	bind listenerBinding
-	cidr string
+	cidr []string
 
 	port    *model.Port
 	service *model.Service
