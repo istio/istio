@@ -109,15 +109,7 @@ func (c *IPAllocator) populateControllerDatastructures() {
 	for _, serviceentry := range serviceentries {
 		count++
 		owner := config.NamespacedName(serviceentry)
-		for _, addr := range serviceentry.Spec.Addresses {
-			a, err := netip.ParseAddr(addr)
-			if err != nil {
-				log.Debugf("unable to parse address %s for %s/%s, received error: %s", addr, serviceentry.Namespace, serviceentry.Name, err.Error())
-				continue
-			}
-			// these are not assigned by us but could conflict with our IP ranges and cause issues
-			c.markUsedOrQueueConflict(a, owner)
-		}
+		c.checkInSpecAddresses(serviceentry)
 
 		for _, a := range autoallocate.GetV2AddressesFromServiceEntry(serviceentry) {
 			c.markUsedOrQueueConflict(a, owner)
@@ -150,18 +142,9 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 	// TODO: also what do we do if we already allocated IPs in a previous reconcile but are not longer meant to
 	// or IP would not be usabled due to an update? write a condition "IP unsabled due to wildcard host or something similar"
 	if !autoallocate.ShouldV2AutoAllocateIP(serviceentry) {
-		// TODO: DRY with warm...
 		// we may have an address in our range so we should check and record it
-		for _, addr := range serviceentry.Spec.Addresses {
-			a, err := netip.ParseAddr(addr)
-			if err != nil {
-				log.Debugf("unable to parse address %s for %s/%s, received error: %s", addr, serviceentry.Namespace, serviceentry.Name, err.Error())
-				continue
-			}
-			// these are not assigned by us but could conflict with our IP ranges and cause issues
-			c.markUsedOrQueueConflict(a, se)
-		}
-		return nil // nothing to do
+		c.checkInSpecAddresses(serviceentry)
+		return nil
 	}
 
 	patch, err := c.statusPatchForAddresses(serviceentry, false)
@@ -316,6 +299,18 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntr
 		return nil, err
 	}
 	return jsonpatch.CreateMergePatch(orig, modified)
+}
+
+func (c *IPAllocator) checkInSpecAddresses(serviceentry *networkingv1alpha3.ServiceEntry) {
+	for _, addr := range serviceentry.Spec.Addresses {
+		a, err := netip.ParseAddr(addr)
+		if err != nil {
+			log.Debugf("unable to parse address %s for %s/%s, received error: %s", addr, serviceentry.Namespace, serviceentry.Name, err.Error())
+			continue
+		}
+		// these are not assigned by us but could conflict with our IP ranges and cause issues
+		c.markUsedOrQueueConflict(a, types.NamespacedName{Name: serviceentry.Name, Namespace: serviceentry.Namespace})
+	}
 }
 
 type prefixUse struct {
