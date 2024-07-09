@@ -2,6 +2,29 @@
 WARNING: DO NOT EDIT, THIS FILE IS A PROBABLY COPY.
 The original version of this file is located at /manifests directory.
 If you want to make a change in this file, edit the original one and run "make gen".
+*/}}
+
+
+
+{{/*
+BACK-COMPAT: `istiod` and `istio-cni` previously prefixed image props with `pilot.xxx/cni.xxx` respectively - which breaks helm scoping (you end up with `cni.cni.hub` if you compose) and is unnecessary with singleton charts
+if you do not compose.
+
+To ensure consistent image templating, and to remain consistent with the below auto-descope+merge of `Values.defaults` into `Values`, we will un-nest
+just the image tags from that deprecated prefix, respecting them for back compat purposes only if they are manually specified via user input.
+*/}}
+
+{{ if and (hasKey $.Values "pilot") (hasKey $.Values.defaults "pilot") }}
+    {{ $rescopePilotImgVars := pick $.Values.pilot "hub" "image" "tag" "variant" "pullPolicy" }}
+    {{ $_ := set $ "Values" (mustMergeOverwrite $rescopePilotImgVars $.Values) }}
+{{ end }}
+
+{{ if and (hasKey $.Values "cni") (hasKey $.Values.defaults "cni") }}
+    {{ $rescopeCNIImgVars := pick $.Values.cni "hub" "image" "tag" "variant" "pullPolicy" }}
+    {{ $_ := set $ "Values" (mustMergeOverwrite $rescopeCNIImgVars $.Values) }}
+{{ end }}
+
+{{/*
 
 Complex logic ahead...
 We have three sets of values, in order of precedence (last wins):
@@ -14,9 +37,19 @@ Unfortunately, Helm provides us (1) and (3) together (as .Values), making it har
 However, we can workaround this by placing all of (1) under a specific key (.Values.defaults).
 We can then merge the profile onto the defaults, then the user settings onto that.
 Finally, we can set all of that under .Values so the chart behaves without awareness.
+
+The one places this custom munging breaks down is global values, which are useful for image props (hub/tag/etc).
+
+So we omit those from this custom munging, and keep those values separately, so we can mimic
+helm-style resolution in a template.
+
 */}}
-{{- $defaults := $.Values.defaults }}
+
+{{- $defaultImgProps := pick $.Values.defaults "hub" "image" "tag" "variant" "imagePullPolicy" }}
+{{- $defaults := omit $.Values.defaults "hub" "image" "tag" "variant" "imagePullPolicy" }}
+
 {{- $_ := unset $.Values "defaults" }}
+{{- $_ := set $ "istioImageDefaults" $defaultImgProps }}
 {{- $profile := dict }}
 {{- with .Values.profile }}
 {{- with $.Files.Get (printf "files/profile-%s.yaml" .)}}
@@ -27,7 +60,7 @@ Finally, we can set all of that under .Values so the chart behaves without aware
 {{- end }}
 {{- with .Values.compatibilityVersion }}
 {{- with $.Files.Get (printf "files/profile-compatibility-version-%s.yaml" .) }}
-{{- $ignore := mustMergeOverwrite $profile (. | fromYaml) }}
+{{- $ignore := mustMergeOverwrite $profile (. | fromYaml ) }}
 {{- else }}
 {{ fail (cat "unknown compatibility version" $.Values.compatibilityVersion) }}
 {{- end }}
@@ -35,4 +68,29 @@ Finally, we can set all of that under .Values so the chart behaves without aware
 {{- if $profile }}
 {{- $a := mustMergeOverwrite $defaults $profile }}
 {{- end }}
+
 {{- $b := set $ "Values" (mustMergeOverwrite $defaults $.Values) }}
+
+
+{{/*
+
+Normally, you'd put shared templates in a sibling chart, or a parent chart. Istio wants to use profiles to avoid nesting of charts, so this shared template goes here.
+
+All it does is replicate what Helm would do for you natively - collapse `global.hub/tag/variant/imagePullPolicy` into local values, if the former are set - but it does that from a shared profile def, which lets us avoid chart composition/nesting in favor of using profiles.
+
+NOTE: Because of how profiles work, if Istio charts ARE composed this template def WILL get included multiple times, and only the "last" inclusion of the template will be used. That should be fine (desirable, actually) - we stamp out identical profile helpers for all charts, we want all charts to do this the same way or fail to render, and we don't support composing Istio charts with skewed versions.
+
+*/}}
+
+{{- define "istio.image" -}}
+    {{- if and .Values.image (contains "/" .Values.image) }}
+        image: "{{ .Values.image }}"
+    {{- else }}
+    {{- $hub := coalesce .Values.hub .Values.global.hub .istioImageDefaults.hub }}
+    {{- $tag := coalesce .Values.tag .Values.global.tag .istioImageDefaults.tag }}
+    {{- $variant := coalesce .Values.variant .Values.global.variant .istioImageDefaults.variant }}
+    {{- $pullPolicy := coalesce .Values.pullPolicy .Values.global.imagePullPolicy .istioImageDefaults.imagePullPolicy }}
+        image: "{{ $hub }}/{{ coalesce .Values.image .istioImageDefaults.image }}:{{ $tag }}{{with $variant }}-{{.}}{{end}}"
+        imagePullPolicy: {{ coalesce .Values.pullPolicy .Values.global.imagePullPolicy .istioImageDefaults.imagePullPolicy }}
+    {{- end }}
+{{- end }}

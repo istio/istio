@@ -1450,6 +1450,26 @@ message Values {
 
   // Specifies experimental helm fields that could be removed or changed in the future
   ExperimentalConfig experimental = 44;
+
+  // Hub to pull the container image from. Image will be `Hub/Image:Tag-Variant`.
+  string hub = 46;
+
+  // The container image tag to pull. Image will be `Hub/Image:Tag-Variant`.
+  google.protobuf.Value tag = 48;
+
+  // The container image variant to pull. Options are "debug" or "distroless". Unset will use the default for the given version.
+  string variant = 50;
+
+  // Image name to pull from. Image will be `Hub/Image:Tag-Variant`.
+  // If Image contains a "/", it will replace the entire `image` in the pod.
+  string image = 52;
+
+  // Specifies the image pull policy. one of Always, Never, IfNotPresent.
+  // Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated.
+  //
+  // More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+  string imagePullPolicy = 54;
+
 }
 
 // ZeroVPNConfig enables cross-cluster access using SNI matching.

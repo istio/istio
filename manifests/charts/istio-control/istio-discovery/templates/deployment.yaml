@@ -82,7 +82,7 @@ spec:
 {{- end }}
       containers:
         - name: discovery
-          {{- include "istiod.istio-image" . | indent 2}}
+          {{- include "istio.image" . | indent 2}}
           args:
           - "discovery"
           - --monitoringAddr=:15014

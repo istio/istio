@@ -9,8 +9,9 @@ defaults:
   variant: ""
 
   # Image name to pull from. Image will be `Hub/Image:Tag-Variant`
-  # If Image contains a "/", it will replace the entire `image` in the pod.
-  image: ""
+  # If this string contains a "/", it is assumed to be a fully-qualified image path`Hub/Image:Tag-Variant`,
+  # and `hub/tag/variant` values will be ignored. TODO is this shortcut/wrinkle more surprising than useful?
+  image: "ztunnel"
 
   # Labels to apply to all top level resources
   labels: {}
@@ -101,7 +102,7 @@ defaults:
     hub: gcr.io/istio-testing
 
     # Default tag for Istio images.
-    tag: latest
+    tag: "latest"
 
     # Variant of the image to use.
     # Currently supported are: [debug, distroless]
