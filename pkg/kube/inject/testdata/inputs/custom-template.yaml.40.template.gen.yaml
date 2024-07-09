@@ -1404,6 +1404,10 @@ templates:
               capabilities:
                 drop:
                 - ALL
+    {{- if .Values.gateways.seccompProfile }}
+              seccompProfile:
+    {{- toYaml .Values.gateways.seccompProfile | nindent 12 }}
+    {{- end }}
             volumeMounts:
             - name: workload-socket
               mountPath: /var/run/secrets/workload-spiffe-uds
@@ -1568,6 +1572,10 @@ templates:
             sysctls:
             - name: net.ipv4.ip_unprivileged_port_start
               value: "0"
+          {{- if .Values.gateways.seccompProfile }}
+            seccompProfile:
+          {{- toYaml .Values.gateways.seccompProfile | nindent 10 }}
+          {{- end }}
           {{- end }}
           serviceAccountName: {{.ServiceAccount | quote}}
           containers:
