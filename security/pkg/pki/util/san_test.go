@@ -109,7 +109,7 @@ func TestExtractIDsFromSANWithError(t *testing.T) {
 		},
 		"Wrong encoding": {
 			ext: &pkix.Extension{
-				Id:    oidSubjectAlternativeName,
+				Id:    OidSubjectAlternativeName,
 				Value: []byte("bad value"),
 			},
 		},
@@ -124,7 +124,7 @@ func TestExtractIDsFromSANWithError(t *testing.T) {
 
 func TestExtractIDsFromSANWithBadEncoding(t *testing.T) {
 	ext := &pkix.Extension{
-		Id:    oidSubjectAlternativeName,
+		Id:    OidSubjectAlternativeName,
 		Value: []byte("bad value"),
 	}
 
