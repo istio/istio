@@ -3826,6 +3826,62 @@ spec:
 	}
 }
 
+func TestServiceEntryWithMultipleVIPs(t TrafficContext) {
+	serviceEntry := fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: server-default-svc
+  namespace: %s
+spec:
+  exportTo:
+  - "."
+  hosts:
+  - "server.default.svc"
+  addresses:
+  - 10.0.0.0/28
+  - 10.0.0.16/28
+  - 2002::1
+  - 2002::2
+  endpoints:
+  - address: %s
+  location: MESH_INTERNAL
+  ports:
+  - number: 443
+    name: tcp
+    protocol: TCP
+  resolution: STATIC
+`, t.Apps.A.NamespaceName(), t.Apps.External.All.WorkloadsOrFail(t)[0].Address())
+
+	if len(t.Apps.External.All) == 0 {
+		t.Skip("no external service instances")
+	}
+	// Use first host address from the second CIDR to make sure that Istio matches all CIDRs, not only the first one.
+	address := "10.0.0.17"
+	if ip, err := netip.ParseAddr(t.Apps.External.All[0].Address()); err != nil {
+		t.Errorf("failed to parse IP address ['%s'] of external app: %s", err)
+	} else if ip.Is6() {
+		address = "2002::2"
+	}
+
+	t.RunTraffic(TrafficTestCase{
+		name:   fmt.Sprintf("send a request to one of the VIPs"),
+		config: serviceEntry,
+		opts: echo.CallOptions{
+			Address: address,
+			HTTP: echo.HTTP{
+				Headers: HostHeader(t.Apps.External.All[0].Config().DefaultHostHeader),
+			},
+			Port: echo.Port{
+				Protocol:    protocol.HTTPS,
+				ServicePort: 443,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+		call: t.Apps.A[0].CallOrFail,
+	})
+}
+
 func destinationRule(app, mode string) string {
 	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
