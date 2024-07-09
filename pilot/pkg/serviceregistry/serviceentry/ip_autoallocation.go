@@ -51,10 +51,9 @@ func ShouldV2AutoAllocateIP(se *networkingv1alpha3.ServiceEntry) bool {
 		return false
 	}
 
-	// check for opt-out by user
-	// TODO: namespace opt-out?
-	disabledValue, disabledFound := se.Labels[constants.DisableV2AutoAllocationLabel]
-	if disabledFound && disabledValue == "true" {
+	// check for opt-in by user
+	enabledValue, enabledFound := se.Labels[constants.EnableV2AutoAllocationLabel]
+	if !enabledFound || enabledValue == "false" {
 		return false
 	}
 
