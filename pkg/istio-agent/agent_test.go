@@ -337,11 +337,11 @@ func TestAgent(t *testing.T) {
 		})
 	})
 	t.Run("Unhealthy SDS socket", func(t *testing.T) {
-		dir := filepath.Dir(security.WorkloadIdentitySocketPath)
+		dir := filepath.Dir(security.GetIstioSDSServerSocketPath())
 		os.MkdirAll(dir, 0o755)
 
 		// starting an unresponsive listener on the socket
-		l, err := net.Listen("unix", security.WorkloadIdentitySocketPath)
+		l, err := net.Listen("unix", security.GetIstioSDSServerSocketPath())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -356,11 +356,11 @@ func TestAgent(t *testing.T) {
 
 	t.Run("Unhealthy SDS socket - required", func(t *testing.T) {
 		// starting an unresponsive listener on the socket
-		a := NewAgent(nil, &AgentOptions{UseExternalWorkloadSDS: true}, nil, envoy.ProxyConfig{})
+		a := NewAgent(nil, &AgentOptions{WorkloadIdentitySocketFile: "non-default-sockfile"}, nil, envoy.ProxyConfig{})
 		ctx, done := context.WithCancel(context.Background())
 		_, err := a.Run(ctx)
 		if err == nil {
-			t.Fatalf("expected to return an error if SDS socket not provided")
+			t.Fatalf("expected to return an error if SDS socket not provided, and not default")
 		}
 		t.Cleanup(done)
 		t.Cleanup(func() {
@@ -703,7 +703,7 @@ func (a *AgentTest) Check(t *testing.T, expectedSDS ...string) map[string]*xds.A
 	sdsStreams := map[string]*xds.AdsTest{}
 	gotKeys := []string{}
 	for _, res := range xdstest.ExtractSecretResources(t, resp.Resources) {
-		sds := xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, security.WorkloadIdentitySocketPath)).
+		sds := xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, security.GetIstioSDSServerSocketPath())).
 			WithMetadata(meta).
 			WithTimeout(time.Second * 20) // CSR can be extremely slow with race detection enabled due to 2048 RSA
 		sds.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{res}})
