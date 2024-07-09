@@ -1265,7 +1265,8 @@ func addOverlappingEndpoints(s *xdsfake.FakeDiscoveryServer) {
 
 func addUnhealthyCluster(s *xdsfake.FakeDiscoveryServer) {
 	svc := &model.Service{
-		Hostname: "unhealthy.svc.cluster.local",
+		DefaultAddress: constants.UnspecifiedIP,
+		Hostname:       "unhealthy.svc.cluster.local",
 		Ports: model.PortList{
 			{
 				Name:     "tcp-dns",
