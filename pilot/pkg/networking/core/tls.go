@@ -100,7 +100,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 	return strings.Join(match.SniHosts, ",") + "|" + strings.Join(match.DestinationSubnets, ",")
 }
 
-func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
+func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDRs []string,
 	service *model.Service, bind string, listenPort *model.Port,
 	gateways sets.String, configs []config.Config,
 ) []*filterChainOpts {
@@ -143,10 +143,6 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
 					// destinationCIDR will be empty for services with VIPs
-					var destinationCIDRs []string
-					if destinationCIDR != "" {
-						destinationCIDRs = []string{destinationCIDR}
-					}
 					// Only set CIDR match if the listener is bound to an IP.
 					// If its bound to a unix domain socket, then ignore the CIDR matches
 					// Unix domain socket bound ports have Port value set to 0
@@ -209,7 +205,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			svcListenAddress = constants.UnspecifiedIPv6
 		}
 
-		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
+		if len(destinationCIDRs) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
 			sniHosts = []string{string(service.Hostname)}
 			for _, a := range service.Attributes.Aliases {
 				alt := GenerateAltVirtualHosts(a.Hostname.String(), 0, node.DNSDomain)
@@ -219,10 +215,6 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		}
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
 			model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
-		var destinationCIDRs []string
-		if destinationCIDR != "" {
-			destinationCIDRs = []string{destinationCIDR}
-		}
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
 			destinationCIDRs: destinationCIDRs,
@@ -234,7 +226,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 	return out
 }
 
-func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
+func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDRs []string,
 	service *model.Service, listenPort *model.Port,
 	gateways sets.String, configs []config.Config,
 ) []*filterChainOpts {
@@ -253,10 +245,6 @@ TcpLoop:
 	for _, cfg := range configs {
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tcp := range virtualService.Tcp {
-			var destinationCIDRs []string
-			if destinationCIDR != "" {
-				destinationCIDRs = []string{destinationCIDR}
-			}
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{
@@ -332,10 +320,6 @@ TcpLoop:
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
 			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, 0, &service.Attributes)
-		}
-		var destinationCIDRs []string
-		if destinationCIDR != "" {
-			destinationCIDRs = []string{destinationCIDR}
 		}
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: destinationCIDRs,
