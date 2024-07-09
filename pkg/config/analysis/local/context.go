@@ -104,6 +104,7 @@ func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName
 		collectionName: col,
 		name:           name,
 		cluster:        "default",
+		uid:            uid,
 	}
 	if result, ok := i.found[k]; ok {
 		return result
