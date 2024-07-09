@@ -3865,7 +3865,7 @@ spec:
 	}
 
 	t.RunTraffic(TrafficTestCase{
-		name:   fmt.Sprintf("send a request to one of the VIPs"),
+		name:   "send a request to one of the service entry VIPs",
 		config: serviceEntry,
 		opts: echo.CallOptions{
 			Address: address,
