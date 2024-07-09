@@ -3,6 +3,7 @@ kind: bug-fix
 area: traffic-management
 issue:
   - 51747
+  - 30282
 releaseNotes:
   - |
     **Fixed** matching multiple service VIPs in ServiceEntry.
