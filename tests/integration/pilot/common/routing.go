@@ -3826,7 +3826,7 @@ spec:
 	}
 }
 
-func TestServiceEntryWithMultipleVIPs(t TrafficContext) {
+func testServiceEntryWithMultipleVIPs(t TrafficContext) {
 	serviceEntry := fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
