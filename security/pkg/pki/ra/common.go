@@ -94,13 +94,13 @@ func ValidateCSR(csrPEM []byte, subjectIDs []string) bool {
 	// same process as performed on the client and comparing the generated CSR with the
 	// received CSR.
 
-	// Convert csrIDs to Host comma seperated string
+	// Convert csrIDs to Host comma separated string
 	hosts := strings.Join(csrIDs, ",")
-	// genCSRTemplate is the expected CSR template. The template's extensions are marshalled
+	// genCSRTemplate is the expected CSR template. The template's extensions are marshaled
 	// in the ExtraExtensions field. CreateCertificateRequest would normally add the SAN extensions
 	// from ExtraExtensions to the Extensions field. However, we are only generating the
 	// template here and not the actual CSR since we do not know the exact signing mechanisms
-	// of the client. Additionaly, if we compared extensions the the generated CSR and the orginal
+	// of the client. Additionally, if we compared extensions the the generated CSR and the orginal
 	// CSR would match since the hosts where constructed from the extracted SAN extensions.
 	genCSRTemplate, err := util.GenCSRTemplate(util.CertOptions{Host: hosts})
 	if err != nil {
@@ -156,7 +156,7 @@ func compareCSRs(orgCSR, genCSR *x509.CertificateRequest) bool {
 		}
 	}
 	// ExtraExtensions should not be populated in the orgCSR
-	if len(orgCSR.ExtraExtensions) != 0 {
+	if len(orgCSR.ExtraExtensions) > 0 {
 		return false
 	}
 	return true
