@@ -47,8 +47,8 @@ func convertPort(port *networking.ServicePort) *model.Port {
 }
 
 type HostAddress struct {
-	host    string
-	address string
+	host      string
+	addresses []string
 }
 
 // ServiceToServiceEntry converts from internal Service representation to ServiceEntry
@@ -182,21 +182,23 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 	hostAddresses := []*HostAddress{}
 	for _, hostname := range serviceEntry.Hosts {
 		if len(serviceEntry.Addresses) > 0 {
+			ha := &HostAddress{hostname, []string{}}
 			for _, address := range serviceEntry.Addresses {
-				// Check if address is an IP first because that is the most common case.
+				// Check if addresses is an IP first because that is the most common case.
 				if netutil.IsValidIPAddress(address) {
-					hostAddresses = append(hostAddresses, &HostAddress{hostname, address})
+					ha.addresses = append(ha.addresses, address)
 				} else if cidr, cidrErr := netip.ParsePrefix(address); cidrErr == nil {
 					newAddress := address
 					if cidr.Bits() == cidr.Addr().BitLen() {
-						// /32 mask. Remove the /32 and make it a normal IP address
+						// /32 mask. Remove the /32 and make it a normal IP addresses
 						newAddress = cidr.Addr().String()
 					}
-					hostAddresses = append(hostAddresses, &HostAddress{hostname, newAddress})
+					ha.addresses = append(ha.addresses, newAddress)
 				}
 			}
+			hostAddresses = append(hostAddresses, ha)
 		} else {
-			hostAddresses = append(hostAddresses, &HostAddress{hostname, constants.UnspecifiedIP})
+			hostAddresses = append(hostAddresses, &HostAddress{hostname, []string{constants.UnspecifiedIP}})
 		}
 	}
 
@@ -210,7 +212,7 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 			CreationTime:   creationTime,
 			MeshExternal:   serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 			Hostname:       host.Name(ha.host),
-			DefaultAddress: ha.address,
+			DefaultAddress: ha.addresses[0],
 			Ports:          svcPorts,
 			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
@@ -223,20 +225,10 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 				LabelSelectors:         labelSelectors,
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
-		}
-		addresses := serviceEntry.Addresses
-		if len(addresses) == 0 {
-			addresses = []string{constants.UnspecifiedIP}
-		}
-		// This logic ensures backward compatibility for non-ambient proxies.
-		// It makes sure that the default address is always the first VIP in the list, so there is no difference
-		// between using DefaultAddress or ClusterVIPs[0] to create a listener.
-		notDefaultAddresses := sets.New[string](addresses...).Delete(ha.address)
-		addresses = []string{ha.address}
-		addresses = append(addresses, sets.SortedList(notDefaultAddresses)...)
-		svc.ClusterVIPs = model.AddressMap{
-			Addresses: map[cluster.ID][]string{
-				clusterID: addresses,
+			ClusterVIPs: model.AddressMap{
+				Addresses: map[cluster.ID][]string{
+					clusterID: ha.addresses,
+				},
 			},
 		}
 		out = append(out, svc)
@@ -436,7 +428,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 		dnsServiceEntryOnly = true
 	}
 	if addr != "" && !netutil.IsValidIPAddress(addr) {
-		// k8s can't use workloads with hostnames in the address field.
+		// k8s can't use workloads with hostnames in the addresses field.
 		dnsServiceEntryOnly = true
 	}
 	tlsMode := getTLSModeFromWorkloadEntry(we)
