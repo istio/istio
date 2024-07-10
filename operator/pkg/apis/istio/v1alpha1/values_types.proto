@@ -913,11 +913,6 @@ message PilotConfig {
   // K8s annotations for the service account
   google.protobuf.Struct serviceAccountAnnotations = 56;
 
-  // ConfigSource describes a source of configuration data for networking
-  // rules, and other Istio configuration artifacts. Multiple data sources
-  // can be configured for a single control plane.
-  PilotConfigSource configSource = 31;
-
   // Specifies an extra root certificate in PEM format. This certificate will be trusted
   // by pilot when resolving JWKS URIs.
   string jwksResolverExtraRootCA = 32;
@@ -1045,14 +1040,6 @@ message TelemetryV2PrometheusConfig {
 // TelemetryV2StackDriverConfig controls telemetry v2 stackdriver settings.
 message TelemetryV2StackDriverConfig {
   google.protobuf.BoolValue enabled = 1;
-}
-
-// PilotConfigSource describes information about a configuration store inside a
-// mesh. A single control plane instance can interact with one or more data
-// sources.
-message PilotConfigSource {
-  // Describes the source of configuration, if nothing is specified default is MCP.
-  repeated string subscribedResources = 1;
 }
 
 // Configuration for a port.
