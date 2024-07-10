@@ -219,6 +219,13 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// If a user has enabled their namespace with automatic sidecar injection,
+			// the user will be warned and be presented with the command to delete the istio-injection label if they
+			// choose to do so.
+			hasSidecarInjection, err := namespaceHasLabelWithValue(kubeClient, ns, "istio-injection", "enabled")
+			if err != nil {
+				return err
+			}
 			if enrollNamespace {
 				if !overwrite && hasWaypoint {
 					// we don't want to error on the user when they don't explicitly overwrite namespaced Waypoints,
@@ -234,6 +241,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				if !namespaceIsLabeledAmbient {
 					fmt.Fprintf(cmd.OutOrStdout(), "Warning: namespace is not enrolled in ambient. Consider running\t"+
 						"`"+"kubectl label namespace %s istio.io/dataplane-mode=ambient"+"`\n", ns)
+				}
+				if hasSidecarInjection {
+					fmt.Fprintf(cmd.OutOrStdout(), "Warning: namespace is enrolled in sidecar mode. It takes precedence over ambient mode. Consider running\t"+
+						"`"+"kubectl label namespace %s istio-injection-"+"`\n", ns)
 				}
 			}
 			gw, err := makeGateway(true)
