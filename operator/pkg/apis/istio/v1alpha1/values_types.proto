@@ -844,9 +844,6 @@ message PilotConfig {
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   Resources resources = 9 [deprecated = true];
 
-  // Namespace that the configuration management feature is installed into, if different from Pilot namespace.
-  string configNamespace = 10;
-
   // Target CPU utilization used in HorizontalPodAutoscaler.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
