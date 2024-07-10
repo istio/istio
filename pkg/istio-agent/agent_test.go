@@ -619,9 +619,6 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		ProxyConfig:      mesh.DefaultProxyConfig(),
 	}
 
-	// Set this, as we aren't loading defaults from env
-	resp.agent.cfg.WorkloadIdentitySocketFile = security.DefaultWorkloadIdentitySocketFile
-
 	// Run through opts one time just to get the authenticators.
 	for _, opt := range opts {
 		resp = opt(resp)
@@ -657,6 +654,8 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		SDSFactory: func(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *meshconfig.PrivateKeyProvider) SDSService {
 			return sds.NewServer(options, workloadSecretCache, pkpConf)
 		},
+		// Set this, as we aren't loading defaults from env
+		WorkloadIdentitySocketFile: security.DefaultWorkloadIdentitySocketFile,
 	}
 
 	// Set-up envoy defaults
