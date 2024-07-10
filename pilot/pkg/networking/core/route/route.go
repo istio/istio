@@ -1242,6 +1242,9 @@ func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.R
 		// gRPC requests time out like any other requests using timeout or its default.
 		GrpcTimeoutHeaderMax: Notimeout,
 	}
+	out.GetRoute().RetryPolicy = &route.RetryPolicy{
+		RetryOn: "connect-failure,reset",
+	}
 	return out
 }
 
