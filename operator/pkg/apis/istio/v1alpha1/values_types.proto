@@ -568,9 +568,6 @@ message GlobalConfig {
   // Specifies the Configuration for each of the supported tracers.
   TracerConfig tracer = 33;
 
-  // Controls whether to use of Mesh Configuration Protocol to distribute configuration.
-  google.protobuf.BoolValue useMCP = 35;
-
   // Specifies the Istio control plane’s pilot Pod IP address or remote cluster DNS resolvable hostname.
   string remotePilotAddress = 48;
 
@@ -876,11 +873,6 @@ message PilotConfig {
   // This controls whether the mesh config map, generated from values.yaml is generated.
   // If false, pilot wil use default values or user-supplied values, in that order of preference.
   google.protobuf.BoolValue configMap = 18;
-
-  // Controls whether Pilot is configured through the Mesh Control Protocol (MCP).
-  //
-  // If set to true, Pilot requires an MCP server (like Galley) to be installed.
-  google.protobuf.BoolValue useMCP = 20;
 
   // Environment variables passed to the Pilot container.
   //
