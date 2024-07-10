@@ -51,9 +51,8 @@ func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocator, ipAllocateTestR
 	se := clienttest.NewDirectClient[*networkingv1alpha3.ServiceEntry, networkingv1alpha3.ServiceEntry, *networkingv1alpha3.ServiceEntryList](t, c)
 	ipController := ipallocate.NewIPAllocator(s, c)
 	// these would normally be the first addresses consumed, we should check that warming works by asserting that we get their nexts when we reconcile
-	v4 := netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next()
-	v6 := netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next()
-	kludge := autoallocate.ConditionKludge([]netip.Addr{v4, v6})
+	v4 := netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next().String()
+	v6 := netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().String()
 	se.CreateOrUpdateStatus(
 		&networkingv1alpha3.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
@@ -65,9 +64,14 @@ func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocator, ipAllocateTestR
 					"test.testing.io",
 				},
 			},
-			Status: v1alpha1.IstioStatus{
-				Conditions: []*v1alpha1.IstioCondition{&kludge},
-			},
+			Status: v1alpha3.ServiceEntryStatus{Addresses: []*v1alpha3.ServiceEntryAddress{
+				{
+					Value: v4,
+				},
+				{
+					Value: v6,
+				},
+			}},
 		},
 	)
 	go ipController.Run(s)
@@ -153,7 +157,7 @@ func TestIPAllocate(t *testing.T) {
 				},
 				Resolution: v1alpha3.ServiceEntry_DNS,
 			},
-			Status: v1alpha1.IstioStatus{
+			Status: v1alpha3.ServiceEntryStatus{
 				Conditions: []*v1alpha1.IstioCondition{
 					{
 						Type:    "test",
@@ -180,8 +184,8 @@ func TestIPAllocate(t *testing.T) {
 	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
 	assert.Equal(t,
 		len(rig.se.Get("beep", "boop").Status.Conditions),
-		2,
-		"assert that test SE still has 2 conditions")
+		1,
+		"assert that test SE still has its condition")
 	assert.Equal(t,
 		len(autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("opt-out", "boop"))),
 		0,
@@ -227,7 +231,10 @@ func TestIPAllocate(t *testing.T) {
 	// let's generate an even worse conflict now
 	// this is almost certainly caused by some bug in, none the less test we can recover
 	conflictingAddresses := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("beep", "boop"))
-	conflictingCondition := autoallocate.ConditionKludge(conflictingAddresses)
+	conflictingStatusAddresses := []*v1alpha3.ServiceEntryAddress{}
+	for _, a := range conflictingAddresses {
+		conflictingStatusAddresses = append(conflictingStatusAddresses, &v1alpha3.ServiceEntryAddress{Value: a.String()})
+	}
 	rig.se.Create(
 		&networkingv1alpha3.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
@@ -244,10 +251,8 @@ func TestIPAllocate(t *testing.T) {
 				},
 				Resolution: v1alpha3.ServiceEntry_DNS,
 			},
-			Status: v1alpha1.IstioStatus{
-				Conditions: []*v1alpha1.IstioCondition{
-					&conflictingCondition,
-				},
+			Status: v1alpha3.ServiceEntryStatus{
+				Addresses: conflictingStatusAddresses,
 			},
 		},
 	)

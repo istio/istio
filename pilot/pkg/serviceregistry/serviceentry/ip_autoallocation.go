@@ -15,10 +15,8 @@
 package serviceentry
 
 import (
-	"encoding/json"
 	"net/netip"
 
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -33,7 +31,16 @@ func GetV2AddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) []netip
 	if se == nil {
 		return []netip.Addr{}
 	}
-	return kludgeFromStatus(se.Status.GetConditions())
+	results := []netip.Addr{}
+	for _, addr := range se.Status.GetAddresses() {
+		parsed, err := netip.ParseAddr(addr.GetValue())
+		if err != nil {
+			// strange, we should have written these so it probaby should parse but for now unreadable is unusable and we move on
+			continue
+		}
+		results = append(results, parsed)
+	}
+	return results
 }
 
 func ShouldV2AutoAllocateIP(se *networkingv1alpha3.ServiceEntry) bool {
@@ -63,47 +70,4 @@ func ShouldV2AutoAllocateIP(se *networkingv1alpha3.ServiceEntry) bool {
 	}
 
 	return true
-}
-
-type ServiceEntryStatusKludge struct {
-	Addresses []string // json:"addresses"
-}
-
-func kludgeFromStatus(conditions []*v1alpha1.IstioCondition) []netip.Addr {
-	result := []netip.Addr{}
-	for _, c := range conditions {
-		if c == nil {
-			continue
-		}
-		if c.Type != IPAutoallocateStatusType {
-			continue
-		}
-		jsonAddresses := c.Message
-		kludge := ServiceEntryStatusKludge{}
-		err := json.Unmarshal([]byte(jsonAddresses), &kludge)
-		if err != nil {
-			continue
-		}
-		for _, address := range kludge.Addresses {
-			result = append(result, netip.MustParseAddr(address))
-		}
-	}
-	return result
-}
-
-func ConditionKludge(input []netip.Addr) v1alpha1.IstioCondition {
-	addresses := []string{}
-	for _, addr := range input {
-		addresses = append(addresses, addr.String())
-	}
-	kludge := ServiceEntryStatusKludge{
-		Addresses: addresses,
-	}
-	result, _ := json.Marshal(kludge)
-	return v1alpha1.IstioCondition{
-		Type:    IPAutoallocateStatusType,
-		Status:  "true",
-		Reason:  "AutoAllocatedAddress",
-		Message: string(result),
-	}
 }
