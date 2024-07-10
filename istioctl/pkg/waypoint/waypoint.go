@@ -244,7 +244,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}
 				if hasSidecarInjection {
 					fmt.Fprintf(cmd.OutOrStdout(), "Warning: namespace is enrolled in sidecar mode. It takes precedence over ambient mode. Consider running\t"+
-						"`"+"kubectl label namespace %s istio-injection-"+"`\n", ns)
+						"`"+"kubectl label namespace %s istio-injection=disabled"+"`\n", ns)
 				}
 			}
 			gw, err := makeGateway(true)
