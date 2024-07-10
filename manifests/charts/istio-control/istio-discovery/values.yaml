@@ -76,12 +76,6 @@ defaults:
     # JWKS URIs.
     jwksResolverExtraRootCA: ""
 
-    # This is used to set the source of configuration for
-    # the associated address in configSource, if nothing is specified
-    # the default MCP is assumed.
-    configSource:
-      subscribedResources: []
-
     # The following is used to limit how long a sidecar can be connected
     # to a pilot. It balances out load across pilot instances at the cost of
     # increasing system churn.
