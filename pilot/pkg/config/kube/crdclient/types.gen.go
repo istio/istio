@@ -333,7 +333,7 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 	case gvk.ServiceEntry:
 		return c.Istio().NetworkingV1alpha3().ServiceEntries(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapinetworkingv1alpha3.ServiceEntry{
 			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
+			Status:     *(cfg.Status.(*istioioapinetworkingv1alpha3.ServiceEntryStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.Sidecar:
 		return c.Istio().NetworkingV1alpha3().Sidecars(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapinetworkingv1alpha3.Sidecar{
