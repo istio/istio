@@ -644,7 +644,7 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 		}
 	}
 
-	for  _, svcAddr := range service.GetAllAddressesForProxy(node){
+	for _, svcAddr := range service.GetAllAddressesForProxy(node) {
 		if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
 			domains = appendDomainPort(domains, svcAddr, port)
 		}
