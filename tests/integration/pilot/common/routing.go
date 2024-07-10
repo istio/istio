@@ -5093,12 +5093,13 @@ func createService(t TrafficContext, name, ns, appLabelValue string, instances i
 				},
 			},
 		}
-		if _, err := t.Clusters().Default().Kube().CoreV1().Services(ns).Create(context.TODO(), svc, metav1.CreateOptions{});
-			err != nil && !kerrors.IsAlreadyExists(err) {
+		_, err := t.Clusters().Default().Kube().CoreV1().Services(ns).Create(context.TODO(), svc, metav1.CreateOptions{});
+		if err != nil && !kerrors.IsAlreadyExists(err) {
 			t.Errorf("failed to create service %s: %s", svc, err)
 		}
+
 		// Wait until a ClusterIP has been assigned.
-		err := retry.UntilSuccess(func() error {
+		err = retry.UntilSuccess(func() error {
 			svc, err := t.Clusters().Default().Kube().CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
 			if err != nil {
 				return err
