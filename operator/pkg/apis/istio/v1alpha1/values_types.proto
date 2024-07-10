@@ -414,16 +414,9 @@ message GlobalConfig {
   // List of certSigners to allow "approve" action in the ClusterRole
   repeated string certSigners = 68;
 
-  // TODO: remove this?
-  // No longer used.
-  string configRootNamespace = 50;
-
   // Controls whether the server-side validation is enabled.
   google.protobuf.BoolValue configValidation = 3;
 
-  // TODO: remove this?
-  // No longer used.
-  repeated string defaultConfigVisibilitySettings = 52;
   // Default k8s node selector for all the Istio control plane components
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
