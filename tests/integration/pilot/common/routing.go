@@ -5093,7 +5093,7 @@ func createService(t TrafficContext, name, ns, appLabelValue string, instances i
 				},
 			},
 		}
-		_, err := t.Clusters().Default().Kube().CoreV1().Services(ns).Create(context.TODO(), svc, metav1.CreateOptions{});
+		_, err := t.Clusters().Default().Kube().CoreV1().Services(ns).Create(context.TODO(), svc, metav1.CreateOptions{})
 		if err != nil && !kerrors.IsAlreadyExists(err) {
 			t.Errorf("failed to create service %s: %s", svc, err)
 		}
