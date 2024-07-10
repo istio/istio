@@ -900,11 +900,6 @@ message PilotConfig {
   // More info: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling
   repeated k8s.io.api.core.v1.Toleration tolerations = 26 [deprecated = true];
 
-  // Specifies whether protocol sniffing is enabled for outbound traffic.
-  google.protobuf.BoolValue enableProtocolSniffingForOutbound = 28 [deprecated = true];
-  // Specifies whether protocol sniffing is enabled for inbound traffic.
-  google.protobuf.BoolValue enableProtocolSniffingForInbound = 29 [deprecated = true];
-
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
