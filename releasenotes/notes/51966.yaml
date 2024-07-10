@@ -5,4 +5,4 @@ issue:
   - 51966
 releaseNotes:
   - |
-    **Added** stricter validation of Istio CSR requests when Istio is functioning as the RA and is configured with an external CA for workload certificate signing
+    **Added** stricter validation of CSRs when Istio is functioning as the RA and is configured with an external CA for workload certificate signing.
