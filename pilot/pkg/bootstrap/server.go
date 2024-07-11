@@ -1138,7 +1138,7 @@ func (s *Server) initControllers(args *PilotArgs) error {
 		s.initNodeUntaintController(args)
 	}
 
-	if features.EnableV2IPAutoallocate {
+	if features.EnableIPAutoallocate {
 		s.initIPAutoallocateController(args)
 	}
 

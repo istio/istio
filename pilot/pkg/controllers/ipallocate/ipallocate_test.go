@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -43,9 +44,8 @@ type ipAllocateTestRig struct {
 
 func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocator, ipAllocateTestRig) {
 	t.Helper()
-	features.EnableV2IPAutoallocate = true
-	s := make(chan struct{})
-	t.Cleanup(func() { close(s) })
+	features.EnableIPAutoallocate = true
+	s := test.NewStop(t)
 	c := kubelib.NewFakeClient()
 
 	se := clienttest.NewDirectClient[*networkingv1alpha3.ServiceEntry, networkingv1alpha3.ServiceEntry, *networkingv1alpha3.ServiceEntryList](t, c)
@@ -144,7 +144,7 @@ func TestIPAllocate(t *testing.T) {
 	rig.se.Create(
 		&networkingv1alpha3.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:              "beep",
+				Name:              "with-existing-status",
 				Namespace:         "boop",
 				CreationTimestamp: metav1.Now(),
 				Labels: map[string]string{
@@ -153,7 +153,7 @@ func TestIPAllocate(t *testing.T) {
 			},
 			Spec: v1alpha3.ServiceEntry{
 				Hosts: []string{
-					"beep.boop.testing.io",
+					"with-existing-status.boop.testing.io",
 				},
 				Resolution: v1alpha3.ServiceEntry_DNS,
 			},
@@ -170,7 +170,7 @@ func TestIPAllocate(t *testing.T) {
 		},
 	)
 	getter := func() []string {
-		addr := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("beep", "boop"))
+		addr := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
 		var res []string
 		for _, a := range addr {
 			res = append(res, a.String())
@@ -183,7 +183,7 @@ func TestIPAllocate(t *testing.T) {
 		netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().Next().String(),
 	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
 	assert.Equal(t,
-		len(rig.se.Get("beep", "boop").Status.Conditions),
+		len(rig.se.Get("with-existing-status", "boop").Status.GetConditions()),
 		1,
 		"assert that test SE still has its condition")
 	assert.Equal(t,
@@ -200,7 +200,8 @@ func TestIPAllocate(t *testing.T) {
 		"assert that we did not assign addresses when user supplied their own")
 
 	// Testing conflict resolution
-	addr := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("beep", "boop"))
+	addr := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
+	assert.Equal(t, len(addr), 2, "ensure we retrieved addresses to create a conflict with")
 	rig.se.Create(
 		&networkingv1alpha3.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
@@ -230,7 +231,8 @@ func TestIPAllocate(t *testing.T) {
 
 	// let's generate an even worse conflict now
 	// this is almost certainly caused by some bug in, none the less test we can recover
-	conflictingAddresses := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("beep", "boop"))
+	conflictingAddresses := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
+	assert.Equal(t, len(conflictingAddresses), 2, "ensure we retrieved addresses to create a conflict with")
 	conflictingStatusAddresses := []*v1alpha3.ServiceEntryAddress{}
 	for _, a := range conflictingAddresses {
 		conflictingStatusAddresses = append(conflictingStatusAddresses, &v1alpha3.ServiceEntryAddress{Value: a.String()})

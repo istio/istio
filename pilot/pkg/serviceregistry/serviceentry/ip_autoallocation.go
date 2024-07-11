@@ -45,7 +45,7 @@ func GetV2AddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) []netip
 
 func ShouldV2AutoAllocateIP(se *networkingv1alpha3.ServiceEntry) bool {
 	// if the feature is off we should not assign/use addresses
-	if !features.EnableV2IPAutoallocate {
+	if !features.EnableIPAutoallocate {
 		return false
 	}
 
