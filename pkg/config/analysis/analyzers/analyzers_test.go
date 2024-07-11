@@ -945,6 +945,22 @@ var testGrid = []testCase{
 			{msg.IneffectiveSelector, "Telemetry default/telemetry-ineffective"},
 		},
 	},
+	{
+		name:       "ServiceEntry Addresses Required Lower",
+		inputFiles: []string{"testdata/serviceentry-address-required-lower.yaml"},
+		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-lower"},
+		},
+	},
+	{
+		name:       "ServiceEntry Addresses Required Upper",
+		inputFiles: []string{"testdata/serviceentry-address-required-upper.yaml"},
+		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-upper"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
