@@ -18,11 +18,14 @@ package ambient
 import (
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
@@ -105,10 +108,17 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint
 }
 
 func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
+	var autoassignedAddresses []*workloadapi.NetworkAddress
 	addresses, err := slices.MapErr(svc.Spec.Addresses, a.toNetworkAddressFromCidr)
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
 		return nil
+	}
+	// if this se has autoallocation we can se autoallocated IP, otherwise it will remain an empty slice
+	if serviceentry.ShouldV2AutoAllocateIP(svc) {
+		for _, ipaddr := range serviceentry.GetV2AddressesFromServiceEntry(svc) {
+			autoassignedAddresses = append(autoassignedAddresses, a.toNetworkAddressFromIP(ipaddr))
+		}
 	}
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
@@ -131,11 +141,17 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
+		// if we have no user-provided addresses and h is not wildcarded and we have a supported resolution
+		// we can try to use autoassigned addresses
+		a := addresses
+		if len(a) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
+			a = autoassignedAddresses
+		}
 		res = append(res, &workloadapi.Service{
 			Name:            svc.Name,
 			Namespace:       svc.Namespace,
 			Hostname:        h,
-			Addresses:       addresses,
+			Addresses:       a,
 			Ports:           ports,
 			Waypoint:        waypointAddress,
 			SubjectAltNames: svc.Spec.SubjectAltNames,
