@@ -1273,7 +1273,7 @@ func TestStatNamePattern(t *testing.T) {
 		EnableAutoMtls: &wrappers.BoolValue{
 			Value: false,
 		},
-		InboundClusterStatName:  "LocalService_%SERVICE%",
+		InboundClusterStatName:  "LocalService_%SERVICE%;",
 		OutboundClusterStatName: "%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 	}
 
@@ -1284,8 +1284,8 @@ func TestStatNamePattern(t *testing.T) {
 			Host: "*.example.org",
 		},
 	})
-	g.Expect(xdstest.ExtractCluster("outbound|8080||*.example.org", clusters).AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(xdstest.ExtractCluster("inbound|10001||", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
+	g.Expect(xdstest.ExtractCluster("outbound|8080||*.example.org", clusters).AltStatName).To(Equal("*.example.org_default_8080;"))
+	g.Expect(xdstest.ExtractCluster("inbound|10001||", clusters).AltStatName).To(Equal("LocalService_*.example.org;"))
 }
 
 func TestDuplicateClusters(t *testing.T) {
