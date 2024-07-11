@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -46,6 +47,8 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 )
+
+var maxSecondsValue = int64((math.MaxInt64 - 999999999) / (1000 * 1000 * 1000)) // 9223372035, which is about 292 years.
 
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
@@ -386,6 +389,11 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 			statPrefix += constants.ClusterAltStatNameDelimeter
 		}
 		localCluster.cluster.AltStatName = statPrefix
+	}
+
+	if clusterType == cluster.Cluster_ORIGINAL_DST {
+		// Disable cleanup for inbound clusters - set to Max possible duration.
+		localCluster.cluster.CleanupInterval = durationpb.New(time.Duration(maxSecondsValue) * time.Second)
 	}
 
 	opts := buildClusterOpts{
