@@ -229,6 +229,20 @@ func TestIPAllocate(t *testing.T) {
 		netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().Next().Next().String(),
 	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
 
+	// Assert that we are not mutating user spec during resolution of conflicts
+	assert.EventuallyEqual(
+		t,
+		func() []string { return rig.se.Get("user-assigned conflict", "boop").Spec.Addresses },
+		[]string{addr[0].String()},
+		retry.Converge(10),
+	)
+	assert.Equal(
+		t,
+		len(rig.se.Get("user-assigned conflict", "boop").Spec.Addresses),
+		1,
+		"assert that we did not add to spec.addresses during conflict resolution",
+	)
+
 	// let's generate an even worse conflict now
 	// this is almost certainly caused by some bug in, none the less test we can recover
 	conflictingAddresses := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
