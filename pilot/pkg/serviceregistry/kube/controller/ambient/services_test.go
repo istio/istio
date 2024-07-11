@@ -352,7 +352,6 @@ func TestServiceEntryServices(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			// t.Setenv("PILOT_ENABLE_IP_AUTOALLOCATE", "true")
 			features.EnableIPAutoallocate = true
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest()
