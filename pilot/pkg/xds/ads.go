@@ -478,7 +478,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		s.computeProxyState(con.proxy, pushRequest)
 	}
 
-	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
+	if !s.ProxyNeedsPush(con.proxy, pushRequest) || (features.EnableConditionalXDSPush && pushRequest.SkipXDSPush) {
 		log.Debugf("Skipping push to %v, no updates required", con.ID())
 		return nil
 	}

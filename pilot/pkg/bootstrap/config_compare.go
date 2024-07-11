@@ -15,10 +15,12 @@
 package bootstrap
 
 import (
+	"reflect"
 	"strings"
 
 	gogoproto "github.com/gogo/protobuf/proto" // nolint: depguard
 	"google.golang.org/protobuf/proto"
+	gateway "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pkg/config"
 )
@@ -26,11 +28,26 @@ import (
 // needsPush checks whether the passed in config has same spec and hence push needs
 // to be triggered. This is to avoid unnecessary pushes only when labels have changed
 // for example.
-func needsPush(prev config.Config, curr config.Config) bool {
+func needsPush(prev config.Config, curr config.Config) (toPush bool, skipGenXDS bool) {
 	if prev.GroupVersionKind != curr.GroupVersionKind {
 		// This should never happen.
-		return true
+		return true, false
 	}
+
+	if prev.GroupVersionKind.Group == gateway.GroupName {
+		// We always push for Gateway API resources so that the status can be repaired.
+		return true, needsPushXDSForGatewayAPI(&prev, &curr)
+	}
+
+	return needsPushForOther(&prev, &curr), false
+}
+
+func needsPushXDSForGatewayAPI(prev *config.Config, curr *config.Config) bool {
+	// We skip the xDS push for Gateway API when the Spec is the same.
+	return reflect.DeepEqual(prev.Spec, curr.Spec)
+}
+
+func needsPushForOther(prev *config.Config, curr *config.Config) bool {
 	// If the config is not Istio, let us just push.
 	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") {
 		return true

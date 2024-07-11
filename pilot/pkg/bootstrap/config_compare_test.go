@@ -17,6 +17,8 @@ package bootstrap
 import (
 	"testing"
 
+	gateway "sigs.k8s.io/gateway-api/apis/v1"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -196,8 +198,135 @@ func TestNeedsPush(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := needsPush(c.prev, c.curr); got != c.expected {
+			if got, _ := needsPush(c.prev, c.curr); got != c.expected {
 				t.Errorf("unexpected needsPush result. expected: %v got: %v", c.expected, got)
+			}
+		})
+	}
+}
+
+func TestNeedsPushIfXDSPushCanBeSkipped(t *testing.T) {
+	cases := []struct {
+		name     string
+		prev     config.Config
+		curr     config.Config
+		expected bool
+	}{
+		{
+			name: "different gvk",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+				},
+				Spec: &networking.VirtualService{},
+			},
+			expected: false,
+		},
+		{
+			name: "istio gvk",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"test": "test-v1"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"test": "test-v2"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			expected: false,
+		},
+		{
+			name: "gateway API gvk spec change",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.HTTPRoute,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"gateway.istio.io/controller-version": "5"},
+				},
+				Spec: &gateway.HTTPRouteSpec{Hostnames: []gateway.Hostname{"test-host"}},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.HTTPRoute,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"gateway.istio.io/controller-version": "5"},
+				},
+				Spec: &gateway.HTTPRouteSpec{Hostnames: []gateway.Hostname{"test-host", "test-host2"}},
+			},
+			expected: false,
+		},
+		{
+			name: "gateway API gvk label change",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.HTTPRoute,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"gateway.istio.io/controller-version": "5"},
+				},
+				Spec: &gateway.HTTPRouteSpec{Hostnames: []gateway.Hostname{"test-host"}},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.HTTPRoute,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"gateway.istio.io/controller-version": "6"},
+				},
+				Spec: &gateway.HTTPRouteSpec{Hostnames: []gateway.Hostname{"test-host"}},
+			},
+			expected: true,
+		},
+		{
+			name: "gateway API gvk status change",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.HTTPRoute,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"gateway.istio.io/controller-version": "5"},
+				},
+				Spec:   &gateway.HTTPRouteSpec{Hostnames: []gateway.Hostname{"test-host"}},
+				Status: &gateway.HTTPRouteStatus{RouteStatus: gateway.RouteStatus{Parents: []gateway.RouteParentStatus{}}},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.HTTPRoute,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"gateway.istio.io/controller-version": "5"},
+				},
+				Spec: &gateway.HTTPRouteSpec{Hostnames: []gateway.Hostname{"test-host"}},
+			},
+			expected: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if _, got := needsPush(c.prev, c.curr); got != c.expected {
+				t.Errorf("unexpected skipped xds push result. expected: %v got: %v", c.expected, got)
 			}
 		})
 	}

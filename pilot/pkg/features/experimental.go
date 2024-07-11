@@ -196,6 +196,9 @@ var (
 	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
 		"If true, Istio will enable the Dual Stack feature.").Get()
 
+	EnableConditionalXDSPush = env.Register("ISTO_ENABLE_CONDITIONAL_XDS_PUSH", true,
+		"If enabled, Istio will not push xDS to Envoy if the xDS push can be skipped").Get()
+
 	// This is used in injection templates, it is not unused.
 	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
 		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")

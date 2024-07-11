@@ -877,14 +877,21 @@ func (s *Server) initRegistryEventHandlers() {
 	if s.configController != nil {
 		configHandler := func(prev config.Config, curr config.Config, event model.Event) {
 			log.Debugf("Handle event %s for configuration %s", event, curr.Key())
+
+			var skipXDSPush bool
 			// For update events, trigger push only if spec has changed.
-			if event == model.EventUpdate && !needsPush(prev, curr) {
-				log.Debugf("skipping push for %s as spec has not changed", prev.Key())
-				return
+			if event == model.EventUpdate {
+				var toPush bool
+				toPush, skipXDSPush = needsPush(prev, curr)
+				if !toPush {
+					log.Debugf("skipping push for %s as spec has not changed", prev.Key())
+					return
+				}
 			}
 			pushReq := &model.PushRequest{
 				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
+				SkipXDSPush:    skipXDSPush,
 				Reason:         model.NewReasonStats(model.ConfigUpdate),
 			}
 			s.XDSServer.ConfigUpdate(pushReq)
