@@ -387,7 +387,7 @@ copy-templates:
 		[[ "$$chart" == "ztunnel" ]] && flatten="true" || flatten="false" ; \
 		cat manifests/zzz_profile.yaml | \
 		  sed "s/FLATTEN_GLOBALS_REPLACEMENT/$${flatten}/g" \
-		  > manifests/charts/$$chart/templates/zzz_profile.gen.yaml ; \
+		  > manifests/charts/$$chart/templates/zzz_profile.yaml ; \
 	done
 
 #-----------------------------------------------------------------------------
