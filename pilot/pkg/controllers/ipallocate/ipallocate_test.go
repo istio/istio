@@ -223,7 +223,7 @@ func TestIPAllocate(t *testing.T) {
 			},
 		},
 	)
-	// check that this conflict was resolved as expected by allocating new auto-assigned addresses
+	// Assert this conflict was resolved as expected by allocating new auto-assigned addresses
 	assert.EventuallyEqual(t, getter, []string{
 		netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next().Next().Next().String(),
 		netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().Next().Next().String(),
@@ -237,6 +237,7 @@ func TestIPAllocate(t *testing.T) {
 	for _, a := range conflictingAddresses {
 		conflictingStatusAddresses = append(conflictingStatusAddresses, &v1alpha3.ServiceEntryAddress{Value: a.String()})
 	}
+	// create an auto-assigned conflict
 	rig.se.Create(
 		&networkingv1alpha3.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
@@ -255,10 +256,19 @@ func TestIPAllocate(t *testing.T) {
 			},
 			Status: v1alpha3.ServiceEntryStatus{
 				Addresses: conflictingStatusAddresses,
+				Conditions: []*v1alpha1.IstioCondition{
+					{
+						Type:    "test",
+						Status:  "asserting",
+						Reason:  "controllerTest",
+						Message: "this is a test condition, don't overwrite me",
+					},
+				},
 			},
 		},
 	)
 
+	// assert that conflicts are resolved on the newer SE
 	assert.EventuallyEqual(t, func() []string {
 		addr := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("status-conflict", "boop"))
 		var res []string
@@ -271,7 +281,13 @@ func TestIPAllocate(t *testing.T) {
 		netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().Next().Next().Next().String(),
 	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
 
-	// lets assert that the elder SE doesn't change for 10 consecutive tries
+	// assert that resolving conflicts does not destroy existing status items
+	assert.Equal(t,
+		len(rig.se.Get("status-conflict", "boop").Status.GetConditions()),
+		1,
+		"assert that status-conflict still has its condition")
+
+	// assert that the elder SE doesn't change for 10 consecutive tries
 	assert.EventuallyEqual(t, getter, []string{
 		netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next().Next().Next().String(),
 		netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().Next().Next().String(),
