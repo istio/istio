@@ -232,7 +232,7 @@ func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
 		if resolveMe == nil {
 			continue
 		}
-		log.Debugf("reassigned %s/%s due to IP Address conflict", resolveMe.Namespace, resolveMe.Name)
+		log.Warnf("reassigned %s/%s due to IP Address conflict", resolveMe.Namespace, resolveMe.Name)
 		patch, err := c.statusPatchForAddresses(resolveMe, true)
 		if err != nil {
 			errs = errors.Join(errs, err)
