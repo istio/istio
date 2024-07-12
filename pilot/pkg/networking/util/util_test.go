@@ -23,6 +23,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	"github.com/google/go-cmp/cmp"
@@ -30,6 +31,7 @@ import (
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -1710,6 +1712,102 @@ func TestMergeSubsetTrafficPolicy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			policy := MergeSubsetTrafficPolicy(tt.original, tt.subset, tt.port)
 			assert.Equal(t, policy, tt.expected)
+		})
+	}
+}
+
+func TestMeshNetworksToEnvoyInternalAddressConfig(t *testing.T) {
+	cases := []struct {
+		name           string
+		networks       *meshconfig.MeshNetworks
+		expectedconfig *hcm.HttpConnectionManager_InternalAddressConfig
+	}{
+		{
+			name:           "nil networks",
+			expectedconfig: nil,
+		},
+		{
+			name:           "empty networks",
+			networks:       &meshconfig.MeshNetworks{},
+			expectedconfig: nil,
+		},
+		{
+			name: "networks populated",
+			networks: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"default": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "192.168.0.0/16",
+								},
+							},
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "172.16.0.0/12",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedconfig: &hcm.HttpConnectionManager_InternalAddressConfig{
+				CidrRanges: []*core.CidrRange{
+					{
+						AddressPrefix: "172.16.0.0",
+						PrefixLen:     &wrappers.UInt32Value{Value: 12},
+					},
+					{
+						AddressPrefix: "192.168.0.0",
+						PrefixLen:     &wrappers.UInt32Value{Value: 16},
+					},
+				},
+			},
+		},
+		{
+			name: "multi v6",
+			networks: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"default": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "2001:db8:abcd::/48",
+								},
+							},
+						},
+					},
+					"other": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "2001:db8:def0:1234::/56",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedconfig: &hcm.HttpConnectionManager_InternalAddressConfig{
+				CidrRanges: []*core.CidrRange{
+					{
+						AddressPrefix: "2001:db8:abcd::",
+						PrefixLen:     &wrappers.UInt32Value{Value: 48},
+					},
+					{
+						AddressPrefix: "2001:db8:def0:1234::",
+						PrefixLen:     &wrappers.UInt32Value{Value: 56},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MeshNetworksToEnvoyInternalAddressConfig(tt.networks)
+			if !reflect.DeepEqual(tt.expectedconfig, got) {
+				t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, got)
+			}
 		})
 	}
 }

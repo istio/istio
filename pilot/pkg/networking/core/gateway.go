@@ -727,15 +727,7 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		httpConnManager.CodecType = hcm.HttpConnectionManager_HTTP3
 	}
 	if features.EnableHCMInternalNetworks && push.Networks != nil {
-		for _, internalnetwork := range push.Networks.GetNetworks() {
-			iac := &hcm.HttpConnectionManager_InternalAddressConfig{}
-			for _, ne := range internalnetwork.Endpoints {
-				if cidr := util.ConvertAddressToCidr(ne.GetFromCidr()); cidr != nil {
-					iac.CidrRanges = append(iac.CidrRanges, cidr)
-				}
-			}
-			httpConnManager.InternalAddressConfig = iac
-		}
+		httpConnManager.InternalAddressConfig = util.MeshNetworksToEnvoyInternalAddressConfig(push.Networks)
 	}
 
 	return httpConnManager
