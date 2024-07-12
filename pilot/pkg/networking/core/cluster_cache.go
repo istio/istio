@@ -189,7 +189,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 	}
 	return clusterCache{
 		clusterName:     clusterName,
-		proxyVersion:    cb.proxyVersion,
+		proxyVersion:    cb.proxyVersion.String(),
 		locality:        cb.locality,
 		proxyClusterID:  cb.clusterID,
 		proxySidecar:    cb.sidecarProxy(),

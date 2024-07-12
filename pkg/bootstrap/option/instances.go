@@ -265,14 +265,6 @@ func DiscoveryHost(value string) Instance {
 	return newOption("discovery_host", value)
 }
 
-func IstioMinorVersion(value int) Instance {
-	return newOption("istio_minor_version", value)
-}
-
-func IstioMajorVersion(value int) Instance {
-	return newOption("istio_major_version", value)
-}
-
 func MetadataDiscovery(value bool) Instance {
 	return newOption("metadata_discovery", value)
 }

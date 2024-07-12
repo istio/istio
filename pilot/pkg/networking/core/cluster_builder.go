@@ -89,7 +89,7 @@ type ClusterBuilder struct {
 	metadataCerts      *metadataCerts        // Client certificates specified in metadata.
 	clusterID          string                // Cluster in which proxy is running.
 	proxyID            string                // Identifier that uniquely identifies a proxy.
-	proxyVersion       string                // Version of Proxy.
+	proxyVersion       *model.IstioVersion   // Version of Proxy.
 	proxyType          model.NodeType        // Indicates whether the proxy is sidecar or gateway.
 	sidecarScope       *model.SidecarScope   // Computed sidecar for the proxy.
 	passThroughBindIPs []string              // Passthrough IPs to be used while building clusters.
@@ -113,7 +113,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		serviceTargets:     proxy.ServiceTargets,
 		proxyID:            proxy.ID,
 		proxyType:          proxy.Type,
-		proxyVersion:       proxy.Metadata.IstioVersion,
+		proxyVersion:       model.ParseIstioVersion(proxy.Metadata.IstioVersion),
 		sidecarScope:       proxy.SidecarScope,
 		passThroughBindIPs: getPassthroughBindIPs(proxy.GetIPMode()),
 		supportsIPv4:       proxy.SupportsIPv4(),
@@ -297,7 +297,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
 
-	if model.ParseIstioVersion(cb.proxyVersion).Minor >= 23 {
+	if util.IsIstioVersionGE123(cb.proxyVersion) {
 		c.AltStatName = name + constants.ClusterAltStatNameDelimeter
 	}
 
@@ -355,9 +355,9 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
 				string(service.Hostname), subset, port, 0, &service.Attributes)
 
-			// Add the cluster name delimeter if it's not the last character.
-			isGE23 := model.ParseIstioVersion(cb.proxyVersion).Minor >= 23
-			if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter && isGE23 {
+			// Add the cluster name delimeter if it's not the last character and the proxy version >= 1.23.
+			if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter &&
+				util.IsIstioVersionGE123(cb.proxyVersion) {
 				statPrefix += constants.ClusterAltStatNameDelimeter
 			}
 			ec.cluster.AltStatName = statPrefix
@@ -391,8 +391,8 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort,
 			&instance.Service.Attributes)
 		// Add the cluster name delimeter if it's not the last character.
-		isGE23 := model.ParseIstioVersion(cb.proxyVersion).Minor >= 23
-		if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter && isGE23 {
+		if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter &&
+			util.IsIstioVersionGE123(cb.proxyVersion) {
 			statPrefix += constants.ClusterAltStatNameDelimeter
 		}
 		localCluster.cluster.AltStatName = statPrefix
@@ -521,7 +521,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
-	if model.ParseIstioVersion(cb.proxyVersion).Minor >= 23 {
+	if util.IsIstioVersionGE123(cb.proxyVersion) {
 		c.AltStatName = util.BlackHoleCluster + constants.ClusterAltStatNameDelimeter
 	}
 	return c
@@ -539,7 +539,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
-	if model.ParseIstioVersion(cb.proxyVersion).Minor >= 23 {
+	if util.IsIstioVersionGE123(cb.proxyVersion) {
 		cluster.AltStatName = util.PassthroughCluster + constants.ClusterAltStatNameDelimeter
 	}
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
@@ -755,7 +755,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(options),
 		},
 	}
-	if model.ParseIstioVersion(cb.proxyVersion).Minor >= 23 {
+	if util.IsIstioVersionGE123(cb.proxyVersion) {
 		c.AltStatName = security.SDSExternalClusterName + constants.ClusterAltStatNameDelimeter
 	}
 	return c

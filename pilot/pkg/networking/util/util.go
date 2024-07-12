@@ -452,6 +452,12 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 	return retVal, nil
 }
 
+// IsIstioVersionGE123 checks whether the given Istio version is greater than or equals 1.23.
+func IsIstioVersionGE123(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 23, Patch: -1}) >= 0
+}
+
 // AppendLbEndpointMetadata adds metadata values to a lb endpoint using the passed in metadata as base.
 func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetadata *core.Metadata,
 ) {
@@ -881,5 +887,5 @@ func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.Tr
 }
 
 func VersionGreaterOrEqual124(proxy *model.Proxy) bool {
-	return proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 24, Patch: -1})
+	return proxy.VersionGreaterAndEqual(&model.IstioVersion{Major: 1, Minor: 24, Patch: -1})
 }

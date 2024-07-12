@@ -44,7 +44,6 @@ import (
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test"
@@ -109,10 +108,6 @@ func TestGolden(t *testing.T) {
 		},
 		{
 			base: "default",
-		},
-		{
-			base:                 "default122",
-			istioVersionOverride: "1.22.3",
 		},
 		{
 			base: "running",
@@ -350,7 +345,7 @@ func TestGolden(t *testing.T) {
 			}
 
 			checkStatsMatcher(t, realM, goldenM, c.stats)
-			checkStatsTags(t, c.istioVersionOverride, goldenM)
+			checkStatsTags(t, goldenM)
 
 			if c.check != nil {
 				c.check(realM, t)
@@ -429,18 +424,18 @@ func checkOpencensusConfig(t *testing.T, got, want *bootstrap.Bootstrap) {
 }
 
 // Test that our golden files all have proper stat tags
-func checkStatsTags(t *testing.T, istioVersion string, got *bootstrap.Bootstrap) {
+func checkStatsTags(t *testing.T, got *bootstrap.Bootstrap) {
 	for _, tag := range got.StatsConfig.StatsTags {
 		// TODO: Add checks for other tags
 		if tag.TagName == "cluster_name" {
-			checkClusterNameTag(t, istioVersion, tag.GetRegex())
+			checkClusterNameTag(t, tag.GetRegex())
 		}
 	}
 }
 
 // Envoy will remove the first capture group and set the tag to the second capture group.
 // We double check that the regex returns what we want here.
-func checkClusterNameTag(t *testing.T, istioVersion string, regex string) {
+func checkClusterNameTag(t *testing.T, regex string) {
 	if regex == "" {
 		t.Fatalf("cluster_name tag regex is empty")
 	}
@@ -455,8 +450,6 @@ func checkClusterNameTag(t *testing.T, istioVersion string, regex string) {
 		clusterName        string
 		firstCaptureGroup  string
 		secondCaptureGroup string
-		thirdCaptureGroup  string
-		versionLessThan23  bool
 	}{
 		{
 			name:               "cluster_name stats tag - external service",
@@ -476,39 +469,10 @@ func checkClusterNameTag(t *testing.T, istioVersion string, regex string) {
 			firstCaptureGroup:  ".xds-grpc;",
 			secondCaptureGroup: "xds-grpc",
 		},
-		{
-			name:               "cluster_name stats tag - external service (version < 1.23)",
-			clusterName:        "cluster.outbound|443||api.facebook.com.upstream_rq_retry",
-			firstCaptureGroup:  "outbound|443||api.",
-			secondCaptureGroup: "outbound|443||api",
-			versionLessThan23:  true,
-		},
-		{
-			name:               "cluster_name stats tag - internal kubernetes service (version < 1.23)",
-			clusterName:        "cluster.outbound|443||kubernetes.default.svc.cluster.local.upstream_rq_retry",
-			firstCaptureGroup:  "outbound|443||kubernetes.default.svc.cluster.local.",
-			secondCaptureGroup: "outbound|443||kubernetes.default.svc.cluster.local",
-			thirdCaptureGroup:  ".default.svc.cluster.local",
-			versionLessThan23:  true,
-		},
-		{
-			name:               "cluster_name stats tag - no dots in cluster name (version < 1.23)",
-			clusterName:        "cluster.xds-grpc.upstream_rq_retry",
-			firstCaptureGroup:  "xds-grpc.",
-			secondCaptureGroup: "xds-grpc",
-			versionLessThan23:  true,
-		},
 	}
 
 	for _, tt := range tc {
 		t.Run(tt.name, func(t *testing.T) {
-			v := model.ParseIstioVersion(istioVersion)
-			if v.Minor >= 23 && tt.versionLessThan23 {
-				t.Skip("Test is only for versions < 1.23")
-			}
-			if v.Minor < 23 && !tt.versionLessThan23 {
-				t.Skip("Test is only for versions >= 1.23")
-			}
 			subMatches := compiledRegex.FindStringSubmatch(tt.clusterName)
 			if subMatches == nil {
 				t.Fatalf("cluster_name tag regex does not match cluster name %s", tt.clusterName)
@@ -516,16 +480,9 @@ func checkClusterNameTag(t *testing.T, istioVersion string, regex string) {
 
 			// The first index is the whole match followed by N number of capture groups.
 			// There are 2 capture groups we expect in the regex, so we always check for 3
-			if !tt.versionLessThan23 && len(subMatches) != 3 {
+			if len(subMatches) != 3 {
 				t.Fatalf("unexpected number of capture groups: %d. Submatches: %v", len(subMatches), subMatches)
 			}
-
-			// In this case, we have the old regex so we expect 3 capture groups
-			// plus the whole match, so we look for 4.
-			if tt.versionLessThan23 && len(subMatches) != 4 {
-				t.Fatalf("unexpected number of capture groups: %d. Submatches: %v", len(subMatches), subMatches)
-			}
-
 			// Now we examine both of the capture groups (which start at index 1)
 			if subMatches[1] != tt.firstCaptureGroup {
 				t.Fatalf("first capture group does not match %s, got %s", tt.firstCaptureGroup, subMatches[1])
@@ -534,12 +491,6 @@ func checkClusterNameTag(t *testing.T, istioVersion string, regex string) {
 			// Finally, check the second capture group
 			if subMatches[2] != tt.secondCaptureGroup {
 				t.Fatalf("second capture group does not match %s, got %s", tt.secondCaptureGroup, subMatches[2])
-			}
-
-			if tt.thirdCaptureGroup != "" {
-				if subMatches[3] != tt.thirdCaptureGroup {
-					t.Fatalf("third capture group does not match %s, got %s", tt.thirdCaptureGroup, subMatches[3])
-				}
 			}
 		})
 	}
