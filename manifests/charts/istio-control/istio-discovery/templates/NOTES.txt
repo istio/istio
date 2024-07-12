@@ -6,7 +6,7 @@ To learn more about the release, try:
 
 Next steps:
 {{- $profile := default "" .Values.profile }}
-{{- if (eq $profile "ambient") }
+{{- if (eq $profile "ambient") }}
   * Get started with ambient: https://istio.io/latest/docs/ops/ambient/getting-started/
   * Review ambient's architecture: https://istio.io/latest/docs/ops/ambient/architecture/
 {{- else }}
