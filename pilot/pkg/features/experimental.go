@@ -61,19 +61,6 @@ var (
 		"If not empty, endpoints with the label value present will be sent with status DRAINING.",
 	).Get()
 
-	EnableDistributionTracking = env.Register(
-		"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING",
-		false,
-		"If enabled, Pilot will assign meaningful nonces to each Envoy configuration message, and allow "+
-			"users to interrogate which envoy has which config from the debug interface.",
-	).Get()
-
-	DistributionHistoryRetention = env.Register(
-		"PILOT_DISTRIBUTION_HISTORY_RETENTION",
-		time.Minute*1,
-		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
-	).Get()
-
 	MCSAPIGroup = env.Register("MCS_API_GROUP", "multicluster.x-k8s.io",
 		"The group to be used for the Kubernetes Multi-Cluster Services (MCS) API.").Get()
 
