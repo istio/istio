@@ -65,7 +65,7 @@
       {{- end }}
       {{- end }}
       {{- if .Values.global.remotePilotAddress }}
-      {{- if .Values.pilot.enabled }}
+      {{- if .Values.enabled }}
       discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
       {{- else }}
       discoveryAddress: {{ printf "istiod.%s.svc" .Release.Namespace }}:15012
@@ -80,7 +80,7 @@
 {{- $originalMesh := include "mesh" . | fromYaml }}
 {{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
 
-{{- if .Values.pilot.configMap }}
+{{- if .Values.configMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
