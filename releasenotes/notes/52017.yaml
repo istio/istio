@@ -5,4 +5,4 @@ issue:
   - 52016
 releaseNotes:
 - |
-  **Fixed** Explicitly set .profile to a string to support older version of Helm (namely v3.6 and v3.7).
+  **Fixed** the istiod chart installation for older Helm versions (v3.6 and v3.7) by ensuring that `.Values.profile` is set to a string.
