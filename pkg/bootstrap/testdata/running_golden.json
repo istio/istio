@@ -45,7 +45,7 @@
     "stats_tags": [
       {
         "tag_name": "cluster_name",
-        "regex": "cluster(\\.(.+);)"
+        "regex": "^cluster(\\.(.+);)"
       },
       {
         "tag_name": "tcp_prefix",

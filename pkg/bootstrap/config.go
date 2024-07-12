@@ -31,6 +31,7 @@ import (
 	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -115,7 +116,10 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.XdsType(xdsType),
 		option.MetadataDiscovery(bool(metadataDiscovery)),
 		option.MetricsLocalhostAccessOnly(cfg.Metadata.ProxyConfig.ProxyMetadata),
-		option.DeferredClusterCreation(features.EnableDeferredClusterCreation))
+		option.DeferredClusterCreation(features.EnableDeferredClusterCreation),
+		option.IstioMinorVersion(pilotmodel.ParseIstioVersion(cfg.Metadata.IstioVersion).Minor),
+		option.IstioMajorVersion(pilotmodel.ParseIstioVersion(cfg.Metadata.IstioVersion).Major),
+	)
 
 	// Add GCPProjectNumber to access in bootstrap template.
 	md := cfg.Metadata.PlatformMetadata

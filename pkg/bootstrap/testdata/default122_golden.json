@@ -9,7 +9,7 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"ENVOY_PROMETHEUS_PORT":15090,"ENVOY_STATUS_PORT":15021,"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","ISTIO_VERSION":"binary-1.0","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_tls_custom_sni","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","statusPort":15020,"tracing":{"tlsSettings":{"caCertificates":"/etc/zipkin/ca.pem","mode":"SIMPLE","sni":"zipkin-custom-sni"},"zipkin":{"address":"localhost:6000"}}}}
+    "metadata": {"ENVOY_PROMETHEUS_PORT":15090,"ENVOY_STATUS_PORT":15021,"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","ISTIO_VERSION":"1.22.3","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/default122","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","statusPort":15020}}
   },
   "layered_runtime": {
       "layers": [
@@ -40,7 +40,7 @@
     "stats_tags": [
       {
         "tag_name": "cluster_name",
-        "regex": "^cluster(\\.(.+);)"
+        "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
       },
       {
         "tag_name": "tcp_prefix",
@@ -316,31 +316,6 @@
         }
       }
       
-      ,
-      {
-        "name": "zipkin",
-        "alt_stat_name": "zipkin;",
-        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/zipkin/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"resource_api_version":"V3"}}}},"sni":"zipkin-custom-sni"}},
-        "type": "STRICT_DNS",
-        "respect_dns_ttl": true,
-        "dns_lookup_family": "V4_ONLY",
-        "dns_refresh_rate": "30s",
-        "connect_timeout": "1s",
-        "lb_policy": "ROUND_ROBIN",
-        "load_assignment": {
-          "cluster_name": "zipkin",
-          "endpoints": [{
-            "lb_endpoints": [{
-              "endpoint": {
-                "address":{
-                  "socket_address": {"address": "localhost", "port_value": 6000}
-                }
-              }
-            }]
-          }]
-        }
-      }
-      
       
     ],
     "listeners":[
@@ -445,20 +420,6 @@
         ]
       }
     ]
-  }
-  ,
-  "tracing": {
-    "http": {
-      "name": "envoy.tracers.zipkin",
-      "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.trace.v3.ZipkinConfig",
-        "collector_cluster": "zipkin",
-        "collector_endpoint": "/api/v2/spans",
-        "collector_endpoint_version": "HTTP_JSON",
-        "trace_id_128bit": true,
-        "shared_span_context": false
-      }
-    }
   }
   
   

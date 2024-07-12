@@ -293,10 +293,14 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 ) *clusterWrapper {
 	c := &cluster.Cluster{
 		Name:                 name,
-		AltStatName:          name + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
+
+	if model.ParseIstioVersion(cb.proxyVersion).Minor >= 23 {
+		c.AltStatName = name + constants.ClusterAltStatNameDelimeter
+	}
+
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
 		if networkutil.AllIPv4(cb.proxyIPAddresses) {
@@ -351,7 +355,9 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
 				string(service.Hostname), subset, port, 0, &service.Attributes)
 
-			if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter {
+			// Add the cluster name delimeter if it's not the last character.
+			isGE23 := model.ParseIstioVersion(cb.proxyVersion).Minor >= 23
+			if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter && isGE23 {
 				statPrefix += constants.ClusterAltStatNameDelimeter
 			}
 			ec.cluster.AltStatName = statPrefix
@@ -385,7 +391,8 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort,
 			&instance.Service.Attributes)
 		// Add the cluster name delimeter if it's not the last character.
-		if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter {
+		isGE23 := model.ParseIstioVersion(cb.proxyVersion).Minor >= 23
+		if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter && isGE23 {
 			statPrefix += constants.ClusterAltStatNameDelimeter
 		}
 		localCluster.cluster.AltStatName = statPrefix
@@ -510,10 +517,12 @@ func (cb *ClusterBuilder) buildInboundPassthroughCluster() *cluster.Cluster {
 func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
-		AltStatName:          util.BlackHoleCluster + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
+	}
+	if model.ParseIstioVersion(cb.proxyVersion).Minor >= 23 {
+		c.AltStatName = util.BlackHoleCluster + constants.ClusterAltStatNameDelimeter
 	}
 	return c
 }
@@ -523,13 +532,15 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
-		AltStatName:          util.PassthroughCluster + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
+	}
+	if model.ParseIstioVersion(cb.proxyVersion).Minor >= 23 {
+		cluster.AltStatName = util.PassthroughCluster + constants.ClusterAltStatNameDelimeter
 	}
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
 	cb.applyMetadataExchange(cluster)
@@ -730,7 +741,6 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 	}
 	c := &cluster.Cluster{
 		Name:                 security.SDSExternalClusterName,
-		AltStatName:          security.SDSExternalClusterName + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
@@ -744,6 +754,9 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(options),
 		},
+	}
+	if model.ParseIstioVersion(cb.proxyVersion).Minor >= 23 {
+		c.AltStatName = security.SDSExternalClusterName + constants.ClusterAltStatNameDelimeter
 	}
 	return c
 }

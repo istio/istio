@@ -78,7 +78,11 @@
     "stats_tags": [
       {
         "tag_name": "cluster_name",
-        "regex": "cluster(\\.(.+);)"
+        {{- if or (and (ge .istio_minor_version 23) (eq .istio_major_version 1 )) (gt .istio_major_version 1) }}
+        "regex": "^cluster(\\.(.+);)"
+        {{- else }}
+        "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
+        {{- end}}
       },
       {
         "tag_name": "tcp_prefix",
