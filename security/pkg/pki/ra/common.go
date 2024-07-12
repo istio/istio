@@ -14,7 +14,9 @@
 package ra
 
 import (
+	"bytes"
 	"crypto/x509"
+	"encoding/asn1"
 	"fmt"
 	"strings"
 	"time"
@@ -120,15 +122,17 @@ func compareCSRs(orgCSR, genCSR *x509.CertificateRequest) bool {
 	if orgCSR == nil || genCSR == nil {
 		return false
 	}
-	if orgCSR.Subject.CommonName != genCSR.Subject.CommonName {
+
+	orgSubj, err := asn1.Marshal(orgCSR.Subject.ToRDNSequence())
+	if err != nil {
 		return false
 	}
-	// Acceptable length is O or 1. GenCSR creates a CSR with an Org value of ""
-	if len(orgCSR.Subject.Organization) > 1 {
+	gensubj, err := asn1.Marshal(genCSR.Subject.ToRDNSequence())
+	if err != nil {
 		return false
 	}
-	// if the orgCSR has an organization, it should equal ""
-	if len(orgCSR.Subject.Organization) == 1 && orgCSR.Subject.Organization[0] != "" {
+
+	if !bytes.Equal(orgSubj, gensubj) {
 		return false
 	}
 	// Expected length is 0 or 1
