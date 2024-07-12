@@ -15,6 +15,14 @@
 package ra
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"os"
 	"path"
 	"testing"
@@ -53,73 +61,26 @@ SpAJos6OfJqyok7JXDdOYRDD5/hBerj68R9llWzNJd27/1jZ0NF2sIE1W4QFddy/
 e+5z6MTAO6ktvHdQlSuH6ARn47bJrZOlkttAhg==
 -----END CERTIFICATE-----
 `
-
-	// Steps to recreate CSR for testCSRWithCATrue
-	//
-	// cat > client.conf <<EOF
-	// [req]
-	// req_extensions = v3_req
-	// distinguished_name = req_distinguished_name
-	// [req_distinguished_name]
-	// [ v3_req ]
-	// basicConstraints = CA:TRUE
-	// keyUsage = nonRepudiation, digitalSignature, keyEncipherment
-	// extendedKeyUsage = clientAuth, serverAuth
-	// subjectAltName = @alt_names
-	// [alt_names]
-	// URI = spiffe://cluster.local/ns/default/sa/bookinfo-productpage
-	// EOF
-	//
-	// openssl ecparam -out ./key.pem -name prime256v1 -genkey
-	//
-	// openssl req -new -sha256 -key key.pem -out client.csr -subj /CN="" -config client.conf
-	testCSRWithCATrue = `-----BEGIN CERTIFICATE REQUEST-----
-MIIBUDCB9wIBADAAMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElNlH1xq0iqhW
-LjCEVV6W58UKS66yZgmcm81SDWxB2LH+eZ+61Udq6EElHd51C9XmPBoAln7TjDgO
-rP4Lsxl48qCBlDCBkQYJKoZIhvcNAQkOMYGDMIGAMAwGA1UdEwQFMAMBAf8wCwYD
-VR0PBAQDAgXgMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDATBEBgNVHREE
-PTA7hjlzcGlmZmU6Ly9jbHVzdGVyLmxvY2FsL25zL2RlZmF1bHQvc2EvYm9va2lu
-Zm8tcHJvZHVjdHBhZ2UwCgYIKoZIzj0EAwIDSAAwRQIgP8PYpt0pUOCGtz5PopBt
-ZkifGDtZspkygoghA/A8hw0CIQDJyJhcijKfHN1fri9VFKarjKYDpQXD9aiGtrMf
-PK0qAQ==
------END CERTIFICATE REQUEST-----
-`
-
-	// Steps to recretae CSR for testCSRWithInvalidCN
-	// cat > client-test3.conf <<EOF
-	// [req]
-	// req_extensions = v3_req
-	// distinguished_name = req_distinguished_name
-	// [req_distinguished_name]
-	// [ v3_req ]
-	// keyUsage = nonRepudiation, digitalSignature, keyEncipherment
-	// extendedKeyUsage = clientAuth, serverAuth
-	// subjectAltName = @alt_names
-	// [alt_names]
-	// URI = spiffe://cluster.local/ns/default/sa/bookinfo-productpage
-	// EOF
-
-	// openssl ecparam -out ./key.pem -name prime256v1 -genkey
-
-	// openssl req -new -sha256 -key key.pem -out client-test3.csr -subj "/CN=test.test.svc.cluster.local" -config client-test3.conf
-	testCSRWithInvalidCN = `-----BEGIN CERTIFICATE REQUEST-----
-MIIBTzCB9gIBADAPMQ0wCwYDVQQDDAR0ZXN0MFkwEwYHKoZIzj0CAQYIKoZIzj0D
-AQcDQgAEilbgGZrCywnsO9VCji1E2+9vNg5c4qSxSHeOx6v47V04k72BlemfSWYR
-1dl//qZTbTVBuIRGl2C8zD3kQ+2s1KCBhDCBgQYJKoZIhvcNAQkOMXQwcjALBgNV
-HQ8EBAMCBeAwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMBMEQGA1UdEQQ9
-MDuGOXNwaWZmZTovL2NsdXN0ZXIubG9jYWwvbnMvZGVmYXVsdC9zYS9ib29raW5m
-by1wcm9kdWN0cGFnZTAKBggqhkjOPQQDAgNIADBFAiB0LzGRZ1xg2QxMlNlb18uB
-ldHWJYmbT0gJp6ZncK/OUgIhALG0Wzg1UqGGJ3qfrqNw/QnAcp22eQO6Bc+r8plk
-wQBl
------END CERTIFICATE REQUEST-----
-`
 )
 
 var (
 	testCsrHostName       = spiffe.Identity{TrustDomain: "cluster.local", Namespace: "default", ServiceAccount: "bookinfo-productpage"}.String()
 	TestCACertFile        = "../testdata/example-ca-cert.pem"
 	mismatchCertChainFile = "../testdata/cert-chain.pem"
+
+	// The OID for the BasicConstraints extension (See
+	// https://www.alvestrand.no/objectid/2.5.29.19.html).
+	oidBasicConstraints = asn1.ObjectIdentifier{2, 5, 29, 19}
 )
+
+// basicConstraints is a structure that represents the ASN.1 encoding of the
+// BasicConstraints extension.
+// The structure is borrowed from
+// https://github.com/golang/go/blob/master/src/crypto/x509/x509.go#L975
+type basicConstraints struct {
+	IsCA       bool `asn1:"optional"`
+	MaxPathLen int  `asn1:"optional,default:-1"`
+}
 
 func TestK8sSignWithMeshConfig(t *testing.T) {
 	cases := []struct {
@@ -222,10 +183,12 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 	}
 }
 
+// createDefaultFakeCsr create a default fake CSR
 func createDefaultFakeCsr(t *testing.T) []byte {
 	return createFakeCsr(t, "")
 }
 
+// createFakeCsr creates a fake CSR with the given org
 func createFakeCsr(t *testing.T, org string) []byte {
 	options := pkiutil.CertOptions{
 		Host:       testCsrHostName,
@@ -240,6 +203,99 @@ func createFakeCsr(t *testing.T, org string) []byte {
 		return nil
 	}
 	return csrPEM
+}
+
+// genTestCSR generates a test CSR with more configurability than supported by the GenCSR() function
+// For basic CSR generation, use createFakeCsr() since this is more consistent with how istio-proxy
+// generated CSRs
+func genTestCSR(t *testing.T, options pkiutil.CertOptions, cn string) []byte {
+	// GenCSRTemplates configures the following fields:
+	// - CN if IsDualUse is set to true
+	// - ExtraExtensions for SANs using host values
+	// - Organization to the value of certOpts.Org
+	csr, err := pkiutil.GenCSRTemplate(options)
+	if err != nil {
+		t.Fatalf("Error creating fake CSR: %v", err)
+		return nil
+	}
+	// Set DNSNames
+	csr.DNSNames = append(csr.DNSNames, options.DNSNames)
+
+	// Set IsCA
+	basicConstraints, err := marshalBasicConstraints(options.IsCA)
+	if err != nil {
+		t.Fatalf("Error marshaling basic constraints: %v", err)
+	}
+	csr.Extensions = append(csr.Extensions, *basicConstraints)
+
+	// Allow setting CN even if isDualUse is false
+	if !options.IsDualUse && cn != "" {
+		csr.Subject.CommonName = cn
+	}
+
+	// Set certOptions not being tested
+	if options.RSAKeySize == 0 {
+		// MinimumRsaKeySize is 2048
+		options.RSAKeySize = 2048
+	}
+	if options.ECSigAlg == "" {
+		options.ECSigAlg = pkiutil.SupportedECSignatureAlgorithms("ECDSA")
+	}
+
+	// Generate private key for the CSR
+	// copied from GenCSR() in security/pkg/pki/util/generate_csr.go
+	var priv any
+	if options.ECSigAlg != "" {
+		switch options.ECSigAlg {
+		case pkiutil.EcdsaSigAlg:
+			var curve elliptic.Curve
+			switch options.ECCCurve {
+			case pkiutil.P384Curve:
+				curve = elliptic.P384()
+			default:
+				curve = elliptic.P256()
+			}
+			priv, err = ecdsa.GenerateKey(curve, rand.Reader)
+			if err != nil {
+				t.Fatalf("EC key generation failed (%v)", err)
+				return nil
+			}
+		default:
+			t.Fatalf("csr cert generation fails due to unsupported EC signature algorithm")
+			return nil
+		}
+	} else {
+		if options.RSAKeySize < pkiutil.MinimumRsaKeySize {
+			t.Fatalf("requested key size does not meet the minimum required size of %d (requested: %d)", pkiutil.MinimumRsaKeySize, options.RSAKeySize)
+			return nil
+		}
+
+		priv, err = rsa.GenerateKey(rand.Reader, options.RSAKeySize)
+		if err != nil {
+			t.Fatalf("RSA key generation failed (%v)", err)
+			return nil
+		}
+	}
+
+	// CreateCertificateRequest creates a new certificate using template and private key
+	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, csr, crypto.PrivateKey(priv))
+	if err != nil {
+		t.Fatalf("x509 CreateCertificateRequest (%v)", err)
+		return nil
+	}
+
+	return csrBytes
+}
+
+// marshalBasicConstraints marshals the isCA value into a BasicConstraints extension.
+func marshalBasicConstraints(isCA bool) (*pkix.Extension, error) {
+	ext := &pkix.Extension{Id: oidBasicConstraints, Critical: true}
+	// Leaving MaxPathLen as zero indicates that no maximum path
+	// length is desired, unless MaxPathLenZero is set. A value of
+	// -1 causes encoding/asn1 to omit the value as desired.
+	var err error
+	ext.Value, err = asn1.Marshal(basicConstraints{isCA, -1})
+	return ext, err
 }
 
 func initFakeKubeClient(t test.Failer, certificate []byte) kube.CLIClient {
@@ -306,6 +362,10 @@ func TestValidateCSR(t *testing.T) {
 	csrPEM := createDefaultFakeCsr(t)
 	csrPEMWithInvalidOrg := createFakeCsr(t, "Invalid-Org")
 
+	testCSRWithInvalidCN := genTestCSR(t, pkiutil.CertOptions{Host: testCsrHostName}, "test.test.svc.cluster.local")
+	testCSRWithCATrue := genTestCSR(t, pkiutil.CertOptions{Host: testCsrHostName, IsCA: true}, "")
+	testCSRWithDNSHostNames := genTestCSR(t, pkiutil.CertOptions{Host: testCsrHostName, DNSNames: "test.test.svc.cluster.local"}, "")
+
 	client := initFakeKubeClient(t, []byte(TestCertificatePEM))
 	_, err := createFakeK8sRA(client, TestCACertFile)
 	if err != nil {
@@ -333,18 +393,24 @@ func TestValidateCSR(t *testing.T) {
 			" succeeded when expected failure due invalid Org")
 	}
 
-	// Independently creating CSRs for tests for fields that are not configurable
-	// via GenCSR() - CN and CA
+	// Independently creating CSRs with GetTestCSR for tests for
+	// fields that are not configurable via GenCSR()
 	// Test Case 4
-	if ValidateCSR([]byte(testCSRWithInvalidCN), testSubjectIDs) {
+	if ValidateCSR(testCSRWithInvalidCN, testSubjectIDs) {
 		t.Errorf("Test 4: CSR Validation failed. CSR validation" +
 			" succeeded when expected failure due invalid CN")
 	}
 
 	// Test Case 5
-	if ValidateCSR([]byte(testCSRWithCATrue), testSubjectIDs) {
+	if ValidateCSR(testCSRWithCATrue, testSubjectIDs) {
 		t.Errorf("Test 5: CSR Validation failed. CSR validation" +
 			" succeeded when expected failure due to basic constraint" +
 			" CA being set to true")
+	}
+
+	// Test Case 6
+	if ValidateCSR(testCSRWithDNSHostNames, testSubjectIDs) {
+		t.Errorf("Test 5: CSR Validation failed. CSR validation" +
+			" succeeded when expected failure due to DNSHostNames")
 	}
 }
