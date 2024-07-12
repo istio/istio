@@ -22,6 +22,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
@@ -59,6 +61,7 @@ type Waypoint struct {
 	// want to index ServiceEntry/WorkloadEntry or possibly allow specifying
 	// the ServiceAccounts directly on a Gateway resource.
 	ServiceAccounts []string
+	AllowedRoutes   WaypointSelector
 }
 
 // fetchWaypointForInstance attempts to find a Waypoint a given object is an instance of.
@@ -92,7 +95,14 @@ func fetchWaypointForTarget(
 		// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
 		// o was reliant on the namespace waypoint and then get's a use-waypoint label added before that gateway is ready.
 		// goes from having a waypoint to having no waypoint and then eventually gets a waypoint back
-		return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wp.ResourceName()))
+		inst := krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wp.ResourceName()))
+		if inst != nil {
+			if !inst.AllowsAttachmentFromNamespaceOrLookup(ctx, Namespaces, fallbackNamespace) {
+				return nil
+			}
+			return inst
+		}
+		return nil
 	}
 
 	// try fetching the namespace-defined waypoint
@@ -102,7 +112,14 @@ func fetchWaypointForTarget(
 		// toss isNone, we don't need to know /why/ we got nil
 		wpNamespace, _ := getUseWaypoint(namespace.ObjectMeta, fallbackNamespace)
 		if wpNamespace != nil {
-			return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wpNamespace.ResourceName()))
+			inst := krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wpNamespace.ResourceName()))
+			if inst != nil {
+				if !inst.AllowsAttachmentFromNamespace(namespace) {
+					return nil
+				}
+				return inst
+			}
+			return nil
 		}
 	}
 
@@ -148,29 +165,17 @@ func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt
 	if labelValue, ok := meta.Labels[constants.AmbientUseWaypointLabel]; ok {
 		// NOTE: this means Istio reserves the word "none" in this field with a special meaning
 		//   a waypoint named "none" cannot be used and will be ignored
-		//   also reserve anything with suffix "/none" to prevent use of "namespace/none" as a work around
-		// ~ is used in other portions of the API, reserve it with special meaning although it's unlikely to be documented
-		if labelValue == "none" || labelValue == "~" || strings.HasSuffix(labelValue, "/none") {
+		if labelValue == "none" {
 			return nil, true
 		}
-		namespacedName := strings.Split(labelValue, "/")
-		switch len(namespacedName) {
-		case 1:
-			return &krt.Named{
-				Name:      namespacedName[0],
-				Namespace: defaultNamespace,
-			}, false
-		case 2:
-			return &krt.Named{
-				Name:      namespacedName[1],
-				Namespace: namespacedName[0],
-			}, false
-		default:
-			// malformed label error
-			log.Errorf("%s/%s, has a malformed %s label, value found: %s", meta.GetNamespace(), meta.GetName(), constants.AmbientUseWaypointLabel, labelValue)
-			return nil, false
+		namespace := defaultNamespace
+		if override, f := meta.Labels[constants.AmbientUseWaypointNamespaceLabel]; f {
+			namespace = override
 		}
-
+		return &krt.Named{
+			Name:      labelValue,
+			Namespace: namespace,
+		}, false
 	}
 	return nil, false
 }
@@ -287,8 +292,64 @@ func makeWaypoint(
 		Named:           krt.NewNamed(gateway),
 		Addresses:       getGatewayAddrs(gateway),
 		DefaultBinding:  makeInboundBinding(gateway, gatewayClass),
+		AllowedRoutes:   makeAllowedRoutes(gateway),
 		TrafficType:     trafficType,
 		ServiceAccounts: slices.Sort(serviceAccounts),
+	}
+}
+
+type WaypointSelector struct {
+	FromNamespaces v1beta1.FromNamespaces
+	Selector       labels.Selector
+}
+
+func (w Waypoint) AllowsAttachmentFromNamespaceOrLookup(ctx krt.HandlerContext, Namespaces krt.Collection[*v1.Namespace], namespace string) bool {
+	switch w.AllowedRoutes.FromNamespaces {
+	case gatewayv1.NamespacesFromAll:
+		return true
+	case gatewayv1.NamespacesFromSelector:
+		ns := ptr.OrEmpty[*v1.Namespace](krt.FetchOne[*v1.Namespace](ctx, Namespaces, krt.FilterKey(namespace)))
+		return w.AllowedRoutes.Selector.Matches(labels.Set(ns.GetLabels()))
+	case gatewayv1.NamespacesFromSame:
+		return w.Namespace == namespace
+	default:
+		// Should be impossible
+		return w.Namespace == namespace
+	}
+}
+
+func (w Waypoint) AllowsAttachmentFromNamespace(namespace *v1.Namespace) bool {
+	switch w.AllowedRoutes.FromNamespaces {
+	case gatewayv1.NamespacesFromAll:
+		return true
+	case gatewayv1.NamespacesFromSelector:
+		return w.AllowedRoutes.Selector.Matches(labels.Set(namespace.GetLabels()))
+	case gatewayv1.NamespacesFromSame:
+		return w.Namespace == namespace.Name
+	default:
+		// Should be impossible
+		return w.Namespace == namespace.Name
+	}
+}
+
+func makeAllowedRoutes(gateway *v1beta1.Gateway) WaypointSelector {
+	for _, l := range gateway.Spec.Listeners {
+		if l.Protocol == "HBONE" && l.Port == 15008 {
+			// This is our HBONE listener
+			if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
+				break
+			}
+			al := *l.AllowedRoutes.Namespaces
+			from := ptr.OrDefault(al.From, gatewayv1.NamespacesFromSame)
+			label, _ := metav1.LabelSelectorAsSelector(l.AllowedRoutes.Namespaces.Selector)
+			return WaypointSelector{
+				FromNamespaces: from,
+				Selector:       label,
+			}
+		}
+	}
+	return WaypointSelector{
+		FromNamespaces: gatewayv1.NamespacesFromSame,
 	}
 }
 
