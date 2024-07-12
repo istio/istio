@@ -17,7 +17,6 @@ package cache
 import (
 	"bytes"
 	"fmt"
-	"istio.io/istio/pkg/monitoring/monitortest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -29,6 +28,7 @@ import (
 
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
