@@ -946,19 +946,19 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "ServiceEntry Addresses Required Lower",
-		inputFiles: []string{"testdata/serviceentry-address-required-lower.yaml"},
+		name:       "ServiceEntry Addresses Required Lowercase Protocol",
+		inputFiles: []string{"testdata/serviceentry-address-required-lowercase.yaml"},
 		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
 		expected: []message{
-			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-lower"},
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-lowercase"},
 		},
 	},
 	{
-		name:       "ServiceEntry Addresses Required Upper",
-		inputFiles: []string{"testdata/serviceentry-address-required-upper.yaml"},
+		name:       "ServiceEntry Addresses Required Uppercase Protocol",
+		inputFiles: []string{"testdata/serviceentry-address-required-uppercase.yaml"},
 		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
 		expected: []message{
-			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-upper"},
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-uppercase"},
 		},
 	},
 }
