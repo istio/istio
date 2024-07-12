@@ -4,7 +4,11 @@ metadata:
   name: ztunnel
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- .Values.labels | toYaml | nindent 4}}
+    istio.io/component: ztunnel
+    operator.istio.io/component: Ztunnel
+    k8s-app: ztunnel
+    app: ztunnel
+{{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
   annotations:
     {{- .Values.annotations | toYaml | nindent 4 }}
 spec:
