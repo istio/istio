@@ -17,6 +17,7 @@ package cache
 import (
 	"bytes"
 	"fmt"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -38,6 +39,7 @@ import (
 )
 
 func TestWorkloadAgentGenerateSecret(t *testing.T) {
+	mt := monitortest.New(t)
 	fakeCACli, err := mock.NewMockCAClient(time.Hour, true)
 	var got, want []byte
 	if err != nil {
@@ -78,6 +80,9 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 	if got := sc.cache.GetRoot(); !bytes.Equal(got, want) {
 		t.Errorf("Got unexpected root certificate. Got: %v\n want: %v", string(got), string(want))
 	}
+
+	certDefaultTTL := time.Hour.Seconds()
+	mt.Assert(certExpirySeconds.Name(), map[string]string{"resource_name": "default"}, monitortest.LessThan(certDefaultTTL))
 }
 
 func createCache(t *testing.T, caClient security.Client, notifyCb func(resourceName string), options security.Options) *SecretManagerClient {
