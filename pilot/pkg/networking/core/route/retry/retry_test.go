@@ -112,6 +112,19 @@ func TestRetry(t *testing.T) {
 			},
 		},
 		{
+			name: "TestRetryOnWithResetBeforeRequest",
+			route: &networking.HTTPRoute{
+				Retries: &networking.HTTPRetry{
+					Attempts: 2,
+					RetryOn:  "reset-before-request",
+				},
+			},
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(Not(BeNil()))
+				g.Expect(policy.RetryOn).To(Equal("reset-before-request"))
+			},
+		},
+		{
 			name: "TestRetryOnWithWhitespace",
 			// Create a route with a retry policy with retryOn having white spaces.
 			route: &networking.HTTPRoute{
