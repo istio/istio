@@ -478,8 +478,13 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		s.computeProxyState(con.proxy, pushRequest)
 	}
 
-	if !s.ProxyNeedsPush(con.proxy, pushRequest) || (features.EnableConditionalXDSPush && pushRequest.SkipXDSPush) {
+	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
 		log.Debugf("Skipping push to %v, no updates required", con.ID())
+		return nil
+	}
+
+	if features.EnableConditionalXDSPush && pushRequest.SkipXDSPush {
+		log.Debugf("Skipping push to %v, no updates required because the push event is caused by gateway api status changing only", con.ID())
 		return nil
 	}
 

@@ -28,7 +28,7 @@ import (
 // needsPush checks whether the passed in config has same spec and hence push needs
 // to be triggered. This is to avoid unnecessary pushes only when labels have changed
 // for example.
-func needsPush(prev config.Config, curr config.Config) (toPush bool, skipGenXDS bool) {
+func needsPush(prev config.Config, curr config.Config) (toPush bool, skipXDSPush bool) {
 	if prev.GroupVersionKind != curr.GroupVersionKind {
 		// This should never happen.
 		return true, false
@@ -36,13 +36,13 @@ func needsPush(prev config.Config, curr config.Config) (toPush bool, skipGenXDS 
 
 	if prev.GroupVersionKind.Group == gateway.GroupName {
 		// We always push for Gateway API resources so that the status can be repaired.
-		return true, needsPushXDSForGatewayAPI(&prev, &curr)
+		return true, canSkipXDSPushForGatewayAPI(&prev, &curr)
 	}
 
 	return needsPushForOther(&prev, &curr), false
 }
 
-func needsPushXDSForGatewayAPI(prev *config.Config, curr *config.Config) bool {
+func canSkipXDSPushForGatewayAPI(prev *config.Config, curr *config.Config) bool {
 	// We skip the xDS push for Gateway API when the Spec is the same.
 	return reflect.DeepEqual(prev.Spec, curr.Spec)
 }
