@@ -1,4 +1,4 @@
-apiVersion: batch/v2alpha1
+apiVersion: batch/v1
 kind: CronJob
 metadata:
   creationTimestamp: null
@@ -100,7 +100,7 @@ spec:
             - name: ISTIO_META_WORKLOAD_NAME
               value: hellocron
             - name: ISTIO_META_OWNER
-              value: kubernetes://apis/batch/v2alpha1/namespaces/default/cronjobs/hellocron
+              value: kubernetes://apis/batch/v1/namespaces/default/cronjobs/hellocron
             - name: ISTIO_META_MESH_ID
               value: cluster.local
             - name: TRUST_DOMAIN
