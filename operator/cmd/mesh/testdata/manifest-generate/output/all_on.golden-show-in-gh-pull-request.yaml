@@ -10110,6 +10110,7 @@ data:
               .InfrastructureLabels
               (strdict
                 "gateway.networking.k8s.io/gateway-name" .Name
+                "istio.io/gateway-name" .Name
               ) | nindent 4 }}
         ---
         apiVersion: apps/v1
@@ -10124,6 +10125,7 @@ data:
               .InfrastructureLabels
               (strdict
                 "gateway.networking.k8s.io/gateway-name" .Name
+                "istio.io/gateway-name" .Name
                 "gateway.istio.io/managed" "istio.io-mesh-controller"
               ) | nindent 4 }}
           ownerReferences:
@@ -10157,6 +10159,7 @@ data:
                   .InfrastructureLabels
                   (strdict
                     "gateway.networking.k8s.io/gateway-name" .Name
+                    "istio.io/gateway-name" .Name
                     "gateway.istio.io/managed" "istio.io-mesh-controller"
                   ) | nindent 8}}
             spec:
@@ -10369,6 +10372,7 @@ data:
               .InfrastructureLabels
               (strdict
                 "gateway.networking.k8s.io/gateway-name" .Name
+                "istio.io/gateway-name" .Name
               ) | nindent 4 }}
           name: {{.DeploymentName | quote}}
           namespace: {{.Namespace | quote}}
@@ -10405,6 +10409,7 @@ data:
               .InfrastructureLabels
               (strdict
                 "gateway.networking.k8s.io/gateway-name" .Name
+                "istio.io/gateway-name" .Name
               ) | nindent 4 }}
         ---
         apiVersion: apps/v1
@@ -10419,6 +10424,7 @@ data:
               .InfrastructureLabels
               (strdict
                 "gateway.networking.k8s.io/gateway-name" .Name
+                "istio.io/gateway-name" .Name
               ) | nindent 4 }}
           ownerReferences:
           - apiVersion: gateway.networking.k8s.io/v1beta1
@@ -10450,6 +10456,7 @@ data:
                   .InfrastructureLabels
                   (strdict
                     "gateway.networking.k8s.io/gateway-name" .Name
+                    "istio.io/gateway-name" .Name
                   ) | nindent 8 }}
             spec:
               {{- if .KubeVersion122 }}
@@ -10716,6 +10723,7 @@ data:
               .InfrastructureLabels
               (strdict
                 "gateway.networking.k8s.io/gateway-name" .Name
+                "istio.io/gateway-name" .Name
               ) | nindent 4 }}
           name: {{.DeploymentName | quote}}
           namespace: {{.Namespace | quote}}
