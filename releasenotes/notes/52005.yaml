@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+releaseNotes:
+  - |
+    **Fixed** inconsistent behavior with the `istio_agent_cert_expiry_seconds` metric.
