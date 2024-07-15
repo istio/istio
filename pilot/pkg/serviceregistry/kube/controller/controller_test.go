@@ -417,7 +417,7 @@ func TestGetProxyServiceTargets(t *testing.T) {
 		Service: &model.Service{
 			Hostname: "svc1.nsa.svc.company.com",
 			ClusterVIPs: model.AddressMap{
-				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
+				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1", "10.0.0.2"}},
 			},
 			DefaultAddress:  "10.0.0.1",
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
@@ -477,7 +477,7 @@ func TestGetProxyServiceTargets(t *testing.T) {
 		Service: &model.Service{
 			Hostname: "svc1.nsa.svc.company.com",
 			ClusterVIPs: model.AddressMap{
-				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
+				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1", "10.0.0.2"}},
 			},
 			DefaultAddress:  "10.0.0.1",
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
@@ -531,7 +531,7 @@ func TestGetProxyServiceTargets(t *testing.T) {
 		Service: &model.Service{
 			Hostname: "svc1.nsa.svc.company.com",
 			ClusterVIPs: model.AddressMap{
-				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
+				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1", "10.0.0.2"}},
 			},
 			DefaultAddress:  "10.0.0.1",
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
@@ -1925,10 +1925,11 @@ func createServiceWithTargetPorts(controller *FakeController, name, namespace st
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "10.0.0.1", // FIXME: generate?
-			Ports:     svcPorts,
-			Selector:  selector,
-			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP:  "10.0.0.1", // FIXME: generate?
+			ClusterIPs: []string{"10.0.0.1", "10.0.0.2"},
+			Ports:      svcPorts,
+			Selector:   selector,
+			Type:       corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -1947,12 +1948,12 @@ func createServiceWait(controller *FakeController, name, namespace string, label
 func createService(controller *FakeController, name, namespace string, labels, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T,
 ) {
-	service := generateService(name, namespace, labels, annotations, ports, selector, "10.0.0.1")
+	service := generateService(name, namespace, labels, annotations, ports, selector, []string{"10.0.0.1", "10.0.0.2"})
 	clienttest.Wrap(t, controller.services).CreateOrUpdate(service)
 }
 
 func generateService(name, namespace string, labels, annotations map[string]string,
-	ports []int32, selector map[string]string, ip string,
+	ports []int32, selector map[string]string, ips []string,
 ) *corev1.Service {
 	svcPorts := make([]corev1.ServicePort, 0)
 	for _, p := range ports {
@@ -1971,10 +1972,11 @@ func generateService(name, namespace string, labels, annotations map[string]stri
 			Labels:      labels,
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: ip,
-			Ports:     svcPorts,
-			Selector:  selector,
-			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP:  ips[0],
+			ClusterIPs: ips,
+			Ports:      svcPorts,
+			Selector:   selector,
+			Type:       corev1.ServiceTypeClusterIP,
 		},
 	}
 }

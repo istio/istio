@@ -251,6 +251,8 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 		return
 	}
 	svc := esc.c.GetService(hostName)
+	svcNamespacedName := getServiceNamespacedName(slice)
+	svcCore := esc.c.services.Get(svcNamespacedName.Name, svcNamespacedName.Namespace)
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
 
 	for _, e := range slice.Endpoints {
@@ -275,7 +277,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 				}
 
 				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus)
-				if features.EnableDualStack && (pod != nil) && len(pod.Status.PodIPs) > 1 {
+				if features.EnableDualStack && pod != nil && svcCore != nil && len(pod.Status.PodIPs) > 1 && len(svcCore.Spec.ClusterIPs) > 1 {
 					// get the IP addresses for the dual stack pod
 					var addrs []string
 					for _, addr := range pod.Status.PodIPs {

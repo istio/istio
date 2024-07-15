@@ -292,7 +292,7 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 		map[string]string{}, // annotations
 		[]int32{80},
 		map[string]string{"app": "a"}, // selector
-		"10.0.0.1",
+		[]string{"10.0.0.1"},
 	))
 	fx.WaitOrFail(t, "xds")
 
