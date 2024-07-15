@@ -57,7 +57,7 @@ spec:
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
-        image: "{{ .Values.hub }}/{{ .Values.image | default "ztunnel" }}:{{ .Values.tag }}{{with (.Values.variant )}}-{{.}}{{end}}"
+        image: "{{ .Values.hub | default .Values.global.hub }}/{{ .Values.image | default "ztunnel" }}:{{ .Values.tag | default .Values.global.tag }}{{with (.Values.variant | default .Values.global.variant)}}-{{.}}{{end}}"
 {{- end }}
         ports:
         - containerPort: 15020
