@@ -945,6 +945,22 @@ var testGrid = []testCase{
 			{msg.IneffectiveSelector, "Telemetry default/telemetry-ineffective"},
 		},
 	},
+	{
+		name:       "ServiceEntry Addresses Required Lowercase Protocol",
+		inputFiles: []string{"testdata/serviceentry-address-required-lowercase.yaml"},
+		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-lowercase"},
+		},
+	},
+	{
+		name:       "ServiceEntry Addresses Required Uppercase Protocol",
+		inputFiles: []string{"testdata/serviceentry-address-required-uppercase.yaml"},
+		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-uppercase"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
