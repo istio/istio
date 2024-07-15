@@ -145,11 +145,15 @@ func TestDashboard(t *testing.T) {
 				ApplyOrFail(t)
 
 			// Apply just the grafana dashboards
-			cfg, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
+			cfgBytes, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.ConfigKube().YAML("istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"]).ApplyOrFail(t)
+			cfg := string(cfgBytes)
+			if ist.Settings().TelemetryNamespace != "istio-system" {
+				cfg = strings.ReplaceAll(cfg, "namespace: istio-system", fmt.Sprintf("namespace: %s", ist.Settings().TelemetryNamespace))
+			}
+			t.ConfigKube().YAML(ist.Settings().TelemetryNamespace, yml.SplitYamlByKind(cfg)["ConfigMap"]).ApplyOrFail(t)
 
 			// We will send a bunch of requests until the test exits. This ensures we are continuously
 			// getting new metrics ingested. If we just send a bunch at once, Prometheus may scrape them
@@ -250,7 +254,7 @@ func checkMetric(cl cluster.Cluster, p prometheus.Instance, query string, exclud
 }
 
 const gatewayConfig = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: echo-gateway
@@ -271,7 +275,7 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: echo
