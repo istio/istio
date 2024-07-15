@@ -10,7 +10,6 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
       ) | nindent 4 }}
   {{- if ge .KubeVersion 128 }}
   # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
@@ -33,7 +32,6 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
         "gateway.istio.io/managed" "istio.io-mesh-controller"
       ) | nindent 4 }}
   ownerReferences:
@@ -67,7 +65,6 @@ spec:
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
-            "istio.io/gateway-name" .Name
             "gateway.istio.io/managed" "istio.io-mesh-controller"
           ) | nindent 8}}
     spec:
@@ -285,7 +282,6 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
       ) | nindent 4 }}
   name: {{.DeploymentName | quote}}
   namespace: {{.Namespace | quote}}
