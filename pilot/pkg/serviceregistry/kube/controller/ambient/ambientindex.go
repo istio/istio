@@ -330,41 +330,21 @@ func (a *index) lookupService(key string) *model.ServiceInfo {
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
 	res := []model.AddressInfo{}
-	type kindindex struct {
-		k     kind.Kind
-		index int
-	}
-	addrm := map[netip.Addr]kindindex{}
+	seenAddresses := sets.New[netip.Addr]()
 	for _, wl := range a.workloads.List() {
-		overwrite := -1
 		write := true
 		for _, addr := range wl.Addresses {
 			a := byteIPToAddr(addr)
-			if existing, f := addrm[a]; f {
-				// This address was already found. We want unique addresses in the result.
-				// Pod > WorkloadEntry
-				if wl.Source == kind.Pod && existing.k != kind.Pod {
-					overwrite = existing.index
-					addrm[a] = kindindex{
-						k:     wl.Source,
-						index: overwrite,
-					}
-				} else {
-					write = false
-				}
+			if seenAddresses.InsertContains(a) {
+				// We have already seen this address. We don't want to include it.
+				// We do want to prefer Pods > WorkloadEntry to give precedence to Kubernetes. However, the underlying `a.workloads`
+				// already guarantees this, so no need to handle it here.
+				write = false
+				break
 			}
 		}
-		if overwrite >= 0 {
-			res[overwrite] = workloadToAddressInfo(wl.Workload)
-		} else if write {
+		if write {
 			res = append(res, workloadToAddressInfo(wl.Workload))
-			for _, addr := range wl.Addresses {
-				a := byteIPToAddr(addr)
-				addrm[a] = kindindex{
-					k:     wl.Source,
-					index: overwrite,
-				}
-			}
 		}
 	}
 	for _, s := range a.services.List() {
