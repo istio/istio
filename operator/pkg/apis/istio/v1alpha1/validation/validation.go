@@ -178,6 +178,7 @@ func validateFeatures(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperato
 	validators := []FeatureValidator{
 		CheckServicePorts,
 		CheckAutoScaleAndReplicaCount,
+		CheckTag,
 	}
 
 	for _, validator := range validators {
@@ -213,6 +214,16 @@ func CheckAutoScaleAndReplicaCount(values *valuesv1alpha1.Values, spec *v1alpha1
 		validateGateways(spec.GetComponents().GetEgressGateways(), "egress")
 	}
 
+	return
+}
+
+const distrolessVariant = "distroless"
+
+func CheckTag(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+	tag := spec.GetTag().GetStringValue()
+	if values.GetGlobal().GetVariant() == distrolessVariant && strings.HasSuffix(tag, distrolessVariant) {
+		errs = util.AppendErr(errs, fmt.Errorf("values.global.variant is already 'distroless'; 'distroless' tag addition is unnecessary"))
+	}
 	return
 }
 

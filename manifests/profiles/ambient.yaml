@@ -11,3 +11,5 @@ spec:
       enabled: false
   values:
     profile: ambient
+    global:
+      variant: distroless

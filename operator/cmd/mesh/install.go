@@ -180,11 +180,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		return fmt.Errorf("failed to get profile, namespace or enabled components: %v", err)
 	}
 
-	// detect ambiet distroless tag
-	if profile == ambientProfile && strings.HasSuffix(tag, "-distroless") {
-		return fmt.Errorf("ambient profile ambient variant is already set to 'distroless'; there is no need to add the '-distroless' tag: %q", tag)
-	}
-
 	// Ignore the err because we don't want to show
 	// "no running Istio pods in istio-system" for the first time
 	_ = detectIstioVersionDiff(p, tag, ns, kubeClient, iop)
@@ -241,7 +236,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 
 	// Post-install message
 	if profile == ambientProfile {
-		p.Println("The ambient profile has been installed successfully, enjoy Istio without sidecars!")
+		p.Println("The ambient profile has been installed successfully. Enjoy Istio without sidecars!")
 	}
 	return nil
 }
