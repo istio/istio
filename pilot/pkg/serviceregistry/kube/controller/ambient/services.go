@@ -34,20 +34,20 @@ import (
 )
 
 func (a *index) ServicesCollection(
-	Services krt.Collection[*v1.Service],
-	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
-	Waypoints krt.Collection[Waypoint],
-	Namespaces krt.Collection[*v1.Namespace],
+	services krt.Collection[*v1.Service],
+	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
 ) krt.Collection[model.ServiceInfo] {
-	ServicesInfo := krt.NewCollection(Services, a.serviceServiceBuilder(Waypoints, Namespaces), krt.WithName("ServicesInfo"))
-	ServiceEntriesInfo := krt.NewManyCollection(ServiceEntries, a.serviceEntryServiceBuilder(Waypoints, Namespaces), krt.WithName("ServiceEntriesInfo"))
+	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces), krt.WithName("ServicesInfo"))
+	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces), krt.WithName("ServiceEntriesInfo"))
 	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, krt.WithName("WorkloadServices"))
 	return WorkloadServices
 }
 
 func (a *index) serviceServiceBuilder(
-	Waypoints krt.Collection[Waypoint],
-	Namespaces krt.Collection[*v1.Namespace],
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
 		portNames := map[int32]model.ServicePortName{}
@@ -58,7 +58,7 @@ func (a *index) serviceServiceBuilder(
 			}
 		}
 		waypointKey := ""
-		waypoint := fetchWaypointForService(ctx, Waypoints, Namespaces, s.ObjectMeta)
+		waypoint := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
 		if waypoint != nil {
 			waypointKey = waypoint.ResourceName()
 		}
@@ -74,11 +74,11 @@ func (a *index) serviceServiceBuilder(
 }
 
 func (a *index) serviceEntryServiceBuilder(
-	Waypoints krt.Collection[Waypoint],
-	Namespaces krt.Collection[*v1.Namespace],
+	waypoints krt.Collection[Waypoint],
+	Nnamespaces krt.Collection[*v1.Namespace],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
-		waypoint := fetchWaypointForService(ctx, Waypoints, Namespaces, s.ObjectMeta)
+		waypoint := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		return a.serviceEntriesInfo(s, waypoint)
 	}

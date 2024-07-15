@@ -185,19 +185,19 @@ func (w Waypoint) ResourceName() string {
 }
 
 func WaypointsCollection(
-	Gateways krt.Collection[*v1beta1.Gateway],
-	GatewayClasses krt.Collection[*v1beta1.GatewayClass],
-	Pods krt.Collection[*v1.Pod],
+	gateways krt.Collection[*v1beta1.Gateway],
+	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
+	pods krt.Collection[*v1.Pod],
 ) krt.Collection[Waypoint] {
-	podsByNamespace := krt.NewNamespaceIndex(Pods)
-	return krt.NewCollection(Gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
+	podsByNamespace := krt.NewNamespaceIndex(pods)
+	return krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
 		if len(gateway.Status.Addresses) == 0 {
 			// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
 
-		instances := krt.Fetch(ctx, Pods, krt.FilterLabel(map[string]string{
+		instances := krt.Fetch(ctx, pods, krt.FilterLabel(map[string]string{
 			constants.GatewayNameLabel: gateway.Name,
 		}), krt.FilterIndex(podsByNamespace, gateway.Namespace))
 
@@ -208,7 +208,7 @@ func WaypointsCollection(
 		// default traffic type if neither GatewayClass nor Gateway specify a type
 		trafficType := constants.ServiceTraffic
 
-		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
+		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
 		if gatewayClass == nil {
 			log.Warnf("could not find GatewayClass %s for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
 		} else if tt, found := gatewayClass.Labels[constants.AmbientWaypointForTrafficTypeLabel]; found {
