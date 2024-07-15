@@ -531,10 +531,6 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	}
 	c, f := t.ComponentMaps[componentName]
 	if f && c.FlattenValues {
-		globals, ok := mergedVals["global"].(map[string]any)
-		if !ok {
-			return "", fmt.Errorf("global value isn't a map")
-		}
 		components, ok := mergedVals[c.ToHelmValuesTreeRoot].(map[string]any)
 		if !ok {
 			return "", fmt.Errorf("component value isn't a map")
@@ -551,9 +547,6 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 			if v, f := mergedVals[k]; f {
 				finalVals[k] = v
 			}
-		}
-		for k, v := range globals {
-			finalVals[k] = v
 		}
 		for k, v := range components {
 			finalVals[k] = v
