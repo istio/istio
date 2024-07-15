@@ -1,11 +1,9 @@
 global:
   variant: distroless
 
-enable:
-  istiod: true
-
 # Overrides for the `istiod-remote` dep
 istiod:
+  enabled: true
   profile: ambient
 
 # Overrides for the `ztunnel` dep
