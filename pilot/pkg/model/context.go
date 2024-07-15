@@ -497,7 +497,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	node.PrevSidecarScope = sidecarScope
 }
 
-func (node *Proxy) VersionGreaterAndEqual(inv *IstioVersion) bool {
+func (node *Proxy) VersionGreaterOrEqual(inv *IstioVersion) bool {
 	if inv == nil {
 		return true
 	}
