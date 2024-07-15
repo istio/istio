@@ -264,10 +264,10 @@ func (l listenerBinding) Primary() string {
 
 // Extra returns any additional bindings. This is always empty if dual stack is disabled
 func (l listenerBinding) Extra() []string {
-	if !features.EnableDualStack || len(l.binds) == 1 {
-		return nil
+	if len(l.binds) > 1 {
+		return l.binds[1:]
 	}
-	return l.binds[1:]
+	return nil
 }
 
 type outboundListenerEntry struct {
