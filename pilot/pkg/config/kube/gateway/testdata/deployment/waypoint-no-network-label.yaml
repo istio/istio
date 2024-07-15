@@ -11,7 +11,6 @@ metadata:
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
     gateway.networking.k8s.io/gateway-name: namespace
-    istio.io/gateway-name: namespace
     topology.istio.io/network: network-1
   name: namespace
   namespace: default
@@ -28,7 +27,6 @@ metadata:
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
     gateway.networking.k8s.io/gateway-name: namespace
-    istio.io/gateway-name: namespace
     topology.istio.io/network: network-1
   name: namespace
   namespace: default
@@ -52,7 +50,6 @@ spec:
         gateway.istio.io/managed: istio.io-mesh-controller
         gateway.networking.k8s.io/gateway-name: namespace
         istio.io/dataplane-mode: none
-        istio.io/gateway-name: namespace
         service.istio.io/canonical-name: namespace
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
@@ -233,7 +230,6 @@ metadata:
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
     gateway.networking.k8s.io/gateway-name: namespace
-    istio.io/gateway-name: namespace
     topology.istio.io/network: network-1
   name: namespace
   namespace: default
