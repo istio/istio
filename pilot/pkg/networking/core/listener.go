@@ -512,7 +512,9 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// as when app access itself by pod ip will not flow through this listener.
 							// Simultaneously, it will be duplicate with inbound listener.
 							// should continue if current IstioEndpoint instance has the same ip with the
-							// first ip of node IPaddresses
+							// first ip of node IPaddresses.
+							// The comparison works because both IstioEndpoint and Proxy always use the first PodIP (as provided by Kubernetes)
+							// as the first entry of their respective lists.
 							if instance.FirstAddressOrNil() == node.IPAddresses[0] {
 								continue
 							}

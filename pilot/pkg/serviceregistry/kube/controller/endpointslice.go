@@ -182,6 +182,8 @@ func (esc *endpointSliceController) serviceTargets(ep *v1.EndpointSlice, proxy *
 				log.Warnf("unexpected state, svc %v missing port %v", svc.Hostname, instance.ServicePortName)
 				continue
 			}
+			// The comparison works because both IstioEndpoint and Proxy always use the first PodIP (as provided by Kubernetes)
+			// as the first entry of their respective lists.
 			if proxy.IPAddresses[0] != instance.FirstAddressOrNil() {
 				continue
 			}
