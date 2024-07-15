@@ -2,6 +2,7 @@
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: "cluster.local"
+    clusterDomain: {{ .Values.global.proxy.clusterDomain | default "cluster.local" }}
 
     # The namespace to treat as the administrative root namespace for Istio configuration.
     # When processing a leaf namespace Istio will search for declarations in that namespace first

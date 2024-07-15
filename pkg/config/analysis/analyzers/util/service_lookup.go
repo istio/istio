@@ -29,12 +29,11 @@ import (
 
 func GetCustomClusterDomain(ctx analysis.Context) string {
 	cusClusterDomain := ""
-	// use meshConfig.trustDomain changed the default domain
-	// todo: replace by `values.global.proxy.clusterDomain`
+	// use values.global.proxy.clusterDomain changed the default domain
 	ctx.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
 		mc := r.Message.(*meshconfig.MeshConfig)
-		if mc.GetTrustDomain() != "" {
-			cusClusterDomain = mc.GetTrustDomain()
+		if mc.GetClusterDomain() != "" {
+			cusClusterDomain = mc.GetClusterDomain()
 			return false
 		}
 		return true
