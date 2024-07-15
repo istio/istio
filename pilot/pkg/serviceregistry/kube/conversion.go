@@ -50,6 +50,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	resolution := model.ClientSideLB
 	externalName := ""
 	nodeLocal := false
+	publishNotReadyAddresses := false
 
 	if svc.Spec.Type == corev1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		externalName = svc.Spec.ExternalName
@@ -65,6 +66,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 
 	if svc.Spec.ClusterIP == corev1.ClusterIPNone { // headless services should not be load balanced
 		resolution = model.Passthrough
+		publishNotReadyAddresses = svc.Spec.PublishNotReadyAddresses
 	} else if svc.Spec.ClusterIP != "" {
 		addrs[0] = svc.Spec.ClusterIP
 		if len(svc.Spec.ClusterIPs) > 1 {
@@ -102,13 +104,14 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 				clusterID: addrs,
 			},
 		},
-		Ports:           ports,
-		DefaultAddress:  addrs[0],
-		ServiceAccounts: serviceaccounts,
-		MeshExternal:    len(externalName) > 0,
-		Resolution:      resolution,
-		CreationTime:    svc.CreationTimestamp.Time,
-		ResourceVersion: svc.ResourceVersion,
+		Ports:                    ports,
+		DefaultAddress:           addrs[0],
+		ServiceAccounts:          serviceaccounts,
+		MeshExternal:             len(externalName) > 0,
+		Resolution:               resolution,
+		CreationTime:             svc.CreationTimestamp.Time,
+		ResourceVersion:          svc.ResourceVersion,
+		PublishNotReadyAddresses: publishNotReadyAddresses,
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
 			Name:            svc.Name,

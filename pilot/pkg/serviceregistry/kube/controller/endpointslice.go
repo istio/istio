@@ -233,6 +233,11 @@ func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus 
 	if e.Conditions.Ready == nil || *e.Conditions.Ready {
 		return model.Healthy
 	}
+	// For headless services if PublishNotReadyAddresses is set, we consider the endpoint healthy
+	// so that it is available in DNS queries in name table.
+	if svc != nil && svc.Resolution == model.Passthrough && svc.PublishNotReadyAddresses {
+		return model.Healthy
+	}
 
 	if features.PersistentSessionLabel != "" &&
 		svc != nil &&

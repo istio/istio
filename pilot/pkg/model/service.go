@@ -119,6 +119,8 @@ type Service struct {
 
 	// ResourceVersion represents the internal version of this object.
 	ResourceVersion string
+
+	PublishNotReadyAddresses bool `json:"publishNotReadyAddresses,omitempty"`
 }
 
 func (s *Service) NamespacedName() types.NamespacedName {
