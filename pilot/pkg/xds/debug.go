@@ -1032,6 +1032,7 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 	res := struct {
 		Workloads []jsonMarshalProto `json:"workloads"`
 		Services  []jsonMarshalProto `json:"services"`
+		Policies  []jsonMarshalProto `json:"policies"`
 	}{}
 	// WDS stores IPs as raw byte form. We want to view them as strings, so convert.
 	// This doesn't quite work ideally, since json marshal will write as base64, but its better than nothing
@@ -1071,7 +1072,9 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 			res.Services = append(res.Services, jsonMarshalProto{s})
 		}
 	}
-
+	for _, policy := range s.Env.ServiceDiscovery.Policies(nil) {
+		res.Policies = append(res.Policies, jsonMarshalProto{policy.Authorization})
+	}
 	writeJSON(w, res, req)
 }
 
