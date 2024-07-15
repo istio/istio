@@ -600,12 +600,12 @@ func TestGetAllAddresses(t *testing.T) {
 		expectedExtraAddresses []string
 	}{
 		{
-			name: "IPv4 mode, only IPv4 addresses, expected to return all of the Service addresses",
+			name: "IPv4 mode, IPv4 and IPv6 CIDR addresses, expected to return only IPv4 addresses",
 			service: &Service{
 				DefaultAddress: "10.0.0.0/28",
 				ClusterVIPs: AddressMap{
 					Addresses: map[cluster.ID][]string{
-						"id": {"10.0.0.0/28", "10.0.0.16/28"},
+						"id": {"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32/96", "::ffff:10.0.0.48/96"},
 					},
 				},
 			},
@@ -614,61 +614,47 @@ func TestGetAllAddresses(t *testing.T) {
 			expectedExtraAddresses: []string{"10.0.0.16/28"},
 		},
 		{
-			name: "IPv4 mode, IPv4 and IPv6 addresses, expected to return only IPv4 addresses",
+			name: "IPv6 mode, IPv4 and IPv6 CIDR addresses, expected to return only IPv6 addresses",
 			service: &Service{
 				DefaultAddress: "10.0.0.0/28",
 				ClusterVIPs: AddressMap{
 					Addresses: map[cluster.ID][]string{
-						"id": {"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
-					},
-				},
-			},
-			ipMode:                 IPv4,
-			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28"},
-			expectedExtraAddresses: []string{"10.0.0.16/28"},
-		},
-		{
-			name: "IPv6 mode, IPv4 and IPv6 addresses, expected to return only IPv6 addresses",
-			service: &Service{
-				DefaultAddress: "10.0.0.0/28",
-				ClusterVIPs: AddressMap{
-					Addresses: map[cluster.ID][]string{
-						"id": {"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+						"id": {"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32/96", "::ffff:10.0.0.48/96"},
 					},
 				},
 			},
 			ipMode:                 IPv6,
-			expectedAddresses:      []string{"::ffff:10.0.0.32", "::ffff:10.0.0.48"},
-			expectedExtraAddresses: []string{"::ffff:10.0.0.48"},
+			expectedAddresses:      []string{"::ffff:10.0.0.32/96", "::ffff:10.0.0.48/96"},
+			expectedExtraAddresses: []string{"::ffff:10.0.0.48/96"},
 		},
 		{
 			name: "dual mode, ISTIO_DUAL_STACK disabled, IPv4 and IPv6 addresses, expected to return only IPv4 addresses",
 			service: &Service{
-				DefaultAddress: "10.0.0.0/28",
+				DefaultAddress: "10.0.0.0",
 				ClusterVIPs: AddressMap{
 					Addresses: map[cluster.ID][]string{
-						"id": {"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+						"id": {"10.0.0.0", "10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
 					},
 				},
 			},
 			ipMode:                 Dual,
-			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28"},
-			expectedExtraAddresses: []string{"10.0.0.16/28"},
+			expectedAddresses:      []string{"10.0.0.0", "10.0.0.16"},
+			expectedExtraAddresses: []string{"10.0.0.16"},
 		},
 		{
 			name: "dual mode, ISTIO_DUAL_STACK enabled, IPv4 and IPv6 addresses, expected to return only IPv4 addresses",
 			service: &Service{
-				DefaultAddress: "10.0.0.0/28",
+				DefaultAddress: "10.0.0.0",
 				ClusterVIPs: AddressMap{
 					Addresses: map[cluster.ID][]string{
-						"id": {"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+						"id": {"10.0.0.0", "10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
 					},
 				},
 			},
 			ipMode:                 Dual,
 			dualStackEnabled:       true,
-			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
-			expectedExtraAddresses: []string{"10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedAddresses:      []string{"10.0.0.0", "10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedExtraAddresses: []string{"10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
 		},
 		{
 			name: "IPv4 mode, ISTIO_DUAL_STACK disabled, ambient enabled, IPv4 and IPv6 addresses, expected to return all addresses",
