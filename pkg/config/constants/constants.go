@@ -163,8 +163,6 @@ const (
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
 
-	// DeprecatedGatewayNameLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
-	DeprecatedGatewayNameLabel = "istio.io/gateway-name"
 	// GatewayNameLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
 	GatewayNameLabel = "gateway.networking.k8s.io/gateway-name"
 
