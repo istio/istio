@@ -5083,15 +5083,18 @@ func createService(t TrafficContext, name, ns, appLabelValue string, instances i
 					"app": appLabelValue,
 				},
 				Type: corev1.ServiceTypeClusterIP,
-				Ports: []corev1.ServicePort{
-					{
-						Name:       ports.HTTPS.Name,
-						Protocol:   corev1.ProtocolTCP,
-						Port:       int32(ports.HTTPS.ServicePort),
-						TargetPort: intstr.IntOrString{IntVal: int32(ports.HTTPS.WorkloadPort)},
-					},
-				},
 			},
+		}
+		for _, p := range ports.All() {
+			if p.ServicePort == echo.NoServicePort {
+				continue
+			}
+			svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+				Name:       p.Name,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       int32(p.ServicePort),
+				TargetPort: intstr.IntOrString{IntVal: int32(ports.HTTPS.WorkloadPort)},
+			})
 		}
 		_, err := t.Clusters().Default().Kube().CoreV1().Services(ns).Create(context.TODO(), svc, metav1.CreateOptions{})
 		if err != nil && !kerrors.IsAlreadyExists(err) {
