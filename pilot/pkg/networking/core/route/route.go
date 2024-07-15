@@ -1243,7 +1243,10 @@ func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.R
 		GrpcTimeoutHeaderMax: Notimeout,
 	}
 	out.GetRoute().RetryPolicy = &route.RetryPolicy{
-		RetryOn: "connect-failure,reset",
+		RetryOn: "connect-failure,reset-before-request",
+		NumRetries: &wrapperspb.UInt32Value{
+			Value: 2,
+		},
 	}
 	return out
 }
