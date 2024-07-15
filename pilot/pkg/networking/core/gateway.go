@@ -796,7 +796,7 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 			}
 		}
 		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
-	} else if !gateway.IsPassThroughServer(server) {
+	} else if protocol.Parse(server.Port.Protocol) == protocol.TCP && !gateway.IsPassThroughServer(server) {
 		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 		// and forward to backend
 		// Validation ensures that non-passthrough servers will have certs
@@ -810,9 +810,12 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 			}
 		}
 		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
+	} else if protocol.Parse(server.Port.Protocol) == protocol.TLS && server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL && !gateway.IsPassThroughServer(server) {
+		// TLS with sni routing, and mTLS for Authorization
+		return lb.buildGatewayNetworkFiltersFromTLSRoutes(server, listenerPort, gatewayName, tlsHostsByPort, buildGatewayListenerTLSContext(lb.push.Mesh, server, lb.node, istionetworking.TransportProtocolTCP))
 	} else {
 		// Passthrough server.
-		return lb.buildGatewayNetworkFiltersFromTLSRoutes(server, listenerPort, gatewayName, tlsHostsByPort)
+		return lb.buildGatewayNetworkFiltersFromTLSRoutes(server, listenerPort, gatewayName, tlsHostsByPort, nil)
 	}
 
 	return []*filterChainOpts{}
@@ -867,7 +870,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
 // server's port and hostnames, and produces network filters for each destination from the filtered services
 func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *networking.Server,
-	listenerPort uint32, gatewayName string, tlsHostsByPort map[uint32]map[string]string,
+	listenerPort uint32, gatewayName string, tlsHostsByPort map[uint32]map[string]string, tlsContext *tls.DownstreamTlsContext
 ) []*filterChainOpts {
 	port := &model.Port{
 		Name:     server.Port.Name,
@@ -923,7 +926,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 						// the sni hosts in the match will become part of a filter chain match
 						filterChains = append(filterChains, &filterChainOpts{
 							sniHosts:       match.SniHosts,
-							tlsContext:     nil, // NO TLS context because this is passthrough
+							tlsContext:     tlsContext,
 							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false),
 						})
 					}
