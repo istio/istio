@@ -591,12 +591,13 @@ func TestParseSubsetKeyHostname(t *testing.T) {
 
 func TestGetAllAddresses(t *testing.T) {
 	tests := []struct {
-		name              string
-		service           *Service
-		ipMode            IPMode
-		dualStackEnabled  bool
-		ambientEnabled    bool
-		expectedAddresses []string
+		name                   string
+		service                *Service
+		ipMode                 IPMode
+		dualStackEnabled       bool
+		ambientEnabled         bool
+		expectedAddresses      []string
+		expectedExtraAddresses []string
 	}{
 		{
 			name: "IPv4 mode, only IPv4 addresses, expected to return all of the Service addresses",
@@ -608,8 +609,9 @@ func TestGetAllAddresses(t *testing.T) {
 					},
 				},
 			},
-			ipMode:            IPv4,
-			expectedAddresses: []string{"10.0.0.0/28", "10.0.0.16/28"},
+			ipMode:                 IPv4,
+			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28"},
+			expectedExtraAddresses: []string{"10.0.0.16/28"},
 		},
 		{
 			name: "IPv4 mode, IPv4 and IPv6 addresses, expected to return only IPv4 addresses",
@@ -621,8 +623,9 @@ func TestGetAllAddresses(t *testing.T) {
 					},
 				},
 			},
-			ipMode:            IPv4,
-			expectedAddresses: []string{"10.0.0.0/28", "10.0.0.16/28"},
+			ipMode:                 IPv4,
+			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28"},
+			expectedExtraAddresses: []string{"10.0.0.16/28"},
 		},
 		{
 			name: "IPv6 mode, IPv4 and IPv6 addresses, expected to return only IPv6 addresses",
@@ -634,8 +637,9 @@ func TestGetAllAddresses(t *testing.T) {
 					},
 				},
 			},
-			ipMode:            IPv6,
-			expectedAddresses: []string{"::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			ipMode:                 IPv6,
+			expectedAddresses:      []string{"::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedExtraAddresses: []string{"::ffff:10.0.0.48"},
 		},
 		{
 			name: "dual mode, ISTIO_DUAL_STACK disabled, IPv4 and IPv6 addresses, expected to return only IPv4 addresses",
@@ -647,8 +651,9 @@ func TestGetAllAddresses(t *testing.T) {
 					},
 				},
 			},
-			ipMode:            Dual,
-			expectedAddresses: []string{"10.0.0.0/28", "10.0.0.16/28"},
+			ipMode:                 Dual,
+			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28"},
+			expectedExtraAddresses: []string{"10.0.0.16/28"},
 		},
 		{
 			name: "dual mode, ISTIO_DUAL_STACK enabled, IPv4 and IPv6 addresses, expected to return only IPv4 addresses",
@@ -660,9 +665,10 @@ func TestGetAllAddresses(t *testing.T) {
 					},
 				},
 			},
-			ipMode:            Dual,
-			dualStackEnabled:  true,
-			expectedAddresses: []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			ipMode:                 Dual,
+			dualStackEnabled:       true,
+			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedExtraAddresses: []string{"10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
 		},
 		{
 			name: "IPv4 mode, ISTIO_DUAL_STACK disabled, ambient enabled, IPv4 and IPv6 addresses, expected to return all addresses",
@@ -674,9 +680,10 @@ func TestGetAllAddresses(t *testing.T) {
 					},
 				},
 			},
-			ipMode:            IPv4,
-			ambientEnabled:    true,
-			expectedAddresses: []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			ipMode:                 IPv4,
+			ambientEnabled:         true,
+			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedExtraAddresses: []string{"10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
 		},
 		{
 			name: "IPv6 mode, ISTIO_DUAL_STACK disabled, ambient enabled, IPv4 and IPv6 addresses, expected to return all addresses",
@@ -688,9 +695,10 @@ func TestGetAllAddresses(t *testing.T) {
 					},
 				},
 			},
-			ipMode:            IPv6,
-			ambientEnabled:    true,
-			expectedAddresses: []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			ipMode:                 IPv6,
+			ambientEnabled:         true,
+			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedExtraAddresses: []string{"10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
 		},
 	}
 	for _, tc := range tests {
@@ -701,11 +709,11 @@ func TestGetAllAddresses(t *testing.T) {
 			if tc.ambientEnabled {
 				test.SetForTest(t, &features.EnableAmbient, true)
 			}
-			addresses := tc.service.GetAllAddressesForProxy(&Proxy{
-				Metadata: &NodeMetadata{ClusterID: "id"},
-				ipMode:   tc.ipMode,
-			})
+			proxy := &Proxy{Metadata: &NodeMetadata{ClusterID: "id"}, ipMode: tc.ipMode}
+			addresses := tc.service.GetAllAddressesForProxy(proxy)
 			assert.Equal(t, addresses, tc.expectedAddresses)
+			extraAddresses := tc.service.GetExtraAddressesForProxy(proxy)
+			assert.Equal(t, extraAddresses, tc.expectedExtraAddresses)
 		})
 	}
 }
