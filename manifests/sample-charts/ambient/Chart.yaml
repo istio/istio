@@ -17,14 +17,14 @@ icon: https://istio.io/latest/favicons/android-192x192.png
 dependencies:
   - name: base
     version: 1.0.0
-    repository: "file://../base"
+    repository: "file://../../charts/base"
   - name: cni
     version: 1.0.0
-    repository: "file://../istio-cni"
+    repository: "file://../../charts/istio-cni"
   - name: istiod
     version: 1.0.0
-    repository: "file://../istio-control/istio-discovery"
+    repository: "file://../../charts/istio-control/istio-discovery"
     condition: enable.istiod
   - name: ztunnel
     version: 1.0.0
-    repository: "file://../ztunnel"
+    repository: "file://../../charts/ztunnel"
