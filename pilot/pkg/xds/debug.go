@@ -1043,20 +1043,23 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 		return []byte(ip.String())
 	}
 	rewriteNetworkAddress := func(b *workloadapi.NetworkAddress) *workloadapi.NetworkAddress {
-		b.Address = rewriteAddress(b.Address)
-		return b
+		nb := proto.Clone(b).(*workloadapi.NetworkAddress)
+		nb.Address = rewriteAddress(nb.Address)
+		return nb
 	}
 	rewriteGatewayAddress := func(b *workloadapi.GatewayAddress) *workloadapi.GatewayAddress {
 		if b == nil {
 			return nil
 		}
-		switch t := b.Destination.(type) {
+		nb := proto.Clone(b).(*workloadapi.GatewayAddress)
+		switch t := nb.Destination.(type) {
 		case *workloadapi.GatewayAddress_Address:
 			t.Address = rewriteNetworkAddress(t.Address)
 		}
-		return b
+		return nb
 	}
-	for _, addr := range addresses {
+	for _, original := range addresses {
+		addr := proto.Clone(original.Address).(*workloadapi.Address)
 		switch addr := addr.Type.(type) {
 		case *workloadapi.Address_Workload:
 			w := addr.Workload
