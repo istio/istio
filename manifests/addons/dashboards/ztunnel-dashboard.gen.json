@@ -1,0 +1,458 @@
+{
+   "graphTooltip": 1,
+   "panels": [
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+         },
+         "id": 1,
+         "panels": [ ],
+         "title": "Process",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Version number of each running instance",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 1
+         },
+         "id": 2,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(istio_build{component=\"ztunnel\"}) by (tag)",
+               "legendFormat": "Version ({{tag}})"
+            }
+         ],
+         "title": "Ztunnel Versions",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Memory usage of each running instance",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               },
+               "unit": "bytes"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 1
+         },
+         "id": 3,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  container_memory_working_set_bytes{container=\"istio-proxy\", pod=~\"ztunnel-.*\"}\n)",
+               "legendFormat": "Container ({{pod}})"
+            }
+         ],
+         "title": "Memory Usage",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "CPU usage of each running instance",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 1
+         },
+         "id": 4,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  irate(\n    container_cpu_usage_seconds_total{container=\"istio-proxy\", pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "legendFormat": "Container ({{pod}})"
+            }
+         ],
+         "title": "CPU Usage",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 9
+         },
+         "id": 5,
+         "panels": [ ],
+         "title": "Network",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Connections opened and closed per instance",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               },
+               "unit": "cps"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 10
+         },
+         "id": 6,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  rate(\n    istio_tcp_connections_opened_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "legendFormat": "Opened ({{pod}})"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "-sum by (pod) (\n  rate(\n    istio_tcp_connections_closed_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "legendFormat": "Closed ({{pod}})"
+            }
+         ],
+         "title": "Connections",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Bytes sent and received per instance",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               },
+               "unit": "Bps"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 10
+         },
+         "id": 7,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  rate(\n    istio_tcp_sent_bytes_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "legendFormat": "Sent ({{pod}})"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  rate(\n    istio_tcp_received_bytes_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "legendFormat": "Received ({{pod}})"
+            }
+         ],
+         "title": "Bytes Transmitted",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "DNS queries received per instance",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               },
+               "unit": "qps"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 10
+         },
+         "id": 8,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  rate(\n    istio_dns_requests_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "legendFormat": "Request ({{pod}})"
+            }
+         ],
+         "title": "DNS Request",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 18
+         },
+         "id": 9,
+         "panels": [ ],
+         "title": "Operations",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Count of XDS connection terminations.\nThis will typically spike every 30min for each instance.\n",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 19
+         },
+         "id": 10,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  rate(\n    istio_xds_connection_terminations_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "legendFormat": "XDS Connection Terminations ({{pod}})"
+            }
+         ],
+         "title": "XDS",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Count of active and pending proxies managed by each instance.\nPending is expected to converge to zero.\n",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 19
+         },
+         "id": 11,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (workload_manager_active_proxy_count{pod=~\"ztunnel-.*\"})",
+               "legendFormat": "Active Proxies ({{pod}})"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (workload_manager_pending_proxy_count{pod=~\"ztunnel-.*\"})",
+               "legendFormat": "Pending Proxies ({{pod}})"
+            }
+         ],
+         "title": "Workload Manager",
+         "type": "timeseries"
+      }
+   ],
+   "refresh": "15s",
+   "schemaVersion": 39,
+   "templating": {
+      "list": [
+         {
+            "name": "datasource",
+            "query": "prometheus",
+            "type": "datasource"
+         }
+      ]
+   },
+   "time": {
+      "from": "now-30m",
+      "to": "now"
+   },
+   "timezone": "utc",
+   "title": "Istio Ztunnel Dashboard",
+   "uid": "12c58766acc81a1c835dd5059eaf2741"
+}

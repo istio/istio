@@ -121,6 +121,9 @@ spec:
 {{- if $p.ServerFirst }}
           - --server-first={{ $p.Port }}
 {{- end }}
+{{- if $p.ProxyProtocol }}
+          - --proxy-protocol={{ $p.Port }}
+{{- end }}
 {{- if $p.InstanceIP }}
           - --bind-ip={{ $p.Port }}
 {{- end }}
@@ -150,10 +153,10 @@ spec:
 {{- end }}
 {{- end }}
         env:
-        - name: INSTANCE_IP
+        - name: INSTANCE_IPS
           valueFrom:
             fieldRef:
-              fieldPath: status.podIP
+              fieldPath: status.podIPs
         - name: NAMESPACE
           valueFrom:
             fieldRef:

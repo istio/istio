@@ -644,16 +644,10 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 		}
 	}
 
-	svcAddr := service.GetAddressForProxy(node)
-	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
-		domains = appendDomainPort(domains, svcAddr, port)
-	}
-
-	// handle dual stack's extra address when generating the virtualHost domains
-	// assumes that conversion is stripping out the DefaultAddress from ClusterVIPs
-	extraAddr := service.GetExtraAddressesForProxy(node)
-	for _, addr := range extraAddr {
-		domains = appendDomainPort(domains, addr, port)
+	for _, svcAddr := range service.GetAllAddressesForProxy(node) {
+		if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
+			domains = appendDomainPort(domains, svcAddr, port)
+		}
 	}
 
 	return domains, allAltHosts

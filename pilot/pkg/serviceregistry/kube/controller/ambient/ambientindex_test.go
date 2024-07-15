@@ -28,7 +28,6 @@ import (
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	auth "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
@@ -1489,6 +1488,9 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		LookupNetwork: func(endpointIP string, labels labels.Instance) network.ID {
 			return networkID
 		},
+		LookupNetworkGateways: func() []model.NetworkGateway {
+			return nil
+		},
 	})
 	cl.RunAndWait(test.NewStop(t))
 
@@ -1698,7 +1700,7 @@ func (s *ambientTestServer) addServiceEntry(t *testing.T,
 			Labels:    labels,
 		},
 		Spec:   *generateServiceEntry(hostStr, addresses, labels, epAddresses),
-		Status: v1alpha1.IstioStatus{},
+		Status: v1alpha3.ServiceEntryStatus{},
 	}
 	s.se.CreateOrUpdate(se)
 }

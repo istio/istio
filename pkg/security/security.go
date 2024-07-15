@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -45,8 +46,12 @@ const (
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
-	// WorkloadIdentitySocketPath is the well-known path to the Unix Domain Socket for SDS.
-	WorkloadIdentitySocketPath = "./var/run/secrets/workload-spiffe-uds/socket"
+	// WorkloadIdentityPath is the well-known path to the Unix Domain Socket for SDS.
+	WorkloadIdentityPath = "./var/run/secrets/workload-spiffe-uds"
+
+	// WorkloadIdentitySocketFile is the name of the UDS socket file
+	// Istio's internal SDS server uses.
+	DefaultWorkloadIdentitySocketFile = "socket"
 
 	// CredentialNameSocketPath is the well-known path to the Unix Domain Socket for Credential Name.
 	CredentialNameSocketPath = "./var/run/secrets/credential-uds/socket"
@@ -203,9 +208,11 @@ type Options struct {
 	// PilotCertProvider is the provider of the Pilot certificate (PILOT_CERT_PROVIDER env)
 	// Determines the root CA file to use for connecting to CA gRPC:
 	// - istiod
-	// - kubernetes
-	// - custom
+	// - k8s.io/NAME
+	// - custom - requires Istiod TLS certs to be available as files
 	// - none
+	//
+	// This is used only in agent.
 	PilotCertProvider string
 
 	// secret TTL.
@@ -477,6 +484,21 @@ func CheckWorkloadCertificate(certChainFilePath, keyFilePath, rootCertFilePath s
 		return false
 	}
 	return true
+}
+
+// This is the fixed-path, configurable filename location where the Istio agent will
+// look for a SDS workload identity server socket.
+//
+// If we are using Istio's SDS server, the SDS socket listen path == the serve path
+// If we are not using Istio's SDS server, the SDS socket listen path may != the Istio SDS serve path
+func GetWorkloadSDSSocketListenPath(sockfile string) string {
+	return filepath.Join(WorkloadIdentityPath, sockfile)
+}
+
+// This is the fixed-path, fixed-filename location where Istio's default SDS workload identity server
+// will put its socket.
+func GetIstioSDSServerSocketPath() string {
+	return filepath.Join(WorkloadIdentityPath, DefaultWorkloadIdentitySocketFile)
 }
 
 type SdsCertificateConfig struct {

@@ -853,134 +853,127 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 		},
 	}
 
-	OptimizedConfigRebuildModes := []bool{true, false}
 	for _, tt := range cases {
-		for _, mode := range OptimizedConfigRebuildModes {
-			t.Run(tt.name, func(t *testing.T) {
-				test.SetForTest(t, &features.OptimizedConfigRebuild, mode)
-				env := &Environment{}
-				store := NewFakeStore()
-				for _, cfg := range initialEnvoyFilters {
-					_, _ = store.Create(cfg)
+		t.Run(tt.name, func(t *testing.T) {
+			env := &Environment{}
+			store := NewFakeStore()
+			for _, cfg := range initialEnvoyFilters {
+				_, _ = store.Create(cfg)
+			}
+			env.ConfigStore = store
+			m := mesh.DefaultMeshConfig()
+			env.Watcher = mesh.NewFixedWatcher(m)
+			env.Init()
+
+			// Init a new push context
+			pc1 := NewPushContext()
+			pc1.initEnvoyFilters(env, nil, nil)
+
+			// Update store with incoming changes
+			creates := map[ConfigKey]config.Config{}
+			for _, cfg := range tt.creates {
+				if _, err := store.Create(cfg); err != nil {
+					t.Errorf("Error creating config %s/%s", cfg.Namespace, cfg.Name)
 				}
-				env.ConfigStore = store
-				m := mesh.DefaultMeshConfig()
-				env.Watcher = mesh.NewFixedWatcher(m)
-				env.Init()
-
-				// Init a new push context
-				pc1 := NewPushContext()
-				pc1.initEnvoyFilters(env, nil, nil)
-
-				// Update store with incoming changes
-				creates := map[ConfigKey]config.Config{}
-				for _, cfg := range tt.creates {
-					if _, err := store.Create(cfg); err != nil {
-						t.Errorf("Error creating config %s/%s", cfg.Namespace, cfg.Name)
-					}
-					creates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
+				creates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
+			}
+			updates := map[ConfigKey]config.Config{}
+			for _, cfg := range tt.updates {
+				if _, err := store.Update(cfg); err != nil {
+					t.Errorf("Error updating config %s/%s", cfg.Namespace, cfg.Name)
 				}
-				updates := map[ConfigKey]config.Config{}
-				for _, cfg := range tt.updates {
-					if _, err := store.Update(cfg); err != nil {
-						t.Errorf("Error updating config %s/%s", cfg.Namespace, cfg.Name)
-					}
-					updates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
-				}
-				deletes := sets.Set[ConfigKey]{}
-				for _, key := range tt.deletes {
-					store.Delete(gvk.EnvoyFilter, key.Name, key.Namespace, nil)
-					deletes.Insert(key)
-				}
+				updates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
+			}
+			deletes := sets.Set[ConfigKey]{}
+			for _, key := range tt.deletes {
+				store.Delete(gvk.EnvoyFilter, key.Name, key.Namespace, nil)
+				deletes.Insert(key)
+			}
 
-				createSet := sets.New(maps.Keys(creates)...)
-				updateSet := sets.New(maps.Keys(updates)...)
-				changes := deletes.Union(createSet).Union(updateSet)
+			createSet := sets.New(maps.Keys(creates)...)
+			updateSet := sets.New(maps.Keys(updates)...)
+			changes := deletes.Union(createSet).Union(updateSet)
 
-				pc2 := NewPushContext()
-				pc2.initEnvoyFilters(env, changes, pc1.envoyFiltersByNamespace)
+			pc2 := NewPushContext()
+			pc2.initEnvoyFilters(env, changes, pc1.envoyFiltersByNamespace)
 
-				total2 := 0
-				for ns, envoyFilters := range pc2.envoyFiltersByNamespace {
-					total2 += len(envoyFilters)
-					for _, ef := range envoyFilters {
-						key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
-						previousVersion := slices.FindFunc(pc1.envoyFiltersByNamespace[ns], func(e *EnvoyFilterWrapper) bool {
-							return e.Name == ef.Name
-						})
-						switch {
-						// Newly created Envoy filter.
-						case createSet.Contains(key):
-							cfg := creates[key]
-							// If the filter is newly created, it should not have a previous version.
-							if previousVersion != nil {
-								t.Errorf("Created Envoy filter %s/%s already existed", ns, ef.Name)
+			total2 := 0
+			for ns, envoyFilters := range pc2.envoyFiltersByNamespace {
+				total2 += len(envoyFilters)
+				for _, ef := range envoyFilters {
+					key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
+					previousVersion := slices.FindFunc(pc1.envoyFiltersByNamespace[ns], func(e *EnvoyFilterWrapper) bool {
+						return e.Name == ef.Name
+					})
+					switch {
+					// Newly created Envoy filter.
+					case createSet.Contains(key):
+						cfg := creates[key]
+						// If the filter is newly created, it should not have a previous version.
+						if previousVersion != nil {
+							t.Errorf("Created Envoy filter %s/%s already existed", ns, ef.Name)
+						}
+						// Validate that the generated filter is the same as the one created.
+						if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
+							t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
+						}
+					// Updated Envoy filter.
+					case updateSet.Contains(key):
+						cfg := updates[key]
+						// If the filter is updated, it should have a previous version.
+						if previousVersion == nil {
+							t.Errorf("Updated Envoy filter %s/%s did not exist", ns, ef.Name)
+						} else if reflect.DeepEqual(*previousVersion, ef) {
+							// Validate that the generated filter is different from the previous version.
+							t.Errorf("Envoy filter %s/%s was not updated", ns, ef.Name)
+						}
+						// Validate that the generated filter is the same as the one updated.
+						if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
+							t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
+						}
+					// Deleted Envoy filter.
+					case deletes.Contains(key):
+						t.Errorf("Found deleted EnvoyFilter %s/%s", ns, ef.Name)
+					// Unchanged Envoy filter.
+					default:
+						if previousVersion == nil {
+							t.Errorf("Unchanged EnvoyFilter was not previously found %s/%s", ns, ef.Name)
+						} else {
+							if *previousVersion != ef {
+								// Validate that Unchanged filter is not regenerated when config optimization is enabled.
+								t.Errorf("Unchanged EnvoyFilter is different from original %s/%s", ns, ef.Name)
 							}
-							// Validate that the generated filter is the same as the one created.
-							if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
-								t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
-							}
-						// Updated Envoy filter.
-						case updateSet.Contains(key):
-							cfg := updates[key]
-							// If the filter is updated, it should have a previous version.
-							if previousVersion == nil {
-								t.Errorf("Updated Envoy filter %s/%s did not exist", ns, ef.Name)
-							} else if reflect.DeepEqual(*previousVersion, ef) {
-								// Validate that the generated filter is different from the previous version.
-								t.Errorf("Envoy filter %s/%s was not updated", ns, ef.Name)
-							}
-							// Validate that the generated filter is the same as the one updated.
-							if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
-								t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
-							}
-						// Deleted Envoy filter.
-						case deletes.Contains(key):
-							t.Errorf("Found deleted EnvoyFilter %s/%s", ns, ef.Name)
-						// Unchanged Envoy filter.
-						default:
-							if previousVersion == nil {
-								t.Errorf("Unchanged EnvoyFilter was not previously found %s/%s", ns, ef.Name)
-							} else {
-								if mode && *previousVersion != ef {
-									// Validate that Unchanged filter is not regenerated when config optimization is enabled.
-									t.Errorf("Unchanged EnvoyFilter is different from original %s/%s", ns, ef.Name)
-								} else if !mode && *previousVersion == ef {
-									// Validate that Unchanged filter is regenerated when config optimization is disabled.
-									t.Errorf("Unchanged EnvoyFilter is not regenerated from original %s/%s", ns, ef.Name)
-								}
-								if !reflect.DeepEqual(*previousVersion, ef) {
-									t.Errorf("Envoy filter %s/%s has unexpected change", ns, ef.Name)
-								}
+							if !reflect.DeepEqual(*previousVersion, ef) {
+								t.Errorf("Envoy filter %s/%s has unexpected change", ns, ef.Name)
 							}
 						}
 					}
 				}
+			}
 
-				total1 := 0
-				// Validate that empty namespace is deleted when all filters in that namespace are deleted.
-				for ns, envoyFilters := range pc1.envoyFiltersByNamespace {
-					total1 += len(envoyFilters)
-					deleted := 0
-					for _, ef := range envoyFilters {
-						key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
-						if deletes.Contains(key) {
-							deleted++
-						}
-					}
-
-					if deleted == len(envoyFilters) {
-						if _, ok := pc2.envoyFiltersByNamespace[ns]; ok {
-							t.Errorf("Empty Namespace %s was not deleted", ns)
-						}
+			total1 := 0
+			// Validate that empty namespace is deleted when all filters in that namespace are deleted.
+			for ns, envoyFilters := range pc1.envoyFiltersByNamespace {
+				total1 += len(envoyFilters)
+				deleted := 0
+				for _, ef := range envoyFilters {
+					key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
+					if deletes.Contains(key) {
+						deleted++
 					}
 				}
 
-				if total2 != total1+len(tt.creates)-len(tt.deletes) {
-					t.Errorf("Expected %d envoy filters, found %d", total1+len(tt.creates)-len(tt.deletes), total2)
+				if deleted == len(envoyFilters) {
+					if _, ok := pc2.envoyFiltersByNamespace[ns]; ok {
+						t.Errorf("Empty Namespace %s was not deleted", ns)
+					}
 				}
-			})
-		}
+			}
+
+			if total2 != total1+len(tt.creates)-len(tt.deletes) {
+				t.Errorf("Expected %d envoy filters, found %d", total1+len(tt.creates)-len(tt.deletes), total2)
+			}
+		})
 	}
 }
 
@@ -1205,8 +1198,8 @@ func TestWasmPlugins(t *testing.T) {
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
 					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
 				},
 			},

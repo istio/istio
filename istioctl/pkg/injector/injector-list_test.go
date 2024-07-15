@@ -105,3 +105,130 @@ func Test_getNamespaces(t *testing.T) {
 		assert.Equal(t, true, expected.Contains(ns.Name))
 	}
 }
+
+func Test_injectionDisabled(t *testing.T) {
+	cases := []struct {
+		name     string
+		pod      *corev1.Pod
+		expected bool
+	}{
+		{
+			name: "Injection disabled by annotation",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarInject.Name: "false",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Injection enabled by annotation",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarInject.Name: "true",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Injection disabled by label",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarInject.Name: "true",
+					},
+					Labels: map[string]string{
+						label.SidecarInject.Name: "false",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Injection enabled by label",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarInject.Name: "false",
+					},
+					Labels: map[string]string{
+						label.SidecarInject.Name: "true",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Both annotation and label are enabled;",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarInject.Name: "true",
+					},
+					Labels: map[string]string{
+						label.SidecarInject.Name: "true",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Both annotation and label are disabled",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarInject.Name: "false",
+					},
+					Labels: map[string]string{
+						label.SidecarInject.Name: "false",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Only label present and enabled",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: nil,
+					Labels: map[string]string{
+						label.SidecarInject.Name: "true",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Only label present and disabled",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: nil,
+					Labels: map[string]string{
+						label.SidecarInject.Name: "false",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "No annotations or labels",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: nil,
+					Labels:      nil,
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, c.name), func(t *testing.T) {
+			assert.Equal(t, c.expected, injectionDisabled(c.pod))
+		})
+	}
+}

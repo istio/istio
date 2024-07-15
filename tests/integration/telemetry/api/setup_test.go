@@ -52,8 +52,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
-		// TODO: Remove this restriction once we validate our prometheus helm chart version is high enough
-		Label(label.IPv4). // https://github.com/istio/istio/issues/35915
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			i, err := istio.Get(ctx)
@@ -61,7 +59,7 @@ func TestMain(m *testing.M) {
 				return err
 			}
 			return ctx.ConfigIstio().YAML(i.Settings().SystemNamespace, `
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: mesh-default

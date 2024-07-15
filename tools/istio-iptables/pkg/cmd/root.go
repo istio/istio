@@ -135,7 +135,7 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 	flag.BindEnv(fs, constants.NetworkNamespace, "", "The network namespace that iptables rules should be applied to.",
 		&cfg.NetworkNamespace)
 
-	flag.BindEnv(fs, constants.CNIMode, "", "Whether to run as CNI plugin.", &cfg.CNIMode)
+	flag.BindEnv(fs, constants.CNIMode, "", "Whether to run as CNI plugin.", &cfg.HostFilesystemPodNetwork)
 }
 
 func GetCommand(logOpts *log.Options) *cobra.Command {
@@ -193,8 +193,8 @@ func ProgramIptables(cfg *config.Config) error {
 		ext = &dep.DependenciesStub{}
 	} else {
 		ext = &dep.RealDependencies{
-			CNIMode:          cfg.CNIMode,
-			NetworkNamespace: cfg.NetworkNamespace,
+			HostFilesystemPodNetwork: cfg.HostFilesystemPodNetwork,
+			NetworkNamespace:         cfg.NetworkNamespace,
 		}
 	}
 

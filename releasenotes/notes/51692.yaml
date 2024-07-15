@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+releaseNotes:
+  - |
+    **Fixed** `istio.io/rev` is not user intent for ztunnel, should be an annotation. Also, consistently propagate custom annotations in the ztunnel chart

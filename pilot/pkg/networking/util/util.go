@@ -69,8 +69,7 @@ const (
 	PassthroughFilterChain = "PassthroughFilterChain"
 
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
-	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
-	InboundPassthroughClusterIpv6 = "InboundPassthroughClusterIpv6"
+	InboundPassthroughCluster = "InboundPassthroughCluster"
 
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
@@ -670,6 +669,19 @@ func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
 	}
 }
 
+func GetEndpointHost(e *endpoint.LbEndpoint) string {
+	addr := e.GetEndpoint().GetAddress()
+	if host := addr.GetSocketAddress().GetAddress(); host != "" {
+		return host
+	}
+	if endpointID := addr.GetEnvoyInternalAddress().GetEndpointId(); endpointID != "" {
+		// extract host from endpoint id
+		host, _, _ := net.SplitHostPort(endpointID)
+		return host
+	}
+	return ""
+}
+
 func BuildTunnelMetadataStruct(address string, port int) *structpb.Struct {
 	m := map[string]interface{}{
 		// logical destination behind the tunnel, on which policy and telemetry will be applied
@@ -694,7 +706,7 @@ func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
 }
 
 func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.StatefulSession {
-	if svc == nil {
+	if svc == nil || !features.EnablePersistentSessionFilter.Load() {
 		return nil
 	}
 	sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]

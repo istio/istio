@@ -97,7 +97,7 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 		cniConfigFilepath += "list"
 	}
 
-	installLog.Infof("Created CNI config %s", cniConfigFilepath)
+	installLog.Infof("created CNI config %s", cniConfigFilepath)
 	installLog.Debugf("CNI config: %s", pluginConfig)
 	return cniConfigFilepath, nil
 }
@@ -147,7 +147,7 @@ func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir str
 		}
 	}
 
-	installLog.Infof("CNI config file %s exists. Proceeding.", cniConfigFilepath)
+	installLog.Debugf("CNI config file %s exists, proceeding", cniConfigFilepath)
 
 	return cniConfigFilepath, err
 }

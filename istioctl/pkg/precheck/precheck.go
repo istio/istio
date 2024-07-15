@@ -148,6 +148,7 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 	}
 
 	var messages diag.Messages = make([]diag.Message, 0)
+
 	if minor <= 21 {
 		// ENHANCED_RESOURCE_SCOPING
 		if err := checkPilot(cli, ctx.IstioNamespace(), &messages); err != nil {

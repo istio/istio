@@ -101,6 +101,8 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 			},
 			ListenerIP: ip,
 			Version:    s.version,
+			ReportRequest: func() {
+			},
 		})
 		if err != nil {
 			t.Fatal(err)

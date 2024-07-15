@@ -58,6 +58,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestApplyDestinationRule(t *testing.T) {
@@ -267,6 +268,40 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 		},
 		{
+			name:        "cluster with OutboundClusterStatName",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+					},
+				},
+			},
+			meshConfig: &meshconfig.MeshConfig{
+				OutboundClusterStatName: "%SERVICE%_%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%;",
+				InboundTrafficPolicy:    &meshconfig.MeshConfig_InboundTrafficPolicy{},
+				EnableAutoMtls: &wrappers.BoolValue{
+					Value: false,
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{
+				{
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+						ServiceName: "outbound|8080|foobar|foo.default.svc.cluster.local",
+					},
+					AltStatName: "foo.default.svc.cluster.local_foobar_default_8080;",
+				},
+			},
+		},
+		{
 			name:        "destination rule with subset traffic policy and alt statname",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
@@ -312,7 +347,7 @@ func TestApplyDestinationRule(t *testing.T) {
 							},
 						},
 					},
-					AltStatName: "foo.default.svc.cluster.local_foobar_default_8080",
+					AltStatName: "foo.default.svc.cluster.local_foobar_default_8080;",
 				},
 			},
 		},
@@ -995,6 +1030,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			external:    false,
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
+				AltStatName:          "foo;",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
@@ -1032,6 +1068,63 @@ func TestBuildDefaultCluster(t *testing.T) {
 				},
 				EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 					ServiceName: "foo",
+					EdsConfig: &core.ConfigSource{
+						ConfigSourceSpecifier: &core.ConfigSource_Ads{
+							Ads: &core.AggregatedConfigSource{},
+						},
+						InitialFetchTimeout: durationpb.New(0),
+						ResourceApiVersion:  core.ApiVersion_V3,
+					},
+				},
+			},
+		},
+		{
+			name:        "static external cluster with . in the name",
+			clusterName: "foo.bar.com",
+			discovery:   cluster.Cluster_EDS,
+			endpoints:   nil,
+			direction:   model.TrafficDirectionOutbound,
+			external:    false,
+			expectedCluster: &cluster.Cluster{
+				Name:                 "foo.bar.com",
+				AltStatName:          "foo.bar.com;",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
+				CircuitBreakers: &cluster.CircuitBreakers{
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
+				},
+				Filters:  []*cluster.Filter{xdsfilters.TCPClusterMx},
+				LbPolicy: defaultLBAlgorithm(),
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						util.IstioMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								"services": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+									{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+										"host": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "host",
+											},
+										},
+										"name": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "svc",
+											},
+										},
+										"namespace": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "default",
+											},
+										},
+									}}}},
+								}}}},
+							},
+						},
+					},
+				},
+				EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+					ServiceName: "foo.bar.com",
 					EdsConfig: &core.ConfigSource{
 						ConfigSourceSpecifier: &core.ConfigSource_Ads{
 							Ads: &core.AggregatedConfigSource{},
@@ -1082,6 +1175,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			external:  false,
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
+				AltStatName:          "foo;",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
@@ -1949,24 +2043,20 @@ func TestBuildPassthroughClusters(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 
 			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
-			clusters := cb.buildInboundPassthroughClusters()
-
-			var hasIpv4, hasIpv6 bool
-			for _, c := range clusters {
-				hasIpv4 = hasIpv4 || c.Name == util.InboundPassthroughClusterIpv4
-				hasIpv6 = hasIpv6 || c.Name == util.InboundPassthroughClusterIpv6
+			passthrough := cb.buildInboundPassthroughCluster()
+			ips := sets.New[string]()
+			ips.Insert(passthrough.GetUpstreamBindConfig().GetSourceAddress().Address)
+			for _, extra := range passthrough.GetUpstreamBindConfig().GetExtraSourceAddresses() {
+				ips.Insert(extra.GetAddress().GetAddress())
 			}
-			if hasIpv4 != tt.ipv4Expected {
-				t.Errorf("Unexpected Ipv4 Passthrough Cluster, want %v got %v", tt.ipv4Expected, hasIpv4)
+			want := sets.New[string]()
+			if tt.ipv4Expected {
+				want.Insert("127.0.0.6")
 			}
-			if hasIpv6 != tt.ipv6Expected {
-				t.Errorf("Unexpected Ipv6 Passthrough Cluster, want %v got %v", tt.ipv6Expected, hasIpv6)
+			if tt.ipv6Expected {
+				want.Insert("::6")
 			}
-
-			passthrough := xdstest.ExtractCluster(util.InboundPassthroughClusterIpv4, clusters)
-			if passthrough == nil {
-				passthrough = xdstest.ExtractCluster(util.InboundPassthroughClusterIpv6, clusters)
-			}
+			assert.Equal(t, want, ips)
 			// Validate that Passthrough Cluster LB Policy is set correctly.
 			if passthrough.GetType() != cluster.Cluster_ORIGINAL_DST || passthrough.GetLbPolicy() != cluster.Cluster_CLUSTER_PROVIDED {
 				t.Errorf("Unexpected Discovery type or Lb policy, got Discovery type: %v, Lb Policy: %v", passthrough.GetType(), passthrough.GetLbPolicy())
@@ -2139,11 +2229,9 @@ func TestIsHttp2Cluster(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			isHttp2Cluster := cb.isHttp2Cluster(test.cluster) // revive:disable-line
+			isHttp2Cluster := isHttp2Cluster(test.cluster) // revive:disable-line
 			if isHttp2Cluster != test.isHttp2Cluster {
 				t.Errorf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
 			}

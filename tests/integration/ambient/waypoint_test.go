@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -46,7 +47,7 @@ func TestWaypointStatus(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			client := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+			client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
 
 			check := func() error {
 				gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
@@ -86,7 +87,6 @@ func TestWaypoint(t *testing.T) {
 			})
 
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"apply",
 				"--namespace",
@@ -97,7 +97,6 @@ func TestWaypoint(t *testing.T) {
 			nameSet := []string{"", "w1", "w2"}
 			for _, name := range nameSet {
 				istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-					"x",
 					"waypoint",
 					"apply",
 					"--namespace",
@@ -109,7 +108,6 @@ func TestWaypoint(t *testing.T) {
 			}
 
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"apply",
 				"--namespace",
@@ -123,7 +121,6 @@ func TestWaypoint(t *testing.T) {
 			nameSet = append(nameSet, "w3")
 
 			output, _ := istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"list",
 				"--namespace",
@@ -136,7 +133,6 @@ func TestWaypoint(t *testing.T) {
 			}
 
 			output, _ = istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"list",
 				"-A",
@@ -148,7 +144,6 @@ func TestWaypoint(t *testing.T) {
 			}
 
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"-n",
 				nsConfig.Name(),
@@ -171,7 +166,6 @@ func TestWaypoint(t *testing.T) {
 
 			// delete all waypoints in namespace, so w3 should be deleted
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"-n",
 				nsConfig.Name(),
@@ -348,7 +342,7 @@ func SetWaypointServiceEntry(t framework.TestContext, se, namespace string, wayp
 }
 
 func setWaypointInternal(t framework.TestContext, name, ns string, waypoint string, service bool) {
-	for _, c := range t.Clusters().Kube() {
+	for _, c := range t.Clusters() {
 		setWaypoint := func(waypoint string) error {
 			if waypoint == "" {
 				waypoint = "null"
@@ -387,13 +381,20 @@ func TestWaypointDNS(t *testing.T) {
 				if src.Config().HasSidecar() {
 					t.Skip("TODO: sidecars don't properly handle use-waypoint")
 				}
+				address := "240.240.240.239"
+				if _, v6 := getSupportedIPFamilies(t); v6 {
+					address = "2001:2::f0f0:239"
+				}
 				src.CallOrFail(t, echo.CallOptions{
 					To:      apps.MockExternal,
-					Address: apps.MockExternal.Config().DefaultHostHeader,
-					Port:    echo.Port{Name: "http"},
-					Scheme:  scheme.HTTP,
-					Count:   1,
-					Check:   check,
+					Address: address,
+					HTTP: echo.HTTP{
+						Headers: http.Header{"Host": []string{apps.MockExternal.Config().DefaultHostHeader}},
+					},
+					Port:   echo.Port{Name: "http"},
+					Scheme: scheme.HTTP,
+					Count:  1,
+					Check:  check,
 				})
 			})
 		}

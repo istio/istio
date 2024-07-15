@@ -261,9 +261,6 @@ type PushContext struct {
 	// PushVersion describes the push version this push context was computed for
 	PushVersion string
 
-	// LedgerVersion is the version of the configuration ledger
-	LedgerVersion string
-
 	// JwtKeyResolver holds a reference to the JWT key resolver instance.
 	JwtKeyResolver *JwksResolver
 
@@ -1251,7 +1248,6 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	ps.Mesh = env.Mesh()
 	ps.Networks = env.MeshNetworks()
-	ps.LedgerVersion = env.Version()
 
 	// Must be initialized first as initServiceRegistry/VirtualServices/Destrules
 	// use the default export map.
@@ -1328,9 +1324,7 @@ func (ps *PushContext) updateContext(
 			wasmPluginsChanged = true
 		case kind.EnvoyFilter:
 			envoyFiltersChanged = true
-			if features.OptimizedConfigRebuild {
-				changedEnvoyFilters.Insert(conf)
-			}
+			changedEnvoyFilters.Insert(conf)
 		case kind.AuthorizationPolicy:
 			authzChanged = true
 		case kind.RequestAuthentication,
@@ -1616,16 +1610,17 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 
 // SortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
 func SortServicesByCreationTime(services []*Service) []*Service {
-	slices.SortStableFunc(services, func(a, b *Service) int {
-		if r := a.CreationTime.Compare(b.CreationTime); r != 0 {
+	slices.SortStableFunc(services, func(i, j *Service) int {
+		if r := i.CreationTime.Compare(j.CreationTime); r != 0 {
 			return r
 		}
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		an := a.Attributes.Name + "." + a.Attributes.Namespace
-		bn := b.Attributes.Name + "." + b.Attributes.Namespace
-		return cmp.Compare(an, bn)
+		if r := cmp.Compare(i.Attributes.Name, j.Attributes.Name); r != 0 {
+			return r
+		}
+		return cmp.Compare(i.Attributes.Namespace, j.Attributes.Namespace)
 	})
 	return services
 }
@@ -1943,25 +1938,26 @@ func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
 
 // sortConfigBySelectorAndCreationTime sorts the list of config objects based on priority and creation time.
 func sortConfigBySelectorAndCreationTime(configs []config.Config) []config.Config {
-	creationTimeComparator := sortByCreationComparator(configs)
-	// Define a comparator function for sorting configs by priority and creation time
-	comparator := func(i, j int) bool {
+	sort.Slice(configs, func(i, j int) bool {
+		// check if one of the configs has priority
 		idr := configs[i].Spec.(*networking.DestinationRule)
 		jdr := configs[j].Spec.(*networking.DestinationRule)
-
-		// Check if one of the configs has priority set to true
 		if idr.GetWorkloadSelector() != nil && jdr.GetWorkloadSelector() == nil {
 			return true
-		} else if idr.GetWorkloadSelector() == nil && jdr.GetWorkloadSelector() != nil {
+		}
+		if idr.GetWorkloadSelector() == nil && jdr.GetWorkloadSelector() != nil {
 			return false
 		}
 
 		// If priority is the same or neither has priority, fallback to creation time ordering
-		return creationTimeComparator(i, j)
-	}
-
-	// Sort the configs using the defined comparator function
-	sort.Slice(configs, comparator)
+		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
+			return r == -1 // -1 means i is less than j, so return true.
+		}
+		if r := cmp.Compare(configs[i].Name, configs[j].Name); r != 0 {
+			return r == -1
+		}
+		return cmp.Compare(configs[i].Namespace, configs[j].Namespace) == -1
+	})
 	return configs
 }
 
@@ -2135,13 +2131,10 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[ConfigKey], previousIndex map[string][]*EnvoyFilterWrapper) {
 	envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
-	var previous map[ConfigKey]*EnvoyFilterWrapper
-	if features.OptimizedConfigRebuild {
-		previous = make(map[ConfigKey]*EnvoyFilterWrapper)
-		for namespace, nsEnvoyFilters := range previousIndex {
-			for _, envoyFilter := range nsEnvoyFilters {
-				previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
-			}
+	previous := make(map[ConfigKey]*EnvoyFilterWrapper)
+	for namespace, nsEnvoyFilters := range previousIndex {
+		for _, envoyFilter := range nsEnvoyFilters {
+			previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
 		}
 	}
 
@@ -2165,12 +2158,10 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 
 	for _, envoyFilterConfig := range envoyFilterConfigs {
 		var efw *EnvoyFilterWrapper
-		if features.OptimizedConfigRebuild {
-			key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
-			if prev, ok := previous[key]; ok && !changed.Contains(key) {
-				// Reuse the previous EnvoyFilterWrapper if it exists and hasn't changed when optimized config rebuild is enabled
-				efw = prev
-			}
+		key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
+		if prev, ok := previous[key]; ok && !changed.Contains(key) {
+			// Reuse the previous EnvoyFilterWrapper if it exists and hasn't changed when optimized config rebuild is enabled
+			efw = prev
 		}
 		// Rebuild the envoy filter in all other cases.
 		if efw == nil {
@@ -2343,7 +2334,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 
-	return MergeGateways(gatewayInstances, proxy, ps)
+	return mergeGateways(gatewayInstances, proxy, ps)
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {

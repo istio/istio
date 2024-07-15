@@ -69,6 +69,8 @@ const (
 	matchPrefix = "prefix:"
 )
 
+var validHeaderRegex = regexp.MustCompile("^[-_A-Za-z0-9]+$")
+
 const (
 	kb = 1024
 	mb = 1024 * kb
@@ -227,6 +229,25 @@ func checkDryRunAnnotation(cfg config.Config, allowed bool) error {
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
+	}
+	if !validHeaderRegex.MatchString(name) {
+		return fmt.Errorf("header name %s is not a valid header name", name)
+	}
+	return nil
+}
+
+// ValidateHTTPHeaderNameOrJwtClaimRoute validates a header name, allowing special @request.auth.claims syntax
+func ValidateHTTPHeaderNameOrJwtClaimRoute(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
+	if jwt.ToRoutingClaim(name).Match {
+		// Jwt claim form
+		return nil
+	}
+	// Else ensure its a valid header
+	if !validHeaderRegex.MatchString(name) {
+		return fmt.Errorf("header name %s is not a valid header name", name)
 	}
 	return nil
 }
@@ -1039,6 +1060,17 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if tcp.MaxConnectionDuration != nil {
 			errs = appendErrors(errs, agent.ValidateDuration(tcp.MaxConnectionDuration))
 		}
+		if tcp.IdleTimeout != nil {
+			errs = appendErrors(errs, agent.ValidateDuration(tcp.IdleTimeout))
+		}
+		if ka := tcp.TcpKeepalive; ka != nil {
+			if ka.Time != nil {
+				errs = appendErrors(errs, agent.ValidateDuration(ka.Time))
+			}
+			if ka.Interval != nil {
+				errs = appendErrors(errs, agent.ValidateDuration(ka.Interval))
+			}
+		}
 	}
 
 	return
@@ -1079,6 +1111,9 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 	}
 
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
+	if settings.WarmupDurationSecs != nil {
+		errs = AppendValidation(errs, agent.ValidateDuration(settings.WarmupDurationSecs))
+	}
 	return
 }
 
@@ -1483,7 +1518,12 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 			errs = multierror.Append(errs, errors.New("outputClaimToHeaders header and claim value must be non-empty string"))
 			continue
 		}
-		if err := ValidateHTTPHeaderValue(claimAndHeaders.Header); err != nil {
+		if err := ValidateHTTPHeaderName(claimAndHeaders.Header); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	if rule.Timeout != nil {
+		if err := agent.ValidateDuration(rule.Timeout); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -1512,8 +1552,8 @@ var ValidatePeerAuthentication = RegisterValidateFunc("ValidatePeerAuthenticatio
 		}
 
 		for port := range in.PortLevelMtls {
-			if port == 0 {
-				errs = appendErrors(errs, fmt.Errorf("port cannot be 0"))
+			if port <= 0 || port > 65535 {
+				errs = appendErrors(errs, fmt.Errorf("port must be in range 1..65535"))
 			}
 		}
 
@@ -2559,8 +2599,6 @@ func validateWorkloadEntry(we *networking.WorkloadEntry, servicePorts sets.Strin
 		}
 	}
 
-	errs = AppendValidation(errs,
-		labels.Instance(we.Labels).Validate())
 	for name, port := range we.Ports {
 		if servicePorts != nil && !servicePorts.Contains(name) {
 			errs = AppendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
@@ -3047,6 +3085,8 @@ var ValidateWasmPlugin = RegisterValidateFunc("ValidateWasmPlugin",
 			validatePolicyTargetReferences(spec.GetTargetRefs()),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
+			validateWasmPluginImagePullSecret(spec),
+			validateWasmPluginName(spec),
 			validateWasmPluginVMConfig(spec.VmConfig),
 			validateWasmPluginMatch(spec.Match),
 		)
@@ -3061,14 +3101,34 @@ func validateWasmPluginURL(pluginURL string) error {
 		"": true, "file": true, "http": true, "https": true, "oci": true,
 	}
 
-	u, err := url.Parse(pluginURL)
+	u, err := strictParseURL(pluginURL)
 	if err != nil {
-		return fmt.Errorf("failed to parse url: %s", err)
+		return err
 	}
 	if _, found := validSchemes[u.Scheme]; !found {
 		return fmt.Errorf("url contains unsupported scheme: %s", u.Scheme)
 	}
 	return nil
+}
+
+func strictParseURL(originalURL string) (*url.URL, error) {
+	u := originalURL
+	ur, err := url.ParseRequestURI(u)
+	if err != nil {
+		u = "http://" + originalURL
+		nu, nerr := url.ParseRequestURI(u)
+		if nerr != nil {
+			return nil, fmt.Errorf("failed to parse url: %s", err) // return original err
+		}
+		if _, err := url.Parse(u); err != nil {
+			return nil, fmt.Errorf("failed to strict parse url: %s", err)
+		}
+		return nu, nil
+	}
+	if _, err := url.Parse(u); err != nil {
+		return nil, fmt.Errorf("failed to strict parse url: %s", err)
+	}
+	return ur, nil
 }
 
 func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
@@ -3082,6 +3142,20 @@ func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
 		if !('a' <= r && r <= 'f' || '0' <= r && r <= '9') {
 			return fmt.Errorf("sha256 field must match [a-f0-9]{64} pattern")
 		}
+	}
+	return nil
+}
+
+func validateWasmPluginImagePullSecret(plugin *extensions.WasmPlugin) error {
+	if len(plugin.ImagePullSecret) > 253 {
+		return fmt.Errorf("imagePullSecret field must be less than 253 characters long")
+	}
+	return nil
+}
+
+func validateWasmPluginName(plugin *extensions.WasmPlugin) error {
+	if len(plugin.PluginName) > 256 {
+		return fmt.Errorf("pluginName field must be less than 255 characters long")
 	}
 	return nil
 }
@@ -3101,8 +3175,16 @@ func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 			return fmt.Errorf("spec.vmConfig.env invalid")
 		}
 
+		if len(env.Name) > 256 {
+			return fmt.Errorf("env.name field must be less than 255 characters long")
+		}
+
 		if keys.InsertContains(env.Name) {
 			return fmt.Errorf("duplicate env")
+		}
+
+		if env.ValueFrom != extensions.EnvValueSource_INLINE && env.Value != "" {
+			return fmt.Errorf("value may only be set when valueFrom is INLINE")
 		}
 	}
 

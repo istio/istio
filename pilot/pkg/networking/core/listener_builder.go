@@ -411,7 +411,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class, nil)...)
 	}
 	// Add EmptySessionFilter so that it can be overridden at route level per service.
-	if features.EnablePersistentSessionFilter && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
+	if features.EnablePersistentSessionFilter.Load() && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
 		filters = append(filters, xdsfilters.EmptySessionFilter)
 	}
 	filters = append(filters, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{

@@ -1,0 +1,755 @@
+{
+   "description": "Generic dashboard for controller-runtime based processes\n(https://github.com/kubernetes-sigs/controller-runtime)\n",
+   "graphTooltip": 1,
+   "panels": [
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+         },
+         "id": 1,
+         "panels": [ ],
+         "title": "Process",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "scaleDistribution": {
+                     "log": 10,
+                     "type": "log"
+                  },
+                  "showPoints": "never"
+               },
+               "unit": "s"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 1
+         },
+         "id": 2,
+         "interval": "1m",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (cluster, namespace, job) (\n    rate(\n        process_cpu_seconds_total{\n            cluster=~\"$cluster\",\n            namespace=~\"$namespace\",\n            job=~\"$job\"\n        }\n    [$__rate_interval])\n)\n",
+               "intervalFactor": 2,
+               "legendFormat": "{{cluster}} - {{namespace}}\n"
+            }
+         ],
+         "title": "CPU Usage",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "scaleDistribution": {
+                     "log": 2,
+                     "type": "log"
+                  },
+                  "showPoints": "never"
+               },
+               "unit": "bytes"
+            },
+            "overrides": [
+               {
+                  "matcher": {
+                     "id": "byRegexp",
+                     "options": "/(virtual|resident)/i"
+                  },
+                  "properties": [
+                     {
+                        "id": "custom.fillOpacity",
+                        "value": 0
+                     },
+                     {
+                        "id": "custom.lineWidth",
+                        "value": 2
+                     },
+                     {
+                        "id": "custom.lineStyle",
+                        "value": {
+                           "dash": [
+                              10,
+                              10
+                           ],
+                           "fill": "dash"
+                        }
+                     }
+                  ]
+               }
+            ]
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 1
+         },
+         "id": 3,
+         "interval": "1m",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (cluster, namespace, job) (\n  process_virtual_memory_bytes{cluster=~\"$cluster\", namespace=~\"$namespace\", job=~\"$job\"}\n)\n",
+               "intervalFactor": 2,
+               "legendFormat": "virtual - {{cluster}} - {{namespace}}\n"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (cluster, namespace, job) (\n  process_resident_memory_bytes{cluster=~\"$cluster\", namespace=~\"$namespace\", job=~\"$job\"}\n)\n",
+               "intervalFactor": 2,
+               "legendFormat": "resident - {{cluster}} - {{namespace}}\n"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (cluster, namespace, job) (\n  go_memstats_heap_inuse_bytes{cluster=~\"$cluster\", namespace=~\"$namespace\", job=~\"$job\"}\n)\n",
+               "intervalFactor": 2,
+               "legendFormat": "go heap - {{cluster}} - {{namespace}}\n"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (cluster, namespace, job) (\n  go_memstats_stack_inuse_bytes{cluster=~\"$cluster\", namespace=~\"$namespace\", job=~\"$job\"}\n)\n",
+               "intervalFactor": 2,
+               "legendFormat": "go stack - {{cluster}} - {{namespace}}\n"
+            }
+         ],
+         "title": "Memory Usage",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 1
+         },
+         "id": 4,
+         "interval": "1m",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (cluster, namespace, job) (\n  go_goroutines{cluster=~\"$cluster\", namespace=~\"$namespace\", job=~\"$job\"}\n)\n",
+               "intervalFactor": 2,
+               "legendFormat": "{{cluster}} - {{namespace}}\n"
+            }
+         ],
+         "title": "Goroutines",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 9
+         },
+         "id": 5,
+         "interval": "1m",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (cluster, namespace, job) (\n  go_threads{cluster=~\"$cluster\", namespace=~\"$namespace\", job=~\"$job\"}\n)\n",
+               "intervalFactor": 2,
+               "legendFormat": "{{cluster}} - {{namespace}}\n"
+            }
+         ],
+         "title": "Threads",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "scaleDistribution": {
+                     "log": 10,
+                     "type": "log"
+                  },
+                  "showPoints": "never"
+               },
+               "unit": "s"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 9
+         },
+         "id": 6,
+         "interval": "1m",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "lastNotNull",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (cluster, namespace, job) (\n  rate(\n    go_gc_duration_seconds_sum{\n        cluster=~\"$cluster\",\n        namespace=~\"$namespace\",\n        job=~\"$job\"\n    }\n  [$__rate_interval])\n)\n",
+               "intervalFactor": 2,
+               "legendFormat": "{{cluster}} - {{namespace}}\n"
+            }
+         ],
+         "title": "GC Duration Mean",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 17
+         },
+         "id": 7,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 8,
+               "interval": "1m",
+               "options": {
+                  "calculate": true,
+                  "calculation": {
+                     "xBuckets": {
+                        "mode": "size",
+                        "value": "1min"
+                     }
+                  },
+                  "cellGap": 2,
+                  "color": {
+                     "mode": "scheme",
+                     "scheme": "Spectral",
+                     "steps": 128
+                  },
+                  "yAxis": {
+                     "decimals": 0,
+                     "unit": "s"
+                  }
+               },
+               "pluginVersion": "v11.0.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by(cluster, namespace, job, le, name) (\n  rate(\n    workqueue_queue_duration_seconds_bucket{\n        cluster=~\"$cluster\",\n        namespace=~\"$namespace\",\n        job=~\"$job\"\n    }\n  [$__rate_interval])\n)\n",
+                     "legendFormat": "{{cluster}} - {{namespace}}\n"
+                  }
+               ],
+               "title": "Workqueue Waiting Duration Over Time",
+               "type": "heatmap"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "drawStyle": "bars",
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "unit": "s"
+                  },
+                  "overrides": [
+                     {
+                        "matcher": {
+                           "id": "byRegexp",
+                           "options": "/mean/i"
+                        },
+                        "properties": [
+                           {
+                              "id": "custom.fillOpacity",
+                              "value": 0
+                           },
+                           {
+                              "id": "custom.lineStyle",
+                              "value": {
+                                 "dash": [
+                                    8,
+                                    10
+                                 ],
+                                 "fill": "dash"
+                              }
+                           }
+                        ]
+                     }
+                  ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 9,
+               "interval": "1m",
+               "options": {
+                  "legend": {
+                     "calcs": [
+                        "lastNotNull",
+                        "max"
+                     ],
+                     "displayMode": "table"
+                  }
+               },
+               "pluginVersion": "v11.0.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "histogram_quantile(\n  0.50,\n  sum by (cluster, namespace, job, le, name) (\n    rate(\n      workqueue_queue_duration_seconds_bucket{\n          cluster=~\"$cluster\",\n          namespace=~\"$namespace\",\n          job=~\"$job\"\n      }\n    [$__rate_interval])\n  )\n)\n",
+                     "intervalFactor": 2,
+                     "legendFormat": "{{cluster}} - {{namespace}} - {{name}} - 50%\n"
+                  },
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "histogram_quantile(\n  0.95,\n  sum by (cluster, namespace, job, le, name) (\n    rate(\n      workqueue_queue_duration_seconds_bucket{\n          cluster=~\"$cluster\",\n          namespace=~\"$namespace\",\n          job=~\"$job\"\n      }\n    [$__rate_interval])\n  )\n)\n",
+                     "intervalFactor": 2,
+                     "legendFormat": "{{cluster}} - {{namespace}} - {{name}} - 95%\n"
+                  },
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (cluster, namespace, job, name) (\n  rate(\n    workqueue_queue_duration_seconds_sum{\n        cluster=~\"$cluster\",\n        namespace=~\"$namespace\",\n        job=~\"$job\"\n    }\n  [$__rate_interval])\n)\n",
+                     "intervalFactor": 2,
+                     "legendFormat": "{{cluster}} - {{namespace}} - {{name}} - mean\n"
+                  }
+               ],
+               "title": "Workqueue Waiting Duration Quantile",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "decimals": 0,
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 16,
+                  "y": 0
+               },
+               "id": 10,
+               "interval": "1m",
+               "options": {
+                  "legend": {
+                     "calcs": [
+                        "lastNotNull",
+                        "max"
+                     ],
+                     "displayMode": "table"
+                  }
+               },
+               "pluginVersion": "v11.0.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by(cluster, namespace, job, name) (\n  workqueue_depth{cluster=~\"$cluster\", namespace=~\"$namespace\", job=~\"$job\"}\n)\n",
+                     "intervalFactor": 2,
+                     "legendFormat": "{{cluster}} - {{namespace}} - {{name}}\n"
+                  }
+               ],
+               "title": "Workqueue Depth",
+               "type": "timeseries"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "decimals": 0,
+                     "unit": "short"
+                  }
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 11,
+               "interval": "1m",
+               "options": {
+                  "legend": {
+                     "calcs": [
+                        "lastNotNull",
+                        "max"
+                     ],
+                     "displayMode": "table"
+                  }
+               },
+               "pluginVersion": "v11.0.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "ceil by (cluster, namespace, job, host, method) (\n  sum(\n    increase(\n      rest_client_requests_total{\n          cluster=~\"$cluster\",\n          namespace=~\"$namespace\",\n          job=~\"$job\",\n          code=~\"^(4|5).*\"\n      }\n    [$__rate_interval])\n  )\n)\n",
+                     "intervalFactor": 2,
+                     "legendFormat": "{{cluster}} - {{namespace}} - {{host}} - {{method}}\n"
+                  }
+               ],
+               "title": "Failed Requests",
+               "type": "timeseries"
+            }
+         ],
+         "title": "Kubernetes Client",
+         "type": "row"
+      },
+      {
+         "collapsed": true,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 18
+         },
+         "id": 12,
+         "panels": [
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 0,
+                  "y": 0
+               },
+               "id": 13,
+               "interval": "1m",
+               "options": {
+                  "calculate": true,
+                  "calculation": {
+                     "xBuckets": {
+                        "mode": "size",
+                        "value": "1min"
+                     }
+                  },
+                  "cellGap": 2,
+                  "color": {
+                     "mode": "scheme",
+                     "scheme": "Spectral",
+                     "steps": 128
+                  },
+                  "yAxis": {
+                     "decimals": 0,
+                     "unit": "s"
+                  }
+               },
+               "pluginVersion": "v11.0.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (cluster, namesapce, job,le,controller) (\n  rate(\n    controller_runtime_reconcile_time_seconds_bucket{\n        cluster=~\"$cluster\",\n        namespace=~\"$namespace\",\n        job=~\"$job\"\n    }\n  [$__rate_interval])\n)\n",
+                     "legendFormat": "{{cluster}} - {{namespace}}\n"
+                  }
+               ],
+               "title": "Reconciling Latency Over Time",
+               "type": "heatmap"
+            },
+            {
+               "datasource": {
+                  "type": "datasource",
+                  "uid": "-- Mixed --"
+               },
+               "fieldConfig": {
+                  "defaults": {
+                     "custom": {
+                        "drawStyle": "bars",
+                        "fillOpacity": 10,
+                        "showPoints": "never"
+                     },
+                     "unit": "s"
+                  },
+                  "overrides": [
+                     {
+                        "matcher": {
+                           "id": "byRegexp",
+                           "options": "/mean/i"
+                        },
+                        "properties": [
+                           {
+                              "id": "custom.fillOpacity",
+                              "value": 0
+                           },
+                           {
+                              "id": "custom.lineStyle",
+                              "value": {
+                                 "dash": [
+                                    8,
+                                    10
+                                 ],
+                                 "fill": "dash"
+                              }
+                           }
+                        ]
+                     }
+                  ]
+               },
+               "gridPos": {
+                  "h": 8,
+                  "w": 8,
+                  "x": 8,
+                  "y": 0
+               },
+               "id": 14,
+               "interval": "1m",
+               "options": {
+                  "legend": {
+                     "calcs": [
+                        "lastNotNull",
+                        "max"
+                     ],
+                     "displayMode": "table"
+                  }
+               },
+               "pluginVersion": "v11.0.0",
+               "targets": [
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "histogram_quantile(\n  0.50,\n  sum by (cluster, namespace, job, le, controller) (\n    rate(\n      controller_runtime_reconcile_time_seconds_bucket{\n          cluster=~\"$cluster\",\n          namespace=~\"$namespace\",\n          job=~\"$job\"\n      }\n    [$__rate_interval])\n  )\n)\n",
+                     "intervalFactor": 2,
+                     "legendFormat": "{{cluster}} - {{namespace}} - {{name}} - 50%\n"
+                  },
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "histogram_quantile(\n  0.95,\n  sum by (cluster, namespace, job, le, controller) (\n    rate(\n      controller_runtime_reconcile_time_seconds_bucket{\n          cluster=~\"$cluster\",\n          namespace=~\"$namespace\",\n          job=~\"$job\"\n      }\n    [$__rate_interval])\n  )\n)\n",
+                     "intervalFactor": 2,
+                     "legendFormat": "{{cluster}} - {{namespace}} - {{name}} - 95%\n"
+                  },
+                  {
+                     "datasource": {
+                        "type": "prometheus",
+                        "uid": "$datasource"
+                     },
+                     "expr": "sum by (cluster, namespace, job, controller) (\n  rate(\n    controller_runtime_reconcile_time_seconds_sum{\n        cluster=~\"$cluster\",\n        namespace=~\"$namespace\",\n        job=~\"$job\"\n    }\n  [$__rate_interval])\n)\n",
+                     "intervalFactor": 2,
+                     "legendFormat": "{{cluster}} - {{namespace}} - {{name}} - mean\n"
+                  }
+               ],
+               "title": "Reconciling Latency Quantile",
+               "type": "timeseries"
+            }
+         ],
+         "title": "Controller Runtime",
+         "type": "row"
+      }
+   ],
+   "schemaVersion": 39,
+   "templating": {
+      "list": [
+         {
+            "name": "datasource",
+            "query": "prometheus",
+            "regex": "(ops|dev)-cortex",
+            "type": "datasource"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${datasource}"
+            },
+            "includeAll": true,
+            "multi": true,
+            "name": "cluster",
+            "query": "label_values(process_cpu_seconds_total, cluster)",
+            "refresh": "time",
+            "type": "query"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${datasource}"
+            },
+            "name": "namespace",
+            "query": "label_values(process_cpu_seconds_total{cluster=~\"$cluster\"}, namespace)",
+            "refresh": "time",
+            "type": "query"
+         },
+         {
+            "datasource": {
+               "type": "prometheus",
+               "uid": "${datasource}"
+            },
+            "name": "job",
+            "query": "label_values(process_cpu_seconds_total{cluster=~\"$cluster\", namespace=~\"$namespace\"}, job)",
+            "refresh": "time",
+            "type": "query"
+         }
+      ]
+   },
+   "time": {
+      "from": "now-6h",
+      "to": "now"
+   },
+   "timezone": "utc",
+   "title": "Controller Runtime"
+}

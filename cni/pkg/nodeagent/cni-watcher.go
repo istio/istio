@@ -28,6 +28,8 @@ import (
 
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/pluginlistener"
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/sleep"
 )
 
 // Just a composite of the CNI plugin add event struct + some extracted "args"
@@ -87,7 +89,7 @@ func (s *CniPluginServer) Start() error {
 	if s.sockAddress == "" {
 		return fmt.Errorf("no socket address provided")
 	}
-	log.Info("Start a listen server for CNI plugin events")
+	log.Infof("starting listener for CNI plugin events at %v", s.sockAddress)
 	unixListener, err := pluginlistener.NewListener(s.sockAddress)
 	if err != nil {
 		return fmt.Errorf("failed to create CNI listener: %v", err)
@@ -124,19 +126,19 @@ func (s *CniPluginServer) handleAddEvent(w http.ResponseWriter, req *http.Reques
 	defer req.Body.Close()
 	data, err := io.ReadAll(req.Body)
 	if err != nil {
-		log.Errorf("Failed to read event report from cni plugin: %v", err)
+		log.Errorf("failed to read event report from cni plugin: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	msg, err := processAddEvent(data)
 	if err != nil {
-		log.Errorf("Failed to process CNI event payload: %v", err)
+		log.Errorf("failed to process CNI event payload: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if err := s.ReconcileCNIAddEvent(req.Context(), msg); err != nil {
-		log.Errorf("Failed to handle add event: %v", err)
+		log.WithLabels("ns", msg.PodNamespace, "name", msg.PodName).Errorf("failed to handle add event: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -161,25 +163,9 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 
 	// The CNI node plugin should have already checked the pod against the k8s API before forwarding us the event,
 	// but we have to invoke the K8S client anyway, so to be safe we check it again here to make sure we get the same result.
-	maxStaleRetries := 10
-	msInterval := 10
-	retries := 0
-	var ambientPod *corev1.Pod
-	var err error
-
-	log.Debugf("Checking pod: %s in ns: %s is enabled for ambient", addCmd.PodName, addCmd.PodNamespace)
-	// The plugin already consulted the k8s API - but on this end handler caches may be stale, so retry a few times if we get no pod.
-	for ambientPod, err = s.handlers.GetPodIfAmbient(addCmd.PodName, addCmd.PodNamespace); (ambientPod == nil) && (retries < maxStaleRetries); retries++ {
-		if err != nil {
-			return err
-		}
-		log.Warnf("got an event for pod %s in namespace %s not found in current pod cache, retry %d of %d",
-			addCmd.PodName, addCmd.PodNamespace, retries, maxStaleRetries)
-		time.Sleep(time.Duration(msInterval) * time.Millisecond)
-	}
-
-	if ambientPod == nil {
-		return fmt.Errorf("got event for pod %s in namespace %s but could not find in pod cache after retries", addCmd.PodName, addCmd.PodNamespace)
+	ambientPod, err := s.getPodWithRetry(log, addCmd.PodName, addCmd.PodNamespace)
+	if err != nil {
+		return err
 	}
 	log.Debugf("Pod: %s in ns: %s is enabled for ambient, adding to mesh.", addCmd.PodName, addCmd.PodNamespace)
 
@@ -189,7 +175,7 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 		ip, _ := netip.AddrFromSlice(configuredPodIPs.Address.IP)
 		// We ignore the mask of the IPNet - it's fine if the IPNet defines
 		// a block grant of addresses, we just need one for checking routes.
-		podIps = append(podIps, ip)
+		podIps = append(podIps, ip.Unmap())
 	}
 	// Note that we use the IP info from the CNI plugin here - the Pod struct as reported by K8S doesn't have this info
 	// yet (because the K8S control plane doesn't), so it will be empty there.
@@ -199,4 +185,33 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 	}
 
 	return nil
+}
+
+func (s *CniPluginServer) getPodWithRetry(log *istiolog.Scope, name, namespace string) (*corev1.Pod, error) {
+	log.Debugf("Checking if pod %s/%s is enabled for ambient", namespace, name)
+	const maxStaleRetries = 10
+	const msInterval = 10
+	retries := 0
+	var ambientPod *corev1.Pod
+	var err error
+
+	// The plugin already consulted the k8s API - but on this end handler caches may be stale, so retry a few times if we get no pod.
+	// if err is returned, we couldn't find the pod
+	// if nil is returned, we found it but ambient is not enabled
+	for ambientPod, err = s.handlers.GetPodIfAmbient(name, namespace); (err != nil) && (retries < maxStaleRetries); retries++ {
+		log.Warnf("got an event for pod %s in namespace %s not found in current pod cache, retry %d of %d",
+			name, namespace, retries, maxStaleRetries)
+		if !sleep.UntilContext(s.ctx, time.Duration(msInterval)*time.Millisecond) {
+			return nil, fmt.Errorf("aborted")
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pod %s/%s: %v", namespace, name, err)
+	}
+
+	// This shouldn't happen - we only trigger this when a pod is added to ambient.
+	if ambientPod == nil {
+		return nil, fmt.Errorf("pod %s/%s is unexpectedly not enrolled in ambient", namespace, name)
+	}
+	return ambientPod, nil
 }

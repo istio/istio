@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pires/go-proxyproto"
 
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
@@ -71,6 +72,10 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 	}
 	if err != nil {
 		return err
+	}
+
+	if s.Port.ProxyProtocol {
+		listener = &proxyproto.Listener{Listener: listener}
 	}
 
 	s.l = listener
@@ -119,6 +124,7 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 
 // Handles incoming connection.
 func (s *tcpInstance) echo(id uuid.UUID, conn net.Conn) {
+	s.ReportRequest()
 	common.Metrics.TCPRequests.With(common.PortLabel.Value(strconv.Itoa(s.Port.Port))).Increment()
 
 	var err error
@@ -191,6 +197,9 @@ func (s *tcpInstance) getResponseFields(conn net.Conn) string {
 	echo.IPField.Write(out, ip)
 	echo.ProtocolField.Write(out, "TCP")
 
+	if p, ok := conn.(*proxyproto.Conn); ok && p.ProxyHeader() != nil {
+		echo.ProxyProtocolField.Write(out, fmt.Sprint(p.ProxyHeader().Version))
+	}
 	if hostname, err := os.Hostname(); err == nil {
 		echo.HostnameField.Write(out, hostname)
 	}

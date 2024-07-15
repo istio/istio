@@ -19,10 +19,11 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
-	// To install the xds resolvers and balancers.
-	_ "google.golang.org/grpc/xds"
+	"go.uber.org/atomic"
+	_ "google.golang.org/grpc/xds" // To install the xds resolvers and balancers.
 
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/protocol"
@@ -32,24 +33,25 @@ import (
 )
 
 var (
-	httpPorts        []int
-	grpcPorts        []int
-	tcpPorts         []int
-	udpPorts         []int
-	tlsPorts         []int
-	hbonePorts       []int
-	instanceIPPorts  []int
-	localhostIPPorts []int
-	serverFirstPorts []int
-	xdsGRPCServers   []int
-	metricsPort      int
-	uds              string
-	version          string
-	cluster          string
-	crt              string
-	key              string
-	istioVersion     string
-	disableALPN      bool
+	httpPorts          []int
+	grpcPorts          []int
+	tcpPorts           []int
+	udpPorts           []int
+	tlsPorts           []int
+	hbonePorts         []int
+	instanceIPPorts    []int
+	localhostIPPorts   []int
+	serverFirstPorts   []int
+	proxyProtocolPorts []int
+	xdsGRPCServers     []int
+	metricsPort        int
+	uds                string
+	version            string
+	cluster            string
+	crt                string
+	key                string
+	istioVersion       string
+	disableALPN        bool
 
 	loggingOptions = log.DefaultOptions()
 
@@ -60,6 +62,7 @@ var (
 		Long:              `Echo application for testing Istio E2E`,
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
+			shutdown := NewShutdown()
 			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts))
 			tlsByPort := map[int]bool{}
 			for _, p := range tlsPorts {
@@ -69,6 +72,10 @@ var (
 			for _, p := range serverFirstPorts {
 				serverFirstByPort[p] = true
 			}
+			proxyProtocolByPort := map[int]bool{}
+			for _, p := range proxyProtocolPorts {
+				proxyProtocolByPort[p] = true
+			}
 			xdsGRPCByPort := map[int]bool{}
 			for _, p := range xdsGRPCServers {
 				xdsGRPCByPort[p] = true
@@ -76,32 +83,35 @@ var (
 			portIndex := 0
 			for i, p := range httpPorts {
 				ports[portIndex] = &common.Port{
-					Name:        "http-" + strconv.Itoa(i),
-					Protocol:    protocol.HTTP,
-					Port:        p,
-					TLS:         tlsByPort[p],
-					ServerFirst: serverFirstByPort[p],
+					Name:          "http-" + strconv.Itoa(i),
+					Protocol:      protocol.HTTP,
+					Port:          p,
+					TLS:           tlsByPort[p],
+					ServerFirst:   serverFirstByPort[p],
+					ProxyProtocol: proxyProtocolByPort[p],
 				}
 				portIndex++
 			}
 			for i, p := range grpcPorts {
 				ports[portIndex] = &common.Port{
-					Name:        "grpc-" + strconv.Itoa(i),
-					Protocol:    protocol.GRPC,
-					Port:        p,
-					TLS:         tlsByPort[p],
-					ServerFirst: serverFirstByPort[p],
-					XDSServer:   xdsGRPCByPort[p],
+					Name:          "grpc-" + strconv.Itoa(i),
+					Protocol:      protocol.GRPC,
+					Port:          p,
+					TLS:           tlsByPort[p],
+					ServerFirst:   serverFirstByPort[p],
+					XDSServer:     xdsGRPCByPort[p],
+					ProxyProtocol: proxyProtocolByPort[p],
 				}
 				portIndex++
 			}
 			for i, p := range tcpPorts {
 				ports[portIndex] = &common.Port{
-					Name:        "tcp-" + strconv.Itoa(i),
-					Protocol:    protocol.TCP,
-					Port:        p,
-					TLS:         tlsByPort[p],
-					ServerFirst: serverFirstByPort[p],
+					Name:          "tcp-" + strconv.Itoa(i),
+					Protocol:      protocol.TCP,
+					Port:          p,
+					TLS:           tlsByPort[p],
+					ServerFirst:   serverFirstByPort[p],
+					ProxyProtocol: proxyProtocolByPort[p],
 				}
 				portIndex++
 			}
@@ -144,6 +154,7 @@ var (
 				Namespace:             os.Getenv("NAMESPACE"),
 				UDSServer:             uds,
 				DisableALPN:           disableALPN,
+				ReportRequest:         shutdown.ReportRequest,
 			})
 
 			if err := s.Start(); err != nil {
@@ -153,14 +164,47 @@ var (
 			defer func() {
 				_ = s.Close()
 			}()
-
-			// Wait for the process to be shutdown.
-			sigs := make(chan os.Signal, 1)
-			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-			<-sigs
+			shutdown.WaitForShutdown()
 		},
 	}
 )
+
+const shutdownTime = time.Second
+
+type Shutdown struct {
+	timer *atomic.Pointer[time.Timer]
+}
+
+func NewShutdown() *Shutdown {
+	return &Shutdown{timer: atomic.NewPointer[time.Timer](nil)}
+}
+
+func (s *Shutdown) ReportRequest() {
+	// On every request, reset our shutdown timer. This lets us dynamically drain: if we continue to receive requests, we will
+	// keep alive up to 10s. If not, we will shutdown quickly (shutdownTimer)
+	if timer := s.timer.Load(); timer != nil {
+		timer.Reset(shutdownTime)
+	}
+}
+
+func (s *Shutdown) WaitForShutdown() {
+	// Wait for the process to be shutdown.
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	<-sigs
+	// Keep alive while we are still receiving requests.
+	log.Infof("Draining server")
+	maxShutdownTime := time.After(time.Second * 10)
+	ti := time.NewTimer(shutdownTime)
+	s.timer.Store(ti)
+	select {
+	case <-maxShutdownTime:
+		log.Warnf("Shutdown after 10s while requests were still incoming")
+		return
+	case <-ti.C:
+		log.Infof("Shutdown complete")
+	}
+}
 
 func configureLogging(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
@@ -179,6 +223,7 @@ func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&instanceIPPorts, "bind-ip", []int{}, "Ports that are bound to INSTANCE_IP rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&localhostIPPorts, "bind-localhost", []int{}, "Ports that are bound to localhost rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&serverFirstPorts, "server-first", []int{}, "Ports that are server first. These must be defined as tcp.")
+	rootCmd.PersistentFlags().IntSliceVar(&proxyProtocolPorts, "proxy-protocol", []int{}, "Ports that are wrapped in HA-PROXY protocol.")
 	rootCmd.PersistentFlags().IntSliceVar(&xdsGRPCServers, "xds-grpc-server", []int{}, "Ports that should rely on XDS configuration to serve.")
 	rootCmd.PersistentFlags().IntVar(&metricsPort, "metrics", 0, "Metrics port")
 	rootCmd.PersistentFlags().StringVar(&uds, "uds", "", "HTTP server on unix domain socket")

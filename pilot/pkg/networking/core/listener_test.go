@@ -201,12 +201,12 @@ func TestInboundListenerConfig(t *testing.T) {
 	})
 
 	t.Run("merge sidecar ingress ports and service ports", func(t *testing.T) {
-		features.EnableSidecarServiceInboundListenerMerge = true
+		test.SetForTest(t, &features.EnableSidecarServiceInboundListenerMerge, true)
 		testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t, getProxy(),
 			buildServiceWithPort("test1.com", 80, protocol.HTTP, tnow.Add(1*time.Second)))
 	})
 	t.Run("merge sidecar ingress and service ports, same port in both sidecar and service", func(t *testing.T) {
-		features.EnableSidecarServiceInboundListenerMerge = true
+		test.SetForTest(t, &features.EnableSidecarServiceInboundListenerMerge, true)
 		testInboundListenerConfigWithSidecar(t, getProxy(),
 			buildService("test.com", wildcardIPv4, protocol.HTTP, tnow))
 	})
@@ -1984,7 +1984,7 @@ func testInboundListenerConfigWithSidecarConflictPort(t *testing.T, proxy *model
 						Name:     "uds",
 					},
 					CaptureMode:     2, // None
-					Bind:            "1.1.1.1",
+					Bind:            "0.0.0.0",
 					DefaultEndpoint: "127.0.0.1:80",
 				},
 			},

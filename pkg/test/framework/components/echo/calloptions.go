@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"time"
 
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -199,11 +200,13 @@ func (o CallOptions) GetHost() string {
 		return o.To.Config().DefaultHostHeader
 	}
 
-	// Next, if the Address was manually specified use it as the Host.
+	// Next, if the Address was manually specified use it as the Host. If it is an IP, leave it so Go can handle the logic to decide
+	// how to format it (whether to add brackets, port, etc)
 	if len(o.Address) > 0 {
-		return o.Address
+		if _, err := netip.ParseAddr(o.Address); err != nil {
+			return o.Address
+		}
 	}
-
 	// Finally, use the target's FQDN.
 	if o.To != nil {
 		return o.To.Config().ClusterLocalFQDN()

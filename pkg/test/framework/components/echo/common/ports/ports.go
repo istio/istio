@@ -37,6 +37,7 @@ var (
 	TCPWorkloadOnly  = echo.Port{Name: "tcp-wl-only", Protocol: protocol.TCP, ServicePort: echo.NoServicePort, WorkloadPort: 19092}
 	HTTPWorkloadOnly = echo.Port{Name: "http-wl-only", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 18083}
 	TCPForHTTP       = echo.Port{Name: "tcp-for-http", Protocol: protocol.HTTP, ServicePort: 86, WorkloadPort: 18086}
+	HTTPWithProxy    = echo.Port{Name: "tcp-proxy", Protocol: protocol.HTTP, ServicePort: 87, WorkloadPort: 18087, ProxyProtocol: true}
 )
 
 // All the common ports.
@@ -58,6 +59,7 @@ func All() echo.Ports {
 		TCPWorkloadOnly,
 		HTTPWorkloadOnly,
 		TCPForHTTP,
+		HTTPWithProxy,
 	}
 }
 

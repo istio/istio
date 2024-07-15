@@ -48,6 +48,7 @@ var apps deployment.SingleNamespaceView
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Skip("https://github.com/istio/istio/issues/47829").
 		Label(label.CustomSetup).
 		Setup(istio.Setup(nil, setupConfig, cert.CreateCASecret)).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).

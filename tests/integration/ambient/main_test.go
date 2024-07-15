@@ -19,7 +19,6 @@ package ambient
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
@@ -70,12 +68,8 @@ type EchoDeployments struct {
 	Captured echo.Instances
 	// Uncaptured echo Service
 	Uncaptured echo.Instances
-	// SidecarWaypoint is a sidecar with a waypoint
-	SidecarWaypoint echo.Instances
-	// SidecarCaptured echo services with sidecar and ambient capture
-	SidecarCaptured echo.Instances
-	// SidecarUncaptured echo services with sidecar and no ambient capture
-	SidecarUncaptured echo.Instances
+	// Sidecar echo services with sidecar
+	Sidecar echo.Instances
 
 	// All echo services
 	All echo.Instances
@@ -98,7 +92,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMinVersion(24).
-		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
 			return nil
@@ -131,6 +124,7 @@ values:
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
+		Setup(testRegistrySetup).
 		Run()
 }
 
@@ -139,19 +133,11 @@ const (
 	ServiceAddressedWaypoint  = "service-addressed-waypoint"
 	Captured                  = "captured"
 	Uncaptured                = "uncaptured"
-	SidecarWaypoint           = "sidecar-waypoint"
-	SidecarCaptured           = "sidecar-captured"
-	SidecarUncaptured         = "sidecar-uncaptured"
+	Sidecar                   = "sidecar"
 )
 
 var inMesh = match.Matcher(func(instance echo.Instance) bool {
-	names := []string{"waypoint", "captured", "sidecar"}
-	for _, name := range names {
-		if strings.Contains(instance.Config().Service, name) {
-			return true
-		}
-	}
-	return false
+	return instance.Config().HasProxyCapabilities()
 })
 
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
@@ -169,6 +155,9 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.ExternalNamespace, err = namespace.New(t, namespace.Config{
 		Prefix: "external",
 		Inject: false,
+		Labels: map[string]string{
+			"istio.io/test-exclude-namespace": "true",
+		},
 	})
 	if err != nil {
 		return err
@@ -283,55 +272,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 	// Only setup sidecar tests if webhook is installed
 	if whErr == nil {
-		// TODO(https://github.com/istio/istio/issues/43244) support sidecars that are captured
-		//builder = builder.WithConfig(echo.Config{
-		//	Service:   SidecarWaypoint,
-		//	Namespace: apps.Namespace,
-		//	Ports:     ports.All(),
-		//	Subsets: []echo.SubsetConfig{
-		//		{
-		//			Replicas: 1,
-		//			Version:  "v1",
-		//			Labels: map[string]string{
-		//				"ambient-type":            "workload",
-		//				"sidecar.istio.io/inject": "true",
-		//			},
-		//		},
-		//		{
-		//			Replicas: 1,
-		//			Version:  "v2",
-		//			Labels: map[string]string{
-		//				"ambient-type":            "workload",
-		//				"sidecar.istio.io/inject": "true",
-		//			},
-		//		},
-		//	},
-		//})
-		//	builder = builder.WithConfig(echo.Config{
-		//		Service:   SidecarCaptured,
-		//		Namespace: apps.Namespace,
-		//		Ports:     ports.All(),
-		//		Subsets: []echo.SubsetConfig{
-		//			{
-		//				Replicas: 1,
-		//				Version:  "v1",
-		//				Labels: map[string]string{
-		//					"ambient-type":            "workload",
-		//					"sidecar.istio.io/inject": "true",
-		//				},
-		//			},
-		//			{
-		//				Replicas: 1,
-		//				Version:  "v2",
-		//				Labels: map[string]string{
-		//					"ambient-type":            "workload",
-		//					"sidecar.istio.io/inject": "true",
-		//				},
-		//			},
-		//		},
-		//	})
 		builder = builder.WithConfig(echo.Config{
-			Service:        SidecarUncaptured,
+			Service:        Sidecar,
 			Namespace:      apps.Namespace,
 			Ports:          ports.All(),
 			ServiceAccount: true,
@@ -372,7 +314,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 
 	// All does not include external
 	echos = match.Not(match.ServiceName(echo.NamespacedName{Name: cdeployment.ExternalSvc, Namespace: apps.ExternalNamespace})).GetMatches(echos)
-	apps.MockExternal = external.All
 	apps.All = echos
 	apps.WorkloadAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: WorkloadAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.ServiceAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: ServiceAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
@@ -380,9 +321,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.AllWaypoint = apps.AllWaypoint.Append(apps.ServiceAddressedWaypoint)
 	apps.Uncaptured = match.ServiceName(echo.NamespacedName{Name: Uncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Captured = match.ServiceName(echo.NamespacedName{Name: Captured, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.SidecarWaypoint = match.ServiceName(echo.NamespacedName{Name: SidecarWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.SidecarUncaptured = match.ServiceName(echo.NamespacedName{Name: SidecarUncaptured, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.SidecarCaptured = match.ServiceName(echo.NamespacedName{Name: SidecarCaptured, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.Sidecar = match.ServiceName(echo.NamespacedName{Name: Sidecar, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Mesh = inMesh.GetMatches(echos)
 	apps.MeshExternal = match.Not(inMesh).GetMatches(echos)
 

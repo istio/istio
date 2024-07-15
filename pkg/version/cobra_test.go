@@ -200,7 +200,7 @@ func TestVersion(t *testing.T) {
 		},
 		{ // case 1 client-side only, short output
 			args:           strings.Split("version -s --remote=false", " "),
-			expectedOutput: "unknown\n",
+			expectedOutput: "client version: unknown\n",
 		},
 		{ // case 2 client-side only, yaml output
 			args: strings.Split("version --remote=false -o yaml", " "),
@@ -279,11 +279,13 @@ func TestVersion(t *testing.T) {
 control plane version: 1.2.0
 `,
 		},
-		{ // case 11 remote, GetRemoteVersion returns a server error
+		{ // case 11 remote, GetRemoteVersion returns a server error, skip
 			args:       strings.Split("version --remote=true", " "),
 			remoteMesh: &meshEmptyVersion,
 			err:        fmt.Errorf("server error"),
-			expectFail: true,
+			expectedRegexp: regexp.MustCompile("version.BuildInfo{Version:\"unknown\", GitRevision:\"unknown\", " +
+				"GolangVersion:\"go1.([0-9+?(\\.)?]+).*\", " +
+				"BuildStatus:\"unknown\", GitTag:\"unknown\"}"),
 		},
 	}
 

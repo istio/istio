@@ -197,6 +197,22 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gatewayCustomIngressGatewayBadPortWithoutTarget",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport-notarget.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
+		},
+	},
+	{
+		name:       "gatewayCustomIngressGatewayTranslation",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-translation.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
 		name:       "gatewayServiceMatchPod",
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-svcselector.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
@@ -532,6 +548,42 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
 		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at destinationlevel, no workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination-credentialname.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at destinationlevel, workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination-credentialname-selector.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "destinationrule with credentialname, simple at portlevel, no workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port-credentialname.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at portlevel, workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port-credentialname-selector.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
 	},
 	{
 		name: "destinationrule with no cacert, mutual at portlevel",

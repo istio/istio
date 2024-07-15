@@ -5,6 +5,7 @@
 pilot:
   env:
     # 1.22 behavioral changes
+    ENABLE_ENHANCED_RESOURCE_SCOPING: "false"
     ENABLE_RESOLUTION_NONE_TARGET_PORT: "false"
 meshConfig:
   # 1.22 behavioral changes

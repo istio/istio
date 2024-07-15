@@ -102,7 +102,7 @@ var (
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: EnvoyJSONLogFormatIstio,
 				},
-				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
+				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
 			},
 		},
 	}
@@ -125,7 +125,7 @@ var (
 						},
 					},
 				},
-				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
+				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
 			},
 		},
 	}
@@ -588,6 +588,21 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
+	reenable := &tpb.Telemetry{
+		Metrics: []*tpb.Metrics{
+			{
+				Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+				// need this to override disabledAllMetrics.overrides
+				Overrides: []*tpb.MetricsOverrides{{
+					Match: &tpb.MetricSelector{
+						MetricMatch: &tpb.MetricSelector_Metric{
+							Metric: tpb.MetricSelector_ALL_METRICS,
+						},
+					},
+				}},
+			},
+		},
+	}
 	overridesPrometheus := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
 			{
@@ -699,6 +714,31 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{},
+		},
+		{
+			"disabled-then-reenable",
+			[]config.Config{
+				newTelemetry("istio-system", disabledAllMetrics),
+				newTelemetry("default", reenable),
+			},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stats": `{"metrics":[` +
+					`{"name":"request_messages_total"},` +
+					`{"name":"response_messages_total"},` +
+					`{"name":"requests_total"},` +
+					`{"name":"request_duration_milliseconds"},` +
+					`{"name":"request_bytes"},` +
+					`{"name":"response_bytes"},` +
+					`{"name":"tcp_connections_closed_total"},` +
+					`{"name":"tcp_connections_opened_total"},` +
+					`{"name":"tcp_received_bytes_total"},` +
+					`{"name":"tcp_sent_bytes_total"}` +
+					`]}`,
+			},
 		},
 		{
 			"disabled-then-overrides",

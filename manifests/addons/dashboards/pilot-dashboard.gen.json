@@ -1,0 +1,861 @@
+{
+   "graphTooltip": 1,
+   "panels": [
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+         },
+         "id": 1,
+         "panels": [ ],
+         "title": "Deployed Versions",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Version number of each running instance",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 5,
+            "w": 24,
+            "x": 0,
+            "y": 1
+         },
+         "id": 2,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [ ],
+               "displayMode": "list"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(istio_build{component=\"pilot\"}) by (tag)",
+               "legendFormat": "Version ({{tag}})"
+            }
+         ],
+         "title": "Pilot Versions",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 1
+         },
+         "id": 3,
+         "panels": [ ],
+         "title": "Resource Usage",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Memory usage of each running instance",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               },
+               "unit": "bytes"
+            }
+         },
+         "gridPos": {
+            "h": 10,
+            "w": 6,
+            "x": 0,
+            "y": 2
+         },
+         "id": 4,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  container_memory_working_set_bytes{container=\"discovery\", pod=~\"istiod-.*\"}\n)",
+               "legendFormat": "Container ({{pod}})"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  go_memstats_stack_inuse_bytes{app=\"istiod\"}\n)",
+               "legendFormat": "Stack ({{pod}})"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  go_memstats_heap_inuse_bytes{app=\"istiod\"}\n)",
+               "legendFormat": "Heap (In Use) ({{pod}})"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  go_memstats_heap_alloc_bytes{app=\"istiod\"}\n)",
+               "legendFormat": "Heap (Allocated) ({{pod}})"
+            }
+         ],
+         "title": "Memory Usage",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Details about memory allocations",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               },
+               "unit": "Bps"
+            },
+            "overrides": [
+               {
+                  "matcher": {
+                     "id": "byFrameRefID",
+                     "options": "B"
+                  },
+                  "properties": [
+                     {
+                        "id": "custom.axisPlacement",
+                        "value": "right"
+                     },
+                     {
+                        "id": "unit",
+                        "value": "c/s"
+                     }
+                  ]
+               }
+            ]
+         },
+         "gridPos": {
+            "h": 10,
+            "w": 6,
+            "x": 6,
+            "y": 2
+         },
+         "id": 5,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  rate(\n    go_memstats_alloc_bytes_total{app=\"istiod\"}\n  [$__rate_interval])\n)",
+               "legendFormat": "Bytes ({{pod}})"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  rate(\n    go_memstats_mallocs_total{app=\"istiod\"}\n  [$__rate_interval])\n)",
+               "legendFormat": "Objects ({{pod}})"
+            }
+         ],
+         "title": "Memory Allocations",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "CPU usage of each running instance",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 10,
+            "w": 6,
+            "x": 12,
+            "y": 2
+         },
+         "id": 6,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  irate(\n    container_cpu_usage_seconds_total{container=\"discovery\", pod=~\"istiod-.*\"}\n  [$__rate_interval])\n)",
+               "legendFormat": "Container ({{pod}})"
+            }
+         ],
+         "title": "CPU Usage",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Goroutine count for each running instance",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 10,
+            "w": 6,
+            "x": 18,
+            "y": 2
+         },
+         "id": 7,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (\n  go_goroutines{app=\"istiod\"}\n)",
+               "legendFormat": "Goroutines ({{pod}})"
+            }
+         ],
+         "title": "Goroutines",
+         "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 3
+         },
+         "id": 8,
+         "panels": [ ],
+         "title": "Push Information",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "drawStyle": "bars",
+                  "fillOpacity": 100,
+                  "gradientMode": "none",
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            },
+            "overrides": [
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "cds"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Clusters"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "eds"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Endpoints"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "lds"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Listeners"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "rds"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Routes"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "istio.io/debug"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Debug"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "wads"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Authorization"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "wds"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Workloads"
+                     }
+                  ]
+               }
+            ]
+         },
+         "gridPos": {
+            "h": 10,
+            "w": 8,
+            "x": 0,
+            "y": 4
+         },
+         "id": 9,
+         "interval": "15s",
+         "options": {
+            "legend": {
+               "calcs": [ ],
+               "displayMode": "list"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (type) (\n  irate(\n    pilot_xds_pushes{}\n  [$__rate_interval])\n)",
+               "legendFormat": "{{type}}"
+            }
+         ],
+         "title": "XDS Pushes",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Size of each xDS push.\n",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 10,
+            "w": 8,
+            "x": 8,
+            "y": 4
+         },
+         "id": 10,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (type, event) (\n  rate(\n    pilot_k8s_reg_events{}\n  [$__rate_interval])\n)",
+               "legendFormat": "{{event}} {{type}}"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (type, event) (\n  rate(\n    pilot_k8s_cfg_events{}\n  [$__rate_interval])\n)",
+               "legendFormat": "{{event}} {{type}}"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (type) (\n  rate(\n    pilot_push_triggers{}\n  [$__rate_interval])\n)",
+               "legendFormat": "Push {{type}}"
+            }
+         ],
+         "title": "Events",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Total number of XDS connections\n",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 10,
+            "w": 8,
+            "x": 16,
+            "y": 4
+         },
+         "id": 11,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(envoy_cluster_upstream_cx_active{cluster_name=\"xds-grpc\"})",
+               "legendFormat": "Connections (client reported)"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(pilot_xds{})",
+               "legendFormat": "Connections (server reported)"
+            }
+         ],
+         "title": "Connections",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Number of push errors. Many of these are at least potentional fatal and should be explored in-depth via Istiod logs.\nNote: metrics here do not use rate() to avoid missing transition from \"No series\"; series are not reported if there are no errors at all.\n",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 10,
+            "w": 8,
+            "x": 0,
+            "y": 14
+         },
+         "id": 12,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (type) (\n  pilot_total_xds_rejects{}\n)",
+               "legendFormat": "Rejected Config ({{type}})"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "pilot_total_xds_internal_errors{}",
+               "legendFormat": "Internal Errors"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "pilot_xds_push_context_errors{}",
+               "legendFormat": "Push Context Errors"
+            }
+         ],
+         "title": "Push Errors",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Count of active and pending proxies managed by each instance.\nPending is expected to converge to zero.\n",
+         "gridPos": {
+            "h": 10,
+            "w": 8,
+            "x": 8,
+            "y": 14
+         },
+         "id": 13,
+         "interval": "1m",
+         "options": {
+            "calculation": {
+               "xBuckets": {
+                  "mode": "size",
+                  "value": "1min"
+               }
+            },
+            "cellGap": 0,
+            "color": {
+               "mode": "scheme",
+               "scheme": "Spectral",
+               "steps": 128
+            },
+            "yAxis": {
+               "decimals": 0,
+               "unit": "s"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(pilot_xds_push_time_bucket{}[1m])) by (le)",
+               "format": "heatmap",
+               "legendFormat": "{{le}}"
+            }
+         ],
+         "title": "Push Time",
+         "type": "heatmap"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Size of each xDS push.\n",
+         "gridPos": {
+            "h": 10,
+            "w": 8,
+            "x": 16,
+            "y": 14
+         },
+         "id": 14,
+         "interval": "1m",
+         "options": {
+            "calculation": {
+               "xBuckets": {
+                  "mode": "size",
+                  "value": "1min"
+               }
+            },
+            "cellGap": 0,
+            "color": {
+               "mode": "scheme",
+               "scheme": "Spectral",
+               "steps": 128
+            },
+            "yAxis": {
+               "decimals": 0,
+               "unit": "bytes"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(rate(pilot_xds_config_size_bytes_bucket{}[1m])) by (le)",
+               "format": "heatmap",
+               "legendFormat": "{{le}}"
+            }
+         ],
+         "title": "Push Size",
+         "type": "heatmap"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 100
+         },
+         "id": 15,
+         "panels": [ ],
+         "title": "Webhooks",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Rate of XDS push operations, by type. This is incremented on a per-proxy basis.\n",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 101
+         },
+         "id": 16,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [ ],
+               "displayMode": "list"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  rate(\n    galley_validation_passed{}\n  [$__rate_interval])\n)",
+               "legendFormat": "Success"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  rate(\n    galley_validation_passed{}\n  [$__rate_interval])\n)",
+               "legendFormat": "Failure"
+            }
+         ],
+         "title": "Validation",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Size of each xDS push.\n",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               }
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 101
+         },
+         "id": 17,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [ ],
+               "displayMode": "list"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  rate(\n    sidecar_injection_success_total{}\n  [$__rate_interval])\n)",
+               "legendFormat": "Success"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum(\n  rate(\n    sidecar_injection_failure_total{}\n  [$__rate_interval])\n)",
+               "legendFormat": "Failure"
+            }
+         ],
+         "title": "Injection",
+         "type": "timeseries"
+      }
+   ],
+   "refresh": "15s",
+   "schemaVersion": 39,
+   "templating": {
+      "list": [
+         {
+            "name": "datasource",
+            "query": "prometheus",
+            "type": "datasource"
+         }
+      ]
+   },
+   "time": {
+      "from": "now-30m",
+      "to": "now"
+   },
+   "timezone": "utc",
+   "title": "Istio Control Plane Dashboard",
+   "uid": "1813f692a8e4ac77155348d4c7d2fba8"
+}

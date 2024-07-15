@@ -31,11 +31,7 @@ const (
 	vmSupportMetaKey  = "fakeVM"
 )
 
-func init() {
-	cluster.RegisterFactory(cluster.Kubernetes, buildKube)
-}
-
-func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Cluster, error) {
+func BuildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Cluster, error) {
 	cfg, err := validConfig(origCfg)
 	if err != nil {
 		return nil, err

@@ -296,8 +296,8 @@ resources:
       - "v1"
     proto: "istio.networking.v1alpha3.ServiceEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    statusProto: "istio.meta.v1alpha1.IstioStatus"
-    statusProtoPackage: "istio.io/api/meta/v1alpha1"
+    statusProto: "istio.networking.v1alpha3.ServiceEntryStatus"
+    statusProtoPackage: "istio.io/api/networking/v1alpha3"
 
   - kind: "WorkloadEntry"
     plural: "workloadentries"

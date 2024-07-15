@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -40,11 +41,14 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 )
+
+var maxSecondsValue = int64((math.MaxInt64 - 999999999) / (1000 * 1000 * 1000)) // 9223372035, which is about 292 years.
 
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
@@ -221,13 +225,14 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	// merge applicable port level traffic policy settings
 	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
-		mesh:           cb.req.Push.Mesh,
-		serviceTargets: cb.serviceTargets,
-		mutable:        mc,
-		policy:         trafficPolicy,
-		port:           port,
-		clusterMode:    clusterMode,
-		direction:      model.TrafficDirectionOutbound,
+		mesh:                  cb.req.Push.Mesh,
+		serviceTargets:        cb.serviceTargets,
+		mutable:               mc,
+		policy:                trafficPolicy,
+		port:                  port,
+		clusterMode:           clusterMode,
+		direction:             model.TrafficDirectionOutbound,
+		credentialSocketExist: cb.credentialSocketExist,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -288,6 +293,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 ) *clusterWrapper {
 	c := &cluster.Cluster{
 		Name:                 name,
+		AltStatName:          name + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
@@ -342,8 +348,13 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	if direction == model.TrafficDirectionOutbound {
 		// If stat name is configured, build the alternate stats name.
 		if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
-			ec.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
+			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
 				string(service.Hostname), subset, port, 0, &service.Attributes)
+
+			if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter {
+				statPrefix += constants.ClusterAltStatNameDelimeter
+			}
+			ec.cluster.AltStatName = statPrefix
 		}
 	}
 
@@ -370,8 +381,19 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		model.TrafficDirectionInbound, instance.Port.ServicePort, instance.Service, inboundServices, "")
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
-		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort, &instance.Service.Attributes)
+		statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
+			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort,
+			&instance.Service.Attributes)
+		// Add the cluster name delimeter if it's not the last character.
+		if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter {
+			statPrefix += constants.ClusterAltStatNameDelimeter
+		}
+		localCluster.cluster.AltStatName = statPrefix
+	}
+
+	if clusterType == cluster.Cluster_ORIGINAL_DST {
+		// Disable cleanup for inbound clusters - set to Max possible duration.
+		localCluster.cluster.CleanupInterval = durationpb.New(time.Duration(maxSecondsValue) * time.Second)
 	}
 
 	opts := buildClusterOpts{
@@ -452,39 +474,35 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 	return localCluster
 }
 
-// buildInboundPassthroughClusters builds passthrough clusters for inbound.
-func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
-	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
-	clusters := make([]*cluster.Cluster, 0, 2)
-	if cb.supportsIPv4 {
-		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
-		inboundPassthroughClusterIpv4.Filters = nil
-		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
-				Address: InboundPassthroughBindIpv4,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
-				},
-			},
-		}
-		clusters = append(clusters, inboundPassthroughClusterIpv4)
+// buildInboundPassthroughCluster builds passthrough cluster for inbound.
+func (cb *ClusterBuilder) buildInboundPassthroughCluster() *cluster.Cluster {
+	// We need to set a local bind address, which we will match in iptables to avoid looping back to ourselves.
+	// This needs a per-IP-version, since we cannot bind to IPv4 and send to IPv6 (or the inverse).
+	// Fortunately, Envoy can natively handle this by giving it a local v4 and v6 address, and it will pick which to use for us.
+	src := InboundPassthroughBindIpv4
+	if !cb.supportsIPv4 {
+		src = InboundPassthroughBindIpv6
 	}
-	if cb.supportsIPv6 {
-		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
-		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
-		inboundPassthroughClusterIpv6.Filters = nil
-		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
-			SourceAddress: &core.SocketAddress{
-				Address: InboundPassthroughBindIpv6,
-				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(0),
-				},
+	var extraSrc []*core.ExtraSourceAddress
+	if cb.supportsIPv4 && cb.supportsIPv6 {
+		extraSrc = append(extraSrc, &core.ExtraSourceAddress{
+			Address: &core.SocketAddress{
+				Address:       InboundPassthroughBindIpv6,
+				PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(0)},
 			},
-		}
-		clusters = append(clusters, inboundPassthroughClusterIpv6)
+		})
 	}
-	return clusters
+	c := cb.buildDefaultPassthroughCluster()
+	c.Name = util.InboundPassthroughCluster
+	c.Filters = nil
+	c.UpstreamBindConfig = &core.BindConfig{
+		SourceAddress: &core.SocketAddress{
+			Address:       src,
+			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(0)},
+		},
+		ExtraSourceAddresses: extraSrc,
+	}
+	return c
 }
 
 // generates a cluster that sends traffic to dummy localport 0
@@ -492,6 +510,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
+		AltStatName:          util.BlackHoleCluster + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
@@ -504,6 +523,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
+		AltStatName:          util.PassthroughCluster + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
@@ -562,7 +582,7 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 
 // nolint
 // revive:disable-next-line
-func (cb *ClusterBuilder) isHttp2Cluster(mc *clusterWrapper) bool {
+func isHttp2Cluster(mc *clusterWrapper) bool {
 	options := mc.httpProtocolOptions
 	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil
 }
@@ -710,6 +730,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 	}
 	c := &cluster.Cluster{
 		Name:                 security.SDSExternalClusterName,
+		AltStatName:          security.SDSExternalClusterName + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LoadAssignment: &endpoint.ClusterLoadAssignment{

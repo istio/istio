@@ -90,7 +90,7 @@ func (n *kubeNamespace) Prefix() string {
 }
 
 func (n *kubeNamespace) Labels() (map[string]string, error) {
-	perCluster := make([]map[string]string, len(n.ctx.AllClusters().Kube()))
+	perCluster := make([]map[string]string, len(n.ctx.AllClusters()))
 	if err := n.forEachCluster(func(i int, c cluster.Cluster) error {
 		ns, err := c.Kube().CoreV1().Namespaces().Get(context.TODO(), n.Name(), metav1.GetOptions{})
 		if err != nil {
@@ -261,7 +261,7 @@ func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 
 func (n *kubeNamespace) forEachCluster(fn func(i int, c cluster.Cluster) error) error {
 	errG := multierror.Group{}
-	for i, c := range n.ctx.AllClusters().Kube() {
+	for i, c := range n.ctx.AllClusters() {
 		i, c := i, c
 		errG.Go(func() error {
 			return fn(i, c)

@@ -15,6 +15,7 @@
 package model
 
 import (
+	"cmp"
 	"sort"
 	"strings"
 
@@ -352,23 +353,19 @@ func OldestMatchingHost(needle host.Name, specific map[host.Name]config.Config, 
 	return matchHost, matchValue, found
 }
 
-// sortByCreationComparator is a comparator function for sorting config objects by creation time.
-func sortByCreationComparator(configs []config.Config) func(i, j int) bool {
-	return func(i, j int) bool {
+// sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available)
+func sortConfigByCreationTime(configs []config.Config) []config.Config {
+	sort.Slice(configs, func(i, j int) bool {
+		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
+			return r == -1 // -1 means i is less than j, so return true
+		}
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if configs[i].CreationTimestamp == configs[j].CreationTimestamp {
-			in := configs[i].Name + "." + configs[i].Namespace
-			jn := configs[j].Name + "." + configs[j].Namespace
-			return in < jn
+		if r := cmp.Compare(configs[i].Name, configs[j].Name); r != 0 {
+			return r == -1
 		}
-		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
-	}
-}
-
-// sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available)
-func sortConfigByCreationTime(configs []config.Config) []config.Config {
-	sort.Slice(configs, sortByCreationComparator(configs))
+		return cmp.Compare(configs[i].Namespace, configs[j].Namespace) == -1
+	})
 	return configs
 }

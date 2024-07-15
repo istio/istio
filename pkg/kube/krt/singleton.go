@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/ptr"
 )
 
@@ -116,6 +117,11 @@ func (d *static[T]) uid() collectionUID {
 	return d.id
 }
 
+// nolint: unused // (not true, its to implement an interface)
+func (d *static[T]) index(extract func(o T) []string) kclient.RawIndexer {
+	panic("TODO")
+}
+
 func toEvent[T any](old, now *T) Event[T] {
 	if old == nil {
 		return Event[T]{
@@ -174,4 +180,14 @@ func NewSingleton[O any](hf TransformationEmpty[O], opts ...CollectionOption) Si
 		return hf(ctx)
 	}, opts...)
 	return collectionAdapter[O]{col}
+}
+
+// NewManyFromNothing is a niche Collection type that doesn't have any input dependencies. This is useful where things
+// only rely on out-of-band data via RecomputeTrigger, for instance.
+func NewManyFromNothing[O any](hf TransformationEmptyToMulti[O], opts ...CollectionOption) Collection[O] {
+	dummyCollection := NewStatic[dummyValue](&dummyValue{}).AsCollection()
+	col := NewManyCollection[dummyValue, O](dummyCollection, func(ctx HandlerContext, _ dummyValue) []O {
+		return hf(ctx)
+	}, opts...)
+	return col
 }

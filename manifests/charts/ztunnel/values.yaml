@@ -1,3 +1,5 @@
+# "defaults" is a workaround for Helm limitations. Users should NOT set ".defaults" explicitly, but rather directly set the fields internally.
+# For instance, instead of `--set defaults.foo=bar`, just set `--set foo=bar`.
 defaults:
   # Hub to pull from. Image will be `Hub/Image:Tag-Variant`
   hub: gcr.io/istio-testing
@@ -67,13 +69,19 @@ defaults:
   terminationGracePeriodSeconds: 30
 
   # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+  # Used to locate the XDS and CA, if caAddress or xdsAddress are not set explicitly.
   revision: ""
 
   # The customized CA address to retrieve certificates for the pods in the cluster.
   # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
   caAddress: ""
 
-  # Used to locate istiod.
+  # The customized XDS address to retrieve configuration.
+  # This should include the port - 15012 for Istiod. TLS will be used with the certificates in "istiod-ca-cert" secret.
+  # By default, it is istiod.istio-system.svc:15012 if revision is not set, or istiod-<revision>.<istioNamespace>.svc:15012
+  xdsAddress: ""
+
+  # Used to locate the XDS and CA, if caAddress or xdsAddress are not set.
   istioNamespace: istio-system
 
   # Configuration log level of ztunnel binary, default is info.

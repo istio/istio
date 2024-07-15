@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -75,14 +76,20 @@ func getRemoteInfo(ctx cli.Context, opts clioptions.ControlPlaneOptions) (*istio
 func getRemoteInfoWrapper(ctx cli.Context, pc **cobra.Command, opts *clioptions.ControlPlaneOptions) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
 		remInfo, err := getRemoteInfo(ctx, *opts)
-		if err != nil {
-			fmt.Fprintf((*pc).OutOrStderr(), "%v\n", err)
-			// Return nil so that the client version is printed
-			return nil, nil
-		}
+		var errMses []string
+
 		if remInfo == nil {
-			fmt.Fprintf((*pc).OutOrStderr(), "Istio is not present in the cluster with namespace %q\n", ctx.IstioNamespace())
+			errMses = append(errMses, "Istio is not present in the cluster")
 		}
+
+		if err != nil {
+			errMses = append(errMses, fmt.Sprintf(": %v", err))
+		}
+
+		if len(errMses) > 0 {
+			fmt.Fprintln((*pc).OutOrStderr(), strings.Join(errMses, ""))
+		}
+
 		return remInfo, err
 	}
 }

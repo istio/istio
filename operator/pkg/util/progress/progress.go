@@ -122,14 +122,14 @@ func (p *Log) reportProgress(component string) func() {
 		cmpErr := cmp.err
 		cmp.mu.Unlock()
 		successIcon := "✅"
-		if icon, found := name.IstioComponentSuccessIcons[cmpName]; found {
+		if icon, found := name.IstioComponentIcons[cmpName]; found {
 			successIcon = icon
 		}
 		if finished || cmpErr != "" {
 			if finished {
-				p.SetMessage(fmt.Sprintf(`%s %s installed`, successIcon, cliName), true)
+				p.SetMessage(fmt.Sprintf(`{{ green "✔" }} %s installed %s`, cliName, successIcon), true)
 			} else {
-				p.SetMessage(fmt.Sprintf(`❌ %s encountered an error: %s`, cliName, cmpErr), true)
+				p.SetMessage(fmt.Sprintf(`{{ red "✘" }} %s encountered an error: %s`, cliName, cmpErr), true)
 			}
 			// Close the bar out, outputting a new line
 			delete(p.components, component)
@@ -151,10 +151,10 @@ func (p *Log) SetState(state InstallState) {
 		p.bar.SetTemplateString(inProgress + `Pruning removed resources`)
 		p.bar.Write()
 	case StateComplete:
-		p.bar.SetTemplateString(`{{ green "✅" }} Installation complete`)
+		p.bar.SetTemplateString(`{{ green "✔" }} Installation complete`)
 		p.bar.Write()
 	case StateUninstallComplete:
-		p.bar.SetTemplateString(`{{ green "✅" }} Uninstall complete`)
+		p.bar.SetTemplateString(`{{ green "✔" }} Uninstall complete`)
 		p.bar.Write()
 	}
 }

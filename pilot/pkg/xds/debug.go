@@ -48,8 +48,10 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -116,21 +118,29 @@ type AdsClients struct {
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
-	ClusterID            string         `json:"cluster_id,omitempty"`
-	ProxyID              string         `json:"proxy,omitempty"`
-	ProxyType            model.NodeType `json:"proxy_type,omitempty"`
-	ProxyVersion         string         `json:"proxy_version,omitempty"`
-	IstioVersion         string         `json:"istio_version,omitempty"`
-	ClusterSent          string         `json:"cluster_sent,omitempty"`
-	ClusterAcked         string         `json:"cluster_acked,omitempty"`
-	ListenerSent         string         `json:"listener_sent,omitempty"`
-	ListenerAcked        string         `json:"listener_acked,omitempty"`
-	RouteSent            string         `json:"route_sent,omitempty"`
-	RouteAcked           string         `json:"route_acked,omitempty"`
-	EndpointSent         string         `json:"endpoint_sent,omitempty"`
-	EndpointAcked        string         `json:"endpoint_acked,omitempty"`
-	ExtensionConfigSent  string         `json:"extensionconfig_sent,omitempty"`
-	ExtensionConfigAcked string         `json:"extensionconfig_acked,omitempty"`
+	ClusterID            string                    `json:"cluster_id,omitempty"`
+	ProxyID              string                    `json:"proxy,omitempty"`
+	ProxyType            model.NodeType            `json:"proxy_type,omitempty"`
+	ProxyVersion         string                    `json:"proxy_version,omitempty"`
+	IstioVersion         string                    `json:"istio_version,omitempty"`
+	ClusterSent          string                    `json:"cluster_sent,omitempty"`
+	ClusterAcked         string                    `json:"cluster_acked,omitempty"`
+	ListenerSent         string                    `json:"listener_sent,omitempty"`
+	ListenerAcked        string                    `json:"listener_acked,omitempty"`
+	RouteSent            string                    `json:"route_sent,omitempty"`
+	RouteAcked           string                    `json:"route_acked,omitempty"`
+	EndpointSent         string                    `json:"endpoint_sent,omitempty"`
+	EndpointAcked        string                    `json:"endpoint_acked,omitempty"`
+	ExtensionConfigSent  string                    `json:"extensionconfig_sent,omitempty"`
+	ExtensionConfigAcked string                    `json:"extensionconfig_acked,omitempty"`
+	Resources            map[string]ResourceStatus `json:"resources,omitempty"`
+}
+
+type ResourceStatus struct {
+	Sent      string    `json:"sent,omitempty"`
+	Acked     string    `json:"acked,omitempty"`
+	SentTime  time.Time `json:"sentTime,omitempty"`
+	LastError string    `json:"lastError,omitempty"`
 }
 
 // SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
@@ -183,7 +193,6 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
-	s.addDebugHandler(mux, internalMux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
 
 	s.addDebugHandler(mux, internalMux, "/debug/registryz", "Debug support for registry", s.registryz)
 	s.addDebugHandler(mux, internalMux, "/debug/endpointz", "Obsolete, use endpointShardz", s.endpointShardz)
@@ -195,6 +204,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
 	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 	s.addDebugHandler(mux, internalMux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
+	s.addDebugHandler(mux, internalMux, "/debug/ambientz", "Debug support for ambient", s.ambientz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/authorizationz", "Internal authorization policies", s.authorizationz)
 	s.addDebugHandler(mux, internalMux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
@@ -273,22 +283,34 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, req *http.Request) {
 	syncz := make([]SyncStatus, 0)
 	for _, con := range s.SortedClients() {
 		node := con.proxy
+		node.CloneWatchedResources()
 		if node != nil && (namespace == "" || node.GetNamespace() == namespace) {
+			wrs := node.CloneWatchedResources()
+			res := make(map[string]ResourceStatus, len(wrs))
+			for _, wr := range wrs {
+				res[wr.TypeUrl] = ResourceStatus{
+					Sent:      wr.NonceSent,
+					Acked:     wr.NonceAcked,
+					SentTime:  wr.LastSendTime,
+					LastError: wr.LastError,
+				}
+			}
 			syncz = append(syncz, SyncStatus{
 				ProxyID:              node.ID,
 				ProxyType:            node.Type,
 				ClusterID:            node.GetClusterID().String(),
 				IstioVersion:         node.GetIstioVersion(),
-				ClusterSent:          con.NonceSent(v3.ClusterType),
-				ClusterAcked:         con.NonceAcked(v3.ClusterType),
-				ListenerSent:         con.NonceSent(v3.ListenerType),
-				ListenerAcked:        con.NonceAcked(v3.ListenerType),
-				RouteSent:            con.NonceSent(v3.RouteType),
-				RouteAcked:           con.NonceAcked(v3.RouteType),
-				EndpointSent:         con.NonceSent(v3.EndpointType),
-				EndpointAcked:        con.NonceAcked(v3.EndpointType),
-				ExtensionConfigSent:  con.NonceSent(v3.ExtensionConfigurationType),
-				ExtensionConfigAcked: con.NonceAcked(v3.ExtensionConfigurationType),
+				ClusterSent:          node.NonceSent(v3.ClusterType),
+				ClusterAcked:         node.NonceAcked(v3.ClusterType),
+				ListenerSent:         node.NonceSent(v3.ListenerType),
+				ListenerAcked:        node.NonceAcked(v3.ListenerType),
+				RouteSent:            node.NonceSent(v3.RouteType),
+				RouteAcked:           node.NonceAcked(v3.RouteType),
+				EndpointSent:         node.NonceSent(v3.EndpointType),
+				EndpointAcked:        node.NonceAcked(v3.EndpointType),
+				ExtensionConfigSent:  node.NonceSent(v3.ExtensionConfigurationType),
+				ExtensionConfigAcked: node.NonceAcked(v3.ExtensionConfigurationType),
+				Resources:            res,
 			})
 		}
 	}
@@ -351,72 +373,6 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 		resources[resourceType] = append(resources[resourceType], resource.Name)
 	}
 	writeJSON(w, resources, req)
-}
-
-const DistributionTrackingDisabledMessage = "Pilot Version tracking is disabled. It may be enabled by setting the " +
-	"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING environment variable to true."
-
-func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
-	if !features.EnableDistributionTracking {
-		w.WriteHeader(http.StatusConflict)
-		_, _ = fmt.Fprint(w, DistributionTrackingDisabledMessage)
-		return
-	}
-	if resourceID := req.URL.Query().Get("resource"); resourceID != "" {
-		proxyNamespace := req.URL.Query().Get("proxy_namespace")
-		knownVersions := make(map[string]string)
-		var results []SyncedVersions
-		for _, con := range s.SortedClients() {
-			// wrap this in independent scope so that panic's don't bypass Unlock...
-			con.proxy.RLock()
-
-			if con.proxy != nil && (proxyNamespace == "" || proxyNamespace == con.proxy.ConfigNamespace) {
-				// read nonces from our statusreporter to allow for skipped nonces, etc.
-				results = append(results, SyncedVersions{
-					ProxyID: con.proxy.ID,
-					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.ClusterType),
-						resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.ListenerType),
-						resourceID, knownVersions),
-					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.RouteType),
-						resourceID, knownVersions),
-					EndpointVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ID(), v3.EndpointType),
-						resourceID, knownVersions),
-				})
-			}
-			con.proxy.RUnlock()
-		}
-
-		writeJSON(w, results, req)
-	} else {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		_, _ = fmt.Fprintf(w, "querystring parameter 'resource' is required\n")
-	}
-}
-
-// VersionLen is the Config Version and is only used as the nonce prefix, but we can reconstruct
-// it because is is a b64 encoding of a 64 bit array, which will always be 12 chars in length.
-// len = ceil(bitlength/(2^6))+1
-const VersionLen = 12
-
-func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string]string) string {
-	if len(nonce) < VersionLen {
-		return ""
-	}
-	configVersion := nonce[:VersionLen]
-	result, ok := cache[configVersion]
-	if !ok {
-		lookupResult, err := s.Env.GetLedger().GetPreviousValue(configVersion, key)
-		if err != nil {
-			istiolog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
-			lookupResult = ""
-		}
-		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
-		// repeat the same error for many s.adsClients.
-		cache[configVersion] = lookupResult
-		return lookupResult
-	}
-	return result
 }
 
 // kubernetesConfig wraps a config.Config with a custom marshaling method that matches a Kubernetes
@@ -1069,6 +1025,54 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 		con.proxy.RUnlock()
 	}
 	writeJSON(w, instances, req)
+}
+
+func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
+	addresses, _ := s.Env.ServiceDiscovery.AddressInformation(nil)
+	res := struct {
+		Workloads []jsonMarshalProto `json:"workloads"`
+		Services  []jsonMarshalProto `json:"services"`
+	}{}
+	// WDS stores IPs as raw byte form. We want to view them as strings, so convert.
+	// This doesn't quite work ideally, since json marshal will write as base64, but its better than nothing
+	rewriteAddress := func(b []byte) []byte {
+		ip, ok := netip.AddrFromSlice(b)
+		if !ok {
+			return b
+		}
+		return []byte(ip.String())
+	}
+	rewriteNetworkAddress := func(b *workloadapi.NetworkAddress) *workloadapi.NetworkAddress {
+		b.Address = rewriteAddress(b.Address)
+		return b
+	}
+	rewriteGatewayAddress := func(b *workloadapi.GatewayAddress) *workloadapi.GatewayAddress {
+		if b == nil {
+			return nil
+		}
+		switch t := b.Destination.(type) {
+		case *workloadapi.GatewayAddress_Address:
+			t.Address = rewriteNetworkAddress(t.Address)
+		}
+		return b
+	}
+	for _, addr := range addresses {
+		switch addr := addr.Type.(type) {
+		case *workloadapi.Address_Workload:
+			w := addr.Workload
+			w.Addresses = slices.Map(w.Addresses, rewriteAddress)
+			w.Waypoint = rewriteGatewayAddress(w.Waypoint)
+			w.NetworkGateway = rewriteGatewayAddress(w.NetworkGateway)
+			res.Workloads = append(res.Workloads, jsonMarshalProto{w})
+		case *workloadapi.Address_Service:
+			s := addr.Service
+			s.Addresses = slices.Map(s.Addresses, rewriteNetworkAddress)
+			s.Waypoint = rewriteGatewayAddress(s.Waypoint)
+			res.Services = append(res.Services, jsonMarshalProto{s})
+		}
+	}
+
+	writeJSON(w, res, req)
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {

@@ -135,7 +135,7 @@ func TestMergeGateways(t *testing.T) {
 			for _, c := range tt.gwConfig {
 				instances = append(instances, gatewayWithInstances{c, true, nil})
 			}
-			mgw := MergeGateways(instances, &Proxy{}, nil)
+			mgw := mergeGateways(instances, &Proxy{}, nil)
 			if len(mgw.MergedServers) != tt.mergedServersNum {
 				t.Errorf("Incorrect number of merged servers. Expected: %v Got: %d", tt.mergedServersNum, len(mgw.MergedServers))
 			}
@@ -216,8 +216,8 @@ func TestGetAutoPassthroughSNIHosts(t *testing.T) {
 		},
 	}
 	instances := []gatewayWithInstances{{gateway: gateway, instances: gatewayServiceTargets}}
-	mgw := MergeGateways(instances, &Proxy{}, nil)
-	hosts := mgw.GetAutoPassthrughGatewaySNIHosts()
+	mgw := mergeGateways(instances, &Proxy{}, nil)
+	hosts := mgw.GetAutoPassthroughGatewaySNIHosts()
 	expectedHosts := sets.Set[string]{}
 	expectedHosts.InsertAll("a.apps.svc.cluster.local", "b.apps.svc.cluster.local")
 	if !hosts.Equals(expectedHosts) {
@@ -246,6 +246,14 @@ func makeConfig(name, namespace, host, portName, portProtocol string, portNumber
 		},
 	}
 	return c
+}
+
+func BenchmarkParseGatewayRDSRouteName(b *testing.B) {
+	for range b.N {
+		ParseGatewayRDSRouteName("https.443.app1.gw1.ns1")
+		ParseGatewayRDSRouteName("https.scooby.dooby.doo")
+		ParseGatewayRDSRouteName("http.80")
+	}
 }
 
 func TestParseGatewayRDSRouteName(t *testing.T) {

@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2024-05-08T22-56-43
+BASE_VERSION ?= master-2024-06-02T19-03-25
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -305,7 +305,7 @@ check-agent-deps:
 		grep -Pv 'envoy/extensions/wasm/' |\
 		grep -Pv 'envoy/extensions/filters/(http|network)/wasm/' |\
 		grep -Pv 'contrib/envoy/extensions/private_key_providers/' |\
-		grep -Pv 'istio\.io/api/(annotation|label|mcp|mesh|networking|security/v1alpha1|type)' |\
+		grep -Pv 'istio\.io/api/(annotation|label|mcp|mesh|networking|analysis/v1alpha1|meta/v1alpha1|security/v1alpha1|type)' |\
 		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|jwx/jwk|envoy/|istio.io/api')
 
 go-gen:
@@ -366,6 +366,8 @@ copy-templates:
 	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/_helpers.tpl manifests/charts/istiod-remote/templates
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-all.gen.yaml > manifests/charts/istiod-remote/templates/crd-all.gen.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/templates/validatingadmissionpolicy.yaml > manifests/charts/istiod-remote/templates/defaultrevisionvalidatingadmissionpolicy.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/validatingadmissionpolicy.yaml > manifests/charts/istiod-remote/templates/validatingadmissionpolicy.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/templates/default.yaml > manifests/charts/istiod-remote/templates/default.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml > manifests/charts/istiod-remote/templates/validatingwebhookconfiguration.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/serviceaccount.yaml > manifests/charts/istiod-remote/templates/serviceaccount.yaml
@@ -382,7 +384,10 @@ copy-templates:
 		for profile in manifests/helm-profiles/*.yaml ; do \
 			sed "1s|^|$${warning}\n\n|" $$profile > manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
 		done; \
-		cp manifests/zzz_profile.yaml manifests/charts/$$chart/templates ; \
+		[[ "$$chart" == "ztunnel" ]] && flatten="true" || flatten="false" ; \
+		cat manifests/zzz_profile.yaml | \
+		  sed "s/FLATTEN_GLOBALS_REPLACEMENT/$${flatten}/g" \
+		  > manifests/charts/$$chart/templates/zzz_profile.yaml ; \
 	done
 
 #-----------------------------------------------------------------------------

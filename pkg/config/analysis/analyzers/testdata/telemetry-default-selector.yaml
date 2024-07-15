@@ -1,4 +1,4 @@
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: no-selector # Since this is the only Telemetry in the namespace without a selector, no conflict
@@ -12,7 +12,7 @@ spec:
         metric: ALL_METRICS
       disabled: false
 ---
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: has-selector
@@ -29,7 +29,7 @@ spec:
         metric: ALL_METRICS
       disabled: false
 ---
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: has-conflict-1 # Both Telemetries in this namespace omit workload selector, so they are in conflict
@@ -44,7 +44,7 @@ spec:
         mode: CLIENT
       disabled: false
 ---
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: has-conflict-2 # Both Telemetries in this namespace omit workload selector, so they are in conflict

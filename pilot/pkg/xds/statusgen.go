@@ -17,13 +17,16 @@ package xds
 import (
 	"fmt"
 
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -114,33 +117,29 @@ func isZtunnel(con *Connection) bool {
 func (sg *StatusGen) debugSyncz() model.Resources {
 	res := model.Resources{}
 
-	stypes := []string{
-		v3.ListenerType,
-		v3.RouteType,
-		v3.EndpointType,
-		v3.ClusterType,
-		v3.ExtensionConfigurationType,
-	}
-
 	for _, con := range sg.Server.Clients() {
 		con.proxy.RLock()
 		// Skip "nodes" without metadata (they are probably istioctl queries!)
 		if isProxy(con) || isZtunnel(con) {
 			xdsConfigs := make([]*status.ClientConfig_GenericXdsConfig, 0)
-			for _, stype := range stypes {
+			wrs := con.proxy.CloneWatchedResources()
+			for _, wr := range wrs {
 				pxc := &status.ClientConfig_GenericXdsConfig{}
-				if watchedResource, ok := con.proxy.WatchedResources[stype]; ok {
-					pxc.ConfigStatus = debugSyncStatus(watchedResource)
-				} else if isZtunnel(con) {
-					pxc.ConfigStatus = status.ConfigStatus_UNKNOWN
-				} else {
-					pxc.ConfigStatus = status.ConfigStatus_NOT_SENT
+				pxc.ConfigStatus = debugSyncStatus(wr)
+				pxc.LastUpdated = timestamppb.New(wr.LastSendTime)
+				pxc.TypeUrl = wr.TypeUrl
+				if wr.LastError != "" {
+					pxc.ErrorState = &admin.UpdateFailureState{
+						LastUpdateAttempt: timestamppb.New(wr.LastSendTime),
+						Details:           wr.LastError,
+					}
 				}
-
-				pxc.TypeUrl = stype
 
 				xdsConfigs = append(xdsConfigs, pxc)
 			}
+			slices.SortBy(xdsConfigs, func(a *status.ClientConfig_GenericXdsConfig) string {
+				return a.TypeUrl
+			})
 			clientConfig := &status.ClientConfig{
 				Node: &core.Node{
 					Id: con.proxy.ID,
@@ -164,6 +163,9 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 }
 
 func debugSyncStatus(wr *model.WatchedResource) status.ConfigStatus {
+	if wr.LastError != "" {
+		return status.ConfigStatus_ERROR
+	}
 	if wr.NonceSent == "" {
 		return status.ConfigStatus_NOT_SENT
 	}

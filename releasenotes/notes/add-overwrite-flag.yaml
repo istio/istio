@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 51312
+
+releaseNotes:
+  - |
+    **Added** overwrite flag to istioctl apply command to allow overwriting existing resources in the cluster (initially, just namespace waypoint enrollment).

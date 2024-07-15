@@ -42,6 +42,7 @@ type Config struct {
 	IstioVersion  string
 	Namespace     string
 	DisableALPN   bool
+	ReportRequest func()
 }
 
 // Instance of an endpoint that serves the Echo application on a single port/protocol.

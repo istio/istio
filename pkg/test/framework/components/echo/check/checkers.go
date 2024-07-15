@@ -265,6 +265,15 @@ func Alpn(expected string) echo.Checker {
 	})
 }
 
+func ProxyProtocolVersion(expected string) echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if r.ProxyProtocol != expected {
+			return fmt.Errorf("expected proxy protocol %s, received %s", expected, r.ProxyProtocol)
+		}
+		return nil
+	})
+}
+
 func isHTTPProtocol(r echoClient.Response) bool {
 	return strings.HasPrefix(r.RequestURL, "http://") ||
 		strings.HasPrefix(r.RequestURL, "grpc://") ||

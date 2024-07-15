@@ -59,11 +59,10 @@ message Service {
   string namespace = 2;
   // Hostname represents the FQDN of the service.
   // For Kubernetes, this would be <name>.<namespace>.svc.<cluster domain>.
-  // TODO: support this field
   string hostname = 3;
   // Address represents the addresses the service can be reached at.
   // There may be multiple addresses for a single service if it resides in multiple networks,
-  // multiple clusters, and/or if it's dual stack (TODO: support dual stack).
+  // multiple clusters, and/or if it's dual stack.
   // For a headless kubernetes service, this list will be empty.
   repeated NetworkAddress addresses = 4;
   // Ports for the service.
@@ -71,7 +70,6 @@ message Service {
   repeated Port ports = 5;
   // Optional; if set, the SAN to verify for TLS connections.
   // Typically, this is not set and per-workload identity is used to verify
-  // TODO: support this field
   repeated string subject_alt_names = 6;
   // Waypoint is the waypoint proxy for this service. When set, all incoming requests must go
   // through the waypoint.
@@ -81,6 +79,20 @@ message Service {
   // Note: this applies only to connecting directly to the workload; when waypoints are used, the waypoint's load_balancing
   // configuration is used.
   LoadBalancing load_balancing = 8;
+
+  // IP families provides configuration about the IP families this service supports.
+  IPFamilies ip_families = 9;
+}
+
+enum IPFamilies {
+  // AUTOMATIC is inferred from the configured addresses.
+  AUTOMATIC = 0;
+  // Only IPv4 is supported
+  IPV4_ONLY = 1;
+  // Only IPv6 is supported
+  IPV6_ONLY = 2;
+  // Both IPv4 and IPv6 is supported
+  DUAL = 3;
 }
 
 message LoadBalancing {
@@ -164,7 +176,6 @@ message Workload {
   // a workload that backs a Kubernetes service will typically have only endpoints. A
   // workload that backs a headless Kubernetes service, however, will have both
   // addresses as well as a hostname used for direct access to the headless endpoint.
-  // TODO: support this field
   string hostname = 21;
 
   // Network represents the network this workload is on. This may be elided for the default network.
@@ -306,10 +317,8 @@ message GatewayAddress {
   }
   // port to reach the gateway at for mTLS HBONE connections
   uint32 hbone_mtls_port = 3;
-  // port to reach the gateway at for single tls HBONE connections
-  // used for sending unauthenticated traffic originating outside the mesh to a waypoint-enabled destination
-  // A value of 0 = unset
-  uint32 hbone_single_tls_port = 4;
+  reserved "hbone_single_tls_port";
+  reserved 4;
 }
 
 // NetworkAddress represents an address bound to a specific network.

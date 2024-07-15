@@ -189,7 +189,7 @@ func VerifyFilterChain(t test.Failer, have *listener.FilterChain, want FilterCha
 		assert.Equal(t, want.Name, have.Name, context("name should be equal"))
 	}
 	if want.Type != "" {
-		assert.Equal(t, want.Type, haveType, context("type should be equal"))
+		assert.Equal(t, want.Type, haveType, context(fmt.Sprintf("type should be equal (%+v)", have.FilterChainMatch)))
 	}
 	if want.Port != 0 {
 		assert.Equal(t, want.Port, have.GetFilterChainMatch().GetDestinationPort().GetValue(), context("port should be equal"))

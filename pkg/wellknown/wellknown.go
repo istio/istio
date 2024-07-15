@@ -113,4 +113,6 @@ const (
 	TransportSocketTLS = "envoy.transport_sockets.tls"
 	// TransportSocket Quic
 	TransportSocketQuic = "envoy.transport_sockets.quic"
+	// TransportSocketPROXY indicates upstream HA-PROXY protocol
+	TransportSocketPROXY = "envoy.transport_sockets.upstream_proxy_protocol"
 )

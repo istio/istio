@@ -159,24 +159,24 @@ func validateIPRangesOrStar(path util.Path, val any) (errs util.Errors) {
 }
 
 // validateIntRange checks whether val is an integer in [min, max].
-func validateIntRange(path util.Path, val any, min, max int64) util.Errors {
+func validateIntRange(path util.Path, val any, minimum, maximum int64) util.Errors {
 	k := reflect.TypeOf(val).Kind()
 	var err error
 	switch {
 	case util.IsIntKind(k):
 		v := reflect.ValueOf(val).Int()
-		if v < min || v > max {
-			err = fmt.Errorf("value %s:%v falls outside range [%v, %v]", path, v, min, max)
+		if v < minimum || v > maximum {
+			err = fmt.Errorf("value %s:%v falls outside range [%v, %v]", path, v, minimum, maximum)
 		}
 	case util.IsUintKind(k):
 		v := reflect.ValueOf(val).Uint()
-		if int64(v) < min || int64(v) > max {
-			err = fmt.Errorf("value %s:%v falls out side range [%v, %v]", path, v, min, max)
+		if int64(v) < minimum || int64(v) > maximum {
+			err = fmt.Errorf("value %s:%v falls out side range [%v, %v]", path, v, minimum, maximum)
 		}
 	default:
 		err = fmt.Errorf("validateIntRange %s unexpected type %T, want int type", path, val)
 	}
-	logWithError(err, "validateIntRange %s:%v in [%d, %d]?: ", path, val, min, max)
+	logWithError(err, "validateIntRange %s:%v in [%d, %d]?: ", path, val, minimum, maximum)
 	return util.NewErrs(err)
 }
 

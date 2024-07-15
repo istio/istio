@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/bootstrap/platform"
 	istioagent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/util/sets"
@@ -67,10 +66,9 @@ func NewAgentOptions(proxy *ProxyArgs, cfg *meshconfig.ProxyConfig, sds istioage
 		ProxyNamespace:              PodNamespaceVar.Get(),
 		ProxyDomain:                 proxy.DNSDomain,
 		IstiodSAN:                   istiodSAN.Get(),
-		DualStack:                   features.EnableDualStack,
-		UseExternalWorkloadSDS:      useExternalWorkloadSDSEnv,
 		MetadataDiscovery:           enableWDSEnv,
 		SDSFactory:                  sds,
+		WorkloadIdentitySocketFile:  workloadIdentitySocketFile,
 	}
 	extractXDSHeadersFromEnv(o)
 	return o

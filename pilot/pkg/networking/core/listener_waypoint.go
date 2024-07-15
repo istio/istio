@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -194,7 +195,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			portString := fmt.Sprintf("%d", port.Port)
+			portString := strconv.Itoa(port.Port)
 			cc := inboundChainConfig{
 				clusterName:   model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
 				policyService: svc,
@@ -234,12 +235,15 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 		if len(portMapper.Map) > 0 {
-			cidr := util.ConvertAddressToCidr(svc.GetAddressForProxy(lb.node))
-			rangeMatcher := &matcher.IPMatcher_IPRangeMatcher{
-				Ranges: []*xds.CidrRange{{
+			ranges := slices.Map(svc.GetAllAddressesForProxy(lb.node), func(vip string) *xds.CidrRange {
+				cidr := util.ConvertAddressToCidr(vip)
+				return &xds.CidrRange{
 					AddressPrefix: cidr.AddressPrefix,
 					PrefixLen:     cidr.PrefixLen,
-				}},
+				}
+			})
+			rangeMatcher := &matcher.IPMatcher_IPRangeMatcher{
+				Ranges:  ranges,
 				OnMatch: match.ToMatcher(portMapper.Matcher),
 			}
 			ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers, rangeMatcher)

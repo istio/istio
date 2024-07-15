@@ -175,6 +175,7 @@ type Config struct {
 	// IPFamilyPolicy. This is optional field. Mainly is used for dual stack testing.
 	IPFamilyPolicy string
 
+	// This is an optional field used as part of dual stack testing.
 	DualStack bool
 
 	// ServiceWaypointProxy specifies if this workload should have an associated Waypoint for service-addressed traffic

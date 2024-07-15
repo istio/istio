@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -55,9 +56,9 @@ var _ Index = &index{}
 
 type workloadsCollection struct {
 	krt.Collection[model.WorkloadInfo]
-	ByAddress        *krt.Index[model.WorkloadInfo, networkAddress]
-	ByServiceKey     *krt.Index[model.WorkloadInfo, string]
-	ByOwningWaypoint *krt.Index[model.WorkloadInfo, networkAddress]
+	ByAddress        krt.Index[networkAddress, model.WorkloadInfo]
+	ByServiceKey     krt.Index[string, model.WorkloadInfo]
+	ByOwningWaypoint krt.Index[networkAddress, model.WorkloadInfo]
 }
 
 type waypointsCollection struct {
@@ -66,8 +67,8 @@ type waypointsCollection struct {
 
 type servicesCollection struct {
 	krt.Collection[model.ServiceInfo]
-	ByAddress        *krt.Index[model.ServiceInfo, networkAddress]
-	ByOwningWaypoint *krt.Index[model.ServiceInfo, networkAddress]
+	ByAddress        krt.Index[networkAddress, model.ServiceInfo]
+	ByOwningWaypoint krt.Index[networkAddress, model.ServiceInfo]
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -84,29 +85,34 @@ type index struct {
 	DomainSuffix    string
 	ClusterID       cluster.ID
 	XDSUpdater      model.XDSUpdater
-	Network         LookupNetwork
+	// Network provides a way to lookup which network a given workload is running on
+	Network LookupNetwork
+	// LookupNetworkGateways provides a function to lookup all the known network gateways in the system.
+	LookupNetworkGateways LookupNetworkGateways
 }
 
 type Options struct {
 	Client kubeclient.Client
 
-	Revision        string
-	SystemNamespace string
-	DomainSuffix    string
-	ClusterID       cluster.ID
-	XDSUpdater      model.XDSUpdater
-	LookupNetwork   LookupNetwork
+	Revision              string
+	SystemNamespace       string
+	DomainSuffix          string
+	ClusterID             cluster.ID
+	XDSUpdater            model.XDSUpdater
+	LookupNetwork         LookupNetwork
+	LookupNetworkGateways LookupNetworkGateways
 }
 
 func New(options Options) Index {
 	a := &index{
 		networkUpdateTrigger: krt.NewRecomputeTrigger(),
 
-		SystemNamespace: options.SystemNamespace,
-		DomainSuffix:    options.DomainSuffix,
-		ClusterID:       options.ClusterID,
-		XDSUpdater:      options.XDSUpdater,
-		Network:         options.LookupNetwork,
+		SystemNamespace:       options.SystemNamespace,
+		DomainSuffix:          options.DomainSuffix,
+		ClusterID:             options.ClusterID,
+		XDSUpdater:            options.XDSUpdater,
+		Network:               options.LookupNetwork,
+		LookupNetworkGateways: options.LookupNetworkGateways,
 	}
 
 	filter := kclient.Filter{
@@ -149,6 +155,10 @@ func New(options Options) Index {
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
 	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, krt.WithName("Namespaces"))
 
+	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
+		ObjectFilter: options.Client.ObjectFilter(),
+	}, krt.WithName("EndpointSlices"))
+
 	MeshConfig := MeshConfigCollection(ConfigMaps, options)
 	Waypoints := WaypointsCollection(Gateways, GatewayClasses, Pods)
 
@@ -160,8 +170,8 @@ func New(options Options) Index {
 
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
-	ServiceAddressIndex := krt.NewIndex[model.ServiceInfo, networkAddress](WorkloadServices, networkAddressFromService)
-	ServiceInfosByOwningWaypoint := krt.NewIndex[model.ServiceInfo, networkAddress](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
+	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
+	ServiceInfosByOwningWaypoint := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -202,14 +212,14 @@ func New(options Options) Index {
 		WorkloadServices,
 		WorkloadEntries,
 		ServiceEntries,
-		AllPolicies,
+		EndpointSlices,
 		Namespaces,
 	)
-	WorkloadAddressIndex := krt.NewIndex[model.WorkloadInfo, networkAddress](Workloads, networkAddressFromWorkload)
-	WorkloadServiceIndex := krt.NewIndex[model.WorkloadInfo, string](Workloads, func(o model.WorkloadInfo) []string {
+	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, networkAddressFromWorkload)
+	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Services)
 	})
-	WorkloadWaypointIndex := krt.NewIndex[model.WorkloadInfo, networkAddress](Workloads, func(w model.WorkloadInfo) []networkAddress {
+	WorkloadWaypointIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, func(w model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -231,7 +241,6 @@ func New(options Options) Index {
 		}
 		return append(make([]networkAddress, 1), netaddr)
 	})
-	// Subtle: make sure we register the event after the Index are created. This ensures when we get the event, the index is populated.
 	Workloads.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.WorkloadInfo) *workloadapi.Workload {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
@@ -464,7 +473,10 @@ func (a *index) HasSynced() bool {
 		a.authorizationPolicies.Synced().HasSynced()
 }
 
-type LookupNetwork func(endpointIP string, labels labels.Instance) network.ID
+type (
+	LookupNetwork         func(endpointIP string, labels labels.Instance) network.ID
+	LookupNetworkGateways func() []model.NetworkGateway
+)
 
 func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T], initialSync bool) {
 	return func(events []krt.Event[T], initialSync bool) {

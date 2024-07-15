@@ -47,6 +47,7 @@ import (
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/platform"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -590,13 +591,16 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 	env.SetPushContext(&model.PushContext{
 		ProxyConfigs: &model.ProxyConfigs{},
 	})
+	vc, err := NewValuesConfig("{}")
+	assert.NoError(t, err)
 	webhook := &Webhook{
 		Config: &Config{
 			Templates:        tmpl,
 			Policy:           InjectionPolicyEnabled,
 			DefaultTemplates: []string{SidecarTemplateName},
 		},
-		env: env,
+		env:          env,
+		valuesConfig: vc,
 	}
 	runWebhook(t, webhook, []byte(input), []byte(expected), false)
 }
@@ -623,13 +627,16 @@ spec:
 	env.SetPushContext(&model.PushContext{
 		ProxyConfigs: &model.ProxyConfigs{},
 	})
+	vc, err := NewValuesConfig("{}")
+	assert.NoError(t, err)
 	webhook := &Webhook{
 		Config: &Config{
 			Templates: p,
 			Aliases:   map[string][]string{"both": {"sidecar", "init"}},
 			Policy:    InjectionPolicyEnabled,
 		},
-		env: env,
+		valuesConfig: vc,
+		env:          env,
 	}
 
 	input := `

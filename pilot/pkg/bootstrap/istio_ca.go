@@ -256,6 +256,8 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 // By default, a cacerts Secret would be mounted during pod startup due to the
 // Istiod Deployment configuration. But with external Istiod, we want to be
 // able to load cacerts from a remote cluster instead.
+// TODO(costin): remove this method, it is not watching the files and the functionality is now available
+// in the normal CA code (including support for the new style keys)
 func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 	if s.kubeClient == nil {
 		return nil

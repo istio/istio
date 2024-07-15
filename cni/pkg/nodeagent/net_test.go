@@ -57,13 +57,13 @@ type netTestFixture struct {
 func getTestFixure(ctx context.Context) netTestFixture {
 	podNsMap := newPodNetnsCache(openNsTestOverride)
 	nlDeps := &fakeIptablesDeps{}
-	iptablesConfigurator, _ := iptables.NewIptablesConfigurator(nil, &dependencies.DependenciesStub{}, nlDeps)
+	iptablesConfigurator, _, _ := iptables.NewIptablesConfigurator(nil, &dependencies.DependenciesStub{}, &dependencies.DependenciesStub{}, nlDeps)
 
 	ztunnelServer := &fakeZtunnel{}
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
-	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, NewPodNetnsProcFinder(fakeFs()), set)
+	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, iptablesConfigurator, NewPodNetnsProcFinder(fakeFs()), set)
 
 	netServer.netnsRunner = func(fdable NetnsFd, toRun func() error) error {
 		return toRun()
@@ -172,6 +172,42 @@ func TestServerRemovePod(t *testing.T) {
 	netServer := fixture.netServer
 	ztunnelServer := fixture.ztunnelServer
 	nlDeps := fixture.nlDeps
+	pod := buildConvincingPod(false)
+	// this is usually called after add. so manually add the pod uid for now
+	fakens := newFakeNs(123)
+	closed := fakens.closed
+	workload := WorkloadInfo{
+		Workload: podToWorkload(pod),
+		Netns:    fakens,
+	}
+
+	expectPodRemovedFromIPSet(fixture.ipsetDeps, pod.Status.PodIPs)
+	fixture.podNsMap.UpsertPodCacheWithNetns(string(pod.UID), workload)
+	err := netServer.RemovePodFromMesh(ctx, pod, false)
+	assert.NoError(t, err)
+	assert.Equal(t, ztunnelServer.deletedPods.Load(), 1)
+	assert.Equal(t, nlDeps.DelInpodMarkIPRuleCnt.Load(), 1)
+	assert.Equal(t, nlDeps.DelLoopbackRoutesCnt.Load(), 1)
+	// make sure the uid was taken from cache and netns closed
+	netns := fixture.podNsMap.Take(string(pod.UID))
+	assert.Equal(t, nil, netns)
+	fixture.ipsetDeps.AssertExpectations(t)
+
+	// run gc to clean up ns:
+
+	//revive:disable-next-line:call-to-gc Just a test that we are cleaning up the netns
+	runtime.GC()
+	assertNSClosed(t, closed)
+}
+
+func TestServerRemovePodAlwaysRemovesIPSetEntryEvenOnFail(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	setupLogging()
+	fixture := getTestFixure(ctx)
+	netServer := fixture.netServer
+	ztunnelServer := fixture.ztunnelServer
+	nlDeps := fixture.nlDeps
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
@@ -181,6 +217,7 @@ func TestServerRemovePod(t *testing.T) {
 		Spec: corev1.PodSpec{ServiceAccountName: "sa"},
 	}
 
+	ztunnelServer.delError = errors.New("fake error")
 	// this is usually called after add. so manually add the pod uid for now
 	fakens := newFakeNs(123)
 	closed := fakens.closed
@@ -188,15 +225,17 @@ func TestServerRemovePod(t *testing.T) {
 		Workload: podToWorkload(pod),
 		Netns:    fakens,
 	}
+	expectPodRemovedFromIPSet(fixture.ipsetDeps, pod.Status.PodIPs)
 	fixture.podNsMap.UpsertPodCacheWithNetns(string(pod.UID), workload)
-	err := netServer.RemovePodFromMesh(ctx, pod)
-	assert.NoError(t, err)
+	err := netServer.RemovePodFromMesh(ctx, pod, false)
+	assert.Error(t, err)
 	assert.Equal(t, ztunnelServer.deletedPods.Load(), 1)
 	assert.Equal(t, nlDeps.DelInpodMarkIPRuleCnt.Load(), 1)
 	assert.Equal(t, nlDeps.DelLoopbackRoutesCnt.Load(), 1)
 	// make sure the uid was taken from cache and netns closed
 	netns := fixture.podNsMap.Take(string(pod.UID))
 	assert.Equal(t, nil, netns)
+	fixture.ipsetDeps.AssertExpectations(t)
 
 	// run gc to clean up ns:
 
@@ -230,7 +269,8 @@ func TestServerDeletePod(t *testing.T) {
 		Netns:    fakens,
 	}
 	fixture.podNsMap.UpsertPodCacheWithNetns(string(pod.UID), workload)
-	err := netServer.DelPodFromMesh(ctx, pod)
+	expectPodRemovedFromIPSet(fixture.ipsetDeps, pod.Status.PodIPs)
+	err := netServer.RemovePodFromMesh(ctx, pod, true)
 	assert.NoError(t, err)
 	assert.Equal(t, ztunnelServer.deletedPods.Load(), 1)
 	// with delete iptables is not called, as there is no need to delete the iptables rules
@@ -240,6 +280,7 @@ func TestServerDeletePod(t *testing.T) {
 	// make sure the uid was taken from cache and netns closed
 	netns := fixture.podNsMap.Take(string(pod.UID))
 	assert.Equal(t, nil, netns)
+	fixture.ipsetDeps.AssertExpectations(t)
 	// run gc to clean up ns:
 
 	//revive:disable-next-line:call-to-gc Just a test that we are cleaning up the netns
@@ -247,14 +288,23 @@ func TestServerDeletePod(t *testing.T) {
 	assertNSClosed(t, closed)
 }
 
-func expectPodAddedToIPSet(ipsetDeps *ipset.MockedIpsetDeps, podMeta metav1.ObjectMeta) {
+func expectPodAddedToIPSet(ipsetDeps *ipset.MockedIpsetDeps, podIP netip.Addr, podMeta metav1.ObjectMeta) {
 	ipsetDeps.On("addIP",
 		"foo-v4",
-		netip.MustParseAddr("99.9.9.9"),
+		podIP,
 		uint8(unix.IPPROTO_TCP),
 		string(podMeta.UID),
 		false,
 	).Return(nil)
+}
+
+func expectPodRemovedFromIPSet(ipsetDeps *ipset.MockedIpsetDeps, podIPs []corev1.PodIP) {
+	for _, ip := range podIPs {
+		ipsetDeps.On("clearEntriesWithIP",
+			"foo-v4",
+			netip.MustParseAddr(ip.IP),
+		).Return(nil)
+	}
 }
 
 func TestServerAddPodWithNoNetns(t *testing.T) {
@@ -272,7 +322,7 @@ func TestServerAddPodWithNoNetns(t *testing.T) {
 	}
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
-	expectPodAddedToIPSet(fixture.ipsetDeps, podMeta)
+	expectPodAddedToIPSet(fixture.ipsetDeps, podIP, podMeta)
 
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "")
 	assert.NoError(t, err)
@@ -296,7 +346,7 @@ func TestReturnsPartialErrorOnZtunnelFail(t *testing.T) {
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
 
-	expectPodAddedToIPSet(fixture.ipsetDeps, podMeta)
+	expectPodAddedToIPSet(fixture.ipsetDeps, podIP, podMeta)
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "faksens")
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 1)
 	if !errors.Is(err, ErrPartialAdd) {
@@ -304,7 +354,7 @@ func TestReturnsPartialErrorOnZtunnelFail(t *testing.T) {
 	}
 }
 
-func TestDoesntReturnsPartialErrorOnIptablesFail(t *testing.T) {
+func TestDoesntReturnPartialErrorOnIptablesFail(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	setupLogging()
@@ -322,7 +372,7 @@ func TestDoesntReturnsPartialErrorOnIptablesFail(t *testing.T) {
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
 
-	expectPodAddedToIPSet(fixture.ipsetDeps, podMeta)
+	expectPodAddedToIPSet(fixture.ipsetDeps, podIP, podMeta)
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "faksens")
 	// no calls to ztunnel if iptables failed
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 0)
@@ -383,7 +433,7 @@ func TestAddPodToHostNSIPSets(t *testing.T) {
 	).Return(nil)
 
 	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
-	err := addPodToHostNSIpset(pod, podIPs, &set)
+	_, err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.NoError(t, err)
 
 	fakeIPSetDeps.AssertExpectations(t)
@@ -414,7 +464,7 @@ func TestAddPodToHostNSIPSetsV6(t *testing.T) {
 	).Return(nil)
 
 	podIPs := []netip.Addr{netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"), netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")}
-	err := addPodToHostNSIpset(pod, podIPs, &set)
+	_, err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.NoError(t, err)
 
 	fakeIPSetDeps.AssertExpectations(t)
@@ -445,7 +495,7 @@ func TestAddPodToHostNSIPSetsDualstack(t *testing.T) {
 	).Return(nil)
 
 	podIPs := []netip.Addr{netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"), netip.MustParseAddr("99.9.9.9")}
-	err := addPodToHostNSIpset(pod, podIPs, &set)
+	_, err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.NoError(t, err)
 
 	fakeIPSetDeps.AssertExpectations(t)
@@ -477,8 +527,9 @@ func TestAddPodIPToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 
 	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
 
-	err := addPodToHostNSIpset(pod, podIPs, &set)
+	addedPIPs, err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.Error(t, err)
+	assert.Equal(t, 1, len(addedPIPs), "only expected one IP to be added")
 
 	fakeIPSetDeps.AssertExpectations(t)
 }
@@ -539,6 +590,65 @@ func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 
 	netServer := fixture.netServer
 	err := netServer.syncHostIPSets([]*corev1.Pod{pod})
+	assert.NoError(t, err)
+	fakeIPSetDeps.AssertExpectations(t)
+}
+
+func TestSyncHostIPSetsIgnoresPodIPAddErrorAndContinues(t *testing.T) {
+	pod1 := buildConvincingPod(false)
+	pod2 := buildConvincingPod(false)
+
+	pod2.ObjectMeta.SetUID("4455")
+
+	fakeIPSetDeps := ipset.FakeNLDeps()
+
+	var pod1UID string = string(pod1.ObjectMeta.UID)
+	var pod2UID string = string(pod2.ObjectMeta.UID)
+	ipProto := uint8(unix.IPPROTO_TCP)
+	ctx, cancel := context.WithCancel(context.Background())
+	fixture := getTestFixure(ctx)
+	defer cancel()
+	setupLogging()
+
+	// First IP of first pod should error, but we should add the rest
+	fixture.ipsetDeps.On("addIP",
+		"foo-v4",
+		netip.MustParseAddr("3.3.3.3"),
+		ipProto,
+		pod1UID,
+		false,
+	).Return(errors.New("CANNOT ADD"))
+
+	fixture.ipsetDeps.On("addIP",
+		"foo-v4",
+		netip.MustParseAddr("2.2.2.2"),
+		ipProto,
+		pod1UID,
+		false,
+	).Return(nil)
+
+	fixture.ipsetDeps.On("addIP",
+		"foo-v4",
+		netip.MustParseAddr("3.3.3.3"),
+		ipProto,
+		pod2UID,
+		false,
+	).Return(errors.New("CANNOT ADD"))
+
+	fixture.ipsetDeps.On("addIP",
+		"foo-v4",
+		netip.MustParseAddr("2.2.2.2"),
+		ipProto,
+		pod2UID,
+		false,
+	).Return(nil)
+
+	fixture.ipsetDeps.On("listEntriesByIP",
+		"foo-v4",
+	).Return([]netip.Addr{}, nil)
+
+	netServer := fixture.netServer
+	err := netServer.syncHostIPSets([]*corev1.Pod{pod1, pod2})
 	assert.NoError(t, err)
 	fakeIPSetDeps.AssertExpectations(t)
 }

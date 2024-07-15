@@ -32,7 +32,7 @@ a unique prefix to each. */}}
     resources: ["pods"]
   failurePolicy: Fail
   reinvocationPolicy: "{{ .reinvocationPolicy }}"
-  admissionReviewVersions: ["v1beta1", "v1"]
+  admissionReviewVersions: ["v1"]
 {{- end }}
 {{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
 {{- if not .Values.global.operatorManageWebhooks }}

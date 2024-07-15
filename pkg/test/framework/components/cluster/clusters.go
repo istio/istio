@@ -157,22 +157,6 @@ func (c Clusters) IsExternalControlPlane() bool {
 	return false
 }
 
-// Kube returns OfKind(cluster.Kubernetes)
-func (c Clusters) Kube() Clusters {
-	return c.OfKind(Kubernetes)
-}
-
-// OfKind filters clusters by their Kind.
-func (c Clusters) OfKind(kind Kind) Clusters {
-	return c.filterClusters(func(cc Cluster) bool {
-		return cc.Kind() == kind
-	}, none)
-}
-
-func none(Cluster) bool {
-	return false
-}
-
 func exclude(exclude ...Cluster) func(Cluster) bool {
 	return func(cc Cluster) bool {
 		for _, e := range exclude {

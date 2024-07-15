@@ -56,7 +56,21 @@ func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 		// Pod explicitly asked to not have ambient redirection enabled
 		return false
 	}
+	if pod.Spec.HostNetwork {
+		// Host network pods cannot be captured, as we require inserting rules into the pod network namespace.
+		// If we were to allow them, we would be writing these rules into the host network namespace, effectively breaking the host.
+		return false
+	}
 	return true
+}
+
+// PodRedirectionActive reports on whether the pod _has_ actually been configured for traffic redirection.
+//
+// That is, have we annotated it after successfully sending it to the node proxy and set up iptables rules.
+//
+// If you just want to know if the pod _should be_ configured for traffic redirection, see PodRedirectionEnabled
+func PodRedirectionActive(pod *corev1.Pod) bool {
+	return pod.GetAnnotations()[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 }
 
 func podHasSidecar(pod *corev1.Pod) bool {

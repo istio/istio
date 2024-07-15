@@ -1165,6 +1165,26 @@ func TestTelemetryAccessLog(t *testing.T) {
 		},
 	}
 
+	otelCfgWithFormatters := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: OtelEnvoyAccessLogFriendlyName,
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
+			EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+				Service: "otel.foo.svc.cluster.local",
+				Port:    9811,
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider_LogFormat{
+					Text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+					Labels: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+							"key2": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+							"key3": {Kind: &structpb.Value_StringValue{StringValue: "%CEL(request.host)%"}},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	defaultEnvoyProvider := &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "envoy",
 		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
@@ -1176,7 +1196,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 
 	grpcBackendClusterName := "outbound|9811||grpc-als.foo.svc.cluster.local"
 	grpcBackendAuthority := "grpc-als.foo.svc.cluster.local"
-	otelAtrributeCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
+	otelAttributeCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: OtelEnvoyAccessLogFriendlyName,
 			GrpcService: &core.GrpcService{
@@ -1207,6 +1227,48 @@ func TestTelemetryAccessLog(t *testing.T) {
 					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%START_TIME%"}},
 				},
 			},
+		},
+	}
+	otelWithFormattersCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
+		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
+			LogName: OtelEnvoyAccessLogFriendlyName,
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: grpcBackendClusterName,
+						Authority:   grpcBackendAuthority,
+					},
+				},
+			},
+			TransportApiVersion:     core.ApiVersion_V3,
+			FilterStateObjectsToLog: envoyWasmStateToLog,
+		},
+		DisableBuiltinLabels: true,
+		Body: &otlpcommon.AnyValue{
+			Value: &otlpcommon.AnyValue_StringValue{
+				StringValue: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+			},
+		},
+		Attributes: &otlpcommon.KeyValueList{
+			Values: []*otlpcommon.KeyValue{
+				{
+					Key:   "key1",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+				},
+				{
+					Key:   "key2",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+				},
+				{
+					Key:   "key3",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%CEL(request.host)%"}},
+				},
+			},
+		},
+		Formatters: []*core.TypedExtensionConfig{
+			celFormatter,
+			metadataFormatter,
+			reqWithoutQueryFormatter,
 		},
 	}
 
@@ -1277,7 +1339,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 						},
 					},
 				},
-				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
+				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
 			},
 		},
 	}
@@ -1431,7 +1493,19 @@ func TestTelemetryAccessLog(t *testing.T) {
 			fp: otelCfg,
 			expected: &accesslog.AccessLog{
 				Name:       OtelEnvoyALSName,
-				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(otelAtrributeCfg)},
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(otelAttributeCfg)},
+			},
+		},
+		{
+			name: "otel-with-formatters",
+			ctx:  ctx,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			fp: otelCfgWithFormatters,
+			expected: &accesslog.AccessLog{
+				Name:       OtelEnvoyALSName,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(otelWithFormattersCfg)},
 			},
 		},
 		{
@@ -1597,6 +1671,17 @@ func TestAccessLogJSONFormatters(t *testing.T) {
 				metadataFormatter,
 			},
 		},
+		{
+			name: "cel",
+			json: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"req1": {Kind: &structpb.Value_StringValue{StringValue: "%CEL(request.host)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				celFormatter,
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -1740,6 +1825,82 @@ func TestTelemetryAccessLogWithFormatter(t *testing.T) {
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
 			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound, nil)
 			assert.Equal(t, tt.excepted, got)
+		})
+	}
+}
+
+func TestAccessLogFormatters(t *testing.T) {
+	cases := []struct {
+		name     string
+		text     string
+		labels   *structpb.Struct
+		expected []*core.TypedExtensionConfig
+	}{
+		{
+			name:     "default",
+			text:     EnvoyTextLogFormat,
+			expected: []*core.TypedExtensionConfig{},
+		},
+		{
+			name: "with-req-without-query",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)%",
+			labels: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				reqWithoutQueryFormatter,
+			},
+		},
+		{
+			name: "with-metadata",
+			text: EnvoyTextLogFormat + " %METADATA(CLUSTER:istio)%",
+			labels: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				metadataFormatter,
+			},
+		},
+		{
+			name: "with-both",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% %METADATA(CLUSTER:istio)%",
+			labels: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+					"key2": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				metadataFormatter,
+				reqWithoutQueryFormatter,
+			},
+		},
+		{
+			name: "all",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+			labels: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+					"key2": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+					"key3": {Kind: &structpb.Value_StringValue{StringValue: "%CEL(request.host)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				celFormatter,
+				metadataFormatter,
+				reqWithoutQueryFormatter,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := accessLogFormatters(tc.text, tc.labels)
+			assert.Equal(t, tc.expected, got)
 		})
 	}
 }
