@@ -1236,9 +1236,6 @@ message SidecarInjectorConfig {
   // This is primarily to support PSP annotations.
   google.protobuf.Struct injectedAnnotations = 19;
 
-  // Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
-  google.protobuf.Struct objectSelector = 21;
-
   // Configure the injection url for sidecar injector webhook
   string injectionURL = 22;
 

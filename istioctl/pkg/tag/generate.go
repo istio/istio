@@ -283,9 +283,6 @@ revisionTags:
 
 sidecarInjectorWebhook:
   enableNamespacesByDefault: %t
-  objectSelector:
-    enabled: true
-    autoInject: true
 
 istiodRemote:
   injectionURL: %s
