@@ -135,6 +135,12 @@ var (
 		false,
 		"If enabled, controller that untaints nodes with cni pods ready will run. This should be enabled if you disabled ambient init containers.").Get()
 
+	EnableIPAutoallocate = env.Register(
+		"PILOT_ENABLE_IP_AUTOALLOCATE",
+		false,
+		"If enabled, pilot will start a controller that assigns IP addresses to ServiceEntry which do not have a user-supplied IP. "+
+			"This, when combined with DNS capture allows for tcp routing of traffic sent to the ServiceEntry.").Get()
+
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
 	EnableUnsafeAssertions = env.Register(

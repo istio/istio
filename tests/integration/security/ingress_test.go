@@ -15,7 +15,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package sdsingress
+package security
 
 import (
 	"net/http"
@@ -24,47 +24,10 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
-
-var (
-	inst         istio.Instance
-	apps         deployment.SingleNamespaceView
-	echo1NS      namespace.Instance
-	customConfig []echo.Config
-)
-
-func TestMain(m *testing.M) {
-	// Integration test for the ingress SDS Gateway flow.
-	framework.
-		NewSuite(m).
-		Setup(istio.Setup(&inst, nil)).
-		Setup(namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true})).
-		Setup(func(ctx resource.Context) error {
-			// TODO: due to issue https://github.com/istio/istio/issues/25286,
-			// currently VM does not work in this test
-			err := ingressutil.SetupTest(ctx, &customConfig, namespace.Future(&echo1NS))
-			if err != nil {
-				return err
-			}
-			return nil
-		}).
-		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{
-			Namespaces: []namespace.Getter{
-				namespace.Future(&echo1NS),
-			},
-			Configs: echo.ConfigFuture(&customConfig),
-		})).
-		Setup(func(ctx resource.Context) error {
-			return ingressutil.CreateCustomInstances(&apps)
-		}).
-		Run()
-}
 
 // TestSingleTlsGateway_SecretRotation tests a single TLS ingress gateway with SDS enabled.
 // Verifies behavior in these scenarios.
@@ -92,7 +55,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 							CredentialName: credName,
 							Host:           host,
 							ServiceName:    to.Config().Service,
-							GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
+							GatewayLabel:   i.Settings().IngressGatewayIstioLabel,
 						})
 						return nil
 					}).
@@ -102,7 +65,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 						ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.TLS,
 							ingressutil.IngressCredentialA, false)
 
-						ing := inst.IngressFor(t.Clusters().Default())
+						ing := i.IngressFor(t.Clusters().Default())
 						if ing == nil {
 							t.Skip()
 						}
@@ -161,7 +124,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 							CredentialName: credName,
 							Host:           host,
 							ServiceName:    to.Config().Service,
-							GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
+							GatewayLabel:   i.Settings().IngressGatewayIstioLabel,
 						})
 						return nil
 					}).
@@ -173,7 +136,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 						ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.Mtls,
 							ingressutil.IngressCredentialServerKeyCertA, false)
 
-						ing := inst.IngressFor(t.Clusters().Default())
+						ing := i.IngressFor(t.Clusters().Default())
 						if ing == nil {
 							t.Skip()
 						}
@@ -229,7 +192,7 @@ func TestSingleOptionalMTLSGateway(t *testing.T) {
 							CredentialName: credName,
 							Host:           host,
 							ServiceName:    to.Config().Service,
-							GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
+							GatewayLabel:   i.Settings().IngressGatewayIstioLabel,
 						})
 						return nil
 					}).
@@ -241,7 +204,7 @@ func TestSingleOptionalMTLSGateway(t *testing.T) {
 						ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.Mtls,
 							ingressutil.IngressCredentialServerKeyCertA, false)
 
-						ing := inst.IngressFor(t.Clusters().Default())
+						ing := i.IngressFor(t.Clusters().Default())
 						if ing == nil {
 							t.Skip()
 						}
@@ -288,7 +251,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 							CredentialName: credName,
 							Host:           host,
 							ServiceName:    to.Config().Service,
-							GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
+							GatewayLabel:   i.Settings().IngressGatewayIstioLabel,
 						})
 						return nil
 					}).
@@ -299,7 +262,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 							ingressutil.IngressCredentialA, false)
 
 						// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-						ing := inst.IngressFor(t.Clusters().Default())
+						ing := i.IngressFor(t.Clusters().Default())
 						tlsContext := ingressutil.TLSContext{
 							CaCert:     ingressutil.CaCertA,
 							PrivateKey: ingressutil.TLSClientKeyA,
@@ -355,7 +318,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 							CredentialName: credName,
 							Host:           host,
 							ServiceName:    to.Config().Service,
-							GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
+							GatewayLabel:   i.Settings().IngressGatewayIstioLabel,
 						})
 						return nil
 					}).
@@ -366,7 +329,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 							ingressutil.IngressCredentialA, true)
 
 						// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-						ing := inst.IngressFor(t.Clusters().Default())
+						ing := i.IngressFor(t.Clusters().Default())
 						if ing == nil {
 							t.Skip()
 						}
@@ -409,7 +372,7 @@ func TestTlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			ingressutil.RunTestMultiTLSGateways(t, inst, namespace.Future(&echo1NS))
+			ingressutil.RunTestMultiTLSGateways(t, i, namespace.Future(&echo1NS))
 		})
 }
 
@@ -420,7 +383,7 @@ func TestMtlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			ingressutil.RunTestMultiMtlsGateways(t, inst, namespace.Future(&echo1NS))
+			ingressutil.RunTestMultiMtlsGateways(t, i, namespace.Future(&echo1NS))
 		})
 }
 
@@ -529,13 +492,13 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 								CredentialName: c.secretName,
 								Host:           c.hostName,
 								ServiceName:    to.Config().Service,
-								GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
+								GatewayLabel:   i.Settings().IngressGatewayIstioLabel,
 							})
 							return nil
 						}).
 						To(echotest.SingleSimplePodServiceAndAllSpecial()).
 						RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, _ echo.Target) {
-							ing := inst.IngressFor(t.Clusters().Default())
+							ing := i.IngressFor(t.Clusters().Default())
 							if ing == nil {
 								t.Skip()
 							}
@@ -635,13 +598,13 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 								CredentialName: c.secretName,
 								Host:           c.hostName,
 								ServiceName:    to.Config().Service,
-								GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
+								GatewayLabel:   i.Settings().IngressGatewayIstioLabel,
 							})
 							return nil
 						}).
 						To(echotest.SingleSimplePodServiceAndAllSpecial()).
 						RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Target) {
-							ing := inst.IngressFor(t.Clusters().Default())
+							ing := i.IngressFor(t.Clusters().Default())
 							if ing == nil {
 								t.Skip()
 							}
@@ -796,13 +759,13 @@ func TestMtlsGateway_CRL(t *testing.T) {
 								CredentialName: c.secretName,
 								Host:           c.hostName,
 								ServiceName:    to.Config().Service,
-								GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
+								GatewayLabel:   i.Settings().IngressGatewayIstioLabel,
 							})
 							return nil
 						}).
 						To(echotest.SingleSimplePodServiceAndAllSpecial()).
 						RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Target) {
-							ing := inst.IngressFor(t.Clusters().Default())
+							ing := i.IngressFor(t.Clusters().Default())
 							if ing == nil {
 								t.Skip()
 							}

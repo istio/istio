@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 48845
+releaseNotes:
+- |
+  **Fixed** Removes the currently-document requirement currently in our SPIRE docs to force the SPIRE SDS server use our Istio-default SDS socket name, versus whatever the (user-configurable) SPIRE SDS server socket filename happens to be. This introduces WORKLOAD_IDENTITY_SOCKET_FILE as an agent env var. If set to a non-default value, the agent will expect to find a non-Istio SDS server socket at the hardcoded path: `WorkloadIdentityPath/WORKLOAD_IDENTITY_SOCKET_FILE` and will throw an error if no healthy socket found. Otherwise it will listen to it. If this is unset, the agent will start and Istio default SDS server instance with a hardcoded path and hardcoded socket file of: `WorkloadIdentityPath/DefaultWorkloadIdentitySocketFile` and listen to it. This removes/replaces the agent env var USE_EXTERNAL_WORKLOAD_SDS (added in #45941)

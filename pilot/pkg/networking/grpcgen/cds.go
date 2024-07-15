@@ -28,6 +28,7 @@ import (
 	corexds "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -153,6 +154,7 @@ func (b *clusterBuilder) build() []*cluster.Cluster {
 func edsCluster(name string) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 name,
+		AltStatName:          name + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 		EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 			ServiceName: name,

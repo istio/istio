@@ -268,6 +268,40 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 		},
 		{
+			name:        "cluster with OutboundClusterStatName",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+					},
+				},
+			},
+			meshConfig: &meshconfig.MeshConfig{
+				OutboundClusterStatName: "%SERVICE%_%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%;",
+				InboundTrafficPolicy:    &meshconfig.MeshConfig_InboundTrafficPolicy{},
+				EnableAutoMtls: &wrappers.BoolValue{
+					Value: false,
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{
+				{
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+						ServiceName: "outbound|8080|foobar|foo.default.svc.cluster.local",
+					},
+					AltStatName: "foo.default.svc.cluster.local_foobar_default_8080;",
+				},
+			},
+		},
+		{
 			name:        "destination rule with subset traffic policy and alt statname",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
@@ -313,7 +347,7 @@ func TestApplyDestinationRule(t *testing.T) {
 							},
 						},
 					},
-					AltStatName: "foo.default.svc.cluster.local_foobar_default_8080",
+					AltStatName: "foo.default.svc.cluster.local_foobar_default_8080;",
 				},
 			},
 		},
@@ -996,6 +1030,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			external:    false,
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
+				AltStatName:          "foo;",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
@@ -1033,6 +1068,63 @@ func TestBuildDefaultCluster(t *testing.T) {
 				},
 				EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 					ServiceName: "foo",
+					EdsConfig: &core.ConfigSource{
+						ConfigSourceSpecifier: &core.ConfigSource_Ads{
+							Ads: &core.AggregatedConfigSource{},
+						},
+						InitialFetchTimeout: durationpb.New(0),
+						ResourceApiVersion:  core.ApiVersion_V3,
+					},
+				},
+			},
+		},
+		{
+			name:        "static external cluster with . in the name",
+			clusterName: "foo.bar.com",
+			discovery:   cluster.Cluster_EDS,
+			endpoints:   nil,
+			direction:   model.TrafficDirectionOutbound,
+			external:    false,
+			expectedCluster: &cluster.Cluster{
+				Name:                 "foo.bar.com",
+				AltStatName:          "foo.bar.com;",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
+				CircuitBreakers: &cluster.CircuitBreakers{
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
+				},
+				Filters:  []*cluster.Filter{xdsfilters.TCPClusterMx},
+				LbPolicy: defaultLBAlgorithm(),
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						util.IstioMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								"services": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
+									{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
+										"host": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "host",
+											},
+										},
+										"name": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "svc",
+											},
+										},
+										"namespace": {
+											Kind: &structpb.Value_StringValue{
+												StringValue: "default",
+											},
+										},
+									}}}},
+								}}}},
+							},
+						},
+					},
+				},
+				EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+					ServiceName: "foo.bar.com",
 					EdsConfig: &core.ConfigSource{
 						ConfigSourceSpecifier: &core.ConfigSource_Ads{
 							Ads: &core.AggregatedConfigSource{},
@@ -1083,6 +1175,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			external:  false,
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
+				AltStatName:          "foo;",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
@@ -2136,11 +2229,9 @@ func TestIsHttp2Cluster(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			isHttp2Cluster := cb.isHttp2Cluster(test.cluster) // revive:disable-line
+			isHttp2Cluster := isHttp2Cluster(test.cluster) // revive:disable-line
 			if isHttp2Cluster != test.isHttp2Cluster {
 				t.Errorf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
 			}

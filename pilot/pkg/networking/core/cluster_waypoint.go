@@ -20,7 +20,9 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
+	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
+	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
@@ -29,6 +31,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -36,16 +39,20 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // buildInternalUpstreamCluster builds a single endpoint cluster to the internal listener.
 func buildInternalUpstreamCluster(name string, internalListener string) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 name,
+		AltStatName:          name + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
 			ClusterName: name,
@@ -78,7 +85,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	// Creates "encap" cluster to route to the encap listener.
 	clusters = append(clusters, MainInternalCluster, EncapCluster)
 	// Creates per-VIP load balancing upstreams.
-	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs)...)
+	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
 	// Upstream of the "encap" listener.
 	clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
 
@@ -91,7 +98,15 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 }
 
 // `inbound-vip||hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(proxy *model.Proxy, svc *model.Service, port model.Port, subset string) *clusterWrapper {
+func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
+	proxy *model.Proxy,
+	svc *model.Service,
+	port model.Port,
+	subset string,
+	mesh *meshconfig.MeshConfig,
+	policy *networking.TrafficPolicy,
+	drConfig *config.Config,
+) *cluster.Cluster {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
 	discoveryType := convertResolution(cb.proxyType, svc)
@@ -120,15 +135,108 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(proxy *model.Proxy, svc
 	svcMetaList := im.Fields["services"].GetListValue()
 	svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc))
 
+	// Apply DestinationRule configuration for the service
+	connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol := selectTrafficPolicyComponents(policy)
+	// Add applicable metadata to the cluster to identify which config is applied for tooling
+	if policy != nil {
+		util.AddConfigInfoMetadata(localCluster.cluster.Metadata, drConfig.Meta)
+	}
+	if subset != "" {
+		util.AddSubsetToMetadata(localCluster.cluster.Metadata, subset)
+	}
+	if connectionPool == nil {
+		connectionPool = &networking.ConnectionPoolSettings{}
+	}
+
+	// For these policies, we have the standard logic apply
+	cb.applyConnectionPool(mesh, localCluster, connectionPool)
+	cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
+	applyOutlierDetection(localCluster.cluster, outlierDetection)
+	applyLoadBalancer(localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+
+	// Setup EDS config after apply LoadBalancer, since it can impact the result
+	if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
+		localCluster.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+	}
+	maybeApplyEdsConfig(localCluster.cluster)
+
+	// TLS and PROXY are more involved, since these impact the transport socket which is customized for HBONE.
+	opts := &buildClusterOpts{
+		mesh:           cb.req.Push.Mesh,
+		mutable:        localCluster,
+		policy:         policy,
+		port:           &port,
+		serviceTargets: cb.serviceTargets,
+		clusterMode:    DefaultClusterMode,
+		direction:      model.TrafficDirectionInboundVIP,
+	}
+	transportSocket := util.RawBufferTransport()
+	if tlsContext := buildWaypointTLSContext(opts, tls); tlsContext != nil {
+		transportSocket = &core.TransportSocket{
+			Name: "internal_upstream",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
+				PassthroughMetadata: util.TunnelHostMetadata,
+				TransportSocket: &core.TransportSocket{
+					Name:       wellknown.TransportSocketTLS,
+					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
+				},
+			})},
+		}
+	}
+	if proxyProtocol != nil {
+		// Wrap the existing transport socket. Note this could be RawBuffer or TLS, depending on other config
+		transportSocket = &core.TransportSocket{
+			Name: wellknown.TransportSocketPROXY,
+			ConfigType: &core.TransportSocket_TypedConfig{
+				TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocolUpstreamTransport{
+					Config:          &core.ProxyProtocolConfig{Version: core.ProxyProtocolConfig_Version(proxyProtocol.Version)},
+					TransportSocket: transportSocket,
+				},
+				),
+			},
+		}
+	}
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = util.TunnelHostInternalUpstreamTransportSocket
-	maybeApplyEdsConfig(localCluster.cluster)
-	return localCluster
+	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
+	localCluster.cluster.TransportSocket = util.TunnelHostInternalUpstreamTransportSocket(transportSocket)
+
+	return localCluster.build()
+}
+
+func buildWaypointTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) *tlsv3.UpstreamTlsContext {
+	if tls == nil {
+		return nil
+	}
+
+	var tlsContext *tlsv3.UpstreamTlsContext
+	var err error
+	switch tls.Mode {
+	case networking.ClientTLSSettings_DISABLE:
+		// nothing needed
+		return nil
+	case networking.ClientTLSSettings_ISTIO_MUTUAL:
+		// not supported (?)
+		return nil
+	case networking.ClientTLSSettings_SIMPLE:
+		tlsContext, err = constructUpstreamTLS(opts, tls, opts.mutable, false)
+
+	case networking.ClientTLSSettings_MUTUAL:
+		tlsContext, err = constructUpstreamTLS(opts, tls, opts.mutable, true)
+	}
+	if err != nil {
+		log.Errorf("failed to build Upstream TLSContext: %s", err.Error())
+		return nil
+	}
+	// Compliance for Envoy TLS upstreams.
+	if tlsContext != nil {
+		sec_model.EnforceCompliance(tlsContext.CommonTlsContext)
+	}
+	return tlsContext
 }
 
 // `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[host.Name]*model.Service) []*cluster.Cluster {
+func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[host.Name]*model.Service, mesh *meshconfig.MeshConfig) []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
 
 	for _, svc := range svcs {
@@ -136,22 +244,22 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 			if port.Protocol == protocol.UDP {
 				continue
 			}
+			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
+			dr := CastDestinationRule(cfg)
+			policy := dr.GetTrafficPolicy()
 			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
-				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp").build())
+				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, policy, cfg))
 			}
 			if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
-				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "http").build())
+				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "http", mesh, policy, cfg))
 			}
-			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
-			if cfg != nil {
-				destinationRule := cfg.Spec.(*networking.DestinationRule)
-				for _, ss := range destinationRule.Subsets {
-					if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
-						clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp/"+ss.Name).build())
-					}
-					if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
-						clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "http/"+ss.Name).build())
-					}
+			for _, ss := range dr.GetSubsets() {
+				policy = util.MergeSubsetTrafficPolicy(dr.GetTrafficPolicy(), ss.GetTrafficPolicy(), port)
+				if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
+					clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp/"+ss.Name, mesh, policy, cfg))
+				}
+				if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
+					clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "http/"+ss.Name, mesh, policy, cfg))
 				}
 			}
 		}
@@ -173,8 +281,8 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
 	for _, uriSanMatcher := range uriSanMatchers {
 		if uriSanMatcher != nil {
-			validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
-				SanType: tls.SubjectAltNameMatcher_URI,
+			validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tlsv3.SubjectAltNameMatcher{
+				SanType: tlsv3.SubjectAltNameMatcher_URI,
 				Matcher: uriSanMatcher,
 			})
 		}
@@ -183,6 +291,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 	sec_model.EnforceCompliance(ctx)
 	return &cluster.Cluster{
 		Name:                          ConnectOriginate,
+		AltStatName:                   ConnectOriginate + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:                durationpb.New(2 * time.Second),
@@ -206,7 +315,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 		},
 		TransportSocket: &core.TransportSocket{
 			Name: "tls",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tlsv3.UpstreamTlsContext{
 				CommonTlsContext: ctx,
 			})},
 		},

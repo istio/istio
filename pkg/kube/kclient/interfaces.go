@@ -75,6 +75,7 @@ type Writer[T controllers.Object] interface {
 	UpdateStatus(object T) (T, error)
 	// Patch patches the resource, returning the newly applied resource.
 	Patch(name, namespace string, pt apitypes.PatchType, data []byte) (T, error)
+	PatchStatus(name, namespace string, pt apitypes.PatchType, data []byte) (T, error)
 	// Delete removes a resource.
 	Delete(name, namespace string) error
 }

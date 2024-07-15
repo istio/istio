@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Fixed** `values.cni.logLevel` is a no-op, and is now deprecated. Use `values.{cni|global}.logging.level` instead.

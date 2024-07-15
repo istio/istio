@@ -40,7 +40,7 @@
     "stats_tags": [
       {
         "tag_name": "cluster_name",
-        "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
+        "regex": "cluster(\\.(.+);)"
       },
       {
         "tag_name": "tcp_prefix",
@@ -191,6 +191,7 @@
     "clusters": [
       {
         "name": "prometheus_stats",
+        "alt_stat_name": "prometheus_stats;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -213,6 +214,7 @@
       },
       {
         "name": "agent",
+        "alt_stat_name": "agent;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -235,6 +237,7 @@
       },
       {
         "name": "sds-grpc",
+        "alt_stat_name": "sds-grpc;",
         "type": "STATIC",
         "typed_extension_protocol_options": {
           "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
@@ -263,6 +266,7 @@
       },
       {
         "name": "xds-grpc",
+        "alt_stat_name": "xds-grpc;",
         "type" : "STATIC",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -315,6 +319,7 @@
       ,
       {
         "name": "zipkin",
+        "alt_stat_name": "zipkin;",
         "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/zipkin/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"resource_api_version":"V3"}}}},"sni":"zipkin-custom-sni"}},
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,

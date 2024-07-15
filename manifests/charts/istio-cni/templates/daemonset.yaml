@@ -108,8 +108,8 @@ spec:
 {{- end }}
           command: ["install-cni"]
           args:
-            {{- if .Values.global.logging.level }}
-            - --log_output_level={{ .Values.global.logging.level }}
+            {{- if or .Values.cni.logging.level .Values.global.logging.level }}
+            - --log_output_level={{ coalesce .Values.cni.logging.level .Values.global.logging.level }}
             {{- end}}
             {{- if .Values.global.logAsJson }}
             - --log_as_json

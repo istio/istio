@@ -20,11 +20,15 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/ptr"
@@ -90,9 +94,267 @@ func TestServiceEntryServices(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "Uses auto-assigned addresses",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "auto-assigned",
+					Namespace: "ns",
+					Labels: map[string]string{
+						constants.EnableV2AutoAllocationLabel: "true",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Hosts: []string{"assign-me.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					SubjectAltNames: []string{"san1"},
+					Resolution:      networking.ServiceEntry_DNS,
+				},
+				Status: networking.ServiceEntryStatus{
+					Addresses: []*networking.ServiceEntryAddress{
+						{
+							Value: "240.240.0.1",
+						},
+						{
+							Value: "2001:2::1",
+						},
+					},
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "auto-assigned",
+					Namespace: "ns",
+					Hostname:  "assign-me.example.com",
+					Addresses: []*workloadapi.NetworkAddress{
+						{
+							Network: testNW,
+							Address: netip.AddrFrom4([4]byte{240, 240, 0, 1}).AsSlice(),
+						},
+						{
+							Network: testNW,
+							Address: netip.MustParseAddr("2001:2::1").AsSlice(),
+						},
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+					SubjectAltNames: []string{"san1"},
+				},
+			},
+		},
+		{
+			name:   "Does not use auto-assigned addresses user provided address",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "user-provided",
+					Namespace: "ns",
+					Labels: map[string]string{
+						constants.EnableV2AutoAllocationLabel: "true",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"user-provided.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					SubjectAltNames: []string{"san1"},
+					Resolution:      networking.ServiceEntry_DNS,
+				},
+				Status: networking.ServiceEntryStatus{
+					Addresses: []*networking.ServiceEntryAddress{
+						{
+							Value: "240.240.0.1",
+						},
+						{
+							Value: "2001:2::1",
+						},
+					},
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "user-provided",
+					Namespace: "ns",
+					Hostname:  "user-provided.example.com",
+					Addresses: []*workloadapi.NetworkAddress{
+						{
+							Network: testNW,
+							Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+						},
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+					SubjectAltNames: []string{"san1"},
+				},
+			},
+		},
+		{
+			name:   "Does not use auto-assigned addresses none resolution",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "none-resolution",
+					Namespace: "ns",
+					Labels: map[string]string{
+						constants.EnableV2AutoAllocationLabel: "true",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Hosts: []string{"none-resolution.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					SubjectAltNames: []string{"san1"},
+					Resolution:      networking.ServiceEntry_NONE,
+				},
+				Status: networking.ServiceEntryStatus{
+					Addresses: []*networking.ServiceEntryAddress{
+						{
+							Value: "240.240.0.1",
+						},
+						{
+							Value: "2001:2::1",
+						},
+					},
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "none-resolution",
+					Namespace: "ns",
+					Hostname:  "none-resolution.example.com",
+					Addresses: []*workloadapi.NetworkAddress{},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+					SubjectAltNames: []string{"san1"},
+				},
+			},
+		},
+		{
+			name:   "Does not use auto-assigned addresses user opted out",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "user-opt-out",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Hosts: []string{"user-opt-out.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					SubjectAltNames: []string{"san1"},
+					Resolution:      networking.ServiceEntry_DNS,
+				},
+				Status: networking.ServiceEntryStatus{
+					Addresses: []*networking.ServiceEntryAddress{
+						{
+							Value: "240.240.0.1",
+						},
+						{
+							Value: "2001:2::1",
+						},
+					},
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "user-opt-out",
+					Namespace: "ns",
+					Hostname:  "user-opt-out.example.com",
+					Addresses: []*workloadapi.NetworkAddress{},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+					SubjectAltNames: []string{"san1"},
+				},
+			},
+		},
+		{
+			name:   "Does not use auto-assigned addresses for wildcard host",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "partial-wildcard",
+					Namespace: "ns",
+					Labels: map[string]string{
+						constants.EnableV2AutoAllocationLabel: "true",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Hosts: []string{"*.wildcard.example.com", "this-is-ok.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					SubjectAltNames: []string{"san1"},
+					Resolution:      networking.ServiceEntry_DNS,
+				},
+				Status: networking.ServiceEntryStatus{
+					Addresses: []*networking.ServiceEntryAddress{
+						{
+							Value: "240.240.0.1",
+						},
+						{
+							Value: "2001:2::1",
+						},
+					},
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "partial-wildcard",
+					Namespace: "ns",
+					Hostname:  "*.wildcard.example.com",
+					Addresses: []*workloadapi.NetworkAddress{},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+					SubjectAltNames: []string{"san1"},
+				},
+				{
+					Name:      "partial-wildcard",
+					Namespace: "ns",
+					Hostname:  "this-is-ok.example.com",
+					Addresses: []*workloadapi.NetworkAddress{
+						{
+							Network: testNW,
+							Address: netip.AddrFrom4([4]byte{240, 240, 0, 1}).AsSlice(),
+						},
+						{
+							Network: testNW,
+							Address: netip.MustParseAddr("2001:2::1").AsSlice(),
+						},
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+					SubjectAltNames: []string{"san1"},
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			features.EnableIPAutoallocate = true
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest()
 			builder := a.serviceEntryServiceBuilder(
@@ -243,6 +505,124 @@ func TestServiceServices(t *testing.T) {
 					},
 					Mode: workloadapi.LoadBalancing_FAILOVER,
 				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+				}},
+			},
+		},
+		{
+			name: "cross namespace waypoint",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{
+						Name:      "waypoint",
+						Namespace: "waypoint-ns",
+					},
+					TrafficType: constants.AllTraffic,
+					Addresses:   []netip.Addr{netip.AddrFrom4([4]byte{5, 6, 7, 8})},
+					AllowedRoutes: WaypointSelector{
+						FromNamespaces: gatewayv1.NamespacesFromSelector,
+						Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+					},
+				},
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName: "ns",
+						},
+					},
+				},
+			},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						constants.AmbientUseWaypointLabel:          "waypoint",
+						constants.AmbientUseWaypointNamespaceLabel: "waypoint-ns",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint: &workloadapi.GatewayAddress{
+					Destination: &workloadapi.GatewayAddress_Address{
+						Address: &workloadapi.NetworkAddress{
+							Network: testNW,
+							Address: netip.AddrFrom4([4]byte{5, 6, 7, 8}).AsSlice(),
+						},
+					},
+					HboneMtlsPort: 15008,
+				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+				}},
+			},
+		},
+		{
+			name: "cross namespace waypoint denied",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{
+						Name:      "waypoint",
+						Namespace: "waypoint-ns",
+					},
+					TrafficType: constants.AllTraffic,
+					Addresses:   []netip.Addr{netip.AddrFrom4([4]byte{5, 6, 7, 8})},
+					AllowedRoutes: WaypointSelector{
+						FromNamespaces: gatewayv1.NamespacesFromSelector,
+						Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "not-ns"}),
+					},
+				},
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName: "ns",
+						},
+					},
+				},
+			},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						constants.AmbientUseWaypointLabel:          "waypoint",
+						constants.AmbientUseWaypointNamespaceLabel: "waypoint-ns",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint: nil,
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},

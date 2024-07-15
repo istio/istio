@@ -150,7 +150,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 	c := opts.mutable
 	var tlsContext *tlsv3.UpstreamTlsContext
-
+	var err error
 	switch tls.Mode {
 	case networking.ClientTLSSettings_DISABLE:
 		tlsContext = nil
@@ -176,7 +176,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
 		// We add `istio-peer-exchange` to the list of alpn strings.
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
-		if cb.isHttp2Cluster(c) {
+		if isHttp2Cluster(c) {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if features.MetadataExchange && !features.DisableMxALPN {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
@@ -192,125 +192,84 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 	case networking.ClientTLSSettings_SIMPLE:
-		tlsContext = &tlsv3.UpstreamTlsContext{
-			CommonTlsContext: defaultUpstreamCommonTLSContext(),
-			Sni:              tls.Sni,
-		}
-
-		cb.setAutoSniAndAutoSanValidation(c, tls)
-
-		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
-		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
-			tls = tls.DeepCopy()
-			tls.SubjectAltNames = opts.serviceAccounts
-		}
-		if tls.CredentialName != "" {
-			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
-			// SDS config for egress gateway to fetch key/cert at gateway agent.
-			sec_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, cb.credentialSocketExist)
-		} else {
-			// If CredentialName is not set fallback to files specified in DR.
-			res := security.SdsCertificateConfig{
-				CaCertificatePath: tls.CaCertificates,
-			}
-			// If tls.CaCertificate or CaCertificate in Metadata isn't configured, or tls.InsecureSkipVerify is true,
-			// don't set up SdsSecretConfig
-			if !res.IsRootCertificate() || tls.GetInsecureSkipVerify().GetValue() {
-				tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_ValidationContext{}
-			} else {
-				defaultValidationContext := &tlsv3.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)}
-				if tls.GetCaCrl() != "" {
-					defaultValidationContext.Crl = &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: tls.GetCaCrl(),
-						},
-					}
-				}
-				tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_CombinedValidationContext{
-					CombinedValidationContext: &tlsv3.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext:         defaultValidationContext,
-						ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
-					},
-				}
-
-			}
-		}
-
-		applyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
-
-		if cb.isHttp2Cluster(c) {
-			// This is HTTP/2 cluster, advertise it with ALPN.
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
-		}
+		tlsContext, err = constructUpstreamTLS(opts, tls, c, false)
 
 	case networking.ClientTLSSettings_MUTUAL:
-		tlsContext = &tlsv3.UpstreamTlsContext{
-			CommonTlsContext: defaultUpstreamCommonTLSContext(),
-			Sni:              tls.Sni,
-		}
+		tlsContext, err = constructUpstreamTLS(opts, tls, c, true)
+	}
+	if err != nil {
+		return nil, err
+	}
+	// Compliance for Envoy TLS upstreams.
+	if tlsContext != nil {
+		sec_model.EnforceCompliance(tlsContext.CommonTlsContext)
+	}
+	return tlsContext, nil
+}
 
-		cb.setAutoSniAndAutoSanValidation(c, tls)
+func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSettings, c *clusterWrapper, mutual bool) (*tlsv3.UpstreamTlsContext, error) {
+	tlsContext := &tlsv3.UpstreamTlsContext{
+		CommonTlsContext: defaultUpstreamCommonTLSContext(),
+		Sni:              tls.Sni,
+	}
 
-		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
-		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
-			tls = tls.DeepCopy()
-			tls.SubjectAltNames = opts.serviceAccounts
+	setAutoSniAndAutoSanValidation(c, tls)
+
+	// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
+	if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
+		tls = tls.DeepCopy()
+		tls.SubjectAltNames = opts.serviceAccounts
+	}
+	if tls.CredentialName != "" {
+		// If credential name is specified at Destination Rule config and originating node is egress gateway, create
+		// SDS config for egress gateway to fetch key/cert at gateway agent.
+		sec_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, opts.credentialSocketExist)
+	} else {
+		// These are certs being mounted from within the pod and specified in Destination Rules.
+		// Rather than reading directly in Envoy, which does not support rotation, we will
+		// serve them over SDS by reading the files.
+		res := security.SdsCertificateConfig{
+			CaCertificatePath: tls.CaCertificates,
 		}
-		if tls.CredentialName != "" {
-			// If credential name is specified at Destination Rule config and originating node is egress gateway, create
-			// SDS config for egress gateway to fetch key/cert at gateway agent.
-			sec_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, cb.credentialSocketExist)
-		} else {
-			// If CredentialName is not set fallback to file based approach
+		// If CredentialName is not set fallback to file based approach
+		if mutual {
 			if tls.ClientCertificate == "" || tls.PrivateKey == "" {
 				err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
 					c.cluster.Name)
 				return nil, err
 			}
-			// These are certs being mounted from within the pod and specified in Destination Rules.
-			// Rather than reading directly in Envoy, which does not support rotation, we will
-			// serve them over SDS by reading the files.
-			res := security.SdsCertificateConfig{
-				CertificatePath:   tls.ClientCertificate,
-				PrivateKeyPath:    tls.PrivateKey,
-				CaCertificatePath: tls.CaCertificates,
-			}
+			res.CertificatePath = tls.ClientCertificate
+			res.PrivateKeyPath = tls.PrivateKey
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				sec_model.ConstructSdsSecretConfig(res.GetResourceName()))
-
-			// If tls.CaCertificate or CaCertificate in Metadata isn't configured, or tls.InsecureSkipVerify is true,
-			// don't set up SdsSecretConfig
-			if !res.IsRootCertificate() || tls.GetInsecureSkipVerify().GetValue() {
-				tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_ValidationContext{}
-			} else {
-				defaultValidationContext := &tlsv3.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)}
-				if tls.GetCaCrl() != "" {
-					defaultValidationContext.Crl = &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: tls.GetCaCrl(),
-						},
-					}
-				}
-				tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_CombinedValidationContext{
-					CombinedValidationContext: &tlsv3.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext:         defaultValidationContext,
-						ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+		}
+		// If tls.CaCertificate or CaCertificate in Metadata isn't configured, or tls.InsecureSkipVerify is true,
+		// don't set up SdsSecretConfig
+		if !res.IsRootCertificate() || tls.GetInsecureSkipVerify().GetValue() {
+			tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_ValidationContext{}
+		} else {
+			defaultValidationContext := &tlsv3.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)}
+			if tls.GetCaCrl() != "" {
+				defaultValidationContext.Crl = &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: tls.GetCaCrl(),
 					},
 				}
 			}
-		}
-
-		applyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
-
-		if cb.isHttp2Cluster(c) {
-			// This is HTTP/2 cluster, advertise it with ALPN.
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+			tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &tlsv3.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext:         defaultValidationContext,
+					ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+				},
+			}
 		}
 	}
 
-	// Compliance for Envoy TLS upstreams.
-	if tlsContext != nil {
-		sec_model.EnforceCompliance(tlsContext.CommonTlsContext)
+	applyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
+
+	if isHttp2Cluster(c) {
+		// This is HTTP/2 cluster, advertise it with ALPN.
+		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 	}
 	return tlsContext, nil
 }
@@ -330,7 +289,7 @@ func applyTLSDefaults(tlsContext *tlsv3.UpstreamTlsContext, tlsDefaults *v1alpha
 
 // Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.
 // Set auto_san_validation if VerifyCertAtClient feature flag is enabled and if there is no explicit SubjectAltNames specified  in DR.
-func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTLSSettings) {
+func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTLSSettings) {
 	if mc == nil || !features.EnableAutoSni {
 		return
 	}
