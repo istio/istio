@@ -793,29 +793,32 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 		// into listener address so that there is a dedicated listener for this
 		// ip:port. This will reduce the impact of a listener reload
 		if listenerOpts.bind.Primary() == "" { // TODO: make this better
-			svcListenAddresses := listenerOpts.service.GetAllAddressesForProxy(listenerOpts.proxy)
+			svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
+			svcExtraListenAddresses := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
 			// Override the svcListenAddress, using the proxy ipFamily, for cases where the ipFamily cannot be detected easily.
 			// For example: due to the possibility of using hostnames instead of ips in ServiceEntry,
 			// it is hard to detect ipFamily for such services.
-			if listenerOpts.service.Attributes.ServiceRegistry == provider.External && svcListenAddresses[0] == constants.UnspecifiedIP {
-				if listenerOpts.proxy.IsIPv6() {
-					svcListenAddresses[0] = constants.UnspecifiedIPv6
-				} else if listenerOpts.proxy.IsDualStack() {
-					svcListenAddresses = append(svcListenAddresses, constants.UnspecifiedIPv6)
-				}
+			if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsIPv6() &&
+				svcListenAddress == constants.UnspecifiedIP {
+				svcListenAddress = constants.UnspecifiedIPv6
 			}
 
+			// For dualstack proxies we need to add the unspecifed ipv6 address to the list of extra listen addresses
+			if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsDualStack() &&
+				svcListenAddress == constants.UnspecifiedIP {
+				svcExtraListenAddresses = append(svcExtraListenAddresses, constants.UnspecifiedIPv6)
+			}
 			// We should never get an empty address.
 			// This is a safety guard, in case some platform adapter isn't doing things
 			// properly
-			if len(svcListenAddresses[0]) > 0 {
-				if !strings.Contains(svcListenAddresses[0], "/") {
-					listenerOpts.bind.binds = svcListenAddresses
+			if len(svcListenAddress) > 0 {
+				if !strings.Contains(svcListenAddress, "/") {
+					listenerOpts.bind.binds = append([]string{svcListenAddress}, svcExtraListenAddresses...)
 				} else {
 					// Address is a CIDR. Fall back to 0.0.0.0 and
 					// filter chain match
 					listenerOpts.bind.binds = actualWildcards
-					listenerOpts.cidr = svcListenAddresses
+					listenerOpts.cidr = append([]string{svcListenAddress}, svcExtraListenAddresses...)
 				}
 			}
 		}

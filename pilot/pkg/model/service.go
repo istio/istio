@@ -1261,13 +1261,9 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 // GetExtraAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
 // Especially for dual stack k8s service to get other IP family addresses.
 func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
-	if features.EnableDualStack && node.Metadata != nil {
-		if node.Metadata.ClusterID != "" {
-			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
-			if len(addresses) > 1 {
-				return addresses[1:]
-			}
-		}
+	addresses := s.getAllAddressesForProxy(node)
+	if len(addresses) > 1 {
+		return addresses[1:]
 	}
 	return nil
 }
@@ -1275,6 +1271,10 @@ func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
 // GetAllAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
 // Especially for dual stack k8s service to get other IP family addresses.
 func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
+	return s.getAllAddressesForProxy(node)
+}
+
+func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 		if (features.EnableDualStack || features.EnableAmbient) && len(addresses) > 0 {
