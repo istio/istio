@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"istio.io/istio/cni/pkg/config"
-	"istio.io/istio/cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
 )
 
@@ -34,7 +33,6 @@ const (
 func TestCreateValidKubeconfigFile(t *testing.T) {
 	tmp := t.TempDir()
 	os.WriteFile(filepath.Join(tmp, "token"), []byte(saToken), 0o644)
-	constants.ServiceAccountPath = tmp
 	cases := []struct {
 		name               string
 		expectedFailure    bool
@@ -73,12 +71,13 @@ func TestCreateValidKubeconfigFile(t *testing.T) {
 			tempDir := t.TempDir()
 
 			cfg := &config.InstallConfig{
-				MountedCNINetDir:   tempDir,
-				KubeCAFile:         c.kubeCAFilepath,
-				K8sServiceProtocol: c.k8sServiceProtocol,
-				K8sServiceHost:     c.k8sServiceHost,
-				K8sServicePort:     c.k8sServicePort,
-				SkipTLSVerify:      c.skipTLSVerify,
+				MountedCNINetDir:      tempDir,
+				KubeCAFile:            c.kubeCAFilepath,
+				K8sServiceProtocol:    c.k8sServiceProtocol,
+				K8sServiceHost:        c.k8sServiceHost,
+				K8sServicePort:        c.k8sServicePort,
+				K8sServiceAccountPath: tmp,
+				SkipTLSVerify:         c.skipTLSVerify,
 			}
 			result, err := createKubeConfig(cfg)
 			if err != nil {
@@ -104,14 +103,14 @@ func TestCreateValidKubeconfigFile(t *testing.T) {
 func TestReplaceInvalidKubeconfigFile(t *testing.T) {
 	tmp := t.TempDir()
 	os.WriteFile(filepath.Join(tmp, "token"), []byte(saToken), 0o644)
-	constants.ServiceAccountPath = tmp
 	tempDir := t.TempDir()
 
 	cfg := &config.InstallConfig{
-		MountedCNINetDir: tempDir,
-		KubeCAFile:       kubeCAFilepath,
-		K8sServiceHost:   k8sServiceHost,
-		K8sServicePort:   k8sServicePort,
+		MountedCNINetDir:      tempDir,
+		KubeCAFile:            kubeCAFilepath,
+		K8sServiceHost:        k8sServiceHost,
+		K8sServicePort:        k8sServicePort,
+		K8sServiceAccountPath: tmp,
 	}
 	// Write out a kubeconfig with one cert
 	result, err := createKubeConfig(cfg)
@@ -123,10 +122,11 @@ func TestReplaceInvalidKubeconfigFile(t *testing.T) {
 
 	newk8sServiceHost := "50.76.2.1"
 	newCfg := &config.InstallConfig{
-		MountedCNINetDir: tempDir,
-		KubeCAFile:       kubeCAFilepath,
-		K8sServiceHost:   newk8sServiceHost,
-		K8sServicePort:   k8sServicePort,
+		MountedCNINetDir:      tempDir,
+		KubeCAFile:            kubeCAFilepath,
+		K8sServiceHost:        newk8sServiceHost,
+		K8sServicePort:        k8sServicePort,
+		K8sServiceAccountPath: tmp,
 	}
 	// Write out a kubeconfig with one cert
 	result, err = createKubeConfig(newCfg)
@@ -140,14 +140,14 @@ func TestReplaceInvalidKubeconfigFile(t *testing.T) {
 func TestCheckNoExistingKubeConfig(t *testing.T) {
 	tmp := t.TempDir()
 	os.WriteFile(filepath.Join(tmp, "token"), []byte(saToken), 0o644)
-	constants.ServiceAccountPath = tmp
 	tempDir := t.TempDir()
 
 	cfg := &config.InstallConfig{
-		MountedCNINetDir: tempDir,
-		KubeCAFile:       kubeCAFilepath,
-		K8sServiceHost:   k8sServiceHost,
-		K8sServicePort:   k8sServicePort,
+		MountedCNINetDir:      tempDir,
+		KubeCAFile:            kubeCAFilepath,
+		K8sServiceHost:        k8sServiceHost,
+		K8sServicePort:        k8sServicePort,
+		K8sServiceAccountPath: tmp,
 	}
 
 	expectedKC, err := createKubeConfig(cfg)
@@ -164,15 +164,15 @@ func TestCheckNoExistingKubeConfig(t *testing.T) {
 func TestCheckMismatchedExistingKubeConfig(t *testing.T) {
 	tmp := t.TempDir()
 	os.WriteFile(filepath.Join(tmp, "token"), []byte(saToken), 0o644)
-	constants.ServiceAccountPath = tmp
 	tempDir := t.TempDir()
 
 	cfg := &config.InstallConfig{
-		MountedCNINetDir:   tempDir,
-		KubeCAFile:         kubeCAFilepath,
-		K8sServiceHost:     k8sServiceHost,
-		K8sServicePort:     k8sServicePort,
-		KubeconfigFilename: "dork.cfg",
+		MountedCNINetDir:      tempDir,
+		KubeCAFile:            kubeCAFilepath,
+		K8sServiceHost:        k8sServiceHost,
+		K8sServicePort:        k8sServicePort,
+		K8sServiceAccountPath: tmp,
+		KubeconfigFilename:    "dork.cfg",
 	}
 
 	expectedKC, err := createKubeConfig(cfg)

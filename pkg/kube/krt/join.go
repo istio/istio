@@ -17,6 +17,7 @@ package krt
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -84,6 +85,29 @@ func (j *join[I]) dump() {
 		c.dump()
 	}
 	log.Errorf("< END DUMP (join %v)", j.collectionName)
+}
+
+// nolint: unused // (not true)
+type joinIndexer struct {
+	indexers []kclient.RawIndexer
+}
+
+// nolint: unused // (not true)
+func (j joinIndexer) Lookup(key string) []any {
+	var res []any
+	for _, i := range j.indexers {
+		res = append(res, i.Lookup(key)...)
+	}
+	return res
+}
+
+// nolint: unused // (not true, its to implement an interface)
+func (j *join[T]) index(extract func(o T) []string) kclient.RawIndexer {
+	ji := joinIndexer{indexers: make([]kclient.RawIndexer, 0, len(j.collections))}
+	for _, c := range j.collections {
+		ji.indexers = append(ji.indexers, c.index(extract))
+	}
+	return ji
 }
 
 func (j *join[T]) Synced() Syncer {

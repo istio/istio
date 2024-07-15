@@ -41,10 +41,10 @@ func copyBinaries(srcDir string, targetDirs []string) (sets.String, error) {
 
 		for _, targetDir := range targetDirs {
 			if err := file.AtomicCopy(srcFilepath, targetDir, filename); err != nil {
-				installLog.Errorf("Failed file copy of %s to %s: %s", srcFilepath, targetDir, err.Error())
+				installLog.Errorf("failed file copy of %s to %s: %s", srcFilepath, targetDir, err.Error())
 				return copiedFilenames, err
 			}
-			installLog.Infof("Copied %s to %s.", filename, targetDir)
+			installLog.Infof("Copied %s to %s", filename, targetDir)
 		}
 
 		copiedFilenames.Insert(filename)

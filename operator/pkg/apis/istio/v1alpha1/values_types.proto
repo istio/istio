@@ -91,9 +91,12 @@ message CNIConfig {
   // PodSecurityPolicy cluster role. No longer used anywhere.
   string psp_cluster_role = 11;
 
-  // Configuration log level of istio-cni binary. By default, istio-cni sends all logs to the UDS server.
+  // DEPRECATED. Configuration log level of istio-cni binary. By default, istio-cni sends all logs to the UDS server.
   // To see the logs, change global.logging.level to cni:debug.
-  string logLevel = 12;
+  string logLevel = 12  [deprecated = true];
+
+  // Same as `global.logging.level`, but will override it if set
+  GlobalLoggingConfig logging = 25;
 
   // Configuration for the CNI Repair controller.
   CNIRepairConfig repair = 13;
@@ -391,6 +394,10 @@ message GatewaysConfig {
 
   // Configuration for an ingress gateway.
   IngressGatewayConfig istio_ingressgateway = 4 [json_name = "istio-ingressgateway"];
+
+  google.protobuf.Value securityContext = 10;
+
+  google.protobuf.Value seccompProfile = 12;
 }
 
 // Global Configuration for Istio components.
@@ -407,16 +414,9 @@ message GlobalConfig {
   // List of certSigners to allow "approve" action in the ClusterRole
   repeated string certSigners = 68;
 
-  // TODO: remove this?
-  // No longer used.
-  string configRootNamespace = 50;
-
   // Controls whether the server-side validation is enabled.
   google.protobuf.BoolValue configValidation = 3;
 
-  // TODO: remove this?
-  // No longer used.
-  repeated string defaultConfigVisibilitySettings = 52;
   // Default k8s node selector for all the Istio control plane components
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
@@ -560,9 +560,6 @@ message GlobalConfig {
 
   // Specifies the Configuration for each of the supported tracers.
   TracerConfig tracer = 33;
-
-  // Controls whether to use of Mesh Configuration Protocol to distribute configuration.
-  google.protobuf.BoolValue useMCP = 35;
 
   // Specifies the Istio control plane’s pilot Pod IP address or remote cluster DNS resolvable hostname.
   string remotePilotAddress = 48;
@@ -837,9 +834,6 @@ message PilotConfig {
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   Resources resources = 9 [deprecated = true];
 
-  // Namespace that the configuration management feature is installed into, if different from Pilot namespace.
-  string configNamespace = 10;
-
   // Target CPU utilization used in HorizontalPodAutoscaler.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
@@ -873,11 +867,6 @@ message PilotConfig {
   // If false, pilot wil use default values or user-supplied values, in that order of preference.
   google.protobuf.BoolValue configMap = 18;
 
-  // Controls whether Pilot is configured through the Mesh Control Protocol (MCP).
-  //
-  // If set to true, Pilot requires an MCP server (like Galley) to be installed.
-  google.protobuf.BoolValue useMCP = 20;
-
   // Environment variables passed to the Pilot container.
   //
   // Examples:
@@ -904,11 +893,6 @@ message PilotConfig {
   // More info: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling
   repeated k8s.io.api.core.v1.Toleration tolerations = 26 [deprecated = true];
 
-  // Specifies whether protocol sniffing is enabled for outbound traffic.
-  google.protobuf.BoolValue enableProtocolSniffingForOutbound = 28 [deprecated = true];
-  // Specifies whether protocol sniffing is enabled for inbound traffic.
-  google.protobuf.BoolValue enableProtocolSniffingForInbound = 29 [deprecated = true];
-
   // K8s annotations for pods.
   //
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
@@ -921,11 +905,6 @@ message PilotConfig {
 
   // K8s annotations for the service account
   google.protobuf.Struct serviceAccountAnnotations = 56;
-
-  // ConfigSource describes a source of configuration data for networking
-  // rules, and other Istio configuration artifacts. Multiple data sources
-  // can be configured for a single control plane.
-  PilotConfigSource configSource = 31;
 
   // Specifies an extra root certificate in PEM format. This certificate will be trusted
   // by pilot when resolving JWKS URIs.
@@ -976,6 +955,10 @@ message PilotConfig {
   CNIUsageConfig cni = 55;
 
   PilotTaintControllerConfig taint = 57;
+
+  // If set, `istiod` will allow connections from trusted node proxy ztunnels
+  // in the provided namespace.
+  string trustedZtunnelNamespace = 59;
 }
 
 message PilotTaintControllerConfig {
@@ -1050,14 +1033,6 @@ message TelemetryV2PrometheusConfig {
 // TelemetryV2StackDriverConfig controls telemetry v2 stackdriver settings.
 message TelemetryV2StackDriverConfig {
   google.protobuf.BoolValue enabled = 1;
-}
-
-// PilotConfigSource describes information about a configuration store inside a
-// mesh. A single control plane instance can interact with one or more data
-// sources.
-message PilotConfigSource {
-  // Describes the source of configuration, if nothing is specified default is MCP.
-  repeated string subscribedResources = 1;
 }
 
 // Configuration for a port.

@@ -17,6 +17,7 @@ package kclient_test
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	ext "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istioclient "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	istionetclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -48,6 +50,35 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
+
+func TestSwappingClientIndex(t *testing.T) {
+	stop := test.NewStop(t)
+	c := kube.NewFakeClient()
+	wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+	c.RunAndWait(stop)
+	idx := kclient.CreateStringIndex(wasm, func(o controllers.Object) []string {
+		return []string{o.(*istioclient.WasmPlugin).Spec.ImagePullSecret}
+	})
+	assertIndex := func(k string, we ...controllers.Object) {
+		t.Helper()
+		assert.EventuallyEqual(t, func() []controllers.Object { return idx.Lookup(k) }, we, retry.Timeout(time.Second*5))
+	}
+	// To start, no response
+	assertIndex("secret1")
+	wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+	wasm1 := &istioclient.WasmPlugin{
+		ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		Spec:       ext.WasmPlugin{ImagePullSecret: "secret1"},
+	}
+	wt.Create(wasm1)
+	// Still no response since we haven't started yet
+	assertIndex("secret1")
+
+	// Make the CRD
+	clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+	// CRD is added, make sure index now works
+	assertIndex("secret1", wasm1)
+}
 
 func TestSwappingClient(t *testing.T) {
 	t.Run("CRD partially ready", func(t *testing.T) {
@@ -337,7 +368,7 @@ func TestToOpts(t *testing.T) {
 func TestFilterNamespace(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
-	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*metav1.LabelSelector{{
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 	}}})
 	testns := clienttest.NewWriter[*corev1.Namespace](t, c)
@@ -363,6 +394,18 @@ func TestFilterNamespace(t *testing.T) {
 		return slices.Equal(tracker.Events(), []string{"add/selected"}) ||
 			slices.Equal(tracker.Events(), []string{"add/selected", "add/selected"})
 	})
+	testns.Delete("selected", "")
+	// We may or may not get the deletion event, currently.
+	// Like above for adds, we cannot guarantee exactly once delivery. For adds we chose to give 1 or 2 events.
+	// For delete, it is usually not important to handle, so we choose to get 0 or 1 events here.
+	retry.UntilOrFail(t, func() bool {
+		events := slices.Filter(tracker.Events(), func(s string) bool {
+			// Ignore the adds
+			return !strings.HasPrefix(s, "add/")
+		})
+		return slices.Equal(events, []string{"delete/selected"}) ||
+			slices.Equal(events, nil)
+	}, retry.Timeout(time.Second*3))
 }
 
 func TestFilter(t *testing.T) {
@@ -419,7 +462,7 @@ func TestFilter(t *testing.T) {
 	assert.Equal(t, len(tester.List("", klabels.Everything())), 2)
 
 	// Update the selectors...
-	assert.NoError(t, meshWatcher.Update(&meshconfig.MeshConfig{DiscoverySelectors: []*metav1.LabelSelector{{
+	assert.NoError(t, meshWatcher.Update(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 	}}}, time.Second))
 	tracker.WaitOrdered("delete/1")
@@ -440,4 +483,31 @@ func TestFilter(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "name4", Namespace: "selected"},
 	})
 	tracker.WaitOrdered("add/name4")
+}
+
+func TestFilterClusterScoped(t *testing.T) {
+	tracker := assert.NewTracker[string](t)
+	c := kube.NewFakeClient()
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
+		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
+	}}})
+	// Note: it is silly to filter cluster scoped resources, but if it is done we should not break.
+	namespaces := kclient.New[*corev1.Namespace](c)
+	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+		namespaces,
+		meshWatcher,
+		test.NewStop(t),
+	)
+	nodes := kclient.NewFiltered[*corev1.Node](c, kubetypes.Filter{
+		ObjectFilter: discoveryNamespacesFilter,
+	})
+	nodes.AddEventHandler(clienttest.TrackerHandler(tracker))
+	c.RunAndWait(test.NewStop(t))
+
+	tester := clienttest.Wrap(t, nodes)
+	obj1 := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "1"},
+	}
+	tester.Create(obj1)
+	tracker.WaitOrdered("add/1")
 }

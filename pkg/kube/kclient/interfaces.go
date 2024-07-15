@@ -55,6 +55,15 @@ type Informer[T controllers.Object] interface {
 	// This function should only be called once. It does not wait for the informer to become ready nor does it block,
 	// so it should generally not be called in a goroutine.
 	Start(stop <-chan struct{})
+	// Index creates an index. The extract function takes an object, and returns all keys to that object.
+	// Later, all objects with a given key can be looked up.
+	// It is strongly recommended to use the typed variants of this with NewIndex; this is needed to workaround Go type limitations.
+	Index(extract func(o T) []string) RawIndexer
+}
+
+// RawIndexer is an internal-ish interface for indexes. Strongly recommended to use NewIndex.
+type RawIndexer interface {
+	Lookup(key string) []any
 }
 
 type Writer[T controllers.Object] interface {
@@ -66,6 +75,7 @@ type Writer[T controllers.Object] interface {
 	UpdateStatus(object T) (T, error)
 	// Patch patches the resource, returning the newly applied resource.
 	Patch(name, namespace string, pt apitypes.PatchType, data []byte) (T, error)
+	PatchStatus(name, namespace string, pt apitypes.PatchType, data []byte) (T, error)
 	// Delete removes a resource.
 	Delete(name, namespace string) error
 }

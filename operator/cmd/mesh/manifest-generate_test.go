@@ -164,6 +164,10 @@ func copyDir(src string, dest string) error {
 			return err
 		}
 
+		if strings.Contains(path, "vendor/") {
+			return filepath.SkipDir
+		}
+
 		outpath := filepath.Join(dest, strings.TrimPrefix(path, src))
 
 		if info.IsDir() {
@@ -1048,7 +1052,7 @@ webhooks:
     apiVersions: ["v1"]
     resources: ["pods"]
   failurePolicy: Fail
-  admissionReviewVersions: ["v1beta1", "v1"]
+  admissionReviewVersions: ["v1"]
   namespaceSelector:
     matchLabels:
       istio-injection: enabled
@@ -1080,7 +1084,7 @@ webhooks:
     apiVersions: ["v1"]
     resources: ["pods"]
   failurePolicy: Fail
-  admissionReviewVersions: ["v1beta1", "v1"]
+  admissionReviewVersions: ["v1"]
   namespaceSelector:
     matchExpressions:
     - key: istio-injection

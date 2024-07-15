@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -46,7 +47,7 @@ func TestWaypointStatus(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			client := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+			client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
 
 			check := func() error {
 				gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
@@ -86,7 +87,6 @@ func TestWaypoint(t *testing.T) {
 			})
 
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"apply",
 				"--namespace",
@@ -97,7 +97,6 @@ func TestWaypoint(t *testing.T) {
 			nameSet := []string{"", "w1", "w2"}
 			for _, name := range nameSet {
 				istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-					"x",
 					"waypoint",
 					"apply",
 					"--namespace",
@@ -109,7 +108,6 @@ func TestWaypoint(t *testing.T) {
 			}
 
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"apply",
 				"--namespace",
@@ -123,7 +121,6 @@ func TestWaypoint(t *testing.T) {
 			nameSet = append(nameSet, "w3")
 
 			output, _ := istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"list",
 				"--namespace",
@@ -136,7 +133,6 @@ func TestWaypoint(t *testing.T) {
 			}
 
 			output, _ = istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"list",
 				"-A",
@@ -148,7 +144,6 @@ func TestWaypoint(t *testing.T) {
 			}
 
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"-n",
 				nsConfig.Name(),
@@ -171,7 +166,6 @@ func TestWaypoint(t *testing.T) {
 
 			// delete all waypoints in namespace, so w3 should be deleted
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
-				"x",
 				"waypoint",
 				"-n",
 				nsConfig.Name(),
@@ -340,8 +334,15 @@ spec:
 }
 
 func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
-	for _, c := range t.Clusters().Kube() {
-		client := c.Kube().CoreV1().Services(apps.Namespace.Name())
+	setWaypointInternal(t, svc, apps.Namespace.Name(), waypoint, true)
+}
+
+func SetWaypointServiceEntry(t framework.TestContext, se, namespace string, waypoint string) {
+	setWaypointInternal(t, se, namespace, waypoint, false)
+}
+
+func setWaypointInternal(t framework.TestContext, name, ns string, waypoint string, service bool) {
+	for _, c := range t.Clusters() {
 		setWaypoint := func(waypoint string) error {
 			if waypoint == "" {
 				waypoint = "null"
@@ -350,7 +351,11 @@ func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
 			}
 			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
 				constants.AmbientUseWaypointLabel, waypoint))
-			_, err := client.Patch(context.TODO(), svc, types.MergePatchType, label, metav1.PatchOptions{})
+			if service {
+				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
+				return err
+			}
+			_, err := c.Istio().NetworkingV1beta1().ServiceEntries(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
 			return err
 		}
 
@@ -359,9 +364,51 @@ func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
 		}
 		t.Cleanup(func() {
 			if err := setWaypoint(""); err != nil {
-				scopes.Framework.Errorf("failed resetting waypoint for %s", svc)
+				scopes.Framework.Errorf("failed resetting waypoint for %s", name)
 			}
 		})
-
 	}
+}
+
+func TestWaypointDNS(t *testing.T) {
+	runTest := func(t framework.TestContext, check echo.Checker) {
+		for _, src := range apps.All {
+			src := src
+			if !hboneClient(src) {
+				continue
+			}
+			t.NewSubTestf("from %s", src.ServiceName()).Run(func(t framework.TestContext) {
+				if src.Config().HasSidecar() {
+					t.Skip("TODO: sidecars don't properly handle use-waypoint")
+				}
+				address := "240.240.240.239"
+				if _, v6 := getSupportedIPFamilies(t); v6 {
+					address = "2001:2::f0f0:239"
+				}
+				src.CallOrFail(t, echo.CallOptions{
+					To:      apps.MockExternal,
+					Address: address,
+					HTTP: echo.HTTP{
+						Headers: http.Header{"Host": []string{apps.MockExternal.Config().DefaultHostHeader}},
+					},
+					Port:   echo.Port{Name: "http"},
+					Scheme: scheme.HTTP,
+					Count:  1,
+					Check:  check,
+				})
+			})
+		}
+	}
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			t.NewSubTest("without waypoint").Run(func(t framework.TestContext) {
+				runTest(t, check.OK())
+			})
+			t.NewSubTest("with waypoint").Run(func(t framework.TestContext) {
+				// Update use-waypoint for Captured service
+				SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint")
+				runTest(t, check.And(check.OK(), IsL7()))
+			})
+		})
 }

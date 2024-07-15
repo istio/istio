@@ -29,8 +29,7 @@ import (
 
 var knownOptimizationGaps = sets.New(
 	"BlackHoleCluster",
-	"InboundPassthroughClusterIpv4",
-	"InboundPassthroughClusterIpv6",
+	"InboundPassthroughCluster",
 	"PassthroughCluster",
 )
 

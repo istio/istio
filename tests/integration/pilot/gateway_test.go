@@ -91,7 +91,7 @@ spec:
       - name: fake
         image: %s
 `, image)).ApplyOrFail(t)
-	cls := t.Clusters().Kube().Default()
+	cls := t.Clusters().Default()
 	fetchFn := testKube.NewSinglePodFetch(cls, apps.Namespace.Name(), "gateway.networking.k8s.io/gateway-name=managed-owner")
 	if _, err := testKube.WaitUntilPodsAreReady(fetchFn); err != nil {
 		t.Fatal(err)
@@ -112,7 +112,7 @@ spec:
 `).ApplyOrFail(t)
 
 	// Make sure Gateway becomes programmed..
-	client := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().Gateways(apps.Namespace.Name())
+	client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().Gateways(apps.Namespace.Name())
 	check := func() error {
 		gw, _ := client.Get(context.Background(), "managed-owner", metav1.GetOptions{})
 		if gw == nil {
@@ -130,13 +130,13 @@ spec:
 	retry.UntilSuccessOrFail(t, check)
 
 	// Make sure we did not overwrite our deployment or service
-	dep, err := t.Clusters().Kube().Default().Kube().AppsV1().Deployments(apps.Namespace.Name()).
+	dep, err := t.Clusters().Default().Kube().AppsV1().Deployments(apps.Namespace.Name()).
 		Get(context.Background(), "managed-owner-istio", metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, dep.Labels[constants.ManagedGatewayLabel], "")
 	assert.Equal(t, dep.Spec.Template.Spec.Containers[0].Image, image)
 
-	svc, err := t.Clusters().Kube().Default().Kube().CoreV1().Services(apps.Namespace.Name()).
+	svc, err := t.Clusters().Default().Kube().CoreV1().Services(apps.Namespace.Name()).
 		Get(context.Background(), "managed-owner-istio", metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, svc.Labels[constants.ManagedGatewayLabel], "")
@@ -556,7 +556,7 @@ spec:
 			})
 			t.NewSubTest("status").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
-					gwc, err := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+					gwc, err := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -597,7 +597,7 @@ spec:
 }
 
 func StatusGatewayTest(t framework.TestContext) {
-	client := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+	client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
 
 	check := func() error {
 		gwc, _ := client.Get(context.Background(), "istio", metav1.GetOptions{})

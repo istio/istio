@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -38,38 +39,12 @@ import (
 )
 
 func TestWorkloadAgentGenerateSecret(t *testing.T) {
-	t.Run("plugin", func(t *testing.T) {
-		testWorkloadAgentGenerateSecret(t, true)
-	})
-	t.Run("no plugin", func(t *testing.T) {
-		testWorkloadAgentGenerateSecret(t, false)
-	})
-}
-
-func createCache(t *testing.T, caClient security.Client, notifyCb func(resourceName string), options security.Options) *SecretManagerClient {
-	t.Helper()
-	sc, err := NewSecretManagerClient(caClient, &options)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sc.RegisterSecretHandler(notifyCb)
-	t.Cleanup(sc.Close)
-	return sc
-}
-
-func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
+	mt := monitortest.New(t)
 	fakeCACli, err := mock.NewMockCAClient(time.Hour, true)
 	var got, want []byte
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
-	opt := &security.Options{}
-
-	if isUsingPluginProvider {
-		fakePlugin := mock.NewMockTokenExchangeServer(nil)
-		opt.TokenExchanger = fakePlugin
-	}
-
 	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{WorkloadRSAKeySize: 2048})
 	gotSecret, err := sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
@@ -105,6 +80,20 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	if got := sc.cache.GetRoot(); !bytes.Equal(got, want) {
 		t.Errorf("Got unexpected root certificate. Got: %v\n want: %v", string(got), string(want))
 	}
+
+	certDefaultTTL := time.Hour.Seconds()
+	mt.Assert(certExpirySeconds.Name(), map[string]string{"resource_name": "default"}, monitortest.LessThan(certDefaultTTL))
+}
+
+func createCache(t *testing.T, caClient security.Client, notifyCb func(resourceName string), options security.Options) *SecretManagerClient {
+	t.Helper()
+	sc, err := NewSecretManagerClient(caClient, &options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc.RegisterSecretHandler(notifyCb)
+	t.Cleanup(sc.Close)
+	return sc
 }
 
 type UpdateTracker struct {
@@ -694,10 +683,6 @@ func TestOSCACertGenerateSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
-	opt := &security.Options{}
-
-	fakePlugin := mock.NewMockTokenExchangeServer(nil)
-	opt.TokenExchanger = fakePlugin
 
 	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{CARootPath: cafile.CACertFilePath})
 	certPath := security.GetOSRootFilePath()
@@ -720,10 +705,6 @@ func TestOSCACertGenerateSecretEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
-	opt := &security.Options{}
-
-	fakePlugin := mock.NewMockTokenExchangeServer(nil)
-	opt.TokenExchanger = fakePlugin
 
 	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{WorkloadRSAKeySize: 2048})
 	certPath := security.GetOSRootFilePath()

@@ -151,7 +151,10 @@ BB6nORpwdv4LVt/BFgLwWQIdAKvHn7cxBJ+aAC25rIumRNKDzP7PkV0HDbxtX+M=
 -----END CERTIFICATE-----`
 )
 
-var certChainValid = loadPEMFile("../testdata/cert-chain.pem")
+var (
+	certChainValid             = loadPEMFile("../testdata/cert-chain.pem")
+	certChainValidTrailingLine = loadPEMFile("../testdata/cert-chain-trailing-line.pem")
+)
 
 func TestParsePemEncodedCertificate(t *testing.T) {
 	testCases := map[string]struct {
@@ -199,6 +202,9 @@ func TestParsePemEncodedCertificateChain(t *testing.T) {
 		"Parse Certificate Chain": {
 			pem: certChainValid,
 		},
+		"Parse Certificate Chain With Trailing Line": {
+			pem: certChainValidTrailingLine,
+		},
 		"Invalid PEM string": {
 			pem:    "Invalid PEM string",
 			errMsg: "invalid PEM encoded certificate",
@@ -217,6 +223,8 @@ func TestParsePemEncodedCertificateChain(t *testing.T) {
 			} else if c.errMsg != err.Error() {
 				t.Errorf(`%s: Unexpected error message: expected "%s" but got "%s"`, id, c.errMsg, err.Error())
 			}
+		} else if err != nil {
+			t.Errorf(`%s: Unexpected error message: expected no error but got "%s"`, id, err.Error())
 		} else if len(rootCertByte) == 0 {
 			t.Errorf("%s: rootCertByte is nil", id)
 		}

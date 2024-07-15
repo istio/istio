@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/maps"
@@ -100,7 +101,8 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 		}
 	}()
 
-	serviceController := NewController(configController, fx)
+	meshcfg := mesh.NewFixedWatcher(mesh.DefaultMeshConfig())
+	serviceController := NewController(configController, fx, meshcfg)
 	return configController, serviceController
 }
 
@@ -115,12 +117,13 @@ func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Opti
 	delegate := model.NewEndpointIndexUpdater(endpoints)
 	xdsUpdater := xdsfake.NewWithDelegate(delegate)
 
+	meshcfg := mesh.NewFixedWatcher(mesh.DefaultMeshConfig())
 	istioStore := configController
 	var controller *Controller
 	if !workloadOnly {
-		controller = NewController(configController, xdsUpdater, opts...)
+		controller = NewController(configController, xdsUpdater, meshcfg, opts...)
 	} else {
-		controller = NewWorkloadEntryController(configController, xdsUpdater, opts...)
+		controller = NewWorkloadEntryController(configController, xdsUpdater, meshcfg, opts...)
 	}
 	go controller.Run(stop)
 	return istioStore, controller, xdsUpdater
@@ -129,9 +132,10 @@ func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Opti
 func TestServiceDiscoveryServices(t *testing.T) {
 	store, sd, fx := initServiceDiscovery(t)
 	expectedServices := []*model.Service{
-		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSRoundRobinLB),
-		makeService("*.google.com", "httpDNS", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
-		makeService("tcpstatic.com", "tcpStatic", "172.217.0.1", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
+		makeService(
+			"*.istio.io", "httpDNSRR", []string{constants.UnspecifiedIP}, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSRoundRobinLB),
+		makeService("*.google.com", "httpDNS", []string{constants.UnspecifiedIP}, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+		makeService("tcpstatic.com", "tcpStatic", []string{"172.217.0.1"}, map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 	}
 
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
@@ -175,6 +179,52 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	if service.Hostname != host.Name(hostname) {
 		t.Errorf("GetService(%q) => %q, want %q", hostname, service.Hostname, hostname)
 	}
+}
+
+func TestServiceDiscoveryServiceDeleteOverlapping(t *testing.T) {
+	store, sd, events := initServiceDiscovery(t)
+	se1 := selector
+	se2 := func() *config.Config {
+		c := selector.DeepCopy()
+		c.Name = "alt"
+		return &c
+	}()
+	wle := createWorkloadEntry("wl", selector.Name,
+		&networking.WorkloadEntry{
+			Address:        "2.2.2.2",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: "default",
+		})
+
+	expected := []*model.ServiceInstance{
+		makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
+			selector.Spec.(*networking.ServiceEntry).Ports[0],
+			map[string]string{"app": "wle"}, "default"),
+		makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
+			selector.Spec.(*networking.ServiceEntry).Ports[1],
+			map[string]string{"app": "wle"}, "default"),
+	}
+	for _, i := range expected {
+		i.Endpoint.WorkloadName = "wl"
+		i.Endpoint.Namespace = selector.Name
+	}
+
+	// Creating SE should give us instances
+	createConfigs([]*config.Config{wle, se1}, store, t)
+	events.WaitOrFail(t, "service")
+	expectServiceInstances(t, sd, se1, 0, expected)
+
+	// Create another identical SE (different name) gives us duplicate instances
+	// Arguable whether this is correct or not...
+	createConfigs([]*config.Config{se2}, store, t)
+	events.WaitOrFail(t, "service")
+	expectServiceInstances(t, sd, se1, 0, append(slices.Clone(expected), expected...))
+	events.Clear()
+
+	// When we delete, we should get back to the original state, not delete all instances
+	deleteConfigs([]*config.Config{se1}, store, t)
+	events.WaitOrFail(t, "xds full")
+	expectServiceInstances(t, sd, se1, 0, expected)
 }
 
 // TestServiceDiscoveryServiceUpdate test various add/update/delete events for ServiceEntry
@@ -981,7 +1031,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "4.4.4.4",
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selectorDNS.Name, "default"),
+			ServiceAccount: genTestSpiffe(selectorDNS.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -992,7 +1042,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "2.2.2.2",
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selectorDNS.Name, "default"),
+			ServiceAccount: genTestSpiffe(selectorDNS.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -1104,7 +1154,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "2.2.2.2",
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+			ServiceAccount: genTestSpiffe(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -1115,7 +1165,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "3.3.3.3",
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+			ServiceAccount: genTestSpiffe(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -1126,7 +1176,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "2.2.2.2",
 			Labels:         map[string]string{"app": "dns-wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(dnsSelector.Name, "default"),
+			ServiceAccount: genTestSpiffe(dnsSelector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -1397,7 +1447,7 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 					Endpoint: &model.IstioEndpoint{
 						Address:        instance.address,
 						Labels:         instance.labels,
-						ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, instance.serviceAccount),
+						ServiceAccount: genTestSpiffe(selector.Name, instance.serviceAccount),
 						TLSMode:        instance.tlsmode,
 					},
 				}
@@ -1444,7 +1494,7 @@ func expectEvents(t testing.TB, ch *xdsfake.Updater, events ...Event) {
 
 func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
 	t.Helper()
-	svcs := convertServices(*cfg)
+	svcs := convertServices(*cfg, "")
 	if len(svcs) != len(expected) {
 		t.Fatalf("got more services than expected: %v vs %v", len(svcs), len(expected))
 	}
@@ -1678,8 +1728,8 @@ func TestServicesDiff(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			as := convertServices(*tt.current)
-			bs := convertServices(*tt.new)
+			as := convertServices(*tt.current, "")
+			bs := convertServices(*tt.new, "")
 			added, deleted, updated, unchanged := servicesDiff(as, bs)
 			for i, item := range []struct {
 				hostnames []host.Name
@@ -2259,7 +2309,7 @@ func BenchmarkWorkloadInstanceHandler(b *testing.B) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "2.2.2.2",
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+			ServiceAccount: genTestSpiffe(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -2270,7 +2320,7 @@ func BenchmarkWorkloadInstanceHandler(b *testing.B) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "3.3.3.3",
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+			ServiceAccount: genTestSpiffe(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -2281,7 +2331,7 @@ func BenchmarkWorkloadInstanceHandler(b *testing.B) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "2.2.2.2",
 			Labels:         map[string]string{"app": "dns-wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(dnsSelector.Name, "default"),
+			ServiceAccount: genTestSpiffe(dnsSelector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -2335,10 +2385,6 @@ func BenchmarkWorkloadEntryHandler(b *testing.B) {
 	}
 }
 
-func GetEndpoints(s *model.Service, endpoints *model.EndpointIndex) []*model.IstioEndpoint {
-	return GetEndpointsForPort(s, endpoints, 0)
-}
-
 func GetEndpointsForPort(s *model.Service, endpoints *model.EndpointIndex, port int) []*model.IstioEndpoint {
 	shards, ok := endpoints.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
 	if !ok {
@@ -2359,4 +2405,8 @@ func GetEndpointsForPort(s *model.Service, endpoints *model.EndpointIndex, port 
 	return slices.FilterInPlace(slices.Flatten(maps.Values(shards.Shards)), func(endpoint *model.IstioEndpoint) bool {
 		return pn == "" || endpoint.ServicePortName == pn
 	})
+}
+
+func genTestSpiffe(ns, serviceAccount string) string {
+	return spiffe.URIPrefix + "cluster.local/ns/" + ns + "/sa/" + serviceAccount
 }

@@ -70,10 +70,6 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 
 			case strings.Contains(eString, "404 page not found"):
 				return HandlerForRetrieveDebugList(kubeClient, *centralOpts, writer, istioNamespace)
-
-			case strings.Contains(eString, "querystring parameter 'resource' is required"):
-				return nil, fmt.Errorf("querystring parameter 'resource' is required, e.g. [%s]",
-					"config_distribution?resource=VirtualService/default/bookinfo")
 			}
 		}
 	}

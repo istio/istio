@@ -15,6 +15,7 @@
 package options
 
 import (
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -53,6 +54,9 @@ var (
 	// set to "SYSTEM" for ACME/public signed XDS servers.
 	xdsRootCA = env.Register("XDS_ROOT_CA", "",
 		"Explicitly set the root CA to expect for the XDS connection.").Get()
+
+	workloadIdentitySocketFile = env.Register("WORKLOAD_IDENTITY_SOCKET_FILE", security.DefaultWorkloadIdentitySocketFile,
+		fmt.Sprintf("SPIRE workload identity SDS socket filename. If set, an SDS socket with this name must exist at %s", security.WorkloadIdentityPath)).Get()
 
 	// set to "SYSTEM" for ACME/public signed CA servers.
 	caRootCA = env.Register("CA_ROOT_CA", "",
@@ -152,7 +156,4 @@ var (
 	exitOnZeroActiveConnectionsEnv = env.Register("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",
 		false,
 		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
-
-	useExternalWorkloadSDSEnv = env.Register("USE_EXTERNAL_WORKLOAD_SDS", false,
-		"When set to true, the istio-agent will require an external SDS and will throw an error if the workload SDS socket is not found").Get()
 )

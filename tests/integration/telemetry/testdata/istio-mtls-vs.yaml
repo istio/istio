@@ -4,7 +4,7 @@ metadata:
   name: direct-cnn-through-egress-gateway
 spec:
   hosts:
-  - fake.external.com
+  - server.default.svc
   gateways:
   - istio-egressgateway
   - mesh
@@ -14,13 +14,12 @@ spec:
       - mesh
       port: 443
       sniHosts:
-      - fake.external.com
+      - server.default.svc
     route:
     - destination:
         host: istio-egressgateway.istio-system.svc.cluster.local
         port:
           number: 443
-      weight: 100
   tcp:
   - match:
     - gateways:
@@ -28,7 +27,6 @@ spec:
       port: 443
     route:
     - destination:
-        host: fake.external.com
+        host: external.{{.Namespace}}.svc.cluster.local
         port:
           number: 443
-      weight: 100

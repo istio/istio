@@ -142,6 +142,14 @@ var Headless Matcher = func(i echo.Instance) bool {
 // NotHeadless is equivalent to Not(Headless)
 var NotHeadless = Not(Headless)
 
+// StatefulSet matches instances that are a stateful set
+var StatefulSet Matcher = func(i echo.Instance) bool {
+	return i.Config().StatefulSet
+}
+
+// NotStatefulSet is equivalent to Not(StatefulSet)
+var NoStatefulSet = Not(StatefulSet)
+
 // ProxylessGRPC matches instances that are Pods with a SidecarInjectTemplate annotation equal to grpc.
 var ProxylessGRPC Matcher = func(i echo.Instance) bool {
 	return i.Config().IsProxylessGRPC()

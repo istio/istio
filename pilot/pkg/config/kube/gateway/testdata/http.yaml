@@ -145,7 +145,6 @@ spec:
     - path:
         type: PathPrefix
         value: /prefix-original
-    name: prefix-path-rewrite
     filters:
     - type: URLRewrite
       urlRewrite:
@@ -160,7 +159,6 @@ spec:
     - path:
         type: PathPrefix
         value: /prefix-to-be-removed
-    name: prefix-to-be-removed
     filters:
     - type: URLRewrite
       urlRewrite:
@@ -174,7 +172,6 @@ spec:
     - path:
         type: PathPrefix
         value: /full-original
-    name: full-path-rewrite
     filters:
     - type: URLRewrite
       urlRewrite:

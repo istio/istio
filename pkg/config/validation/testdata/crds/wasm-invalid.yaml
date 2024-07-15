@@ -1,0 +1,146 @@
+_err: 'spec.match[0].ports[0].number: Required value'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: unset-port
+spec:
+  match:
+    - ports:
+      - {}
+---
+_err: 'spec.url in body should be at least'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: unset-url
+spec:
+  url: ""
+---
+_err: 'url must have schema one of'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: invalid-url
+spec:
+  url: "#%blah$#@"
+---
+_err: 'url must have schema one of'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: invalid-url-schema
+spec:
+  url: "fake://example.com"
+---
+_err: 'spec.sha256 in body should match'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: invalid-sha256
+spec:
+  url: "http://test"
+  sha256: foo
+---
+_err: 'spec.imagePullSecret in body should be at least 1 chars long'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: invalid-imagePullSecret
+spec:
+  url: "http://test"
+  imagePullSecret: ""
+---
+_err: 'spec.pluginName in body should be at least 1 chars long'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: invalid-pluginName
+spec:
+  url: "http://test"
+  pluginName: ""
+---
+_err: 'Duplicate value'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: duplicate-env
+spec:
+  url: "http://test"
+  vmConfig:
+    env:
+    - name: a
+    - name: a
+---
+_err: 'spec.vmConfig.env[0].name in body should be at least'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: invalid-env-name
+spec:
+  url: "http://test"
+  vmConfig:
+    env:
+      - name: ""
+---
+_err: 'value may only be set when valueFrom is INLINE'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: invalid-env-name
+spec:
+  url: "http://test"
+  vmConfig:
+    env:
+    - name: "test"
+      valueFrom: HOST
+      value: "value"
+---
+_err: 'value may only be set when valueFrom is INLINE'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: invalid-env-name
+spec:
+  url: "http://test"
+  vmConfig:
+    env:
+    - name: "test"
+      valueFrom: HOST
+      value: "value"
+---
+_err: 'spec in body must be of type object: "null"'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: nil
+spec:
+---
+_err: 'spec.url in body must be of type string: "null"'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: nested-nil
+spec:
+  url:
+---
+_err: 'wildcard not allowed in label value match'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: invalid-selector
+spec:
+  url: "http://test"
+  selector:
+    matchLabels:
+      istio: "bar*"
+---
+_err: 'wildcard not allowed in label key match'
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: invalid-selector
+spec:
+  url: "http://test"
+  selector:
+    matchLabels:
+      "istio*": "bar"

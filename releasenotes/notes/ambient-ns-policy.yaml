@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue: [51556]
+releaseNotes:
+  - |
+    **Fixed** an issue causing workload-selector policies to apply to the wrong namespace in Ztunnel.

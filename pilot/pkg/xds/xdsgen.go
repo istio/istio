@@ -126,10 +126,6 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 		info += logFiltered
 	}
 	if err != nil || res == nil {
-		// If we have nothing to send, report that we got an ACK for this version.
-		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterEvent(con.ID(), w.TypeUrl, req.Push.LedgerVersion)
-		}
 		if log.DebugEnabled() {
 			log.Debugf("%s: SKIP%s for node:%s%s", v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, info)
 		}
@@ -143,7 +139,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 		TypeUrl:      w.TypeUrl,
 		// TODO: send different version for incremental eds
 		VersionInfo: req.Push.PushVersion,
-		Nonce:       nonce(req.Push.LedgerVersion),
+		Nonce:       nonce(req.Push.PushVersion),
 		Resources:   xds.ResourcesToAny(res),
 	}
 

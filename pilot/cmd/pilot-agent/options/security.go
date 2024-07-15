@@ -26,8 +26,6 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cafile"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
-	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 )
 
 func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenManagerPlugin string) (*security.Options, error) {
@@ -63,14 +61,6 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 	if err != nil {
 		return o, err
 	}
-
-	var tokenManager security.TokenManager
-	if stsPort > 0 || xdsAuthProvider.Get() != "" {
-		// tokenManager is gcp token manager when using the default token manager plugin.
-		tokenManager, err = tokenmanager.CreateTokenManager(tokenManagerPlugin,
-			tokenmanager.Config{CredFetcher: o.CredFetcher, TrustDomain: o.TrustDomain})
-	}
-	o.TokenManager = tokenManager
 
 	return o, err
 }
@@ -126,14 +116,6 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 	// Default the CA provider where possible
 	if strings.Contains(o.CAEndpoint, "googleapis.com") {
 		o.CAProviderName = security.GoogleCAProvider
-	}
-	// TODO extract this logic out to a plugin
-	if o.CAProviderName == security.GoogleCAProvider || o.CAProviderName == security.GoogleCASProvider {
-		var err error
-		o.TokenExchanger, err = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	if o.ProvCert != "" && o.FileMountedCerts {

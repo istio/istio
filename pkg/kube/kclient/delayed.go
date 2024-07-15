@@ -37,7 +37,32 @@ type delayedClient[T controllers.ComparableObject] struct {
 
 	hm       sync.Mutex
 	handlers []cache.ResourceEventHandler
+	indexers []delayedIndex[T]
 	started  <-chan struct{}
+}
+
+type delayedIndex[T any] struct {
+	indexer *atomic.Pointer[RawIndexer]
+	extract func(o T) []string
+}
+
+func (d delayedIndex[T]) Lookup(key string) []interface{} {
+	if c := d.indexer.Load(); c != nil {
+		return (*c).Lookup(key)
+	}
+	// Not ready yet, return nil
+	return nil
+}
+
+func (s *delayedClient[T]) Index(extract func(o T) []string) RawIndexer {
+	if c := s.inf.Load(); c != nil {
+		return (*c).Index(extract)
+	}
+	s.hm.Lock()
+	defer s.hm.Unlock()
+	di := delayedIndex[T]{indexer: new(atomic.Pointer[RawIndexer]), extract: extract}
+	s.indexers = append(s.indexers, di)
+	return di
 }
 
 func (s *delayedClient[T]) Get(name, namespace string) T {
@@ -111,6 +136,11 @@ func (s *delayedClient[T]) set(inf Informer[T]) {
 			inf.AddEventHandler(h)
 		}
 		s.handlers = nil
+		for _, i := range s.indexers {
+			res := inf.Index(i.extract)
+			i.indexer.Store(&res)
+		}
+		s.indexers = nil
 		if s.started != nil {
 			inf.Start(s.started)
 		}

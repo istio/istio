@@ -1,0 +1,68 @@
+_err: 'Unsupported value: "BLAH"'
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: bad-mode
+spec:
+  mtls:
+    mode: BLAH
+---
+_err: type conversion error from
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: bad-port
+spec:
+  selector:
+    matchLabels:
+      foo: bar
+  portLevelMtls:
+    "acd":
+      mode: STRICT
+---
+_err: portLevelMtls requires selector
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: port-level-global
+spec:
+  portLevelMtls:
+    "80":
+      mode: STRICT
+---
+_err: spec.portLevelMtls in body should have at least 1 properties
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: empty-port-level
+spec:
+  selector:
+    matchLabels:
+      foo: bar
+  portLevelMtls: {}
+---
+_err: port must be between 1-65535
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: zero-port
+spec:
+  selector:
+    matchLabels:
+      foo: bar
+  portLevelMtls:
+    "0":
+      mode: STRICT
+---
+_err: port must be between 1-65535
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: high-port
+spec:
+  selector:
+    matchLabels:
+      foo: bar
+  portLevelMtls:
+    "42949672":
+      mode: STRICT

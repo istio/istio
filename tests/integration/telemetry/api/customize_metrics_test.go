@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 )
@@ -40,11 +39,10 @@ const (
 
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
-		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
 			setupWasmExtension(t)
 			t.ConfigIstio().YAML(apps.Namespace.Name(), `
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: ns-default
@@ -113,8 +111,7 @@ spec:
 }
 
 func setupWasmExtension(t framework.TestContext) {
-	proxySHA := "359dcd3a19f109c50e97517fe6b1e2676e870c4d"
-	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:%v", registry.Address(), proxySHA)
+	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:0.0.1", registry.Address())
 	args := map[string]any{
 		"AttributeGenURL": attrGenImageURL,
 	}

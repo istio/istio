@@ -31,17 +31,18 @@ import (
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/nodeagent"
 	"istio.io/istio/cni/pkg/repair"
-	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 var (
-	logOptions   = log.DefaultOptions()
+	logOptions   = istiolog.DefaultOptions()
+	log          = scopes.CNIAgent
 	ctrlzOptions = func() *ctrlz.Options {
 		o := ctrlz.DefaultOptions()
 		o.EnablePprof = true
@@ -54,13 +55,12 @@ var rootCmd = &cobra.Command{
 	Short:        "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition.",
 	SilenceUsage: true,
 	PreRunE: func(c *cobra.Command, args []string) error {
-		if err := log.Configure(logOptions); err != nil {
+		if err := istiolog.Configure(logOptions); err != nil {
 			log.Errorf("Failed to configure log %v", err)
 		}
 		return nil
 	},
 	RunE: func(c *cobra.Command, args []string) (err error) {
-		cmd.PrintFlags(c.Flags())
 		ctx := c.Context()
 
 		// Start controlz server
@@ -70,6 +70,7 @@ var rootCmd = &cobra.Command{
 		if cfg, err = constructConfig(); err != nil {
 			return
 		}
+		log.Infof("CNI logging level: %+v", istiolog.LevelToString(log.GetOutputLevel()))
 		log.Infof("CNI install configuration: \n%+v", cfg.InstallConfig)
 		log.Infof("CNI race repair configuration: \n%+v", cfg.RepairConfig)
 
@@ -77,7 +78,7 @@ var rootCmd = &cobra.Command{
 		monitoring.SetupMonitoring(cfg.InstallConfig.MonitoringPort, "/metrics", ctx.Done())
 
 		// Start UDS log server
-		udsLogger := udsLog.NewUDSLogger()
+		udsLogger := udsLog.NewUDSLogger(log.GetOutputLevel())
 		if err = udsLogger.StartUDSLogServer(cfg.InstallConfig.LogUDSAddress, ctx.Done()); err != nil {
 			log.Errorf("Failed to start up UDS Log Server: %v", err)
 			return
@@ -96,7 +97,7 @@ var rootCmd = &cobra.Command{
 			log.Info("Starting ambient node agent with inpod redirect mode")
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cfg.InstallConfig.CNIEventAddress,
 				nodeagent.AmbientArgs{
-					SystemNamespace: nodeagent.PodNamespace,
+					SystemNamespace: nodeagent.SystemNamespace,
 					Revision:        nodeagent.Revision,
 					ServerSocket:    cfg.InstallConfig.ZtunnelUDSAddress,
 					DNSCapture:      cfg.InstallConfig.AmbientDNSCapture,
@@ -120,7 +121,7 @@ var rootCmd = &cobra.Command{
 
 		repair.StartRepair(ctx, cfg.RepairConfig)
 
-		log.Info("Installer created, watching node CNI dir")
+		log.Info("initialization complete, watching node CNI dir")
 		// installer.Run() will block indefinitely, and attempt to permanently "keep"
 		// the CNI binary installed.
 		if err = installer.Run(ctx); err != nil {
@@ -245,24 +246,27 @@ func constructConfig() (*config.Config, error) {
 		CNIConfName:      viper.GetString(constants.CNIConfName),
 		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
 
-		CNINetworkConfigFile: viper.GetString(constants.CNINetworkConfigFile),
-		CNINetworkConfig:     viper.GetString(constants.CNINetworkConfig),
+		// Whatever user has set (with --log_output_level) for 'cni-plugin', pass it down to the plugin. It will use this to determine
+		// what level to use for itself.
+		// This masks the fact we are doing this weird log-over-UDS to users, and allows them to configure it the same way.
+		PluginLogLevel:        istiolog.LevelToString(istiolog.FindScope(constants.CNIPluginLogScope).GetOutputLevel()),
+		KubeconfigFilename:    viper.GetString(constants.KubeconfigFilename),
+		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
+		KubeCAFile:            viper.GetString(constants.KubeCAFile),
+		SkipTLSVerify:         viper.GetBool(constants.SkipTLSVerify),
+		K8sServiceProtocol:    os.Getenv("KUBERNETES_SERVICE_PROTOCOL"),
+		K8sServiceHost:        os.Getenv("KUBERNETES_SERVICE_HOST"),
+		K8sServicePort:        os.Getenv("KUBERNETES_SERVICE_PORT"),
+		K8sNodeName:           os.Getenv("KUBERNETES_NODE_NAME"),
+		K8sServiceAccountPath: constants.ServiceAccountPath,
 
-		LogLevel:           viper.GetString(constants.LogLevel),
-		KubeconfigFilename: viper.GetString(constants.KubeconfigFilename),
-		KubeconfigMode:     viper.GetInt(constants.KubeconfigMode),
-		KubeCAFile:         viper.GetString(constants.KubeCAFile),
-		SkipTLSVerify:      viper.GetBool(constants.SkipTLSVerify),
-		K8sServiceProtocol: os.Getenv("KUBERNETES_SERVICE_PROTOCOL"),
-		K8sServiceHost:     os.Getenv("KUBERNETES_SERVICE_HOST"),
-		K8sServicePort:     os.Getenv("KUBERNETES_SERVICE_PORT"),
-		K8sNodeName:        os.Getenv("KUBERNETES_NODE_NAME"),
+		CNIBinSourceDir:  constants.CNIBinDir,
+		CNIBinTargetDirs: []string{constants.HostCNIBinDir},
+		MonitoringPort:   viper.GetInt(constants.MonitoringPort),
+		LogUDSAddress:    viper.GetString(constants.LogUDSAddress),
+		CNIEventAddress:  viper.GetString(constants.CNIEventAddress),
 
-		CNIBinSourceDir:   constants.CNIBinDir,
-		CNIBinTargetDirs:  []string{constants.HostCNIBinDir},
-		MonitoringPort:    viper.GetInt(constants.MonitoringPort),
-		LogUDSAddress:     viper.GetString(constants.LogUDSAddress),
-		CNIEventAddress:   viper.GetString(constants.CNIEventAddress),
+		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
 		AmbientEnabled:    viper.GetBool(constants.AmbientEnabled),

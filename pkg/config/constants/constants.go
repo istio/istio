@@ -20,6 +20,9 @@ const (
 	// UnspecifiedIPv6 constant for empty IPv6 address
 	UnspecifiedIPv6 = "::"
 
+	// ClusterAltStatNameDelimeter constant for the stat delimer
+	ClusterAltStatNameDelimeter = ";"
+
 	// PilotWellKnownDNSCertPath is the path location for Pilot dns serving cert, often used with custom CA integrations
 	PilotWellKnownDNSCertPath   = "./var/run/secrets/istiod/tls/"
 	PilotWellKnownDNSCaCertPath = "./var/run/secrets/istiod/ca/"
@@ -136,6 +139,8 @@ const (
 	// CertProviderIstiod uses istiod self signed DNS certificates for the control plane
 	CertProviderIstiod = "istiod"
 	// CertProviderKubernetes uses the Kubernetes CSR API to generate a DNS certificate for the control plane
+	// This used to use the no longer supported default K8S signer.
+	// Deprecated - used to detect the old setting and generate the error message.
 	CertProviderKubernetes = "kubernetes"
 	// CertProviderKubernetesSignerPrefix uses the Kubernetes CSR API and the specified signer to generate a DNS certificate for the control plane
 	CertProviderKubernetesSignerPrefix = "k8s.io/"
@@ -187,6 +192,9 @@ const (
 
 	// AmbientUseWaypointLabelLabel is the label used to specify which waypoint should be used for a given pod, service, etc...
 	AmbientUseWaypointLabel = "istio.io/use-waypoint"
+	// AmbientUseWaypointNamespaceLabel is a label used to indicate the namespace of the waypoint (referred to by AmbientUseWaypointLabel).
+	// This allows cross-namespace waypoint references. If unset, the same namespace is assumed.
+	AmbientUseWaypointNamespaceLabel = "istio.io/use-waypoint-namespace"
 	// AmbientWaypointForTrafficTypeLabel is the label used to specify which traffic is allowed through the Waypoint.
 	// This label is applied to the Waypoint. Valid traffic types are "service", "workload", "all", and "none".
 	AmbientWaypointForTrafficTypeLabel = "istio.io/waypoint-for"
@@ -204,4 +212,6 @@ const (
 	AllTraffic = "all"
 	// NoTraffic indicates that no traffic should go through the intended waypoint.
 	NoTraffic = "none"
+
+	EnableV2AutoAllocationLabel = "networking.istio.io/enable-autoallocate-ip"
 )

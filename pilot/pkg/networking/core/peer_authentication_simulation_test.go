@@ -142,12 +142,12 @@ spec:
 				{
 					Name:   "mtls",
 					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name:   "plaintext",
 					Call:   mkCall(8000, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 			},
 		},
@@ -163,7 +163,7 @@ spec:
 				{
 					Name:   "mtls",
 					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 			},
 		},
@@ -174,12 +174,12 @@ spec:
 				{
 					Name:   "plaintext",
 					Call:   mkCall(8000, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name:   "mtls",
 					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 			},
 		},
@@ -190,12 +190,12 @@ spec:
 				{
 					Name:   "plaintext on port 8000",
 					Call:   mkCall(8000, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name:   "mtls on port 8000",
 					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name:   "plaintext port 9000",
@@ -205,7 +205,7 @@ spec:
 				{
 					Name:   "mtls port 9000",
 					Call:   mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 			},
 		},
@@ -232,7 +232,7 @@ spec:
 				{
 					Name:   "mtls port 9000",
 					Call:   mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 			},
 		},
@@ -248,17 +248,17 @@ spec:
 				{
 					Name:   "mtls on port 8000",
 					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name:   "plaintext port 9000",
 					Call:   mkCall(9000, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name:   "mtls port 9000",
 					Call:   mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 			},
 		},
@@ -279,12 +279,12 @@ spec:
 				{
 					Name:   "plaintext port 9000",
 					Call:   mkCall(9000, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name:   "mtls port 9000",
 					Call:   mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 			},
 		},
@@ -295,22 +295,22 @@ spec:
 				{
 					Name:   "plaintext on port 8000",
 					Call:   mkCall(8000, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name:   "mtls on port 8000",
 					Call:   mkCall(8000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name:   "plaintext port 9000",
 					Call:   mkCall(9000, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name:   "mtls port 9000",
 					Call:   mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 			},
 		},
@@ -332,12 +332,12 @@ spec:
 				{
 					Name:   "plaintext port 9000",
 					Call:   mkCall(9000, simulation.Plaintext),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name:   "mtls port 9000",
 					Call:   mkCall(9000, simulation.MTLS),
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 			},
 		},
@@ -536,19 +536,19 @@ spec:
 					Name: "tls on tls port",
 					Call: mkCall(8080, simulation.MTLS),
 					// no ports defined, so we will passthrough
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name: "plaintext on plaintext port",
 					Call: mkCall(9090, simulation.Plaintext),
 					// no ports defined, so we will passthrough
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name: "tls on plaintext port",
 					Call: mkCall(9090, simulation.MTLS),
 					// no ports defined, so we will passthrough
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 			},
 		},
@@ -598,13 +598,13 @@ spec:
 					Name: "plaintext on plaintext port",
 					Call: mkCall(9090, simulation.Plaintext),
 					// port 9090 not defined in partialSidecar and will use plain text, plaintext request should pass.
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 				{
 					Name: "tls on plaintext port",
 					Call: mkCall(9090, simulation.MTLS),
 					// no ports defined, so we will passthrough
-					Result: simulation.Result{ClusterMatched: "InboundPassthroughClusterIpv4"},
+					Result: simulation.Result{ClusterMatched: "InboundPassthroughCluster"},
 				},
 			},
 		},

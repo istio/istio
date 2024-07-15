@@ -89,7 +89,7 @@ func TestPushCNIAddEventNotOK(t *testing.T) {
 	err := PushCNIEvent(cniC, fakeCmdArgs, []*cniv1.IPConfig{&fakePrevResultIPConfig}, "testpod", "testns")
 
 	assert.Error(t, err)
-	assert.Equal(t, strings.Contains(err.Error(), fmt.Sprintf("unable to push CNI event, error was %d", http.StatusInternalServerError)), true)
+	assert.Equal(t, strings.Contains(err.Error(), fmt.Sprintf("unable to push CNI event (status code %d)", http.StatusInternalServerError)), true)
 }
 
 func TestPushCNIAddEventGoodPayload(t *testing.T) {

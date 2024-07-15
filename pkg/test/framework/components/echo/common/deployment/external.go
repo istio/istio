@@ -17,6 +17,8 @@ package deployment
 import (
 	"path"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
@@ -42,7 +44,7 @@ type External struct {
 	All echo.Instances
 }
 
-func (e External) build(t resource.Context, b deployment.Builder) deployment.Builder {
+func (e External) Build(t resource.Context, b deployment.Builder) deployment.Builder {
 	config := echo.Config{
 		Service:           ExternalSvc,
 		Namespace:         e.Namespace,
@@ -67,12 +69,11 @@ func (e External) build(t resource.Context, b deployment.Builder) deployment.Bui
 	}
 	if t.Settings().EnableDualStack {
 		config.IPFamilies = "IPv6, IPv4"
-		config.IPFamilyPolicy = "RequireDualStack"
+		config.IPFamilyPolicy = string(corev1.IPFamilyPolicyRequireDualStack)
 	}
 	return b.WithConfig(config)
 }
 
-func (e *External) loadValues(echos echo.Instances) error {
+func (e *External) LoadValues(echos echo.Instances) {
 	e.All = match.ServiceName(echo.NamespacedName{Name: ExternalSvc, Namespace: e.Namespace}).GetMatches(echos)
-	return nil
 }

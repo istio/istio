@@ -24,12 +24,16 @@ import (
 	"time"
 
 	"istio.io/istio/cni/pkg/constants"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/cni/pkg/scopes"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/uds"
 )
 
-var pluginLog = log.RegisterScope("cni", "CNI network plugin")
+var (
+	pluginLog = scopes.CNIPlugin
+	log       = scopes.CNIAgent
+)
 
 type UDSLogger struct {
 	mu            sync.Mutex
@@ -37,12 +41,13 @@ type UDSLogger struct {
 }
 
 type cniLog struct {
-	Level string    `json:"level"`
-	Time  time.Time `json:"time"`
-	Msg   string    `json:"msg"`
+	Level     string         `json:"level"`
+	Time      time.Time      `json:"time"`
+	Msg       string         `json:"msg"`
+	Arbitrary map[string]any `json:"-"`
 }
 
-func NewUDSLogger() *UDSLogger {
+func NewUDSLogger(level istiolog.Level) *UDSLogger {
 	l := &UDSLogger{}
 	mux := http.NewServeMux()
 	mux.HandleFunc(constants.UDSLogPath, l.handleLog)
@@ -50,6 +55,7 @@ func NewUDSLogger() *UDSLogger {
 		Handler: mux,
 	}
 	l.loggingServer = loggingServer
+	pluginLog.SetOutputLevel(level)
 	return l
 }
 
@@ -58,7 +64,7 @@ func (l *UDSLogger) StartUDSLogServer(sockAddress string, stop <-chan struct{}) 
 	if sockAddress == "" {
 		return nil
 	}
-	log.Info("Start a UDS server for CNI plugin logs")
+	log.Debugf("starting UDS server for CNI plugin logs")
 	unixListener, err := uds.NewListener(sockAddress)
 	if err != nil {
 		return fmt.Errorf("failed to create UDS listener: %v", err)
@@ -103,12 +109,10 @@ func (l *UDSLogger) processLog(body []byte) {
 	}
 	messages := make([]cniLog, 0, len(cniLogs))
 	for _, l := range cniLogs {
-		var msg cniLog
-		if err := json.Unmarshal([]byte(l), &msg); err != nil {
-			log.Debugf("Failed to unmarshal CNI plugin log entry: %v", err)
+		msg, ok := parseCniLog(l)
+		if !ok {
 			continue
 		}
-		msg.Msg = strings.TrimSpace(msg.Msg)
 		messages = append(messages, msg)
 	}
 	// Lock log message printing to prevent log messages from different CNI
@@ -116,16 +120,57 @@ func (l *UDSLogger) processLog(body []byte) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for _, m := range messages {
+		logger := pluginLog
+		// For any k/v pairs, add them back
+		for k, v := range m.Arbitrary {
+			logger = logger.WithLabels(k, v)
+		}
 		// There is no fatal log from CNI plugin
 		switch m.Level {
 		case "debug":
-			pluginLog.LogWithTime(log.DebugLevel, m.Msg, m.Time)
+			logger.LogWithTime(istiolog.DebugLevel, m.Msg, m.Time)
 		case "info":
-			pluginLog.LogWithTime(log.InfoLevel, m.Msg, m.Time)
+			logger.LogWithTime(istiolog.InfoLevel, m.Msg, m.Time)
 		case "warn":
-			pluginLog.LogWithTime(log.WarnLevel, m.Msg, m.Time)
+			logger.LogWithTime(istiolog.WarnLevel, m.Msg, m.Time)
 		case "error":
-			pluginLog.LogWithTime(log.ErrorLevel, m.Msg, m.Time)
+			logger.LogWithTime(istiolog.ErrorLevel, m.Msg, m.Time)
 		}
 	}
+}
+
+// parseCniLog is tricky because we have known and arbitrary fields in the log, and Go doesn't make that very easy
+func parseCniLog(l string) (cniLog, bool) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(l), &raw); err != nil {
+		log.Debugf("Failed to unmarshal CNI plugin log entry: %v", err)
+		return cniLog{}, false
+	}
+	var msg cniLog
+	if err := json.Unmarshal(raw["msg"], &msg.Msg); err != nil {
+		log.Debugf("Failed to unmarshal CNI plugin log entry: %v", err)
+		return cniLog{}, false
+	}
+	if err := json.Unmarshal(raw["level"], &msg.Level); err != nil {
+		log.Debugf("Failed to unmarshal CNI plugin log entry: %v", err)
+		return cniLog{}, false
+	}
+	if err := json.Unmarshal(raw["time"], &msg.Time); err != nil {
+		log.Debugf("Failed to unmarshal CNI plugin log entry: %v", err)
+		return cniLog{}, false
+	}
+	delete(raw, "msg")
+	delete(raw, "level")
+	delete(raw, "time")
+	msg.Arbitrary = make(map[string]any, len(raw))
+	for k, v := range raw {
+		var res any
+		if err := json.Unmarshal(v, &res); err != nil {
+			log.Debugf("Failed to unmarshal CNI plugin log entry: %v", err)
+			continue
+		}
+		msg.Arbitrary[k] = res
+	}
+	msg.Msg = strings.TrimSpace(msg.Msg)
+	return msg, true
 }

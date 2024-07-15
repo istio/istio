@@ -178,7 +178,7 @@ func (s *Server) RunCA(grpc *grpc.Server) {
 		// Add a custom authenticator using standard JWT validation, if not running in K8S
 		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
 		jwtRule := v1beta1.JWTRule{Issuer: iss, Audiences: []string{aud}}
-		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule)
+		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule, nil)
 		if err == nil {
 			s.caServer.Authenticators = append(s.caServer.Authenticators, oidcAuth)
 			log.Info("Using out-of-cluster JWT authentication")
@@ -256,6 +256,8 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 // By default, a cacerts Secret would be mounted during pod startup due to the
 // Istiod Deployment configuration. But with external Istiod, we want to be
 // able to load cacerts from a remote cluster instead.
+// TODO(costin): remove this method, it is not watching the files and the functionality is now available
+// in the normal CA code (including support for the new style keys)
 func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 	if s.kubeClient == nil {
 		return nil

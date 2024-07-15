@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 type LbEpInfo struct {
@@ -53,8 +55,8 @@ func CompareEndpoints(cluster string, got []*endpointv3.LocalityLbEndpoints, wan
 	}
 
 	sort.Slice(got, func(i, j int) bool {
-		addrI := got[i].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-		addrJ := got[j].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+		addrI := util.GetEndpointHost(got[i].LbEndpoints[0])
+		addrJ := util.GetEndpointHost(got[j].LbEndpoints[0])
 		return addrI < addrJ
 	})
 
@@ -69,7 +71,7 @@ func CompareEndpoints(cluster string, got []*endpointv3.LocalityLbEndpoints, wan
 		}
 
 		for _, lbEp := range ep.LbEndpoints {
-			addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
+			addr := util.GetEndpointHost(lbEp)
 			found := false
 			for _, wantLbEp := range want[i].LbEps {
 				if addr == wantLbEp.Address {
@@ -94,7 +96,7 @@ func CompareEndpoints(cluster string, got []*endpointv3.LocalityLbEndpoints, wan
 func getLbEndpointAddrs(ep *endpointv3.LocalityLbEndpoints) []string {
 	addrs := make([]string, 0)
 	for _, lbEp := range ep.LbEndpoints {
-		addrs = append(addrs, lbEp.GetEndpoint().Address.GetSocketAddress().Address)
+		addrs = append(addrs, util.GetEndpointHost(lbEp))
 	}
 	return addrs
 }

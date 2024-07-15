@@ -1,3 +1,5 @@
+# "defaults" is a workaround for Helm limitations. Users should NOT set ".defaults" explicitly, but rather directly set the fields internally.
+# For instance, instead of `--set defaults.foo=bar`, just set `--set foo=bar`.
 defaults:
   global:
 

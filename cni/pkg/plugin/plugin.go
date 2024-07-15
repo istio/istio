@@ -65,7 +65,7 @@ type Config struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	LogLevel        string     `json:"log_level"`
+	PluginLogLevel  string     `json:"plugin_log_level"`
 	LogUDSAddress   string     `json:"log_uds_address"`
 	CNIEventAddress string     `json:"cni_event_address"`
 	AmbientEnabled  bool       `json:"ambient_enabled"`
@@ -80,6 +80,7 @@ type K8sArgs struct {
 	K8S_POD_NAME               types.UnmarshallableString // nolint: revive, stylecheck
 	K8S_POD_NAMESPACE          types.UnmarshallableString // nolint: revive, stylecheck
 	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: revive, stylecheck
+	K8S_POD_UID                types.UnmarshallableString // nolint: revive, stylecheck
 }
 
 // parseConfig parses the supplied configuration (and prevResult) from stdin.
@@ -112,26 +113,20 @@ func parseConfig(stdin []byte) (*Config, error) {
 	return &conf, nil
 }
 
-func getLogLevel(logLevel string) log.Level {
-	switch logLevel {
-	case "debug":
-		return log.DebugLevel
-	case "warn":
-		return log.WarnLevel
-	case "error":
-		return log.ErrorLevel
-	case "info":
-		return log.InfoLevel
-	}
-	return log.InfoLevel
-}
-
-func GetLoggingOptions(udsAddress string) *log.Options {
+func GetLoggingOptions(cfg *Config) *log.Options {
 	loggingOptions := log.DefaultOptions()
 	loggingOptions.OutputPaths = []string{"stderr"}
 	loggingOptions.JSONEncoding = true
-	if udsAddress != "" {
-		loggingOptions.WithTeeToUDS(udsAddress, constants.UDSLogPath)
+	if cfg != nil {
+		// Tee all logs to UDS. Stdout will go to kubelet (hard to access, UDS will be read by the CNI DaemonSet and exposed
+		// by normal `kubectl logs`
+		if cfg.LogUDSAddress != "" {
+			loggingOptions.WithTeeToUDS(cfg.LogUDSAddress, constants.UDSLogPath)
+		}
+		// Override plugin log level based on their config. Not we use "all" (OverrideScopeName) since there is no scoping in the plugin.
+		if cfg.PluginLogLevel != "" {
+			loggingOptions.SetDefaultOutputLevel(log.OverrideScopeName, log.StringToLevel(cfg.PluginLogLevel))
+		}
 	}
 	return loggingOptions
 }
@@ -312,11 +307,10 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 func setupLogging(conf *Config) {
 	if conf.LogUDSAddress != "" {
 		// reconfigure log output with tee to UDS if UDS log is enabled.
-		if err := log.Configure(GetLoggingOptions(conf.LogUDSAddress)); err != nil {
+		if err := log.Configure(GetLoggingOptions(conf)); err != nil {
 			log.Error("Failed to configure istio-cni with UDS log")
 		}
 	}
-	log.FindScope("default").SetOutputLevel(getLogLevel(conf.LogLevel))
 }
 
 func pluginResponse(conf *Config) error {

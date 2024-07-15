@@ -88,8 +88,8 @@ func NewStatusVerifier(kubeClient kube.CLIClient, client client.Client, istioNam
 ) (*StatusVerifier, error) {
 	verifier := StatusVerifier{
 		logger:           clog.NewDefaultLogger(),
-		successMarker:    "✅",
-		failureMarker:    "❌",
+		successMarker:    "✔",
+		failureMarker:    "✘",
 		istioNamespace:   istioNamespace,
 		manifestsPath:    manifestsPath,
 		filenames:        filenames,

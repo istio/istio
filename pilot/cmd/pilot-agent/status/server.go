@@ -42,13 +42,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	grpcStatus "google.golang.org/grpc/status"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"google.golang.org/protobuf/proto"
 	k8sUtilIo "k8s.io/utils/io"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
-	"istio.io/istio/pkg/config"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/env"
 	commonFeatures "istio.io/istio/pkg/features"
@@ -59,6 +58,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	istioNetUtil "istio.io/istio/pkg/util/net"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
@@ -341,10 +341,10 @@ func validateAppKubeProber(path string, prober *Prober) error {
 	if count != 1 {
 		return fmt.Errorf(`invalid prober type, must be one of type httpGet, tcpSocket or gRPC`)
 	}
-	if prober.HTTPGet != nil && prober.HTTPGet.Port.Type != intstr.Int {
+	if prober.HTTPGet != nil && prober.HTTPGet.Port.Type != apimirror.Int {
 		return fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 	}
-	if prober.TCPSocket != nil && prober.TCPSocket.Port.Type != intstr.Int {
+	if prober.TCPSocket != nil && prober.TCPSocket.Port.Type != apimirror.Int {
 		return fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 	}
 	return nil
@@ -901,9 +901,9 @@ func (s *Server) handleNdsz(w http.ResponseWriter, r *http.Request) {
 }
 
 // writeJSONProto writes a protobuf to a json payload, handling content type, marshaling, and errors
-func writeJSONProto(w http.ResponseWriter, obj any) {
+func writeJSONProto(w http.ResponseWriter, obj proto.Message) {
 	w.Header().Set("Content-Type", "application/json")
-	b, err := config.ToJSON(obj)
+	b, err := protomarshal.Marshal(obj)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(err.Error()))

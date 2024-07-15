@@ -71,6 +71,14 @@ var stringToLevel = map[string]Level{
 	"none":  NoneLevel,
 }
 
+func StringToLevel(level string) Level {
+	return stringToLevel[level]
+}
+
+func LevelToString(level Level) string {
+	return levelToString[level]
+}
+
 // Options defines the set of options supported by Istio's component logging package.
 type Options struct {
 	// OutputPaths is a list of file system paths to write the log data to.
@@ -88,8 +96,8 @@ type Options struct {
 	// as RotationMaxSize and RotationMaxAge. The default is to not rotate.
 	//
 	// This path is used as a foundational path. This is where log output is normally
-	// saved. When a rotation needs to take place because the file got too big or too
-	// old, then the file is renamed by appending a timestamp to the name. Such renamed
+	// saved. When a rotation needs to take place because the file got too big,
+	// then the file is renamed by appending a timestamp to the name. Such renamed
 	// files are called backups. Once a backup has been created,
 	// output resumes to this path.
 	RotateOutputPath string
@@ -244,7 +252,7 @@ func (o *Options) AttachFlags(
 		"The path for the optional rotating log file")
 
 	intVar(&o.RotationMaxAge, "log_rotate_max_age", o.RotationMaxAge,
-		"The maximum age in days of a log file beyond which the file is rotated (0 indicates no limit)")
+		"The maximum age in days of log file backups to keep before older files are deleted (0 indicates no limit)")
 
 	intVar(&o.RotationMaxSize, "log_rotate_max_size", o.RotationMaxSize,
 		"The maximum size in megabytes of a log file beyond which the file is rotated")

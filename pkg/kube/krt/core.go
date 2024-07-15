@@ -16,6 +16,7 @@ package krt
 
 import (
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -75,6 +76,9 @@ type internalCollection[T any] interface {
 
 	// Augment mutates an object for use in various function calls. See WithObjectAugmentation
 	augment(any) any
+
+	// Create a new index into the collection
+	index(extract func(o T) []string) kclient.RawIndexer
 }
 
 // Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,
@@ -141,6 +145,8 @@ type (
 	TransformationSingle[I, O any] func(ctx HandlerContext, i I) *O
 	// TransformationMulti represents a one-to-many relationship between I and O.
 	TransformationMulti[I, O any] func(ctx HandlerContext, i I) []O
+	// TransformationEmptyToMulti represents a singleton operator that returns a set of objects. There are no inputs.
+	TransformationEmptyToMulti[T any] func(ctx HandlerContext) []T
 )
 
 // Key is a string, but with a type associated to avoid mixing up keys

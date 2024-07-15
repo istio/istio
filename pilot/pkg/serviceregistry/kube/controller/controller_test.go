@@ -66,12 +66,7 @@ const (
 // eventually polls cond until it completes (returns true) or times out (resulting in a test failure).
 func eventually(t test.Failer, cond func() bool) {
 	t.Helper()
-	retry.UntilSuccessOrFail(t, func() error {
-		if !cond() {
-			return fmt.Errorf("failed to get positive condition")
-		}
-		return nil
-	}, retry.Timeout(time.Second), retry.Delay(time.Millisecond*10))
+	retry.UntilOrFail(t, cond, retry.Timeout(time.Second), retry.Delay(time.Millisecond*10))
 }
 
 func TestServices(t *testing.T) {
@@ -1104,17 +1099,17 @@ func TestController_Service(t *testing.T) {
 
 func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 	meshWatcher := mesh.NewFixedWatcher(&meshconfig.MeshConfig{
-		DiscoverySelectors: []*metav1.LabelSelector{
+		DiscoverySelectors: []*meshconfig.LabelSelector{
 			{
 				MatchLabels: map[string]string{
 					"pilot-discovery": "enabled",
 				},
 			},
 			{
-				MatchExpressions: []metav1.LabelSelectorRequirement{
+				MatchExpressions: []*meshconfig.LabelSelectorRequirement{
 					{
 						Key:      "env",
-						Operator: metav1.LabelSelectorOpIn,
+						Operator: string(metav1.LabelSelectorOpIn),
 						Values:   []string{"test", "dev"},
 					},
 				},
@@ -1294,17 +1289,19 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
 
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		MeshWatcher: meshWatcher,
-	})
-
 	nsA := "nsA"
 	nsB := "nsB"
 	nsC := "nsC"
 
-	createNamespace(t, controller.client.Kube(), nsA, map[string]string{"app": "foo"})
-	createNamespace(t, controller.client.Kube(), nsB, map[string]string{"app": "bar"})
-	createNamespace(t, controller.client.Kube(), nsC, map[string]string{"app": "baz"})
+	client := kubelib.NewFakeClient(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsA, Labels: map[string]string{"app": "foo"}}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsB, Labels: map[string]string{"app": "bar"}}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsC, Labels: map[string]string{"app": "baz"}}},
+	)
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		Client:      client,
+		MeshWatcher: meshWatcher,
+	})
 
 	// service event handlers should trigger for all svcs
 	createServiceWait(controller, "svc1", nsA,
@@ -1329,7 +1326,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	// restrict namespaces to nsA (expect 2 delete events for svc3 and svc4)
 	updateMeshConfig(
 		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{
+			DiscoverySelectors: []*meshconfig.LabelSelector{
 				{
 					MatchLabels: map[string]string{
 						"app": "foo",
@@ -1347,7 +1344,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	// restrict namespaces to nsB (1 create event should trigger for nsB service and 2 delete events for nsA services)
 	updateMeshConfig(
 		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{
+			DiscoverySelectors: []*meshconfig.LabelSelector{
 				{
 					MatchLabels: map[string]string{
 						"app": "bar",
@@ -1365,12 +1362,12 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	// expand namespaces to nsA and nsB with selectors (2 create events should trigger for nsA services)
 	updateMeshConfig(
 		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{
+			DiscoverySelectors: []*meshconfig.LabelSelector{
 				{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
+					MatchExpressions: []*meshconfig.LabelSelectorRequirement{
 						{
 							Key:      "app",
-							Operator: metav1.LabelSelectorOpIn,
+							Operator: string(metav1.LabelSelectorOpIn),
 							Values:   []string{"foo", "bar"},
 						},
 					},
@@ -1387,7 +1384,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	// permit all discovery namespaces by omitting discovery selectors (1 create event should trigger for the nsC service)
 	updateMeshConfig(
 		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{},
+			DiscoverySelectors: []*meshconfig.LabelSelector{},
 		},
 		[]*model.Service{svc1, svc2, svc3, svc4},
 		1,
@@ -1517,7 +1514,7 @@ func TestControllerResourceScoping(t *testing.T) {
 	// restrict namespaces to nsA (expect 2 delete events for svc3 and svc4)
 	updateMeshConfig(
 		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{
+			DiscoverySelectors: []*meshconfig.LabelSelector{
 				{
 					MatchLabels: map[string]string{
 						"app": "foo",
@@ -1544,12 +1541,12 @@ func TestControllerResourceScoping(t *testing.T) {
 	// expand namespaces to nsA and nsB with selectors (expect events svc3 and a full push event for nsB selected)
 	updateMeshConfig(
 		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{
+			DiscoverySelectors: []*meshconfig.LabelSelector{
 				{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
+					MatchExpressions: []*meshconfig.LabelSelectorRequirement{
 						{
 							Key:      "app",
-							Operator: metav1.LabelSelectorOpIn,
+							Operator: string(metav1.LabelSelectorOpIn),
 							Values:   []string{"foo", "bar"},
 						},
 					},
@@ -2883,16 +2880,16 @@ func TestServiceUpdateNeedsPush(t *testing.T) {
 			name:     "target ports changed",
 			prev:     &svc,
 			curr:     &updatedSvc,
-			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
-			currConv: kube.ConvertService(updatedSvc, constants.DefaultClusterLocalDomain, ""),
+			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", nil),
+			currConv: kube.ConvertService(updatedSvc, constants.DefaultClusterLocalDomain, "", nil),
 			expect:   true,
 		},
 		testcase{
 			name:     "target ports unchanged",
 			prev:     &svc,
 			curr:     &svc,
-			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
-			currConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
+			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", nil),
+			currConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", nil),
 			expect:   false,
 		})
 

@@ -18,11 +18,14 @@ package ambient
 import (
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
@@ -36,7 +39,17 @@ func (a *index) ServicesCollection(
 	Waypoints krt.Collection[Waypoint],
 	Namespaces krt.Collection[*v1.Namespace],
 ) krt.Collection[model.ServiceInfo] {
-	ServicesInfo := krt.NewCollection(Services, func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
+	ServicesInfo := krt.NewCollection(Services, a.serviceServiceBuilder(Waypoints, Namespaces), krt.WithName("ServicesInfo"))
+	ServiceEntriesInfo := krt.NewManyCollection(ServiceEntries, a.serviceEntryServiceBuilder(Waypoints, Namespaces), krt.WithName("ServiceEntriesInfo"))
+	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, krt.WithName("WorkloadServices"))
+	return WorkloadServices
+}
+
+func (a *index) serviceServiceBuilder(
+	Waypoints krt.Collection[Waypoint],
+	Namespaces krt.Collection[*v1.Namespace],
+) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
+	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
 		portNames := map[int32]model.ServicePortName{}
 		for _, p := range s.Spec.Ports {
 			portNames[p.Port] = model.ServicePortName{
@@ -57,15 +70,18 @@ func (a *index) ServicesCollection(
 			Source:        kind.Service,
 			Waypoint:      waypointKey,
 		}
-	}, krt.WithName("ServicesInfo"))
-	ServiceEntriesInfo := krt.NewManyCollection(ServiceEntries, func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
+	}
+}
+
+func (a *index) serviceEntryServiceBuilder(
+	Waypoints krt.Collection[Waypoint],
+	Namespaces krt.Collection[*v1.Namespace],
+) krt.TransformationMulti[*networkingclient.ServiceEntry, model.ServiceInfo] {
+	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
 		waypoint := fetchWaypointForService(ctx, Waypoints, Namespaces, s.ObjectMeta)
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		return a.serviceEntriesInfo(s, waypoint)
-	}, krt.WithName("ServiceEntriesInfo"))
-	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, krt.WithName("WorkloadServices"))
-	// workloadapi services NOT workloads x services somehow
-	return WorkloadServices
+	}
 }
 
 func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint) []model.ServiceInfo {
@@ -92,16 +108,27 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint
 }
 
 func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
+	var autoassignedAddresses []*workloadapi.NetworkAddress
 	addresses, err := slices.MapErr(svc.Spec.Addresses, a.toNetworkAddressFromCidr)
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
 		return nil
 	}
+	// if this se has autoallocation we can se autoallocated IP, otherwise it will remain an empty slice
+	if serviceentry.ShouldV2AutoAllocateIP(svc) {
+		for _, ipaddr := range serviceentry.GetV2AddressesFromServiceEntry(svc) {
+			autoassignedAddresses = append(autoassignedAddresses, a.toNetworkAddressFromIP(ipaddr))
+		}
+	}
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
+		target := p.TargetPort
+		if target == 0 {
+			target = p.Number
+		}
 		ports = append(ports, &workloadapi.Port{
 			ServicePort: p.Number,
-			TargetPort:  p.TargetPort,
+			TargetPort:  target,
 		})
 	}
 
@@ -114,13 +141,20 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
+		// if we have no user-provided addresses and h is not wildcarded and we have a supported resolution
+		// we can try to use autoassigned addresses
+		a := addresses
+		if len(a) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
+			a = autoassignedAddresses
+		}
 		res = append(res, &workloadapi.Service{
-			Name:      svc.Name,
-			Namespace: svc.Namespace,
-			Hostname:  h,
-			Addresses: addresses,
-			Ports:     ports,
-			Waypoint:  waypointAddress,
+			Name:            svc.Name,
+			Namespace:       svc.Namespace,
+			Hostname:        h,
+			Addresses:       a,
+			Ports:           ports,
+			Waypoint:        waypointAddress,
+			SubjectAltNames: svc.Spec.SubjectAltNames,
 		})
 	}
 	return res
@@ -181,6 +215,17 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 			Mode: workloadapi.LoadBalancing_STRICT,
 		}
 	}
+	ipFamily := workloadapi.IPFamilies_AUTOMATIC
+	if len(svc.Spec.IPFamilies) == 2 {
+		ipFamily = workloadapi.IPFamilies_DUAL
+	} else if len(svc.Spec.IPFamilies) == 1 {
+		family := svc.Spec.IPFamilies[0]
+		if family == v1.IPv4Protocol {
+			ipFamily = workloadapi.IPFamilies_IPV4_ONLY
+		} else {
+			ipFamily = workloadapi.IPFamilies_IPV6_ONLY
+		}
+	}
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	return &workloadapi.Service{
 		Name:          svc.Name,
@@ -190,18 +235,19 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 		Ports:         ports,
 		Waypoint:      waypointAddress,
 		LoadBalancing: lb,
+		IpFamilies:    ipFamily,
 	}
 }
 
 func getVIPs(svc *v1.Service) []string {
 	res := []string{}
-	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
-		res = append(res, svc.Spec.ClusterIP)
+	cips := svc.Spec.ClusterIPs
+	if len(cips) == 0 {
+		cips = []string{svc.Spec.ClusterIP}
 	}
-	for _, ing := range svc.Status.LoadBalancer.Ingress {
-		// IPs are strictly optional for loadbalancers - they may just have a hostname.
-		if ing.IP != "" {
-			res = append(res, ing.IP)
+	for _, cip := range cips {
+		if cip != "" && cip != v1.ClusterIPNone {
+			res = append(res, cip)
 		}
 	}
 	return res

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pilot/pkg/features"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/ctrlz"
@@ -41,12 +40,6 @@ type RegistryOptions struct {
 	// ClusterRegistriesNamespace specifies where the multi-cluster secret resides
 	ClusterRegistriesNamespace string
 	KubeConfig                 string
-
-	// DistributionTracking control
-	DistributionCacheRetention time.Duration
-
-	// DistributionTracking control
-	DistributionTrackingEnabled bool
 }
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
@@ -104,6 +97,7 @@ type InjectionOptions struct {
 
 // TLSOptions is optional TLS parameters for Istiod server.
 type TLSOptions struct {
+	// CaCertFile and related are set using CLI flags.
 	CaCertFile      string
 	CertFile        string
 	KeyFile         string
@@ -145,8 +139,6 @@ func (p *PilotArgs) applyDefaults() {
 	p.Revision = Revision
 	p.JwtRule = JwtRule
 	p.KeepaliveOptions = keepalive.DefaultOption()
-	p.RegistryOptions.DistributionTrackingEnabled = features.EnableDistributionTracking
-	p.RegistryOptions.DistributionCacheRetention = features.DistributionHistoryRetention
 	p.RegistryOptions.ClusterRegistriesNamespace = p.Namespace
 }
 

@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"time"
@@ -45,7 +46,7 @@ func buildClient(address, path string) CNIEventClient {
 				return net.Dial("unix", address)
 			},
 		},
-		Timeout: 1000 * time.Millisecond,
+		Timeout: 5 * time.Second,
 	}
 	eventC := CNIEventClient{
 		client: c,
@@ -69,15 +70,18 @@ func PushCNIEvent(cniClient CNIEventClient, event *skel.CmdArgs, prevResIps []*c
 	if err != nil {
 		return err
 	}
-	var response *http.Response
-	response, err = cniClient.client.Post(cniClient.url, "application/json", bytes.NewBuffer(eventData))
+	response, err := cniClient.client.Post(cniClient.url, "application/json", bytes.NewBuffer(eventData))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to send event request: %v", err)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("unable to push CNI event, error was %d", response.StatusCode)
+		body, err := io.ReadAll(io.LimitReader(response.Body, 1024*1024))
+		if err != nil {
+			return fmt.Errorf("unable to push CNI event and failed to read body (status code %d): %v", response.StatusCode, err)
+		}
+		return fmt.Errorf("unable to push CNI event (status code %d): %v", response.StatusCode, string(body))
 	}
 
 	return nil

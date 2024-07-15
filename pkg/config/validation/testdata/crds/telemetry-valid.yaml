@@ -1,0 +1,72 @@
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: full
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+    reportingInterval: 5s
+    overrides:
+    - tagOverrides:
+        request_method:
+          value: "request.method"
+        request_host:
+          value: "request.host"
+      match:
+        customMetric: "foo"
+      disabled: false
+    - match:
+        metric: GRPC_REQUEST_MESSAGES
+      disabled: true
+  accessLogging:
+  - disabled: false
+    filter:
+      expression: 'true'
+    match:
+      mode: CLIENT
+    providers:
+    - name: stdout
+  tracing:
+  - providers:
+    - name: otlp
+    match:
+      mode: CLIENT_AND_SERVER
+    randomSamplingPercentage: 54.54
+    useRequestIdForTraceSampling: true
+    disableSpanReporting: false
+    customTags:
+      env:
+        environment:
+          name: "NAME"
+          defaultValue: "default"
+      header:
+        header:
+          name: "x-name"
+          defaultValue: "default name"
+      literal:
+        literal:
+          value: "default literal"
+---
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: tag-upsert
+spec:
+  metrics:
+  - overrides:
+    - tagOverrides:
+        foo:
+          operation: UPSERT
+          value: add
+---
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: tag-remove
+spec:
+  metrics:
+  - overrides:
+    - tagOverrides:
+        foo:
+          operation: REMOVE

@@ -22,7 +22,6 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -47,7 +46,10 @@ func (c *ConfigWriter) PrintServiceSummary(filter ServiceFilter) error {
 	w := c.tabwriter()
 	zDump := c.ztunnelDump
 
-	svcs := slices.Filter(maps.Values(zDump.Services), filter.Verify)
+	workloadsByUID := slices.GroupUnique(zDump.Workloads, func(t *ZtunnelWorkload) string {
+		return t.UID
+	})
+	svcs := slices.Filter(zDump.Services, filter.Verify)
 	slices.SortFunc(svcs, func(a, b *ZtunnelService) int {
 		if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {
 			return r
@@ -57,16 +59,30 @@ func (c *ConfigWriter) PrintServiceSummary(filter ServiceFilter) error {
 		}
 		return cmp.Compare(a.Hostname, b.Hostname)
 	})
-	fmt.Fprintln(w, "NAMESPACE\tSERVICE NAME\tSERVICE VIP\tWAYPOINT")
+	fmt.Fprintln(w, "NAMESPACE\tSERVICE NAME\tSERVICE VIP\tWAYPOINT\tENDPOINTS")
 
 	for _, svc := range svcs {
 		var ip string
 		if len(svc.Addresses) > 0 {
 			_, ip, _ = strings.Cut(svc.Addresses[0], "/")
 		}
+		allEndpoints := len(svc.Endpoints)
+		healthyEndpoints := 0
+		for _, ep := range svc.Endpoints {
+			w, f := workloadsByUID[ep.WorkloadUID]
+			if !f {
+				continue
+			}
+			if w.Status != "Healthy" {
+				continue
+			}
+			healthyEndpoints++
+		}
+		endpoints := fmt.Sprintf("%d/%d", healthyEndpoints, allEndpoints)
+
 		waypoint := serviceWaypointName(svc, zDump.Services)
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",
-			svc.Namespace, svc.Name, ip, waypoint)
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n",
+			svc.Namespace, svc.Name, ip, waypoint, endpoints)
 	}
 	return w.Flush()
 }
@@ -74,7 +90,7 @@ func (c *ConfigWriter) PrintServiceSummary(filter ServiceFilter) error {
 // PrintServiceDump prints the relevant services in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintServiceDump(filter ServiceFilter, outputFormat string) error {
 	zDump := c.ztunnelDump
-	svcs := slices.Filter(maps.Values(zDump.Services), filter.Verify)
+	svcs := slices.Filter(zDump.Services, filter.Verify)
 	slices.SortFunc(svcs, func(a, b *ZtunnelService) int {
 		if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {
 			return r

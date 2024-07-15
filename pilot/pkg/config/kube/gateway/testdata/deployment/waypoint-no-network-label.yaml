@@ -159,12 +159,15 @@ spec:
             cpu: 100m
             memory: 128Mi
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
           privileged: false
+          readOnlyRootFilesystem: true
           runAsGroup: 1337
-          runAsUser: 0
+          runAsNonRoot: true
+          runAsUser: 1337
         startupProbe:
           failureThreshold: 30
           httpGet:
@@ -240,6 +243,7 @@ metadata:
     name: namespace
     uid: ""
 spec:
+  ipFamilyPolicy: PreferDualStack
   ports:
   - appProtocol: tcp
     name: status-port

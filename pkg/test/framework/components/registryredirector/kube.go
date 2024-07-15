@@ -83,6 +83,10 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		args["TargetRegistry"] = cfg.TargetRegistry
 	}
 
+	if len(cfg.Scheme) != 0 {
+		args["Scheme"] = cfg.Scheme
+	}
+
 	if len(cfg.Image) != 0 {
 		args["Image"] = cfg.Image
 	}

@@ -20,6 +20,8 @@ package security
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -104,7 +106,7 @@ func TestReachability(t *testing.T) {
 						},
 					},
 					IPFamilies:     "IPv4, IPv6",
-					IPFamilyPolicy: "RequireDualStack",
+					IPFamilyPolicy: string(corev1.IPFamilyPolicyRequireDualStack),
 				}).BuildOrFail(t)
 			}
 
@@ -165,6 +167,43 @@ func TestReachability(t *testing.T) {
 					expectCrossNetwork: notNaked,
 					expectSuccess:      notNaked,
 					minIstioVersion:    integIstioVersion,
+					// For this one test, run all protocols.
+					// For others, we will just run the 3 core (HTTP, HTTPS, TCP).
+					// Because security code does not treat HTTP2, WS, or GRPC differently, we are skip those protocols to speed up tests,
+					// and avoid expensive calls that give no coverage (TestReachability is by far the slowest test in Istio).
+					callOpts: []echo.CallOptions{
+						{
+							Port: echo.Port{
+								Name: ports.HTTP.Name,
+							},
+						},
+						{
+							Port: echo.Port{
+								Name: ports.HTTP.Name,
+							},
+							Scheme: scheme.WebSocket,
+						},
+						{
+							Port: echo.Port{
+								Name: ports.HTTP2.Name,
+							},
+						},
+						{
+							Port: echo.Port{
+								Name: ports.HTTPS.Name,
+							},
+						},
+						{
+							Port: echo.Port{
+								Name: ports.TCP.Name,
+							},
+						},
+						{
+							Port: echo.Port{
+								Name: ports.GRPC.Name,
+							},
+						},
+					},
 				},
 				{
 					name: "global mtls permissive",
@@ -439,28 +478,12 @@ func TestReachability(t *testing.T) {
 							},
 							{
 								Port: echo.Port{
-									Name: ports.HTTP.Name,
-								},
-								Scheme: scheme.WebSocket,
-							},
-							{
-								Port: echo.Port{
-									Name: ports.HTTP2.Name,
-								},
-							},
-							{
-								Port: echo.Port{
 									Name: ports.HTTPS.Name,
 								},
 							},
 							{
 								Port: echo.Port{
 									Name: ports.TCP.Name,
-								},
-							},
-							{
-								Port: echo.Port{
-									Name: ports.GRPC.Name,
 								},
 							},
 						}
@@ -479,7 +502,9 @@ func TestReachability(t *testing.T) {
 						t.NewSubTestf("%s%s", schemeStr, opts.HTTP.Path).Run(func(t framework.TestContext) {
 							// Run the test cases.
 							echotest.New(t, allServices.Instances()).
-								FromMatch(match.And(c.fromMatch, match.NotProxylessGRPC)).
+								// Proxyless gRPC is not tested in this test
+								// Headless and statefulset do not impact behavior as a client, so they are skipped in FromMatch to speed up tests
+								FromMatch(match.And(c.fromMatch, match.NotProxylessGRPC, match.NotHeadless, match.NoStatefulSet)).
 								ToMatch(match.And(c.toMatch, match.NotProxylessGRPC)).
 								WithDefaultFilters(1, 1).
 								ConditionallyTo(echotest.NoSelfCalls).

@@ -78,7 +78,7 @@
     "stats_tags": [
       {
         "tag_name": "cluster_name",
-        "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
+        "regex": "cluster(\\.(.+);)"
       },
       {
         "tag_name": "tcp_prefix",
@@ -228,6 +228,7 @@
     "clusters": [
       {
         "name": "prometheus_stats",
+        "alt_stat_name": "prometheus_stats;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -250,6 +251,7 @@
       },
       {
         "name": "agent",
+        "alt_stat_name": "agent;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -272,6 +274,7 @@
       },
       {
         "name": "sds-grpc",
+        "alt_stat_name": "sds-grpc;",
         "type": "STATIC",
         "typed_extension_protocol_options": {
           "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
@@ -300,6 +303,7 @@
       },
       {
         "name": "xds-grpc",
+        "alt_stat_name": "xds-grpc;",
         "type" : "STATIC",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -352,6 +356,7 @@
       ,
       {
         "name": "zipkin",
+        "alt_stat_name": "zipkin;",
         {{- if .tracing_tls }}
         "transport_socket": {{ .tracing_tls }},
         {{- end }}
@@ -378,6 +383,7 @@
       ,
       {
         "name": "lightstep",
+        "alt_stat_name": "lightstep;",
         {{- if .tracing_tls }}
         "transport_socket": {{ .tracing_tls }},
         {{- end }}
@@ -411,6 +417,7 @@
       ,
       {
         "name": "datadog_agent",
+        "alt_stat_name": "datadog_agent;",
         {{- if .tracing_tls }}
         "transport_socket": {{ .tracing_tls }},
         {{- end }}
@@ -437,6 +444,7 @@
       ,
       {
         "name": "envoy_metrics_service",
+        "alt_stat_name": "envoy_metrics_service;",
         "type": "STRICT_DNS",
       {{- if .envoy_metrics_service_tls }}
         "transport_socket": {{ .envoy_metrics_service_tls }},
@@ -474,6 +482,7 @@
       ,
       {
         "name": "envoy_accesslog_service",
+        "alt_stat_name": "envoy_accesslog_service;",
         "type": "STRICT_DNS",
       {{- if .envoy_accesslog_service_tls }}
         "transport_socket": {{ .envoy_accesslog_service_tls }},
@@ -736,56 +745,6 @@
       }
     }
   }
-  {{- else if .stackdriver }}
-  ,
-  "tracing": {
-    "http": {
-      "name": "envoy.tracers.opencensus",
-      "typed_config": {
-      "@type": "type.googleapis.com/envoy.config.trace.v3.OpenCensusConfig",
-      "stackdriver_exporter_enabled": true,
-      "stackdriver_project_id": "{{ .stackdriverProjectID }}",
-      {{ if .sts_port }}
-      "stackdriver_grpc_service": {
-        "google_grpc": {
-          "target_uri": "cloudtrace.googleapis.com",
-          "stat_prefix": "oc_stackdriver_tracer",
-          "channel_credentials": {
-            "ssl_credentials": {}
-          },
-          "call_credentials": [{
-            "sts_service": {
-              "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
-              "subject_token_path": "./var/run/secrets/tokens/istio-token",
-              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-              "scope": "https://www.googleapis.com/auth/cloud-platform"
-            }
-          }]
-        },
-        "initial_metadata": [
-        {{ if .gcp_project_id }}
-          {
-            "key": "x-goog-user-project",
-            "value": "{{ .gcp_project_id }}"
-          }
-        {{ end }}
-        ]
-      },
-      {{ end }}
-      "stdout_exporter_enabled": {{ .stackdriverDebug }},
-      "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
-      "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
-      "trace_config":{
-        "constant_sampler":{
-          "decision": "ALWAYS_PARENT"
-        },
-        "max_number_of_annotations": {{ .stackdriverMaxAnnotations }},
-        "max_number_of_attributes": {{ .stackdriverMaxAttributes }},
-        "max_number_of_message_events": {{ .stackdriverMaxEvents }},
-        "max_number_of_links": 200
-       }
-     }
-  }}
   {{ end }}
   {{ if or .envoy_metrics_service_address .statsd }}
   ,

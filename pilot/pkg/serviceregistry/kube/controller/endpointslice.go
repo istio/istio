@@ -20,7 +20,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/discovery/v1"
-	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -264,7 +263,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 			if pod == nil && expectedPod {
 				continue
 			}
-			builder := NewEndpointBuilder(esc.c, pod)
+			builder := esc.c.NewEndpointBuilder(pod)
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 			for _, port := range slice.Ports {
 				var portNum int32
@@ -399,7 +398,7 @@ func (e *endpointSliceCache) has(hostname host.Name) bool {
 
 func endpointSliceSelectorForService(name string) klabels.Selector {
 	return klabels.Set(map[string]string{
-		v1beta1.LabelServiceName: name,
+		v1.LabelServiceName: name,
 	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
 }
 

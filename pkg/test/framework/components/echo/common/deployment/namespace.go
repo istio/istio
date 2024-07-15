@@ -137,23 +137,27 @@ spec:
 	if !t.Settings().DisableDefaultExternalServiceConnectivity {
 		// Create a ServiceEntry to allow apps in this namespace to talk to the external service.
 		if d.External.Namespace != nil {
-			DeployExternalServiceEntry(cfg, ns, d.External.Namespace)
+			DeployExternalServiceEntry(cfg, ns, d.External.Namespace, false)
 		}
 	}
 
 	return cfg.Apply(apply.NoCleanup)
 }
 
-func DeployExternalServiceEntry(cfg config.Factory, deployedNamespace, externalNamespace namespace.Instance) config.Plan {
+func DeployExternalServiceEntry(cfg config.Factory, deployedNamespace, externalNamespace namespace.Instance, manuallyAllocate bool) config.Plan {
 	return cfg.Eval(deployedNamespace.Name(), map[string]any{
-		"Namespace": externalNamespace.Name(),
-		"Hostname":  ExternalHostname,
-		"Ports":     serviceEntryPorts(),
+		"Namespace":        externalNamespace.Name(),
+		"Hostname":         ExternalHostname,
+		"Ports":            serviceEntryPorts(),
+		"ManuallyAllocate": manuallyAllocate,
 	}, `apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-service
 spec:
+{{- if .ManuallyAllocate }}
+  addresses: [240.240.240.239, 2001:2::f0f0:239] # Semi-random addresses for the range Istio allocates in
+{{- end }}
   exportTo: [.]
   hosts:
   - {{.Hostname}}

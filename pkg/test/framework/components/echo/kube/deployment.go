@@ -123,16 +123,18 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 // This is analogous to `kubectl rollout restart` on the echo deployment and waits for
 // `kubectl rollout status` to complete before returning, but uses direct API calls.
 func (d *deployment) Restart() error {
-	var errs error
 	var deploymentNames []string
 	for _, s := range d.cfg.Subsets {
 		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
 		deploymentNames = append(deploymentNames, fmt.Sprintf("%s-%s", d.cfg.Service, s.Version))
 	}
 	curTimestamp := time.Now().Format(time.RFC3339)
+
+	g := multierror.Group{}
 	for _, deploymentName := range deploymentNames {
-		patchOpts := metav1.PatchOptions{}
-		patchData := fmt.Sprintf(`{
+		g.Go(func() error {
+			patchOpts := metav1.PatchOptions{}
+			patchData := fmt.Sprintf(`{
 			"spec": {
 				"template": {
 					"metadata": {
@@ -143,46 +145,47 @@ func (d *deployment) Restart() error {
 				}
 			}
 		}`, curTimestamp) // e.g., “2006-01-02T15:04:05Z07:00”
-		var err error
-		appsv1Client := d.cfg.Cluster.Kube().AppsV1()
+			var err error
+			appsv1Client := d.cfg.Cluster.Kube().AppsV1()
 
-		if d.cfg.IsStatefulSet() {
-			_, err = appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
-				types.StrategicMergePatchType, []byte(patchData), patchOpts)
-		} else {
-			_, err = appsv1Client.Deployments(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
-				types.StrategicMergePatchType, []byte(patchData), patchOpts)
-		}
-		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v (timestamp:%q)", d.cfg.Namespace.Name(), deploymentName, err, curTimestamp))
-			continue
-		}
-
-		if err := retry.UntilSuccess(func() error {
 			if d.cfg.IsStatefulSet() {
-				sts, err := appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				if sts.Spec.Replicas == nil || !statefulsetComplete(sts) {
-					return fmt.Errorf("rollout is not yet done (updated replicas:%v)", sts.Status.UpdatedReplicas)
-				}
+				_, err = appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+					types.StrategicMergePatchType, []byte(patchData), patchOpts)
 			} else {
-				dep, err := appsv1Client.Deployments(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
-				if err != nil {
-					return err
+				_, err = appsv1Client.Deployments(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+					types.StrategicMergePatchType, []byte(patchData), patchOpts)
+			}
+			if err != nil {
+				return fmt.Errorf("failed to rollout restart %v/%v: %v (timestamp:%q)", d.cfg.Namespace.Name(), deploymentName, err, curTimestamp)
+			}
+
+			if err := retry.UntilSuccess(func() error {
+				if d.cfg.IsStatefulSet() {
+					sts, err := appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					if sts.Spec.Replicas == nil || !statefulsetComplete(sts) {
+						return fmt.Errorf("rollout is not yet done (updated replicas:%v)", sts.Status.UpdatedReplicas)
+					}
+				} else {
+					dep, err := appsv1Client.Deployments(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					if dep.Spec.Replicas == nil || !deploymentComplete(dep) {
+						return fmt.Errorf("rollout is not yet done (updated replicas: %v)", dep.Status.UpdatedReplicas)
+					}
 				}
-				if dep.Spec.Replicas == nil || !deploymentComplete(dep) {
-					return fmt.Errorf("rollout is not yet done (updated replicas: %v)", dep.Status.UpdatedReplicas)
-				}
+				return nil
+			}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
+				return fmt.Errorf("failed to wait rollout status for %v/%v: %v",
+					d.cfg.Namespace.Name(), deploymentName, err)
 			}
 			return nil
-		}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to wait rollout status for %v/%v: %v",
-				d.cfg.Namespace.Name(), deploymentName, err))
-		}
+		})
 	}
-	return errs
+	return g.Wait().ErrorOrNil()
 }
 
 func (d *deployment) WorkloadReady(w *workload) {
@@ -657,13 +660,14 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	for _, p := range ports {
 		// Add the port to the set of application ports.
 		cport := &echoCommon.Port{
-			Name:        p.Name,
-			Protocol:    p.Protocol,
-			Port:        p.WorkloadPort,
-			TLS:         p.TLS,
-			ServerFirst: p.ServerFirst,
-			InstanceIP:  p.InstanceIP,
-			LocalhostIP: p.LocalhostIP,
+			Name:          p.Name,
+			Protocol:      p.Protocol,
+			Port:          p.WorkloadPort,
+			TLS:           p.TLS,
+			ServerFirst:   p.ServerFirst,
+			InstanceIP:    p.InstanceIP,
+			LocalhostIP:   p.LocalhostIP,
+			ProxyProtocol: p.ProxyProtocol,
 		}
 		containerPorts = append(containerPorts, cport)
 

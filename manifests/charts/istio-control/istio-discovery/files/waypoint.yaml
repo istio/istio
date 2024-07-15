@@ -212,10 +212,17 @@ spec:
         securityContext:
           privileged: false
           runAsGroup: 1337
-          runAsUser: 0
+          runAsUser: 1337
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           capabilities:
             drop:
             - ALL
+{{- if .Values.gateways.seccompProfile }}
+          seccompProfile:
+{{- toYaml .Values.gateways.seccompProfile | nindent 12 }}
+{{- end }}
         volumeMounts:
         - name: workload-socket
           mountPath: /var/run/secrets/workload-spiffe-uds
@@ -288,6 +295,7 @@ metadata:
     name: "{{.Name}}"
     uid: "{{.UID}}"
 spec:
+  ipFamilyPolicy: PreferDualStack
   ports:
   {{- range $key, $val := .Ports }}
   - name: {{ $val.Name | quote }}

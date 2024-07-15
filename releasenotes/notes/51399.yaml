@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 51399
+releaseNotes:
+- |
+  **Fixed** ENABLE_ENHANCED_RESOURCE_SCOPING not being part of helm compatibility profiles for Istio 1.20/1.21. 

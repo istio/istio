@@ -59,11 +59,4 @@ var (
 
 	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
 		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
-
-	// User should not rely on builtin resource labels, this flag will be removed in future releases(1.20).
-	EnableOTELBuiltinResourceLabels = env.Register("ENABLE_OTEL_BUILTIN_RESOURCE_LABELS", false,
-		"If enabled, envoy will send builtin labels(e.g. node_name) via OTel sink.").Get()
-
-	StackdriverAuditLog = env.Register("STACKDRIVER_AUDIT_LOG", false, ""+
-		"If enabled, StackDriver audit logging will be enabled.").Get()
 )

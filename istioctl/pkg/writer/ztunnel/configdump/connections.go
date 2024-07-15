@@ -66,12 +66,26 @@ func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 	d := c.ztunnelDump
 	serviceNames := map[string]string{}
 	workloadNames := map[string]string{}
-	for netIP, s := range d.Services {
-		_, ip, _ := strings.Cut(netIP, "/")
+	for _, s := range d.Services {
+		var ip string
+		if len(s.Addresses) != 0 {
+			_, ip, _ = strings.Cut(s.Addresses[0], "/")
+		}
+		if ip == "" {
+			// fallback to None when a service does not have a VIP
+			ip = "None"
+		}
 		serviceNames[ip] = s.Hostname
 	}
-	for netIP, s := range d.Workloads {
-		_, ip, _ := strings.Cut(netIP, "/")
+	for _, s := range d.Workloads {
+		var ip string
+		if len(s.WorkloadIPs) != 0 {
+			ip = s.WorkloadIPs[0]
+		}
+		if ip == "" {
+			// fallback to None when a workload does not have an IP
+			ip = "None"
+		}
 		workloadNames[ip] = s.Name + "." + s.Namespace
 	}
 	lookupIP := func(addr string) string {

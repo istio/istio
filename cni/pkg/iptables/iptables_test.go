@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/cni/pkg/scopes"
 	testutil "istio.io/istio/pilot/test/util"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -46,14 +47,8 @@ func TestIptables(t *testing.T) {
 				cfg.EnableIPv6 = ipv6
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
-				iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
-				var probeIP *netip.Addr
-				if ipv6 {
-					probeIP = &probeSNATipv6
-				} else {
-					probeIP = &probeSNATipv4
-				}
-				err := iptConfigurator.CreateInpodRules(probeIP)
+				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
+				err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, &probeSNATipv4, &probeSNATipv6)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -85,7 +80,7 @@ func TestIptablesHostRules(t *testing.T) {
 				cfg.EnableIPv6 = ipv6
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
-				iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
+				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
 				err := iptConfigurator.CreateHostRulesForHealthChecks(&probeSNATipv4, &probeSNATipv6)
 				if err != nil {
 					t.Fatal(err)
@@ -109,12 +104,13 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 	}
 
 	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
+	probeSNATipv6 := netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")
 
 	cfg := constructTestConfig()
 	tt.config(cfg)
 	ext := &dep.DependenciesStub{}
-	iptConfigurator, _ := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
-	err := iptConfigurator.CreateInpodRules(&probeSNATipv4)
+	iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
+	err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, &probeSNATipv4, &probeSNATipv6)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +118,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 
 	*ext = dep.DependenciesStub{}
 	// run another time to make sure we are idempotent
-	err = iptConfigurator.CreateInpodRules(&probeSNATipv4)
+	err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, &probeSNATipv4, &probeSNATipv6)
 	if err != nil {
 		t.Fatal(err)
 	}

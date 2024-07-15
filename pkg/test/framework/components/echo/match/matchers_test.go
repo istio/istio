@@ -20,15 +20,28 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+func init() {
+	allClusters[cls1.Name()] = cls1
+}
+
 var (
+	allClusters = make(cluster.Map)
 	// 2 clusters on 2 networks
-	cls1 = &cluster.FakeCluster{Topology: cluster.Topology{ClusterName: "cls1", Network: "n1", Index: 0, ClusterKind: cluster.Fake}}
+	cls1 = &kube.Cluster{Topology: cluster.Topology{
+		ClusterName:        "cls1",
+		Network:            "n1",
+		PrimaryClusterName: "cls1",
+		ConfigClusterName:  "cls1",
+		Index:              0,
+		AllClusters:        allClusters,
+	}}
 
 	// simple pod
 	a1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "a"}

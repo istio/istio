@@ -302,7 +302,7 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// setup cert watches.
-	if err := s.initCertificateWatches(tlsOptions); err != nil {
+	if err := s.initFileCertificateWatches(tlsOptions); err != nil {
 		t.Fatalf("initCertificateWatches failed: %v", err)
 	}
 
@@ -548,6 +548,55 @@ func TestIstiodCipherSuites(t *testing.T) {
 	}
 }
 
+func TestIstiodReadinessHandler(t *testing.T) {
+	configDir := t.TempDir()
+
+	args := NewPilotArgs(func(p *PilotArgs) {
+		p.Namespace = "istio-system"
+		p.ServerOptions = DiscoveryServerOptions{
+			// Dynamically assign all ports.
+			HTTPAddr:       ":0",
+			HTTPSAddr:      ":0",
+			MonitoringAddr: ":0",
+			GRPCAddr:       ":0",
+		}
+		p.RegistryOptions = RegistryOptions{
+			KubeConfig: "config",
+			FileDir:    configDir,
+		}
+		p.ShutdownDuration = 1 * time.Millisecond
+	})
+
+	g := NewWithT(t)
+	s, err := NewServer(args, func(s *Server) {
+		s.kubeClient = kube.NewFakeClient()
+	})
+	g.Expect(err).To(Succeed())
+
+	stop := make(chan struct{})
+	g.Expect(s.Start(stop)).To(Succeed())
+	defer func() {
+		close(stop)
+		s.WaitUntilCompletion()
+	}()
+
+	c := http.Client{}
+	c.Transport = &http.Transport{
+		// nolint: gosec
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+	defer c.CloseIdleConnections()
+
+	for _, url := range []string{"http://" + s.httpAddr, "https://" + s.httpsAddr} {
+		resp, err := c.Get(url + "/ready")
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		g.Expect(resp.Body.Close()).To(Succeed())
+	}
+}
+
 func TestInitOIDC(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -576,7 +625,7 @@ func TestInitOIDC(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := &PilotArgs{JwtRule: tt.jwtRule}
 
-			_, err := initOIDC(args)
+			_, err := initOIDC(args, nil)
 			gotErr := err != nil
 			if gotErr != tt.expectErr {
 				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)

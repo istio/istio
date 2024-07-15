@@ -6,7 +6,12 @@ metadata:
   labels:
     {{- .Values.labels | toYaml | nindent 4}}
   annotations:
+{{- if .Values.revision }}
+    {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
+    {{- toYaml $annos | nindent 4}}
+{{- else }}
     {{- .Values.annotations | toYaml | nindent 4 }}
+{{- end }}
 spec:
   updateStrategy:
     rollingUpdate:
@@ -24,6 +29,9 @@ spec:
 {{ with .Values.podLabels -}}{{ toYaml . | indent 8 }}{{ end }}
       annotations:
         sidecar.istio.io/inject: "false"
+{{- if .Values.revision }}
+        istio.io/rev: {{ .Values.revision }}
+{{- end }}
 {{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
     spec:
       nodeSelector:
@@ -94,15 +102,21 @@ spec:
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
         {{- end }}
         - name: XDS_ADDRESS
+        {{- if .Values.xdsAddress }}
+          value: {{ .Values.xdsAddress }}
+        {{- else }}
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
+        {{- end }}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
+        - name: RUST_BACKTRACE
+          value: "1"
         - name: ISTIO_META_CLUSTER_ID
           value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         - name: INPOD_ENABLED
           value: "true"
-        - name: ISTIO_META_DNS_PROXY_ADDR
-          value: "127.0.0.1:15053"
+        - name: TERMINATION_GRACE_PERIOD_SECONDS
+          value: "{{ .Values.terminationGracePeriodSeconds }}"
         - name: POD_NAME
           valueFrom:
             fieldRef:

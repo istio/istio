@@ -21,6 +21,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -283,7 +284,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Subsets:         []echo.SubsetConfig{{}},
 			IncludeExtAuthz: c.IncludeExtAuthz,
 			IPFamilies:      "IPv6, IPv4",
-			IPFamilyPolicy:  "RequireDualStack",
+			IPFamilyPolicy:  string(corev1.IPFamilyPolicyRequireDualStack),
 			DualStack:       true,
 		}
 		eSvc := echo.Config{
@@ -293,7 +294,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Subsets:         []echo.SubsetConfig{{}},
 			IncludeExtAuthz: c.IncludeExtAuthz,
 			IPFamilies:      "IPv6",
-			IPFamilyPolicy:  "SingleStack",
+			IPFamilyPolicy:  string(corev1.IPFamilyPolicySingleStack),
 			DualStack:       true,
 		}
 		defaultConfigs = append(defaultConfigs, dSvc, eSvc)
@@ -461,7 +462,7 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 	}
 
 	if !cfg.NoExternalNamespace {
-		builder = apps.External.build(ctx, builder)
+		builder = apps.External.Build(ctx, builder)
 	}
 
 	echos, err := builder.Build()
@@ -508,9 +509,7 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 	}
 
 	if !cfg.NoExternalNamespace {
-		g.Go(func() error {
-			return apps.External.loadValues(echos)
-		})
+		apps.External.LoadValues(echos)
 	}
 
 	if err := g.Wait().ErrorOrNil(); err != nil {

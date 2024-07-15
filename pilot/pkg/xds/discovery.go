@@ -102,8 +102,6 @@ type DiscoveryServer struct {
 	adsClients      map[string]*Connection
 	adsClientsMutex sync.RWMutex
 
-	StatusReporter DistributionStatusCache
-
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
 	Authenticators []security.Authenticator
 
@@ -295,12 +293,9 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	if features.EnableUnsafeAssertions {
-		// This operation is really slow, which makes tests fail for unrelated reasons, so we process it async.
-		go func() {
-			if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Service) {
-				panic("assertion failed kind.Service can not be set in ConfigKey")
-			}
-		}()
+		if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Service) {
+			panic("assertion failed kind.Service can not be set in ConfigKey")
+		}
 	}
 	if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
 		// This is a bit like clearing EDS cache on EndpointShard update. Because Address

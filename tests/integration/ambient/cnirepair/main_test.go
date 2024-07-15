@@ -52,10 +52,8 @@ type EchoDeployments struct {
 	Captured echo.Instances
 	// Uncaptured echo Service
 	Uncaptured echo.Instances
-	// SidecarCaptured echo services with sidecar and ambient capture
-	SidecarCaptured echo.Instances
-	// SidecarUncaptured echo services with sidecar and no ambient capture
-	SidecarUncaptured echo.Instances
+	// Sidecar echo services with sidecar
+	Sidecar echo.Instances
 
 	// All echo services
 	All echo.Instances
@@ -97,10 +95,9 @@ values:
 }
 
 const (
-	Captured          = "captured"
-	Uncaptured        = "uncaptured"
-	SidecarCaptured   = "sidecar-captured"
-	SidecarUncaptured = "sidecar-uncaptured"
+	Captured   = "captured"
+	Uncaptured = "uncaptured"
+	Sidecar    = "sidecar"
 )
 
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
@@ -153,7 +150,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			},
 		}).
 		WithConfig(echo.Config{
-			Service:        SidecarUncaptured,
+			Service:        Sidecar,
 			Namespace:      apps.Namespace,
 			Ports:          ports.All(),
 			ServiceAccount: true,
@@ -189,8 +186,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.All = echos
 	apps.Uncaptured = match.ServiceName(echo.NamespacedName{Name: Uncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Captured = match.ServiceName(echo.NamespacedName{Name: Captured, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.SidecarUncaptured = match.ServiceName(echo.NamespacedName{Name: SidecarUncaptured, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.SidecarCaptured = match.ServiceName(echo.NamespacedName{Name: SidecarCaptured, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.Sidecar = match.ServiceName(echo.NamespacedName{Name: Sidecar, Namespace: apps.Namespace}).GetMatches(echos)
 
 	return nil
 }

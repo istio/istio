@@ -9,10 +9,10 @@
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: istio-cni-node
+  name: {{ template "name" . }}-node
   namespace: {{ .Release.Namespace }}
   labels:
-    k8s-app: istio-cni-node
+    k8s-app: {{ template "name" . }}-node
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
@@ -20,7 +20,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      k8s-app: istio-cni-node
+      k8s-app: {{ template "name" . }}-node
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
@@ -28,7 +28,7 @@ spec:
   template:
     metadata:
       labels:
-        k8s-app: istio-cni-node
+        k8s-app: {{ template "name" . }}-node
         sidecar.istio.io/inject: "false"
         istio.io/dataplane-mode: none
       annotations:
@@ -60,7 +60,7 @@ spec:
         - effect: NoExecute
           operator: Exists
       priorityClassName: system-node-critical
-      serviceAccountName: istio-cni
+      serviceAccountName: {{ template "name" . }}
       # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
       # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
       terminationGracePeriodSeconds: 5
@@ -71,7 +71,7 @@ spec:
 {{- if contains "/" .Values.cni.image }}
           image: "{{ .Values.cni.image }}"
 {{- else }}
-          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}{{with (.Values.cni.variant | default .Values.global.variant)}}-{{.}}{{end}}"
+          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ template "istio-tag" . }}"
 {{- end }}
 {{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
@@ -108,67 +108,29 @@ spec:
 {{- end }}
           command: ["install-cni"]
           args:
-            {{- if .Values.global.logging.level }}
-            - --log_output_level={{ .Values.global.logging.level }}
+            {{- if or .Values.cni.logging.level .Values.global.logging.level }}
+            - --log_output_level={{ coalesce .Values.cni.logging.level .Values.global.logging.level }}
             {{- end}}
             {{- if .Values.global.logAsJson }}
             - --log_as_json
             {{- end}}
+          envFrom:
+            - configMapRef:
+                name: {{ template "name" . }}-config
           env:
-{{- if .Values.cni.cniConfFileName }}
-            # Name of the CNI config file to create.
-            - name: CNI_CONF_NAME
-              value: "{{ .Values.cni.cniConfFileName }}"
-{{- end }}
-            # The CNI network config to install on each node.
-            - name: CNI_NETWORK_CONFIG
-              valueFrom:
-                configMapKeyRef:
-                  name: istio-cni-config
-                  key: cni_network_config
-            - name: CNI_NET_DIR
-              value: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
-            # Deploy as a standalone CNI plugin or as chained?
-            - name: CHAINED_CNI_PLUGIN
-              value: "{{ .Values.cni.chained }}"
-            - name: REPAIR_ENABLED
-              value: "{{ .Values.cni.repair.enabled }}"
             - name: REPAIR_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            - name: REPAIR_LABEL_PODS
-              value: "{{.Values.cni.repair.labelPods}}"
-            # Set to true to enable pod deletion
-            - name: REPAIR_DELETE_PODS
-              value: "{{.Values.cni.repair.deletePods}}"
-            - name: REPAIR_REPAIR_PODS
-              value: "{{.Values.cni.repair.repairPods}}"
             - name: REPAIR_RUN_AS_DAEMON
               value: "true"
             - name: REPAIR_SIDECAR_ANNOTATION
               value: "sidecar.istio.io/status"
-            - name: REPAIR_INIT_CONTAINER_NAME
-              value: "{{ .Values.cni.repair.initContainerName }}"
-            - name: REPAIR_BROKEN_POD_LABEL_KEY
-              value: "{{.Values.cni.repair.brokenPodLabelKey}}"
-            - name: REPAIR_BROKEN_POD_LABEL_VALUE
-              value: "{{.Values.cni.repair.brokenPodLabelValue}}"
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
-            - name: LOG_LEVEL
-              value: {{ .Values.cni.logLevel | quote }}
-{{- if .Values.cni.ambient.enabled }}
-            - name: AMBIENT_ENABLED
-              value: "true"
-            - name: AMBIENT_IPV6
-              value: "{{ .Values.cni.ambient.ipv6 }}"
-            - name: AMBIENT_DNS_CAPTURE
-              value: "{{ .Values.cni.ambient.dnsCapture }}"
-{{- end }}
             - name: GOMEMLIMIT
               valueFrom:
                 resourceFieldRef:
@@ -177,6 +139,14 @@ spec:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.cpu
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir

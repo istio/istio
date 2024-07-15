@@ -118,7 +118,7 @@ func (i *istioImpl) Settings() Config {
 
 func (i *istioImpl) Ingresses() ingress.Instances {
 	var out ingress.Instances
-	for _, c := range i.ctx.Clusters().Kube() {
+	for _, c := range i.ctx.Clusters() {
 		// call IngressFor in-case initialization is needed.
 		out = append(out, i.IngressFor(c))
 	}
@@ -150,9 +150,6 @@ func (i *istioImpl) EastWestGatewayFor(c cluster.Cluster) ingress.Instance {
 func (i *istioImpl) CustomIngressFor(c cluster.Cluster, service types.NamespacedName, labelSelector string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	if c.Kind() != cluster.Kubernetes {
-		c = c.Primary()
-	}
 
 	if i.ingress[c.Name()] == nil {
 		i.ingress[c.Name()] = map[string]ingress.Instance{}
@@ -311,7 +308,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// First install remote-config clusters.
 	// We do this first because the external istiod needs to read the config cluster at startup.
-	for _, c := range ctx.Clusters().Kube().Configs().Remotes() {
+	for _, c := range ctx.Clusters().Configs().Remotes() {
 		if err = i.installConfigCluster(c); err != nil {
 			return i, err
 		}
@@ -319,7 +316,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// Install control plane clusters (can be external or primary).
 	errG := multierror.Group{}
-	for _, c := range ctx.AllClusters().Kube().Primaries() {
+	for _, c := range ctx.AllClusters().Primaries() {
 		c := c
 		errG.Go(func() error {
 			return i.installControlPlaneCluster(c)
@@ -331,7 +328,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	// Update config clusters now that external istiod is running.
-	for _, c := range ctx.Clusters().Kube().Configs().Remotes() {
+	for _, c := range ctx.Clusters().Configs().Remotes() {
 		if err = i.reinstallConfigCluster(c); err != nil {
 			return i, err
 		}
@@ -339,7 +336,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// Install (non-config) remote clusters.
 	errG = multierror.Group{}
-	for _, c := range ctx.Clusters().Kube().Remotes(ctx.Clusters().Configs()...) {
+	for _, c := range ctx.Clusters().Remotes(ctx.Clusters().Configs()...) {
 		c := c
 		errG.Go(func() error {
 			if err := i.installRemoteCluster(c); err != nil {
@@ -370,7 +367,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	// Configure gateways for remote clusters.
-	for _, c := range ctx.Clusters().Kube().Remotes() {
+	for _, c := range ctx.Clusters().Remotes() {
 		c := c
 		if i.externalControlPlane || cfg.IstiodlessRemotes {
 			// Install ingress and egress gateways
@@ -401,7 +398,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	if i.env.IsMultiNetwork() {
 		// enable cross network traffic
-		for _, c := range ctx.Clusters().Kube().Configs() {
+		for _, c := range ctx.Clusters().Configs() {
 			if err := i.exposeUserServices(c); err != nil {
 				return nil, err
 			}
@@ -625,9 +622,10 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 
 	if ctx.Settings().EnableDualStack {
 		args.AppendSet("values.pilot.env.ISTIO_DUAL_STACK", "true")
+		args.AppendSet("values.pilot.ipFamilyPolicy", string(corev1.IPFamilyPolicyRequireDualStack))
 		args.AppendSet("meshConfig.defaultConfig.proxyMetadata.ISTIO_DUAL_STACK", "true")
-		args.AppendSet("values.gateways.istio-ingressgateway.ipFamilyPolicy", "RequireDualStack")
-		args.AppendSet("values.gateways.istio-egressgateway.ipFamilyPolicy", "RequireDualStack")
+		args.AppendSet("values.gateways.istio-ingressgateway.ipFamilyPolicy", string(corev1.IPFamilyPolicyRequireDualStack))
+		args.AppendSet("values.gateways.istio-egressgateway.ipFamilyPolicy", string(corev1.IPFamilyPolicyRequireDualStack))
 	}
 
 	// Include all user-specified values.
@@ -696,7 +694,7 @@ func (i *istioImpl) configureDirectAPIServerAccess(watchLocalNamespace bool) err
 
 	// Now look through entire mesh, create secret for every cluster other than external control plane and
 	// place the secret into the target clusters.
-	for _, c := range i.ctx.Clusters().Kube().MeshClusters() {
+	for _, c := range i.ctx.Clusters().MeshClusters() {
 		theTargetClusters := getTargetClusterListForCluster(targetClusters, c)
 		if len(theTargetClusters) > 0 {
 			if err := i.configureDirectAPIServiceAccessBetweenClusters(c, theTargetClusters...); err != nil {

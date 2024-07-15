@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -112,25 +113,11 @@ func (cc inboundChainConfig) Name(protocol istionetworking.ListenerProtocol) str
 	return getListenerName(cc.bind, int(cc.port.TargetPort), istionetworking.TransportProtocolTCP)
 }
 
-var (
-	IPv4PassthroughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("0.0.0.0/0")}
-	IPv6PassthroughCIDR = []*core.CidrRange{util.ConvertAddressToCidr("::/0")}
-)
-
 // ToFilterChainMatch builds the FilterChainMatch for the config
 func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *listener.FilterChainMatch {
 	match := &listener.FilterChainMatch{}
 	match.ApplicationProtocols = opt.ApplicationProtocols
 	match.TransportProtocol = opt.TransportProtocol
-	if cc.passthrough {
-		// Pasthrough listeners do an IP match - but matching all IPs. This is really an IP *version* match,
-		// but Envoy doesn't explicitly have version check.
-		if cc.clusterName == util.InboundPassthroughClusterIpv4 {
-			match.PrefixRanges = IPv4PassthroughCIDR
-		} else {
-			match.PrefixRanges = IPv6PassthroughCIDR
-		}
-	}
 	if cc.port.TargetPort > 0 {
 		match.DestinationPort = &wrappers.UInt32Value{Value: cc.port.TargetPort}
 	}
@@ -173,13 +160,13 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		opts := getFilterChainMatchOptions(mtls, lp)
 		chains := lb.inboundChainForOpts(cc, mtls, opts)
 		for _, c := range chains {
-			fcm := c.GetFilterChainMatch()
-			if fcm != nil {
-				// Clear out settings that do not matter anymore
-				fcm.TransportProtocol = ""
-			}
+			lb.sanitizeFilterChainForHBONE(c)
 		}
 		l.FilterChains = append(l.FilterChains, chains...)
+	}
+	for _, passthrough := range buildInboundHBONEPassthroughChain(lb) {
+		lb.sanitizeFilterChainForHBONE(passthrough)
+		l.FilterChains = append(l.FilterChains, passthrough)
 	}
 	// If there are no filter chains, populate a dummy one that never matches. Envoy doesn't allow no chains, but removing the
 	// entire listeners makes the errors logs more confusing (instead of "no filter chain found" we have no listener at all).
@@ -201,6 +188,18 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	// TODO: Exclude inspectors from some inbound ports.
 	l.ListenerFilters = append(l.ListenerFilters, populateListenerFilters(lb.node, l, true)...)
 	return []*listener.Listener{terminate, l}
+}
+
+func (lb *ListenerBuilder) sanitizeFilterChainForHBONE(c *listener.FilterChain) {
+	fcm := c.GetFilterChainMatch()
+	if fcm == nil {
+		fcm = &listener.FilterChainMatch{}
+		c.FilterChainMatch = fcm
+	}
+	// Clear out settings that do not matter anymore
+	fcm.TransportProtocol = ""
+	// Filter to only allowed ranges. This ensures we do not get HBONE requests to garbage IPs
+	fcm.PrefixRanges = slices.Map(lb.node.IPAddresses, util.ConvertAddressToCidr)
 }
 
 // buildInboundListeners creates inbound listeners.
@@ -349,16 +348,23 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(enableSidecarServiceInbo
 	if sidecarScope.HasIngressListener() {
 		ingressPortListSet = getSidecarIngressPortList(lb.node)
 	}
+	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 	for _, i := range lb.node.ServiceTargets {
 		bindToPort := getBindToPort(networking.CaptureMode_DEFAULT, lb.node)
 		// Skip ports we cannot bind to
-		if !lb.node.CanBindToPort(bindToPort, i.Port.TargetPort) {
-			log.Debugf("buildInboundListeners: skipping privileged service port %d for node %s as it is an unprivileged proxy",
-				i.Port.TargetPort, lb.node.ID)
+		wildcard := wildCards[lb.node.GetIPMode()][0]
+		if canbind, knownlistener := lb.node.CanBindToPort(bindToPort, lb.node, lb.push, actualWildcards[0],
+			int(i.Port.TargetPort), i.Port.Protocol, wildcard); !canbind {
+			if knownlistener {
+				log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+					i.Port.TargetPort, lb.node.ID)
+			} else {
+				log.Warnf("buildInboundListeners: skipping privileged service port %d for node %s as it is an unprivileged proxy",
+					i.Port.TargetPort, lb.node.ID)
+			}
 			continue
 		}
 		port := i.Port
-		actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
 			// ingress listener port means the target port, may not equal to service port
 			ingressPortListSet.Contains(int(port.TargetPort)) {
@@ -375,12 +381,6 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(enableSidecarServiceInbo
 			bind:              actualWildcards[0],
 			bindToPort:        bindToPort,
 			hbone:             lb.node.IsWaypointProxy(),
-		}
-		// for inbound only generate a standalone listener when bindToPort=true
-		if bindToPort && conflictWithReservedListener(lb.node, nil, cc.bind, int(port.TargetPort), port.Protocol) {
-			log.Debugf("buildInboundListeners: skipping service port %d for node %s as it conflicts with static listener",
-				port.TargetPort, lb.node.ID)
-			continue
 		}
 
 		// add extra binding addresses
@@ -434,10 +434,16 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				TargetPort: i.Port.Number, // No targetPort support in the API
 			}
 			bindtoPort := getBindToPort(i.CaptureMode, lb.node)
+			wildcard := wildCards[lb.node.GetIPMode()][0]
 			// Skip ports we cannot bind to
-			if !lb.node.CanBindToPort(bindtoPort, port.TargetPort) {
-				log.Warnf("buildInboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
-					port.TargetPort, lb.node.ID)
+			if canbind, knownlistener := lb.node.CanBindToPort(bindtoPort, lb.node, nil, i.Bind, port.Port, port.Protocol, wildcard); !canbind {
+				if knownlistener {
+					log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+						port.TargetPort, lb.node.ID)
+				} else {
+					log.Warnf("buildInboundListeners: skipping privileged service port %d for node %s as it is an unprivileged proxy",
+						port.TargetPort, lb.node.ID)
+				}
 				continue
 			}
 			cc := inboundChainConfig{
@@ -458,12 +464,6 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				if len(actualWildcards) > 1 {
 					cc.extraBind = actualWildcards[1:]
 				}
-			}
-			// for inbound only generate a standalone listener when bindToPort=true
-			if bindtoPort && conflictWithReservedListener(lb.node, nil, cc.bind, port.Port, port.Protocol) {
-				log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
-					port.TargetPort, lb.node.ID)
-				continue
 			}
 
 			// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.
@@ -702,43 +702,58 @@ func reportInboundConflict(lb *ListenerBuilder, old inboundChainConfig, cc inbou
 	}
 }
 
+func buildInboundHBONEPassthroughChain(lb *ListenerBuilder) []*listener.FilterChain {
+	mtls := authn.MTLSSettings{
+		Port: 0,
+		Mode: model.MTLSDisable,
+	}
+	cc := inboundChainConfig{
+		port: model.ServiceInstancePort{
+			ServicePort: &model.Port{
+				Name: model.VirtualInboundListenerName,
+				// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
+				// but this is backwards compatible and there aren't any perfect options.
+				Port:     0,
+				Protocol: protocol.Unsupported,
+			},
+			TargetPort: mtls.Port,
+		},
+		clusterName: util.InboundPassthroughCluster,
+		passthrough: true,
+		hbone:       lb.node.IsWaypointProxy(),
+	}
+
+	opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto)
+	return lb.inboundChainForOpts(cc, mtls, opts)
+}
+
 // buildInboundPassthroughChains builds the passthrough chains. These match any unmatched traffic.
 // This allows traffic to ports not exposed by any Service, for example.
 func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain {
-	// ipv4 and ipv6 feature detect
-	ipVersions := make([]string, 0, 2)
-	if lb.node.SupportsIPv4() {
-		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv4)
-	}
-	if lb.node.SupportsIPv6() {
-		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
-	}
 	// Setup enough slots for common max size (permissive mode is 5 filter chains). This is not
 	// exact, just best effort optimization
-	filterChains := make([]*listener.FilterChain, 0, 1+5*len(ipVersions))
+	filterChains := make([]*listener.FilterChain, 0, 1+5)
 	filterChains = append(filterChains, buildInboundBlackhole(lb))
 
-	for _, clusterName := range ipVersions {
-		mtlsOptions := lb.authnBuilder.ForPassthrough()
-		for _, mtls := range mtlsOptions {
-			cc := inboundChainConfig{
-				port: model.ServiceInstancePort{
-					ServicePort: &model.Port{
-						Name: model.VirtualInboundListenerName,
-						// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
-						// but this is backwards compatible and there aren't any perfect options.
-						Port:     0,
-						Protocol: protocol.Unsupported,
-					},
-					TargetPort: mtls.Port,
+	mtlsOptions := lb.authnBuilder.ForPassthrough()
+	for _, mtls := range mtlsOptions {
+		cc := inboundChainConfig{
+			port: model.ServiceInstancePort{
+				ServicePort: &model.Port{
+					Name: model.VirtualInboundListenerName,
+					// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
+					// but this is backwards compatible and there aren't any perfect options.
+					Port:     0,
+					Protocol: protocol.Unsupported,
 				},
-				clusterName: clusterName,
-				passthrough: true,
-				hbone:       lb.node.IsWaypointProxy(),
-			}
-			opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto)
-			filterChains = append(filterChains, lb.inboundChainForOpts(cc, mtls, opts)...)
+				TargetPort: mtls.Port,
+			},
+			clusterName: util.InboundPassthroughCluster,
+			passthrough: true,
+			hbone:       lb.node.IsWaypointProxy(),
 		}
+		opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto)
+		filterChains = append(filterChains, lb.inboundChainForOpts(cc, mtls, opts)...)
 	}
 
 	return filterChains

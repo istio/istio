@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/miekg/dns"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
@@ -44,6 +45,10 @@ type NetworkGateway struct {
 	Addr string
 	// gateway port
 	Port uint32
+	// HBONEPort if non-zero indicates that the gateway supports HBONE
+	HBONEPort uint32
+	// ServiceAccount the gateway runs as
+	ServiceAccount types.NamespacedName
 }
 
 type NetworkGatewaysWatcher interface {

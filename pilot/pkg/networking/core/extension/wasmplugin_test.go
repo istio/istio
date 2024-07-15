@@ -125,23 +125,21 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 	})
 	testCases := []struct {
 		name        string
-		wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper
+		wasmPlugins []*model.WasmPluginWrapper
 		names       []string
 		expectedECs []*core.TypedExtensionConfig
 	}{
 		{
 			name:        "empty",
-			wasmPlugins: map[extensions.PluginPhase][]*model.WasmPluginWrapper{},
+			wasmPlugins: []*model.WasmPluginWrapper{},
 			names:       []string{someAuthNFilter.Name},
 			expectedECs: []*core.TypedExtensionConfig{},
 		},
 		{
 			name: "authn",
-			wasmPlugins: map[extensions.PluginPhase][]*model.WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					someAuthNFilter,
-					someAuthZFilter,
-				},
+			wasmPlugins: []*model.WasmPluginWrapper{
+				someAuthNFilter,
+				someAuthZFilter,
 			},
 			names: []string{someAuthNFilter.Namespace + "." + someAuthNFilter.Name},
 			expectedECs: []*core.TypedExtensionConfig{
@@ -153,10 +151,8 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 		},
 		{
 			name: "network",
-			wasmPlugins: map[extensions.PluginPhase][]*model.WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					someNetworkFilter,
-				},
+			wasmPlugins: []*model.WasmPluginWrapper{
+				someNetworkFilter,
 			},
 			names: []string{
 				someNetworkFilter.Namespace + "." + someNetworkFilter.Name,
@@ -170,11 +166,9 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 		},
 		{
 			name: "combination of http and network",
-			wasmPlugins: map[extensions.PluginPhase][]*model.WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					someAuthNFilter,
-					someNetworkFilter,
-				},
+			wasmPlugins: []*model.WasmPluginWrapper{
+				someAuthNFilter,
+				someNetworkFilter,
 			},
 			names: []string{
 				someAuthNFilter.Namespace + "." + someAuthNFilter.Name,

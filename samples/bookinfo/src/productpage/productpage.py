@@ -14,9 +14,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-
-from flask import Flask, request, session, render_template, redirect
-from flask_bootstrap import Bootstrap
+import time
+from flask import Flask, request, session, render_template, redirect, g
 from json2html import json2html
 from opentelemetry import trace
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
@@ -36,21 +35,19 @@ import sys
 # You will see the REQUEST, including HEADERS and DATA, and RESPONSE with HEADERS but without DATA.
 # The only thing missing will be the response.body which is not logged.
 import http.client as http_client
-http_client.HTTPConnection.debuglevel = 1
+http_client.HTTPConnection.debuglevel = 0
 
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 requests_log = logging.getLogger("requests.packages.urllib3")
-requests_log.setLevel(logging.DEBUG)
+requests_log.setLevel(logging.INFO)
 requests_log.propagate = True
 app.logger.addHandler(logging.StreamHandler(sys.stdout))
-app.logger.setLevel(logging.DEBUG)
+app.logger.setLevel(logging.INFO)
 
 # Set the secret key to some random bytes. Keep this really secret!
 app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
-
-Bootstrap(app)
 
 servicesDomain = "" if (os.environ.get("SERVICES_DOMAIN") is None) else "." + os.environ.get("SERVICES_DOMAIN")
 detailsHostname = "details" if (os.environ.get("DETAILS_HOSTNAME") is None) else os.environ.get("DETAILS_HOSTNAME")
@@ -337,7 +334,7 @@ def getProduct(product_id):
 def getProductDetails(product_id, headers):
     try:
         url = details['name'] + "/" + details['endpoint'] + "/" + str(product_id)
-        res = requests.get(url, headers=headers, timeout=3.0)
+        res = send_request(url, headers=headers, timeout=3.0)
     except BaseException:
         res = None
     if res and res.status_code == 200:
@@ -355,7 +352,7 @@ def getProductReviews(product_id, headers):
     for _ in range(2):
         try:
             url = reviews['name'] + "/" + reviews['endpoint'] + "/" + str(product_id)
-            res = requests.get(url, headers=headers, timeout=3.0)
+            res = send_request(url, headers=headers, timeout=3.0)
         except BaseException:
             res = None
         if res and res.status_code == 200:
@@ -369,7 +366,7 @@ def getProductReviews(product_id, headers):
 def getProductRatings(product_id, headers):
     try:
         url = ratings['name'] + "/" + ratings['endpoint'] + "/" + str(product_id)
-        res = requests.get(url, headers=headers, timeout=3.0)
+        res = send_request(url, headers=headers, timeout=3.0)
     except BaseException:
         res = None
     if res and res.status_code == 200:
@@ -379,6 +376,11 @@ def getProductRatings(product_id, headers):
         status = res.status_code if res is not None and res.status_code else 500
         request_result_counter.labels(destination_app='ratings', response_code=status).inc()
         return status, {'error': 'Sorry, product ratings are currently unavailable for this book.'}
+
+
+def send_request(url, **kwargs):
+    # We intentionally do not pool so that we can easily test load distribution across many versions of our backends
+    return requests.get(url, **kwargs)
 
 
 class Writer(object):
@@ -401,6 +403,6 @@ if __name__ == '__main__':
     logging.info("start at port %s" % (p))
     # Make it compatible with IPv6 if Linux
     if sys.platform == "linux":
-        app.run(host='::', port=p, debug=True, threaded=True)
+        app.run(host='::', port=p, debug=False, threaded=True)
     else:
-        app.run(host='0.0.0.0', port=p, debug=True, threaded=True)
+        app.run(host='0.0.0.0', port=p, debug=False, threaded=True)

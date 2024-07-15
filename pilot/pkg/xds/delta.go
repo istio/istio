@@ -162,10 +162,6 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
 		deltaLog.Debugf("Skipping push to %v, no updates required", con.ID())
-		if pushRequest.Full {
-			// Only report for full versions, incremental pushes do not have a new version
-			reportAllEventsForProxyNoPush(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
-		}
 		return nil
 	}
 
@@ -176,11 +172,6 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		if err := s.pushDeltaXds(con, w, pushRequest); err != nil {
 			return err
 		}
-	}
-
-	if pushRequest.Full {
-		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportEventsForUnWatched(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -258,6 +249,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newReso
 					wr.ResourceNames = newResourceNames
 				}
 				wr.NonceSent = res.Nonce
+				wr.LastSendTime = time.Now()
 				if features.EnableUnsafeDeltaTest {
 					wr.LastResources = applyDelta(wr.LastResources, res)
 				}
@@ -287,10 +279,6 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		return s.pushDeltaXds(con,
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
-	}
-
-	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ID(), req.TypeUrl, req.ResponseNonce)
 	}
 
 	shouldRespond := s.shouldRespondDelta(con, req)
@@ -373,6 +361,10 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		errCode := codes.Code(request.ErrorDetail.Code)
 		deltaLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ID(), errCode.String(), request.ErrorDetail.GetMessage())
 		xds.IncrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
+		con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
+			wr.LastError = request.ErrorDetail.GetMessage()
+			return wr
+		})
 		return false
 	}
 
@@ -421,6 +413,8 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
 		previousResources = wr.ResourceNames
 		currentResources, _ = deltaWatchedResources(previousResources, request)
+		// Clear last error, we got an ACK.
+		wr.LastError = ""
 		wr.NonceAcked = request.ResponseNonce
 		wr.ResourceNames = currentResources
 		alwaysRespond = wr.AlwaysRespond
@@ -505,10 +499,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		res, logdata, err = g.Generate(con.proxy, w, req)
 	}
 	if err != nil || (res == nil && deletedRes == nil) {
-		// If we have nothing to send, report that we got an ACK for this version.
-		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterEvent(con.ID(), w.TypeUrl, req.Push.LedgerVersion)
-		}
 		return err
 	}
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
@@ -517,7 +507,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		TypeUrl:      w.TypeUrl,
 		// TODO: send different version for incremental eds
 		SystemVersionInfo: req.Push.PushVersion,
-		Nonce:             nonce(req.Push.LedgerVersion),
+		Nonce:             nonce(req.Push.PushVersion),
 		Resources:         res,
 	}
 	currentResources := slices.Map(res, func(r *discovery.Resource) string {
@@ -570,8 +560,10 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		if recordSendError(w.TypeUrl, err) {
 			logger = deltaLog.Warnf
 		}
-		logger("%s: Send failure for node:%s resources:%d size:%s%s: %v",
-			v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
+		if deltaLog.DebugEnabled() {
+			logger("%s: Send failure for node:%s resources:%d size:%s%s: %v",
+				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
+		}
 		return err
 	}
 

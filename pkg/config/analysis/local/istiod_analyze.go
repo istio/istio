@@ -351,6 +351,9 @@ func (sa *IstiodAnalyzer) GetFiltersByGVK() map[config.GroupVersionKind]kubetype
 		gvk.Secret: {
 			FieldSelector: secretFieldSelector,
 		},
+		gvk.Pod: {
+			ObjectTransform: kubelib.StripPodUnusedFields,
+		},
 	}
 }
 

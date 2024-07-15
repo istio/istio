@@ -375,15 +375,11 @@ func (instance *WorkloadInstance) CmpOpts() []cmp.Option {
 
 // DeepCopy creates a copy of WorkloadInstance.
 func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
-	pmap := map[string]uint32{}
-	for k, v := range instance.PortMap {
-		pmap[k] = v
-	}
 	return &WorkloadInstance{
 		Name:      instance.Name,
 		Namespace: instance.Namespace,
 		Kind:      instance.Kind,
-		PortMap:   pmap,
+		PortMap:   maps.Clone(instance.PortMap),
 		Endpoint:  instance.Endpoint.DeepCopy(),
 	}
 }
@@ -1272,6 +1268,21 @@ func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
 				return addresses[1:]
 			}
 		}
+	}
+	return nil
+}
+
+// GetAllAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
+// Especially for dual stack k8s service to get other IP family addresses.
+func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
+	if (features.EnableDualStack || features.EnableAmbient) && node.Metadata != nil && node.Metadata.ClusterID != "" {
+		addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
+		if len(addresses) > 0 {
+			return addresses
+		}
+	}
+	if a := s.GetAddressForProxy(node); a != "" {
+		return []string{a}
 	}
 	return nil
 }

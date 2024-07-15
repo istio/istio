@@ -30,12 +30,12 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -62,6 +62,8 @@ const (
 	reqWithoutQueryCommandOperator = "%REQ_WITHOUT_QUERY"
 	metadataCommandOperator        = "%METADATA"
 	celCommandOperator             = "%CEL"
+	// count of all supported fotmatter, right now is 3(CEL, METADATA and REQ_WITHOUT_QUERY).
+	maxFormattersLength = 3
 
 	DevStdout = "/dev/stdout"
 
@@ -278,18 +280,18 @@ func buildFileAccessJSONLogFormat(
 			Format: &core.SubstitutionFormatString_JsonFormat{
 				JsonFormat: jsonLogStruct,
 			},
-			JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
+			JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
 		},
 	}, formatters
 }
 
 func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtensionConfig {
+	if jsonLogStruct == nil {
+		return nil
+	}
+
 	reqWithoutQuery, metadata, cel := false, false, false
 	for _, value := range jsonLogStruct.Fields {
-		if reqWithoutQuery && metadata {
-			break
-		}
-
 		if !reqWithoutQuery && strings.Contains(value.GetStringValue(), reqWithoutQueryCommandOperator) {
 			reqWithoutQuery = true
 		}
@@ -301,7 +303,7 @@ func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtens
 		}
 	}
 
-	formatters := make([]*core.TypedExtensionConfig, 0, 2)
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormattersLength)
 	if reqWithoutQuery {
 		formatters = append(formatters, reqWithoutQueryFormatter)
 	}
@@ -316,7 +318,7 @@ func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtens
 }
 
 func accessLogTextFormatters(text string) []*core.TypedExtensionConfig {
-	formatters := make([]*core.TypedExtensionConfig, 0, 2)
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormattersLength)
 	if strings.Contains(text, reqWithoutQueryCommandOperator) {
 		formatters = append(formatters, reqWithoutQueryFormatter)
 	}
@@ -423,7 +425,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: jsonLogStruct,
 				},
-				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
+				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
 			},
 		}
 	default:
@@ -489,7 +491,7 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
-		DisableBuiltinLabels: !features.EnableOTELBuiltinResourceLabels,
+		DisableBuiltinLabels: true,
 	}
 
 	if format != "" {
@@ -506,7 +508,41 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 		}
 	}
 
+	// it's unnecessary to check proxy version here,
+	// users should add CEL/METADATA/REQ_WITHOUT_QUERY commands after all proxy upgraded to 1.23+.
+	// Otherwise, the configuration will be rejected.
+	cfg.Formatters = accessLogFormatters(format, labels)
+
 	return cfg
+}
+
+func accessLogFormatters(text string, labels *structpb.Struct) []*core.TypedExtensionConfig {
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormattersLength)
+	defer func() {
+		slices.SortBy(formatters, func(f *core.TypedExtensionConfig) string {
+			return f.Name
+		})
+	}()
+
+	formatters = append(formatters, accessLogTextFormatters(text)...)
+	if len(formatters) >= maxFormattersLength {
+		// all formatters are added, return if we have reached the limit
+		return formatters
+	}
+
+	names := sets.New[string]()
+	for _, f := range formatters {
+		names.Insert(f.Name)
+	}
+
+	for _, f := range accessLogJSONFormatters(labels) {
+		if !names.Contains(f.Name) {
+			formatters = append(formatters, f)
+			names.Insert(f.Name)
+		}
+	}
+
+	return formatters
 }
 
 func ConvertStructToAttributeKeyValues(labels map[string]*structpb.Value) []*otlpcommon.KeyValue {

@@ -32,6 +32,7 @@ const (
 	LogUDSAddress        = "log-uds-address"
 	ZtunnelUDSAddress    = "ztunnel-uds-address"
 	CNIEventAddress      = "cni-event-address"
+	ExcludeNamespaces    = "exclude-namespaces"
 	AmbientEnabled       = "ambient-enabled"
 	AmbientDNSCapture    = "ambient-dns-capture"
 	AmbientIPv6          = "ambient-ipv6"
@@ -55,21 +56,22 @@ const (
 // Internal constants
 const (
 	DefaultKubeconfigMode = 0o600
-
-	CNIAddEventPath = "/cmdadd"
-	UDSLogPath      = "/log"
+	CNIAgentLogScope      = "cni-agent"
+	CNIPluginLogScope     = "cni-plugin"
+	CNIAddEventPath       = "/cmdadd"
+	UDSLogPath            = "/log"
 
 	// K8s liveness and readiness endpoints
-	LivenessEndpoint  = "/healthz"
-	ReadinessEndpoint = "/readyz"
-	ReadinessPort     = "8000"
+	LivenessEndpoint   = "/healthz"
+	ReadinessEndpoint  = "/readyz"
+	ReadinessPort      = "8000"
+	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
 )
 
-// Exposed for testing constants
+// Exposed for testing "constants"
 var (
-	CNIBinDir          = "/opt/cni/bin"
-	HostCNIBinDir      = "/host/opt/cni/bin"
-	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
+	CNIBinDir     = "/opt/cni/bin"
+	HostCNIBinDir = "/host/opt/cni/bin"
 	// Well-known subpath we will mount any needed host-mounts under,
 	// to preclude shadowing or breaking any pod-internal mounts
 	HostMountsPath = "/host"

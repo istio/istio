@@ -242,14 +242,14 @@ var ValidCipherSuites = sets.New(
 
 // ValidECDHCurves contains a list of all ecdh curves supported in MeshConfig.TlsDefaults.ecdhCurves
 // Source:
-// https://github.com/google/boringssl/blob/3743aafdacff2f7b083615a043a37101f740fa53/ssl/ssl_key_share.cc#L302-L309
+// https://github.com/google/boringssl/blob/45cf810dbdbd767f09f8cb0b0fcccd342c39041f/src/ssl/ssl_key_share.cc#L285-L293
 var ValidECDHCurves = sets.New(
 	"P-224",
 	"P-256",
 	"P-521",
 	"P-384",
 	"X25519",
-	"CECPQ2",
+	"X25519Kyber768Draft00",
 )
 
 func IsValidCipherSuite(cs string) bool {

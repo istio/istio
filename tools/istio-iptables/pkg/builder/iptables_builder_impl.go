@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -180,7 +182,8 @@ func (rb *IptablesRuleBuilder) BuildV6() [][]string {
 
 func (rb *IptablesRuleBuilder) constructIptablesRestoreContents(tableRulesMap map[string][]string) string {
 	var b strings.Builder
-	for table, rules := range tableRulesMap {
+	for _, table := range slices.Sort(maps.Keys(tableRulesMap)) {
+		rules := tableRulesMap[table]
 		if len(rules) > 0 {
 			_, _ = fmt.Fprintln(&b, "*", table)
 			for _, r := range rules {

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** Allow users to set the seccompProfile.type (e.g. to RuntimeDefault) for autodeployed waypoints by setting `values.gateways.seccompProfile.type` in the istiod injection config.

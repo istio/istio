@@ -45,7 +45,7 @@ spec:
   url: google.com
 ---
 # only selector is set, should be ineffective
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: telemetry-ineffective
@@ -56,7 +56,7 @@ spec:
       gateway.networking.k8s.io/gateway-name: bookinfo-gateway
 ---
 # has targetRef set, should be effective
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: telemetry-effective

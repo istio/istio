@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -31,12 +32,12 @@ const (
 
 // Ports be skipped for protocol sniffing. Applications bound to these ports will be broken if
 // protocol sniffing is enabled.
-var wellKnownPorts = map[int32]struct{}{
-	SMTP:    {},
-	DNS:     {},
-	MySQL:   {},
-	MongoDB: {},
-}
+var wellKnownPorts = sets.New[int32](
+	SMTP,
+	DNS,
+	MySQL,
+	MongoDB,
+)
 
 var (
 	grpcWeb    = string(protocol.GRPCWeb)
@@ -78,7 +79,7 @@ func ConvertProtocol(port int32, portName string, proto corev1.Protocol, appProt
 	p := protocol.Parse(name)
 	if p == protocol.Unsupported {
 		// Make TCP as default protocol for well know ports if protocol is not specified.
-		if _, has := wellKnownPorts[port]; has {
+		if wellKnownPorts.Contains(port) {
 			return protocol.TCP
 		}
 	}

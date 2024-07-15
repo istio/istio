@@ -197,6 +197,22 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gatewayCustomIngressGatewayBadPortWithoutTarget",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport-notarget.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
+		},
+	},
+	{
+		name:       "gatewayCustomIngressGatewayTranslation",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-translation.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
 		name:       "gatewayServiceMatchPod",
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-svcselector.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
@@ -484,23 +500,6 @@ var testGrid = []testCase{
 		expected:   []message{},
 	},
 	{
-		name: "regexes",
-		inputFiles: []string{
-			"testdata/virtualservice_regexes.yaml",
-		},
-		analyzer: &virtualservice.RegexAnalyzer{},
-		expected: []message{
-			{msg.InvalidRegexp, "VirtualService bad-match"},
-			{msg.InvalidRegexp, "VirtualService ecma-not-v2"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-		},
-	},
-	{
 		name: "unknown service registry in mesh networks",
 		inputFiles: []string{
 			"testdata/multicluster-unknown-serviceregistry.yaml",
@@ -558,6 +557,42 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
 		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at destinationlevel, no workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination-credentialname.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at destinationlevel, workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination-credentialname-selector.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "destinationrule with credentialname, simple at portlevel, no workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port-credentialname.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at portlevel, workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port-credentialname-selector.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
 	},
 	{
 		name: "destinationrule with no cacert, mutual at portlevel",
@@ -917,6 +952,22 @@ var testGrid = []testCase{
 			{msg.IneffectiveSelector, "AuthorizationPolicy default/ap-ineffective"},
 			{msg.IneffectiveSelector, "WasmPlugin default/wasmplugin-ineffective"},
 			{msg.IneffectiveSelector, "Telemetry default/telemetry-ineffective"},
+		},
+	},
+	{
+		name:       "ServiceEntry Addresses Required Lowercase Protocol",
+		inputFiles: []string{"testdata/serviceentry-address-required-lowercase.yaml"},
+		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-lowercase"},
+		},
+	},
+	{
+		name:       "ServiceEntry Addresses Required Uppercase Protocol",
+		inputFiles: []string{"testdata/serviceentry-address-required-uppercase.yaml"},
+		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-uppercase"},
 		},
 	},
 }

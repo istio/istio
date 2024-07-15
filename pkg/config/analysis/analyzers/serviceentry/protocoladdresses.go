@@ -16,6 +16,7 @@ package serviceentry
 
 import (
 	"fmt"
+	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -65,7 +66,7 @@ func (serviceEntry *ProtocolAddressesAnalyzer) analyzeProtocolAddresses(r *resou
 	se := r.Message.(*v1alpha3.ServiceEntry)
 	if se.Addresses == nil && !metaDNSAutoAllocated {
 		for index, port := range se.Ports {
-			if port.Protocol == "" || port.Protocol == "TCP" {
+			if port.Protocol == "" || strings.EqualFold(port.Protocol, "TCP") {
 				message := msg.NewServiceEntryAddressesRequired(r)
 
 				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.ServiceEntryPort, index)); ok {

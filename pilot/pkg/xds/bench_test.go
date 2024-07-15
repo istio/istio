@@ -21,6 +21,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"text/template"
 	"time"
@@ -35,7 +36,9 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/core/route"
+	xdspkg "istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
@@ -634,6 +637,59 @@ func BenchmarkCache(b *testing.B) {
 		key := makeCacheKey(1)
 		for n := 0; n < b.N; n++ {
 			_ = key.Key()
+		}
+	})
+	b.Run("concurrent", func(b *testing.B) {
+		// Alternative makeCacheKey that is way cheaper, to ensure our test is exercising the concurrency rather than the Key() function
+		makeCacheKey := func(n int) model.XdsCacheEntry {
+			name := strconv.Itoa(n)
+			key := &xdspkg.SecretResource{
+				SecretResource: credentials.SecretResource{Name: name},
+			}
+			return key
+		}
+
+		c := model.NewXdsCache()
+		keys := []model.XdsCacheEntry{}
+		for n := range features.XDSCacheMaxSize {
+			key := makeCacheKey(n)
+			keys = append(keys, key)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(n))}
+			c.Add(key, req, res)
+		}
+		workers := 100
+		chans := []chan struct{}{}
+		wg := sync.WaitGroup{}
+		for range workers {
+			thisCh := make(chan struct{})
+			chans = append(chans, thisCh)
+			go func() {
+				for {
+					_, ok := <-thisCh
+					if !ok {
+						// Done
+						return
+					}
+					// Do a loop
+					for _, k := range keys {
+						c.Get(k)
+					}
+					wg.Done()
+				}
+			}()
+		}
+		b.ResetTimer()
+		for range b.N {
+			// for each iteration, trigger all workers to do a bunch of lookups in parallel
+			wg.Add(workers)
+			for _, ch := range chans {
+				ch <- struct{}{}
+			}
+			wg.Wait()
+		}
+		// Terminate the workers
+		for _, ch := range chans {
+			close(ch)
 		}
 	})
 	b.Run("insert", func(b *testing.B) {

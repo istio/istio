@@ -86,7 +86,7 @@ const (
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
 )
 
-var IstioComponentSuccessIcons = map[ComponentName]string{
+var IstioComponentIcons = map[ComponentName]string{
 	IstioBaseComponentName: "⛵️",
 	PilotComponentName:     "🧠",
 	CNIComponentName:       "🪢",

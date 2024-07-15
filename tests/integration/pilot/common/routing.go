@@ -2319,62 +2319,35 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 	return cases
 }
 
-func UpstreamProxyProtocolCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
-	var cases []TrafficTestCase
-	gatewayListenPort := 80
-	gatewayListenPortName := "tcp"
-
-	destinationSets := []echo.Instances{
-		apps.A,
-	}
-
+func TestUpstreamProxyProtocol(t TrafficContext) {
+	d := t.Apps.B
+	fqdn := d.Config().ClusterLocalFQDN()
 	destRule := fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: custom-gateway
+  name: proxy
 spec:
   host: %s
   trafficPolicy:
+    tls:
+      mode: DISABLE
     proxyProtocol:
       version: V1
 ---
-`, gateway)
+`, fqdn)
 
-	for _, d := range destinationSets {
-		d := d
-		if len(d) == 0 {
-			continue
-		}
-
-		fqdn := d[0].Config().ClusterLocalFQDN()
-		cases = append(cases, TrafficTestCase{
-			name: d[0].Config().Service,
-			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
-			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP", "") + // use the default label since this test creates its own gateway
-				tcpVirtualService("gateway", fqdn, "", 80, ports.TCP.ServicePort) +
-				destRule,
-			call: apps.A[0].CallOrFail,
-			opts: echo.CallOptions{
-				Count:   1,
-				Port:    echo.Port{ServicePort: 80},
-				Scheme:  scheme.TCP,
-				Address: gateway,
-				Message: "This is a test TCP message",
-				Check: check.Each(
-					func(r echoClient.Response) error {
-						body := r.RawContent
-						ok := strings.Contains(body, "PROXY TCP4")
-						if ok {
-							return fmt.Errorf("sent proxy protocol header, and it was echoed back")
-						}
-						return nil
-					}),
-			},
-		})
-	}
-	return cases
+	t.RunTraffic(TrafficTestCase{
+		name:   "proxy",
+		config: destRule,
+		call:   t.Apps.A[0].CallOrFail,
+		opts: echo.CallOptions{
+			To:    d,
+			Count: 1,
+			Port:  ports.HTTPWithProxy,
+			Check: check.ProxyProtocolVersion("1"),
+		},
+	})
 }
 
 func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {

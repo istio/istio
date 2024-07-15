@@ -39,6 +39,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/controllers/untaint"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
@@ -53,7 +54,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
-	"istio.io/istio/pilot/pkg/status/distribution"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/cluster"
@@ -115,6 +115,7 @@ type Server struct {
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string
 	httpsServer *http.Server // webhooks HTTPS Server.
+	httpsAddr   string
 
 	grpcServer        *grpc.Server
 	grpcAddress       string
@@ -149,9 +150,13 @@ type Server struct {
 	caServer *caserver.Server
 
 	// TrustAnchors for workload to workload mTLS
-	workloadTrustBundle     *tb.TrustBundle
-	certMu                  sync.RWMutex
-	istiodCert              *tls.Certificate
+	workloadTrustBundle *tb.TrustBundle
+	certMu              sync.RWMutex
+	istiodCert          *tls.Certificate
+
+	// istiodCertBundleWatche provides callbacks when the Istiod certs or roots are changed.
+	// The roots are used by the namespace controller to update Istiod roots and patch webhooks.
+	// The certs are used to refresh Istiod credentials.
 	istiodCertBundleWatcher *keycertbundle.Watcher
 	server                  server.Instance
 
@@ -169,8 +174,7 @@ type Server struct {
 
 	webhookInfo *webhookInfo
 
-	statusReporter *distribution.Reporter
-	statusManager  *status.Manager
+	statusManager *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreController
 }
@@ -218,7 +222,6 @@ func (w *webhookInfo) addHandler(fn func()) {
 func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e := model.NewEnvironment()
 	e.DomainSuffix = args.RegistryOptions.KubeOptions.DomainSuffix
-	e.SetLedger(buildLedger(args.RegistryOptions))
 
 	ac := aggregate.NewController(aggregate.Options{
 		MeshHolder: e,
@@ -233,13 +236,13 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		monitoringMux:           http.NewServeMux(),
 		readinessProbes:         make(map[string]readinessProbe),
 		readinessFlags:          &readinessFlags{},
-		workloadTrustBundle:     tb.NewTrustBundle(nil),
 		server:                  server.New(),
 		shutdownDuration:        args.ShutdownDuration,
 		internalStop:            make(chan struct{}),
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 		webhookInfo:             &webhookInfo{},
 	}
+	s.workloadTrustBundle = tb.NewTrustBundle(nil, e.Watcher)
 
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
@@ -269,7 +272,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 
 	s.initMeshConfiguration(args, s.fileWatcher)
-	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 	// Setup Kubernetes watch filters
 	// Because this relies on meshconfig, it needs to be outside initKubeClient
 	if s.kubeClient != nil {
@@ -326,7 +328,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
-	if err := s.initSecureDiscoveryService(args); err != nil {
+	if err := s.initSecureDiscoveryService(args, s.environment.Mesh().GetTrustDomain()); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
@@ -358,7 +360,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		&authenticate.ClientCertAuthenticator{},
 	}
 	if args.JwtRule != "" {
-		jwtAuthn, err := initOIDC(args)
+		jwtAuthn, err := initOIDC(args, s.environment.Watcher)
 		if err != nil {
 			return nil, fmt.Errorf("error initializing OIDC: %v", err)
 		}
@@ -400,7 +402,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	return s, nil
 }
 
-func initOIDC(args *PilotArgs) (security.Authenticator, error) {
+func initOIDC(args *PilotArgs, meshWatcher mesh.Watcher) (security.Authenticator, error) {
 	// JWTRule is from the JWT_RULE environment variable.
 	// An example of json string for JWTRule is:
 	// `{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`.
@@ -410,7 +412,7 @@ func initOIDC(args *PilotArgs) (security.Authenticator, error) {
 		return nil, fmt.Errorf("failed to unmarshal JWT rule: %v", err)
 	}
 	log.Infof("Istiod authenticating using JWTRule: %v", jwtRule)
-	jwtAuthn, err := authenticate.NewJwtAuthenticator(jwtRule)
+	jwtAuthn, err := authenticate.NewJwtAuthenticator(jwtRule, meshWatcher)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the JWT authenticator: %v", err)
 	}
@@ -486,6 +488,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 				log.Errorf("error serving https server: %v", err)
 			}
 		}()
+		s.httpsAddr = httpsListener.Addr().String()
 	}
 
 	s.waitForShutdown(stop)
@@ -739,13 +742,13 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 }
 
 // initialize secureGRPCServer.
-func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
+func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string) error {
 	if args.ServerOptions.SecureGRPCAddr == "" {
 		log.Info("The secure discovery port is disabled, multiplexing on httpAddr ")
 		return nil
 	}
 
-	peerCertVerifier, err := s.createPeerCertVerifier(args.ServerOptions.TLSOptions)
+	peerCertVerifier, err := s.createPeerCertVerifier(args.ServerOptions.TLSOptions, trustDomain)
 	if err != nil {
 		return err
 	}
@@ -874,15 +877,6 @@ func (s *Server) initRegistryEventHandlers() {
 
 	if s.configController != nil {
 		configHandler := func(prev config.Config, curr config.Config, event model.Event) {
-			if s.statusReporter != nil {
-				defer func() {
-					if event != model.EventDelete {
-						s.statusReporter.AddInProgressResource(curr)
-					} else {
-						s.statusReporter.DeleteInProgressResource(curr)
-					}
-				}()
-			}
 			log.Debugf("Handle event %s for configuration %s", event, curr.Key())
 			// For update events, trigger push only if spec has changed.
 			if event == model.EventUpdate && !needsPush(prev, curr) {
@@ -938,6 +932,8 @@ func (s *Server) initRegistryEventHandlers() {
 	}
 }
 
+// initIstiodCertLoader will make sure istiodCertBundleWatcher is updating
+// the certs and updates Server.istiodCert - which is returned on all TLS requests.
 func (s *Server) initIstiodCertLoader() error {
 	if err := s.loadIstiodCert(); err != nil {
 		return fmt.Errorf("first time load IstiodCert failed: %v", err)
@@ -950,7 +946,15 @@ func (s *Server) initIstiodCertLoader() error {
 	return nil
 }
 
-// initIstiodCerts creates Istiod certificates and also sets up watches to them.
+// initIstiodCerts creates Istiod certificates to be used by gRPC and webhook TLS servers
+// and also sets up watches to them. It also detects and sets the root certificates
+// for replication.
+//
+// This will also detect the root CAs (mesh trust) and set it up for Istiod as well as
+// namespace replication, if the controller is enabled.
+//
+// Will prefer local certificates, and fallback to using the CA to sign a fresh, temporary
+// certificate.
 func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	// Skip all certificates
 	var err error
@@ -958,7 +962,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	s.dnsNames = getDNSNames(args, host)
 	if hasCustomCertArgsOrWellKnown, tlsCertPath, tlsKeyPath, caCertPath := hasCustomTLSCerts(args.ServerOptions.TLSOptions); hasCustomCertArgsOrWellKnown {
 		// Use the DNS certificate provided via args or in well known location.
-		err = s.initCertificateWatches(TLSOptions{
+		err = s.initFileCertificateWatches(TLSOptions{
 			CaCertFile: caCertPath,
 			KeyFile:    tlsKeyPath,
 			CertFile:   tlsCertPath,
@@ -970,14 +974,29 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 		}
 	} else if features.EnableCAServer && features.PilotCertProvider == constants.CertProviderIstiod {
 		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts()
+		err = s.initDNSCertsIstiod()
 	} else if features.PilotCertProvider == constants.CertProviderKubernetes {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts()
+		// This will not work - better to fail Istiod startup so it can be detected early.
+		// Unlike other failures that we can recover from, this has no mitigation, user must
+		// choose a different source.
+		// The feature didn't work for few releases, but a skip-version upgrade may still
+		// encounter it.
+		log.Fatalf("PILOT_CERT_PROVIDER=kubernetes is no longer supported by upstream K8S")
 	} else if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts()
+		log.Infof("initializing Istiod DNS certificates using K8S RA:%s  host: %s, custom host: %s", features.PilotCertProvider,
+			host, features.IstiodServiceCustomHost)
+		err = s.initDNSCertsK8SRA()
 	} else {
+		log.Warnf("PILOT_CERT_PROVIDER=%s is not implemented", features.PilotCertProvider)
+
+		// In Istio 1.22 - we return nil here - the old code in s.initDNSCerts used to have
+		// an 'else' to handle the unknown providers by not initializing the TLS certs but
+		// still seting the root from /etc/certs/root-cert.pem for distribution in the
+		// namespace controller.
+		// The new behavior appears safer - IMO we may also do a fatal unless provider is
+		// set to "none" because it is not clear what the user intends.
+
+		// Skip invoking initIstiodCertLoader - we have no cert.
 		return nil
 	}
 
@@ -1018,9 +1037,9 @@ func getDNSNames(args *PilotArgs, host string) []string {
 }
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
-func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
+func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions, trustDomain string) (*spiffe.PeerCertVerifier, error) {
 	customTLSCertsExists, _, _, caCertPath := hasCustomTLSCerts(tlsOptions)
-	if !customTLSCertsExists && s.CA == nil && !s.isCADisabled() {
+	if !customTLSCertsExists && s.CA == nil && !s.isK8SSigning() {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
@@ -1047,7 +1066,8 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 	}
 
 	if len(rootCertBytes) != 0 {
-		err := peerCertVerifier.AddMappingFromPEM(spiffe.GetTrustDomain(), rootCertBytes)
+		// TODO: trustDomain here is static and will not update if it dynamically changes in mesh config
+		err := peerCertVerifier.AddMappingFromPEM(trustDomain, rootCertBytes)
 		if err != nil {
 			return nil, fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
 		}
@@ -1097,7 +1117,7 @@ func hasCustomTLSCertArgs(tlsOptions TLSOptions) bool {
 	return tlsOptions.CaCertFile != "" && tlsOptions.CertFile != "" && tlsOptions.KeyFile != ""
 }
 
-// getIstiodCertificate returns the istiod certificate.
+// getIstiodCertificate returns the istiod certificate, used in GetCertificate hook.
 func (s *Server) getIstiodCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	s.certMu.RLock()
 	defer s.certMu.RUnlock()
@@ -1116,6 +1136,10 @@ func (s *Server) initControllers(args *PilotArgs) error {
 
 	if features.EnableNodeUntaintControllers {
 		s.initNodeUntaintController(args)
+	}
+
+	if features.EnableIPAutoallocate {
+		s.initIPAutoallocateController(args)
 	}
 
 	if err := s.initConfigController(args); err != nil {
@@ -1139,6 +1163,18 @@ func (s *Server) initNodeUntaintController(args *PilotArgs) {
 	})
 }
 
+func (s *Server) initIPAutoallocateController(args *PilotArgs) {
+	s.addStartFunc("ip autoallocate controller", func(stop <-chan struct{}) error {
+		go leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.IPAutoallocateController, args.Revision, s.kubeClient).
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				ipallocate := ipallocate.NewIPAllocator(leaderStop, s.kubeClient)
+				ipallocate.Run(leaderStop)
+			}).Run(stop)
+		return nil
+	})
+}
+
 func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
@@ -1153,7 +1189,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	})
 }
 
-// maybeCreateCA creates and initializes CA Key if needed.
+// maybeCreateCA creates and initializes the built-in CA if needed.
 func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 	// CA signing certificate must be created only if CA is enabled.
 	if features.EnableCAServer {
@@ -1165,12 +1201,14 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 			}
 		}
 		// May return nil, if the CA is missing required configs - This is not an error.
+		// This is currently only used for K8S signing.
 		if caOpts.ExternalCAType != "" {
 			if s.RA, err = s.createIstioRA(caOpts); err != nil {
 				return fmt.Errorf("failed to create RA: %v", err)
 			}
 		}
-		if !s.isCADisabled() {
+		// If K8S signs - we don't need to use the built-in istio CA.
+		if !s.isK8SSigning() {
 			if s.CA, err = s.createIstioCA(caOpts); err != nil {
 				return fmt.Errorf("failed to create CA: %v", err)
 			}
@@ -1179,8 +1217,11 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 	return nil
 }
 
+// Returns true to indicate the K8S multicluster controller should enable replication of
+// root certificates to config maps in namespaces.
 func (s *Server) shouldStartNsController() bool {
-	if s.isCADisabled() {
+	if s.isK8SSigning() {
+		// Need to distribute the roots from MeshConfig
 		return true
 	}
 	if s.CA == nil {
@@ -1188,6 +1229,7 @@ func (s *Server) shouldStartNsController() bool {
 	}
 
 	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
+	// This is never called - isK8SSigning is true.
 	if features.PilotCertProvider == constants.CertProviderKubernetes {
 		return false
 	}
@@ -1228,7 +1270,6 @@ func (s *Server) initMeshHandlers(changeHandler func(_ *meshconfig.MeshConfig)) 
 	log.Info("initializing mesh handlers")
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
-		spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 		changeHandler(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
@@ -1308,22 +1349,9 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	return nil
 }
 
-// isCADisabled returns whether CA functionality is disabled in istiod.
-// It returns true only if istiod certs is signed by Kubernetes or
-// workload certs are signed by external CA
-func (s *Server) isCADisabled() bool {
-	if s.RA == nil {
-		return false
-	}
-	// do not create CA server if PilotCertProvider is `kubernetes` and RA server exists
-	if features.PilotCertProvider == constants.CertProviderKubernetes {
-		return true
-	}
-	// do not create CA server if PilotCertProvider is `k8s.io/*` and RA server exists
-	if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-		return true
-	}
-	return false
+// isK8SSigning returns whether K8S (as a RA) is used to sign certs instead of private keys known by Istiod
+func (s *Server) isK8SSigning() bool {
+	return s.RA != nil && strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix)
 }
 
 func (s *Server) initStatusManager(_ *PilotArgs) {

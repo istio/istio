@@ -15,11 +15,13 @@
 package gateway
 
 import (
+	"cmp"
 	"crypto/tls"
 	"fmt"
 	"net"
 	"net/netip"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,12 +52,13 @@ import (
 
 func sortConfigByCreationTime(configs []config.Config) {
 	sort.Slice(configs, func(i, j int) bool {
-		if configs[i].CreationTimestamp.Equal(configs[j].CreationTimestamp) {
-			in := configs[i].Namespace + "/" + configs[i].Name
-			jn := configs[j].Namespace + "/" + configs[j].Name
-			return in < jn
+		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
+			return r == -1 // -1 means i is less than j, so return true
 		}
-		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
+		if r := cmp.Compare(configs[i].Namespace, configs[j].Namespace); r != 0 {
+			return r == -1
+		}
+		return cmp.Compare(configs[i].Name, configs[j].Name) == -1
 	})
 }
 
@@ -197,7 +200,7 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 	vs := &istio.HTTPRoute{}
 	// Auto-name the route. If upstream defines an explicit name, will use it instead
 	// The position within the route is unique
-	vs.Name = fmt.Sprintf("%s.%s.%d", obj.Namespace, obj.Name, pos)
+	vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format: %s.%s.%d
 
 	for _, match := range r.Matches {
 		uri, err := createURIMatch(match)
@@ -305,7 +308,7 @@ func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 	vs := &istio.HTTPRoute{}
 	// Auto-name the route. If upstream defines an explicit name, will use it instead
 	// The position within the route is unique
-	vs.Name = fmt.Sprintf("%s.%s.%d", obj.Namespace, obj.Name, pos)
+	vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format:%s.%s.%d
 
 	for _, match := range r.Matches {
 		uri, err := createGRPCURIMatch(match)

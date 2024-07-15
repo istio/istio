@@ -57,20 +57,20 @@ func TestProgressLog(t *testing.T) {
 	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `. Waiting for deployment`)
 
 	bar.ReportError("some error")
-	expect(`❌ ` + cnbo + ` encountered an error: some error`)
+	expect(`✘ ` + cnbo + ` encountered an error: some error`)
 
 	foo.ReportProgress()
 	expect(`- Processing resources for ` + cnpo + `.`)
 
 	foo.ReportFinished()
-	expect(`🧠 ` + cnpo + ` installed`)
+	expect(`✔ ` + cnpo + ` installed 🧠`)
 
 	p.SetState(StatePruning)
 	expect(`- Pruning removed resources`)
 
 	p.SetState(StateComplete)
-	expect(`✅ Installation complete`)
+	expect(`✔ Installation complete`)
 
 	p.SetState(StateUninstallComplete)
-	expect(`✅ Uninstall complete`)
+	expect(`✔ Uninstall complete`)
 }

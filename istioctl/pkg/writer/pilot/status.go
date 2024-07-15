@@ -20,9 +20,11 @@ import (
 	"io"
 	"sort"
 	"text/tabwriter"
+	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
+	"k8s.io/apimachinery/pkg/util/duration"
 
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/pilot/pkg/model"
@@ -138,11 +140,21 @@ func formatStatus(s *xdsstatus.ClientConfig_GenericXdsConfig) string {
 	case xdsstatus.ConfigStatus_NOT_SENT:
 		return "NOT SENT"
 	default:
-		return s.GetConfigStatus().String()
+		status := s.GetConfigStatus().String()
+		if s.LastUpdated != nil {
+			status += " (" + duration.HumanDuration(time.Since(s.LastUpdated.AsTime())) + ")"
+		}
+		return status
 	}
 }
 
 func getSyncStatus(clientConfig *xdsstatus.ClientConfig) (cds, lds, eds, rds, ecds string) {
+	// If type is not found at all, it is considered ignored
+	lds = ignoredStatus
+	cds = ignoredStatus
+	rds = ignoredStatus
+	eds = ignoredStatus
+	ecds = ignoredStatus
 	configs := handleAndGetXdsConfigs(clientConfig)
 	for _, config := range configs {
 		cfgType := config.GetTypeUrl()

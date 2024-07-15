@@ -15,39 +15,46 @@
 package krt
 
 import (
-	"sync"
+	"fmt"
 
-	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/slices"
 )
 
-// Index maintains a simple index over an informer
-type Index[I any, K comparable] struct {
-	mu      sync.RWMutex
-	objects map[K]sets.Set[Key[I]]
-	c       Collection[I]
-	extract func(o I) []K
+type Index[K comparable, O any] interface {
+	Lookup(k K) []O
+	objectHasKey(obj O, k K) bool
 }
 
-// Lookup finds all objects matching a given key
-func (i *Index[I, K]) Lookup(k K) []I {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	var res []I
-	for obj := range i.objects[k] {
-		item := i.c.GetKey(obj)
-		if item == nil {
-			// This should be extremely rare, but possible. While we have a mutex here, the underlying collection
-			// is not locked and maybe have changed in the meantime.
-			log.Debugf("missing item for %v", obj)
-			continue
-		}
-		res = append(res, *item)
-	}
-	return res
+// NewNamespaceIndex is a small helper to index a collection by namespace
+func NewNamespaceIndex[O Namespacer](c Collection[O]) Index[string, O] {
+	return NewIndex(c, func(o O) []string {
+		return []string{o.GetNamespace()}
+	})
 }
 
-func (i *Index[I, K]) objectHasKey(obj I, k K) bool {
+// NewIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
+// Informer.AddIndex, but is easier to use and can be added after an informer has already started.
+func NewIndex[K comparable, O any](
+	c Collection[O],
+	extract func(o O) []K,
+) Index[K, O] {
+	idx := c.(internalCollection[O]).index(func(o O) []string {
+		return slices.Map(extract(o), func(e K) string {
+			return toString(e)
+		})
+	})
+
+	return index[K, O]{idx, extract}
+}
+
+type index[K comparable, O any] struct {
+	kclient.RawIndexer
+	extract func(o O) []K
+}
+
+// nolint: unused // (not true)
+func (i index[K, O]) objectHasKey(obj O, k K) bool {
 	for _, got := range i.extract(obj) {
 		if got == k {
 			return true
@@ -56,54 +63,21 @@ func (i *Index[I, K]) objectHasKey(obj I, k K) bool {
 	return false
 }
 
-func (i *Index[I, K]) Dump() {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	log.Errorf("> BEGIN DUMP (index %v[%T])", i.c.(internalCollection[I]).name(), ptr.TypeName[K]())
-	for k, v := range i.objects {
-		log.Errorf("key %v: %v", k, v.UnsortedList())
+// Lookup finds all objects matching a given key
+func (i index[K, O]) Lookup(k K) []O {
+	if i.RawIndexer == nil {
+		return nil
 	}
-	log.Errorf("< END DUMP (index %v[%T]", i.c.(internalCollection[I]).name(), ptr.TypeName[K]())
-}
-
-// NewNamespaceIndex is a small helper to index a collection by namespace
-func NewNamespaceIndex[I Namespacer](c Collection[I]) *Index[I, string] {
-	return NewIndex(c, func(o I) []string {
-		return []string{o.GetNamespace()}
+	res := i.RawIndexer.Lookup(toString(k))
+	return slices.Map(res, func(e any) O {
+		return e.(O)
 	})
 }
 
-// NewIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
-// NewInformer.AddIndex, but is easier to use and can be added after an informer has already started.
-func NewIndex[I any, K comparable](
-	c Collection[I],
-	extract func(o I) []K,
-) *Index[I, K] {
-	idx := Index[I, K]{
-		objects: make(map[K]sets.Set[Key[I]]),
-		c:       c,
-		mu:      sync.RWMutex{},
-		extract: extract,
+func toString(rk any) string {
+	tk, ok := rk.(string)
+	if !ok {
+		return rk.(fmt.Stringer).String()
 	}
-	c.Register(func(o Event[I]) {
-		idx.mu.Lock()
-		defer idx.mu.Unlock()
-
-		if o.Old != nil {
-			obj := *o.Old
-			key := GetKey(obj)
-			for _, indexKey := range extract(obj) {
-				sets.DeleteCleanupLast(idx.objects, indexKey, key)
-			}
-		}
-		if o.New != nil {
-			obj := *o.New
-			key := GetKey(obj)
-			for _, indexKey := range extract(obj) {
-				sets.InsertOrNew(idx.objects, indexKey, key)
-			}
-		}
-	})
-
-	return &idx
+	return tk
 }

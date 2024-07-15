@@ -37,11 +37,11 @@ var (
 			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
 	).Get())
 
-	EnablePersistentSessionFilter = env.Register(
+	EnablePersistentSessionFilter = atomic.NewBool(env.Register(
 		"PILOT_ENABLE_PERSISTENT_SESSION_FILTER",
 		false,
 		"If enabled, Istiod sets up persistent session filter for listeners, if services have 'PILOT_PERSISTENT_SESSION_LABEL' set.",
-	).Get()
+	).Get())
 
 	PersistentSessionLabel = env.Register(
 		"PILOT_PERSISTENT_SESSION_LABEL",
@@ -59,19 +59,6 @@ var (
 		"PILOT_DRAINING_LABEL",
 		"istio.io/draining",
 		"If not empty, endpoints with the label value present will be sent with status DRAINING.",
-	).Get()
-
-	EnableDistributionTracking = env.Register(
-		"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING",
-		false,
-		"If enabled, Pilot will assign meaningful nonces to each Envoy configuration message, and allow "+
-			"users to interrogate which envoy has which config from the debug interface.",
-	).Get()
-
-	DistributionHistoryRetention = env.Register(
-		"PILOT_DISTRIBUTION_HISTORY_RETENTION",
-		time.Minute*1,
-		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
 
 	MCSAPIGroup = env.Register("MCS_API_GROUP", "multicluster.x-k8s.io",
@@ -196,15 +183,9 @@ var (
 	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
 		"If true, Istio will enable the Dual Stack feature.").Get()
 
-	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
-		"If enabled, Istiod will not push changes on arbitrary annotation change.").Get()
-
 	// This is used in injection templates, it is not unused.
 	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
 		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
-
-	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
-		"If enabled, pilot will only rebuild config for resources that have changed").Get()
 
 	PassthroughTargetPort = env.Register("ENABLE_RESOLUTION_NONE_TARGET_PORT", true,
 		"If enabled, targetPort will be supported for resolution=NONE ServiceEntry").Get()
