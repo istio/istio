@@ -384,13 +384,6 @@ func (s *suiteImpl) isSkipped(ctx SuiteContext) bool {
 func (s *suiteImpl) doSkip(ctx *suiteContext) int {
 	scopes.Framework.Infof("Skipping suite %q: %s", ctx.Settings().TestID, s.skipMessage)
 
-	// Mark this suite as skipped in the context.
-	ctx.skipped = true
-
-	// Run the tests so that the golang test framework exits normally. The tests will not run because
-	// they see that this suite has been skipped.
-	_ = s.mRun(ctx)
-
 	// Return success.
 	return 0
 }

@@ -209,11 +209,6 @@ func (t *testImpl) runInternal(fn func(ctx TestContext), parallel bool) {
 		panic(fmt.Sprintf("Attempting to run test `%s` more than once", testName))
 	}
 
-	if t.s.skipped {
-		t.goTest.Skip("Skipped because parent Suite was skipped.")
-		return
-	}
-
 	if t.parent != nil {
 		// Create a new subtest under the parent's test.
 		parentGoTest := t.parent.goTest

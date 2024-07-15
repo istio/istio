@@ -66,11 +66,9 @@ func TestSuite_Basic(t *testing.T) {
 	g := NewWithT(t)
 
 	var runCalled bool
-	var runSkipped bool
 	var exitCode int
 	runFn := func(ctx *suiteContext) int {
 		runCalled = true
-		runSkipped = ctx.skipped
 		return -1
 	}
 	exitFn := func(code int) {
@@ -81,7 +79,6 @@ func TestSuite_Basic(t *testing.T) {
 	s.Run()
 
 	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
 	g.Expect(exitCode).To(Equal(-1))
 }
 
@@ -89,9 +86,8 @@ func TestSuite_Label_SuiteFilter(t *testing.T) {
 	defer cleanupRT()
 	g := NewWithT(t)
 
-	var runSkipped bool
 	runFn := func(ctx *suiteContext) int {
-		runSkipped = ctx.skipped
+		t.Fatal("should not run when suite is skipped")
 		return 0
 	}
 
@@ -103,8 +99,6 @@ func TestSuite_Label_SuiteFilter(t *testing.T) {
 	s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 	s.Label(label.CustomSetup)
 	s.Run()
-
-	g.Expect(runSkipped).To(BeTrue())
 }
 
 func TestSuite_Label_SuiteAllow(t *testing.T) {
@@ -112,10 +106,8 @@ func TestSuite_Label_SuiteAllow(t *testing.T) {
 	g := NewWithT(t)
 
 	var runCalled bool
-	var runSkipped bool
 	runFn := func(ctx *suiteContext) int {
 		runCalled = true
-		runSkipped = ctx.skipped
 		return 0
 	}
 
@@ -129,7 +121,6 @@ func TestSuite_Label_SuiteAllow(t *testing.T) {
 	s.Run()
 
 	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
 }
 
 func TestSuite_RequireMinMaxClusters(t *testing.T) {
@@ -201,10 +192,11 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			var runCalled bool
-			var runSkipped bool
 			runFn := func(ctx *suiteContext) int {
 				runCalled = true
-				runSkipped = ctx.skipped
+				if c.expectSkip {
+					t.Fatal("skipped when we should not")
+				}
 				return 0
 			}
 
@@ -222,12 +214,7 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 			s.RequireMaxClusters(c.max)
 			s.Run()
 
-			assert.Equal(t, runCalled, true)
-			if c.expectSkip {
-				assert.Equal(t, runSkipped, true)
-			} else {
-				assert.Equal(t, runSkipped, false)
-			}
+			assert.Equal(t, runCalled, !c.expectSkip)
 		})
 	}
 }
@@ -237,10 +224,8 @@ func TestSuite_Setup(t *testing.T) {
 	g := NewWithT(t)
 
 	var runCalled bool
-	var runSkipped bool
 	runFn := func(ctx *suiteContext) int {
 		runCalled = true
-		runSkipped = ctx.skipped
 		return 0
 	}
 
@@ -255,7 +240,6 @@ func TestSuite_Setup(t *testing.T) {
 
 	g.Expect(setupCalled).To(BeTrue())
 	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
 }
 
 func TestSuite_SetupFail(t *testing.T) {

@@ -48,8 +48,6 @@ type suiteContext struct {
 	settings    *resource.Settings
 	environment resource.Environment
 
-	skipped bool
-
 	workDir string
 	yml.FileWriter
 
