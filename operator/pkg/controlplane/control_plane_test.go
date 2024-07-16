@@ -83,47 +83,27 @@ func TestNewIstioOperator(t *testing.T) {
 			},
 			wantErr: nil,
 			wantIstioOperator: &IstioControlPlane{
-				components: []component.IstioComponent{
-					&component.BaseComponent{
-						IstioComponentBase: &component.IstioComponentBase{
-							CommonComponentFields: &component.CommonComponentFields{
-								Options:       coreComponentOptions,
-								ComponentName: name.IstioBaseComponentName,
-							},
-						},
+				components: []*component.IstioComponent{
+					{
+						Options:       coreComponentOptions,
+						ComponentName: name.IstioBaseComponentName,
 					},
-					&component.PilotComponent{
-						IstioComponentBase: &component.IstioComponentBase{
-							CommonComponentFields: &component.CommonComponentFields{
-								Options:       coreComponentOptions,
-								ResourceName:  "test-resource",
-								ComponentName: name.PilotComponentName,
-							},
-						},
+					{
+						Options:       coreComponentOptions,
+						ResourceName:  "test-resource",
+						ComponentName: name.PilotComponentName,
 					},
-					&component.CNIComponent{
-						IstioComponentBase: &component.IstioComponentBase{
-							CommonComponentFields: &component.CommonComponentFields{
-								ComponentName: name.CNIComponentName,
-								Options:       coreComponentOptions,
-							},
-						},
+					{
+						ComponentName: name.CNIComponentName,
+						Options:       coreComponentOptions,
 					},
-					&component.IstiodRemoteComponent{
-						IstioComponentBase: &component.IstioComponentBase{
-							CommonComponentFields: &component.CommonComponentFields{
-								ComponentName: name.IstiodRemoteComponentName,
-								Options:       coreComponentOptions,
-							},
-						},
+					{
+						ComponentName: name.IstiodRemoteComponentName,
+						Options:       coreComponentOptions,
 					},
-					&component.ZtunnelComponent{
-						IstioComponentBase: &component.IstioComponentBase{
-							CommonComponentFields: &component.CommonComponentFields{
-								ComponentName: name.ZtunnelComponentName,
-								Options:       coreComponentOptions,
-							},
-						},
+					{
+						ComponentName: name.ZtunnelComponentName,
+						Options:       coreComponentOptions,
 					},
 				},
 			},
@@ -154,34 +134,19 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 		{
 			desc: "components-not-started-operator-started",
 			testOperator: &IstioControlPlane{
-				components: []component.IstioComponent{
-					&component.BaseComponent{
-						IstioComponentBase: &component.IstioComponentBase{
-							CommonComponentFields: &component.CommonComponentFields{
-								Options:       coreComponentOptions,
-								ComponentName: name.IstioBaseComponentName,
-							},
-						},
+				components: []*component.IstioComponent{
+					{
+						Options:       coreComponentOptions,
+						ComponentName: name.IstioBaseComponentName,
 					},
-					&component.PilotComponent{
-						IstioComponentBase: &component.IstioComponentBase{
-							CommonComponentFields: &component.CommonComponentFields{
-								Options: &component.Options{
-									InstallSpec: &v1alpha1.IstioOperatorSpec{},
-									Translator:  &translate.Translator{},
-								},
-								ResourceName:  "test-resource",
-								ComponentName: name.PilotComponentName,
-							},
-						},
+					{
+						Options:       coreComponentOptions,
+						ResourceName:  "test-resource",
+						ComponentName: name.PilotComponentName,
 					},
-					&component.CNIComponent{
-						IstioComponentBase: &component.IstioComponentBase{
-							CommonComponentFields: &component.CommonComponentFields{
-								ComponentName: name.CNIComponentName,
-								Options:       coreComponentOptions,
-							},
-						},
+					{
+						ComponentName: name.CNIComponentName,
+						Options:       coreComponentOptions,
 					},
 				},
 				started: true,
@@ -196,34 +161,19 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 		{
 			desc: "operator-not-started",
 			testOperator: &IstioControlPlane{
-				components: []component.IstioComponent{
-					&component.BaseComponent{
-						IstioComponentBase: &component.IstioComponentBase{
-							CommonComponentFields: &component.CommonComponentFields{
-								Options:       coreComponentOptions,
-								ComponentName: name.IstioBaseComponentName,
-							},
-						},
+				components: []*component.IstioComponent{
+					{
+						Options:       coreComponentOptions,
+						ComponentName: name.IstioBaseComponentName,
 					},
-					&component.PilotComponent{
-						IstioComponentBase: &component.IstioComponentBase{
-							CommonComponentFields: &component.CommonComponentFields{
-								Options: &component.Options{
-									InstallSpec: &v1alpha1.IstioOperatorSpec{},
-									Translator:  &translate.Translator{},
-								},
-								ResourceName:  "test-resource",
-								ComponentName: name.PilotComponentName,
-							},
-						},
+					{
+						Options:       coreComponentOptions,
+						ResourceName:  "test-resource",
+						ComponentName: name.PilotComponentName,
 					},
-					&component.CNIComponent{
-						IstioComponentBase: &component.IstioComponentBase{
-							CommonComponentFields: &component.CommonComponentFields{
-								ComponentName: name.CNIComponentName,
-								Options:       coreComponentOptions,
-							},
-						},
+					{
+						ComponentName: name.CNIComponentName,
+						Options:       coreComponentOptions,
 					},
 				},
 				started: false,

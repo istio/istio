@@ -32,7 +32,7 @@ import (
 // IstioControlPlane is an installation of an Istio control plane.
 type IstioControlPlane struct {
 	// components is a slice of components that are part of the feature.
-	components []component.IstioComponent
+	components []*component.IstioComponent
 	started    bool
 }
 
@@ -112,7 +112,7 @@ func (i *IstioControlPlane) RenderManifest() (manifests name.ManifestMap, errsOu
 	for _, c := range i.components {
 		ms, err := c.RenderManifest()
 		errsOut = util.AppendErr(errsOut, err)
-		manifests[c.ComponentName()] = append(manifests[c.ComponentName()], ms)
+		manifests[c.ComponentName] = append(manifests[c.ComponentName], ms)
 	}
 	if len(errsOut) > 0 {
 		return nil, errsOut
@@ -121,7 +121,7 @@ func (i *IstioControlPlane) RenderManifest() (manifests name.ManifestMap, errsOu
 }
 
 // componentsEqual reports whether the given components are equal to those in i.
-func (i *IstioControlPlane) componentsEqual(components []component.IstioComponent) bool {
+func (i *IstioControlPlane) componentsEqual(components []*component.IstioComponent) bool {
 	if i.components == nil && components == nil {
 		return true
 	}
@@ -129,16 +129,16 @@ func (i *IstioControlPlane) componentsEqual(components []component.IstioComponen
 		return false
 	}
 	for c := 0; c < len(i.components); c++ {
-		if i.components[c].ComponentName() != components[c].ComponentName() {
+		if i.components[c].ComponentName != components[c].ComponentName {
 			return false
 		}
-		if i.components[c].Namespace() != components[c].Namespace() {
+		if i.components[c].Namespace != components[c].Namespace {
 			return false
 		}
 		if i.components[c].Enabled() != components[c].Enabled() {
 			return false
 		}
-		if i.components[c].ResourceName() != components[c].ResourceName() {
+		if i.components[c].ResourceName != components[c].ResourceName {
 			return false
 		}
 	}
