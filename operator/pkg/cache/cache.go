@@ -17,7 +17,6 @@ package cache
 import (
 	"sync"
 
-	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/object"
 )
 
@@ -40,7 +39,6 @@ func FlushObjectCaches() {
 	objectCachesMu.Lock()
 	defer objectCachesMu.Unlock()
 	objectCaches = make(map[string]*ObjectCache)
-	metrics.CacheFlushTotal.Increment()
 }
 
 // GetCache returns the object Cache for the given name, creating one in the global Cache if needed.

@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
@@ -193,7 +192,7 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType, file
 		case cmdApply:
 			objs, err = fakeApplyManifest(inFile, flags, chartSource)
 		case cmdController:
-			objs, err = fakeControllerReconcile(inFile, chartSource, nil)
+			objs, err = fakeControllerReconcile(inFile, chartSource)
 		default:
 		}
 		if err != nil {
@@ -230,7 +229,7 @@ func fakeApplyExtraResources(inFile string) error {
 	return nil
 }
 
-func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *helmreconciler.Options) (*ObjectSet, error) {
+func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
 	c := kube.NewFakeClientWithVersion("25")
 	l := clog.NewDefaultLogger()
 	_, iop, err := manifest.GenerateConfig(
@@ -243,44 +242,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 
 	iop.Spec.InstallPackagePath = string(chartSource)
 
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, c, iop, opts)
-	if err != nil {
-		return nil, err
-	}
-	if err := fakeInstallOperator(reconciler, chartSource); err != nil {
-		return nil, err
-	}
-
-	if _, err := reconciler.Reconcile(); err != nil {
-		return nil, err
-	}
-
 	return NewObjectSet(getAllIstioObjects()), nil
-}
-
-// fakeInstallOperator installs the operator manifest resources into a cluster using the given reconciler.
-// The installation is for testing with a kubebuilder fake cluster only, since no functional Deployment will be
-// created.
-func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType) error {
-	ocArgs := &operatorCommonArgs{
-		manifestsPath:     string(chartSource),
-		istioNamespace:    constants.IstioSystemNamespace,
-		watchedNamespaces: constants.IstioSystemNamespace,
-		operatorNamespace: operatorDefaultNamespace,
-		// placeholders, since the fake API server does not actually pull images and create pods.
-		hub: "fake hub",
-		tag: "fake tag",
-	}
-
-	_, mstr, err := renderOperatorManifest(nil, ocArgs)
-	if err != nil {
-		return err
-	}
-	if err := applyWithReconciler(reconciler, mstr); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // applyWithReconciler applies the given manifest string using the given reconciler.

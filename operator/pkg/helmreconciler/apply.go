@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/cache"
-	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -79,7 +78,6 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedRe
 		allObjectsMap[oh] = true
 		if co, ok := objectCache.Cache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
-			metrics.AddResource(obj.FullName(), obj.GroupVersionKind().GroupKind())
 			result.deployed++
 			continue
 		}
@@ -112,7 +110,6 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedRe
 				return result, err
 			}
 			plog.ReportProgress()
-			metrics.AddResource(obj.FullName(), obj.GroupVersionKind().GroupKind())
 			result.processedObjects = append(result.processedObjects, obj)
 			// Update the cache with the latest object.
 			objectCache.Cache[obj.Hash()] = obj

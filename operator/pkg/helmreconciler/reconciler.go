@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -66,10 +65,6 @@ type HelmReconciler struct {
 	// dependencyWaitCh is a map of signaling channels. A parent with children ch1...chN will signal
 	// dependencyWaitCh[ch1]...dependencyWaitCh[chN] when it's completely installed.
 	dependencyWaitCh map[name.ComponentName]chan struct{}
-
-	// The fields below are for metrics and reporting
-	countLock     *sync.Mutex
-	prunedKindSet map[schema.GroupKind]struct{}
 }
 
 // Options are options for HelmReconciler.
@@ -129,8 +124,6 @@ func NewHelmReconciler(client client.Client, kubeClient kube.Client, iop *istioV
 		iop:              iop,
 		opts:             opts,
 		dependencyWaitCh: initDependencies(),
-		countLock:        &sync.Mutex{},
-		prunedKindSet:    make(map[schema.GroupKind]struct{}),
 	}, nil
 }
 
@@ -169,7 +162,6 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 	if !h.opts.SkipPrune && !h.opts.DryRun {
 		h.opts.ProgressLog.SetState(progress.StatePruning)
 		pruneErr = h.Prune(manifestMap, false)
-		h.reportPrunedObjectKind()
 	}
 	return status, pruneErr
 }
@@ -230,8 +222,6 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	}
 	wg.Wait()
 
-	metrics.ReportOwnedResourceCounts()
-
 	out := &v1alpha1.InstallStatus{
 		Status:          overallStatus(componentStatus),
 		ComponentStatus: componentStatus,
@@ -242,10 +232,6 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 
 // Delete resources associated with the custom resource instance
 func (h *HelmReconciler) Delete() error {
-	defer func() {
-		metrics.ReportOwnedResourceCounts()
-		h.reportPrunedObjectKind()
-	}()
 	iop := h.iop
 	if iop.Spec.Revision == "" {
 		err := h.Prune(nil, true)
@@ -473,21 +459,6 @@ func (h *HelmReconciler) getClient() client.Client {
 	return h.client
 }
 
-func (h *HelmReconciler) addPrunedKind(gk schema.GroupKind) {
-	h.countLock.Lock()
-	defer h.countLock.Unlock()
-	h.prunedKindSet[gk] = struct{}{}
-}
-
-func (h *HelmReconciler) reportPrunedObjectKind() {
-	h.countLock.Lock()
-	defer h.countLock.Unlock()
-	for gvk := range h.prunedKindSet {
-		metrics.ResourcePruneTotal.
-			With(metrics.ResourceKindLabel.Value(util.GKString(gvk))).
-			Increment()
-	}
-}
 
 func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	if len(whs) == 0 {

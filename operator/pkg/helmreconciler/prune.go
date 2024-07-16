@@ -32,7 +32,6 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
-	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
@@ -267,10 +266,6 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		if err != nil {
 			continue
 		}
-		for _, obj := range objects.Items {
-			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
-			metrics.AddResource(objName, gvk.GroupKind())
-		}
 		if len(objects.Items) == 0 {
 			continue
 		}
@@ -327,10 +322,6 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 				scope.Debugf("retrieving resources to prune type %s: %s", gvk.String(), err)
 			}
 			continue
-		}
-		for _, obj := range objects.Items {
-			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
-			metrics.AddResource(objName, gvk.GroupKind())
 		}
 		errs = util.AppendErr(errs, callback(labels, objects))
 	}
@@ -390,7 +381,6 @@ func (h *HelmReconciler) deleteResource(obj *object.K8sObject, componentName, oh
 	}
 	err := h.client.Delete(context.TODO(), u, client.PropagationPolicy(metav1.DeletePropagationBackground))
 	scope.Debugf("Deleting %s (%s/%v)", oh, h.iop.Name, h.iop.Spec.Revision)
-	objGvk := u.GroupVersionKind()
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return err
@@ -404,11 +394,7 @@ func (h *HelmReconciler) deleteResource(obj *object.K8sObject, componentName, oh
 	} else {
 		cache.FlushObjectCaches()
 	}
-	metrics.ResourceDeletionTotal.
-		With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
-		Increment()
-	h.addPrunedKind(objGvk.GroupKind())
-	metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
+
 	h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	return nil
 }

@@ -16,12 +16,10 @@ package helmreconciler
 
 import (
 	_ "embed"
-	"sync"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 
@@ -78,8 +76,6 @@ func TestHelmReconciler_GetPrunedResources(t *testing.T) {
 					Log:         clog.NewDefaultLogger(),
 				},
 				iop:           iop,
-				countLock:     &sync.Mutex{},
-				prunedKindSet: map[schema.GroupKind]struct{}{},
 			}
 			if i == 0 {
 				h1 = h
@@ -121,8 +117,6 @@ func TestPilotExist(t *testing.T) {
 				Log:         clog.NewDefaultLogger(),
 			},
 			iop:           iop,
-			countLock:     &sync.Mutex{},
-			prunedKindSet: map[schema.GroupKind]struct{}{},
 		}
 		mockClient := kube.NewFakeClient(&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -151,8 +145,6 @@ func TestPilotExist(t *testing.T) {
 				Log:         clog.NewDefaultLogger(),
 			},
 			iop:           iop,
-			countLock:     &sync.Mutex{},
-			prunedKindSet: map[schema.GroupKind]struct{}{},
 		}
 		if exist, err := h.pilotExists(kc, "istio-system"); err != nil {
 			t.Fatalf("HelmReconciler.pilotExists error = %v", err)

@@ -344,7 +344,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
-			objs, err := fakeControllerReconcile(testResourceFile, tmpCharts, &helmreconciler.Options{Force: tc.force, SkipPrune: true})
+			objs, err := fakeControllerReconcile(testResourceFile, tmpCharts)
 			tc.assertFunc(g, objs, err)
 		})
 	}
@@ -378,12 +378,12 @@ func runRevisionedWebhookTest(t *testing.T, testResourceFile, whSource string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fakeControllerReconcile(testResourceFile, tmpCharts, &helmreconciler.Options{Force: false, SkipPrune: true})
+	_, err = fakeControllerReconcile(testResourceFile, tmpCharts)
 	assert.NoError(t, err)
 
 	// Install a default revision should not cause any error
 	minimal := "minimal"
-	_, err = fakeControllerReconcile(minimal, tmpCharts, &helmreconciler.Options{Force: false, SkipPrune: true})
+	_, err = fakeControllerReconcile(minimal, tmpCharts)
 	assert.NoError(t, err)
 }
 
@@ -437,19 +437,11 @@ func TestPrune(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fakeControllerReconcile("default", tmpCharts, &helmreconciler.Options{
-		Force:     false,
-		SkipPrune: false,
-		Log:       clog.NewDefaultLogger(),
-	})
+	_, err = fakeControllerReconcile("default", tmpCharts)
 	assert.NoError(t, err)
 
 	// Install a default revision should not cause any error
-	objs, err := fakeControllerReconcile("empty", tmpCharts, &helmreconciler.Options{
-		Force:     false,
-		SkipPrune: false,
-		Log:       clog.NewDefaultLogger(),
-	})
+	objs, err := fakeControllerReconcile("empty", tmpCharts)
 	assert.NoError(t, err)
 
 	for _, s := range helmreconciler.PrunedResourcesSchemas() {
