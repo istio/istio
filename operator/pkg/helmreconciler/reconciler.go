@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"helm.sh/helm/v3/pkg/release"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -52,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/version"
 )
 
@@ -184,8 +186,8 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	// wg waits for all manifest processing goroutines to finish
 	var wg sync.WaitGroup
 
-	for c, ms := range manifests {
-		c, ms := c, ms
+	for c, msr := range manifests {
+		c, msr := c, msr
 		wg.Add(1)
 		go func() {
 			var appliedResult AppliedResult
@@ -202,12 +204,16 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 			setStatus(componentStatus, c, v1alpha1.InstallStatus_RECONCILING, nil)
 			mu.Unlock()
 
+			ms := slices.Map(msr, func(e *release.Release) string {
+				return e.Manifest
+			})
 			status := v1alpha1.InstallStatus_NONE
 			var err error
 			if len(ms) != 0 {
 				m := name.Manifest{
-					Name:    c,
-					Content: name.MergeManifestSlices(ms),
+					Name:     c,
+					Content:  name.MergeManifestSlices(ms),
+					Releases: msr,
 				}
 				appliedResult, err = h.ApplyManifest(m)
 				if err != nil {
@@ -489,7 +495,7 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 	}
 }
 
-func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
+func (h *HelmReconciler) analyzeWebhooks(whs []*release.Release) error {
 	if len(whs) == 0 {
 		return nil
 	}
@@ -499,7 +505,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	var parsedK8sObjects object.K8sObjects
 	exists := revtag.PreviousInstallExists(context.Background(), h.kubeClient.Kube())
 	for i, wh := range whs {
-		k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(wh)
+		k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(wh.Manifest)
 		if err != nil {
 			return err
 		}

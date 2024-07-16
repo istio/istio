@@ -241,7 +241,7 @@ func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOpera
 	builder := resource.NewBuilder(v.client.UtilFactory()).ContinueOnError().Unstructured()
 	for cat, manifest := range manifests {
 		for i, manitem := range manifest {
-			reader := strings.NewReader(manitem)
+			reader := strings.NewReader(manitem.Manifest)
 			pseudoFilename := fmt.Sprintf("%s:%d generated from %s", cat, i, filename)
 			builder = builder.Stream(reader, pseudoFilename)
 		}

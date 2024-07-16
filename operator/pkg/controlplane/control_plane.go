@@ -112,7 +112,9 @@ func (i *IstioControlPlane) RenderManifest() (manifests name.ManifestMap, errsOu
 	for _, c := range i.components {
 		ms, err := c.RenderManifest()
 		errsOut = util.AppendErr(errsOut, err)
-		manifests[c.ComponentName()] = append(manifests[c.ComponentName()], ms)
+		if ms != nil {
+			manifests[c.ComponentName()] = append(manifests[c.ComponentName()], ms)
+		}
 	}
 	if len(errsOut) > 0 {
 		return nil, errsOut
