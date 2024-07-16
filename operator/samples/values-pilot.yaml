@@ -1,6 +1,0 @@
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  values:
-    pilot:
-      traceSampling: 0.1 # override from 1.0
