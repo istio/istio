@@ -112,6 +112,15 @@ func Exactly(v float64) func(any) error {
 	}
 }
 
+func LessThan(v float64) func(any) error {
+	return func(f any) error {
+		if v <= toFloat(f) {
+			return fmt.Errorf("want <= %v (got %v)", v, toFloat(f))
+		}
+		return nil
+	}
+}
+
 func Distribution(count uint64, sum float64) func(any) error {
 	return func(f any) error {
 		d := f.(*dto.Histogram)
