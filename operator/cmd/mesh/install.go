@@ -30,7 +30,6 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/istioctl/pkg/clioptions"
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -41,7 +40,6 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/operator/pkg/verifier"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/art"
@@ -211,25 +209,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		return fmt.Errorf("failed to process default webhook: %v", err)
 	} else if processed {
 		p.Println("Made this installation the default for cluster-wide operations.")
-	}
-
-	if iArgs.Verify {
-		if rootArgs.DryRun {
-			l.LogAndPrint("Control plane health check is not applicable in dry-run mode")
-			return nil
-		}
-		l.LogAndPrint("\n\nVerifying installation:")
-		installationVerifier, err := verifier.NewStatusVerifier(kubeClient, client, iop.Namespace, iArgs.ManifestsPath,
-			iArgs.InFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision},
-			verifier.WithLogger(l),
-			verifier.WithIOP(iop),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to setup verifier: %v", err)
-		}
-		if err := installationVerifier.Verify(); err != nil {
-			return fmt.Errorf("verification failed with the following error: %v", err)
-		}
 	}
 
 	// Post-install message

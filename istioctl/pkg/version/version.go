@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
-	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/proxy"
@@ -39,10 +38,10 @@ import (
 )
 
 func NewVersionCommand(ctx cli.Context) *cobra.Command {
-	profileCmd := mesh.ProfileCmd(ctx)
 	var opts clioptions.ControlPlaneOptions
-	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
-		GetRemoteVersion: getRemoteInfoWrapper(ctx, &profileCmd, &opts),
+	var versionCmd *cobra.Command
+	versionCmd = istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
+		GetRemoteVersion: getRemoteInfoWrapper(ctx, &versionCmd, &opts),
 		GetProxyVersions: getProxyInfoWrapper(ctx, &opts),
 	})
 	opts.AttachControlPlaneFlags(versionCmd)

@@ -187,7 +187,6 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(admin.Cmd(ctx))
 	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
-	rootCmd.AddCommand(mesh.NewVerifyCommand(ctx))
 	rootCmd.AddCommand(mesh.UninstallCmd(ctx))
 
 	experimentalCmd.AddCommand(authz.AuthZ(ctx))
