@@ -55,6 +55,20 @@ func getEchoConfigs() []echo.Config {
 			BindFamily:     "IPv4",
 		},
 		{
+			Service:        "echo-v4only",
+			Ports:          ports.All(),
+			IPFamilyPolicy: "SingleStack",
+			BindFamily:     "IPv4",
+			IPFamilies:     "IPv4",
+		},
+		{
+			Service:        "echo-v6only",
+			Ports:          ports.All(),
+			IPFamilyPolicy: "SingleStack",
+			BindFamily:     "IPv6",
+			IPFamilies:     "IPv6",
+		},
+		{
 			Service:        "echo-v6",
 			Ports:          ports.All(),
 			IPFamilyPolicy: "PreferDualStack",
