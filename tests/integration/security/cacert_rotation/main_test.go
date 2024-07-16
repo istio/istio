@@ -208,11 +208,12 @@ func updateTimestampAnnotations(t framework.TestContext) {
 				continue
 			}
 
-			t.Logf("updating pod %s/%s on cluster %s", pod.Namespace, pod.Name, c.Name())
 			// Update annotations to force the mounted configmap refresh
 			pod.Annotations["timestamp"] = time.Now().String()
-			if _, err := c.Kube().CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
+			if p, err := c.Kube().CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
 				t.Fatalf("failed to update pod %s: %v", pod.Name, err)
+			} else {
+				t.Logf("updating pod %s/%s on cluster %s with annotations %v", pod.Namespace, pod.Name, c.Name(), p.Annotations)
 			}
 		}
 	}
@@ -255,6 +256,7 @@ func getWorkloadCertLastUpdateTime(t framework.TestContext, i echo.Instance, ctl
 
 // Abstracted function to wait for workload cert to be updated
 func waitForWorkloadCertUpdate(t framework.TestContext, from echo.Instance, istioCtl istioctl.Instance, lastUpdateTime time.Time) time.Time {
+	startTime := time.Now()
 	retry.UntilOrFail(t, func() bool {
 		updateTime, err := getWorkloadCertLastUpdateTime(t, from, istioCtl)
 		if err != nil {
@@ -265,7 +267,7 @@ func waitForWorkloadCertUpdate(t framework.TestContext, from echo.Instance, isti
 		// retry when workload cert is not updated
 		if updateTime.After(lastUpdateTime) {
 			lastUpdateTime = updateTime
-			t.Logf("workload cert is updated, last update time: %v", updateTime)
+			t.Logf("workload cert is updated after %v, last update time: %v", time.Since(startTime), updateTime)
 			return true
 		}
 
