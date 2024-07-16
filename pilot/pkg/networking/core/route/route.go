@@ -1232,7 +1232,7 @@ func GetRouteOperation(in *route.Route, vsName string, port int) string {
 }
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
-func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPInboundRoute(proxy *model.Proxy, clusterName string, operation string) *route.Route {
 	out := buildDefaultHTTPRoute(clusterName, operation)
 	// For inbound, configure with notimeout.
 	out.GetRoute().Timeout = Notimeout
@@ -1242,7 +1242,7 @@ func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.R
 		// gRPC requests time out like any other requests using timeout or its default.
 		GrpcTimeoutHeaderMax: Notimeout,
 	}
-	if features.EnableInboundRetryPolicy {
+	if proxy.VersionGreaterAndEqual(&model.IstioVersion{Major: 1, Minor: 24, Patch: -1}) && features.EnableInboundRetryPolicy {
 		out.GetRoute().RetryPolicy = &route.RetryPolicy{
 			RetryOn: "reset-before-request",
 			NumRetries: &wrapperspb.UInt32Value{

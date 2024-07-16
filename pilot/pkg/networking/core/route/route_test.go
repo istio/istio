@@ -3025,7 +3025,8 @@ func TestInboundHTTPRoute(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableInboundRetryPolicy, tc.enableRetry)
-			inroute := route.BuildDefaultHTTPInboundRoute("cluster", "operation")
+			inroute := route.BuildDefaultHTTPInboundRoute(&model.Proxy{IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: -1}},
+				"cluster", "operation")
 			if !reflect.DeepEqual(tc.expected, inroute) {
 				t.Errorf("error in inbound routes. Got: %v, Want: %v", inroute, tc.expected)
 			}
