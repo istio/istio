@@ -1,3 +1,8 @@
+pilot:
+  env:
+    # 1.24 behavioral changes
+    ENABLE_INBOUND_RETRY_POLICY: "false"
+    
 meshConfig:
   # 1.22 behavioral changes
   defaultConfig:
