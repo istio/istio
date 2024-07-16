@@ -12,7 +12,6 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
-    istio.io/gateway-name: default
   name: custom-sa
   namespace: default
   ownerReferences:
@@ -29,7 +28,6 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
-    istio.io/gateway-name: default
   name: default-istio
   namespace: default
   ownerReferences:
@@ -51,7 +49,6 @@ spec:
       labels:
         gateway.networking.k8s.io/gateway-name: default
         istio.io/dataplane-mode: none
-        istio.io/gateway-name: default
         service.istio.io/canonical-name: default-istio
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
@@ -224,7 +221,6 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
-    istio.io/gateway-name: default
   name: default-istio
   namespace: default
   ownerReferences:

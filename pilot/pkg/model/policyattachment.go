@@ -75,11 +75,6 @@ func (p WorkloadPolicyMatcher) WithService(service *Service) WorkloadPolicyMatch
 // This is based on the gateway.networking.k8s.io/gateway-name label.
 func workloadGatewayName(l labels.Instance) (string, bool) {
 	gwName, exists := l[constants.GatewayNameLabel]
-	if !exists {
-		// TODO: Remove deprecated gateway name label (1.22 or 1.23)
-		gwName, exists = l[constants.DeprecatedGatewayNameLabel]
-	}
-
 	return gwName, exists
 }
 

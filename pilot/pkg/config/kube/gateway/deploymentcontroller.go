@@ -363,10 +363,8 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		CompliancePolicy:          common_features.CompliancePolicy,
 		InfrastructureLabels:      gw.GetLabels(),
 		InfrastructureAnnotations: gw.GetAnnotations(),
+		GatewayNameLabel:          constants.GatewayNameLabel,
 	}
-
-	d.setGatewayNameLabel(&input)
-
 	// Default to the gateway labels/annotations and overwrite if infrastructure labels/annotations are set
 	input.InfrastructureLabels = extractInfrastructureLabels(gw)
 	input.InfrastructureAnnotations = extractInfrastructureAnnotations(gw)
@@ -521,7 +519,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
 
-	labelToMatch := map[string]string{constants.GatewayNameLabel: mi.Name, constants.DeprecatedGatewayNameLabel: mi.Name}
+	labelToMatch := map[string]string{constants.GatewayNameLabel: mi.Name}
 	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
@@ -613,32 +611,6 @@ func (d *DeploymentController) canManage(gvr schema.GroupVersionResource, name, 
 	_, managed := obj.GetLabels()[constants.ManagedGatewayLabel]
 	// If object already exists, we can only manage it if it has the label
 	return managed, obj.GetResourceVersion()
-}
-
-// setGatewayNameLabel sets either the new or deprecated gateway name label
-// based on the template input
-func (d *DeploymentController) setGatewayNameLabel(ti *TemplateInput) {
-	ti.GatewayNameLabel = constants.GatewayNameLabel // default to the new gateway name label
-	store, f := d.clients[gvr.Deployment]            // Use deployment since those matchlabels are immutable
-	if !f {
-		log.Warnf("deployment gvr not found in deployment controller clients; defaulting to the new gateway name label")
-		return
-	}
-	dep := store.Get(ti.DeploymentName, ti.Namespace)
-	if dep == nil {
-		log.Debugf("deployment %s/%s not found in store; using to the new gateway name label", ti.DeploymentName, ti.Namespace)
-		return
-	}
-
-	// Base label choice on the deployment's selector
-	_, exists := dep.(*appsv1.Deployment).Spec.Selector.MatchLabels[constants.DeprecatedGatewayNameLabel]
-	if !exists {
-		// The old label doesn't already exist on the deployment; use the new label
-		return
-	}
-
-	// The old label exists on the deployment; use the old label
-	ti.GatewayNameLabel = constants.DeprecatedGatewayNameLabel
 }
 
 type TemplateInput struct {

@@ -375,7 +375,6 @@ spec:
       labels:
         sidecar.istio.io/inject: "false"
         gateway.networking.k8s.io/gateway-name: productpage
-        istio.io/gateway-name: productpage
     spec:
       serviceAccountName: productpage-istio-waypoint
       containers:
