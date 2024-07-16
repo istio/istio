@@ -4466,12 +4466,6 @@ type SidecarInjectorConfig struct {
 	Templates *structpb.Struct `protobuf:"bytes,23,opt,name=templates,proto3" json:"templates,omitempty"`
 	// defaultTemplates: ["sidecar", "hello"]
 	DefaultTemplates []string `protobuf:"bytes,24,rep,name=defaultTemplates,proto3" json:"defaultTemplates,omitempty"`
-	// If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
-	// requests in Istiod, rather than at the webhook selection level.
-	// This is option is intended for migration purposes only and will be removed in Istio 1.10.
-	//
-	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-	UseLegacySelectors *wrapperspb.BoolValue `protobuf:"bytes,4,opt,name=useLegacySelectors,proto3" json:"useLegacySelectors,omitempty"`
 }
 
 func (x *SidecarInjectorConfig) Reset() {
@@ -4565,14 +4559,6 @@ func (x *SidecarInjectorConfig) GetTemplates() *structpb.Struct {
 func (x *SidecarInjectorConfig) GetDefaultTemplates() []string {
 	if x != nil {
 		return x.DefaultTemplates
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-func (x *SidecarInjectorConfig) GetUseLegacySelectors() *wrapperspb.BoolValue {
-	if x != nil {
-		return x.UseLegacySelectors
 	}
 	return nil
 }
@@ -6370,7 +6356,7 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_rawDesc = []byte{
 	0x75, 0x6e, 0x74, 0x50, 0x61, 0x74, 0x68, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18,
 	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x1e, 0x0a, 0x0a, 0x73,
 	0x65, 0x63, 0x72, 0x65, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x0a, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0xe1, 0x05, 0x0a, 0x15,
+	0x0a, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x91, 0x05, 0x0a, 0x15,
 	0x53, 0x69, 0x64, 0x65, 0x63, 0x61, 0x72, 0x49, 0x6e, 0x6a, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x43,
 	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x58, 0x0a, 0x19, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x4e,
 	0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x42, 0x79, 0x44, 0x65, 0x66, 0x61, 0x75,
@@ -6411,12 +6397,7 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_rawDesc = []byte{
 	0x66, 0x2e, 0x53, 0x74, 0x72, 0x75, 0x63, 0x74, 0x52, 0x09, 0x74, 0x65, 0x6d, 0x70, 0x6c, 0x61,
 	0x74, 0x65, 0x73, 0x12, 0x2a, 0x0a, 0x10, 0x64, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x54, 0x65,
 	0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x73, 0x18, 0x18, 0x20, 0x03, 0x28, 0x09, 0x52, 0x10, 0x64,
-	0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x73, 0x12,
-	0x4e, 0x0a, 0x12, 0x75, 0x73, 0x65, 0x4c, 0x65, 0x67, 0x61, 0x63, 0x79, 0x53, 0x65, 0x6c, 0x65,
-	0x63, 0x74, 0x6f, 0x72, 0x73, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f,
-	0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x42, 0x6f,
-	0x6f, 0x6c, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x42, 0x02, 0x18, 0x01, 0x52, 0x12, 0x75, 0x73, 0x65,
-	0x4c, 0x65, 0x67, 0x61, 0x63, 0x79, 0x53, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x73, 0x22,
+	0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x73, 0x22,
 	0x81, 0x02, 0x0a, 0x0c, 0x54, 0x72, 0x61, 0x63, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
 	0x12, 0x37, 0x0a, 0x07, 0x64, 0x61, 0x74, 0x61, 0x64, 0x6f, 0x67, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x0b, 0x32, 0x1d, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x2e, 0x54, 0x72, 0x61,
@@ -6828,36 +6809,35 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
 	55,  // 155: v1alpha1.SidecarInjectorConfig.rewriteAppHTTPProbe:type_name -> google.protobuf.BoolValue
 	58,  // 156: v1alpha1.SidecarInjectorConfig.injectedAnnotations:type_name -> google.protobuf.Struct
 	58,  // 157: v1alpha1.SidecarInjectorConfig.templates:type_name -> google.protobuf.Struct
-	55,  // 158: v1alpha1.SidecarInjectorConfig.useLegacySelectors:type_name -> google.protobuf.BoolValue
-	41,  // 159: v1alpha1.TracerConfig.datadog:type_name -> v1alpha1.TracerDatadogConfig
-	42,  // 160: v1alpha1.TracerConfig.lightstep:type_name -> v1alpha1.TracerLightStepConfig
-	43,  // 161: v1alpha1.TracerConfig.zipkin:type_name -> v1alpha1.TracerZipkinConfig
-	44,  // 162: v1alpha1.TracerConfig.stackdriver:type_name -> v1alpha1.TracerStackdriverConfig
-	55,  // 163: v1alpha1.TracerStackdriverConfig.debug:type_name -> google.protobuf.BoolValue
-	55,  // 164: v1alpha1.BaseConfig.enableCRDTemplates:type_name -> google.protobuf.BoolValue
-	55,  // 165: v1alpha1.BaseConfig.enableIstioConfigCRDs:type_name -> google.protobuf.BoolValue
-	55,  // 166: v1alpha1.BaseConfig.validateGateway:type_name -> google.protobuf.BoolValue
-	4,   // 167: v1alpha1.Values.cni:type_name -> v1alpha1.CNIConfig
-	15,  // 168: v1alpha1.Values.gateways:type_name -> v1alpha1.GatewaysConfig
-	16,  // 169: v1alpha1.Values.global:type_name -> v1alpha1.GlobalConfig
-	24,  // 170: v1alpha1.Values.pilot:type_name -> v1alpha1.PilotConfig
-	56,  // 171: v1alpha1.Values.ztunnel:type_name -> google.protobuf.Value
-	28,  // 172: v1alpha1.Values.telemetry:type_name -> v1alpha1.TelemetryConfig
-	39,  // 173: v1alpha1.Values.sidecarInjectorWebhook:type_name -> v1alpha1.SidecarInjectorConfig
-	5,   // 174: v1alpha1.Values.istio_cni:type_name -> v1alpha1.CNIUsageConfig
-	56,  // 175: v1alpha1.Values.meshConfig:type_name -> google.protobuf.Value
-	45,  // 176: v1alpha1.Values.base:type_name -> v1alpha1.BaseConfig
-	46,  // 177: v1alpha1.Values.istiodRemote:type_name -> v1alpha1.IstiodRemoteConfig
-	49,  // 178: v1alpha1.Values.experimental:type_name -> v1alpha1.ExperimentalConfig
-	55,  // 179: v1alpha1.ZeroVPNConfig.enabled:type_name -> google.protobuf.BoolValue
-	55,  // 180: v1alpha1.ExperimentalConfig.stableValidationPolicy:type_name -> google.protobuf.BoolValue
-	67,  // 181: v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
-	68,  // 182: v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
-	183, // [183:183] is the sub-list for method output_type
-	183, // [183:183] is the sub-list for method input_type
-	183, // [183:183] is the sub-list for extension type_name
-	183, // [183:183] is the sub-list for extension extendee
-	0,   // [0:183] is the sub-list for field type_name
+	41,  // 158: v1alpha1.TracerConfig.datadog:type_name -> v1alpha1.TracerDatadogConfig
+	42,  // 159: v1alpha1.TracerConfig.lightstep:type_name -> v1alpha1.TracerLightStepConfig
+	43,  // 160: v1alpha1.TracerConfig.zipkin:type_name -> v1alpha1.TracerZipkinConfig
+	44,  // 161: v1alpha1.TracerConfig.stackdriver:type_name -> v1alpha1.TracerStackdriverConfig
+	55,  // 162: v1alpha1.TracerStackdriverConfig.debug:type_name -> google.protobuf.BoolValue
+	55,  // 163: v1alpha1.BaseConfig.enableCRDTemplates:type_name -> google.protobuf.BoolValue
+	55,  // 164: v1alpha1.BaseConfig.enableIstioConfigCRDs:type_name -> google.protobuf.BoolValue
+	55,  // 165: v1alpha1.BaseConfig.validateGateway:type_name -> google.protobuf.BoolValue
+	4,   // 166: v1alpha1.Values.cni:type_name -> v1alpha1.CNIConfig
+	15,  // 167: v1alpha1.Values.gateways:type_name -> v1alpha1.GatewaysConfig
+	16,  // 168: v1alpha1.Values.global:type_name -> v1alpha1.GlobalConfig
+	24,  // 169: v1alpha1.Values.pilot:type_name -> v1alpha1.PilotConfig
+	56,  // 170: v1alpha1.Values.ztunnel:type_name -> google.protobuf.Value
+	28,  // 171: v1alpha1.Values.telemetry:type_name -> v1alpha1.TelemetryConfig
+	39,  // 172: v1alpha1.Values.sidecarInjectorWebhook:type_name -> v1alpha1.SidecarInjectorConfig
+	5,   // 173: v1alpha1.Values.istio_cni:type_name -> v1alpha1.CNIUsageConfig
+	56,  // 174: v1alpha1.Values.meshConfig:type_name -> google.protobuf.Value
+	45,  // 175: v1alpha1.Values.base:type_name -> v1alpha1.BaseConfig
+	46,  // 176: v1alpha1.Values.istiodRemote:type_name -> v1alpha1.IstiodRemoteConfig
+	49,  // 177: v1alpha1.Values.experimental:type_name -> v1alpha1.ExperimentalConfig
+	55,  // 178: v1alpha1.ZeroVPNConfig.enabled:type_name -> google.protobuf.BoolValue
+	55,  // 179: v1alpha1.ExperimentalConfig.stableValidationPolicy:type_name -> google.protobuf.BoolValue
+	67,  // 180: v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
+	68,  // 181: v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
+	182, // [182:182] is the sub-list for method output_type
+	182, // [182:182] is the sub-list for method input_type
+	182, // [182:182] is the sub-list for extension type_name
+	182, // [182:182] is the sub-list for extension extendee
+	0,   // [0:182] is the sub-list for field type_name
 }
 
 func init() { file_pkg_apis_istio_v1alpha1_values_types_proto_init() }

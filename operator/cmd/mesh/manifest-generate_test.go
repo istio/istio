@@ -1007,18 +1007,6 @@ func getWebhooks(t *testing.T, setFlags string, webhookName string) []v1.Mutatin
 	return mustGetWebhook(t, mustFindObject(t, objs, webhookName, name.MutatingWebhookConfigurationStr))
 }
 
-func getWebhooksFromYaml(t *testing.T, yml string) []v1.MutatingWebhook {
-	t.Helper()
-	objs, err := object.ParseK8sObjectsFromYAMLManifest(yml)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(objs) != 1 {
-		t.Fatal("expected one webhook")
-	}
-	return mustGetWebhook(t, *objs[0])
-}
-
 type LabelSet struct {
 	namespace, pod klabels.Set
 }
@@ -1030,77 +1018,6 @@ func mergeWebhooks(whs ...[]v1.MutatingWebhook) []v1.MutatingWebhook {
 	}
 	return res
 }
-
-const (
-	// istioctl manifest generate --set values.sidecarInjectorWebhook.useLegacySelectors=true
-	legacyDefaultInjector = `
-apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
-metadata:
-  name: istio-sidecar-injector
-webhooks:
-- name: sidecar-injector.istio.io
-  clientConfig:
-    service:
-      name: istiod
-      namespace: istio-system
-      path: "/inject"
-  sideEffects: None
-  rules:
-  - operations: [ "CREATE" ]
-    apiGroups: [""]
-    apiVersions: ["v1"]
-    resources: ["pods"]
-  failurePolicy: Fail
-  admissionReviewVersions: ["v1"]
-  namespaceSelector:
-    matchLabels:
-      istio-injection: enabled
-  objectSelector:
-    matchExpressions:
-    - key: "sidecar.istio.io/inject"
-      operator: NotIn
-      values:
-      - "false"
-`
-
-	// istioctl manifest generate --set values.sidecarInjectorWebhook.useLegacySelectors=true --set revision=canary
-	legacyRevisionInjector = `
-apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
-metadata:
-  name: istio-sidecar-injector-canary
-webhooks:
-- name: sidecar-injector.istio.io
-  clientConfig:
-    service:
-      name: istiod-canary
-      namespace: istio-system
-      path: "/inject"
-  sideEffects: None
-  rules:
-  - operations: [ "CREATE" ]
-    apiGroups: [""]
-    apiVersions: ["v1"]
-    resources: ["pods"]
-  failurePolicy: Fail
-  admissionReviewVersions: ["v1"]
-  namespaceSelector:
-    matchExpressions:
-    - key: istio-injection
-      operator: DoesNotExist
-    - key: istio.io/rev
-      operator: In
-      values:
-      - canary
-  objectSelector:
-    matchExpressions:
-    - key: "sidecar.istio.io/inject"
-      operator: NotIn
-      values:
-      - "false"
-`
-)
 
 // This test checks the mutating webhook selectors behavior, especially with interaction with revisions
 func TestWebhookSelector(t *testing.T) {
@@ -1120,8 +1037,6 @@ func TestWebhookSelector(t *testing.T) {
 	defaultWebhook := getWebhooks(t, "", "istio-sidecar-injector")
 	revWebhook := getWebhooks(t, "--set revision=canary", "istio-sidecar-injector-canary")
 	autoWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.enableNamespacesByDefault=true", "istio-sidecar-injector")
-	legacyWebhook := getWebhooksFromYaml(t, legacyDefaultInjector)
-	legacyRevWebhook := getWebhooksFromYaml(t, legacyRevisionInjector)
 
 	// predicate is used to filter out "obvious" test cases, to avoid enumerating all cases
 	// nolint: unparam
@@ -1191,24 +1106,6 @@ func TestWebhookSelector(t *testing.T) {
 			name:     "auto injection",
 			webhooks: mergeWebhooks(autoWebhook, revWebhook),
 			checks:   append([]assertion{{empty, empty, "istiod"}}, baseAssertions...),
-		},
-		{
-			// Upgrade from a legacy webhook to a new revision based
-			// Note: we don't need non revision legacy -> non revision, since it will overwrite the webhook
-			name:     "revision upgrade",
-			webhooks: mergeWebhooks(legacyWebhook, revWebhook),
-			checks: append([]assertion{
-				{empty, objEnabled, ""}, // Legacy one requires namespace label
-			}, baseAssertions...),
-		},
-		{
-			// Use new default webhook, while we still have a legacy revision one around.
-			name:     "inplace upgrade",
-			webhooks: mergeWebhooks(defaultWebhook, legacyRevWebhook),
-			checks: append([]assertion{
-				{empty, revLabel, ""},         // Legacy one requires namespace label
-				{empty, objEnabledAndRev, ""}, // Legacy one requires namespace label
-			}, baseAssertions...),
 		},
 	}
 	for _, tt := range cases {
