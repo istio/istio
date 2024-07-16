@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -451,27 +450,6 @@ func fixTimestampRelatedUnmarshalIssues(un *unstructured.Unstructured) {
 	// and gogo/protobuf/jsonpb(v1.3.1) tries to unmarshal it as struct (the type
 	// meta_v1.Time is really a struct) and fails.
 	un.SetManagedFields([]metav1.ManagedFieldsEntry{})
-}
-
-// Find all IstioOperator in the cluster.
-func AllOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator, error) {
-	ul, err := client.
-		Resource(v1alpha1.IstioOperatorGVR).
-		List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	retval := make([]*v1alpha1.IstioOperator, 0)
-	for _, un := range ul.Items {
-		fixTimestampRelatedUnmarshalIssues(&un)
-		by := util.ToYAML(un.Object)
-		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
-		if err != nil {
-			return nil, err
-		}
-		retval = append(retval, iop)
-	}
-	return retval, nil
 }
 
 func istioVerificationFailureError(filename string, reason error) error {

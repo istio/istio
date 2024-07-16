@@ -257,16 +257,6 @@ func (h *HelmReconciler) Delete() error {
 	return nil
 }
 
-func (h *HelmReconciler) DeleteIOPInClusterIfExists(iop *istioV1Alpha1.IstioOperator) {
-	// Delete the previous IstioOperator CR if it exists.
-	objectKey := client.ObjectKeyFromObject(iop)
-	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(istioV1Alpha1.IstioOperatorGVK)
-	if err := h.client.Get(context.TODO(), objectKey, receiver); err == nil {
-		_ = h.client.Delete(context.TODO(), receiver)
-	}
-}
-
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
 func (h *HelmReconciler) SetStatusBegin() error {
 	isop := &istioV1Alpha1.IstioOperator{}
@@ -458,7 +448,6 @@ func (h *HelmReconciler) getCRNamespace() (string, error) {
 func (h *HelmReconciler) getClient() client.Client {
 	return h.client
 }
-
 
 func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	if len(whs) == 0 {

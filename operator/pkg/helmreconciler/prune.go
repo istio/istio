@@ -226,10 +226,6 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	gvkList := append(resources, ClusterCPResources...)
 	if includeClusterResources {
 		gvkList = append(resources, AllClusterResources...)
-		// Cleanup IstioOperator, which may be used with in-cluster operator.
-		if ioplist := h.getIstioOperatorCR(); ioplist != nil && len(ioplist.Items) > 0 {
-			usList = append(usList, ioplist)
-		}
 	}
 	for _, gvk := range gvkList {
 		objects := &unstructured.UnstructuredList{}
@@ -273,21 +269,6 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	}
 
 	return usList, nil
-}
-
-// getIstioOperatorCR is a helper function to get IstioOperator CR during purge,
-// otherwise the resources would be reconciled back later if there is in-cluster operator deployment.
-// And it is needed to remove the IstioOperator CRD.
-func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
-	iopGVR := iopv1alpha1.IstioOperatorGVR
-	objects, err := h.kubeClient.Dynamic().Resource(iopGVR).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
-		}
-		scope.Errorf("failed to list IstioOperator CR: %v", err)
-	}
-	return objects
 }
 
 // runForAllTypes will collect all existing resource types we care about. For each type, the callback function

@@ -75,7 +75,7 @@ func TestHelmReconciler_GetPrunedResources(t *testing.T) {
 					ProgressLog: progress.NewLog(),
 					Log:         clog.NewDefaultLogger(),
 				},
-				iop:           iop,
+				iop: iop,
 			}
 			if i == 0 {
 				h1 = h
@@ -116,7 +116,7 @@ func TestPilotExist(t *testing.T) {
 				ProgressLog: progress.NewLog(),
 				Log:         clog.NewDefaultLogger(),
 			},
-			iop:           iop,
+			iop: iop,
 		}
 		mockClient := kube.NewFakeClient(&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -144,7 +144,7 @@ func TestPilotExist(t *testing.T) {
 				ProgressLog: progress.NewLog(),
 				Log:         clog.NewDefaultLogger(),
 			},
-			iop:           iop,
+			iop: iop,
 		}
 		if exist, err := h.pilotExists(kc, "istio-system"); err != nil {
 			t.Fatalf("HelmReconciler.pilotExists error = %v", err)

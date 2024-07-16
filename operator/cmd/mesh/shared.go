@@ -66,11 +66,6 @@ func refreshGoldenFiles() bool {
 	return ev == "true" || ev == "1"
 }
 
-func kubeBuilderInstalled() bool {
-	ev := os.Getenv("KUBEBUILDER")
-	return ev == "true" || ev == "1"
-}
-
 // Confirm waits for a user to confirm with the supplied message.
 func Confirm(msg string, writer io.Writer) bool {
 	for {

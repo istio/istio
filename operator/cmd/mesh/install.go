@@ -267,10 +267,6 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 		return fmt.Errorf("errors occurred during operation")
 	}
 
-	// Previously we may install IOP file from the old version of istioctl. Now since we won't install IOP file
-	// anymore, and it didn't provide much value, we can delete it if it exists.
-	reconciler.DeleteIOPInClusterIfExists(iop)
-
 	opts.ProgressLog.SetState(progress.StateComplete)
 
 	return nil
