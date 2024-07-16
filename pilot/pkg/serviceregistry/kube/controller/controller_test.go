@@ -139,11 +139,11 @@ func TestServices(t *testing.T) {
 		t.Fatalf("Invalid response for GetEndpoints %v", ep)
 	}
 
-	if ep[0].Address == "10.10.1.1" && ep[0].Network != "network1" {
+	if ep[0].FirstAddressOrNil() == "10.10.1.1" && ep[0].Network != "network1" {
 		t.Fatalf("Endpoint with IP 10.10.1.1 is expected to be in network1 but get: %s", ep[0].Network)
 	}
 
-	if ep[1].Address == "10.11.1.2" && ep[1].Network != "network2" {
+	if ep[1].FirstAddressOrNil() == "10.11.1.2" && ep[1].Network != "network2" {
 		t.Fatalf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Network)
 	}
 
@@ -412,7 +412,7 @@ func TestGetProxyServiceTargets(t *testing.T) {
 		Service: &model.Service{
 			Hostname: "svc1.nsa.svc.company.com",
 			ClusterVIPs: model.AddressMap{
-				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
+				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1", "10.0.0.2"}},
 			},
 			DefaultAddress:  "10.0.0.1",
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
@@ -472,7 +472,7 @@ func TestGetProxyServiceTargets(t *testing.T) {
 		Service: &model.Service{
 			Hostname: "svc1.nsa.svc.company.com",
 			ClusterVIPs: model.AddressMap{
-				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
+				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1", "10.0.0.2"}},
 			},
 			DefaultAddress:  "10.0.0.1",
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
@@ -526,7 +526,7 @@ func TestGetProxyServiceTargets(t *testing.T) {
 		Service: &model.Service{
 			Hostname: "svc1.nsa.svc.company.com",
 			ClusterVIPs: model.AddressMap{
-				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
+				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1", "10.0.0.2"}},
 			},
 			DefaultAddress:  "10.0.0.1",
 			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
@@ -851,7 +851,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-ratings",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "ratings"},
-			Address:      "2.2.2.21",
+			Addresses:    []string{"2.2.2.21", "2001:1::21"},
 			EndpointPort: 8080,
 		},
 	}
@@ -861,7 +861,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-details",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "details"},
-			Address:      "2.2.2.21",
+			Addresses:    []string{"2.2.2.21"},
 			EndpointPort: 9090,
 		},
 	}
@@ -871,7 +871,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-reviews",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "reviews"},
-			Address:      "3.3.3.31",
+			Addresses:    []string{"3.3.3.31"},
 			EndpointPort: 7070,
 		},
 	}
@@ -881,7 +881,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-reviews",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "reviews"},
-			Address:      "3.3.3.32",
+			Addresses:    []string{"3.3.3.32"},
 			EndpointPort: 7071,
 		},
 	}
@@ -891,7 +891,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-productpage",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "productpage"},
-			Address:      "4.4.4.41",
+			Addresses:    []string{"4.4.4.41", "2001:1::41"},
 			EndpointPort: 6060,
 		},
 	}
@@ -917,7 +917,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		},
 		{
 			name:  "proxy with IP from the registry, 1 matching WE, but no matching Service",
-			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"4.4.4.41"}},
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"4.4.4.41", "2001:1::41"}},
 			want:  nil,
 		},
 		{
@@ -981,7 +981,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID == WE name",
 			proxy: &model.Proxy{
-				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21", "2001:1::21"},
 				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
 			},
 			want: []model.ServiceTarget{{
@@ -997,7 +997,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID != WE name, but proxy.ConfigNamespace == WE namespace",
 			proxy: &model.Proxy{
-				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21", "2001:1::21"},
 				ID: "wrong-name.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
 			},
 			want: []model.ServiceTarget{{
@@ -1587,7 +1587,7 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 		Namespace: "bookinfo-ratings",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "ratings"},
-			Address:      "2.2.2.2",
+			Addresses:    []string{"2.2.2.2"},
 			EndpointPort: 8081, // should be ignored since it doesn't define PortMap
 		},
 	}
@@ -1596,8 +1596,8 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 		Name:      "ratings-2",
 		Namespace: "bookinfo-ratings",
 		Endpoint: &model.IstioEndpoint{
-			Labels:  labels.Instance{"app": "ratings"},
-			Address: "2.2.2.2",
+			Labels:    labels.Instance{"app": "ratings"},
+			Addresses: []string{"2.2.2.2"},
 		},
 		PortMap: map[string]uint32{
 			"http": 8082, // should be used
@@ -1608,8 +1608,8 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 		Name:      "ratings-3",
 		Namespace: "bookinfo-ratings",
 		Endpoint: &model.IstioEndpoint{
-			Labels:  labels.Instance{"app": "ratings"},
-			Address: "2.2.2.2",
+			Labels:    labels.Instance{"app": "ratings"},
+			Addresses: []string{"2.2.2.2", "2001:1::2"},
 		},
 		PortMap: map[string]uint32{
 			"http": 8083, // should be used
@@ -1628,11 +1628,13 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 
 	endpoints := GetEndpoints(svcs[0], ctl.Endpoints)
 
-	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
+	want := []string{"2.2.2.2:8082", "2.2.2.2:8083", "[2001:1::2]:8083"} // expect both WorkloadEntries even though they have the same IP
 
-	got := make([]string, 0, len(endpoints))
+	var got []string
 	for _, instance := range endpoints {
-		got = append(got, net.JoinHostPort(instance.Address, strconv.Itoa(int(instance.EndpointPort))))
+		for _, addr := range instance.Addresses {
+			got = append(got, net.JoinHostPort(addr, strconv.Itoa(int(instance.EndpointPort))))
+		}
 	}
 	sort.Strings(got)
 
@@ -1678,7 +1680,7 @@ func TestExternalNameServiceInstances(t *testing.T) {
 		eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
 		assert.Equal(t, len(eps), 1)
 		assert.Equal(t, eps[0], &model.IstioEndpoint{
-			Address:               "foo.co",
+			Addresses:             []string{"foo.co"},
 			ServicePortName:       "tcp-port-1",
 			EndpointPort:          1,
 			DiscoverabilityPolicy: model.AlwaysDiscoverable,
@@ -1778,7 +1780,7 @@ func TestController_ExternalNameService(t *testing.T) {
 		}
 		endpoints := GetEndpoints(svcList[i], controller.Endpoints)
 		assert.Equal(t, len(endpoints), 1)
-		assert.Equal(t, endpoints[0].Address, k8sSvcs[i].Spec.ExternalName)
+		assert.Equal(t, endpoints[0].FirstAddressOrNil(), k8sSvcs[i].Spec.ExternalName)
 	}
 
 	deleteWg.Add(len(k8sSvcs))
@@ -1920,10 +1922,11 @@ func createServiceWithTargetPorts(controller *FakeController, name, namespace st
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "10.0.0.1", // FIXME: generate?
-			Ports:     svcPorts,
-			Selector:  selector,
-			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP:  "10.0.0.1", // FIXME: generate?
+			ClusterIPs: []string{"10.0.0.1", "10.0.0.2"},
+			Ports:      svcPorts,
+			Selector:   selector,
+			Type:       corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -1942,12 +1945,12 @@ func createServiceWait(controller *FakeController, name, namespace string, label
 func createService(controller *FakeController, name, namespace string, labels, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T,
 ) {
-	service := generateService(name, namespace, labels, annotations, ports, selector, "10.0.0.1")
+	service := generateService(name, namespace, labels, annotations, ports, selector, []string{"10.0.0.1", "10.0.0.2"})
 	clienttest.Wrap(t, controller.services).CreateOrUpdate(service)
 }
 
 func generateService(name, namespace string, labels, annotations map[string]string,
-	ports []int32, selector map[string]string, ip string,
+	ports []int32, selector map[string]string, ips []string,
 ) *corev1.Service {
 	svcPorts := make([]corev1.ServicePort, 0)
 	for _, p := range ports {
@@ -1966,10 +1969,11 @@ func generateService(name, namespace string, labels, annotations map[string]stri
 			Labels:      labels,
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: ip,
-			Ports:     svcPorts,
-			Selector:  selector,
-			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP:  ips[0],
+			ClusterIPs: ips,
+			Ports:      svcPorts,
+			Selector:   selector,
+			Type:       corev1.ServiceTypeClusterIP,
 		},
 	}
 }
@@ -2262,7 +2266,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 		ev := fx.WaitOrFail(t, "eds")
 		var gotIps []string
 		for _, e := range ev.Endpoints {
-			gotIps = append(gotIps, e.Address)
+			gotIps = append(gotIps, e.Addresses...)
 		}
 		var gotSA []string
 		var expectedSa []string
@@ -2382,12 +2386,12 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Labels:         labels.Instance{"app": "prod-app"},
 			ServiceAccount: "account",
-			Address:        "2.2.2.2",
+			Addresses:      []string{"2.2.2.2", "2001:1::2"},
 			EndpointPort:   8080,
 		},
 	}, model.EventAdd)
 
-	expectedEndpointIPs := []string{"172.0.1.1", "2.2.2.2"}
+	expectedEndpointIPs := []string{"172.0.1.1", "2.2.2.2", "2001:1::2"}
 	// Check if an EDS event is fired
 	ev := fx.WaitOrFail(t, "eds")
 	// check if the hostname matches that of k8s service svc1.nsA
@@ -2400,7 +2404,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 
 	gotEndpointIPs := make([]string, 0, len(ev.Endpoints))
 	for _, ep := range ev.Endpoints {
-		gotEndpointIPs = append(gotEndpointIPs, ep.Address)
+		gotEndpointIPs = append(gotEndpointIPs, ep.Addresses...)
 	}
 	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
 		t.Fatalf("eds update after adding workload entry did not match expected list. got %v, want %v",
@@ -2415,7 +2419,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	endpoints := GetEndpoints(converted[0], controller.Endpoints)
 	gotEndpointIPs = []string{}
 	for _, instance := range endpoints {
-		gotEndpointIPs = append(gotEndpointIPs, instance.Address)
+		gotEndpointIPs = append(gotEndpointIPs, instance.Addresses...)
 	}
 	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
 		t.Fatalf("InstancesByPort after adding workload entry did not match expected list. got %v, want %v",
@@ -2427,9 +2431,9 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	ev = fx.WaitOrFail(t, "eds")
 	gotEndpointIPs = []string{}
 	for _, ep := range ev.Endpoints {
-		gotEndpointIPs = append(gotEndpointIPs, ep.Address)
+		gotEndpointIPs = append(gotEndpointIPs, ep.Addresses...)
 	}
-	expectedEndpointIPs = []string{"172.0.1.1", "172.0.1.2", "2.2.2.2"}
+	expectedEndpointIPs = []string{"172.0.1.1", "172.0.1.2", "2.2.2.2", "2001:1::2"}
 	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
 		t.Fatalf("eds update after adding pod did not match expected list. got %v, want %v",
 			gotEndpointIPs, expectedEndpointIPs)
@@ -2451,7 +2455,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 		Namespace: "bookinfo",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "ratings"},
-			Address:      "2.2.2.2",
+			Addresses:    []string{"2.2.2.2"},
 			EndpointPort: 8080,
 		},
 	}
@@ -2466,7 +2470,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 		Namespace: "bookinfo",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "details"},
-			Address:      "3.3.3.3",
+			Addresses:    []string{"3.3.3.3"},
 			EndpointPort: 9090,
 		},
 	}
@@ -2477,12 +2481,29 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
 	verifyGetByIP("3.3.3.3", []*model.WorkloadInstance{wi2})
 
+	wiWithMulAddrs := &model.WorkloadInstance{
+		Name:      "details-2",
+		Namespace: "bookinfo",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "details"},
+			Addresses:    []string{"4.4.4.4", "2001:1::4"},
+			EndpointPort: 9090,
+		},
+	}
+
+	// simulate adding a workload entry
+	ctl.workloadInstanceHandler(wiWithMulAddrs, model.EventAdd)
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
+	verifyGetByIP("3.3.3.3", []*model.WorkloadInstance{wi2})
+	// TODO: change from "4.4.4.4" to "4.4.4.4,2001:1::4"
+	verifyGetByIP("4.4.4.4", []*model.WorkloadInstance{wiWithMulAddrs})
+
 	wi3 := &model.WorkloadInstance{
 		Name:      "details-1",
 		Namespace: "bookinfo",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "details"},
-			Address:      "2.2.2.2", // update IP
+			Addresses:    []string{"2.2.2.2"}, // update IP
 			EndpointPort: 9090,
 		},
 	}

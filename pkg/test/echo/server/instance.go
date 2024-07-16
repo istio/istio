@@ -210,6 +210,7 @@ func (s *Instance) getListenerIPs(port *common.Port) ([]string, error) {
 	if r, f := os.LookupEnv("INSTANCE_IPS"); f {
 		ips := strings.Split(r, ",")
 		if bf, f := os.LookupEnv("BIND_FAMILY"); f {
+			bf := strings.ToLower(bf)
 			ips = slices.FilterInPlace(ips, func(s string) bool {
 				ip, err := netip.ParseAddr(s)
 				if err != nil {

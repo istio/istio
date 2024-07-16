@@ -340,9 +340,9 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		}
 		// filter out endpoint that has invalid ip address, mostly domain name. Because this is generated from ServiceEntry.
 		// There are other two cases that should not be filtered out:
-		// 1. ep.Address can be empty since https://github.com/istio/istio/pull/45150, in this case we will replace it with gateway ip.
-		// 2. ep.Address can be uds when EndpointPort = 0
-		if ep.Address != "" && ep.EndpointPort != 0 && !netutil.IsValidIPAddress(ep.Address) {
+		// 1. ep.Addresses[0] can be empty since https://github.com/istio/istio/pull/45150, in this case we will replace it with gateway ip.
+		// 2. ep.Addresses[0] can be uds when EndpointPort = 0
+		if ep.Addresses[0] != "" && ep.EndpointPort != 0 && !netutil.IsValidIPAddress(ep.Addresses[0]) {
 			return false
 		}
 		// filter out endpoints that don't match the subset
@@ -483,7 +483,7 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 		return false
 	}
 	// If we don't know the address we must eventually use a gateway address
-	if ep.Address == "" && (!b.gateways().IsMultiNetworkEnabled() || b.proxy.InNetwork(ep.Network)) {
+	if len(ep.Addresses) == 0 && (!b.gateways().IsMultiNetworkEnabled() || b.proxy.InNetwork(ep.Network)) {
 		return false
 	}
 	// Filter out unhealthy endpoints
@@ -595,7 +595,29 @@ func ExtractEnvoyEndpoints(locEps []*LocalityEndpoints) []*endpoint.LocalityLbEn
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnabled bool) *endpoint.LbEndpoint {
-	addr := util.BuildAddress(e.Address, e.EndpointPort)
+	addr := util.BuildAddress(e.Addresses[0], e.EndpointPort)
+
+	// This change can support multiple addresses for an endpoint, then there are some use cases for it, such as
+	// 1. An endpoint can have both ipv4 or ipv6
+	// 2. An endpoint can be represented a serviceentry/workload instance with multiple IP addresses
+	// When the additional_addresses field is populated for EDS in Envoy configuration, there would be a Happy Eyeballs
+	// algorithm to instantiate for the Endpoint, first attempt connecting to the IP address in the address field.
+	// Thereafter it will interleave IP addresses in the `additional_addresses` field based on IP version, as described in rfc8305,
+	// and attempt connections with them with a delay of 300ms each. The first connection to succeed will be used.
+	// Note: it uses Hash Based Load Balancing Policies for multiple addresses support Endpoint, and only the first address of the
+	// endpoint will be used as the hash key for the ring or maglev list, however, the upstream address that load balancer ends up
+	// connecting to will depend on the one that ends up "winning" using the Happy Eyeballs algorithm.
+	// Please refer to https://docs.google.com/document/d/1AjmTcMWwb7nia4rAgqE-iqIbSbfiXCI4h1vk-FONFdM/ for more details.
+	var additionalAddrs []*endpoint.Endpoint_AdditionalAddress
+	if features.EnableDualStack {
+		for _, itemAddr := range e.Addresses[1:] {
+			coreAddr := util.BuildAddress(itemAddr, e.EndpointPort)
+			additionalAddr := &endpoint.Endpoint_AdditionalAddress{
+				Address: coreAddr,
+			}
+			additionalAddrs = append(additionalAddrs, additionalAddr)
+		}
+	}
 	healthStatus := e.HealthStatus
 	if features.DrainingLabel != "" && e.Labels[features.DrainingLabel] != "" {
 		healthStatus = model.Draining
@@ -608,7 +630,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
-				Address: addr,
+				Address:             addr,
+				AdditionalAddresses: additionalAddrs,
 			},
 		},
 		Metadata: &corev3.Metadata{},
@@ -650,7 +673,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		tunnel = false
 	}
 	if tunnel {
-		address, port := e.Address, int(e.EndpointPort)
+		addresses, port := e.Addresses, int(e.EndpointPort)
 		// We intentionally do not take into account waypoints here.
 		// 1. Workload waypoints: sidecar/ingress do not support sending traffic directly to workloads, only to services,
 		//    so these are not applicable.
@@ -665,9 +688,10 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
 		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(port))),
+			Address:             util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(addresses[0], strconv.Itoa(port))),
+			AdditionalAddresses: additionalAddrs,
 		}}
-		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port)
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(addresses[0], port)
 		if b.dir != model.TrafficDirectionInboundVIP {
 			// Add TLS metadata matcher to indicate we can use HBONE for this endpoint.
 			// We skip this for service waypoint, which doesn't need to dynamically match mTLS vs HBONE.
@@ -694,17 +718,16 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 	}
 
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	if b.push.SupportsTunnel(e.Network, e.Address) {
-		return true
+	// Check all addresses and return true if there is any IP address that supports tunneling when current endpoint has multiple addresses
+	for _, addr := range e.Addresses {
+		if b.push.SupportsTunnel(e.Network, addr) {
+			return true
+		}
 	}
 	// Otherwise supports tunnel
 	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
 	// need to pick the right one based on our support overlap.
-	if e.SupportsTunnel(model.TunnelHTTP) {
-		return true
-	}
-
-	return false
+	return e.SupportsTunnel(model.TunnelHTTP)
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

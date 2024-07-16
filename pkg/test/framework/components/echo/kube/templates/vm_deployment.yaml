@@ -159,12 +159,14 @@ spec:
              --crt=/var/lib/istio/cert.crt \
              --key=/var/lib/istio/cert.key
         env:
-        - name: INSTANCE_IP
+        - name: INSTANCE_IPS
           valueFrom:
             fieldRef:
-              fieldPath: status.podIP
+              fieldPath: status.podIPs
         - name: ISTIO_ENVOY_ENABLE_CORE_DUMP
           value: "true"
+        - name: BIND_FAMILY
+          value: {{ $.BindFamily }}
         volumeMounts:
         - mountPath: /var/lib/istio/data
           name: istio-data

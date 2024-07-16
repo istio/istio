@@ -131,7 +131,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		ServiceAccount:        b.serviceAccount,
 		Locality:              b.locality,
 		TLSMode:               b.tlsMode,
-		Address:               endpointAddress,
+		Addresses:             []string{endpointAddress},
 		EndpointPort:          uint32(endpointPort),
 		ServicePortName:       svcPortName,
 		Network:               networkID,

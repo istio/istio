@@ -182,24 +182,23 @@ func (esc *endpointSliceController) serviceTargets(ep *v1.EndpointSlice, proxy *
 				log.Warnf("unexpected state, svc %v missing port %v", svc.Hostname, instance.ServicePortName)
 				continue
 			}
-			// consider multiple IP scenarios
-			for _, ip := range proxy.IPAddresses {
-				if ip != instance.Address {
-					continue
-				}
-				// If the endpoint isn't ready, report this
-				if instance.HealthStatus == model.UnHealthy && esc.c.opts.Metrics != nil {
-					esc.c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
-				}
-				si := model.ServiceTarget{
-					Service: svc,
-					Port: model.ServiceInstancePort{
-						ServicePort: port,
-						TargetPort:  instance.EndpointPort,
-					},
-				}
-				out = append(out, si)
+			// The comparison works because both IstioEndpoint and Proxy always use the first PodIP (as provided by Kubernetes)
+			// as the first entry of their respective lists.
+			if proxy.IPAddresses[0] != instance.FirstAddressOrNil() {
+				continue
 			}
+			// If the endpoint isn't ready, report this
+			if instance.HealthStatus == model.UnHealthy && esc.c.opts.Metrics != nil {
+				esc.c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
+			}
+			si := model.ServiceTarget{
+				Service: svc,
+				Port: model.ServiceInstancePort{
+					ServicePort: port,
+					TargetPort:  instance.EndpointPort,
+				},
+			}
+			out = append(out, si)
 		}
 	}
 	return out
@@ -252,6 +251,8 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 		return
 	}
 	svc := esc.c.GetService(hostName)
+	svcNamespacedName := getServiceNamespacedName(slice)
+	svcCore := esc.c.services.Get(svcNamespacedName.Name, svcNamespacedName.Namespace)
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
 
 	for _, e := range slice.Endpoints {
@@ -276,6 +277,14 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 				}
 
 				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus)
+				if features.EnableDualStack && pod != nil && svcCore != nil && len(pod.Status.PodIPs) > 1 && len(svcCore.Spec.ClusterIPs) > 1 {
+					// get the IP addresses for the dual stack pod
+					var addrs []string
+					for _, addr := range pod.Status.PodIPs {
+						addrs = append(addrs, addr.IP)
+					}
+					istioEndpoint.Addresses = addrs
+				}
 				endpoints = append(endpoints, istioEndpoint)
 			}
 		}
@@ -373,7 +382,7 @@ func (e *endpointSliceCache) get(hostname host.Name) []*model.IstioEndpoint {
 	found := sets.New[endpointKey]()
 	for _, eps := range e.endpointsByServiceAndSlice[hostname] {
 		for _, ep := range eps {
-			key := endpointKey{ep.Address, ep.ServicePortName}
+			key := endpointKey{ep.FirstAddressOrNil(), ep.ServicePortName}
 			if found.InsertContains(key) {
 				// This a duplicate. Update() already handles conflict resolution, so we don't
 				// need to pick the "right" one here.

@@ -234,22 +234,7 @@ func TestInboundListenerConfig(t *testing.T) {
 			MeshConfig: mc,
 			Configs:    filterTestConfigs,
 		}
-		cg := NewConfigGenTest(t, o)
-		p := getProxy()
-		for _, s := range o.Services {
-			i := &model.ServiceInstance{
-				Service: s,
-				Endpoint: &model.IstioEndpoint{
-					Address:      "1.1.1.1",
-					EndpointPort: uint32(s.Ports[0].Port),
-				},
-				ServicePort: s.Ports[0],
-			}
-			cg.MemRegistry.AddInstance(i)
-		}
-		listeners := cg.Listeners(cg.SetupProxy(p))
-		xdstest.ValidateListeners(t, listeners)
-		l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+
 		httpFilters := []string{
 			xdsfilters.MxFilterName,
 			// Ext auth makes 2 filters
@@ -284,6 +269,74 @@ func TestInboundListenerConfig(t *testing.T) {
 			xds.StatsFilterName,
 			wellknown.TCPProxy,
 		}
+		cg := NewConfigGenTest(t, o)
+		p := getProxy()
+		for _, s := range o.Services {
+			i := &model.ServiceInstance{
+				Service: s,
+				Endpoint: &model.IstioEndpoint{
+					Addresses:    []string{"1.1.1.1"},
+					EndpointPort: uint32(s.Ports[0].Port),
+				},
+				ServicePort: s.Ports[0],
+			}
+			cg.MemRegistry.AddInstance(i)
+		}
+		listeners := cg.Listeners(cg.SetupProxy(p))
+		xdstest.ValidateListeners(t, listeners)
+		l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+		verifyInboundFilterChains(t, l, httpFilters, httpNetworkFilters, tcpNetworkFilters)
+		// verifyInboundFilterChains only checks the passthrough. Ensure the main filters get created as expected, too.
+		listenertest.VerifyListener(t, l, listenertest.ListenerTest{
+			FilterChains: []listenertest.FilterChainTest{
+				{
+					Name:           "0.0.0.0_8080",
+					Type:           listenertest.MTLSHTTP,
+					HTTPFilters:    httpFilters,
+					NetworkFilters: httpNetworkFilters,
+					TotalMatch:     true,
+				},
+				{
+					Name:           "0.0.0.0_8080",
+					Type:           listenertest.PlainTCP,
+					HTTPFilters:    httpFilters,
+					NetworkFilters: httpNetworkFilters,
+					TotalMatch:     true,
+				},
+				{
+					Name:           "0.0.0.0_1234",
+					Type:           listenertest.StandardTLS,
+					HTTPFilters:    []string{},
+					NetworkFilters: tcpNetworkFilters,
+					TotalMatch:     true,
+				},
+				{
+					Name:           "0.0.0.0_1234",
+					Type:           listenertest.PlainTCP,
+					HTTPFilters:    []string{},
+					NetworkFilters: tcpNetworkFilters,
+					TotalMatch:     true,
+				},
+			},
+		})
+
+		// test instance with multiple addresses
+		cg = NewConfigGenTest(t, o)
+		p = getProxy()
+		for _, s := range o.Services {
+			i := &model.ServiceInstance{
+				Service: s,
+				Endpoint: &model.IstioEndpoint{
+					Addresses:    []string{"1.1.1.1", "2001:1::1"},
+					EndpointPort: uint32(s.Ports[0].Port),
+				},
+				ServicePort: s.Ports[0],
+			}
+			cg.MemRegistry.AddInstance(i)
+		}
+		listeners = cg.Listeners(cg.SetupProxy(p))
+		xdstest.ValidateListeners(t, listeners)
+		l = xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 		verifyInboundFilterChains(t, l, httpFilters, httpNetworkFilters, tcpNetworkFilters)
 		// verifyInboundFilterChains only checks the passthrough. Ensure the main filters get created as expected, too.
 		listenertest.VerifyListener(t, l, listenertest.ListenerTest{
@@ -2928,7 +2981,7 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 func buildServiceInstance(service *model.Service, instanceIP string) *model.ServiceInstance {
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         instanceIP,
+			Addresses:       []string{instanceIP},
 			ServicePortName: service.Ports[0].Name,
 		},
 		ServicePort: service.Ports[0],

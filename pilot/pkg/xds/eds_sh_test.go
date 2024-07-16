@@ -309,7 +309,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 	for i := 0; i < numOfEndpoints; i++ {
 		addr := fmt.Sprintf("10.%d.0.%d", networkNum, i+1)
 		istioEndpoints[i] = &model.IstioEndpoint{
-			Address:         addr,
+			Addresses:       []string{addr},
 			EndpointPort:    2080,
 			ServicePortName: "http-main",
 			Network:         networkID,

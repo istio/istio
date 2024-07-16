@@ -569,7 +569,7 @@ func makeInstances(proxy *model.Proxy, svc *model.Service, servicePort int, targ
 			continue
 		}
 		ret = append(ret, &model.IstioEndpoint{
-			Address:         proxy.IPAddresses[0],
+			Addresses:       proxy.IPAddresses,
 			ServicePortName: p.Name,
 			EndpointPort:    uint32(targetPort),
 		})

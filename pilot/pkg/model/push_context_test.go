@@ -1333,13 +1333,22 @@ func TestServiceIndex(t *testing.T) {
 				},
 			},
 		},
-		serviceInstances: []*ServiceInstance{{
-			Endpoint: &IstioEndpoint{
-				Address:      "192.168.1.2",
-				EndpointPort: 8000,
-				TLSMode:      DisabledTLSModeLabel,
+		serviceInstances: []*ServiceInstance{
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
 			},
-		}},
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.3", "2001:1::3"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
+			},
+		},
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(m)
@@ -1588,13 +1597,22 @@ func TestInitPushContext(t *testing.T) {
 				},
 			},
 		},
-		serviceInstances: []*ServiceInstance{{
-			Endpoint: &IstioEndpoint{
-				Address:      "192.168.1.2",
-				EndpointPort: 8000,
-				TLSMode:      DisabledTLSModeLabel,
+		serviceInstances: []*ServiceInstance{
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
 			},
-		}},
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.3", "2001:1::3"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
+			},
+		},
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(m)
@@ -1867,7 +1885,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 
 	instancePlainText := &ServiceInstance{
 		Endpoint: &IstioEndpoint{
-			Address:      "192.168.1.2",
+			Addresses:    []string{"192.168.1.2"},
 			EndpointPort: 1000000,
 			TLSMode:      DisabledTLSModeLabel,
 		},
@@ -3012,12 +3030,12 @@ func TestInstancesByPort(t *testing.T) {
 				Shards: map[ShardKey][]*IstioEndpoint{
 					{Cluster: "Kubernets", Provider: provider.External}: {
 						&IstioEndpoint{
-							Address:         "1.1.1.1",
+							Addresses:       []string{"1.1.1.1"},
 							EndpointPort:    7000,
 							ServicePortName: "uds",
 						},
 						&IstioEndpoint{
-							Address:         "1.1.1.2",
+							Addresses:       []string{"1.1.1.2", "2001:1::2"},
 							EndpointPort:    8000,
 							ServicePortName: "uds",
 						},
