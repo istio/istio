@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -117,7 +118,6 @@ func TestReachability(t *testing.T) {
 				"cert-chain.pem", "root-cert-combined.pem"); err != nil {
 				t.Errorf("failed to update combined CA secret: %v", err)
 			}
-			updateTimestampAnnotations(t)
 			lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
 
 			// Verify traffic works between a and b
@@ -144,7 +144,6 @@ func TestReachability(t *testing.T) {
 				"cert-chain-alt.pem", "root-cert-combined-2.pem"); err != nil {
 				t.Errorf("failed to update CA secret: %v", err)
 			}
-			updateTimestampAnnotations(t)
 			lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
 
 			// Verify traffic works between a and b after cert rotation
@@ -171,7 +170,6 @@ func TestReachability(t *testing.T) {
 				"cert-chain-alt.pem", "root-cert-alt.pem"); err != nil {
 				t.Errorf("failed to update CA secret: %v", err)
 			}
-			updateTimestampAnnotations(t)
 			waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
 
 			// Verify traffic works between a and b after cert rotation
@@ -204,12 +202,12 @@ func updateTimestampAnnotations(t framework.TestContext) {
 
 		for _, pod := range pods.Items {
 			// Skip pods without istio-proxy container
-			if !HasIstioProxyContainer(pod.Spec.Containers) {
+			if !hasIstioProxyContainer(pod.Spec.Containers) {
 				continue
 			}
 
 			// Update annotations to force the mounted configmap refresh
-			pod.Annotations["timestamp"] = time.Now().String()
+			pod.Annotations["timestamp"] = strconv.Itoa(int(time.Now().Unix()))
 			if p, err := c.Kube().CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
 				t.Fatalf("failed to update pod %s: %v", pod.Name, err)
 			} else {
@@ -219,7 +217,7 @@ func updateTimestampAnnotations(t framework.TestContext) {
 	}
 }
 
-func HasIstioProxyContainer(containers []corev1.Container) bool {
+func hasIstioProxyContainer(containers []corev1.Container) bool {
 	for _, c := range containers {
 		if c.Name == "istio-proxy" {
 			return true
@@ -254,7 +252,7 @@ func getWorkloadCertLastUpdateTime(t framework.TestContext, i echo.Instance, ctl
 	return time.Now(), errors.New("failed to find workload cert")
 }
 
-// Abstracted function to wait for workload cert to be updated
+// waitForWorkloadCertUpdate abstracted function to wait for workload cert to be updated
 func waitForWorkloadCertUpdate(t framework.TestContext, from echo.Instance, istioCtl istioctl.Instance, lastUpdateTime time.Time) time.Time {
 	startTime := time.Now()
 	retry.UntilOrFail(t, func() bool {
@@ -270,6 +268,10 @@ func waitForWorkloadCertUpdate(t framework.TestContext, from echo.Instance, isti
 			t.Logf("workload cert is updated after %v, last update time: %v", time.Since(startTime), updateTime)
 			return true
 		}
+
+		// This should be called after configmap `istio-ca-root-cert` updated to trigger the workload cert resigning.
+		// Right now, I cannot find a way to check the configmap update status, so we just update the pod annotations.
+		updateTimestampAnnotations(t)
 
 		return false
 	}, retry.Timeout(5*time.Minute), retry.Delay(1*time.Second))
