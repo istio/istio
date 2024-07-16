@@ -1,0 +1,42 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: full
+spec:
+  address: 1.2.3.4
+  serviceAccount: sa
+  network: net
+  labels:
+    app: app
+  ports:
+    "http": 1
+  weight: 2
+  locality: foo/bar/baz
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: missing-address-network-set
+spec:
+  network: net
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: uds-abstract
+spec:
+  address: unix://@foo
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: uds-path
+spec:
+  address: unix:///foo/bar
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: fqdn
+spec:
+  address: example.com

@@ -84,6 +84,7 @@ var (
 		"5xx",
 		"gateway-error",
 		"reset",
+		"reset-before-request",
 		"connect-failure",
 		"retriable-4xx",
 		"refused-stream",

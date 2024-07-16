@@ -75,11 +75,11 @@ func fetchWaypointForInstance(ctx krt.HandlerContext, Waypoints krt.Collection[W
 	return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(namespace+"/"+name))
 }
 
-// fetchWaypointForTarget attempts to find the Waypoit that should handle traffic for a given service or workload
+// fetchWaypointForTarget attempts to find the waypoint that should handle traffic for a given service or workload
 func fetchWaypointForTarget(
 	ctx krt.HandlerContext,
-	Waypoints krt.Collection[Waypoint],
-	Namespaces krt.Collection[*v1.Namespace],
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
 	o metav1.ObjectMeta,
 ) *Waypoint {
 	// namespace to be used when the annotation doesn't include a namespace
@@ -95,29 +95,29 @@ func fetchWaypointForTarget(
 		// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
 		// o was reliant on the namespace waypoint and then get's a use-waypoint label added before that gateway is ready.
 		// goes from having a waypoint to having no waypoint and then eventually gets a waypoint back
-		inst := krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wp.ResourceName()))
-		if inst != nil {
-			if !inst.AllowsAttachmentFromNamespaceOrLookup(ctx, Namespaces, fallbackNamespace) {
+		w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
+		if w != nil {
+			if !w.AllowsAttachmentFromNamespaceOrLookup(ctx, namespaces, fallbackNamespace) {
 				return nil
 			}
-			return inst
+			return w
 		}
 		return nil
 	}
 
 	// try fetching the namespace-defined waypoint
-	namespace := ptr.OrEmpty[*v1.Namespace](krt.FetchOne[*v1.Namespace](ctx, Namespaces, krt.FilterKey(o.Namespace)))
+	namespace := ptr.OrEmpty[*v1.Namespace](krt.FetchOne[*v1.Namespace](ctx, namespaces, krt.FilterKey(o.Namespace)))
 	// this probably should never be nil. How would o exist in a namespace we know nothing about? maybe edge case of starting the controller or ns delete?
 	if namespace != nil {
 		// toss isNone, we don't need to know /why/ we got nil
-		wpNamespace, _ := getUseWaypoint(namespace.ObjectMeta, fallbackNamespace)
-		if wpNamespace != nil {
-			inst := krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(wpNamespace.ResourceName()))
-			if inst != nil {
-				if !inst.AllowsAttachmentFromNamespace(namespace) {
+		wp, _ := getUseWaypoint(namespace.ObjectMeta, fallbackNamespace)
+		if wp != nil {
+			w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
+			if w != nil {
+				if !w.AllowsAttachmentFromNamespace(namespace) {
 					return nil
 				}
-				return inst
+				return w
 			}
 			return nil
 		}
@@ -185,19 +185,19 @@ func (w Waypoint) ResourceName() string {
 }
 
 func WaypointsCollection(
-	Gateways krt.Collection[*v1beta1.Gateway],
-	GatewayClasses krt.Collection[*v1beta1.GatewayClass],
-	Pods krt.Collection[*v1.Pod],
+	gateways krt.Collection[*v1beta1.Gateway],
+	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
+	pods krt.Collection[*v1.Pod],
 ) krt.Collection[Waypoint] {
-	podsByNamespace := krt.NewNamespaceIndex(Pods)
-	return krt.NewCollection(Gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
+	podsByNamespace := krt.NewNamespaceIndex(pods)
+	return krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
 		if len(gateway.Status.Addresses) == 0 {
 			// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
 
-		instances := krt.Fetch(ctx, Pods, krt.FilterLabel(map[string]string{
+		instances := krt.Fetch(ctx, pods, krt.FilterLabel(map[string]string{
 			constants.GatewayNameLabel: gateway.Name,
 		}), krt.FilterIndex(podsByNamespace, gateway.Namespace))
 
@@ -208,7 +208,7 @@ func WaypointsCollection(
 		// default traffic type if neither GatewayClass nor Gateway specify a type
 		trafficType := constants.ServiceTraffic
 
-		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
+		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
 		if gatewayClass == nil {
 			log.Warnf("could not find GatewayClass %s for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
 		} else if tt, found := gatewayClass.Labels[constants.AmbientWaypointForTrafficTypeLabel]; found {

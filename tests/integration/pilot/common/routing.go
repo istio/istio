@@ -785,7 +785,7 @@ spec:
     retries:
       attempts: 3
       perTryTimeout: 2s
-      retryOn: gateway-error,connect-failure,refused-stream
+      retryOn: gateway-error,connect-failure,refused-stream,reset-before-request
       retryRemoteLocalities: true`,
 		opts: echo.CallOptions{
 			Port: echo.Port{
@@ -913,7 +913,7 @@ spec:
 				}
 			},
 			config: `
-{{ $split := .split }} 
+{{ $split := .split }}
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
