@@ -31,7 +31,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -81,8 +83,8 @@ func buildExpectAddedAndRemoved(t *testing.T) func(resp *discovery.DeltaDiscover
 		for _, r := range resp.RemovedResources {
 			haveRemoved.Insert(r)
 		}
-		assert.Equal(t, sets.SortedList(have), sets.SortedList(wantAdded))
-		assert.Equal(t, sets.SortedList(haveRemoved), sets.SortedList(wantRemoved))
+		assert.Equal(t, sets.SortedList(have), sets.SortedList(wantAdded), "updated")
+		assert.Equal(t, sets.SortedList(haveRemoved), sets.SortedList(wantRemoved), "removed")
 	}
 }
 
@@ -291,6 +293,7 @@ func deletePeerAuthentication(s *xds.FakeDiscoveryServer, name string, ns string
 	clienttest.NewWriter[*securityclient.PeerAuthentication](s.T(), s.KubeClient()).Delete(name, ns)
 }
 
+// nolint: unparam
 func createPeerAuthentication(s *xds.FakeDiscoveryServer, name string, ns string, spec *v1beta1.PeerAuthentication) {
 	c := &securityclient.PeerAuthentication{
 		ObjectMeta: metav1.ObjectMeta{
@@ -440,5 +443,54 @@ func TestWorkloadPeerAuthentication(t *testing.T) {
 
 	// Irrelevant update (pod is in the default namespace and not "ns") shouldn't push
 	createPod(s, "pod", "sa", "127.0.0.1", "node")
+	ads.ExpectNoResponse()
+}
+
+// Regression tests for NOP PeerAuthentication triggering a removal
+func TestPeerAuthenticationUpdate(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+	expectAddedAndRemoved := buildExpectAddedAndRemoved(t)
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	ads := s.ConnectDeltaADS().WithType(v3.WorkloadAuthorizationType).WithTimeout(time.Second * 10).WithNodeType(model.Ztunnel)
+
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{"*"},
+	})
+	ads.ExpectEmptyResponse()
+
+	// One PA will create 2 resources, but they may not come in one push. Workaround this by forcing them to come one-by-one
+	createPeerAuthentication(s, "policy1", "ns", &v1beta1.PeerAuthentication{})
+	expectAddedAndRemoved(ads.ExpectResponse(), []string{"istio-system/istio_converted_static_strict"}, nil)
+
+	// Now create our real policy
+	spec := &v1beta1.PeerAuthentication{
+		Selector: &metav1beta1.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app": "sa",
+			},
+		},
+		Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+			Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+		},
+		PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+			8080: {
+				Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+			},
+		},
+	}
+	createPeerAuthentication(s, "policy1", "ns", spec)
+	expectAddedAndRemoved(ads.ExpectResponse(), []string{"ns/converted_peer_authentication_policy1"}, nil)
+
+	// Create in the Istio config store. This is important, since this will trigger an update on PeerAuthentication which
+	// is what caused the issue.
+	_, err := s.Discovery.Env.Create(config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.PeerAuthentication,
+			Name:             "policy1",
+			Namespace:        "ns",
+		},
+		Spec: spec,
+	})
+	assert.NoError(t, err)
 	ads.ExpectNoResponse()
 }
