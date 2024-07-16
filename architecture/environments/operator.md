@@ -238,7 +238,6 @@ subdirectory as a Cobra command with the following subcommands:
     - [diff](../operator/cmd/mesh/manifest-diff.go): the diff subcommand is used to compare manifest from two files or directories.
     - [generate](../operator/cmd/mesh/manifest-generate.go): the generate subcommand is used to generate an Istio install manifest.
 - [profile](../operator/cmd/mesh/profile.go): dumps the default values for a selected profile, it has the following subcommands:
-    - [diff](../operator/cmd/mesh/profile-diff.go): the diff subcommand is used to display the difference between two Istio configuration profiles.
     - [dump](../operator/cmd/mesh/profile-dump.go): the dump subcommand is used to dump the values in an Istio configuration profile.
     - [list](../operator/cmd/mesh/profile-list.go): the list subcommand is used to list available Istio configuration profiles.
 - [upgrade](../operator/cmd/mesh/upgrade.go): performs an in-place upgrade of the Istio control plane with eligibility checks.
