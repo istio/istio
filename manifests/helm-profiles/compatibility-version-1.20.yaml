@@ -10,6 +10,9 @@ pilot:
     ENABLE_ENHANCED_RESOURCE_SCOPING: "false"
     ENABLE_RESOLUTION_NONE_TARGET_PORT: "false"
 
+    # 1.24 behavioral changes
+    ENABLE_INBOUND_RETRY_POLICY: "false"
+
 meshConfig:
   # 1.22 behavioral changes
   defaultConfig:
