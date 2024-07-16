@@ -17,16 +17,13 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/util/progress"
 )
 
 const fieldOwnerOperator = "istio-operator"
@@ -60,12 +57,6 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedRe
 		return result, err
 	}
 
-	objectCache := cache.GetCache(crHash)
-
-	// Ensure that for a given CR crHash only one control loop uses the per-crHash cache at any time.
-	objectCache.Mu.Lock()
-	defer objectCache.Mu.Unlock()
-
 	// No further locking required beyond this point, since we have a ptr to a cache corresponding to a CR crHash and no
 	// other controller is allowed to work on at the same time.
 	var changedObjects object.K8sObjects
@@ -76,22 +67,10 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedRe
 	for _, obj := range allObjects {
 		oh := obj.Hash()
 		allObjectsMap[oh] = true
-		if co, ok := objectCache.Cache[oh]; ok && obj.Equal(co) {
-			// Object is in the cache and unchanged.
-			result.deployed++
-			continue
-		}
 		changedObjects = append(changedObjects, obj)
 		changedObjectKeys = append(changedObjectKeys, oh)
 	}
-
-	var plog *progress.ManifestLog
-	if len(changedObjectKeys) > 0 {
-		plog = h.opts.ProgressLog.NewComponent(cname)
-		scope.Infof("The following objects differ between generated manifest and cache: \n - %s", strings.Join(changedObjectKeys, "\n - "))
-	} else {
-		scope.Infof("Generated manifest objects are the same as cached for component %s.", cname)
-	}
+	plog := h.opts.ProgressLog.NewComponent(cname)
 
 	// Objects are applied in groups: namespaces, CRDs, everything else, with wait for ready in between.
 	nsObjs := object.KindObjects(changedObjects, name.NamespaceStr)
@@ -111,21 +90,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedRe
 			}
 			plog.ReportProgress()
 			result.processedObjects = append(result.processedObjects, obj)
-			// Update the cache with the latest object.
-			objectCache.Cache[obj.Hash()] = obj
 		}
-	}
-
-	// Prune anything not in the manifest out of the cache.
-	var removeKeys []string
-	for k := range objectCache.Cache {
-		if !allObjectsMap[k] {
-			removeKeys = append(removeKeys, k)
-		}
-	}
-	for _, k := range removeKeys {
-		scope.Infof("Pruning object %s from cache.", k)
-		delete(objectCache.Cache, k)
 	}
 
 	if len(changedObjectKeys) > 0 {

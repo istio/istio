@@ -33,7 +33,6 @@ import (
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -228,8 +227,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kubeClient kube.Client, client client.Client,
 	waitTimeout time.Duration, l clog.Logger,
 ) error {
-	// Needed in case we are running a test through this path that doesn't start a new process.
-	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{
 		DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
 		Force: force,

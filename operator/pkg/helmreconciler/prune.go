@@ -31,7 +31,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
@@ -156,7 +155,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		if err != nil {
 			return errStatus, err
 		}
-		err = h.DeleteObjectsList(uslist, c)
+		err = h.DeleteObjectsList(uslist)
 		if err != nil {
 			return errStatus, err
 		}
@@ -177,7 +176,7 @@ func (h *HelmReconciler) pilotExists(cliClient kube.CLIClient, istioNamespace st
 }
 
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
-func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList, componentName string) error {
+func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList) error {
 	var errs util.Errors
 	deletedObjects := make(map[string]bool)
 	for _, ul := range objectsList {
@@ -189,7 +188,7 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 			if deletedObjects[oh] {
 				continue
 			}
-			if err := h.deleteResource(obj, componentName, oh); err != nil {
+			if err := h.deleteResource(obj, oh); err != nil {
 				errs = append(errs, err)
 			}
 			deletedObjects[oh] = true
@@ -337,18 +336,15 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 				continue
 			}
 		}
-		if err := h.deleteResource(obj, componentName, oh); err != nil {
+		if err := h.deleteResource(obj, oh); err != nil {
 			errs = append(errs, err)
 		}
-	}
-	if all {
-		cache.FlushObjectCaches()
 	}
 
 	return errs.ToError()
 }
 
-func (h *HelmReconciler) deleteResource(obj *object.K8sObject, componentName, oh string) error {
+func (h *HelmReconciler) deleteResource(obj *object.K8sObject, oh string) error {
 	if h.opts.DryRun {
 		h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
 		return nil
@@ -370,22 +366,7 @@ func (h *HelmReconciler) deleteResource(obj *object.K8sObject, componentName, oh
 		h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
 		return nil
 	}
-	if componentName != "" {
-		h.removeFromObjectCache(componentName, oh)
-	} else {
-		cache.FlushObjectCaches()
-	}
 
 	h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	return nil
-}
-
-// RemoveObject removes object with objHash in componentName from the object cache.
-func (h *HelmReconciler) removeFromObjectCache(componentName, objHash string) {
-	crHash, err := h.getCRHash(componentName)
-	if err != nil {
-		scope.Error(err.Error())
-	}
-	cache.RemoveObject(crHash, objHash)
-	scope.Infof("Removed object %s from Cache.", objHash)
 }
