@@ -142,7 +142,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 					// Use the service's CIDRs.
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
-					// destinationCIDR will be empty for services with VIPs
+					// destinationCIDRs will be empty for services with VIPs
 					// Only set CIDR match if the listener is bound to an IP.
 					// If its bound to a unix domain socket, then ignore the CIDR matches
 					// Unix domain socket bound ports have Port value set to 0
