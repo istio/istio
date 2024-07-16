@@ -27,6 +27,16 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
+func TestAmbientIndexDuplicates(t *testing.T) {
+	s := newAmbientTestServer(t, testC, testNW)
+	s.addWorkloadEntries(t, "140.140.0.10", "name0", "sa1", map[string]string{"app": "a"})
+	s.addPods(t, "140.140.0.10", "pod0", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.addWorkloadEntries(t, "140.140.0.10", "name1", "sa1", map[string]string{"app": "a"})
+	s.addPods(t, "140.140.0.10", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.wleXdsName("name0"), s.wleXdsName("name1"), s.podXdsName("pod0"), s.podXdsName("pod1"))
+	s.assertAddresses(t, "", "pod0")
+}
+
 func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	s := newAmbientTestServer(t, testC, testNW)
 
