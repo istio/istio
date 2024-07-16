@@ -21,7 +21,6 @@ import (
 	"net/netip"
 	"strings"
 
-	"gomodules.xyz/jsonpatch/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -177,7 +176,7 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 		return nil
 	}
 
-	patch, err := c.statusPatchForAddresses(serviceentry, false)
+	patch, atomicAddPatch, err := c.statusPatchForAddresses(serviceentry, false)
 	if err != nil {
 		return err
 	}
@@ -186,9 +185,17 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 		return nil // nothing to patch
 	}
 
+	// this patch may fail if there is no status which exists
 	_, err = c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, patch)
 	if err != nil {
-		return err
+		// try this patch which tests that status doesn't exist, adds status and then add addresses all in 1 operation
+		_, err2 := c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, atomicAddPatch)
+		if err2 != nil {
+			log.Errorf("second patch also rejected %v, patch: %s", err2.Error(), atomicAddPatch)
+			// if this also didn't work there is perhaps a real issue and perhaps a requeue will resolve
+			return err
+		}
+		return nil
 	}
 
 	return nil
@@ -233,7 +240,7 @@ func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
 			continue
 		}
 		log.Warnf("reassigned %s/%s due to IP Address conflict", resolveMe.Namespace, resolveMe.Name)
-		patch, err := c.statusPatchForAddresses(resolveMe, true)
+		patch, _, err := c.statusPatchForAddresses(resolveMe, true)
 		if err != nil {
 			errs = errors.Join(errs, err)
 		}
@@ -304,31 +311,55 @@ func (c *IPAllocator) markUsedOrQueueConflict(maybeMappedAddrs []netip.Addr, own
 	}
 }
 
-func (c *IPAllocator) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry, forcedReassign bool) ([]byte, error) {
+type jsonPatch struct {
+	Operation string      `json:"op"`
+	Path      string      `json:"path"`
+	Value     interface{} `json:"value"`
+}
+
+func (c *IPAllocator) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry, forcedReassign bool) ([]byte, []byte, error) {
 	if se == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	existingAddresses := autoallocate.GetV2AddressesFromServiceEntry(se)
 	if len(existingAddresses) > 0 && !forcedReassign {
 		// this is likely a noop, but just to be safe we should check and potentially resolve conflict
 		c.markUsedOrQueueConflict(existingAddresses, config.NamespacedName(se))
-		return nil, nil // nothing to patch
+		return nil, nil, nil // nothing to patch
 	}
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
 	for _, a := range c.nextAddresses(config.NamespacedName(se)) {
 		assignedAddresses = append(assignedAddresses, apiv1alpha3.ServiceEntryAddress{Value: a.String()})
 	}
 
-	addressUpdate := []jsonpatch.Operation{
+	replaceAddresses, err := json.Marshal([]jsonPatch{
 		{
 			Operation: "replace",
 			Path:      "/status/addresses",
 			Value:     assignedAddresses,
 		},
-	}
+	})
 
-	return json.Marshal(addressUpdate)
+	atomicAddAndAddresses, err2 := json.Marshal([]jsonPatch{
+		{
+			Operation: "test",
+			Path:      "/status",
+			Value:     nil, // we want to test that status is nil before we try to modiy it with this
+		},
+		{
+			Operation: "add",
+			Path:      "/status",
+			Value:     apiv1alpha3.ServiceEntryStatus{},
+		},
+		{
+			Operation: "add",
+			Path:      "/status/addresses",
+			Value:     assignedAddresses,
+		},
+	})
+
+	return replaceAddresses, atomicAddAndAddresses, errors.Join(err, err2)
 }
 
 func (c *IPAllocator) checkInSpecAddresses(serviceentry *networkingv1alpha3.ServiceEntry) {
