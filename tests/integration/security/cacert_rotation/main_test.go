@@ -202,8 +202,8 @@ func updateTimestampAnnotations(t framework.TestContext) {
 		}
 
 		for _, pod := range pods.Items {
-			// Skip pods without istio-proxy container
-			if !hasIstioProxyContainer(pod.Spec.Containers) {
+			// Skip pods without istio-proxy or discovery container
+			if !hasIstioPod(pod.Spec.Containers) {
 				continue
 			}
 
@@ -218,9 +218,9 @@ func updateTimestampAnnotations(t framework.TestContext) {
 	}
 }
 
-func hasIstioProxyContainer(containers []corev1.Container) bool {
+func hasIstioPod(containers []corev1.Container) bool {
 	for _, c := range containers {
-		if c.Name == "istio-proxy" {
+		if c.Name == "istio-proxy" || c.Name == "discovery" {
 			return true
 		}
 	}
