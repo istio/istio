@@ -240,6 +240,8 @@ func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
 			continue
 		}
 		log.Warnf("reassigned %s/%s due to IP Address conflict", resolveMe.Namespace, resolveMe.Name)
+		// we are patching from the slice of ServiceEntry where the conflicting address was found in status.addresses
+		// this means we should already have a status and never need to use the patch that initializes the status
 		patch, _, err := c.statusPatchForAddresses(resolveMe, true)
 		if err != nil {
 			errs = errors.Join(errs, err)
