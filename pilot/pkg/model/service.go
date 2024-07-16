@@ -1287,26 +1287,26 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 				if prefix, err := netip.ParsePrefix(addr); err != nil {
 					log.Warnf("failed to parse prefix address '%s': %s", addr, err)
 					continue
-				} else if prefix.Addr().Is4() {
+				} else if node.SupportsIPv4() && prefix.Addr().Is4() {
 					ipv4Addresses = append(ipv4Addresses, addr)
-				} else if prefix.Addr().Is6() {
+				} else if node.SupportsIPv6() && prefix.Addr().Is6() {
 					ipv6Addresses = append(ipv6Addresses, addr)
 				}
 			} else {
 				if ipAddr, err := netip.ParseAddr(addr); err != nil {
 					log.Warnf("failed to parse address '%s': %s", addr, err)
 					continue
-				} else if ipAddr.Is4() {
+				} else if node.SupportsIPv4() && ipAddr.Is4() {
 					ipv4Addresses = append(ipv4Addresses, addr)
-				} else if ipAddr.Is6() {
+				} else if node.SupportsIPv6() && ipAddr.Is6() {
 					ipv6Addresses = append(ipv6Addresses, addr)
 				}
 			}
 		}
-		if node.SupportsIPv4() && len(ipv4Addresses) > 0 {
+		if len(ipv4Addresses) > 0 {
 			return ipv4Addresses
 		}
-		if node.SupportsIPv6() && len(ipv6Addresses) > 0 {
+		if len(ipv6Addresses) > 0 {
 			return ipv6Addresses
 		}
 	}
