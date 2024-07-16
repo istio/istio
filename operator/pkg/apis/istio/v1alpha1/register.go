@@ -21,25 +21,11 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-var (
-	// IstioOperatorGVK is GVK for IstioOperator
-	IstioOperatorGVK = schema.GroupVersionKind{
-		Version: "v1alpha1",
-		Group:   "install.istio.io",
-		Kind:    "IstioOperator",
-	}
-
-	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = IstioOperatorGVK.GroupVersion()
-
-	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
-)
-
-// Register the IstioOperator and IstioOperatorList API kind
-func init() {
-	SchemeBuilder.Register(&IstioOperator{}, &IstioOperatorList{})
+// IstioOperatorGVK is GVK for IstioOperator
+var IstioOperatorGVK = schema.GroupVersionKind{
+	Version: "v1alpha1",
+	Group:   "install.istio.io",
+	Kind:    "IstioOperator",
 }
