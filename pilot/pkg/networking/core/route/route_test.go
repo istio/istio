@@ -24,9 +24,11 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/route"
@@ -38,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -2959,6 +2962,72 @@ func TestSortVHostRoutes(t *testing.T) {
 				for _, g := range tc.expected {
 					t.Errorf("%v\n", g.Match.PathSpecifier)
 				}
+			}
+		})
+	}
+}
+
+func TestInboundHTTPRoute(t *testing.T) {
+	testCases := []struct {
+		name        string
+		enableRetry bool
+		expected    *envoyroute.Route
+	}{
+		{
+			name:        "enable retry",
+			enableRetry: true,
+			expected: &envoyroute.Route{
+				Name:  "default",
+				Match: route.TranslateRouteMatch(config.Config{}, nil, true),
+				Action: &envoyroute.Route_Route{
+					Route: &envoyroute.RouteAction{
+						ClusterSpecifier: &envoyroute.RouteAction_Cluster{Cluster: "cluster"},
+						RetryPolicy: &envoyroute.RetryPolicy{
+							RetryOn: "reset-before-request",
+							NumRetries: &wrapperspb.UInt32Value{
+								Value: 2,
+							},
+						},
+						Timeout: route.Notimeout,
+						MaxStreamDuration: &envoyroute.RouteAction_MaxStreamDuration{
+							MaxStreamDuration:    route.Notimeout,
+							GrpcTimeoutHeaderMax: route.Notimeout,
+						},
+					},
+				},
+				Decorator: &envoyroute.Decorator{
+					Operation: "operation",
+				},
+			},
+		},
+		{
+			name:        "disable retry",
+			enableRetry: false,
+			expected: &envoyroute.Route{
+				Name:  "default",
+				Match: route.TranslateRouteMatch(config.Config{}, nil, true),
+				Action: &envoyroute.Route_Route{
+					Route: &envoyroute.RouteAction{
+						ClusterSpecifier: &envoyroute.RouteAction_Cluster{Cluster: "cluster"},
+						Timeout:          route.Notimeout,
+						MaxStreamDuration: &envoyroute.RouteAction_MaxStreamDuration{
+							MaxStreamDuration:    route.Notimeout,
+							GrpcTimeoutHeaderMax: route.Notimeout,
+						},
+					},
+				},
+				Decorator: &envoyroute.Decorator{
+					Operation: "operation",
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableInboundRetryPolicy, tc.enableRetry)
+			inroute := route.BuildDefaultHTTPInboundRoute("cluster", "operation")
+			if !reflect.DeepEqual(tc.expected, inroute) {
+				t.Errorf("error in inbound routes. Got: %v, Want: %v", inroute, tc.expected)
 			}
 		})
 	}
