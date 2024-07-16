@@ -45,8 +45,8 @@ func FuzzCheckIstioOperatorSpec(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	_ = validate.CheckIstioOperatorSpec(ispec, false)
-	_ = validate.CheckIstioOperatorSpec(ispec, true)
+	_ = validate.CheckIstioOperatorSpec(ispec)
+	_ = validate.CheckIstioOperatorSpec(ispec)
 	return 1
 }
 

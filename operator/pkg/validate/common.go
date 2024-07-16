@@ -293,6 +293,6 @@ func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 
 // ValidIOP validates the given IstioOperator object.
 func ValidIOP(iop *v1alpha1.IstioOperator) error {
-	errs := CheckIstioOperatorSpec(iop.Spec, false)
+	errs := CheckIstioOperatorSpec(iop.Spec)
 	return errs.ToError()
 }

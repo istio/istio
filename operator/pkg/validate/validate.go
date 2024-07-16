@@ -48,14 +48,14 @@ func CheckIstioOperator(iop *operator_v1alpha1.IstioOperator, checkRequiredField
 		return nil
 	}
 
-	errs := CheckIstioOperatorSpec(iop.Spec, checkRequiredFields)
+	errs := CheckIstioOperatorSpec(iop.Spec)
 	return errs.ToError()
 }
 
 // CheckIstioOperatorSpec validates the values in the given Installer spec, using the field map DefaultValidations to
 // call the appropriate validation function. checkRequiredFields determines whether missing mandatory fields generate
 // errors.
-func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequiredFields bool) (errs util.Errors) {
+func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec) (errs util.Errors) {
 	if is == nil {
 		return util.Errors{}
 	}

@@ -165,7 +165,7 @@ func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte, force bool) 
 	}
 
 	outputTree := make(map[string]any)
-	err = t.TranslateTree(yamlTree, outputTree, nil)
+	err = t.TranslateTree(yamlTree, outputTree)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte, force bool) 
 }
 
 // TranslateTree translates input value.yaml Tree to ControlPlaneSpec Tree.
-func (t *ReverseTranslator) TranslateTree(valueTree map[string]any, cpSpecTree map[string]any, path util.Path) error {
+func (t *ReverseTranslator) TranslateTree(valueTree map[string]any, cpSpecTree map[string]any) error {
 	// translate enablement and namespace
 	err := t.setEnablementFromValue(valueTree, cpSpecTree)
 	if err != nil {

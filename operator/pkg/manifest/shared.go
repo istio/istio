@@ -318,31 +318,6 @@ func hasMultipleIOPs(s string) (bool, error) {
 	return false, nil
 }
 
-func GetProfile(iop *iopv1alpha1.IstioOperator) string {
-	profile := "default"
-	if iop != nil && iop.Spec != nil && iop.Spec.Profile != "" {
-		profile = iop.Spec.Profile
-	}
-	return profile
-}
-
-func GetMergedIOP(userIOPStr, profile, manifestsPath, revision string, client kube.Client,
-	logger clog.Logger,
-) (*iopv1alpha1.IstioOperator, error) {
-	extraFlags := make([]string, 0)
-	if manifestsPath != "" {
-		extraFlags = append(extraFlags, fmt.Sprintf("installPackagePath=%s", manifestsPath))
-	}
-	if revision != "" {
-		extraFlags = append(extraFlags, fmt.Sprintf("revision=%s", revision))
-	}
-	_, mergedIOP, err := OverlayYAMLStrings(profile, userIOPStr, extraFlags, false, client, logger)
-	if err != nil {
-		return nil, err
-	}
-	return mergedIOP, nil
-}
-
 // validateSetFlags validates that setFlags all have path=value format.
 func validateSetFlags(setFlags []string) error {
 	for _, sf := range setFlags {
@@ -444,7 +419,7 @@ func unmarshalAndValidateIOP(iopsYAML string, force, allowUnknownField bool, l c
 	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
-	if errs := validate.CheckIstioOperatorSpec(iop.Spec, true); len(errs) != 0 && !force {
+	if errs := validate.CheckIstioOperatorSpec(iop.Spec); len(errs) != 0 && !force {
 		l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
 		return iop, fmt.Errorf(errs.Error())
 	}

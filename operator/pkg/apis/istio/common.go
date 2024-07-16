@@ -33,7 +33,7 @@ func UnmarshalAndValidateIOPS(iopsYAML string) (*v1alpha1.IstioOperatorSpec, err
 	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
 		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
-	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
+	if errs := validate.CheckIstioOperatorSpec(iops); len(errs) != 0 {
 		return iops, fmt.Errorf(errs.Error())
 	}
 	return iops, nil
