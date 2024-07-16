@@ -1280,34 +1280,9 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 		if (features.EnableDualStack || features.EnableAmbient) && len(addresses) > 0 {
 			return addresses
 		}
-		var ipv4Addresses []string
-		var ipv6Addresses []string
-		for _, addr := range addresses {
-			if strings.Contains(addr, "/") {
-				if prefix, err := netip.ParsePrefix(addr); err != nil {
-					log.Warnf("failed to parse prefix address '%s': %s", addr, err)
-					continue
-				} else if node.SupportsIPv4() && prefix.Addr().Is4() {
-					ipv4Addresses = append(ipv4Addresses, addr)
-				} else if node.SupportsIPv6() && prefix.Addr().Is6() {
-					ipv6Addresses = append(ipv6Addresses, addr)
-				}
-			} else {
-				if ipAddr, err := netip.ParseAddr(addr); err != nil {
-					log.Warnf("failed to parse address '%s': %s", addr, err)
-					continue
-				} else if node.SupportsIPv4() && ipAddr.Is4() {
-					ipv4Addresses = append(ipv4Addresses, addr)
-				} else if node.SupportsIPv6() && ipAddr.Is6() {
-					ipv6Addresses = append(ipv6Addresses, addr)
-				}
-			}
-		}
-		if len(ipv4Addresses) > 0 {
-			return ipv4Addresses
-		}
-		if len(ipv6Addresses) > 0 {
-			return ipv6Addresses
+		addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
+		if len(addresses) > 0 {
+			return addresses
 		}
 	}
 	if a := s.GetAddressForProxy(node); a != "" {
@@ -1325,6 +1300,37 @@ func (s *Service) getAllAddresses() []string {
 	}
 
 	return addresses
+}
+
+func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {
+	var ipv4Addresses []string
+	var ipv6Addresses []string
+	for _, addr := range addresses {
+		// check if an address is a CIDR range
+		if strings.Contains(addr, "/") {
+			if prefix, err := netip.ParsePrefix(addr); err != nil {
+				log.Warnf("failed to parse prefix address '%s': %s", addr, err)
+				continue
+			} else if supportsV4 && prefix.Addr().Is4() {
+				ipv4Addresses = append(ipv4Addresses, addr)
+			} else if supportsV6 && prefix.Addr().Is6() {
+				ipv6Addresses = append(ipv6Addresses, addr)
+			}
+		} else {
+			if ipAddr, err := netip.ParseAddr(addr); err != nil {
+				log.Warnf("failed to parse address '%s': %s", addr, err)
+				continue
+			} else if supportsV4 && ipAddr.Is4() {
+				ipv4Addresses = append(ipv4Addresses, addr)
+			} else if supportsV6 && ipAddr.Is6() {
+				ipv6Addresses = append(ipv6Addresses, addr)
+			}
+		}
+	}
+	if len(ipv4Addresses) > 0 {
+		return ipv4Addresses
+	}
+	return ipv6Addresses
 }
 
 // GetTLSModeFromEndpointLabels returns the value of the label
