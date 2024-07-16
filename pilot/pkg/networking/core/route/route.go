@@ -1242,7 +1242,7 @@ func BuildDefaultHTTPInboundRoute(proxy *model.Proxy, clusterName string, operat
 		// gRPC requests time out like any other requests using timeout or its default.
 		GrpcTimeoutHeaderMax: Notimeout,
 	}
-	if proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 24, Patch: -1}) && features.EnableInboundRetryPolicy {
+	if util.VersionGreaterOrEqual124(proxy) && features.EnableInboundRetryPolicy {
 		out.GetRoute().RetryPolicy = &route.RetryPolicy{
 			RetryOn: "reset-before-request",
 			NumRetries: &wrapperspb.UInt32Value{
