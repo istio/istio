@@ -15,8 +15,6 @@
 package util
 
 import (
-	"fmt"
-	"net/url"
 	"strings"
 
 	"istio.io/istio/pkg/log"
@@ -27,14 +25,4 @@ var scope = log.RegisterScope("util", "util")
 // IsFilePath reports whether the given URL is a local file path.
 func IsFilePath(path string) bool {
 	return strings.Contains(path, "/") || strings.Contains(path, ".")
-}
-
-// IsHTTPURL checks whether the given URL is a HTTP URL.
-func IsHTTPURL(path string) (bool, error) {
-	u, err := url.Parse(path)
-	valid := err == nil && u.Host != "" && (u.Scheme == "http" || u.Scheme == "https")
-	if strings.HasPrefix(path, "http") && !valid {
-		return false, fmt.Errorf("%s starts with http but is not a valid URL: %s", path, err)
-	}
-	return valid, nil
 }
