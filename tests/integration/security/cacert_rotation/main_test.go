@@ -18,12 +18,15 @@
 package cacertrotation
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test/framework"
@@ -48,7 +51,6 @@ var apps deployment.SingleNamespaceView
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Skip("https://github.com/istio/istio/issues/47829").
 		Label(label.CustomSetup).
 		Setup(istio.Setup(nil, setupConfig, cert.CreateCASecret)).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
@@ -115,8 +117,26 @@ func TestReachability(t *testing.T) {
 				"cert-chain.pem", "root-cert-combined.pem"); err != nil {
 				t.Errorf("failed to update combined CA secret: %v", err)
 			}
-
+			updateTimestampAnnotations(t)
 			lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
+
+			// Verify traffic works between a and b
+			echotest.New(t, fromAndTo).
+				WithDefaultFilters(1, 1).
+				FromMatch(match.ServiceName(from.NamespacedName())).
+				ToMatch(match.ServiceName(to.NamespacedName())).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+					// Verify mTLS works between a and b
+					opts := echo.CallOptions{
+						To: to,
+						Port: echo.Port{
+							Name: "http",
+						},
+					}
+					opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
+
+					from.CallOrFail(t, opts)
+				})
 
 			// step 2: Update CA signing key/cert with cacert to trigger workload cert resigning
 			if err := cert.CreateCustomCASecret(t,
@@ -124,7 +144,7 @@ func TestReachability(t *testing.T) {
 				"cert-chain-alt.pem", "root-cert-combined-2.pem"); err != nil {
 				t.Errorf("failed to update CA secret: %v", err)
 			}
-
+			updateTimestampAnnotations(t)
 			lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
 
 			// step 3: Remove the old root cert
@@ -133,7 +153,7 @@ func TestReachability(t *testing.T) {
 				"cert-chain-alt.pem", "root-cert-alt.pem"); err != nil {
 				t.Errorf("failed to update CA secret: %v", err)
 			}
-
+			updateTimestampAnnotations(t)
 			waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
 
 			// Verify traffic works between a and b after cert rotation
@@ -154,6 +174,39 @@ func TestReachability(t *testing.T) {
 					from.CallOrFail(t, opts)
 				})
 		})
+}
+
+// updateTimestampAnnotations updates all pods with istio-proxy container to force the mounted configmap refresh.
+func updateTimestampAnnotations(t framework.TestContext) {
+	for _, c := range t.AllClusters() {
+		pods, err := c.Kube().CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			t.Fatalf("failed to list pods: %v", err)
+		}
+
+		for _, pod := range pods.Items {
+			// Skip pods without istio-proxy container
+			if !HasIstioProxyContainer(pod.Spec.Containers) {
+				continue
+			}
+
+			// Update annotations to force the mounted configmap refresh
+			pod.Annotations["timestamp"] = time.Now().String()
+			if _, err := c.Kube().CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
+				t.Fatalf("failed to update pod %s: %v", pod.Name, err)
+			}
+		}
+	}
+}
+
+func HasIstioProxyContainer(containers []corev1.Container) bool {
+	for _, c := range containers {
+		if c.Name == "istio-proxy" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func getWorkloadCertLastUpdateTime(t framework.TestContext, i echo.Instance, ctl istioctl.Instance) (time.Time, error) {
