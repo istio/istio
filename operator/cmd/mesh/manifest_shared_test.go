@@ -195,7 +195,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*Objec
 		return nil, err
 	}
 
-	if _, err := reconciler.Reconcile(); err != nil {
+	if err := reconciler.Reconcile(); err != nil {
 		return nil, err
 	}
 
@@ -209,8 +209,7 @@ func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest str
 		Name:    name.IstioOperatorComponentName,
 		Content: manifest,
 	}
-	_, err := reconciler.ApplyManifest(m)
-	return err
+	return reconciler.ApplyManifest(m)
 }
 
 // runManifestCommand runs the given manifest command. If filenames is set, passes the given filenames as -f flag,

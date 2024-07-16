@@ -16,8 +16,6 @@ package helmreconciler
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -29,16 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
-	"istio.io/api/operator/v1alpha1"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/proxy"
 )
 
 var (
@@ -97,82 +89,6 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 		}
 		return errs.ToError()
 	})
-}
-
-// PruneControlPlaneByRevisionWithController is called to remove specific control plane revision
-// during reconciliation process of controller.
-// It returns the install status and any error encountered.
-func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1alpha1.IstioOperatorSpec) (*v1alpha1.InstallStatus, error) {
-	ns := iopv1alpha1.Namespace(iopSpec)
-	if ns == "" {
-		ns = constants.IstioSystemNamespace
-	}
-	errStatus := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ERROR}
-	enabledComponents, err := translate.GetEnabledComponents(iopSpec)
-	if err != nil {
-		return errStatus,
-			fmt.Errorf("failed to get enabled components: %v", err)
-	}
-	pilotEnabled := false
-	// check whether the istiod is enabled
-	for _, c := range enabledComponents {
-		if c == string(name.PilotComponentName) {
-			pilotEnabled = true
-			break
-		}
-	}
-	// If istiod is enabled, check if it has any proxies connected.
-	if pilotEnabled {
-		cfg := h.kubeClient.RESTConfig()
-		kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(cfg), kube.WithRevision(iopSpec.Revision))
-		if err != nil {
-			return errStatus, err
-		}
-
-		pilotExists, err := h.pilotExists(kubeClient, ns)
-		if err != nil {
-			return errStatus, fmt.Errorf("failed to check istiod extist: %v", err)
-		}
-
-		if pilotExists {
-			// TODO(ramaraochavali): Find a better alternative instead of using debug interface
-			// of istiod as it is typically not recommended in production environments.
-			pids, err := proxy.GetIDsFromProxyInfo(kubeClient, ns)
-			if err != nil {
-				return errStatus, fmt.Errorf("failed to check proxy infos: %v", err)
-			}
-			if len(pids) != 0 {
-				msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
-					strings.Join(pids, " "))
-				st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
-				return st, nil
-			}
-		}
-	}
-
-	for _, c := range enabledComponents {
-		uslist, err := h.GetPrunedResources(iopSpec.Revision, false, c)
-		if err != nil {
-			return errStatus, err
-		}
-		err = h.DeleteObjectsList(uslist)
-		if err != nil {
-			return errStatus, err
-		}
-	}
-	return &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_HEALTHY}, nil
-}
-
-func (h *HelmReconciler) pilotExists(cliClient kube.CLIClient, istioNamespace string) (bool, error) {
-	istiodPods, err := cliClient.GetIstioPods(context.TODO(), istioNamespace, metav1.ListOptions{
-		LabelSelector: "app=istiod",
-		FieldSelector: "status.phase=Running",
-	})
-	if err != nil {
-		return false, err
-	}
-
-	return len(istiodPods) > 0, nil
 }
 
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.

@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -42,7 +43,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/version"
 )
 
@@ -139,13 +140,13 @@ func initDependencies() map[name.ComponentName]chan struct{} {
 }
 
 // Reconcile reconciles the associated resources.
-func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
+func (h *HelmReconciler) Reconcile() error {
 	if err := util.CreateNamespace(h.kubeClient.Kube(), istioV1Alpha1.Namespace(h.iop.Spec), h.networkName(), h.opts.DryRun); err != nil {
-		return nil, err
+		return err
 	}
 	manifestMap, err := h.RenderCharts()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = h.analyzeWebhooks(manifestMap[name.PilotComponentName])
@@ -153,26 +154,28 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 		if h.opts.Force {
 			scope.Error("invalid webhook configs; continuing because of --force")
 		} else {
-			return nil, err
+			return err
 		}
 	}
-	status := h.processRecursive(manifestMap)
+	if err := h.processRecursive(manifestMap); err != nil {
+		return err
+	}
 
-	var pruneErr error
 	if !h.opts.SkipPrune && !h.opts.DryRun {
 		h.opts.ProgressLog.SetState(progress.StatePruning)
-		pruneErr = h.Prune(manifestMap, false)
+		if err := h.Prune(manifestMap, false); err != nil {
+			return err
+		}
 	}
-	return status, pruneErr
+	return nil
 }
 
 // processRecursive processes the given manifests in an order of dependencies defined in h. Dependencies are a tree,
 // where a child must wait for the parent to complete before starting.
-func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.InstallStatus {
-	componentStatus := make(map[string]*v1alpha1.InstallStatus_VersionStatus)
-
+func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) error {
 	// mu protects the shared InstallStatus componentStatus across goroutines
 	var mu sync.Mutex
+	errors := istiomultierror.New()
 	// wg waits for all manifest processing goroutines to finish
 	var wg sync.WaitGroup
 
@@ -180,7 +183,6 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 		c, ms := c, ms
 		wg.Add(1)
 		go func() {
-			var appliedResult AppliedResult
 			defer wg.Done()
 			if s := h.dependencyWaitCh[c]; s != nil {
 				scope.Infof("%s is waiting on dependency...", c)
@@ -188,30 +190,17 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 				scope.Infof("Dependency for %s has completed, proceeding.", c)
 			}
 
-			// Possible paths for status are RECONCILING -> {NONE, ERROR, HEALTHY}. NONE means component has no resources.
-			// In NONE case, the component is not shown in overall status.
-			mu.Lock()
-			setStatus(componentStatus, c, v1alpha1.InstallStatus_RECONCILING, nil)
-			mu.Unlock()
-
-			status := v1alpha1.InstallStatus_NONE
-			var err error
 			if len(ms) != 0 {
 				m := name.Manifest{
 					Name:    c,
 					Content: name.MergeManifestSlices(ms),
 				}
-				appliedResult, err = h.ApplyManifest(m)
-				if err != nil {
-					status = v1alpha1.InstallStatus_ERROR
-				} else if appliedResult.Succeed() {
-					status = v1alpha1.InstallStatus_HEALTHY
+				if err := h.ApplyManifest(m); err != nil {
+					mu.Lock()
+					errors = multierror.Append(errors, err)
+					mu.Unlock()
 				}
 			}
-
-			mu.Lock()
-			setStatus(componentStatus, c, status, err)
-			mu.Unlock()
 
 			// Signal all the components that depend on us.
 			for _, ch := range ComponentDependencies[c] {
@@ -222,114 +211,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	}
 	wg.Wait()
 
-	out := &v1alpha1.InstallStatus{
-		Status:          overallStatus(componentStatus),
-		ComponentStatus: componentStatus,
-	}
-
-	return out
-}
-
-// Delete resources associated with the custom resource instance
-func (h *HelmReconciler) Delete() error {
-	iop := h.iop
-	if iop.Spec.Revision == "" {
-		err := h.Prune(nil, true)
-		return err
-	}
-	// Delete IOP with revision:
-	// for this case we update the status field to pending if there are still proxies pointing to this revision
-	// and we do not prune shared resources, same effect as `istioctl uninstall --revision foo` command.
-	status, err := h.PruneControlPlaneByRevisionWithController(iop.Spec)
-	if err != nil {
-		return err
-	}
-
-	// check status here because terminating iop's status can't be updated.
-	if status.Status == v1alpha1.InstallStatus_ACTION_REQUIRED {
-		return fmt.Errorf("action is required before deleting the iop instance: %s", status.Message)
-	}
-
-	// updating status taking no effect for terminating resources.
-	if err := h.SetStatusComplete(status); err != nil {
-		return err
-	}
-	return nil
-}
-
-// SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
-func (h *HelmReconciler) SetStatusBegin() error {
-	isop := &istioV1Alpha1.IstioOperator{}
-	if err := h.getClient().Get(context.TODO(), config.NamespacedName(h.iop), isop); err != nil {
-		if runtime.IsNotRegisteredError(err) {
-			// CRD not yet installed in cluster, nothing to update.
-			return nil
-		}
-		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
-	}
-	if isop.Status == nil {
-		isop.Status = &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_RECONCILING}
-	} else {
-		cs := isop.Status.ComponentStatus
-		for cn := range cs {
-			cs[cn] = &v1alpha1.InstallStatus_VersionStatus{
-				Status: v1alpha1.InstallStatus_RECONCILING,
-			}
-		}
-		isop.Status.Status = v1alpha1.InstallStatus_RECONCILING
-	}
-	return h.getClient().Status().Update(context.TODO(), isop)
-}
-
-// SetStatusComplete updates the status field on the IstioOperator instance based on the resulting err parameter.
-func (h *HelmReconciler) SetStatusComplete(status *v1alpha1.InstallStatus) error {
-	iop := &istioV1Alpha1.IstioOperator{}
-	if err := h.getClient().Get(context.TODO(), config.NamespacedName(h.iop), iop); err != nil {
-		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
-	}
-	iop.Status = status
-	return h.getClient().Status().Update(context.TODO(), iop)
-}
-
-// setStatus sets the status for the component with the given name, which is a key in the given map.
-// If the status is InstallStatus_NONE, the component name is deleted from the map.
-// Otherwise, if the map key/value is missing, one is created.
-func setStatus(s map[string]*v1alpha1.InstallStatus_VersionStatus, componentName name.ComponentName, status v1alpha1.InstallStatus_Status, err error) {
-	cn := string(componentName)
-	if status == v1alpha1.InstallStatus_NONE {
-		delete(s, cn)
-		return
-	}
-	if _, ok := s[cn]; !ok {
-		s[cn] = &v1alpha1.InstallStatus_VersionStatus{}
-	}
-	s[cn].Status = status
-	if err != nil {
-		s[cn].Error = err.Error()
-	}
-}
-
-// overallStatus returns the summary status over all components.
-// - If all components are HEALTHY, overall status is HEALTHY.
-// - If one or more components are RECONCILING and others are HEALTHY, overall status is RECONCILING.
-// - If one or more components are UPDATING and others are HEALTHY, overall status is UPDATING.
-// - If components are a mix of RECONCILING, UPDATING and HEALTHY, overall status is UPDATING.
-// - If any component is in ERROR state, overall status is ERROR.
-func overallStatus(componentStatus map[string]*v1alpha1.InstallStatus_VersionStatus) v1alpha1.InstallStatus_Status {
-	ret := v1alpha1.InstallStatus_HEALTHY
-	for _, cs := range componentStatus {
-		if cs.Status == v1alpha1.InstallStatus_ERROR {
-			ret = v1alpha1.InstallStatus_ERROR
-			break
-		} else if cs.Status == v1alpha1.InstallStatus_UPDATING {
-			ret = v1alpha1.InstallStatus_UPDATING
-			break
-		} else if cs.Status == v1alpha1.InstallStatus_RECONCILING {
-			ret = v1alpha1.InstallStatus_RECONCILING
-			break
-		}
-	}
-	return ret
+	return errors.ErrorOrNil()
 }
 
 // getCoreOwnerLabels returns a map of labels for associating installation resources. This is the common
@@ -415,23 +297,6 @@ func (h *HelmReconciler) getCRName() (string, error) {
 	return objAccessor.GetName(), nil
 }
 
-// getCRHash returns the cluster unique hash of the CR associated with h.
-func (h *HelmReconciler) getCRHash(componentName string) (string, error) {
-	crName, err := h.getCRName()
-	if err != nil {
-		return "", err
-	}
-	crNamespace, err := h.getCRNamespace()
-	if err != nil {
-		return "", err
-	}
-	var host string
-	if h.kubeClient != nil && h.kubeClient.RESTConfig() != nil {
-		host = h.kubeClient.RESTConfig().Host
-	}
-	return strings.Join([]string{crName, crNamespace, componentName, host}, "-"), nil
-}
-
 // getCRNamespace returns the namespace of the CR associated with h.
 func (h *HelmReconciler) getCRNamespace() (string, error) {
 	if h.iop == nil {
@@ -442,11 +307,6 @@ func (h *HelmReconciler) getCRNamespace() (string, error) {
 		return "", err
 	}
 	return objAccessor.GetNamespace(), nil
-}
-
-// getClient returns the kubernetes client associated with this HelmReconciler
-func (h *HelmReconciler) getClient() client.Client {
-	return h.client
 }
 
 func (h *HelmReconciler) analyzeWebhooks(whs []string) error {

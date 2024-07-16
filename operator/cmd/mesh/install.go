@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/cli"
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util"
@@ -235,12 +234,9 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 	if err != nil {
 		return err
 	}
-	status, err := reconciler.Reconcile()
-	if err != nil {
+
+	if err := reconciler.Reconcile(); err != nil {
 		return fmt.Errorf("errors occurred during operation: %v", err)
-	}
-	if status.Status != v1alpha1.InstallStatus_HEALTHY {
-		return fmt.Errorf("errors occurred during operation")
 	}
 
 	opts.ProgressLog.SetState(progress.StateComplete)
