@@ -111,7 +111,7 @@ func TestReachability(t *testing.T) {
 					from.CallOrFail(t, opts)
 				})
 
-			// step 1: Update CA root cert with combined root
+			t.Log("step 1: Update CA root cert with combined root")
 			if err := cert.CreateCustomCASecret(t,
 				"ca-cert.pem", "ca-key.pem",
 				"cert-chain.pem", "root-cert-combined.pem"); err != nil {
@@ -138,7 +138,7 @@ func TestReachability(t *testing.T) {
 					from.CallOrFail(t, opts)
 				})
 
-			// step 2: Update CA signing key/cert with cacert to trigger workload cert resigning
+			t.Log("step 2: Update CA signing key/cert with cacert to trigger workload cert resigning")
 			if err := cert.CreateCustomCASecret(t,
 				"ca-cert-alt.pem", "ca-key-alt.pem",
 				"cert-chain-alt.pem", "root-cert-combined-2.pem"); err != nil {
@@ -147,7 +147,25 @@ func TestReachability(t *testing.T) {
 			updateTimestampAnnotations(t)
 			lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
 
-			// step 3: Remove the old root cert
+			// Verify traffic works between a and b after cert rotation
+			echotest.New(t, fromAndTo).
+				WithDefaultFilters(1, 1).
+				FromMatch(match.ServiceName(from.NamespacedName())).
+				ToMatch(match.ServiceName(to.NamespacedName())).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+					// Verify mTLS works between a and b
+					opts := echo.CallOptions{
+						To: to,
+						Port: echo.Port{
+							Name: "http",
+						},
+					}
+					opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
+
+					from.CallOrFail(t, opts)
+				})
+
+			t.Log("step 3: Remove the old root cert")
 			if err := cert.CreateCustomCASecret(t,
 				"ca-cert-alt.pem", "ca-key-alt.pem",
 				"cert-chain-alt.pem", "root-cert-alt.pem"); err != nil {
@@ -190,6 +208,7 @@ func updateTimestampAnnotations(t framework.TestContext) {
 				continue
 			}
 
+			t.Logf("updating pod %s/%s on cluster %s", pod.Namespace, pod.Name, c.Name())
 			// Update annotations to force the mounted configmap refresh
 			pod.Annotations["timestamp"] = time.Now().String()
 			if _, err := c.Kube().CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
