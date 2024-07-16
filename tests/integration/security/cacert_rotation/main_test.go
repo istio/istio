@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
@@ -194,6 +193,8 @@ func TestReachability(t *testing.T) {
 
 // updateTimestampAnnotations updates all pods with istio-proxy container to force the mounted configmap refresh.
 func updateTimestampAnnotations(t framework.TestContext) {
+	ts := fmt.Sprintf("ts-%d", time.Now().Unix())
+
 	for _, c := range t.AllClusters() {
 		pods, err := c.Kube().CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
@@ -207,12 +208,12 @@ func updateTimestampAnnotations(t framework.TestContext) {
 			}
 
 			// Update annotations to force the mounted configmap refresh
-			pod.Annotations["timestamp"] = strconv.Itoa(int(time.Now().Unix()))
-			if p, err := c.Kube().CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
+			pod.Annotations["timestamp"] = ts
+			if _, err := c.Kube().CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
 				t.Fatalf("failed to update pod %s: %v", pod.Name, err)
-			} else {
-				t.Logf("updating pod %s/%s on cluster %s with annotations %v", pod.Namespace, pod.Name, c.Name(), p.Annotations)
 			}
+
+			t.Logf("updating pod %s/%s on cluster %s", pod.Namespace, pod.Name, c.Name())
 		}
 	}
 }
