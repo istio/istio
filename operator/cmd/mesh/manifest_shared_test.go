@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -215,11 +216,11 @@ func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest str
 // runManifestCommand runs the given manifest command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
 func runManifestCommand(command string, filenames []string, flags string, chartSource chartSourceType, fileSelect []string) (string, error) {
-	var args string
-	if command == "install" {
-		args = "install"
-	} else {
-		args = "manifest " + command
+	cmd := InstallCmd
+	args := ""
+	if command != "install" {
+		args = command
+		cmd = ManifestCmd
 	}
 	for _, f := range filenames {
 		args += " -f " + f
@@ -235,18 +236,21 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 		args += " --filter " + strings.Join(filters, ",")
 	}
 	args += " --set installPackagePath=" + string(chartSource)
-	return runCommand(args)
+	return runCommand(cmd, args)
 }
 
 // runCommand runs the given command string.
-func runCommand(command string) (string, error) {
+func runCommand(cmdGen func(ctx cli.Context) *cobra.Command, args string) (string, error) {
 	var out bytes.Buffer
-	rootCmd := GetRootCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
+	cli := cli.NewFakeContext(&cli.NewFakeContextOption{
 		Version: "25",
-	}), strings.Split(command, " "))
-	rootCmd.SetOut(&out)
+	})
+	sargs := strings.Split(args, " ")
+	cmd := cmdGen(cli)
+	cmd.SetOut(&out)
+	cmd.SetArgs(sargs)
 
-	err := rootCmd.Execute()
+	err := cmd.Execute()
 	return out.String(), err
 }
 

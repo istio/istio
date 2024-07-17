@@ -75,7 +75,7 @@ func TestProfileDump(t *testing.T) {
 }
 
 func runProfileDump(profilePath, configPath string, chartSource chartSourceType, outfmt string) (string, error) {
-	cmd := "profile dump -f " + profilePath
+	cmd := "dump -f " + profilePath
 	if configPath != "" {
 		cmd += " --config-path " + configPath
 	}
@@ -85,7 +85,7 @@ func runProfileDump(profilePath, configPath string, chartSource chartSourceType,
 	if outfmt != "" {
 		cmd += " --output=" + outfmt
 	}
-	return runCommand(cmd)
+	return runCommand(ProfileCmd, cmd)
 }
 
 func TestProfileDumpFlags(t *testing.T) {

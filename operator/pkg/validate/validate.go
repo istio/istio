@@ -43,7 +43,7 @@ var DefaultValidations = map[string]ValidatorFunc{
 }
 
 // CheckIstioOperator validates the operator CR.
-func CheckIstioOperator(iop *operator_v1alpha1.IstioOperator, checkRequiredFields bool) error {
+func CheckIstioOperator(iop *operator_v1alpha1.IstioOperator) error {
 	if iop == nil {
 		return nil
 	}
