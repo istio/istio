@@ -42,7 +42,6 @@ func (m *realDeps) ipsetIPHashCreate(name string, v6 bool) error {
 		family = unix.AF_INET
 	}
 	err := netlink.IpsetCreate(name, "hash:ip", netlink.IpsetCreateOptions{Comments: true, Replace: true, Family: family})
-	log.Debugf("IPSET ERROR IS: %s", err)
 	// Note there appears to be a bug in vishvananda/netlink here:
 	// https://github.com/vishvananda/netlink/issues/992
 	//
