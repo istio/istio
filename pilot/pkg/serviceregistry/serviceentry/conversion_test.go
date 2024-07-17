@@ -733,11 +733,7 @@ func testConvertServiceBody(t *testing.T) {
 			services: []*model.Service{
 				makeService("tcp1.com", "multiAddrInternal", "1.1.1.0/16",
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
-				makeService("tcp1.com", "multiAddrInternal", "2.2.2.0/16",
-					map[string]int{"tcp-444": 444}, false, model.Passthrough),
-				makeService("tcp2.com", "multiAddrInternal", "1.1.1.0/16",
-					map[string]int{"tcp-444": 444}, false, model.Passthrough),
-				makeService("tcp2.com", "multiAddrInternal", "2.2.2.0/16",
+				makeService("tcp2.com", "multiAddrInternal", []string{"1.1.1.0/16", "2.2.2.0/16"},
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
 			},
 		},
