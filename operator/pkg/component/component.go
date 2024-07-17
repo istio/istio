@@ -27,7 +27,6 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
@@ -58,24 +57,7 @@ type Options struct {
 	Version *version.Info
 }
 
-// IstioComponent defines the interface for a component.
-type IstioComponent interface {
-	// ComponentName returns the name of the component.
-	ComponentName() name.ComponentName
-	// ResourceName returns the name of the resources of the component.
-	ResourceName() string
-	// Namespace returns the namespace for the component.
-	Namespace() string
-	// Enabled reports whether the component is enabled.
-	Enabled() bool
-	// Run starts the component. Must be called before the component is used.
-	Run() error
-	// RenderManifest returns a string with the rendered manifest for the component.
-	RenderManifest() (string, error)
-}
-
-// CommonComponentFields is a struct common to all components.
-type CommonComponentFields struct {
+type IstioComponent struct {
 	*Options
 	ComponentName name.ComponentName
 	// resourceName is the name of all resources for this component.
@@ -89,41 +71,32 @@ type CommonComponentFields struct {
 	renderer helm.TemplateRenderer
 }
 
-type IstioComponentBase struct {
-	*CommonComponentFields
-}
-
-func (c *IstioComponentBase) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.ComponentName
-}
-
-func (c *IstioComponentBase) ResourceName() string {
-	return c.CommonComponentFields.ResourceName
-}
-
-func (c *IstioComponentBase) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-func (c *IstioComponentBase) Enabled() bool {
-	if c.CommonComponentFields.ComponentName.IsGateway() {
+func (c *IstioComponent) Enabled() bool {
+	if c.ComponentName.IsGateway() {
 		// type assert is guaranteed to work in this context.
 		return c.componentSpec.(*v1alpha1.GatewaySpec).Enabled.GetValue()
 	}
-	return isCoreComponentEnabled(c.CommonComponentFields)
+
+	return c.isCoreComponentEnabled()
 }
 
-func (c *IstioComponentBase) Run() error {
-	return runComponent(c.CommonComponentFields)
+func (c *IstioComponent) Run() error {
+	r := c.createHelmRenderer()
+	if err := r.Run(); err != nil {
+		return err
+	}
+	c.renderer = r
+	c.started = true
+	return nil
 }
 
-func (c *IstioComponentBase) RenderManifest() (string, error) {
+func (c *IstioComponent) RenderManifest() (string, error) {
 	return renderManifest(c)
 }
 
 // NewCoreComponent creates a new IstioComponent with the given componentName and options.
-func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
-	var component IstioComponent
+func NewCoreComponent(cn name.ComponentName, opts *Options) *IstioComponent {
+	var component *IstioComponent
 	switch cn {
 	case name.IstioBaseComponentName:
 		component = NewCRDComponent(opts)
@@ -141,161 +114,85 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 	return component
 }
 
-// BaseComponent is the base component.
-type BaseComponent struct {
-	*IstioComponentBase
-}
-
-// NewCRDComponent creates a new BaseComponent and returns a pointer to it.
-func NewCRDComponent(opts *Options) *BaseComponent {
-	return &BaseComponent{
-		&IstioComponentBase{
-			&CommonComponentFields{
-				Options:       opts,
-				ComponentName: name.IstioBaseComponentName,
-			},
-		},
+// NewCRDComponent creates a new IstioComponent and returns a pointer to it.
+func NewCRDComponent(opts *Options) *IstioComponent {
+	return &IstioComponent{
+		Options:       opts,
+		ComponentName: name.IstioBaseComponentName,
 	}
 }
 
-// PilotComponent is the pilot component.
-type PilotComponent struct {
-	*IstioComponentBase
-}
-
-// NewPilotComponent creates a new PilotComponent and returns a pointer to it.
-func NewPilotComponent(opts *Options) *PilotComponent {
+// NewPilotComponent creates a new IstioComponent and returns a pointer to it.
+func NewPilotComponent(opts *Options) *IstioComponent {
 	cn := name.PilotComponentName
-	return &PilotComponent{
-		&IstioComponentBase{
-			&CommonComponentFields{
-				Options:       opts,
-				ComponentName: cn,
-				ResourceName:  opts.Translator.ComponentMaps[cn].ResourceName,
-			},
-		},
+	return &IstioComponent{
+		Options:       opts,
+		ComponentName: cn,
+		ResourceName:  opts.Translator.ComponentMaps[cn].ResourceName,
 	}
 }
 
-type CNIComponent struct {
-	*IstioComponentBase
-}
-
-// NewCNIComponent creates a new NewCNIComponent and returns a pointer to it.
-func NewCNIComponent(opts *Options) *CNIComponent {
+// NewCNIComponent creates a new IstioComponent and returns a pointer to it.
+func NewCNIComponent(opts *Options) *IstioComponent {
 	cn := name.CNIComponentName
-	return &CNIComponent{
-		&IstioComponentBase{
-			&CommonComponentFields{
-				Options:       opts,
-				ComponentName: cn,
-			},
-		},
+	return &IstioComponent{
+		Options:       opts,
+		ComponentName: cn,
 	}
 }
 
-// IstiodRemoteComponent is the istiod remote component.
-type IstiodRemoteComponent struct {
-	*IstioComponentBase
-}
-
-// NewIstiodRemoteComponent creates a new NewIstiodRemoteComponent and returns a pointer to it.
-func NewIstiodRemoteComponent(opts *Options) *IstiodRemoteComponent {
+// NewIstiodRemoteComponent creates a new IstioComponent and returns a pointer to it.
+func NewIstiodRemoteComponent(opts *Options) *IstioComponent {
 	cn := name.IstiodRemoteComponentName
-	return &IstiodRemoteComponent{
-		&IstioComponentBase{
-			&CommonComponentFields{
-				Options:       opts,
-				ComponentName: cn,
-			},
-		},
+	return &IstioComponent{
+		Options:       opts,
+		ComponentName: cn,
 	}
 }
 
-// IngressComponent is the ingress gateway component.
-type IngressComponent struct {
-	*IstioComponentBase
-}
-
-// NewIngressComponent creates a new IngressComponent and returns a pointer to it.
-func NewIngressComponent(resourceName string, index int, spec *v1alpha1.GatewaySpec, opts *Options) *IngressComponent {
-	cn := name.IngressComponentName
-	return &IngressComponent{
-		&IstioComponentBase{
-			CommonComponentFields: &CommonComponentFields{
-				Options:       opts,
-				ComponentName: cn,
-				ResourceName:  resourceName,
-				index:         index,
-				componentSpec: spec,
-			},
-		},
+// NewIngressComponent creates a new IstioComponent and returns a pointer to it.
+func NewIngressComponent(resourceName string, index int, spec *v1alpha1.GatewaySpec, opts *Options) *IstioComponent {
+	return &IstioComponent{
+		Options:       opts,
+		ComponentName: name.IngressComponentName,
+		ResourceName:  resourceName,
+		index:         index,
+		componentSpec: spec,
 	}
 }
 
-// EgressComponent is the egress gateway component.
-type EgressComponent struct {
-	*IstioComponentBase
-}
-
-// NewEgressComponent creates a new IngressComponent and returns a pointer to it.
-func NewEgressComponent(resourceName string, index int, spec *v1alpha1.GatewaySpec, opts *Options) *EgressComponent {
-	cn := name.EgressComponentName
-	return &EgressComponent{
-		&IstioComponentBase{
-			CommonComponentFields: &CommonComponentFields{
-				Options:       opts,
-				ComponentName: cn,
-				index:         index,
-				componentSpec: spec,
-				ResourceName:  resourceName,
-			},
-		},
+// NewEgressComponent creates a new IstioComponent and returns a pointer to it.
+func NewEgressComponent(resourceName string, index int, spec *v1alpha1.GatewaySpec, opts *Options) *IstioComponent {
+	return &IstioComponent{
+		Options:       opts,
+		ComponentName: name.EgressComponentName,
+		index:         index,
+		componentSpec: spec,
+		ResourceName:  resourceName,
 	}
 }
 
-// ZtunnelComponent is the istio ztunnel component.
-type ZtunnelComponent struct {
-	*IstioComponentBase
-}
-
-// NewZtunnelComponent creates a new ZtunnelComponent and returns a pointer to it.
-func NewZtunnelComponent(opts *Options) *ZtunnelComponent {
-	return &ZtunnelComponent{
-		&IstioComponentBase{
-			&CommonComponentFields{
-				Options:       opts,
-				ComponentName: name.ZtunnelComponentName,
-			},
-		},
+// NewZtunnelComponent creates a new IstioComponent and returns a pointer to it.
+func NewZtunnelComponent(opts *Options) *IstioComponent {
+	return &IstioComponent{
+		Options:       opts,
+		ComponentName: name.ZtunnelComponentName,
 	}
 }
 
-// runComponent performs startup tasks for the component defined by the given CommonComponentFields.
-func runComponent(c *CommonComponentFields) error {
-	r := createHelmRenderer(c)
-	if err := r.Run(); err != nil {
-		return err
-	}
-	c.renderer = r
-	c.started = true
-	return nil
-}
-
+// runCompon
 // renderManifest renders the manifest for the component defined by c and returns the resulting string.
-func renderManifest(cf *IstioComponentBase) (string, error) {
+func renderManifest(cf *IstioComponent) (string, error) {
 	if !cf.started {
-		metrics.CountManifestRenderError(cf.ComponentName(), metrics.RenderNotStartedError)
-		return "", fmt.Errorf("component %s not started in RenderManifest", cf.CommonComponentFields.ComponentName)
+		return "", fmt.Errorf("component %s not started in RenderManifest", cf.ComponentName)
 	}
 
 	if !cf.Enabled() {
-		return disabledYAMLStr(cf.ComponentName(), cf.CommonComponentFields.ResourceName), nil
+		return disabledYAMLStr(cf.ComponentName, cf.ResourceName), nil
 	}
 
-	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentSpec, cf.ComponentName())
+	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentSpec, cf.ComponentName)
 	if err != nil {
-		metrics.CountManifestRenderError(cf.ComponentName(), metrics.HelmTranslateIOPToValuesError)
 		return "", err
 	}
 
@@ -306,26 +203,24 @@ func renderManifest(cf *IstioComponentBase) (string, error) {
 	})
 	if err != nil {
 		log.Errorf("Error rendering the manifest: %s", err)
-		metrics.CountManifestRenderError(cf.ComponentName(), metrics.HelmChartRenderError)
 		return "", err
 	}
 	my += helm.YAMLSeparator + "\n"
 	scope.Debugf("Initial manifest with merged values:\n%s\n", my)
 
 	// Add the k8s resources from IstioOperatorSpec.
-	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.CommonComponentFields.ComponentName,
-		cf.CommonComponentFields.ResourceName, cf.index)
+	my, err = cf.Translator.OverlayK8sSettings(my, cf.InstallSpec, cf.ComponentName,
+		cf.ResourceName, cf.index)
 	if err != nil {
-		metrics.CountManifestRenderError(cf.ComponentName(), metrics.K8SSettingsOverlayError)
 		return "", err
 	}
-	cnOutput := string(cf.CommonComponentFields.ComponentName)
+	cnOutput := string(cf.ComponentName)
 	my = "# Resources for " + cnOutput + " component\n\n" + my
 	scope.Debugf("Manifest after k8s API settings:\n%s\n", my)
 
 	// Add the k8s resource overlays from IstioOperatorSpec.
-	pathToK8sOverlay := fmt.Sprintf("Components.%s.", cf.CommonComponentFields.ComponentName)
-	if cf.CommonComponentFields.ComponentName.IsGateway() {
+	pathToK8sOverlay := fmt.Sprintf("Components.%s.", cf.ComponentName)
+	if cf.ComponentName.IsGateway() {
 		pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
 	}
 
@@ -337,7 +232,6 @@ func renderManifest(cf *IstioComponentBase) (string, error) {
 	}
 	if !found {
 		scope.Debugf("Manifest after resources: \n%s\n", my)
-		metrics.CountManifestRender(cf.ComponentName())
 		return my, nil
 	}
 	kyo, err := yaml.Marshal(overlays)
@@ -345,27 +239,25 @@ func renderManifest(cf *IstioComponentBase) (string, error) {
 		return "", err
 	}
 	scope.Infof("Applying Kubernetes overlay: \n%s\n", kyo)
-	ret, err := patch.YAMLManifestPatch(my, cf.Namespace(), overlays)
+	ret, err := patch.YAMLManifestPatch(my, cf.Namespace, overlays)
 	if err != nil {
-		metrics.CountManifestRenderError(cf.ComponentName(), metrics.K8SManifestPatchError)
 		return "", err
 	}
 
 	scope.Debugf("Manifest after resources and overlay: \n%s\n", ret)
-	metrics.CountManifestRender(cf.ComponentName())
 	return ret, nil
 }
 
 // createHelmRenderer creates a helm renderer for the component defined by c and returns a ptr to it.
 // If a helm subdir is not found in ComponentMap translations, it is assumed to be "addon/<component name>".
-func createHelmRenderer(c *CommonComponentFields) helm.TemplateRenderer {
+func (c *IstioComponent) createHelmRenderer() helm.TemplateRenderer {
 	iop := c.InstallSpec
 	cns := string(c.ComponentName)
 	helmSubdir := c.Translator.ComponentMap(cns).HelmSubdir
 	return helm.NewHelmRenderer(iop.InstallPackagePath, helmSubdir, cns, c.Namespace, c.Version)
 }
 
-func isCoreComponentEnabled(c *CommonComponentFields) bool {
+func (c *IstioComponent) isCoreComponentEnabled() bool {
 	enabled, err := c.Translator.IsComponentEnabled(c.ComponentName, c.InstallSpec)
 	if err != nil {
 		return false
