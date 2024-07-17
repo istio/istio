@@ -156,18 +156,23 @@ func AddrStrToPrefix(addr string) (netip.Prefix, error) {
 	return netip.PrefixFrom(ipa, ipa.BitLen()), nil
 }
 
+// PrefixToCidrRange converts from CIDR prefix to CIDR proto
+func PrefixToCidrRange(prefix netip.Prefix) *core.CidrRange {
+	return &core.CidrRange{
+		AddressPrefix: prefix.Addr().String(),
+		PrefixLen: &wrapperspb.UInt32Value{
+			Value: uint32(prefix.Bits()),
+		},
+	}
+}
+
 // AddrStrToCidrRange converts from string to CIDR proto
 func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
 	prefix, err := AddrStrToPrefix(addr)
 	if err != nil {
 		return nil, err
 	}
-	return &core.CidrRange{
-		AddressPrefix: prefix.Addr().String(),
-		PrefixLen: &wrapperspb.UInt32Value{
-			Value: uint32(prefix.Bits()),
-		},
-	}, nil
+	return PrefixToCidrRange(prefix), nil
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
@@ -593,6 +598,34 @@ func toMaskedPrefix(c *core.CidrRange) (netip.Prefix, error) {
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
 func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
 	return hcm.HttpConnectionManager_ForwardClientCertDetails(c - 1)
+}
+
+// MeshNetworksToEnvoyInternalAddressConfig converts all of the FromCidr Endpoints into Envy internal networks.
+// Because the input is an unordered map, the output is sorted to ensure config stability.
+func MeshNetworksToEnvoyInternalAddressConfig(nets *meshconfig.MeshNetworks) *hcm.HttpConnectionManager_InternalAddressConfig {
+	if nets == nil {
+		return nil
+	}
+	prefixes := []netip.Prefix{}
+	for _, internalnetwork := range nets.Networks {
+		for _, ne := range internalnetwork.Endpoints {
+			if prefix, err := AddrStrToPrefix(ne.GetFromCidr()); err == nil {
+				prefixes = append(prefixes, prefix)
+			}
+		}
+	}
+	if len(prefixes) == 0 {
+		return nil
+	}
+	sort.Slice(prefixes, func(a, b int) bool {
+		ap, bp := prefixes[a], prefixes[b]
+		return ap.Addr().Less(bp.Addr()) || (ap.Addr() == bp.Addr() && ap.Bits() < bp.Bits())
+	})
+	iac := &hcm.HttpConnectionManager_InternalAddressConfig{}
+	for _, prefix := range prefixes {
+		iac.CidrRanges = append(iac.CidrRanges, PrefixToCidrRange(prefix))
+	}
+	return iac
 }
 
 // ByteCount returns a human readable byte format

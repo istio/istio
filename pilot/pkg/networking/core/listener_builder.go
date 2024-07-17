@@ -422,15 +422,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIDExtensionCtx)
 
 	if features.EnableHCMInternalNetworks && lb.push.Networks != nil {
-		for _, internalnetwork := range lb.push.Networks.Networks {
-			iac := &hcm.HttpConnectionManager_InternalAddressConfig{}
-			for _, ne := range internalnetwork.Endpoints {
-				if cidr := util.ConvertAddressToCidr(ne.GetFromCidr()); cidr != nil {
-					iac.CidrRanges = append(iac.CidrRanges, cidr)
-				}
-			}
-			connectionManager.InternalAddressConfig = iac
-		}
+		connectionManager.InternalAddressConfig = util.MeshNetworksToEnvoyInternalAddressConfig(lb.push.Networks)
 	}
 	connectionManager.Proxy_100Continue = features.Enable100ContinueHeaders
 	return connectionManager
