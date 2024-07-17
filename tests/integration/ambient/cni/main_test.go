@@ -214,11 +214,6 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 	framework.NewTest(t).
 		TopLevel().
 		Run(func(t framework.TestContext) {
-			apps := common_deploy.NewOrFail(t, t, common_deploy.Config{
-				NoExternalNamespace: true,
-				IncludeExtAuthz:     false,
-			})
-
 			c := t.Clusters().Default()
 			t.Log("Updating CNI Daemonset config")
 			origCNIDaemonSet := getCNIDaemonSet(t, c)
@@ -229,7 +224,7 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 			// Rollout restart instances in the echo namespace, and wait for a broken instance.
 			// The CNI pods should never go healthy because of the bad CNI_NET_DIR above
 			t.Log("Rollout restart CNI daemonset to get a broken instance")
-			rolloutCmd := fmt.Sprintf("kubectl rollout restart daemonset/%s -n %s", "istio-cni-node", i.Settings.SystemNamespace.Name())
+			rolloutCmd := fmt.Sprintf("kubectl rollout restart daemonset/%s -n %s", "istio-cni-node", i.Settings().SystemNamespace)
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
 			}
