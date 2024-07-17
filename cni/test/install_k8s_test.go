@@ -25,7 +25,7 @@ import (
 
 var (
 	Hub = "gcr.io/istio-release"
-	Tag = "master-latest-daily"
+	Tag = "release-1.23-latest-daily"
 )
 
 type testCase struct {
