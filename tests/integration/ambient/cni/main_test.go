@@ -191,7 +191,7 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 			c := t.Clusters().Default()
 			t.Log("Getting current daemonset")
 			// mostly a correctness check - to make sure it's actually there
-			_ = getCNIDaemonSet(t, c)
+			origDS := getCNIDaemonSet(t, c)
 
 			ns := apps.SingleNamespaceView().EchoNamespace.Namespace
 			fetchFn := testKube.NewPodFetch(c, ns.Name())
@@ -207,6 +207,9 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 			// Our echo instances have already been deployed/configured by the CNI,
 			// so the CNI being removed should not disrupt them.
 			common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
+
+			// put it back
+			deployCNIDaemonset(t, c, origDS)
 		})
 }
 
@@ -216,12 +219,27 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			c := t.Clusters().Default()
 			t.Log("Updating CNI Daemonset config")
-			origCNIDaemonSet := getCNIDaemonSet(t, c)
+
+			// TODO this is really not very nice - we are mutating cluster state here
+			// with other tests which means other tests can break us and we don't have isolation,
+			// so we have to be more paranoid.
+			//
+			// I don't think we have a good way to solve this ATM so doing stuff like this is as
+			// good as it gets, short of creating an entirely new suite for every possibly-cluster-destructive op.
+			retry.UntilSuccessOrFail(t, func() error {
+				ensureCNIDS := getCNIDaemonSet(t, c)
+				if ensureCNIDS.Status.NumberReady == ensureCNIDS.Status.DesiredNumberScheduled {
+					return nil
+				}
+				return fmt.Errorf("still waiting for CNI pods to become ready before starting")
+			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+
+			origCNICM := getCNICM(t, c)
 
 			// we want to "break" the CNI config by giving a bad path
 			updateCNICM(t, c, "CNI_NET_DIR", "/etc/cni/nope.d")
 
-			// Rollout restart instances in the echo namespace, and wait for a broken instance.
+			// Rollout restart CNI pods, and wait for broken instances.
 			// The CNI pods should never go healthy because of the bad CNI_NET_DIR above
 			t.Log("Rollout restart CNI daemonset to get a broken instance")
 			rolloutCmd := fmt.Sprintf("kubectl rollout restart daemonset/%s -n %s", "istio-cni-node", i.Settings().SystemNamespace)
@@ -237,10 +255,11 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 			}
 
 			t.Log("Redeploy CNI with corrected config")
-			// Now bring back CNI Daemonset, and the pods should be happy/start normally again
-			deployCNIDaemonset(t, c, origCNIDaemonSet)
 
-			// Rollout restart instances in the echo namespace.
+			// we want to "unbreak" the CNI config by giving it back the correct path
+			updateCNICM(t, c, "CNI_NET_DIR", origCNICM.Data["CNI_NET_DIR"])
+
+			// Rollout restart CNI pods so they get the fixed config.
 			t.Log("Rollout restart CNI daemonset to get a fixed instance")
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
@@ -292,7 +311,7 @@ func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
 	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 }
 
-func updateCNICM(ctx framework.TestContext, c cluster.Cluster, key, val string) *corev1.ConfigMap {
+func getCNICM(ctx framework.TestContext, c cluster.Cluster) *corev1.ConfigMap {
 	cniCM, err := c.(istioKube.CLIClient).
 		Kube().CoreV1().ConfigMaps(i.Settings().SystemNamespace).Get(context.Background(), "istio-cni-config", metav1.GetOptions{})
 	if err != nil {
@@ -303,16 +322,21 @@ func updateCNICM(ctx framework.TestContext, c cluster.Cluster, key, val string) 
 	}
 
 	scopes.Framework.Infof("got CNI config %+v", cniCM)
+	return cniCM
+}
+
+func updateCNICM(ctx framework.TestContext, c cluster.Cluster, key, val string) *corev1.ConfigMap {
+	cniCM := getCNICM(ctx, c)
 
 	cniCM.Data[key] = val
 
-	cniCM, err = c.(istioKube.CLIClient).Kube().CoreV1().ConfigMaps(i.Settings().SystemNamespace).Update(context.Background(), cniCM, metav1.UpdateOptions{})
+	updatedCM, err := c.(istioKube.CLIClient).Kube().CoreV1().ConfigMaps(i.Settings().SystemNamespace).Update(context.Background(), cniCM, metav1.UpdateOptions{})
 	if err != nil {
 		ctx.Fatalf("failed to update CNI CM %v", err)
 	}
 
-	scopes.Framework.Infof("updated CNI config %+v", cniCM)
-	return cniCM
+	scopes.Framework.Infof("updated CNI config %+v", updatedCM)
+	return updatedCM
 }
 
 func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonSet *appsv1.DaemonSet) {
