@@ -18,6 +18,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/netip"
@@ -29,7 +30,12 @@ import (
 
 	"google.golang.org/grpc/codes"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -47,6 +53,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tests/common/jwt"
@@ -3826,6 +3833,67 @@ spec:
 	}
 }
 
+func testServiceEntryWithMultipleVIPsAndResolutionNone(t TrafficContext) {
+	if len(t.Apps.External.All) == 0 {
+		t.Skip("no external service instances")
+	}
+
+	clusterIPs := createService(t, "external", t.Apps.External.All.NamespaceName(), "external", 2)
+	if len(clusterIPs) < 2 {
+		t.Errorf("failed to get 2 cluster IPs, got %v", clusterIPs)
+	}
+
+	// Create CIDRs from IPs. We want to check if CIDR matching in a wildcard listener works.
+	var cidrs []string
+	for _, clusterIP := range clusterIPs {
+		if ip, err := netip.ParseAddr(clusterIP); err != nil {
+			t.Errorf("failed to parse cluster IP address '%s': %s", err)
+		} else if ip.Is4() {
+			cidrs = append(cidrs, fmt.Sprintf("%s/24", clusterIP))
+		} else if ip.Is6() {
+			cidrs = append(cidrs, clusterIP)
+		}
+	}
+
+	serviceEntry := tmpl.MustEvaluate(`
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: server-default-svc
+  namespace: {{.Namespace}}
+spec:
+  exportTo:
+  - "."
+  hosts:
+  - server.default.svc
+  addresses:
+{{ range $ip := .IPs }}
+  - "{{$ip}}"
+{{ end }}
+  location: MESH_EXTERNAL
+  ports:
+  - number: 443
+    name: tcp
+    protocol: TCP
+  resolution: NONE
+`, map[string]any{"Namespace": t.Apps.A.NamespaceName(), "IPs": cidrs})
+
+	t.RunTraffic(TrafficTestCase{
+		name:   "send a request to one of the service entry VIPs",
+		config: serviceEntry,
+		opts: echo.CallOptions{
+			// Use second IP address to make sure that Istio matches all CIDRs, not only the first one.
+			Address: clusterIPs[1],
+			Port: echo.Port{
+				Protocol:    protocol.HTTPS,
+				ServicePort: 443,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+		call: t.Apps.A[0].CallOrFail,
+	})
+}
+
 func destinationRule(app, mode string) string {
 	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
@@ -4994,4 +5062,60 @@ func LocationHeader(expected string) echo.Checker {
 				exp,
 				"Location")
 		})
+}
+
+// createService creates additional Services for a given app to obtain routable VIPs inside the cluster.
+func createService(t TrafficContext, name, ns, appLabelValue string, instances int) []string {
+	var clusterIPs []string
+	for i := 0; i < instances; i++ {
+		svcName := fmt.Sprintf("%s-vip-%d", name, i)
+		svc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      svcName,
+				Namespace: ns,
+				Annotations: map[string]string{
+					// Export the service nowhere, so that no proxy will receive it or its VIP.
+					annotation.NetworkingExportTo.Name: "~",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{
+					"app": appLabelValue,
+				},
+				Type: corev1.ServiceTypeClusterIP,
+			},
+		}
+		for _, p := range ports.All() {
+			if p.ServicePort == echo.NoServicePort {
+				continue
+			}
+			svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+				Name:       p.Name,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       int32(p.ServicePort),
+				TargetPort: intstr.IntOrString{IntVal: int32(ports.HTTPS.WorkloadPort)},
+			})
+		}
+		_, err := t.Clusters().Default().Kube().CoreV1().Services(ns).Create(context.TODO(), svc, metav1.CreateOptions{})
+		if err != nil && !kerrors.IsAlreadyExists(err) {
+			t.Errorf("failed to create service %s: %s", svc, err)
+		}
+
+		// Wait until a ClusterIP has been assigned.
+		err = retry.UntilSuccess(func() error {
+			svc, err := t.Clusters().Default().Kube().CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			if len(svc.Spec.ClusterIPs) == 0 {
+				return fmt.Errorf("service VIP not set for service")
+			}
+			clusterIPs = append(clusterIPs, svc.Spec.ClusterIPs...)
+			return nil
+		}, retry.Timeout(10*time.Second))
+		if err != nil {
+			t.Errorf("failed to assign ClusterIP for %s service: %s", svcName, err)
+		}
+	}
+	return clusterIPs
 }

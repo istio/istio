@@ -42,6 +42,7 @@ import (
 	xdsfake "istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -1272,7 +1273,8 @@ func updateServiceResolution(s *xdsfake.FakeDiscoveryServer, resolution model.Re
 
 func addOverlappingEndpoints(s *xdsfake.FakeDiscoveryServer) {
 	svc := &model.Service{
-		Hostname: "overlapping.cluster.local",
+		DefaultAddress: constants.UnspecifiedIP,
+		Hostname:       "overlapping.cluster.local",
 		Ports: model.PortList{
 			{
 				Name:     "dns",
@@ -1305,7 +1307,8 @@ func addOverlappingEndpoints(s *xdsfake.FakeDiscoveryServer) {
 
 func addUnhealthyCluster(s *xdsfake.FakeDiscoveryServer) {
 	svc := &model.Service{
-		Hostname: "unhealthy.svc.cluster.local",
+		DefaultAddress: constants.UnspecifiedIP,
+		Hostname:       "unhealthy.svc.cluster.local",
 		Ports: model.PortList{
 			{
 				Name:     "tcp-dns",
