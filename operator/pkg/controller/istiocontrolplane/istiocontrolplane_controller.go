@@ -324,11 +324,6 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	if _, ok := val["global"]; !ok {
 		val["global"] = make(map[string]any)
 	}
-	err = util.ValidateIOPCAConfig(r.kubeClient, iopMerged)
-	if err != nil {
-		operatorFailedToConfigure.Log(scope).Errorf("failed to apply IstioOperator resources. Error %s", err)
-		return reconcile.Result{}, err
-	}
 	helmReconcilerOptions := &helmreconciler.Options{
 		Log:         clog.NewDefaultLogger(),
 		ProgressLog: progress.NewLog(),

@@ -206,13 +206,6 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 		return "", nil, err
 	}
 
-	// Validate Final IOP config against K8s cluster
-	if client != nil {
-		err = util.ValidateIOPCAConfig(client, finalIOP)
-		if err != nil {
-			return "", nil, err
-		}
-	}
 	// InstallPackagePath may have been a URL, change to extracted to local file path.
 	finalIOP.Spec.InstallPackagePath = installPackagePath
 	if ns := GetValueForSetFlag(setFlags, "values.global.istioNamespace"); ns != "" {
