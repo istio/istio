@@ -385,8 +385,10 @@ copy-templates:
 			sed "1s|^|$${warning}\n\n|" $$profile > manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
 		done; \
 		[[ "$$chart" == "ztunnel" ]] && flatten="true" || flatten="false" ; \
+		[[ "$$chart" == "istio-control/istio-discovery" ]] && componentFlatten="pilot" || componentFlatten="" ; \
 		cat manifests/zzz_profile.yaml | \
-		  sed "s/FLATTEN_GLOBALS_REPLACEMENT/$${flatten}/g" \
+		  sed "s/FLATTEN_GLOBALS_REPLACEMENT/$${flatten}/g" | \
+		  sed "s/FLATTEN_COMPONENT_REPLACEMENT/$${componentFlatten}/g" \
 		  > manifests/charts/$$chart/templates/zzz_profile.yaml ; \
 	done
 

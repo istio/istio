@@ -519,5 +519,3 @@ defaults:
 
     # Set to `type: RuntimeDefault` to use the default profile for templated gateways, if your container runtime supports it
     seccompProfile: {}
-_internal_do_not_set:
-  flatten: pilot

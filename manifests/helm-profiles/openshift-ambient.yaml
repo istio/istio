@@ -4,6 +4,9 @@ meshConfig:
       ISTIO_META_ENABLE_HBONE: "true"
 global:
   platform: openshift
+  variant: distroless
+  seLinuxOptions:
+    type: spc_t
 cni:
   ambient:
     enabled: true
@@ -17,13 +20,5 @@ pilot:
   cni:
     enabled: true
     provider: "multus"
-  variant: distroless
   env:
     PILOT_ENABLE_AMBIENT: "true"
-    # Allow sidecars/ingress to send/receive HBONE. This is required for interop.
-    PILOT_ENABLE_SENDING_HBONE: "true"
-    PILOT_ENABLE_SIDECAR_LISTENING_HBONE: "true"
-platform: openshift
-variant: distroless
-seLinuxOptions:
-  type: spc_t

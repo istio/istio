@@ -1,5 +1,5 @@
 {{- if .Values.global.configCluster }}
-{{ $mcsAPIGroup := or .Values.pilot.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
+{{ $mcsAPIGroup := or .Values.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -59,7 +59,7 @@ rules:
     resources: ["endpointslices"]
     verbs: ["get", "list", "watch"]
 
-{{- if .Values.pilot.taint.enabled }}
+{{- if .Values.taint.enabled }}
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["patch"]
@@ -88,7 +88,7 @@ rules:
 
   # Istiod and bootstrap.
 {{- $omitCertProvidersForClusterRole := list "istiod" "custom" "none"}}
-{{- if or .Values.pilot.env.EXTERNAL_CA (not (has .Values.global.pilotCertProvider $omitCertProvidersForClusterRole)) }}
+{{- if or .Values.env.EXTERNAL_CA (not (has .Values.global.pilotCertProvider $omitCertProvidersForClusterRole)) }}
   - apiGroups: ["certificates.k8s.io"]
     resources:
       - "certificatesigningrequests"
@@ -141,7 +141,7 @@ rules:
     resources: ["serviceimports"]
     verbs: ["get", "watch", "list"]
 ---
-{{- if not (eq (toString .Values.pilot.env.PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER) "false") }}
+{{- if not (eq (toString .Values.env.PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER) "false") }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
