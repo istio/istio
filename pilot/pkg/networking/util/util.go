@@ -883,3 +883,7 @@ func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.Tr
 func VersionGreaterOrEqual124(proxy *model.Proxy) bool {
 	return proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 24, Patch: -1})
 }
+
+func VersionGreaterOrEqual123(proxy *model.Proxy) bool {
+	return proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 23, Patch: -1})
+}

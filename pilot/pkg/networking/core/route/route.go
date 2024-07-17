@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/grpc"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
@@ -643,6 +644,18 @@ func applyHTTPRouteDestination(
 		}
 	}
 	action.RetryPolicy = retry.ConvertPolicy(policy, consistentHash)
+	// TODO: Remove two or more releases later
+	if strings.Contains(action.RetryPolicy.RetryOn, "reset-before-request") {
+		if !util.VersionGreaterOrEqual123(node) {
+			// strip "reset-before-qrequest"
+			retryOns := strings.Split(action.RetryPolicy.RetryOn, ",")
+			retryOns = slices.FilterInPlace(retryOns, func(e string) bool {
+				return e != "reset-before-request"
+			})
+			action.RetryPolicy.RetryOn = strings.Join(retryOns, ",")
+		}
+	}
+
 	return hostnames
 }
 

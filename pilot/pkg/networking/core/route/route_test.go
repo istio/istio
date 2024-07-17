@@ -97,6 +97,36 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(Equal(int64(0)))
 	})
 
+	t.Run("for virtual service with retry", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		t.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
+
+		node124 := node(cg)
+		node124.IstioVersion.Minor = 24
+		routes, err := route.BuildHTTPRoutesForVirtualService(node124, virtualServiceWithRetry, serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+		g.Expect(routes[0].GetRoute().RetryPolicy.NumRetries).To(Equal(wrapperspb.UInt32(3)))
+		g.Expect(routes[0].GetRoute().RetryPolicy.PerTryTimeout).To(Equal(&durationpb.Duration{Seconds: 1}))
+		g.Expect(routes[0].GetRoute().RetryPolicy.RetryOn).To(Equal("5xx,gateway-error,reset-before-request,connect-failure,refused-stream"))
+
+		// version less than 1.23, reset-before-request, retry policy willbe stripped
+		node122 := node(cg)
+		node124.IstioVersion.Minor = 22
+		routes, err = route.BuildHTTPRoutesForVirtualService(node122, virtualServiceWithRetry, serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+		g.Expect(routes[0].GetRoute().RetryPolicy.NumRetries).To(Equal(wrapperspb.UInt32(3)))
+		g.Expect(routes[0].GetRoute().RetryPolicy.PerTryTimeout).To(Equal(&durationpb.Duration{Seconds: 1}))
+		g.Expect(routes[0].GetRoute().RetryPolicy.RetryOn).To(Equal("5xx,gateway-error,connect-failure,refused-stream"))
+	})
+
 	t.Run("for virtual service with HTTP/3 discovery enabled", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
@@ -2334,6 +2364,37 @@ var virtualServiceWithRegexMatchingOnHeader = config.Config{
 					Uri:          "example.org",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRetry = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Retries: &networking.HTTPRetry{
+					Attempts:      3,
+					PerTryTimeout: &durationpb.Duration{Seconds: 1},
+					RetryOn:       "5xx,gateway-error,reset-before-request,connect-failure,refused-stream",
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
 				},
 			},
 		},
