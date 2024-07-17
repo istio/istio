@@ -43,13 +43,6 @@ images:
   targets:
   - ${TARGET_OUT_LINUX}/istioctl
 
-- name: operator
-  dockerfile: operator/docker/Dockerfile.operator
-  files:
-  - manifests
-  targets:
-  - ${TARGET_OUT_LINUX}/operator
-
 - name: install-cni
   dockerfile: cni/deployments/kubernetes/Dockerfile.install-cni
   targets:

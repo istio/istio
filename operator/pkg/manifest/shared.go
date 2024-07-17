@@ -114,7 +114,7 @@ func GenerateIstioOperator(
 		return "", nil, err
 	}
 
-	iopsString, iops, err := generateIstioOperatorWithProfile(profile, fy, setFlags, force, false, client, l)
+	iopsString, iops, err := GenerateIstioOperatorWithProfile(profile, fy, setFlags, force, false, client, l)
 	if err != nil {
 		return "", nil, err
 	}
@@ -130,9 +130,9 @@ func GenerateIstioOperator(
 	return iopsString, iops, nil
 }
 
-// generateIstioOperatorWithProfile generates an IstioOperator from the given profile name or path, and overlay YAMLs from user
+// GenerateIstioOperatorWithProfile generates an IstioOperator from the given profile name or path, and overlay YAMLs from user
 // files and the --set flag. If successful, it returns an IstioOperator string and struct.
-func generateIstioOperatorWithProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation, allowUnknownField bool,
+func GenerateIstioOperatorWithProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation, allowUnknownField bool,
 	client kube.Client, l clog.Logger,
 ) (string, *iopv1alpha1.IstioOperator, error) {
 	installPackagePath, err := getInstallPackagePath(fileOverlayYAML)

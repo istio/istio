@@ -211,8 +211,7 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
-  ./samples/extauthz/cmd/extauthz \
-  ./operator/cmd/operator
+  ./samples/extauthz/cmd/extauthz
 
 # These are binaries that require Linux to build, and should
 # be skipped on other platforms. Notably this includes the current Linux-only Istio CNI plugin
@@ -341,7 +340,7 @@ gen: \
 
 gen-check: gen check-clean-repo
 
-CHARTS = gateway default ztunnel istio-operator base "gateways/istio-ingress" "gateways/istio-egress" "istio-control/istio-discovery" istiod-remote istio-cni
+CHARTS = gateway default ztunnel base "gateways/istio-ingress" "gateways/istio-egress" "istio-control/istio-discovery" istiod-remote istio-cni
 copy-templates:
 	rm manifests/charts/istiod-remote/templates/*
 	rm manifests/charts/gateways/istio-egress/templates/*
