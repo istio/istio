@@ -23,8 +23,6 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-
-	"istio.io/istio/pkg/log"
 )
 
 func RealNlDeps() NetlinkIpsetDeps {
