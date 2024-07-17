@@ -193,35 +193,47 @@ func TestMain(m *testing.M) {
 func TestManifestGenerateComponentHubTag(t *testing.T) {
 	g := NewWithT(t)
 
-	objs, err := runManifestCommands("component_hub_tag", "", liveCharts, []string{"templates/deployment.yaml"})
+	objs, err := runManifestCommands("component_hub_tag", "", liveCharts, []string{"templates/deployment.yaml", "templates/daemonset.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	tests := []struct {
 		deploymentName string
+		daemonsetName  string
 		containerName  string
 		want           string
 	}{
 		{
 			deploymentName: "istio-ingressgateway",
 			containerName:  "istio-proxy",
-			want:           "istio-spec.hub/proxyv2:istio-spec.tag",
+			want:           "istio-spec.hub/proxyv2:istio-spec.tag-global.variant",
 		},
 		{
 			deploymentName: "istiod",
 			containerName:  "discovery",
-			want:           "component.pilot.hub/pilot:2",
+			want:           "component.pilot.hub/pilot:2-global.variant",
+		},
+		{
+			daemonsetName: "istio-cni-node",
+			containerName: "install-cni",
+			want:          "component.cni.hub/install-cni:v3.3.3-global.variant",
+		},
+		{
+			daemonsetName: "ztunnel",
+			containerName: "istio-proxy",
+			want:          "component.ztunnel.hub/ztunnel:4-global.variant",
 		},
 	}
 
 	for _, tt := range tests {
 		for _, os := range objs {
-			containerName := tt.deploymentName
-			if tt.containerName != "" {
-				containerName = tt.containerName
+			var container map[string]any
+			if tt.deploymentName != "" {
+				container = mustGetContainer(g, os, tt.deploymentName, tt.containerName)
+			} else {
+				container = mustGetContainerFromDaemonset(g, os, tt.daemonsetName, tt.containerName)
 			}
-			container := mustGetContainer(g, os, tt.deploymentName, containerName)
 			g.Expect(container).Should(HavePathValueEqual(PathValue{"image", tt.want}))
 		}
 	}
