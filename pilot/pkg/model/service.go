@@ -391,7 +391,7 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 		return first.Endpoint == second.Endpoint
 	}
 
-	if !first.Endpoint.IsAddrsEqualIstioEndpoint(second.Endpoint) {
+	if !slices.EqualUnordered(first.Endpoint.Addresses, second.Endpoint.Addresses) {
 		return false
 	}
 
@@ -473,8 +473,6 @@ const (
 //
 //	--> 172.16.0.1:55446 (with ServicePort pointing to 80) and
 //	--> 172.16.0.1:33333 (with ServicePort pointing to 8080)
-//
-// TODO: Investigate removing ServiceInstance entirely.
 type IstioEndpoint struct {
 	// Labels points to the workload or deployment labels.
 	Labels labels.Instance
@@ -564,25 +562,6 @@ func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 		return true
 	}
 	return ep.DiscoverabilityPolicy.IsDiscoverableFromProxy(ep, p)
-}
-
-// IsAddrsEqualIstioEndpoint checks the addresses of an IstioEndpoint are equal to another or not
-func (ep *IstioEndpoint) IsAddrsEqualIstioEndpoint(comp *IstioEndpoint) bool {
-	curEdAddresses := ep.Addresses
-	compEDAddresses := comp.Addresses
-
-	if len(curEdAddresses) != len(compEDAddresses) {
-		return false
-	}
-
-	curEdSets := sets.New(curEdAddresses...)
-	for _, item := range compEDAddresses {
-		if !curEdSets.Contains(item) {
-			return false
-		}
-	}
-
-	return true
 }
 
 // MetadataClone returns the cloned endpoint metadata used for telemetry purposes.
@@ -1496,7 +1475,7 @@ func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
 	}
 
 	// check everything else
-	if !ep.IsAddrsEqualIstioEndpoint(other) {
+	if !slices.EqualUnordered(ep.Addresses, other.Addresses) {
 		return false
 	}
 	if !maps.Equal(ep.Labels, other.Labels) {
