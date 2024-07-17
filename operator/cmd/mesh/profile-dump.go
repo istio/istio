@@ -132,7 +132,7 @@ func profileDump(args []string, pdArgs *profileDumpArgs, l clog.Logger) error {
 		setFlags = append(setFlags, "profile="+args[0])
 	}
 
-	y, _, err := manifest.GenerateConfig(pdArgs.inFilenames, setFlags, true, nil, l)
+	y, _, err := manifest.GenerateIstioOperator(pdArgs.inFilenames, setFlags, true, nil, l)
 	if err != nil {
 		return err
 	}

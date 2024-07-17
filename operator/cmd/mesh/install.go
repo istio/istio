@@ -164,7 +164,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 
 	setFlags := applyFlagAliases(iArgs.Set, iArgs.ManifestsPath, iArgs.Revision)
 
-	_, iop, err := manifest.GenerateConfig(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
+	_, iop, err := manifest.GenerateIstioOperator(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
 	if err != nil {
 		return fmt.Errorf("generate config: %v", err)
 	}
@@ -192,8 +192,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 			os.Exit(1)
 		}
 	}
-
-	iop.Name = savedIOPName(iop)
 
 	// Detect whether previous installation exists prior to performing the installation.
 	if err := InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l); err != nil {
@@ -242,17 +240,6 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 	opts.ProgressLog.SetState(progress.StateComplete)
 
 	return nil
-}
-
-func savedIOPName(iop *v1alpha12.IstioOperator) string {
-	ret := "installed-state"
-	if iop.Name != "" {
-		ret += "-" + iop.Name
-	}
-	if iop.Spec.Revision != "" {
-		ret += "-" + iop.Spec.Revision
-	}
-	return ret
 }
 
 // detectIstioVersionDiff will show warning if istioctl version and control plane version are different

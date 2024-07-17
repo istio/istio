@@ -167,7 +167,6 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 		if err != nil {
 			return err
 		}
-		iop.Name = savedIOPName(iop)
 	}
 
 	h, err = helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)

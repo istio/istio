@@ -181,7 +181,7 @@ func fakeApplyExtraResources(inFile string) error {
 func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
 	c := kube.NewFakeClientWithVersion("25")
 	l := clog.NewDefaultLogger()
-	_, iop, err := manifest.GenerateConfig(
+	_, iop, err := manifest.GenerateIstioOperator(
 		[]string{inFileAbsolutePath(inFile)},
 		[]string{"installPackagePath=" + string(chartSource)},
 		false, c, l)

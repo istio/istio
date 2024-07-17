@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/test/env"
@@ -280,7 +279,7 @@ func TestValidateProfiles(t *testing.T) {
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
 	for _, tt := range profiles {
 		t.Run(tt, func(t *testing.T) {
-			_, s, err := manifest.GenIOPFromProfile(tt, "", []string{"installPackagePath=" + manifests}, false, false, nil, l)
+			_, s, err := manifest.generateIstioOperatorWithProfile(tt, "", []string{"installPackagePath=" + manifests}, false, false, nil, l)
 			if err != nil {
 				t.Fatal(err)
 			}
