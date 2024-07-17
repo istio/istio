@@ -246,7 +246,7 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 			deployCNIDaemonset(t, c, origCNIDaemonSet)
 
 			// Rollout restart instances in the echo namespace.
-			t.Log("Rollout restart echo instance to get a fixed instance")
+			t.Log("Rollout restart CNI daemonset to get a fixed instance")
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
 			}
