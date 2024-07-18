@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Removed** `istioctl manifest diff` and `istioctl manifest profile diff` commands. Users looking to compare manifest can use generic YAML comparison tools.
