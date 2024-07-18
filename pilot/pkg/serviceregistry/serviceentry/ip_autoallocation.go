@@ -17,9 +17,12 @@ package serviceentry
 import (
 	"net/netip"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/api/networking/v1alpha3"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 )
 
@@ -31,8 +34,20 @@ func GetV2AddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) []netip
 	if se == nil {
 		return []netip.Addr{}
 	}
+	return getV2AddressesFromServiceEntryStatus(&se.Status)
+}
+
+func GetV2AddressesFromConfig(cfg config.Config) []netip.Addr {
+	status, ok := cfg.Status.(*v1alpha3.ServiceEntryStatus)
+	if !ok {
+		return []netip.Addr{}
+	}
+	return getV2AddressesFromServiceEntryStatus(status)
+}
+
+func getV2AddressesFromServiceEntryStatus(status *v1alpha3.ServiceEntryStatus) []netip.Addr {
 	results := []netip.Addr{}
-	for _, addr := range se.Status.GetAddresses() {
+	for _, addr := range status.GetAddresses() {
 		parsed, err := netip.ParseAddr(addr.GetValue())
 		if err != nil {
 			// strange, we should have written these so it probaby should parse but for now unreadable is unusable and we move on
@@ -44,28 +59,39 @@ func GetV2AddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) []netip
 }
 
 func ShouldV2AutoAllocateIP(se *networkingv1alpha3.ServiceEntry) bool {
+	if se == nil {
+		return false
+	}
+	return shouldV2AutoAllocateIPFromPieces(se.ObjectMeta, &se.Spec)
+}
+
+func ShouldV2AutoAllocateIPFromConfig(cfg config.Config) bool {
+	spec, ok := cfg.Spec.(*v1alpha3.ServiceEntry)
+	if !ok {
+		return false
+	}
+	return shouldV2AutoAllocateIPFromPieces(cfg.ToObjectMeta(), spec)
+}
+
+func shouldV2AutoAllocateIPFromPieces(meta v1.ObjectMeta, spec *v1alpha3.ServiceEntry) bool {
 	// if the feature is off we should not assign/use addresses
 	if !features.EnableIPAutoallocate {
 		return false
 	}
 
-	if se == nil {
-		return false
-	}
-
 	// if resolution is none we cannot honor the assigned IP in the dataplane and should not assign
-	if se.Spec.Resolution == v1alpha3.ServiceEntry_NONE {
+	if spec.Resolution == v1alpha3.ServiceEntry_NONE {
 		return false
 	}
 
 	// check for opt-in by user
-	enabledValue, enabledFound := se.Labels[constants.EnableV2AutoAllocationLabel]
+	enabledValue, enabledFound := meta.Labels[constants.EnableV2AutoAllocationLabel]
 	if !enabledFound || enabledValue == "false" {
 		return false
 	}
 
 	// if the user assigned their own we don't alloate or use autoassigned addresses
-	if len(se.Spec.Addresses) > 0 {
+	if len(spec.Addresses) > 0 {
 		return false
 	}
 
