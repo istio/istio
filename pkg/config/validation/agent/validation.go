@@ -690,12 +690,9 @@ func ValidateWildcardDomainForVirtualServiceBoundToGateway(sni bool, domain stri
 		if !match {
 			return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, parts[0])
 		}
-	} else if !labels.IsWildcardDNS1123Label(parts[0]) {
-		return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, parts[0])
-	} else if len(parts) > 1 {
-		return ValidateDNS1123Labels(parts[1])
+		return nil
 	}
-	return nil
+	return ValidateWildcardDomain(domain)
 }
 
 // validate the trust domain format
