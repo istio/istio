@@ -18,7 +18,9 @@
 package pilot
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
@@ -26,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestDNSAutoAllocation(t *testing.T) {
@@ -76,14 +79,26 @@ spec:
 			t.ConfigIstio().Eval(ns.Name(), map[string]string{"echoNamespace": apps.Namespace.Name()}, cfg).ApplyOrFail(t)
 			instances := deployment.New(t, t.AllClusters().Configs()...).WithConfig(echo.Config{Namespace: ns, Service: "a"}).BuildOrFail(t)
 
-			_ = instances[0].CallOrFail(t, echo.CallOptions{
-				Address: "fake.local",
-				Port: echo.Port{
-					Name:        "http",
-					ServicePort: 80,
-					Protocol:    protocol.HTTP,
-				},
-				Check: check.OK(),
-			})
+			retry.UntilSuccessOrFail(t, func() error {
+				_, err := instances[0].Call(echo.CallOptions{
+					Address: "fake.local",
+					Port: echo.Port{
+						Name:        "http",
+						ServicePort: 80,
+						Protocol:    protocol.HTTP,
+					},
+					Check: check.OK(),
+				})
+				if err == nil {
+					return nil
+				}
+				// trigger injection in case of delay of ProxyConfig propagation
+				for _, i := range instances {
+					if err := i.Restart(); err != nil {
+						return fmt.Errorf("failed to restart echo instance: %v", err)
+					}
+				}
+				return nil
+			}, retry.Timeout(time.Second*30))
 		})
 }
