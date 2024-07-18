@@ -876,6 +876,40 @@ func TestValidateWildcardDomain(t *testing.T) {
 	}
 }
 
+func TestValidateWildcardDomainForVirtualServiceBoundToGateway(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		sni  bool
+		out  string
+	}{
+		{"empty", "", false, "empty"},
+		{"too long", strings.Repeat("x", 256), false, "too long"},
+		{"happy", strings.Repeat("x", 63), false, ""},
+		{"wildcard", "*", false, ""},
+		{"wildcard multi-segment", "*.bar.com", false, ""},
+		{"wildcard single segment", "*foo", false, ""},
+		{"wildcard prefix", "*foo.bar.com", false, ""},
+		{"wildcard prefix dash", "*-foo.bar.com", false, ""},
+		{"bad wildcard", "foo.*.com", false, "invalid"},
+		{"bad wildcard", "foo*.bar.com", false, "invalid"},
+		{"IP address", "1.1.1.1", false, "invalid"},
+		{"SNI domain", "outbound_.80_._.e2e.foobar.mesh", true, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateWildcardDomainForVirtualServiceBoundToGateway(tt.sni, tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("ValidateWildcardDomain(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("ValidateWildcardDomain(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("ValidateWildcardDomain(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
+	}
+}
+
 func TestValidateTrustDomain(t *testing.T) {
 	tests := []struct {
 		name string
