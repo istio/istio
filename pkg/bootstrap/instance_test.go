@@ -479,7 +479,6 @@ func checkClusterNameTag(t *testing.T, regex string) {
 			if len(subMatches) != 3 {
 				t.Fatalf("unexpected number of capture groups: %d. Submatches: %v", len(subMatches), subMatches)
 			}
-
 			// Now we examine both of the capture groups (which start at index 1)
 			if subMatches[1] != tt.firstCaptureGroup {
 				t.Fatalf("first capture group does not match %s, got %s", tt.firstCaptureGroup, subMatches[1])
