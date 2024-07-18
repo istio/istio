@@ -16,6 +16,7 @@ package serviceentry
 
 import (
 	"net/netip"
+	"strings"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -84,9 +85,9 @@ func shouldV2AutoAllocateIPFromPieces(meta v1.ObjectMeta, spec *v1alpha3.Service
 		return false
 	}
 
-	// check for opt-in by user
-	enabledValue, enabledFound := meta.Labels[constants.EnableV2AutoAllocationLabel]
-	if !enabledFound || enabledValue == "false" {
+	// check for opt-out by user
+	diabledValue, diabledFound := meta.Labels[constants.DisableV2AutoAllocationLabel]
+	if diabledFound && strings.EqualFold(diabledValue, "true") {
 		return false
 	}
 

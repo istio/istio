@@ -101,9 +101,6 @@ func TestServiceEntryServices(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "auto-assigned",
 					Namespace: "ns",
-					Labels: map[string]string{
-						constants.EnableV2AutoAllocationLabel: "true",
-					},
 				},
 				Spec: networking.ServiceEntry{
 					Hosts: []string{"assign-me.example.com"},
@@ -155,9 +152,6 @@ func TestServiceEntryServices(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "user-provided",
 					Namespace: "ns",
-					Labels: map[string]string{
-						constants.EnableV2AutoAllocationLabel: "true",
-					},
 				},
 				Spec: networking.ServiceEntry{
 					Addresses: []string{"1.2.3.4"},
@@ -206,9 +200,6 @@ func TestServiceEntryServices(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "none-resolution",
 					Namespace: "ns",
-					Labels: map[string]string{
-						constants.EnableV2AutoAllocationLabel: "true",
-					},
 				},
 				Spec: networking.ServiceEntry{
 					Hosts: []string{"none-resolution.example.com"},
@@ -251,6 +242,9 @@ func TestServiceEntryServices(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "user-opt-out",
 					Namespace: "ns",
+					Labels: map[string]string{
+						constants.DisableV2AutoAllocationLabel: "true",
+					},
 				},
 				Spec: networking.ServiceEntry{
 					Hosts: []string{"user-opt-out.example.com"},
@@ -293,9 +287,6 @@ func TestServiceEntryServices(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "partial-wildcard",
 					Namespace: "ns",
-					Labels: map[string]string{
-						constants.EnableV2AutoAllocationLabel: "true",
-					},
 				},
 				Spec: networking.ServiceEntry{
 					Hosts: []string{"*.wildcard.example.com", "this-is-ok.example.com"},
