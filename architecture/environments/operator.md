@@ -199,10 +199,6 @@ Apart from validating the correctness of individual fields, the operator ensure 
 different parts of the configuration tree are correct. For example, it's an error to enable a component while its
 parent feature is disabled.
 
-## K8s controller
-
-TODO(rcernich).
-
 ## Manifest creation
 
 Manifest rendering is a multi-step process, shown in the figure below. ![rendering
