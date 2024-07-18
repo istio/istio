@@ -122,7 +122,7 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 		// Skip "nodes" without metadata (they are probably istioctl queries!)
 		if isProxy(con) || isZtunnel(con) {
 			xdsConfigs := make([]*status.ClientConfig_GenericXdsConfig, 0)
-			wrs := con.proxy.CloneWatchedResources()
+			wrs := con.proxy.DeepCloneWatchedResources()
 			for _, wr := range wrs {
 				pxc := &status.ClientConfig_GenericXdsConfig{}
 				pxc.ConfigStatus = debugSyncStatus(wr)
@@ -162,7 +162,7 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 	return res
 }
 
-func debugSyncStatus(wr *model.WatchedResource) status.ConfigStatus {
+func debugSyncStatus(wr model.WatchedResource) status.ConfigStatus {
 	if wr.LastError != "" {
 		return status.ConfigStatus_ERROR
 	}
