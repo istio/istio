@@ -161,9 +161,11 @@ func (c *IPAllocator) reconcile(a any) error {
 }
 
 func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
-	log.Debugf("reconciling ServiceEntry %s/%s", se.Namespace, se.Name)
+	log := log.WithLabels("service entry", se)
+	log.Debugf("reconciling")
 	serviceentry := c.serviceEntryClient.Get(se.Name, se.Namespace)
 	if serviceentry == nil {
+		log.Debugf("not found, no action required")
 		// probably a delete so we should remove ips from our addresses most likely
 		// TODO: we never actually remove IP right now, likely this should be done a little more slowly anyway to prevent reuse if we are too fast
 		return nil
@@ -174,6 +176,7 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 	if !autoallocate.ShouldV2AutoAllocateIP(serviceentry) {
 		// we may have an address in our range so we should check and record it
 		c.checkInSpecAddresses(serviceentry)
+		log.Debugf("allocation not required")
 		return nil
 	}
 
@@ -183,6 +186,7 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 	}
 
 	if patch == nil {
+		log.Debugf("no change needed")
 		return nil // nothing to patch
 	}
 
@@ -191,6 +195,7 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 		return err
 	}
 
+	log.Debugf("patched successfully")
 	return nil
 }
 
