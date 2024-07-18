@@ -222,6 +222,11 @@ type Options struct {
 	// we would refresh 6 minutes before expiration.
 	SecretRotationGracePeriodRatio float64
 
+	// The amount of randomness to add to SecretRotationGracePeriodRatio. This is used
+	// to prevent spikes in resource consumption when large fleets of proxies try to renew
+	// their certs simultaneously.
+	SecretRotationGracePeriodRatioJitter float64
+
 	// STS port
 	STSPort int
 

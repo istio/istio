@@ -71,7 +71,7 @@ the certificates are persisted to disk, rather than kept in memory like in the s
 ## Certificate Rotation
 
 The agent also handles rotating certificates near expiration. It does so by triggering a callback from the `SecretManager` to the SDS server
-when a certificate is near expiration (configurable by `SECRET_GRACE_PERIOD_RATIO`, defaulting to half of the expiration). If the SDS server
+when a certificate is near expiration (configurable by `SECRET_GRACE_PERIOD_RATIO`, defaulting to half of the expiration plus or minus a few minutes to stagger renewals). If the SDS server
 is still interested in this certificate (ie, Envoy is still connected and requesting the certificate), the SDS server will send another request
 to generate a new secret and push the updated certificate to Envoy. This ensures that we do not permanently watch certificates even after
 Envoy has stopped requested them; if there are no subscriptions they update will be ignored. If Envoy later watches these certificates again,
