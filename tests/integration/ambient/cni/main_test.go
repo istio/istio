@@ -245,6 +245,8 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 
 			retry.UntilSuccessOrFail(t, func() error {
 				t.Log("Rollout restart CNI daemonset to get a fixed instance")
+				// depending on timing it can actually take little bit for the patch to be applied and
+				// to get all pods to enter a broken state break - so rely on the retry delay to sort that for us
 				if _, err := shell.Execute(true, rolloutCmd); err != nil {
 					t.Fatalf("failed to rollout restart deployments %v", err)
 				}
@@ -277,6 +279,7 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 			time.Sleep(1 * time.Second)
 
 			// Rollout restart CNI pods so they get the fixed config.
+			// to _fix_ the pods we should only have to do this *once*
 			t.Log("Rollout restart CNI daemonset to get a fixed instance")
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
