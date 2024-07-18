@@ -927,11 +927,22 @@ func (node *Proxy) WorkloadEntry() (string, bool) {
 	return node.workloadEntryName, node.workloadEntryAutoCreated
 }
 
-// CloneWatchedResources clones the watched resources, both the keys and values are shallow copy.
-func (node *Proxy) CloneWatchedResources() map[string]*WatchedResource {
+// ShallowCloneWatchedResources clones the watched resources, both the keys and values are shallow copy.
+func (node *Proxy) ShallowCloneWatchedResources() map[string]*WatchedResource {
 	node.RLock()
 	defer node.RUnlock()
 	return maps.Clone(node.WatchedResources)
+}
+
+// DeepCloneWatchedResources clones the watched resources
+func (node *Proxy) DeepCloneWatchedResources() map[string]WatchedResource {
+	node.RLock()
+	defer node.RUnlock()
+	m := make(map[string]WatchedResource, len(node.WatchedResources))
+	for k, v := range node.WatchedResources {
+		m[k] = *v
+	}
+	return m
 }
 
 func (node *Proxy) GetWatchedResourceTypes() sets.String {
