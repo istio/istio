@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -666,6 +667,30 @@ func ValidateWildcardDomain(domain string) error {
 	// We only allow wildcards in the first label; split off the first label (parts[0]) from the rest of the host (parts[1])
 	parts := strings.SplitN(domain, ".", 2)
 	if !labels.IsWildcardDNS1123Label(parts[0]) {
+		return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, parts[0])
+	} else if len(parts) > 1 {
+		return ValidateDNS1123Labels(parts[1])
+	}
+	return nil
+}
+
+// ValidateWildcardDomainForVirtualServiceBoundToGateway checks that a domain is a valid FQDN, but also allows wildcard prefixes.
+func ValidateWildcardDomainForVirtualServiceBoundToGateway(sni bool, domain string) error {
+	if err := CheckDNS1123Preconditions(domain); err != nil {
+		return err
+	}
+	// We only allow wildcards in the first label; split off the first label (parts[0]) from the rest of the host (parts[1])
+	parts := strings.SplitN(domain, ".", 2)
+	// check if its an auto generated domain, with outbound_ as a prefix.
+	if sni && parts[0] == "outbound_" {
+		// validate if domain name matches the allowed regex
+		// regex: outbound\_\.\d*\_.*
+		// example of a validate domain: outbound_.80_._.e2e.foobar.mesh
+		match, _ := regexp.MatchString("outbound_.([0-8].*).*", domain)
+		if !match {
+			return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, parts[0])
+		}
+	} else if !labels.IsWildcardDNS1123Label(parts[0]) {
 		return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, parts[0])
 	} else if len(parts) > 1 {
 		return ValidateDNS1123Labels(parts[1])
