@@ -1176,7 +1176,7 @@ func TranslateCORSPolicy(proxy *model.Proxy, in *networking.CorsPolicy) *cors.Co
 	out := cors.CorsPolicy{}
 	// Start from Envoy 1.30(istio 1.22), cors filter will not forward preflight requests to upstream by default.
 	// Istio start support this feature from 1.23.
-	if proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 23, Patch: -1}) {
+	if proxy.VersionGreaterAndEqual(&model.IstioVersion{Major: 1, Minor: 23, Patch: -1}) {
 		out.ForwardNotMatchingPreflights = forwardNotMatchingPreflights(in)
 	}
 
