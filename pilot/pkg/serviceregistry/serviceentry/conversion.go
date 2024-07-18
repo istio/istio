@@ -235,11 +235,13 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 				LabelSelectors:         labelSelectors,
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
-			ClusterVIPs: model.AddressMap{
+		}
+		if !slices.Equal(ha.addresses, []string{constants.UnspecifiedIP}) {
+			svc.ClusterVIPs = model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					clusterID: ha.addresses,
 				},
-			},
+			}
 		}
 		out = append(out, svc)
 	}
