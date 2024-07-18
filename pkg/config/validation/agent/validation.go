@@ -44,7 +44,8 @@ const (
 	// nolint: revive
 	connectTimeoutMax = time.Hour
 	// nolint: revive
-	connectTimeoutMin = time.Millisecond
+	connectTimeoutMin  = time.Millisecond
+	outboundHostPrefix = "outbound_"
 )
 
 var scope = log.RegisterScope("validation", "CRD validation debugging")
@@ -682,11 +683,11 @@ func ValidateWildcardDomainForVirtualServiceBoundToGateway(sni bool, domain stri
 	// We only allow wildcards in the first label; split off the first label (parts[0]) from the rest of the host (parts[1])
 	parts := strings.SplitN(domain, ".", 2)
 	// check if its an auto generated domain, with outbound_ as a prefix.
-	if sni && parts[0] == "outbound_" {
+	if sni && parts[0] == outboundHostPrefix {
 		// validate if domain name matches the allowed regex
 		// regex: outbound\_\.\d*\_.*
 		// example of a validate domain: outbound_.80_._.e2e.foobar.mesh
-		match, _ := regexp.MatchString("outbound_.([0-8].*).*", domain)
+		match, _ := regexp.MatchString(outboundHostPrefix+".([0-8].*).*", domain)
 		if !match {
 			return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, parts[0])
 		}
