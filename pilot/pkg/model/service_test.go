@@ -596,6 +596,7 @@ func TestGetAllAddresses(t *testing.T) {
 		ipMode                 IPMode
 		dualStackEnabled       bool
 		ambientEnabled         bool
+		autoAllocationEnabled  bool
 		expectedAddresses      []string
 		expectedExtraAddresses []string
 	}{
@@ -686,6 +687,28 @@ func TestGetAllAddresses(t *testing.T) {
 			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
 			expectedExtraAddresses: []string{"10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
 		},
+		{
+			name: "IPv4 mode, auto-allocation enabled, expected auto-allocated address",
+			service: &Service{
+				DefaultAddress:           "0.0.0.0",
+				AutoAllocatedIPv4Address: "240.240.0.1",
+			},
+			ipMode:                 IPv4,
+			autoAllocationEnabled:  true,
+			expectedAddresses:      []string{"240.240.0.1"},
+			expectedExtraAddresses: []string{},
+		},
+		{
+			name: "IPv6 mode, auto-allocation enabled, expected auto-allocated address",
+			service: &Service{
+				DefaultAddress:           "0.0.0.0",
+				AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+			},
+			ipMode:                 IPv6,
+			autoAllocationEnabled:  true,
+			expectedAddresses:      []string{"2001:2::f0f0:e351"},
+			expectedExtraAddresses: []string{},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -696,6 +719,10 @@ func TestGetAllAddresses(t *testing.T) {
 				test.SetForTest(t, &features.EnableAmbient, true)
 			}
 			proxy := &Proxy{Metadata: &NodeMetadata{ClusterID: "id"}, ipMode: tc.ipMode}
+			if tc.autoAllocationEnabled {
+				proxy.Metadata.DNSCapture = true
+				proxy.Metadata.DNSAutoAllocate = true
+			}
 			addresses := tc.service.GetAllAddressesForProxy(proxy)
 			assert.Equal(t, addresses, tc.expectedAddresses)
 			extraAddresses := tc.service.GetExtraAddressesForProxy(proxy)
