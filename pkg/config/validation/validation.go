@@ -1552,13 +1552,8 @@ var ValidateVirtualService = RegisterValidateFunc("ValidateVirtualService",
 			appliesToMesh = true
 		} else {
 			errs = AppendValidation(errs, validateGatewayNames(virtualService.Gateways, gatewaySemantics))
-			for _, gatewayName := range virtualService.Gateways {
-				if gatewayName == constants.IstioMeshGateway {
-					appliesToMesh = true
-				} else {
-					appliesToGateway = true
-				}
-			}
+			appliesToGateway = isGateway(virtualService)
+			appliesToMesh = !appliesToGateway
 		}
 
 		if !appliesToGateway {
@@ -1580,7 +1575,13 @@ var ValidateVirtualService = RegisterValidateFunc("ValidateVirtualService",
 
 		allHostsValid := true
 		for _, virtualHost := range virtualService.Hosts {
-			if err := agent.ValidateWildcardDomain(virtualHost); err != nil {
+			var err error
+			if appliesToGateway {
+				err = agent.ValidateWildcardDomainForVirtualServiceBoundToGateway(isSniHost(virtualService), virtualHost)
+			} else {
+				err = agent.ValidateWildcardDomain(virtualHost)
+			}
+			if err != nil {
 				if !netutil.IsValidIPAddress(virtualHost) {
 					errs = AppendValidation(errs, err)
 					allHostsValid = false
@@ -1655,6 +1656,26 @@ func assignExactOrPrefix(exact, prefix string) string {
 		return matchPrefix + prefix
 	}
 	return ""
+}
+
+func isSniHost(context *networking.VirtualService) bool {
+	for _, tls := range context.Tls {
+		for _, match := range tls.Match {
+			if len(match.SniHosts) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func isGateway(context *networking.VirtualService) bool {
+	for _, gatewayName := range context.Gateways {
+		if gatewayName == constants.IstioMeshGateway {
+			return false
+		}
+	}
+	return true
 }
 
 // genMatchHTTPRoutes build the match rules into struct OverlappingMatchValidationForHTTPRoute
@@ -2025,7 +2046,13 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 }
 
 func validateSniHost(sniHost string, context *networking.VirtualService) (errs Validation) {
-	if err := agent.ValidateWildcardDomain(sniHost); err != nil {
+	var err error
+	if isGateway(context) {
+		err = agent.ValidateWildcardDomainForVirtualServiceBoundToGateway(true, sniHost)
+	} else {
+		err = agent.ValidateWildcardDomain(sniHost)
+	}
+	if err != nil {
 		// Could also be an IP
 		if netutil.IsValidIPAddress(sniHost) {
 			errs = AppendValidation(errs, WrapWarning(fmt.Errorf("using an IP address (%q) goes against SNI spec and most clients do not support this", sniHost)))
