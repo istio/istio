@@ -23,26 +23,25 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 
 // RunTrafficTest deploys echo server/client and runs an Istio traffic test
-func RunTrafficTest(t framework.TestContext, ctx resource.Context, ambient bool) {
+func RunTrafficTest(t framework.TestContext, ambient bool) {
 	scopes.Framework.Infof("running sanity test")
-	_, client, server := setupTrafficTest(t, ctx, "", ambient)
+	_, client, server := setupTrafficTest(t, "", ambient)
 	RunTrafficTestClientServer(t, client, server)
 }
 
-func SetupTrafficTestAmbient(t framework.TestContext, ctx resource.Context, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
-	return setupTrafficTest(t, ctx, revision, true)
+func SetupTrafficTestAmbient(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
+	return setupTrafficTest(t, revision, true)
 }
 
-func SetupTrafficTest(t framework.TestContext, ctx resource.Context, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
-	return setupTrafficTest(t, ctx, revision, false)
+func SetupTrafficTest(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
+	return setupTrafficTest(t, revision, false)
 }
 
-func setupTrafficTest(t framework.TestContext, ctx resource.Context, revision string, ambient bool) (namespace.Instance, echo.Instance, echo.Instance) {
+func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (namespace.Instance, echo.Instance, echo.Instance) {
 	var client, server echo.Instance
 	nsConfig := namespace.Config{
 		Prefix:   "default",
@@ -60,8 +59,8 @@ func setupTrafficTest(t framework.TestContext, ctx resource.Context, revision st
 			Annotations: map[string]string{label.SidecarInject.Name: "false"},
 		}}
 	}
-	testNs := namespace.NewOrFail(t, ctx, nsConfig)
-	deployment.New(ctx).
+	testNs := namespace.NewOrFail(t, nsConfig)
+	deployment.New(t).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: testNs,

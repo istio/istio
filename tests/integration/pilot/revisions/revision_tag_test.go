@@ -75,7 +75,7 @@ func TestRevisionTags(t *testing.T) {
 				},
 			}
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Default()})
 			baseArgs := []string{"tag"}
 			for _, tc := range tcs {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
@@ -101,7 +101,7 @@ func TestRevisionTags(t *testing.T) {
 
 					// Expect the specified revision to inject for the namespace with the
 					// given injection label
-					revTagNs := namespace.NewOrFail(t, t, namespace.Config{
+					revTagNs := namespace.NewOrFail(t, namespace.Config{
 						Prefix: "revision-tag",
 					})
 					nsLabelParts := strings.Split(tc.nsLabel, "=")

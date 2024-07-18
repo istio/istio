@@ -26,7 +26,6 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -520,9 +519,9 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 }
 
 // NewOrFail calls New and fails if an error is returned.
-func NewOrFail(t test.Failer, ctx resource.Context, cfg Config) *Echos {
+func NewOrFail(t resource.ContextFailer, cfg Config) *Echos {
 	t.Helper()
-	out, err := New(ctx, cfg)
+	out, err := New(t, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

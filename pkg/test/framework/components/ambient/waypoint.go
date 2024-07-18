@@ -201,7 +201,7 @@ func SetWaypointForService(t framework.TestContext, ns namespace.Instance, servi
 }
 
 func DeleteWaypoint(t framework.TestContext, ns namespace.Instance, waypoint string) {
-	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+	istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 		"waypoint",
 		"delete",
 		"--namespace",

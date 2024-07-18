@@ -47,8 +47,8 @@ func TestIntermediateCertificateRefresh(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/49648")
 			istioCfg := istio.DefaultConfigOrFail(t, t)
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
-			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+			namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 			newX509 := getX509FromFile(t, "ca-cert-alt-2.pem")
 
 			sa := apps.Captured[0].ServiceAccountName()

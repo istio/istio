@@ -35,7 +35,7 @@ func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
-			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+			namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 
 			from := apps.EchoNamespace.A
 			to := apps.EchoNamespace.B

@@ -468,7 +468,7 @@ func TestCustomGateway(t *testing.T) {
 			}
 
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal", Inject: inject})
+				gatewayNs := namespace.NewOrFail(t, namespace.Config{Prefix: "custom-gateway-minimal", Inject: inject})
 				_ = t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: v1
 kind: Service
 metadata:
@@ -552,7 +552,7 @@ spec:
 				})
 			})
 			t.NewSubTest("minimal-delay-create-gateway-svc").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal", Inject: inject})
+				gatewayNs := namespace.NewOrFail(t, namespace.Config{Prefix: "custom-gateway-minimal", Inject: inject})
 				_ = t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -640,7 +640,7 @@ spec:
 			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
 			// that mess with certs, multicluster, etc
 			t.NewSubTest("helm").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
+				gatewayNs := namespace.NewOrFail(t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
 				if t.Settings().Revisions.Default() != "" {
@@ -711,7 +711,7 @@ spec:
 				})
 			})
 			t.NewSubTest("helm-simple").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
+				gatewayNs := namespace.NewOrFail(t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
 				if t.Settings().Revisions.Default() != "" {

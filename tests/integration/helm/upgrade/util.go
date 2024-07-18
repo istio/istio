@@ -160,14 +160,14 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
-		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
+		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", isAmbient)
 		upgradeCharts(t, h, overrideValuesFile, nsConfig, isAmbient)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
-		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, "")
+		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, "")
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy
@@ -197,7 +197,7 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, false, false, helmtest.DefaultNamespaceConfig)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
-		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
+		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, canaryTag, false)
@@ -210,7 +210,7 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 			"istio-sidecar-injector-canary",
 		})
 
-		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, canaryTag)
+		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, canaryTag)
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy
@@ -256,7 +256,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		})
 
 		// setup istio.io/rev=1-15-0 for the default-1 namespace
-		oldNs, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, previousRevision)
+		oldNs, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, previousRevision)
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		// install the charts from this branch with revision set to "latest"
@@ -277,7 +277,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		})
 
 		// setup istio.io/rev=latest for the default-2 namespace
-		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, latestRevisionTag)
+		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, latestRevisionTag)
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy between a client

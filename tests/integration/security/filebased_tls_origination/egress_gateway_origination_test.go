@@ -217,7 +217,7 @@ func createDestinationRule(t framework.TestContext, serviceNamespace namespace.I
 		rootCertPathToUse = "/etc/certs/custom/root-cert.pem"
 	}
 	istioCfg := istio.DefaultConfigOrFail(t, t)
-	systemNamespace := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+	systemNamespace := namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 	args := map[string]string{
 		"AppNamespace": serviceNamespace.Name(),
 		"Mode":         destinationRuleMode, "RootCertPath": rootCertPathToUse,

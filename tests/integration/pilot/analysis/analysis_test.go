@@ -41,7 +41,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 		RequiresLocalControlPlane().
 		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix:   "default",
 				Inject:   true,
 				Revision: "",
@@ -108,7 +108,7 @@ spec:
 func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix:   "default",
 				Inject:   true,
 				Revision: "",

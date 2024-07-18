@@ -108,7 +108,7 @@ func TestSecureNaming(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 
 			testNamespace := apps.EchoNamespace.Namespace
-			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+			namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 			// Check that the CA certificate in the configmap of each namespace is as expected, which
 			// is used for data plane to control plane TLS authentication.
 			retry.UntilSuccessOrFail(t, func() error {

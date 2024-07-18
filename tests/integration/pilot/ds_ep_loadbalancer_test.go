@@ -95,7 +95,7 @@ func TestDualStackEndpointLoadBalancer(t *testing.T) {
 	framework.NewTest(t).
 		RequiresDualStack().
 		Run(func(t framework.TestContext) {
-			echoDS := namespace.NewOrFail(t, t, namespace.Config{
+			echoDS := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "echo-ds",
 				Inject: true,
 			})

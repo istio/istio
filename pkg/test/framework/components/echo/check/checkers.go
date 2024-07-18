@@ -391,7 +391,7 @@ func URL(expected string) echo.Checker {
 
 func IsDNSCaptureEnabled(t framework.TestContext) bool {
 	t.Helper()
-	mc := istio.GetOrFail(t, t).MeshConfigOrFail(t)
+	mc := istio.GetOrFail(t).MeshConfigOrFail(t)
 	if mc.DefaultConfig != nil && mc.DefaultConfig.ProxyMetadata != nil {
 		return mc.DefaultConfig.ProxyMetadata["ISTIO_META_DNS_CAPTURE"] == "true"
 	}

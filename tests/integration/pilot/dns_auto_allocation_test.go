@@ -35,7 +35,7 @@ func TestDNSAutoAllocation(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "dns-auto-allocation",
 				Inject: true,
 			})

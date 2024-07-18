@@ -170,7 +170,7 @@ defaultRevision: ""
 
 func setupInstallation(overrideValuesStr string, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
 	return baseSetup(overrideValuesStr, isAmbient, config, func(t framework.TestContext) {
-		sanitycheck.RunTrafficTest(t, t, isAmbient)
+		sanitycheck.RunTrafficTest(t, isAmbient)
 	}, revision)
 }
 

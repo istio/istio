@@ -297,7 +297,7 @@ func getClusterDetailsYAML(t framework.TestContext, address string, from echo.In
 
 	destName := to.Config().Service
 	destNS := to.Config().Namespace.Name()
-	istioNS := istio.GetOrFail(t, t).Settings().SystemNamespace
+	istioNS := istio.GetOrFail(t).Settings().SystemNamespace
 
 	for _, c := range t.Clusters() {
 		info := IPs{

@@ -57,7 +57,7 @@ func TestUninstallByRevision(t *testing.T) {
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
-				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 				uninstallCmd := []string{
 					"uninstall",
 					"--revision=" + stableRevision, "--skip-confirmation",
@@ -78,7 +78,7 @@ func TestUninstallByNotFoundRevision(t *testing.T) {
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision_notfound").Run(func(t framework.TestContext) {
-				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 				uninstallCmd := []string{
 					"uninstall",
 					"--revision=" + notFoundRevision, "--dry-run",
@@ -96,7 +96,7 @@ func TestUninstallWithSetFlag(t *testing.T) {
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
-				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 				uninstallCmd := []string{
 					"uninstall", "--set",
 					"revision=" + stableRevision, "--skip-confirmation",
@@ -115,7 +115,7 @@ func TestUninstallWithSetFlag(t *testing.T) {
 func TestUninstallCustomFile(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			createIstioOperatorTempFile := func(name, revision string) (fileName string) {
 				tempFile, err := os.CreateTemp("", name)
@@ -176,7 +176,7 @@ func TestUninstallPurge(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 			uninstallCmd := []string{
 				"uninstall",
 				"--purge", "--skip-confirmation",

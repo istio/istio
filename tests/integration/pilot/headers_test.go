@@ -41,7 +41,7 @@ func TestProxyHeaders(t *testing.T) {
 	framework.NewTest(t).
 		RequireIstioVersion("1.19").
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "proxy-headers", Inject: true})
+			ns := namespace.NewOrFail(t, namespace.Config{Prefix: "proxy-headers", Inject: true})
 			cfg := echo.Config{
 				Namespace: ns,
 				Ports:     ports.All(),

@@ -51,7 +51,7 @@ func TestRevisionTraffic(t *testing.T) {
 			for _, rev := range extraRevs {
 				namespaces = append(namespaces, revisionedNamespace{
 					revision: rev,
-					namespace: namespace.NewOrFail(t, t, namespace.Config{
+					namespace: namespace.NewOrFail(t, namespace.Config{
 						Prefix:   fmt.Sprintf("revision-%s", rev),
 						Inject:   true,
 						Revision: rev,

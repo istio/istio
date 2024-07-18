@@ -39,7 +39,7 @@ func TestXFFGateway(t *testing.T) {
 			if t.Settings().Compatibility {
 				inject = true
 			}
-			gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway", Inject: inject})
+			gatewayNs := namespace.NewOrFail(t, namespace.Config{Prefix: "custom-gateway", Inject: inject})
 			injectLabel := `sidecar.istio.io/inject: "true"`
 			if len(t.Settings().Revisions.Default()) > 0 {
 				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revisions.Default())
@@ -119,7 +119,7 @@ func TestProxyProtocolTCPGateway(t *testing.T) {
 			if t.Settings().Compatibility {
 				inject = true
 			}
-			gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway", Inject: inject})
+			gatewayNs := namespace.NewOrFail(t, namespace.Config{Prefix: "custom-gateway", Inject: inject})
 			injectLabel := `sidecar.istio.io/inject: "true"`
 			if len(t.Settings().Revisions.Default()) > 0 {
 				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revisions.Default())
