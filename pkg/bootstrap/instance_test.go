@@ -93,7 +93,6 @@ func TestGolden(t *testing.T) {
 		check                         func(got *bootstrap.Bootstrap, t *testing.T)
 		compliancePolicy              string
 		enableDefferedClusterCreation bool
-		istioVersionOverride          string
 	}{
 		{
 			base: "xdsproxy",
@@ -279,9 +278,6 @@ func TestGolden(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatal(err)
-			}
-			if c.istioVersionOverride != "" {
-				node.Metadata.IstioVersion = c.istioVersionOverride
 			}
 			fn, err := New(Config{
 				Node:             node,
