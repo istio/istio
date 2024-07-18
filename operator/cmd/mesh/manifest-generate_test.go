@@ -25,6 +25,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -34,7 +35,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -468,7 +468,7 @@ func TestPrune(t *testing.T) {
 
 func TestManifestGenerateAllOff(t *testing.T) {
 	g := NewWithT(t)
-	m, _, err := generateManifest("all_off", "", liveCharts, nil)
+	m, err := generateManifest("all_off", "", liveCharts, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -482,7 +482,7 @@ func TestManifestGenerateAllOff(t *testing.T) {
 func TestManifestGenerateFlagsMinimalProfile(t *testing.T) {
 	g := NewWithT(t)
 	// Change profile from empty to minimal using flag.
-	m, _, err := generateManifest("empty", "-s profile=minimal", liveCharts, []string{"templates/deployment.yaml"})
+	m, err := generateManifest("empty", "-s profile=minimal", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -496,7 +496,7 @@ func TestManifestGenerateFlagsMinimalProfile(t *testing.T) {
 
 func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
 	g := NewWithT(t)
-	m, _, err := generateManifest("minimal", "-s hub=foo -s tag=bar", liveCharts, []string{"templates/deployment.yaml"})
+	m, err := generateManifest("minimal", "-s hub=foo -s tag=bar", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,7 +513,7 @@ func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
 
 func TestManifestGenerateFlagsSetValues(t *testing.T) {
 	g := NewWithT(t)
-	m, _, err := generateManifest("default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts,
+	m, err := generateManifest("default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts,
 		[]string{"templates/deployment.yaml", "templates/istiod-injector-configmap.yaml"})
 	if err != nil {
 		t.Fatal(err)
@@ -699,14 +699,11 @@ func TestMultiICPSFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	diffSelect := "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway"
-	got, err = compare.FilterManifest(got, diffSelect, "")
+	got, err = filterManifest(got, diffSelect)
 	if err != nil {
 		t.Errorf("error selecting from output manifest: %v", err)
 	}
-	diff := compare.YAMLCmp(got, want)
-	if diff != "" {
-		t.Errorf("`manifest generate` diff = %s", diff)
-	}
+	assert.Equal(t, got, want)
 }
 
 func TestBareSpec(t *testing.T) {
@@ -944,10 +941,8 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				}
 			}
 
-			diffSelect := "*:*:*"
 			if tt.diffSelect != "" {
-				diffSelect = tt.diffSelect
-				got, err = compare.FilterManifest(got, diffSelect, "")
+				got, err = filterManifest(got, tt.diffSelect)
 				if err != nil {
 					t.Errorf("error selecting from output manifest: %v", err)
 				}
@@ -961,29 +956,19 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			}
 
 			if got != want {
-				diff, err := compare.ManifestDiffWithRenameSelectIgnore(got, want,
-					"", diffSelect, tt.diffIgnore, false)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if diff != "" {
-					t.Fatalf("%s: got:\n%s\nwant:\n%s\n(-got, +want)\n%s\n", tt.desc, "", "", diff)
-				}
 				t.Fatalf(cmp.Diff(got, want))
 			}
 		})
 	}
 }
 
-// nolint: unparam
-func generateManifest(inFile, flags string, chartSource chartSourceType, fileSelect []string) (string, object.K8sObjects, error) {
+func generateManifest(inFile, flags string, chartSource chartSourceType, fileSelect []string) (string, error) {
 	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
 	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource, fileSelect)
 	if err != nil {
-		return "", nil, fmt.Errorf("error %s: %s", err, manifest)
+		return "", fmt.Errorf("error %s: %s", err, manifest)
 	}
-	objs, err := object.ParseK8sObjectsFromYAMLManifest(manifest)
-	return manifest, objs, err
+	return manifest, err
 }
 
 // runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
@@ -1188,4 +1173,82 @@ func TestSidecarTemplate(t *testing.T) {
 			diffSelect: "ConfigMap:*:istio-sidecar-injector",
 		},
 	})
+}
+
+// FilterManifest selects and ignores subset from the manifest string
+func filterManifest(ms string, selectResources string) (string, error) {
+	sm := getObjPathMap(selectResources)
+	ao, err := object.ParseK8sObjectsFromYAMLManifestFailOption(ms, false)
+	if err != nil {
+		return "", err
+	}
+	aom := ao.ToMap()
+	slrs, err := filterResourceWithSelectAndIgnore(aom, sm)
+	if err != nil {
+		return "", err
+	}
+	var sb strings.Builder
+	for _, ko := range slrs {
+		yl, err := ko.YAML()
+		if err != nil {
+			return "", err
+		}
+		sb.WriteString(string(yl) + object.YAMLSeparator)
+	}
+	k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(sb.String())
+	if err != nil {
+		return "", err
+	}
+	k8sObjects.Sort(object.DefaultObjectOrder())
+	sortdManifests, err := k8sObjects.YAMLManifest()
+	if err != nil {
+		return "", err
+	}
+	return sortdManifests, nil
+}
+
+// filterResourceWithSelectAndIgnore filter the input resources with selected and ignored filter.
+func filterResourceWithSelectAndIgnore(aom map[string]*object.K8sObject, sm map[string]string) (map[string]*object.K8sObject, error) {
+	aosm := make(map[string]*object.K8sObject)
+	for ak, av := range aom {
+		for selected := range sm {
+			re, err := buildResourceRegexp(strings.TrimSpace(selected))
+			if err != nil {
+				return nil, fmt.Errorf("error building the resource regexp: %v", err)
+			}
+			if re.MatchString(ak) {
+				aosm[ak] = av
+			}
+		}
+	}
+	return aosm, nil
+}
+
+// buildResourceRegexp translates the resource indicator to regexp.
+func buildResourceRegexp(s string) (*regexp.Regexp, error) {
+	hash := strings.Split(s, ":")
+	for i, v := range hash {
+		if v == "" || v == "*" {
+			hash[i] = ".*"
+		}
+	}
+	return regexp.Compile(strings.Join(hash, ":"))
+}
+
+func getObjPathMap(rs string) map[string]string {
+	rm := make(map[string]string)
+	if len(rs) == 0 {
+		return rm
+	}
+	for _, r := range strings.Split(rs, ",") {
+		split := strings.Split(r, ":")
+		if len(split) < 4 {
+			rm[r] = ""
+			continue
+		}
+		kind, namespace, name, path := split[0], split[1], split[2], split[3]
+		obj := fmt.Sprintf("%v:%v:%v", kind, namespace, name)
+		rm[obj] = path
+	}
+	return rm
 }
