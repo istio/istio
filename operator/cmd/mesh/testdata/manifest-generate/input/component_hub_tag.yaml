@@ -3,6 +3,9 @@ kind: IstioOperator
 spec:
   hub: istio-spec.hub
   tag: istio-spec.tag
+  values:
+    global:
+      variant: global.variant
   components:
     pilot:
       enabled: true
@@ -12,4 +15,8 @@ spec:
       enabled: true
       hub: component.cni.hub
       tag: v3.3.3
+    ztunnel:
+      enabled: true
+      hub: component.ztunnel.hub
+      tag: 4
 
