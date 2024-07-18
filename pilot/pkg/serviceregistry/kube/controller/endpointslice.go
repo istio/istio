@@ -253,14 +253,22 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	}
 	svc := esc.c.GetService(hostName)
 	svcNamespacedName := getServiceNamespacedName(epSlice)
+	// This is not a endpointslice for service, ignore
+	if svcNamespacedName.Name == "" {
+		return
+	}
 	svcCore := esc.c.services.Get(svcNamespacedName.Name, svcNamespacedName.Namespace)
 	if svcCore != nil && len(svcCore.Spec.ClusterIPs) > 1 {
 		// It means this is dual stack service, for which k8s will build two endpointslice per pod.
-		// So we ignore ipv6 family address to prevent generating duplicate IstioEndpoints.
-		if epSlice.AddressType == v1.AddressTypeIPv6 {
-			return
+		// If the service is with selector, k8s will manually generate two ip families endpointslices,
+		// we ignore ipv6 family address to prevent generating duplicate IstioEndpoints.
+		if svcCore.Spec.Selector != nil {
+			if epSlice.AddressType == v1.AddressTypeIPv6 {
+				return
+			}
 		}
 	}
+
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
 
 	for _, e := range epSlice.Endpoints {
@@ -274,7 +282,9 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 			}
 
 			var overrideAddresses []string
-			if features.EnableDualStack && pod != nil && svcCore != nil && len(pod.Status.PodIPs) > 1 && len(svcCore.Spec.ClusterIPs) > 1 {
+			// If not expect a pod, it means this is not an endpointslice not managed by kubernetes.
+			// We donot add all pod ips to the istio endpoint.
+			if features.EnableDualStack && expectedPod && svcCore != nil && len(pod.Status.PodIPs) > 1 && len(svcCore.Spec.ClusterIPs) > 1 {
 				// get the IP addresses for the dual stack pod
 				overrideAddresses = slices.Map(pod.Status.PodIPs, func(e corev1.PodIP) string {
 					return e.IP
