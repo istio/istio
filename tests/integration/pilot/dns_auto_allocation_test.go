@@ -41,6 +41,9 @@ kind: ProxyConfig
 metadata:
   name: enable-dns-auto-allocation
 spec:
+  selector:
+    matchLabels:
+      app: a
   environmentVariables:
     ISTIO_META_DNS_CAPTURE: "true"
     ISTIO_META_DNS_AUTO_ALLOCATE: "true"
