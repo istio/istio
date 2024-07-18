@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -207,7 +208,7 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 		lbls = ensureCanonicalServiceLabels(cfg.Name, cfg.Labels)
 	}
 	for _, ha := range hostAddresses {
-		out = append(out, &model.Service{
+		svc := &model.Service{
 			CreationTime:   creationTime,
 			MeshExternal:   serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 			Hostname:       host.Name(ha.host),
@@ -224,12 +225,15 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 				LabelSelectors:         labelSelectors,
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
-			ClusterVIPs: model.AddressMap{
+		}
+		if !slices.Equal(ha.addresses, []string{constants.UnspecifiedIP}) {
+			svc.ClusterVIPs = model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					clusterID: ha.addresses,
 				},
-			},
-		})
+			}
+		}
+		out = append(out, svc)
 	}
 	return out
 }

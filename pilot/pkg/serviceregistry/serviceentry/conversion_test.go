@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 )
@@ -517,9 +518,11 @@ func makeService(hostname host.Name, configNamespace string, addresses []string,
 			Name:            string(hostname),
 			Namespace:       configNamespace,
 		},
-		ClusterVIPs: model.AddressMap{
+	}
+	if !slices.Equal(addresses, []string{constants.UnspecifiedIP}) {
+		svc.ClusterVIPs = model.AddressMap{
 			Addresses: map[cluster.ID][]string{"": addresses},
-		},
+		}
 	}
 
 	if external && features.CanonicalServiceForMeshExternalServiceEntry {
