@@ -27,41 +27,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube"
 )
 
 // GKString differs from default representation of GroupKind
 func GKString(gvk schema.GroupKind) string {
 	return fmt.Sprintf("%s/%s", gvk.Group, gvk.Kind)
-}
-
-// ValidateIOPCAConfig validates if the IstioOperator CA configs are applicable to the K8s cluster
-func ValidateIOPCAConfig(client kube.Client, iop *iopv1alpha1.IstioOperator) error {
-	globalI := iop.Spec.Values.AsMap()["global"]
-	global, ok := globalI.(map[string]any)
-	if !ok {
-		// This means no explicit global configuration. Still okay
-		return nil
-	}
-	ca, ok := global["pilotCertProvider"].(string)
-	if !ok {
-		// This means the default pilotCertProvider is being used
-		return nil
-	}
-	if ca == "kubernetes" {
-		ver, err := client.GetKubernetesVersion()
-		if err != nil {
-			return fmt.Errorf("failed to determine support for K8s legacy signer. Use the --force flag to ignore this: %v", err)
-		}
-
-		if kube.IsAtLeastVersion(client, 22) {
-			return fmt.Errorf("configuration PILOT_CERT_PROVIDER=%s not supported in Kubernetes %v."+
-				"Please pick another value for PILOT_CERT_PROVIDER", ca, ver.String())
-		}
-	}
-	return nil
 }
 
 // CreateNamespace creates a namespace using the given k8s interface.

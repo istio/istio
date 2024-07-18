@@ -86,14 +86,6 @@ var (
 		Action: "Check that the IstioOperator resource has the correct syntax. " +
 			actionIfErrSureCorrectConfigContactSupport,
 	}
-	operatorFailedToConfigure = &structured.Error{
-		MoreInfo: "the IstioOperator Resource could not be applied on the cluster " +
-			"because of incompatible Kubernetes settings",
-		Impact:      operatorImpactNoUpdates,
-		LikelyCause: formatCauses(likelyCauseConfiguration),
-		Action: "Ensure that IstioOperator config is compatible with current Kubernetes version." +
-			actionIfErrSureCorrectConfigContactSupport,
-	}
 )
 
 func fixFormat(s string) string {

@@ -76,3 +76,6 @@ WARNING: {{$dep|quote}} is deprecated; use {{$replace|quote}} instead.
 {{fail (print $dep " is removed")}}
 {{- end }}
 {{- end }}
+{{- if eq $.Values.global.pilotCertProvider "kubernetes" }}
+{{- fail "pilotCertProvider=kubernetes is not supported" }}
+{{- end }}
