@@ -19,6 +19,7 @@ import (
 
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -37,10 +38,11 @@ type TargetablePolicy interface {
 // TargetRef selection uses either the workload's namespace + the gateway name based on labels,
 // or the Services the workload is a part of.
 type WorkloadPolicyMatcher struct {
-	Namespace      string
-	WorkloadLabels labels.Instance
-	IsWaypoint     bool
-	Service        string
+	Namespace       string
+	WorkloadLabels  labels.Instance
+	IsWaypoint      bool
+	Service         string
+	ServiceRegistry provider.ID
 }
 
 func PolicyMatcherFor(workloadNamespace string, labels labels.Instance, isWaypoint bool) WorkloadPolicyMatcher {
@@ -68,6 +70,7 @@ func (p WorkloadPolicyMatcher) WithService(service *Service) WorkloadPolicyMatch
 	}
 
 	p.Service = service.Attributes.Name
+	p.ServiceRegistry = service.Attributes.ServiceRegistry
 	return p
 }
 
@@ -117,28 +120,37 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 	}
 
 	for _, targetRef := range targetRefs {
-		target := types.NamespacedName{
-			Name:      targetRef.GetName(),
-			Namespace: GetOrDefault(targetRef.GetNamespace(), policyName.Namespace),
+		target := targetRef.GetName()
+		// Namespace does not match
+		if !(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.Namespace) {
+			continue
 		}
 
 		// Gateway attached
-		if config.CanonicalGroup(targetRef.GetGroup()) == gvk.KubernetesGateway.CanonicalGroup() &&
-			targetRef.GetKind() == gvk.KubernetesGateway.Kind &&
-			target.Name == gatewayName &&
-			(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.Namespace) {
+		if matchesGroupKind(targetRef, gvk.KubernetesGateway) && target == gatewayName {
 			return true
 		}
 
 		// Service attached
 		if p.IsWaypoint &&
-			config.CanonicalGroup(targetRef.GetGroup()) == gvk.Service.CanonicalGroup() &&
-			targetRef.GetKind() == gvk.Service.Kind &&
-			targetRef.GetName() == p.Service &&
-			(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.Namespace) {
+			matchesGroupKind(targetRef, gvk.Service) &&
+			target == p.Service &&
+			p.ServiceRegistry == provider.Kubernetes {
+			return true
+		}
+
+		// ServiceEntry attached
+		if p.IsWaypoint &&
+			matchesGroupKind(targetRef, gvk.ServiceEntry) &&
+			target == p.Service &&
+			p.ServiceRegistry == provider.External {
 			return true
 		}
 	}
 
 	return false
+}
+
+func matchesGroupKind(targetRef *v1beta1.PolicyTargetReference, gk config.GroupVersionKind) bool {
+	return config.CanonicalGroup(targetRef.GetGroup()) == gk.CanonicalGroup() && targetRef.GetKind() == gk.Kind
 }
