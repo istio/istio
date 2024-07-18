@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -411,16 +412,23 @@ func DeleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster, config
 	if err := h.DeleteChart(BaseReleaseName, config.Get(BaseReleaseName)); err != nil {
 		t.Errorf("failed to delete %s release: %v", BaseReleaseName, err)
 	}
+	g := errgroup.Group{}
 	for _, ns := range config.AllNamespaces() {
 		if ns == constants.KubeSystemNamespace {
 			continue
 		}
-		if err := cs.Kube().CoreV1().Namespaces().Delete(context.TODO(), ns, metav1.DeleteOptions{}); err != nil {
-			t.Errorf("failed to delete %s namespace: %v", ns, err)
-		}
-		if err := kubetest.WaitForNamespaceDeletion(cs.Kube(), ns, retry.Timeout(RetryTimeOut)); err != nil {
-			t.Errorf("waiting for %s namespace to be deleted: %v", ns, err)
-		}
+		g.Go(func() error {
+			if err := cs.Kube().CoreV1().Namespaces().Delete(context.TODO(), ns, metav1.DeleteOptions{}); err != nil {
+				return fmt.Errorf("failed to delete %s namespace: %v", ns, err)
+			}
+			if err := kubetest.WaitForNamespaceDeletion(cs.Kube(), ns, retry.Timeout(RetryTimeOut)); err != nil {
+				return fmt.Errorf("waiting for %s namespace to be deleted: %v", ns, err)
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		t.Fatal(err)
 	}
 }
 

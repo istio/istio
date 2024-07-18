@@ -54,38 +54,34 @@ func TestAmbientInstall(t *testing.T) {
 }
 
 func TestAmbientInstallMultiNamespace(t *testing.T) {
-	tests := []struct {
-		name     string
-		nsConfig NamespaceConfig
-	}{{
-		name: "isolated-istio-cni",
-		nsConfig: NewNamespaceConfig(types.NamespacedName{
+	nsConfig := NewNamespaceConfig(
+		types.NamespacedName{
 			Name: CniReleaseName, Namespace: "istio-cni",
-		}),
-	}, {
-		name: "isolated-istio-cni-and-ztunnel",
-		nsConfig: NewNamespaceConfig(types.NamespacedName{
-			Name: CniReleaseName, Namespace: "istio-cni",
-		}, types.NamespacedName{
-			Name: ZtunnelReleaseName, Namespace: "kube-system",
-		}),
-	}, {
-		name: "isolated-istio-cni-ztunnel-and-gateway",
-		nsConfig: NewNamespaceConfig(types.NamespacedName{
-			Name: CniReleaseName, Namespace: "istio-cni",
-		}, types.NamespacedName{
+		},
+		types.NamespacedName{
 			Name: ZtunnelReleaseName, Namespace: "ztunnel",
-		}, types.NamespacedName{
+		},
+		types.NamespacedName{
+			Name: IstiodReleaseName, Namespace: "istiod",
+		},
+		types.NamespacedName{
 			Name: IngressReleaseName, Namespace: "ingress-release",
-		}),
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			framework.
-				NewTest(t).
-				Run(setupInstallation(ambientProfileOverride, true, tt.nsConfig, ""))
 		})
-	}
+	// Setup our profile override. Ideally we could just add `trustedZtunnelNamespace`, but Istiod cannot currently be deployed
+	// in another namespace without `global.istioNamespace` set.
+	profile := `
+global:
+  istioNamespace: istiod
+  hub: %s
+  %s
+  variant: %q
+profile: ambient
+pilot:
+  trustedZtunnelNamespace: ztunnel
+`
+	framework.
+		NewTest(t).
+		Run(setupInstallation(profile, true, nsConfig, ""))
 }
 
 // TestReleaseChannels tests that non-stable CRDs and fields get blocked
@@ -174,7 +170,7 @@ defaultRevision: ""
 
 func setupInstallation(overrideValuesStr string, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
 	return baseSetup(overrideValuesStr, isAmbient, config, func(t framework.TestContext) {
-		sanitycheck.RunTrafficTest(t, t)
+		sanitycheck.RunTrafficTest(t, t, isAmbient)
 	}, revision)
 }
 

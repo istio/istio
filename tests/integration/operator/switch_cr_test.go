@@ -402,7 +402,7 @@ func verifyInstallation(t framework.TestContext, ctx resource.Context,
 	}
 
 	compareInClusterAndGeneratedResources(t, cs, K8SObjects, false)
-	sanitycheck.RunTrafficTest(t, ctx)
+	sanitycheck.RunTrafficTest(t, ctx, false)
 	scopes.Framework.Infof("=== succeeded ===")
 	return K8SObjects
 }
