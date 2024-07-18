@@ -80,6 +80,10 @@ var (
 
 	secretRotationGracePeriodRatioEnv = env.Register("SECRET_GRACE_PERIOD_RATIO", 0.5,
 		"The grace period ratio for the cert rotation, by default 0.5.").Get()
+
+	secretRotationGracePeriodRatioJitterEnv = env.Register("SECRET_GRACE_PERIOD_RATIO_JITTER", .01,
+		"Randomize the grace period ratio up or down by this amount to stagger cert renewals, by default .01 (~15 minutes over 24 hours).").Get()
+
 	workloadRSAKeySizeEnv = env.Register("WORKLOAD_RSA_KEY_SIZE", 2048,
 		"Specify the RSA key size to use for workload certificates.").Get()
 	pkcs8KeysEnv = env.Register("PKCS8_KEY", false,
