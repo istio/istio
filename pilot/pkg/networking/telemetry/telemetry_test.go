@@ -372,6 +372,15 @@ func TestBuildInboundStatPrefix(t *testing.T) {
 			"reviews.namespace1.7443",
 		},
 		{
+			"Service only pattern with empty service name",
+			"%SERVICE_NAME%",
+			FilterChainMetadata{InstanceHostname: "svc.cluster.local"},
+			"",
+			7443,
+			"grpc-svc",
+			"svc.cluster.local",
+		},
+		{
 			"Service FQDN only pattern",
 			"%SERVICE_FQDN%",
 			FilterChainMetadata{InstanceHostname: "reviews.default.svc.cluster.local", KubernetesServiceName: "reviews", KubernetesServiceNamespace: "default"},
