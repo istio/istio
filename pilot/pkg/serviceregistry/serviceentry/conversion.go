@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -140,6 +141,15 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 // convertServices transforms a ServiceEntry config to a list of internal Service objects.
 func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
+	// ShouldV2AutoAllocateIP already checks that there are no addresses in the spec however this is critical enough to likely be worth checking
+	// explicitly as well in case the logic changes. We never want to overwrite addresses in the spec if there are any
+	addresses := serviceEntry.Addresses
+	if ShouldV2AutoAllocateIPFromConfig(cfg) && len(addresses) == 0 {
+		addresses = slices.Map(GetV2AddressesFromConfig(cfg), func(a netip.Addr) string {
+			return a.String()
+		})
+	}
+
 	creationTime := cfg.CreationTimestamp
 
 	var resolution model.Resolution
@@ -181,8 +191,8 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 
 	hostAddresses := []*HostAddress{}
 	for _, hostname := range serviceEntry.Hosts {
-		if len(serviceEntry.Addresses) > 0 {
-			for _, address := range serviceEntry.Addresses {
+		if len(addresses) > 0 {
+			for _, address := range addresses {
 				// Check if address is an IP first because that is the most common case.
 				if netutil.IsValidIPAddress(address) {
 					hostAddresses = append(hostAddresses, &HostAddress{hostname, address})
@@ -224,19 +234,19 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
 		}
-		addresses := serviceEntry.Addresses
-		if len(addresses) == 0 {
-			addresses = []string{constants.UnspecifiedIP}
+		addr := addresses
+		if len(addr) == 0 {
+			addr = []string{constants.UnspecifiedIP}
 		}
 		// This logic ensures backward compatibility for non-ambient proxies.
 		// It makes sure that the default address is always the first VIP in the list, so there is no difference
 		// between using DefaultAddress or ClusterVIPs[0] to create a listener.
-		notDefaultAddresses := sets.New[string](addresses...).Delete(ha.address)
-		addresses = []string{ha.address}
-		addresses = append(addresses, sets.SortedList(notDefaultAddresses)...)
+		notDefaultAddresses := sets.New[string](addr...).Delete(ha.address)
+		addr = []string{ha.address}
+		addr = append(addr, sets.SortedList(notDefaultAddresses)...)
 		svc.ClusterVIPs = model.AddressMap{
 			Addresses: map[cluster.ID][]string{
-				clusterID: addresses,
+				clusterID: addr,
 			},
 		}
 		out = append(out, svc)
