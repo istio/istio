@@ -852,7 +852,3 @@ func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.Tr
 	ret.ProxyProtocol = original.ProxyProtocol
 	return ret
 }
-
-func VersionGreaterOrEqual124(proxy *model.Proxy) bool {
-	return proxy.VersionGreaterAndEqual(&model.IstioVersion{Major: 1, Minor: 24, Patch: -1})
-}
