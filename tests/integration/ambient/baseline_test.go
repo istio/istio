@@ -2027,7 +2027,7 @@ spec:
 `).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
-			_, v6 := getSupportedIPFamilies(t)
+			v4, v6 := getSupportedIPFamilies(t)
 			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
 				tc := tc
@@ -2048,16 +2048,22 @@ spec:
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
-								address := "240.240.240.255"
-								if v6 {
-									address = "2001:2::f0f0:255"
+								if v4 {
+									from.CallOrFail(t, echo.CallOptions{
+										Address: "240.240.240.255",
+										Port:    to.PortForName("http"),
+										// If request is sent before service is processed it will hit 10s timeout, so fail faster
+										Timeout: time.Millisecond * 500,
+									})
 								}
-								from.CallOrFail(t, echo.CallOptions{
-									Address: address,
-									Port:    to.PortForName("http"),
-									// If request is sent before service is processed it will hit 10s timeout, so fail faster
-									Timeout: time.Millisecond * 500,
-								})
+								if v6 {
+									from.CallOrFail(t, echo.CallOptions{
+										Address: "2001:2::f0f0:255",
+										Port:    to.PortForName("http"),
+										// If request is sent before service is processed it will hit 10s timeout, so fail faster
+										Timeout: time.Millisecond * 500,
+									})
+								}
 							})
 					})
 				}
