@@ -895,6 +895,7 @@ func TestValidateWildcardDomainForVirtualServiceBoundToGateway(t *testing.T) {
 		{"bad wildcard", "foo*.bar.com", false, "invalid"},
 		{"IP address", "1.1.1.1", false, "invalid"},
 		{"SNI domain", "outbound_.80_._.e2e.foobar.mesh", true, ""},
+		{"happy", "outbound.com", true, ""},
 		{"invalid SNI domain", "neverbound_.80_._.e2e.foobar.mesh", true, "invalid"},
 		{"invalid SNI domain", "outbound_.thisIsNotAPort_._.e2e.foobar.mesh", true, "invalid"},
 		{"invalid SNI domain", "outbound_.80_._", true, "invalid"},
