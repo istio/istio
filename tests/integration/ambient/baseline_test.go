@@ -2052,7 +2052,6 @@ spec:
 									from.CallOrFail(t, echo.CallOptions{
 										Address: "240.240.240.255",
 										Port:    to.PortForName("http"),
-										// If request is sent before service is processed it will hit 10s timeout, so fail faster
 										Timeout: time.Millisecond * 500,
 									})
 								}
@@ -2060,7 +2059,6 @@ spec:
 									from.CallOrFail(t, echo.CallOptions{
 										Address: "2001:2::f0f0:255",
 										Port:    to.PortForName("http"),
-										// If request is sent before service is processed it will hit 10s timeout, so fail faster
 										Timeout: time.Millisecond * 500,
 									})
 								}
