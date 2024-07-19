@@ -581,6 +581,11 @@ func (ep *IstioEndpoint) CmpOpts() []cmp.Option {
 	return istioEndpointCmpOpts
 }
 
+// Key returns a function suitable for usage to distinguish this IstioEndpoint from another
+func (ep *IstioEndpoint) Key() string {
+	return ep.Address + "/" + ep.WorkloadName
+}
+
 // EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.
 type EndpointMetadata struct {
 	// Network holds the network where this endpoint is present
