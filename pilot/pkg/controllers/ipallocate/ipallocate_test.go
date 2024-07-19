@@ -127,7 +127,7 @@ func TestIPAllocate(t *testing.T) {
 				Name:      "opt-out",
 				Namespace: "boop",
 				Labels: map[string]string{
-					constants.DisableV2AutoAllocationLabel: "true",
+					constants.EnableV2AutoAllocationLabel: "false",
 				},
 			},
 			Spec: v1alpha3.ServiceEntry{
@@ -201,9 +201,6 @@ func TestIPAllocate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "user-assigned conflict",
 				Namespace: "boop",
-				Labels: map[string]string{
-					constants.DisableV2AutoAllocationLabel: "true",
-				},
 			},
 
 			Spec: v1alpha3.ServiceEntry{

@@ -243,7 +243,7 @@ func TestServiceEntryServices(t *testing.T) {
 					Name:      "user-opt-out",
 					Namespace: "ns",
 					Labels: map[string]string{
-						constants.DisableV2AutoAllocationLabel: "true",
+						constants.EnableV2AutoAllocationLabel: "false",
 					},
 				},
 				Spec: networking.ServiceEntry{

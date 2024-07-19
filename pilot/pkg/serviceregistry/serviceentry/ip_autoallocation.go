@@ -86,8 +86,8 @@ func shouldV2AutoAllocateIPFromPieces(meta v1.ObjectMeta, spec *v1alpha3.Service
 	}
 
 	// check for opt-out by user
-	diabledValue, diabledFound := meta.Labels[constants.DisableV2AutoAllocationLabel]
-	if diabledFound && strings.EqualFold(diabledValue, "true") {
+	diabledValue, diabledFound := meta.Labels[constants.EnableV2AutoAllocationLabel]
+	if diabledFound && strings.EqualFold(diabledValue, "false") {
 		return false
 	}
 
