@@ -129,7 +129,7 @@ func CreateIngressKubeSecret(t framework.TestContext, credName string,
 
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, t)
-	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+	systemNS := namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 	CreateIngressKubeSecretInNamespace(t, credName, ingressType, ingressCred, isCompoundAndNotGeneric, systemNS.Name(), clusters...)
 }
 
@@ -183,7 +183,7 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 func deleteKubeSecret(t framework.TestContext, credName string) {
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, t)
-	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+	systemNS := namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 
 	// Delete Kubernetes secret for ingress gateway
 	c := t.Clusters().Default()
@@ -355,8 +355,8 @@ func RotateSecrets(ctx framework.TestContext, credName string, // nolint:interfa
 ) {
 	ctx.Helper()
 	c := ctx.Clusters().Default()
-	ist := istio.GetOrFail(ctx, ctx)
-	systemNS := namespace.ClaimOrFail(ctx, ctx, ist.Settings().SystemNamespace)
+	ist := istio.GetOrFail(ctx)
+	systemNS := namespace.ClaimOrFail(ctx, ist.Settings().SystemNamespace)
 	scrt, err := c.Kube().CoreV1().Secrets(systemNS.Name()).Get(context.TODO(), credName, metav1.GetOptions{})
 	if err != nil {
 		ctx.Errorf("Failed to get secret %s:%s (error: %s)", systemNS.Name(), credName, err)

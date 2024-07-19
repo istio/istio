@@ -112,10 +112,10 @@ type Instance interface {
 	MeshConfigOrFail(test.Failer) *meshconfig.MeshConfig
 	// UpdateMeshConfig used by the Istio installation.
 	UpdateMeshConfig(resource.Context, func(*meshconfig.MeshConfig) error, cleanup.Strategy) error
-	UpdateMeshConfigOrFail(resource.Context, test.Failer, func(*meshconfig.MeshConfig) error, cleanup.Strategy)
+	UpdateMeshConfigOrFail(resource.ContextFailer, func(*meshconfig.MeshConfig) error, cleanup.Strategy)
 	// PatchMeshConfig with the given patch yaml.
 	PatchMeshConfig(resource.Context, string) error
-	PatchMeshConfigOrFail(resource.Context, test.Failer, string)
+	PatchMeshConfigOrFail(resource.ContextFailer, string)
 	UpdateInjectionConfig(resource.Context, func(*inject.Config) error, cleanup.Strategy) error
 	InjectionConfig() (*inject.Config, error)
 }
@@ -136,9 +136,9 @@ func Get(ctx resource.Context) (Instance, error) {
 }
 
 // GetOrFail returns the Istio component from the context. If there is none the test is failed.
-func GetOrFail(t test.Failer, ctx resource.Context) Instance {
+func GetOrFail(t resource.ContextFailer) Instance {
 	t.Helper()
-	i, err := Get(ctx)
+	i, err := Get(t)
 	if err != nil {
 		t.Fatal(err)
 	}

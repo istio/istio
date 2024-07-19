@@ -382,9 +382,9 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 	return errG.Wait().ErrorOrNil()
 }
 
-func (mc *meshConfig) UpdateMeshConfigOrFail(ctx resource.Context, t test.Failer, update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) {
+func (mc *meshConfig) UpdateMeshConfigOrFail(t resource.ContextFailer, update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) {
 	t.Helper()
-	if err := mc.UpdateMeshConfig(ctx, update, cleanupStrategy); err != nil {
+	if err := mc.UpdateMeshConfig(t, update, cleanupStrategy); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -395,9 +395,9 @@ func (mc *meshConfig) PatchMeshConfig(t resource.Context, patch string) error {
 	}, cleanup.Always)
 }
 
-func (mc *meshConfig) PatchMeshConfigOrFail(ctx resource.Context, t test.Failer, patch string) {
+func (mc *meshConfig) PatchMeshConfigOrFail(t resource.ContextFailer, patch string) {
 	t.Helper()
-	if err := mc.PatchMeshConfig(ctx, patch); err != nil {
+	if err := mc.PatchMeshConfig(t, patch); err != nil {
 		t.Fatal(err)
 	}
 }

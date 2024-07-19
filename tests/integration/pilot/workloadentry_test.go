@@ -42,7 +42,7 @@ func TestWorkloadEntryGateway(t *testing.T) {
 		RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
-			i := istio.GetOrFail(t, t)
+			i := istio.GetOrFail(t)
 			type gwAddr struct {
 				ip   string
 				port int

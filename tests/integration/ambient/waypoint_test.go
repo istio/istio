@@ -78,7 +78,7 @@ func TestWaypoint(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			nsConfig := namespace.NewOrFail(t, t, namespace.Config{
+			nsConfig := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "waypoint",
 				Inject: false,
 				Labels: map[string]string{
@@ -86,7 +86,7 @@ func TestWaypoint(t *testing.T) {
 				},
 			})
 
-			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"apply",
 				"--namespace",
@@ -96,7 +96,7 @@ func TestWaypoint(t *testing.T) {
 
 			nameSet := []string{"", "w1", "w2"}
 			for _, name := range nameSet {
-				istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+				istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 					"waypoint",
 					"apply",
 					"--namespace",
@@ -107,7 +107,7 @@ func TestWaypoint(t *testing.T) {
 				})
 			}
 
-			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"apply",
 				"--namespace",
@@ -120,7 +120,7 @@ func TestWaypoint(t *testing.T) {
 			})
 			nameSet = append(nameSet, "w3")
 
-			output, _ := istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			output, _ := istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"list",
 				"--namespace",
@@ -132,7 +132,7 @@ func TestWaypoint(t *testing.T) {
 				}
 			}
 
-			output, _ = istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			output, _ = istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"list",
 				"-A",
@@ -143,7 +143,7 @@ func TestWaypoint(t *testing.T) {
 				}
 			}
 
-			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"-n",
 				nsConfig.Name(),
@@ -165,7 +165,7 @@ func TestWaypoint(t *testing.T) {
 			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
 
 			// delete all waypoints in namespace, so w3 should be deleted
-			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"-n",
 				nsConfig.Name(),

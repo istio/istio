@@ -296,11 +296,11 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 
 func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo.Target) {
 	t.Helper()
-	appsNamespace := namespace.NewOrFail(t, t, namespace.Config{
+	appsNamespace := namespace.NewOrFail(t, namespace.Config{
 		Prefix: "app",
 		Inject: true,
 	})
-	serviceNamespace := namespace.NewOrFail(t, t, namespace.Config{
+	serviceNamespace := namespace.NewOrFail(t, namespace.Config{
 		Prefix: "service",
 		Inject: true,
 	})

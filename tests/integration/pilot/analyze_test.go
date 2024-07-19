@@ -56,12 +56,12 @@ func TestEmptyCluster(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// For a clean istio install with injection enabled, expect no validation errors
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
@@ -78,12 +78,12 @@ func TestFileOnly(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Validation error if we have a virtual service with subset not defined.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, virtualServiceFile)
@@ -105,12 +105,12 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Recursive is false, so we should only analyze
 			// testdata/some-dir/missing-gateway.yaml and get a
@@ -130,12 +130,12 @@ func TestDirectoryWithRecursion(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Recursive is true, so we should see one error (SchemaValidationError).
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=true", dirWithConfig)
@@ -152,12 +152,12 @@ func TestInvalidFileError(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Skip the file with invalid extension and produce no errors.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, invalidExtensionFile)
@@ -188,12 +188,12 @@ func TestJsonInputFile(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Validation error if we have a gateway with invalid selector.
 			applyFileOrFail(t, ns.Name(), jsonGatewayFile)
@@ -211,12 +211,12 @@ func TestJsonOutput(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			t.NewSubTest("no other output except analysis json output").Run(func(t framework.TestContext) {
 				applyFileOrFail(t, ns.Name(), jsonGatewayFile)
@@ -241,14 +241,14 @@ func TestKubeOnly(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
 			applyFileOrFail(t, ns.Name(), gatewayFile)
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Validation error if we have a gateway with invalid selector.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
@@ -265,14 +265,14 @@ func TestFileAndKubeCombined(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
 			applyFileOrFail(t, ns.Name(), virtualServiceFile)
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Simulating applying the destination rule that defines the subset, we should
 			// fix the error and thus see no message
@@ -290,11 +290,11 @@ func TestAllNamespaces(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns1 := namespace.NewOrFail(t, t, namespace.Config{
+			ns1 := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze-1",
 				Inject: true,
 			})
-			ns2 := namespace.NewOrFail(t, t, namespace.Config{
+			ns2 := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze-2",
 				Inject: true,
 			})
@@ -302,7 +302,7 @@ func TestAllNamespaces(t *testing.T) {
 			applyFileOrFail(t, ns1.Name(), gatewayFile)
 			applyFileOrFail(t, ns2.Name(), gatewayFile)
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// If we look at one namespace, we should successfully run and see one message (and not anything from any other namespace)
 			output, _ := istioctlSafe(t, istioCtl, ns1.Name(), true)
@@ -349,12 +349,12 @@ func TestTimeout(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// We should time out immediately.
 			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
@@ -371,12 +371,12 @@ func TestErrorLine(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Validation error if we have a gateway with invalid selector.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile, virtualServiceFile)
@@ -470,7 +470,7 @@ func TestMultiCluster(t *testing.T) {
 
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
@@ -478,7 +478,7 @@ func TestMultiCluster(t *testing.T) {
 			// create remote secrets for analysis
 			secrets := map[string]string{}
 			for _, c := range t.Environment().Clusters() {
-				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{
+				istioCtl := istioctl.NewOrFail(t, istioctl.Config{
 					Cluster: c,
 				})
 				secret, _, err := createRemoteSecret(t, istioCtl, c.Name())
@@ -515,7 +515,7 @@ spec:
 				g.Expect(err).To(BeNil())
 			}
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})
 			output, _ := istioctlSafe(t, istioCtl, "", true, "--all-namespaces")
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
 		})

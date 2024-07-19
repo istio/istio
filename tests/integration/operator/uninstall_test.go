@@ -48,7 +48,7 @@ func TestReconcileDelete(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			// For positive casse, use minimal profile, iop file will be deleted
 			t.NewSubTest("delete-iop-success").Run(func(t framework.TestContext) {
-				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 				workDir, err := t.CreateTmpDirectory("operator-controller-test")
 				if err != nil {
 					t.Fatal("failed to create test directory")
@@ -119,7 +119,7 @@ func TestReconcileDelete(t *testing.T) {
 			// For negative casse, use default profile, ingressgateway alway connect to istiod
 			// deletion will fail
 			t.NewSubTest("delete-iop-fail").Run(func(t framework.TestContext) {
-				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 				workDir, err := t.CreateTmpDirectory("operator-controller-test")
 				if err != nil {
 					t.Fatal("failed to create test directory")

@@ -38,7 +38,7 @@ func TestInstallCommandInput(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(ctx, istioctl.Config{})
 			testCases := []installTestCase{
 				{
 					command:   []string{"install", "--dry-run", "--revision", ""},
@@ -65,7 +65,7 @@ func TestInstallCommandInput(t *testing.T) {
 func TestReInstallAfterFailure(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 			cs := t.Clusters().Default()
 			t.Cleanup(func() {
 				cleanupIstioResources(t, cs, istioCtl)

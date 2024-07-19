@@ -331,7 +331,7 @@ func TestWaypointChanges(t *testing.T) {
 			return getGracePeriod(2)
 		})
 		// change the waypoint template
-		istio.GetOrFail(t, t).UpdateInjectionConfig(t, func(cfg *inject.Config) error {
+		istio.GetOrFail(t).UpdateInjectionConfig(t, func(cfg *inject.Config) error {
 			mainTemplate := file.MustAsString(filepath.Join(env.IstioSrc, templateFile))
 			cfg.RawTemplates["waypoint"] = strings.ReplaceAll(mainTemplate, "terminationGracePeriodSeconds: 2", "terminationGracePeriodSeconds: 3")
 			return nil
@@ -357,7 +357,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+		istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 			"waypoint",
 			"apply",
 			"--namespace",
@@ -385,7 +385,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 
 func TestRemoveAddWaypoint(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+		istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 			"waypoint",
 			"apply",
 			"--namespace",
@@ -394,7 +394,7 @@ func TestRemoveAddWaypoint(t *testing.T) {
 			"--wait",
 		})
 		t.Cleanup(func() {
-			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"delete",
 				"--namespace",

@@ -65,7 +65,7 @@ func TestVersion(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
 			args := []string{"version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
 			output, _ := istioCtl.InvokeOrFail(t, args)
@@ -90,7 +90,7 @@ func TestXdsVersion(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Default()})
 			args := []string{"x", "version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
 			output, _ := istioCtl.InvokeOrFail(t, args)
@@ -112,7 +112,7 @@ func TestDescribe(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/a.yaml").ApplyOrFail(t)
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// When this test passed the namespace through --namespace it was flakey
 			// because istioctl uses a global variable for namespace, and this test may
@@ -170,7 +170,7 @@ func TestProxyConfig(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			podID, err := getPodID(apps.A[0])
 			if err != nil {
@@ -289,7 +289,7 @@ func TestProxyStatus(t *testing.T) {
 		RequiresLocalControlPlane(). // https://github.com/istio/istio/issues/37051
 		Run(func(t framework.TestContext) {
 			const timeoutFlag = "--timeout=10s"
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			podID, err := getPodID(apps.A[0])
 			if err != nil {
@@ -402,7 +402,7 @@ func TestAuthZCheck(t *testing.T) {
 				},
 			}
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Default()})
 			for _, c := range cases {
 				args := []string{"experimental", "authz", "check", c.pod}
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
@@ -428,7 +428,7 @@ func TestKubeInject(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 			var output string
 			args := []string{"kube-inject", "-f", "testdata/hello.yaml", "--revision=" + t.Settings().Revisions.Default()}
 			output, _ = istioCtl.InvokeOrFail(t, args)
@@ -445,7 +445,7 @@ func TestRemoteClusters(t *testing.T) {
 			for _, cluster := range t.Clusters().Primaries() {
 				cluster := cluster
 				t.NewSubTest(cluster.StableName()).Run(func(t framework.TestContext) {
-					istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: cluster})
+					istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: cluster})
 					var output string
 					args := []string{"remote-clusters"}
 					output, _ = istioCtl.InvokeOrFail(t, args)

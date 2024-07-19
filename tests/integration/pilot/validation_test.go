@@ -95,7 +95,7 @@ func TestValidation(t *testing.T) {
 								}
 							}
 
-							ns := namespace.NewOrFail(t, t, namespace.Config{
+							ns := namespace.NewOrFail(t, namespace.Config{
 								Prefix: "validation",
 							})
 

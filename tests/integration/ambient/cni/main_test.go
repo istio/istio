@@ -183,7 +183,7 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 	framework.NewTest(t).
 		TopLevel().
 		Run(func(t framework.TestContext) {
-			apps := common_deploy.NewOrFail(t, t, common_deploy.Config{
+			apps := common_deploy.NewOrFail(t, common_deploy.Config{
 				NoExternalNamespace: true,
 				IncludeExtAuthz:     false,
 			})
