@@ -1878,6 +1878,7 @@ spec:
 `).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
+			_, v6 := getSupportedIPFamilies(t)
 			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
 				tc := tc
@@ -1898,8 +1899,12 @@ spec:
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+								address := "240.240.240.255"
+								if v6 {
+									address = "2001:2::f0f0:255"
+								}
 								from.CallOrFail(t, echo.CallOptions{
-									Address: getAddressForSupportedIPFamily(t, "240.240.240.255", "2001:2::f0f0:255"),
+									Address: address,
 									Port:    to.PortForName("http"),
 									// If request is sent before service is processed it will hit 10s timeout, so fail faster
 									Timeout: time.Millisecond * 500,
@@ -1911,19 +1916,21 @@ spec:
 		})
 }
 
-func getAddressForSupportedIPFamily(t framework.TestContext, ipv4Addr, ipv6Addr string) string {
+func getSupportedIPFamilies(t framework.TestContext) (v4 bool, v6 bool) {
 	addrs := apps.Captured.WorkloadsOrFail(t).Addresses()
 	for _, a := range addrs {
 		ip, err := netip.ParseAddr(a)
 		assert.NoError(t, err)
 		if ip.Is4() {
-			return ipv4Addr
+			v4 = true
 		} else if ip.Is6() {
-			return ipv6Addr
+			v6 = true
 		}
 	}
-	t.Fatalf("pod is neither v4 nor v6? %v", addrs)
-	return ""
+	if !v4 && !v6 {
+		t.Fatalf("pod is neither v4 nor v6? %v", addrs)
+	}
+	return
 }
 
 func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
@@ -2014,6 +2021,7 @@ spec:
 `).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
+			_, v6 := getSupportedIPFamilies(t)
 			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
 				tc := tc
@@ -2034,8 +2042,12 @@ spec:
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+								address := "240.240.240.255"
+								if v6 {
+									address = "2001:2::f0f0:255"
+								}
 								from.CallOrFail(t, echo.CallOptions{
-									Address: getAddressForSupportedIPFamily(t, "240.240.240.255", "2001:2::f0f0:255"),
+									Address: address,
 									Port:    to.PortForName("http"),
 									// If request is sent before service is processed it will hit 10s timeout, so fail faster
 									Timeout: time.Millisecond * 500,

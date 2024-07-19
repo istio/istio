@@ -382,7 +382,7 @@ func TestWaypointDNS(t *testing.T) {
 					t.Skip("TODO: sidecars don't properly handle use-waypoint")
 				}
 				address := "240.240.240.239"
-				if _, v6 := getAddressForSupportedIPFamily(t); v6 {
+				if _, v6 := getSupportedIPFamilies(t); v6 {
 					address = "2001:2::f0f0:239"
 				}
 				src.CallOrFail(t, echo.CallOptions{
