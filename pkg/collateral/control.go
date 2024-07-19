@@ -689,8 +689,7 @@ func (g *generator) genVars(root *cobra.Command, selectFn SelectEnvFn) {
 
 	g.emit("<h2 id=\"envvars\">Environment variables</h2>")
 
-	g.emit("These environment variables affect the behavior of the <code>", root.Name(), "</code> command. "+
-		"Please use with caution as these environment variables are experimental and can change anytime.")
+	g.emit("These environment variables affect the behavior of the <code>", root.Name(), "</code> command. ")
 
 	g.emit("<table class=\"envvars\">")
 	g.emit("<thead>")
