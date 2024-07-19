@@ -296,60 +296,8 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 
 	ep.Lock()
 	defer ep.Unlock()
-	newIstioEndpoints := istioEndpoints
-
 	oldIstioEndpoints := ep.Shards[shard]
-	needPush := false
-	if oldIstioEndpoints == nil {
-		// If there are no old endpoints, we should push with incoming endpoints as there is nothing to compare.
-		needPush = true
-	} else {
-		newIstioEndpoints = make([]*IstioEndpoint, 0, len(istioEndpoints))
-		// Check if new Endpoints are ready to be pushed. This check
-		// will ensure that if a new pod comes with a non ready endpoint,
-		// we do not unnecessarily push that config to Envoy.
-		// Please note that address is not a unique key. So this may not accurately
-		// identify based on health status and push too many times - which is ok since its an optimization.
-		omap := make(map[string]*IstioEndpoint, len(oldIstioEndpoints))
-		nmap := make(map[string]*IstioEndpoint, len(newIstioEndpoints))
-		// Add new endpoints only if they are ever ready once to shards
-		// so that full push does not send them from shards.
-		for _, oie := range oldIstioEndpoints {
-			omap[oie.Address] = oie
-		}
-		for _, nie := range istioEndpoints {
-			nmap[nie.Address] = nie
-		}
-		for _, nie := range istioEndpoints {
-			if oie, exists := omap[nie.Address]; exists {
-				// If endpoint exists already, we should push if it's changed.
-				// Skip this check if we already decide we need to push to avoid expensive checks
-				if !needPush && !oie.Equals(nie) {
-					needPush = true
-				}
-				newIstioEndpoints = append(newIstioEndpoints, nie)
-			} else {
-				// If the endpoint does not exist in shards that means it is a
-				// new endpoint. Always send new healthy endpoints.
-				// Also send new unhealthy endpoints when SendUnhealthyEndpoints is enabled.
-				// This is OK since we disable panic threshold when SendUnhealthyEndpoints is enabled.
-				if nie.HealthStatus != UnHealthy || features.SendUnhealthyEndpoints.Load() {
-					needPush = true
-				}
-				newIstioEndpoints = append(newIstioEndpoints, nie)
-			}
-		}
-		// Next, check for endpoints that were in old but no longer exist. If there are any, there is a
-		// removal so we need to push an update.
-		if !needPush {
-			for _, oie := range oldIstioEndpoints {
-				if _, f := nmap[oie.Address]; !f {
-					needPush = true
-					break
-				}
-			}
-		}
-	}
+	newIstioEndpoints, needPush := endpointUpdateRequiresPush(oldIstioEndpoints, istioEndpoints)
 
 	if pushType != FullPush && !needPush {
 		log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
@@ -378,6 +326,60 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	e.clearCacheForService(hostname, namespace)
 
 	return pushType
+}
+
+// endpointUpdateRequiresPush determines if an endpoint update is required.
+func endpointUpdateRequiresPush(oldIstioEndpoints []*IstioEndpoint, incomingEndpoints []*IstioEndpoint) ([]*IstioEndpoint, bool) {
+	if oldIstioEndpoints == nil {
+		// If there are no old endpoints, we should push with incoming endpoints as there is nothing to compare.
+		return incomingEndpoints, true
+	}
+	needPush := false
+	newIstioEndpoints := make([]*IstioEndpoint, 0, len(incomingEndpoints))
+	// Check if new Endpoints are ready to be pushed. This check
+	// will ensure that if a new pod comes with a non ready endpoint,
+	// we do not unnecessarily push that config to Envoy.
+	omap := make(map[string]*IstioEndpoint, len(oldIstioEndpoints))
+	nmap := make(map[string]*IstioEndpoint, len(newIstioEndpoints))
+	// Add new endpoints only if they are ever ready once to shards
+	// so that full push does not send them from shards.
+	for _, oie := range oldIstioEndpoints {
+		omap[oie.Key()] = oie
+	}
+	for _, nie := range incomingEndpoints {
+		nmap[nie.Key()] = nie
+	}
+	for _, nie := range incomingEndpoints {
+		if oie, exists := omap[nie.Key()]; exists {
+			// If endpoint exists already, we should push if it's changed.
+			// Skip this check if we already decide we need to push to avoid expensive checks
+			if !needPush && !oie.Equals(nie) {
+				needPush = true
+			}
+			newIstioEndpoints = append(newIstioEndpoints, nie)
+		} else {
+			// If the endpoint does not exist in shards that means it is a
+			// new endpoint. Always send new healthy endpoints.
+			// Also send new unhealthy endpoints when SendUnhealthyEndpoints is enabled.
+			// This is OK since we disable panic threshold when SendUnhealthyEndpoints is enabled.
+			if nie.HealthStatus != UnHealthy || features.SendUnhealthyEndpoints.Load() {
+				needPush = true
+			}
+			newIstioEndpoints = append(newIstioEndpoints, nie)
+		}
+	}
+	// Next, check for endpoints that were in old but no longer exist. If there are any, there is a
+	// removal so we need to push an update.
+	if !needPush {
+		for _, oie := range oldIstioEndpoints {
+			if _, f := nmap[oie.Key()]; !f {
+				needPush = true
+				break
+			}
+		}
+	}
+
+	return newIstioEndpoints, needPush
 }
 
 // updateShardServiceAccount updates the service endpoints' sa when service/endpoint event happens.
