@@ -1856,7 +1856,7 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
-  name: test-se-v4
+  name: test-se
 spec:
   hosts:
   - dummy.example.com
@@ -1994,7 +1994,7 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
-  name: test-se-v4
+  name: test-se
 spec:
   hosts:
   - dummy.example.com
