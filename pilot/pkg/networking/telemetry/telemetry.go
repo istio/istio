@@ -27,6 +27,7 @@ import (
 var (
 	// StatName patterns
 	serviceStatPattern           = "%SERVICE%"
+	serviceNameStatPattern       = "%SERVICE_NAME%"
 	serviceFQDNStatPattern       = "%SERVICE_FQDN%"
 	servicePortStatPattern       = "%SERVICE_PORT%"
 	serviceTargetPortStatPattern = "%TARGET_PORT%"
@@ -37,6 +38,7 @@ var (
 // BuildStatPrefix builds a stat prefix based on the stat pattern.
 func BuildStatPrefix(statPattern string, host string, subset string, port *model.Port, targetPort int, attributes *model.ServiceAttributes) string {
 	prefix := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
+	prefix = strings.ReplaceAll(prefix, serviceNameStatPattern, attributes.Name)
 	prefix = strings.ReplaceAll(prefix, serviceFQDNStatPattern, host)
 	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
 	prefix = strings.ReplaceAll(prefix, serviceTargetPortStatPattern, strconv.Itoa(targetPort))
@@ -48,6 +50,7 @@ func BuildStatPrefix(statPattern string, host string, subset string, port *model
 // BuildInboundStatPrefix builds a stat prefix based on the stat pattern and filter chain telemetry data.
 func BuildInboundStatPrefix(statPattern string, tm FilterChainMetadata, subset string, port uint32, portName string) string {
 	prefix := strings.ReplaceAll(statPattern, serviceStatPattern, tm.ShortHostname())
+	prefix = strings.ReplaceAll(prefix, serviceNameStatPattern, tm.KubernetesServiceName)
 	prefix = strings.ReplaceAll(prefix, serviceFQDNStatPattern, tm.InstanceHostname.String())
 	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
 	prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(int(port)))
