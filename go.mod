@@ -101,7 +101,7 @@ require (
 	istio.io/api v1.23.0-alpha.0.0.20240717200518-ef9163fb1200
 	istio.io/client-go v1.23.0-alpha.0.0.20240717200917-990731b83cc8
 	k8s.io/api v0.30.3
-	k8s.io/apiextensions-apiserver v0.30.1
+	k8s.io/apiextensions-apiserver v0.30.3
 	k8s.io/apimachinery v0.30.3
 	k8s.io/apiserver v0.30.3
 	k8s.io/cli-runtime v0.30.3
