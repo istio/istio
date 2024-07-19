@@ -188,6 +188,18 @@ func TestInsertDataToConfigMap(t *testing.T) {
 			clientMod:   createConfigMapNamespaceDeletingClient,
 		},
 		{
+			name:              "creation: namespace is not found",
+			existingConfigMap: nil,
+			caBundle:          caBundle,
+			meta:              metav1.ObjectMeta{Namespace: namespaceName, Name: configMapName},
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, namespaceName, createConfigMap(namespaceName, configMapName,
+					map[string]string{dataName: "test-data"})),
+			},
+			expectedErr: "",
+			clientMod:   createConfigMapNamespaceDeletedClient,
+		},
+		{
 			name:              "creation: namespace is forbidden",
 			existingConfigMap: nil,
 			caBundle:          caBundle,
@@ -259,6 +271,17 @@ func createConfigMapNamespaceDeletingClient(client *fake.Clientset) {
 		Message: fmt.Sprintf("namespace %s is being terminated", namespaceName),
 		Field:   "metadata.namespace",
 	})
+	client.PrependReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, &v1.ConfigMap{}, err
+	})
+}
+
+func createConfigMapNamespaceDeletedClient(client *fake.Clientset) {
+	client.PrependReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, &v1.ConfigMap{}, errors.NewNotFound(v1.Resource("configmaps"), configMapName)
+	})
+
+	err := errors.NewNotFound(v1.Resource("namespaces"), namespaceName)
 	client.PrependReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, &v1.ConfigMap{}, err
 	})
