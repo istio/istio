@@ -213,7 +213,7 @@ func tagListCommand(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Short:   "List existing revision tags",
-		Example: "istioctl tag list",
+		Example: "  istioctl tag list",
 		Aliases: []string{"show"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {

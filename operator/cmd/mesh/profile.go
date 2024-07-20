@@ -26,7 +26,7 @@ func ProfileCmd(_ cli.Context) *cobra.Command {
 		Use:   "profile",
 		Short: "Commands related to Istio configuration profiles",
 		Long:  "The profile command lists, dumps or diffs Istio configuration profiles.",
-		Example: "istioctl profile list\n" +
+		Example: "  istioctl profile list\n" +
 			"istioctl install --set profile=demo  # Use a profile from the list",
 	}
 
