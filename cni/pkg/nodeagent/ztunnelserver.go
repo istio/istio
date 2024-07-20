@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 
@@ -148,8 +149,16 @@ func (z *ztunnelServer) Close() error {
 func (z *ztunnelServer) Run(ctx context.Context) {
 	context.AfterFunc(ctx, func() { _ = z.Close() })
 
+	// Allow at most 5 requests per second. This is still a ridiculous amount; at most we should have 2 ztunnels on our node,
+	// and they will only connect once and persist.
+	// However, if they do get in a state where they call us in a loop, we will quickly OOM
+	limit := rate.NewLimiter(rate.Limit(5), 1)
 	for {
 		log.Debug("accepting conn")
+		if err := limit.Wait(ctx); err != nil {
+			log.Errorf("failed to wait for ztunnel connection: %v", err)
+			return
+		}
 		conn, err := z.accept()
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
