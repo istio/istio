@@ -38,5 +38,6 @@ const (
 
 const (
 	JSONFormat  = "json"
+	YamlFormat  = "yaml"
 	TableFormat = "table"
 )
