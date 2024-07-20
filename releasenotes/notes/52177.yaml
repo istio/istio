@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 52177
+releaseNotes:
+  - |
+    **Added** add new pattern variable (%SERVICE_NAME%) for stat prefix
