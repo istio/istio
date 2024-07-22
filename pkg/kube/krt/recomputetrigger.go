@@ -53,7 +53,6 @@ func (r *RecomputeTrigger) MarkDependant(ctx HandlerContext) {
 
 // MarkSynced marks this trigger as ready. Before this is called, dependant collections will be blocked.
 // This ensures initial state is populated.
-func (r *RecomputeTrigger) MarkSynced() *RecomputeTrigger {
+func (r *RecomputeTrigger) MarkSynced() {
 	r.inner.MarkSynced()
-	return r
 }
