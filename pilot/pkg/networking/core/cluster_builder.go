@@ -353,7 +353,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		// If stat name is configured, build the alternate stats name.
 		if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
 			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName, string(service.Hostname), subset, port, 0, &service.Attributes)
-			if util.IsIstioVersionGE123(cb.proxyVersion) && statPrefix[len(statPrefix)-1:] != constants.StatPrefixDelimiter{
+			if util.IsIstioVersionGE123(cb.proxyVersion) && statPrefix[len(statPrefix)-1:] != constants.StatPrefixDelimiter {
 				statPrefix += constants.StatPrefixDelimiter
 			}
 

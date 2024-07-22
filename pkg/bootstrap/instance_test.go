@@ -524,7 +524,6 @@ func checkHttpConnManagerPrefixTag(t *testing.T, regex string) {
 			}
 		})
 	}
-
 }
 
 func checkClusterNameTag(t *testing.T, regex string) {
