@@ -18,8 +18,8 @@
 package untaint
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
