@@ -124,7 +124,7 @@ func TestNewServerCertInit(t *testing.T) {
 				CaCertFile: tlsArgcaCertFile,
 			},
 			enableCA:                  false,
-			certProvider:              constants.CertProviderKubernetes,
+			certProvider:              constants.CertProviderIstiod,
 			expNewCert:                false,
 			expCert:                   testcerts.ServerCert,
 			expKey:                    testcerts.ServerKey,

@@ -516,11 +516,6 @@ templates:
         configMap:
           name: istio-ca-root-cert
       {{- end }}
-      {{- if eq .Values.global.pilotCertProvider "kubernetes" }}
-      - name: kube-ca-cert
-        configMap:
-          name: kube-root-ca.crt
-      {{- end }}
       {{- if .Values.global.mountMtlsCerts }}
       # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
