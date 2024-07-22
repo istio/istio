@@ -427,7 +427,7 @@ func checkStatsTags(t *testing.T, got *bootstrap.Bootstrap) {
 		case "cluster_name":
 			checkClusterNameTag(t, tag.GetRegex())
 		case "http_conn_manager_prefix":
-			checkHttpConnManagerPrefixTag(t, tag.GetRegex())
+			checkHTTPConnManagerPrefixTag(t, tag.GetRegex())
 		}
 	}
 }
@@ -435,7 +435,7 @@ func checkStatsTags(t *testing.T, got *bootstrap.Bootstrap) {
 // Envoy will remove the first capture group and set the tag to the second capture group.
 // We double check that all of the regexes we set return what we want here.
 
-func checkHttpConnManagerPrefixTag(t *testing.T, regex string) {
+func checkHTTPConnManagerPrefixTag(t *testing.T, regex string) {
 	if regex == "" {
 		t.Fatalf("cluster_name tag regex is empty")
 	}
