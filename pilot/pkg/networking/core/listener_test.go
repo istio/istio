@@ -976,7 +976,6 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 						Metadata:        tt.p.Metadata,
 						ConfigNamespace: tt.p.ConfigNamespace,
 						IstioVersion:    tt.istioVersionOverride,
-						
 					}
 					p.DiscoverIPMode()
 					tt.p = p
