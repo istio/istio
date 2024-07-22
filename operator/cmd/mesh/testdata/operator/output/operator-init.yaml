@@ -35,6 +35,18 @@ rules:
   - '*'
   verbs:
   - '*'
+- apiGroups:
+  - telemetry.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - extensions.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
 # k8s groups
 - apiGroups:
   - admissionregistration.k8s.io
@@ -212,7 +224,7 @@ metadata:
   namespace: operator-test-namespace
   name: istio-operator
 ---
-
+#  Flatten globals, if defined on a per-chart basis
 
 ---
 # SYNC WITH manifests/charts/base/files
