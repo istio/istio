@@ -15,20 +15,7 @@
 package gateway
 
 import (
-	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/pkg/features"
-
-	"istio.io/istio/pkg/util/sets"
 )
 
 var SupportedFeatures = features.AllFeatures
-
-var gatewaySupportedFeatures = getSupportedFeatures()
-
-func getSupportedFeatures() []k8sv1.SupportedFeature {
-	ret := sets.New[k8sv1.SupportedFeature]()
-	for _, feature := range SupportedFeatures.UnsortedList() {
-		ret.Insert(k8sv1.SupportedFeature(feature))
-	}
-	return sets.SortedList(ret)
-}
