@@ -20,7 +20,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -1021,11 +1020,19 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				t.Helper()
 				if tt.istioVersionOverride != nil {
-					// Create a new proxy object with the overriden version
-					p := *tt.p
-					p.RWMutex = sync.RWMutex{}
-					p.IstioVersion = tt.istioVersionOverride
-					tt.p = &p
+					// Create a new proxy object with the overridden version
+					p := &model.Proxy{
+						Type:            tt.p.Type,
+						IPAddresses:     tt.p.IPAddresses,
+						ID:              tt.p.ID,
+						DNSDomain:       tt.p.DNSDomain,
+						Metadata:        tt.p.Metadata,
+						ConfigNamespace: tt.p.ConfigNamespace,
+						IstioVersion:    tt.istioVersionOverride,
+						
+					}
+					p.DiscoverIPMode()
+					tt.p = p
 				}
 				listeners := buildListeners(t, TestOptions{
 					Services: tt.services,
