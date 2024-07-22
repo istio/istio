@@ -18,6 +18,7 @@
 package untaint
 
 import (
+	"fmt"
 	"context"
 	"testing"
 
@@ -51,12 +52,12 @@ func TestMain(m *testing.M) {
 			// can't deploy VMs without eastwest gateway
 			ctx.Settings().SkipVMs()
 			cfg.DeployEastWestGW = false
-			cfg.ControlPlaneValues = `
+			cfg.ControlPlaneValues = fmt.Sprintf(`
 values:
   pilot:
     taint:
       enabled: true
-      namespace: "kube-system"
+      namespace: "%s"
     env:
       PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS: "true"
   ztunnel:
@@ -70,7 +71,7 @@ values:
     istio-egressgateway:
       enabled: false
 
-`
+`, cfg.SystemNamespace)
 		}, cert.CreateCASecretAlt)).
 		Teardown(untaintNodes).
 		Run()
