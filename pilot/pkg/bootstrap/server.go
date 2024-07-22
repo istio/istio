@@ -1228,11 +1228,6 @@ func (s *Server) shouldStartNsController() bool {
 		return false
 	}
 
-	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
-	// This is never called - isK8SSigning is true.
-	if features.PilotCertProvider == constants.CertProviderKubernetes {
-		return false
-	}
 	// For no CA we don't distribute it either, as there is no cert
 	if features.PilotCertProvider == constants.CertProviderNone {
 		return false
