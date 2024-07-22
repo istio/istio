@@ -66,7 +66,7 @@ defaults:
 
   # Install the mesh config map, generated from values.yaml.
   # If false, pilot wil use default values (by default) or user-supplied values.
-  configMap: true
+  configMap: false
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
   # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
@@ -438,5 +438,3 @@ defaults:
     securityContext: {}
     # Set to `type: RuntimeDefault` to use the default profile for templated gateways, if your container runtime supports it
     seccompProfile: {}
-  pilot:
-    configMap: false

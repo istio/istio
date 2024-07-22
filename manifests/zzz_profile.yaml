@@ -41,6 +41,3 @@ Finally, we can set all of that under .Values so the chart behaves without aware
 {{- $a := mustMergeOverwrite $defaults $globals  }}
 {{- end }}
 {{- $b := set $ "Values" (mustMergeOverwrite $defaults $.Values) }}
-{{- with "FLATTEN_COMPONENT_REPLACEMENT" }}
-{{- $_ := mustMergeOverwrite $.Values (index $.Values .)}}
-{{- end }}
