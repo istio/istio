@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
@@ -91,12 +92,20 @@ type inboundChainConfig struct {
 }
 
 // StatPrefix returns the stat prefix for the config
-func (cc inboundChainConfig) StatPrefix() string {
+func (cc inboundChainConfig) StatPrefix(istioVersion *model.IstioVersion) string {
+	var statPrefix string
 	if cc.passthrough {
 		// A bit arbitrary, but for backwards compatibility just use the cluster name
-		return cc.clusterName
+		statPrefix = cc.clusterName
+	} else {
+		statPrefix = "inbound_" + cc.Name(istionetworking.ListenerProtocolHTTP)
 	}
-	return "inbound_" + cc.Name(istionetworking.ListenerProtocolHTTP)
+
+	if util.IsIstioVersionGE123(istioVersion) {
+		statPrefix += constants.StatPrefixDelimiter
+	}
+
+	return statPrefix
 }
 
 // Name determines the name for this chain
@@ -807,7 +816,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 		protocol:                  cc.port.Protocol,
 		class:                     istionetworking.ListenerClassSidecarInbound,
 		port:                      int(cc.port.TargetPort),
-		statPrefix:                cc.StatPrefix(),
+		statPrefix:                cc.StatPrefix(lb.node.IstioVersion),
 		hbone:                     cc.hbone,
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy

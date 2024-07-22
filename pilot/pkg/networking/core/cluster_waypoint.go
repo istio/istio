@@ -63,8 +63,8 @@ func buildInternalUpstreamCluster(proxyVersion *model.IstioVersion, name string,
 		},
 	}
 
-	if proxyVersion != nil && proxyVersion.Minor >= 23 {
-		c.AltStatName = name + constants.ClusterAltStatNameDelimeter
+	if util.IsIstioVersionGE123(proxyVersion) {
+		c.AltStatName = name + constants.StatPrefixDelimiter
 	}
 
 	return c
@@ -299,9 +299,8 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 	}
 	// Compliance for Envoy tunnel upstreams.
 	sec_model.EnforceCompliance(ctx)
-	return &cluster.Cluster{
+	c := &cluster.Cluster{
 		Name:                          ConnectOriginate,
-		AltStatName:                   ConnectOriginate + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:                durationpb.New(2 * time.Second),
@@ -330,6 +329,12 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 			})},
 		},
 	}
+
+	if util.IsIstioVersionGE123(proxy.IstioVersion) {
+		c.AltStatName = ConnectOriginate + constants.StatPrefixDelimiter
+	}
+
+	return c
 }
 
 func h2connectUpgrade() map[string]*anypb.Any {

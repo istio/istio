@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -49,6 +50,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -985,15 +987,22 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 	svc := buildService("test.com", wildcardIPv4, protocol.HTTP, tnow)
 	for _, p := range []*model.Proxy{getProxy(), &proxyHTTP10, &dualStackProxy} {
 		cases := []struct {
-			name     string
-			p        *model.Proxy
-			cfg      []config.Config
-			services []*model.Service
+			name                 string
+			p                    *model.Proxy
+			cfg                  []config.Config
+			services             []*model.Service
+			istioVersionOverride *model.IstioVersion
 		}{
 			{
 				name:     "simple",
 				p:        p,
 				services: []*model.Service{svc},
+			},
+			{
+				name:                 "simple (< 1.23)",
+				p:                    p,
+				services:             []*model.Service{svc},
+				istioVersionOverride: &model.IstioVersion{Major: 1, Minor: 22, Patch: 0},
 			},
 			{
 				name:     "sidecar with service",
@@ -1011,6 +1020,13 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
 				t.Helper()
+				if tt.istioVersionOverride != nil {
+					// Create a new proxy object with the overriden version
+					p := *tt.p
+					p.RWMutex = sync.RWMutex{}
+					p.IstioVersion = tt.istioVersionOverride
+					tt.p = &p
+				}
 				listeners := buildListeners(t, TestOptions{
 					Services: tt.services,
 					Configs:  tt.cfg,
@@ -1027,11 +1043,15 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 							},
 							ValidateHCM: func(t test.Failer, hcm *hcm.HttpConnectionManager) {
 								assert.Equal(t, "istio-envoy", hcm.GetServerName(), "server name")
+								statPrefixDelimeter := constants.StatPrefixDelimiter
+								if tt.istioVersionOverride != nil && !util.IsIstioVersionGE123(tt.istioVersionOverride) {
+									statPrefixDelimeter = ""
+								}
 								if len(tt.cfg) == 0 {
-									assert.Equal(t, "inbound_0.0.0.0_8080", hcm.GetStatPrefix(), "stat prefix")
+									assert.Equal(t, "inbound_0.0.0.0_8080"+statPrefixDelimeter, hcm.GetStatPrefix(), "stat prefix")
 								} else {
 									// Sidecar impacts stat prefix
-									assert.Equal(t, "inbound_1.1.1.1_8080", hcm.GetStatPrefix(), "stat prefix")
+									assert.Equal(t, "inbound_1.1.1.1_8080"+statPrefixDelimeter, hcm.GetStatPrefix(), "stat prefix")
 								}
 								assert.Equal(t, "APPEND_FORWARD", hcm.GetForwardClientCertDetails().String(), "forward client cert details")
 								assert.Equal(t, true, hcm.GetSetCurrentClientCertDetails().GetSubject().GetValue(), "subject")
