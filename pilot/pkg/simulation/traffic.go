@@ -17,8 +17,11 @@ package simulation
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
+	"net/netip"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -30,7 +33,7 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/yl2chen/cidranger"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -39,6 +42,8 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -511,50 +516,44 @@ func (sim *Simulation) matchVirtualHost(rc *route.RouteConfiguration, host strin
 func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultChain *listener.FilterChain,
 	input Call, hasTLSInspector bool,
 ) (*listener.FilterChain, error) {
-	chains = filter("DestinationPort", chains, func(fc *listener.FilterChainMatch) bool {
-		return fc.GetDestinationPort() == nil
-	}, func(fc *listener.FilterChainMatch) bool {
-		return int(fc.GetDestinationPort().GetValue()) == input.Port
+	chains = filter("DestinationPort", chains, (*listener.FilterChainMatch).GetDestinationPort, func(port *wrapperspb.UInt32Value) bool {
+		return int(port.GetValue()) == input.Port
 	})
-	chains = filter("PrefixRanges", chains, func(fc *listener.FilterChainMatch) bool {
-		return fc.GetPrefixRanges() == nil
-	}, func(fc *listener.FilterChainMatch) bool {
-		ranger := cidranger.NewPCTrieRanger()
-		for _, a := range fc.GetPrefixRanges() {
+	chains = filterRank("PrefixRanges", chains, (*listener.FilterChainMatch).GetPrefixRanges, func(ranges []*envoycore.CidrRange) int {
+		best := 0
+		for _, a := range ranges {
 			s := fmt.Sprintf("%s/%d", a.AddressPrefix, a.GetPrefixLen().GetValue())
-			_, cidr, err := net.ParseCIDR(s)
+			cidr, err := netip.ParsePrefix(s)
 			if err != nil {
 				sim.t.Fatalf("failed to parse cidr %v: %v", s, err)
 			}
-			if err := ranger.Insert(cidranger.NewBasicRangerEntry(*cidr)); err != nil {
-				sim.t.Fatalf("failed to insert cidr %v: %v", cidr, err)
+			if cidr.Contains(netip.MustParseAddr(input.Address)) {
+				// Rank by how exact of a match it is. A /32 should match before a /8 even if they both match.
+				best = max(cidr.Bits(), best)
 			}
 		}
-		f, err := ranger.Contains(net.ParseIP(input.Address))
-		if err != nil {
-			sim.t.Fatalf("cidr containers %v failed: %v", input.Address, err)
-		}
-		return f
+		return best
 	})
-	chains = filter("ServerNames", chains, func(fc *listener.FilterChainMatch) bool {
-		return fc.GetServerNames() == nil
-	}, func(fc *listener.FilterChainMatch) bool {
+	chains = filterRank("ServerNames", chains, (*listener.FilterChainMatch).GetServerNames, func(serverNames []string) int {
 		sni := host.Name(input.Sni)
-		for _, s := range fc.GetServerNames() {
-			if sni.SubsetOf(host.Name(s)) {
-				return true
+		best := 0
+		for _, s := range serverNames {
+			// Exact match is best
+			if sni == host.Name(s) {
+				best = math.MaxInt
+			} else if sni.SubsetOf(host.Name(s)) {
+				// Otherwise, rank it by how exact of a match it is
+				best = max(len(s), best)
 			}
 		}
-		return false
+		return best
 	})
-	chains = filter("TransportProtocol", chains, func(fc *listener.FilterChainMatch) bool {
-		return fc.GetTransportProtocol() == ""
-	}, func(fc *listener.FilterChainMatch) bool {
+	chains = filter("TransportProtocol", chains, (*listener.FilterChainMatch).GetTransportProtocol, func(transport string) bool {
 		if !hasTLSInspector {
 			// Without tls inspector, transport protocol will always be raw buffer
-			return fc.GetTransportProtocol() == xdsfilters.RawBufferTransportProtocol
+			return transport == xdsfilters.RawBufferTransportProtocol
 		}
-		switch fc.GetTransportProtocol() {
+		switch transport {
 		case xdsfilters.TLSTransportProtocol:
 			return input.TLS == TLS || input.TLS == MTLS
 		case xdsfilters.RawBufferTransportProtocol:
@@ -562,12 +561,11 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 		}
 		return false
 	})
-	chains = filter("ApplicationProtocols", chains, func(fc *listener.FilterChainMatch) bool {
-		return fc.GetApplicationProtocols() == nil
-	}, func(fc *listener.FilterChainMatch) bool {
-		return sets.New(fc.GetApplicationProtocols()...).Contains(input.Alpn)
+	chains = filter("ApplicationProtocols", chains, (*listener.FilterChainMatch).GetApplicationProtocols, func(appProtocols []string) bool {
+		return sets.New(appProtocols...).Contains(input.Alpn)
 	})
 	// We do not implement the "source" based filters as we do not use them
+
 	if len(chains) > 1 {
 		for _, c := range chains {
 			log.Warnf("Matched chain %v: %+v", c.Name, c.FilterChainMatch)
@@ -583,14 +581,29 @@ func (sim *Simulation) matchFilterChain(chains []*listener.FilterChain, defaultC
 	return chains[0], nil
 }
 
-func filter(desc string, chains []*listener.FilterChain,
-	empty func(fc *listener.FilterChainMatch) bool,
-	match func(fc *listener.FilterChainMatch) bool,
+// filter applies a FCM filtering expression.
+// extract gets the component of the FCM we are operating on. match declares if the request matches the chain.
+func filter[T any](desc string, chains []*listener.FilterChain,
+	extract func(fc *listener.FilterChainMatch) T,
+	match func(field T) bool,
 ) []*listener.FilterChain {
-	res := []*listener.FilterChain{}
+	return filterRank(desc, chains, extract, func(field T) int {
+		if match(field) {
+			return 1
+		}
+		return 0
+	})
+}
+
+// filterRank allows an FCM to 'rank' how well the match is. The higher the rank, the better the match. Only the equivalently ranked matches win.
+// For instance, if my ranks are [0,1,2,2], the last 2 will remain.
+func filterRank[T any](desc string, chains []*listener.FilterChain,
+	extract func(fc *listener.FilterChainMatch) T,
+	match func(field T) int,
+) []*listener.FilterChain {
 	anySet := false
 	for _, c := range chains {
-		if !empty(c.GetFilterChainMatch()) {
+		if !reflect.ValueOf(extract(c.GetFilterChainMatch())).IsZero() {
 			anySet = true
 			break
 		}
@@ -599,20 +612,26 @@ func filter(desc string, chains []*listener.FilterChain,
 		log.Debugf("%v: none set, skipping", desc)
 		return chains
 	}
+	resByRank := map[int][]*listener.FilterChain{}
 	for i, c := range chains {
-		if match(c.GetFilterChainMatch()) {
+		if rank := match(extract(c.GetFilterChainMatch())); rank > 0 {
 			log.Debugf("%v: matched chain %v/%v", desc, i, c.GetName())
-			res = append(res, c)
+			resByRank[rank] = append(resByRank[rank], c)
 		}
 	}
-	// Return all matching filter chains
-	if len(res) > 0 {
-		return res
+	if len(resByRank) > 0 {
+		best := slices.Max(maps.Keys(resByRank))
+		res := resByRank[best]
+		// Return all matching filter chains
+		if len(res) > 0 {
+			return res
+		}
 	}
+	res := []*listener.FilterChain{}
 	// Unless there were no matches - in which case we return all filter chains that did not have a
 	// match set
 	for i, c := range chains {
-		if empty(c.GetFilterChainMatch()) {
+		if reflect.ValueOf(extract(c.GetFilterChainMatch())).IsZero() {
 			log.Debugf("%v: no matches, found empty chain match %v/%v", desc, i, c.GetName())
 			res = append(res, c)
 		}
