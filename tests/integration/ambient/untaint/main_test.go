@@ -52,9 +52,6 @@ func TestMain(m *testing.M) {
 			ctx.Settings().SkipVMs()
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
-components:
-  cni:
-    namespace: "kube-system"
 values:
   pilot:
     taint:
