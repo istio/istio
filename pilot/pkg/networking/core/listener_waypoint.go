@@ -415,7 +415,7 @@ func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, c
 		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
 		protocol:                  cc.port.Protocol,
 		class:                     istionetworking.ListenerClassSidecarInbound,
-		statPrefix:                cc.StatPrefix(),
+		statPrefix:                cc.StatPrefix(lb.node.IstioVersion),
 		isWaypoint:                true,
 		policySvc:                 svc,
 	}
