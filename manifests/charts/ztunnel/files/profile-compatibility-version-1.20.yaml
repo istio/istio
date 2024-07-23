@@ -15,10 +15,12 @@ pilot:
     ENABLE_RESOLUTION_NONE_TARGET_PORT: "false"
 
 meshConfig:
-  # 1.22 behavioral changes
   defaultConfig:
     proxyMetadata:
+      # 1.22 behavioral changes
       ISTIO_DELTA_XDS: "false"
+      # 1.23 behavioral changes
+      ENABLE_DELIMITED_STATS_TAG_REGEX: "false"
     tracing:
       zipkin:
         address: zipkin.istio-system:9411
