@@ -1071,6 +1071,12 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest, useE
 		out.QueryParameters = append(out.QueryParameters, matcher)
 	}
 
+	if in.Percentage != nil {
+		out.RuntimeFraction = &core.RuntimeFractionalPercent{
+			DefaultValue: translatePercentToFractionalPercent(in.Percentage),
+		}
+	}
+
 	return out
 }
 

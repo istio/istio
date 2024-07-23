@@ -165,6 +165,8 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute) (errs error) {
 			for _, qp := range match.GetQueryParams() {
 				errs = appendErrors(errs, validateStringMatch(qp, "queryParams"))
 			}
+
+			errs = appendErrors(errs, validatePercentage(match.Percentage))
 		}
 	}
 
