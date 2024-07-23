@@ -437,15 +437,15 @@ type CustomTextFunc func(cmd string) string
 var CustomTextForCmds = map[string]CustomTextFunc{
 	"completion-bash": func(cmd string) string {
 		return fmt.Sprintf(`<p>Generate the autocompletion script for the bash shell.</p>
-<p>This script depends on the 'bash-completion' package.
-If it is not installed already, you can install it via your OS's package manager.</p>
+<p>This script depends on the &#39;bash-completion&#39; package.
+If it is not installed already, you can install it via your OS&#39;s package manager.</p>
 <p>To load completions in your current shell session:</p>
-<pre class="language-bash"><code>source <(%s completion bash)</code></pre>
+<pre class="language-bash"><code>source &lt;(%s completion bash)</code></pre>
 <p>To load completions for every new session, execute once:</p>
 <h4>Linux:</h4>
-<pre class="language-bash"><code>%s completion bash > /etc/bash_completion.d/%s</code></pre>
+<pre class="language-bash"><code>%s completion bash &gt; /etc/bash_completion.d/%s</code></pre>
 <h4>macOS:</h4>
-<pre class="language-bash"><code>%s completion bash > /usr/local/etc/bash_completion.d/%s</code></pre>
+<pre class="language-bash"><code>%s completion bash &gt; /usr/local/etc/bash_completion.d/%s</code></pre>
 <p>You will need to start a new shell for this setup to take effect.</p>`, cmd, cmd, cmd, cmd, cmd)
 	},
 
@@ -454,7 +454,7 @@ If it is not installed already, you can install it via your OS's package manager
 <p>To load completions in your current shell session:</p>
 <pre class="language-bash"><code>%s completion fish | source</code></pre>
 <p>To load completions for every new session, execute once:</p>
-<pre class="language-bash"><code>%s completion bash > ~/.config/fish/completions/%s.fish</code></pre>
+<pre class="language-bash"><code>%s completion bash &gt; ~/.config/fish/completions/%s.fish</code></pre>
 <p>You will need to start a new shell for this setup to take effect.</p>`, cmd, cmd, cmd)
 	},
 
@@ -468,14 +468,14 @@ If it is not installed already, you can install it via your OS's package manager
 	"completion-zsh": func(cmd string) string {
 		return fmt.Sprintf(`<p>Generate the autocompletion script for the zsh shell.</p>
 	<p>If shell completion is not already enabled in your environment you will need to enable it. You can execute the following once:</p>
-	<pre class="language-bash"><code>echo "autoload -U compinit; compinit" >> ~/.zshrc</code></pre>
+	<pre class="language-bash"><code>echo &#34;autoload -U compinit; compinit&#34; &gt;&gt; ~/.zshrc</code></pre>
 	<p>To load completions in your current shell session:</p>
-	<pre class="language-bash"><code>source <(%s completion zsh)</code></pre>
+	<pre class="language-bash"><code>source &lt;(%s completion zsh)</code></pre>
 	<p>To load completions for every new session, execute once:</p>
 	<h4>Linux:</h4>
-	<pre class="language-bash"><code>%s completion zsh > "${fpath[1]}/_%s"</code></pre>
+	<pre class="language-bash"><code>%s completion zsh &gt; &#34;${fpath[1]}/_%s&#34;</code></pre>
 	<h4>macOS:</h4>
-	<pre class="language-bash"><code>%s completion zsh > $(brew --prefix)/share/zsh/site-functions/_%s</code></pre>
+	<pre class="language-bash"><code>%s completion zsh &gt; $(brew --prefix)/share/zsh/site-functions/_%s</code></pre>
 	<p>You will need to start a new shell for this setup to take effect.</p>`, cmd, cmd, cmd, cmd, cmd)
 	},
 }
