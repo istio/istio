@@ -193,7 +193,8 @@ func TestMain(m *testing.M) {
 func TestManifestGenerateComponentHubTag(t *testing.T) {
 	g := NewWithT(t)
 
-	objs, err := runManifestCommands("component_hub_tag", "", liveCharts, []string{"templates/deployment.yaml", "templates/daemonset.yaml", "templates/zzy_descope_legacy.yaml"})
+	objs, err := runManifestCommands("component_hub_tag", "", liveCharts,
+		[]string{"templates/deployment.yaml", "templates/daemonset.yaml", "templates/zzy_descope_legacy.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
