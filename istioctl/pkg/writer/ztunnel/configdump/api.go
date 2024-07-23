@@ -66,14 +66,16 @@ type ZtunnelEndpoint struct {
 }
 
 type ZtunnelService struct {
-	Name         string                      `json:"name"`
-	Namespace    string                      `json:"namespace"`
-	Hostname     string                      `json:"hostname"`
-	Addresses    []string                    `json:"vips"`
-	Ports        map[string]int              `json:"ports"`
-	LoadBalancer *LoadBalancer               `json:"loadBalancer"`
-	Waypoint     *GatewayAddress             `json:"waypoint"`
-	Endpoints    map[string]*ZtunnelEndpoint `json:"endpoints"`
+	Name            string                      `json:"name"`
+	Namespace       string                      `json:"namespace"`
+	Hostname        string                      `json:"hostname"`
+	Addresses       []string                    `json:"vips"`
+	Ports           map[string]int              `json:"ports"`
+	LoadBalancer    *LoadBalancer               `json:"loadBalancer,omitempty"`
+	Waypoint        *GatewayAddress             `json:"waypoint,omitempty"`
+	Endpoints       map[string]*ZtunnelEndpoint `json:"endpoints"`
+	SubjectAltNames []string                    `json:"subjectAltNames,omitempty"`
+	IpFamily        string                      `json:"ipFamilies"`
 }
 
 type PolicyMatch struct {
