@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 51747
+releaseNotes:
+  - |
+    **Fixed** matching multiple service VIPs in ServiceEntry.
