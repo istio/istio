@@ -5,4 +5,3 @@ area: installation
 releaseNotes:
   - |
     **Fixed** netlink error may not be correctly parsed, leading to `istio-cni` not properly ignoring leftover ipset.
-    **Removed** CNI_NET_DIR variable from `istio-cni` configmap - it is unused
