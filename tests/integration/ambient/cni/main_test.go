@@ -20,11 +20,13 @@ package cni
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config/constants"
 	istioKube "istio.io/istio/pkg/kube"
@@ -41,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/pilot/common"
 	"istio.io/istio/tests/integration/security/util/cert"
@@ -188,7 +191,7 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 			c := t.Clusters().Default()
 			t.Log("Getting current daemonset")
 			// mostly a correctness check - to make sure it's actually there
-			_ = getCNIDaemonSet(t, c)
+			origDS := getCNIDaemonSet(t, c)
 
 			ns := apps.SingleNamespaceView().EchoNamespace.Namespace
 			fetchFn := testKube.NewPodFetch(c, ns.Name())
@@ -204,7 +207,106 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 			// Our echo instances have already been deployed/configured by the CNI,
 			// so the CNI being removed should not disrupt them.
 			common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
+
+			// put it back
+			deployCNIDaemonset(t, c, origDS)
 		})
+}
+
+func TestCNIMisconfigHealsOnRestart(t *testing.T) {
+	framework.NewTest(t).
+		TopLevel().
+		Run(func(t framework.TestContext) {
+			c := t.Clusters().Default()
+			t.Log("Updating CNI Daemonset config")
+
+			// TODO this is really not very nice - we are mutating cluster state here
+			// with other tests which means other tests can break us and we don't have isolation,
+			// so we have to be more paranoid.
+			//
+			// I don't think we have a good way to solve this ATM so doing stuff like this is as
+			// good as it gets, short of creating an entirely new suite for every possibly-cluster-destructive op.
+			retry.UntilSuccessOrFail(t, func() error {
+				ensureCNIDS := getCNIDaemonSet(t, c)
+				if ensureCNIDS.Status.NumberReady == ensureCNIDS.Status.DesiredNumberScheduled {
+					return nil
+				}
+				return fmt.Errorf("still waiting for CNI pods to become ready before starting")
+			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+
+			// we want to "break" the CNI config by giving a bad path
+			// nolint: lll
+			volPatch := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"volumes":[{"name":"cni-net-dir","hostPath":{"path": "%s", "type": ""}}]}}}}`, "/etc/cni/nope.d"))
+
+			t.Log("Patching the CNI Daemonset")
+			_ = patchCNIDaemonSet(t, c, volPatch)
+
+			rolloutCmd := fmt.Sprintf("kubectl rollout restart daemonset/%s -n %s", "istio-cni-node", i.Settings().SystemNamespace)
+
+			retry.UntilSuccessOrFail(t, func() error {
+				t.Log("Rollout restart CNI daemonset to get a fixed instance")
+				// depending on timing it can actually take little bit for the patch to be applied and
+				// to get all pods to enter a broken state break - so rely on the retry delay to sort that for us
+				if _, err := shell.Execute(true, rolloutCmd); err != nil {
+					t.Fatalf("failed to rollout restart deployments %v", err)
+				}
+
+				time.Sleep(1 * time.Second)
+
+				brokenCNIDS := getCNIDaemonSet(t, c)
+				t.Log("Checking for broken DS")
+				if brokenCNIDS.Status.NumberReady == 0 {
+					return nil
+				}
+
+				return fmt.Errorf("CNI daemonset pods should all be broken, restarting pods again")
+			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+
+			t.Log("Redeploy CNI with corrected config")
+
+			// we want to "unbreak" the CNI config by giving it back the correct path
+			// TODO it would be nice to get the correct path from the original DS, so it doesn't have to be hardcoded - but
+			// it shouldn't change, and the other parts of the chart volume ref could change too - don't want to couple this too closely to Helm structure.
+			// nolint: lll
+			fixedVolPatch := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"volumes":[{"name":"cni-net-dir","hostPath":{"path": "%s", "type": ""}}]}}}}`, "/etc/cni/net.d"))
+
+			t.Log("Re-patching the CNI Daemonset")
+			_ = patchCNIDaemonSet(t, c, fixedVolPatch)
+
+			// Need to sleep a bit to make sure this takes,
+			// and also to avoid `rollout restart`-ing too fast, which can give an error like
+			// `if restart has already been triggered within the past second, please wait before attempting to trigger another`
+			time.Sleep(1 * time.Second)
+
+			// Rollout restart CNI pods so they get the fixed config.
+			// to _fix_ the pods we should only have to do this *once*
+			t.Log("Rollout restart CNI daemonset to get a fixed instance")
+			if _, err := shell.Execute(true, rolloutCmd); err != nil {
+				t.Fatalf("failed to rollout restart deployments %v", err)
+			}
+
+			retry.UntilSuccessOrFail(t, func() error {
+				fixedCNIDaemonSet := getCNIDaemonSet(t, c)
+				t.Log("Checking for happy DS")
+				if fixedCNIDaemonSet.Status.NumberReady == fixedCNIDaemonSet.Status.DesiredNumberScheduled {
+					return nil
+				}
+				return fmt.Errorf("still waiting for CNI pods to heal")
+			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+		})
+}
+
+func patchCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster, patch []byte) *appsv1.DaemonSet {
+	cniDaemonSet, err := c.(istioKube.CLIClient).
+		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
+		Patch(context.Background(), "istio-cni-node", types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		ctx.Fatalf("failed to patch CNI Daemonset %v from ns %s", err, i.Settings().SystemNamespace)
+	}
+	if cniDaemonSet == nil {
+		ctx.Fatal("cannot find CNI Daemonset")
+	}
+	return cniDaemonSet
 }
 
 func getCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster) *appsv1.DaemonSet {
@@ -239,4 +341,20 @@ func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
 		}
 		return nil
 	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+}
+
+func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonSet *appsv1.DaemonSet) {
+	deployDaemonSet := appsv1.DaemonSet{}
+	deployDaemonSet.Spec = cniDaemonSet.Spec
+	deployDaemonSet.ObjectMeta = metav1.ObjectMeta{
+		Name:        cniDaemonSet.ObjectMeta.Name,
+		Namespace:   cniDaemonSet.ObjectMeta.Namespace,
+		Labels:      cniDaemonSet.ObjectMeta.Labels,
+		Annotations: cniDaemonSet.ObjectMeta.Annotations,
+	}
+	_, err := c.(istioKube.CLIClient).Kube().AppsV1().DaemonSets(cniDaemonSet.ObjectMeta.Namespace).
+		Create(context.Background(), &deployDaemonSet, metav1.CreateOptions{})
+	if err != nil {
+		ctx.Fatalf("failed to deploy CNI Daemonset %v", err)
+	}
 }
