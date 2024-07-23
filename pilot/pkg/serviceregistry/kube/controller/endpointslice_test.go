@@ -287,7 +287,7 @@ func TestUpdateEndpointCacheForSlice(t *testing.T) {
 	}
 }
 
-func TestMe(t *testing.T) {
+func TestEndpointSliceGeneration(t *testing.T) {
 	const (
 		ns      = "nsa"
 		svcName = "svc1"
