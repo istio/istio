@@ -75,7 +75,7 @@ type ZtunnelService struct {
 	Waypoint        *GatewayAddress             `json:"waypoint,omitempty"`
 	Endpoints       map[string]*ZtunnelEndpoint `json:"endpoints"`
 	SubjectAltNames []string                    `json:"subjectAltNames,omitempty"`
-	IpFamily        string                      `json:"ipFamilies"`
+	IPFamilies      string                      `json:"ipFamilies"`
 }
 
 type PolicyMatch struct {

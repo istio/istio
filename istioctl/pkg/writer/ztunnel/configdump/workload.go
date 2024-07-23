@@ -84,13 +84,16 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 		return iNode < jNode
 	})
 
-	fmt.Fprintln(w, "NAMESPACE\tPOD NAME\tIP\tNODE\tWAYPOINT\tPROTOCOL")
+	fmt.Fprintln(w, "NAMESPACE\tPOD NAME\tADDRESS\tNODE\tWAYPOINT\tPROTOCOL")
 
 	for _, wl := range verifiedWorkloads {
-		ip := strings.Join(wl.WorkloadIPs, ",")
+		address := strings.Join(wl.WorkloadIPs, ",")
+		if len(address) == 0 {
+			address = wl.Hostname
+		}
 		waypoint := waypointName(wl, zDump.Services)
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
-			wl.Namespace, wl.Name, ip, wl.Node, waypoint, wl.Protocol)
+			wl.Namespace, wl.Name, address, wl.Node, waypoint, wl.Protocol)
 
 	}
 	return w.Flush()
