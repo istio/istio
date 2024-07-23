@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 	xdsserver "istio.io/istio/pkg/xds"
@@ -438,4 +439,36 @@ func TestDeltaWDS(t *testing.T) {
 	if len(resp.Resources) != 4 {
 		t.Fatalf("received unexpected eds resource %v", resp.Resources)
 	}
+}
+
+func TestDeltaUnsub(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+
+	ads := s.ConnectDeltaADS().WithID("sidecar~127.0.0.1~test.default~default.svc.cluster.local")
+
+	runAssert := func(nonce string) {
+		t.Helper()
+		retry.UntilSuccessOrFail(t, func() error {
+			sync := getSyncStatus(t, s.Discovery)
+			if len(sync) != 1 {
+				return fmt.Errorf("got %v sync status", len(sync))
+			}
+			if sync[0].ClusterSent != nonce {
+				return fmt.Errorf("want %q, got %q for send", nonce, sync[0].ClusterSent)
+			}
+			if sync[0].ClusterAcked != nonce {
+				return fmt.Errorf("want %q, got %q for ack", nonce, sync[0].ClusterAcked)
+			}
+			return nil
+		})
+	}
+	// Initially we get everything
+	resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{},
+	})
+	runAssert(resp.Nonce)
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesUnsubscribe: []string{"something"},
+	})
+	runAssert(resp.Nonce)
 }

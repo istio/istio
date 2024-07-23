@@ -406,16 +406,23 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		xds.ExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		return false
 	}
-	// If it comes here, that means nonce match. This an ACK. We should record
-	// the ack details and respond if there is a change in resource names.
 	var previousResources, currentResources []string
 	var alwaysRespond bool
+
+	// Spontaneous DeltaDiscoveryRequests from the client.
+	// This can be done to dynamically add or remove elements from the tracked resource_names set.
+	// In this case response_nonce is empty.
+	spontaneousReq := request.ResponseNonce == ""
+	// If it comes here, that means nonce match. This an ACK. We should record
+	// the ack details and respond if there is a change in resource names.
 	con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
 		previousResources = wr.ResourceNames
 		currentResources, _ = deltaWatchedResources(previousResources, request)
-		// Clear last error, we got an ACK.
-		wr.LastError = ""
-		wr.NonceAcked = request.ResponseNonce
+		if !spontaneousReq {
+			// Clear last error, we got an ACK.
+			wr.LastError = ""
+			wr.NonceAcked = request.ResponseNonce
+		}
 		wr.ResourceNames = currentResources
 		alwaysRespond = wr.AlwaysRespond
 		wr.AlwaysRespond = false
@@ -423,10 +430,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	})
 
 	subChanged := !slices.EqualUnordered(previousResources, currentResources)
-	// Spontaneous DeltaDiscoveryRequests from the client.
-	// This can be done to dynamically add or remove elements from the tracked resource_names set.
-	// In this case response_nonce is empty.
-	spontaneousReq := request.ResponseNonce == ""
 	// It is invalid in the below two cases:
 	// 1. no subscribed resources change from spontaneous delta request.
 	// 2. subscribed resources changes from ACK.
