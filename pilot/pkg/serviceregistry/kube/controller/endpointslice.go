@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -244,29 +245,57 @@ func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus 
 	return model.UnHealthy
 }
 
-func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, slice *v1.EndpointSlice) {
+func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, epSlice *v1.EndpointSlice) {
 	var endpoints []*model.IstioEndpoint
-	if slice.AddressType == v1.AddressTypeFQDN {
+	if epSlice.AddressType == v1.AddressTypeFQDN {
 		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 		return
 	}
 	svc := esc.c.GetService(hostName)
-	svcNamespacedName := getServiceNamespacedName(slice)
+	svcNamespacedName := getServiceNamespacedName(epSlice)
+	// This is not a endpointslice for service, ignore
+	if svcNamespacedName.Name == "" {
+		return
+	}
 	svcCore := esc.c.services.Get(svcNamespacedName.Name, svcNamespacedName.Namespace)
+	if svcCore != nil && len(svcCore.Spec.ClusterIPs) > 1 {
+		// It means this is dual stack service, for which k8s will build two endpointslice per pod.
+		// If the service is with selector, k8s will manually generate two ip families endpointslices,
+		// we ignore ipv6 family address to prevent generating duplicate IstioEndpoints.
+		if svcCore.Spec.Selector != nil {
+			// For dual stack service, if a endpoint target is a pod skip processing ipv6
+			if len(epSlice.Endpoints) > 0 && epSlice.Endpoints[0].TargetRef != nil &&
+				epSlice.Endpoints[0].TargetRef.Kind == "Pod" && epSlice.AddressType == v1.AddressTypeIPv6 {
+				return
+			}
+		}
+	}
+
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
 
-	for _, e := range slice.Endpoints {
+	for _, e := range epSlice.Endpoints {
 		// Draining tracking is only enabled if persistent sessions is enabled.
 		// If we start using them for other features, this can be adjusted.
 		healthStatus := endpointHealthStatus(svc, e)
 		for _, a := range e.Addresses {
-			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
+			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: epSlice.Name, Namespace: epSlice.Namespace}, e.TargetRef, hostName)
 			if pod == nil && expectedPod {
 				continue
 			}
+
+			var overrideAddresses []string
+			// If not expect a pod, it means this is not an endpointslice not managed by kubernetes.
+			// We donot add all pod ips to the istio endpoint.
+			if features.EnableDualStack && expectedPod && svcCore != nil && len(pod.Status.PodIPs) > 1 && len(svcCore.Spec.ClusterIPs) > 1 {
+				// get the IP addresses for the dual stack pod
+				overrideAddresses = slices.Map(pod.Status.PodIPs, func(e corev1.PodIP) string {
+					return e.IP
+				})
+			}
+
 			builder := esc.c.NewEndpointBuilder(pod)
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
-			for _, port := range slice.Ports {
+			for _, port := range epSlice.Ports {
 				var portNum int32
 				if port.Port != nil {
 					portNum = *port.Port
@@ -277,19 +306,14 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 				}
 
 				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus)
-				if features.EnableDualStack && pod != nil && svcCore != nil && len(pod.Status.PodIPs) > 1 && len(svcCore.Spec.ClusterIPs) > 1 {
-					// get the IP addresses for the dual stack pod
-					var addrs []string
-					for _, addr := range pod.Status.PodIPs {
-						addrs = append(addrs, addr.IP)
-					}
-					istioEndpoint.Addresses = addrs
+				if len(overrideAddresses) > 1 {
+					istioEndpoint.Addresses = overrideAddresses
 				}
 				endpoints = append(endpoints, istioEndpoint)
 			}
 		}
 	}
-	esc.endpointCache.Update(hostName, slice.Name, endpoints)
+	esc.endpointCache.Update(hostName, epSlice.Name, endpoints)
 }
 
 func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, hostName host.Name, updateCache bool) []*model.IstioEndpoint {
