@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
@@ -83,8 +84,7 @@ b
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			parts := yml.SplitString(c.doc)
-			g := NewWithT(t)
-			g.Expect(parts).To(Equal(expected))
+			assert.Equal(t, parts, expected)
 		})
 	}
 }
