@@ -504,7 +504,7 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 
 	normalizedCmdPath := normalizeID(cmd.CommandPath())
 	if cmd.HasParent() {
-		g.emit("<h2 id=\"", normalizedCmdPath, "\">", cmd.CommandPath(), "</h2>")
+		g.emit("<h3 id=\"", normalizedCmdPath, "\">", cmd.CommandPath(), "</h3>")
 	}
 
 	// Check whether there is a custom text for this command
@@ -596,7 +596,7 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 	}
 
 	if len(cmd.Example) > 0 {
-		g.emit("<h3 id=\"", normalizeID(cmd.CommandPath()), " Examples\">", "Examples", "</h3>")
+		g.emit("<h4 id=\"", normalizeID(cmd.CommandPath()), " Examples\">", "Examples", "</h4>")
 		g.emit("<pre class=\"language-bash\"><code>", html.EscapeString(cmd.Example))
 		g.emit("</code></pre>")
 	}
