@@ -76,10 +76,25 @@
   "stats_config": {
     "use_all_default_tags": false,
     "stats_tags": [
+      {{- if .delimited_stats_tags_enabled }}
       {
         "tag_name": "cluster_name",
         "regex": "^cluster(\\.(.+);)"
       },
+      {
+        "tag_name": "http_conn_manager_prefix",
+        "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));)"
+      },
+      {{- else }}
+      {
+        "tag_name": "cluster_name",
+        "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
+      },
+      {
+        "tag_name": "http_conn_manager_prefix",
+        "regex": "^http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
+      },
+      {{- end }}
       {
         "tag_name": "tcp_prefix",
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
@@ -95,10 +110,6 @@
       {
         "tag_name": "http_conn_manager_listener_prefix",
         "regex": "^listener(?=\\.).*?\\.http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
-      },
-      {
-        "tag_name": "http_conn_manager_prefix",
-        "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));)"
       },
       {
         "tag_name": "listener_address",

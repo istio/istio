@@ -48,6 +48,10 @@
         "regex": "^cluster(\\.(.+);)"
       },
       {
+        "tag_name": "http_conn_manager_prefix",
+        "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));)"
+      },
+      {
         "tag_name": "tcp_prefix",
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
       },
@@ -62,10 +66,6 @@
       {
         "tag_name": "http_conn_manager_listener_prefix",
         "regex": "^listener(?=\\.).*?\\.http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
-      },
-      {
-        "tag_name": "http_conn_manager_prefix",
-        "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));)"
       },
       {
         "tag_name": "listener_address",
