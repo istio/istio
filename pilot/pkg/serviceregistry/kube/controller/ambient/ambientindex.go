@@ -20,6 +20,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -69,7 +70,7 @@ type waypointsCollection struct {
 type servicesCollection struct {
 	krt.Collection[model.ServiceInfo]
 	ByAddress        krt.Index[networkAddress, model.ServiceInfo]
-	ByOwningWaypoint krt.Index[networkAddress, model.ServiceInfo]
+	ByOwningWaypoint krt.Index[types.NamespacedName, model.ServiceInfo]
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -172,7 +173,7 @@ func New(options Options) Index {
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
-	ServiceInfosByOwningWaypoint := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, func(s model.ServiceInfo) []networkAddress {
+	ServiceInfosByOwningWaypoint := krt.NewIndex[types.NamespacedName, model.ServiceInfo](WorkloadServices, func(s model.ServiceInfo) []types.NamespacedName {
 		// Filter out waypoint services
 		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -181,18 +182,15 @@ func New(options Options) Index {
 		if waypoint == nil {
 			return nil
 		}
-		waypointAddress := waypoint.GetAddress()
+		waypointAddress := waypoint.GetHostname()
 		if waypointAddress == nil {
 			return nil
 		}
 
-		ip := waypointAddress.GetAddress()
-		netip, _ := netip.AddrFromSlice(ip)
-		netaddr := networkAddress{
-			network: waypointAddress.GetNetwork(),
-			ip:      netip.String(),
-		}
-		return append(make([]networkAddress, 1), netaddr)
+		return []types.NamespacedName{{
+			Namespace: waypointAddress.Namespace,
+			Name:      waypointAddress.Hostname,
+		}}
 	})
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *workloadapi.Service {
