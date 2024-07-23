@@ -1865,7 +1865,7 @@ func createGRPCURIMatch(match k8s.GRPCRouteMatch) (*istio.StringMatch, *ConfigEr
 
 // getGatewayClass finds all gateway class that are owned by Istio
 // Response is ClassName -> Controller type
-func getGatewayClasses(r GatewayResources, supportedFeatures []k8s.SupportedFeature) map[string]k8s.GatewayController {
+func getGatewayClasses(r GatewayResources) map[string]k8s.GatewayController {
 	res := map[string]k8s.GatewayController{}
 	// Setup builtin ones - these can be overridden possibly
 	for name, controller := range builtinClasses {
@@ -1883,7 +1883,6 @@ func getGatewayClasses(r GatewayResources, supportedFeatures []k8s.SupportedFeat
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			gcs := s.(*k8s.GatewayClassStatus)
 			*gcs = GetClassStatus(gcs, obj.Generation)
-			gcs.SupportedFeatures = supportedFeatures
 			return gcs
 		})
 	}
@@ -2032,7 +2031,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 	// namespaceLabelReferences keeps track of all namespace label keys referenced by Gateways. This is
 	// used to ensure we handle namespace updates for those keys.
 	namespaceLabelReferences := sets.New[string]()
-	classes := getGatewayClasses(r.GatewayResources, gatewaySupportedFeatures)
+	classes := getGatewayClasses(r.GatewayResources)
 	for _, obj := range r.Gateway {
 		obj := obj
 		kgw := obj.Spec.(*k8s.GatewaySpec)
