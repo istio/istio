@@ -298,7 +298,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	}
 
 	if util.IsIstioVersionGE123(cb.proxyVersion) {
-		c.AltStatName = name + constants.ClusterAltStatNameDelimeter
+		c.AltStatName = name + constants.StatPrefixDelimiter
 	}
 
 	switch discoveryType {
@@ -352,14 +352,11 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	if direction == model.TrafficDirectionOutbound {
 		// If stat name is configured, build the alternate stats name.
 		if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
-			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-				string(service.Hostname), subset, port, 0, &service.Attributes)
-
-			// Add the cluster name delimeter if it's not the last character and the proxy version >= 1.23.
-			if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter &&
-				util.IsIstioVersionGE123(cb.proxyVersion) {
-				statPrefix += constants.ClusterAltStatNameDelimeter
+			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName, string(service.Hostname), subset, port, 0, &service.Attributes)
+			if util.IsIstioVersionGE123(cb.proxyVersion) && statPrefix[len(statPrefix)-1:] != constants.StatPrefixDelimiter {
+				statPrefix += constants.StatPrefixDelimiter
 			}
+
 			ec.cluster.AltStatName = statPrefix
 		}
 	}
@@ -390,11 +387,10 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort,
 			&instance.Service.Attributes)
-		// Add the cluster name delimeter if it's not the last character.
-		if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter &&
-			util.IsIstioVersionGE123(cb.proxyVersion) {
-			statPrefix += constants.ClusterAltStatNameDelimeter
+		if util.IsIstioVersionGE123(cb.proxyVersion) && statPrefix[len(statPrefix)-1:] != constants.StatPrefixDelimiter {
+			statPrefix += constants.StatPrefixDelimiter
 		}
+
 		localCluster.cluster.AltStatName = statPrefix
 	}
 
@@ -522,7 +518,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
 	if util.IsIstioVersionGE123(cb.proxyVersion) {
-		c.AltStatName = util.BlackHoleCluster + constants.ClusterAltStatNameDelimeter
+		c.AltStatName = util.BlackHoleCluster + constants.StatPrefixDelimiter
 	}
 	return c
 }
@@ -540,7 +536,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		},
 	}
 	if util.IsIstioVersionGE123(cb.proxyVersion) {
-		cluster.AltStatName = util.PassthroughCluster + constants.ClusterAltStatNameDelimeter
+		cluster.AltStatName = util.PassthroughCluster + constants.StatPrefixDelimiter
 	}
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
 	cb.applyMetadataExchange(cluster)
@@ -756,7 +752,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 		},
 	}
 	if util.IsIstioVersionGE123(cb.proxyVersion) {
-		c.AltStatName = security.SDSExternalClusterName + constants.ClusterAltStatNameDelimeter
+		c.AltStatName = security.SDSExternalClusterName + constants.StatPrefixDelimiter
 	}
 	return c
 }

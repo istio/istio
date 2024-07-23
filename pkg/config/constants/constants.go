@@ -20,8 +20,8 @@ const (
 	// UnspecifiedIPv6 constant for empty IPv6 address
 	UnspecifiedIPv6 = "::"
 
-	// ClusterAltStatNameDelimeter constant for the stat delimer
-	ClusterAltStatNameDelimeter = ";"
+	// StatPrefixDelimiter constant for the stat delimer
+	StatPrefixDelimiter = ";"
 
 	// PilotWellKnownDNSCertPath is the path location for Pilot dns serving cert, often used with custom CA integrations
 	PilotWellKnownDNSCertPath   = "./var/run/secrets/istiod/tls/"
