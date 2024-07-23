@@ -423,14 +423,109 @@ func checkOpencensusConfig(t *testing.T, got, want *bootstrap.Bootstrap) {
 func checkStatsTags(t *testing.T, got *bootstrap.Bootstrap) {
 	for _, tag := range got.StatsConfig.StatsTags {
 		// TODO: Add checks for other tags
-		if tag.TagName == "cluster_name" {
+		switch tag.TagName {
+		case "cluster_name":
 			checkClusterNameTag(t, tag.GetRegex())
+		case "http_conn_manager_prefix":
+			checkHTTPConnManagerPrefixTag(t, tag.GetRegex())
 		}
 	}
 }
 
 // Envoy will remove the first capture group and set the tag to the second capture group.
-// We double check that the regex returns what we want here.
+// We double check that all of the regexes we set return what we want here.
+
+func checkHTTPConnManagerPrefixTag(t *testing.T, regex string) {
+	if regex == "" {
+		t.Fatalf("cluster_name tag regex is empty")
+	}
+
+	compiledRegex, err := regexp.Compile(regex)
+	if err != nil {
+		t.Fatalf("invalid regex for cluster_name tag: %v", err)
+	}
+
+	tc := []struct {
+		name               string
+		statPrefix         string
+		firstCaptureGroup  string
+		secondCaptureGroup string
+	}{
+		{
+			name:               "http_conn_manager_prefix stats tag - ipv4 address - single-segment",
+			statPrefix:         "http.0.0.0.0;.downstream_rq_total",
+			firstCaptureGroup:  "0.0.0.0;",
+			secondCaptureGroup: "0.0.0.0",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - ipv4 address - multi-segment",
+			statPrefix:         "http.0.0.0.0;.jwt_authn.allowed",
+			firstCaptureGroup:  "0.0.0.0;",
+			secondCaptureGroup: "0.0.0.0",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - ipv6 address - single-segment",
+			statPrefix:         "http.2001:0000:130F:0000:0000:09C0:876A:130B;.downstream_rq_total",
+			firstCaptureGroup:  "2001:0000:130F:0000:0000:09C0:876A:130B;",
+			secondCaptureGroup: "2001:0000:130F:0000:0000:09C0:876A:130B",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - ipv6 address - multi-segment",
+			statPrefix:         "http.2001:0000:130F:0000:0000:09C0:876A:130B;.jwt_authn.allowed",
+			firstCaptureGroup:  "2001:0000:130F:0000:0000:09C0:876A:130B;",
+			secondCaptureGroup: "2001:0000:130F:0000:0000:09C0:876A:130B",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - direction-prefixed ipv4 - single-segment",
+			statPrefix:         "http.inbound_0.0.0.0;.downstream_rq_total",
+			firstCaptureGroup:  "inbound_0.0.0.0;",
+			secondCaptureGroup: "inbound_0.0.0.0",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - direction-prefixed ipv4 - multi-segment",
+			statPrefix:         "http.inbound_0.0.0.0;.jwt_authn.allowed",
+			firstCaptureGroup:  "inbound_0.0.0.0;",
+			secondCaptureGroup: "inbound_0.0.0.0",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - direction-prefixed ipv6 - single-segment",
+			statPrefix:         "http.inbound_2001:0000:130F:0000:0000:09C0:876A:130B;.downstream_rq_total",
+			firstCaptureGroup:  "inbound_2001:0000:130F:0000:0000:09C0:876A:130B;",
+			secondCaptureGroup: "inbound_2001:0000:130F:0000:0000:09C0:876A:130B",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - direction-prefixed ipv6 - multi-segment",
+			statPrefix:         "http.inbound_2001:0000:130F:0000:0000:09C0:876A:130B;.jwt_authn.allowed",
+			firstCaptureGroup:  "inbound_2001:0000:130F:0000:0000:09C0:876A:130B;",
+			secondCaptureGroup: "inbound_2001:0000:130F:0000:0000:09C0:876A:130B",
+		},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			subMatches := compiledRegex.FindStringSubmatch(tt.statPrefix)
+			if subMatches == nil {
+				t.Fatalf("cluster_name tag regex does not match cluster name %s", tt.statPrefix)
+			}
+
+			// The first index is the whole match followed by N number of capture groups.
+			// There are 2 capture groups we expect in the regex, so we always check for 3
+			if len(subMatches) != 3 {
+				t.Fatalf("unexpected number of capture groups: %d. Submatches: %v", len(subMatches), subMatches)
+			}
+			// Now we examine both of the capture groups (which start at index 1)
+			if subMatches[1] != tt.firstCaptureGroup {
+				t.Fatalf("first capture group does not match %s, got %s", tt.firstCaptureGroup, subMatches[1])
+			}
+
+			// Finally, check the second capture group
+			if subMatches[2] != tt.secondCaptureGroup {
+				t.Fatalf("second capture group does not match %s, got %s", tt.secondCaptureGroup, subMatches[2])
+			}
+		})
+	}
+}
+
 func checkClusterNameTag(t *testing.T, regex string) {
 	if regex == "" {
 		t.Fatalf("cluster_name tag regex is empty")
