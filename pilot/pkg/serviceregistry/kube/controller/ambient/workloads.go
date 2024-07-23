@@ -173,9 +173,9 @@ func (a *index) workloadEntryWorkloadBuilder(
 
 		if addr, err := netip.ParseAddr(wle.Spec.Address); err == nil {
 			w.Addresses = [][]byte{addr.AsSlice()}
-		} else {
+		} else if wle.Spec.Address != "" {
 			log.Warnf("skipping workload entry %s/%s; DNS Address resolution is not yet implemented", wle.Namespace, wle.Name)
-		}
+		} // Else it is an empty address with network set, this is ok
 
 		w.WorkloadName, w.WorkloadType = wle.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(wle.Labels, w.WorkloadName)

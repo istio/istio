@@ -32,22 +32,26 @@ func (d dummyValue) ResourceName() string {
 type StaticSingleton[T any] interface {
 	Singleton[T]
 	Set(*T)
+	MarkSynced()
 }
 
-func NewStatic[T any](initial *T) StaticSingleton[T] {
+func NewStatic[T any](initial *T, startSynced bool) StaticSingleton[T] {
 	val := new(atomic.Pointer[T])
 	val.Store(initial)
 	x := &static[T]{
 		val:           val,
+		synced:        &atomic.Bool{},
 		id:            nextUID(),
 		eventHandlers: &handlers[T]{},
 	}
+	x.synced.Store(startSynced)
 	return collectionAdapter[T]{x}
 }
 
 // static represents a Collection of a single static value. This can be explicitly Set() to override it
 type static[T any] struct {
 	val           *atomic.Pointer[T]
+	synced        *atomic.Bool
 	id            collectionUID
 	eventHandlers *handlers[T]
 }
@@ -79,11 +83,16 @@ func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExi
 			}}, true)
 		}
 	}
-	return alwaysSynced{}
+	return d.Synced()
 }
 
 func (d *static[T]) Synced() Syncer {
-	return alwaysSynced{}
+	return pollSyncer{
+		name: "static",
+		f: func() bool {
+			return d.synced.Load()
+		},
+	}
 }
 
 func (d *static[T]) Set(now *T) {
@@ -147,6 +156,10 @@ type collectionAdapter[T any] struct {
 	c Collection[T]
 }
 
+func (c collectionAdapter[T]) MarkSynced() {
+	c.c.(*static[T]).synced.Store(true)
+}
+
 func (c collectionAdapter[T]) Set(t *T) {
 	c.c.(*static[T]).Set(t)
 }
@@ -175,7 +188,7 @@ func NewSingleton[O any](hf TransformationEmpty[O], opts ...CollectionOption) Si
 	// This is an internal construct exclusively for implementing the "Singleton" pattern.
 	// This is so we can represent a singleton (a func() *O) as a collection (a func(I) *O).
 	// dummyCollection just returns a single "I" that is ignored.
-	dummyCollection := NewStatic[dummyValue](&dummyValue{}).AsCollection()
+	dummyCollection := NewStatic[dummyValue](&dummyValue{}, true).AsCollection()
 	col := NewCollection[dummyValue, O](dummyCollection, func(ctx HandlerContext, _ dummyValue) *O {
 		return hf(ctx)
 	}, opts...)
@@ -185,7 +198,7 @@ func NewSingleton[O any](hf TransformationEmpty[O], opts ...CollectionOption) Si
 // NewManyFromNothing is a niche Collection type that doesn't have any input dependencies. This is useful where things
 // only rely on out-of-band data via RecomputeTrigger, for instance.
 func NewManyFromNothing[O any](hf TransformationEmptyToMulti[O], opts ...CollectionOption) Collection[O] {
-	dummyCollection := NewStatic[dummyValue](&dummyValue{}).AsCollection()
+	dummyCollection := NewStatic[dummyValue](&dummyValue{}, true).AsCollection()
 	col := NewManyCollection[dummyValue, O](dummyCollection, func(ctx HandlerContext, _ dummyValue) []O {
 		return hf(ctx)
 	}, opts...)

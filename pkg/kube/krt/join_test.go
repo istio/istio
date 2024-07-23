@@ -33,9 +33,9 @@ import (
 )
 
 func TestJoinCollection(t *testing.T) {
-	c1 := krt.NewStatic[Named](nil)
-	c2 := krt.NewStatic[Named](nil)
-	c3 := krt.NewStatic[Named](nil)
+	c1 := krt.NewStatic[Named](nil, true)
+	c2 := krt.NewStatic[Named](nil, true)
+	c3 := krt.NewStatic[Named](nil, true)
 	j := krt.JoinCollection([]krt.Collection[Named]{c1.AsCollection(), c2.AsCollection(), c3.AsCollection()})
 	last := atomic.NewString("")
 	j.Register(func(o krt.Event[Named]) {
@@ -82,7 +82,7 @@ func TestCollectionJoin(t *testing.T) {
 		Named:   Named{"namespace", "name-static"},
 		Labeled: Labeled{map[string]string{"app": "foo"}},
 		IP:      "9.9.9.9",
-	})
+	}, true)
 	SimpleServices := SimpleServiceCollection(services)
 	SimpleServiceEntries := SimpleServiceCollectionFromEntries(serviceEntries)
 	AllServices := krt.JoinCollection([]krt.Collection[SimpleService]{SimpleServices, SimpleServiceEntries})
@@ -181,7 +181,7 @@ func TestCollectionJoinSync(t *testing.T) {
 		Named:   Named{"namespace", "name-static"},
 		Labeled: Labeled{map[string]string{"app": "foo"}},
 		IP:      "9.9.9.9",
-	})
+	}, true)
 	AllPods := krt.JoinCollection([]krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection()})
 	assert.Equal(t, AllPods.Synced().WaitUntilSynced(stop), true)
 	// Assert Equal -- not EventuallyEqual -- to ensure our WaitForCacheSync is proper
