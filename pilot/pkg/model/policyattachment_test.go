@@ -21,6 +21,7 @@ import (
 
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -43,6 +44,11 @@ func TestPolicyMatcher(t *testing.T) {
 		Group: gvk.Service.Group,
 		Kind:  gvk.Service.Kind,
 		Name:  "sample-svc",
+	}
+	serviceEntryTargetRef := &v1beta1.PolicyTargetReference{
+		Group: gvk.ServiceEntry.Group,
+		Kind:  gvk.ServiceEntry.Kind,
+		Name:  "sample-svc-entry",
 	}
 	sampleSelector := &v1beta1.WorkloadSelector{
 		MatchLabels: labels.Instance{
@@ -86,8 +92,19 @@ func TestPolicyMatcher(t *testing.T) {
 			"app":                      "my-app",
 			constants.GatewayNameLabel: "sample-waypoint",
 		},
-		IsWaypoint: true,
-		Service:    "sample-svc",
+		IsWaypoint:      true,
+		Service:         "sample-svc",
+		ServiceRegistry: provider.Kubernetes,
+	}
+	serviceEntryTarget := WorkloadPolicyMatcher{
+		Namespace: "default",
+		WorkloadLabels: labels.Instance{
+			"app":                      "my-app",
+			constants.GatewayNameLabel: "sample-waypoint",
+		},
+		IsWaypoint:      true,
+		Service:         "sample-svc-entry",
+		ServiceRegistry: provider.External,
 	}
 	tests := []struct {
 		name                   string
@@ -262,6 +279,28 @@ func TestPolicyMatcher(t *testing.T) {
 			},
 			enableSelectorPolicies: false,
 			expected:               true,
+		},
+		{
+			name:      "service entry attached policy",
+			selection: serviceEntryTarget,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{serviceEntryTargetRef},
+			},
+			enableSelectorPolicies: false,
+			expected:               true,
+		},
+		{
+			name:      "service entry policy selecting",
+			selection: serviceTarget,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{{
+					Group: gvk.ServiceEntry.Group,
+					Kind:  gvk.ServiceEntry.Kind,
+					Name:  "sample-svc",
+				}},
+			},
+			enableSelectorPolicies: false,
+			expected:               false,
 		},
 	}
 
