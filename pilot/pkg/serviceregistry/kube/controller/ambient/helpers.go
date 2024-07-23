@@ -81,9 +81,13 @@ func (a *index) getWaypointAddress(w *Waypoint) *workloadapi.GatewayAddress {
 	// probably overly cautious... I don't think the ambient index impl counts something with zero addresses as waypoint
 	if w != nil && len(w.Addresses) >= 1 {
 		return &workloadapi.GatewayAddress{
-			Destination: &workloadapi.GatewayAddress_Address{
+			Destination: &workloadapi.GatewayAddress_Hostname{
+				Hostname: &workloadapi.NamespacedHostname{
+					Namespace: w.Namespace,
+					Hostname:  fmt.Sprintf("%s.%s.svc.cluster.local", w.Name, w.Namespace),
+				},
 				// probably use from Cidr instead?
-				Address: a.toNetworkAddressFromIP(w.Addresses[0]),
+				// Address: a.toNetworkAddressFromIP(w.Addresses[0]),
 			},
 			// TODO: look up the HBONE port instead of hardcoding it
 			HboneMtlsPort: 15008,
