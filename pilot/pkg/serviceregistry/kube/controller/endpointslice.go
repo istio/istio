@@ -263,7 +263,9 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 		// If the service is with selector, k8s will manually generate two ip families endpointslices,
 		// we ignore ipv6 family address to prevent generating duplicate IstioEndpoints.
 		if svcCore.Spec.Selector != nil {
-			if epSlice.AddressType == v1.AddressTypeIPv6 {
+			// For dual stack service, if a endpoint target is a pod skip processing ipv6
+			if len(epSlice.Endpoints) > 0 && epSlice.Endpoints[0].TargetRef != nil &&
+				epSlice.Endpoints[0].TargetRef.Kind == "Pod" && epSlice.AddressType == v1.AddressTypeIPv6 {
 				return
 			}
 		}

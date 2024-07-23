@@ -287,7 +287,7 @@ func TestUpdateEndpointCacheForSlice(t *testing.T) {
 	}
 }
 
-func TestMe(t *testing.T) {
+func TestUpdateEndpointCacheForSliceWithMultiAddrs(t *testing.T) {
 	const (
 		ns      = "nsa"
 		svcName = "svc1"
@@ -447,8 +447,7 @@ func TestMe(t *testing.T) {
 					}},
 				},
 			},
-			// TODO: this should not duplicate 2001:1::1
-			assertion: [][]string{{"128.0.0.1", "2001:1::1"}, {"129.0.0.1"}, {"2001:1::1"}, {"2001:1::42"}},
+			assertion: [][]string{{"128.0.0.1"}, {"129.0.0.1"}, {"2001:1::1"}, {"2001:1::42"}},
 		},
 		{
 			name:    "mixed manual and selector",
