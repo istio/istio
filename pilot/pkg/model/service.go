@@ -139,6 +139,11 @@ func (s *Service) CmpOpts() []cmp.Option {
 	return serviceCmpOpts
 }
 
+func (s *Service) SupportsDrainingEndpoints() bool {
+	return (features.PersistentSessionLabel != "" && s.Attributes.Labels[features.PersistentSessionLabel] != "") ||
+		(features.PersistentSessionHeaderLabel != "" && s.Attributes.Labels[features.PersistentSessionHeaderLabel] != "")
+}
+
 // Resolution indicates how the service instances need to be resolved before routing traffic.
 type Resolution int
 

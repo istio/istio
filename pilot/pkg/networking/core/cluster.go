@@ -329,7 +329,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// if the service uses persistent sessions, override status allows
 			// DRAINING endpoints to be kept as 'UNHEALTHY' coarse status in envoy.
 			// Will not be used for normal traffic, only when explicit override.
-			if service.Attributes.Labels[features.PersistentSessionLabel] != "" {
+			if service.SupportsDrainingEndpoints() {
 				// Default is UNKNOWN, HEALTHY, DEGRADED. Without this change, Envoy will drop endpoints with any other
 				// status received in EDS. With this setting, the DRAINING and UNHEALTHY endpoints are kept - both marked
 				// as UNHEALTHY ('coarse state'), which is what will show in config dumps.

@@ -234,9 +234,7 @@ func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus 
 		return model.Healthy
 	}
 
-	if features.PersistentSessionLabel != "" &&
-		svc != nil &&
-		svc.Attributes.Labels[features.PersistentSessionLabel] != "" &&
+	if svc != nil && svc.SupportsDrainingEndpoints() &&
 		(e.Conditions.Serving == nil || *e.Conditions.Serving) &&
 		(e.Conditions.Terminating == nil || *e.Conditions.Terminating) {
 		return model.Draining

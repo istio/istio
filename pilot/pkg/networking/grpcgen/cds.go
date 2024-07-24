@@ -23,7 +23,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	corexds "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -131,7 +130,7 @@ func (b *clusterBuilder) build() []*cluster.Cluster {
 	var defaultCluster *cluster.Cluster
 	if b.filter.Contains(b.defaultClusterName) {
 		defaultCluster = edsCluster(b.defaultClusterName)
-		if b.svc.Attributes.Labels[features.PersistentSessionLabel] != "" {
+		if b.svc.SupportsDrainingEndpoints() {
 			// see core/v1alpha3/cluster.go
 			defaultCluster.CommonLbConfig.OverrideHostStatus = &core.HealthStatusSet{
 				Statuses: []core.HealthStatus{
