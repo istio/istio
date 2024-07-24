@@ -462,11 +462,6 @@ func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.S
 		needsFullPush = c.updateServiceNodePortAddresses(currConv)
 	}
 
-	// For ExternalName, we need to update the EndpointIndex, as we will store endpoints just based on the Service.
-	if !features.EnableExternalNameAlias && curr != nil && curr.Spec.Type == v1.ServiceTypeExternalName {
-		updateEDSCache = true
-	}
-
 	c.Lock()
 	prevConv := c.servicesMap[currConv.Hostname]
 	c.servicesMap[currConv.Hostname] = currConv
@@ -504,9 +499,6 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		fep := c.collectWorkloadInstanceEndpoints(svc)
 		endpoints = append(endpoints, fep...)
-	}
-	if !features.EnableExternalNameAlias {
-		endpoints = append(endpoints, kube.ExternalNameEndpoints(svc)...)
 	}
 	return endpoints
 }

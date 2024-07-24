@@ -315,44 +315,6 @@ func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]
 	return matchHost, matchValue, found
 }
 
-// OldestMatchingHost returns the oldest matching host for a given needle (whether specific or wildcarded)
-func OldestMatchingHost(needle host.Name, specific map[host.Name]config.Config, wildcard map[host.Name]config.Config) (host.Name, config.Config, bool) {
-	// The algorithm is a bit different than MostSpecificHostMatch. We can't short-circuit on the first
-	// match, regardless of whether it's specific or wildcarded. This is because we have to check the timestamp
-	// of all configs to make sure there's not an older matching one that we should use instead.
-
-	if needle.IsWildCarded() {
-		needle = needle[1:]
-	}
-
-	found := false
-	var matchHost host.Name
-	var matchValue config.Config
-	// exact match first
-	if v, ok := specific[needle]; ok {
-		found = true
-		matchHost = needle
-		matchValue = v
-	}
-
-	// Even if we have a match, we still need to check the wildcard map to see if there's an older match
-	for h, v := range wildcard {
-		if strings.HasSuffix(string(needle), string(h[1:])) {
-			if !found {
-				matchHost = h
-				matchValue = wildcard[h]
-				found = true
-			} else if h.Matches(matchHost) && v.GetCreationTimestamp().Before(matchValue.GetCreationTimestamp()) {
-				// Only replace if the new match is more specific and older than the current match
-				matchHost = h
-				matchValue = v
-			}
-		}
-	}
-
-	return matchHost, matchValue, found
-}
-
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available)
 func sortConfigByCreationTime(configs []config.Config) []config.Config {
 	sort.Slice(configs, func(i, j int) bool {

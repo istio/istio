@@ -21,7 +21,6 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -1643,161 +1642,30 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 }
 
 func TestExternalNameServiceInstances(t *testing.T) {
-	t.Run("alias", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableExternalNameAlias, true)
-		controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
-		createExternalNameService(controller, "svc5", "nsA",
-			[]int32{1, 2, 3}, "foo.co", t, fx)
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+	createExternalNameService(controller, "svc5", "nsA",
+		[]int32{1, 2, 3}, "foo.co", t, fx)
 
-		converted := controller.Services()
-		assert.Equal(t, len(converted), 1)
+	converted := controller.Services()
+	assert.Equal(t, len(converted), 1)
 
-		eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
-		assert.Equal(t, len(eps), 0)
-		assert.Equal(t, converted[0].Attributes, model.ServiceAttributes{
-			ServiceRegistry:          "Kubernetes",
-			Name:                     "svc5",
-			Namespace:                "nsA",
-			Labels:                   nil,
-			ExportTo:                 nil,
-			LabelSelectors:           nil,
-			Aliases:                  nil,
-			ClusterExternalAddresses: nil,
-			ClusterExternalPorts:     nil,
-			K8sAttributes: model.K8sAttributes{
-				Type:         string(corev1.ServiceTypeExternalName),
-				ExternalName: "foo.co",
-			},
-		})
-	})
-	t.Run("no alias", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableExternalNameAlias, false)
-		controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
-		createExternalNameService(controller, "svc5", "nsA",
-			[]int32{1, 2, 3}, "foo.co", t, fx)
-
-		converted := controller.Services()
-		assert.Equal(t, len(converted), 1)
-		eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
-		assert.Equal(t, len(eps), 1)
-		assert.Equal(t, eps[0], &model.IstioEndpoint{
-			Addresses:             []string{"foo.co"},
-			ServicePortName:       "tcp-port-1",
-			EndpointPort:          1,
-			DiscoverabilityPolicy: model.AlwaysDiscoverable,
-		})
-	})
-}
-
-func TestController_ExternalNameService(t *testing.T) {
-	test.SetForTest(t, &features.EnableExternalNameAlias, false)
-	deleteWg := sync.WaitGroup{}
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		ServiceHandler: func(_, _ *model.Service, e model.Event) {
-			if e == model.EventDelete {
-				deleteWg.Done()
-			}
+	eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
+	assert.Equal(t, len(eps), 0)
+	assert.Equal(t, converted[0].Attributes, model.ServiceAttributes{
+		ServiceRegistry:          "Kubernetes",
+		Name:                     "svc5",
+		Namespace:                "nsA",
+		Labels:                   nil,
+		ExportTo:                 nil,
+		LabelSelectors:           nil,
+		Aliases:                  nil,
+		ClusterExternalAddresses: nil,
+		ClusterExternalPorts:     nil,
+		K8sAttributes: model.K8sAttributes{
+			Type:         string(corev1.ServiceTypeExternalName),
+			ExternalName: "foo.co",
 		},
 	})
-
-	k8sSvcs := []*corev1.Service{
-		createExternalNameService(controller, "svc1", "nsA",
-			[]int32{8080}, "test-app-1.test.svc."+defaultFakeDomainSuffix, t, fx),
-		createExternalNameService(controller, "svc2", "nsA",
-			[]int32{8081}, "test-app-2.test.svc."+defaultFakeDomainSuffix, t, fx),
-		createExternalNameService(controller, "svc3", "nsA",
-			[]int32{8082}, "test-app-3.test.pod."+defaultFakeDomainSuffix, t, fx),
-		createExternalNameService(controller, "svc4", "nsA",
-			[]int32{8083}, "g.co", t, fx),
-	}
-
-	expectedSvcList := []*model.Service{
-		{
-			Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port-8080",
-					Port:     8080,
-					Protocol: protocol.TCP,
-				},
-			},
-			MeshExternal: true,
-			Resolution:   model.DNSLB,
-		},
-		{
-			Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port-8081",
-					Port:     8081,
-					Protocol: protocol.TCP,
-				},
-			},
-			MeshExternal: true,
-			Resolution:   model.DNSLB,
-		},
-		{
-			Hostname: kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port-8082",
-					Port:     8082,
-					Protocol: protocol.TCP,
-				},
-			},
-			MeshExternal: true,
-			Resolution:   model.DNSLB,
-		},
-		{
-			Hostname: kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port-8083",
-					Port:     8083,
-					Protocol: protocol.TCP,
-				},
-			},
-			MeshExternal: true,
-			Resolution:   model.DNSLB,
-		},
-	}
-
-	svcList := controller.Services()
-	if len(svcList) != len(expectedSvcList) {
-		t.Fatalf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
-	}
-	for i, exp := range expectedSvcList {
-		if exp.Hostname != svcList[i].Hostname {
-			t.Fatalf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i+1, svcList[i].Hostname, exp.Hostname)
-		}
-		if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
-			t.Fatalf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i+1, svcList[i].Ports, exp.Ports)
-		}
-		if svcList[i].MeshExternal != exp.MeshExternal {
-			t.Fatalf("i=%v, MeshExternal==%v, should be %v: externalName='%s'", i+1, exp.MeshExternal, svcList[i].MeshExternal, k8sSvcs[i].Spec.ExternalName)
-		}
-		if svcList[i].Resolution != exp.Resolution {
-			t.Fatalf("i=%v, Resolution=='%v', should be '%v'", i+1, svcList[i].Resolution, exp.Resolution)
-		}
-		endpoints := GetEndpoints(svcList[i], controller.Endpoints)
-		assert.Equal(t, len(endpoints), 1)
-		assert.Equal(t, endpoints[0].FirstAddressOrNil(), k8sSvcs[i].Spec.ExternalName)
-	}
-
-	deleteWg.Add(len(k8sSvcs))
-	for _, s := range k8sSvcs {
-		deleteExternalNameService(controller, s.Name, s.Namespace, t, fx)
-	}
-	deleteWg.Wait()
-
-	svcList = controller.Services()
-	if len(svcList) != 0 {
-		t.Fatalf("Should have 0 services at this point")
-	}
-	for _, exp := range expectedSvcList {
-		endpoints := GetEndpoints(exp, controller.Endpoints)
-		assert.Equal(t, len(endpoints), 0)
-	}
 }
 
 func createEndpoints(t *testing.T, controller *FakeController, name, namespace string,
@@ -2063,11 +1931,7 @@ func createExternalNameService(controller *FakeController, name, namespace strin
 	}
 
 	clienttest.Wrap(t, controller.services).Create(service)
-	if features.EnableExternalNameAlias {
-		xdsEvents.MatchOrFail(t, xdsfake.Event{Type: "service"})
-	} else {
-		xdsEvents.MatchOrFail(t, xdsfake.Event{Type: "service"}, xdsfake.Event{Type: "eds cache"})
-	}
+	xdsEvents.MatchOrFail(t, xdsfake.Event{Type: "service"})
 	return service
 }
 
