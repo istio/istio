@@ -1,4 +1,4 @@
-NAMESPACE POD NAME                       IP          NODE            WAYPOINT PROTOCOL
+NAMESPACE POD NAME                       ADDRESS     NODE            WAYPOINT PROTOCOL
 default   details-v1-698d88b-krdw7       10.244.2.55 ambient-worker2 None     HBONE
 default   httpbin-7447985f87-t8hv7       10.244.1.40 ambient-worker  None     TCP
 default   productpage-v1-675fc69cf-kkrm2 10.244.2.56 ambient-worker2 None     HBONE

@@ -62,9 +62,10 @@ func (c *ConfigWriter) PrintServiceSummary(filter ServiceFilter) error {
 	fmt.Fprintln(w, "NAMESPACE\tSERVICE NAME\tSERVICE VIP\tWAYPOINT\tENDPOINTS")
 
 	for _, svc := range svcs {
-		var ip string
-		if len(svc.Addresses) > 0 {
-			_, ip, _ = strings.Cut(svc.Addresses[0], "/")
+		ips := []string{}
+		for _, addr := range svc.Addresses {
+			_, ip, _ := strings.Cut(addr, "/")
+			ips = append(ips, ip)
 		}
 		allEndpoints := len(svc.Endpoints)
 		healthyEndpoints := 0
@@ -82,7 +83,7 @@ func (c *ConfigWriter) PrintServiceSummary(filter ServiceFilter) error {
 
 		waypoint := serviceWaypointName(svc, zDump.Services)
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n",
-			svc.Namespace, svc.Name, ip, waypoint, endpoints)
+			svc.Namespace, svc.Name, strings.Join(ips, ","), waypoint, endpoints)
 	}
 	return w.Flush()
 }
