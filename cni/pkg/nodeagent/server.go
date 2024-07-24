@@ -108,8 +108,8 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		kubeClient: client,
 		isReady:    ready,
 		dataplane: &meshDataplane{
-			kubeClient: client.Kube(),
-			netServer:  netServer,
+			kubeClient:         client.Kube(),
+			netServer:          netServer,
 			hostIptables:       hostIptables,
 			hostsideProbeIPSet: set,
 		},
@@ -190,8 +190,8 @@ func (s *Server) Stop() {
 }
 
 type meshDataplane struct {
-	kubeClient kubernetes.Interface
-	netServer  MeshDataplane
+	kubeClient         kubernetes.Interface
+	netServer          MeshDataplane
 	hostIptables       *iptables.IptablesConfigurator
 	hostsideProbeIPSet ipset.IPSet
 }

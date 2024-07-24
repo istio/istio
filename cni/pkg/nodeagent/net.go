@@ -36,7 +36,7 @@ type NetServer struct {
 	podIptables        *iptables.IptablesConfigurator
 	podNs              PodNetnsFinder
 	// allow overriding for tests
-	netnsRunner        func(fdable NetnsFd, toRun func() error) error
+	netnsRunner func(fdable NetnsFd, toRun func() error) error
 }
 
 var _ MeshDataplane = &NetServer{}
