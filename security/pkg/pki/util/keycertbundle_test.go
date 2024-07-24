@@ -344,32 +344,32 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 // Test the root cert expiry timestamp can be extracted correctly.
 func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 	testCases := []struct {
-		NotBefore time.Time
-		TTL       time.Duration
+		notBefore time.Time
+		ttl       time.Duration
 	}{
 		{
-			NotBefore: time.Unix(0, 0),
-			TTL:       time.Minute,
+			notBefore: time.Unix(0, 0),
+			ttl:       time.Minute,
 		},
 		{
-			NotBefore: time.Unix(1721769413, 1000),
-			TTL:       time.Minute * 70,
+			notBefore: time.Unix(1721769413, 1000),
+			ttl:       time.Minute * 70,
 		},
 		{
-			NotBefore: time.Unix(2721769413, 1000),
-			TTL:       time.Minute * 10,
+			notBefore: time.Unix(2721769413, 1000),
+			ttl:       time.Minute * 10,
 		},
 		{
-			NotBefore: time.Unix((1<<31)-2, 1000),
-			TTL:       time.Minute * 10,
+			notBefore: time.Unix((1<<31)-2, 1000),
+			ttl:       time.Minute * 10,
 		},
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("Test case %d", i), func(t *testing.T) {
 			cert, key, err := GenCertKeyFromOptions(CertOptions{
 				Host:         "citadel.testing.istio.io",
-				NotBefore:    tc.NotBefore,
-				TTL:          tc.TTL,
+				NotBefore:    tc.notBefore,
+				TTL:          tc.ttl,
 				Org:          "MyOrg",
 				IsCA:         true,
 				IsSelfSigned: true,
@@ -383,9 +383,9 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 			kb := NewKeyCertBundleFromPem(cert, key, nil, cert)
 			// will return error if expired
 			expiryTimestamp, _ := kb.ExtractRootCertExpiryTimestamp()
-			expectedExpiryTimestamp := tc.NotBefore.Add(tc.TTL)
-            // One second toleration because x509 cert times have one second of precision
-            tol := time.Second
+			expectedExpiryTimestamp := tc.notBefore.Add(tc.ttl)
+			// One second toleration because x509 cert times have one second of precision
+			tol := time.Second
 			if expiryTimestamp.Sub(expectedExpiryTimestamp).Abs() > tol {
 				t.Errorf("Expected %d and %d to be almost equal", expiryTimestamp.Unix(), expectedExpiryTimestamp.Unix())
 			}
@@ -396,24 +396,24 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 // Test the CA cert expiry timestamp can be extracted correctly.
 func TestExtractCACertExpiryTimestamp(t *testing.T) {
 	testCases := []struct {
-		NotBefore time.Time
-		TTL       time.Duration
+		notBefore time.Time
+		ttl       time.Duration
 	}{
 		{
-			NotBefore: time.Unix(0, 0),
-			TTL:       time.Minute,
+			notBefore: time.Unix(0, 0),
+			ttl:       time.Minute,
 		},
 		{
-			NotBefore: time.Unix(1721769413, 1000),
-			TTL:       time.Minute * 70,
+			notBefore: time.Unix(1721769413, 1000),
+			ttl:       time.Minute * 70,
 		},
 		{
-			NotBefore: time.Unix(2721769413, 1000),
-			TTL:       time.Minute * 10,
+			notBefore: time.Unix(2721769413, 1000),
+			ttl:       time.Minute * 10,
 		},
 		{
-			NotBefore: time.Unix((1<<31)-2, 1000),
-			TTL:       time.Minute * 10,
+			notBefore: time.Unix((1<<31)-2, 1000),
+			ttl:       time.Minute * 10,
 		},
 	}
 	for i, tc := range testCases {
@@ -421,10 +421,10 @@ func TestExtractCACertExpiryTimestamp(t *testing.T) {
 			rootCertBytes, rootKeyBytes, err := GenCertKeyFromOptions(CertOptions{
 				Host:         "citadel.testing.istio.io",
 				Org:          "MyOrg",
-				NotBefore:    tc.NotBefore,
+				NotBefore:    tc.notBefore,
 				IsCA:         true,
 				IsSelfSigned: true,
-				TTL:          tc.TTL,
+				TTL:          tc.ttl,
 				RSAKeySize:   2048,
 			})
 			if err != nil {
@@ -444,8 +444,8 @@ func TestExtractCACertExpiryTimestamp(t *testing.T) {
 			caCertBytes, caCertKeyBytes, err := GenCertKeyFromOptions(CertOptions{
 				Host:         "citadel.testing.istio.io",
 				Org:          "MyOrg",
-				NotBefore:    tc.NotBefore,
-				TTL:          tc.TTL,
+				NotBefore:    tc.notBefore,
+				TTL:          tc.ttl,
 				IsServer:     true,
 				IsCA:         true,
 				IsSelfSigned: false,
@@ -463,9 +463,9 @@ func TestExtractCACertExpiryTimestamp(t *testing.T) {
 
 			expiryTimestamp, _ := kb.ExtractCACertExpiryTimestamp()
 			// Ignore error; it just indicates cert is expired
-			expectedExpiryTimestamp := tc.NotBefore.Add(tc.TTL)
-            // One second toleration because x509 cert times have one second of precision
-            tol := time.Second
+			expectedExpiryTimestamp := tc.notBefore.Add(tc.ttl)
+			// One second toleration because x509 cert times have one second of precision
+			tol := time.Second
 			if expiryTimestamp.Sub(expectedExpiryTimestamp).Abs() > tol {
 				t.Errorf("Expected %d and %d to be almost equal", expiryTimestamp.Unix(), expectedExpiryTimestamp.Unix())
 			}
@@ -540,9 +540,9 @@ func TestTimeBeforeCertExpires(t *testing.T) {
 				return
 			}
 
-            // One second toleration because x509 cert times have one second of precision
-            tol := time.Second
-			if (expiryDuration - tc.expectedTime).Abs() > tol  {
+			// One second toleration because x509 cert times have one second of precision
+			tol := time.Second
+			if (expiryDuration - tc.expectedTime).Abs() > tol {
 				t.Fatalf("expected time %v to be close to %v", tc.expectedTime, expiryDuration)
 			}
 		})

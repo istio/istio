@@ -159,8 +159,8 @@ func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
 	if len(keyCertBundle.GetCertChainPem()) == 0 {
 		return
 	}
-	certChainExpiry, err := keyCertBundle.ExtractCACertExpiryTimestamp()
 
+	certChainExpiry, err := keyCertBundle.ExtractCACertExpiryTimestamp()
 	if err != nil {
 		serverCaLog.Errorf("failed to extract CA cert expiry timestamp (error %v)", err)
 	}

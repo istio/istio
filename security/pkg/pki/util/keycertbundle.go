@@ -253,26 +253,24 @@ func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(certFile string, pri
 	return nil
 }
 
-// ExtractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
+// ExtractRootCertExpiryTimestamp returns when the root cert expires
 func (b *KeyCertBundle) ExtractRootCertExpiryTimestamp() (*time.Time, error) {
 	return extractCertExpiryTimestamp("root cert", b.GetRootCertPem())
 }
 
-// ExtractCACertExpiryTimestamp returns the unix timestamp when the cert chain becomes expires.
+// ExtractCACertExpiryTimestamp returns when the cert chains expires
 func (b *KeyCertBundle) ExtractCACertExpiryTimestamp() (*time.Time, error) {
 	return extractCertExpiryTimestamp("CA cert", b.GetCertChainPem())
 }
 
 // TimeBeforeCertExpires returns the time duration before the cert gets expired.
 // It returns an error if it failed to extract the cert expiration timestamp.
-// The returned time duration could be a negative value indicating the cert has already been expired.
 func TimeBeforeCertExpires(certBytes []byte, now time.Time) (time.Duration, error) {
 	if len(certBytes) == 0 {
 		return 0, fmt.Errorf("no certificate found")
 	}
 
 	certExpiryTimestamp, err := extractCertExpiryTimestamp("cert", certBytes)
-
 	if err != nil {
 		return 0, fmt.Errorf("failed to extract cert expiration timestamp: %v", err)
 	}
