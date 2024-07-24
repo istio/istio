@@ -439,11 +439,11 @@ func (ca *IstioCA) minTTL(defaultCertTTL time.Duration) (time.Duration, error) {
 		return 0, fmt.Errorf("failed to get cert chain TTL %s", err.Error())
 	}
 
-	if certChainExpiration.Seconds() <= 0 {
+	if certChainExpiration <= 0 {
 		return 0, fmt.Errorf("cert chain has expired")
 	}
 
-	if defaultCertTTL.Seconds() > certChainExpiration.Seconds() {
+	if defaultCertTTL > certChainExpiration {
 		return certChainExpiration, nil
 	}
 

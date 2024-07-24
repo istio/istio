@@ -343,58 +343,51 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 
 // Test the root cert expiry timestamp can be extracted correctly.
 func TestExtractRootCertExpiryTimestamp(t *testing.T) {
-	t0 := time.Now()
-	cert, key, err := GenCertKeyFromOptions(CertOptions{
-		Host:         "citadel.testing.istio.io",
-		NotBefore:    t0,
-		TTL:          time.Minute,
-		Org:          "MyOrg",
-		IsCA:         true,
-		IsSelfSigned: true,
-		IsServer:     true,
-		RSAKeySize:   2048,
-	})
-	if err != nil {
-		t.Errorf("failed to gen cert for Citadel self signed cert %v", err)
-	}
-	kb, err := NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert)
-	if err != nil {
-		t.Errorf("failed to create key cert bundle: %v", err)
-	}
 	testCases := []struct {
-		name string
-		ttl  float64
-		time time.Time
+		NotBefore time.Time
+		TTL       time.Duration
 	}{
 		{
-			name: "ttl valid",
-			ttl:  30,
-			time: t0.Add(time.Second * 30),
+			NotBefore: time.Unix(0, 0),
+			TTL:       time.Minute,
 		},
 		{
-			name: "ttl almost expired",
-			ttl:  2,
-			time: t0.Add(time.Second * 58),
+			NotBefore: time.Unix(1721769413, 1000),
+			TTL:       time.Minute * 70,
 		},
 		{
-			name: "ttl just expired",
-			ttl:  0,
-			time: t0.Add(time.Second * 60),
+			NotBefore: time.Unix(2721769413, 1000),
+			TTL:       time.Minute * 10,
 		},
 		{
-			name: "ttl-invalid",
-			ttl:  -30,
-			time: t0.Add(time.Second * 90),
+			NotBefore: time.Unix((1<<31)-2, 1000),
+			TTL:       time.Minute * 10,
 		},
 	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("Test case %d", i), func(t *testing.T) {
+			cert, key, err := GenCertKeyFromOptions(CertOptions{
+				Host:         "citadel.testing.istio.io",
+				NotBefore:    tc.NotBefore,
+				TTL:          tc.TTL,
+				Org:          "MyOrg",
+				IsCA:         true,
+				IsSelfSigned: true,
+				IsServer:     true,
+				RSAKeySize:   2048,
+			})
+			if err != nil {
+				t.Errorf("failed to gen cert for Citadel self signed cert %v", err)
+			}
+			// Don't use NewVerifiedKeyCertBundleFromPem because we want to test expired key bundles too
+			kb := NewKeyCertBundleFromPem(cert, key, nil, cert)
+			// will return error if expired
 			expiryTimestamp, _ := kb.ExtractRootCertExpiryTimestamp()
-			// Ignore error; it just indicates cert is expired which we check via `tc.ttl`
-
-			sec := expiryTimestamp - float64(tc.time.Unix())
-			if sec != tc.ttl {
-				t.Fatalf("expected ttl %v, got %v", tc.ttl, sec)
+			expectedExpiryTimestamp := tc.NotBefore.Add(tc.TTL)
+            // One second toleration because x509 cert times have one second of precision
+            tol := time.Second
+			if expiryTimestamp.Sub(expectedExpiryTimestamp).Abs() > tol {
+				t.Errorf("Expected %d and %d to be almost equal", expiryTimestamp.Unix(), expectedExpiryTimestamp.Unix())
 			}
 		})
 	}
@@ -402,86 +395,79 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 
 // Test the CA cert expiry timestamp can be extracted correctly.
 func TestExtractCACertExpiryTimestamp(t *testing.T) {
-	t0 := time.Now()
-	rootCertBytes, rootKeyBytes, err := GenCertKeyFromOptions(CertOptions{
-		Host:         "citadel.testing.istio.io",
-		Org:          "MyOrg",
-		NotBefore:    t0,
-		IsCA:         true,
-		IsSelfSigned: true,
-		TTL:          time.Hour,
-		RSAKeySize:   2048,
-	})
-	if err != nil {
-		t.Errorf("failed to gen root cert for Citadel self signed cert %v", err)
-	}
-
-	rootCert, err := ParsePemEncodedCertificate(rootCertBytes)
-	if err != nil {
-		t.Errorf("failed to parsing pem for root cert %v", err)
-	}
-
-	rootKey, err := ParsePemEncodedKey(rootKeyBytes)
-	if err != nil {
-		t.Errorf("failed to parsing pem for root key cert %v", err)
-	}
-
-	caCertBytes, caCertKeyBytes, err := GenCertKeyFromOptions(CertOptions{
-		Host:         "citadel.testing.istio.io",
-		Org:          "MyOrg",
-		NotBefore:    t0,
-		TTL:          time.Second * 60,
-		IsServer:     true,
-		IsCA:         true,
-		IsSelfSigned: false,
-		RSAKeySize:   2048,
-		SignerCert:   rootCert,
-		SignerPriv:   rootKey,
-	})
-	if err != nil {
-		t.Fatalf("failed to gen CA cert for Citadel self signed cert %v", err)
-	}
-
-	kb, err := NewVerifiedKeyCertBundleFromPem(
-		caCertBytes, caCertKeyBytes, caCertBytes, rootCertBytes)
-	if err != nil {
-		t.Fatalf("failed to create key cert bundle: %v", err)
-	}
-
 	testCases := []struct {
-		name string
-		ttl  float64
-		time time.Time
+		NotBefore time.Time
+		TTL       time.Duration
 	}{
 		{
-			name: "ttl valid",
-			ttl:  30,
-			time: t0.Add(time.Second * 30),
+			NotBefore: time.Unix(0, 0),
+			TTL:       time.Minute,
 		},
 		{
-			name: "ttl almost expired",
-			ttl:  2,
-			time: t0.Add(time.Second * 58),
+			NotBefore: time.Unix(1721769413, 1000),
+			TTL:       time.Minute * 70,
 		},
 		{
-			name: "ttl just expired",
-			ttl:  0,
-			time: t0.Add(time.Second * 60),
+			NotBefore: time.Unix(2721769413, 1000),
+			TTL:       time.Minute * 10,
 		},
 		{
-			name: "ttl-invalid",
-			ttl:  -30,
-			time: t0.Add(time.Second * 90),
+			NotBefore: time.Unix((1<<31)-2, 1000),
+			TTL:       time.Minute * 10,
 		},
 	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			expiryTimestamp, _ := kb.ExtractCACertExpiryTimestamp()
-			// Ignore error; it just indicates cert is expired which we check via `tc.ttl`
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("Test case %d", i), func(t *testing.T) {
+			rootCertBytes, rootKeyBytes, err := GenCertKeyFromOptions(CertOptions{
+				Host:         "citadel.testing.istio.io",
+				Org:          "MyOrg",
+				NotBefore:    tc.NotBefore,
+				IsCA:         true,
+				IsSelfSigned: true,
+				TTL:          tc.TTL,
+				RSAKeySize:   2048,
+			})
+			if err != nil {
+				t.Errorf("failed to gen root cert for Citadel self signed cert %v", err)
+			}
 
-			sec := expiryTimestamp - float64(tc.time.Unix())
-			if sec != tc.ttl {
-				t.Fatalf("expected ttl %v, got %v", tc.ttl, sec)
+			rootCert, err := ParsePemEncodedCertificate(rootCertBytes)
+			if err != nil {
+				t.Errorf("failed to parsing pem for root cert %v", err)
+			}
+
+			rootKey, err := ParsePemEncodedKey(rootKeyBytes)
+			if err != nil {
+				t.Errorf("failed to parsing pem for root key cert %v", err)
+			}
+
+			caCertBytes, caCertKeyBytes, err := GenCertKeyFromOptions(CertOptions{
+				Host:         "citadel.testing.istio.io",
+				Org:          "MyOrg",
+				NotBefore:    tc.NotBefore,
+				TTL:          tc.TTL,
+				IsServer:     true,
+				IsCA:         true,
+				IsSelfSigned: false,
+				RSAKeySize:   2048,
+				SignerCert:   rootCert,
+				SignerPriv:   rootKey,
+			})
+			if err != nil {
+				t.Fatalf("failed to gen CA cert for Citadel self signed cert %v", err)
+			}
+
+			kb := NewKeyCertBundleFromPem(
+				caCertBytes, caCertKeyBytes, caCertBytes, rootCertBytes,
+			)
+
+			expiryTimestamp, _ := kb.ExtractCACertExpiryTimestamp()
+			// Ignore error; it just indicates cert is expired
+			expectedExpiryTimestamp := tc.NotBefore.Add(tc.TTL)
+            // One second toleration because x509 cert times have one second of precision
+            tol := time.Second
+			if expiryTimestamp.Sub(expectedExpiryTimestamp).Abs() > tol {
+				t.Errorf("Expected %d and %d to be almost equal", expiryTimestamp.Unix(), expectedExpiryTimestamp.Unix())
 			}
 		})
 	}
@@ -544,7 +530,7 @@ func TestTimeBeforeCertExpires(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			time, err := TimeBeforeCertExpires(tc.cert, tc.timeNow)
+			expiryDuration, err := TimeBeforeCertExpires(tc.cert, tc.timeNow)
 			if err != nil {
 				if tc.expectedErr == nil {
 					t.Fatalf("Unexpected error: %v", err)
@@ -554,8 +540,10 @@ func TestTimeBeforeCertExpires(t *testing.T) {
 				return
 			}
 
-			if time != tc.expectedTime {
-				t.Fatalf("expected time %v, got %v", tc.expectedTime, time)
+            // One second toleration because x509 cert times have one second of precision
+            tol := time.Second
+			if (expiryDuration - tc.expectedTime).Abs() > tol  {
+				t.Fatalf("expected time %v to be close to %v", tc.expectedTime, expiryDuration)
 			}
 		})
 	}
