@@ -23,7 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/pkg/slices"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
@@ -41,10 +40,7 @@ type NetServer struct {
 
 var _ MeshDataplane = &NetServer{}
 
-func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache,
-	hostIptables *iptables.IptablesConfigurator, podIptables *iptables.IptablesConfigurator, podNs PodNetnsFinder,
-	probeSet ipset.IPSet,
-) *NetServer {
+func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, podIptables *iptables.IptablesConfigurator, podNs PodNetnsFinder) *NetServer {
 	return &NetServer{
 		ztunnelServer:      ztunnelServer,
 		currentPodSnapshot: podNsMap,

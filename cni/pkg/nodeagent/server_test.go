@@ -24,15 +24,15 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/sys/unix"
-	"istio.io/istio/cni/pkg/ipset"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/util/assert"
-	"k8s.io/client-go/kubernetes"
 )
 
 func TestMeshDataplaneAddsAnnotationOnAdd(t *testing.T) {
@@ -315,7 +315,7 @@ func TestMeshDataplaneAddPodToHostNSIPSets(t *testing.T) {
 }
 
 func TestMeshDataplaneAddPodToHostNSIPSetsV6(t *testing.T) {
-	pod := buildConvincingPod(false)
+	pod := buildConvincingPod(true)
 
 	fakeCtx := context.Background()
 	server := &fakeServer{}
@@ -331,7 +331,7 @@ func TestMeshDataplaneAddPodToHostNSIPSetsV6(t *testing.T) {
 
 	fakeIPSetDeps.On("addIP",
 		"foo-v6",
-		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"),
+		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164"),
 		ipProto,
 		podUID,
 		false,
@@ -339,13 +339,13 @@ func TestMeshDataplaneAddPodToHostNSIPSetsV6(t *testing.T) {
 
 	fakeIPSetDeps.On("addIP",
 		"foo-v6",
-		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164"),
+		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3165"),
 		ipProto,
 		podUID,
 		false,
 	).Return(nil)
 
-	podIPs := []netip.Addr{netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"), netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")}
+	podIPs := []netip.Addr{netip.MustParseAddr(pod.Status.PodIPs[0].IP), netip.MustParseAddr(pod.Status.PodIPs[1].IP)}
 	_, err := m.addPodToHostNSIpset(pod, podIPs)
 	assert.NoError(t, err)
 

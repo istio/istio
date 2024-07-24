@@ -100,7 +100,7 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 	}
 
 	podNetns := NewPodNetnsProcFinder(os.DirFS(filepath.Join(pconstants.HostMountsPath, "proc")))
-	netServer := newNetServer(ztunnelServer, podNsMap, hostIptables, podIptables, podNetns, set)
+	netServer := newNetServer(ztunnelServer, podNsMap, podIptables, podNetns)
 
 	// Set some defaults
 	s := &Server{
@@ -216,7 +216,6 @@ func (s *meshDataplane) Stop() {
 }
 
 func (s *meshDataplane) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {
-
 	if err := s.syncHostIPSets(ambientPods); err != nil {
 		log.Errorf("failed to sync host IPset: %v", err)
 		return err

@@ -23,13 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/util/assert"
@@ -51,23 +49,16 @@ type netTestFixture struct {
 	ztunnelServer        *fakeZtunnel
 	iptablesConfigurator *iptables.IptablesConfigurator
 	nlDeps               *fakeIptablesDeps
-	ipsetDeps            *ipset.MockedIpsetDeps
 }
 
 func getTestFixure(ctx context.Context) netTestFixture {
-	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
-	return getTestFixureWithIPSet(ctx, set, fakeIPSetDeps)
-}
-
-func getTestFixureWithIPSet(ctx context.Context, set ipset.IPSet, fakeIPSetDeps *ipset.MockedIpsetDeps) netTestFixture {
 	podNsMap := newPodNetnsCache(openNsTestOverride)
 	nlDeps := &fakeIptablesDeps{}
 	iptablesConfigurator, _, _ := iptables.NewIptablesConfigurator(nil, &dependencies.DependenciesStub{}, &dependencies.DependenciesStub{}, nlDeps)
 
 	ztunnelServer := &fakeZtunnel{}
 
-	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, iptablesConfigurator, NewPodNetnsProcFinder(fakeFs()), set)
+	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, NewPodNetnsProcFinder(fakeFs()))
 
 	netServer.netnsRunner = func(fdable NetnsFd, toRun func() error) error {
 		return toRun()
@@ -79,7 +70,6 @@ func getTestFixureWithIPSet(ctx context.Context, set ipset.IPSet, fakeIPSetDeps 
 		ztunnelServer:        ztunnelServer,
 		iptablesConfigurator: iptablesConfigurator,
 		nlDeps:               nlDeps,
-		ipsetDeps:            fakeIPSetDeps,
 	}
 }
 
@@ -155,14 +145,6 @@ func TestServerAddPod(t *testing.T) {
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
 
-	fixture.ipsetDeps.On("addIP",
-		"foo-v4",
-		netip.MustParseAddr("99.9.9.9"),
-		uint8(unix.IPPROTO_TCP),
-		string(podMeta.UID),
-		false,
-	).Return(nil)
-
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "fakenetns")
 	assert.NoError(t, err)
 	assert.Equal(t, 1, ztunnelServer.addedPods.Load())
@@ -194,7 +176,6 @@ func TestServerRemovePod(t *testing.T) {
 	// make sure the uid was taken from cache and netns closed
 	netns := fixture.podNsMap.Take(string(pod.UID))
 	assert.Equal(t, nil, netns)
-	fixture.ipsetDeps.AssertExpectations(t)
 
 	// run gc to clean up ns:
 
@@ -237,7 +218,6 @@ func TestServerRemovePodAlwaysRemovesIPSetEntryEvenOnFail(t *testing.T) {
 	// make sure the uid was taken from cache and netns closed
 	netns := fixture.podNsMap.Take(string(pod.UID))
 	assert.Equal(t, nil, netns)
-	fixture.ipsetDeps.AssertExpectations(t)
 
 	// run gc to clean up ns:
 
@@ -303,7 +283,6 @@ func TestServerAddPodWithNoNetns(t *testing.T) {
 	}
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
-	expectPodAddedToIPSet(fixture.ipsetDeps, podIP, podMeta)
 
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "")
 	assert.NoError(t, err)
@@ -327,7 +306,6 @@ func TestReturnsPartialErrorOnZtunnelFail(t *testing.T) {
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
 
-	expectPodAddedToIPSet(fixture.ipsetDeps, podIP, podMeta)
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "faksens")
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 1)
 	if !errors.Is(err, ErrPartialAdd) {
@@ -353,7 +331,6 @@ func TestDoesntReturnPartialErrorOnIptablesFail(t *testing.T) {
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
 
-	expectPodAddedToIPSet(fixture.ipsetDeps, podIP, podMeta)
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "faksens")
 	// no calls to ztunnel if iptables failed
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 0)
@@ -377,10 +354,6 @@ func TestConstructInitialSnap(t *testing.T) {
 		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
 	}
 	pod := &corev1.Pod{ObjectMeta: podMeta}
-
-	fixture.ipsetDeps.On("listEntriesByIP",
-		"foo-v4",
-	).Return([]netip.Addr{}, nil)
 
 	err := netServer.ConstructInitialSnapshot([]*corev1.Pod{pod})
 	assert.NoError(t, err)
