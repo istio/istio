@@ -6,10 +6,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.6.3
+    helm.sh/chart: loki-6.7.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/version: "3.1.0"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
 ---
@@ -20,10 +20,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.6.3
+    helm.sh/chart: loki-6.7.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/version: "3.1.0"
     app.kubernetes.io/managed-by: Helm
 data:
   config.yaml: |
@@ -39,7 +39,7 @@ data:
           rules_directory: /var/loki/rules
     frontend:
       scheduler_address: ""
-      tail_proxy_url: http://loki-querier.istio-system.svc.cluster.local:3100
+      tail_proxy_url: ""
     frontend_worker:
       scheduler_address: ""
     index_gateway:
@@ -98,10 +98,10 @@ metadata:
   name: loki-runtime
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.6.3
+    helm.sh/chart: loki-6.7.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/version: "3.1.0"
     app.kubernetes.io/managed-by: Helm
 data:
   runtime-config.yaml: |
@@ -114,10 +114,10 @@ metadata:
   name: loki-memberlist
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.6.3
+    helm.sh/chart: loki-6.7.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/version: "3.1.0"
     app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
@@ -139,10 +139,10 @@ metadata:
   name: loki-headless
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.6.3
+    helm.sh/chart: loki-6.7.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/version: "3.1.0"
     app.kubernetes.io/managed-by: Helm
     variant: headless
     prometheus.io/service-monitor: "false"
@@ -165,10 +165,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.6.3
+    helm.sh/chart: loki-6.7.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/version: "3.1.0"
     app.kubernetes.io/managed-by: Helm
   annotations:
 spec:
@@ -194,10 +194,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.6.3
+    helm.sh/chart: loki-6.7.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/version: "3.1.0"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: single-binary
     app.kubernetes.io/part-of: memberlist
@@ -221,7 +221,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 9985254dee51d616c56718f21b010a70c65f6eb0c2f6df4255259cfe23da533f
+        checksum/config: b940f8b0bd9e92b8d1c29ad11ccec7fd4d024b36486e4403748cdfb3face343e
       labels:
         app.kubernetes.io/name: loki
         app.kubernetes.io/instance: loki
@@ -240,7 +240,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: loki
-          image: docker.io/grafana/loki:3.0.0
+          image: docker.io/grafana/loki:3.1.0
           imagePullPolicy: IfNotPresent
           args:
             - -config.file=/etc/loki/config/config.yaml

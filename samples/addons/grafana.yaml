@@ -5,10 +5,10 @@ kind: ServiceAccount
 automountServiceAccountToken: false
 metadata:
   labels:
-    helm.sh/chart: grafana-8.0.1
+    helm.sh/chart: grafana-8.3.5
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.0.0"
+    app.kubernetes.io/version: "11.1.0"
     app.kubernetes.io/managed-by: Helm
   name: grafana
   namespace: istio-system
@@ -20,10 +20,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-8.0.1
+    helm.sh/chart: grafana-8.3.5
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.0.0"
+    app.kubernetes.io/version: "11.1.0"
     app.kubernetes.io/managed-by: Helm
 data:
   
@@ -87,10 +87,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-8.0.1
+    helm.sh/chart: grafana-8.3.5
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.0.0"
+    app.kubernetes.io/version: "11.1.0"
     app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
@@ -110,10 +110,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-8.0.1
+    helm.sh/chart: grafana-8.3.5
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.0.0"
+    app.kubernetes.io/version: "11.1.0"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -141,7 +141,7 @@ spec:
       enableServiceLinks: true
       containers:
         - name: grafana
-          image: "docker.io/grafana/grafana:11.0.0"
+          image: "docker.io/grafana/grafana:11.1.0"
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
