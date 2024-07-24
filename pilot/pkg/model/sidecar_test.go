@@ -645,6 +645,19 @@ var (
 		},
 	}
 
+	configs24 = &config.Config{
+		Meta: config.Meta{
+			Name: "virtual-service-destinations-matching-http-source-namespace",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"foo/virtualbar"},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{
 			Hostname: "bar",
@@ -1168,6 +1181,33 @@ var (
 		},
 	}
 
+	services27 = []*Service{
+		{
+			Hostname: "baz.svc.cluster.local",
+			Attributes: ServiceAttributes{
+				Name:            "baz",
+				Namespace:       "ns1",
+				ServiceRegistry: provider.Kubernetes,
+			},
+		},
+		{
+			Hostname: "foo.svc.cluster.local",
+			Attributes: ServiceAttributes{
+				Name:            "foo",
+				Namespace:       "ns1",
+				ServiceRegistry: provider.Kubernetes,
+			},
+		},
+		{
+			Hostname: "bar.svc.cluster.local",
+			Attributes: ServiceAttributes{
+				Name:            "baz",
+				Namespace:       "ns2",
+				ServiceRegistry: provider.Kubernetes,
+			},
+		},
+	}
+
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -1270,6 +1310,58 @@ var (
 							{
 								Destination: &networking.Destination{
 									Host: "baz.svc.cluster.local", Port: &networking.PortSelector{Number: 7000},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	virtualServices6 = []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "virtualbar",
+				Namespace:        "foo",
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"virtualbar"},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								SourceNamespace: "mynamespace",
+							},
+						},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "baz.svc.cluster.local",
+								},
+							},
+						},
+					},
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								SourceNamespace: "foo",
+							},
+						},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "foo.svc.cluster.local",
+								},
+							},
+						},
+					},
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "bar.svc.cluster.local",
 								},
 							},
 						},
@@ -2003,6 +2095,21 @@ func TestCreateSidecarScope(t *testing.T) {
 				{
 					Hostname: "baz.svc.cluster.local",
 					Ports:    port7443,
+				},
+			},
+			nil,
+		},
+		{
+			"virtual-service-6-match-source-namespace",
+			configs24,
+			services27,
+			virtualServices6,
+			[]*Service{
+				{
+					Hostname: "baz.svc.cluster.local",
+				},
+				{
+					Hostname: "bar.svc.cluster.local",
 				},
 			},
 			nil,

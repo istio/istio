@@ -750,7 +750,8 @@ func (ps *PushContext) UpdateMetrics() {
 }
 
 // It is called after virtual service short host name is resolved to FQDN
-func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Set[int] {
+// It filters virtualDestinations by using configNamespace, when the value is empty string, then filtering is disabled
+func virtualServiceDestinations(v *networking.VirtualService, configNamespace string) map[string]sets.Set[int] {
 	if v == nil {
 		return nil
 	}
@@ -768,6 +769,20 @@ func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Se
 	}
 
 	for _, h := range v.Http {
+		namespaceMatched := true
+		for _, m := range h.Match {
+			if m.SourceNamespace != "" {
+				if m.SourceNamespace == configNamespace {
+					namespaceMatched = true
+					break
+				} else {
+					namespaceMatched = false
+				}
+			}
+		}
+		if !namespaceMatched {
+			continue
+		}
 		for _, r := range h.Route {
 			if r.Destination != nil {
 				addDestination(r.Destination.Host, r.Destination.GetPort())
@@ -1746,7 +1761,11 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				if gw == constants.IstioMeshGateway {
 					continue
 				}
-				for host := range virtualServiceDestinations(rule) {
+				gatewayNamespace := ns
+				if gwNs, _, found := strings.Cut(gw, "/"); found {
+					gatewayNamespace = gwNs
+				}
+				for host := range virtualServiceDestinations(rule, gatewayNamespace) {
 					sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
 				}
 			}
@@ -1754,7 +1773,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 
 		// For mesh virtual services, build a map of host -> referenced destinations
 		if features.EnableAmbientWaypoints && (len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway)) {
-			for host := range virtualServiceDestinations(rule) {
+			for host := range virtualServiceDestinations(rule, "") {
 				for _, rhost := range rule.Hosts {
 					if _, f := ps.virtualServiceIndex.referencedDestinations[rhost]; !f {
 						ps.virtualServiceIndex.referencedDestinations[rhost] = sets.New[string]()
