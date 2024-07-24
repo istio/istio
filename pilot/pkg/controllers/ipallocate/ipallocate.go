@@ -98,7 +98,7 @@ const (
 func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 	client := kclient.New[*networkingv1.ServiceEntry](c)
 	index := kclient.CreateIndex[netip.Addr, *networkingv1.ServiceEntry](client, func(serviceentry *networkingv1.ServiceEntry) []netip.Addr {
-		addresses := autoallocate.GetV2AddressesFromServiceEntry(serviceentry)
+		addresses := autoallocate.GetAddressesFromServiceEntry(serviceentry)
 		for _, addr := range serviceentry.Spec.Addresses {
 			a, err := netip.ParseAddr(addr)
 			if err != nil {
@@ -142,7 +142,7 @@ func (c *IPAllocator) populateControllerDatastructures() {
 		count++
 		owner := config.NamespacedName(serviceentry)
 		c.checkInSpecAddresses(serviceentry)
-		c.markUsedOrQueueConflict(autoallocate.GetV2AddressesFromServiceEntry(serviceentry), owner)
+		c.markUsedOrQueueConflict(autoallocate.GetAddressesFromServiceEntry(serviceentry), owner)
 	}
 
 	log.Debugf("discovered %v during warming", count)
@@ -269,7 +269,7 @@ func allAddresses(se *networkingv1.ServiceEntry) ([]netip.Addr, []netip.Addr) {
 	if se == nil {
 		return nil, nil
 	}
-	autoAssigned := autoallocate.GetV2AddressesFromServiceEntry(se)
+	autoAssigned := autoallocate.GetAddressesFromServiceEntry(se)
 	userAssigned := []netip.Addr{}
 
 	for _, a := range se.Spec.Addresses {
@@ -329,15 +329,20 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 		return nil, nil, nil
 	}
 
-	existingAddresses := autoallocate.GetV2AddressesFromServiceEntry(se)
+	existingAddresses := autoallocate.GetAddressesFromServiceEntry(se)
 	if len(existingAddresses) > 0 && !forcedReassign {
 		// this is likely a noop, but just to be safe we should check and potentially resolve conflict
 		c.markUsedOrQueueConflict(existingAddresses, config.NamespacedName(se))
 		return nil, nil, nil // nothing to patch
 	}
+
+	// TODO: DNM!! this is wrong becuase it hard assumes that no one ever adds/removes a host from SE... bad assumption
+
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
-	for _, a := range c.nextAddresses(config.NamespacedName(se)) {
-		assignedAddresses = append(assignedAddresses, apiv1alpha3.ServiceEntryAddress{Value: a.String()})
+	for _, host := range se.Spec.Hosts {
+		for _, a := range c.nextAddresses(config.NamespacedName(se)) {
+			assignedAddresses = append(assignedAddresses, apiv1alpha3.ServiceEntryAddress{Value: a.String(), Host: host})
+		}
 	}
 
 	replaceAddresses, err := json.Marshal([]jsonPatch{

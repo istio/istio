@@ -164,7 +164,7 @@ func TestIPAllocate(t *testing.T) {
 		},
 	)
 	getter := func() []string {
-		addr := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
+		addr := autoallocate.GetAddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
 		var res []string
 		for _, a := range addr {
 			res = append(res, a.String())
@@ -181,20 +181,20 @@ func TestIPAllocate(t *testing.T) {
 		1,
 		"assert that test SE still has its condition")
 	assert.Equal(t,
-		len(autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("opt-out", "boop"))),
+		len(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("opt-out", "boop"))),
 		0,
 		"assert that we did not did not assign addresses when use opted out")
 	assert.Equal(t,
-		len(autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("with-v4-address", "boop"))),
+		len(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("with-v4-address", "boop"))),
 		0,
 		"assert that we did not assign addresses when user supplied their own")
 	assert.Equal(t,
-		len(autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("with-v6-address", "boop"))),
+		len(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("with-v6-address", "boop"))),
 		0,
 		"assert that we did not assign addresses when user supplied their own")
 
 	// Testing conflict resolution
-	addr := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
+	addr := autoallocate.GetAddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
 	assert.Equal(t, len(addr), 2, "ensure we retrieved addresses to create a conflict with")
 	rig.se.Create(
 		&networkingv1alpha3.ServiceEntry{
@@ -236,7 +236,7 @@ func TestIPAllocate(t *testing.T) {
 
 	// let's generate an even worse conflict now
 	// this is almost certainly caused by some bug in, none the less test we can recover
-	conflictingAddresses := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
+	conflictingAddresses := autoallocate.GetAddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
 	assert.Equal(t, len(conflictingAddresses), 2, "ensure we retrieved addresses to create a conflict with")
 	conflictingStatusAddresses := []*v1alpha3.ServiceEntryAddress{}
 	for _, a := range conflictingAddresses {
@@ -272,7 +272,7 @@ func TestIPAllocate(t *testing.T) {
 
 	// assert that conflicts are resolved on the newer SE
 	assert.EventuallyEqual(t, func() []string {
-		addr := autoallocate.GetV2AddressesFromServiceEntry(rig.se.Get("status-conflict", "boop"))
+		addr := autoallocate.GetAddressesFromServiceEntry(rig.se.Get("status-conflict", "boop"))
 		var res []string
 		for _, a := range addr {
 			res = append(res, a.String())

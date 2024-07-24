@@ -157,10 +157,9 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 	// ShouldV2AutoAllocateIP already checks that there are no addresses in the spec however this is critical enough to likely be worth checking
 	// explicitly as well in case the logic changes. We never want to overwrite addresses in the spec if there are any
 	addresses := serviceEntry.Addresses
+	addressLookup := map[string][]netip.Addr{}
 	if serviceentry.ShouldV2AutoAllocateIPFromConfig(cfg) && len(addresses) == 0 {
-		addresses = slices.Map(serviceentry.GetV2AddressesFromConfig(cfg), func(a netip.Addr) string {
-			return a.String()
-		})
+		addressLookup = serviceentry.GetHostAddressesFromConfig(cfg)
 	}
 
 	creationTime := cfg.CreationTimestamp
@@ -204,9 +203,18 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 
 	hostAddresses := []*HostAddress{}
 	for _, hostname := range serviceEntry.Hosts {
-		if len(addresses) > 0 {
+		localAddresses := addresses
+		if len(localAddresses) == 0 {
+			// we have no user-assed addresses but we can check if we have auto-assigned addresses
+			if autoAddresses, ok := addressLookup[hostname]; ok {
+				for _, aa := range autoAddresses {
+					localAddresses = append(localAddresses, aa.String())
+				}
+			}
+		}
+		if len(localAddresses) > 0 {
 			ha := &HostAddress{hostname, []string{}}
-			for _, address := range addresses {
+			for _, address := range localAddresses {
 				// Check if addresses is an IP first because that is the most common case.
 				if netutil.IsValidIPAddress(address) {
 					ha.addresses = append(ha.addresses, address)

@@ -31,30 +31,39 @@ const (
 	IPAutoallocateStatusType = "ip-autoallocate"
 )
 
-func GetV2AddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) []netip.Addr {
+func GetHostAddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) map[string][]netip.Addr {
 	if se == nil {
-		return []netip.Addr{}
+		return map[string][]netip.Addr{}
 	}
-	return getV2AddressesFromServiceEntryStatus(&se.Status)
+	return getHostAddressesFromServiceEntryStatus(&se.Status)
 }
 
-func GetV2AddressesFromConfig(cfg config.Config) []netip.Addr {
+func GetAddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) []netip.Addr {
+	addresses := []netip.Addr{}
+	for _, v := range GetHostAddressesFromServiceEntry(se) {
+		addresses = append(addresses, v...)
+	}
+	return addresses
+}
+
+func GetHostAddressesFromConfig(cfg config.Config) map[string][]netip.Addr {
 	status, ok := cfg.Status.(*v1alpha3.ServiceEntryStatus)
 	if !ok {
-		return []netip.Addr{}
+		return map[string][]netip.Addr{}
 	}
-	return getV2AddressesFromServiceEntryStatus(status)
+	return getHostAddressesFromServiceEntryStatus(status)
 }
 
-func getV2AddressesFromServiceEntryStatus(status *v1alpha3.ServiceEntryStatus) []netip.Addr {
-	results := []netip.Addr{}
+func getHostAddressesFromServiceEntryStatus(status *v1alpha3.ServiceEntryStatus) map[string][]netip.Addr {
+	results := map[string][]netip.Addr{}
 	for _, addr := range status.GetAddresses() {
 		parsed, err := netip.ParseAddr(addr.GetValue())
 		if err != nil {
 			// strange, we should have written these so it probaby should parse but for now unreadable is unusable and we move on
 			continue
 		}
-		results = append(results, parsed)
+		host := addr.GetHost()
+		results[host] = append(results[host], parsed)
 	}
 	return results
 }
