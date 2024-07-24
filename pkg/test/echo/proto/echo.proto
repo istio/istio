@@ -83,6 +83,10 @@ message ForwardEchoRequest {
   // If set, each request will force a DNS lookup. Only applies if newConnectionPerRequest is set.
   bool forceDNSLookup = 23;
 
+  // force_ip_family will force a specific IP family to be used for DNS resolution only.
+  // Valid values: "tcp4", "tcp6".
+  string force_ip_family = 26;
+
   // HBONE communication settings. If provided, requests will be tunnelled.
   HBONE hbone = 24;
 

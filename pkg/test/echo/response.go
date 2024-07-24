@@ -62,8 +62,10 @@ type Response struct {
 	Cluster string
 	// IstioVersion for the Istio sidecar.
 	IstioVersion string
-	// IP is the requester's ip address
+	// IP is the client IP, as seen by the server.
 	IP string
+	// SourceIP is the client's source IP. This can differ from IP when there are multiple hops.
+	SourceIP string
 	// RawBody gives a map of all key/values in the body of the response.
 	RawBody         map[string]string
 	RequestHeaders  http.Header

@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -371,7 +370,7 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 }
 
 func TestWaypointDNS(t *testing.T) {
-	runTest := func(t framework.TestContext, check echo.Checker) {
+	runTest := func(t framework.TestContext, c echo.Checker) {
 		for _, src := range apps.All {
 			src := src
 			if !hboneClient(src) {
@@ -383,29 +382,32 @@ func TestWaypointDNS(t *testing.T) {
 				}
 				v4, v6 := getSupportedIPFamilies(t)
 				if v4 {
-					src.CallOrFail(t, echo.CallOptions{
-						To:      apps.MockExternal,
-						Address: "240.240.240.239",
-						HTTP: echo.HTTP{
-							Headers: http.Header{"Host": []string{apps.MockExternal.Config().DefaultHostHeader}},
-						},
-						Port:   echo.Port{Name: "http"},
-						Scheme: scheme.HTTP,
-						Count:  1,
-						Check:  check,
+					t.NewSubTest("v4").Run(func(t framework.TestContext) {
+						src.CallOrFail(t, echo.CallOptions{
+							To:            apps.MockExternal,
+							Address:       apps.MockExternal.Config().DefaultHostHeader,
+							ForceIPFamily: echo.ForceIPFamilyV4,
+							Port:          echo.Port{Name: "http"},
+							Scheme:        scheme.HTTP,
+							Count:         1,
+							Check:         check.And(c, check.DestinationIPv4(), check.SourceIPv4()),
+						})
 					})
 				}
 				if v6 {
-					src.CallOrFail(t, echo.CallOptions{
-						To:      apps.MockExternal,
-						Address: "2001:2::f0f0:239",
-						HTTP: echo.HTTP{
-							Headers: http.Header{"Host": []string{apps.MockExternal.Config().DefaultHostHeader}},
-						},
-						Port:   echo.Port{Name: "http"},
-						Scheme: scheme.HTTP,
-						Count:  1,
-						Check:  check,
+					t.NewSubTest("v6").Run(func(t framework.TestContext) {
+						src.CallOrFail(t, echo.CallOptions{
+							To:            apps.MockExternal,
+							Address:       apps.MockExternal.Config().DefaultHostHeader,
+							ForceIPFamily: echo.ForceIPFamilyV6,
+							Port:          echo.Port{Name: "http"},
+							Scheme:        scheme.HTTP,
+							Count:         1,
+							// The destination will always get an IPv4 address currently...
+							// With waypoint: we always send to IPv4 on the waypoint (https://github.com/istio/istio/issues/52318)
+							// Without waypoint: Ztunnel DNS currently prefers IPv4, so it will always win. (https://github.com/istio/ztunnel/issues/1225)
+							Check: check.And(c, check.DestinationIPv4(), check.SourceIPv6()),
+						})
 					})
 				}
 			})

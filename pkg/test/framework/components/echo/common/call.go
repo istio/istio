@@ -145,6 +145,7 @@ func newForwardRequest(opts echo.CallOptions) *proto.ForwardEchoRequest {
 		FollowRedirects:         opts.HTTP.FollowRedirects,
 		ServerName:              opts.TLS.ServerName,
 		NewConnectionPerRequest: opts.NewConnectionPerRequest,
+		ForceIpFamily:           opts.ForceIPFamily,
 		ForceDNSLookup:          opts.ForceDNSLookup,
 		Hbone: &proto.HBONE{
 			Address:            opts.HBONE.Address,
