@@ -144,13 +144,6 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 		return err
 	}
 
-	// Handle node healthcheck probe rewrites
-	_, err = addPodToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
-	if err != nil {
-		log.Errorf("failed to add pod to ipset: %s/%s %v", pod.Namespace, pod.Name, err)
-		return err
-	}
-
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
 		return s.podIptables.CreateInpodRules(log, &HostProbeSNATIP, &HostProbeSNATIPV6)
@@ -292,7 +285,7 @@ func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
 		if len(podIPs) == 0 {
 			log.Warnf("pod %s does not appear to have any assigned IPs, not syncing with ipset", pod.Name)
 		} else {
-			addedIps, err := addPodToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
+			addedIps, err := s.AddPodToHostNSIpset(pod, podIPs)
 			if err != nil {
 				log.Errorf("pod %s has IP collision, pod will be skipped and will fail healthchecks", pod.Name, podIPs)
 			}
@@ -310,7 +303,7 @@ func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
 // 4. return the ones we added successfully, and errors for any we couldn't (dupes)
 //
 // Dupe IPs should be considered an IPAM error and should never happen.
-func addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet *ipset.IPSet) ([]netip.Addr, error) {
+func (s *NetServer) AddPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr) ([]netip.Addr, error) {
 	// Add the pod UID as an ipset entry comment, so we can (more) easily find and delete
 	// all relevant entries for a pod later.
 	podUID := string(pod.ObjectMeta.UID)
@@ -322,7 +315,7 @@ func addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet 
 	// For each pod IP
 	for _, pip := range podIPs {
 		// Add to host ipset
-		log.Debugf("adding pod %s probe to ipset %s with ip %s", pod.Name, hostsideProbeSet.Prefix, pip)
+		log.Debugf("adding pod %s probe to ipset %s with ip %s", pod.Name, s.hostsideProbeIPSet.Prefix, pip)
 		// Add IP/port combo to set. Note that we set Replace to false here - we _did_ previously
 		// set it to true, but in theory that could mask weird scenarios where K8S triggers events out of order ->
 		// an add(sameIPreused) then delete(originalIP).
@@ -331,10 +324,10 @@ func addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet 
 		// Since we purge on restart of CNI, and remove pod IPs from the set on every pod removal/deletion,
 		// we _shouldn't_ get any overwrite/overlap, unless something is wrong and we are asked to add
 		// a pod by an IP we already have in the set (which will give an error, which we want).
-		if err := hostsideProbeSet.AddIP(pip, ipProto, podUID, false); err != nil {
+		if err := s.hostsideProbeIPSet.AddIP(pip, ipProto, podUID, false); err != nil {
 			ipsetAddrErrs = append(ipsetAddrErrs, err)
 			log.Errorf("failed adding pod %s to ipset %s with ip %s, error was %s",
-				pod.Name, hostsideProbeSet.Prefix, pip, err)
+				pod.Name, &s.hostsideProbeIPSet.Prefix, pip, err)
 		} else {
 			addedIps = append(addedIps, pip)
 		}
