@@ -29,9 +29,10 @@ const (
 	KubeCAFile           = "kube-ca-file"
 	SkipTLSVerify        = "skip-tls-verify"
 	MonitoringPort       = "monitoring-port"
-	LogUDSAddress        = "log-uds-address"
+	LogUDSSocket         = "log-uds-socket"
 	ZtunnelUDSAddress    = "ztunnel-uds-address"
-	CNIEventAddress      = "cni-event-address"
+	CNIEventSocket       = "cni-event-address"
+	CNIAgentRunDir       = "cni-agent-run-dir"
 	ExcludeNamespaces    = "exclude-namespaces"
 	AmbientEnabled       = "ambient-enabled"
 	AmbientDNSCapture    = "ambient-dns-capture"
@@ -60,12 +61,14 @@ const (
 	CNIPluginLogScope     = "cni-plugin"
 	CNIAddEventPath       = "/cmdadd"
 	UDSLogPath            = "/log"
+	LogUDSSocketName	  = "log.sock"
 
 	// K8s liveness and readiness endpoints
 	LivenessEndpoint   = "/healthz"
 	ReadinessEndpoint  = "/readyz"
 	ReadinessPort      = "8000"
 	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
+
 )
 
 // Exposed for testing "constants"

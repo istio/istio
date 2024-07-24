@@ -34,13 +34,11 @@ import (
 func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {
 	pluginConfig := plugin.Config{
 		PluginLogLevel:  cfg.PluginLogLevel,
-		LogUDSAddress:   cfg.LogUDSAddress,
-		CNIEventAddress: cfg.CNIEventAddress,
+		// LogUDSAddress:   cfg.LogUDSAddress,
+		// CNIEventAddress: cfg.CNIEventAddress,
+		CNIAgentRunDir: cfg.CNIAgentRunDir,
 		AmbientEnabled:  cfg.AmbientEnabled,
-		Kubernetes: plugin.Kubernetes{
-			Kubeconfig:        filepath.Join(cfg.CNINetDir, cfg.KubeconfigFilename),
-			ExcludeNamespaces: strings.Split(cfg.ExcludeNamespaces, ","),
-		},
+		ExcludeNamespaces: strings.Split(cfg.ExcludeNamespaces, ","),
 	}
 
 	pluginConfig.Name = "istio-cni"

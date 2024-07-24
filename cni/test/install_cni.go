@@ -267,7 +267,6 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 			K8sServicePort:        "443",
 			K8sServiceHost:        "10.110.0.1",
 			MonitoringPort:        0,
-			LogUDSAddress:         "",
 			KubeconfigFilename:    "ZZZ-istio-cni-kubeconfig",
 			CNINetDir:             "/etc/cni/net.d",
 			ChainedCNIPlugin:      chainedCNIPlugin,

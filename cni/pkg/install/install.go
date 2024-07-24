@@ -41,7 +41,7 @@ type Installer struct {
 func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	return &Installer{
 		cfg:                cfg,
-		kubeconfigFilepath: filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename),
+		kubeconfigFilepath: filepath.Join(cfg.CNIAgentRunDir, cfg.KubeconfigFilename),
 		isReady:            isReady,
 	}
 }

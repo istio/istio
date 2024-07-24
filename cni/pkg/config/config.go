@@ -30,6 +30,8 @@ type InstallConfig struct {
 	CNINetDir string
 	// Location of the CNI config files in the container's filesystem (mount location of the CNINetDir)
 	MountedCNINetDir string
+	// Location of the node agent writable path on the node (used for sockets, etc)
+	CNIAgentRunDir string
 	// Name of the CNI config file
 	CNIConfName string
 	// Whether to install CNI plugin as a chained or standalone
@@ -70,11 +72,11 @@ type InstallConfig struct {
 	// The HTTP port for monitoring
 	MonitoringPort int
 
-	// The UDS server address that CNI plugin will send log to.
-	LogUDSAddress string
+	// // The UDS server address that CNI plugin will send log to.
+	// LogUDSAddress string
 
-	// The watch server socket address that CNI plugin will forward CNI events to.
-	CNIEventAddress string
+	// // The watch server socket address that CNI plugin will forward CNI events to.
+	// CNIEventAddress string
 
 	// The ztunnel server socket address that the ztunnel will connect to.
 	ZtunnelUDSAddress string
@@ -128,6 +130,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("MountedCNINetDir: " + c.MountedCNINetDir + "\n")
 	b.WriteString("CNIConfName: " + c.CNIConfName + "\n")
 	b.WriteString("ChainedCNIPlugin: " + fmt.Sprint(c.ChainedCNIPlugin) + "\n")
+	b.WriteString("CNIAgentRunDir: " + fmt.Sprint(c.CNIAgentRunDir) + "\n")
 
 	b.WriteString("PluginLogLevel: " + c.PluginLogLevel + "\n")
 	b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")
@@ -145,8 +148,8 @@ func (c InstallConfig) String() string {
 	b.WriteString("CNIBinTargetDirs: " + strings.Join(c.CNIBinTargetDirs, ",") + "\n")
 
 	b.WriteString("MonitoringPort: " + fmt.Sprint(c.MonitoringPort) + "\n")
-	b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
-	b.WriteString("CNIEventAddress: " + fmt.Sprint(c.CNIEventAddress) + "\n")
+	// b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
+	// b.WriteString("CNIEventAddress: " + fmt.Sprint(c.CNIEventAddress) + "\n")
 	b.WriteString("ZtunnelUDSAddress: " + fmt.Sprint(c.ZtunnelUDSAddress) + "\n")
 
 	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")

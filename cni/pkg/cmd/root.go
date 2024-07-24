@@ -79,7 +79,7 @@ var rootCmd = &cobra.Command{
 
 		// Start UDS log server
 		udsLogger := udsLog.NewUDSLogger(log.GetOutputLevel())
-		if err = udsLogger.StartUDSLogServer(cfg.InstallConfig.LogUDSAddress, ctx.Done()); err != nil {
+		if err = udsLogger.StartUDSLogServer(filepath.Join(cfg.InstallConfig.CNIAgentRunDir, cfg.InstallConfig.LogUDSSocket), ctx.Done()); err != nil {
 			log.Errorf("Failed to start up UDS Log Server: %v", err)
 			return
 		}
@@ -173,6 +173,7 @@ func init() {
 
 	// Not configurable in CNI helm charts
 	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
+	registerStringParameter(constants.CNIAgentRunDir, "/var/run/istio-cni", "Location of the node agent writable path on the node (used for sockets, etc)")
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
 	registerStringParameter(constants.KubeconfigFilename, "ZZZ-istio-cni-kubeconfig",
 		"Name of the kubeconfig file which CNI plugin will use when interacting with API server")
@@ -180,9 +181,9 @@ func init() {
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the same as install-cni pod")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
-	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log output to")
-	registerStringParameter(constants.CNIEventAddress, "/var/run/istio-cni/pluginevent.sock",
-		"The UDS server address which CNI plugin will forward ambient pod creation events to")
+	// registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log output to")
+	// registerStringParameter(constants.CNIEventAddress, "/var/run/istio-cni/pluginevent.sock",
+	// 	"The UDS server address which CNI plugin will forward ambient pod creation events to")
 	registerStringParameter(constants.ZtunnelUDSAddress, "/var/run/ztunnel/ztunnel.sock", "The UDS server address which ztunnel will connect to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
 	// Repair
@@ -245,6 +246,7 @@ func constructConfig() (*config.Config, error) {
 		MountedCNINetDir: viper.GetString(constants.MountedCNINetDir),
 		CNIConfName:      viper.GetString(constants.CNIConfName),
 		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
+		CNIAgentRunDir:    viper.GetString(constants.CNIAgentRunDir),
 
 		// Whatever user has set (with --log_output_level) for 'cni-plugin', pass it down to the plugin. It will use this to determine
 		// what level to use for itself.
@@ -263,8 +265,8 @@ func constructConfig() (*config.Config, error) {
 		CNIBinSourceDir:  constants.CNIBinDir,
 		CNIBinTargetDirs: []string{constants.HostCNIBinDir},
 		MonitoringPort:   viper.GetInt(constants.MonitoringPort),
-		LogUDSAddress:    viper.GetString(constants.LogUDSAddress),
-		CNIEventAddress:  viper.GetString(constants.CNIEventAddress),
+		// LogUDSAddress:    viper.GetString(constants.LogUDSAddress),
+		// CNIEventAddress:  viper.GetString(constants.CNIEventAddress),
 
 		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),

@@ -52,12 +52,6 @@ const (
 	ISTIOPROXY = "istio-proxy"
 )
 
-// Kubernetes a K8s specific struct to hold config
-type Kubernetes struct {
-	Kubeconfig        string   `json:"kubeconfig"`
-	ExcludeNamespaces []string `json:"exclude_namespaces"`
-}
-
 // Config is whatever you expect your configuration json to be. This is whatever
 // is passed in on stdin. Your plugin may wish to expose its functionality via
 // runtime args, see CONVENTIONS.md in the CNI spec.
@@ -66,10 +60,11 @@ type Config struct {
 
 	// Add plugin-specific flags here
 	PluginLogLevel  string     `json:"plugin_log_level"`
-	LogUDSAddress   string     `json:"log_uds_address"`
-	CNIEventAddress string     `json:"cni_event_address"`
+	CNIAgentRunDir  string     `json:"cni_agent_run_dir"`
+	// LogUDSAddress   string     `json:"log_uds_address"`
+	// CNIEventAddress string     `json:"cni_event_address"`
 	AmbientEnabled  bool       `json:"ambient_enabled"`
-	Kubernetes      Kubernetes `json:"kubernetes"`
+	ExcludeNamespaces []string `json:"exclude_namespaces"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -120,8 +115,8 @@ func GetLoggingOptions(cfg *Config) *log.Options {
 	if cfg != nil {
 		// Tee all logs to UDS. Stdout will go to kubelet (hard to access, UDS will be read by the CNI DaemonSet and exposed
 		// by normal `kubectl logs`
-		if cfg.LogUDSAddress != "" {
-			loggingOptions.WithTeeToUDS(cfg.LogUDSAddress, constants.UDSLogPath)
+		if file.Exists(udsAddr) {
+			loggingOptions.WithTeeToUDS(udsAddr, constants.UDSLogPath)
 		}
 		// Override plugin log level based on their config. Not we use "all" (OverrideScopeName) since there is no scoping in the plugin.
 		if cfg.PluginLogLevel != "" {
@@ -170,7 +165,9 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 }
 
 func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, rulesMgr InterceptRuleMgr) error {
-	setupLogging(conf)
+	if err := log.Configure(GetLoggingOptions(conf)); err != nil {
+		log.Error("Failed to configure istio-cni logging")
+	}
 
 	var loggedPrevResult any
 	if conf.PrevResult == nil {
@@ -305,11 +302,8 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 }
 
 func setupLogging(conf *Config) {
-	if conf.LogUDSAddress != "" {
-		// reconfigure log output with tee to UDS if UDS log is enabled.
-		if err := log.Configure(GetLoggingOptions(conf)); err != nil {
-			log.Error("Failed to configure istio-cni with UDS log")
-		}
+	if err := log.Configure(GetLoggingOptions(conf)); err != nil {
+		log.Error("Failed to configure istio-cni with UDS log")
 	}
 }
 
