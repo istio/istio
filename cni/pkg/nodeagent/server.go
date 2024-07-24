@@ -247,7 +247,8 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 	// and the operator can investigate.
 	//
 	// This is also important to avoid ipset sync issues if we add the pod ip to the ipset, but
-	// enrolling fails, and the pod is rescheduled with a new IP. In that case we don't get
+	// enrolling fails because ztunnel (or the pod netns, or whatever) isn't ready yet,
+	// and the pod is rescheduled with a new IP. In that case we don't get
 	// a removal event, and so would never clean up the old IP that we eagerly-added.
 	//
 	// TODO one place this *can* fail is
