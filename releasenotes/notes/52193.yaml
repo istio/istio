@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue: []
+releaseNotes:
+  - |
+    **Fixed** Corrected documentation for `rootCertExpiryTimestamp` and `citadel_server_cert_chain_expiry_timestamp`.

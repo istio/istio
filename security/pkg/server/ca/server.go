@@ -154,7 +154,7 @@ func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
 		serverCaLog.Errorf("failed to extract root cert expiry timestamp (error %v)", err)
 	}
 	rootCertExpiryTimestamp.Record(float64(rootCertExpiry.Unix()))
-	rootCertExpirySeconds.ValueFrom(rootCertExpiry.Sub(time.Now()).Seconds)
+	rootCertExpirySeconds.ValueFrom(time.Until(*rootCertExpiry).Seconds)
 
 	if len(keyCertBundle.GetCertChainPem()) == 0 {
 		return
@@ -166,7 +166,7 @@ func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
 	}
 
 	certChainExpiryTimestamp.Record(float64(certChainExpiry.Unix()))
-	certChainExpirySeconds.ValueFrom(certChainExpiry.Sub(time.Now()).Seconds)
+	certChainExpirySeconds.ValueFrom(time.Until(*certChainExpiry).Seconds)
 }
 
 // Register registers a GRPC server on the specified port.
