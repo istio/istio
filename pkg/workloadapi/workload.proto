@@ -95,6 +95,15 @@ enum IPFamilies {
   DUAL = 3;
 }
 
+// NetworkMode indicates how the addresses of the workload should be treated.
+enum NetworkMode {
+  // STANDARD means that the workload is uniquely identified by its address (within its network).
+  STANDARD = 0;
+  // HOST_NETWORK means the workload has an IP address that is shared by many workloads. The data plane should avoid
+  // attempting to lookup these workloads by IP address (which could return the wrong result).
+  HOST_NETWORK = 1;
+}
+
 message LoadBalancing {
   enum Scope {
     UNSPECIFIED_SCOPE = 0;
@@ -238,6 +247,8 @@ message Workload {
 
   // The Locality defines information about where a workload is geographically deployed
   Locality locality = 24;
+
+  NetworkMode network_mode = 25;
 
   // Reservations for deleted fields.
   reserved 15;

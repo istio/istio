@@ -286,19 +286,7 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 
 	// 2. Workload by IP
 	if wls := a.workloads.ByAddress.Lookup(networkAddr); len(wls) > 0 {
-		// If there is just one, return it
-		if len(wls) == 1 {
-			return []model.AddressInfo{modelWorkloadToAddressInfo(wls[0])}
-		}
-		// Otherwise, try to find a pod - pods have precedence
-		pod := slices.FindFunc(wls, func(info model.WorkloadInfo) bool {
-			return info.Source == kind.Pod
-		})
-		if pod != nil {
-			return []model.AddressInfo{modelWorkloadToAddressInfo(*pod)}
-		}
-		// Otherwise just return the first one; all WorkloadEntry have the same weight
-		return []model.AddressInfo{modelWorkloadToAddressInfo(wls[0])}
+		return dedupeWorkloads(wls)
 	}
 
 	// 3. Service
@@ -330,26 +318,39 @@ func (a *index) lookupService(key string) *model.ServiceInfo {
 
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
+	res := dedupeWorkloads(a.workloads.List())
+	for _, s := range a.services.List() {
+		res = append(res, serviceToAddressInfo(s.Service))
+	}
+	return res
+}
+
+func dedupeWorkloads(workloads []model.WorkloadInfo) []model.AddressInfo {
+	if len(workloads) <= 1 {
+		return slices.Map(workloads, modelWorkloadToAddressInfo)
+	}
 	res := []model.AddressInfo{}
 	seenAddresses := sets.New[netip.Addr]()
-	for _, wl := range a.workloads.List() {
+	for _, wl := range workloads {
 		write := true
-		for _, addr := range wl.Addresses {
-			a := byteIPToAddr(addr)
-			if seenAddresses.InsertContains(a) {
-				// We have already seen this address. We don't want to include it.
-				// We do want to prefer Pods > WorkloadEntry to give precedence to Kubernetes. However, the underlying `a.workloads`
-				// already guarantees this, so no need to handle it here.
-				write = false
-				break
+		// HostNetwork mode is expected to have overlapping IPs, and tells the data plane to avoid relying on the IP as a unique
+		// identifier.
+		// For anything else, exclude duplicates.
+		if wl.NetworkMode != workloadapi.NetworkMode_HOST_NETWORK {
+			for _, addr := range wl.Addresses {
+				a := byteIPToAddr(addr)
+				if seenAddresses.InsertContains(a) {
+					// We have already seen this address. We don't want to include it.
+					// We do want to prefer Pods > WorkloadEntry to give precedence to Kubernetes. However, the underlying `a.workloads`
+					// already guarantees this, so no need to handle it here.
+					write = false
+					break
+				}
 			}
 		}
 		if write {
 			res = append(res, workloadToAddressInfo(wl.Workload))
 		}
-	}
-	for _, s := range a.services.List() {
-		res = append(res, serviceToAddressInfo(s.Service))
 	}
 	return res
 }

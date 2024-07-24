@@ -22,6 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
@@ -193,7 +194,7 @@ func (a *index) podWorkloadBuilder(
 	workloadServices krt.Collection[model.ServiceInfo],
 	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
 	endpointSlices krt.Collection[*discovery.EndpointSlice],
-	endpointSlicesAddressIndex krt.Index[string, *discovery.EndpointSlice],
+	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
 	namespaces krt.Collection[*v1.Namespace],
 	nodes krt.Collection[*v1.Node],
 ) krt.TransformationSingle[*v1.Pod, model.WorkloadInfo] {
@@ -201,7 +202,7 @@ func (a *index) podWorkloadBuilder(
 		// Pod Is Pending but have a pod IP should be a valid workload, we should build it ,
 		// Such as the pod have initContainer which is initialing.
 		// See https://github.com/istio/istio/issues/48854
-		if (!IsPodRunning(p) && !IsPodPending(p)) || p.Spec.HostNetwork {
+		if kubeutil.CheckPodTerminal(p) {
 			return nil
 		}
 		k8sPodIPs := getPodIPs(p)
@@ -274,6 +275,10 @@ func (a *index) podWorkloadBuilder(
 			Locality:              getPodLocality(ctx, nodes, p),
 		}
 
+		if p.Spec.HostNetwork {
+			w.NetworkMode = workloadapi.NetworkMode_HOST_NETWORK
+		}
+
 		w.WorkloadName, w.WorkloadType = workloadNameAndType(p)
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
@@ -294,56 +299,55 @@ func getPodIPs(p *v1.Pod) []v1.PodIP {
 // See https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors for more info.
 // For selector service, we query by the selector elsewhere, so this only handles the services that are NOT already found
 // by a selector.
+// For EndpointSlices that happen to point to the same IP as the pod, but are not directly bound to the pod (via TargetRef),
+// we ignore them here. These will produce a model.Workload directly from the EndpointSlice, but with limited information;
+// we do not implicitly merge a Pod with an EndpointSlice just based on IP.
 func (a *index) matchingServicesWithoutSelectors(
 	ctx krt.HandlerContext,
 	p *v1.Pod,
 	alreadyMatchingServices []model.ServiceInfo,
 	workloadServices krt.Collection[model.ServiceInfo],
 	endpointSlices krt.Collection[*discovery.EndpointSlice],
-	endpointSlicesAddressIndex krt.Index[string, *discovery.EndpointSlice],
+	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
 ) []model.ServiceInfo {
-	k8sPodIPs := getPodIPs(p)
-	if len(k8sPodIPs) == 0 {
-		return nil
-	}
 	var res []model.ServiceInfo
 	// Build out our set of already-matched services to avoid double-selecting a service
 	seen := sets.NewWithLength[string](len(alreadyMatchingServices))
 	for _, s := range alreadyMatchingServices {
 		seen.Insert(s.Hostname)
 	}
-	for _, ip := range k8sPodIPs {
-		// For each IP, find any endpointSlices referencing it.
-		matchedSlices := krt.Fetch(ctx, endpointSlices, krt.FilterIndex(endpointSlicesAddressIndex, ip.IP))
-		for _, es := range matchedSlices {
-			if es.AddressType == discovery.AddressTypeFQDN {
-				// Currently we do not support FQDN.
-				continue
-			}
-			serviceName, f := es.Labels[discovery.LabelServiceName]
-			if !f {
-				// Not for a service; we don't care about it.
-				continue
-			}
-			hostname := string(kube.ServiceHostname(serviceName, es.Namespace, a.DomainSuffix))
-			if seen.Contains(hostname) {
-				// We already know about this service
-				continue
-			}
-			// This pod is included in the EndpointSlice. We need to fetch the Service object for it, by key.
-			serviceKey := es.Namespace + "/" + hostname
-			svcs := krt.Fetch(ctx, workloadServices, krt.FilterKey(serviceKey), krt.FilterGeneric(func(a any) bool {
-				// Only find Service, not Service Entry
-				return a.(model.ServiceInfo).Source == kind.Service
-			}))
-			if len(svcs) == 0 {
-				// no service found
-				continue
-			}
-			// There SHOULD only be one. This is only for `Service` which has unique hostnames.
-			svc := svcs[0]
-			res = append(res, svc)
+	tr := TargetRef{
+		Kind:      gvk.Pod.Kind,
+		Namespace: p.Namespace,
+		Name:      p.Name,
+		UID:       p.UID,
+	}
+	// For each IP, find any endpointSlices referencing it.
+	matchedSlices := krt.Fetch(ctx, endpointSlices, krt.FilterIndex(endpointSlicesAddressIndex, tr))
+	for _, es := range matchedSlices {
+		serviceName, f := es.Labels[discovery.LabelServiceName]
+		if !f {
+			// Not for a service; we don't care about it.
+			continue
 		}
+		hostname := string(kube.ServiceHostname(serviceName, es.Namespace, a.DomainSuffix))
+		if seen.Contains(hostname) {
+			// We already know about this service
+			continue
+		}
+		// This pod is included in the EndpointSlice. We need to fetch the Service object for it, by key.
+		serviceKey := es.Namespace + "/" + hostname
+		svcs := krt.Fetch(ctx, workloadServices, krt.FilterKey(serviceKey), krt.FilterGeneric(func(a any) bool {
+			// Only find Service, not Service Entry
+			return a.(model.ServiceInfo).Source == kind.Service
+		}))
+		if len(svcs) == 0 {
+			// no service found
+			continue
+		}
+		// There SHOULD only be one. This is only for `Service` which has unique hostnames.
+		svc := svcs[0]
+		res = append(res, svc)
 	}
 	return res
 }
@@ -570,16 +574,19 @@ func (a *index) endpointSlicesBuilder(
 				continue
 			}
 			w := &workloadapi.Workload{
-				Uid:                   a.ClusterID.String() + "/discovery.k8s.io/EndpointSlice/" + es.Namespace + "/" + es.Name + "/" + key,
-				Name:                  es.Name,
-				Namespace:             es.Namespace,
-				Addresses:             addresses,
-				Hostname:              "",
-				Network:               a.Network(key, nil).String(),
-				TrustDomain:           pickTrustDomain(meshCfg),
-				Services:              services,
-				Status:                health,
-				ClusterId:             string(a.ClusterID),
+				Uid:         a.ClusterID.String() + "/discovery.k8s.io/EndpointSlice/" + es.Namespace + "/" + es.Name + "/" + key,
+				Name:        es.Name,
+				Namespace:   es.Namespace,
+				Addresses:   addresses,
+				Hostname:    "",
+				Network:     a.Network(key, nil).String(),
+				TrustDomain: pickTrustDomain(meshCfg),
+				Services:    services,
+				Status:      health,
+				ClusterId:   string(a.ClusterID),
+				// For opaque endpoints, we do not know anything about them. They could be overlapping with other IPs, so treat it
+				// as a shared address rather than a unique one.
+				NetworkMode:           workloadapi.NetworkMode_HOST_NETWORK,
 				AuthorizationPolicies: nil, // Not support. This can only be used for outbound, so not relevant
 				ServiceAccount:        "",  // Unknown. TODO: make this possible to express in ztunnel
 				Waypoint:              nil, // Not supported. In theory, we could allow it as an EndpointSlice label, but there is no real use case.
@@ -856,15 +863,43 @@ func (a *index) getNetworkGatewayAddress(network string) *workloadapi.GatewayAdd
 	return nil
 }
 
-func endpointSliceAddressIndex(EndpointSlices krt.Collection[*discovery.EndpointSlice]) krt.Index[string, *discovery.EndpointSlice] {
-	return krt.NewIndex(EndpointSlices, func(es *discovery.EndpointSlice) []string {
+// TargetRef is a subset of the Kubernetes ObjectReference which has some fields we don't care about
+type TargetRef struct {
+	Kind      string
+	Namespace string
+	Name      string
+	UID       types.UID
+}
+
+func (t TargetRef) String() string {
+	return t.Kind + "/" + t.Namespace + "/" + t.Name + "/" + string(t.UID)
+}
+
+// endpointSliceAddressIndex builds an index from IP Address
+func endpointSliceAddressIndex(EndpointSlices krt.Collection[*discovery.EndpointSlice]) krt.Index[TargetRef, *discovery.EndpointSlice] {
+	return krt.NewIndex(EndpointSlices, func(es *discovery.EndpointSlice) []TargetRef {
 		if es.AddressType == discovery.AddressTypeFQDN {
 			// Currently we do not support FQDN.
 			return nil
 		}
-		res := make([]string, 0, len(es.Endpoints))
+		_, f := es.Labels[discovery.LabelServiceName]
+		if !f {
+			// Not for a service; we don't care about it.
+			return nil
+		}
+		res := make([]TargetRef, 0, len(es.Endpoints))
 		for _, ep := range es.Endpoints {
-			res = append(res, ep.Addresses...)
+			if ep.TargetRef == nil || ep.TargetRef.Kind != gvk.Pod.Kind {
+				// We only want pods here
+				continue
+			}
+			tr := TargetRef{
+				Kind:      ep.TargetRef.Kind,
+				Namespace: ep.TargetRef.Namespace,
+				Name:      ep.TargetRef.Name,
+				UID:       ep.TargetRef.UID,
+			}
+			res = append(res, tr)
 		}
 		return res
 	})
