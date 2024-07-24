@@ -120,6 +120,13 @@ func Contains[E comparable](s []E, v E) bool {
 	return slices.Contains(s, v)
 }
 
+// Max returns the maximal value in x. It panics if x is empty.
+// For floating-point E, Max propagates NaNs (any NaN value in x
+// forces the output to be NaN).
+func Max[S ~[]E, E cmp.Ordered](x S) E {
+	return slices.Max(x)
+}
+
 // FindFunc finds the first element matching the function, or nil if none do
 func FindFunc[E any](s []E, f func(E) bool) *E {
 	idx := slices.IndexFunc(s, f)
