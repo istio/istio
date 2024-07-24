@@ -44,6 +44,7 @@ type MeshDataplane interface {
 
 	//	IsPodInMesh(ctx context.Context, pod *metav1.ObjectMeta, netNs string) (bool, error)
 	AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error
+	AddPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr) ([]netip.Addr, error)
 	RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error
 
 	Stop()
@@ -218,8 +219,34 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 	log.Debugf("annotating pod %s", pod.Name)
 	if err := util.AnnotateEnrolledPod(s.kubeClient, &pod.ObjectMeta); err != nil {
 		log.Errorf("failed to annotate pod enrollment: %v", err)
-		// don't return error here, as this is purely informational.
+		retErr = err
 	}
+
+	// ipset is only relevant for pod healthchecks.
+	// therefore, if we had *any* error adding the pod to the mesh
+	// do not add the pod to the ipset, so that it will definitely *not* pass healthchecks,
+	// and the operator can investigate.
+	//
+	// This is also important to avoid ipset sync issues if we add the pod ip to the ipset, but
+	// enrolling fails, and the pod is rescheduled with a new IP. In that case we don't get
+	// a removal event, and so would never clean up the old IP that we eagerly-added.
+	//
+	// TODO one place this *can* fail is
+	// - if a CNI plugin after us in the chain fails (currently, we are explicitly the last in the chain by design)
+	// - the CmdAdd comes back thru here with a new IP
+	// - we will never clean up that old IP that we "lost"
+	// To fix this we probably need to impl CmdDel + manage our own podUID/IP mapping.
+	if retErr == nil {
+		// Handle node healthcheck probe rewrites
+		_, err = s.netServer.AddPodToHostNSIpset(pod, podIPs)
+		if err != nil {
+			log.Errorf("failed to add pod to ipset: %s/%s %v", pod.Namespace, pod.Name, err)
+			return err
+		}
+	} else {
+		log.Errorf("pod: %s/%s was not enrolled and is unhealthy: %v", pod.Namespace, pod.Name, retErr)
+	}
+
 	return retErr
 }
 
