@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 
@@ -269,6 +270,62 @@ func ProxyProtocolVersion(expected string) echo.Checker {
 	return Each(func(r echoClient.Response) error {
 		if r.ProxyProtocol != expected {
 			return fmt.Errorf("expected proxy protocol %s, received %s", expected, r.ProxyProtocol)
+		}
+		return nil
+	})
+}
+
+// DestinationIPv4 checks the request was received by the server over IPv4
+func DestinationIPv4() echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		ip, err := netip.ParseAddr(r.IP)
+		if err != nil {
+			return fmt.Errorf("could not parse IP %q: %v", r.IP, err)
+		}
+		if !ip.Is4() {
+			return fmt.Errorf("expected DestinationIPv4, got %s", ip.String())
+		}
+		return nil
+	})
+}
+
+// DestinationIPv6 checks the request was received by the server over IPv6
+func DestinationIPv6() echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		ip, err := netip.ParseAddr(r.IP)
+		if err != nil {
+			return fmt.Errorf("could not parse IP %q: %v", r.IP, err)
+		}
+		if !ip.Is6() {
+			return fmt.Errorf("expected DestinationIPv6, got %s", ip.String())
+		}
+		return nil
+	})
+}
+
+// SourceIPv4 checks the request was sent by the client over IPv4
+func SourceIPv4() echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		ip, err := netip.ParseAddr(r.IP)
+		if err != nil {
+			return fmt.Errorf("could not parse IP %q: %v", r.IP, err)
+		}
+		if !ip.Is4() {
+			return fmt.Errorf("expected SourceIPv4, got %s", ip.String())
+		}
+		return nil
+	})
+}
+
+// SourceIPv6 checks the request was sent by the client over IPv6
+func SourceIPv6() echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		ip, err := netip.ParseAddr(r.IP)
+		if err != nil {
+			return fmt.Errorf("could not parse IP %q: %v", r.IP, err)
+		}
+		if !ip.Is6() {
+			return fmt.Errorf("expected SourceIPv6, got %s", ip.String())
 		}
 		return nil
 	})
