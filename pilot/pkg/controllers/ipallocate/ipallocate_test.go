@@ -235,12 +235,13 @@ func TestIPAllocate(t *testing.T) {
 	)
 
 	// let's generate an even worse conflict now
-	// this is almost certainly caused by some bug in, none the less test we can recover
+	// this is almost certainly caused by some bug in our code, none the less test we can recover
 	conflictingAddresses := autoallocate.GetAddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
 	assert.Equal(t, len(conflictingAddresses), 2, "ensure we retrieved addresses to create a conflict with")
 	conflictingStatusAddresses := []*v1alpha3.ServiceEntryAddress{}
+	statusConflictHost := "status-conflict.boop.testing.io"
 	for _, a := range conflictingAddresses {
-		conflictingStatusAddresses = append(conflictingStatusAddresses, &v1alpha3.ServiceEntryAddress{Value: a.String()})
+		conflictingStatusAddresses = append(conflictingStatusAddresses, &v1alpha3.ServiceEntryAddress{Value: a.String(), Host: statusConflictHost})
 	}
 	// create an auto-assigned conflict
 	rig.se.Create(
@@ -252,7 +253,7 @@ func TestIPAllocate(t *testing.T) {
 			},
 			Spec: v1alpha3.ServiceEntry{
 				Hosts: []string{
-					"status-conflict.boop.testing.io",
+					statusConflictHost,
 				},
 				Resolution: v1alpha3.ServiceEntry_DNS,
 			},

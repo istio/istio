@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var log = istiolog.RegisterScope("ip-autoallocate", "IP autoallocate controller")
@@ -329,20 +330,42 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 		return nil, nil, nil
 	}
 
-	existingAddresses := autoallocate.GetAddressesFromServiceEntry(se)
-	if len(existingAddresses) > 0 && !forcedReassign {
+	existingHostAddresses := autoallocate.GetHostAddressesFromServiceEntry(se)
+	existingAddresses := []netip.Addr{}
+	hostsWithAddresses := sets.New[string]()
+	for host, addresses := range existingHostAddresses {
 		// this is likely a noop, but just to be safe we should check and potentially resolve conflict
+		existingAddresses = append(existingAddresses, addresses...)
+		hostsWithAddresses.Insert(host)
+	}
+
+	// if we are being forced to reassign we already know there is a conflict
+	if !forcedReassign {
 		c.markUsedOrQueueConflict(existingAddresses, config.NamespacedName(se))
-		return nil, nil, nil // nothing to patch
 	}
 
 	// TODO: DNM!! this is wrong becuase it hard assumes that no one ever adds/removes a host from SE... bad assumption
 
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
+	hostsInSpec := sets.New[string]()
 	for _, host := range se.Spec.Hosts {
-		for _, a := range c.nextAddresses(config.NamespacedName(se)) {
+		hostsInSpec.Insert(host)
+		assignedIPs := []netip.Addr{}
+		if aa, ok := existingHostAddresses[host]; ok && !forcedReassign {
+			// we already assigned this host, do not re-assign
+			assignedIPs = append(assignedIPs, aa...)
+		} else {
+			assignedIPs = append(assignedIPs, c.nextAddresses(config.NamespacedName(se))...)
+		}
+
+		for _, a := range assignedIPs {
 			assignedAddresses = append(assignedAddresses, apiv1alpha3.ServiceEntryAddress{Value: a.String(), Host: host})
 		}
+	}
+
+	// nothing to patch
+	if hostsInSpec.Equals(hostsWithAddresses) && !forcedReassign {
+		return nil, nil, nil
 	}
 
 	replaceAddresses, err := json.Marshal([]jsonPatch{
