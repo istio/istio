@@ -1908,6 +1908,14 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices1,
 			[]*Service{
 				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:      "baz",
+						Namespace: "ns3",
+					},
+				},
+				{
 					Hostname: "foo.svc.cluster.local",
 					// Ports should not be merged even though virtual service will select the service with 7443
 					// as ns1 comes before ns2, because 8000 was already picked explicitly and is in different namespace
@@ -1915,14 +1923,6 @@ func TestCreateSidecarScope(t *testing.T) {
 					Attributes: ServiceAttributes{
 						Name:      "foo",
 						Namespace: "ns2", // Pick the service with 8000
-					},
-				},
-				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
-					Attributes: ServiceAttributes{
-						Name:      "baz",
-						Namespace: "ns3",
 					},
 				},
 			},
@@ -2645,6 +2645,13 @@ func TestCreateSidecarScope(t *testing.T) {
 				assert.Equal(t, services, sidecarScope.services)
 			}
 
+			if tt.virtualServices != nil {
+				// VirtualService ordering is unstable. This is acceptable because its never selecting multiple services for the same
+				// hostname, which is where ordering is critical
+				slices.SortBy(sidecarScope.services, func(a *Service) string {
+					return a.Attributes.Name
+				})
+			}
 			assert.Equal(t, tt.expectedServices, sidecarScope.services)
 			if tt.sidecarConfig != nil {
 				dr := sidecarScope.DestinationRule(TrafficDirectionOutbound,

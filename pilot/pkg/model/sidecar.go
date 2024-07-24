@@ -439,10 +439,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 				sc.AddConfigDependencies(cfg.HashCode())
 			}
 			v := vs.Spec.(*networking.VirtualService)
-			// For consistent conflict resolution on services, make sure we process these in a consistent order
-			vdKeys, vd := virtualServiceDestinations(v)
-			for _, h := range vdKeys {
-				ports := vd[h]
+			for h, ports := range virtualServiceDestinations(v) {
 				byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
 				// Default to this hostname in our config namespace
 				if s, ok := byNamespace[configNamespace]; ok {
