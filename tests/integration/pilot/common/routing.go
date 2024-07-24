@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
@@ -53,6 +54,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/sets"
@@ -3481,71 +3483,94 @@ spec:
   - "{{$ip}}"
 {{ end }}
   resolution: STATIC
-  endpoints: []
+  endpoints:
+  - address: "10.0.0.1"
   ports:
   - number: 80
     name: http
     protocol: HTTP
 `, map[string]any{"IPs": ips})
 	}
-	ipv4 := "1.2.3.4"
-	ipv6 := "1234:1234:1234::1234:1234:1234"
+	ipv4 := []string{"1.2.3.4", "1.2.3.5"}
+	ipv6 := []string{"1234:1234:1234::1234:1234:1234", "1235:1235:1235::1235:1235:1235"}
 	dummyLocalhostServer := "127.0.0.1"
-	cases := []struct {
-		name string
-		// TODO(https://github.com/istio/istio/issues/30282) support multiple vips
-		ips      string
-		protocol string
-		server   string
-		skipCNI  bool
-		expected []string
-	}{
-		{
-			name:     "tcp ipv4",
-			ips:      ipv4,
-			expected: []string{ipv4},
-			protocol: "tcp",
-		},
-		{
-			name:     "udp ipv4",
-			ips:      ipv4,
-			expected: []string{ipv4},
-			protocol: "udp",
-		},
-		{
-			name:     "tcp ipv6",
-			ips:      ipv6,
-			expected: []string{ipv6},
-			protocol: "tcp",
-		},
-		{
-			name:     "udp ipv6",
-			ips:      ipv6,
-			expected: []string{ipv6},
-			protocol: "udp",
-		},
-		{
-			// We should only capture traffic to servers in /etc/resolv.conf nameservers
-			// This checks we do not capture traffic to other servers.
-			// This is important for cases like app -> istio dns server -> dnsmasq -> upstream
-			// If we captured all DNS traffic, we would loop dnsmasq traffic back to our server.
-			name:     "tcp localhost server",
-			ips:      ipv4,
-			expected: nil,
-			protocol: "tcp",
-			skipCNI:  true,
-			server:   dummyLocalhostServer,
-		},
-		{
-			name:     "udp localhost server",
-			ips:      ipv4,
-			expected: nil,
-			protocol: "udp",
-			skipCNI:  true,
-			server:   dummyLocalhostServer,
-		},
-	}
+
 	for _, client := range flatten(t.Apps.VM, t.Apps.A, t.Apps.Tproxy) {
+		v4, v6 := getSupportedIPFamilies(t, client)
+		var expectedIPv4 []string
+		var expectedIPv6 []string
+		if v4 && v6 {
+			expectedIPv4 = []string{"1.2.3.4", "1.2.3.5"}
+			expectedIPv6 = []string{"1234:1234:1234::1234:1234:1234", "1235:1235:1235::1235:1235:1235"}
+		} else if v4 {
+			expectedIPv4 = []string{"1.2.3.4", "1.2.3.5"}
+			expectedIPv6 = []string{"1234:1234:1234::1234:1234:1234"}
+		} else {
+			expectedIPv4 = []string{"1.2.3.4"}
+			expectedIPv6 = []string{"1234:1234:1234::1234:1234:1234", "1235:1235:1235::1235:1235:1235"}
+		}
+		// If a client is deployed in a remote cluster, which is not a config cluster, i.e. Istio resources
+		// are not created in that cluster, it will resolve only the default address, because the ServiceEntry
+		// created in this test is internally assigned to the config cluster, so function GetAllAddressesForProxy(remote),
+		// will only return the default address for that service.
+		remotes := client.Clusters().Remotes()
+		if len(remotes) > 0 && len(remotes.Configs()) == 0 {
+			expectedIPv4 = []string{"1.2.3.4"}
+			expectedIPv6 = []string{"1234:1234:1234::1234:1234:1234"}
+		}
+		cases := []struct {
+			name     string
+			ips      []string
+			protocol string
+			server   string
+			skipCNI  bool
+			expected []string
+		}{
+			{
+				name:     "tcp ipv4",
+				ips:      ipv4,
+				expected: expectedIPv4,
+				protocol: "tcp",
+			},
+			{
+				name:     "udp ipv4",
+				ips:      ipv4,
+				expected: expectedIPv4,
+				protocol: "udp",
+			},
+			{
+				name:     "tcp ipv6",
+				ips:      ipv6,
+				expected: expectedIPv6,
+				protocol: "tcp",
+			},
+			{
+				name:     "udp ipv6",
+				ips:      ipv6,
+				expected: expectedIPv6,
+				protocol: "udp",
+			},
+			{
+				// We should only capture traffic to servers in /etc/resolv.conf nameservers
+				// This checks we do not capture traffic to other servers.
+				// This is important for cases like app -> istio dns server -> dnsmasq -> upstream
+				// If we captured all DNS traffic, we would loop dnsmasq traffic back to our server.
+				name:     "tcp localhost server",
+				ips:      ipv4,
+				expected: nil,
+				protocol: "tcp",
+				skipCNI:  true,
+				server:   dummyLocalhostServer,
+			},
+			{
+				name:     "udp localhost server",
+				ips:      ipv4,
+				expected: nil,
+				protocol: "udp",
+				skipCNI:  true,
+				server:   dummyLocalhostServer,
+			},
+		}
 		for _, tt := range cases {
 			if tt.skipCNI && t.Istio.Settings().EnableCNI {
 				continue
@@ -3571,7 +3596,7 @@ spec:
 			}
 			t.RunTraffic(TrafficTestCase{
 				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
-				config: makeSE(tt.ips),
+				config: makeSE(tt.ips...),
 				call:   client.CallOrFail,
 				opts: echo.CallOptions{
 					Scheme:  scheme.DNS,
@@ -5118,4 +5143,20 @@ func createService(t TrafficContext, name, ns, appLabelValue string, instances i
 		}
 	}
 	return clusterIPs
+}
+
+func getSupportedIPFamilies(t framework.TestContext, instace echo.Instance) (v4 bool, v6 bool) {
+	for _, a := range instace.WorkloadsOrFail(t).Addresses() {
+		ip, err := netip.ParseAddr(a)
+		assert.NoError(t, err)
+		if ip.Is4() {
+			v4 = true
+		} else if ip.Is6() {
+			v6 = true
+		}
+	}
+	if !v4 && !v6 {
+		t.Fatalf("pod is neither v4 nor v6? %v", instace.WorkloadsOrFail(t).Addresses())
+	}
+	return
 }
