@@ -265,7 +265,6 @@ func (b *KeyCertBundle) ExtractCACertExpiryTimestamp() (*time.Time, error) {
 
 // TimeBeforeCertExpires returns the time duration before the cert gets expired.
 // It returns an error if it failed to extract the cert expiration timestamp.
-// The returned time duration could be a negative value indicating the cert has already been expired.
 func TimeBeforeCertExpires(certBytes []byte, now time.Time) (time.Duration, error) {
 	if len(certBytes) == 0 {
 		return 0, fmt.Errorf("no certificate found")
