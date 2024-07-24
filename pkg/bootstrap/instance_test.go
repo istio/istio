@@ -109,6 +109,12 @@ func TestGolden(t *testing.T) {
 			base: "default",
 		},
 		{
+			base: "legacy_stats_tags_regex",
+			envVars: map[string]string{
+				"ENABLE_DELIMITED_STATS_TAG_REGEX": "false",
+			},
+		},
+		{
 			base: "running",
 			envVars: map[string]string{
 				"ISTIO_META_ISTIO_PROXY_SHA":   "istio-proxy:sha",
