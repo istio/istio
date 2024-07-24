@@ -259,7 +259,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 
 	installConfig := config.Config{
 		InstallConfig: config.InstallConfig{
-			CNIEventAddress:       cniEventAddr,
+			// CNIEventAddress:       cniEventAddr,
 			ZtunnelUDSAddress:     ztunnelAddr,
 			MountedCNINetDir:      tempCNIConfDir,
 			CNIBinSourceDir:       filepath.Join(env.IstioSrc, "cni/test/testdata/bindir"),

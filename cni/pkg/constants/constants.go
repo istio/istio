@@ -61,14 +61,14 @@ const (
 	CNIPluginLogScope     = "cni-plugin"
 	CNIAddEventPath       = "/cmdadd"
 	UDSLogPath            = "/log"
-	LogUDSSocketName	  = "log.sock"
+	CNIEventSocketName    = "pluginevent.sock"
+	LogUDSSocketName      = "log.sock"
 
 	// K8s liveness and readiness endpoints
 	LivenessEndpoint   = "/healthz"
 	ReadinessEndpoint  = "/readyz"
 	ReadinessPort      = "8000"
 	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
-
 )
 
 // Exposed for testing "constants"

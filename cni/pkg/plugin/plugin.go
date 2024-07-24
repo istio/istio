@@ -217,7 +217,8 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 
 		// Only send event if this pod "would be" an ambient-watched pod - otherwise skip
 		if podIsAmbient {
-			cniClient := newCNIClient(conf.CNIEventAddress, constants.CNIAddEventPath)
+			cniEventAddr := filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.CNIEventSocketName)
+			cniClient := newCNIClient(cniEventAddr, constants.CNIAddEventPath)
 			if err = PushCNIEvent(cniClient, args, prevResIps, podName, podNamespace); err != nil {
 				log.Errorf("istio-cni cmdAdd failed to signal node Istio CNI agent: %s", err)
 				return err

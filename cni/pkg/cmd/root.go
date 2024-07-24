@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -94,8 +95,9 @@ var rootCmd = &cobra.Command{
 
 			// node agent will spawn a goroutine and watch the K8S API for events,
 			// as well as listen for messages from the CNI binary.
-			log.Info("Starting ambient node agent with inpod redirect mode")
-			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cfg.InstallConfig.CNIEventAddress,
+			cniEventAddr := filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.CNIEventSocketName)
+			log.Infof("Starting ambient node agent with inpod redirect mode on socket %s", cniEventAddr)
+			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
 					SystemNamespace: nodeagent.SystemNamespace,
 					Revision:        nodeagent.Revision,
