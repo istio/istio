@@ -63,7 +63,7 @@ const (
 	UDSLogPath            = "/log"
 	CNIEventSocketName    = "pluginevent.sock"
 	LogUDSSocketName      = "log.sock"
-
+	CNIPluginKubeconfName = "istio-cni-kubeconfig"
 	// K8s liveness and readiness endpoints
 	LivenessEndpoint   = "/healthz"
 	ReadinessEndpoint  = "/readyz"

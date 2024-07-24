@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"time"
 
+	"path/filepath"
+
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
@@ -37,6 +39,7 @@ import (
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/file"
 )
 
 var (
@@ -113,6 +116,7 @@ func GetLoggingOptions(cfg *Config) *log.Options {
 	loggingOptions.OutputPaths = []string{"stderr"}
 	loggingOptions.JSONEncoding = true
 	if cfg != nil {
+		udsAddr := filepath.Join(cfg.CNIAgentRunDir, constants.LogUDSSocketName)
 		// Tee all logs to UDS. Stdout will go to kubelet (hard to access, UDS will be read by the CNI DaemonSet and exposed
 		// by normal `kubectl logs`
 		if file.Exists(udsAddr) {
@@ -193,7 +197,7 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 		return nil
 	}
 
-	for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
+	for _, excludeNs := range conf.ExcludeNamespaces {
 		if podNamespace == excludeNs {
 			log.Infof("pod namespace excluded")
 			return nil
@@ -217,7 +221,7 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 
 		// Only send event if this pod "would be" an ambient-watched pod - otherwise skip
 		if podIsAmbient {
-			cniEventAddr := filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.CNIEventSocketName)
+			cniEventAddr := filepath.Join(conf.CNIAgentRunDir, constants.CNIEventSocketName)
 			cniClient := newCNIClient(cniEventAddr, constants.CNIAddEventPath)
 			if err = PushCNIEvent(cniClient, args, prevResIps, podName, podNamespace); err != nil {
 				log.Errorf("istio-cni cmdAdd failed to signal node Istio CNI agent: %s", err)

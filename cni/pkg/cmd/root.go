@@ -80,7 +80,7 @@ var rootCmd = &cobra.Command{
 
 		// Start UDS log server
 		udsLogger := udsLog.NewUDSLogger(log.GetOutputLevel())
-		if err = udsLogger.StartUDSLogServer(filepath.Join(cfg.InstallConfig.CNIAgentRunDir, cfg.InstallConfig.LogUDSSocket), ctx.Done()); err != nil {
+		if err = udsLogger.StartUDSLogServer(filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.LogUDSSocketName), ctx.Done()); err != nil {
 			log.Errorf("Failed to start up UDS Log Server: %v", err)
 			return
 		}
