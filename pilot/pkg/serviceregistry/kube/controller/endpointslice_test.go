@@ -450,6 +450,46 @@ func TestUpdateEndpointCacheForSliceWithMultiAddrs(t *testing.T) {
 			assertion: [][]string{{"128.0.0.1"}, {"129.0.0.1"}, {"2001:1::1"}, {"2001:1::42"}},
 		},
 		{
+			name:    "manual endpoints with targetRef",
+			pod:     dualStackPod,
+			service: serviceWithoutSelector,
+			slices: []*discovery.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "manual-v4",
+						Namespace: ns,
+						Labels:    sliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						{Addresses: []string{"128.0.0.1"}, TargetRef: podReference},
+						// Completely random IP
+						{Addresses: []string{"129.0.0.1"}},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "manual-v6",
+						Namespace: ns,
+						Labels:    sliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv6,
+					Endpoints: []discovery.Endpoint{
+						{Addresses: []string{"2001:1::1"}, TargetRef: podReference},
+						// Completely random IP
+						{Addresses: []string{"2001:1::42"}},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+			},
+			assertion: [][]string{{"128.0.0.1", "2001:1::1"}, {"129.0.0.1"}, {"2001:1::42"}},
+		},
+		{
 			name:    "mixed manual and selector",
 			pod:     dualStackPod,
 			service: basicService,

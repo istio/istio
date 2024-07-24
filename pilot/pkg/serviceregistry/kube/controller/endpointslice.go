@@ -257,22 +257,9 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	if svcNamespacedName.Name == "" {
 		return
 	}
+
 	svcCore := esc.c.services.Get(svcNamespacedName.Name, svcNamespacedName.Namespace)
-	if svcCore != nil && len(svcCore.Spec.ClusterIPs) > 1 {
-		// It means this is dual stack service, for which k8s will build two endpointslice per pod.
-		// If the service is with selector, k8s will manually generate two ip families endpointslices,
-		// we ignore ipv6 family address to prevent generating duplicate IstioEndpoints.
-		if svcCore.Spec.Selector != nil {
-			// For dual stack service, if a endpoint target is a pod skip processing ipv6
-			if len(epSlice.Endpoints) > 0 && epSlice.Endpoints[0].TargetRef != nil &&
-				epSlice.Endpoints[0].TargetRef.Kind == "Pod" && epSlice.AddressType == v1.AddressTypeIPv6 {
-				return
-			}
-		}
-	}
-
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
-
 	for _, e := range epSlice.Endpoints {
 		// Draining tracking is only enabled if persistent sessions is enabled.
 		// If we start using them for other features, this can be adjusted.
@@ -287,6 +274,11 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 			// If not expect a pod, it means this is not an endpointslice not managed by kubernetes.
 			// We donot add all pod ips to the istio endpoint.
 			if features.EnableDualStack && expectedPod && svcCore != nil && len(pod.Status.PodIPs) > 1 && len(svcCore.Spec.ClusterIPs) > 1 {
+				if epSlice.AddressType == v1.AddressTypeIPv6 {
+					// For endpointslice with targetRef and the pod has dual stack ip.
+					// We ignore ipv6 family address to prevent generating duplicate IstioEndpoints.
+					continue
+				}
 				// get the IP addresses for the dual stack pod
 				overrideAddresses = slices.Map(pod.Status.PodIPs, func(e corev1.PodIP) string {
 					return e.IP
@@ -473,7 +465,7 @@ func (esc *endpointSliceController) pushEDS(hostnames []host.Name, namespace str
 func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *corev1.ObjectReference, host host.Name) (*corev1.Pod, bool) {
 	var expectPod bool
 	pod := c.getPod(ip, ep.Namespace, targetRef)
-	if targetRef != nil && targetRef.Kind == "Pod" {
+	if targetRef != nil && targetRef.Kind == kind.Pod.String() {
 		expectPod = true
 		if pod == nil {
 			c.registerEndpointResync(ep, ip, host)
@@ -500,7 +492,7 @@ func (c *Controller) registerEndpointResync(ep *metav1.ObjectMeta, ip string, ho
 // * It is an endpoint without an associated Pod.
 // * It is an endpoint with an associate Pod, but its not found.
 func (c *Controller) getPod(ip string, namespace string, targetRef *corev1.ObjectReference) *corev1.Pod {
-	if targetRef != nil && targetRef.Kind == "Pod" {
+	if targetRef != nil && targetRef.Kind == kind.Pod.String() {
 		key := types.NamespacedName{Name: targetRef.Name, Namespace: targetRef.Namespace}
 		pod := c.pods.getPodByKey(key)
 		return pod
