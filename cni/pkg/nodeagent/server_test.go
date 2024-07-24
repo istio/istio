@@ -22,12 +22,15 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/cni/pkg/ipset"
+	"golang.org/x/sys/unix"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"k8s.io/client-go/kubernetes"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -56,10 +59,8 @@ func TestMeshDataplaneAddsAnnotationOnAdd(t *testing.T) {
 	).Return(nil)
 
 	server.Start(fakeCtx)
-	m := meshDataplane{
-		kubeClient: fakeClientSet,
-		netServer:  server,
-	}
+
+	m := getFakeDP(server, fakeClientSet)
 
 	err := m.AddPodToMesh(fakeCtx, pod, podIPs, "")
 	assert.NoError(t, err)
@@ -93,10 +94,8 @@ func TestMeshDataplaneAddsAnnotationOnAddWithPartialError(t *testing.T) {
 
 	server.Start(fakeCtx)
 	fakeClientSet := fake.NewSimpleClientset(pod)
-	m := meshDataplane{
-		kubeClient: fakeClientSet,
-		netServer:  server,
-	}
+
+	m := getFakeDP(server, fakeClientSet)
 
 	err := m.AddPodToMesh(fakeCtx, pod, podIPs, "")
 	assert.Error(t, err)
@@ -130,10 +129,8 @@ func TestMeshDataplaneDoesntAnnotateOnAddWithRealError(t *testing.T) {
 
 	server.Start(fakeCtx)
 	fakeClientSet := fake.NewSimpleClientset(pod)
-	m := meshDataplane{
-		kubeClient: fakeClientSet,
-		netServer:  server,
-	}
+
+	m := getFakeDP(server, fakeClientSet)
 
 	err := m.AddPodToMesh(fakeCtx, pod, podIPs, "")
 	assert.Error(t, err)
@@ -157,13 +154,17 @@ func TestMeshDataplaneRemovePodRemovesAnnotation(t *testing.T) {
 	).Return(nil)
 
 	fakeClientSet := fake.NewSimpleClientset(pod)
-	m := meshDataplane{
-		kubeClient: fakeClientSet,
-		netServer:  server,
-	}
+
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+
+	m := getFakeDPWithIPSet(server, fakeClientSet, set)
 
 	err := m.RemovePodFromMesh(fakeCtx, pod, false)
 	assert.NoError(t, err)
+
+	expectPodRemovedFromIPSet(fakeIPSetDeps, pod.Status.PodIPs)
+	fakeIPSetDeps.AssertExpectations(t)
 
 	pod, err = fakeClientSet.CoreV1().Pods("test").Get(fakeCtx, "test", metav1.GetOptions{})
 	assert.NoError(t, err)
@@ -183,13 +184,17 @@ func TestMeshDataplaneRemovePodErrorDoesntRemoveAnnotation(t *testing.T) {
 	).Return(errors.New("fake error"))
 
 	fakeClientSet := fake.NewSimpleClientset(pod)
-	m := meshDataplane{
-		kubeClient: fakeClientSet,
-		netServer:  server,
-	}
+
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+
+	m := getFakeDPWithIPSet(server, fakeClientSet, set)
 
 	err := m.RemovePodFromMesh(fakeCtx, pod, false)
 	assert.Error(t, err)
+
+	expectPodRemovedFromIPSet(fakeIPSetDeps, pod.Status.PodIPs)
+	fakeIPSetDeps.AssertExpectations(t)
 
 	pod, err = fakeClientSet.CoreV1().Pods("test").Get(fakeCtx, "test", metav1.GetOptions{})
 	assert.NoError(t, err)
@@ -210,13 +215,17 @@ func TestMeshDataplaneDelPod(t *testing.T) {
 	).Return(nil)
 
 	fakeClientSet := fake.NewSimpleClientset()
-	m := meshDataplane{
-		kubeClient: fakeClientSet,
-		netServer:  server,
-	}
+
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+	m := getFakeDPWithIPSet(server, fakeClientSet, set)
 
 	// pod is not in fake client, so if this will try to remove annotation, it will fail.
 	err := m.RemovePodFromMesh(fakeCtx, pod, true)
+
+	expectPodRemovedFromIPSet(fakeIPSetDeps, pod.Status.PodIPs)
+	fakeIPSetDeps.AssertExpectations(t)
+
 	assert.NoError(t, err)
 }
 
@@ -234,15 +243,369 @@ func TestMeshDataplaneDelPodErrorDoesntPatchPod(t *testing.T) {
 	).Return(errors.New("fake error"))
 
 	fakeClientSet := fake.NewSimpleClientset()
-	m := meshDataplane{
-		kubeClient: fakeClientSet,
-		netServer:  server,
-	}
+
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+
+	m := getFakeDPWithIPSet(server, fakeClientSet, set)
 
 	// pod is not in fake client, so if this will try to remove annotation, it will fail.
 	err := m.RemovePodFromMesh(fakeCtx, pod, true)
+
+	expectPodRemovedFromIPSet(fakeIPSetDeps, pod.Status.PodIPs)
+	fakeIPSetDeps.AssertExpectations(t)
+
 	assert.Error(t, err)
 }
+
+func TestMeshDataplaneAddPodToHostNSIPSets(t *testing.T) {
+	// ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
+	pod := buildConvincingPod(false)
+
+
+	fakeCtx := context.Background()
+	server := &fakeServer{}
+	server.Start(fakeCtx)
+	fakeClientSet := fake.NewSimpleClientset()
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	m := meshDataplane{
+		kubeClient: fakeClientSet,
+		netServer:  server,
+		hostsideProbeIPSet: ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps},
+	}
+
+
+
+	var podUID string = string(pod.ObjectMeta.UID)
+	ipProto := uint8(unix.IPPROTO_TCP)
+
+	fakeIPSetDeps.On("addIP",
+		"foo-v4",
+		netip.MustParseAddr("99.9.9.9"),
+		ipProto,
+		podUID,
+		false,
+	).Return(nil)
+
+	fakeIPSetDeps.On("addIP",
+		"foo-v4",
+		netip.MustParseAddr("2.2.2.2"),
+		ipProto,
+		podUID,
+		false,
+	).Return(nil)
+
+	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
+	_, err := m.addPodToHostNSIpset(pod, podIPs)
+	assert.NoError(t, err)
+
+	fakeIPSetDeps.AssertExpectations(t)
+}
+
+// func TestAddPodToHostNSIPSetsV6(t *testing.T) {
+// 	pod := buildConvincingPod(true)
+
+// 	var podUID string = string(pod.ObjectMeta.UID)
+// 	fakeIPSetDeps := ipset.FakeNLDeps()
+// 	set := ipset.IPSet{V4Name: "foo-v4", V6Name: "foo-v6", Prefix: "foo", Deps: fakeIPSetDeps}
+
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	defer cancel()
+// 	fixture := getTestFixureWithIPSet(ctx, set, fakeIPSetDeps)
+// 	netServer := fixture.netServer
+// 	ipProto := uint8(unix.IPPROTO_TCP)
+
+// 	fakeIPSetDeps.On("addIP",
+// 		"foo-v6",
+// 		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"),
+// 		ipProto,
+// 		podUID,
+// 		false,
+// 	).Return(nil)
+
+// 	fakeIPSetDeps.On("addIP",
+// 		"foo-v6",
+// 		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164"),
+// 		ipProto,
+// 		podUID,
+// 		false,
+// 	).Return(nil)
+
+// 	podIPs := []netip.Addr{netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"), netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")}
+// 	_, err := netServer.AddPodToHostNSIpset(pod, podIPs)
+// 	assert.NoError(t, err)
+
+// 	fakeIPSetDeps.AssertExpectations(t)
+// }
+
+// func TestAddPodToHostNSIPSetsDualstack(t *testing.T) {
+// 	pod := buildConvincingPod(true)
+
+// 	var podUID string = string(pod.ObjectMeta.UID)
+// 	fakeIPSetDeps := ipset.FakeNLDeps()
+// 	set := ipset.IPSet{V4Name: "foo-v4", V6Name: "foo-v6", Prefix: "foo", Deps: fakeIPSetDeps}
+// 	ipProto := uint8(unix.IPPROTO_TCP)
+
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	defer cancel()
+// 	fixture := getTestFixureWithIPSet(ctx, set, fakeIPSetDeps)
+// 	netServer := fixture.netServer
+
+// 	fakeIPSetDeps.On("addIP",
+// 		"foo-v6",
+// 		netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"),
+// 		ipProto,
+// 		podUID,
+// 		false,
+// 	).Return(nil)
+
+// 	fakeIPSetDeps.On("addIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("99.9.9.9"),
+// 		ipProto,
+// 		podUID,
+// 		false,
+// 	).Return(nil)
+
+// 	podIPs := []netip.Addr{netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece3:2f9b:3162"), netip.MustParseAddr("99.9.9.9")}
+// 	_, err := netServer.AddPodToHostNSIpset(pod, podIPs)
+// 	assert.NoError(t, err)
+
+// 	fakeIPSetDeps.AssertExpectations(t)
+// }
+
+// func TestAddPodIPToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
+// 	pod := buildConvincingPod(false)
+
+// 	var podUID string = string(pod.ObjectMeta.UID)
+// 	fakeIPSetDeps := ipset.FakeNLDeps()
+// 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+// 	ipProto := uint8(unix.IPPROTO_TCP)
+
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	defer cancel()
+// 	fixture := getTestFixureWithIPSet(ctx, set, fakeIPSetDeps)
+// 	netServer := fixture.netServer
+
+// 	fakeIPSetDeps.On("addIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("99.9.9.9"),
+// 		ipProto,
+// 		podUID,
+// 		false,
+// 	).Return(nil)
+
+// 	fakeIPSetDeps.On("addIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("2.2.2.2"),
+// 		ipProto,
+// 		podUID,
+// 		false,
+// 	).Return(errors.New("bwoah"))
+
+// 	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
+
+// 	addedPIPs, err := netServer.AddPodToHostNSIpset(pod, podIPs)
+// 	assert.Error(t, err)
+// 	assert.Equal(t, 1, len(addedPIPs), "only expected one IP to be added")
+
+// 	fakeIPSetDeps.AssertExpectations(t)
+// }
+
+// func TestRemovePodIPFromHostNSIPSets(t *testing.T) {
+// 	pod := buildConvincingPod(false)
+
+// 	fakeIPSetDeps := ipset.FakeNLDeps()
+// 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+
+// 	fakeIPSetDeps.On("clearEntriesWithIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("3.3.3.3"),
+// 	).Return(nil)
+
+// 	fakeIPSetDeps.On("clearEntriesWithIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("2.2.2.2"),
+// 	).Return(nil)
+
+// 	err := removePodFromHostNSIpset(pod, &set)
+// 	assert.NoError(t, err)
+// 	fakeIPSetDeps.AssertExpectations(t)
+// }
+
+// func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
+// 	pod := buildConvincingPod(false)
+
+// 	fakeIPSetDeps := ipset.FakeNLDeps()
+
+// 	var podUID string = string(pod.ObjectMeta.UID)
+// 	ipProto := uint8(unix.IPPROTO_TCP)
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	fixture := getTestFixure(ctx)
+// 	defer cancel()
+// 	setupLogging()
+
+// 	// expectations
+// 	fixture.ipsetDeps.On("addIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("3.3.3.3"),
+// 		ipProto,
+// 		podUID,
+// 		false,
+// 	).Return(nil)
+
+// 	fixture.ipsetDeps.On("addIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("2.2.2.2"),
+// 		ipProto,
+// 		podUID,
+// 		false,
+// 	).Return(nil)
+
+// 	fixture.ipsetDeps.On("listEntriesByIP",
+// 		"foo-v4",
+// 	).Return([]netip.Addr{}, nil)
+
+// 	netServer := fixture.netServer
+// 	err := netServer.syncHostIPSets([]*corev1.Pod{pod})
+// 	assert.NoError(t, err)
+// 	fakeIPSetDeps.AssertExpectations(t)
+// }
+
+// func TestSyncHostIPSetsIgnoresPodIPAddErrorAndContinues(t *testing.T) {
+// 	pod1 := buildConvincingPod(false)
+// 	pod2 := buildConvincingPod(false)
+
+// 	pod2.ObjectMeta.SetUID("4455")
+
+// 	fakeIPSetDeps := ipset.FakeNLDeps()
+
+// 	var pod1UID string = string(pod1.ObjectMeta.UID)
+// 	var pod2UID string = string(pod2.ObjectMeta.UID)
+// 	ipProto := uint8(unix.IPPROTO_TCP)
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	fixture := getTestFixure(ctx)
+// 	defer cancel()
+// 	setupLogging()
+
+// 	// First IP of first pod should error, but we should add the rest
+// 	fixture.ipsetDeps.On("addIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("3.3.3.3"),
+// 		ipProto,
+// 		pod1UID,
+// 		false,
+// 	).Return(errors.New("CANNOT ADD"))
+
+// 	fixture.ipsetDeps.On("addIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("2.2.2.2"),
+// 		ipProto,
+// 		pod1UID,
+// 		false,
+// 	).Return(nil)
+
+// 	fixture.ipsetDeps.On("addIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("3.3.3.3"),
+// 		ipProto,
+// 		pod2UID,
+// 		false,
+// 	).Return(errors.New("CANNOT ADD"))
+
+// 	fixture.ipsetDeps.On("addIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("2.2.2.2"),
+// 		ipProto,
+// 		pod2UID,
+// 		false,
+// 	).Return(nil)
+
+// 	fixture.ipsetDeps.On("listEntriesByIP",
+// 		"foo-v4",
+// 	).Return([]netip.Addr{}, nil)
+
+// 	netServer := fixture.netServer
+// 	err := netServer.syncHostIPSets([]*corev1.Pod{pod1, pod2})
+// 	assert.NoError(t, err)
+// 	fakeIPSetDeps.AssertExpectations(t)
+// }
+
+// func TestSyncHostIPSetsAddsNothingIfPodHasNoIPs(t *testing.T) {
+// 	pod := buildConvincingPod(false)
+
+// 	pod.Status.PodIP = ""
+// 	pod.Status.PodIPs = []corev1.PodIP{}
+
+// 	fakeIPSetDeps := ipset.FakeNLDeps()
+
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	fixture := getTestFixure(ctx)
+// 	defer cancel()
+// 	setupLogging()
+
+// 	fixture.ipsetDeps.On("listEntriesByIP",
+// 		"foo-v4",
+// 	).Return([]netip.Addr{}, nil)
+
+// 	netServer := fixture.netServer
+// 	err := netServer.syncHostIPSets([]*corev1.Pod{pod})
+// 	assert.NoError(t, err)
+// 	fakeIPSetDeps.AssertExpectations(t)
+// }
+
+// func TestSyncHostIPSetsPrunesIfExtras(t *testing.T) {
+// 	pod := buildConvincingPod(false)
+
+// 	fakeIPSetDeps := ipset.FakeNLDeps()
+
+// 	var podUID string = string(pod.ObjectMeta.UID)
+// 	ipProto := uint8(unix.IPPROTO_TCP)
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	fixture := getTestFixure(ctx)
+// 	defer cancel()
+// 	setupLogging()
+
+// 	// expectations
+// 	fixture.ipsetDeps.On("addIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("3.3.3.3"),
+// 		ipProto,
+// 		podUID,
+// 		false,
+// 	).Return(nil)
+
+// 	fixture.ipsetDeps.On("addIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("2.2.2.2"),
+// 		ipProto,
+// 		podUID,
+// 		false,
+// 	).Return(nil)
+
+// 	// List should return one IP not in our "pod snapshot", which means we prune
+// 	fixture.ipsetDeps.On("listEntriesByIP",
+// 		"foo-v4",
+// 	).Return([]netip.Addr{
+// 		netip.MustParseAddr("2.2.2.2"),
+// 		netip.MustParseAddr("6.6.6.6"),
+// 		netip.MustParseAddr("3.3.3.3"),
+// 	}, nil)
+
+// 	fixture.ipsetDeps.On("clearEntriesWithIP",
+// 		"foo-v4",
+// 		netip.MustParseAddr("6.6.6.6"),
+// 	).Return(nil)
+
+// 	netServer := fixture.netServer
+// 	err := netServer.syncHostIPSets([]*corev1.Pod{pod})
+// 	assert.NoError(t, err)
+// 	fakeIPSetDeps.AssertExpectations(t)
+// }
+
+
+
 
 func podWithAnnotation() *corev1.Pod {
 	return &corev1.Pod{
@@ -338,4 +701,48 @@ func (wg *WaitGroup) Done() {
 
 func (wg *WaitGroup) C() <-chan struct{} {
 	return wg.done
+}
+
+func expectPodAddedToIPSet(ipsetDeps *ipset.MockedIpsetDeps, podIP netip.Addr, podMeta metav1.ObjectMeta) {
+	ipsetDeps.On("addIP",
+		"foo-v4",
+		podIP,
+		uint8(unix.IPPROTO_TCP),
+		string(podMeta.UID),
+		false,
+	).Return(nil)
+}
+
+func expectPodRemovedFromIPSet(ipsetDeps *ipset.MockedIpsetDeps, podIPs []corev1.PodIP) {
+	for _, ip := range podIPs {
+		ipsetDeps.On("clearEntriesWithIP",
+			"foo-v4",
+			netip.MustParseAddr(ip.IP),
+		).Return(nil)
+	}
+}
+
+func getFakeDPWithIPSet(fs *fakeServer, fakeClient kubernetes.Interface, fakeSet ipset.IPSet) *meshDataplane {
+	return &meshDataplane{
+		kubeClient: fakeClient,
+		netServer:  fs,
+		hostsideProbeIPSet: fakeSet,
+	}
+}
+
+func getFakeDP(fs *fakeServer, fakeClient kubernetes.Interface) *meshDataplane {
+	fakeIPSetDeps := ipset.FakeNLDeps()
+
+	fakeIPSetDeps.On("addIP",
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return(nil).Maybe()
+
+	fakeIPSetDeps.On("clearEntriesWithIP", mock.Anything, mock.Anything).Return(nil).Maybe()
+	fakeSet := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+
+	return getFakeDPWithIPSet(fs, fakeClient, fakeSet)
 }
