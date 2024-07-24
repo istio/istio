@@ -153,29 +153,20 @@ func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
 	if err != nil {
 		serverCaLog.Errorf("failed to extract root cert expiry timestamp (error %v)", err)
 	}
-	rootCertExpiryTimestamp.Record(rootCertExpiry)
-
-	rootCertPem, err := util.ParsePemEncodedCertificate(keyCertBundle.GetRootCertPem())
-	if err != nil {
-		serverCaLog.Errorf("failed to parse the root cert: %v", err)
-	}
-	rootCertExpirySeconds.ValueFrom(func() float64 { return time.Until(rootCertPem.NotAfter).Seconds() })
+	rootCertExpiryTimestamp.Record(float64(rootCertExpiry.Unix()))
+	rootCertExpirySeconds.ValueFrom(rootCertExpiry.Sub(time.Now()).Seconds)
 
 	if len(keyCertBundle.GetCertChainPem()) == 0 {
 		return
 	}
-
 	certChainExpiry, err := keyCertBundle.ExtractCACertExpiryTimestamp()
+
 	if err != nil {
 		serverCaLog.Errorf("failed to extract CA cert expiry timestamp (error %v)", err)
 	}
-	certChainExpiryTimestamp.Record(certChainExpiry)
 
-	certChainPem, err := util.ParsePemEncodedCertificate(keyCertBundle.GetCertChainPem())
-	if err != nil {
-		serverCaLog.Errorf("failed to parse the cert chain: %v", err)
-	}
-	certChainExpirySeconds.ValueFrom(func() float64 { return time.Until(certChainPem.NotAfter).Seconds() })
+	certChainExpiryTimestamp.Record(float64(certChainExpiry.Unix()))
+	certChainExpirySeconds.ValueFrom(certChainExpiry.Sub(time.Now()).Seconds)
 }
 
 // Register registers a GRPC server on the specified port.
