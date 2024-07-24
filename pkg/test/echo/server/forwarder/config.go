@@ -51,7 +51,6 @@ type Config struct {
 	newConnectionPerRequest bool
 	PropagateResponse       func(req *http.Request, resp *http.Response)
 	forceDNSLookup          bool
-	forceIPFamily           string
 	hostHeader              string
 	urlHost                 string
 	urlPath                 string
