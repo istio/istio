@@ -775,9 +775,8 @@ func virtualServiceDestinations(v *networking.VirtualService, configNamespace st
 				if m.SourceNamespace == configNamespace {
 					namespaceMatched = true
 					break
-				} else {
-					namespaceMatched = false
 				}
+				namespaceMatched = false
 			}
 		}
 		if !namespaceMatched {

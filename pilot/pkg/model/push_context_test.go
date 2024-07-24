@@ -2941,14 +2941,16 @@ func TestInitVirtualService(t *testing.T) {
 			},
 		},
 	}
-	for _, c := range []config.Config{root,
+	for _, c := range []config.Config{
+		root,
 		delegate,
 		public,
 		private,
 		invisible,
 		sourceNamespaceMatch,
 		sourceNamespaceMatchWithoutGatewayNamespace,
-		sourceNamespaceNotMatch} {
+		sourceNamespaceNotMatch,
+	} {
 		if _, err := configStore.Create(c); err != nil {
 			t.Fatalf("could not create %v", c.Name)
 		}
