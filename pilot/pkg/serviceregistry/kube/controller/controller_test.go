@@ -1800,14 +1800,6 @@ func TestController_ExternalNameService(t *testing.T) {
 	}
 }
 
-func createEndpointsWait(t *testing.T, controller *FakeController, name, namespace string,
-	portNames, ips []string, refs []*corev1.ObjectReference, labels map[string]string,
-) {
-	t.Helper()
-	createEndpoints(t, controller, name, namespace, portNames, ips, refs, labels)
-	controller.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "eds")
-}
-
 func createEndpoints(t *testing.T, controller *FakeController, name, namespace string,
 	portNames, ips []string, refs []*corev1.ObjectReference, labels map[string]string,
 ) {
