@@ -618,7 +618,10 @@ message GlobalConfig {
   // are PreferDualStack, RequireDualStack, and SingleStack.
   // More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
   string ipFamilyPolicy = 71;
-  // The next available key is 72
+
+  // Specifies how waypoints are configured within Istio.
+  WaypointConfig waypoint = 72;
+  // The next available key is 73
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -1436,4 +1439,12 @@ message IntOrString {
   google.protobuf.Int32Value intVal = 2;
 
   google.protobuf.StringValue strVal = 3;
+}
+
+// Configuration for Waypoint proxies.
+message WaypointConfig {
+  // K8s resource settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
+  Resources resources = 1;
 }
