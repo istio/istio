@@ -334,6 +334,32 @@ func TestIPAllocate(t *testing.T) {
 		},
 	)
 
+	// check that adding duplicate host entries does not allocate new IPs or mutate the existing allocations
+	se = rig.se.Get("pre-existing", "default")
+	se.Spec.Hosts = append(se.Spec.Hosts, []string{
+		"added.testing.io",
+		"added.testing.io",
+		"added.testing.io",
+		"added.testing.io",
+	}...)
+	rig.se.Update(se)
+	assert.EventuallyEqual(t, func() int {
+		se := rig.se.Get("pre-existing", "default")
+		return len(autoallocate.GetAddressesFromServiceEntry(se))
+	}, 4, retry.Converge(10), retry.Delay(time.Millisecond*5))
+	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
+		map[string][]string{
+			"test.testing.io": {
+				newV4AddressString(1),
+				newV6AddressString(1),
+			},
+			"added.testing.io": {
+				newV4AddressString(5),
+				newV6AddressString(5),
+			},
+		},
+	)
+
 	// test that removing from the list of hosts produces the correct host to IP mapping
 	se = rig.se.Get("pre-existing", "default")
 	se.Spec.Hosts = []string{"added.testing.io"}
