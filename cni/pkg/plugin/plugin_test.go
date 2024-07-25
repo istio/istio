@@ -20,6 +20,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"path/filepath"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	corev1 "k8s.io/api/core/v1"
@@ -77,16 +78,9 @@ var mockConfTmpl = `{
 
     },
     "plugin_log_level": "debug",
-    "cni_event_address": "%s",
+    "cni_agent_run_dir": "%s",
     "ambient_enabled": %t,
-    "kubernetes": {
-        "k8s_api_root": "APIRoot",
-        "kubeconfig": "testK8sConfig",
-		"intercept_type": "%s",
-        "node_name": "testNodeName",
-        "exclude_namespaces": ["testExcludeNS"],
-        "cni_bin_dir": "/testDirectory"
-    }
+	"exclude_namespaces": ["testExcludeNS"],
 }`
 
 type mockInterceptRuleMgr struct {
@@ -100,7 +94,7 @@ func buildMockConf(ambientEnabled bool, eventURL string) string {
 		"1.0.0",
 		"eth0",
 		testSandboxDirectory,
-		eventURL,
+		filepath.Dir(eventURL),
 		ambientEnabled,
 		"mock",
 	)

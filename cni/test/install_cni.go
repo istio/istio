@@ -253,13 +253,12 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 	}
 
 	ztunnelAddr := "/tmp/ztfoo"
-	cniEventAddr := "/tmp/cnieventfoo"
+	cniEventAddr := filepath.Join("/tmp", constants.CNIEventSocketName)
 	defer os.Remove(ztunnelAddr)
 	defer os.Remove(cniEventAddr)
 
 	installConfig := config.Config{
 		InstallConfig: config.InstallConfig{
-			// CNIEventAddress:       cniEventAddr,
 			ZtunnelUDSAddress:     ztunnelAddr,
 			MountedCNINetDir:      tempCNIConfDir,
 			CNIBinSourceDir:       filepath.Join(env.IstioSrc, "cni/test/testdata/bindir"),
@@ -268,7 +267,6 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 			K8sServiceHost:        "10.110.0.1",
 			MonitoringPort:        0,
 			CNIAgentRunDir:  "/tmp",
-			// KubeconfigFilename:    "ZZZ-istio-cni-kubeconfig",
 			CNINetDir:             "/etc/cni/net.d",
 			ChainedCNIPlugin:      chainedCNIPlugin,
 			PluginLogLevel:        "debug",
