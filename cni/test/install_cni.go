@@ -266,7 +266,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 			K8sServicePort:        "443",
 			K8sServiceHost:        "10.110.0.1",
 			MonitoringPort:        0,
-			CNIAgentRunDir:  "/tmp",
+			CNIAgentRunDir:        "/tmp",
 			ChainedCNIPlugin:      chainedCNIPlugin,
 			PluginLogLevel:        "debug",
 			ExcludeNamespaces:     "istio-system",

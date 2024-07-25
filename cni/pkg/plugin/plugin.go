@@ -20,11 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"runtime/debug"
 	"strconv"
 	"time"
-
-	"path/filepath"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
@@ -37,9 +36,9 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
+	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/file"
 )
 
 var (
@@ -62,11 +61,11 @@ type Config struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	PluginLogLevel  string     `json:"plugin_log_level"`
-	CNIAgentRunDir  string     `json:"cni_agent_run_dir"`
+	PluginLogLevel string `json:"plugin_log_level"`
+	CNIAgentRunDir string `json:"cni_agent_run_dir"`
 	// LogUDSAddress   string     `json:"log_uds_address"`
 	// CNIEventAddress string     `json:"cni_event_address"`
-	AmbientEnabled  bool       `json:"ambient_enabled"`
+	AmbientEnabled    bool     `json:"ambient_enabled"`
 	ExcludeNamespaces []string `json:"exclude_namespaces"`
 }
 

@@ -99,7 +99,7 @@ func buildMockConf(ambientEnabled bool, eventURL string) string {
 		"1.0.0",
 		"eth0",
 		testSandboxDirectory,
-		"", //unused here
+		"", // unused here
 		ambientEnabled,
 		"mock",
 	)

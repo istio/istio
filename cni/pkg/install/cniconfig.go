@@ -33,11 +33,11 @@ import (
 
 func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {
 	pluginConfig := plugin.Config{
-		PluginLogLevel:  cfg.PluginLogLevel,
+		PluginLogLevel: cfg.PluginLogLevel,
 		// LogUDSAddress:   cfg.LogUDSAddress,
 		// CNIEventAddress: cfg.CNIEventAddress,
-		CNIAgentRunDir: cfg.CNIAgentRunDir,
-		AmbientEnabled:  cfg.AmbientEnabled,
+		CNIAgentRunDir:    cfg.CNIAgentRunDir,
+		AmbientEnabled:    cfg.AmbientEnabled,
 		ExcludeNamespaces: strings.Split(cfg.ExcludeNamespaces, ","),
 	}
 

@@ -25,9 +25,9 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
-	"istio.io/istio/cni/pkg/constants"
 )
 
 type kubeconfig struct {
