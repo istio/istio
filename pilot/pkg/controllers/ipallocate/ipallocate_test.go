@@ -16,6 +16,7 @@ package ipallocate_test
 
 import (
 	"net/netip"
+	"strconv"
 	"testing"
 	"time"
 
@@ -35,6 +36,21 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+const (
+	TestIPV4Prefix = "240.240.0."
+	TestIPV6Prefix = "2001:2::"
+)
+
+func newV4AddressString(i uint64) string {
+	s := strconv.FormatUint(i, 10)
+	return TestIPV4Prefix + s
+}
+
+func newV6AddressString(i uint64) string {
+	s := strconv.FormatUint(i, 16)
+	return TestIPV6Prefix + s
+}
+
 type ipAllocateTestRig struct {
 	client kubelib.Client
 	se     clienttest.TestClient[*networkingv1alpha3.ServiceEntry]
@@ -51,8 +67,6 @@ func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocator, ipAllocateTestR
 	se := clienttest.NewDirectClient[*networkingv1alpha3.ServiceEntry, networkingv1alpha3.ServiceEntry, *networkingv1alpha3.ServiceEntryList](t, c)
 	ipController := ipallocate.NewIPAllocator(s, c)
 	// these would normally be the first addresses consumed, we should check that warming works by asserting that we get their nexts when we reconcile
-	v4 := netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next().String()
-	v6 := netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().String()
 	se.CreateOrUpdateStatus(
 		&networkingv1alpha3.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
@@ -63,13 +77,16 @@ func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocator, ipAllocateTestR
 				Hosts: []string{
 					"test.testing.io",
 				},
+				Resolution: v1alpha3.ServiceEntry_DNS,
 			},
 			Status: v1alpha3.ServiceEntryStatus{Addresses: []*v1alpha3.ServiceEntryAddress{
 				{
-					Value: v4,
+					Host:  "test.testing.io",
+					Value: newV4AddressString(1),
 				},
 				{
-					Value: v6,
+					Host:  "test.testing.io",
+					Value: newV6AddressString(1),
 				},
 			}},
 		},
@@ -173,8 +190,8 @@ func TestIPAllocate(t *testing.T) {
 	}
 	// this effectively asserts that allocation did work for boop/beep and also that with-address and opt-out did not get addresses
 	assert.EventuallyEqual(t, getter, []string{
-		netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next().Next().String(),
-		netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().Next().String(),
+		newV4AddressString(2),
+		newV6AddressString(2),
 	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
 	assert.Equal(t,
 		len(rig.se.Get("with-existing-status", "boop").Status.GetConditions()),
@@ -216,8 +233,8 @@ func TestIPAllocate(t *testing.T) {
 	)
 	// Assert this conflict was resolved as expected by allocating new auto-assigned addresses
 	assert.EventuallyEqual(t, getter, []string{
-		netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next().Next().Next().String(),
-		netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().Next().Next().String(),
+		newV4AddressString(3),
+		newV6AddressString(3),
 	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
 
 	// Assert that we are not mutating user spec during resolution of conflicts
@@ -280,8 +297,8 @@ func TestIPAllocate(t *testing.T) {
 		}
 		return res
 	}, []string{
-		netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next().Next().Next().Next().String(),
-		netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().Next().Next().Next().String(),
+		newV4AddressString(4),
+		newV6AddressString(4),
 	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
 
 	// assert that resolving conflicts does not destroy existing status items
@@ -292,7 +309,107 @@ func TestIPAllocate(t *testing.T) {
 
 	// assert that the elder SE doesn't change for 10 consecutive tries
 	assert.EventuallyEqual(t, getter, []string{
-		netip.MustParsePrefix(ipallocate.IPV4Prefix).Addr().Next().Next().Next().String(),
-		netip.MustParsePrefix(ipallocate.IPV6Prefix).Addr().Next().Next().Next().String(),
+		newV4AddressString(3),
+		newV6AddressString(3),
 	}, retry.Converge(10), retry.Delay(time.Millisecond*5))
+
+	// test that adding to the list of hosts produces the correct host to IP mapping
+	se := rig.se.Get("pre-existing", "default")
+	se.Spec.Hosts = append(se.Spec.Hosts, "added.testing.io")
+	rig.se.Update(se)
+	assert.EventuallyEqual(t, func() int {
+		se := rig.se.Get("pre-existing", "default")
+		return len(autoallocate.GetAddressesFromServiceEntry(se))
+	}, 4, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
+		map[string][]string{
+			"test.testing.io": {
+				newV4AddressString(1),
+				newV6AddressString(1),
+			},
+			"added.testing.io": {
+				newV4AddressString(5),
+				newV6AddressString(5),
+			},
+		},
+	)
+
+	// test that removing from the list of hosts produces the correct host to IP mapping
+	se = rig.se.Get("pre-existing", "default")
+	se.Spec.Hosts = []string{"added.testing.io"}
+	rig.se.Update(se)
+	assert.EventuallyEqual(t, func() int {
+		se := rig.se.Get("pre-existing", "default")
+		return len(autoallocate.GetAddressesFromServiceEntry(se))
+	}, 2, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
+		map[string][]string{
+			"added.testing.io": {
+				newV4AddressString(5),
+				newV6AddressString(5),
+			},
+		},
+	)
+
+	// a big add + remove to list of hosts produces the correct host to IP mapping
+	se = rig.se.Get("pre-existing", "default")
+	se.Spec.Hosts = []string{
+		"six.testing.io",
+		"seven.testing.io",
+		"eight.testing.io",
+		"nine.testing.io",
+		"A.testing.io",
+	}
+	rig.se.Update(se)
+	assert.EventuallyEqual(t, func() int {
+		se := rig.se.Get("pre-existing", "default")
+		return len(autoallocate.GetAddressesFromServiceEntry(se))
+	}, 10, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
+		map[string][]string{
+			"six.testing.io": {
+				newV4AddressString(6),
+				newV6AddressString(6),
+			},
+			"seven.testing.io": {
+				newV4AddressString(7),
+				newV6AddressString(7),
+			},
+			"eight.testing.io": {
+				newV4AddressString(8),
+				newV6AddressString(8),
+			},
+			"nine.testing.io": {
+				newV4AddressString(9),
+				newV6AddressString(9),
+			},
+			"A.testing.io": {
+				newV4AddressString(10),
+				newV6AddressString(10),
+			},
+		},
+	)
+
+	// for completeness test that having no hosts produces an empty map
+	se = rig.se.Get("pre-existing", "default")
+	se.Spec.Hosts = []string{}
+	rig.se.Update(se)
+	assert.EventuallyEqual(t, func() int {
+		se := rig.se.Get("pre-existing", "default")
+		return len(autoallocate.GetAddressesFromServiceEntry(se))
+	}, 0, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
+		map[string][]string{})
+}
+
+func toMapStringString(in map[string][]netip.Addr) map[string][]string {
+	out := map[string][]string{}
+
+	for k, v := range in {
+		for _, ip := range v {
+			out[k] = append(out[k], ip.String())
+		}
+	}
+
+	return out
 }
