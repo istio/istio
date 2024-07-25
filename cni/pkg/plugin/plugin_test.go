@@ -91,6 +91,7 @@ type mockInterceptRuleMgr struct {
 	lastRedirect []*Redirect
 }
 
+// TODO drop eventURL
 func buildMockConf(ambientEnabled bool, eventURL string) string {
 	return fmt.Sprintf(
 		mockConfTmpl,
