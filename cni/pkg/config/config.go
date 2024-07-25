@@ -40,8 +40,8 @@ type InstallConfig struct {
 	// Logging level for the CNI plugin
 	// Since it runs out-of-process, it has to be separately configured
 	PluginLogLevel string
-	// Name of the kubeconfig file used by the CNI plugin
-	KubeconfigFilename string
+	// // Name of the kubeconfig file used by the CNI plugin
+	// KubeconfigFilename string
 	// The file mode to set when creating the kubeconfig file
 	KubeconfigMode int
 	// CA file for kubeconfig
@@ -133,7 +133,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("CNIAgentRunDir: " + fmt.Sprint(c.CNIAgentRunDir) + "\n")
 
 	b.WriteString("PluginLogLevel: " + c.PluginLogLevel + "\n")
-	b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")
+	// b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")
 	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")
 	b.WriteString("KubeCAFile: " + c.KubeCAFile + "\n")
 	b.WriteString("SkipTLSVerify: " + fmt.Sprint(c.SkipTLSVerify) + "\n")

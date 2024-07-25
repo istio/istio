@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/cni/pkg/constants"
 )
 
 type kubeconfig struct {
@@ -124,40 +125,19 @@ func createKubeConfig(cfg *config.InstallConfig) (kubeconfig, error) {
 	}, nil
 }
 
-// maybeWriteKubeConfigFile will validate the existing kubeConfig file, and rewrite/replace it if required.
-func maybeWriteKubeConfigFile(cfg *config.InstallConfig) error {
+// writeKubeConfigFile will rewrite/replace the kubeconfig used by the CNI plugin.
+// We are the only consumers of this file and it resides in our owned rundir on the host node,
+// so we are good to simply write it out if our watched svcacct token changes.
+func writeKubeConfigFile(cfg *config.InstallConfig) error {
 	kc, err := createKubeConfig(cfg)
 	if err != nil {
 		return err
 	}
 
-	if err := checkExistingKubeConfigFile(cfg, kc); err != nil {
-		installLog.Info("kubeconfig either does not exist or is out of date, writing a new one")
-		kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
-		if err := file.AtomicWrite(kubeconfigFilepath, []byte(kc.Full), os.FileMode(cfg.KubeconfigMode)); err != nil {
-			return err
-		}
-		installLog.Infof("wrote kubeconfig file %s with: \n%+v", kubeconfigFilepath, kc.Redacted)
-	}
-	return nil
-}
-
-// checkExistingKubeConfigFile returns an error if no kubeconfig exists at the configured path,
-// or if a kubeconfig exists there, but differs from the current config.
-// In any case, an error indicates the file must be (re)written, and no error means no action need be taken
-func checkExistingKubeConfigFile(cfg *config.InstallConfig, expectedKC kubeconfig) error {
-	kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
-
-	existingKC, err := os.ReadFile(kubeconfigFilepath)
-	if err != nil {
-		installLog.Debugf("no preexisting kubeconfig at %s, assuming we need to create one", kubeconfigFilepath)
+	kubeconfigFilepath := filepath.Join(cfg.CNIAgentRunDir, constants.CNIPluginKubeconfName)
+	if err := file.AtomicWrite(kubeconfigFilepath, []byte(kc.Full), os.FileMode(cfg.KubeconfigMode)); err != nil {
 		return err
 	}
-
-	if expectedKC.Full == string(existingKC) {
-		installLog.Debugf("preexisting kubeconfig %s is an exact match for expected, no need to update", kubeconfigFilepath)
-		return nil
-	}
-
-	return fmt.Errorf("kubeconfig on disk differs from expected, assuming we need to rewrite it")
+	installLog.Infof("wrote kubeconfig file %s with: \n%+v", kubeconfigFilepath, kc.Redacted)
+	return nil
 }

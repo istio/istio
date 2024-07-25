@@ -177,8 +177,8 @@ func init() {
 	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
 	registerStringParameter(constants.CNIAgentRunDir, "/var/run/istio-cni", "Location of the node agent writable path on the node (used for sockets, etc)")
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
-	registerStringParameter(constants.KubeconfigFilename, "ZZZ-istio-cni-kubeconfig",
-		"Name of the kubeconfig file which CNI plugin will use when interacting with API server")
+	// registerStringParameter(constants.KubeconfigFilename, "ZZZ-istio-cni-kubeconfig",
+	// 	"Name of the kubeconfig file which CNI plugin will use when interacting with API server")
 	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the same as install-cni pod")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
@@ -254,7 +254,7 @@ func constructConfig() (*config.Config, error) {
 		// what level to use for itself.
 		// This masks the fact we are doing this weird log-over-UDS to users, and allows them to configure it the same way.
 		PluginLogLevel:        istiolog.LevelToString(istiolog.FindScope(constants.CNIPluginLogScope).GetOutputLevel()),
-		KubeconfigFilename:    viper.GetString(constants.KubeconfigFilename),
+		// KubeconfigFilename:    viper.GetString(constants.KubeconfigFilename),
 		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
 		KubeCAFile:            viper.GetString(constants.KubeCAFile),
 		SkipTLSVerify:         viper.GetBool(constants.SkipTLSVerify),
