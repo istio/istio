@@ -124,7 +124,7 @@ func TestDeleteImportedService(t *testing.T) {
 	ic.checkServiceInstances(t)
 
 	// create the same service in cluster2
-	createService(c2, serviceImportName, serviceImportNamespace, map[string]string{}, map[string]string{},
+	createService(c2, serviceImportName, serviceImportNamespace, []string{"10.0.0.1"}, map[string]string{}, map[string]string{},
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 
 	// Delete the k8s service and verify that all internal services are removed.
@@ -180,7 +180,7 @@ func (ic *serviceImportCacheImpl) createKubeService(t *testing.T, c *FakeControl
 	t.Helper()
 
 	// Create the test service and endpoints.
-	createService(c, serviceImportName, serviceImportNamespace, map[string]string{}, map[string]string{},
+	createService(c, serviceImportName, serviceImportNamespace, []string{"10.0.0.1"}, map[string]string{}, map[string]string{},
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 	createEndpoints(t, c, serviceImportName, serviceImportNamespace, []string{"tcp-port"}, []string{serviceImportPodIP}, nil, nil)
 

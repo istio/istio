@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -53,12 +54,12 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	})
 	addNodes(t, controller, node)
 
-	pod := generatePod("128.0.0.1", "pod1", ns, "svcaccount", "node1",
+	pod := generatePod([]string{"128.0.0.1"}, "pod1", ns, "svcaccount", "node1",
 		map[string]string{"app": appName}, map[string]string{})
 	pods := []*corev1.Pod{pod}
 	addPods(t, controller, fx, pods...)
 
-	createServiceWait(controller, svcName, ns, nil, nil,
+	createServiceWait(controller, svcName, ns, []string{"10.0.0.1"}, nil, nil,
 		[]int32{8080}, map[string]string{"app": appName}, t)
 
 	// Ensure that the service is available.
@@ -79,6 +80,75 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	// Ensure that no endpoint is create
 	endpoints := GetEndpoints(svc, controller.Endpoints)
 	assert.Equal(t, len(endpoints), 0)
+}
+
+func TestEndpointFromSlice(t *testing.T) {
+	const (
+		ns      = "nsa"
+		svcName = "svc1"
+		appName = "prod-app"
+	)
+
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+
+	addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}))
+
+	pods := []*corev1.Pod{generatePod([]string{"128.0.0.1"}, "pod1", ns, "svcaccount", "node1",
+		map[string]string{"app": appName}, map[string]string{})}
+	addPods(t, controller, fx, pods...)
+
+	createServiceWait(controller, svcName, ns, []string{"10.0.0.1"}, nil, nil,
+		[]int32{8080}, map[string]string{"app": appName}, t)
+
+	// Ensure that the service is available.
+	hostname := kube.ServiceHostname(svcName, ns, controller.opts.DomainSuffix)
+	svc := controller.GetService(hostname)
+	if svc == nil {
+		t.Fatal("failed to get service")
+	}
+
+	svc1Ips := []string{"128.0.0.1"}
+	portNames := []string{"tcp-port"}
+	createEndpointsWait(t, controller, svcName, ns, portNames, svc1Ips, nil, nil)
+
+	// Ensure that no endpoint is create
+	endpoints := GetEndpoints(svc, controller.Endpoints)
+	assert.Equal(t, len(endpoints), 1)
+}
+
+func TestEndpointFromSliceWithMultipleAddrs(t *testing.T) {
+	const (
+		ns      = "nsa"
+		svcName = "svc1"
+		appName = "prod-app"
+	)
+
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+
+	addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}))
+
+	pods := []*corev1.Pod{generatePod([]string{"128.0.0.1", "2001:1:2:3:4:5:6:7"}, "pod1", ns, "svcaccount", "node1",
+		map[string]string{"app": appName}, map[string]string{})}
+	addPods(t, controller, fx, pods...)
+
+	createServiceWait(controller, svcName, ns, []string{"10.0.0.1", "2001:1:2:3:4:5:6:7"}, nil, nil,
+		[]int32{8080}, map[string]string{"app": appName}, t)
+
+	// Ensure that the service is available.
+	hostname := kube.ServiceHostname(svcName, ns, controller.opts.DomainSuffix)
+	svc := controller.GetService(hostname)
+	if svc == nil {
+		t.Fatal("failed to get service")
+	}
+
+	svc1Ips := []string{"128.0.0.1", "2001:1:2:3:4:5:6:7"}
+	portNames := []string{"tcp-port"}
+	createEndpointsWait(t, controller, svcName, ns, portNames, svc1Ips, nil, nil)
+
+	// Ensure that no endpoint is create
+	endpoints := GetEndpoints(svc, controller.Endpoints)
+	fmt.Printf("%+v", endpoints[0])
+	assert.Equal(t, len(endpoints), 2)
 }
 
 func TestEndpointSliceCache(t *testing.T) {
@@ -193,12 +263,12 @@ func TestUpdateEndpointCacheForSlice(t *testing.T) {
 	})
 	addNodes(t, controller, node)
 
-	pod := generatePod("128.0.0.1", podName, ns, "svcaccount", "node1",
+	pod := generatePod([]string{"128.0.0.1"}, podName, ns, "svcaccount", "node1",
 		map[string]string{"app": appName}, map[string]string{})
 
 	addPods(t, controller, fx, pod)
 
-	createServiceWait(controller, svcName, ns, nil, nil,
+	createServiceWait(controller, svcName, ns, []string{"10.0.0.1"}, nil, nil,
 		[]int32{portNum}, map[string]string{"app": appName}, t)
 
 	// Ensure that the service is available.
@@ -301,17 +371,8 @@ func TestUpdateEndpointCacheForSliceWithMultiAddrs(t *testing.T) {
 	// Enable the Dual Stack features for testing UpdateEndpointCacheForSlice
 	test.SetForTest(t, &features.EnableDualStack, true)
 
-	dualStackPod := generatePod("128.0.0.1", podName, ns, "svcaccount", "node1",
+	dualStackPod := generatePod([]string{"128.0.0.1", "2001:1::1"}, podName, ns, "svcaccount", "node1",
 		map[string]string{"app": appName}, map[string]string{})
-	// set the dual stack pods
-	dualStackPod.Status.PodIPs = []corev1.PodIP{
-		{
-			IP: "128.0.0.1",
-		},
-		{
-			IP: "2001:1::1",
-		},
-	}
 
 	basicService := generateService(svcName, ns, nil, nil, []int32{portNum}, map[string]string{"app": appName}, []string{"10.0.0.1", "2001:1::255"})
 	serviceWithoutSelector := basicService.DeepCopy()
