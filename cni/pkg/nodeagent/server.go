@@ -273,24 +273,28 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 
+	// Aggregate errors together, so that if part of the removal fails we still proceed with other steps.
+	var errs []error
+
 	// Remove the hostside ipset entry first, and unconditionally - if later failures happen, we never
 	// want to leave stale entries
 	if err := removePodFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
 		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)
-		return err
+		errs = append(errs, err)
 	}
 
-	err := s.netServer.RemovePodFromMesh(ctx, pod, isDelete)
-	if err != nil {
+	if err := s.netServer.RemovePodFromMesh(ctx, pod, isDelete); err != nil {
 		log.Errorf("failed to remove pod from mesh: %v", err)
-		return err
+		errs = append(errs, err)
 	}
+
 	log.Debug("removing annotation from pod")
-	err = util.AnnotateUnenrollPod(s.kubeClient, &pod.ObjectMeta)
-	if err != nil {
+	if err := util.AnnotateUnenrollPod(s.kubeClient, &pod.ObjectMeta); err != nil {
 		log.Errorf("failed to annotate pod unenrollment: %v", err)
+		errs = append(errs, err)
 	}
-	return err
+
+	return errors.Join(errs...)
 }
 
 // syncHostIPSets is called after the host node ipset has been created (or found + flushed)
