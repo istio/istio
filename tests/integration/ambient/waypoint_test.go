@@ -403,10 +403,11 @@ func TestWaypointDNS(t *testing.T) {
 							Port:          echo.Port{Name: "http"},
 							Scheme:        scheme.HTTP,
 							Count:         1,
-							// The destination will always get an IPv4 address currently...
-							// With waypoint: we always send to IPv4 on the waypoint (https://github.com/istio/istio/issues/52318)
-							// Without waypoint: Ztunnel DNS currently prefers IPv4, so it will always win. (https://github.com/istio/ztunnel/issues/1225)
-							Check: check.And(c, check.DestinationIPv4(), check.SourceIPv6()),
+							// Depending on the environment, the destination may or may not actually get a destination IPv6 address.
+							// With waypoint: we always send to IPv4 on the waypoint if it has an IPv4 address (https://github.com/istio/istio/issues/52318)
+							// Without waypoint: Ztunnel DNS currently prefers IPv4, so it will always win if there is an IPv4 address.
+							// (https://github.com/istio/ztunnel/issues/1225)
+							Check: check.And(c, check.SourceIPv6()),
 						})
 					})
 				}
