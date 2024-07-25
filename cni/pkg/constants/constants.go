@@ -23,7 +23,6 @@ const (
 	CNINetworkConfigFile = "cni-network-config-file"
 	CNINetworkConfig     = "cni-network-config"
 	LogLevel             = "log-level"
-	// KubeconfigFilename   = "kubecfg-file-name"
 	KubeconfigMode    = "kubeconfig-mode"
 	KubeCAFile        = "kube-ca-file"
 	SkipTLSVerify     = "skip-tls-verify"

@@ -63,8 +63,6 @@ type Config struct {
 	// Add plugin-specific flags here
 	PluginLogLevel string `json:"plugin_log_level"`
 	CNIAgentRunDir string `json:"cni_agent_run_dir"`
-	// LogUDSAddress   string     `json:"log_uds_address"`
-	// CNIEventAddress string     `json:"cni_event_address"`
 	AmbientEnabled    bool     `json:"ambient_enabled"`
 	ExcludeNamespaces []string `json:"exclude_namespaces"`
 }

@@ -38,8 +38,6 @@ type InstallConfig struct {
 	// Logging level for the CNI plugin
 	// Since it runs out-of-process, it has to be separately configured
 	PluginLogLevel string
-	// // Name of the kubeconfig file used by the CNI plugin
-	// KubeconfigFilename string
 	// The file mode to set when creating the kubeconfig file
 	KubeconfigMode int
 	// CA file for kubeconfig
@@ -69,12 +67,6 @@ type InstallConfig struct {
 
 	// The HTTP port for monitoring
 	MonitoringPort int
-
-	// // The UDS server address that CNI plugin will send log to.
-	// LogUDSAddress string
-
-	// // The watch server socket address that CNI plugin will forward CNI events to.
-	// CNIEventAddress string
 
 	// The ztunnel server socket address that the ztunnel will connect to.
 	ZtunnelUDSAddress string
