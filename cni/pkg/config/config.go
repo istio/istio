@@ -130,7 +130,6 @@ func (c InstallConfig) String() string {
 	b.WriteString("CNIAgentRunDir: " + fmt.Sprint(c.CNIAgentRunDir) + "\n")
 
 	b.WriteString("PluginLogLevel: " + c.PluginLogLevel + "\n")
-	// b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")
 	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")
 	b.WriteString("KubeCAFile: " + c.KubeCAFile + "\n")
 	b.WriteString("SkipTLSVerify: " + fmt.Sprint(c.SkipTLSVerify) + "\n")
@@ -145,8 +144,6 @@ func (c InstallConfig) String() string {
 	b.WriteString("CNIBinTargetDirs: " + strings.Join(c.CNIBinTargetDirs, ",") + "\n")
 
 	b.WriteString("MonitoringPort: " + fmt.Sprint(c.MonitoringPort) + "\n")
-	// b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
-	// b.WriteString("CNIEventAddress: " + fmt.Sprint(c.CNIEventAddress) + "\n")
 	b.WriteString("ZtunnelUDSAddress: " + fmt.Sprint(c.ZtunnelUDSAddress) + "\n")
 
 	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")

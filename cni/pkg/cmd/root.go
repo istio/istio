@@ -246,7 +246,7 @@ func constructConfig() (*config.Config, error) {
 		// Whatever user has set (with --log_output_level) for 'cni-plugin', pass it down to the plugin. It will use this to determine
 		// what level to use for itself.
 		// This masks the fact we are doing this weird log-over-UDS to users, and allows them to configure it the same way.
-		PluginLogLevel: istiolog.LevelToString(istiolog.FindScope(constants.CNIPluginLogScope).GetOutputLevel()),
+		PluginLogLevel:        istiolog.LevelToString(istiolog.FindScope(constants.CNIPluginLogScope).GetOutputLevel()),
 		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
 		KubeCAFile:            viper.GetString(constants.KubeCAFile),
 		SkipTLSVerify:         viper.GetBool(constants.SkipTLSVerify),

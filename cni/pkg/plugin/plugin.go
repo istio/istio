@@ -305,12 +305,6 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 	return nil
 }
 
-func setupLogging(conf *Config) {
-	if err := log.Configure(GetLoggingOptions(conf)); err != nil {
-		log.Error("Failed to configure istio-cni with UDS log")
-	}
-}
-
 func pluginResponse(conf *Config) error {
 	var result *cniv1.Result
 	if conf.PrevResult == nil {
