@@ -168,71 +168,147 @@ func almostEqual(t1, t2 time.Duration) bool {
 	return diff < time.Second*5
 }
 
-func TestRotateTime(t *testing.T) {
+func TestRotateTimeNoJitter(t *testing.T) {
 	now := time.Now()
 	cases := []struct {
-		name        string
-		created     time.Time
-		expire      time.Time
-		gracePeriod float64
-		expected    time.Duration
+		name             string
+		created          time.Time
+		expire           time.Time
+		gracePeriodRatio float64
+		expected         time.Duration
 	}{
 		{
-			name:        "already expired",
-			created:     now.Add(-time.Second * 2),
-			expire:      now.Add(-time.Second),
-			gracePeriod: 0.5,
-			expected:    0,
+			name:             "already expired",
+			created:          now.Add(-time.Second * 2),
+			expire:           now.Add(-time.Second),
+			gracePeriodRatio: 0.5,
+			expected:         0,
 		},
 		{
-			name:        "grace period .50",
-			created:     now,
-			expire:      now.Add(time.Hour),
-			gracePeriod: 0.5,
-			expected:    time.Minute * 30,
+			name:             "grace period .50",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 0.5,
+			expected:         time.Minute * 30,
 		},
 		{
-			name:        "grace period .25",
-			created:     now,
-			expire:      now.Add(time.Hour),
-			gracePeriod: 0.25,
-			expected:    time.Minute * 45,
+			name:             "grace period .25",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 0.25,
+			expected:         time.Minute * 45,
 		},
 		{
-			name:        "grace period .75",
-			created:     now,
-			expire:      now.Add(time.Hour),
-			gracePeriod: 0.75,
-			expected:    time.Minute * 15,
+			name:             "grace period .75",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 0.75,
+			expected:         time.Minute * 15,
 		},
 		{
-			name:        "grace period 1",
-			created:     now,
-			expire:      now.Add(time.Hour),
-			gracePeriod: 1,
-			expected:    0,
+			name:             "grace period 1",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 1,
+			expected:         0,
 		},
 		{
-			name:        "grace period 0",
-			created:     now,
-			expire:      now.Add(time.Hour),
-			gracePeriod: 0,
-			expected:    time.Hour,
+			name:             "grace period 0",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 0,
+			expected:         time.Hour,
 		},
 		{
-			name:        "grace period .25 shifted",
-			created:     now.Add(time.Minute * 30),
-			expire:      now.Add(time.Minute * 90),
-			gracePeriod: 0.25,
-			expected:    time.Minute * 75,
+			name:             "grace period .25 shifted",
+			created:          now.Add(time.Minute * 30),
+			expire:           now.Add(time.Minute * 90),
+			gracePeriodRatio: 0.25,
+			expected:         time.Minute * 75,
+		},
+		{
+			name:             "jitter cannot make grace ratio exceed 1",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 1,
+			expected:         0,
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			sc := &SecretManagerClient{configOptions: &security.Options{SecretRotationGracePeriodRatio: tt.gracePeriod}}
-			got := rotateTime(security.SecretItem{CreatedTime: tt.created, ExpireTime: tt.expire}, sc.configOptions.SecretRotationGracePeriodRatio)
+			got := rotateTime(security.SecretItem{CreatedTime: tt.created, ExpireTime: tt.expire}, tt.gracePeriodRatio, 0)
 			if !almostEqual(got, tt.expected) {
 				t.Fatalf("expected %v got %v", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestRotateTimeWithJitter(t *testing.T) {
+	now := time.Now()
+	type delayRange struct {
+		min time.Duration
+		max time.Duration
+	}
+	cases := []struct {
+		name             string
+		created          time.Time
+		expire           time.Time
+		gracePeriodRatio float64
+		jitter           float64
+		expectedDelay    delayRange
+	}{
+		{
+			name:             "jitter ratio between .5 and 1",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 1,
+			jitter:           .5,
+			expectedDelay: delayRange{
+				0,
+				time.Hour / 2,
+			},
+		},
+		{
+			name:             "jitter ratio between 0 and 1",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: .5,
+			jitter:           .5,
+			expectedDelay: delayRange{
+				0,
+				time.Hour,
+			},
+		},
+		{
+			name:             "jitter ratio between 0 and .5",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 0,
+			jitter:           .5,
+			expectedDelay: delayRange{
+				time.Hour / 2,
+				time.Hour,
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			for i := 0; i < 1000; i++ {
+				got := rotateTime(security.SecretItem{
+					CreatedTime: tt.created,
+					ExpireTime:  tt.expire,
+				}, tt.gracePeriodRatio, tt.jitter)
+				if got+time.Second < tt.expectedDelay.min || got > tt.expectedDelay.max {
+					t.Fatalf(
+						"got %v, expected between %v - %v with gracePeriodRatio of %v and jitter of %v",
+						got,
+						tt.expectedDelay.min,
+						tt.expectedDelay.max,
+						tt.gracePeriodRatio,
+						tt.jitter,
+					)
+				}
 			}
 		})
 	}
@@ -659,7 +735,7 @@ func TestProxyConfigAnchorsTriggerWorkloadCertUpdate(t *testing.T) {
 	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
 	u.Reset()
 
-	rotateTime = func(_ security.SecretItem, _ float64) time.Duration {
+	rotateTime = func(_ security.SecretItem, _ float64, _ float64) time.Duration {
 		return time.Millisecond * 200
 	}
 	fakeCACli, err = mock.NewMockCAClient(time.Millisecond*200, false)

@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"sort"
 	"strconv"
 	"strings"
@@ -228,6 +229,13 @@ func (c *httpCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 		Transport:     transport,
 	}
 
+	var localAddr string
+	httpReq = httpReq.WithContext(httptrace.WithClientTrace(httpReq.Context(), &httptrace.ClientTrace{
+		GotConn: func(connInfo httptrace.GotConnInfo) {
+			localAddr, _, _ = net.SplitHostPort(connInfo.Conn.LocalAddr().String())
+		},
+	}))
+
 	// Make the request.
 	httpResp, err := client.Do(httpReq)
 	if err != nil {
@@ -235,6 +243,7 @@ func (c *httpCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 	}
 	cfg.previousResponse = httpResp
 
+	echo.SourceIPField.WriteForRequest(&outBuffer, requestID, localAddr)
 	echo.LatencyField.WriteForRequest(&outBuffer, requestID, fmt.Sprintf("%v", time.Since(start)))
 	echo.ActiveRequestsField.WriteForRequest(&outBuffer, requestID, fmt.Sprintf("%d", c.e.ActiveRequests()))
 

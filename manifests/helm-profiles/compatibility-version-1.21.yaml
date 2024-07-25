@@ -10,9 +10,11 @@ pilot:
 
 meshConfig:
   # 1.22 behavioral changes
-  proxyMetadata:
-    ISTIO_DELTA_XDS: "false"
   defaultConfig:
+    proxyMetadata:
+      ISTIO_DELTA_XDS: "false"
+      # 1.23 behavioral changes
+      ENABLE_DELIMITED_STATS_TAG_REGEX: "false"
     tracing:
       zipkin:
         address: zipkin.istio-system:9411

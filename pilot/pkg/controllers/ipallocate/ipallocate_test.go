@@ -92,9 +92,6 @@ func TestIPAllocate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "with-v4-address",
 				Namespace: "boop",
-				Labels: map[string]string{
-					constants.EnableV2AutoAllocationLabel: "true",
-				},
 			},
 			Spec: v1alpha3.ServiceEntry{
 				Hosts: []string{
@@ -112,9 +109,6 @@ func TestIPAllocate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "with-v6-address",
 				Namespace: "boop",
-				Labels: map[string]string{
-					constants.EnableV2AutoAllocationLabel: "true",
-				},
 			},
 			Spec: v1alpha3.ServiceEntry{
 				Hosts: []string{
@@ -132,6 +126,9 @@ func TestIPAllocate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "opt-out",
 				Namespace: "boop",
+				Labels: map[string]string{
+					constants.EnableV2AutoAllocationLabel: "false",
+				},
 			},
 			Spec: v1alpha3.ServiceEntry{
 				Hosts: []string{
@@ -147,9 +144,6 @@ func TestIPAllocate(t *testing.T) {
 				Name:              "with-existing-status",
 				Namespace:         "boop",
 				CreationTimestamp: metav1.Now(),
-				Labels: map[string]string{
-					constants.EnableV2AutoAllocationLabel: "true",
-				},
 			},
 			Spec: v1alpha3.ServiceEntry{
 				Hosts: []string{
@@ -207,9 +201,6 @@ func TestIPAllocate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "user-assigned conflict",
 				Namespace: "boop",
-				Labels: map[string]string{
-					constants.EnableV2AutoAllocationLabel: "true",
-				},
 			},
 
 			Spec: v1alpha3.ServiceEntry{
@@ -258,9 +249,6 @@ func TestIPAllocate(t *testing.T) {
 				Name:              "status-conflict",
 				Namespace:         "boop",
 				CreationTimestamp: metav1.Now(),
-				Labels: map[string]string{
-					constants.EnableV2AutoAllocationLabel: "true",
-				},
 			},
 			Spec: v1alpha3.ServiceEntry{
 				Hosts: []string{

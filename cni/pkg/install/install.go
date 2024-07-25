@@ -124,7 +124,7 @@ func (in *Installer) Cleanup() error {
 			// Read JSON from CNI config file
 			cniConfigMap, err := util.ReadCNIConfigMap(in.cniConfigFilepath)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to read CNI config map from file %s: %w", in.cniConfigFilepath, err)
 			}
 			// Find Istio CNI and remove from plugin list
 			plugins, err := util.GetPlugins(cniConfigMap)
@@ -144,15 +144,15 @@ func (in *Installer) Cleanup() error {
 
 			cniConfig, err := util.MarshalCNIConfig(cniConfigMap)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to marshal CNI config map in file %s: %w", in.cniConfigFilepath, err)
 			}
 			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
-				return err
+				return fmt.Errorf("failed to write updated CNI config to file %s: %w", in.cniConfigFilepath, err)
 			}
 		} else {
 			installLog.Infof("removing Istio CNI config file: %s", in.cniConfigFilepath)
 			if err := os.Remove(in.cniConfigFilepath); err != nil {
-				return err
+				return fmt.Errorf("failed to remove CNI config file %s: %w", in.cniConfigFilepath, err)
 			}
 		}
 	}
@@ -160,7 +160,7 @@ func (in *Installer) Cleanup() error {
 	if len(in.kubeconfigFilepath) > 0 && file.Exists(in.kubeconfigFilepath) {
 		installLog.Infof("removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
 		if err := os.Remove(in.kubeconfigFilepath); err != nil {
-			return err
+			return fmt.Errorf("failed to remove kubeconfig file %s: %w", in.kubeconfigFilepath, err)
 		}
 	}
 
@@ -168,7 +168,7 @@ func (in *Installer) Cleanup() error {
 		if istioCNIBin := filepath.Join(targetDir, "istio-cni"); file.Exists(istioCNIBin) {
 			installLog.Infof("removing binary: %s", istioCNIBin)
 			if err := os.Remove(istioCNIBin); err != nil {
-				return err
+				return fmt.Errorf("failed to remove binary %s: %w", istioCNIBin, err)
 			}
 		}
 	}

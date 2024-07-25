@@ -47,8 +47,8 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // NewOrFail returns a new instance of "istioctl".
-func NewOrFail(t test.Failer, c resource.Context, config Config) Instance {
-	i, err := New(c, config)
+func NewOrFail(t resource.ContextFailer, config Config) Instance {
+	i, err := New(t, config)
 	if err != nil {
 		t.Fatalf("istioctl.NewOrFail:: %v", err)
 	}

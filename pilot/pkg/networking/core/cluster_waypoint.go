@@ -49,10 +49,9 @@ import (
 )
 
 // buildInternalUpstreamCluster builds a single endpoint cluster to the internal listener.
-func buildInternalUpstreamCluster(name string, internalListener string) *cluster.Cluster {
-	return &cluster.Cluster{
+func buildInternalUpstreamCluster(proxyVersion *model.IstioVersion, name string, internalListener string) *cluster.Cluster {
+	c := &cluster.Cluster{
 		Name:                 name,
-		AltStatName:          name + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
 			ClusterName: name,
@@ -63,15 +62,26 @@ func buildInternalUpstreamCluster(name string, internalListener string) *cluster
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
+
+	if util.IsIstioVersionGE123(proxyVersion) {
+		c.AltStatName = name + constants.StatPrefixDelimiter
+	}
+
+	return c
 }
 
 var (
-	MainInternalCluster = buildInternalUpstreamCluster(MainInternalName, MainInternalName)
-	EncapCluster        = buildInternalUpstreamCluster(EncapClusterName, ConnectOriginate)
+	GetMainInternalCluster = func(v *model.IstioVersion) *cluster.Cluster {
+		return buildInternalUpstreamCluster(v, MainInternalName, MainInternalName)
+	}
+
+	GetEncapCluster = func(v *model.IstioVersion) *cluster.Cluster {
+		return buildInternalUpstreamCluster(v, EncapClusterName, ConnectOriginate)
+	}
 )
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters() *cluster.Cluster {
-	return MainInternalCluster
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(v *model.IstioVersion) *cluster.Cluster {
+	return GetMainInternalCluster(v)
 }
 
 func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
@@ -83,7 +93,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	clusters := make([]*cluster.Cluster, 0)
 	// Creates "main_internal" cluster to route to the main internal listener.
 	// Creates "encap" cluster to route to the encap listener.
-	clusters = append(clusters, MainInternalCluster, EncapCluster)
+	clusters = append(clusters, GetMainInternalCluster(proxy.IstioVersion), GetEncapCluster(proxy.IstioVersion))
 	// Creates per-VIP load balancing upstreams.
 	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
 	// Upstream of the "encap" listener.
@@ -289,9 +299,8 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 	}
 	// Compliance for Envoy tunnel upstreams.
 	sec_model.EnforceCompliance(ctx)
-	return &cluster.Cluster{
+	c := &cluster.Cluster{
 		Name:                          ConnectOriginate,
-		AltStatName:                   ConnectOriginate + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:                durationpb.New(2 * time.Second),
@@ -320,6 +329,12 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 			})},
 		},
 	}
+
+	if util.IsIstioVersionGE123(proxy.IstioVersion) {
+		c.AltStatName = ConnectOriginate + constants.StatPrefixDelimiter
+	}
+
+	return c
 }
 
 func h2connectUpgrade() map[string]*anypb.Any {

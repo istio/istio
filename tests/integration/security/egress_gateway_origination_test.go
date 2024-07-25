@@ -25,7 +25,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/http/headers"
-	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -35,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/file"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
@@ -101,7 +99,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				},
 			}
 
-			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All, i.Settings().EgressGatewayServiceNamespace,
+			newTLSGateway(t, apps.Ns1.Namespace, apps.External.All, i.Settings().EgressGatewayServiceNamespace,
 				i.Settings().EgressGatewayServiceName, i.Settings().EgressGatewayIstioLabel)
 
 			for _, tc := range testCases {
@@ -244,7 +242,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				},
 			}
 
-			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All, i.Settings().EgressGatewayServiceNamespace,
+			newTLSGateway(t, apps.Ns1.Namespace, apps.External.All, i.Settings().EgressGatewayServiceNamespace,
 				i.Settings().EgressGatewayServiceName, i.Settings().EgressGatewayIstioLabel)
 			for _, tc := range testCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
@@ -262,7 +260,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 // We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first
 // routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
-func newTLSGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance,
+func newTLSGateway(t framework.TestContext, clientNamespace namespace.Instance,
 	to echo.Instances, egressNs string, egressSvc string, egressLabel string,
 ) {
 	args := map[string]any{"to": to, "EgressNamespace": egressNs, "EgressService": egressSvc, "EgressLabel": egressLabel}
@@ -339,7 +337,7 @@ spec:
           add:
             handled-by-egress-gateway: "true"
 `
-	ctx.ConfigIstio().Eval(clientNamespace.Name(), args, gateway, vs).ApplyOrFail(t)
+	t.ConfigIstio().Eval(clientNamespace.Name(), args, gateway, vs).ApplyOrFail(t)
 }
 
 func newTLSGatewayDestinationRule(t framework.TestContext, to echo.Instances, destinationRuleMode string, credentialName string) {
@@ -351,7 +349,7 @@ func newTLSGatewayDestinationRule(t framework.TestContext, to echo.Instances, de
 
 	// Get namespace for gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, t)
-	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+	systemNS := namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 
 	dr := `
 apiVersion: networking.istio.io/v1alpha3

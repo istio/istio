@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -78,7 +77,7 @@ func TestWaypoint(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			nsConfig := namespace.NewOrFail(t, t, namespace.Config{
+			nsConfig := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "waypoint",
 				Inject: false,
 				Labels: map[string]string{
@@ -86,7 +85,7 @@ func TestWaypoint(t *testing.T) {
 				},
 			})
 
-			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"apply",
 				"--namespace",
@@ -96,7 +95,7 @@ func TestWaypoint(t *testing.T) {
 
 			nameSet := []string{"", "w1", "w2"}
 			for _, name := range nameSet {
-				istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+				istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 					"waypoint",
 					"apply",
 					"--namespace",
@@ -107,7 +106,7 @@ func TestWaypoint(t *testing.T) {
 				})
 			}
 
-			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"apply",
 				"--namespace",
@@ -120,7 +119,7 @@ func TestWaypoint(t *testing.T) {
 			})
 			nameSet = append(nameSet, "w3")
 
-			output, _ := istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			output, _ := istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"list",
 				"--namespace",
@@ -132,7 +131,7 @@ func TestWaypoint(t *testing.T) {
 				}
 			}
 
-			output, _ = istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			output, _ = istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"list",
 				"-A",
@@ -143,7 +142,7 @@ func TestWaypoint(t *testing.T) {
 				}
 			}
 
-			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"-n",
 				nsConfig.Name(),
@@ -165,7 +164,7 @@ func TestWaypoint(t *testing.T) {
 			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
 
 			// delete all waypoints in namespace, so w3 should be deleted
-			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"-n",
 				nsConfig.Name(),
@@ -371,7 +370,7 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 }
 
 func TestWaypointDNS(t *testing.T) {
-	runTest := func(t framework.TestContext, check echo.Checker) {
+	runTest := func(t framework.TestContext, c echo.Checker) {
 		for _, src := range apps.All {
 			src := src
 			if !hboneClient(src) {
@@ -381,21 +380,36 @@ func TestWaypointDNS(t *testing.T) {
 				if src.Config().HasSidecar() {
 					t.Skip("TODO: sidecars don't properly handle use-waypoint")
 				}
-				address := "240.240.240.239"
-				if _, v6 := getSupportedIPFamilies(t); v6 {
-					address = "2001:2::f0f0:239"
+				v4, v6 := getSupportedIPFamilies(t)
+				if v4 {
+					t.NewSubTest("v4").Run(func(t framework.TestContext) {
+						src.CallOrFail(t, echo.CallOptions{
+							To:            apps.MockExternal,
+							Address:       apps.MockExternal.Config().DefaultHostHeader,
+							ForceIPFamily: echo.ForceIPFamilyV4,
+							Port:          echo.Port{Name: "http"},
+							Scheme:        scheme.HTTP,
+							Count:         1,
+							Check:         check.And(c, check.DestinationIPv4(), check.SourceIPv4()),
+						})
+					})
 				}
-				src.CallOrFail(t, echo.CallOptions{
-					To:      apps.MockExternal,
-					Address: address,
-					HTTP: echo.HTTP{
-						Headers: http.Header{"Host": []string{apps.MockExternal.Config().DefaultHostHeader}},
-					},
-					Port:   echo.Port{Name: "http"},
-					Scheme: scheme.HTTP,
-					Count:  1,
-					Check:  check,
-				})
+				if v6 {
+					t.NewSubTest("v6").Run(func(t framework.TestContext) {
+						src.CallOrFail(t, echo.CallOptions{
+							To:            apps.MockExternal,
+							Address:       apps.MockExternal.Config().DefaultHostHeader,
+							ForceIPFamily: echo.ForceIPFamilyV6,
+							Port:          echo.Port{Name: "http"},
+							Scheme:        scheme.HTTP,
+							Count:         1,
+							// The destination will always get an IPv4 address currently...
+							// With waypoint: we always send to IPv4 on the waypoint (https://github.com/istio/istio/issues/52318)
+							// Without waypoint: Ztunnel DNS currently prefers IPv4, so it will always win. (https://github.com/istio/ztunnel/issues/1225)
+							Check: check.And(c, check.DestinationIPv4(), check.SourceIPv6()),
+						})
+					})
+				}
 			})
 		}
 	}

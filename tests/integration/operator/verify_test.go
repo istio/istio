@@ -29,7 +29,7 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 			cs := t.Environment().Clusters().Default()
 			cleanupInClusterCRs(t, cs)
 			t.Cleanup(func() {

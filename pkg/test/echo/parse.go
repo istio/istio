@@ -35,6 +35,7 @@ var (
 	ClusterFieldRegex        = regexp.MustCompile(string(ClusterField) + "=(.*)")
 	IstioVersionFieldRegex   = regexp.MustCompile(string(IstioVersionField) + "=(.*)")
 	IPFieldRegex             = regexp.MustCompile(string(IPField) + "=(.*)")
+	SourceIPFieldRegex       = regexp.MustCompile(string(SourceIPField) + "=(.*)")
 	methodFieldRegex         = regexp.MustCompile(string(MethodField) + "=(.*)")
 	protocolFieldRegex       = regexp.MustCompile(string(ProtocolField) + "=(.*)")
 	alpnFieldRegex           = regexp.MustCompile(string(AlpnField) + "=(.*)")
@@ -125,6 +126,11 @@ func parseResponse(output string) Response {
 	match = IPFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.IP = match[1]
+	}
+
+	match = SourceIPFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.SourceIP = match[1]
 	}
 
 	out.RawBody = map[string]string{}

@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -648,9 +649,18 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	}, nil
 }
 
-var rotateTime = func(secret security.SecretItem, graceRatio float64) time.Duration {
+var rotateTime = func(secret security.SecretItem, graceRatio float64, graceRatioJitter float64) time.Duration {
+	// stagger rotation times to prevent large fleets of clients from renewing at the same moment.
+	jitter := (rand.Float64() * graceRatioJitter) * float64(rand.IntN(3)-1) // #nosec G404 -- crypto/rand not worth the cost
+	jitterGraceRatio := graceRatio + jitter
+	if jitterGraceRatio > 1 {
+		jitterGraceRatio = 1
+	}
+	if jitterGraceRatio < 0 {
+		jitterGraceRatio = 0
+	}
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
-	gracePeriod := time.Duration((graceRatio) * float64(secretLifeTime))
+	gracePeriod := time.Duration((jitterGraceRatio) * float64(secretLifeTime))
 	delay := time.Until(secret.ExpireTime.Add(-gracePeriod))
 	if delay < 0 {
 		delay = 0
@@ -659,7 +669,7 @@ var rotateTime = func(secret security.SecretItem, graceRatio float64) time.Durat
 }
 
 func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
-	delay := rotateTime(item, sc.configOptions.SecretRotationGracePeriodRatio)
+	delay := rotateTime(item, sc.configOptions.SecretRotationGracePeriodRatio, sc.configOptions.SecretRotationGracePeriodRatioJitter)
 	item.ResourceName = security.WorkloadKeyCertResourceName
 	// In case there are two calls to GenerateSecret at once, we don't want both to be concurrently registered
 	if sc.cache.GetWorkload() != nil {

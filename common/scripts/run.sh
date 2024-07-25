@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
 #

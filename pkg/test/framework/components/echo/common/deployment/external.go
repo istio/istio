@@ -70,6 +70,8 @@ func (e External) Build(t resource.Context, b deployment.Builder) deployment.Bui
 	if t.Settings().EnableDualStack {
 		config.IPFamilies = "IPv6, IPv4"
 		config.IPFamilyPolicy = string(corev1.IPFamilyPolicyRequireDualStack)
+	} else {
+		config.IPFamilyPolicy = string(corev1.IPFamilyPolicyPreferDualStack)
 	}
 	return b.WithConfig(config)
 }

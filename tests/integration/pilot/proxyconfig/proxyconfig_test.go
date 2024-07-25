@@ -64,7 +64,7 @@ func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).
 		RequireIstioVersion("1.13").
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+			ns := namespace.NewOrFail(ctx, namespace.Config{
 				Prefix: "pc-test",
 				Inject: true,
 			})

@@ -313,7 +313,7 @@ func waitUntilTunnelingConfigurationIsRemovedOrFail(ctx framework.TestContext, m
 }
 
 func waitForTunnelingRemovedOrFail(ctx framework.TestContext, ns, app string) {
-	istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Clusters().Default()})
+	istioCtl := istioctl.NewOrFail(ctx, istioctl.Config{Cluster: ctx.Clusters().Default()})
 	podName := getPodName(ctx, ns, app)
 	args := []string{"proxy-config", "listeners", "-n", ns, podName, "-o", "json"}
 	retry.UntilSuccessOrFail(ctx, func() error {

@@ -400,6 +400,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			servicesByName[svc.Hostname] = &model.Service{
 				Hostname:       svc.Hostname,
 				DefaultAddress: svc.GetAddressForProxy(node),
+				ClusterVIPs:    *svc.ClusterVIPs.DeepCopy(),
 				MeshExternal:   svc.MeshExternal,
 				Resolution:     svc.Resolution,
 				Ports:          []*model.Port{svcPort},
@@ -410,10 +411,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 					Aliases:         svc.Attributes.Aliases,
 					K8sAttributes:   svc.Attributes.K8sAttributes,
 				},
-			}
-			if features.EnableDualStack {
-				// cannot correctly build virtualHost domains for dual stack without ClusterVIPs
-				servicesByName[svc.Hostname].ClusterVIPs = *svc.ClusterVIPs.DeepCopy()
 			}
 		}
 	}

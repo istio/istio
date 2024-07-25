@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -140,6 +141,15 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 // convertServices transforms a ServiceEntry config to a list of internal Service objects.
 func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
+	// ShouldV2AutoAllocateIP already checks that there are no addresses in the spec however this is critical enough to likely be worth checking
+	// explicitly as well in case the logic changes. We never want to overwrite addresses in the spec if there are any
+	addresses := serviceEntry.Addresses
+	if ShouldV2AutoAllocateIPFromConfig(cfg) && len(addresses) == 0 {
+		addresses = slices.Map(GetV2AddressesFromConfig(cfg), func(a netip.Addr) string {
+			return a.String()
+		})
+	}
+
 	creationTime := cfg.CreationTimestamp
 
 	var resolution model.Resolution
@@ -181,9 +191,9 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 
 	hostAddresses := []*HostAddress{}
 	for _, hostname := range serviceEntry.Hosts {
-		if len(serviceEntry.Addresses) > 0 {
+		if len(addresses) > 0 {
 			ha := &HostAddress{hostname, []string{}}
-			for _, address := range serviceEntry.Addresses {
+			for _, address := range addresses {
 				// Check if addresses is an IP first because that is the most common case.
 				if netutil.IsValidIPAddress(address) {
 					ha.addresses = append(ha.addresses, address)
@@ -225,11 +235,13 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 				LabelSelectors:         labelSelectors,
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
-			ClusterVIPs: model.AddressMap{
+		}
+		if !slices.Equal(ha.addresses, []string{constants.UnspecifiedIP}) {
+			svc.ClusterVIPs = model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					clusterID: ha.addresses,
 				},
-			},
+			}
 		}
 		out = append(out, svc)
 	}

@@ -89,7 +89,7 @@ type ClusterBuilder struct {
 	metadataCerts      *metadataCerts        // Client certificates specified in metadata.
 	clusterID          string                // Cluster in which proxy is running.
 	proxyID            string                // Identifier that uniquely identifies a proxy.
-	proxyVersion       string                // Version of Proxy.
+	proxyVersion       *model.IstioVersion   // Version of Proxy.
 	proxyType          model.NodeType        // Indicates whether the proxy is sidecar or gateway.
 	sidecarScope       *model.SidecarScope   // Computed sidecar for the proxy.
 	passThroughBindIPs []string              // Passthrough IPs to be used while building clusters.
@@ -113,7 +113,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		serviceTargets:     proxy.ServiceTargets,
 		proxyID:            proxy.ID,
 		proxyType:          proxy.Type,
-		proxyVersion:       proxy.Metadata.IstioVersion,
+		proxyVersion:       model.ParseIstioVersion(proxy.Metadata.IstioVersion),
 		sidecarScope:       proxy.SidecarScope,
 		passThroughBindIPs: getPassthroughBindIPs(proxy.GetIPMode()),
 		supportsIPv4:       proxy.SupportsIPv4(),
@@ -293,10 +293,14 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 ) *clusterWrapper {
 	c := &cluster.Cluster{
 		Name:                 name,
-		AltStatName:          name + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
+
+	if util.IsIstioVersionGE123(cb.proxyVersion) {
+		c.AltStatName = name + constants.StatPrefixDelimiter
+	}
+
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
 		if networkutil.AllIPv4(cb.proxyIPAddresses) {
@@ -348,12 +352,11 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	if direction == model.TrafficDirectionOutbound {
 		// If stat name is configured, build the alternate stats name.
 		if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
-			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-				string(service.Hostname), subset, port, 0, &service.Attributes)
-
-			if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter {
-				statPrefix += constants.ClusterAltStatNameDelimeter
+			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName, string(service.Hostname), subset, port, 0, &service.Attributes)
+			if util.IsIstioVersionGE123(cb.proxyVersion) && statPrefix[len(statPrefix)-1:] != constants.StatPrefixDelimiter {
+				statPrefix += constants.StatPrefixDelimiter
 			}
+
 			ec.cluster.AltStatName = statPrefix
 		}
 	}
@@ -384,10 +387,10 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort,
 			&instance.Service.Attributes)
-		// Add the cluster name delimeter if it's not the last character.
-		if statPrefix[len(statPrefix)-1:] != constants.ClusterAltStatNameDelimeter {
-			statPrefix += constants.ClusterAltStatNameDelimeter
+		if util.IsIstioVersionGE123(cb.proxyVersion) && statPrefix[len(statPrefix)-1:] != constants.StatPrefixDelimiter {
+			statPrefix += constants.StatPrefixDelimiter
 		}
+
 		localCluster.cluster.AltStatName = statPrefix
 	}
 
@@ -510,10 +513,12 @@ func (cb *ClusterBuilder) buildInboundPassthroughCluster() *cluster.Cluster {
 func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
-		AltStatName:          util.BlackHoleCluster + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
+	}
+	if util.IsIstioVersionGE123(cb.proxyVersion) {
+		c.AltStatName = util.BlackHoleCluster + constants.StatPrefixDelimiter
 	}
 	return c
 }
@@ -523,13 +528,15 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
-		AltStatName:          util.PassthroughCluster + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
+	}
+	if util.IsIstioVersionGE123(cb.proxyVersion) {
+		cluster.AltStatName = util.PassthroughCluster + constants.StatPrefixDelimiter
 	}
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
 	cb.applyMetadataExchange(cluster)
@@ -730,7 +737,6 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 	}
 	c := &cluster.Cluster{
 		Name:                 security.SDSExternalClusterName,
-		AltStatName:          security.SDSExternalClusterName + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
@@ -744,6 +750,9 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(options),
 		},
+	}
+	if util.IsIstioVersionGE123(cb.proxyVersion) {
+		c.AltStatName = security.SDSExternalClusterName + constants.StatPrefixDelimiter
 	}
 	return c
 }

@@ -90,6 +90,56 @@ func (IPFamilies) EnumDescriptor() ([]byte, []int) {
 	return file_workloadapi_workload_proto_rawDescGZIP(), []int{0}
 }
 
+// NetworkMode indicates how the addresses of the workload should be treated.
+type NetworkMode int32
+
+const (
+	// STANDARD means that the workload is uniquely identified by its address (within its network).
+	NetworkMode_STANDARD NetworkMode = 0
+	// HOST_NETWORK means the workload has an IP address that is shared by many workloads. The data plane should avoid
+	// attempting to lookup these workloads by IP address (which could return the wrong result).
+	NetworkMode_HOST_NETWORK NetworkMode = 1
+)
+
+// Enum value maps for NetworkMode.
+var (
+	NetworkMode_name = map[int32]string{
+		0: "STANDARD",
+		1: "HOST_NETWORK",
+	}
+	NetworkMode_value = map[string]int32{
+		"STANDARD":     0,
+		"HOST_NETWORK": 1,
+	}
+)
+
+func (x NetworkMode) Enum() *NetworkMode {
+	p := new(NetworkMode)
+	*p = x
+	return p
+}
+
+func (x NetworkMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (NetworkMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_workloadapi_workload_proto_enumTypes[1].Descriptor()
+}
+
+func (NetworkMode) Type() protoreflect.EnumType {
+	return &file_workloadapi_workload_proto_enumTypes[1]
+}
+
+func (x NetworkMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use NetworkMode.Descriptor instead.
+func (NetworkMode) EnumDescriptor() ([]byte, []int) {
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{1}
+}
+
 type WorkloadStatus int32
 
 const (
@@ -122,11 +172,11 @@ func (x WorkloadStatus) String() string {
 }
 
 func (WorkloadStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[1].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[2].Descriptor()
 }
 
 func (WorkloadStatus) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[1]
+	return &file_workloadapi_workload_proto_enumTypes[2]
 }
 
 func (x WorkloadStatus) Number() protoreflect.EnumNumber {
@@ -135,7 +185,7 @@ func (x WorkloadStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WorkloadStatus.Descriptor instead.
 func (WorkloadStatus) EnumDescriptor() ([]byte, []int) {
-	return file_workloadapi_workload_proto_rawDescGZIP(), []int{1}
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{2}
 }
 
 type WorkloadType int32
@@ -174,11 +224,11 @@ func (x WorkloadType) String() string {
 }
 
 func (WorkloadType) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[2].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[3].Descriptor()
 }
 
 func (WorkloadType) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[2]
+	return &file_workloadapi_workload_proto_enumTypes[3]
 }
 
 func (x WorkloadType) Number() protoreflect.EnumNumber {
@@ -187,7 +237,7 @@ func (x WorkloadType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WorkloadType.Descriptor instead.
 func (WorkloadType) EnumDescriptor() ([]byte, []int) {
-	return file_workloadapi_workload_proto_rawDescGZIP(), []int{2}
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{3}
 }
 
 // TunnelProtocol indicates the tunneling protocol for requests.
@@ -224,11 +274,11 @@ func (x TunnelProtocol) String() string {
 }
 
 func (TunnelProtocol) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[3].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[4].Descriptor()
 }
 
 func (TunnelProtocol) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[3]
+	return &file_workloadapi_workload_proto_enumTypes[4]
 }
 
 func (x TunnelProtocol) Number() protoreflect.EnumNumber {
@@ -237,7 +287,7 @@ func (x TunnelProtocol) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TunnelProtocol.Descriptor instead.
 func (TunnelProtocol) EnumDescriptor() ([]byte, []int) {
-	return file_workloadapi_workload_proto_rawDescGZIP(), []int{3}
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{4}
 }
 
 type LoadBalancing_Scope int32
@@ -291,11 +341,11 @@ func (x LoadBalancing_Scope) String() string {
 }
 
 func (LoadBalancing_Scope) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[4].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[5].Descriptor()
 }
 
 func (LoadBalancing_Scope) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[4]
+	return &file_workloadapi_workload_proto_enumTypes[5]
 }
 
 func (x LoadBalancing_Scope) Number() protoreflect.EnumNumber {
@@ -351,11 +401,11 @@ func (x LoadBalancing_Mode) String() string {
 }
 
 func (LoadBalancing_Mode) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[5].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[6].Descriptor()
 }
 
 func (LoadBalancing_Mode) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[5]
+	return &file_workloadapi_workload_proto_enumTypes[6]
 }
 
 func (x LoadBalancing_Mode) Number() protoreflect.EnumNumber {
@@ -403,11 +453,11 @@ func (x ApplicationTunnel_Protocol) String() string {
 }
 
 func (ApplicationTunnel_Protocol) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[6].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[7].Descriptor()
 }
 
 func (ApplicationTunnel_Protocol) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[6]
+	return &file_workloadapi_workload_proto_enumTypes[7]
 }
 
 func (x ApplicationTunnel_Protocol) Number() protoreflect.EnumNumber {
@@ -804,7 +854,8 @@ type Workload struct {
 	// The cluster ID that the workload instance belongs to
 	ClusterId string `protobuf:"bytes,18,opt,name=cluster_id,json=clusterId,proto3" json:"cluster_id,omitempty"`
 	// The Locality defines information about where a workload is geographically deployed
-	Locality *Locality `protobuf:"bytes,24,opt,name=locality,proto3" json:"locality,omitempty"`
+	Locality    *Locality   `protobuf:"bytes,24,opt,name=locality,proto3" json:"locality,omitempty"`
+	NetworkMode NetworkMode `protobuf:"varint,25,opt,name=network_mode,json=networkMode,proto3,enum=istio.workload.NetworkMode" json:"network_mode,omitempty"`
 }
 
 func (x *Workload) Reset() {
@@ -998,6 +1049,13 @@ func (x *Workload) GetLocality() *Locality {
 		return x.Locality
 	}
 	return nil
+}
+
+func (x *Workload) GetNetworkMode() NetworkMode {
+	if x != nil {
+		return x.NetworkMode
+	}
+	return NetworkMode_STANDARD
 }
 
 type Locality struct {
@@ -1497,7 +1555,7 @@ var file_workloadapi_workload_proto_rawDesc = []byte{
 	0x22, 0x36, 0x0a, 0x04, 0x4d, 0x6f, 0x64, 0x65, 0x12, 0x14, 0x0a, 0x10, 0x55, 0x4e, 0x53, 0x50,
 	0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x5f, 0x4d, 0x4f, 0x44, 0x45, 0x10, 0x00, 0x12, 0x0a,
 	0x0a, 0x06, 0x53, 0x54, 0x52, 0x49, 0x43, 0x54, 0x10, 0x01, 0x12, 0x0c, 0x0a, 0x08, 0x46, 0x41,
-	0x49, 0x4c, 0x4f, 0x56, 0x45, 0x52, 0x10, 0x02, 0x22, 0xea, 0x08, 0x0a, 0x08, 0x57, 0x6f, 0x72,
+	0x49, 0x4c, 0x4f, 0x56, 0x45, 0x52, 0x10, 0x02, 0x22, 0xaa, 0x09, 0x0a, 0x08, 0x57, 0x6f, 0x72,
 	0x6b, 0x6c, 0x6f, 0x61, 0x64, 0x12, 0x10, 0x0a, 0x03, 0x75, 0x69, 0x64, 0x18, 0x14, 0x20, 0x01,
 	0x28, 0x09, 0x52, 0x03, 0x75, 0x69, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x6e,
@@ -1562,7 +1620,11 @@ var file_workloadapi_workload_proto_rawDesc = []byte{
 	0x49, 0x64, 0x12, 0x34, 0x0a, 0x08, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x69, 0x74, 0x79, 0x18, 0x18,
 	0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x69, 0x73, 0x74, 0x69, 0x6f, 0x2e, 0x77, 0x6f, 0x72,
 	0x6b, 0x6c, 0x6f, 0x61, 0x64, 0x2e, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x69, 0x74, 0x79, 0x52, 0x08,
-	0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x69, 0x74, 0x79, 0x1a, 0x55, 0x0a, 0x0d, 0x53, 0x65, 0x72, 0x76,
+	0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x69, 0x74, 0x79, 0x12, 0x3e, 0x0a, 0x0c, 0x6e, 0x65, 0x74, 0x77,
+	0x6f, 0x72, 0x6b, 0x5f, 0x6d, 0x6f, 0x64, 0x65, 0x18, 0x19, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1b,
+	0x2e, 0x69, 0x73, 0x74, 0x69, 0x6f, 0x2e, 0x77, 0x6f, 0x72, 0x6b, 0x6c, 0x6f, 0x61, 0x64, 0x2e,
+	0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x4d, 0x6f, 0x64, 0x65, 0x52, 0x0b, 0x6e, 0x65, 0x74,
+	0x77, 0x6f, 0x72, 0x6b, 0x4d, 0x6f, 0x64, 0x65, 0x1a, 0x55, 0x0a, 0x0d, 0x53, 0x65, 0x72, 0x76,
 	0x69, 0x63, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x2e, 0x0a, 0x05, 0x76,
 	0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x69, 0x73, 0x74,
@@ -1618,18 +1680,21 @@ var file_workloadapi_workload_proto_rawDesc = []byte{
 	0x61, 0x6d, 0x69, 0x6c, 0x69, 0x65, 0x73, 0x12, 0x0d, 0x0a, 0x09, 0x41, 0x55, 0x54, 0x4f, 0x4d,
 	0x41, 0x54, 0x49, 0x43, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x49, 0x50, 0x56, 0x34, 0x5f, 0x4f,
 	0x4e, 0x4c, 0x59, 0x10, 0x01, 0x12, 0x0d, 0x0a, 0x09, 0x49, 0x50, 0x56, 0x36, 0x5f, 0x4f, 0x4e,
-	0x4c, 0x59, 0x10, 0x02, 0x12, 0x08, 0x0a, 0x04, 0x44, 0x55, 0x41, 0x4c, 0x10, 0x03, 0x2a, 0x2c,
-	0x0a, 0x0e, 0x57, 0x6f, 0x72, 0x6b, 0x6c, 0x6f, 0x61, 0x64, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73,
-	0x12, 0x0b, 0x0a, 0x07, 0x48, 0x45, 0x41, 0x4c, 0x54, 0x48, 0x59, 0x10, 0x00, 0x12, 0x0d, 0x0a,
-	0x09, 0x55, 0x4e, 0x48, 0x45, 0x41, 0x4c, 0x54, 0x48, 0x59, 0x10, 0x01, 0x2a, 0x3d, 0x0a, 0x0c,
-	0x57, 0x6f, 0x72, 0x6b, 0x6c, 0x6f, 0x61, 0x64, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0e, 0x0a, 0x0a,
-	0x44, 0x45, 0x50, 0x4c, 0x4f, 0x59, 0x4d, 0x45, 0x4e, 0x54, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07,
-	0x43, 0x52, 0x4f, 0x4e, 0x4a, 0x4f, 0x42, 0x10, 0x01, 0x12, 0x07, 0x0a, 0x03, 0x50, 0x4f, 0x44,
-	0x10, 0x02, 0x12, 0x07, 0x0a, 0x03, 0x4a, 0x4f, 0x42, 0x10, 0x03, 0x2a, 0x25, 0x0a, 0x0e, 0x54,
-	0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x12, 0x08, 0x0a,
-	0x04, 0x4e, 0x4f, 0x4e, 0x45, 0x10, 0x00, 0x12, 0x09, 0x0a, 0x05, 0x48, 0x42, 0x4f, 0x4e, 0x45,
-	0x10, 0x01, 0x42, 0x11, 0x5a, 0x0f, 0x70, 0x6b, 0x67, 0x2f, 0x77, 0x6f, 0x72, 0x6b, 0x6c, 0x6f,
-	0x61, 0x64, 0x61, 0x70, 0x69, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x4c, 0x59, 0x10, 0x02, 0x12, 0x08, 0x0a, 0x04, 0x44, 0x55, 0x41, 0x4c, 0x10, 0x03, 0x2a, 0x2d,
+	0x0a, 0x0b, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x4d, 0x6f, 0x64, 0x65, 0x12, 0x0c, 0x0a,
+	0x08, 0x53, 0x54, 0x41, 0x4e, 0x44, 0x41, 0x52, 0x44, 0x10, 0x00, 0x12, 0x10, 0x0a, 0x0c, 0x48,
+	0x4f, 0x53, 0x54, 0x5f, 0x4e, 0x45, 0x54, 0x57, 0x4f, 0x52, 0x4b, 0x10, 0x01, 0x2a, 0x2c, 0x0a,
+	0x0e, 0x57, 0x6f, 0x72, 0x6b, 0x6c, 0x6f, 0x61, 0x64, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12,
+	0x0b, 0x0a, 0x07, 0x48, 0x45, 0x41, 0x4c, 0x54, 0x48, 0x59, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09,
+	0x55, 0x4e, 0x48, 0x45, 0x41, 0x4c, 0x54, 0x48, 0x59, 0x10, 0x01, 0x2a, 0x3d, 0x0a, 0x0c, 0x57,
+	0x6f, 0x72, 0x6b, 0x6c, 0x6f, 0x61, 0x64, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0e, 0x0a, 0x0a, 0x44,
+	0x45, 0x50, 0x4c, 0x4f, 0x59, 0x4d, 0x45, 0x4e, 0x54, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x43,
+	0x52, 0x4f, 0x4e, 0x4a, 0x4f, 0x42, 0x10, 0x01, 0x12, 0x07, 0x0a, 0x03, 0x50, 0x4f, 0x44, 0x10,
+	0x02, 0x12, 0x07, 0x0a, 0x03, 0x4a, 0x4f, 0x42, 0x10, 0x03, 0x2a, 0x25, 0x0a, 0x0e, 0x54, 0x75,
+	0x6e, 0x6e, 0x65, 0x6c, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x12, 0x08, 0x0a, 0x04,
+	0x4e, 0x4f, 0x4e, 0x45, 0x10, 0x00, 0x12, 0x09, 0x0a, 0x05, 0x48, 0x42, 0x4f, 0x4e, 0x45, 0x10,
+	0x01, 0x42, 0x11, 0x5a, 0x0f, 0x70, 0x6b, 0x67, 0x2f, 0x77, 0x6f, 0x72, 0x6b, 0x6c, 0x6f, 0x61,
+	0x64, 0x61, 0x70, 0x69, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1644,57 +1709,59 @@ func file_workloadapi_workload_proto_rawDescGZIP() []byte {
 	return file_workloadapi_workload_proto_rawDescData
 }
 
-var file_workloadapi_workload_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_workloadapi_workload_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
 var file_workloadapi_workload_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_workloadapi_workload_proto_goTypes = []any{
 	(IPFamilies)(0),                 // 0: istio.workload.IPFamilies
-	(WorkloadStatus)(0),             // 1: istio.workload.WorkloadStatus
-	(WorkloadType)(0),               // 2: istio.workload.WorkloadType
-	(TunnelProtocol)(0),             // 3: istio.workload.TunnelProtocol
-	(LoadBalancing_Scope)(0),        // 4: istio.workload.LoadBalancing.Scope
-	(LoadBalancing_Mode)(0),         // 5: istio.workload.LoadBalancing.Mode
-	(ApplicationTunnel_Protocol)(0), // 6: istio.workload.ApplicationTunnel.Protocol
-	(*Address)(nil),                 // 7: istio.workload.Address
-	(*Service)(nil),                 // 8: istio.workload.Service
-	(*LoadBalancing)(nil),           // 9: istio.workload.LoadBalancing
-	(*Workload)(nil),                // 10: istio.workload.Workload
-	(*Locality)(nil),                // 11: istio.workload.Locality
-	(*PortList)(nil),                // 12: istio.workload.PortList
-	(*Port)(nil),                    // 13: istio.workload.Port
-	(*ApplicationTunnel)(nil),       // 14: istio.workload.ApplicationTunnel
-	(*GatewayAddress)(nil),          // 15: istio.workload.GatewayAddress
-	(*NetworkAddress)(nil),          // 16: istio.workload.NetworkAddress
-	(*NamespacedHostname)(nil),      // 17: istio.workload.NamespacedHostname
-	nil,                             // 18: istio.workload.Workload.ServicesEntry
+	(NetworkMode)(0),                // 1: istio.workload.NetworkMode
+	(WorkloadStatus)(0),             // 2: istio.workload.WorkloadStatus
+	(WorkloadType)(0),               // 3: istio.workload.WorkloadType
+	(TunnelProtocol)(0),             // 4: istio.workload.TunnelProtocol
+	(LoadBalancing_Scope)(0),        // 5: istio.workload.LoadBalancing.Scope
+	(LoadBalancing_Mode)(0),         // 6: istio.workload.LoadBalancing.Mode
+	(ApplicationTunnel_Protocol)(0), // 7: istio.workload.ApplicationTunnel.Protocol
+	(*Address)(nil),                 // 8: istio.workload.Address
+	(*Service)(nil),                 // 9: istio.workload.Service
+	(*LoadBalancing)(nil),           // 10: istio.workload.LoadBalancing
+	(*Workload)(nil),                // 11: istio.workload.Workload
+	(*Locality)(nil),                // 12: istio.workload.Locality
+	(*PortList)(nil),                // 13: istio.workload.PortList
+	(*Port)(nil),                    // 14: istio.workload.Port
+	(*ApplicationTunnel)(nil),       // 15: istio.workload.ApplicationTunnel
+	(*GatewayAddress)(nil),          // 16: istio.workload.GatewayAddress
+	(*NetworkAddress)(nil),          // 17: istio.workload.NetworkAddress
+	(*NamespacedHostname)(nil),      // 18: istio.workload.NamespacedHostname
+	nil,                             // 19: istio.workload.Workload.ServicesEntry
 }
 var file_workloadapi_workload_proto_depIdxs = []int32{
-	10, // 0: istio.workload.Address.workload:type_name -> istio.workload.Workload
-	8,  // 1: istio.workload.Address.service:type_name -> istio.workload.Service
-	16, // 2: istio.workload.Service.addresses:type_name -> istio.workload.NetworkAddress
-	13, // 3: istio.workload.Service.ports:type_name -> istio.workload.Port
-	15, // 4: istio.workload.Service.waypoint:type_name -> istio.workload.GatewayAddress
-	9,  // 5: istio.workload.Service.load_balancing:type_name -> istio.workload.LoadBalancing
+	11, // 0: istio.workload.Address.workload:type_name -> istio.workload.Workload
+	9,  // 1: istio.workload.Address.service:type_name -> istio.workload.Service
+	17, // 2: istio.workload.Service.addresses:type_name -> istio.workload.NetworkAddress
+	14, // 3: istio.workload.Service.ports:type_name -> istio.workload.Port
+	16, // 4: istio.workload.Service.waypoint:type_name -> istio.workload.GatewayAddress
+	10, // 5: istio.workload.Service.load_balancing:type_name -> istio.workload.LoadBalancing
 	0,  // 6: istio.workload.Service.ip_families:type_name -> istio.workload.IPFamilies
-	4,  // 7: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
-	5,  // 8: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
-	3,  // 9: istio.workload.Workload.tunnel_protocol:type_name -> istio.workload.TunnelProtocol
-	15, // 10: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
-	15, // 11: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress
-	2,  // 12: istio.workload.Workload.workload_type:type_name -> istio.workload.WorkloadType
-	14, // 13: istio.workload.Workload.application_tunnel:type_name -> istio.workload.ApplicationTunnel
-	18, // 14: istio.workload.Workload.services:type_name -> istio.workload.Workload.ServicesEntry
-	1,  // 15: istio.workload.Workload.status:type_name -> istio.workload.WorkloadStatus
-	11, // 16: istio.workload.Workload.locality:type_name -> istio.workload.Locality
-	13, // 17: istio.workload.PortList.ports:type_name -> istio.workload.Port
-	6,  // 18: istio.workload.ApplicationTunnel.protocol:type_name -> istio.workload.ApplicationTunnel.Protocol
-	17, // 19: istio.workload.GatewayAddress.hostname:type_name -> istio.workload.NamespacedHostname
-	16, // 20: istio.workload.GatewayAddress.address:type_name -> istio.workload.NetworkAddress
-	12, // 21: istio.workload.Workload.ServicesEntry.value:type_name -> istio.workload.PortList
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	5,  // 7: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
+	6,  // 8: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
+	4,  // 9: istio.workload.Workload.tunnel_protocol:type_name -> istio.workload.TunnelProtocol
+	16, // 10: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
+	16, // 11: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress
+	3,  // 12: istio.workload.Workload.workload_type:type_name -> istio.workload.WorkloadType
+	15, // 13: istio.workload.Workload.application_tunnel:type_name -> istio.workload.ApplicationTunnel
+	19, // 14: istio.workload.Workload.services:type_name -> istio.workload.Workload.ServicesEntry
+	2,  // 15: istio.workload.Workload.status:type_name -> istio.workload.WorkloadStatus
+	12, // 16: istio.workload.Workload.locality:type_name -> istio.workload.Locality
+	1,  // 17: istio.workload.Workload.network_mode:type_name -> istio.workload.NetworkMode
+	14, // 18: istio.workload.PortList.ports:type_name -> istio.workload.Port
+	7,  // 19: istio.workload.ApplicationTunnel.protocol:type_name -> istio.workload.ApplicationTunnel.Protocol
+	18, // 20: istio.workload.GatewayAddress.hostname:type_name -> istio.workload.NamespacedHostname
+	17, // 21: istio.workload.GatewayAddress.address:type_name -> istio.workload.NetworkAddress
+	13, // 22: istio.workload.Workload.ServicesEntry.value:type_name -> istio.workload.PortList
+	23, // [23:23] is the sub-list for method output_type
+	23, // [23:23] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_workloadapi_workload_proto_init() }
@@ -1849,7 +1916,7 @@ func file_workloadapi_workload_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_workloadapi_workload_proto_rawDesc,
-			NumEnums:      7,
+			NumEnums:      8,
 			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,

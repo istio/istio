@@ -116,7 +116,7 @@ defaultProviders:
   accessLogging:
   - envoy
 `
-				ist.PatchMeshConfigOrFail(t, t, cfg)
+				ist.PatchMeshConfigOrFail(t, cfg)
 				runAccessLogsTests(t, true, false)
 			})
 		})

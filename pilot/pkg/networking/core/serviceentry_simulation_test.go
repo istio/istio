@@ -14,12 +14,12 @@
 package core_test
 
 import (
-	"fmt"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const se = `
@@ -29,13 +29,13 @@ metadata:
   name: se1
 spec:
   hosts:
-  - blah.somedomain
+  - blah1.somedomain
   addresses:
-  - %s
+  - {{index .Addresses 0}}
   ports:
   - number: 9999
-    name: TCP-9999
-    protocol: TCP
+    name: port-9999
+    protocol: {{.Protocol}}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -43,73 +43,168 @@ metadata:
   name: se2
 spec:
   hosts:
-  - blah.somedomain
+  - blah2.somedomain
   addresses:
-  - %s
+  - {{index .Addresses 1}}
   ports:
   - number: 9999
-    name: TCP-9999
-    protocol: TCP
+    name: port-9999
+    protocol: {{.Protocol}}
 ---
+{{ if .VirtualService }}
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: vs1
 spec:
   hosts:
-  - blah.somedomain
+  - blah1.somedomain
   tls:
   - match:
     - port: 9999
       sniHosts:
-      - blah.somedomain
+      - blah1.somedomain
     route:
     - destination:
-        host: blah.somedomain
+        host: blah1.somedomain
         port:
-          number: 9999`
+          number: 9999
+{{ end }}`
 
 func TestServiceEntry(t *testing.T) {
+	type Input struct {
+		Addresses      []string
+		Protocol       string
+		VirtualService bool
+	}
 	cases := []simulationTest{
 		{
-			name:       "identical CIDR (ignoring insignificant bits) is dropped",
-			config:     fmt.Sprintf(se, "1234:1f1:123:123:f816:3eff:feb8:2287/32", "1234:1f1:123:123:f816:3eff:febf:57ce/32"),
+			name: "identical CIDR (ignoring insignificant bits) is dropped",
+			config: tmpl.MustEvaluate(se, Input{
+				Addresses: []string{"1234:1f1:123:123:f816:3eff:feb8:2287/32", "1234:1f1:123:123:f816:3eff:febf:57ce/32"},
+				Protocol:  "TCP",
+			}),
 			kubeConfig: "",
 			calls: []simulation.Expect{{
 				// Expect listener, but no routing
 				Name: "defined port",
 				Call: simulation.Call{
-					Port:       9999,
-					HostHeader: "blah.somedomain",
-					Address:    "1234:1f1:1:1:1:1:1:1",
-					Protocol:   simulation.HTTP,
+					Port:     9999,
+					Address:  "1234:1f1:1:1:1:1:1:1",
+					Protocol: simulation.TCP,
 				},
 				Result: simulation.Result{
 					ListenerMatched: "0.0.0.0_9999",
-					ClusterMatched:  "outbound|9999||blah.somedomain",
+					ClusterMatched:  "outbound|9999||blah1.somedomain",
 				},
 			}},
 		},
 		{
-			name: "overlapping CIDR causes multiple filter chain match",
-			// One address will be ignorred
-			config:     fmt.Sprintf(se, "1234:1f1:123:123:f816:3eff:feb8:2287/16", "1234:1f1:123:123:f816:3eff:febf:57ce/32"),
+			name: "overlapping CIDR",
+			config: tmpl.MustEvaluate(se, Input{
+				Addresses: []string{"1234:1f1:123:123:f816:3eff:feb8:2287/16", "1234:1f1:123:123:f816:3eff:febf:57ce/32"},
+				Protocol:  "TCP",
+			}),
 			kubeConfig: "",
-			calls: []simulation.Expect{{
-				// Expect listener, but no routing
-				Name: "defined port",
-				Call: simulation.Call{
-					Port:       9999,
-					HostHeader: "blah.somedomain",
-					Address:    "1234:1f1:1:1:1:1:1:1",
-					Protocol:   simulation.HTTP,
+			calls: []simulation.Expect{
+				{
+					Name: "match the more precise one",
+					Call: simulation.Call{
+						Port: 9999,
+						// Matches both, but more closely matches blah2
+						Address: "1234:1f1:123:123:f816:3eff:febf:57ce",
+					},
+					Result: simulation.Result{
+						Error:           nil,
+						ListenerMatched: "0.0.0.0_9999",
+						ClusterMatched:  "outbound|9999||blah2.somedomain",
+					},
 				},
-				Result: simulation.Result{
-					Error:           nil,
-					ListenerMatched: "0.0.0.0_9999",
-					ClusterMatched:  "outbound|9999||blah.somedomain",
+				{
+					Name: "match the more less one",
+					Call: simulation.Call{
+						Port: 9999,
+						// Only matches the first
+						Address: "1234::1",
+					},
+					Result: simulation.Result{
+						Error:           nil,
+						ListenerMatched: "0.0.0.0_9999",
+						ClusterMatched:  "outbound|9999||blah1.somedomain",
+					},
 				},
-			}},
+			},
+		},
+		{
+			name: "overlapping CIDR with SNI",
+			config: tmpl.MustEvaluate(se, Input{
+				Addresses:      []string{"1234:1f1:123:123:f816:3eff:feb8:2287/16", "1234:1f1:123:123:f816:3eff:febf:57ce/32"},
+				Protocol:       "TLS",
+				VirtualService: true,
+			}),
+			kubeConfig: "",
+			calls: []simulation.Expect{
+				{
+					Name: "IP and SNI match: longer IP",
+					Call: simulation.Call{
+						Port: 9999,
+						TLS:  simulation.TLS,
+						Sni:  "blah2.somedomain",
+						// Matches both, but more closely matches blah2, but SNI is blah1
+						Address: "1234:1f1:123:123:f816:3eff:febf:57ce",
+					},
+					Result: simulation.Result{
+						Error:           nil,
+						ListenerMatched: "0.0.0.0_9999",
+						ClusterMatched:  "outbound|9999||blah2.somedomain",
+					},
+				},
+				{
+					Name: "IP and SNI match: shorter IP",
+					Call: simulation.Call{
+						Port: 9999,
+						Sni:  "blah1.somedomain",
+						// Only matches the first
+						Address: "1234::1",
+					},
+					Result: simulation.Result{
+						Error:           nil,
+						ListenerMatched: "0.0.0.0_9999",
+						ClusterMatched:  "outbound|9999||blah1.somedomain",
+					},
+				},
+				{
+					Name: "Mismatch IP and SNI match: longer IP",
+					Call: simulation.Call{
+						Port: 9999,
+						TLS:  simulation.TLS,
+						Sni:  "blah1.somedomain",
+						// Matches both, but more closely matches blah2, but SNI is blah1
+						Address: "1234:1f1:123:123:f816:3eff:febf:57ce",
+					},
+					// TODO(https://github.com/istio/istio/issues/52235) this is broken
+					Result: simulation.Result{
+						Error:           nil,
+						ListenerMatched: "0.0.0.0_9999",
+						ClusterMatched:  "PassthroughCluster",
+					},
+				},
+				{
+					// Expect listener, but no routing
+					Name: "Mismatch IP and SNI match: shorter IP",
+					Call: simulation.Call{
+						Port: 9999,
+						Sni:  "blah2.somedomain",
+						// Only matches the first
+						Address: "1234::1",
+					},
+					Result: simulation.Result{
+						Error:           nil,
+						ListenerMatched: "0.0.0.0_9999",
+						ClusterMatched:  "PassthroughCluster",
+					},
+				},
+			},
 		},
 	}
 

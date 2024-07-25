@@ -182,7 +182,7 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType, file
 		var err error
 		switch cmd {
 		case cmdGenerate:
-			m, _, err := generateManifest(inFile, flags, chartSource, fileSelect)
+			m, err := generateManifest(inFile, flags, chartSource, fileSelect)
 			if err != nil {
 				return nil, err
 			}

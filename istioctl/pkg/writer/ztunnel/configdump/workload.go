@@ -84,16 +84,16 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 		return iNode < jNode
 	})
 
-	fmt.Fprintln(w, "NAMESPACE\tPOD NAME\tIP\tNODE\tWAYPOINT\tPROTOCOL")
+	fmt.Fprintln(w, "NAMESPACE\tPOD NAME\tADDRESS\tNODE\tWAYPOINT\tPROTOCOL")
 
 	for _, wl := range verifiedWorkloads {
-		var ip string
-		if len(wl.WorkloadIPs) > 0 {
-			ip = wl.WorkloadIPs[0]
+		address := strings.Join(wl.WorkloadIPs, ",")
+		if len(address) == 0 {
+			address = wl.Hostname
 		}
 		waypoint := waypointName(wl, zDump.Services)
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
-			wl.Namespace, wl.Name, ip, wl.Node, waypoint, wl.Protocol)
+			wl.Namespace, wl.Name, address, wl.Node, waypoint, wl.Protocol)
 
 	}
 	return w.Flush()
@@ -127,6 +127,9 @@ func waypointName(wl *ZtunnelWorkload, services []*ZtunnelService) string {
 	}
 
 	for _, svc := range services {
+		if fmt.Sprintf("%s/%s", svc.Namespace, svc.Hostname) == wl.Waypoint.Destination {
+			return svc.Name
+		}
 		for _, addr := range svc.Addresses {
 			if addr == wl.Waypoint.Destination {
 				return svc.Name
@@ -143,6 +146,9 @@ func serviceWaypointName(svc *ZtunnelService, services []*ZtunnelService) string
 	}
 
 	for _, service := range services {
+		if fmt.Sprintf("%s/%s", service.Namespace, service.Hostname) == svc.Waypoint.Destination {
+			return service.Name
+		}
 		for _, addr := range service.Addresses {
 			if addr == svc.Waypoint.Destination {
 				return service.Name

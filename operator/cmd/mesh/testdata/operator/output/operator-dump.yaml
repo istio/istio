@@ -35,6 +35,18 @@ rules:
   - '*'
   verbs:
   - '*'
+- apiGroups:
+  - telemetry.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - extensions.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
 # k8s groups
 - apiGroups:
   - admissionregistration.k8s.io
@@ -215,7 +227,7 @@ imagePullSecrets:
 - name: imagePullSecret1
 - name: imagePullSecret2
 ---
-
+#  Flatten globals, if defined on a per-chart basis
 
 ---
 # SYNC WITH manifests/charts/base/files

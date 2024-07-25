@@ -331,7 +331,7 @@ func TestWaypointChanges(t *testing.T) {
 			return getGracePeriod(2)
 		})
 		// change the waypoint template
-		istio.GetOrFail(t, t).UpdateInjectionConfig(t, func(cfg *inject.Config) error {
+		istio.GetOrFail(t).UpdateInjectionConfig(t, func(cfg *inject.Config) error {
 			mainTemplate := file.MustAsString(filepath.Join(env.IstioSrc, templateFile))
 			cfg.RawTemplates["waypoint"] = strings.ReplaceAll(mainTemplate, "terminationGracePeriodSeconds: 2", "terminationGracePeriodSeconds: 3")
 			return nil
@@ -357,7 +357,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+		istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 			"waypoint",
 			"apply",
 			"--namespace",
@@ -385,7 +385,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 
 func TestRemoveAddWaypoint(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+		istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 			"waypoint",
 			"apply",
 			"--namespace",
@@ -394,7 +394,7 @@ func TestRemoveAddWaypoint(t *testing.T) {
 			"--wait",
 		})
 		t.Cleanup(func() {
-			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"waypoint",
 				"delete",
 				"--namespace",
@@ -1852,38 +1852,16 @@ spec:
         host: "{{.Destination}}"
 `).ApplyOrFail(t)
 
-			// TODO(https://github.com/istio/istio/issues/51747) use a single SE instead of one for v4 and one for v6
 			cfg := config.YAML(`
-{{ $to := .To }}
 apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
-  name: test-se-v4
+  name: test-se
 spec:
   hosts:
-  - dummy-v4.example.com
+  - dummy.example.com
   addresses:
   - 240.240.240.255
-  ports:
-  - number: 80
-    name: http
-    protocol: HTTP
-  resolution: {{.Resolution}}
-  location: {{.Location}}
-  endpoints:
-  # we send directly to a Pod IP here. This is essentially headless
-  - address: {{.IngressIp}} # TODO won't work with DNS resolution tests
-    ports:
-      http: {{.IngressHttpPort}}
----
-apiVersion: networking.istio.io/v1beta1
-kind: ServiceEntry
-metadata:
-  name: test-se-v6
-spec:
-  hosts:
-  - dummy-v6.example.com
-  addresses:
   - 2001:2::f0f0:255
   ports:
   - number: 80
@@ -2014,9 +1992,7 @@ spec:
         host: "{{.Destination}}"
 `).ApplyOrFail(t)
 
-			// TODO(https://github.com/istio/istio/issues/51747) use a single SE instead of one for v4 and one for v6
 			cfg := config.YAML(`
-{{ $to := .To }}
 apiVersion: networking.istio.io/v1beta1
 kind: WorkloadEntry
 metadata:
@@ -2031,30 +2007,12 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
-  name: test-se-v4
+  name: test-se
 spec:
   hosts:
-  - dummy-v4.example.com
+  - dummy.example.com
   addresses:
   - 240.240.240.255
-  ports:
-  - number: 80
-    name: http
-    protocol: HTTP
-  resolution: {{.Resolution}}
-  location: {{.Location}}
-  workloadSelector:
-    labels:
-      app: selected
----
-apiVersion: networking.istio.io/v1beta1
-kind: ServiceEntry
-metadata:
-  name: test-se-v6
-spec:
-  hosts:
-  - dummy-v6.example.com
-  addresses:
   - 2001:2::f0f0:255
   ports:
   - number: 80

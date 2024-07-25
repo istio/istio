@@ -121,10 +121,19 @@ values:
 
 			return nil
 		}).
-		Setup(func(t resource.Context) error {
-			return SetupApps(t, i, apps)
-		}).
-		Setup(testRegistrySetup).
+		SetupParallel(
+			testRegistrySetup,
+			func(t resource.Context) error {
+				return SetupApps(t, i, apps)
+			},
+			func(t resource.Context) (err error) {
+				prom, err = prometheus.New(t, prometheus.Config{})
+				if err != nil {
+					return err
+				}
+				return
+			},
+		).
 		Run()
 }
 
@@ -159,11 +168,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			"istio.io/test-exclude-namespace": "true",
 		},
 	})
-	if err != nil {
-		return err
-	}
-
-	prom, err = prometheus.New(t, prometheus.Config{})
 	if err != nil {
 		return err
 	}

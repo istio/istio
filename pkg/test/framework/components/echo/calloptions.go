@@ -152,6 +152,10 @@ type CallOptions struct {
 	// Headless/StatefulSet deployments.
 	NewConnectionPerRequest bool
 
+	// ForceIPFamily will force a specific IP family to be used for DNS resolution only.
+	// Valid values: "tcp4", "tcp6".
+	ForceIPFamily string
+
 	// ForceDNSLookup if true, the forwarder will force a DNS lookup for each individual request. This is
 	// useful for any situation where DNS is used for load balancing (e.g. headless). This is ignored if
 	// NewConnectionPerRequest is false or if the deployment is Headless or StatefulSet.
@@ -478,3 +482,8 @@ func (o *CallOptions) fillRetryOptions() {
 	// Now append user-provided options to override the defaults.
 	o.Retry.Options = append(retryOpts, o.Retry.Options...)
 }
+
+const (
+	ForceIPFamilyV4 = "tcp4"
+	ForceIPFamilyV6 = "tcp6"
+)

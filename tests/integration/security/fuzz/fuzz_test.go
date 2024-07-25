@@ -208,7 +208,7 @@ func TestFuzzAuthorization(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			ns := "fuzz-authz"
-			namespace.ClaimOrFail(t, t, ns)
+			namespace.ClaimOrFail(t, ns)
 
 			t.ConfigIstio().YAML(ns, authzDenyPolicy).ApplyOrFail(t)
 			t.Logf("authorization policy applied")
@@ -292,7 +292,7 @@ func TestRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			ns := "fuzz-jwt"
-			namespace.ClaimOrFail(t, t, ns)
+			namespace.ClaimOrFail(t, ns)
 
 			t.ConfigIstio().YAML(ns, requestAuthnPolicy).ApplyOrFail(t)
 			t.Logf("request authentication policy applied")

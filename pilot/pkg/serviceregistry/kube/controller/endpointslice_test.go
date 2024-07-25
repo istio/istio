@@ -16,6 +16,7 @@ package controller
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,8 +29,10 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -284,7 +287,7 @@ func TestUpdateEndpointCacheForSlice(t *testing.T) {
 	}
 }
 
-func TestUpdateEndpointCacheForSliceWithMulAddrs(t *testing.T) {
+func TestUpdateEndpointCacheForSliceWithMultiAddrs(t *testing.T) {
 	const (
 		ns      = "nsa"
 		svcName = "svc1"
@@ -298,20 +301,10 @@ func TestUpdateEndpointCacheForSliceWithMulAddrs(t *testing.T) {
 	// Enable the Dual Stack features for testing UpdateEndpointCacheForSlice
 	test.SetForTest(t, &features.EnableDualStack, true)
 
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
-
-	node := generateNode("node1", map[string]string{
-		NodeZoneLabel:              "zone1",
-		NodeRegionLabel:            "region1",
-		label.TopologySubzone.Name: "subzone1",
-	})
-	addNodes(t, controller, node)
-
-	pod := generatePod("128.0.0.1", podName, ns, "svcaccount", "node1",
+	dualStackPod := generatePod("128.0.0.1", podName, ns, "svcaccount", "node1",
 		map[string]string{"app": appName}, map[string]string{})
-
 	// set the dual stack pods
-	pod.Status.PodIPs = []corev1.PodIP{
+	dualStackPod.Status.PodIPs = []corev1.PodIP{
 		{
 			IP: "128.0.0.1",
 		},
@@ -319,98 +312,318 @@ func TestUpdateEndpointCacheForSliceWithMulAddrs(t *testing.T) {
 			IP: "2001:1::1",
 		},
 	}
-	addPods(t, controller, fx, pod)
 
-	createServiceWait(controller, svcName, ns, nil, nil,
-		[]int32{portNum}, map[string]string{"app": appName}, t)
+	basicService := generateService(svcName, ns, nil, nil, []int32{portNum}, map[string]string{"app": appName}, []string{"10.0.0.1", "2001:1::255"})
+	serviceWithoutSelector := basicService.DeepCopy()
+	serviceWithoutSelector.Spec.Selector = nil
+	hostname := kube.ServiceHostname(svcName, ns, defaultFakeDomainSuffix)
 
-	// Ensure that the service is available.
-	hostname := kube.ServiceHostname(svcName, ns, controller.opts.DomainSuffix)
-	svc := controller.GetService(hostname)
-	if svc == nil {
-		t.Fatal("failed to get service")
-	}
-
-	ref := &corev1.ObjectReference{
+	podReference := &corev1.ObjectReference{
 		Kind:      "Pod",
 		Namespace: ns,
 		Name:      podName,
 	}
 	// Add the reference to the service. Used by EndpointSlice logic only.
-	labels := make(map[string]string)
-	labels[discovery.LabelServiceName] = svcName
-	eas := make([]corev1.EndpointAddress, 0)
-	eas = append(eas, corev1.EndpointAddress{IP: "128.0.0.1", TargetRef: ref})
+	sliceLabels := map[string]string{
+		discovery.LabelServiceName: svcName,
+	}
+	managedsliceLabels := map[string]string{
+		discovery.LabelServiceName: svcName,
+		discovery.LabelManagedBy:   "endpointslice-controller.k8s.io",
+	}
 
-	eps := make([]corev1.EndpointPort, 0)
-	eps = append(eps, corev1.EndpointPort{Name: portName, Port: portNum})
-	endpoint := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      svcName,
-			Namespace: ns,
-			Labels:    labels,
+	cases := []struct {
+		name      string
+		pod       *corev1.Pod
+		service   *corev1.Service
+		slices    []*discovery.EndpointSlice
+		assertion [][]string
+	}{
+		{
+			name:    "simple dual stack",
+			pod:     dualStackPod,
+			service: basicService,
+			slices: []*discovery.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "v4",
+						Namespace: ns,
+						Labels:    managedsliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						{
+							Addresses: []string{"128.0.0.1"},
+							TargetRef: podReference,
+						},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "v6",
+						Namespace: ns,
+						Labels:    managedsliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv6,
+					Endpoints: []discovery.Endpoint{
+						{
+							Addresses: []string{"2001:1::1"},
+							TargetRef: podReference,
+						},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+			},
+			assertion: [][]string{{"128.0.0.1", "2001:1::1"}},
 		},
-		Subsets: []corev1.EndpointSubset{{
-			Addresses: eas,
-			Ports:     eps,
-		}},
-	}
-	clienttest.NewWriter[*corev1.Endpoints](t, controller.client).CreateOrUpdate(endpoint)
-
-	esps := make([]discovery.EndpointPort, 0)
-	esps = append(esps, discovery.EndpointPort{Name: &portName, Port: &portNum})
-
-	sliceEndpoint := make([]discovery.Endpoint, 0, 2)
-	// Add both IPv4 and IPv6 slice endpoint for the istioEndpoint
-	sliceEndpoint = append(sliceEndpoint,
-		discovery.Endpoint{
-			Addresses: []string{"128.0.0.1"},
-			TargetRef: ref,
+		{
+			name:    "dual stack but only one endpointslice",
+			pod:     dualStackPod,
+			service: basicService,
+			slices: []*discovery.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "v4",
+						Namespace: ns,
+						Labels:    managedsliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						{
+							Addresses: []string{"128.0.0.1"},
+							TargetRef: podReference,
+						},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+			},
+			// TODO: should be only 128.0.0.1 probably
+			assertion: [][]string{{"128.0.0.1", "2001:1::1"}},
 		},
-		discovery.Endpoint{
-			Addresses: []string{"2001:1::1"},
-			TargetRef: ref,
+		{
+			name:    "manual endpoints without targetRef",
+			pod:     dualStackPod,
+			service: serviceWithoutSelector,
+			slices: []*discovery.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "manual-v4",
+						Namespace: ns,
+						Labels:    sliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						// No targetRef! But happens to match a pod IP
+						{Addresses: []string{"128.0.0.1"}},
+						// Completely random IP
+						{Addresses: []string{"129.0.0.1"}},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "manual-v6",
+						Namespace: ns,
+						Labels:    sliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv6,
+					Endpoints: []discovery.Endpoint{
+						// No targetRef! But happens to match a pod IP
+						{Addresses: []string{"2001:1::1"}},
+						// Completely random IP
+						{Addresses: []string{"2001:1::42"}},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+			},
+			assertion: [][]string{{"128.0.0.1"}, {"129.0.0.1"}, {"2001:1::1"}, {"2001:1::42"}},
 		},
-	)
-	// Add slice endpoint for a istioEndpoint
-	endpointSlice := &discovery.EndpointSlice{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      svcName,
-			Namespace: ns,
-			Labels:    labels,
+		{
+			name:    "manual endpoints with targetRef",
+			pod:     dualStackPod,
+			service: serviceWithoutSelector,
+			slices: []*discovery.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "manual-v4",
+						Namespace: ns,
+						Labels:    sliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						{Addresses: []string{"128.0.0.1"}, TargetRef: podReference},
+						// Completely random IP
+						{Addresses: []string{"129.0.0.1"}},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "manual-v6",
+						Namespace: ns,
+						Labels:    sliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv6,
+					Endpoints: []discovery.Endpoint{
+						{Addresses: []string{"2001:1::1"}, TargetRef: podReference},
+						// Completely random IP
+						{Addresses: []string{"2001:1::42"}},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+			},
+			assertion: [][]string{{"128.0.0.1", "2001:1::1"}, {"129.0.0.1"}, {"2001:1::42"}},
 		},
-		Endpoints: sliceEndpoint,
-		Ports:     esps,
+		{
+			name:    "mixed manual and selector",
+			pod:     dualStackPod,
+			service: basicService,
+			slices: []*discovery.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "v4",
+						Namespace: ns,
+						Labels:    managedsliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						{
+							Addresses: []string{"128.0.0.1"},
+							TargetRef: podReference,
+						},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "v6",
+						Namespace: ns,
+						Labels:    managedsliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv6,
+					Endpoints: []discovery.Endpoint{
+						{
+							Addresses: []string{"2001:1::1"},
+							TargetRef: podReference,
+						},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "manual-v4",
+						Namespace: ns,
+						Labels:    sliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						// Completely random IP
+						{Addresses: []string{"129.0.0.1"}},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "manual-v6",
+						Namespace: ns,
+						Labels:    sliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv6,
+					Endpoints: []discovery.Endpoint{
+						// Completely random IP
+						{Addresses: []string{"2001:1::42"}},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+			},
+			assertion: [][]string{{"128.0.0.1", "2001:1::1"}, {"129.0.0.1"}, {"2001:1::42"}},
+		},
+		{
+			name:    "unknown pod targetRef",
+			pod:     dualStackPod,
+			service: basicService,
+			slices: []*discovery.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "v4",
+						Namespace: ns,
+						Labels:    managedsliceLabels,
+					},
+					AddressType: discovery.AddressTypeIPv4,
+					Endpoints: []discovery.Endpoint{
+						{
+							Addresses: []string{"128.0.0.1"},
+							TargetRef: podReference,
+						},
+						{
+							Addresses: []string{"129.0.0.1"},
+							TargetRef: &corev1.ObjectReference{
+								Kind:      "Pod",
+								Namespace: ns,
+								Name:      "unknown-pod-name",
+							},
+						},
+					},
+					Ports: []discovery.EndpointPort{{
+						Name: &portName, Port: &portNum,
+					}},
+				},
+			},
+			// 129.0.0.1 references a pod, but we don't know about it (yet?). Do not include it. Otherwise we would send traffic
+			// to it but without valid configuration.
+			assertion: [][]string{{"128.0.0.1", "2001:1::1"}},
+		},
 	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+			eps := clienttest.Wrap(t, controller.endpoints.slices)
 
-	expectedIstioEP := &model.IstioEndpoint{
-		Addresses:       []string{"128.0.0.1", "2001:1::1"},
-		ServicePortName: "tcp-port",
-	}
-	controller.endpoints.updateEndpointCacheForSlice(hostname, endpointSlice)
-	istioEPs := controller.endpoints.endpointCache.Get(hostname)
+			node := generateNode("node1", map[string]string{
+				NodeZoneLabel:              "zone1",
+				NodeRegionLabel:            "region1",
+				label.TopologySubzone.Name: "subzone1",
+			})
+			addNodes(t, controller, node)
 
-	if len(istioEPs) == 0 {
-		t.Errorf("Failed: no istioEndpoint instance can be found based on host name [%v]", hostname)
-	}
-	if len(istioEPs) != 1 {
-		t.Errorf("Failed: the number of istioEndpoint instance is incorrect, expected %v, but got %v", 1, len(istioEPs))
-	}
-	if len(istioEPs[0].Addresses) != len(expectedIstioEP.Addresses) {
-		t.Errorf("Failed: the istioEndpoint has different Addresses, expected %v, but got %v", len(expectedIstioEP.Addresses), len(istioEPs[0].Addresses))
-	}
+			addPods(t, controller, fx, tt.pod)
+			clienttest.Wrap(t, controller.services).CreateOrUpdate(tt.service)
+			controller.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "service")
 
-	// Check the IP address of the istioEndpoint
-	var containIPaddr bool
-	for _, addr := range istioEPs[0].Addresses {
-		containIPaddr = false
-		for _, expectedAddr := range expectedIstioEP.Addresses {
-			if addr == expectedAddr {
-				containIPaddr = true
+			for _, ep := range tt.slices {
+				eps.Create(ep)
 			}
-		}
-		if !containIPaddr {
-			t.Errorf("The istioEndpoint IP address [%v] is unexpected", addr)
-		}
+			assert.EventuallyEqual(t, func() [][]string {
+				iep := controller.endpoints.endpointCache.Get(hostname)
+				return slices.SortBy(slices.Map(iep, func(e *model.IstioEndpoint) []string {
+					return e.Addresses
+				}), func(a []string) string {
+					return strings.Join(a, ",")
+				})
+			}, tt.assertion)
+		})
 	}
 }

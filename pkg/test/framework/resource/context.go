@@ -15,6 +15,7 @@
 package resource
 
 import (
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource/config"
 	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
@@ -81,4 +82,10 @@ type Context interface {
 	RecordTraceEvent(key string, value any)
 	// Id returns the name of the context
 	ID() string
+}
+
+// ContextFailer is a Context that is also a Failer. Typically, framework.TestContext can be used for this, but this has some import cycles.
+type ContextFailer interface {
+	Context
+	test.Failer
 }

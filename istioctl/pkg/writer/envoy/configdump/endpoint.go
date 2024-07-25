@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/sets"
 )
 
 type EndpointFilter struct {
@@ -100,15 +99,7 @@ func retrieveEndpointAddresses(ep *endpoint.LbEndpoint) []string {
 		result = append(result, "unknown")
 	}
 
-	// Workaround https://github.com/envoyproxy/envoy/issues/35100. We can remove if it is fixed.
-	filtered := make([]string, 0, len(result))
-	seen := sets.New[string]()
-	for _, r := range result {
-		if !seen.InsertContains(r) {
-			filtered = append(filtered, r)
-		}
-	}
-	return filtered
+	return result
 }
 
 func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string) error {

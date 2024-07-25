@@ -29,7 +29,7 @@ func TestTraffic(t *testing.T) {
 	framework.NewTest(t).
 		TopLevel().
 		Run(func(t framework.TestContext) {
-			apps := deployment.NewOrFail(t, t, deployment.Config{
+			apps := deployment.NewOrFail(t, deployment.Config{
 				NoExternalNamespace: true,
 				IncludeExtAuthz:     false,
 			})

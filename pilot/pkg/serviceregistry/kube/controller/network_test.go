@@ -329,6 +329,32 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 	})
 }
 
+func TestAmbientSync(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+	systemNS := "istio-system"
+	stop := test.NewStop(t)
+	s, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		SystemNamespace: systemNS,
+		NetworksWatcher: mesh.NewFixedNetworksWatcher(nil),
+		SkipRun:         true,
+	})
+	done := make(chan struct{})
+	// We want to test that ambient is not marked synced until the Kube controller is synced, since it depends on it for network
+	// information.
+	// To simulate this, we intentionally slow down the syncing process (which is hard to make slow with the fake client).
+	s.queue.Push(func() error {
+		time.Sleep(time.Millisecond * 20)
+		close(done)
+		return nil
+	})
+	go s.Run(stop)
+	// We should start as not synced
+	assert.Equal(t, s.ambientIndex.HasSynced(), false)
+	<-done
+	// Once the queue is done, eventually we should sync.
+	assert.EventuallyEqual(t, s.ambientIndex.HasSynced, true)
+}
+
 func createOrUpdateNamespace(t *testing.T, c *FakeController, name, network string) {
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

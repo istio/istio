@@ -38,7 +38,7 @@ import (
 func TestMtlsHealthCheck(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "healthcheck", Inject: true})
+			ns := namespace.NewOrFail(t, namespace.Config{Prefix: "healthcheck", Inject: true})
 			for _, testCase := range []struct {
 				name    string
 				rewrite bool
