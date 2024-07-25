@@ -450,14 +450,14 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			CNIConfName:        c.specifiedConfName,
 			ChainedCNIPlugin:   c.chainedCNIPlugin,
 			PluginLogLevel:     "debug",
-			KubeconfigFilename: kubeconfigFilename,
+			CNIAgentRunDir: kubeconfigFilename,
 		}
 
 		cfg := config.InstallConfig{
 			CNIConfName:        c.specifiedConfName,
 			ChainedCNIPlugin:   c.chainedCNIPlugin,
 			PluginLogLevel:     "debug",
-			KubeconfigFilename: kubeconfigFilename,
+			CNIAgentRunDir: kubeconfigFilename,
 		}
 		test := func(cfg config.InstallConfig) func(t *testing.T) {
 			return func(t *testing.T) {
