@@ -61,8 +61,8 @@ type Config struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	PluginLogLevel string `json:"plugin_log_level"`
-	CNIAgentRunDir string `json:"cni_agent_run_dir"`
+	PluginLogLevel    string   `json:"plugin_log_level"`
+	CNIAgentRunDir    string   `json:"cni_agent_run_dir"`
 	AmbientEnabled    bool     `json:"ambient_enabled"`
 	ExcludeNamespaces []string `json:"exclude_namespaces"`
 }
