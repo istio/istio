@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 52218
+releaseNotes:
+- |
+  **Fixed** Do not add pod to ipset if we have a partial failure adding to the dataplane.
