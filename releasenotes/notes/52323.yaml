@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 52315
+
+releaseNotes:
+- |
+  **Removed** Stop writing kubeconfig to CNI net dir. Remove `CNI_NET_DIR` from the `istio-cni` configmap, as it now does nothing.
