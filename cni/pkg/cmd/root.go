@@ -167,7 +167,6 @@ func init() {
 		Manual:  "Istio CNI Plugin Installer",
 	}))
 
-	registerStringParameter(constants.CNINetDir, "/etc/cni/net.d", "Directory on the host where CNI network plugins are installed")
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI configuration template as a string")
@@ -244,7 +243,6 @@ func bindViper(name string) {
 
 func constructConfig() (*config.Config, error) {
 	installCfg := config.InstallConfig{
-		CNINetDir:        viper.GetString(constants.CNINetDir),
 		MountedCNINetDir: viper.GetString(constants.MountedCNINetDir),
 		CNIConfName:      viper.GetString(constants.CNIConfName),
 		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),

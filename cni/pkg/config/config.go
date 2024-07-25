@@ -26,8 +26,6 @@ type Config struct {
 
 // InstallConfig struct defines the Istio CNI installation options
 type InstallConfig struct {
-	// Location of the CNI config files in the host's filesystem
-	CNINetDir string
 	// Location of the CNI config files in the container's filesystem (mount location of the CNINetDir)
 	MountedCNINetDir string
 	// Location of the node agent writable path on the node (used for sockets, etc)
@@ -126,7 +124,6 @@ type RepairConfig struct {
 
 func (c InstallConfig) String() string {
 	var b strings.Builder
-	b.WriteString("CNINetDir: " + c.CNINetDir + "\n")
 	b.WriteString("MountedCNINetDir: " + c.MountedCNINetDir + "\n")
 	b.WriteString("CNIConfName: " + c.CNIConfName + "\n")
 	b.WriteString("ChainedCNIPlugin: " + fmt.Sprint(c.ChainedCNIPlugin) + "\n")

@@ -18,7 +18,6 @@ package constants
 const (
 	// Install
 	MountedCNINetDir     = "mounted-cni-net-dir"
-	CNINetDir            = "cni-net-dir"
 	CNIConfName          = "cni-conf-name"
 	ChainedCNIPlugin     = "chained-cni-plugin"
 	CNINetworkConfigFile = "cni-network-config-file"
