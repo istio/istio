@@ -20,7 +20,6 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
-	"path/filepath"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	corev1 "k8s.io/api/core/v1"
@@ -81,6 +80,11 @@ var mockConfTmpl = `{
     "cni_agent_run_dir": "%s",
     "ambient_enabled": %t,
 	"exclude_namespaces": ["testExcludeNS"],
+    "kubernetes": {
+        "k8s_api_root": "APIRoot",
+        "kubeconfig": "testK8sConfig",
+		"intercept_type": "%s"
+    }
 }`
 
 type mockInterceptRuleMgr struct {
@@ -94,7 +98,7 @@ func buildMockConf(ambientEnabled bool, eventURL string) string {
 		"1.0.0",
 		"eth0",
 		testSandboxDirectory,
-		filepath.Dir(eventURL),
+		"", //unused here
 		ambientEnabled,
 		"mock",
 	)
@@ -141,16 +145,6 @@ func (mrdir *mockInterceptRuleMgr) Program(podName, netns string, redirect *Redi
 // returns the test server URL and a dispose func for the test server
 func setupCNIEventClientWithMockServer(serverErr bool) (string, func() bool) {
 	cniAddServerCalled := false
-	// replace the global CNI client with mock
-	newCNIClient = func(address, path string) CNIEventClient {
-		c := http.DefaultClient
-
-		eventC := CNIEventClient{
-			client: c,
-			url:    address + path,
-		}
-		return eventC
-	}
 
 	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		cniAddServerCalled = true
@@ -162,6 +156,17 @@ func setupCNIEventClientWithMockServer(serverErr bool) (string, func() bool) {
 		res.WriteHeader(http.StatusOK)
 		res.Write([]byte("server happy"))
 	}))
+
+	// replace the global CNI client with mock
+	newCNIClient = func(address, path string) CNIEventClient {
+		c := http.DefaultClient
+
+		eventC := CNIEventClient{
+			client: c,
+			url:    testServer.URL + path,
+		}
+		return eventC
+	}
 
 	return testServer.URL, func() bool {
 		testServer.Close()
