@@ -110,9 +110,13 @@ local overrideSeries = function(series, override)
         overrideSeries('eds', 'Endpoints'),
         overrideSeries('lds', 'Listeners'),
         overrideSeries('rds', 'Routes'),
+        overrideSeries('nds', 'DNS Tables'),
         overrideSeries('istio.io/debug', 'Debug'),
+        overrideSeries('istio.io/debug/syncz', 'Debug'),
         overrideSeries('wads', 'Authorization'),
         overrideSeries('wds', 'Workloads'),
+        overrideSeries('type.googleapis.com/istio.security.Authorization', 'Authorizations'),
+        overrideSeries('type.googleapis.com/istio.workload.Address', 'Addresses'),
       ]),
   },
 

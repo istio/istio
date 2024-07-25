@@ -181,6 +181,18 @@ local variables = import './variables.libsonnet';
           |||
         ),
 
+      ztunnelXdsMessages:
+        self.query(
+          '{{url}}',
+          |||
+            sum by (url) (
+              irate(
+                istio_xds_message_total{%(podLabels)s}
+              [$__rate_interval])
+            )
+          |||
+        ),
+
       xdsPushes:
         self.query(
           '{{type}}',

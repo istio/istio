@@ -13,7 +13,7 @@ local queries = (import './queries.libsonnet').queries({
   app: "ztunnel",
 });
 
-dashboard.new('Istio Ztunnel Dashboard')
+dashboard.new('Istio Ztunnel Dashboxard')
 + g.dashboard.withPanels(
   grid.makeGrid([
     row.new('Process')
@@ -31,9 +31,14 @@ dashboard.new('Istio Ztunnel Dashboard')
     row.new('Operations')
     + row.withPanels([
       panels.timeSeries.base(
-        'XDS', queries.ztunnelXdsConnections, |||
+        'XDS Connections', queries.ztunnelXdsConnections, |||
           Count of XDS connection terminations.
           This will typically spike every 30min for each instance.
+        |||
+      ),
+      panels.timeSeries.xdsPushes(
+        'XDS Pushes', queries.ztunnelXdsMessages, |||
+          Count of XDS messages, by type.
         |||
       ),
       panels.timeSeries.base('Workload Manager', queries.workloadManager, |||
@@ -44,4 +49,4 @@ dashboard.new('Istio Ztunnel Dashboard')
     ]),
   ], panelHeight=8)
 )
-+ g.dashboard.withUid(std.md5('ztunnel.json'))
++ g.dashboard.withUid(std.md5('xztunnel.json'))
