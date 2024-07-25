@@ -2219,40 +2219,6 @@ spec:
 			},
 		},
 		{
-			name: "wildcard first then explicit (oldest wins feature flag)",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "*.cluster.local",
-					Dest:      "wild.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "explicit.example.com",
-					Time:      TimeNewer,
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"}, // oldest wins
-				// Matched an exact service, so we have no route for the wildcard
-				"*.cluster.local": nil,
-			},
-			expectedGateway: map[string][]string{
-				// No overrides, use default
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				// Explicit has precedence
-				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
-				// Last is our wildcard
-				"*.cluster.local": {"outbound|80||wild.example.com"},
-			},
-			oldestWins: true,
-		},
-		{
 			name: "wildcard first then explicit",
 			cfg: []Configer{
 				vsArgs{
@@ -2317,46 +2283,6 @@ spec:
 				// Last is our wildcard
 				"*.cluster.local": {"outbound|80||wild.example.com"},
 			},
-		},
-		{
-			name: "wildcard and explicit with sidecar (oldest wins feature flag)",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "*.cluster.local",
-					Dest:      "wild.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "explicit.example.com",
-					Time:      TimeNewer,
-				},
-				scArgs{
-					Namespace: "default",
-					Egress:    []string{"default/known.default.svc.cluster.local", "default/alt-known.default.svc.cluster.local"},
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// Even though we did not import `*.cluster.local`, the VS attaches
-				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				// Oldest wins
-				"known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				// Matched an exact service, so we have no route for the wildcard
-				"*.cluster.local": nil,
-			},
-			expectedGateway: map[string][]string{
-				// No rule imported
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				// Imported rule
-				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
-				// Not imported
-				"*.cluster.local": nil,
-			},
-			oldestWins: true,
 		},
 		{
 			name: "wildcard and explicit with sidecar",
@@ -2426,40 +2352,6 @@ spec:
 				// Matched an exact service, so we have no route for the wildcard
 				"*.cluster.local": nil,
 			},
-		},
-		{
-			name: "wildcard and explicit cross namespace (oldest wins feature flag)",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "not-default",
-					Match:     "*.cluster.local",
-					Dest:      "wild.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "explicit.example.com",
-					Time:      TimeNewer,
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// Wildcard is older, so it wins, even though it is cross namespace
-				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"},
-				// Matched an exact service, so we have no route for the wildcard
-				"*.cluster.local": nil,
-			},
-			expectedGateway: map[string][]string{
-				// Exact match wins
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
-				// Wildcard last
-				"*.cluster.local": {"outbound|80||wild.example.com"},
-			},
-			oldestWins: true,
 		},
 		{
 			name: "wildcard and explicit cross namespace",

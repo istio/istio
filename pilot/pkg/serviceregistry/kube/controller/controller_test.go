@@ -1935,11 +1935,6 @@ func createExternalNameService(controller *FakeController, name, namespace strin
 	return service
 }
 
-func deleteExternalNameService(controller *FakeController, name, namespace string, t *testing.T, xdsEvents *xdsfake.Updater) {
-	clienttest.Wrap(t, controller.services).Delete(name, namespace)
-	xdsEvents.WaitOrFail(t, "service")
-}
-
 func servicesEqual(svcList, expectedSvcList []*model.Service) bool {
 	if len(svcList) != len(expectedSvcList) {
 		return false
