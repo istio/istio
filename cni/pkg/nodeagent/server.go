@@ -273,24 +273,35 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 
+	// Aggregate errors together, so that if part of the removal fails we still proceed with other steps.
+	var errs []error
+
 	// Remove the hostside ipset entry first, and unconditionally - if later failures happen, we never
 	// want to leave stale entries
 	if err := removePodFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
 		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)
-		return err
+		errs = append(errs, err)
 	}
 
-	err := s.netServer.RemovePodFromMesh(ctx, pod, isDelete)
-	if err != nil {
+	// Specifically, at this time, we do _not_ want to un-annotate the pod if we cannot successfully remove it,
+	// as the pod is probably in a broken state and we don't want to let go of it from the CP perspective while that is true.
+	// So we will return if this fails.
+	if err := s.netServer.RemovePodFromMesh(ctx, pod, isDelete); err != nil {
 		log.Errorf("failed to remove pod from mesh: %v", err)
-		return err
+		errs = append(errs, err)
+		return errors.Join(errs...)
 	}
+
+	// This should be the last step in all cases - once we do this, the CP will no longer consider this pod "ambient",
+	// regardless of the state it is in
 	log.Debug("removing annotation from pod")
-	err = util.AnnotateUnenrollPod(s.kubeClient, &pod.ObjectMeta)
-	if err != nil {
+	if err := util.AnnotateUnenrollPod(s.kubeClient, &pod.ObjectMeta); err != nil {
 		log.Errorf("failed to annotate pod unenrollment: %v", err)
+		errs = append(errs, err)
+		return errors.Join(errs...)
 	}
-	return err
+
+	return errors.Join(errs...)
 }
 
 // syncHostIPSets is called after the host node ipset has been created (or found + flushed)
@@ -376,7 +387,7 @@ func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPSet
 		log.Warnf("unable to list IPSet: %v", err)
 		return err
 	}
-	actual := sets.New[netip.Addr](actualIPSetContents...)
+	actual := sets.New(actualIPSetContents...)
 	stales := actual.DifferenceInPlace(expected)
 
 	for staleIP := range stales {
