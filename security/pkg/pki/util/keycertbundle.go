@@ -253,12 +253,12 @@ func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(certFile string, pri
 	return nil
 }
 
-// ExtractRootCertExpiryTimestamp returns when the root cert expires
+// ExtractRootCertExpiryTimestamp returns a time.Time of when the root cert expires
 func (b *KeyCertBundle) ExtractRootCertExpiryTimestamp() (*time.Time, error) {
 	return extractCertExpiryTimestamp("root cert", b.GetRootCertPem())
 }
 
-// ExtractCACertExpiryTimestamp returns when the cert chains expires
+// ExtractCACertExpiryTimestamp returns a time.Time of when the cert chain expires
 func (b *KeyCertBundle) ExtractCACertExpiryTimestamp() (*time.Time, error) {
 	return extractCertExpiryTimestamp("CA cert", b.GetCertChainPem())
 }

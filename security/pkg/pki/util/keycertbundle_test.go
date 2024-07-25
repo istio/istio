@@ -343,29 +343,35 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 
 // Test the root cert expiry timestamp can be extracted correctly.
 func TestExtractRootCertExpiryTimestamp(t *testing.T) {
-	testCases := []struct {
+	testCases := map[string]struct {
 		notBefore time.Time
 		ttl       time.Duration
 	}{
-		{
+		"Success - Unix 0": {
 			notBefore: time.Unix(0, 0),
 			ttl:       time.Minute,
 		},
-		{
+		"Success - Arbitrary Date 1": {
 			notBefore: time.Unix(1721769413, 1000),
 			ttl:       time.Minute * 70,
 		},
-		{
+		"Success - Arbitrary Date 2": {
 			notBefore: time.Unix(2721769413, 1000),
 			ttl:       time.Minute * 10,
 		},
-		{
+		"Success - 32-bit max": {
 			notBefore: time.Unix((1<<31)-2, 1000),
 			ttl:       time.Minute * 10,
 		},
+		"Success - Generalized time max": {
+			// 253402300799 corresponds to December 31, 9999 23:58:59, the latest date that can be represented in Generalized Time.
+			notBefore: time.Unix(253402300799, 0).Add(-time.Minute),
+			ttl:       time.Minute,
+		},
 	}
-	for i, tc := range testCases {
-		t.Run(fmt.Sprintf("Test case %d", i), func(t *testing.T) {
+
+	for id, tc := range testCases {
+		t.Run(fmt.Sprintf("Test case %s", id), func(t *testing.T) {
 			cert, key, err := GenCertKeyFromOptions(CertOptions{
 				Host:         "citadel.testing.istio.io",
 				NotBefore:    tc.notBefore,
@@ -382,42 +388,68 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 			// Don't use NewVerifiedKeyCertBundleFromPem because we want to test expired key bundles too
 			kb := NewKeyCertBundleFromPem(cert, key, nil, cert)
 			// will return error if expired
-			expiryTimestamp, _ := kb.ExtractRootCertExpiryTimestamp()
+			expiryTimestamp, err := kb.ExtractRootCertExpiryTimestamp()
 			expectedExpiryTimestamp := tc.notBefore.Add(tc.ttl)
 			// One second toleration because x509 cert times have one second of precision
 			tol := time.Second
+			if err != nil {
+				t.Errorf("Did not expect error, got %v", err)
+				t.FailNow()
+			}
 			if expiryTimestamp.Sub(expectedExpiryTimestamp).Abs() > tol {
 				t.Errorf("Expected %d and %d to be almost equal", expiryTimestamp.Unix(), expectedExpiryTimestamp.Unix())
 			}
+
 		})
 	}
+
+	t.Run("Failure - Malformed Cert", func(t *testing.T) {
+		errorMessage := "failed to parse the root cert: invalid PEM encoded certificate"
+		garbage := []byte{0, 0, 0, 0}
+		kb := NewKeyCertBundleFromPem(garbage, garbage, nil, garbage)
+		// will return error if expired
+		expiryTimestamp, err := kb.ExtractRootCertExpiryTimestamp()
+		if expiryTimestamp != nil {
+			t.Errorf("Expected nil value")
+		}
+		if err == nil {
+			t.Errorf("Expected error parsing malformed cert")
+		} else if err.Error() != errorMessage {
+			t.Errorf("Expected error %s, but got %s", errorMessage, err.Error())
+		}
+	})
 }
 
 // Test the CA cert expiry timestamp can be extracted correctly.
 func TestExtractCACertExpiryTimestamp(t *testing.T) {
-	testCases := []struct {
+	testCases := map[string]struct {
 		notBefore time.Time
 		ttl       time.Duration
 	}{
-		{
+		"Success - Unix 0": {
 			notBefore: time.Unix(0, 0),
 			ttl:       time.Minute,
 		},
-		{
+		"Success - Arbitrary Date 1": {
 			notBefore: time.Unix(1721769413, 1000),
 			ttl:       time.Minute * 70,
 		},
-		{
+		"Success - Arbitrary Date 2": {
 			notBefore: time.Unix(2721769413, 1000),
 			ttl:       time.Minute * 10,
 		},
-		{
+		"Success - 32-bit max": {
 			notBefore: time.Unix((1<<31)-2, 1000),
 			ttl:       time.Minute * 10,
 		},
+		"Success - Generalized time max": {
+			// 253402300799 corresponds to December 31, 9999 23:58:59, the latest date that can be represented in Generalized Time.
+			notBefore: time.Unix(253402300799, 0).Add(-time.Minute),
+			ttl:       time.Minute,
+		},
 	}
-	for i, tc := range testCases {
-		t.Run(fmt.Sprintf("Test case %d", i), func(t *testing.T) {
+	for id, tc := range testCases {
+		t.Run(fmt.Sprintf("Test case %s", id), func(t *testing.T) {
 			rootCertBytes, rootKeyBytes, err := GenCertKeyFromOptions(CertOptions{
 				Host:         "citadel.testing.istio.io",
 				Org:          "MyOrg",
@@ -466,11 +498,31 @@ func TestExtractCACertExpiryTimestamp(t *testing.T) {
 			expectedExpiryTimestamp := tc.notBefore.Add(tc.ttl)
 			// One second toleration because x509 cert times have one second of precision
 			tol := time.Second
+			if err != nil {
+				t.Errorf("Did not expect error, got %v", err)
+				t.FailNow()
+			}
 			if expiryTimestamp.Sub(expectedExpiryTimestamp).Abs() > tol {
 				t.Errorf("Expected %d and %d to be almost equal", expiryTimestamp.Unix(), expectedExpiryTimestamp.Unix())
 			}
 		})
 	}
+	t.Run("Failure - Malformed Cert", func(t *testing.T) {
+		errorMessage := "failed to parse the CA cert: invalid PEM encoded certificate"
+		garbage := []byte{0, 0, 0, 0}
+		kb := NewKeyCertBundleFromPem(garbage, garbage, nil, garbage)
+		// will return error if expired
+		expiryTimestamp, err := kb.ExtractCACertExpiryTimestamp()
+		if expiryTimestamp != nil {
+			t.Errorf("Expected nil value")
+		}
+		if err == nil {
+			t.Errorf("Expected error parsing malformed cert")
+		} else if err.Error() != errorMessage {
+			t.Errorf("Expected error %s, but got %s", errorMessage, err.Error())
+		}
+	})
+
 }
 
 func TestTimeBeforeCertExpires(t *testing.T) {
