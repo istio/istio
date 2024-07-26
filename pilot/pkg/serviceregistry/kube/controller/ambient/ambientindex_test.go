@@ -1134,7 +1134,16 @@ func TestAddressInformation(t *testing.T) {
 	s.assertEvent(t, s.podXdsName("pod2"))
 	s.addPods(t, "127.0.0.3", "pod3", "sa1", map[string]string{"app": "other"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod3"))
+	address := s.lookup(s.podXdsName("pod3"))
+	assert.Equal(t, 1, len(address))
 	s.clearEvents()
+
+	// Add one pod in kube-system should be ignored
+	s.addPodsWithNs(t, "127.0.0.4", "pod4", "kube-system", "sa1", map[string]string{"app": "other"}, nil, true, corev1.PodRunning)
+	pod4Key := fmt.Sprintf("%s//Pod/%s/%s", s.clusterID, "kube-system", "pod4")
+	s.assertNoEvent(t)
+	address = s.lookup(pod4Key)
+	assert.Equal(t, 0, len(address))
 
 	// Now add a service that will select pods with label "a".
 	s.addService(t, "svc1",
@@ -1608,8 +1617,14 @@ func (s *ambientTestServer) deleteWaypoint(t *testing.T, name string) {
 func (s *ambientTestServer) addPods(t *testing.T, ip string, name, sa string, labels map[string]string,
 	annotations map[string]string, markReady bool, phase corev1.PodPhase,
 ) {
+	s.addPodsWithNs(t, ip, name, testNS, sa, labels, annotations, markReady, phase)
+}
+
+func (s *ambientTestServer) addPodsWithNs(t *testing.T, ip string, name, namespace, sa string, labels map[string]string,
+	annotations map[string]string, markReady bool, phase corev1.PodPhase,
+) {
 	t.Helper()
-	pod := generatePod(ip, name, testNS, sa, "node1", labels, annotations)
+	pod := generatePod(ip, name, namespace, sa, "node1", labels, annotations)
 
 	p := s.pc.Get(name, pod.Namespace)
 	if p == nil {

@@ -123,7 +123,6 @@ func New(options Options) Index {
 		if object == nil {
 			return false
 		}
-		// Skip namespaces
 		if inject.IgnoredNamespaces.Contains(object.GetNamespace()) {
 			return false
 		}
@@ -159,20 +158,18 @@ func New(options Options) Index {
 
 	Services := krt.NewInformerFiltered[*v1.Service](options.Client, filter, krt.WithName("Services"))
 	Nodes := krt.NewInformerFiltered[*v1.Node](options.Client, kclient.Filter{
-		ObjectFilter:    options.Client.ObjectFilter(),
+		ObjectFilter:    filter.ObjectFilter,
 		ObjectTransform: kubeclient.StripNodeUnusedFields,
 	}, krt.WithName("Nodes"))
 	Pods := krt.NewInformerFiltered[*v1.Pod](options.Client, kclient.Filter{
-		ObjectFilter:    options.Client.ObjectFilter(),
+		ObjectFilter:    filter.ObjectFilter,
 		ObjectTransform: kubeclient.StripPodUnusedFields,
 	}, krt.WithName("Pods"))
 
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
 	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, krt.WithName("Namespaces"))
 
-	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
-		ObjectFilter: options.Client.ObjectFilter(),
-	}, krt.WithName("EndpointSlices"))
+	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, filter, krt.WithName("EndpointSlices"))
 
 	MeshConfig := MeshConfigCollection(ConfigMaps, options)
 	Waypoints := WaypointsCollection(Gateways, GatewayClasses, Pods)
