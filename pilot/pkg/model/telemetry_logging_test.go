@@ -1431,12 +1431,16 @@ func TestTelemetryAccessLog(t *testing.T) {
 			name: "builtin-fallback",
 			ctx:  ctx,
 			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_JSON,
-				AccessLogFormat:   defaultFormatJSON,
+				AccessLogEncoding:      meshconfig.MeshConfig_JSON,
+				AccessLogFormat:        defaultFormatJSON,
+				MseIngressGlobalConfig: &meshconfig.MSEIngressGlobalConfig{},
 			},
 			fp: defaultEnvoyProvider,
 			expected: &accesslog.AccessLog{
-				Name:       wellknown.FileAccessLog,
+				Name: wellknown.FileAccessLog,
+				Filter: &accesslog.AccessLogFilter{
+					FilterSpecifier: &accesslog.AccessLogFilter_NotHealthCheckFilter{},
+				},
 				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
 			},
 		},

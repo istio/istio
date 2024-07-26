@@ -34,9 +34,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/status/distribution"
 	"istio.io/istio/pkg/adsc"
+	alifeatures "istio.io/istio/pkg/ali/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/incluster"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 )
@@ -68,8 +71,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 	} else if args.RegistryOptions.FileDir != "" {
 		// Local files - should be added even if other options are specified
-		// changed by ingress
-		store := memory.MakeSkipValidation(collections.Pilot)
+		store := memory.Make(collections.Pilot)
 		configController := memory.NewController(store)
 
 		err := s.makeFileMonitor(args.RegistryOptions.FileDir, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
@@ -97,7 +99,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 		s.addTerminatingStartFunc("ingress status", func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, args.Revision, s.kubeClient).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.BuildClusterScopedLeaderElection(leaderelection.IngressController), args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient, args.RegistryOptions.KubeOptions)
 					// Start informers again. This fixes the case where informers for namespace do not start,
@@ -149,7 +151,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 		s.addTerminatingStartFunc("gateway status", func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.BuildClusterScopedLeaderElection(leaderelection.GatewayStatusController), args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("Starting gateway status writer")
 					gwc.SetStatusWrite(true, s.statusManager)
@@ -169,7 +171,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		if features.EnableGatewayAPIDeploymentController {
 			s.addTerminatingStartFunc("gateway deployment controller", func(stop <-chan struct{}) error {
 				leaderelection.
-					NewPerRevisionLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, args.Revision, s.kubeClient).
+					NewLeaderElection(args.Namespace, args.PodName, leaderelection.BuildClusterScopedLeaderElection(leaderelection.GatewayDeploymentController), args.Revision, s.kubeClient).
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
 						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
@@ -251,7 +253,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
 			}
-			store := memory.MakeSkipValidation(collections.Pilot)
+			store := memory.Make(collections.Pilot)
 			// TODO: enable namespace filter for memory controller
 			configController := memory.NewController(store)
 			configController.RegisterHasSyncedHandler(xdsMCP.HasSynced)
@@ -349,6 +351,25 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 	if args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter != nil {
 		opts.NamespacesFilter = args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter.Filter
 	}
+
+	// Add by ingress
+	if alifeatures.WatchResourcesByNamespaceForPrimaryCluster != "" {
+		filtersGVK := map[config.GroupVersionKind]kubetypes.Filter{}
+		schemas := collections.Pilot
+		if features.EnableGatewayAPI {
+			schemas = collections.PilotGatewayAPI()
+		}
+
+		for _, schema := range schemas.All() {
+			filtersGVK[schema.GroupVersionKind()] = kubetypes.Filter{
+				LabelSelector: alifeatures.WatchResourcesByLabelForPrimaryCluster,
+				Namespace:     alifeatures.WatchResourcesByNamespaceForPrimaryCluster,
+			}
+		}
+		opts.FiltersByGVK = filtersGVK
+	}
+	// End Add by ingress
+
 	return crdclient.New(s.kubeClient, opts)
 }
 

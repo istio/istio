@@ -100,6 +100,14 @@ func (s *delayedClient[T]) Start(stop <-chan struct{}) {
 	s.started = stop
 }
 
+// SetWatchErrorHandler should be call if store has started
+func (s *delayedClient[T]) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+	if c := s.inf.Load(); c != nil {
+		return (*c).SetWatchErrorHandler(handler)
+	}
+	return nil
+}
+
 var _ Informer[controllers.Object] = &delayedClient[controllers.Object]{}
 
 func (s *delayedClient[T]) set(inf Informer[T]) {

@@ -29,7 +29,7 @@ import (
 // initialize handlers for discovery selection scoping
 func (c *Controller) initDiscoveryHandlers(meshWatcher mesh.Watcher, discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) {
 	c.initDiscoveryNamespaceHandlers(discoveryNamespacesFilter)
-	c.initMeshWatcherHandler(meshWatcher, discoveryNamespacesFilter)
+	// c.initMeshWatcherHandler(meshWatcher, discoveryNamespacesFilter)
 }
 
 // handle discovery namespace membership changes triggered by namespace events,
@@ -72,7 +72,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(discoveryNamespacesFilter fi
 // which requires updating the DiscoveryNamespaceFilter and triggering create/delete event handlers for services/pods/endpoints
 // for membership changes
 func (c *Controller) initMeshWatcherHandler(meshWatcher mesh.Watcher, discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) {
-	meshWatcher.AddMeshHandler(func() {
+	c.meshHandlerRegistration = meshWatcher.AddMeshHandler(func() {
 		discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
 	})
 }

@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -94,6 +95,14 @@ const (
 	fieldManager        = "istio-kube-client"
 	RunningStatus       = "status.phase=Running"
 )
+
+// InformerOptions for initialization for informers.
+type InformerOptions struct {
+	// List and watch resources by specified namespace.
+	WatchedNamespace string
+	// List and watch resources by specified label.
+	Label string
+}
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
 // clients using a shared config. It is expected that all of Istiod can share the same set of clients and
@@ -215,6 +224,8 @@ var (
 	_ CLIClient = &client{}
 )
 
+const resyncInterval = 0
+
 // NewFakeClient creates a new, fake, client
 func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c := &client{
@@ -321,7 +332,7 @@ type client struct {
 	gatewayapi gatewayapiclient.Interface
 
 	started atomic.Bool
-	// If enabled, will wait for cache syncs with extremely short delay. This should be used only for tests
+	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
 
@@ -556,6 +567,28 @@ func fastWaitForCacheSync(stop <-chan struct{}, informerFactory informerfactory.
 		default:
 		}
 		return informerFactory.WaitForCacheSync(returnImmediately), nil
+	})
+}
+
+type reflectInformerSync interface {
+	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
+}
+
+func fastWaitForCacheSyncOld(stop <-chan struct{}, informerFactory reflectInformerSync) {
+	returnImmediately := make(chan struct{})
+	close(returnImmediately)
+	_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
+		select {
+		case <-stop:
+			return false, fmt.Errorf("channel closed")
+		default:
+		}
+		for _, synced := range informerFactory.WaitForCacheSync(returnImmediately) {
+			if !synced {
+				return false, nil
+			}
+		}
+		return true, nil
 	})
 }
 

@@ -23,6 +23,9 @@ import (
 	"testing"
 	"time"
 
+	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
+	qat "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/qat/v3alpha"
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
@@ -486,6 +489,804 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	for _, scrt := range raw {
 		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {
 			t.Fatalf("expect no private key provider in secret")
+		}
+	}
+}
+
+// Added by Ingress
+func TestCryptoMBConfig(t *testing.T) {
+	type Expected struct {
+		Key                    string
+		Cert                   string
+		CaCert                 string
+		PrivateName            string
+		PrivateProviderTypeUrl string
+		CryptoPrivateKeyConfig cryptomb.CryptoMbPrivateKeyMethodConfig
+	}
+	poolDelay, _ := time.ParseDuration("2ms")
+	cases := []struct {
+		name                 string
+		proxy                *model.Proxy
+		resources            []string
+		request              *model.PushRequest
+		expect               map[string]Expected
+		accessReviewResponse func(action k8stesting.Action) (bool, runtime.Object, error)
+	}{
+		{
+			name: "second polldelay",
+			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+				Type:             model.Router,
+				Metadata: &model.NodeMetadata{
+					PlatformMetadata: map[string]string{
+						"instance-type": "ecs.c7.8xlarge",
+					},
+				},
+			},
+			resources: []string{"kubernetes://generic-mtls-split", "kubernetes://generic-mtls"},
+			request: &model.PushRequest{
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
+					{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}:       {},
+				},
+				Push: &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						CryptombConfig: &meshconfig.MeshConfig_CryptombPrivateKeyConfig{
+							EnableCryptomb: true,
+							PoolDelay: &duration.Duration{
+								Seconds: 2,
+							},
+						},
+					},
+				},
+			},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-split": {
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
+					CryptoPrivateKeyConfig: cryptomb.CryptoMbPrivateKeyMethodConfig{
+						PollDelay: &duration.Duration{
+							Seconds: 2,
+						},
+					},
+				},
+				"kubernetes://generic-mtls": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+					CryptoPrivateKeyConfig: cryptomb.CryptoMbPrivateKeyMethodConfig{
+						PollDelay: &duration.Duration{
+							Seconds: 2,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "millisecond polldelay",
+			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+				Type:             model.Router,
+				Metadata: &model.NodeMetadata{
+					PlatformMetadata: map[string]string{
+						"instance-type": "ecs.c7se.4xlarge",
+					},
+				},
+			},
+			resources: []string{"kubernetes://generic-mtls", "kubernetes://generic-mtls-split"},
+			request: &model.PushRequest{
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}:       {},
+					{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
+				},
+				Push: &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						CryptombConfig: &meshconfig.MeshConfig_CryptombPrivateKeyConfig{
+							EnableCryptomb: true,
+							PoolDelay:      durationpb.New(poolDelay),
+						},
+					},
+				},
+			},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+					CryptoPrivateKeyConfig: cryptomb.CryptoMbPrivateKeyMethodConfig{
+						PollDelay: durationpb.New(poolDelay),
+					},
+				},
+				"kubernetes://generic-mtls-split": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+					CryptoPrivateKeyConfig: cryptomb.CryptoMbPrivateKeyMethodConfig{
+						PollDelay: durationpb.New(poolDelay),
+					},
+				},
+			},
+		},
+		{
+			name: "cpu info",
+			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+				Type:             model.Router,
+				Metadata: &model.NodeMetadata{
+					PlatformMetadata: map[string]string{
+						cpuInfo: "Intel(R) Xeon(R) Platinum 8369B ",
+					},
+				},
+			},
+			resources: []string{"kubernetes://generic-mtls", "kubernetes://generic-mtls-split"},
+			request: &model.PushRequest{
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}:       {},
+					{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
+				},
+				Push: &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						CryptombConfig: &meshconfig.MeshConfig_CryptombPrivateKeyConfig{
+							EnableCryptomb: true,
+							PoolDelay:      durationpb.New(poolDelay),
+						},
+					},
+				},
+			},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+					CryptoPrivateKeyConfig: cryptomb.CryptoMbPrivateKeyMethodConfig{
+						PollDelay: durationpb.New(poolDelay),
+					},
+				},
+				"kubernetes://generic-mtls-split": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+					CryptoPrivateKeyConfig: cryptomb.CryptoMbPrivateKeyMethodConfig{
+						PollDelay: durationpb.New(poolDelay),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.proxy.Metadata == nil {
+				tt.proxy.Metadata = &model.NodeMetadata{}
+			}
+			tt.proxy.Metadata.ClusterID = "Kubernetes"
+			s := NewFakeDiscoveryServer(t, FakeOptions{
+				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertSplit, genericMtlsCertSplitCa},
+			})
+			cc := s.KubeClient().Kube().(*fake.Clientset)
+
+			cc.Fake.Lock()
+			if tt.accessReviewResponse != nil {
+				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
+			} else {
+				disableAuthorizationForSecret(cc)
+			}
+			cc.Fake.Unlock()
+
+			gen := s.Discovery.Generators[v3.SecretType]
+			tt.request.Start = time.Now()
+			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: tt.resources}, tt.request)
+			raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+
+			got := map[string]Expected{}
+			for _, scrt := range raw {
+				log.Infof("secret: %v \n", scrt)
+				t.Logf("typeurl %s \n", scrt.GetTlsCertificate().GetPrivateKeyProvider().GetTypedConfig().TypeUrl)
+				t.Logf("name %s \n", scrt.GetTlsCertificate().GetPrivateKeyProvider().GetProviderName())
+
+				provider := &cryptomb.CryptoMbPrivateKeyMethodConfig{}
+				if err := scrt.GetTlsCertificate().GetPrivateKeyProvider().GetTypedConfig().UnmarshalTo(provider); err != nil {
+					t.Fatalf("Failed to unmarsha to privatekeyprivider %v", err)
+				}
+				log.Infof("secret xxx: %v \n", scrt)
+				got[scrt.Name] = Expected{
+					Key:                    string(scrt.GetTlsCertificate().GetPrivateKey().GetInlineBytes()),
+					Cert:                   string(scrt.GetTlsCertificate().GetCertificateChain().GetInlineBytes()),
+					CaCert:                 string(scrt.GetValidationContext().GetTrustedCa().GetInlineBytes()),
+					PrivateName:            scrt.GetTlsCertificate().GetPrivateKeyProvider().GetProviderName(),
+					PrivateProviderTypeUrl: scrt.GetTlsCertificate().GetPrivateKeyProvider().GetTypedConfig().TypeUrl,
+					CryptoPrivateKeyConfig: *provider,
+				}
+
+				if got[scrt.Name].CryptoPrivateKeyConfig.PollDelay.AsDuration().String() != tt.expect[scrt.Name].CryptoPrivateKeyConfig.PollDelay.AsDuration().String() {
+					t.Fatalf("got %v, want %v", got[scrt.Name].CryptoPrivateKeyConfig.PollDelay, tt.expect[scrt.Name].CryptoPrivateKeyConfig.PollDelay)
+				}
+			}
+		})
+	}
+}
+
+func TestQATConfig(t *testing.T) {
+	type Expected struct {
+		Key                    string
+		Cert                   string
+		CaCert                 string
+		PrivateName            string
+		PrivateProviderTypeUrl string
+		PrivateKeyConfig       qat.QatPrivateKeyMethodConfig
+	}
+	poolDelay, _ := time.ParseDuration("2ms")
+	cases := []struct {
+		name                 string
+		proxy                *model.Proxy
+		resources            []string
+		request              *model.PushRequest
+		expect               map[string]Expected
+		accessReviewResponse func(action k8stesting.Action) (bool, runtime.Object, error)
+	}{
+		{
+			name: "second polldelay",
+			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+				Type:             model.Router,
+				Metadata: &model.NodeMetadata{
+					PlatformMetadata: map[string]string{
+						"instance-type": "ecs.c8a.8xlarge",
+					},
+				},
+			},
+			resources: []string{"kubernetes://generic-mtls-split", "kubernetes://generic-mtls"},
+			request: &model.PushRequest{
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
+					{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}:       {},
+				},
+				Push: &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						CryptombConfig: &meshconfig.MeshConfig_CryptombPrivateKeyConfig{
+							EnableCryptomb: true,
+							PoolDelay: &duration.Duration{
+								Seconds: 2,
+							},
+						},
+					},
+				},
+			},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-split": {
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
+					PrivateKeyConfig: qat.QatPrivateKeyMethodConfig{
+						PollDelay: &duration.Duration{
+							Seconds: 2,
+						},
+					},
+				},
+				"kubernetes://generic-mtls": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+					PrivateKeyConfig: qat.QatPrivateKeyMethodConfig{
+						PollDelay: &duration.Duration{
+							Seconds: 2,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "millisecond polldelay",
+			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+				Type:             model.Router,
+				Metadata: &model.NodeMetadata{
+					PlatformMetadata: map[string]string{
+						"instance-type": "ecs.g8a.2xlarge",
+					},
+				},
+			},
+			resources: []string{"kubernetes://generic-mtls", "kubernetes://generic-mtls-split"},
+			request: &model.PushRequest{
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}:       {},
+					{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
+				},
+				Push: &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						CryptombConfig: &meshconfig.MeshConfig_CryptombPrivateKeyConfig{
+							EnableCryptomb: true,
+							PoolDelay:      durationpb.New(poolDelay),
+						},
+					},
+				},
+			},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+					PrivateKeyConfig: qat.QatPrivateKeyMethodConfig{
+						PollDelay: durationpb.New(poolDelay),
+					},
+				},
+				"kubernetes://generic-mtls-split": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+					PrivateKeyConfig: qat.QatPrivateKeyMethodConfig{
+						PollDelay: durationpb.New(poolDelay),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.proxy.Metadata == nil {
+				tt.proxy.Metadata = &model.NodeMetadata{}
+			}
+			tt.proxy.Metadata.ClusterID = "Kubernetes"
+			s := NewFakeDiscoveryServer(t, FakeOptions{
+				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertSplit, genericMtlsCertSplitCa},
+			})
+			cc := s.KubeClient().Kube().(*fake.Clientset)
+
+			cc.Fake.Lock()
+			if tt.accessReviewResponse != nil {
+				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
+			} else {
+				disableAuthorizationForSecret(cc)
+			}
+			cc.Fake.Unlock()
+
+			gen := s.Discovery.Generators[v3.SecretType]
+			tt.request.Start = time.Now()
+			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: tt.resources}, tt.request)
+			raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+
+			got := map[string]Expected{}
+			for _, scrt := range raw {
+				log.Infof("secret: %v \n", scrt)
+				t.Logf("typeurl %s \n", scrt.GetTlsCertificate().GetPrivateKeyProvider().GetTypedConfig().TypeUrl)
+				t.Logf("name %s \n", scrt.GetTlsCertificate().GetPrivateKeyProvider().GetProviderName())
+
+				provider := &qat.QatPrivateKeyMethodConfig{}
+				if err := scrt.GetTlsCertificate().GetPrivateKeyProvider().GetTypedConfig().UnmarshalTo(provider); err != nil {
+					t.Fatalf("Failed to unmarsha to privatekeyprivider %v", err)
+				}
+				log.Infof("secret xxx: %v \n", scrt)
+				got[scrt.Name] = Expected{
+					Key:                    string(scrt.GetTlsCertificate().GetPrivateKey().GetInlineBytes()),
+					Cert:                   string(scrt.GetTlsCertificate().GetCertificateChain().GetInlineBytes()),
+					CaCert:                 string(scrt.GetValidationContext().GetTrustedCa().GetInlineBytes()),
+					PrivateName:            scrt.GetTlsCertificate().GetPrivateKeyProvider().GetProviderName(),
+					PrivateProviderTypeUrl: scrt.GetTlsCertificate().GetPrivateKeyProvider().GetTypedConfig().TypeUrl,
+					PrivateKeyConfig:       *provider,
+				}
+
+				if got[scrt.Name].PrivateKeyConfig.PollDelay.AsDuration().String() != tt.expect[scrt.Name].PrivateKeyConfig.PollDelay.AsDuration().String() {
+					t.Fatalf("got %v, want %v", got[scrt.Name].PrivateKeyConfig.PollDelay, tt.expect[scrt.Name].PrivateKeyConfig.PollDelay)
+				}
+			}
+		})
+	}
+}
+
+func TestCryptoMBConfigWithUnsupportedInstanceType(t *testing.T) {
+	type Expected struct {
+		Key                    string
+		Cert                   string
+		CaCert                 string
+		PrivateName            string
+		PrivateProviderTypeUrl string
+		CryptoPrivateKeyConfig cryptomb.CryptoMbPrivateKeyMethodConfig
+	}
+
+	cases := []struct {
+		name                 string
+		proxy                *model.Proxy
+		resources            []string
+		request              *model.PushRequest
+		expect               map[string]Expected
+		accessReviewResponse func(action k8stesting.Action) (bool, runtime.Object, error)
+	}{
+		{
+			name: "second polldelay",
+			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+				Type:             model.Router,
+				Metadata: &model.NodeMetadata{
+					PlatformMetadata: map[string]string{
+						"instance-type": "ecs.c9.8xlarge", // unsupported instance type
+					},
+				},
+			},
+			resources: []string{"kubernetes://generic-mtls-split", "kubernetes://generic-mtls"},
+			request: &model.PushRequest{
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
+					{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}:       {},
+				},
+				Push: &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						CryptombConfig: &meshconfig.MeshConfig_CryptombPrivateKeyConfig{
+							EnableCryptomb: true,
+							PoolDelay: &duration.Duration{
+								Seconds: 2,
+							},
+						},
+					},
+				},
+			},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-split": {
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+				},
+			},
+		},
+		{
+			name: "missing metadata",
+			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+				Type:             model.Router,
+				Metadata:         &model.NodeMetadata{},
+			},
+			resources: []string{"kubernetes://generic-mtls-split", "kubernetes://generic-mtls"},
+			request: &model.PushRequest{
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
+					{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}:       {},
+				},
+				Push: &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						CryptombConfig: &meshconfig.MeshConfig_CryptombPrivateKeyConfig{
+							EnableCryptomb: true,
+							PoolDelay: &duration.Duration{
+								Seconds: 2,
+							},
+						},
+					},
+				},
+			},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-split": {
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+				},
+			},
+		},
+		{
+			name: "wrong cpu",
+			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+				Type:             model.Router,
+				Metadata: &model.NodeMetadata{
+					PlatformMetadata: map[string]string{
+						cpuInfo: "Intel Xeon(Ice Lake) Platinum 8369Bxxx",
+					},
+				},
+			},
+			resources: []string{"kubernetes://generic-mtls-split", "kubernetes://generic-mtls"},
+			request: &model.PushRequest{
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
+					{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}:       {},
+				},
+				Push: &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						CryptombConfig: &meshconfig.MeshConfig_CryptombPrivateKeyConfig{
+							EnableCryptomb: true,
+							PoolDelay: &duration.Duration{
+								Seconds: 2,
+							},
+						},
+					},
+				},
+			},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-split": {
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+				},
+			},
+		},
+		{
+			name: "wrong cpu",
+			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+				Type:             model.Router,
+				Metadata: &model.NodeMetadata{
+					PlatformMetadata: map[string]string{
+						cpuInfo: "xxx",
+					},
+				},
+			},
+			resources: []string{"kubernetes://generic-mtls-split", "kubernetes://generic-mtls"},
+			request: &model.PushRequest{
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{Name: "generic-mtls-split", Namespace: "istio-system", Kind: kind.Secret}: {},
+					{Name: "generic-mtls", Namespace: "istio-system", Kind: kind.Secret}:       {},
+				},
+				Push: &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						CryptombConfig: &meshconfig.MeshConfig_CryptombPrivateKeyConfig{
+							EnableCryptomb: true,
+							PoolDelay: &duration.Duration{
+								Seconds: 2,
+							},
+						},
+					},
+				},
+			},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-split": {
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls": {
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.proxy.Metadata == nil {
+				tt.proxy.Metadata = &model.NodeMetadata{}
+			}
+			tt.proxy.Metadata.ClusterID = "Kubernetes"
+			s := NewFakeDiscoveryServer(t, FakeOptions{
+				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertSplit, genericMtlsCertSplitCa},
+			})
+			cc := s.KubeClient().Kube().(*fake.Clientset)
+
+			cc.Fake.Lock()
+			if tt.accessReviewResponse != nil {
+				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
+			} else {
+				disableAuthorizationForSecret(cc)
+			}
+			cc.Fake.Unlock()
+
+			gen := s.Discovery.Generators[v3.SecretType]
+			tt.request.Start = time.Now()
+			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: tt.resources}, tt.request)
+			raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+
+			for _, scrt := range raw {
+				log.Infof("secret: %v \n", scrt)
+
+				if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {
+					t.Fatalf("expected empty private key config, got %v", scrt.GetTlsCertificate().GetPrivateKeyProvider())
+				}
+			}
+		})
+	}
+}
+
+var (
+	istiosystemNode1 = &model.Proxy{
+		ID: "1",
+		Metadata: &model.NodeMetadata{
+			ClusterID: "Kubernetes",
+			PlatformMetadata: map[string]string{
+				"instance-type": "ecs.c7.8xlarge", // unsupported instance type
+			},
+		},
+		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		Type:             model.Router,
+		ConfigNamespace:  "istio-system",
+	}
+	istiosystemNode2 = &model.Proxy{
+		ID: "2",
+		Metadata: &model.NodeMetadata{
+			ClusterID: "Kubernetes",
+			PlatformMetadata: map[string]string{
+				"instance-type": "ecs.c8a.8xlarge", // unsupported instance type
+			},
+		},
+		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		Type:             model.Router,
+		ConfigNamespace:  "istio-system",
+	}
+	istiosystemNode3 = &model.Proxy{
+		ID: "3",
+		Metadata: &model.NodeMetadata{
+			ClusterID: "Kubernetes",
+			PlatformMetadata: map[string]string{
+				"instance-type": "x.y.z", // unsupported instance type
+			},
+		},
+		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		Type:             model.Router,
+		ConfigNamespace:  "istio-system",
+	}
+	istiosystemNode4 = &model.Proxy{
+		ID: "4",
+		Metadata: &model.NodeMetadata{
+			ClusterID: "Kubernetes",
+		},
+		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		Type:             model.Router,
+		ConfigNamespace:  "istio-system",
+	}
+)
+
+func TestCachingWithEmptyKeyProvider(t *testing.T) {
+	s := NewFakeDiscoveryServer(t, FakeOptions{
+		KubernetesObjects: []runtime.Object{genericCert},
+		KubeClientModifier: func(c kube.Client) {
+			cc := c.Kube().(*fake.Clientset)
+			disableAuthorizationForSecret(cc)
+		},
+	})
+	gen := s.Discovery.Generators[v3.SecretType]
+
+	fullPush := &model.PushRequest{
+		Full:  true,
+		Start: time.Now(),
+	}
+
+	// node1
+	secrets, logDetail, _ := gen.Generate(s.SetupProxy(istiosystemNode1), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	if len(raw) != 1 {
+		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
+	}
+	if logDetail.AdditionalInfo != "cached:0/1" {
+		t.Fatal("should cache")
+	}
+	for _, secret := range raw {
+		if secret.GetTlsCertificate().GetPrivateKeyProvider() != nil {
+			t.Fatal("should not use private key provider")
+		}
+	}
+
+	// node2
+	secrets, logDetail, _ = gen.Generate(s.SetupProxy(istiosystemNode2), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	if len(raw) != 1 {
+		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
+	}
+	if logDetail.AdditionalInfo != "cached:1/1" {
+		t.Fatal("should cache")
+	}
+	for _, secret := range raw {
+		if secret.GetTlsCertificate().GetPrivateKeyProvider() != nil {
+			t.Fatal("should not use private key provider")
+		}
+	}
+
+	// node3
+	secrets, logDetail, _ = gen.Generate(s.SetupProxy(istiosystemNode3), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	if len(raw) != 1 {
+		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
+	}
+	if logDetail.AdditionalInfo != "cached:1/1" {
+		t.Fatal("should cache")
+	}
+	for _, secret := range raw {
+		if secret.GetTlsCertificate().GetPrivateKeyProvider() != nil {
+			t.Fatal("should not use private key provider")
+		}
+	}
+
+	// node4
+	secrets, logDetail, _ = gen.Generate(s.SetupProxy(istiosystemNode4), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	if len(raw) != 1 {
+		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
+	}
+	if logDetail.AdditionalInfo != "cached:1/1" {
+		t.Fatal("should cache")
+	}
+	for _, secret := range raw {
+		if secret.GetTlsCertificate().GetPrivateKeyProvider() != nil {
+			t.Fatal("should not use private key provider")
+		}
+	}
+}
+
+func TestCachingWithKeyProvider(t *testing.T) {
+	s := NewFakeDiscoveryServer(t, FakeOptions{
+		KubernetesObjects: []runtime.Object{genericCert},
+		KubeClientModifier: func(c kube.Client) {
+			cc := c.Kube().(*fake.Clientset)
+			disableAuthorizationForSecret(cc)
+		},
+	})
+	gen := s.Discovery.Generators[v3.SecretType]
+
+	fullPush := &model.PushRequest{
+		Full:  true,
+		Start: time.Now(),
+		Push: &model.PushContext{
+			Mesh: &meshconfig.MeshConfig{
+				CryptombConfig: &meshconfig.MeshConfig_CryptombPrivateKeyConfig{
+					EnableCryptomb: true,
+					PoolDelay: &duration.Duration{
+						Seconds: 2,
+					},
+				},
+			},
+		},
+	}
+
+	// node1
+	secrets, logDetail, _ := gen.Generate(s.SetupProxy(istiosystemNode1), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	if len(raw) != 1 {
+		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
+	}
+	if logDetail.AdditionalInfo != "cached:0/1" {
+		t.Fatal("should not cache")
+	}
+	for _, secret := range raw {
+		if secret.GetTlsCertificate().GetPrivateKeyProvider().GetProviderName() != CryptoMbPrivateKeyProviderType.String() {
+			t.Fatal("should use cry rivate key provider")
+		}
+	}
+
+	// node2
+	secrets, logDetail, _ = gen.Generate(s.SetupProxy(istiosystemNode2), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	if len(raw) != 1 {
+		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
+	}
+	if logDetail.AdditionalInfo != "cached:0/1" {
+		t.Fatal("should not cache")
+	}
+	for _, secret := range raw {
+		if secret.GetTlsCertificate().GetPrivateKeyProvider().GetProviderName() != QATPrivateKeyProviderType.String() {
+			t.Fatal("should use qat private key provider")
+		}
+	}
+
+	// node3
+	secrets, logDetail, _ = gen.Generate(s.SetupProxy(istiosystemNode3), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	if len(raw) != 1 {
+		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
+	}
+	if logDetail.AdditionalInfo != "cached:0/1" {
+		t.Fatal("should not cache")
+	}
+	for _, secret := range raw {
+		if secret.GetTlsCertificate().GetPrivateKeyProvider() != nil {
+			t.Fatal("should not use key provider")
+		}
+	}
+
+	// node3
+	secrets, logDetail, _ = gen.Generate(s.SetupProxy(istiosystemNode4), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	if len(raw) != 1 {
+		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
+	}
+	if logDetail.AdditionalInfo != "cached:1/1" {
+		t.Fatal("should cache")
+	}
+	for _, secret := range raw {
+		if secret.GetTlsCertificate().GetPrivateKeyProvider() != nil {
+			t.Fatal("should not use private key provider")
 		}
 	}
 }

@@ -43,6 +43,7 @@ type FakeControllerOptions struct {
 	NetworksWatcher           mesh.NetworksWatcher
 	MeshWatcher               mesh.Watcher
 	ServiceHandler            model.ServiceHandler
+	Mode                      EndpointMode
 	ClusterID                 cluster.ID
 	WatchedNamespaces         string
 	DomainSuffix              string
@@ -84,6 +85,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		Metrics:                   &model.Environment{},
 		MeshNetworksWatcher:       opts.NetworksWatcher,
 		MeshWatcher:               opts.MeshWatcher,
+		EndpointMode:              opts.Mode,
 		ClusterID:                 opts.ClusterID,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 		MeshServiceController:     meshServiceController,

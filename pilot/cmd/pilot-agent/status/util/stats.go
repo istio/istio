@@ -38,7 +38,7 @@ const (
 	updateStatsRegex   = "^(cluster_manager\\.cds|listener_manager\\.lds)\\.(update_success|update_rejected)$"
 )
 
-var readinessTimeout = time.Second * 3 // Default Readiness timeout. It is set the same in helm charts.
+var readinessTimeout = time.Second * 60 // Default Readiness timeout. It is set the same in helm charts.
 
 type stat struct {
 	name  string
@@ -75,7 +75,7 @@ func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, bool, e
 	}
 
 	hostPort := net.JoinHostPort(localHostAddr, strconv.Itoa(int(adminPort)))
-	readinessURL := fmt.Sprintf("http://%s/stats?usedonly&filter=%s", hostPort, readyStatsRegex)
+	readinessURL := fmt.Sprintf("http://%s/stats?usedonly", hostPort)
 	stats, err := http.DoHTTPGetWithTimeout(readinessURL, readinessTimeout)
 	if err != nil {
 		return nil, false, err
@@ -108,7 +108,7 @@ func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error
 	}
 
 	hostPort := net.JoinHostPort(localHostAddr, strconv.Itoa(int(adminPort)))
-	stats, err := http.DoHTTPGet(fmt.Sprintf("http://%s/stats?usedonly&filter=%s", hostPort, updateStatsRegex))
+	stats, err := http.DoHTTPGetWithTimeout(fmt.Sprintf("http://%s/stats?usedonly", hostPort), readinessTimeout)
 	if err != nil {
 		return nil, err
 	}

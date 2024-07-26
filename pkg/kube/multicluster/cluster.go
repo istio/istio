@@ -40,6 +40,12 @@ type Cluster struct {
 	initialSync *atomic.Bool
 	// initialSyncTimeout is set when RunAndWait timed out
 	initialSyncTimeout *atomic.Bool
+
+	// Added by ingress
+	RawClusterID  string
+	ClusterInfo   ClusterInfo
+	RawKubeConfig []byte
+	// End added by ingress
 }
 
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.

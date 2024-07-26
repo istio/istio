@@ -24,6 +24,17 @@ import (
 	"istio.io/istio/pkg/config/host"
 )
 
+// Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
+// EndpointSlices. The kubeEndpointsController abstracts these details and provides a common interface
+// that both sources implement.
+type kubeEndpointsController interface {
+	HasSynced() bool
+	sync(name, ns string, event model.Event, filtered bool) error
+	InstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance
+	GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance
+	buildIstioEndpointsWithService(name, namespace string, host host.Name, clearCache bool) []*model.IstioEndpoint
+}
+
 // getPod fetches a pod by name or IP address.
 // A pod may be missing (nil) for two reasons:
 //   - It is an endpoint without an associated Pod. In this case, expectPod will be false.

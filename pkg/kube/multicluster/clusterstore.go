@@ -85,6 +85,19 @@ func (c *ClusterStore) GetByID(clusterID cluster.ID) *Cluster {
 	return nil
 }
 
+// Added by ingress
+func (c *ClusterStore) GetIndexByID(clusterID cluster.ID) (string, *Cluster) {
+	c.RLock()
+	defer c.RUnlock()
+	for secretKey, clusters := range c.remoteClusters {
+		c, ok := clusters[clusterID]
+		if ok {
+			return secretKey, c
+		}
+	}
+	return "", nil
+}
+
 // All returns a copy of the current remote clusters.
 func (c *ClusterStore) All() map[string]map[cluster.ID]*Cluster {
 	if c == nil {

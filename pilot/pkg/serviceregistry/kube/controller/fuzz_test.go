@@ -17,12 +17,11 @@ package controller
 import (
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/discovery/v1"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/fuzz"
 	"istio.io/istio/pkg/network"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/discovery/v1"
 )
 
 func FuzzKubeController(f *testing.F) {
@@ -32,6 +31,7 @@ func FuzzKubeController(f *testing.F) {
 		fco.SkipRun = true
 		// Overlapping CRDs would fail, just remove them
 		fco.CRDs = nil
+		fco.Mode = EndpointSliceOnly
 		controller, _ := NewFakeControllerWithOptions(fg.T(), fco)
 		controller.network = networkID
 
@@ -39,7 +39,12 @@ func FuzzKubeController(f *testing.F) {
 		controller.pods.onEvent(nil, p, model.EventAdd)
 		s := fuzz.Struct[*corev1.Service](fg)
 		controller.onServiceEvent(nil, s, model.EventAdd)
-		e := fuzz.Struct[*v1.EndpointSlice](fg)
-		controller.endpoints.onEvent(nil, e, model.EventAdd)
+		if fco.Mode == EndpointSliceOnly {
+			e := fuzz.Struct[*v1.EndpointSlice](fg)
+			controller.endpoints.(*endpointSliceController).onEvent(nil, e, model.EventAdd)
+		} else {
+			e := fuzz.Struct[*corev1.Endpoints](fg)
+			controller.endpoints.(*endpointsController).onEvent(nil, e, model.EventAdd)
+		}
 	})
 }

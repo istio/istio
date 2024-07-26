@@ -29,6 +29,7 @@ import (
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/hashicorp/go-version"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -443,7 +444,8 @@ func translateRoute(
 		authority = operations.Authority
 	}
 
-	if in.Redirect != nil {
+	// Update by ingress
+	if redirect := in.Redirect; redirect != nil && !IgnoreRedirect(redirect, listenPort) {
 		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
 		ApplyDirectResponse(out, in.DirectResponse)
@@ -508,14 +510,7 @@ func applyHTTPRouteDestination(
 			Cluster: in.Name,
 		}
 
-		if regexRewrite := in.Rewrite.GetUriRegexRewrite(); regexRewrite != nil {
-			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
-				Pattern: &matcher.RegexMatcher{
-					Regex: regexRewrite.Match,
-				},
-				Substitution: regexRewrite.Rewrite,
-			}
-		} else if uri := in.Rewrite.GetUri(); uri != "" {
+		if uri := in.Rewrite.GetUri(); uri != "" {
 			action.PrefixRewrite = uri
 		}
 		if in.Rewrite.GetAuthority() != "" {
@@ -538,6 +533,48 @@ func applyHTTPRouteDestination(
 		}
 	}
 
+	var totalWeight uint32
+	// TODO: eliminate this logic and use the total_weight option in envoy route
+	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
+	for _, dst := range in.Route {
+		weight := &wrappers.UInt32Value{Value: uint32(dst.Weight)}
+		if dst.Weight == 0 {
+			// Ignore 0 weighted clusters if there are other clusters in the route.
+			// But if this is the only cluster in the route, then add it as a cluster with weight 100
+			if len(in.Route) == 1 {
+				weight.Value = uint32(100)
+			} else {
+				continue
+			}
+		}
+		hostname := host.Name(dst.GetDestination().GetHost())
+		n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort)
+		clusterWeight := &route.WeightedCluster_ClusterWeight{
+			Name:   n,
+			Weight: weight,
+		}
+		totalWeight += weight.GetValue()
+		if dst.Headers != nil {
+			operations := TranslateHeadersOperations(dst.Headers)
+			clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
+			clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
+			clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
+			clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
+			if operations.Authority != "" {
+				clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
+					HostRewriteLiteral: operations.Authority,
+				}
+			}
+		}
+
+		weighted = append(weighted, clusterWeight)
+		hash := hashByDestination[dst]
+		hashPolicy := consistentHashToHashPolicy(hash)
+		if hashPolicy != nil {
+			action.HashPolicy = append(action.HashPolicy, hashPolicy)
+		}
+	}
+
 	// Added by ingress
 	convertFallbackClusters := func(original string, fallbackClusters []*networking.Destination) *fallback.ClusterFallbackConfig_ClusterConfig {
 		var clusters []string
@@ -550,17 +587,9 @@ func applyHTTPRouteDestination(
 			FallbackClusters: clusters,
 		}
 	}
-
 	var singleClusterConfig *fallback.ClusterFallbackConfig
 	var weightedClusterConfig *fallback.ClusterFallbackConfig
-	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
-	for _, dst := range in.Route {
-		if dst.Weight == 0 {
-			// Ignore 0 weighted clusters if there are other clusters in the route.
-			continue
-		}
-		weighted = append(weighted, processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action))
-	}
+	// Added by ingress
 	if len(in.Route) == 1 {
 		route := in.Route[0]
 		if len(route.FallbackClusters) > 0 {
@@ -577,11 +606,14 @@ func applyHTTPRouteDestination(
 			if dst.Weight == 0 {
 				continue
 			}
+
 			if len(dst.FallbackClusters) > 0 {
 				clusterConfigList = append(clusterConfigList, convertFallbackClusters(weighted[idx].Name, dst.FallbackClusters))
 			}
+
 			idx++
 		}
+
 		if len(clusterConfigList) == 1 {
 			singleClusterConfig = &fallback.ClusterFallbackConfig{
 				ConfigSpecifier: &fallback.ClusterFallbackConfig_ClusterConfig_{
@@ -599,8 +631,24 @@ func applyHTTPRouteDestination(
 		}
 	}
 
-	if len(in.Route) == 1 {
-		processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action)
+	// rewrite to a single cluster if there is only weighted cluster
+	if len(weighted) == 1 {
+		action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
+		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
+		out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, weighted[0].RequestHeadersToRemove...)
+		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
+		out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
+		if weighted[0].HostRewriteSpecifier != nil && action.HostRewriteSpecifier == nil {
+			// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
+			// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
+			// However, Envoy behavior is different when we set at both cluster level and route level, and we want
+			// behavior to be consistent with a single cluster and multiple clusters.
+			// As a result, we only override if the top level rewrite is not set
+			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+				HostRewriteLiteral: weighted[0].GetHostRewriteLiteral(),
+			}
+		}
+
 		// Added by ingress
 		if singleClusterConfig != nil {
 			action.ClusterSpecifier = &route.RouteAction_InlineClusterSpecifierPlugin{
@@ -610,7 +658,8 @@ func applyHTTPRouteDestination(
 	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
-				Clusters: weighted,
+				Clusters:    weighted,
+				TotalWeight: wrappers.UInt32(totalWeight),
 				// Added by ingress
 				InlineClusterSpecifierPlugin: buildClusterSpecifierPlugin(weightedClusterConfig),
 			},
@@ -625,8 +674,9 @@ func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry ma
 	action *route.RouteAction,
 ) {
 	hostname := host.Name(dst.GetDestination().GetHost())
+	cluster := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort)
 	action.ClusterSpecifier = &route.RouteAction_Cluster{
-		Cluster: GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
+		Cluster: cluster,
 	}
 	if dst.Headers != nil {
 		operations := TranslateHeadersOperations(dst.Headers)
@@ -754,6 +804,7 @@ func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 	out.Action = action
 }
 
+// update by ingress
 func ApplyDirectResponse(out *route.Route, directResponse *networking.HTTPDirectResponse) {
 	action := &route.Route_DirectResponse{
 		DirectResponse: &route.DirectResponseAction{
@@ -1517,7 +1568,20 @@ func cutPrefix(s, prefix string) (after string, found bool) {
 	return s[len(prefix):], true
 }
 
-// Added by ingress
+// Add by ingress
+func IgnoreRedirect(redirect *networking.HTTPRedirect, port int) bool {
+	if port != 443 {
+		return false
+	}
+
+	if redirect.Uri == "" && redirect.Authority == "" && redirect.RedirectPort == nil &&
+		redirect.Scheme == "https" {
+		return true
+	}
+
+	return false
+}
+
 func buildClusterSpecifierPlugin(config *fallback.ClusterFallbackConfig) *route.ClusterSpecifierPlugin {
 	if config == nil {
 		return nil
@@ -1529,4 +1593,35 @@ func buildClusterSpecifierPlugin(config *fallback.ClusterFallbackConfig) *route.
 			TypedConfig: protoconv.MessageToAny(config),
 		},
 	}
+}
+
+var notSupportFallback, _ = version.NewVersion("1.20.6")
+
+const (
+	serverlessSuffix = "_accelerated"
+	envoyVersion     = "ENVOY_VERSION"
+)
+
+func supportFallback(proxy *model.Proxy) (isSupport bool) {
+	defer func() {
+		log.Debugf("proxy %s support fallback %v", proxy.ID, isSupport)
+	}()
+
+	rawVersion, exist := proxy.Metadata.Raw[envoyVersion]
+	if !exist {
+		log.Debug("proxy doesn't have meta ENVOY_VERSION")
+		return
+	}
+
+	versionStr := rawVersion.(string)
+	normalized := strings.TrimSuffix(versionStr, serverlessSuffix)
+	log.Debugf("original envoy version is %s, normalized version is %s", versionStr, normalized)
+	curVersion, err := version.NewVersion(normalized)
+	if err != nil {
+		log.Debugf("Parse envoy version %s fail, err: %v", normalized, err)
+		return
+	}
+
+	isSupport = curVersion.GreaterThan(notSupportFallback)
+	return
 }

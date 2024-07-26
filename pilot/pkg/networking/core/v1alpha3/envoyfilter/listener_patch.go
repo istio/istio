@@ -22,12 +22,12 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
 )
@@ -810,7 +810,7 @@ func networkFilterMatch(filter *listener.Filter, cp *model.EnvoyFilterConfigPatc
 		return true
 	}
 
-	return cp.Match.GetListener().FilterChain.Filter.Name == filter.Name
+	return nameMatches(cp.Match.GetListener().FilterChain.Filter.Name, filter.Name)
 }
 
 func hasHTTPFilterMatch(lp *model.EnvoyFilterConfigPatchWrapper) bool {
@@ -843,4 +843,9 @@ func commonConditionMatch(patchContext networking.EnvoyFilter_PatchContext,
 	lp *model.EnvoyFilterConfigPatchWrapper,
 ) bool {
 	return patchContextMatch(patchContext, lp)
+}
+
+// nameMatches compares two filter names, matching even if a deprecated filter name is used.
+func nameMatches(matchName, filterName string) bool {
+	return matchName == filterName || matchName == xds.DeprecatedFilterNames[filterName]
 }

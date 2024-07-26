@@ -174,6 +174,15 @@ func (n *informerClient[T]) ListUnfiltered(namespace string, selector klabels.Se
 	return res
 }
 
+// SetWatchErrorHandler should be call if store has started
+func (n *informerClient[T]) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+	err := n.informer.SetWatchErrorHandler(handler)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Filter allows filtering read operations.
 // This is aliased to allow easier access when constructing clients.
 type Filter = kubetypes.Filter

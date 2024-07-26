@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,7 +38,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/ali/global"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/security"
@@ -266,6 +269,21 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 	} else {
 		// Otherwise, just clear the updated configs
 		s.Cache.Clear(req.ConfigsUpdated)
+		//Added by ingress
+		trimKeyMap := make(map[model.ConfigKey]struct{})
+		for configKey := range req.ConfigsUpdated {
+			if strings.HasPrefix(configKey.Name, constants.IstioIngressGatewayName+"-") {
+				trimKeyMap[model.ConfigKey{
+					Kind:      configKey.Kind,
+					Name:      strings.TrimPrefix(configKey.Name, constants.IstioIngressGatewayName+"-"),
+					Namespace: configKey.Namespace,
+				}] = struct{}{}
+			}
+		}
+		if len(trimKeyMap) > 0 {
+			s.Cache.Clear(trimKeyMap)
+		}
+		//End added by ingress
 	}
 }
 
@@ -319,6 +337,9 @@ func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 		// the cache.
 		s.Cache.ClearAll()
 	}
+	if req.Full {
+		log.Infof("full push happen, reason:%v", req.Reason)
+	}
 	inboundConfigUpdates.Increment()
 	s.InboundUpdates.Inc()
 	s.pushChannel <- req
@@ -358,6 +379,12 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 	pushWorker := func() {
 		eventDelay := time.Since(startDebounce)
 		quietTime := time.Since(lastConfigUpdateTime)
+
+		if global.ShouldBlockPush() {
+			timeChan = time.After(opts.debounceAfter)
+			return
+		}
+
 		// it has been too long or quiet enough
 		if eventDelay >= opts.debounceMax || quietTime >= opts.debounceAfter {
 			if req != nil {
@@ -539,6 +566,9 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
 	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
+	// Added by ingress
+	s.Generators[v3.ScopedRouteType] = &SrdsGenerator{Server: s}
+	// End added by ingress
 	s.Generators[v3.EndpointType] = edsGen
 	ecdsGen := &EcdsGenerator{Server: s}
 	if env.CredentialsController != nil {

@@ -1933,7 +1933,12 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 		},
 		func(r *networking.HTTPMirrorPolicy, c fuzz.Continue) {
 			*r = networking.HTTPMirrorPolicy{}
+		},
+		// Add by ingress
+		func(r *networking.HTTPInternalActiveRedirect, c fuzz.Continue) {
+			*r = networking.HTTPInternalActiveRedirect{}
 		})
+	// End Add by ingress
 
 	root := &networking.HTTPRoute{}
 	f.Fuzz(root)

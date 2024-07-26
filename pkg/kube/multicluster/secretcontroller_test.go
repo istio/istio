@@ -82,10 +82,18 @@ func (h handler) ClusterUpdated(cluster *Cluster, stop <-chan struct{}) {
 	updated = cluster.ID
 }
 
+func (h handler) ClusterUpdatedInNeed(cluster *Cluster) {
+	// DO NOTHING
+}
+
 func (h handler) ClusterDeleted(id cluster.ID) {
 	mu.Lock()
 	defer mu.Unlock()
 	deleted = id
+}
+
+func (h handler) HasSynced() bool {
+	return true
 }
 
 func resetCallbackData() {

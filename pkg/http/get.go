@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-const requestTimeout = time.Second * 1 // Default timeout.
+const requestTimeout = time.Second * 60 // Default timeout.
 
 func DoHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, error) {
 	return request("GET", requestURL, t, nil)

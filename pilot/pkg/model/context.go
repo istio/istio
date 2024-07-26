@@ -118,6 +118,10 @@ type Environment struct {
 
 	// Cache for XDS resources.
 	Cache XdsCache
+
+	// Added by ingress
+	IngressStore IngressStore
+	// End added by ingress
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -724,9 +728,10 @@ type NodeMetadata struct {
 // if not present.
 func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	if m.ProxyConfig != nil {
-		if def != nil {
-			(*meshconfig.ProxyConfig)(m.ProxyConfig).DisableAlpnH2 = def.DisableAlpnH2
-		}
+		// Added by ingress
+		mergeProxyConfigWhenNeeded((*meshconfig.ProxyConfig)(m.ProxyConfig), def)
+		// End added by ingress
+
 		return (*meshconfig.ProxyConfig)(m.ProxyConfig)
 	}
 	return def

@@ -160,7 +160,7 @@ func CheckMain(m TestingM) {
 	os.Exit(exitCode)
 }
 
-// MustGarbageCollect asserts than an object was garbage collected by the end of the test.
+// MustGarbageCollect asserts that an object was garbage collected by the end of the test.
 // The input must be a pointer to an object.
 func MustGarbageCollect(tb test.Failer, i any) {
 	tb.Helper()

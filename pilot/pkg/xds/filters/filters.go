@@ -23,6 +23,7 @@ import (
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcweb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
+	ondemand "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/on_demand/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
@@ -30,6 +31,7 @@ import (
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
 	proxy_proto "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/proxy_protocol/v3"
+	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/proxy_protocol/v3"
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
@@ -75,6 +77,14 @@ var (
 			TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{}),
 		},
 	}
+	// Added by ingress
+	OnDemand = &hcm.HttpFilter{
+		Name: "envoy.filters.http.on_demand.v3.OnDemand",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&ondemand.OnDemand{}),
+		},
+	}
+	// End added by ingress
 	Cors = &hcm.HttpFilter{
 		Name: wellknown.CORS,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -104,6 +114,16 @@ var (
 			}),
 		},
 	}
+	// Added by ingress
+	ProxyProtocolInspector = &listener.ListenerFilter{
+		Name: wellknown.ProxyProtocol,
+		ConfigType: &listener.ListenerFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocol{
+				AllowRequestsWithoutProxyProtocol: true,
+			}),
+		},
+	}
+	// End added by ingress
 	TLSInspector = &listener.ListenerFilter{
 		Name: wellknown.TlsInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{

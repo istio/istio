@@ -302,10 +302,11 @@ func (l *lruCache[K]) get(key K, token CacheToken) *discovery.Resource {
 	return nil
 }
 
+// Modified by ingress
 func (l *lruCache[K]) Clear(configs sets.Set[ConfigKey]) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.token = CacheToken(time.Now().UnixNano())
+	cacheChanged := false
 	l.evictedOnClear = true
 	defer func() {
 		l.evictedOnClear = false
@@ -315,10 +316,16 @@ func (l *lruCache[K]) Clear(configs sets.Set[ConfigKey]) {
 		delete(l.configIndex, ckey.HashCode())
 		for key := range referenced {
 			l.store.Remove(key)
+			cacheChanged = true
 		}
+	}
+	if cacheChanged {
+		l.token = CacheToken(time.Now().UnixNano())
 	}
 	size(l.store.Len())
 }
+
+// End modified by ingress
 
 func (l *lruCache[K]) ClearAll() {
 	l.mu.Lock()
