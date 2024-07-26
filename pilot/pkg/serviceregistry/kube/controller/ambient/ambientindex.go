@@ -31,6 +31,8 @@ import (
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeclient "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
@@ -116,9 +118,21 @@ func New(options Options) Index {
 		LookupNetworkGateways: options.LookupNetworkGateways,
 	}
 
+	objectFilter := kubetypes.ComposeFilters(options.Client.ObjectFilter(), func(obj any) bool {
+		object := controllers.ExtractObject(obj)
+		if object == nil {
+			return false
+		}
+		// Skip namespaces
+		if inject.IgnoredNamespaces.Contains(object.GetNamespace()) {
+			return false
+		}
+		return true
+	})
 	filter := kclient.Filter{
-		ObjectFilter: options.Client.ObjectFilter(),
+		ObjectFilter: objectFilter,
 	}
+
 	ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, krt.WithName("ConfigMaps"))
 
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
