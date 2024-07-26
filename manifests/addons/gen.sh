@@ -77,7 +77,7 @@ function compressDashboard() {
   compressDashboard "istio-performance-dashboard.json"
   compressDashboard "istio-workload-dashboard.json"
   compressDashboard "istio-service-dashboard.json"
-  compressDashboard "istio-mesh-dashboard.json"
+  compressDashboard "istio-mesh-dashboard.gen.json"
   compressDashboard "istio-extension-dashboard.json"
   compressDashboard "ztunnel-dashboard.gen.json"
   echo -e "\n---\n"
@@ -92,7 +92,7 @@ function compressDashboard() {
     --dry-run=client -oyaml \
     --from-file=istio-workload-dashboard.json="${TMP}/istio-workload-dashboard.json" \
     --from-file=istio-service-dashboard.json="${TMP}/istio-service-dashboard.json" \
-    --from-file=istio-mesh-dashboard.json="${TMP}/istio-mesh-dashboard.json" \
+    --from-file=istio-mesh-dashboard.json="${TMP}/istio-mesh-dashboard.gen.json" \
     --from-file=istio-extension-dashboard.json="${TMP}/istio-extension-dashboard.json"
 } > "${ADDONS}/grafana.yaml"
 

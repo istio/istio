@@ -31,9 +31,14 @@ dashboard.new('Istio Ztunnel Dashboard')
     row.new('Operations')
     + row.withPanels([
       panels.timeSeries.base(
-        'XDS', queries.ztunnelXdsConnections, |||
+        'XDS Connections', queries.ztunnelXdsConnections, |||
           Count of XDS connection terminations.
           This will typically spike every 30min for each instance.
+        |||
+      ),
+      panels.timeSeries.xdsPushes(
+        'XDS Pushes', queries.ztunnelXdsMessages, |||
+          Count of XDS messages, by type.
         |||
       ),
       panels.timeSeries.base('Workload Manager', queries.workloadManager, |||
