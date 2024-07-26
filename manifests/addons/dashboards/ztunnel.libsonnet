@@ -13,7 +13,7 @@ local queries = (import './queries.libsonnet').queries({
   app: "ztunnel",
 });
 
-dashboard.new('Istio Ztunnel Dashboxard')
+dashboard.new('Istio Ztunnel Dashboard')
 + g.dashboard.withPanels(
   grid.makeGrid([
     row.new('Process')
@@ -49,4 +49,4 @@ dashboard.new('Istio Ztunnel Dashboxard')
     ]),
   ], panelHeight=8)
 )
-+ g.dashboard.withUid(std.md5('xztunnel.json'))
++ g.dashboard.withUid(std.md5('ztunnel.json'))

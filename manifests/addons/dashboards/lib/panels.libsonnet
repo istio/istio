@@ -11,6 +11,7 @@ local overrideSeries = function(series, override)
 {
   timeSeries: {
     local timeSeries = g.panel.timeSeries,
+    local stat = g.panel.stat,
     local fieldOverride = g.panel.timeSeries.fieldOverride,
     local custom = timeSeries.fieldConfig.defaults.custom,
     local options = timeSeries.options,
@@ -60,6 +61,32 @@ local overrideSeries = function(series, override)
     bytesRate(title, targets, desc=''):
       self.base(title, targets, desc)
       + timeSeries.standardOptions.withUnit('Bps'),
+
+    stat(title, targets, desc=''):
+      stat.new(title)
+      + stat.queryOptions.withTargets(targets)
+      + stat.queryOptions.withInterval('5s')
+      + options.legend.withDisplayMode('table')
+      + options.legend.withCalcs([
+        'last',
+        'max',
+      ])
+      + stat.standardOptions.color.withFixedColor('blue')
+      + stat.standardOptions.color.withMode('fixed')
+      + custom.withFillOpacity(10)
+      + custom.withShowPoints('never')
+      + custom.withGradientMode('hue')
+      + if std.length(desc) > 0 then
+        stat.panelOptions.withDescription(desc)
+      else {},
+
+    statRps(title, targets, desc=''):
+      self.stat(title, targets, desc)
+      + timeSeries.standardOptions.withUnit('reqps'),
+
+    statPercent(title, targets, desc=''):
+      self.stat(title, targets, desc)
+      + timeSeries.standardOptions.withUnit('percentunit'),
 
     allocations(title, targets, desc=''):
       self.base(title, targets, desc)
@@ -118,6 +145,65 @@ local overrideSeries = function(series, override)
         overrideSeries('type.googleapis.com/istio.security.Authorization', 'Authorizations'),
         overrideSeries('type.googleapis.com/istio.workload.Address', 'Addresses'),
       ]),
+  },
+
+  tables: {
+    local table = g.panel.table,
+    local override = table.fieldOverride,
+    base(title, targets, desc=''):
+      table.new(title)
+      + table.queryOptions.withTargets(targets)
+      + table.queryOptions.withInterval('5s')
+      + if std.length(desc) > 0 then
+        table.panelOptions.withDescription(desc)
+      else {},
+
+    requests(title, targets, desc=''):
+      self.base(title, targets, desc)
+      + table.queryOptions.withTransformations({ id: 'merge' })
+      + table.standardOptions.withOverrides([
+        // Query name/unit
+        override.byName.new('Value #requests')
+        + override.byName.withProperty('displayName', 'Requests')
+        + override.byName.withProperty('decimals', 2)
+        + override.byName.withProperty('unit', 'reqps'),
+        override.byName.new('Value #p50')
+        + override.byName.withProperty('displayName', 'P50 Latency')
+        + override.byName.withProperty('decimals', 2)
+        + override.byName.withProperty('unit', 'ms'),
+        override.byName.new('Value #p90')
+        + override.byName.withProperty('displayName', 'P90 Latency')
+        + override.byName.withProperty('decimals', 2)
+        + override.byName.withProperty('unit', 'ms'),
+        override.byName.new('Value #p99')
+        + override.byName.withProperty('displayName', 'P99 Latency')
+        + override.byName.withProperty('decimals', 2)
+        + override.byName.withProperty('unit', 'ms'),
+        override.byName.new('Value #success')
+        + override.byName.withProperty('displayName', 'Success Rate')
+        + override.byName.withProperty('decimals', 2)
+        + override.byName.withProperty('unit', 'percentunit')
+        + override.byName.withProperty('custom.cellOptions', { type: 'color-background' })
+        + override.byName.withProperty('thresholds', { mode: 'absolute', steps: [
+          {color: "red", value: null},
+          {color: "yellow", value: "0.95"},
+          {color: "green", value: 1},
+        ] }),
+
+        // Key
+        override.byName.new('destination_workload_var')
+        + override.byName.withProperty('displayName', 'Workload'),
+        override.byName.new('destination_service')
+        + override.byName.withProperty('displayName', 'Service')
+        + override.byName.withProperty('custom.minWidth', 400),
+        override.byName.new('destination_workload_namespace')
+        + override.byName.withProperty('custom.hidden', true),
+        override.byName.new('destination_workload')
+        + override.byName.withProperty('custom.hidden', true),
+        override.byName.new('Time')
+        + override.byName.withProperty('custom.hidden', true),
+      ]),
+    // thresholds
   },
 
   heatmap: {
