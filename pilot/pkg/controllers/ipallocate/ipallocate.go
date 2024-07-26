@@ -29,6 +29,7 @@ import (
 	networkingv1 "istio.io/client-go/pkg/apis/networking/v1"
 	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
+	cfghost "istio.io/istio/pkg/config/host"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -325,6 +326,10 @@ type jsonPatch struct {
 	Value     interface{} `json:"value"`
 }
 
+func removeWildCarded(h string) bool {
+	return !cfghost.Name(h).IsWildCarded()
+}
+
 func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, forcedReassign bool) ([]byte, []byte, error) {
 	if se == nil {
 		return nil, nil, nil
@@ -348,8 +353,11 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
 	hostsInSpec := sets.New[string]()
-	for _, host := range se.Spec.Hosts {
-		hostsInSpec.Insert(host)
+	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
+		if hostsInSpec.InsertContains(host) {
+			// if we already worked on this host don't process it again
+			continue
+		}
 		assignedIPs := []netip.Addr{}
 		if aa, ok := existingHostAddresses[host]; ok && !forcedReassign {
 			// we already assigned this host, do not re-assign
