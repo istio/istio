@@ -27,6 +27,12 @@ local variables = import './variables.libsonnet';
           std.rstripChars(query, '\n')
         ),
 
+      allIstioBuild:
+        self.query(
+          '{{component}} ({{tag}})',
+          sum('istio_build', by=['component', 'tag'])
+        ),
+
       istioBuild:
         self.query(
           'Version ({{tag}})',
@@ -305,6 +311,23 @@ local variables = import './variables.libsonnet';
             )
           )
         ) + q.withFormat('table') + q.withRefId('success') + q.withInstant(),
+      ],
+
+      tcpWorkloads: [
+        self.query(
+          '{{ destination_workload}}.{{ destination_workload_namespace }}',
+          tableLabelJoin(sum(
+            rate(labels('istio_tcp_received_bytes_total', { reporter: '~source|waypoint' })),
+            by=['destination_workload', 'destination_workload_namespace', 'destination_service']
+          ))
+        ) + q.withFormat('table') + q.withRefId('recv') + q.withInstant(),
+        self.query(
+          '{{ destination_workload}}.{{ destination_workload_namespace }}',
+          tableLabelJoin(sum(
+            rate(labels('istio_tcp_sent_bytes_total', { reporter: '~source|waypoint' })),
+            by=['destination_workload', 'destination_workload_namespace', 'destination_service']
+          ))
+        ) + q.withFormat('table') + q.withRefId('sent') + q.withInstant(),
       ],
     },
 }

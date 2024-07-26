@@ -203,7 +203,34 @@ local overrideSeries = function(series, override)
         override.byName.new('Time')
         + override.byName.withProperty('custom.hidden', true),
       ]),
-    // thresholds
+
+    tcpRequests(title, targets, desc=''):
+      self.base(title, targets, desc)
+      + table.queryOptions.withTransformations({ id: 'merge' })
+      + table.standardOptions.withOverrides([
+        // Query name/unit
+        override.byName.new('Value #recv')
+        + override.byName.withProperty('displayName', 'Bytes Received')
+        + override.byName.withProperty('decimals', 2)
+        + override.byName.withProperty('unit', 'bps'),
+        override.byName.new('Value #sent')
+        + override.byName.withProperty('displayName', 'Bytes Sent')
+        + override.byName.withProperty('decimals', 2)
+        + override.byName.withProperty('unit', 'bps'),
+
+        // Key
+        override.byName.new('destination_workload_var')
+        + override.byName.withProperty('displayName', 'Workload'),
+        override.byName.new('destination_service')
+        + override.byName.withProperty('displayName', 'Service')
+        + override.byName.withProperty('custom.minWidth', 400),
+        override.byName.new('destination_workload_namespace')
+        + override.byName.withProperty('custom.hidden', true),
+        override.byName.new('destination_workload')
+        + override.byName.withProperty('custom.hidden', true),
+        override.byName.new('Time')
+        + override.byName.withProperty('custom.hidden', true),
+      ]),
   },
 
   heatmap: {
