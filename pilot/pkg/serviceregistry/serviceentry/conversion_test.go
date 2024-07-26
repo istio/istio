@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 )
@@ -502,13 +503,13 @@ func convertPortNameToProtocol(name string) protocol.Instance {
 	return protocol.Parse(prefix)
 }
 
-func makeService(hostname host.Name, configNamespace, address string, ports map[string]int,
+func makeService(hostname host.Name, configNamespace string, addresses []string, ports map[string]int,
 	external bool, resolution model.Resolution, serviceAccounts ...string,
 ) *model.Service {
 	svc := &model.Service{
 		CreationTime:    GlobalTime,
 		Hostname:        hostname,
-		DefaultAddress:  address,
+		DefaultAddress:  addresses[0],
 		MeshExternal:    external,
 		Resolution:      resolution,
 		ServiceAccounts: serviceAccounts,
@@ -517,6 +518,11 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 			Name:            string(hostname),
 			Namespace:       configNamespace,
 		},
+	}
+	if !slices.Equal(addresses, []string{constants.UnspecifiedIP}) {
+		svc.ClusterVIPs = model.AddressMap{
+			Addresses: map[cluster.ID][]string{"": addresses},
+		}
 	}
 
 	if external && features.CanonicalServiceForMeshExternalServiceEntry {
@@ -565,7 +571,7 @@ func makeInstanceWithServiceAccount(cfg *config.Config, address string, port int
 func makeTarget(cfg *config.Config, address string, port int,
 	svcPort *networking.ServicePort, svcLabels map[string]string, mtlsMode MTLSMode,
 ) model.ServiceTarget {
-	services := convertServices(*cfg)
+	services := convertServices(*cfg, "")
 	svc := services[0] // default
 	for _, s := range services {
 		if string(s.Hostname) == address {
@@ -596,7 +602,7 @@ func makeTarget(cfg *config.Config, address string, port int,
 func makeInstance(cfg *config.Config, address string, port int,
 	svcPort *networking.ServicePort, svcLabels map[string]string, mtlsMode MTLSMode,
 ) *model.ServiceInstance {
-	services := convertServices(*cfg)
+	services := convertServices(*cfg, "")
 	svc := services[0] // default
 	for _, s := range services {
 		if string(s.Hostname) == address {
@@ -649,7 +655,7 @@ func testConvertServiceBody(t *testing.T) {
 			// service entry http
 			externalSvc: httpNone,
 			services: []*model.Service{
-				makeService("*.google.com", "httpNone", constants.UnspecifiedIP,
+				makeService("*.google.com", "httpNone", []string{constants.UnspecifiedIP},
 					map[string]int{"http-number": 80, "http2-number": 8080}, true, model.Passthrough),
 			},
 		},
@@ -657,7 +663,7 @@ func testConvertServiceBody(t *testing.T) {
 			// service entry tcp
 			externalSvc: tcpNone,
 			services: []*model.Service{
-				makeService("tcpnone.com", "tcpNone", "172.217.0.0/16",
+				makeService("tcpnone.com", "tcpNone", []string{"172.217.0.0/16"},
 					map[string]int{"tcp-444": 444}, true, model.Passthrough),
 			},
 		},
@@ -665,7 +671,7 @@ func testConvertServiceBody(t *testing.T) {
 			// service entry http  static
 			externalSvc: httpStatic,
 			services: []*model.Service{
-				makeService("*.google.com", "httpStatic", constants.UnspecifiedIP,
+				makeService("*.google.com", "httpStatic", []string{constants.UnspecifiedIP},
 					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.ClientSideLB),
 			},
 		},
@@ -673,9 +679,9 @@ func testConvertServiceBody(t *testing.T) {
 			// service entry DNS with no endpoints
 			externalSvc: httpDNSnoEndpoints,
 			services: []*model.Service{
-				makeService("google.com", "httpDNSnoEndpoints", constants.UnspecifiedIP,
+				makeService("google.com", "httpDNSnoEndpoints", []string{constants.UnspecifiedIP},
 					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB, "google.com"),
-				makeService("www.wikipedia.org", "httpDNSnoEndpoints", constants.UnspecifiedIP,
+				makeService("www.wikipedia.org", "httpDNSnoEndpoints", []string{constants.UnspecifiedIP},
 					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB, "google.com"),
 			},
 		},
@@ -683,7 +689,7 @@ func testConvertServiceBody(t *testing.T) {
 			// service entry dns
 			externalSvc: httpDNS,
 			services: []*model.Service{
-				makeService("*.google.com", "httpDNS", constants.UnspecifiedIP,
+				makeService("*.google.com", "httpDNS", []string{constants.UnspecifiedIP},
 					map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 			},
 		},
@@ -691,7 +697,7 @@ func testConvertServiceBody(t *testing.T) {
 			// service entry dns with target port
 			externalSvc: dnsTargetPort,
 			services: []*model.Service{
-				makeService("google.com", "dnsTargetPort", constants.UnspecifiedIP,
+				makeService("google.com", "dnsTargetPort", []string{constants.UnspecifiedIP},
 					map[string]int{"http-port": 80}, true, model.DNSLB),
 			},
 		},
@@ -699,7 +705,7 @@ func testConvertServiceBody(t *testing.T) {
 			// service entry tcp DNS
 			externalSvc: tcpDNS,
 			services: []*model.Service{
-				makeService("tcpdns.com", "tcpDNS", constants.UnspecifiedIP,
+				makeService("tcpdns.com", "tcpDNS", []string{constants.UnspecifiedIP},
 					map[string]int{"tcp-444": 444}, true, model.DNSLB),
 			},
 		},
@@ -707,7 +713,7 @@ func testConvertServiceBody(t *testing.T) {
 			// service entry tcp static
 			externalSvc: tcpStatic,
 			services: []*model.Service{
-				makeService("tcpstatic.com", "tcpStatic", "172.217.0.1",
+				makeService("tcpstatic.com", "tcpStatic", []string{"172.217.0.1"},
 					map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 			},
 		},
@@ -715,7 +721,7 @@ func testConvertServiceBody(t *testing.T) {
 			// service entry http internal
 			externalSvc: httpNoneInternal,
 			services: []*model.Service{
-				makeService("*.google.com", "httpNoneInternal", constants.UnspecifiedIP,
+				makeService("*.google.com", "httpNoneInternal", []string{constants.UnspecifiedIP},
 					map[string]int{"http-number": 80, "http2-number": 8080}, false, model.Passthrough),
 			},
 		},
@@ -723,7 +729,7 @@ func testConvertServiceBody(t *testing.T) {
 			// service entry tcp internal
 			externalSvc: tcpNoneInternal,
 			services: []*model.Service{
-				makeService("tcpinternal.com", "tcpNoneInternal", "172.217.0.0/16",
+				makeService("tcpinternal.com", "tcpNoneInternal", []string{"172.217.0.0/16"},
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
 			},
 		},
@@ -731,19 +737,15 @@ func testConvertServiceBody(t *testing.T) {
 			// service entry multiAddrInternal
 			externalSvc: multiAddrInternal,
 			services: []*model.Service{
-				makeService("tcp1.com", "multiAddrInternal", "1.1.1.0/16",
+				makeService("tcp1.com", "multiAddrInternal", []string{"1.1.1.0/16", "2.2.2.0/16"},
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
-				makeService("tcp1.com", "multiAddrInternal", "2.2.2.0/16",
-					map[string]int{"tcp-444": 444}, false, model.Passthrough),
-				makeService("tcp2.com", "multiAddrInternal", "1.1.1.0/16",
-					map[string]int{"tcp-444": 444}, false, model.Passthrough),
-				makeService("tcp2.com", "multiAddrInternal", "2.2.2.0/16",
+				makeService("tcp2.com", "multiAddrInternal", []string{"1.1.1.0/16", "2.2.2.0/16"},
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
 			},
 		},
 	}
 
-	selectorSvc := makeService("selector.com", "selector", "0.0.0.0",
+	selectorSvc := makeService("selector.com", "selector", []string{constants.UnspecifiedIP},
 		map[string]int{"tcp-444": 444, "http-445": 445}, true, model.ClientSideLB)
 	selectorSvc.Attributes.LabelSelectors = map[string]string{"app": "wle"}
 
@@ -756,7 +758,7 @@ func testConvertServiceBody(t *testing.T) {
 	})
 
 	for _, tt := range serviceTests {
-		services := convertServices(*tt.externalSvc)
+		services := convertServices(*tt.externalSvc, "")
 		if err := compare(t, services, tt.services); err != nil {
 			t.Errorf("testcase: %v\n%v ", tt.externalSvc.Name, err)
 		}
@@ -943,7 +945,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			services := convertServices(*tt.se)
+			services := convertServices(*tt.se, "")
 			s := &Controller{}
 			instances := s.convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry), &configKey{}, tt.clusterID)
 			sortServiceInstances(instances)

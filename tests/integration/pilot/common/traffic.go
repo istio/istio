@@ -297,6 +297,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 	RunCase("vm", VMTestCases(apps.VM))
 	RunSkipAmbient("dns", DNSTestCases, "https://github.com/istio/istio/issues/48614")
 	RunCase("externalservice", TestExternalService)
+	RunSkipAmbient("service-entry-vips-resolution-none", testServiceEntryWithMultipleVIPsAndResolutionNone, "")
 }
 
 func ExpectString(got, expected, help string) error {

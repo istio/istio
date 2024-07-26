@@ -362,7 +362,7 @@ func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
 func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Event) {
 	log.Debugf("Handle event %s for service entry %s/%s", event, curr.Namespace, curr.Name)
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
-	cs := convertServices(curr)
+	cs := convertServices(curr, s.clusterID)
 	configsUpdated := sets.New[model.ConfigKey]()
 	key := curr.NamespacedName()
 
