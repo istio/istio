@@ -608,6 +608,114 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceEndpoints(t, fx, expectedSvc, 445, instances)
 	})
 
+	t.Run("External only: workloadEntry with overlapping IPs and multiple SE", func(t *testing.T) {
+		store, _, fx := setupTest(t)
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry1",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"1.example.com"},
+				Ports: []*networking.ServicePort{
+					{Number: 445, Name: "http-445", Protocol: "http"},
+				},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: labels,
+				},
+			},
+		})
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry2",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"2.example.com"},
+				Ports: []*networking.ServicePort{
+					{Number: 445, Name: "http-445", Protocol: "http"},
+				},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: labels,
+				},
+			},
+		})
+		expectedSvc := &model.Service{
+			Hostname: "1.example.com",
+			Ports: []*model.Port{{
+				Name:     "http-445",
+				Port:     445,
+				Protocol: "http",
+			}},
+			Attributes: model.ServiceAttributes{
+				Namespace:      namespace,
+				Name:           "service",
+				LabelSelectors: labels,
+			},
+		}
+		we1 := config.Config{
+			Meta: config.Meta{
+				Name:             "we1",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"http-445": 1234,
+				},
+			},
+		}
+		we2 := config.Config{
+			Meta: config.Meta{
+				Name:             "we2",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"http-445": 5678,
+				},
+			},
+		}
+		makeIstioObject(t, store, we1)
+		makeIstioObject(t, store, we2)
+		fx.WaitOrFail(t, "xds full")
+
+		instances := []EndpointResponse{{
+			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:    1234,
+		}, {
+			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:    5678,
+		}}
+		expectServiceEndpoints(t, fx, expectedSvc, 445, instances)
+
+		fx.Clear()
+
+		// Delete one of the WE
+		_ = store.Delete(gvk.WorkloadEntry, we2.Name, we2.Namespace, nil)
+
+		fx.WaitOrFail(t, "xds")
+		newInstances := []EndpointResponse{
+			{
+				Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:    1234,
+			},
+		}
+		expectServiceEndpoints(t, fx, expectedSvc, 445, newInstances)
+
+		makeIstioObject(t, store, we2)
+		expectServiceEndpoints(t, fx, expectedSvc, 445, instances)
+	})
+
 	t.Run("Service selects WorkloadEntry", func(t *testing.T) {
 		store, kube, fx := setupTest(t)
 		makeService(t, kube, service)
