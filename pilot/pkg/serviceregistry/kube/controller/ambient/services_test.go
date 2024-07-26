@@ -502,6 +502,39 @@ func TestServiceServices(t *testing.T) {
 			},
 		},
 		{
+			name:   "publishNotReadyAddresses",
+			inputs: []any{},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: v1.ServiceSpec{
+					PublishNotReadyAddresses: true,
+					ClusterIP:                "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				LoadBalancing: &workloadapi.LoadBalancing{
+					HealthPolicy: workloadapi.LoadBalancing_ALLOW_ALL,
+				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+				}},
+			},
+		},
+		{
 			name: "cross namespace waypoint",
 			inputs: []any{
 				Waypoint{
