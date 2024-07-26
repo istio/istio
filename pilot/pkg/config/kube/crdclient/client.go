@@ -353,7 +353,11 @@ func (cl *Client) addCRD(name string) {
 		if cl.namespacesFilter != nil && !cl.namespacesFilter(t) {
 			return false
 		}
-		return config.LabelsInRevision(t.(controllers.Object).GetLabels(), cl.revision)
+		object := controllers.ExtractObject(t)
+		if object == nil {
+			return false
+		}
+		return config.LabelsInRevision(object.GetLabels(), cl.revision)
 	}
 	var kc kclient.Untyped
 	if s.IsBuiltin() {
