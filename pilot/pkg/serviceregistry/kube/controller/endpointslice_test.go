@@ -53,12 +53,12 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	})
 	addNodes(t, controller, node)
 
-	pod := generatePod("128.0.0.1", "pod1", ns, "svcaccount", "node1",
+	pod := generatePod([]string{"128.0.0.1"}, "pod1", ns, "svcaccount", "node1",
 		map[string]string{"app": appName}, map[string]string{})
 	pods := []*corev1.Pod{pod}
 	addPods(t, controller, fx, pods...)
 
-	createServiceWait(controller, svcName, ns, nil, nil,
+	createServiceWait(controller, svcName, ns, []string{"10.0.0.1"}, nil, nil,
 		[]int32{8080}, map[string]string{"app": appName}, t)
 
 	// Ensure that the service is available.
@@ -193,12 +193,12 @@ func TestUpdateEndpointCacheForSlice(t *testing.T) {
 	})
 	addNodes(t, controller, node)
 
-	pod := generatePod("128.0.0.1", podName, ns, "svcaccount", "node1",
+	pod := generatePod([]string{"128.0.0.1"}, podName, ns, "svcaccount", "node1",
 		map[string]string{"app": appName}, map[string]string{})
 
 	addPods(t, controller, fx, pod)
 
-	createServiceWait(controller, svcName, ns, nil, nil,
+	createServiceWait(controller, svcName, ns, []string{"10.0.0.1"}, nil, nil,
 		[]int32{portNum}, map[string]string{"app": appName}, t)
 
 	// Ensure that the service is available.
@@ -301,17 +301,8 @@ func TestUpdateEndpointCacheForSliceWithMultiAddrs(t *testing.T) {
 	// Enable the Dual Stack features for testing UpdateEndpointCacheForSlice
 	test.SetForTest(t, &features.EnableDualStack, true)
 
-	dualStackPod := generatePod("128.0.0.1", podName, ns, "svcaccount", "node1",
+	dualStackPod := generatePod([]string{"128.0.0.1", "2001:1::1"}, podName, ns, "svcaccount", "node1",
 		map[string]string{"app": appName}, map[string]string{})
-	// set the dual stack pods
-	dualStackPod.Status.PodIPs = []corev1.PodIP{
-		{
-			IP: "128.0.0.1",
-		},
-		{
-			IP: "2001:1::1",
-		},
-	}
 
 	basicService := generateService(svcName, ns, nil, nil, []int32{portNum}, map[string]string{"app": appName}, []string{"10.0.0.1", "2001:1::255"})
 	serviceWithoutSelector := basicService.DeepCopy()

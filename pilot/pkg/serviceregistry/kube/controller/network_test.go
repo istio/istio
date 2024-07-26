@@ -280,11 +280,11 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 
 	pc := clienttest.NewWriter[*corev1.Pod](t, s.client)
 	sc := clienttest.NewWriter[*corev1.Service](t, s.client)
-	pod1 := generatePod("127.0.0.1", "pod1", testNS, "sa1", "node1", map[string]string{"app": "a"}, nil)
+	pod1 := generatePod([]string{"127.0.0.1"}, "pod1", testNS, "sa1", "node1", map[string]string{"app": "a"}, nil)
 	pc.CreateOrUpdateStatus(pod1)
 	fx.WaitOrFail(t, "xds")
 
-	pod2 := generatePod("127.0.0.2", "pod2", testNS, "sa2", "node1", map[string]string{"app": "a"}, nil)
+	pod2 := generatePod([]string{"127.0.0.2"}, "pod2", testNS, "sa2", "node1", map[string]string{"app": "a"}, nil)
 	pc.CreateOrUpdateStatus(pod2)
 	fx.WaitOrFail(t, "xds")
 
