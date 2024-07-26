@@ -181,7 +181,7 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 		return nil
 	}
 
-	patch, atomicAddPatch, err := c.statusPatchForAddresses(serviceentry, false)
+	patch, addStatusAndAddresses, err := c.statusPatchForAddresses(serviceentry, false)
 	if err != nil {
 		return err
 	}
@@ -195,9 +195,9 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 	_, err = c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, patch)
 	if err != nil {
 		// try this patch which tests that status doesn't exist, adds status and then add addresses all in 1 operation
-		_, err2 := c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, atomicAddPatch)
+		_, err2 := c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, addStatusAndAddresses)
 		if err2 != nil {
-			log.Errorf("second patch also rejected %v, patch: %s", err2.Error(), atomicAddPatch)
+			log.Errorf("second patch also rejected %v, patch: %s", err2.Error(), addStatusAndAddresses)
 			// if this also didn't work there is perhaps a real issue and perhaps a requeue will resolve
 			return err
 		}
@@ -326,6 +326,7 @@ type jsonPatch struct {
 	Value     interface{} `json:"value"`
 }
 
+// filter out any wildcarded hosts
 func removeWildCarded(h string) bool {
 	return !cfghost.Name(h).IsWildCarded()
 }
@@ -338,6 +339,8 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	existingHostAddresses := autoallocate.GetHostAddressesFromServiceEntry(se)
 	existingAddresses := []netip.Addr{}
 	hostsWithAddresses := sets.New[string]()
+
+	// collect existing addresses and the hosts which already have assigned addresses
 	for host, addresses := range existingHostAddresses {
 		// this is likely a noop, but just to be safe we should check and potentially resolve conflict
 		existingAddresses = append(existingAddresses, addresses...)
@@ -346,11 +349,11 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 
 	// if we are being forced to reassign we already know there is a conflict
 	if !forcedReassign {
+		// if we're not being forced to reassign then we should ensure any addresses found are marked for use and queue up any conflicts found
 		c.markUsedOrQueueConflict(existingAddresses, config.NamespacedName(se))
 	}
 
-	// TODO: DNM!! this is wrong becuase it hard assumes that no one ever adds/removes a host from SE... bad assumption
-
+	// construct the assigned addresses datastructure to patch
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
 	hostsInSpec := sets.New[string]()
 	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
@@ -384,7 +387,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 		},
 	})
 
-	atomicAddAndAddresses, err2 := json.Marshal([]jsonPatch{
+	addStatusAndAddresses, err2 := json.Marshal([]jsonPatch{
 		{
 			Operation: "test",
 			Path:      "/status",
@@ -402,7 +405,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 		},
 	})
 
-	return replaceAddresses, atomicAddAndAddresses, errors.Join(err, err2)
+	return replaceAddresses, addStatusAndAddresses, errors.Join(err, err2)
 }
 
 func (c *IPAllocator) checkInSpecAddresses(serviceentry *networkingv1.ServiceEntry) {
