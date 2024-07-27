@@ -63,10 +63,10 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		// Host is fully qualified: name, namespace, domainSuffix
 		Hosts: []string{string(svc.Hostname)},
 
-		// Internal Service and K8S Service have a single Address.
-		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
-		// Will be 0.0.0.0 if not specified as ClusterIP or ClusterIP==None. In such case resolution is Passthrough.
-		Addresses: svc.GetAddresses(proxy),
+		// ServiceEntry can represent multiple services, so we return all the addresses of the services
+		// if proxy ClusterID unset.
+		// And only the cluster specific addresses when proxy ClusterID set.
+		Addresses: svc.GetAllAddressesForProxy(proxy),
 
 		// This is based on alpha.istio.io/canonical-serviceaccounts and
 		//  alpha.istio.io/kubernetes-serviceaccounts.

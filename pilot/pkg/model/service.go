@@ -1255,17 +1255,6 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	return
 }
 
-// GetAddresses returns a Service's addresses.
-// This method returns all the VIPs of a service if the ClusterID is explicitly set to "", otherwise only return the VIP
-// specific to the cluster where the node resides
-func (s *Service) GetAddresses(node *Proxy) []string {
-	if node.Metadata != nil && node.Metadata.ClusterID == "" {
-		return s.getAllAddresses()
-	}
-
-	return []string{s.GetAddressForProxy(node)}
-}
-
 // GetAddressForProxy returns a Service's address specific to the cluster where the node resides
 func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
@@ -1316,10 +1305,7 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 			return addresses
 		}
 	}
-	if a := s.GetAddressForProxy(node); a != "" {
-		return []string{a}
-	}
-	return nil
+	return s.getAllAddresses()
 }
 
 // getAllAddresses returns a Service's all addresses.

@@ -129,12 +129,6 @@ var (
 		return val
 	}()
 
-	EnableStatus = env.Register(
-		"PILOT_ENABLE_STATUS",
-		false,
-		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
-	).Get()
-
 	EnableGatewayAPI = env.Register("PILOT_ENABLE_GATEWAY_API", true,
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
 			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
