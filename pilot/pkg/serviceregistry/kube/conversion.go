@@ -66,9 +66,10 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	if svc.Spec.ClusterIP == corev1.ClusterIPNone { // headless services should not be load balanced
 		resolution = model.Passthrough
 	} else if svc.Spec.ClusterIP != "" {
-		addrs[0] = svc.Spec.ClusterIP
-		if len(svc.Spec.ClusterIPs) > 1 {
+		if features.EnableDualStack || features.EnableAmbient {
 			addrs = svc.Spec.ClusterIPs
+		} else {
+			addrs[0] = svc.Spec.ClusterIP
 		}
 	}
 

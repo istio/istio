@@ -1308,9 +1308,6 @@ func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
 func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
-		if (features.EnableDualStack || features.EnableAmbient) && len(addresses) > 0 {
-			return addresses
-		}
 		addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 		if len(addresses) > 0 {
 			return addresses
