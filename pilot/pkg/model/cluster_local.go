@@ -36,7 +36,11 @@ type ClusterLocalHosts struct {
 // IsClusterLocal indicates whether the given host should be treated as a
 // cluster-local destination.
 func (c ClusterLocalHosts) IsClusterLocal(h host.Name) bool {
-	_, local, _ := MostSpecificHostMatch(h, c.specific, c.wildcard)
+	_, local, ok := MostSpecificHostMatch(h, c.specific, c.wildcard)
+	// Explicitly set clusterLocal to false if host is not found in clusterLocal settings
+	if !ok {
+		local = false
+	}
 	return local
 }
 
