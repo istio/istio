@@ -15,8 +15,11 @@
 package dependencies
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"istio.io/istio/pkg/log"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -99,15 +102,146 @@ func (v IptablesVersion) IsWriteCmd(cmd constants.IptablesCmd) bool {
 // Constants for iptables commands
 // These should not be used directly/assumed to be present, but should be contextually detected
 const (
-	iptablesBin         = "iptables"
-	iptablesNftBin      = "iptables-nft"
-	iptablesLegacyBin   = "iptables-legacy"
-	ip6tablesBin        = "ip6tables"
-	ip6tablesNftBin     = "ip6tables-nft"
-	ip6tablesLegacyBin  = "ip6tables-legacy"
-	iptablesRestoreBin  = "iptables-restore"
-	ip6tablesRestoreBin = "ip6tables-restore"
+	iptablesBin              = "iptables"
+	iptablesNftBin           = "iptables-nft"
+	iptablesLegacyBin        = "iptables-legacy"
+	ip6tablesBin             = "ip6tables"
+	ip6tablesNftBin          = "ip6tables-nft"
+	ip6tablesLegacyBin       = "ip6tables-legacy"
+	iptablesRestoreBin       = "iptables-restore"
+	ip6tablesRestoreBin      = "ip6tables-restore"
+	ModulesFile              = "/proc/modules"
+	iptablesLegacyModuleName = "ip_tables"
+	iptablesNftModuleName    = "nf_tables"
 )
+
+func NewIpTablesVersion(bin string, versionOutput string) (*IptablesVersion, error) {
+	var parsedVer *utilversion.Version
+	if !strings.Contains(versionOutput, "unrecognized option") {
+		var parseErr error
+		parsedVer, parseErr = parseIptablesVer(versionOutput)
+		if parseErr != nil {
+			return nil, fmt.Errorf("iptables version %q is not a valid version string: %v", versionOutput, parseErr)
+		}
+	} else {
+		log.Warnf("found iptables binary %s, but it does not appear to support the '--version' flag, assuming very old legacy version", bin)
+		parsedVer = utilversion.MustParseGeneric("0.0.0")
+	}
+	version := &IptablesVersion{
+		DetectedBinary:        bin,
+		DetectedSaveBinary:    fmt.Sprintf("%s-save", bin),
+		DetectedRestoreBinary: fmt.Sprintf("%s-restore", bin),
+		Version:               parsedVer,
+	}
+	rulesDump, err := exec.Command(version.DetectedSaveBinary).CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	if strings.Count(string(rulesDump), "\n") >= 3 {
+		version.ExistingRules = true
+	} else {
+		version.ExistingRules = false
+	}
+	return version, nil
+}
+
+func LoadProcModules() (map[string]struct{}, error) {
+	file, err := os.Open(ModulesFile)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	modules := make(map[string]struct{})
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) > 0 {
+			moduleName := fields[0]
+			modules[moduleName] = struct{}{}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return modules, nil
+}
+
+func getIptablesNFTBin(isIpV6 bool) string {
+	if isIpV6 {
+		return ip6tablesNftBin
+	} else {
+		return iptablesNftBin
+	}
+}
+
+func getIptablesLegacyBin(isIpV6 bool) string {
+	if isIpV6 {
+		return ip6tablesLegacyBin
+	} else {
+		return iptablesLegacyBin
+	}
+}
+
+func getIptablesBin(isIpV6 bool) string {
+	if isIpV6 {
+		return ip6tablesBin
+	} else {
+		return iptablesBin
+	}
+}
+
+func GetNFTVersion(modules map[string]struct{}, ipV6 bool) (*IptablesVersion, error) {
+	if modules == nil {
+		return nil, fmt.Errorf("nil modules map")
+	}
+	if _, found := modules[iptablesNftModuleName]; !found {
+		return nil, fmt.Errorf("nft module not found")
+	}
+
+	nftBin := getIptablesNFTBin(ipV6)
+	nftVersionOutput, nftErr := exec.Command(nftBin, "--version").CombinedOutput()
+	if nftErr == nil {
+		return NewIpTablesVersion(nftBin, string(nftVersionOutput))
+	}
+	baseBin := getIptablesBin(ipV6)
+	versionOutput, err := exec.Command(baseBin, "--version").CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("no existing nft commands")
+	}
+	if strings.Contains(string(versionOutput), "nf_tables") {
+		return NewIpTablesVersion(baseBin, string(versionOutput))
+	} else {
+		return nil, fmt.Errorf("nft command not found(default iptables is not nft)")
+	}
+}
+
+func GetLegacyVersion(modules map[string]struct{}, ipV6 bool) (*IptablesVersion, error) {
+	if modules == nil {
+		return nil, fmt.Errorf("nil modules map")
+	}
+	if _, found := modules[iptablesLegacyModuleName]; !found {
+		return nil, fmt.Errorf("legacy module not found")
+	}
+	legacyBin := getIptablesLegacyBin(ipV6)
+	legacyVersionOutput, legacyErr := exec.Command(legacyBin, "--version").CombinedOutput()
+	if legacyErr == nil {
+		return NewIpTablesVersion(legacyBin, string(legacyVersionOutput))
+	}
+	baseBin := getIptablesBin(ipV6)
+	versionOutput, err := exec.Command(baseBin, "--version").CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("no existing legacy commands")
+	} else {
+		if !strings.Contains(string(versionOutput), "nf_tables") {
+			return NewIpTablesVersion(baseBin, string(versionOutput))
+		} else {
+			return nil, fmt.Errorf("legacy command not found(default iptables is not legacy)")
+		}
+	}
+}
 
 // It is not sufficient to check for the presence of one binary or the other in $PATH -
 // we must choose a binary that is
@@ -130,47 +264,31 @@ const (
 // 4. Otherwise, see if we have `legacy` binary set, and use that.
 // 5. Otherwise, see if we have `iptables` binary set, and use that (detecting whether it's nft or legacy).
 func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, error) {
-	// Begin detecting
-	//
-	// iptables variants all have ipv6 variants, so decide which set we're looking for
-	var nftBin, legacyBin, plainBin string
-	if ipV6 {
-		nftBin = ip6tablesNftBin
-		legacyBin = ip6tablesLegacyBin
-		plainBin = ip6tablesBin
+	modules, err := LoadProcModules()
+	if err != nil {
+		log.Errorf("failed to load kernel modules from %s, error was: %s", ModulesFile, err.Error())
+		return IptablesVersion{}, err
+	}
+
+	legacyVersion, err := GetLegacyVersion(modules, ipV6)
+	nftVersion, err := GetNFTVersion(modules, ipV6)
+	if legacyVersion != nil && nftVersion != nil {
+		if legacyVersion.ExistingRules {
+			log.Info("legacy & nft both exists but nft have rules, use legacy")
+			return *legacyVersion, nil
+		} else {
+			log.Info("legacy & nft both exists but legacy do not have any rule, use nft by default")
+			return *nftVersion, nil
+		}
 	} else {
-		nftBin = iptablesNftBin
-		legacyBin = iptablesLegacyBin
-		plainBin = iptablesBin
+		if nftVersion != nil {
+			log.Info("use nft")
+			return *nftVersion, nil
+		} else {
+			log.Info("use legacy")
+			return *legacyVersion, nil
+		}
 	}
-
-	// 1. What binaries we have
-	// 2. What binary we should use, based on existing rules defined in our current context.
-	// does the nft binary set exist, and are nft rules present?
-	nftVer, err := shouldUseBinaryForCurrentContext(nftBin)
-	if err == nil && nftVer.ExistingRules {
-		// if so, immediately use it.
-		return nftVer, nil
-	}
-	// not critical, may find another.
-	log.Debugf("did not find (or cannot use) iptables binary, error was %w: %+v", err, nftVer)
-
-	// Check again
-	// does the legacy binary set exist, and are legacy rules present?
-	legVer, err := shouldUseBinaryForCurrentContext(legacyBin)
-	if err == nil && legVer.ExistingRules {
-		// if so, immediately use it
-		return legVer, nil
-	}
-	// not critical, may find another.
-	log.Debugf("did not find (or cannot use) iptables binary, error was %w: %+v", err, legVer)
-
-	// regular non-suffixed binary set is our last resort.
-	//
-	// If it's there, and rules do not already exist for a specific variant,
-	// we should use the default non-suffixed binary.
-	// If it's NOT there, just propagate the error, we can't do anything, no iptables here
-	return shouldUseBinaryForCurrentContext(plainBin)
 }
 
 // TODO BML verify this won't choke on "-save" binaries having slightly diff. version string prefixes
