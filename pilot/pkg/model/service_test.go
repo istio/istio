@@ -21,13 +21,11 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	fuzz "github.com/google/gofuzz"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -594,8 +592,6 @@ func TestGetAllAddresses(t *testing.T) {
 		name                   string
 		service                *Service
 		ipMode                 IPMode
-		dualStackEnabled       bool
-		ambientEnabled         bool
 		autoAllocationEnabled  bool
 		expectedAddresses      []string
 		expectedExtraAddresses []string
@@ -634,7 +630,7 @@ func TestGetAllAddresses(t *testing.T) {
 				DefaultAddress: "10.0.0.0",
 				ClusterVIPs: AddressMap{
 					Addresses: map[cluster.ID][]string{
-						"id": {"10.0.0.0", "10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+						"id": {"10.0.0.0", "10.0.0.16"},
 					},
 				},
 			},
@@ -653,7 +649,6 @@ func TestGetAllAddresses(t *testing.T) {
 				},
 			},
 			ipMode:                 Dual,
-			dualStackEnabled:       true,
 			expectedAddresses:      []string{"10.0.0.0", "10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
 			expectedExtraAddresses: []string{"10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
 		},
@@ -668,9 +663,8 @@ func TestGetAllAddresses(t *testing.T) {
 				},
 			},
 			ipMode:                 IPv4,
-			ambientEnabled:         true,
-			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
-			expectedExtraAddresses: []string{"10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28"},
+			expectedExtraAddresses: []string{"10.0.0.16/28"},
 		},
 		{
 			name: "IPv6 mode, ISTIO_DUAL_STACK disabled, ambient enabled, IPv4 and IPv6 addresses, expected to return all addresses",
@@ -683,9 +677,8 @@ func TestGetAllAddresses(t *testing.T) {
 				},
 			},
 			ipMode:                 IPv6,
-			ambientEnabled:         true,
-			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
-			expectedExtraAddresses: []string{"10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedAddresses:      []string{"::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedExtraAddresses: []string{"::ffff:10.0.0.48"},
 		},
 		{
 			name: "IPv4 mode, auto-allocation enabled, expected auto-allocated address",
@@ -712,12 +705,6 @@ func TestGetAllAddresses(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.dualStackEnabled {
-				test.SetForTest(t, &features.EnableDualStack, true)
-			}
-			if tc.ambientEnabled {
-				test.SetForTest(t, &features.EnableAmbient, true)
-			}
 			proxy := &Proxy{Metadata: &NodeMetadata{ClusterID: "id"}, ipMode: tc.ipMode}
 			if tc.autoAllocationEnabled {
 				proxy.Metadata.DNSCapture = true

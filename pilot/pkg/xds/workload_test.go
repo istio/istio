@@ -360,6 +360,9 @@ func createService(s *xds.FakeDiscoveryServer, name, namespace string, selector 
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "10.0.0.1",
+			ClusterIPs: []string{
+				"10.0.0.1",
+			},
 			Ports: []corev1.ServicePort{{
 				Name:     "tcp",
 				Port:     80,

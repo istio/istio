@@ -271,6 +271,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				Metadata: &model.NodeMetadata{
 					ClusterID: "cluster-1",
 				},
+				IPAddresses: []string{"127.0.0.1", "::1"},
 			},
 			want: []string{
 				"echo.default.svc.cluster.local",
