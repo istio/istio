@@ -3499,15 +3499,11 @@ spec:
 		v4, v6 := getSupportedIPFamilies(t, client)
 		var expectedIPv4 []string
 		var expectedIPv6 []string
-		if v4 && v6 {
-			expectedIPv4 = []string{"1.2.3.4", "1.2.3.5"}
-			expectedIPv6 = []string{"1234:1234:1234::1234:1234:1234", "1235:1235:1235::1235:1235:1235"}
-		} else if v4 {
-			expectedIPv4 = []string{"1.2.3.4", "1.2.3.5"}
-			expectedIPv6 = []string{"1234:1234:1234::1234:1234:1234"}
-		} else {
-			expectedIPv4 = []string{"1.2.3.4"}
-			expectedIPv6 = []string{"1234:1234:1234::1234:1234:1234", "1235:1235:1235::1235:1235:1235"}
+		if v4 {
+			expectedIPv4 = ipv4
+		}
+		if v6 {
+			expectedIPv4 = ipv6
 		}
 		// If a client is deployed in a remote cluster, which is not a config cluster, i.e. Istio resources
 		// are not created in that cluster, it will resolve only the default address, because the ServiceEntry
@@ -3515,8 +3511,12 @@ spec:
 		// will only return the default address for that service.
 		remotes := client.Clusters().Remotes()
 		if len(remotes) > 0 && len(remotes.Configs()) == 0 {
-			expectedIPv4 = []string{"1.2.3.4"}
-			expectedIPv6 = []string{"1234:1234:1234::1234:1234:1234"}
+			if v4 {
+				expectedIPv4 = []string{"1.2.3.4"}
+			}
+			if v6 {
+				expectedIPv6 = []string{"1234:1234:1234::1234:1234:1234"}
+			}
 		}
 		cases := []struct {
 			name     string
