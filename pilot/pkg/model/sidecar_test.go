@@ -29,7 +29,6 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -39,7 +38,6 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -3437,7 +3435,6 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 		virtualServices []config.Config
 		services        []*Service
 		expectedIndex   map[host.Name]types.NamespacedName
-		oldestWins      bool
 	}{
 		{
 			name:            "most specific",
@@ -3450,25 +3447,10 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 				"*.bar.example.com":   {Name: "barwild", Namespace: "default"},
 			},
 		},
-		{
-			name:            "oldest wins",
-			virtualServices: virtualServices,
-			services:        services,
-			expectedIndex: map[host.Name]types.NamespacedName{
-				"foo.example.com":     {Name: "wild", Namespace: "default"},
-				"baz.example.com":     {Name: "wild", Namespace: "default"},
-				"qux.bar.example.com": {Name: "barwild", Namespace: "default"},
-				"*.bar.example.com":   {Name: "barwild", Namespace: "default"},
-			},
-			oldestWins: true,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.oldestWins {
-				test.SetForTest(t, &features.PersistOldestWinsHeuristicForVirtualServiceHostMatching, true)
-			}
 			index := computeWildcardHostVirtualServiceIndex(tt.virtualServices, tt.services)
 			if !reflect.DeepEqual(tt.expectedIndex, index) {
 				t.Errorf("Expected index %v, got %v", tt.expectedIndex, index)
