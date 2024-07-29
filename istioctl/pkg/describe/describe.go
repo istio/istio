@@ -64,6 +64,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/mesh"
+	protocolinstance "istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/labels"
@@ -586,6 +587,10 @@ func findProtocolForPort(port *corev1.ServicePort) string {
 		protocol = "auto-detect"
 	} else {
 		protocol = string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
+		if protocol == protocolinstance.Unsupported.String() && port.AppProtocol != nil && *port.AppProtocol == "hbone" {
+			// HBONE is used for some internal code.
+			protocol = string(protocolinstance.HBONE)
+		}
 	}
 	return protocol
 }

@@ -1018,6 +1018,7 @@ func TestGetRevisionFromPodAnnotation(t *testing.T) {
 
 func TestFindProtocolForPort(t *testing.T) {
 	http := "HTTP"
+	hbone := "hbone"
 	cases := []struct {
 		port             corev1.ServicePort
 		expectedProtocol string
@@ -1056,6 +1057,15 @@ func TestFindProtocolForPort(t *testing.T) {
 				Port:     80,
 			},
 			expectedProtocol: "UDP",
+		},
+		{
+			port: corev1.ServicePort{
+				Protocol:    corev1.ProtocolTCP,
+				Port:        15008,
+				Name:        "mesh",
+				AppProtocol: &hbone,
+			},
+			expectedProtocol: "HBONE",
 		},
 	}
 
