@@ -49,6 +49,17 @@ const (
 		"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
 		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
 		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
+		"%UPSTREAM_CLUSTER_RAW% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
+		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME%\n"
+
+	// LegacyEnvoyTextLogFormat is the same as above except that it utilizes UPSTREAM_CLUSTER instead of
+	// UPSTREAM_CLUSTER_RAW, so it may show the new ; delimeter for the cluster name.
+	LegacyEnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
+		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% " +
+		"%RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% " +
+		"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
+		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
+		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
 		"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
 		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME%\n"
 
@@ -138,15 +149,15 @@ var (
 // STOP. DO NOT UPDATE THIS WITHOUT UPDATING telemetryAccessLog.
 const telemetryAccessLogHandled = 14
 
-func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionProvider) *accesslog.AccessLog {
+func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionProvider, proxyVersion *IstioVersion) *accesslog.AccessLog {
 	var al *accesslog.AccessLog
 	switch prov := fp.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
 		// For built-in provider, fallback to MeshConfig for formatting options when LogFormat unset.
 		if fp.Name == builtinEnvoyAccessLogProvider && prov.EnvoyFileAccessLog.LogFormat == nil {
-			al = FileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh)
+			al = FileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh, proxyVersion)
 		} else {
-			al = fileAccessLogFromTelemetry(prov.EnvoyFileAccessLog)
+			al = fileAccessLogFromTelemetry(prov.EnvoyFileAccessLog, proxyVersion)
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
 		al = httpGrpcAccessLogFromTelemetry(push, prov.EnvoyHttpAls)
@@ -212,7 +223,7 @@ func tcpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConfi
 	}
 }
 
-func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider) *accesslog.AccessLog {
+func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider, proxyVersion *IstioVersion) *accesslog.AccessLog {
 	p := prov.Path
 	if p == "" {
 		p = DevStdout
@@ -225,12 +236,12 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 	if prov.LogFormat != nil {
 		switch logFormat := prov.LogFormat.LogFormat.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text:
-			fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat(logFormat.Text)
+			fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat(logFormat.Text, proxyVersion)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels:
 			fl.AccessLogFormat, needsFormatter = buildFileAccessJSONLogFormat(logFormat)
 		}
 	} else {
-		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat("")
+		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat("", proxyVersion)
 	}
 	if len(needsFormatter) != 0 {
 		fl.GetLogFormat().Formatters = needsFormatter
@@ -244,8 +255,8 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 	return al
 }
 
-func buildFileAccessTextLogFormat(logFormatText string) (*fileaccesslog.FileAccessLog_LogFormat, []*core.TypedExtensionConfig) {
-	formatString := fileAccessLogFormat(logFormatText)
+func buildFileAccessTextLogFormat(logFormatText string, proxyVersion *IstioVersion) (*fileaccesslog.FileAccessLog_LogFormat, []*core.TypedExtensionConfig) {
+	formatString := fileAccessLogFormat(logFormatText, proxyVersion)
 	formatters := accessLogTextFormatters(formatString)
 
 	return &fileaccesslog.FileAccessLog_LogFormat{
@@ -375,7 +386,7 @@ func httpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConf
 	}
 }
 
-func fileAccessLogFormat(formatString string) string {
+func fileAccessLogFormat(formatString string, proxyVersion *IstioVersion) string {
 	if formatString != "" {
 		// From the spec: "NOTE: Istio will insert a newline ('\n') on all formats (if missing)."
 		if !strings.HasSuffix(formatString, "\n") {
@@ -385,10 +396,17 @@ func fileAccessLogFormat(formatString string) string {
 		return formatString
 	}
 
-	return EnvoyTextLogFormat
+	// Can't use helper in util due to import cycle
+	versionIsGE123 := proxyVersion == nil || proxyVersion.Compare(&IstioVersion{Major: 1, Minor: 23, Patch: -1}) >= 0
+
+	if versionIsGE123 {
+		return EnvoyTextLogFormat
+	}
+
+	return LegacyEnvoyTextLogFormat
 }
 
-func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig, proxyVersion *IstioVersion) *accesslog.AccessLog {
 	// We need to build access log. This is needed either on first access or when mesh config changes.
 	fl := &fileaccesslog.FileAccessLog{
 		Path: path,
@@ -396,7 +414,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 	var formatters []*core.TypedExtensionConfig
 	switch mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
-		formatString := fileAccessLogFormat(mesh.AccessLogFormat)
+		formatString := fileAccessLogFormat(mesh.AccessLogFormat, proxyVersion)
 		formatters = accessLogTextFormatters(formatString)
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
@@ -458,7 +476,7 @@ func openTelemetryLog(pushCtx *PushContext,
 		logName = OtelEnvoyAccessLogFriendlyName
 	}
 
-	f := EnvoyTextLogFormat
+	f := LegacyEnvoyTextLogFormat
 	if provider.LogFormat != nil && provider.LogFormat.Text != "" {
 		f = provider.LogFormat.Text
 	}
