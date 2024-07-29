@@ -96,7 +96,11 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 		pkpConfHashStr = strconv.FormatUint(xxhashv2.Sum64String(pkpConf.String()), 10)
 	}
 	for _, resource := range names {
-		sr, err := credentials.ParseResourceName(resource, proxy.VerifiedIdentity.Namespace, proxy.Metadata.ClusterID, s.configCluster)
+		secretCluster := proxy.Metadata.ClusterID
+		if !features.CentralIstiodAccess {
+			secretCluster = s.configCluster // ignore CLUSTER_ID header, only secrets from Istiod's cluster
+		}
+		sr, err := credentials.ParseResourceName(resource, proxy.VerifiedIdentity.Namespace, secretCluster, s.configCluster)
 		if err != nil {
 			pilotSDSCertificateErrors.Increment()
 			log.Warnf("error parsing resource name: %v", err)
@@ -120,7 +124,15 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
 	}
 
-	proxyClusterSecrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
+	secretsFromCluster := proxy.Metadata.ClusterID
+	if !features.CentralIstiodAccess {
+		// If not working in 'central istiod' mode, ignore cluster ID meta - only serve secrets from Istiod cluster.
+		// This prevents workloads in remote clusters from getting secrets in other clusters by using unverified
+		// header.
+		secretsFromCluster = s.configCluster
+	}
+
+	proxyClusterSecrets, err := s.secrets.ForCluster(secretsFromCluster)
 	if err != nil {
 		log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
 		pilotSDSCertificateErrors.Increment()

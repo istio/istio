@@ -243,6 +243,7 @@ type NodeMetadata struct {
 	MeshID string `json:"MESH_ID,omitempty"`
 
 	// ClusterID defines the cluster the node belongs to.
+	// This is sent as an unverified metadata in gRPC requests. Ignored if PILOT_CENTRAL_ISTIOD is false.
 	ClusterID cluster.ID `json:"CLUSTER_ID,omitempty"`
 
 	// Network defines the network the node belongs to. It is an optional metadata,

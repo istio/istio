@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"google.golang.org/grpc/metadata"
+	"istio.io/istio/pilot/pkg/features"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/cluster"
@@ -101,6 +102,9 @@ func (a *KubeJWTAuthenticator) authenticateHTTP(req *http.Request) (*security.Ca
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
 	clusterID := cluster.ID(req.Header.Get(clusterIDMeta))
+	if !features.CentralIstiodAccess {
+		clusterID = "" // do not allow other clusters unless Istiod is running in 'central istiod' mode.
+	}
 	return a.authenticate(targetJWT, clusterID)
 }
 
@@ -110,6 +114,9 @@ func (a *KubeJWTAuthenticator) authenticateGrpc(ctx context.Context) (*security.
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
 	clusterID := ExtractClusterID(ctx)
+	if !features.CentralIstiodAccess {
+		clusterID = "" // do not allow other clusters unless Istiod is running in 'central istiod' mode.
+	}
 
 	return a.authenticate(targetJWT, clusterID)
 }
