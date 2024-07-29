@@ -209,6 +209,56 @@ func TestIsClusterLocal(t *testing.T) {
 			host:     "service.ns1.svc.cluster.local",
 			expected: false,
 		},
+		{
+			name: "subdomain local with global",
+			m: &meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*.cluster.local",
+						},
+					},
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: false,
+						},
+						Hosts: []string{
+							"*",
+						},
+					},
+				},
+			},
+			host:     "echo.test.svc.cluster.local",
+			expected: true,
+		},
+		{
+			name: "other domain non-local global",
+			m: &meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*.cluster.local",
+						},
+					},
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: false,
+						},
+						Hosts: []string{
+							"*",
+						},
+					},
+				},
+			},
+			host:     "otherdomain",
+			expected: false,
+		},
 	}
 
 	for _, c := range cases {
