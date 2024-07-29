@@ -961,20 +961,21 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 	fakeCluster := "outbound|55680||otel-collector.monitoring.svc.cluster.local"
 	fakeAuthority := "otel-collector.monitoring.svc.cluster.local"
 	for _, tc := range []struct {
-		name        string
-		logName     string
-		clusterName string
-		hostname    string
-		body        string
-		labels      *structpb.Struct
-		expected    *otelaccesslog.OpenTelemetryAccessLogConfig
+		name         string
+		logName      string
+		clusterName  string
+		hostname     string
+		body         string
+		labels       *structpb.Struct
+		expected     *otelaccesslog.OpenTelemetryAccessLogConfig
+		proxyVersion *IstioVersion
 	}{
 		{
 			name:        "default",
 			logName:     OtelEnvoyAccessLogFriendlyName,
 			clusterName: fakeCluster,
 			hostname:    fakeAuthority,
-			body:        LegacyEnvoyTextLogFormat,
+			body:        EnvoyTextLogFormat,
 			expected: &otelaccesslog.OpenTelemetryAccessLogConfig{
 				CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 					LogName: OtelEnvoyAccessLogFriendlyName,
@@ -992,7 +993,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 				DisableBuiltinLabels: true,
 				Body: &otlpcommon.AnyValue{
 					Value: &otlpcommon.AnyValue_StringValue{
-						StringValue: LegacyEnvoyTextLogFormat,
+						StringValue: EnvoyTextLogFormat,
 					},
 				},
 			},
@@ -1002,7 +1003,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 			logName:     OtelEnvoyAccessLogFriendlyName,
 			clusterName: fakeCluster,
 			hostname:    fakeAuthority,
-			body:        LegacyEnvoyTextLogFormat,
+			body:        EnvoyTextLogFormat,
 			labels: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					"protocol": {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
@@ -1025,7 +1026,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 				DisableBuiltinLabels: true,
 				Body: &otlpcommon.AnyValue{
 					Value: &otlpcommon.AnyValue_StringValue{
-						StringValue: LegacyEnvoyTextLogFormat,
+						StringValue: EnvoyTextLogFormat,
 					},
 				},
 				Attributes: &otlpcommon.KeyValueList{
@@ -1178,7 +1179,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 				Service: "otel.foo.svc.cluster.local",
 				Port:    9811,
 				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider_LogFormat{
-					Text: LegacyEnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+					Text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
 					Labels: &structpb.Struct{
 						Fields: map[string]*structpb.Value{
 							"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
@@ -1219,7 +1220,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 		DisableBuiltinLabels: true,
 		Body: &otlpcommon.AnyValue{
 			Value: &otlpcommon.AnyValue_StringValue{
-				StringValue: LegacyEnvoyTextLogFormat,
+				StringValue: EnvoyTextLogFormat,
 			},
 		},
 		Attributes: &otlpcommon.KeyValueList{
@@ -1252,7 +1253,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 		DisableBuiltinLabels: true,
 		Body: &otlpcommon.AnyValue{
 			Value: &otlpcommon.AnyValue_StringValue{
-				StringValue: LegacyEnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+				StringValue: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
 			},
 		},
 		Attributes: &otlpcommon.KeyValueList{
@@ -1735,26 +1736,26 @@ func TestAccessLogTextFormatters(t *testing.T) {
 	}{
 		{
 			name:     "default",
-			text:     LegacyEnvoyTextLogFormat,
+			text:     EnvoyTextLogFormat,
 			expected: []*core.TypedExtensionConfig{},
 		},
 		{
 			name: "with-req-without-query",
-			text: LegacyEnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)%",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)%",
 			expected: []*core.TypedExtensionConfig{
 				reqWithoutQueryFormatter,
 			},
 		},
 		{
 			name: "with-metadata",
-			text: LegacyEnvoyTextLogFormat + " %METADATA(CLUSTER:istio)%",
+			text: EnvoyTextLogFormat + " %METADATA(CLUSTER:istio)%",
 			expected: []*core.TypedExtensionConfig{
 				metadataFormatter,
 			},
 		},
 		{
 			name: "with-both",
-			text: LegacyEnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% %METADATA(CLUSTER:istio)%",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% %METADATA(CLUSTER:istio)%",
 			expected: []*core.TypedExtensionConfig{
 				reqWithoutQueryFormatter,
 				metadataFormatter,
@@ -1762,14 +1763,14 @@ func TestAccessLogTextFormatters(t *testing.T) {
 		},
 		{
 			name: "with-multi-metadata",
-			text: LegacyEnvoyTextLogFormat + " %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+			text: EnvoyTextLogFormat + " %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
 			expected: []*core.TypedExtensionConfig{
 				metadataFormatter,
 			},
 		},
 		{
 			name: "more-complex",
-			text: LegacyEnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
 			expected: []*core.TypedExtensionConfig{
 				reqWithoutQueryFormatter,
 				metadataFormatter,
@@ -1873,12 +1874,12 @@ func TestAccessLogFormatters(t *testing.T) {
 	}{
 		{
 			name:     "default",
-			text:     LegacyEnvoyTextLogFormat,
+			text:     EnvoyTextLogFormat,
 			expected: []*core.TypedExtensionConfig{},
 		},
 		{
 			name: "with-req-without-query",
-			text: LegacyEnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)%",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)%",
 			labels: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
@@ -1890,7 +1891,7 @@ func TestAccessLogFormatters(t *testing.T) {
 		},
 		{
 			name: "with-metadata",
-			text: LegacyEnvoyTextLogFormat + " %METADATA(CLUSTER:istio)%",
+			text: EnvoyTextLogFormat + " %METADATA(CLUSTER:istio)%",
 			labels: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
@@ -1902,7 +1903,7 @@ func TestAccessLogFormatters(t *testing.T) {
 		},
 		{
 			name: "with-both",
-			text: LegacyEnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% %METADATA(CLUSTER:istio)%",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% %METADATA(CLUSTER:istio)%",
 			labels: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
@@ -1916,7 +1917,7 @@ func TestAccessLogFormatters(t *testing.T) {
 		},
 		{
 			name: "all",
-			text: LegacyEnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
 			labels: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},

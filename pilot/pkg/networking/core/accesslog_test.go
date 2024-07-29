@@ -95,7 +95,7 @@ func TestListenerAccessLog(t *testing.T) {
 		{
 			name:       "default text format",
 			encoding:   meshconfig.MeshConfig_TEXT,
-			wantFormat: model.LegacyEnvoyTextLogFormat,
+			wantFormat: model.EnvoyTextLogFormat,
 		},
 	} {
 		tc := tc
@@ -361,7 +361,7 @@ var (
 				Format: &core.SubstitutionFormatString_TextFormatSource{
 					TextFormatSource: &core.DataSource{
 						Specifier: &core.DataSource_InlineString{
-							InlineString: model.LegacyEnvoyTextLogFormat,
+							InlineString: model.EnvoyTextLogFormat,
 						},
 					},
 				},
