@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issues:
+  - 52396
+releaseNotes:
+  - |
+    **Fixed** an issue where TLS settings in DestinationRule are not respected when connecting from a gateway or sidecar to a backend enrolled using ambient mode.
