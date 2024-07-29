@@ -20,7 +20,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -56,11 +55,20 @@ type Index interface {
 
 var _ Index = &index{}
 
+type NamespaceHostname struct {
+	Namespace string
+	Hostname  string
+}
+
+func (n NamespaceHostname) String() string {
+	return n.Namespace + "/" + n.Hostname
+}
+
 type workloadsCollection struct {
 	krt.Collection[model.WorkloadInfo]
 	ByAddress        krt.Index[networkAddress, model.WorkloadInfo]
 	ByServiceKey     krt.Index[string, model.WorkloadInfo]
-	ByOwningWaypoint krt.Index[networkAddress, model.WorkloadInfo]
+	ByOwningWaypoint krt.Index[NamespaceHostname, model.WorkloadInfo]
 }
 
 type waypointsCollection struct {
@@ -70,7 +78,7 @@ type waypointsCollection struct {
 type servicesCollection struct {
 	krt.Collection[model.ServiceInfo]
 	ByAddress        krt.Index[networkAddress, model.ServiceInfo]
-	ByOwningWaypoint krt.Index[types.NamespacedName, model.ServiceInfo]
+	ByOwningWaypoint krt.Index[NamespaceHostname, model.ServiceInfo]
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -173,7 +181,7 @@ func New(options Options) Index {
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
-	ServiceInfosByOwningWaypoint := krt.NewIndex[types.NamespacedName, model.ServiceInfo](WorkloadServices, func(s model.ServiceInfo) []types.NamespacedName {
+	ServiceInfosByOwningWaypoint := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
 		// Filter out waypoint services
 		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -187,9 +195,9 @@ func New(options Options) Index {
 			return nil
 		}
 
-		return []types.NamespacedName{{
+		return []NamespaceHostname{{
 			Namespace: waypointAddress.Namespace,
-			Name:      waypointAddress.Hostname,
+			Hostname:  waypointAddress.Hostname,
 		}}
 	})
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
@@ -218,7 +226,7 @@ func New(options Options) Index {
 	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Services)
 	})
-	WorkloadWaypointIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, func(w model.WorkloadInfo) []networkAddress {
+	WorkloadWaypointIndex := krt.NewIndex(Workloads, func(w model.WorkloadInfo) []NamespaceHostname {
 		// Filter out waypoints.
 		if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -227,18 +235,15 @@ func New(options Options) Index {
 		if waypoint == nil {
 			return nil
 		}
-		waypointAddress := waypoint.GetAddress()
+		waypointAddress := waypoint.GetHostname()
 		if waypointAddress == nil {
 			return nil
 		}
 
-		ip := waypointAddress.GetAddress()
-		netip, _ := netip.AddrFromSlice(ip)
-		netaddr := networkAddress{
-			network: waypointAddress.GetNetwork(),
-			ip:      netip.String(),
-		}
-		return append(make([]networkAddress, 1), netaddr)
+		return []NamespaceHostname{{
+			Namespace: waypointAddress.Namespace,
+			Hostname:  waypointAddress.Hostname,
+		}}
 	})
 	Workloads.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.WorkloadInfo) *workloadapi.Workload {
@@ -380,26 +385,24 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 	var out []model.ServiceInfo
-	for _, addr := range key.Addresses {
-		out = append(out, a.services.ByOwningWaypoint.Lookup(networkAddress{
-			network: key.Network,
-			ip:      addr,
+	for _, host := range key.Hostnames {
+		out = append(out, a.services.ByOwningWaypoint.Lookup(NamespaceHostname{
+			Namespace: key.Namespace,
+			Hostname:  host,
 		})...)
 	}
 	return out
 }
 
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
-	// TODO: we should be able to handle multiple IPs or a hostname
-	if len(key.Addresses) == 0 {
-		return nil
+	var out []model.WorkloadInfo
+	for _, host := range key.Hostnames {
+		out = append(out, a.workloads.ByOwningWaypoint.Lookup(NamespaceHostname{
+			Namespace: key.Namespace,
+			Hostname:  host,
+		})...)
 	}
-	workloads := a.workloads.ByOwningWaypoint.Lookup(networkAddress{
-		network: key.Network,
-		ip:      key.Addresses[0],
-	})
-	workloads = model.SortWorkloadsByCreationTime(workloads)
-	return workloads
+	return out
 }
 
 func (a *index) AdditionalPodSubscriptions(
