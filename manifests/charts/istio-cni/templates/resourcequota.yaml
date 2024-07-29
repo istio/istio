@@ -1,4 +1,4 @@
-{{- if .Values.cni.resourceQuotas.enabled }}
+{{- if .Values.resourceQuotas.enabled }}
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   hard:
-    pods: {{ .Values.cni.resourceQuotas.pods | quote }}
+    pods: {{ .Values.resourceQuotas.pods | quote }}
   scopeSelector:
     matchExpressions:
     - operator: In
