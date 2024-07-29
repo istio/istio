@@ -314,10 +314,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -2157,10 +2158,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -3972,10 +3974,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -5787,10 +5790,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -6181,10 +6185,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -6435,10 +6440,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -6663,10 +6669,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -6891,10 +6898,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -7038,10 +7046,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -7313,10 +7322,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -7562,10 +7572,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -7811,10 +7822,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -8367,10 +8379,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -8899,10 +8912,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -9431,10 +9445,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -10492,10 +10507,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -11527,10 +11543,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -12562,10 +12579,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -12741,10 +12759,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -12898,10 +12917,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -13055,10 +13075,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -13348,10 +13369,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -13613,10 +13635,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -13878,10 +13901,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -14253,10 +14277,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -14601,10 +14626,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -14786,10 +14812,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -14944,10 +14971,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -15256,10 +15284,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -15541,10 +15570,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -16011,10 +16041,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
@@ -16454,10 +16485,11 @@ spec:
                   type: object
                 type: array
               observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
                 description: Resource Generation to which the Reconciled Condition
                   refers.
-                format: int64
-                type: integer
                 x-kubernetes-int-or-string: true
               validationMessages:
                 description: Includes any errors or warnings detected by Istio's analyzers.
