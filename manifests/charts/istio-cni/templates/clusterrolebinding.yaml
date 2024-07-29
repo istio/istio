@@ -17,7 +17,7 @@ subjects:
   name: {{ template "name" . }}
   namespace: {{ .Release.Namespace }}
 ---
-{{- if .Values.cni.repair.enabled }}
+{{- if .Values.repair.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -38,7 +38,7 @@ roleRef:
   name: {{ template "name" . }}-repair-role
 {{- end }}
 ---
-{{- if .Values.cni.ambient.enabled }}
+{{- if .Values.ambient.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
