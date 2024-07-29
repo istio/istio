@@ -35,6 +35,8 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -382,4 +384,10 @@ func (c *Controller) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Interf
 		return remoteCluster.Client.Kube()
 	}
 	return nil
+}
+
+func (c *Controller) ListClusters() []cluster.ID {
+	return slices.Map(sets.SortedList(c.cs.clusters), func(e string) cluster.ID {
+		return cluster.ID(e)
+	})
 }

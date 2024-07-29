@@ -36,7 +36,10 @@ const (
 	clusterIDMeta = "clusterid"
 )
 
-type RemoteKubeClientGetter func(clusterID cluster.ID) kubernetes.Interface
+type RemoteKubeClientGetter interface {
+	GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Interface
+	ListClusters() []cluster.ID
+}
 
 // KubeJWTAuthenticator authenticates K8s JWTs.
 type KubeJWTAuthenticator struct {
@@ -114,7 +117,8 @@ func (a *KubeJWTAuthenticator) authenticateGrpc(ctx context.Context) (*security.
 func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.ID) (*security.Caller, error) {
 	kubeClient := a.getKubeClient(clusterID)
 	if kubeClient == nil {
-		return nil, fmt.Errorf("could not get cluster %s's kube client", clusterID)
+		return nil, fmt.Errorf("client claims to be in cluster %q, but we only know about local cluster %q and remote clusters %v",
+			clusterID, a.clusterID, a.remoteKubeClientGetter.ListClusters())
 	}
 
 	id, err := tokenreview.ValidateK8sJwt(kubeClient, targetJWT, security.TokenAudiences)
@@ -143,7 +147,7 @@ func (a *KubeJWTAuthenticator) getKubeClient(clusterID cluster.ID) kubernetes.In
 
 	// secondly try other remote clusters
 	if a.remoteKubeClientGetter != nil {
-		if res := a.remoteKubeClientGetter(clusterID); res != nil {
+		if res := a.remoteKubeClientGetter.GetRemoteKubeClient(clusterID); res != nil {
 			return res
 		}
 	}
