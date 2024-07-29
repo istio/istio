@@ -28,6 +28,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -196,6 +197,17 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 }
 
 func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig, proxyVersion *model.IstioVersion) *accesslog.AccessLog {
+	// Building the access log is relatively expensive, and changes infrequently, so we typically
+	// amortize the cost via a cache. However, because we (temporarily) have version-specific access logging
+	// configuration, we need to skip the caching logic altogether if the proxy version is less than 1.23
+	// in order to avoid sending 1.22 config to 1.23 proxies (or vice-versa).
+
+	// Calculate access log config on-the-flay for proxy versions <1.23
+	if !util.IsIstioVersionGE123(proxyVersion) {
+		return model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh, proxyVersion)
+	}
+
+	// Now deal with the caching logic
 	if cal := b.cachedFileAccessLog(); cal != nil {
 		return cal
 	}
