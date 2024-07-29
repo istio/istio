@@ -313,7 +313,7 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 		filters := []string{}
 		filters = append(filters, fileSelect...)
 		// Everything needs these
-		filters = append(filters, "templates/_affinity.tpl", "templates/_helpers.tpl", "templates/zzz_profile.yaml")
+		filters = append(filters, "templates/_affinity.tpl", "templates/_helpers.tpl", "templates/zzz_profile.yaml", "zzy_descope_legacy.yaml")
 		args += " --filter " + strings.Join(filters, ",")
 	}
 	args += " --set installPackagePath=" + string(chartSource)

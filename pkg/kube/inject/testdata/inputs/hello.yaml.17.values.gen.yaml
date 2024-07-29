@@ -115,6 +115,7 @@
   "pilot": {
     "cni": {
       "enabled": false,
+      "namespace": "istio-system",
       "provider": "default"
     }
   },

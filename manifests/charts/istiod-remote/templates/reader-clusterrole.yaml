@@ -1,4 +1,4 @@
-{{ $mcsAPIGroup := or .Values.pilot.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
+{{ $mcsAPIGroup := or .Values.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

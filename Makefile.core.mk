@@ -365,6 +365,7 @@ copy-templates:
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/_helpers.tpl manifests/charts/istiod-remote/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/zzy_descope_legacy.yaml manifests/charts/istiod-remote/templates
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-all.gen.yaml > manifests/charts/istiod-remote/templates/crd-all.gen.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/templates/validatingadmissionpolicy.yaml > manifests/charts/istiod-remote/templates/defaultrevisionvalidatingadmissionpolicy.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/validatingadmissionpolicy.yaml > manifests/charts/istiod-remote/templates/validatingadmissionpolicy.yaml
@@ -378,7 +379,7 @@ copy-templates:
 
 	# copy istio-discovery values, but apply some local customizations
 	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
-	yq -i '.defaults.telemetry.enabled=false | .defaults.global.externalIstiod=true | .defaults.global.omitSidecarInjectorConfigMap=true | .defaults.pilot.configMap=false' manifests/charts/istiod-remote/values.yaml
+	yq -i '.defaults.telemetry.enabled=false | .defaults.global.externalIstiod=true | .defaults.global.omitSidecarInjectorConfigMap=true | .defaults.configMap=false' manifests/charts/istiod-remote/values.yaml
 	warning=$$(cat manifests/helm-profiles/warning-edit.txt | sed ':a;N;$$!ba;s/\n/\\n/g') ; \
 	for chart in $(CHARTS) ; do \
 		for profile in manifests/helm-profiles/*.yaml ; do \
