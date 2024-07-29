@@ -893,19 +893,17 @@ type AmbientIndexes interface {
 // This extension can ideally support that type of lookup in the interface without introducing scope creep into things
 // like NetworkAddress
 type WaypointKey struct {
-	Network   string
-	Addresses []string
+	Namespace string
+	Hostnames []string
 }
 
-// WaypointKey contains all of the VIPs that the Proxy serves.
+// WaypointKeyForProxy builds a key from a proxy to lookup
 func WaypointKeyForProxy(node *Proxy) WaypointKey {
-	// TODO IP based lookup should switch to looking up services by name/ns
 	key := WaypointKey{
-		Network: node.Metadata.Network.String(),
+		Namespace: node.ConfigNamespace,
 	}
 	for _, svct := range node.ServiceTargets {
-		ips := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
-		key.Addresses = append(key.Addresses, ips...)
+		key.Hostnames = append(key.Hostnames, svct.Service.Hostname.String())
 	}
 	return key
 }
