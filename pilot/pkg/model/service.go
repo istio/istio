@@ -1305,18 +1305,12 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 			return addresses
 		}
 	}
-	return []string{s.DefaultAddress}
-}
 
-// getAllAddresses returns a Service's all addresses.
-func (s *Service) getAllAddresses() []string {
-	var addresses []string
-	addressMap := s.ClusterVIPs.GetAddresses()
-	for _, clusterAddresses := range addressMap {
-		addresses = append(addresses, clusterAddresses...)
+	// fallback to the auto-allocated address and then to the default address
+	if a := s.GetAddressForProxy(node); len(a) > 0 {
+		return []string{a}
 	}
-
-	return addresses
+	return nil
 }
 
 func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {

@@ -278,7 +278,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"echo.default.svc",
 				"echo.default",
 				"1.2.3.4",
-				"[2406:3003:2064:35b8:864:a648:4b96:e37d]",
+				// "[2406:3003:2064:35b8:864:a648:4b96:e37d]", not included because the proxy does not support ipv6
 			},
 			enableDualStack: true,
 		},
