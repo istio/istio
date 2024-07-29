@@ -164,7 +164,7 @@ func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionPr
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
 		al = tcpGrpcAccessLogFromTelemetry(push, prov.EnvoyTcpAls)
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
-		al = openTelemetryLog(push, prov.EnvoyOtelAls)
+		al = openTelemetryLog(push, prov.EnvoyOtelAls, proxyVersion)
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp,
 		*meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc,
 		*meshconfig.MeshConfig_ExtensionProvider_Zipkin,
@@ -396,10 +396,7 @@ func fileAccessLogFormat(formatString string, proxyVersion *IstioVersion) string
 		return formatString
 	}
 
-	// Can't use helper in util due to import cycle
-	versionIsGE123 := proxyVersion == nil || proxyVersion.Compare(&IstioVersion{Major: 1, Minor: 23, Patch: -1}) >= 0
-
-	if versionIsGE123 {
+	if versionGE123(proxyVersion) {
 		return EnvoyTextLogFormat
 	}
 
@@ -463,6 +460,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig, proxy
 
 func openTelemetryLog(pushCtx *PushContext,
 	provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider,
+	proxyVersion *IstioVersion,
 ) *accesslog.AccessLog {
 	hostname, cluster, err := clusterLookupFn(pushCtx, provider.Service, int(provider.Port))
 	if err != nil {
@@ -476,7 +474,10 @@ func openTelemetryLog(pushCtx *PushContext,
 		logName = OtelEnvoyAccessLogFriendlyName
 	}
 
-	f := LegacyEnvoyTextLogFormat
+	f := EnvoyTextLogFormat
+	if !versionGE123(proxyVersion) {
+		f = LegacyEnvoyTextLogFormat
+	}
 	if provider.LogFormat != nil && provider.LogFormat.Text != "" {
 		f = provider.LogFormat.Text
 	}
@@ -615,4 +616,8 @@ func LookupCluster(push *PushContext, service string, port int) (hostname string
 
 	err = fmt.Errorf("could not find service %s in Istio service registry", service)
 	return
+}
+
+func versionGE123(v *IstioVersion) bool {
+	return v == nil || v.Compare(&IstioVersion{Major: 1, Minor: 23, Patch: -1}) >= 0
 }
