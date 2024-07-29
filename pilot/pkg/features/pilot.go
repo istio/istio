@@ -247,6 +247,9 @@ var (
 
 	EnableInboundRetryPolicy = env.Register("ENABLE_INBOUND_RETRY_POLICY", true,
 		"If true, enables retry policy for inbound routes which automatically retries requests that were reset before it reaches the service.").Get()
+
+	Exclude503FromDefaultRetries = env.Register("EXCLUDE_UNSAFE_503_FROM_DEFAULT_RETRY", true,
+		"If true, excludes unsafe retry on 503 from default retry policy.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

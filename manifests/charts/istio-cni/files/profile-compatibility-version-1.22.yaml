@@ -6,8 +6,8 @@ pilot:
   env:
     # 1.24 behavioral changes
     ENABLE_INBOUND_RETRY_POLICY: "false"
-
-
+    EXCLUDE_UNSAFE_503_FROM_DEFAULT_RETRY: "false"
+  
 meshConfig:
   defaultConfig:
     proxyMetadata:
