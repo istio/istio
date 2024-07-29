@@ -57,6 +57,20 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	}
 }
 
+type fakeRemoteGetter struct {
+	f func(clusterID cluster.ID) kubernetes.Interface
+}
+
+func (f fakeRemoteGetter) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Interface {
+	return f.f(clusterID)
+}
+
+func (f fakeRemoteGetter) ListClusters() []cluster.ID {
+	return []cluster.ID{"test-remote"}
+}
+
+var _ RemoteKubeClientGetter = fakeRemoteGetter{}
+
 func TestAuthenticate(t *testing.T) {
 	primaryCluster := constants.DefaultClusterName
 	remoteCluster := cluster.ID("remote")
@@ -109,7 +123,7 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			expectedErrMsg: "could not get cluster non-exist's kube client",
+			expectedErrMsg: `client claims to be in cluster "non-exist", but we only know about local cluster "Kubernetes" and remote clusters [test-remote]`,
 		},
 	}
 
@@ -158,7 +172,7 @@ func TestAuthenticate(t *testing.T) {
 				return nil
 			}
 
-			authenticator := NewKubeJWTAuthenticator(meshHolder, client, constants.DefaultClusterName, remoteKubeClientGetter)
+			authenticator := NewKubeJWTAuthenticator(meshHolder, client, constants.DefaultClusterName, fakeRemoteGetter{remoteKubeClientGetter})
 			actualCaller, err := authenticator.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tc.expectedErrMsg) > 0 {
 				if err == nil {
