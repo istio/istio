@@ -28,20 +28,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/istioctl/pkg/clioptions"
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/operator/pkg/verifier"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/art"
@@ -168,7 +164,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 
 	setFlags := applyFlagAliases(iArgs.Set, iArgs.ManifestsPath, iArgs.Revision)
 
-	_, iop, err := manifest.GenerateConfig(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
+	_, iop, err := manifest.GenerateIstioOperator(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
 	if err != nil {
 		return fmt.Errorf("generate config: %v", err)
 	}
@@ -197,8 +193,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		}
 	}
 
-	iop.Name = savedIOPName(iop)
-
 	// Detect whether previous installation exists prior to performing the installation.
 	if err := InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
@@ -211,25 +205,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		return fmt.Errorf("failed to process default webhook: %v", err)
 	} else if processed {
 		p.Println("Made this installation the default for cluster-wide operations.")
-	}
-
-	if iArgs.Verify {
-		if rootArgs.DryRun {
-			l.LogAndPrint("Control plane health check is not applicable in dry-run mode")
-			return nil
-		}
-		l.LogAndPrint("\n\nVerifying installation:")
-		installationVerifier, err := verifier.NewStatusVerifier(kubeClient, client, iop.Namespace, iArgs.ManifestsPath,
-			iArgs.InFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision},
-			verifier.WithLogger(l),
-			verifier.WithIOP(iop),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to setup verifier: %v", err)
-		}
-		if err := installationVerifier.Verify(); err != nil {
-			return fmt.Errorf("verification failed with the following error: %v", err)
-		}
 	}
 
 	// Post-install message
@@ -249,8 +224,6 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kubeClient kube.Client, client client.Client,
 	waitTimeout time.Duration, l clog.Logger,
 ) error {
-	// Needed in case we are running a test through this path that doesn't start a new process.
-	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{
 		DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
 		Force: force,
@@ -259,32 +232,14 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 	if err != nil {
 		return err
 	}
-	status, err := reconciler.Reconcile()
-	if err != nil {
+
+	if err := reconciler.Reconcile(); err != nil {
 		return fmt.Errorf("errors occurred during operation: %v", err)
 	}
-	if status.Status != v1alpha1.InstallStatus_HEALTHY {
-		return fmt.Errorf("errors occurred during operation")
-	}
-
-	// Previously we may install IOP file from the old version of istioctl. Now since we won't install IOP file
-	// anymore, and it didn't provide much value, we can delete it if it exists.
-	reconciler.DeleteIOPInClusterIfExists(iop)
 
 	opts.ProgressLog.SetState(progress.StateComplete)
 
 	return nil
-}
-
-func savedIOPName(iop *v1alpha12.IstioOperator) string {
-	ret := "installed-state"
-	if iop.Name != "" {
-		ret += "-" + iop.Name
-	}
-	if iop.Spec.Revision != "" {
-		ret += "-" + iop.Spec.Revision
-	}
-	return ret
 }
 
 // detectIstioVersionDiff will show warning if istioctl version and control plane version are different

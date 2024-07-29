@@ -157,7 +157,7 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 			if err != nil {
 				return nil, err
 			}
-			return nil, operatorvalidate.CheckIstioOperator(iop, true)
+			return nil, operatorvalidate.CheckIstioOperator(iop)
 		}
 	}
 

@@ -187,7 +187,6 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(admin.Cmd(ctx))
 	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
-	rootCmd.AddCommand(mesh.NewVerifyCommand(ctx))
 	rootCmd.AddCommand(mesh.UninstallCmd(ctx))
 
 	experimentalCmd.AddCommand(authz.AuthZ(ctx))
@@ -214,10 +213,6 @@ debug and diagnose their Istio mesh.
 	manifestCmd := mesh.ManifestCmd(ctx)
 	hideInheritedFlags(manifestCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(manifestCmd)
-
-	operatorCmd := mesh.OperatorCmd(ctx)
-	hideInheritedFlags(operatorCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
-	rootCmd.AddCommand(operatorCmd)
 
 	installCmd := mesh.InstallCmd(ctx)
 	hideInheritedFlags(installCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)

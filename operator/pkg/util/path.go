@@ -91,11 +91,6 @@ func ToYAMLPath(path string) Path {
 	return p
 }
 
-// ToYAMLPathString converts a path string such that the first letter of each path element is lower case.
-func ToYAMLPathString(path string) string {
-	return ToYAMLPath(path).String()
-}
-
 // IsValidPathElement reports whether pe is a valid path element.
 func IsValidPathElement(pe string) bool {
 	return ValidKeyRegex.MatchString(pe)

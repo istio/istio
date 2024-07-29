@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
@@ -144,7 +143,6 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 		}
 	}
 
-	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{DryRun: rootArgs.DryRun, Log: l, ProgressLog: progress.NewLog()}
 	var h *helmreconciler.HelmReconciler
 
@@ -169,7 +167,6 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 		if err != nil {
 			return err
 		}
-		iop.Name = savedIOPName(iop)
 	}
 
 	h, err = helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
@@ -182,7 +179,7 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 	}
 	preCheckWarnings(cmd, kubeClientWithRev, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
 
-	if err := h.DeleteObjectsList(objectsList, ""); err != nil {
+	if err := h.DeleteObjectsList(objectsList); err != nil {
 		return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 	}
 	opts.ProgressLog.SetState(progress.StateUninstallComplete)

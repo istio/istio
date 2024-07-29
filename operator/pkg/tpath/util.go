@@ -39,11 +39,6 @@ func AddSpecRoot(tree string) (string, error) {
 	return string(out), nil
 }
 
-// GetSpecSubtree returns the subtree under "spec".
-func GetSpecSubtree(yml string) (string, error) {
-	return GetConfigSubtree(yml, "spec")
-}
-
 // GetConfigSubtree returns the subtree at the given path.
 func GetConfigSubtree(manifest, path string) (string, error) {
 	root := make(map[string]any)

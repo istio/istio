@@ -15,7 +15,6 @@
 package util
 
 import (
-	"errors"
 	"testing"
 )
 
@@ -50,60 +49,6 @@ func TestIsFilePath(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			if got, want := IsFilePath(tt.in), tt.want; !(got == want) {
 				t.Errorf("%s: got %v, want: %v", tt.desc, got, want)
-			}
-		})
-	}
-}
-
-func TestIsHTTPURL(t *testing.T) {
-	tests := []struct {
-		desc string
-		in   string
-		want bool
-		err  error
-	}{
-		{
-			desc: "empty",
-			in:   "",
-			want: false,
-			err:  nil,
-		},
-		{
-			desc: "http-standard-url",
-			in:   "http://localhost:3000",
-			want: true,
-			err:  nil,
-		},
-		{
-			desc: "https-standard-url",
-			in:   "https://golang.org/",
-			want: true,
-			err:  nil,
-		},
-		{
-			desc: "ftp-url",
-			in:   "ftp://gopher:gopwd@localhost:3000/go",
-			want: false,
-			err:  nil,
-		},
-		{
-			desc: "tcp-discovery-url",
-			in:   "tcp://127.0.0.1:80",
-			want: false,
-			err:  nil,
-		},
-		{
-			desc: "empty-http",
-			in:   "http://",
-			want: false,
-			err:  errors.New(""),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			got, err := IsHTTPURL(tt.in)
-			if want, wantErr := tt.want, tt.err; !(got == want) || ((err == nil && wantErr != nil) || (err != nil && wantErr == nil)) {
-				t.Errorf("%s: got :%v, wanted output: %v, got error: %v, wanted error: %v", tt.desc, got, want, err, wantErr)
 			}
 		})
 	}

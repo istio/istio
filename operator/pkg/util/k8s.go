@@ -23,17 +23,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 )
-
-// GKString differs from default representation of GroupKind
-func GKString(gvk schema.GroupKind) string {
-	return fmt.Sprintf("%s/%s", gvk.Group, gvk.Kind)
-}
 
 // CreateNamespace creates a namespace using the given k8s interface.
 func CreateNamespace(cs kubernetes.Interface, namespace string, network string, dryRun bool) error {

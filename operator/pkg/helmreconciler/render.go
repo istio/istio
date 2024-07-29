@@ -26,7 +26,7 @@ import (
 // RenderCharts renders charts for h.
 func (h *HelmReconciler) RenderCharts() (name.ManifestMap, error) {
 	iopSpec := h.iop.Spec
-	if err := validate.CheckIstioOperatorSpec(iopSpec, false); err != nil {
+	if err := validate.CheckIstioOperatorSpec(iopSpec); err != nil {
 		if !h.opts.Force {
 			return nil, err
 		}

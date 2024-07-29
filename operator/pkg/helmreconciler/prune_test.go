@@ -16,12 +16,8 @@ package helmreconciler
 
 import (
 	_ "embed"
-	"sync"
 	"testing"
 
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 
@@ -77,9 +73,7 @@ func TestHelmReconciler_GetPrunedResources(t *testing.T) {
 					ProgressLog: progress.NewLog(),
 					Log:         clog.NewDefaultLogger(),
 				},
-				iop:           iop,
-				countLock:     &sync.Mutex{},
-				prunedKindSet: map[schema.GroupKind]struct{}{},
+				iop: iop,
 			}
 			if i == 0 {
 				h1 = h
@@ -105,59 +99,6 @@ func TestHelmReconciler_GetPrunedResources(t *testing.T) {
 				assert.Equal(t, h1.iop.GetName(), u.GetLabels()[OwningResourceName])
 				assert.Equal(t, h1.iop.GetNamespace(), u.GetLabels()[OwningResourceNamespace])
 			}
-		}
-	})
-}
-
-func TestPilotExist(t *testing.T) {
-	t.Run("exist", func(t *testing.T) {
-		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
-		iop := &v1alpha1.IstioOperator{}
-		h := &HelmReconciler{
-			client:     cl,
-			kubeClient: kube.NewFakeClientWithVersion("24"),
-			opts: &Options{
-				ProgressLog: progress.NewLog(),
-				Log:         clog.NewDefaultLogger(),
-			},
-			iop:           iop,
-			countLock:     &sync.Mutex{},
-			prunedKindSet: map[schema.GroupKind]struct{}{},
-		}
-		mockClient := kube.NewFakeClient(&v1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "istiod",
-				Namespace: "istio-system",
-				Labels:    map[string]string{"app": "istiod"},
-			},
-		})
-
-		if exist, err := h.pilotExists(mockClient, "istio-system"); err != nil {
-			t.Fatalf("HelmReconciler.pilotExists error = %v", err)
-		} else if !exist {
-			t.Errorf("HelmReconciler.pilotExists fail")
-		}
-	})
-
-	t.Run("non-exist", func(t *testing.T) {
-		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
-		iop := &v1alpha1.IstioOperator{}
-		kc := kube.NewFakeClientWithVersion("24")
-		h := &HelmReconciler{
-			client:     cl,
-			kubeClient: kc,
-			opts: &Options{
-				ProgressLog: progress.NewLog(),
-				Log:         clog.NewDefaultLogger(),
-			},
-			iop:           iop,
-			countLock:     &sync.Mutex{},
-			prunedKindSet: map[schema.GroupKind]struct{}{},
-		}
-		if exist, err := h.pilotExists(kc, "istio-system"); err != nil {
-			t.Fatalf("HelmReconciler.pilotExists error = %v", err)
-		} else if exist {
-			t.Errorf("HelmReconciler.pilotExists fail")
 		}
 	})
 }

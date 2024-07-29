@@ -16,8 +16,6 @@ package helmreconciler
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -29,18 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
-	"istio.io/api/operator/v1alpha1"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/cache"
-	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/proxy"
 )
 
 var (
@@ -101,84 +91,8 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 	})
 }
 
-// PruneControlPlaneByRevisionWithController is called to remove specific control plane revision
-// during reconciliation process of controller.
-// It returns the install status and any error encountered.
-func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1alpha1.IstioOperatorSpec) (*v1alpha1.InstallStatus, error) {
-	ns := iopv1alpha1.Namespace(iopSpec)
-	if ns == "" {
-		ns = constants.IstioSystemNamespace
-	}
-	errStatus := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ERROR}
-	enabledComponents, err := translate.GetEnabledComponents(iopSpec)
-	if err != nil {
-		return errStatus,
-			fmt.Errorf("failed to get enabled components: %v", err)
-	}
-	pilotEnabled := false
-	// check whether the istiod is enabled
-	for _, c := range enabledComponents {
-		if c == string(name.PilotComponentName) {
-			pilotEnabled = true
-			break
-		}
-	}
-	// If istiod is enabled, check if it has any proxies connected.
-	if pilotEnabled {
-		cfg := h.kubeClient.RESTConfig()
-		kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(cfg), kube.WithRevision(iopSpec.Revision))
-		if err != nil {
-			return errStatus, err
-		}
-
-		pilotExists, err := h.pilotExists(kubeClient, ns)
-		if err != nil {
-			return errStatus, fmt.Errorf("failed to check istiod extist: %v", err)
-		}
-
-		if pilotExists {
-			// TODO(ramaraochavali): Find a better alternative instead of using debug interface
-			// of istiod as it is typically not recommended in production environments.
-			pids, err := proxy.GetIDsFromProxyInfo(kubeClient, ns)
-			if err != nil {
-				return errStatus, fmt.Errorf("failed to check proxy infos: %v", err)
-			}
-			if len(pids) != 0 {
-				msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
-					strings.Join(pids, " "))
-				st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
-				return st, nil
-			}
-		}
-	}
-
-	for _, c := range enabledComponents {
-		uslist, err := h.GetPrunedResources(iopSpec.Revision, false, c)
-		if err != nil {
-			return errStatus, err
-		}
-		err = h.DeleteObjectsList(uslist, c)
-		if err != nil {
-			return errStatus, err
-		}
-	}
-	return &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_HEALTHY}, nil
-}
-
-func (h *HelmReconciler) pilotExists(cliClient kube.CLIClient, istioNamespace string) (bool, error) {
-	istiodPods, err := cliClient.GetIstioPods(context.TODO(), istioNamespace, metav1.ListOptions{
-		LabelSelector: "app=istiod",
-		FieldSelector: "status.phase=Running",
-	})
-	if err != nil {
-		return false, err
-	}
-
-	return len(istiodPods) > 0, nil
-}
-
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
-func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList, componentName string) error {
+func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList) error {
 	var errs util.Errors
 	deletedObjects := make(map[string]bool)
 	for _, ul := range objectsList {
@@ -190,7 +104,7 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 			if deletedObjects[oh] {
 				continue
 			}
-			if err := h.deleteResource(obj, componentName, oh); err != nil {
+			if err := h.deleteResource(obj, oh); err != nil {
 				errs = append(errs, err)
 			}
 			deletedObjects[oh] = true
@@ -227,10 +141,6 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	gvkList := append(resources, ClusterCPResources...)
 	if includeClusterResources {
 		gvkList = append(resources, AllClusterResources...)
-		// Cleanup IstioOperator, which may be used with in-cluster operator.
-		if ioplist := h.getIstioOperatorCR(); ioplist != nil && len(ioplist.Items) > 0 {
-			usList = append(usList, ioplist)
-		}
 	}
 	for _, gvk := range gvkList {
 		objects := &unstructured.UnstructuredList{}
@@ -267,10 +177,6 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		if err != nil {
 			continue
 		}
-		for _, obj := range objects.Items {
-			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
-			metrics.AddResource(objName, gvk.GroupKind())
-		}
 		if len(objects.Items) == 0 {
 			continue
 		}
@@ -278,21 +184,6 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	}
 
 	return usList, nil
-}
-
-// getIstioOperatorCR is a helper function to get IstioOperator CR during purge,
-// otherwise the resources would be reconciled back later if there is in-cluster operator deployment.
-// And it is needed to remove the IstioOperator CRD.
-func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
-	iopGVR := iopv1alpha1.IstioOperatorGVR
-	objects, err := h.kubeClient.Dynamic().Resource(iopGVR).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
-		}
-		scope.Errorf("failed to list IstioOperator CR: %v", err)
-	}
-	return objects
 }
 
 // runForAllTypes will collect all existing resource types we care about. For each type, the callback function
@@ -328,10 +219,6 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 			}
 			continue
 		}
-		for _, obj := range objects.Items {
-			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
-			metrics.AddResource(objName, gvk.GroupKind())
-		}
 		errs = util.AppendErr(errs, callback(labels, objects))
 	}
 	return errs.ToError()
@@ -365,18 +252,15 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 				continue
 			}
 		}
-		if err := h.deleteResource(obj, componentName, oh); err != nil {
+		if err := h.deleteResource(obj, oh); err != nil {
 			errs = append(errs, err)
 		}
-	}
-	if all {
-		cache.FlushObjectCaches()
 	}
 
 	return errs.ToError()
 }
 
-func (h *HelmReconciler) deleteResource(obj *object.K8sObject, componentName, oh string) error {
+func (h *HelmReconciler) deleteResource(obj *object.K8sObject, oh string) error {
 	if h.opts.DryRun {
 		h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
 		return nil
@@ -390,7 +274,6 @@ func (h *HelmReconciler) deleteResource(obj *object.K8sObject, componentName, oh
 	}
 	err := h.client.Delete(context.TODO(), u, client.PropagationPolicy(metav1.DeletePropagationBackground))
 	scope.Debugf("Deleting %s (%s/%v)", oh, h.iop.Name, h.iop.Spec.Revision)
-	objGvk := u.GroupVersionKind()
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return err
@@ -399,26 +282,7 @@ func (h *HelmReconciler) deleteResource(obj *object.K8sObject, componentName, oh
 		h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
 		return nil
 	}
-	if componentName != "" {
-		h.removeFromObjectCache(componentName, oh)
-	} else {
-		cache.FlushObjectCaches()
-	}
-	metrics.ResourceDeletionTotal.
-		With(metrics.ResourceKindLabel.Value(util.GKString(objGvk.GroupKind()))).
-		Increment()
-	h.addPrunedKind(objGvk.GroupKind())
-	metrics.RemoveResource(obj.FullName(), objGvk.GroupKind())
+
 	h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 	return nil
-}
-
-// RemoveObject removes object with objHash in componentName from the object cache.
-func (h *HelmReconciler) removeFromObjectCache(componentName, objHash string) {
-	crHash, err := h.getCRHash(componentName)
-	if err != nil {
-		scope.Error(err.Error())
-	}
-	cache.RemoveObject(crHash, objHash)
-	scope.Infof("Removed object %s from Cache.", objHash)
 }
