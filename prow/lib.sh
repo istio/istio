@@ -132,7 +132,7 @@ function build_images() {
   targets+="docker.install-cni "
   # Integration tests are always running on local architecture (no cross compiling), so find out what that is.
   arch="linux/amd64"
-  if [[ "$(uname -m)" == "aarch64" ]]; then
+  if [[ "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" ]]; then
       arch="linux/arm64"
   fi
   if [[ "${VARIANT:-default}" == "distroless" ]]; then
