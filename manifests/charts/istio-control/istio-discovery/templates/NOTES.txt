@@ -5,7 +5,8 @@ To learn more about the release, try:
   $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
 
 Next steps:
-{{- if (eq .Values.profile "ambient") }}
+{{- $profile := default "" .Values.profile }}
+{{- if (eq $profile "ambient") }}
   * Get started with ambient: https://istio.io/latest/docs/ops/ambient/getting-started/
   * Review ambient's architecture: https://istio.io/latest/docs/ops/ambient/architecture/
 {{- else }}
