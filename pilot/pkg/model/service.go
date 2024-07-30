@@ -1260,6 +1260,7 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
+			addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 			if len(addresses) > 0 {
 				return addresses[0]
 			}
@@ -1275,7 +1276,11 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 		}
 	}
 
-	return s.DefaultAddress
+	addresses := filterAddresses([]string{s.DefaultAddress}, node.SupportsIPv4(), node.SupportsIPv6())
+	if len(addresses) > 0 {
+		return addresses[0]
+	}
+	return constants.UnspecifiedIP
 }
 
 // GetExtraAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
@@ -1314,6 +1319,9 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 }
 
 func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {
+	if supportsV4 && supportsV6 {
+		return addresses
+	}
 	var ipv4Addresses []string
 	var ipv6Addresses []string
 	for _, addr := range addresses {
