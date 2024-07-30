@@ -297,9 +297,8 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
 
-	if util.IsIstioVersionGE123(cb.proxyVersion) {
-		c.AltStatName = name + constants.StatPrefixDelimiter
-	}
+	// Build default alt stat name - This may be overwritten by the MeshConfig options.
+	c.AltStatName = cb.defaultAltStatName(name)
 
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
@@ -352,16 +351,18 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	if direction == model.TrafficDirectionOutbound {
 		// If stat name is configured, build the alternate stats name.
 		if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
-			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName, string(service.Hostname), subset, port, 0, &service.Attributes)
-			if util.IsIstioVersionGE123(cb.proxyVersion) && statPrefix[len(statPrefix)-1:] != constants.StatPrefixDelimiter {
-				statPrefix += constants.StatPrefixDelimiter
-			}
-
-			ec.cluster.AltStatName = statPrefix
+			ec.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName, string(service.Hostname), subset, port, 0, &service.Attributes)
 		}
 	}
 
 	return ec
+}
+
+func (cb *ClusterBuilder) defaultAltStatName(clusterName string) string {
+	if util.IsIstioVersionGE123(cb.proxyVersion) {
+		return clusterName + constants.StatPrefixDelimiter
+	}
+	return ""
 }
 
 // buildInboundCluster constructs a single inbound cluster. The cluster will be bound to
@@ -384,16 +385,10 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		model.TrafficDirectionInbound, instance.Port.ServicePort, instance.Service, inboundServices, "")
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
-		statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
+		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort,
 			&instance.Service.Attributes)
-		if util.IsIstioVersionGE123(cb.proxyVersion) && statPrefix[len(statPrefix)-1:] != constants.StatPrefixDelimiter {
-			statPrefix += constants.StatPrefixDelimiter
-		}
-
-		localCluster.cluster.AltStatName = statPrefix
 	}
-
 	if clusterType == cluster.Cluster_ORIGINAL_DST {
 		// Disable cleanup for inbound clusters - set to Max possible duration.
 		localCluster.cluster.CleanupInterval = durationpb.New(time.Duration(maxSecondsValue) * time.Second)
@@ -517,9 +512,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
-	if util.IsIstioVersionGE123(cb.proxyVersion) {
-		c.AltStatName = util.BlackHoleCluster + constants.StatPrefixDelimiter
-	}
+	cb.defaultAltStatName(util.BlackHoleCluster)
 	return c
 }
 
@@ -535,9 +528,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
-	if util.IsIstioVersionGE123(cb.proxyVersion) {
-		cluster.AltStatName = util.PassthroughCluster + constants.StatPrefixDelimiter
-	}
+	cluster.AltStatName = cb.defaultAltStatName(util.PassthroughCluster)
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
 	cb.applyMetadataExchange(cluster)
 	return cluster
@@ -751,9 +742,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(options),
 		},
 	}
-	if util.IsIstioVersionGE123(cb.proxyVersion) {
-		c.AltStatName = security.SDSExternalClusterName + constants.StatPrefixDelimiter
-	}
+	c.AltStatName = cb.defaultAltStatName(security.SDSExternalClusterName)
 	return c
 }
 
