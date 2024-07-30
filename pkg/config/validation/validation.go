@@ -2749,6 +2749,15 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 			}
 		}
 
+		// check for v2 auto IP allocation or opt-out by user
+		autoAllocation := false
+		if features.EnableIPAutoallocate {
+			v, ok := cfg.Meta.Labels[constants.EnableV2AutoAllocationLabel]
+			if !ok || !strings.EqualFold(v, "false") {
+				autoAllocation = true
+			}
+		}
+
 		servicePortNumbers := sets.New[uint32]()
 		servicePorts := sets.NewWithLength[string](len(serviceEntry.Ports))
 		for _, port := range serviceEntry.Ports {
@@ -2768,7 +2777,7 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					errs = AppendWarningf(errs, "targetPort has no effect when resolution mode is NONE")
 				}
 			}
-			if len(serviceEntry.Addresses) == 0 {
+			if len(serviceEntry.Addresses) == 0 && !autoAllocation {
 				if port.Protocol == "" || port.Protocol == "TCP" {
 					errs = AppendValidation(errs, WrapWarning(fmt.Errorf("addresses are required for ports serving TCP (or unset) protocol "+
 						"when ISTIO_META_DNS_AUTO_ALLOCATE is not set on a proxy")))
