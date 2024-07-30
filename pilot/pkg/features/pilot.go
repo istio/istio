@@ -120,8 +120,10 @@ var (
 	WorkloadEntryCrossCluster = env.Register("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
-	CentralIstiodAccess = env.Register("PILOT_REMOTE_CLUSER_AUTH", false,
-		"If disabled, pilot will reject CLUSTER_ID meta and reject XDS, certificates and secret requests for different clusters.").Get()
+	// For Gateway SDS, the 'config cluster' is already the default - no change.
+	CentralIstiodAccess = env.Register("PILOT_REMOTE_CLUSTER_AUTH", false,
+		"If disabled, pilot will ignore CLUSTER_ID node meta and clusterid header, only support clients and secrets from config cluster."+
+			"If enabled, workloads in other clusters can connect to Istiod and get sidecar secrets from any cluster.").Get()
 
 	WasmRemoteLoadConversion = env.Register("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
 		"If enabled, Istio agent will intercept ECDS resource update, downloads Wasm module, "+

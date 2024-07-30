@@ -114,9 +114,6 @@ func (a *KubeJWTAuthenticator) authenticateGrpc(ctx context.Context) (*security.
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
 	clusterID := ExtractClusterID(ctx)
-	if !features.CentralIstiodAccess {
-		clusterID = "" // do not allow other clusters unless Istiod is running in 'central istiod' mode.
-	}
 
 	return a.authenticate(targetJWT, clusterID)
 }
@@ -138,6 +135,9 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	if id.PodNamespace == "" {
 		return nil, fmt.Errorf("failed to parse the JWT; namespace required")
 	}
+	if !features.CentralIstiodAccess {
+		clusterID = ""
+	}
 	return &security.Caller{
 		AuthSource:     security.AuthSourceIDToken,
 		Identities:     []string{spiffe.MustGenSpiffeURI(a.meshHolder.Mesh(), id.PodNamespace, id.PodServiceAccount)},
@@ -150,6 +150,10 @@ func (a *KubeJWTAuthenticator) getKubeClient(clusterID cluster.ID) kubernetes.In
 	// first match local/primary cluster
 	// or if clusterID is not sent (we assume that its a single cluster)
 	if a.clusterID == clusterID || clusterID == "" {
+		return a.kubeClient
+	}
+
+	if !features.CentralIstiodAccess {
 		return a.kubeClient
 	}
 
