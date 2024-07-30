@@ -253,13 +253,13 @@ func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(certFile string, pri
 	return nil
 }
 
-// ExtractRootCertExpiryTimestamp returns a time.Time of when the root cert expires
-func (b *KeyCertBundle) ExtractRootCertExpiryTimestamp() (*time.Time, error) {
+// ExtractRootCertExpiryTimestamp returns the expiration of the first root cert
+func (b *KeyCertBundle) ExtractRootCertExpiryTimestamp() (time.Time, error) {
 	return extractCertExpiryTimestamp("root cert", b.GetRootCertPem())
 }
 
-// ExtractCACertExpiryTimestamp returns a time.Time of when the cert chain expires
-func (b *KeyCertBundle) ExtractCACertExpiryTimestamp() (*time.Time, error) {
+// ExtractCACertExpiryTimestamp returns the expiration of the leaf certificate
+func (b *KeyCertBundle) ExtractCACertExpiryTimestamp() (time.Time, error) {
 	return extractCertExpiryTimestamp("CA cert", b.GetCertChainPem())
 }
 
@@ -318,12 +318,12 @@ func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error
 	return nil
 }
 
-func extractCertExpiryTimestamp(certType string, certPem []byte) (*time.Time, error) {
+func extractCertExpiryTimestamp(certType string, certPem []byte) (time.Time, error) {
 	cert, err := ParsePemEncodedCertificate(certPem)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse the %s: %v", certType, err)
+		return time.Unix(0, 0), fmt.Errorf("failed to parse the %s: %v", certType, err)
 	}
-	return &cert.NotAfter, nil
+	return cert.NotAfter, nil
 }
 
 func copyBytes(src []byte) []byte {

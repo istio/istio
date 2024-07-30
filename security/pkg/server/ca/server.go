@@ -149,12 +149,13 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 }
 
 func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
+    // Expiry of the first cert in trust bundle
 	rootCertExpiry, err := keyCertBundle.ExtractRootCertExpiryTimestamp()
 	if err != nil {
 		serverCaLog.Errorf("failed to extract root cert expiry timestamp (error %v)", err)
 	} else {
 		rootCertExpiryTimestamp.Record(float64(rootCertExpiry.Unix()))
-		rootCertExpirySeconds.ValueFrom(time.Until(*rootCertExpiry).Seconds)
+		rootCertExpirySeconds.ValueFrom(time.Until(rootCertExpiry).Seconds)
 	}
 
 	if len(keyCertBundle.GetCertChainPem()) == 0 {
@@ -166,7 +167,7 @@ func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
 		serverCaLog.Errorf("failed to extract CA cert expiry timestamp (error %v)", err)
 	} else {
 		certChainExpiryTimestamp.Record(float64(certChainExpiry.Unix()))
-		certChainExpirySeconds.ValueFrom(time.Until(*certChainExpiry).Seconds)
+		certChainExpirySeconds.ValueFrom(time.Until(certChainExpiry).Seconds)
 	}
 }
 

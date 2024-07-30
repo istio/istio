@@ -408,10 +408,7 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 		garbage := []byte{0, 0, 0, 0}
 		kb := NewKeyCertBundleFromPem(garbage, garbage, nil, garbage)
 		// will return error if expired
-		expiryTimestamp, err := kb.ExtractRootCertExpiryTimestamp()
-		if expiryTimestamp != nil {
-			t.Errorf("Expected nil value")
-		}
+		_, err := kb.ExtractRootCertExpiryTimestamp()
 		if err == nil {
 			t.Errorf("Expected error parsing malformed cert")
 		} else if err.Error() != errorMessage {

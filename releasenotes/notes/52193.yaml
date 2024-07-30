@@ -7,7 +7,7 @@ releaseNotes:
     **Fixed** Corrected documentation for `rootCertExpiryTimestamp` and `citadel_server_cert_chain_expiry_timestamp`.
 upgradeNotes:
   - title: |
-      `rootCertExpiryTimestamp` and `certChainExpiryTimestamp` no longer record a negative number for expired certificate/certificate change.
+      `rootCertExpiryTimestamp` and `certChainExpiryTimestamp` no longer record a negative number for expired certificate/certificate chains.
       This was never the actual behavior, but the docs are now updated to reflect the actual behavior.
-      To quickly check for expired certs, check the sign of `rootCertExpirySeconds` and `certChainExpirySeconds`.
+      Users who relied on this behavior should check the check the signs of `rootCertExpirySeconds` and `certChainExpirySeconds` instead.
 
