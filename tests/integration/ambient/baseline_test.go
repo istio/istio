@@ -3015,3 +3015,55 @@ func daemonsetsetComplete(ds *appsv1.DaemonSet) bool {
 		ds.Status.NumberReady == ds.Status.DesiredNumberScheduled &&
 		ds.Status.ObservedGeneration >= ds.Generation
 }
+
+func TestWaypointWithSidecarBackend(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			// Ensure we go through the waypoint (verified by modifying the request) and that we are doing mTLS.
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: add-header
+spec:
+  parentRefs:
+  - name: sidecar
+    kind: Service
+    group: ""
+    port: 80
+  rules:
+  - filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: greeting
+          value: "hello world!"
+    backendRefs:
+    - name: sidecar
+      port: 80
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: sidecar-must-go-through-waypoint
+spec:
+  selector:
+    matchLabels:
+      app: sidecar
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.}}/sa/waypoint"]`).
+				ApplyOrFail(t)
+			SetWaypoint(t, Sidecar, "waypoint")
+			client := apps.Captured
+			client[0].CallOrFail(t, echo.CallOptions{
+				To:   apps.Sidecar,
+				Port: ports.HTTP,
+				Check: check.And(
+					check.OK(),
+					check.RequestHeader("greeting", "hello world!")),
+			})
+		})
+}
