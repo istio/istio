@@ -215,6 +215,13 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 			Mode: workloadapi.LoadBalancing_STRICT,
 		}
 	}
+	if svc.Spec.PublishNotReadyAddresses {
+		if lb == nil {
+			lb = &workloadapi.LoadBalancing{}
+		}
+		lb.HealthPolicy = workloadapi.LoadBalancing_ALLOW_ALL
+	}
+
 	ipFamily := workloadapi.IPFamilies_AUTOMATIC
 	if len(svc.Spec.IPFamilies) == 2 {
 		ipFamily = workloadapi.IPFamilies_DUAL
