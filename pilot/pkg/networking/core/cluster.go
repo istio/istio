@@ -510,7 +510,7 @@ func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.P
 			// port present in sidecarIngress listener so let sidecar take precedence
 			continue
 		}
-		localCluster := cb.buildInboundCluster(epPort, bind, proxy, instances[0], instances)
+		localCluster := cb.buildInboundCluster(epPort, bind, proxy, instances)
 		// If inbound cluster match has service, we should see if it matches with any host name across all instances.
 		hosts := make([]host.Name, 0, len(instances))
 		for _, si := range instances {
@@ -653,7 +653,7 @@ func buildInboundClustersFromSidecar(cb *ClusterBuilder, proxy *model.Proxy,
 				TargetPort:  uint32(port),
 			},
 		}
-		localCluster := cb.buildInboundCluster(int(ingressListener.Port.Number), endpointAddress, proxy, endpoint, nil)
+		localCluster := cb.buildInboundCluster(int(ingressListener.Port.Number), endpointAddress, proxy, []model.ServiceTarget{endpoint})
 		clusters = cp.conditionallyAppend(clusters, []host.Name{endpoint.Service.Hostname}, localCluster.build())
 	}
 	return clusters

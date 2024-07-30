@@ -372,9 +372,10 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 // Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
 // Sidecar.Ingress allows these to be different.
 func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
-	proxy *model.Proxy, instance model.ServiceTarget, inboundServices []model.ServiceTarget,
+	proxy *model.Proxy, inboundServices []model.ServiceTarget,
 ) *clusterWrapper {
 	clusterName := model.BuildInboundSubsetKey(clusterPort)
+	instance := inboundServices[0]
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Port.TargetPort)
 	clusterType := cluster.Cluster_ORIGINAL_DST
 	if len(localityLbEndpoints) > 0 {
