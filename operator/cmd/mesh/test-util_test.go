@@ -170,6 +170,13 @@ func mustGetDeployment(g *WithT, objs *ObjectSet, deploymentName string) *object
 	return obj
 }
 
+// mustGetDaemonset returns the DaemonSet with the given name or fails if it's not found in objs.
+func mustGetDaemonset(g *WithT, objs *ObjectSet, daemonSetName string) *object.K8sObject {
+	obj := objs.kind(name2.DaemonSetStr).nameEquals(daemonSetName)
+	g.Expect(obj).Should(Not(BeNil()))
+	return obj
+}
+
 // mustGetClusterRole returns the clusterRole with the given name or fails if it's not found in objs.
 func mustGetClusterRole(g *WithT, objs *ObjectSet, name string) *object.K8sObject {
 	obj := objs.kind(name2.ClusterRoleStr).nameEquals(name)
@@ -189,6 +196,14 @@ func mustGetContainer(g *WithT, objs *ObjectSet, deploymentName, containerName s
 	obj := mustGetDeployment(g, objs, deploymentName)
 	container := obj.Container(containerName)
 	g.Expect(container).Should(Not(BeNil()), fmt.Sprintf("Expected to get container %s in deployment %s", containerName, deploymentName))
+	return container
+}
+
+// mustGetContainer returns the container tree with the given name in the deployment with the given name.
+func mustGetContainerFromDaemonset(g *WithT, objs *ObjectSet, daemonSetName, containerName string) map[string]any {
+	obj := mustGetDaemonset(g, objs, daemonSetName)
+	container := obj.Container(containerName)
+	g.Expect(container).Should(Not(BeNil()), fmt.Sprintf("Expected to get container %s in daemonset %s", containerName, daemonSetName))
 	return container
 }
 
