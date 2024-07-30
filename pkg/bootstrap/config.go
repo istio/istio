@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
@@ -41,7 +40,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
 )
@@ -716,62 +714,6 @@ func SetIstioVersion(meta *model.BootstrapNodeMetadata) *model.BootstrapNodeMeta
 		meta.IstioVersion = version.Info.Version
 	}
 	return meta
-}
-
-// ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.
-func ConvertNodeToXDSNode(node *model.Node) *core.Node {
-	// First pass translates typed metadata
-	js, err := json.Marshal(node.Metadata)
-	if err != nil {
-		log.Warnf("Failed to marshal node metadata to JSON %#v: %v", node.Metadata, err)
-	}
-	pbst := &structpb.Struct{}
-	if err = protomarshal.Unmarshal(js, pbst); err != nil {
-		log.Warnf("Failed to unmarshal node metadata from JSON %#v: %v", node.Metadata, err)
-	}
-	// Second pass translates untyped metadata for "unknown" fields
-	for k, v := range node.RawMetadata {
-		if _, f := pbst.Fields[k]; !f {
-			fjs, err := json.Marshal(v)
-			if err != nil {
-				log.Warnf("Failed to marshal field metadata to JSON %#v: %v", k, err)
-			}
-			pbv := &structpb.Value{}
-			if err = protomarshal.Unmarshal(fjs, pbv); err != nil {
-				log.Warnf("Failed to unmarshal field metadata from JSON %#v: %v", k, err)
-			}
-			pbst.Fields[k] = pbv
-		}
-	}
-	return &core.Node{
-		Id:       node.ID,
-		Cluster:  getServiceCluster(node.Metadata),
-		Locality: node.Locality,
-		Metadata: pbst,
-	}
-}
-
-// ConvertXDSNodeToNode parses Istio node descriptor from an Envoy node descriptor, using only typed metadata.
-func ConvertXDSNodeToNode(node *core.Node) *model.Node {
-	b, err := protomarshal.MarshalProtoNames(node.Metadata)
-	if err != nil {
-		log.Warnf("Failed to marshal node metadata to JSON %q: %v", node.Metadata, err)
-	}
-	metadata := &model.BootstrapNodeMetadata{}
-	err = json.Unmarshal(b, metadata)
-	if err != nil {
-		log.Warnf("Failed to unmarshal node metadata from JSON %q: %v", node.Metadata, err)
-	}
-	if metadata.ProxyConfig == nil {
-		metadata.ProxyConfig = &model.NodeMetaProxyConfig{}
-		metadata.ProxyConfig.ClusterName = &meshAPI.ProxyConfig_ServiceCluster{ServiceCluster: node.Cluster}
-	}
-
-	return &model.Node{
-		ID:       node.Id,
-		Locality: node.Locality,
-		Metadata: metadata,
-	}
 }
 
 // Extracts instance labels for the platform into model.NodeMetadata.Labels
