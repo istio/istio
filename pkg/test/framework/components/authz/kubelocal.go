@@ -47,7 +47,7 @@ extensionProviders:
     port: {{ .grpcPort }}`
 
 	localServiceEntryTemplate = `
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: {{ .httpName }}
@@ -62,7 +62,7 @@ spec:
     protocol: HTTP
   resolution: STATIC
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: {{ .grpcName }}

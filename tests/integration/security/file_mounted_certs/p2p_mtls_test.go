@@ -64,7 +64,7 @@ func TestClientToServiceTls(t *testing.T) {
 
 const (
 	DestinationRuleConfigMutual = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: server
@@ -83,7 +83,7 @@ spec:
 `
 
 	PeerAuthenticationConfig = `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default

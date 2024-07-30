@@ -64,7 +64,7 @@ spec:
 `).ApplyOrFail(t)
 			// Apply bad config (referencing invalid host)
 			t.ConfigIstio().YAML(ns.Name(), `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews
@@ -83,7 +83,7 @@ spec:
 			}, retry.Timeout(time.Second*5))
 			// Apply config to make this not invalid
 			t.ConfigIstio().YAML(ns.Name(), `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: missing-gw
@@ -117,7 +117,7 @@ func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 
 			// create WorkloadEntry
 			t.ConfigIstio().YAML(ns.Name(), `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: vm-1

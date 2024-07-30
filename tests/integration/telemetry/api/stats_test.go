@@ -45,7 +45,7 @@ import (
 )
 
 var PeerAuthenticationConfig = `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default

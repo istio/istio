@@ -146,7 +146,7 @@ func TestEgressGatewayTls(t *testing.T) {
 const (
 	// Destination Rule configs
 	DestinationRuleConfigSimple = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: originate-tls-for-server-filebased-simple
@@ -164,7 +164,7 @@ spec:
 `
 	// Destination Rule configs
 	DestinationRuleConfigDisabledOrIstioMutual = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: originate-tls-for-server-filebased-disabled
@@ -180,7 +180,7 @@ spec:
 
 `
 	DestinationRuleConfigMutual = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: originate-tls-for-server-filebased-mutual
@@ -227,7 +227,7 @@ func createDestinationRule(t framework.TestContext, serviceNamespace namespace.I
 
 const (
 	Gateway = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: istio-egressgateway-filebased
@@ -244,7 +244,7 @@ spec:
       tls:
         mode: ISTIO_MUTUAL
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: egressgateway-for-server-filebased
@@ -261,7 +261,7 @@ spec:
           sni: external-service.{{.ServerNamespace}}.svc.cluster.local
 `
 	VirtualService = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route-via-egressgateway-filebased

@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: no-selector # Since this is the only Sidecar in the namespace without a workload selector, no conflict
@@ -8,7 +8,7 @@ spec:
   - hosts:
     - "./*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: has-selector
@@ -21,7 +21,7 @@ spec:
   - hosts:
     - "./*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: has-conflict-1 # Both Sidecars in this namespace omit workload selector, so they are in conflict
@@ -31,7 +31,7 @@ spec:
   - hosts:
     - "./*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: has-conflict-2 # Both Sidecars in this namespace omit workload selector, so they are in conflict
@@ -81,13 +81,13 @@ metadata:
   annotations:
     ambient.istio.io/redirection: enabled
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: namespace-scoped
   namespace: ns-ambient
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: pod-scoped
@@ -113,13 +113,13 @@ metadata:
     istio.io/dataplane-mode: ambient
     istio.io/rev: canary
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: namespace-not-ambient
   namespace: ns-not-ambient
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: namespace-not-ambient

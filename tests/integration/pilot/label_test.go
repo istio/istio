@@ -30,7 +30,7 @@ func TestLabelChanges(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			cfg := `apiVersion: networking.istio.io/v1alpha3
+			cfg := `apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: {{.Destination}}
@@ -43,7 +43,7 @@ spec:
         host: {{.Destination}}
         subset: my-subset
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: {{.Destination}}

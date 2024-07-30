@@ -13,7 +13,7 @@
 # ServiceEntry tests. Removing deps on ip in progress.
 ---
 # Default sidecar
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: default
@@ -178,7 +178,7 @@ spec:
 # Local ServiceEntry (meshex, test) - the tests will use the IPs defined in the service when connecting.
 # This works on local mode where K8S Service controller doesn't exist, and can be used for testing in k8s by a test
 # pretending to have this address.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: s1tcp
@@ -203,7 +203,7 @@ spec:
         app: s1tcp
 ---
 # Another inbound service, http type. Should generate a http listener on :7071
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: s1http
@@ -228,7 +228,7 @@ spec:
 ---
 
 # Regular TCP outbound cluster (Default MeshExternal = true, Resolution ClientSideLB)
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: s2
@@ -253,7 +253,7 @@ spec:
 ---
 # Another TCP outbound cluster, resolution DNS (Default MeshExternal = true)
 # Not supported, bind=false
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: s2dns
@@ -273,7 +273,7 @@ spec:
 # As an optimization, this can be converted to EDS
 # The new Sidecar is the recommended way to declare deps to mesh services - however
 # DNS resolution is supposed to continue to work.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: tcpmeshdns
@@ -292,7 +292,7 @@ spec:
 
 # Outbound TCP cluster, resolution STATIC - for a '.svc' (in cluster) service.
 # This binds on each endpoint address !
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: tcpmeshstatic
@@ -312,7 +312,7 @@ spec:
 ---
 # Outbound TCP cluster, resolution STATIC - for a '.svc' (in cluster) service.
 # This generates EDS
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: tcpmeshstaticint
@@ -336,7 +336,7 @@ spec:
 # TODO: in progres, should bind to 127.0.0.1
 # will resolve using SNI
 # DNS or etc/hosts or code must override the address, but pass proper SNI
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: https
@@ -355,7 +355,7 @@ spec:
   resolution: DNS
 ---
 # TODO: this should be auto-generated from ServiceEntry/protocol=TLS, it's just boilerplate
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: tls-routing

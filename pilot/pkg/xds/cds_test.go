@@ -236,7 +236,7 @@ func TestSAN(t *testing.T) {
 
 func TestServiceEntryMerge(t *testing.T) {
 	// Regression test for https://github.com/istio/istio/issues/50478
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: `apiVersion: networking.istio.io/v1beta1
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se1
@@ -249,7 +249,7 @@ spec:
     protocol: HTTP
   resolution: DNS
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se2
@@ -262,7 +262,7 @@ spec:
     protocol: HTTP
   resolution: DNS
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se3
@@ -275,7 +275,7 @@ spec:
     protocol: HTTP
   resolution: DNS
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se4
@@ -289,7 +289,7 @@ spec:
     protocol: HTTP
   resolution: DNS
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se5

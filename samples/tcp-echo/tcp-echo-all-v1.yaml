@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: tcp-echo-gateway
@@ -27,7 +27,7 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: tcp-echo-destination
@@ -41,7 +41,7 @@ spec:
     labels:
       version: v2
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: tcp-echo

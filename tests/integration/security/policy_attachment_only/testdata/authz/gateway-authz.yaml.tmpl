@@ -1,4 +1,4 @@
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
   name: default-{{ .To.ServiceName }}
@@ -11,7 +11,7 @@ spec:
   - issuer: "test-issuer-1@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 --- 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: authz-gateway-{{ .To.ServiceName }}

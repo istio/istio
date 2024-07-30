@@ -1,6 +1,6 @@
 # This configures all services within the namespace to use mTLS with permissive mode (allowing plaintext).
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: ns-default
@@ -12,7 +12,7 @@ spec:
 ---
 # This configures requests to any service in the namespace to use mTLS.
 
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: default
@@ -27,7 +27,7 @@ spec:
 # This authz policy denies access to the service if the request was not mTLS, since
 # mTLS is required in order to match source principals.
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .To.ServiceName }}
@@ -45,7 +45,7 @@ spec:
 ---
 # This configures plaintext for the "To" service from any workload in the namespace.
 
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: {{ .To.ServiceName }}

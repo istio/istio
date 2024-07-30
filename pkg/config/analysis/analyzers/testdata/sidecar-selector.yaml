@@ -31,7 +31,7 @@ metadata:
   name: ratings
   namespace: default
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: maps-correctly-no-conflicts
@@ -44,7 +44,7 @@ spec:
   - hosts:
     - "./*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: maps-to-nonexistent
@@ -57,7 +57,7 @@ spec:
   - hosts:
     - "./*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: maps-to-different-ns
@@ -70,7 +70,7 @@ spec:
   - hosts:
     - "./*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: dupe-1
@@ -83,7 +83,7 @@ spec:
   - hosts:
     - "./*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: dupe-2
@@ -96,7 +96,7 @@ spec:
   - hosts:
     - "./*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: overlap-1
@@ -109,7 +109,7 @@ spec:
   - hosts:
     - "./*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: overlap-2

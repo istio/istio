@@ -1,5 +1,5 @@
 # The following virtual service should cause the warning IST0165 because it references a generated internal gateway.
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: httpbin

@@ -1,5 +1,5 @@
 # Verify the route can send to an arbitrary service name
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: byon
@@ -17,7 +17,7 @@ spec:
       ports:
         http: 7072
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: byon
@@ -32,7 +32,7 @@ spec:
 
 ---
 ## VM running docker ( see deb/run/docker )
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: byon-docker
@@ -50,7 +50,7 @@ spec:
       ports:
         http: 7072
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: wikipedia-range

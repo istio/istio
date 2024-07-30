@@ -23,7 +23,7 @@ import (
 )
 
 const se = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se1
@@ -37,7 +37,7 @@ spec:
     name: port-9999
     protocol: {{.Protocol}}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se2
@@ -52,7 +52,7 @@ spec:
     protocol: {{.Protocol}}
 ---
 {{ if .VirtualService }}
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs1
@@ -224,7 +224,7 @@ func TestServiceEntry(t *testing.T) {
 }
 
 const serviceEntriesWithDuplicatedHosts = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: istio-http
@@ -238,7 +238,7 @@ spec:
     protocol: HTTP
   resolution: DNS
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: istio-https

@@ -5,7 +5,7 @@
 
 # HTTP and TLS, the host must be specified
 # See https://istio.io/docs/tasks/traffic-management/egress/
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: github-https
@@ -20,7 +20,7 @@ spec:
 # For TCP services the IP ranges SHOULD be specified to avoid problems
 # if multiple SEs use the same port number.
 # See https://istio.io/blog/2018/egress-tcp/#mesh-external-service-entry-for-an-external-mysql-instance
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: github-tcp

@@ -432,7 +432,7 @@ type TestConfig struct {
 }
 
 const vsTemplate = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: {{.CredentialName}}
@@ -453,7 +453,7 @@ spec:
 `
 
 const gwTemplate = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: {{.CredentialName}}

@@ -1,6 +1,6 @@
 # Simulate the same configuration knative would generate from some basic KServices
 # Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external
@@ -19,7 +19,7 @@ spec:
     labels:
       istio.io/benchmark: "true"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: internal
@@ -38,7 +38,7 @@ spec:
     labels:
       istio.io/benchmark: "true"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: knative-ingress-gateway
@@ -54,7 +54,7 @@ spec:
       number: 80
       protocol: HTTP
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: knative-local-gateway
@@ -71,7 +71,7 @@ spec:
       protocol: HTTP
 ---
 {{- range $i := until .Services }}
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: hello-ingress-{{$i}}
@@ -165,7 +165,7 @@ spec:
             Knative-Serving-Revision: hello-{{$i}}
       weight: 100
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: hello-private-ingress-{{$i}}
