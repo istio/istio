@@ -120,7 +120,7 @@ var (
 	WorkloadEntryCrossCluster = env.Register("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
-	CentralIstiodAccess = env.Register("PILOT_CENTRAL_ISTIOD", true,
+	CentralIstiodAccess = env.Register("PILOT_REMOTE_CLUSER_AUTH", false,
 		"If disabled, pilot will reject CLUSTER_ID meta and reject XDS, certificates and secret requests for different clusters.").Get()
 
 	WasmRemoteLoadConversion = env.Register("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
