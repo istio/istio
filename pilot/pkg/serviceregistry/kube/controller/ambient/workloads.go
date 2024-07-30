@@ -26,8 +26,8 @@ import (
 
 	"istio.io/api/label"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
-	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"

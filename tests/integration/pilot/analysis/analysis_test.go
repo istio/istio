@@ -145,7 +145,7 @@ spec:
 			}
 
 			// Get WorkloadEntry to append to
-			we, err := t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+			we, err := t.Clusters().Default().Istio().NetworkingV1().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
 			if err != nil {
 				t.Error(err)
 			}
@@ -156,7 +156,7 @@ spec:
 			// append to conditions
 			we.Status.Conditions = append(we.Status.Conditions, addedConds...)
 			// update the status
-			_, err = t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
+			_, err = t.Clusters().Default().Istio().NetworkingV1().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
 			if err != nil {
 				t.Error(err)
 			}
@@ -178,7 +178,7 @@ spec:
 			})
 
 			// get the workload entry to replace the health condition field
-			we, err = t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+			we, err = t.Clusters().Default().Istio().NetworkingV1().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -194,7 +194,7 @@ spec:
 			}
 
 			// update this new status
-			_, err = t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
+			_, err = t.Clusters().Default().Istio().NetworkingV1().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
 			if err != nil {
 				t.Error(err)
 			}
@@ -219,7 +219,7 @@ spec:
 func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, hasError bool) error {
 	c := t.Clusters().Default()
 
-	x, err := c.Istio().NetworkingV1alpha3().VirtualServices(ns.Name()).Get(context.TODO(), "reviews", metav1.GetOptions{})
+	x, err := c.Istio().NetworkingV1().VirtualServices(ns.Name()).Get(context.TODO(), "reviews", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("unexpected test failure: can't get virtualservice: %v", err)
 	}
@@ -249,7 +249,7 @@ func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, 
 func expectWorkloadEntryStatus(t framework.TestContext, ns namespace.Instance, expectedConds []*v1alpha1.IstioCondition) error {
 	c := t.Clusters().Default()
 
-	x, err := c.Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+	x, err := c.Istio().NetworkingV1().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("unexpected test failure: can't get workloadentry: %v", err)
 		return err

@@ -38,7 +38,7 @@ import (
 var fakeCACert = []byte("fake-CA-cert")
 
 var (
-	defaultYAML = `apiVersion: networking.istio.io/v1alpha3
+	defaultYAML = `apiVersion: networking.istio.io/v1
 kind: WorkloadGroup
 metadata:
   name: foo
@@ -49,7 +49,7 @@ spec:
     serviceAccount: default
 `
 
-	customYAML = `apiVersion: networking.istio.io/v1alpha3
+	customYAML = `apiVersion: networking.istio.io/v1
 kind: WorkloadGroup
 metadata:
   name: foo

@@ -29,7 +29,7 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -123,7 +123,7 @@ func verifyRejectsInvalidConfig(t framework.TestContext, configRevision string, 
 	if configRevision != "" {
 		revLabel[label.IoIstioRev.Name] = configRevision
 	}
-	invalidGateway := &v1alpha3.Gateway{
+	invalidGateway := &clientnetworking.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "invalid-istio-gateway",
 			Namespace: istioNamespace,
@@ -133,7 +133,7 @@ func verifyRejectsInvalidConfig(t framework.TestContext, configRevision string, 
 	}
 
 	createOptions := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
-	istioClient := t.Clusters().Default().Istio().NetworkingV1alpha3()
+	istioClient := t.Clusters().Default().Istio().NetworkingV1()
 	_, err := istioClient.Gateways(istioNamespace).Create(context.TODO(), invalidGateway, createOptions)
 	rejected := err != nil
 	if rejected != shouldReject {

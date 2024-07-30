@@ -186,7 +186,7 @@ func checkTracing(cli kube.CLIClient, messages *diag.Messages) error {
 }
 
 func checkPassthroughTargetPorts(cli kube.CLIClient, messages *diag.Messages) error {
-	ses, err := cli.Istio().NetworkingV1alpha3().ServiceEntries(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	ses, err := cli.Istio().NetworkingV1().ServiceEntries(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}

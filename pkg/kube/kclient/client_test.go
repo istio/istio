@@ -34,7 +34,7 @@ import (
 	ext "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istioclient "istio.io/client-go/pkg/apis/extensions/v1alpha1"
-	istionetclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istionetclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
