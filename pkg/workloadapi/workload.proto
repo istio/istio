@@ -137,12 +137,20 @@ message LoadBalancing {
     // 4. Any endpoints
     FAILOVER = 2;
   }
+  enum HealthPolicy {
+    // Only select healthy endpoints
+    ONLY_HEALTHY = 0;
+    // Include all endpoints, even if they are unhealthy.
+    ALLOW_ALL = 1;
+  }
 
   // routing_preference defines what scopes we want to keep traffic within.
   // The `mode` determines how these routing preferences are handled
   repeated Scope routing_preference = 1;
   // mode defines how we should handle the routing preferences.
   Mode mode = 2;
+  // health_policy defines how we should filter endpoints
+  HealthPolicy health_policy = 3;
 }
 
 // Workload represents a workload - an endpoint (or collection behind a hostname).

@@ -210,14 +210,6 @@ var (
 	KubernetesClientContentType = env.Register("ISTIO_KUBE_CLIENT_CONTENT_TYPE", "protobuf",
 		"The content type to use for Kubernetes clients. Defaults to protobuf. Valid options: [protobuf, json]").Get()
 
-	EnableExternalNameAlias = env.Register("ENABLE_EXTERNAL_NAME_ALIAS", true,
-		"If enabled, ExternalName Services will be treated as simple aliases: anywhere where we would match the concrete service, "+
-			"we also match the ExternalName. In general, this mirrors Kubernetes behavior more closely. However, it means that policies (routes and DestinationRule) "+
-			"cannot be applied to the ExternalName service. "+
-			"If disabled, ExternalName behaves in fairly unexpected manner. Port matters, while it does not in Kubernetes. If it is a TCP port, "+
-			"all traffic on that port will be matched, which can have disastrous consequences. Additionally, the destination is seen as an opaque destination; "+
-			"even if it is another service in the mesh, policies such as mTLS and load balancing will not be used when connecting to it.").Get()
-
 	ValidateWorkloadEntryIdentity = env.Register("ISTIO_WORKLOAD_ENTRY_VALIDATE_IDENTITY", true,
 		"If enabled, will validate the identity of a workload matches the identity of the "+
 			"WorkloadEntry it is associating with for health checks and auto registration. "+

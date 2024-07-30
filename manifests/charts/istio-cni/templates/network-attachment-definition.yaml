@@ -1,5 +1,5 @@
-{{- if eq .Values.cni.provider "multus" }}
-apiVersion: k8s.cni.cncf.io/v1
+{{- if eq .Values.provider "multus" }}
+apiVersion: k8s.cncf.io/v1
 kind: NetworkAttachmentDefinition
 metadata:
   name: {{ template "name" . }}

@@ -190,10 +190,6 @@ var (
 	PassthroughTargetPort = env.Register("ENABLE_RESOLUTION_NONE_TARGET_PORT", true,
 		"If enabled, targetPort will be supported for resolution=NONE ServiceEntry").Get()
 
-	PersistOldestWinsHeuristicForVirtualServiceHostMatching = env.Register("PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", false,
-		"If enabled, istiod will persist the oldest first heuristic for subtly conflicting traffic policy selection"+
-			"(such as with overlapping wildcard hosts)").Get()
-
 	Enable100ContinueHeaders = env.Register("ENABLE_100_CONTINUE_HEADERS", true,
 		"If enabled, istiod will proxy 100-continue headers as is").Get()
 

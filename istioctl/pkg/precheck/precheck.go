@@ -25,7 +25,6 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	authorizationapi "k8s.io/api/authorization/v1"
-	corev1 "k8s.io/api/core/v1"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +43,6 @@ import (
 	legacykube "istio.io/istio/pkg/config/analysis/legacy/source/kube"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kubetypes"
@@ -155,20 +153,6 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 			return nil, err
 		}
 	}
-	if minor <= 20 {
-		// VERIFY_CERTIFICATE_AT_CLIENT and ENABLE_AUTO_SNI
-		if err := checkDestinationRuleTLS(cli, &messages); err != nil {
-			return nil, err
-		}
-		// ENABLE_EXTERNAL_NAME_ALIAS
-		if err := checkExternalNameAlias(cli, &messages); err != nil {
-			return nil, err
-		}
-		// PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING
-		if err := checkVirtualServiceHostMatching(cli, &messages); err != nil {
-			return nil, err
-		}
-	}
 	if minor <= 21 {
 		if err := checkPassthroughTargetPorts(cli, &messages); err != nil {
 			return nil, err
@@ -222,24 +206,6 @@ func checkPassthroughTargetPorts(cli kube.CLIClient, messages *diag.Messages) er
 				"ENABLE_RESOLUTION_NONE_TARGET_PORT", "1.21",
 				"ServiceEntry with resolution NONE and a targetPort set previously did nothing but now is respected", "1.21"))
 		}
-	}
-	return nil
-}
-
-func checkExternalNameAlias(cli kube.CLIClient, messages *diag.Messages) error {
-	svcs, err := cli.Kube().CoreV1().Services(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	for _, svc := range svcs.Items {
-		if svc.Spec.Type != corev1.ServiceTypeExternalName {
-			continue
-		}
-		res := ObjectToInstance(&svc)
-		messages.Add(msg.NewUpdateIncompatibility(res,
-			"ENABLE_EXTERNAL_NAME_ALIAS", "1.20",
-			"ExternalName services now behavior differently; consult upgrade notes for more information", "1.20"))
-
 	}
 	return nil
 }
@@ -300,83 +266,6 @@ func checkPilot(cli kube.CLIClient, namespace string, messages *diag.Messages) e
 			messages.Add(msg.NewUpdateIncompatibility(res,
 				"ENHANCED_RESOURCE_SCOPING", "1.22",
 				"previously, the enhanced scoping of custom resources was disabled by default; now it will be enabled by default", "1.21"))
-		}
-	}
-	return nil
-}
-
-func checkDestinationRuleTLS(cli kube.CLIClient, messages *diag.Messages) error {
-	drs, err := cli.Istio().NetworkingV1alpha3().DestinationRules(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	checkVerify := func(tls *networking.ClientTLSSettings) bool {
-		if tls == nil {
-			return false
-		}
-		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
-			return false
-		}
-		return tls.CaCertificates == "" && tls.CredentialName == "" && !tls.InsecureSkipVerify.GetValue()
-	}
-	checkSNI := func(tls *networking.ClientTLSSettings) bool {
-		if tls == nil {
-			return false
-		}
-		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
-			return false
-		}
-		return tls.Sni == ""
-	}
-	for _, dr := range drs.Items {
-		verificationImpacted := false
-		sniImpacted := false
-		verificationImpacted = verificationImpacted || checkVerify(dr.Spec.GetTrafficPolicy().GetTls())
-		sniImpacted = sniImpacted || checkSNI(dr.Spec.GetTrafficPolicy().GetTls())
-		for _, pl := range dr.Spec.GetTrafficPolicy().GetPortLevelSettings() {
-			verificationImpacted = verificationImpacted || checkVerify(pl.GetTls())
-			sniImpacted = sniImpacted || checkSNI(pl.GetTls())
-		}
-		for _, ss := range dr.Spec.Subsets {
-			verificationImpacted = verificationImpacted || checkVerify(ss.GetTrafficPolicy().GetTls())
-			sniImpacted = sniImpacted || checkSNI(ss.GetTrafficPolicy().GetTls())
-			for _, pl := range ss.GetTrafficPolicy().GetPortLevelSettings() {
-				verificationImpacted = verificationImpacted || checkVerify(pl.GetTls())
-				sniImpacted = sniImpacted || checkSNI(pl.GetTls())
-			}
-		}
-		if verificationImpacted {
-			res := ObjectToInstance(dr)
-			messages.Add(msg.NewUpdateIncompatibility(res,
-				"VERIFY_CERTIFICATE_AT_CLIENT", "1.20",
-				"previously, TLS verification was skipped. Set `insecureSkipVerify` if this behavior is desired", "1.20"))
-		}
-		if sniImpacted {
-			res := ObjectToInstance(dr)
-			messages.Add(msg.NewUpdateIncompatibility(res,
-				"ENABLE_AUTO_SNI", "1.20",
-				"previously, no SNI would be set; now it will be automatically set", "1.20"))
-		}
-	}
-	return nil
-}
-
-func checkVirtualServiceHostMatching(cli kube.CLIClient, messages *diag.Messages) error {
-	virtualServices, err := cli.Istio().NetworkingV1alpha3().VirtualServices(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	for _, vs := range virtualServices.Items {
-		for _, hostname := range vs.Spec.Hosts {
-			if host.Name(hostname).IsWildCarded() {
-				res := ObjectToInstance(vs)
-				messages.Add(msg.NewUpdateIncompatibility(res,
-					"PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", "1.20",
-					"previously, VirtualServices with overlapping wildcard hosts would have the oldest "+
-						"VirtualService take precedence. Now, the most specific VirtualService will win", "1.20"),
-				)
-				continue
-			}
 		}
 	}
 	return nil

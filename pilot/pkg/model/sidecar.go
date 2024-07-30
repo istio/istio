@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -890,12 +889,8 @@ func computeWildcardHostVirtualServiceIndex(virtualServices []config.Config, ser
 	}
 
 	mostSpecificWildcardVsIndex := make(map[host.Name]types.NamespacedName)
-	comparator := MostSpecificHostMatch[config.Config]
-	if features.PersistOldestWinsHeuristicForVirtualServiceHostMatching {
-		comparator = OldestMatchingHost
-	}
 	for _, svc := range services {
-		_, ref, exists := comparator(svc.Hostname, fqdnVirtualServiceHostIndex, wildcardVirtualServiceHostIndex)
+		_, ref, exists := MostSpecificHostMatch(svc.Hostname, fqdnVirtualServiceHostIndex, wildcardVirtualServiceHostIndex)
 		if !exists {
 			// This svc doesn't have a virtualService; skip
 			continue
