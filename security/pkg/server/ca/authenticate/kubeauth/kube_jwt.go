@@ -21,9 +21,9 @@ import (
 	"strings"
 
 	"google.golang.org/grpc/metadata"
-	"istio.io/istio/pilot/pkg/features"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/security"
@@ -142,6 +142,7 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 		AuthSource:     security.AuthSourceIDToken,
 		Identities:     []string{spiffe.MustGenSpiffeURI(a.meshHolder.Mesh(), id.PodNamespace, id.PodServiceAccount)},
 		KubernetesInfo: id,
+		ClusterID:      string(clusterID),
 	}, nil
 }
 

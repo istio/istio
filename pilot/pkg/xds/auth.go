@@ -31,22 +31,22 @@ import (
 // Returns the validated principals or an error.
 // If no authenticators are configured, or if the request is on a non-secure
 // stream ( 15010 ) - returns an empty list of principals and no errors.
-func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
+func (s *DiscoveryServer) authenticate(ctx context.Context) (*security.Caller, error) {
 	c, err := security.Authenticate(ctx, s.Authenticators)
 	if c != nil {
-		return c.Identities, nil
+		return c, nil
 	}
 	return nil, err
 }
 
-func (s *DiscoveryServer) authorize(con *Connection, identities []string) error {
+func (s *DiscoveryServer) authorize(con *Connection, identities *security.Caller) error {
 	if con == nil || con.proxy == nil {
 		return nil
 	}
 
 	if features.EnableXDSIdentityCheck && identities != nil {
 		// TODO: allow locking down, rejecting unauthenticated requests.
-		id, err := checkConnectionIdentity(con.proxy, identities)
+		id, err := checkConnectionIdentity(con.proxy, identities.Identities)
 		if err != nil {
 			log.Warnf("Unauthorized XDS: %v with identity %v: %v", con.Peer(), identities, err)
 			return status.Newf(codes.PermissionDenied, "authorization failed: %v", err).Err()

@@ -359,6 +359,11 @@ type Caller struct {
 	Identities []string
 
 	KubernetesInfo KubernetesInfo
+
+	// ClusterID is the content of "ClusterID" header set by client (checked as lowercase clusterid).
+	// Currently set only if 'central istiod' is used, with k8s_jwt authenticator - can be trusted because
+	// that is the K8S APIserver that has verified the token.
+	ClusterID string
 }
 
 // KubernetesInfo defines Kubernetes specific information extracted from the caller.

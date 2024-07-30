@@ -124,25 +124,30 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
 	}
 
+	configClusterSecrets, err := s.secrets.ForCluster(s.configCluster)
+	if err != nil {
+		log.Warnf("config cluster %s not found, cannot retrieve certificates: %v", s.configCluster, err)
+		pilotSDSCertificateErrors.Increment()
+		return nil, model.DefaultXdsLogDetails, nil
+	}
+
+	var proxyClusterSecrets credscontroller.Controller
+
 	secretsFromCluster := proxy.Metadata.ClusterID
 	if !features.CentralIstiodAccess {
 		// If not working in 'central istiod' mode, ignore cluster ID meta - only serve secrets from Istiod cluster.
 		// This prevents workloads in remote clusters from getting secrets in other clusters by using unverified
 		// header.
 		secretsFromCluster = s.configCluster
-	}
-
-	proxyClusterSecrets, err := s.secrets.ForCluster(secretsFromCluster)
-	if err != nil {
-		log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
-		pilotSDSCertificateErrors.Increment()
-		return nil, model.DefaultXdsLogDetails, nil
-	}
-	configClusterSecrets, err := s.secrets.ForCluster(s.configCluster)
-	if err != nil {
-		log.Warnf("config cluster %s not found, cannot retrieve certificates: %v", s.configCluster, err)
-		pilotSDSCertificateErrors.Increment()
-		return nil, model.DefaultXdsLogDetails, nil
+		// Istiod will not return secrets from a remote cluster for proxies
+		proxyClusterSecrets = configClusterSecrets
+	} else {
+		proxyClusterSecrets, err = s.secrets.ForCluster(secretsFromCluster)
+		if err != nil {
+			log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+			pilotSDSCertificateErrors.Increment()
+			return nil, model.DefaultXdsLogDetails, nil
+		}
 	}
 
 	// Filter down to resources we can access. We do not return an error if they attempt to access a Secret
