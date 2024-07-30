@@ -181,18 +181,18 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 		return nil
 	}
 
-	patch, addStatusAndAddresses, err := c.statusPatchForAddresses(serviceentry, false)
+	replaceAddresses, addStatusAndAddresses, err := c.statusPatchForAddresses(serviceentry, false)
 	if err != nil {
 		return err
 	}
 
-	if patch == nil {
+	if replaceAddresses == nil {
 		log.Debugf("no change needed")
 		return nil // nothing to patch
 	}
 
 	// this patch may fail if there is no status which exists
-	_, err = c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, patch)
+	_, err = c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, replaceAddresses)
 	if err != nil {
 		// try this patch which tests that status doesn't exist, adds status and then add addresses all in 1 operation
 		_, err2 := c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, addStatusAndAddresses)
