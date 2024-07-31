@@ -136,6 +136,7 @@ func writeKubeConfigFile(cfg *config.InstallConfig) error {
 
 	kubeconfigFilepath := filepath.Join(cfg.CNIAgentRunDir, constants.CNIPluginKubeconfName)
 	if err := file.AtomicWrite(kubeconfigFilepath, []byte(kc.Full), os.FileMode(cfg.KubeconfigMode)); err != nil {
+		installLog.Debugf("error writing kubeconfig: %w", err)
 		return err
 	}
 	installLog.Infof("wrote kubeconfig file %s with: \n%+v", kubeconfigFilepath, kc.Redacted)
