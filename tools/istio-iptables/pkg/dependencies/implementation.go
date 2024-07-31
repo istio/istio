@@ -210,9 +210,8 @@ func GetNFTVersion(modules map[string]struct{}, ipV6 bool) (*IptablesVersion, er
 	}
 	if strings.Contains(string(versionOutput), "nf_tables") {
 		return NewIpTablesVersion(baseBin, string(versionOutput))
-	} else {
-		return nil, fmt.Errorf("nft command not found(default iptables is not nft)")
 	}
+	return nil, fmt.Errorf("nft command not found(default iptables is not nft)")
 }
 
 func GetLegacyVersion(modules map[string]struct{}, ipV6 bool) (*IptablesVersion, error) {
