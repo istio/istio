@@ -102,7 +102,7 @@ func (a *KubeJWTAuthenticator) authenticateHTTP(req *http.Request) (*security.Ca
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
 	clusterID := cluster.ID(req.Header.Get(clusterIDMeta))
-	if !features.CentralIstiodAccess {
+	if !features.RemoteClusterAccess {
 		clusterID = "" // do not allow other clusters unless Istiod is running in 'central istiod' mode.
 	}
 	return a.authenticate(targetJWT, clusterID)
@@ -135,7 +135,7 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	if id.PodNamespace == "" {
 		return nil, fmt.Errorf("failed to parse the JWT; namespace required")
 	}
-	if !features.CentralIstiodAccess {
+	if !features.RemoteClusterAccess {
 		clusterID = ""
 	}
 	return &security.Caller{
@@ -153,7 +153,7 @@ func (a *KubeJWTAuthenticator) getKubeClient(clusterID cluster.ID) kubernetes.In
 		return a.kubeClient
 	}
 
-	if !features.CentralIstiodAccess {
+	if !features.RemoteClusterAccess {
 		return a.kubeClient
 	}
 

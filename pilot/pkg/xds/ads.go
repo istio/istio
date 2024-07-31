@@ -29,7 +29,6 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
@@ -255,7 +254,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	if alias, exists := s.ClusterAliases[proxy.Metadata.ClusterID]; exists {
 		proxy.Metadata.ClusterID = alias
 	}
-	if features.CentralIstiodAccess {
+	if features.RemoteClusterAccess {
 		if identities.ClusterID != "" {
 			if string(proxy.Metadata.ClusterID) != identities.ClusterID && string(origClusterID) != identities.ClusterID {
 				return errors.New("cluster ID in node and auth not matching")

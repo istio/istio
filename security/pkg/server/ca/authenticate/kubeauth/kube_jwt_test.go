@@ -20,14 +20,16 @@ import (
 	"testing"
 
 	"google.golang.org/grpc/metadata"
-	"istio.io/istio/pilot/pkg/features"
 	k8sauth "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/security"
@@ -79,7 +81,7 @@ func TestAuthenticate(t *testing.T) {
 	meshHolder := mockMeshConfigHolder{"example.com"}
 
 	// The tests are checking cross cluster.
-	features.CentralIstiodAccess = true
+	features.RemoteClusterAccess = true
 
 	testCases := map[string]struct {
 		remoteCluster  bool
