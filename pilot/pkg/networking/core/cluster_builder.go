@@ -351,7 +351,8 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	if direction == model.TrafficDirectionOutbound {
 		// If stat name is configured, build the alternate stats name.
 		if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
-			ec.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName, string(service.Hostname), subset, port, 0, &service.Attributes)
+			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName, string(service.Hostname), subset, port, 0, &service.Attributes)
+			ec.cluster.AltStatName = util.DelimitedStatsPrefix(statPrefix, cb.proxyVersion)
 		}
 	}
 
@@ -362,7 +363,7 @@ func (cb *ClusterBuilder) defaultAltStatName(clusterName string) string {
 	if util.IsIstioVersionGE123(cb.proxyVersion) {
 		return clusterName + constants.StatPrefixDelimiter
 	}
-	return ""
+	return clusterName
 }
 
 // buildInboundCluster constructs a single inbound cluster. The cluster will be bound to
@@ -385,9 +386,10 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		model.TrafficDirectionInbound, instance.Port.ServicePort, instance.Service, inboundServices, "")
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
-		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
+		statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort,
 			&instance.Service.Attributes)
+		localCluster.cluster.AltStatName = util.DelimitedStatsPrefix(statPrefix, cb.proxyVersion)
 	}
 	if clusterType == cluster.Cluster_ORIGINAL_DST {
 		// Disable cleanup for inbound clusters - set to Max possible duration.
