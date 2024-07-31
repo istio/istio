@@ -399,7 +399,6 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 			if expiryTimestamp.Sub(expectedExpiryTimestamp).Abs() > tol {
 				t.Errorf("Expected %d and %d to be almost equal", expiryTimestamp.Unix(), expectedExpiryTimestamp.Unix())
 			}
-
 		})
 	}
 
@@ -509,17 +508,13 @@ func TestExtractCACertExpiryTimestamp(t *testing.T) {
 		garbage := []byte{0, 0, 0, 0}
 		kb := NewKeyCertBundleFromPem(garbage, garbage, nil, garbage)
 		// will return error if expired
-		expiryTimestamp, err := kb.ExtractCACertExpiryTimestamp()
-		if expiryTimestamp != nil {
-			t.Errorf("Expected nil value")
-		}
+		_, err := kb.ExtractCACertExpiryTimestamp()
 		if err == nil {
 			t.Errorf("Expected error parsing malformed cert")
 		} else if err.Error() != errorMessage {
 			t.Errorf("Expected error %s, but got %s", errorMessage, err.Error())
 		}
 	})
-
 }
 
 func TestTimeBeforeCertExpires(t *testing.T) {
