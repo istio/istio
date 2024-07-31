@@ -178,9 +178,8 @@ func getIptablesNFTBin(isIpV6 bool) string {
 func getIptablesLegacyBin(isIpV6 bool) string {
 	if isIpV6 {
 		return ip6tablesLegacyBin
-	} else {
-		return iptablesLegacyBin
 	}
+	return iptablesLegacyBin
 }
 
 func getIptablesBin(isIpV6 bool) string {
