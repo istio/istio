@@ -16,6 +16,7 @@ package xds
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"google.golang.org/grpc/codes"
@@ -45,6 +46,17 @@ func (s *DiscoveryServer) authorize(con *Connection, identities *security.Caller
 	}
 
 	if features.EnableXDSIdentityCheck && identities != nil {
+		if features.RemoteClusterAccess {
+			if identities != nil && identities.ClusterID != "" {
+				if string(con.proxy.Metadata.ClusterID) != identities.ClusterID {
+					return errors.New("cluster ID in node and auth not matching")
+				}
+			} else {
+				// This may become a hard error - it may allow exposing secrets from other clusters without verification.
+				// For backward compat and initially just a log.
+				log.WithLabels("method", identities.AuthSource).Info("Can't validate cluster ID")
+			}
+		}
 		// TODO: allow locking down, rejecting unauthenticated requests.
 		id, err := checkConnectionIdentity(con.proxy, identities.Identities)
 		if err != nil {

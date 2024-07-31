@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -250,20 +249,8 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	}
 
 	// Check if proxy cluster has an alias configured, if yes use that as cluster ID for this proxy.
-	origClusterID := proxy.Metadata.ClusterID
 	if alias, exists := s.ClusterAliases[proxy.Metadata.ClusterID]; exists {
 		proxy.Metadata.ClusterID = alias
-	}
-	if features.RemoteClusterAccess {
-		if identities.ClusterID != "" {
-			if string(proxy.Metadata.ClusterID) != identities.ClusterID && string(origClusterID) != identities.ClusterID {
-				return errors.New("cluster ID in node and auth not matching")
-			}
-		} else {
-			// This may become a hard error - it may allow exposing secrets from other clusters without verification.
-			// For backward compat and initially just a log.
-			log.WithLabels("method", identities.AuthSource).Info("Can't validate cluster ID")
-		}
 	}
 
 	// To ensure push context is monotonically increasing, setup LastPushContext before we addCon. This
