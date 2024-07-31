@@ -15,39 +15,48 @@
 package controlplane
 
 import (
-	"fmt"
 	"sort"
 
 	"k8s.io/apimachinery/pkg/version"
 
 	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/kube"
 )
 
 // IstioControlPlane is an installation of an Istio control plane.
 type IstioControlPlane struct {
 	// components is a slice of components that are part of the feature.
-	components []*component.IstioComponent
-	started    bool
+	components []*istioComponent
+}
+
+func Render(client kube.Client, iop *v1alpha1.IstioOperatorSpec) (name.ManifestMap, error) {
+	var ver *version.Info
+	if client != nil {
+		var err error
+		ver, err = client.GetKubernetesVersion()
+		if err != nil {
+			return nil, err
+		}
+	}
+	t := translate.NewTranslator()
+	cp, err := NewIstioControlPlane(iop, t, ver)
+	if err != nil {
+		return nil, err
+	}
+
+	return cp.RenderManifest()
 }
 
 // NewIstioControlPlane creates a new IstioControlPlane and returns a pointer to it.
-func NewIstioControlPlane(
-	installSpec *v1alpha1.IstioOperatorSpec,
-	translator *translate.Translator,
-	filter []string,
-	ver *version.Info,
-) (*IstioControlPlane, error) {
+func NewIstioControlPlane(installSpec *v1alpha1.IstioOperatorSpec, translator *translate.Translator, ver *version.Info) (*IstioControlPlane, error) {
 	out := &IstioControlPlane{}
-	opts := &component.Options{
+	opts := &options{
 		InstallSpec: installSpec,
 		Translator:  translator,
-		Filter:      sets.New(filter...),
 		Version:     ver,
 	}
 	for _, c := range name.AllCoreComponentNames {
@@ -57,19 +66,19 @@ func NewIstioControlPlane(
 			return nil, err
 		}
 		o.Namespace = ns
-		out.components = append(out.components, component.NewCoreComponent(c, &o))
+		out.components = append(out.components, newCoreComponent(c, &o))
 	}
 
 	if installSpec.Components != nil {
 		for idx, c := range installSpec.Components.IngressGateways {
 			o := *opts
 			o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-			out.components = append(out.components, component.NewIngressComponent(c.Name, idx, c, &o))
+			out.components = append(out.components, newIngressComponent(c.Name, idx, c, &o))
 		}
 		for idx, c := range installSpec.Components.EgressGateways {
 			o := *opts
 			o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-			out.components = append(out.components, component.NewEgressComponent(c.Name, idx, c, &o))
+			out.components = append(out.components, newEgressComponent(c.Name, idx, c, &o))
 		}
 	}
 	return out, nil
@@ -91,37 +100,23 @@ func defaultIfEmpty(val, dflt string) string {
 	return val
 }
 
-// Run starts the Istio control plane.
-func (i *IstioControlPlane) Run() error {
-	for _, c := range i.components {
-		if err := c.Run(); err != nil {
-			return err
-		}
-	}
-	i.started = true
-	return nil
-}
-
 // RenderManifest returns a manifest rendered against
-func (i *IstioControlPlane) RenderManifest() (manifests name.ManifestMap, errsOut util.Errors) {
-	if !i.started {
-		return nil, util.NewErrs(fmt.Errorf("istioControlPlane must be Run before calling RenderManifest"))
-	}
-
-	manifests = make(name.ManifestMap)
+func (i *IstioControlPlane) RenderManifest() (name.ManifestMap, error) {
+	var errsOut util.Errors
+	manifests := make(name.ManifestMap)
 	for _, c := range i.components {
 		ms, err := c.RenderManifest()
 		errsOut = util.AppendErr(errsOut, err)
 		manifests[c.ComponentName] = append(manifests[c.ComponentName], ms)
 	}
 	if len(errsOut) > 0 {
-		return nil, errsOut
+		return nil, errsOut.ToError()
 	}
-	return
+	return manifests, errsOut.ToError()
 }
 
 // componentsEqual reports whether the given components are equal to those in i.
-func (i *IstioControlPlane) componentsEqual(components []*component.IstioComponent) bool {
+func (i *IstioControlPlane) componentsEqual(components []*istioComponent) bool {
 	if i.components == nil && components == nil {
 		return true
 	}

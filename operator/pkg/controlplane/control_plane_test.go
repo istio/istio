@@ -15,15 +15,12 @@
 package controlplane
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/pkg/util"
 )
 
 func TestOrderedKeys(t *testing.T) {
@@ -60,7 +57,7 @@ func TestOrderedKeys(t *testing.T) {
 }
 
 func TestNewIstioOperator(t *testing.T) {
-	coreComponentOptions := &component.Options{
+	coreComponentOptions := &options{
 		InstallSpec: &v1alpha1.IstioOperatorSpec{},
 		Translator:  &translate.Translator{},
 	}
@@ -83,27 +80,27 @@ func TestNewIstioOperator(t *testing.T) {
 			},
 			wantErr: nil,
 			wantIstioOperator: &IstioControlPlane{
-				components: []*component.IstioComponent{
+				components: []*istioComponent{
 					{
-						Options:       coreComponentOptions,
+						options:       coreComponentOptions,
 						ComponentName: name.IstioBaseComponentName,
 					},
 					{
-						Options:       coreComponentOptions,
+						options:       coreComponentOptions,
 						ResourceName:  "test-resource",
 						ComponentName: name.PilotComponentName,
 					},
 					{
 						ComponentName: name.CNIComponentName,
-						Options:       coreComponentOptions,
+						options:       coreComponentOptions,
 					},
 					{
 						ComponentName: name.IstiodRemoteComponentName,
-						Options:       coreComponentOptions,
+						options:       coreComponentOptions,
 					},
 					{
 						ComponentName: name.ZtunnelComponentName,
-						Options:       coreComponentOptions,
+						options:       coreComponentOptions,
 					},
 				},
 			},
@@ -111,88 +108,10 @@ func TestNewIstioOperator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			gotOperator, err := NewIstioControlPlane(tt.inInstallSpec, tt.inTranslator, nil, nil)
+			gotOperator, err := NewIstioControlPlane(tt.inInstallSpec, tt.inTranslator, nil)
 			if ((err != nil && tt.wantErr == nil) || (err == nil && tt.wantErr != nil)) || !gotOperator.componentsEqual(tt.wantIstioOperator.components) {
 				t.Errorf("%s: wanted components & err %+v %v, got components & err %+v %v",
 					tt.desc, tt.wantIstioOperator.components, tt.wantErr, gotOperator.components, err)
-			}
-		})
-	}
-}
-
-func TestIstioOperator_RenderManifest(t *testing.T) {
-	coreComponentOptions := &component.Options{
-		InstallSpec: &v1alpha1.IstioOperatorSpec{},
-		Translator:  &translate.Translator{},
-	}
-	tests := []struct {
-		desc          string
-		testOperator  *IstioControlPlane
-		wantManifests name.ManifestMap
-		wantErrs      util.Errors
-	}{
-		{
-			desc: "components-not-started-operator-started",
-			testOperator: &IstioControlPlane{
-				components: []*component.IstioComponent{
-					{
-						Options:       coreComponentOptions,
-						ComponentName: name.IstioBaseComponentName,
-					},
-					{
-						Options:       coreComponentOptions,
-						ResourceName:  "test-resource",
-						ComponentName: name.PilotComponentName,
-					},
-					{
-						ComponentName: name.CNIComponentName,
-						Options:       coreComponentOptions,
-					},
-				},
-				started: true,
-			},
-			wantManifests: map[name.ComponentName][]string{},
-			wantErrs: util.Errors{
-				fmt.Errorf("component Base not started in RenderManifest"),
-				fmt.Errorf("component Pilot not started in RenderManifest"),
-				fmt.Errorf("component Cni not started in RenderManifest"),
-			},
-		},
-		{
-			desc: "operator-not-started",
-			testOperator: &IstioControlPlane{
-				components: []*component.IstioComponent{
-					{
-						Options:       coreComponentOptions,
-						ComponentName: name.IstioBaseComponentName,
-					},
-					{
-						Options:       coreComponentOptions,
-						ResourceName:  "test-resource",
-						ComponentName: name.PilotComponentName,
-					},
-					{
-						ComponentName: name.CNIComponentName,
-						Options:       coreComponentOptions,
-					},
-				},
-				started: false,
-			},
-			wantManifests: map[name.ComponentName][]string{},
-			wantErrs: util.Errors{
-				fmt.Errorf("istioControlPlane must be Run before calling RenderManifest"),
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			gotManifests, gotErrs := tt.testOperator.RenderManifest()
-			if !reflect.DeepEqual(gotManifests, tt.wantManifests) || !util.EqualErrors(gotErrs, tt.wantErrs) {
-				// reflect.DeepEqual returns false on size 0 maps
-				if !(len(gotManifests) == 0) && (len(tt.wantManifests) == 0) {
-					t.Errorf("%s: expected manifest map %+v errs %+v, got manifest map %+v errs %+v",
-						tt.desc, tt.wantManifests, tt.wantErrs, gotManifests, gotErrs)
-				}
 			}
 		})
 	}

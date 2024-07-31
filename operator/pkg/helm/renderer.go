@@ -41,7 +41,6 @@ type Renderer struct {
 	namespace     string
 	componentName string
 	chart         *chart.Chart
-	started       bool
 	files         fs.FS
 	dir           string
 	// Kubernetes cluster version
@@ -50,39 +49,27 @@ type Renderer struct {
 
 // NewFileTemplateRenderer creates a TemplateRenderer with the given parameters and returns a pointer to it.
 // helmChartDirPath must be an absolute file path to the root of the helm charts.
-func NewGenericRenderer(files fs.FS, dir, componentName, namespace string, version *version.Info) *Renderer {
-	return &Renderer{
+func NewGenericRenderer(files fs.FS, dir, componentName, namespace string, version *version.Info) (*Renderer, error) {
+	r := &Renderer{
 		namespace:     namespace,
 		componentName: componentName,
 		dir:           dir,
 		files:         files,
 		version:       version,
 	}
-}
-
-// Run implements the TemplateRenderer interface.
-func (h *Renderer) Run() error {
-	if err := h.loadChart(); err != nil {
-		return err
+	if err := r.loadChart(); err != nil {
+		return nil, err
 	}
-
-	h.started = true
-	return nil
+	return r, nil
 }
 
 // RenderManifest renders the current helm templates with the current values and returns the resulting YAML manifest string.
 func (h *Renderer) RenderManifest(values string) (string, error) {
-	if !h.started {
-		return "", fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
-	}
 	return renderChart(h.namespace, values, h.chart, nil, h.version)
 }
 
 // RenderManifestFiltered filters templates to render using the supplied filter function.
 func (h *Renderer) RenderManifestFiltered(values string, filter TemplateFilterFunc) (string, error) {
-	if !h.started {
-		return "", fmt.Errorf("fileTemplateRenderer for %s not started in renderChart", h.componentName)
-	}
 	return renderChart(h.namespace, values, h.chart, filter, h.version)
 }
 

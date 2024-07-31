@@ -425,18 +425,12 @@ func createServiceAccount(client kube.CLIClient, opt RemoteSecretOptions) error 
 
 func generateServiceAccountYAML(opt RemoteSecretOptions) (string, error) {
 	// Create a renderer for the base installation.
-	baseRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace, nil)
-	discoveryRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "istio-control/istio-discovery", "Pilot", opt.Namespace, nil)
-
+	baseRenderer, err := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace, nil)
+	if err != nil {
+		return "", err
+	}
 	baseTemplates := []string{"reader-serviceaccount.yaml"}
 	discoveryTemplates := []string{"clusterrole.yaml", "clusterrolebinding.yaml"}
-
-	if err := baseRenderer.Run(); err != nil {
-		return "", fmt.Errorf("failed running base Helm renderer: %w", err)
-	}
-	if err := discoveryRenderer.Run(); err != nil {
-		return "", fmt.Errorf("failed running base discovery Helm renderer: %w", err)
-	}
 
 	values := fmt.Sprintf(`
 global:
@@ -454,6 +448,11 @@ global:
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed rendering base manifest: %w", err)
+	}
+
+	discoveryRenderer, err := helm.NewHelmRenderer(opt.ManifestsPath, "istio-control/istio-discovery", "Pilot", opt.Namespace, nil)
+	if err != nil {
+		return "", err
 	}
 	discoveryContent, err := discoveryRenderer.RenderManifestFiltered(values, func(template string) bool {
 		for _, t := range discoveryTemplates {

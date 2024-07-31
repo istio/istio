@@ -61,8 +61,6 @@ type HelmReconciler struct {
 	kubeClient kube.Client
 	iop        *istioV1Alpha1.IstioOperator
 	opts       *Options
-	// copy of the last generated manifests.
-	manifests name.ManifestMap
 	// dependencyWaitCh is a map of signaling channels. A parent with children ch1...chN will signal
 	// dependencyWaitCh[ch1]...dependencyWaitCh[chN] when it's completely installed.
 	dependencyWaitCh map[name.ComponentName]chan struct{}

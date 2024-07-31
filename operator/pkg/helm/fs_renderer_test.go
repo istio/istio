@@ -27,28 +27,17 @@ func TestRenderManifest(t *testing.T) {
 		desc                  string
 		inValues              string
 		inChart               chart.Chart
-		startRender           bool
 		inPath                string
 		objFileTemplateReader Renderer
 		wantResult            string
 		wantErr               error
 	}{
 		{
-			desc:                  "not-started",
-			inValues:              "",
-			startRender:           false,
-			inChart:               chart.Chart{},
-			objFileTemplateReader: Renderer{},
-			wantResult:            "",
-			wantErr:               errors.New("fileTemplateRenderer for not started in renderChart"),
-		},
-		{
 			desc: "started-random-template",
 			inValues: `
 description: test
 `,
-			inPath:      "testdata/render/Chart.yaml",
-			startRender: true,
+			inPath: "testdata/render/Chart.yaml",
 			objFileTemplateReader: Renderer{
 				namespace:     "name-space",
 				componentName: "foo-component",
@@ -69,10 +58,9 @@ keywords:
 			wantErr: nil,
 		},
 		{
-			desc:        "bad-file-path",
-			inValues:    "",
-			inPath:      "foo/bar/Chart.yaml",
-			startRender: true,
+			desc:     "bad-file-path",
+			inValues: "",
+			inPath:   "foo/bar/Chart.yaml",
 			objFileTemplateReader: Renderer{
 				namespace:     "name-space",
 				componentName: "foo-component",
@@ -85,13 +73,14 @@ keywords:
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			if tt.startRender {
-				err := tt.objFileTemplateReader.Run()
-				if err != nil && tt.wantErr != nil {
-					if err.Error() != tt.wantErr.Error() {
-						t.Errorf("%s: expected err: %q got %q", tt.desc, tt.wantErr.Error(), err.Error())
-					}
+			err := tt.objFileTemplateReader.loadChart()
+			if err != nil && tt.wantErr != nil {
+				if err.Error() != tt.wantErr.Error() {
+					t.Errorf("%s: expected err: %q got %q", tt.desc, tt.wantErr.Error(), err.Error())
 				}
+			}
+			if err != nil {
+				return
 			}
 			if res, err := tt.objFileTemplateReader.RenderManifest(tt.inValues); res != tt.wantResult ||
 				((tt.wantErr != nil && err == nil) || (tt.wantErr == nil && err != nil)) {

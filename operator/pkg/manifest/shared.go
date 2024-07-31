@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
@@ -51,7 +50,7 @@ var installerScope = log.RegisterScope("installer", "installer")
 // representation of path-values passed through the --set flag.
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
-func GenManifests(inFilename []string, setFlags []string, force bool, filter []string,
+func GenManifests(inFilename []string, setFlags []string, force bool,
 	client kube.Client, l clog.Logger,
 ) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
 	_, mergedIOPS, err := GenerateIstioOperator(inFilename, setFlags, force, client, l)
@@ -59,25 +58,9 @@ func GenManifests(inFilename []string, setFlags []string, force bool, filter []s
 		return nil, nil, err
 	}
 
-	t := translate.NewTranslator()
-	var ver *version.Info
-	if client != nil {
-		ver, err = client.GetKubernetesVersion()
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t, filter, ver)
+	manifests, err := controlplane.Render(client, mergedIOPS.Spec)
 	if err != nil {
 		return nil, nil, err
-	}
-	if err := cp.Run(); err != nil {
-		return nil, nil, err
-	}
-
-	manifests, errs := cp.RenderManifest()
-	if errs != nil {
-		return manifests, mergedIOPS, errs.ToError()
 	}
 	return manifests, mergedIOPS, nil
 }

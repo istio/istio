@@ -53,8 +53,6 @@ type ManifestGenerateArgs struct {
 	Revision string
 	// Components is a list of strings specifying which component's manifests to be generated.
 	Components []string
-	// Filter is the list of components to render
-	Filter []string
 }
 
 var kubeClientFunc func() (kube.CLIClient, error)
@@ -80,8 +78,6 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.Components, "component", nil, ComponentFlagHelpStr)
-	cmd.PersistentFlags().StringSliceVar(&args.Filter, "filter", nil, "")
-	_ = cmd.PersistentFlags().MarkHidden("filter")
 
 	cmd.PersistentFlags().BoolVar(&args.EnableClusterSpecific, "cluster-specific", false,
 		"If enabled, the current cluster will be checked for cluster-specific setting detection.")
@@ -131,7 +127,7 @@ func ManifestGenerateCmd(ctx cli.Context, rootArgs *RootArgs, mgArgs *ManifestGe
 
 func ManifestGenerate(kubeClient kube.CLIClient, args *RootArgs, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
 	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
-		mgArgs.Force, mgArgs.Filter, kubeClient, l)
+		mgArgs.Force, kubeClient, l)
 	if err != nil {
 		return err
 	}

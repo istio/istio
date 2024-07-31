@@ -114,7 +114,7 @@ func recreateSimpleTestEnv() {
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
 // It returns an ObjectSet for each cmd type.
 // nolint: unparam
-func runManifestCommands(inFile, flags string, chartSource chartSourceType, fileSelect []string) (map[cmdType]*ObjectSet, error) {
+func runManifestCommands(inFile, flags string, chartSource chartSourceType) (map[cmdType]*ObjectSet, error) {
 	out := make(map[cmdType]*ObjectSet)
 	for _, cmd := range testedManifestCmds {
 		log.Infof("\nRunning test command using %s\n", cmd)
@@ -130,7 +130,7 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType, file
 		var err error
 		switch cmd {
 		case cmdGenerate:
-			m, err := generateManifest(inFile, flags, chartSource, fileSelect)
+			m, err := generateManifest(inFile, flags, chartSource)
 			if err != nil {
 				return nil, err
 			}
@@ -156,7 +156,7 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType, file
 // fakeApplyManifest runs istioctl install.
 func fakeApplyManifest(inFile, flags string, chartSource chartSourceType) (*ObjectSet, error) {
 	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
-	manifest, err := runManifestCommand("install", []string{inPath}, flags, chartSource, nil)
+	manifest, err := runManifestCommand("install", []string{inPath}, flags, chartSource)
 	if err != nil {
 		return nil, fmt.Errorf("error %s: %s", err, manifest)
 	}
@@ -215,7 +215,7 @@ func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest str
 
 // runManifestCommand runs the given manifest command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestCommand(command string, filenames []string, flags string, chartSource chartSourceType, fileSelect []string) (string, error) {
+func runManifestCommand(command string, filenames []string, flags string, chartSource chartSourceType) (string, error) {
 	cmd := InstallCmd
 	args := ""
 	if command != "install" {
@@ -227,13 +227,6 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 	}
 	if flags != "" {
 		args += " " + flags
-	}
-	if fileSelect != nil {
-		filters := []string{}
-		filters = append(filters, fileSelect...)
-		// Everything needs these
-		filters = append(filters, "templates/_affinity.tpl", "templates/_helpers.tpl", "templates/zzz_profile.yaml", "zzy_descope_legacy.yaml")
-		args += " --filter " + strings.Join(filters, ",")
 	}
 	args += " --set installPackagePath=" + string(chartSource)
 	return runCommand(cmd, args)

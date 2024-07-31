@@ -630,7 +630,7 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 	}
 
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
-	manifests, _, err := manifest.GenManifests(inFilenames, setFlags, false, nil, nil, l)
+	manifests, _, err := manifest.GenManifests(inFilenames, setFlags, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}

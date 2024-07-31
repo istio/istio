@@ -51,21 +51,10 @@ var scope = log.RegisterScope("installer", "installer")
 // TemplateFilterFunc filters templates to render by their file name
 type TemplateFilterFunc func(string) bool
 
-// TemplateRenderer defines a helm template renderer interface.
-type TemplateRenderer interface {
-	// Run starts the renderer and should be called before using it.
-	Run() error
-	// RenderManifest renders the associated helm charts with the given values YAML string and returns the resulting
-	// string.
-	RenderManifest(values string) (string, error)
-	// RenderManifestFiltered filters manifests to render by template file name
-	RenderManifestFiltered(values string, filter TemplateFilterFunc) (string, error)
-}
-
 // NewHelmRenderer creates a new helm renderer with the given parameters and returns an interface to it.
 // The format of helmBaseDir and profile strings determines the type of helm renderer returned (compiled-in, file,
 // HTTP etc.)
-func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace string, version *version.Info) TemplateRenderer {
+func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace string, version *version.Info) (*Renderer, error) {
 	dir := strings.Join([]string{ChartsSubdirName, helmSubdir}, "/")
 	return NewGenericRenderer(manifests.BuiltinOrDir(operatorDataDir), dir, componentName, namespace, version)
 }

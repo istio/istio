@@ -200,9 +200,8 @@ func Create(client kube.CLIClient, manifests, ns string) error {
 
 // generateValidatingWebhook renders a validating webhook configuration from the given tagWebhookConfig.
 func generateValidatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (string, error) {
-	r := helm.NewHelmRenderer(opts.ManifestsPath, defaultChart, "Pilot", config.IstioNamespace, nil)
-
-	if err := r.Run(); err != nil {
+	r, err := helm.NewHelmRenderer(opts.ManifestsPath, defaultChart, "Pilot", config.IstioNamespace, nil)
+	if err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
 	}
 
@@ -270,9 +269,8 @@ func generateLabels(whLabels, curLabels, customLabels map[string]string, userMan
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
 func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (string, error) {
-	r := helm.NewHelmRenderer(opts.ManifestsPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace, nil)
-
-	if err := r.Run(); err != nil {
+	r, err := helm.NewHelmRenderer(opts.ManifestsPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace, nil)
+	if err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
 	}
 

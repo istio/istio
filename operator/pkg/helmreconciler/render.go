@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/validate"
 )
 
@@ -33,25 +32,5 @@ func (h *HelmReconciler) RenderCharts() (name.ManifestMap, error) {
 		h.opts.Log.PrintErr(fmt.Sprintf("spec invalid; continuing because of --force: %v\n", err))
 	}
 
-	t := translate.NewTranslator()
-	ver, err := h.kubeClient.GetKubernetesVersion()
-	if err != nil {
-		return nil, err
-	}
-	cp, err := controlplane.NewIstioControlPlane(iopSpec, t, nil, ver)
-	if err != nil {
-		return nil, err
-	}
-	if err := cp.Run(); err != nil {
-		return nil, fmt.Errorf("failed to create Istio control plane with spec: \n%v\nerror: %s", iopSpec, err)
-	}
-
-	manifests, errs := cp.RenderManifest()
-	if errs != nil {
-		err = errs.ToError()
-	}
-
-	h.manifests = manifests
-
-	return manifests, err
+	return controlplane.Render(h.kubeClient, iopSpec)
 }
