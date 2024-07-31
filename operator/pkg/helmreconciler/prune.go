@@ -94,20 +94,12 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
 func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList) error {
 	var errs util.Errors
-	deletedObjects := make(map[string]bool)
 	for _, ul := range objectsList {
 		for _, o := range ul.Items {
 			obj := object.NewK8sObject(&o, nil, nil)
-			oh := obj.Hash()
-
-			// kube client does not differentiate API version when listing, added this check to deduplicate.
-			if deletedObjects[oh] {
-				continue
-			}
-			if err := h.deleteResource(obj, oh); err != nil {
+			if err := h.deleteResource(obj); err != nil {
 				errs = append(errs, err)
 			}
-			deletedObjects[oh] = true
 		}
 	}
 
@@ -252,7 +244,7 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 				continue
 			}
 		}
-		if err := h.deleteResource(obj, oh); err != nil {
+		if err := h.deleteResource(obj); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -260,9 +252,9 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 	return errs.ToError()
 }
 
-func (h *HelmReconciler) deleteResource(obj *object.K8sObject, oh string) error {
+func (h *HelmReconciler) deleteResource(obj *object.K8sObject) error {
 	if h.opts.DryRun {
-		h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
+		h.opts.Log.LogAndPrintf("Not pruning object %v because of dry run.", obj.Hash())
 		return nil
 	}
 	u := obj.UnstructuredObject()
@@ -273,7 +265,7 @@ func (h *HelmReconciler) deleteResource(obj *object.K8sObject, oh string) error 
 		}
 	}
 	err := h.client.Delete(context.TODO(), u, client.PropagationPolicy(metav1.DeletePropagationBackground))
-	scope.Debugf("Deleting %s (%s/%v)", oh, h.iop.Name, h.iop.Spec.Revision)
+	scope.Debugf("Deleting %s (%s/%v)", obj.Hash(), h.iop.Name, h.iop.Spec.Revision)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return err
@@ -283,6 +275,6 @@ func (h *HelmReconciler) deleteResource(obj *object.K8sObject, oh string) error 
 		return nil
 	}
 
-	h.opts.Log.LogAndPrintf("  Removed %s.", oh)
+	h.opts.Log.LogAndPrintf("  Removed %s.", obj.Hash())
 	return nil
 }
