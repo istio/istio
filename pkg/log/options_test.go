@@ -36,9 +36,6 @@ func TestOpts(t *testing.T) {
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
 			JSONEncoding:        true,
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_target stdout --log_target stderr", Options{
@@ -46,9 +43,6 @@ func TestOpts(t *testing.T) {
 			ErrorOutputPaths:    []string{defaultErrorOutputPath},
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_caller default", Options{
@@ -57,9 +51,6 @@ func TestOpts(t *testing.T) {
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
 			logCallers:          DefaultScopeName,
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_stacktrace_level debug", Options{
@@ -67,9 +58,6 @@ func TestOpts(t *testing.T) {
 			ErrorOutputPaths:    []string{defaultErrorOutputPath},
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    levelToString[DebugLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_stacktrace_level default:debug", Options{
@@ -77,9 +65,6 @@ func TestOpts(t *testing.T) {
 			ErrorOutputPaths:    []string{defaultErrorOutputPath},
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[DebugLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_stacktrace_level info", Options{
@@ -87,9 +72,6 @@ func TestOpts(t *testing.T) {
 			ErrorOutputPaths:    []string{defaultErrorOutputPath},
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    levelToString[InfoLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_stacktrace_level default:info", Options{
@@ -97,9 +79,6 @@ func TestOpts(t *testing.T) {
 			ErrorOutputPaths:    []string{defaultErrorOutputPath},
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[InfoLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_stacktrace_level warn", Options{
@@ -107,9 +86,6 @@ func TestOpts(t *testing.T) {
 			ErrorOutputPaths:    []string{defaultErrorOutputPath},
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    levelToString[WarnLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_stacktrace_level default:warn", Options{
@@ -117,9 +93,6 @@ func TestOpts(t *testing.T) {
 			ErrorOutputPaths:    []string{defaultErrorOutputPath},
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[WarnLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_stacktrace_level error", Options{
@@ -127,9 +100,6 @@ func TestOpts(t *testing.T) {
 			ErrorOutputPaths:    []string{defaultErrorOutputPath},
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    levelToString[ErrorLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_stacktrace_level default:error", Options{
@@ -137,9 +107,6 @@ func TestOpts(t *testing.T) {
 			ErrorOutputPaths:    []string{defaultErrorOutputPath},
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[ErrorLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_stacktrace_level none", Options{
@@ -147,9 +114,6 @@ func TestOpts(t *testing.T) {
 			ErrorOutputPaths:    []string{defaultErrorOutputPath},
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    levelToString[NoneLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_stacktrace_level default:none", Options{
@@ -157,9 +121,6 @@ func TestOpts(t *testing.T) {
 			ErrorOutputPaths:    []string{defaultErrorOutputPath},
 			defaultOutputLevels: "default:info,grpc:none",
 			stackTraceLevels:    "default:none",
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_output_level debug", Options{
@@ -168,9 +129,6 @@ func TestOpts(t *testing.T) {
 			defaultOutputLevels: "default:info,grpc:none",
 			outputLevels:        levelToString[DebugLevel],
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_output_level info", Options{
@@ -179,9 +137,6 @@ func TestOpts(t *testing.T) {
 			defaultOutputLevels: "default:info,grpc:none",
 			outputLevels:        levelToString[InfoLevel],
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_output_level warn", Options{
@@ -190,9 +145,6 @@ func TestOpts(t *testing.T) {
 			defaultOutputLevels: "default:info,grpc:none",
 			outputLevels:        levelToString[WarnLevel],
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_output_level error", Options{
@@ -201,9 +153,6 @@ func TestOpts(t *testing.T) {
 			defaultOutputLevels: "default:info,grpc:none",
 			outputLevels:        levelToString[ErrorLevel],
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
 		}},
 
 		{"--log_output_level none", Options{
@@ -212,50 +161,6 @@ func TestOpts(t *testing.T) {
 			defaultOutputLevels: "default:info,grpc:none",
 			outputLevels:        levelToString[NoneLevel],
 			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
-		}},
-
-		{"--log_rotate foobar", Options{
-			OutputPaths:         []string{defaultOutputPath},
-			ErrorOutputPaths:    []string{defaultErrorOutputPath},
-			defaultOutputLevels: "default:info,grpc:none",
-			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
-			RotateOutputPath:    "foobar",
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
-		}},
-
-		{"--log_rotate_max_age 1234", Options{
-			OutputPaths:         []string{defaultOutputPath},
-			ErrorOutputPaths:    []string{defaultErrorOutputPath},
-			defaultOutputLevels: "default:info,grpc:none",
-			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
-			RotationMaxAge:      1234,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  defaultRotationMaxBackups,
-		}},
-
-		{"--log_rotate_max_size 1234", Options{
-			OutputPaths:         []string{defaultOutputPath},
-			ErrorOutputPaths:    []string{defaultErrorOutputPath},
-			defaultOutputLevels: "default:info,grpc:none",
-			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     1234,
-			RotationMaxBackups:  defaultRotationMaxBackups,
-		}},
-
-		{"--log_rotate_max_backups 1234", Options{
-			OutputPaths:         []string{defaultOutputPath},
-			ErrorOutputPaths:    []string{defaultErrorOutputPath},
-			defaultOutputLevels: "default:info,grpc:none",
-			stackTraceLevels:    DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
-			RotationMaxAge:      defaultRotationMaxAge,
-			RotationMaxSize:     defaultRotationMaxSize,
-			RotationMaxBackups:  1234,
 		}},
 	}
 

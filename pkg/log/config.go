@@ -61,7 +61,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zapgrpc"
 	"google.golang.org/grpc/grpclog"
-	"gopkg.in/natefinch/lumberjack.v2"
 	"k8s.io/klog/v2"
 )
 
@@ -163,16 +162,6 @@ func prepZap(options *Options) (zapcore.Core, func(string) zapcore.Core, zapcore
 		}
 	}
 
-	var rotaterSink zapcore.WriteSyncer
-	if options.RotateOutputPath != "" {
-		rotaterSink = zapcore.AddSync(&lumberjack.Logger{
-			Filename:   options.RotateOutputPath,
-			MaxSize:    options.RotationMaxSize,
-			MaxBackups: options.RotationMaxBackups,
-			MaxAge:     options.RotationMaxAge,
-		})
-	}
-
 	errSink, closeErrorSink, err := zap.Open(options.ErrorOutputPaths...)
 	if err != nil {
 		return nil, nil, nil, err
@@ -187,16 +176,7 @@ func prepZap(options *Options) (zapcore.Core, func(string) zapcore.Core, zapcore
 		}
 	}
 
-	var sink zapcore.WriteSyncer
-	if rotaterSink != nil && outputSink != nil {
-		sink = zapcore.NewMultiWriteSyncer(outputSink, rotaterSink)
-	} else if rotaterSink != nil {
-		sink = rotaterSink
-	} else {
-		sink = outputSink
-	}
-
-	alwaysOn := zapcore.NewCore(enc, sink, zap.NewAtomicLevelAt(zapcore.DebugLevel))
+	alwaysOn := zapcore.NewCore(enc, outputSink, zap.NewAtomicLevelAt(zapcore.DebugLevel))
 	conditionallyOn := func(scopeName string) zapcore.Core {
 		scope := FindScope(scopeName)
 		enabler := func(lvl zapcore.Level) bool {
@@ -210,7 +190,7 @@ func prepZap(options *Options) (zapcore.Core, func(string) zapcore.Core, zapcore
 			}
 			return scope.DebugEnabled()
 		}
-		return zapcore.NewCore(enc, sink, zap.LevelEnablerFunc(enabler))
+		return zapcore.NewCore(enc, outputSink, zap.LevelEnablerFunc(enabler))
 	}
 	return alwaysOn,
 		conditionallyOn,

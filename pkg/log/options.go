@@ -24,15 +24,12 @@ import (
 )
 
 const (
-	DefaultScopeName          = "default"
-	OverrideScopeName         = "all"
-	defaultOutputLevel        = InfoLevel
-	defaultStackTraceLevel    = NoneLevel
-	defaultOutputPath         = "stdout"
-	defaultErrorOutputPath    = "stderr"
-	defaultRotationMaxAge     = 30
-	defaultRotationMaxSize    = 100 * 1024 * 1024
-	defaultRotationMaxBackups = 1000
+	DefaultScopeName       = "default"
+	OverrideScopeName      = "all"
+	defaultOutputLevel     = InfoLevel
+	defaultStackTraceLevel = NoneLevel
+	defaultOutputPath      = "stdout"
+	defaultErrorOutputPath = "stderr"
 )
 
 // Level is an enumeration of all supported log levels.
@@ -91,32 +88,6 @@ type Options struct {
 	// standard I/O streams. This defaults to stderr.
 	ErrorOutputPaths []string
 
-	// RotateOutputPath is the path to a rotating log file. This file should
-	// be automatically rotated over time, based on the rotation parameters such
-	// as RotationMaxSize and RotationMaxAge. The default is to not rotate.
-	//
-	// This path is used as a foundational path. This is where log output is normally
-	// saved. When a rotation needs to take place because the file got too big,
-	// then the file is renamed by appending a timestamp to the name. Such renamed
-	// files are called backups. Once a backup has been created,
-	// output resumes to this path.
-	RotateOutputPath string
-
-	// RotationMaxSize is the maximum size in megabytes of a log file before it gets
-	// rotated. It defaults to 100 megabytes.
-	RotationMaxSize int
-
-	// RotationMaxAge is the maximum number of days to retain old log files based on the
-	// timestamp encoded in their filename. Note that a day is defined as 24
-	// hours and may not exactly correspond to calendar days due to daylight
-	// savings, leap seconds, etc. The default is to remove log files
-	// older than 30 days.
-	RotationMaxAge int
-
-	// RotationMaxBackups is the maximum number of old log files to retain.  The default
-	// is to retain at most 1000 logs.
-	RotationMaxBackups int
-
 	// JSONEncoding controls whether the log is formatted as JSON.
 	JSONEncoding bool
 
@@ -138,9 +109,6 @@ func DefaultOptions() *Options {
 	return &Options{
 		OutputPaths:          []string{defaultOutputPath},
 		ErrorOutputPaths:     []string{defaultErrorOutputPath},
-		RotationMaxSize:      defaultRotationMaxSize,
-		RotationMaxAge:       defaultRotationMaxAge,
-		RotationMaxBackups:   defaultRotationMaxBackups,
 		defaultOutputLevels:  "default:info,grpc:none",
 		stackTraceLevels:     DefaultScopeName + ":" + levelToString[defaultStackTraceLevel],
 		logGRPC:              false,
@@ -242,23 +210,11 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 func (o *Options) AttachFlags(
 	stringArrayVar func(p *[]string, name string, value []string, usage string),
 	stringVar func(p *string, name string, value string, usage string),
-	intVar func(p *int, name string, value int, usage string),
+	_ func(p *int, name string, value int, usage string),
 	boolVar func(p *bool, name string, value bool, usage string),
 ) {
 	stringArrayVar(&o.OutputPaths, "log_target", o.OutputPaths,
 		"The set of paths where to output the log. This can be any path as well as the special values stdout and stderr")
-
-	stringVar(&o.RotateOutputPath, "log_rotate", o.RotateOutputPath,
-		"The path for the optional rotating log file")
-
-	intVar(&o.RotationMaxAge, "log_rotate_max_age", o.RotationMaxAge,
-		"The maximum age in days of log file backups to keep before older files are deleted (0 indicates no limit)")
-
-	intVar(&o.RotationMaxSize, "log_rotate_max_size", o.RotationMaxSize,
-		"The maximum size in megabytes of a log file beyond which the file is rotated")
-
-	intVar(&o.RotationMaxBackups, "log_rotate_max_backups", o.RotationMaxBackups,
-		"The maximum number of log file backups to keep before older files are deleted (0 indicates no limit)")
 
 	boolVar(&o.JSONEncoding, "log_as_json", o.JSONEncoding,
 		"Whether to format output as JSON or in plain console-friendly format")
