@@ -21,9 +21,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	gwConformanceConfig "sigs.k8s.io/gateway-api/conformance/utils/config"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/label"

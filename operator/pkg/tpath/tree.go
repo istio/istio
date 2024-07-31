@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 	yaml2 "sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/util"

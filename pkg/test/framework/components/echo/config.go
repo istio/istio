@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/copystructure"
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/constants"
