@@ -118,8 +118,7 @@ const (
 func NewIpTablesVersion(bin string, versionOutput string) (*IptablesVersion, error) {
 	var parsedVer *utilversion.Version
 	if !strings.Contains(versionOutput, "unrecognized option") {
-		var parseErr error
-		parsedVer, parseErr = parseIptablesVer(versionOutput)
+		parsedVer, parseErr := parseIptablesVer(versionOutput)
 		if parseErr != nil {
 			return nil, fmt.Errorf("iptables version %q is not a valid version string: %v", versionOutput, parseErr)
 		}
