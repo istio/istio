@@ -438,7 +438,7 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 	}
 
 	if cmd.HasParent() {
-		g.emit("<h3 id=\"", normalizedCmdPath, "\">", cmd.CommandPath(), "</h3>")
+		g.emit("<h3 id=\"", normalizeID(cmd.CommandPath()), "\">", cmd.CommandPath(), "</h>")
 	}
 
 	if cmd.Long != "" {
