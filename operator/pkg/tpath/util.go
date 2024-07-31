@@ -20,7 +20,6 @@ package tpath
 
 import (
 	"sigs.k8s.io/yaml"
-	yaml2 "sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/util"
 )
@@ -42,7 +41,7 @@ func AddSpecRoot(tree string) (string, error) {
 // GetConfigSubtree returns the subtree at the given path.
 func GetConfigSubtree(manifest, path string) (string, error) {
 	root := make(map[string]any)
-	if err := yaml2.Unmarshal([]byte(manifest), &root); err != nil {
+	if err := yaml.Unmarshal([]byte(manifest), &root); err != nil {
 		return "", err
 	}
 
@@ -50,7 +49,7 @@ func GetConfigSubtree(manifest, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err := yaml2.Marshal(nc.Node)
+	out, err := yaml.Marshal(nc.Node)
 	if err != nil {
 		return "", err
 	}

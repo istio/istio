@@ -448,33 +448,6 @@ func warningToString(w validation.Warning) string {
 	return w.Error()
 }
 
-func transformInterfaceArray(in []any) []any {
-	out := make([]any, len(in))
-	for i, v := range in {
-		out[i] = transformMapValue(v)
-	}
-	return out
-}
-
-func transformInterfaceMap(in map[any]any) map[string]any {
-	out := make(map[string]any, len(in))
-	for k, v := range in {
-		out[fmt.Sprintf("%v", k)] = transformMapValue(v)
-	}
-	return out
-}
-
-func transformMapValue(in any) any {
-	switch v := in.(type) {
-	case []any:
-		return transformInterfaceArray(v)
-	case map[any]any:
-		return transformInterfaceMap(v)
-	default:
-		return v
-	}
-}
-
 func servicePortPrefixed(n string) bool {
 	i := strings.IndexByte(n, '-')
 	if i >= 0 {
