@@ -267,12 +267,11 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 	nftVersion, err := GetNFTVersion(modules, ipV6)
 	if legacyVersion != nil && nftVersion != nil {
 		if legacyVersion.ExistingRules {
-			log.Info("legacy & nft both exists but nft have rules, use legacy")
+			log.Info("legacy and nft both exist but nft has rules, so use legacy")
 			return *legacyVersion, nil
-		} else {
-			log.Info("legacy & nft both exists but legacy do not have any rule, use nft by default")
-			return *nftVersion, nil
 		}
+		log.Info("legacy and nft both exist but legacy does not have any rules, use nft by default")
+		return *nftVersion, nil
 	} else {
 		if nftVersion != nil {
 			log.Info("use nft")
