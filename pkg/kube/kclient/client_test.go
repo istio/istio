@@ -35,6 +35,7 @@ import (
 	istioclient "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	istionetclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
@@ -478,4 +479,41 @@ func TestFilterClusterScoped(t *testing.T) {
 	}
 	tester.Create(obj1)
 	tracker.WaitOrdered("add/1")
+}
+
+func TestFilterDeadlock(t *testing.T) {
+	// This is a regression test for an issue causing a deadlock when using the filter
+	tracker := assert.NewTracker[string](t)
+
+	c := kube.NewFakeClient(&appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "random", Namespace: "test"},
+	})
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*metav1.LabelSelector{{
+		MatchLabels: map[string]string{"selected": "yes"},
+	}}})
+	stop := test.NewStop(t)
+	testns := clienttest.NewWriter[*corev1.Namespace](t, c)
+	testns.Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test", Labels: map[string]string{"selected": "no"}}})
+	namespaces := kclient.New[*corev1.Namespace](c)
+	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+		namespaces,
+		meshWatcher,
+		stop,
+	)
+
+	// Create some random client
+	deployments := kclient.NewFiltered[*appsv1.Deployment](c, kubetypes.Filter{
+		ObjectFilter: discoveryNamespacesFilter,
+	})
+	// The client calls .List() in the handler -- this was the cause of the deadlock.
+	deployments.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		for _, obj := range deployments.List(o.GetNamespace(), klabels.Everything()) {
+			tracker.Record(config.NamespacedName(obj).String())
+		}
+	}))
+	c.RunAndWait(stop)
+	c.WaitForCacheSync("test", stop, deployments.HasSynced)
+
+	testns.Update(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test", Labels: map[string]string{"selected": "yes"}}})
+	tracker.WaitOrdered("test/random")
 }
