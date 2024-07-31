@@ -374,13 +374,17 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 	proxy *model.Proxy, inboundServices []model.ServiceTarget,
 ) *clusterWrapper {
-	clusterName := model.BuildInboundSubsetKey(clusterPort)
+	// should not happen
+	if len(inboundServices) == 0 {
+		return nil
+	}
 	instance := inboundServices[0]
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Port.TargetPort)
 	clusterType := cluster.Cluster_ORIGINAL_DST
 	if len(localityLbEndpoints) > 0 {
 		clusterType = cluster.Cluster_STATIC
 	}
+	clusterName := model.BuildInboundSubsetKey(clusterPort)
 	localCluster := cb.buildCluster(clusterName, clusterType, localityLbEndpoints,
 		model.TrafficDirectionInbound, instance.Port.ServicePort, instance.Service, inboundServices, "")
 	// If stat name is configured, build the alt statname.
