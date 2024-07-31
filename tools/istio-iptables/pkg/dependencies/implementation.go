@@ -185,9 +185,8 @@ func getIptablesLegacyBin(isIpV6 bool) string {
 func getIptablesBin(isIpV6 bool) string {
 	if isIpV6 {
 		return ip6tablesBin
-	} else {
-		return iptablesBin
 	}
+	return iptablesBin
 }
 
 func GetNFTVersion(modules map[string]struct{}, ipV6 bool) (*IptablesVersion, error) {
