@@ -18,6 +18,7 @@
 package dependencies
 
 import (
+	"bytes"
 	"errors"
 	"io"
 
@@ -32,7 +33,14 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reade
 }
 
 func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
-	return ErrNotImplemented
+	_, err := r.executeXTablesWithOutput(cmd, iptVer, ignoreErrors, stdin, args...)
+	return err
+}
+
+func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion,
+	ignoreErrors bool, stdin io.ReadSeeker, args ...string,
+) (*bytes.Buffer, error) {
+	return nil, ErrNotImplemented
 }
 
 func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, error) {

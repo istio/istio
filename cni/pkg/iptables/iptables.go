@@ -424,10 +424,10 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 
 	if cfg.cfg.RestoreFormat {
 		// Execute iptables-restore
-		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder, &cfg.iptV, true))
+		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV))
 		// Execute ip6tables-restore
 		if cfg.cfg.EnableIPv6 {
-			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder, &cfg.ipt6V, false))
+			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V))
 		}
 	} else {
 		// Execute iptables commands
@@ -453,19 +453,10 @@ func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVer
 
 func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(
 	log *istiolog.Scope,
-	iptablesBuilder *builder.IptablesRuleBuilder,
+	data string,
 	iptVer *dep.IptablesVersion,
-	isIpv4 bool,
 ) error {
 	cmd := iptablesconstants.IPTablesRestore
-	var data string
-
-	if isIpv4 {
-		data = iptablesBuilder.BuildV4Restore()
-	} else {
-		data = iptablesBuilder.BuildV6Restore()
-	}
-
 	log.Infof("Running %s with the following input:\n%v", iptVer.CmdToString(cmd), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
 	return cfg.ext.Run(cmd, iptVer, strings.NewReader(data), "--noflush", "-v")

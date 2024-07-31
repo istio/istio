@@ -752,38 +752,156 @@ func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVer
 	return nil
 }
 
-func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptVer *dep.IptablesVersion, isIpv4 bool) error {
-	var data string
-	if isIpv4 {
-		data = cfg.ruleBuilder.BuildV4Restore()
-	} else {
-		data = cfg.ruleBuilder.BuildV6Restore()
+func (cfg *IptablesConfigurator) tryExecuteIptablesCommands(iptVer *dep.IptablesVersion, commands [][]string) {
+	for _, cmd := range commands {
+		cfg.ext.RunQuietlyAndIgnore(constants.IPTables, iptVer, nil, cmd...)
 	}
+}
 
+func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptVer *dep.IptablesVersion, data string) error {
 	log.Infof("Running iptables restore with: %s and the following input:\n%v", iptVer.CmdToString(constants.IPTablesRestore), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
 	return cfg.ext.Run(constants.IPTablesRestore, iptVer, strings.NewReader(data), "--noflush")
 }
 
-func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVersion) error {
-	if cfg.cfg.RestoreFormat {
-		// Execute iptables-restore
-		if err := cfg.executeIptablesRestoreCommand(iptVer, true); err != nil {
-			return err
+// VerifyIptablesState function verifies the current iptables state against the expected state.
+// The current state is considered equal to the expected state if the following three conditions are met:
+//   - Every ISTIO_* chain in the expected state must also exist in the current state.
+//   - Every ISTIO_* chain must have the same number of elements in both the current and expected state.
+//   - Every rule in the expected state (whether it is in an ISTIO or non-ISTIO chain) must also exist in the current state.
+//     The verification is performed by using "iptables -C" on the rule produced by our iptables builder. No comparison of the parsed rules is done.
+//
+// Note: The order of the rules is not checked and is not used to determine the equivalence of the two states.
+// The function returns two boolean values, the first one indicates whether residues exist,
+// and the second one indicates whether differences were found between the current and expected state.
+func (cfg *IptablesConfigurator) VerifyIptablesState(iptVer, ipt6Ver *dep.IptablesVersion) (bool, bool) {
+	// These variables track the status of iptables installation
+	residueExists := false // Flag to indicate if iptables residues from previous executions are found
+	deltaExists := false   // Flag to indicate if a difference is found between expected and current state
+
+check_loop:
+	for _, ipCfg := range []struct {
+		ver        *dep.IptablesVersion
+		expected   string
+		checkRules [][]string
+	}{
+		{iptVer, cfg.ruleBuilder.BuildV4Restore(), cfg.ruleBuilder.BuildCheckV4()},
+		{ipt6Ver, cfg.ruleBuilder.BuildV6Restore(), cfg.ruleBuilder.BuildCheckV6()},
+	} {
+		output, err := cfg.ext.RunWithOutput(constants.IPTablesSave, ipCfg.ver, nil)
+		if err == nil {
+			currentState := cfg.ruleBuilder.GetStateFromSave(output.String())
+			log.Debugf("Current iptables state: %#v", currentState)
+			for _, value := range currentState {
+				if residueExists {
+					break
+				}
+				residueExists = len(value) != 0
+			}
+			if !residueExists {
+				continue
+			}
+			expectedState := cfg.ruleBuilder.GetStateFromSave(ipCfg.expected)
+			log.Debugf("Expected iptables state: %#v", expectedState)
+			for table, chains := range expectedState {
+				_, ok := currentState[table]
+				if !ok {
+					deltaExists = true
+					log.Debugf("Can't find expected table %s in current state", table)
+					break check_loop
+				}
+				for chain, rules := range chains {
+					currentRules, ok := currentState[table][chain]
+					if !ok || (strings.HasPrefix(chain, "ISTIO_") && len(rules) != len(currentRules)) {
+						deltaExists = true
+						log.Debugf("Mismatching number of rules in chain %s between current and expected state", chain)
+						break check_loop
+					}
+				}
+			}
+			err = cfg.executeIptablesCommands(ipCfg.ver, ipCfg.checkRules)
+			if err != nil {
+				deltaExists = true
+				log.Debugf("iptables check rules failed")
+				break
+			}
 		}
-		// Execute ip6tables-restore
-		if err := cfg.executeIptablesRestoreCommand(ipt6Ver, false); err != nil {
-			return err
-		}
+
+	}
+
+	if !residueExists {
+		log.Info("Clean-state detected, new iptables are needed")
+		return false, true
+	}
+
+	if deltaExists {
+		log.Warn("Found residues of old iptables rules/chains, reconciliation is needed")
 	} else {
-		// Execute iptables commands
-		if err := cfg.executeIptablesCommands(iptVer, cfg.ruleBuilder.BuildV4()); err != nil {
-			return err
+		log.Warn("Found compatible residues of old iptables rules/chains, reconciliation not needed")
+	}
+
+	return residueExists, deltaExists
+}
+
+func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVersion) error {
+	guardrails := false
+	defer func() {
+		if guardrails {
+			log.Info("Removing guardrails")
+			guardrailsCleanup := cfg.ruleBuilder.BuildCleanupGuardrails()
+			_ = cfg.executeIptablesCommands(iptVer, guardrailsCleanup)
+			_ = cfg.executeIptablesCommands(ipt6Ver, guardrailsCleanup)
 		}
-		// Execute ip6tables commands
-		if err := cfg.executeIptablesCommands(ipt6Ver, cfg.ruleBuilder.BuildV6()); err != nil {
-			return err
+	}()
+
+	residueExists, deltaExists := cfg.VerifyIptablesState(iptVer, ipt6Ver)
+	if residueExists && deltaExists && !cfg.cfg.Reconcile {
+		return fmt.Errorf("reconcile is needed but no-reconcile flag is set. Can't recover from this state")
+	}
+	// Cleanup Step
+	if (residueExists && deltaExists) || cfg.cfg.CleanupOnly {
+		// Apply safety guardrails
+		if !cfg.cfg.CleanupOnly {
+			log.Info("Setting up guardrails")
+			guardrailsCleanup := cfg.ruleBuilder.BuildCleanupGuardrails()
+			guardrailsRules := cfg.ruleBuilder.BuildGuardrails()
+			for _, ver := range []*dep.IptablesVersion{iptVer, ipt6Ver} {
+				cfg.tryExecuteIptablesCommands(ver, guardrailsCleanup)
+				if err := cfg.executeIptablesCommands(ver, guardrailsRules); err != nil {
+					return err
+				}
+				guardrails = true
+			}
+		}
+		// Remove old iptables
+		log.Info("Performing cleanup of existing iptables")
+		cfg.tryExecuteIptablesCommands(iptVer, cfg.ruleBuilder.BuildCleanupV4())
+		cfg.tryExecuteIptablesCommands(ipt6Ver, cfg.ruleBuilder.BuildCleanupV6())
+	}
+
+	// Apply Step
+	if deltaExists && !cfg.cfg.CleanupOnly {
+		log.Info("Applying iptables chains and rules")
+		if cfg.cfg.RestoreFormat {
+			// Execute iptables-restore
+			if err := cfg.executeIptablesRestoreCommand(iptVer, cfg.ruleBuilder.BuildV4Restore()); err != nil {
+				return err
+			}
+			// Execute ip6tables-restore
+			if err := cfg.executeIptablesRestoreCommand(ipt6Ver, cfg.ruleBuilder.BuildV6Restore()); err != nil {
+				return err
+			}
+		} else {
+			// Execute iptables commands
+			if err := cfg.executeIptablesCommands(iptVer, cfg.ruleBuilder.BuildV4()); err != nil {
+				return err
+			}
+			// Execute ip6tables commands
+			if err := cfg.executeIptablesCommands(ipt6Ver, cfg.ruleBuilder.BuildV6()); err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
