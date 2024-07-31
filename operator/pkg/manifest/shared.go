@@ -54,11 +54,7 @@ var installerScope = log.RegisterScope("installer", "installer")
 func GenManifests(inFilename []string, setFlags []string, force bool, filter []string,
 	client kube.Client, l clog.Logger,
 ) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
-	mergedYAML, _, err := GenerateIstioOperator(inFilename, setFlags, force, client, l)
-	if err != nil {
-		return nil, nil, err
-	}
-	mergedIOPS, err := unmarshalAndValidateIOP(mergedYAML, force, false, l)
+	_, mergedIOPS, err := GenerateIstioOperator(inFilename, setFlags, force, client, l)
 	if err != nil {
 		return nil, nil, err
 	}
