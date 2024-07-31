@@ -26,7 +26,6 @@ import (
 
 	utilversion "k8s.io/apimachinery/pkg/util/version"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -61,6 +60,10 @@ type RealDependencies struct {
 }
 
 const iptablesVersionPattern = `v([0-9]+(\.[0-9]+)+)`
+
+// If legacy and nft are both existing, we prefer to use the one which have rules
+// learn more: https://github.com/istio/istio/pull/49703, https://github.com/istio/istio/pull/52358
+const iptablesPreferRuleCount = 3
 
 type IptablesVersion struct {
 	DetectedBinary        string
@@ -136,7 +139,7 @@ func NewIpTablesVersion(bin string, versionOutput string) (*IptablesVersion, err
 	if err != nil {
 		return nil, err
 	}
-	if strings.Count(string(rulesDump), "\n") >= 3 {
+	if strings.Count(string(rulesDump), "\n") >= iptablesPreferRuleCount {
 		version.ExistingRules = true
 	} else {
 		version.ExistingRules = false
@@ -165,6 +168,9 @@ func LoadProcModules() (map[string]struct{}, error) {
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
+	if len(modules) == 0 {
+		return nil, fmt.Errorf("no modules in %s", ModulesFile)
+	}
 	return modules, nil
 }
 
@@ -172,7 +178,7 @@ func getIptablesNFTBin(isIpV6 bool) string {
 	if isIpV6 {
 		return ip6tablesNftBin
 	}
-        return iptablesNftBin
+	return iptablesNftBin
 }
 
 func getIptablesLegacyBin(isIpV6 bool) string {
@@ -190,9 +196,6 @@ func getIptablesBin(isIpV6 bool) string {
 }
 
 func GetNFTVersion(modules map[string]struct{}, ipV6 bool) (*IptablesVersion, error) {
-	if modules == nil {
-		return nil, fmt.Errorf("nil modules map")
-	}
 	if _, found := modules[iptablesNftModuleName]; !found {
 		return nil, fmt.Errorf("nft module not found")
 	}
@@ -205,7 +208,7 @@ func GetNFTVersion(modules map[string]struct{}, ipV6 bool) (*IptablesVersion, er
 	baseBin := getIptablesBin(ipV6)
 	versionOutput, err := exec.Command(baseBin, "--version").CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("no existing nft commands")
+		return nil, fmt.Errorf("no existing nft commands, nftErr: %v, baseBinErr: %v", nftErr, err)
 	}
 	if strings.Contains(string(versionOutput), "nf_tables") {
 		return NewIpTablesVersion(baseBin, string(versionOutput))
@@ -214,9 +217,6 @@ func GetNFTVersion(modules map[string]struct{}, ipV6 bool) (*IptablesVersion, er
 }
 
 func GetLegacyVersion(modules map[string]struct{}, ipV6 bool) (*IptablesVersion, error) {
-	if modules == nil {
-		return nil, fmt.Errorf("nil modules map")
-	}
 	if _, found := modules[iptablesLegacyModuleName]; !found {
 		return nil, fmt.Errorf("legacy module not found")
 	}
@@ -228,7 +228,7 @@ func GetLegacyVersion(modules map[string]struct{}, ipV6 bool) (*IptablesVersion,
 	baseBin := getIptablesBin(ipV6)
 	versionOutput, err := exec.Command(baseBin, "--version").CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("no existing legacy commands: %w", err)
+		return nil, fmt.Errorf("no existing legacy commands, legacyErr: %v, baseBinErr: %s", legacyErr, err)
 	}
 	if !strings.Contains(string(versionOutput), "nf_tables") {
 		return NewIpTablesVersion(baseBin, string(versionOutput))
@@ -262,7 +262,6 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 		log.Errorf("failed to load kernel modules from %s, error was: %s", ModulesFile, err.Error())
 		return IptablesVersion{}, err
 	}
-
 	legacyVersion, err := GetLegacyVersion(modules, ipV6)
 	nftVersion, err := GetNFTVersion(modules, ipV6)
 	if legacyVersion != nil && nftVersion != nil {
