@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/util/testhelpers"
 	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/kube"
@@ -656,7 +657,7 @@ func TestManifestGenerateOrdered(t *testing.T) {
 	}
 
 	if got1 != got2 {
-		fmt.Printf("%s", util.YAMLDiff(got1, got2))
+		fmt.Printf("%s", testhelpers.YAMLDiff(got1, got2))
 		t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
 	}
 }
@@ -674,7 +675,7 @@ func TestManifestGenerateFlagAliases(t *testing.T) {
 
 	if gotAlias != gotSet {
 		t.Errorf("Flag aliases not producing same output: with --set: \n\n%s\n\nWith alias:\n\n%s\nDiff:\n\n%s\n",
-			gotSet, gotAlias, util.YAMLDiff(gotSet, gotAlias))
+			gotSet, gotAlias, testhelpers.YAMLDiff(gotSet, gotAlias))
 	}
 }
 
