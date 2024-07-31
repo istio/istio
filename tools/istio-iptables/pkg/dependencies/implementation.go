@@ -276,10 +276,9 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 		if nftVersion != nil {
 			log.Info("use nft")
 			return *nftVersion, nil
-		} else {
-			log.Info("use legacy")
-			return *legacyVersion, nil
 		}
+		log.Info("use legacy")
+		return *legacyVersion, nil
 	}
 }
 
