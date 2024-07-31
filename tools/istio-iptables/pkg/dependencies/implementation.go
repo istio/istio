@@ -172,9 +172,8 @@ func LoadProcModules() (map[string]struct{}, error) {
 func getIptablesNFTBin(isIpV6 bool) string {
 	if isIpV6 {
 		return ip6tablesNftBin
-	} else {
-		return iptablesNftBin
 	}
+        return iptablesNftBin
 }
 
 func getIptablesLegacyBin(isIpV6 bool) string {
