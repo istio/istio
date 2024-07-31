@@ -228,14 +228,12 @@ func GetLegacyVersion(modules map[string]struct{}, ipV6 bool) (*IptablesVersion,
 	baseBin := getIptablesBin(ipV6)
 	versionOutput, err := exec.Command(baseBin, "--version").CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("no existing legacy commands")
-	} else {
-		if !strings.Contains(string(versionOutput), "nf_tables") {
-			return NewIpTablesVersion(baseBin, string(versionOutput))
-		} else {
-			return nil, fmt.Errorf("legacy command not found(default iptables is not legacy)")
-		}
+		return nil, fmt.Errorf("no existing legacy commands: %w", err)
 	}
+	if !strings.Contains(string(versionOutput), "nf_tables") {
+		return NewIpTablesVersion(baseBin, string(versionOutput))
+	}
+	return nil, fmt.Errorf("legacy command not found(default iptables is not legacy)")
 }
 
 // It is not sufficient to check for the presence of one binary or the other in $PATH -
