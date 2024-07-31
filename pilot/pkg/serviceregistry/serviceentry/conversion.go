@@ -22,6 +22,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
@@ -144,8 +145,8 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 	// ShouldV2AutoAllocateIP already checks that there are no addresses in the spec however this is critical enough to likely be worth checking
 	// explicitly as well in case the logic changes. We never want to overwrite addresses in the spec if there are any
 	addresses := serviceEntry.Addresses
-	if ShouldV2AutoAllocateIPFromConfig(cfg) && len(addresses) == 0 {
-		addresses = slices.Map(GetV2AddressesFromConfig(cfg), func(a netip.Addr) string {
+	if serviceentry.ShouldV2AutoAllocateIPFromConfig(cfg) && len(addresses) == 0 {
+		addresses = slices.Map(serviceentry.GetV2AddressesFromConfig(cfg), func(a netip.Addr) string {
 			return a.String()
 		})
 	}

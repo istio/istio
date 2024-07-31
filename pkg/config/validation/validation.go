@@ -39,6 +39,7 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -2750,14 +2751,7 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 		}
 
 		// check for v2 auto IP allocation or opt-out by user
-		autoAllocation := false
-		if features.EnableIPAutoallocate {
-			v, ok := cfg.Meta.Labels[constants.EnableV2AutoAllocationLabel]
-			if !ok || !strings.EqualFold(v, "false") {
-				autoAllocation = true
-			}
-		}
-
+		autoAllocation := serviceentry.ShouldV2AutoAllocateIPFromConfig(cfg)
 		servicePortNumbers := sets.New[uint32]()
 		servicePorts := sets.NewWithLength[string](len(serviceEntry.Ports))
 		for _, port := range serviceEntry.Ports {
