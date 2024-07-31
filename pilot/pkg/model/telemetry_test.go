@@ -1764,6 +1764,68 @@ func TestSimplyMetricConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "merge metrics with remove same tags",
+			input: metricConfig{
+				Overrides: func() []metricsOverride {
+					var result []metricsOverride
+
+					for _, n := range allMetrics {
+						if n == "REQUEST_COUNT" {
+							result = append(result, metricsOverride{
+								Name: n,
+								Tags: []tagOverride{
+									{
+										Name:  "add",
+										Value: "add_val",
+									},
+									{
+										Name:   "add",
+										Remove: true,
+										Value:  "add_val",
+									},
+								},
+							})
+							continue
+						}
+
+						result = append(result, metricsOverride{
+							Name: n,
+							Tags: []tagOverride{
+								{
+									Name:  "add",
+									Value: "add_val",
+								},
+							},
+						})
+					}
+
+					return result
+				}(),
+			},
+			expected: metricConfig{
+				Overrides: []metricsOverride{
+					{
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "REQUEST_COUNT",
+						Tags: []tagOverride{
+							{
+								Name:   "add",
+								Remove: true,
+								Value:  "add_val",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {

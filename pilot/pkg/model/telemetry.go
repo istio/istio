@@ -872,10 +872,11 @@ func postProcessMetrics(cfg map[string]metricsConfig) map[string]metricsConfig {
 	return cfg
 }
 
-// maxVal equals to 2^(len(tpb.MetricSelector_IstioMetric_name)-) - 1, currently it is 1023
+// maxVal equals to 2^(len(tpb.MetricSelector_IstioMetric_name)-1) - 1, currently it is 1023
 var maxVal = func() int {
 	res := 0
 	for k := range tpb.MetricSelector_IstioMetric_name {
+		// skip tpb.MetricSelector_ALL_METRICS, it's not included in allMetrics
 		if k == int32(tpb.MetricSelector_ALL_METRICS) {
 			continue
 		}
@@ -896,6 +897,9 @@ func simplyMetricConfig(cfg metricConfig) metricConfig {
 		}
 		processed = append(processed, override)
 
+		// we will do a OR operation for each tag,
+		// if the result equals to maxVal, it means all metrics are overridden
+		// for example: if there's a REQUEST_COUNT override, the result will be (0 | (1 << 2)) = 4
 		idx := slices.Index(allMetrics, override.Name)
 		for _, tag := range override.Tags {
 			v, ok := tagKeys[tag]
@@ -910,6 +914,7 @@ func simplyMetricConfig(cfg metricConfig) metricConfig {
 
 	var allMetricsTags []tagOverride
 	for tag, val := range tagKeys {
+		// use maxVal to check if all metrics are overridden
 		if val != maxVal {
 			continue
 		}
@@ -934,6 +939,7 @@ func simplyMetricConfig(cfg metricConfig) metricConfig {
 
 	var result []metricsOverride
 	for _, override := range processed {
+		// Remove the override if it's disabled or no tags
 		if override.Disabled || len(override.Tags) == 0 {
 			continue
 		}
