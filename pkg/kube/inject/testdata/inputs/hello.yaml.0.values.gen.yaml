@@ -1,4 +1,9 @@
 {
+  "cni": {
+    "enabled": false,
+    "namespace": "istio-system",
+    "provider": "default"
+  },
   "gateways": {
     "seccompProfile": {},
     "securityContext": {}
@@ -110,13 +115,6 @@
     "chained": true,
     "enabled": true,
     "provider": "default"
-  },
-  "pilot": {
-    "cni": {
-      "enabled": false,
-      "namespace": "istio-system",
-      "provider": "default"
-    }
   },
   "revision": "",
   "sidecarInjectorWebhook": {

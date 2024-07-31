@@ -176,7 +176,7 @@ spec:
         # Used to install CNI.
         - name: cni-bin-dir
           hostPath:
-            path: {{ .ValuesBinDir | default $defaultBinDir }}
+            path: {{ .Values.global.cniBinDir | default $defaultBinDir }}
         {{- if or .Values.repair.repairPods .Values.ambient.enabled }}
         - name: cni-host-procfs
           hostPath:
@@ -191,14 +191,14 @@ spec:
         {{- end }}
         - name: cni-net-dir
           hostPath:
-            path: {{ default "/etc/cni/net.d" .ValuesConfDir }}
+            path: {{ default "/etc/cni/net.d" .Values.global.cniConfDir }}
         # Used for UDS sockets for logging, ambient eventing
         - name: cni-socket-dir
           hostPath:
             path: /var/run/istio-cni
         - name: cni-netns-dir
           hostPath:
-            path: {{ .ValuesNetnsDir | default "/var/run/netns" }}
+            path: {{ .Values.global.cniNetnsDir | default "/var/run/netns" }}
             type: DirectoryOrCreate # DirectoryOrCreate instead of Directory for the following reason - CNI may not bind mount this until a non-hostnetwork pod is scheduled on the node,
             # and we don't want to block CNI agent pod creation on waiting for the first non-hostnetwork pod.
             # Once the CNI does mount this, it will get populated and we're good.

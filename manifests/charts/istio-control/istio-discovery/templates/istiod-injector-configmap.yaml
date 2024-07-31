@@ -12,9 +12,7 @@ metadata:
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-
-{{ $vals := pick .Values "global" "istio_cni" "sidecarInjectorWebhook" "revision" -}}
-{{ $pilotVals := pick .Values "cni" -}}
-{{ $vals = set $vals "pilot" $pilotVals -}}
+{{ $vals := pick .Values "global" "cni" "istio_cni" "sidecarInjectorWebhook" "revision" -}}
 {{ $gatewayVals := pick .Values.gateways "securityContext" "seccompProfile" -}}
 {{ $vals = set $vals "gateways" $gatewayVals -}}
 {{ $vals | toPrettyJson | indent 4 }}
