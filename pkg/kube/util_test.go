@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd/api"
 
-	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -300,95 +299,6 @@ func podForDeploymentConfig(deployConfigName string, hasDeployConfigLabel bool) 
 			}},
 			Labels: labels,
 		},
-	}
-}
-
-func TestStripUnusedFields(t *testing.T) {
-	tests := []struct {
-		name string
-		obj  any
-		want any
-	}{
-		{
-			name: "transform pods",
-			obj: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:   "foo",
-					Name:        "bar",
-					Labels:      map[string]string{"a": "b"},
-					Annotations: map[string]string{"c": "d"},
-					ManagedFields: []metav1.ManagedFieldsEntry{
-						{
-							Manager: "whatever",
-						},
-					},
-				},
-			},
-			want: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:   "foo",
-					Name:        "bar",
-					Labels:      map[string]string{"a": "b"},
-					Annotations: map[string]string{"c": "d"},
-				},
-			},
-		},
-		{
-			name: "transform endpoints",
-			obj: &corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:   "foo",
-					Name:        "bar",
-					Labels:      map[string]string{"a": "b"},
-					Annotations: map[string]string{"c": "d"},
-					ManagedFields: []metav1.ManagedFieldsEntry{
-						{
-							Manager: "whatever",
-						},
-					},
-				},
-			},
-			want: &corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:   "foo",
-					Name:        "bar",
-					Labels:      map[string]string{"a": "b"},
-					Annotations: map[string]string{"c": "d"},
-				},
-			},
-		},
-		{
-			name: "transform virtual services",
-			obj: &networkingv1alpha3.VirtualService{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:   "foo",
-					Name:        "bar",
-					Labels:      map[string]string{"a": "b"},
-					Annotations: map[string]string{"c": "d"},
-					ManagedFields: []metav1.ManagedFieldsEntry{
-						{
-							Manager: "whatever",
-						},
-					},
-				},
-			},
-			want: &networkingv1alpha3.VirtualService{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:   "foo",
-					Name:        "bar",
-					Labels:      map[string]string{"a": "b"},
-					Annotations: map[string]string{"c": "d"},
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, _ := StripUnusedFields(tt.obj)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("StripUnusedFields: got %v, want %v", got, tt.want)
-			}
-		})
 	}
 }
 

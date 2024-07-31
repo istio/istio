@@ -20,9 +20,9 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/kylelemons/godebug/diff"
-
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/testhelpers"
+	golden "istio.io/istio/pilot/test/util"
 )
 
 func TestProfileDump(t *testing.T) {
@@ -68,7 +68,7 @@ func TestProfileDump(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !util.IsYAMLEqual(got, want) {
-				t.Errorf("profile-dump command(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, got, want, util.YAMLDiff(got, want))
+				t.Errorf("profile-dump command(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, got, want, testhelpers.YAMLDiff(got, want))
 			}
 		})
 	}
@@ -119,20 +119,7 @@ func TestProfileDumpFlags(t *testing.T) {
 			// installPackagePath may change, we will remove it for consistent output
 			got = installPackagePathRegex.ReplaceAllString(got, "")
 
-			if refreshGoldenFiles() {
-				t.Logf("Refreshing golden file for %s", outPath)
-				if err := os.WriteFile(outPath, []byte(got), 0o644); err != nil {
-					t.Error(err)
-				}
-			}
-
-			want, err := readFile(outPath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got != want {
-				t.Errorf("profile-dump command(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, got, want, diff.Diff(got, want))
-			}
+			golden.CompareContent(t, []byte(got), outPath)
 		})
 	}
 }

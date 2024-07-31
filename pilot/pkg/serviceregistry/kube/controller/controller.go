@@ -297,6 +297,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		})
 		c.reloadMeshNetworks()
 	}
+	if c.ambientIndex != nil {
+		c.networkManager.NetworkGatewaysHandler.AppendNetworkGatewayHandler(func() {
+			// This is to ensure the ambient workloads are updated dynamically, aligning them with the current network settings.
+			// With this, the pod do not need to restart when the network configuration changes.
+			c.ambientIndex.SyncAll()
+		})
+	}
 	return c
 }
 
