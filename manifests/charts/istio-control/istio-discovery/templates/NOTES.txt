@@ -44,17 +44,9 @@ For further documentation see https://istio.io website
     "global.tracer.lightstep.address" "meshConfig.defaultConfig.tracing.lightstep.address"
     "global.tracer.lightstep.accessToken" "meshConfig.defaultConfig.tracing.lightstep.accessToken"
     "global.tracer.zipkin.address" "meshConfig.defaultConfig.tracing.zipkin.address"
-    "global.tracer.stackdriver.debug" "meshConfig.defaultConfig.tracing.stackdriver.debug"
-    "global.tracer.stackdriver.maxNumberOfAttributes" "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes"
-    "global.tracer.stackdriver.maxNumberOfAnnotations" "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations"
-    "global.tracer.stackdriver.maxNumberOfMessageEvents" "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents"
     "global.tracer.datadog.address" "meshConfig.defaultConfig.tracing.datadog.address"
     "global.meshExpansion.enabled" "Gateway and other Istio networking resources, such as in samples/multicluster/"
     "istiocoredns.enabled" "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)"
-    "meshConfig.defaultConfig.tracing.stackdriver.debug" "Istio supported tracers"
-    "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes" "Istio supported tracers"
-    "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations" "Istio supported tracers"
-    "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents" "Istio supported tracers"
 }}
 {{- range $dep, $replace := $deps }}
 {{- /* Complex logic to turn the string above into a null-safe traversal like ((.Values.global).certificates */}}
@@ -69,6 +61,14 @@ WARNING: {{$dep|quote}} is deprecated; use {{$replace|quote}} instead.
     "telemetry.v2.stackdriver.configOverride"
     "telemetry.v2.stackdriver.disableOutbound"
     "telemetry.v2.stackdriver.outboundAccessLogging"
+    "global.tracer.stackdriver.debug" "meshConfig.defaultConfig.tracing.stackdriver.debug"
+    "global.tracer.stackdriver.maxNumberOfAttributes" "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes"
+    "global.tracer.stackdriver.maxNumberOfAnnotations" "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations"
+    "global.tracer.stackdriver.maxNumberOfMessageEvents" "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents"
+    "meshConfig.defaultConfig.tracing.stackdriver.debug" "Istio supported tracers"
+    "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes" "Istio supported tracers"
+    "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations" "Istio supported tracers"
+    "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents" "Istio supported tracers"
 }}
 {{- range $dep, $replace := $failDeps }}
 {{- /* Complex logic to turn the string above into a null-safe traversal like ((.Values.global).certificates */}}
