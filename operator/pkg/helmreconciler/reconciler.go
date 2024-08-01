@@ -217,11 +217,11 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) error {
 // getCoreOwnerLabels returns a map of labels for associating installation resources. This is the common
 // labels shared between all resources; see getOwnerLabels to get labels per-component labels
 func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
-	crName, err := h.getCRName()
+	_, err := h.getCRName()
 	if err != nil {
 		return nil, err
 	}
-	crNamespace, err := h.getCRNamespace()
+	_, err = h.getCRNamespace()
 	if err != nil {
 		return nil, err
 	}
