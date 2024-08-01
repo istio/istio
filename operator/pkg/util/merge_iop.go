@@ -228,6 +228,7 @@ type telemetryV2Config struct {
 }
 
 var iopMergeStruct iopMergeStructType
+var IopMergeStruct iopMergeStructType
 
 // OverlayIOP overlays over base using JSON strategic merge.
 func OverlayIOP(base, overlay string) (string, error) {
@@ -264,3 +265,4 @@ func OverlayIOP(base, overlay string) (string, error) {
 
 	return string(my), nil
 }
+
