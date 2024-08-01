@@ -20,7 +20,6 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
 	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
@@ -183,14 +182,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	transportSocket := util.RawBufferTransport()
 	if tlsContext := buildWaypointTLSContext(opts, tls); tlsContext != nil {
 		transportSocket = &core.TransportSocket{
-			Name: "internal_upstream",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-				PassthroughMetadata: util.TunnelHostMetadata,
-				TransportSocket: &core.TransportSocket{
-					Name:       wellknown.TransportSocketTLS,
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
-				},
-			})},
+			Name:       wellknown.TransportSocketTLS,
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 		}
 	}
 	if proxyProtocol != nil {
