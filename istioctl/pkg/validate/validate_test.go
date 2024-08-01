@@ -161,7 +161,7 @@ spec:
   ports:
   - protocol: TCP`
 	validVirtualServiceYAML = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: valid-virtual-service
@@ -211,7 +211,7 @@ spec:
 }
 }`
 	validVirtualService1YAML = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: valid-virtual-service1
@@ -261,7 +261,7 @@ spec:
 }
 }`
 	validVirtualService2YAML = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: valid-virtual-service2
@@ -303,7 +303,7 @@ spec:
 }
 }`
 	invalidVirtualServiceYAML = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: invalid-virtual-service
@@ -349,14 +349,14 @@ spec:
 }
 `
 	invalidVirtualServiceV1Beta1 = `
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: invalid-virtual-service
 spec:
   http:
 `
-	warnDestinationRule = `apiVersion: networking.istio.io/v1beta1
+	warnDestinationRule = `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: reviews-cb-policy
@@ -382,7 +382,7 @@ metadata:
 }
 }`
 	invalidUnsupportedKey = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: productpage
@@ -427,7 +427,7 @@ spec:
       enabled: true
 `
 	invalidDuplicateKey = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: productpage

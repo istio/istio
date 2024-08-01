@@ -59,7 +59,7 @@ func TestRevisionTraffic(t *testing.T) {
 				})
 			}
 			// Allow all namespaces so we do not hit passthrough cluster
-			t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
+			t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: allow-cross-namespaces

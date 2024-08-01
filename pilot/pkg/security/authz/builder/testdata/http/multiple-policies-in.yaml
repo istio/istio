@@ -1,4 +1,4 @@
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-1
@@ -13,7 +13,7 @@ spec:
     - operation:
         methods: ["GET", "POST"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-2
@@ -27,7 +27,7 @@ spec:
       - operation:
           paths: ["/v1", "/v2"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-3
@@ -41,7 +41,7 @@ spec:
         - operation:
             hosts: ["google.com", "httpbin.org"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-4
@@ -52,7 +52,7 @@ spec:
         - operation:
             ports: ["80", "90"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-5
@@ -63,7 +63,7 @@ spec:
         - source:
             principals: ["principals1", "principals2"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-6
@@ -74,7 +74,7 @@ spec:
         - source:
             requestPrincipals: ["requestPrincipals1", "requestPrincipals2"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-7
@@ -85,7 +85,7 @@ spec:
         - source:
             namespaces: ["namespaces1", "namespaces2"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-8
@@ -96,7 +96,7 @@ spec:
         - source:
             ipBlocks: ["1.2.3.4", "5.6.7.0/24"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-9

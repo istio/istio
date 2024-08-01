@@ -86,7 +86,7 @@ spec:
 			// a serviceentry that only includes cluster-local endpoints (avoid automatic cross-cluster discovery)
 			seTmpl := `
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: serviceentry.mesh.global
@@ -109,7 +109,7 @@ spec:
 `
 
 			exposeServices := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: cross-network-gateway
@@ -141,7 +141,7 @@ spec:
 			}
 
 			weTmpl := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: se-cross-network-{{.testName}}

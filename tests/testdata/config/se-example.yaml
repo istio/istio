@@ -12,7 +12,7 @@
 # - 1200 - the inbound service and
 # - 21200 - the inbound container
 #
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: default
@@ -24,7 +24,7 @@ spec:
 
 ---
 # Test workload entry
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: workload
@@ -47,7 +47,7 @@ spec:
       tcplocal: 21200
 ---
 
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
    name: external-svc-mongocluster
@@ -70,7 +70,7 @@ spec:
   - address: 3.3.3.3
     
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: mtls-mongocluster
@@ -96,7 +96,7 @@ spec:
 #services via the sidecar. The sidecar inspects the SNI value in the
 #ClientHello message to route to the appropriate external service.
 
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-svc-https
@@ -115,7 +115,7 @@ spec:
   
 ---
 
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: tls-routing
@@ -152,7 +152,7 @@ spec:
 #external services. If the connection has to be routed to the IP address
 #requested by the application (i.e. application resolves DNS and attempts
 #to connect to a specific IP), the discovery mode must be set to `NONE`.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-svc-wildcard-example
@@ -173,7 +173,7 @@ spec:
 # set to STATIC to use unix address endpoints.
 
 # Modified to use port 8001
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: unix-domain-socket-example
@@ -201,7 +201,7 @@ spec:
 # uk.foo.bar.com:9080, and in.foo.bar.com:7080
 
 # Modified to use port 8000
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-svc-dns

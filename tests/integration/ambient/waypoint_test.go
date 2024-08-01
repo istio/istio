@@ -354,7 +354,7 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
 				return err
 			}
-			_, err := c.Istio().NetworkingV1beta1().ServiceEntries(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
+			_, err := c.Istio().NetworkingV1().ServiceEntries(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
 			return err
 		}
 
