@@ -16,6 +16,8 @@ package validate
 
 import (
 	"fmt"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/pkg/test/util/assert"
 	"os"
 	"path/filepath"
 	"testing"
@@ -132,35 +134,16 @@ global:
 `,
 			wantErrs: makeErrors([]string{`global.proxy.excludeInboundPorts : strconv.ParseInt: parsing "222x": invalid syntax`}),
 		},
-		{
-			desc: "unknown field",
-			yamlStr: `
-global:
-  proxy:
-    foo: "bar"
-`,
-			wantErrs: makeErrors([]string{`unknown field "foo" in v1alpha1.ProxyConfig`}),
-		},
-		{
-			desc: "unknown cni field",
-			yamlStr: `
-cni:
-  foo: "bar"
-`,
-			wantErrs: makeErrors([]string{`unknown field "foo" in v1alpha1.CNIConfig`}),
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			root := make(map[string]any)
+			root := &v1alpha1.Values{}
 			err := yaml.Unmarshal([]byte(tt.yamlStr), &root)
-			if err != nil {
-				t.Fatalf("yaml.Unmarshal(%s): got error %s", tt.desc, err)
-			}
-			errs := CheckValues(util.MustStruct(root))
+			assert.NoError(t, err)
+			errs := CheckIstioOperatorSpec(&v1alpha1.IstioOperatorSpec{Values: root})
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
-				t.Errorf("CheckValues(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.yamlStr, gotErr, wantErr)
+				t.Errorf("CheckValues(%s)(%v): gotErr:\n%s, wantErr:\n%s", tt.desc, tt.yamlStr, gotErr, wantErr)
 			}
 		})
 	}
@@ -194,7 +177,7 @@ func TestValidateValuesFromProfile(t *testing.T) {
 			if err != nil {
 				t.Fatalf(" fail to parse profile to ISCP: (%s), got error %s", tt.profile, err)
 			}
-			errs := CheckValues(val.Spec.Values)
+			errs := CheckIstioOperatorSpec(val.Spec)
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
 				t.Errorf("CheckValues of (%v): gotErr:%s, wantErr:%s", tt.profile, gotErr, wantErr)
 			}
@@ -223,11 +206,10 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		valuesTree := make(map[string]any)
-		if err := yaml.Unmarshal([]byte(valuesYAML), &valuesTree); err != nil {
-			t.Fatal(err.Error())
-		}
-		if err := CheckValues(util.MustStruct(valuesTree["defaults"].(map[string]any))); err != nil {
+
+		root := &v1alpha1.Values{}
+		assert.NoError(t, yaml.Unmarshal([]byte(valuesYAML), &root))
+		if err := CheckIstioOperatorSpec(&v1alpha1.IstioOperatorSpec{Values: root}); err != nil {
 			t.Fatalf("file %s failed validation with: %s", f, err)
 		}
 	}

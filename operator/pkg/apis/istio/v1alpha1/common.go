@@ -19,10 +19,7 @@ func Namespace(iops *IstioOperatorSpec) string {
 	if iops.Namespace != "" {
 		return iops.Namespace
 	}
-	if iops.Values == nil {
-		return ""
-	}
-	return iops.Values.Global.IstioNamespace
+	return iops.GetValues().GetGlobal().GetIstioNamespace()
 }
 
 // SetNamespace returns the namespace of the containing CR.

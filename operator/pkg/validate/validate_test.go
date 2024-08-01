@@ -68,14 +68,14 @@ values:
 			yamlStr: `
 hub: ?illegal-tag!
 `,
-			wantErrs: makeErrors([]string{`invalid value Hub: ?illegal-tag!`}),
+			wantErrs: makeErrors([]string{`invalid value hub: ?illegal-tag!`}),
 		},
 		{
 			desc: "BadHub",
 			yamlStr: `
 hub: docker.io:tag/istio
 `,
-			wantErrs: makeErrors([]string{`invalid value Hub: docker.io:tag/istio`}),
+			wantErrs: makeErrors([]string{`invalid value hub: docker.io:tag/istio`}),
 		},
 		{
 			desc: "GoodURL",
@@ -92,7 +92,7 @@ components:
     name: istio@ingress-1
     enabled: true
 `,
-			wantErrs: makeErrors([]string{`invalid value Components.IngressGateways: istio@ingress-1`}),
+			wantErrs: makeErrors([]string{`invalid value components.ingressGateways: istio@ingress-1`}),
 		},
 		{
 			desc: "BadValuesIP",

@@ -17,30 +17,18 @@ package validate
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-// DefaultValidations maps a data path to a validation function.
-var DefaultValidations = map[string]ValidatorFunc{
-	"Values": func(path util.Path, i any) util.Errors {
-		return CheckValues(i)
-	},
-	"MeshConfig":                 validateMeshConfig,
-	"Hub":                        validateHub,
-	"Tag":                        validateTag,
-	"Revision":                   validateRevision,
-	"Components.IngressGateways": validateGatewayName,
-	"Components.EgressGateways":  validateGatewayName,
-}
 
 // CheckIstioOperator validates the operator CR.
 func CheckIstioOperator(iop *operator_v1alpha1.IstioOperator) error {
@@ -55,22 +43,31 @@ func CheckIstioOperator(iop *operator_v1alpha1.IstioOperator) error {
 // CheckIstioOperatorSpec validates the values in the given Installer spec, using the field map DefaultValidations to
 // call the appropriate validation function. checkRequiredFields determines whether missing mandatory fields generate
 // errors.
-func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec) (errs util.Errors) {
+func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec) (util.Errors) {
 	if is == nil {
-		return util.Errors{}
+		return nil
 	}
+	val := is.Values
+	var errs util.Errors
 
-	return Validate2(DefaultValidations, is)
-}
-
-func Validate2(validations map[string]ValidatorFunc, iop *v1alpha1.IstioOperatorSpec) (errs util.Errors) {
-	for path, validator := range validations {
-		v, f, _ := tpath.GetFromStructPath(iop, path)
-		if f {
-			errs = append(errs, validator(util.PathFromString(path), v)...)
+	run := func(v any, f ValidatorFunc, p util.Path) {
+		if !reflect.ValueOf(v).IsZero() {
+			errs = util.AppendErrs(errs, f(p, v))
 		}
 	}
-	return
+	run(val.GetGlobal().GetProxy().GetIncludeIPRanges(), validateIPRangesOrStar, util.PathFromString("global.proxy.includeIPRanges"))
+	run(val.GetGlobal().GetProxy().GetExcludeIPRanges(), validateIPRangesOrStar, util.PathFromString("global.proxy.excludeIPRanges"))
+	run(val.GetGlobal().GetProxy().GetIncludeInboundPorts(), validateStringList(validatePortNumberString), util.PathFromString("global.proxy.includeInboundPorts"))
+	run(val.GetGlobal().GetProxy().GetExcludeInboundPorts(), validateStringList(validatePortNumberString), util.PathFromString("global.proxy.excludeInboundPorts"))
+	run(val.GetMeshConfig(), validateMeshConfig, util.PathFromString("meshConfig"))
+
+	//run(is.GetMeshConfig())
+	run(is.GetHub(), validateHub, util.PathFromString("hub"))
+	run(is.GetTag(), validateTag, util.PathFromString("tag"))
+	run(is.GetRevision(), validateRevision, util.PathFromString("revision"))
+	run(is.GetComponents().GetIngressGateways(), validateGatewayName, util.PathFromString("components.ingressGateways"))
+	run(is.GetComponents().GetEgressGateways(), validateGatewayName, util.PathFromString("components.egressGateways"))
+	return errs
 }
 
 func validateMeshConfig(path util.Path, root any) util.Errors {
