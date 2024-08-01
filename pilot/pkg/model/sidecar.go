@@ -24,7 +24,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -255,26 +254,8 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 	for _, s := range services {
 		out.appendSidecarServices(servicesAdded, s)
 	}
-
-	// Now that we have all the services that sidecars using this scope (in
-	// this config namespace) will see, identify all the destinationRules
-	// that these services need
-	for _, s := range out.services {
-		if dr := ps.destinationRule(configNamespace, s); dr != nil {
-			out.destinationRules[s.Hostname] = dr
-			for _, cdr := range dr {
-				for _, from := range cdr.from {
-					out.destinationRulesByNames[from] = cdr.rule
-				}
-			}
-		}
-	}
-
-	// waypoint need to get vses from the egress listener
-	defaultEgressListener := &IstioEgressListenerWrapper{
-		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
-	}
-	out.EgressListeners = []*IstioEgressListenerWrapper{defaultEgressListener}
+	out.selectDestinationRules(ps, configNamespace)
+	out.EgressListeners = []*IstioEgressListenerWrapper{{}}
 
 	return out
 }
@@ -283,100 +264,32 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 // that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
 // We use this scope when the user has not set any sidecar Config for a given config namespace.
 func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *SidecarScope {
-	defaultEgressListener := &IstioEgressListenerWrapper{
-		IstioListener: &networking.IstioEgressListener{
-			Hosts: []string{"*/*"},
-		},
-	}
-	services := ps.servicesExportedToNamespace(configNamespace)
-	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
-	defaultEgressListener.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(
-		defaultEgressListener.virtualServices, services)
-
-	out := &SidecarScope{
-		Name:                    defaultSidecar,
-		Namespace:               configNamespace,
-		EgressListeners:         []*IstioEgressListenerWrapper{defaultEgressListener},
-		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
-		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
-		servicesByHostname:      make(map[host.Name]*Service, len(defaultEgressListener.services)),
-		configDependencies:      make(sets.Set[ConfigHash]),
-		Version:                 ps.PushVersion,
-	}
-
-	servicesAdded := make(map[host.Name]sidecarServiceIndex)
-	for _, s := range services {
-		out.appendSidecarServices(servicesAdded, s)
-	}
-	defaultEgressListener.services = out.services
-
-	// add dependencies on delegate virtual services
-	delegates := ps.DelegateVirtualServices(defaultEgressListener.virtualServices)
-	for _, delegate := range delegates {
-		out.AddConfigDependencies(delegate)
-	}
-	for _, vs := range defaultEgressListener.virtualServices {
-		for _, cfg := range VirtualServiceDependencies(vs) {
-			out.AddConfigDependencies(cfg.HashCode())
-		}
-	}
-
-	// Now that we have all the services that sidecars using this scope (in
-	// this config namespace) will see, identify all the destinationRules
-	// that these services need
-	for _, s := range out.services {
-		if dr := ps.destinationRule(configNamespace, s); dr != nil {
-			out.destinationRules[s.Hostname] = dr
-			for _, cdr := range dr {
-				for _, from := range cdr.from {
-					out.destinationRulesByNames[from] = cdr.rule
-					out.AddConfigDependencies(ConfigKey{
-						Kind:      kind.DestinationRule,
-						Name:      from.Name,
-						Namespace: from.Namespace,
-					}.HashCode())
-				}
-			}
-		}
-		out.AddConfigDependencies(ConfigKey{
-			Kind:      kind.ServiceEntry,
-			Name:      string(s.Hostname),
-			Namespace: s.Attributes.Namespace,
-		}.HashCode())
-	}
-
-	if ps.Mesh.OutboundTrafficPolicy != nil {
-		out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-			Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
-		}
-	}
-
-	return out
+	return convertToSidecarScope(ps, nil, configNamespace)
 }
 
 // convertToSidecarScope converts from Sidecar config to SidecarScope object
 func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, configNamespace string) *SidecarScope {
-	if sidecarConfig == nil {
-		return DefaultSidecarScopeForNamespace(ps, configNamespace)
-	}
-
-	sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 	out := &SidecarScope{
-		Name:               sidecarConfig.Name,
+		Name:               defaultSidecar,
 		Namespace:          configNamespace,
-		Sidecar:            sidecar,
 		servicesByHostname: make(map[host.Name]*Service),
 		configDependencies: make(sets.Set[ConfigHash]),
 		Version:            ps.PushVersion,
 	}
+	var sidecar *networking.Sidecar
+	if sidecarConfig != nil {
+		sidecar = sidecarConfig.Spec.(*networking.Sidecar)
+		out.Sidecar = sidecar
+		out.Name = sidecarConfig.Name
+		out.AddConfigDependencies(ConfigKey{
+			Kind:      kind.Sidecar,
+			Name:      sidecarConfig.Name,
+			Namespace: sidecarConfig.Namespace,
+		}.HashCode())
 
-	out.AddConfigDependencies(ConfigKey{
-		Kind:      kind.Sidecar,
-		Name:      sidecarConfig.Name,
-		Namespace: sidecarConfig.Namespace,
-	}.HashCode())
+	}
 
-	egressConfigs := sidecar.Egress
+	egressConfigs := sidecar.GetEgress()
 	// If egress not set, setup a default listener
 	if len(egressConfigs) == 0 {
 		egressConfigs = append(egressConfigs, &networking.IstioEgressListener{Hosts: []string{"*/*"}})
@@ -396,14 +309,14 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// that these services need
 	out.selectDestinationRules(ps, configNamespace)
 
-	if sidecar.OutboundTrafficPolicy == nil {
+	if sidecar.GetOutboundTrafficPolicy() == nil {
 		if ps.Mesh.OutboundTrafficPolicy != nil {
 			out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
 			}
 		}
 	} else {
-		out.OutboundTrafficPolicy = sidecar.OutboundTrafficPolicy
+		out.OutboundTrafficPolicy = sidecar.GetOutboundTrafficPolicy()
 	}
 
 	return out
@@ -766,20 +679,34 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 
-	validServices := make(map[host.Name]string, len(importedServices))
+	type namespaceProvider struct {
+		Namespace         string
+		KubernetesService bool
+	}
+
+	validServices := make(map[host.Name]namespaceProvider, len(importedServices))
 	for _, svc := range importedServices {
-		_, f := validServices[svc.Hostname]
+		np := namespaceProvider{Namespace: svc.Attributes.Namespace, KubernetesService: svc.Attributes.ServiceRegistry == provider.Kubernetes}
+		ex, f := validServices[svc.Hostname]
 		// Select a single namespace for a given hostname.
 		// If the same hostname is imported from multiple namespaces, pick the one in the configNamespace
-		// If neither are in configNamespace, an arbitrary one will be chosen
-		if !f || svc.Attributes.Namespace == configNamespace {
-			validServices[svc.Hostname] = svc.Attributes.Namespace
+		// If neither are in configNamespace, an arbitrary one will be chosen, preferring Kubernetes services over ServiceEntry
+		if !f {
+			// First time we saw the hostname, take it
+			validServices[svc.Hostname] = np
+		} else if svc.Attributes.Namespace == configNamespace {
+			// We have seen the hostname, but now its in the configNamespace which has precedence
+			validServices[svc.Hostname] = np
+		} else if !ex.KubernetesService && np.KubernetesService {
+			// We saw the hostname, but this time it is a Kubernetes service, rather than a ServiceEntry for the same hostname.
+			// Prefer this one.
+			validServices[svc.Hostname] = np
 		}
 	}
 
 	// Filter down to just instances in scope for the service
 	return slices.FilterInPlace(importedServices, func(svc *Service) bool {
-		return validServices[svc.Hostname] == svc.Attributes.Namespace
+		return validServices[svc.Hostname].Namespace == svc.Attributes.Namespace
 	})
 }
 
