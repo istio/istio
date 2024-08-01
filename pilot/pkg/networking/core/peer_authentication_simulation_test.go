@@ -26,7 +26,7 @@ import (
 // including both global configuration and port level configuration.
 func TestPeerAuthenticationPassthrough(t *testing.T) {
 	paStrict := `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
  name: default
@@ -38,7 +38,7 @@ spec:
    mode: STRICT
 ---`
 	paDisable := `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
  name: default
@@ -50,7 +50,7 @@ spec:
    mode: DISABLE
 ---`
 	paPermissive := `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
  name: default
@@ -62,7 +62,7 @@ spec:
    mode: PERMISSIVE
 ---`
 	paStrictWithDisableOnPort9000 := `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
  name: default
@@ -77,7 +77,7 @@ spec:
      mode: DISABLE
 ---`
 	paDisableWithStrictOnPort9000 := `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
  name: default
@@ -92,7 +92,7 @@ spec:
      mode: STRICT
 ---`
 	paDisableWithPermissiveOnPort9000 := `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -107,7 +107,7 @@ spec:
       mode: PERMISSIVE
 ---`
 	sePort8000 := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
  name: se
@@ -359,7 +359,7 @@ spec:
 // either the service or sidecar resource.
 func TestPeerAuthenticationWithSidecar(t *testing.T) {
 	pa := `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -374,7 +374,7 @@ spec:
       mode: DISABLE
 ---`
 	sidecar := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   labels:
@@ -400,7 +400,7 @@ spec:
       app: foo
 ---`
 	partialSidecar := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   labels:
@@ -421,7 +421,7 @@ spec:
       app: foo
 ---`
 	instancePorts := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se
@@ -443,7 +443,7 @@ spec:
     protocol: TCP
 ---`
 	instanceNoPorts := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se

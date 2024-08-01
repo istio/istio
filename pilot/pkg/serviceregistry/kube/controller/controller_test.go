@@ -35,7 +35,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -1851,7 +1851,7 @@ func createVirtualService(controller *FakeController, name, namespace string,
 	annotations map[string]string,
 	t *testing.T,
 ) {
-	vs := &v1alpha3.VirtualService{
+	vs := &clientnetworking.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   namespace,
@@ -1859,7 +1859,7 @@ func createVirtualService(controller *FakeController, name, namespace string,
 		},
 	}
 
-	clienttest.NewWriter[*v1alpha3.VirtualService](t, controller.client).Create(vs)
+	clienttest.NewWriter[*clientnetworking.VirtualService](t, controller.client).Create(vs)
 }
 
 func getService(controller *FakeController, name, namespace string, t *testing.T) *corev1.Service {

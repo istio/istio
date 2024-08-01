@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	apiannotation "istio.io/api/annotation"
-	v1alpha32 "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	networking "istio.io/api/networking/v1alpha3"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/test/util"
@@ -184,40 +184,40 @@ func TestDescribe(t *testing.T) {
 				},
 			},
 			istioConfigs: []runtime.Object{
-				&v1alpha3.VirtualService{
+				&clientnetworking.VirtualService{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "bookinfo",
 						Namespace: "default",
 					},
-					Spec: v1alpha32.VirtualService{
+					Spec: networking.VirtualService{
 						Hosts:    []string{"productpage"},
 						Gateways: []string{"fake-gw"},
-						Http: []*v1alpha32.HTTPRoute{
+						Http: []*networking.HTTPRoute{
 							{
-								Match: []*v1alpha32.HTTPMatchRequest{
+								Match: []*networking.HTTPMatchRequest{
 									{
-										Uri: &v1alpha32.StringMatch{
-											MatchType: &v1alpha32.StringMatch_Prefix{
+										Uri: &networking.StringMatch{
+											MatchType: &networking.StringMatch_Prefix{
 												Prefix: "/prefix",
 											},
 										},
 									},
 								},
-								Route: []*v1alpha32.HTTPRouteDestination{
+								Route: []*networking.HTTPRouteDestination{
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage",
 										},
 										Weight: 30,
 									},
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage2",
 										},
 										Weight: 20,
 									},
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage3",
 										},
 										Weight: 50,
@@ -227,14 +227,14 @@ func TestDescribe(t *testing.T) {
 						},
 					},
 				},
-				&v1alpha3.DestinationRule{
+				&clientnetworking.DestinationRule{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "productpage",
 						Namespace: "default",
 					},
-					Spec: v1alpha32.DestinationRule{
+					Spec: networking.DestinationRule{
 						Host: "productpage",
-						Subsets: []*v1alpha32.Subset{
+						Subsets: []*networking.Subset{
 							{
 								Name:   "v1",
 								Labels: map[string]string{"version": "v1"},
@@ -363,40 +363,40 @@ VirtualService: bookinfo
 				},
 			},
 			istioConfigs: []runtime.Object{
-				&v1alpha3.VirtualService{
+				&clientnetworking.VirtualService{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "bookinfo",
 						Namespace: "default",
 					},
-					Spec: v1alpha32.VirtualService{
+					Spec: networking.VirtualService{
 						Hosts:    []string{"productpage"},
 						Gateways: []string{"fake-gw"},
-						Http: []*v1alpha32.HTTPRoute{
+						Http: []*networking.HTTPRoute{
 							{
-								Match: []*v1alpha32.HTTPMatchRequest{
+								Match: []*networking.HTTPMatchRequest{
 									{
-										Uri: &v1alpha32.StringMatch{
-											MatchType: &v1alpha32.StringMatch_Prefix{
+										Uri: &networking.StringMatch{
+											MatchType: &networking.StringMatch_Prefix{
 												Prefix: "/prefix",
 											},
 										},
 									},
 								},
-								Route: []*v1alpha32.HTTPRouteDestination{
+								Route: []*networking.HTTPRouteDestination{
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage",
 										},
 										Weight: 30,
 									},
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage2",
 										},
 										Weight: 20,
 									},
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage3",
 										},
 										Weight: 50,
@@ -406,14 +406,14 @@ VirtualService: bookinfo
 						},
 					},
 				},
-				&v1alpha3.DestinationRule{
+				&clientnetworking.DestinationRule{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "productpage",
 						Namespace: "default",
 					},
-					Spec: v1alpha32.DestinationRule{
+					Spec: networking.DestinationRule{
 						Host: "productpage",
-						Subsets: []*v1alpha32.Subset{
+						Subsets: []*networking.Subset{
 							{
 								Name:   "v1",
 								Labels: map[string]string{"version": "v1"},
@@ -546,40 +546,40 @@ VirtualService: bookinfo
 				},
 			},
 			istioConfigs: []runtime.Object{
-				&v1alpha3.VirtualService{
+				&clientnetworking.VirtualService{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "bookinfo",
 						Namespace: "default",
 					},
-					Spec: v1alpha32.VirtualService{
+					Spec: networking.VirtualService{
 						Hosts:    []string{"productpage"},
 						Gateways: []string{"fake-gw"},
-						Http: []*v1alpha32.HTTPRoute{
+						Http: []*networking.HTTPRoute{
 							{
-								Match: []*v1alpha32.HTTPMatchRequest{
+								Match: []*networking.HTTPMatchRequest{
 									{
-										Uri: &v1alpha32.StringMatch{
-											MatchType: &v1alpha32.StringMatch_Prefix{
+										Uri: &networking.StringMatch{
+											MatchType: &networking.StringMatch_Prefix{
 												Prefix: "/prefix",
 											},
 										},
 									},
 								},
-								Route: []*v1alpha32.HTTPRouteDestination{
+								Route: []*networking.HTTPRouteDestination{
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage",
 										},
 										Weight: 30,
 									},
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage2",
 										},
 										Weight: 20,
 									},
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage3",
 										},
 										Weight: 50,
@@ -589,35 +589,35 @@ VirtualService: bookinfo
 						},
 					},
 				},
-				&v1alpha3.DestinationRule{
+				&clientnetworking.DestinationRule{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "productpage",
 						Namespace: "default",
 					},
-					Spec: v1alpha32.DestinationRule{
+					Spec: networking.DestinationRule{
 						Host: "productpage",
-						Subsets: []*v1alpha32.Subset{
+						Subsets: []*networking.Subset{
 							{
 								Name:   "v1",
 								Labels: map[string]string{"version": "v1"},
 							},
 						},
-						TrafficPolicy: &v1alpha32.TrafficPolicy{
-							LoadBalancer: &v1alpha32.LoadBalancerSettings{
-								LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST},
+						TrafficPolicy: &networking.TrafficPolicy{
+							LoadBalancer: &networking.LoadBalancerSettings{
+								LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_LEAST_REQUEST},
 							},
-							ConnectionPool:   &v1alpha32.ConnectionPoolSettings{Tcp: &v1alpha32.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
-							OutlierDetection: &v1alpha32.OutlierDetection{MinHealthPercent: 10},
-							Tls:              &v1alpha32.ClientTLSSettings{Mode: v1alpha32.ClientTLSSettings_ISTIO_MUTUAL},
-							PortLevelSettings: []*v1alpha32.TrafficPolicy_PortTrafficPolicy{
+							ConnectionPool:   &networking.ConnectionPoolSettings{Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
+							OutlierDetection: &networking.OutlierDetection{MinHealthPercent: 10},
+							Tls:              &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 								{
-									LoadBalancer: &v1alpha32.LoadBalancerSettings{
-										LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST},
+									LoadBalancer: &networking.LoadBalancerSettings{
+										LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_LEAST_REQUEST},
 									},
-									Port:             &v1alpha32.PortSelector{Number: 8080},
-									Tls:              &v1alpha32.ClientTLSSettings{Mode: v1alpha32.ClientTLSSettings_DISABLE},
-									ConnectionPool:   &v1alpha32.ConnectionPoolSettings{Tcp: &v1alpha32.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
-									OutlierDetection: &v1alpha32.OutlierDetection{MinHealthPercent: 10},
+									Port:             &networking.PortSelector{Number: 8080},
+									Tls:              &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+									ConnectionPool:   &networking.ConnectionPoolSettings{Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
+									OutlierDetection: &networking.OutlierDetection{MinHealthPercent: 10},
 								},
 							},
 							Tunnel:        nil,
@@ -818,43 +818,43 @@ VirtualService: bookinfo
 				},
 			},
 			istioConfigs: []runtime.Object{
-				&v1alpha3.VirtualService{
+				&clientnetworking.VirtualService{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "bookinfo",
 						Namespace: "default",
 					},
-					Spec: v1alpha32.VirtualService{
+					Spec: networking.VirtualService{
 						Hosts: []string{
 							"productpage",
 							"productpage.exapple.com",
 						},
 						Gateways: []string{"fake-gw"},
-						Http: []*v1alpha32.HTTPRoute{
+						Http: []*networking.HTTPRoute{
 							{
-								Match: []*v1alpha32.HTTPMatchRequest{
+								Match: []*networking.HTTPMatchRequest{
 									{
-										Uri: &v1alpha32.StringMatch{
-											MatchType: &v1alpha32.StringMatch_Prefix{
+										Uri: &networking.StringMatch{
+											MatchType: &networking.StringMatch_Prefix{
 												Prefix: "/prefix",
 											},
 										},
 									},
 								},
-								Route: []*v1alpha32.HTTPRouteDestination{
+								Route: []*networking.HTTPRouteDestination{
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage",
 										},
 										Weight: 30,
 									},
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage2",
 										},
 										Weight: 20,
 									},
 									{
-										Destination: &v1alpha32.Destination{
+										Destination: &networking.Destination{
 											Host: "productpage3",
 										},
 										Weight: 50,
@@ -864,35 +864,35 @@ VirtualService: bookinfo
 						},
 					},
 				},
-				&v1alpha3.DestinationRule{
+				&clientnetworking.DestinationRule{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "productpage",
 						Namespace: "default",
 					},
-					Spec: v1alpha32.DestinationRule{
+					Spec: networking.DestinationRule{
 						Host: "productpage",
-						Subsets: []*v1alpha32.Subset{
+						Subsets: []*networking.Subset{
 							{
 								Name:   "v1",
 								Labels: map[string]string{"version": "v1"},
 							},
 						},
-						TrafficPolicy: &v1alpha32.TrafficPolicy{
-							LoadBalancer: &v1alpha32.LoadBalancerSettings{
-								LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST},
+						TrafficPolicy: &networking.TrafficPolicy{
+							LoadBalancer: &networking.LoadBalancerSettings{
+								LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_LEAST_REQUEST},
 							},
-							ConnectionPool:   &v1alpha32.ConnectionPoolSettings{Tcp: &v1alpha32.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
-							OutlierDetection: &v1alpha32.OutlierDetection{MinHealthPercent: 10},
-							Tls:              &v1alpha32.ClientTLSSettings{Mode: v1alpha32.ClientTLSSettings_ISTIO_MUTUAL},
-							PortLevelSettings: []*v1alpha32.TrafficPolicy_PortTrafficPolicy{
+							ConnectionPool:   &networking.ConnectionPoolSettings{Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
+							OutlierDetection: &networking.OutlierDetection{MinHealthPercent: 10},
+							Tls:              &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 								{
-									LoadBalancer: &v1alpha32.LoadBalancerSettings{
-										LbPolicy: &v1alpha32.LoadBalancerSettings_Simple{Simple: v1alpha32.LoadBalancerSettings_LEAST_REQUEST},
+									LoadBalancer: &networking.LoadBalancerSettings{
+										LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_LEAST_REQUEST},
 									},
-									Port:             &v1alpha32.PortSelector{Number: 8080},
-									Tls:              &v1alpha32.ClientTLSSettings{Mode: v1alpha32.ClientTLSSettings_DISABLE},
-									ConnectionPool:   &v1alpha32.ConnectionPoolSettings{Tcp: &v1alpha32.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
-									OutlierDetection: &v1alpha32.OutlierDetection{MinHealthPercent: 10},
+									Port:             &networking.PortSelector{Number: 8080},
+									Tls:              &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+									ConnectionPool:   &networking.ConnectionPoolSettings{Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 10}},
+									OutlierDetection: &networking.OutlierDetection{MinHealthPercent: 10},
 								},
 							},
 							Tunnel:        nil,
@@ -900,15 +900,15 @@ VirtualService: bookinfo
 						},
 					},
 				},
-				&v1alpha3.Gateway{
+				&clientnetworking.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "fake-gw",
 						Namespace: "default",
 					},
-					Spec: v1alpha32.Gateway{
-						Servers: []*v1alpha32.Server{
+					Spec: networking.Gateway{
+						Servers: []*networking.Server{
 							{
-								Port: &v1alpha32.Port{
+								Port: &networking.Port{
 									Number:   80,
 									Name:     "default",
 									Protocol: "HTTP",
@@ -1090,12 +1090,12 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	// Override the Istio config factory
 	for i := range c.istioConfigs {
 		switch t := c.istioConfigs[i].(type) {
-		case *v1alpha3.DestinationRule:
-			client.Istio().NetworkingV1alpha3().DestinationRules(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
-		case *v1alpha3.Gateway:
-			client.Istio().NetworkingV1alpha3().Gateways(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
-		case *v1alpha3.VirtualService:
-			client.Istio().NetworkingV1alpha3().VirtualServices(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+		case *clientnetworking.DestinationRule:
+			client.Istio().NetworkingV1().DestinationRules(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+		case *clientnetworking.Gateway:
+			client.Istio().NetworkingV1().Gateways(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+		case *clientnetworking.VirtualService:
+			client.Istio().NetworkingV1().VirtualServices(t.Namespace).Create(context.TODO(), t, metav1.CreateOptions{})
 		}
 	}
 	for i := range c.k8sConfigs {

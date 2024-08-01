@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/testhelpers"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -89,7 +89,7 @@ func TestReadLayeredYAMLs(t *testing.T) {
 				return
 			}
 
-			diff := util.YAMLDiff(got, want)
+			diff := testhelpers.YAMLDiff(got, want)
 			if diff != "" {
 				t.Errorf("ReadLayeredYAMLs() got:\n%s\nwant:\n%s\ndiff:\n%s", got, want, diff)
 			}
@@ -145,7 +145,7 @@ func TestConvertIOPMapValues(t *testing.T) {
 				t.Fatalf(err.Error())
 			}
 
-			diff := util.YAMLDiff(actualOutput, string(expectOutput))
+			diff := testhelpers.YAMLDiff(actualOutput, string(expectOutput))
 			if diff != "" {
 				t.Errorf("convertIOPMapValues() got:\n%s\nwant:\n%s\ndiff:\n%s", actualOutput, string(expectOutput), diff)
 			}

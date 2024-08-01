@@ -26,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	apiv1alpha3 "istio.io/api/networking/v1alpha3"
-	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	autoallocate "istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	networkingv1 "istio.io/client-go/pkg/apis/networking/v1"
+	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -39,8 +39,8 @@ import (
 var log = istiolog.RegisterScope("ip-autoallocate", "IP autoallocate controller")
 
 type IPAllocator struct {
-	serviceEntryClient kclient.Client[*networkingv1alpha3.ServiceEntry]
-	index              kclient.Index[netip.Addr, *networkingv1alpha3.ServiceEntry]
+	serviceEntryClient kclient.Client[*networkingv1.ServiceEntry]
+	index              kclient.Index[netip.Addr, *networkingv1.ServiceEntry]
 	stopChan           <-chan struct{}
 	queue              controllers.Queue
 
@@ -96,8 +96,8 @@ const (
 )
 
 func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
-	client := kclient.New[*networkingv1alpha3.ServiceEntry](c)
-	index := kclient.CreateIndex[netip.Addr, *networkingv1alpha3.ServiceEntry](client, func(serviceentry *networkingv1alpha3.ServiceEntry) []netip.Addr {
+	client := kclient.New[*networkingv1.ServiceEntry](c)
+	index := kclient.CreateIndex[netip.Addr, *networkingv1.ServiceEntry](client, func(serviceentry *networkingv1.ServiceEntry) []netip.Addr {
 		addresses := autoallocate.GetV2AddressesFromServiceEntry(serviceentry)
 		for _, addr := range serviceentry.Spec.Addresses {
 			a, err := netip.ParseAddr(addr)
@@ -207,7 +207,7 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 }
 
 func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
-	var serviceentries, autoConflicts, userConflicts []*networkingv1alpha3.ServiceEntry
+	var serviceentries, autoConflicts, userConflicts []*networkingv1.ServiceEntry
 
 	for _, conflictingAddress := range conflict.getAddresses() {
 		serviceentries = append(serviceentries, c.index.Lookup(conflictingAddress)...)
@@ -224,7 +224,7 @@ func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
 		}
 	}
 
-	slices.SortFunc(autoConflicts, func(a, b *networkingv1alpha3.ServiceEntry) int {
+	slices.SortFunc(autoConflicts, func(a, b *networkingv1.ServiceEntry) int {
 		return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
 	})
 
@@ -265,7 +265,7 @@ func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
 	return errs
 }
 
-func allAddresses(se *networkingv1alpha3.ServiceEntry) ([]netip.Addr, []netip.Addr) {
+func allAddresses(se *networkingv1.ServiceEntry) ([]netip.Addr, []netip.Addr) {
 	if se == nil {
 		return nil, nil
 	}
@@ -324,7 +324,7 @@ type jsonPatch struct {
 	Value     interface{} `json:"value"`
 }
 
-func (c *IPAllocator) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry, forcedReassign bool) ([]byte, []byte, error) {
+func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, forcedReassign bool) ([]byte, []byte, error) {
 	if se == nil {
 		return nil, nil, nil
 	}
@@ -369,7 +369,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntr
 	return replaceAddresses, atomicAddAndAddresses, errors.Join(err, err2)
 }
 
-func (c *IPAllocator) checkInSpecAddresses(serviceentry *networkingv1alpha3.ServiceEntry) {
+func (c *IPAllocator) checkInSpecAddresses(serviceentry *networkingv1.ServiceEntry) {
 	addrs := []netip.Addr{}
 	for _, addr := range serviceentry.Spec.Addresses {
 		a, err := netip.ParseAddr(addr)

@@ -1,4 +1,4 @@
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
   name: default
@@ -10,7 +10,7 @@ spec:
     - issuer: "test-issuer-2@istio.io"
       jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .EgressGatewayIstioLabel | default "egressgateway" }}
@@ -46,7 +46,7 @@ spec:
 ---
 # The following policy redirects the request through egress gateway.
 
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: test-egress
@@ -71,7 +71,7 @@ spec:
         - "*"
 ---
 
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route-via-egressgateway
@@ -108,7 +108,7 @@ spec:
           add:
             x-egress-test: "handled-by-egress-gateway"
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route-via-egressgateway-2
@@ -147,7 +147,7 @@ spec:
           add:
             x-egress-test: "handled-by-egress-gateway"
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: test-egress
@@ -162,7 +162,7 @@ spec:
           mode: ISTIO_MUTUAL
 ---
 # TODO(nmittler): Shouldn't need this. Workaround for https://github.com/istio/istio/issues/38704.
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: test-egress

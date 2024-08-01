@@ -76,6 +76,11 @@ spec:
 {{- if or .Values.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
+          ports:
+          - containerPort: 15014
+            hostPort: 15014
+            name: metrics
+            protocol: TCP
           readinessProbe:
             httpGet:
               path: /readyz

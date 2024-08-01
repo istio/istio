@@ -228,7 +228,7 @@ func (d *deployment) workloadEntryYAML(w *workload) string {
 	version := w.pod.Labels[constants.TestVMVersionLabel]
 
 	return fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: %s
@@ -454,7 +454,7 @@ func createVMConfig(ctx resource.Context, cfg echo.Config) error {
 	}
 
 	wg := tmpl.MustEvaluate(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadGroup
 metadata:
   name: {{.name}}

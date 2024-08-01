@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
@@ -18,7 +18,7 @@ spec:
       protocol: TLS
     tls: {}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
@@ -40,7 +40,7 @@ spec:
       credentialName: kubernetes-gateway://istio-system/my-cert-http
       mode: SIMPLE
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
@@ -62,7 +62,7 @@ spec:
       credentialName: kubernetes-gateway://istio-system/my-cert-http
       mode: MUTUAL
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
@@ -83,7 +83,7 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   annotations:
@@ -105,7 +105,7 @@ spec:
         port:
           number: 80
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   annotations:
@@ -129,7 +129,7 @@ spec:
         port:
           number: 443
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   annotations:

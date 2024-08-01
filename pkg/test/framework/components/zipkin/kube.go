@@ -42,7 +42,7 @@ const (
 	zipkinPort = 9411
 
 	remoteZipkinEntry = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: tracing-gateway
@@ -64,7 +64,7 @@ spec:
     hosts:
     - "tracing.{INGRESS_DOMAIN}"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: tracing-vs
@@ -90,7 +90,7 @@ spec:
         port:
           number: 9411
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: tracing
@@ -103,7 +103,7 @@ spec:
 ---`
 
 	extServiceEntry = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: zipkin

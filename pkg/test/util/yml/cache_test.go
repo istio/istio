@@ -25,7 +25,7 @@ import (
 
 var (
 	gateway = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: some-ingress
@@ -40,7 +40,7 @@ spec:
 `
 
 	updatedGateway = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: some-ingress
@@ -55,7 +55,7 @@ spec:
 `
 
 	virtualService = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route-for-myapp

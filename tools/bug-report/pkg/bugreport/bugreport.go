@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 
 	label2 "istio.io/api/label"
@@ -285,7 +284,7 @@ func getIstioVersion(kubeClient kube.CLIClient, istioNamespace string) string {
 	if err != nil {
 		return err.Error()
 	}
-	return pretty.Sprint(versions)
+	return fmt.Sprintf("%#v", versions)
 }
 
 // gatherInfo fetches all logs, resources, debug etc. using goroutines.

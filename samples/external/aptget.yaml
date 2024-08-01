@@ -3,7 +3,7 @@
 # `apt-get upgrade` and `apt-get install`.  If this is not installed you may get
 # "404  Not Found"
 
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: make-aptget-work

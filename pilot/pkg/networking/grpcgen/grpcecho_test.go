@@ -183,7 +183,7 @@ spec:
     port: 7070
 `,
 		ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: echo-dr
@@ -198,7 +198,7 @@ spec:
       labels:
         version: v2
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: echo-vs
@@ -261,7 +261,7 @@ spec:
     port: 7070
 `,
 		ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: echo-dr
@@ -272,7 +272,7 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -316,7 +316,7 @@ spec:
     port: 7071
 `,
 		ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: echo-delay

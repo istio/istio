@@ -22,8 +22,8 @@ import (
 	discovery "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"

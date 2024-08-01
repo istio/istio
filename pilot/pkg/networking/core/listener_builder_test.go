@@ -549,7 +549,7 @@ func getEnvoyFilterConfigs(configPatches []*networking.EnvoyFilter_EnvoyConfigOb
 }
 
 const strictMode = `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -560,7 +560,7 @@ spec:
 `
 
 const disableMode = `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -834,7 +834,7 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 }
 
 func mtlsMode(m string) string {
-	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default

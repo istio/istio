@@ -7,7 +7,7 @@ The PeerAuthentication resource defines policy for whether or not traffic to a g
 The goal of ztunnel is to be a minimal L4 proxy, and as such, its xDS configuration is purposefully limited. In particular, ztunnel only supports 2 (custom) xDS resources: [`Workload`](../../pkg/workloadapi/workload.proto) and [`Authorization`](../../pkg/workloadapi/security/authorization.proto). As such, ztunnel does not receive `PeerAuthentication`s directly; when istiod detects a `PeerAuthentication` resource that targets an Ambient captured workload, it computes the effective policy for that workload (taking into account the mesh-wide -> namespace -> workload precedence rules) and sends that policy to ztunnel. The exact details of this conversion is out of scope for this document at the time of writing, but as an example, this `PeerAuthentication`:
 
 ```yaml
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: strict-and-permissive-mtls

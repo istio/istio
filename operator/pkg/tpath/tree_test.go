@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/testhelpers"
 )
 
 func TestWritePathContext(t *testing.T) {
@@ -357,7 +358,7 @@ a: {}
 			}
 
 			gotYAML := util.ToYAML(root)
-			diff := util.YAMLDiff(gotYAML, tt.want)
+			diff := testhelpers.YAMLDiff(gotYAML, tt.want)
 			if diff != "" {
 				t.Errorf("%s: (got:-, want:+):\n%s\n", tt.desc, diff)
 			}
@@ -586,8 +587,8 @@ a:
 				t.Errorf("%s: gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 				return
 			}
-			if got, want := util.ToYAML(root), tt.want; err == nil && util.YAMLDiff(got, want) != "" {
-				t.Errorf("%s: got:\n%s\nwant:\n%s\ndiff:\n%s\n", tt.desc, got, want, util.YAMLDiff(got, want))
+			if got, want := util.ToYAML(root), tt.want; err == nil && testhelpers.YAMLDiff(got, want) != "" {
+				t.Errorf("%s: got:\n%s\nwant:\n%s\ndiff:\n%s\n", tt.desc, got, want, testhelpers.YAMLDiff(got, want))
 			}
 		})
 	}
@@ -665,8 +666,8 @@ a:
 				t.Errorf("%s: gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 				return
 			}
-			if got, want := util.ToYAML(root), tt.want; err == nil && util.YAMLDiff(got, want) != "" {
-				t.Errorf("%s: got:\n%s\nwant:\n%s\ndiff:\n%s\n", tt.desc, got, want, util.YAMLDiff(got, want))
+			if got, want := util.ToYAML(root), tt.want; err == nil && testhelpers.YAMLDiff(got, want) != "" {
+				t.Errorf("%s: got:\n%s\nwant:\n%s\ndiff:\n%s\n", tt.desc, got, want, testhelpers.YAMLDiff(got, want))
 			}
 		})
 	}
@@ -778,7 +779,7 @@ values:
            secretName: nginx-ca-certs
 `
 	gotYAML := util.ToYAML(root)
-	diff := util.YAMLDiff(gotYAML, want)
+	diff := testhelpers.YAMLDiff(gotYAML, want)
 	if diff != "" {
 		t.Errorf("TestSecretVolumes: diff:\n%s\n", diff)
 	}
@@ -835,7 +836,7 @@ values:
 			}
 
 			gotYAML := util.ToYAML(root)
-			diff := util.YAMLDiff(gotYAML, tt.want)
+			diff := testhelpers.YAMLDiff(gotYAML, tt.want)
 			if diff != "" {
 				t.Errorf("%s: diff:\n%s\n", tt.desc, diff)
 			}

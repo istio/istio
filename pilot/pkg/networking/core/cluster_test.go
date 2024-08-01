@@ -1075,7 +1075,7 @@ func TestClusterMetadata(t *testing.T) {
 			istio := md.FilterMetadata[util.IstioMetadataKey]
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
+			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1/namespaces//destination-rule/acme"))
 			if strings.Contains(cluster.Name, "Subset") {
 				foundSubset = true
 				sub := istio.Fields["subset"]
@@ -1103,7 +1103,7 @@ func TestClusterMetadata(t *testing.T) {
 			istio := md.FilterMetadata[util.IstioMetadataKey]
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
+			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1/namespaces//destination-rule/acme"))
 			if strings.Contains(cluster.Name, "foobar") {
 				foundSNISubset = true
 				sub := istio.Fields["subset"]

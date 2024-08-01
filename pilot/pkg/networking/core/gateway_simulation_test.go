@@ -27,7 +27,7 @@ import (
 
 func TestDisablePortTranslation(t *testing.T) {
 	virtualServices := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: a
@@ -47,7 +47,7 @@ spec:
         port:
           number: 80
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: b
@@ -85,7 +85,7 @@ hosts:
 - "example.com"
 `) + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance
@@ -106,7 +106,7 @@ spec:
     labels:
       istio: ingressgateway
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance-2
@@ -175,7 +175,7 @@ hosts:
 - "example.com"
 `) + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance
@@ -196,7 +196,7 @@ spec:
     labels:
       istio: ingressgateway
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance-2
@@ -256,7 +256,7 @@ func TestHTTPGateway(t *testing.T) {
   protocol: HTTP
 hosts:
 - "foo.bar"`
-	simpleRoute := `apiVersion: networking.istio.io/v1alpha3
+	simpleRoute := `apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs
@@ -311,7 +311,7 @@ spec:
 		simulationTest{
 			name: "simple http and virtual service",
 			config: createGateway("gateway", "", httpServer) + `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: bookinfo
@@ -384,7 +384,7 @@ spec:
   protocol: HTTP
 hosts:
 - "*.example.com"`) + `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: a
@@ -403,7 +403,7 @@ spec:
         port:
           number: 80
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: b
@@ -603,7 +603,7 @@ tls:
   credentialName: sds-credential
   mode: SIMPLE`
 	gatewayCollision := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: bookinfo
@@ -669,7 +669,7 @@ spec:
 			name: "duplicate tls virtual service",
 			// Create the same virtual service in two namespaces
 			config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: ingressgateway
@@ -687,7 +687,7 @@ spec:
     tls:
       mode: PASSTHROUGH
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs1
@@ -708,7 +708,7 @@ spec:
         port:
           number: 443
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs2
@@ -800,7 +800,7 @@ port:
   name: http
   number: 80
   protocol: HTTP`) + `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -815,7 +815,7 @@ spec:
     - destination:
         host: echo
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -862,7 +862,7 @@ spec:
 		simulationTest{
 			name: "multiple virtual services that should become separate vhosts",
 			config: `
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: public-gw
@@ -879,7 +879,7 @@ spec:
         - foo.example.com
         - bar.example.com
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: foobar-vs
@@ -904,7 +904,7 @@ spec:
         - destination:
             host: echo-foobar
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: foo-vs
@@ -926,7 +926,7 @@ spec:
             port:
               number: 80
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: bar-vs
@@ -1222,7 +1222,7 @@ func createGateway(name, namespace string, servers ...string) string {
 	if namespace == "" {
 		namespace = "default"
 	}
-	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: "{{.Name}}"
@@ -1247,7 +1247,7 @@ func createGatewayWithServiceSelector(name, service string, servers ...string) s
 	if name == "" {
 		name = "default"
 	}
-	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: "{{.Name}}"
@@ -1288,7 +1288,7 @@ hosts:
 - "example.com"
 `) + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
  name: service-instance
@@ -1305,7 +1305,7 @@ spec:
  endpoints:
  - address: 1.1.1.1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
  name: a
@@ -1358,7 +1358,7 @@ hosts:
 - "example.com"
 `) + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance
@@ -1375,7 +1375,7 @@ spec:
   endpoints:
   - address: 1.1.1.1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance-2
@@ -1392,7 +1392,7 @@ spec:
   endpoints:
   - address: 1.1.1.1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: a
@@ -1412,7 +1412,7 @@ spec:
         port:
           number: 80
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: b
@@ -1484,7 +1484,7 @@ hosts:
 - "82.example.com"
 `) + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance
@@ -1501,7 +1501,7 @@ spec:
   endpoints:
   - address: 1.1.1.1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: a
@@ -1559,7 +1559,7 @@ hosts:
 - "80.example.com"
 `) + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance
@@ -1615,7 +1615,7 @@ hosts:
 - "82.example.com"
 `) + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance
@@ -1632,7 +1632,7 @@ spec:
   endpoints:
   - address: 1.1.1.1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance2
@@ -1649,7 +1649,7 @@ spec:
   endpoints:
   - address: 1.1.1.1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: a
@@ -1728,7 +1728,7 @@ hosts:
 - "81.example.com"
 `) + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
  name: service-instance
@@ -1745,7 +1745,7 @@ spec:
  endpoints:
  - address: 1.1.1.1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
  name: service-instance2
@@ -1762,7 +1762,7 @@ spec:
  endpoints:
  - address: 1.1.1.1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
  name: a-80
@@ -1781,7 +1781,7 @@ spec:
        port:
          number: 80
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
  name: a-81
@@ -1848,7 +1848,7 @@ hosts:
 - "81.example.com"
 `) + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance
@@ -1865,7 +1865,7 @@ spec:
   endpoints:
   - address: 1.1.1.1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance2
@@ -1882,7 +1882,7 @@ spec:
   endpoints:
   - address: 1.1.1.1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
  name: a-80
@@ -1901,7 +1901,7 @@ spec:
        port:
          number: 80
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
  name: a-81
@@ -1968,7 +1968,7 @@ hosts:
 - "82.example.com"
 `) + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance
@@ -1985,7 +1985,7 @@ spec:
   endpoints:
   - address: 1.1.1.1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: a
@@ -2038,7 +2038,7 @@ spec:
 		simulationTest{
 			name:           "overlapping SNI match",
 			skipValidation: true, // TODO: https://github.com/istio/istio/issues/39921
-			config: `apiVersion: networking.istio.io/v1beta1
+			config: `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gw
@@ -2064,7 +2064,7 @@ spec:
     tls:
       mode: PASSTHROUGH
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: example
@@ -2083,7 +2083,7 @@ spec:
         host: example
 ` + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-instance

@@ -29,7 +29,7 @@ import (
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/networking/v1beta1"
-	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
 	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"

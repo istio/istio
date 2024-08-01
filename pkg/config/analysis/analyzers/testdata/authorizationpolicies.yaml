@@ -45,7 +45,7 @@ spec:
         ports:
         - containerPort: 80
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: istio
@@ -61,7 +61,7 @@ spec:
     protocol: HTTP
   resolution: DNS
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin # This is a correct scenario
@@ -88,7 +88,7 @@ spec:
         - key: request.auth.claims[iss]
           values: ["https://accounts.google.com"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: meshwide-httpbin
@@ -96,7 +96,7 @@ metadata:
 spec:
   {}
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: meshwide-httpbin-v1
@@ -106,7 +106,7 @@ spec:
     matchLabels:
       version: bogus-version
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-empty-namespace-wide # Invalid, no pods running
@@ -129,7 +129,7 @@ spec:
         - key: request.auth.claims[iss]
           values: ["https://accounts.google.com"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-namespace-wide # valid, one pod running
@@ -152,7 +152,7 @@ spec:
         - key: request.auth.claims[iss]
           values: ["https://accounts.google.com"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-nopods # Invalid: there aren't matching workloads for this selector
@@ -195,7 +195,7 @@ metadata:
     istio-injection: "enabled"
 spec: {}
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-bogus-not-ns # Invalid: There are two namespaces in the source notNamespaces that doesn't exist
@@ -228,7 +228,7 @@ spec:
         - key: request.auth.claims[iss]
           values: ["https://accounts.google.com"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-bogus-ns # Invalid: there is one source namespace expr that doesn't match any namespace
@@ -274,7 +274,7 @@ spec:
     - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
       name: server
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: no-workload # Invalid: there is one not matching any workload
@@ -301,7 +301,7 @@ spec:
       - key: request.auth.claims[iss]
         values: [ "https://accounts.google.com" ]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: valid-policy # this is valid since it will match the pod with ambient mode

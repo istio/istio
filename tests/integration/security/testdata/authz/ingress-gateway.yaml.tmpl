@@ -5,7 +5,7 @@
 # and denies access to "remoteipattr.{{ .To.ServiceName }}.company.com" when the
 # remote ip is 10.242.5.7 or in the network 10.124.99.0/24.
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy-{{ .To.ServiceName }}
@@ -49,7 +49,7 @@ spec:
 
 # The following gateway allows request to "*.{{ .To.ServiceName }}.com"
 
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gw-{{ .To.ServiceName }}
@@ -68,7 +68,7 @@ spec:
 
 # The following virtual service routes requests to workload
 
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs-{{ .To.ServiceName }}

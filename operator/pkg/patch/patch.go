@@ -99,7 +99,7 @@ import (
 	"fmt"
 	"strings"
 
-	yaml2 "gopkg.in/yaml.v2"
+	yaml2 "gopkg.in/yaml.v2" // nolint: depguard // needed for weird tricks
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"

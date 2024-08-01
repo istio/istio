@@ -72,10 +72,13 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
-	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
-	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
+	clientsecurity "istio.io/client-go/pkg/apis/security/v1"
+	clientsecuritybeta "istio.io/client-go/pkg/apis/security/v1beta1"
+	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1"
+	clienttelemetryalpha "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pilot/pkg/features"
@@ -1199,10 +1202,13 @@ func istioScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(kubescheme.AddToScheme(scheme))
 	utilruntime.Must(mcs.AddToScheme(scheme))
-	utilruntime.Must(clientnetworkingalpha.AddToScheme(scheme))
+	utilruntime.Must(clientnetworking.AddToScheme(scheme))
 	utilruntime.Must(clientnetworkingbeta.AddToScheme(scheme))
+	utilruntime.Must(clientnetworkingalpha.AddToScheme(scheme))
 	utilruntime.Must(clientsecurity.AddToScheme(scheme))
+	utilruntime.Must(clientsecuritybeta.AddToScheme(scheme))
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
+	utilruntime.Must(clienttelemetryalpha.AddToScheme(scheme))
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.Install(scheme))
 	utilruntime.Must(gatewayapibeta.Install(scheme))
