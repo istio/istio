@@ -772,7 +772,8 @@ func addTelemetryMetadata(cluster *cluster.Cluster,
 	if cluster == nil {
 		return
 	}
-	if direction == model.TrafficDirectionInbound && (len(inboundServices) == 0 || port == nil) {
+	if direction == model.TrafficDirectionInbound &&
+		(len(inboundServices) == 0 || inboundServices[0].Service.MeshExternal || port == nil) {
 		// At inbound, port and local service instance has to be provided
 		return
 	}
