@@ -33,10 +33,9 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
-	"istio.io/api/operator/v1alpha1"
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
-	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -59,7 +58,7 @@ import (
 type HelmReconciler struct {
 	client     client.Client
 	kubeClient kube.Client
-	iop        *istioV1Alpha1.IstioOperator
+	iop        *v1alpha1.IstioOperator
 	opts       *Options
 	// copy of the last generated manifests.
 	manifests name.ManifestMap
@@ -93,7 +92,7 @@ var defaultOptions = &Options{
 }
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
-func NewHelmReconciler(client client.Client, kubeClient kube.Client, iop *istioV1Alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
+func NewHelmReconciler(client client.Client, kubeClient kube.Client, iop *v1alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
 	if opts == nil {
 		opts = defaultOptions
 	}
@@ -116,7 +115,7 @@ func NewHelmReconciler(client client.Client, kubeClient kube.Client, iop *istioV
 	}
 	if iop == nil {
 		// allows controller code to function for cases where IOP is not provided (e.g. operator remove).
-		iop = &istioV1Alpha1.IstioOperator{}
+		iop = &v1alpha1.IstioOperator{}
 		iop.Spec = &v1alpha1.IstioOperatorSpec{}
 	}
 	return &HelmReconciler{
@@ -141,7 +140,7 @@ func initDependencies() map[name.ComponentName]chan struct{} {
 
 // Reconcile reconciles the associated resources.
 func (h *HelmReconciler) Reconcile() error {
-	if err := util.CreateNamespace(h.kubeClient.Kube(), istioV1Alpha1.Namespace(h.iop.Spec), h.networkName(), h.opts.DryRun); err != nil {
+	if err := util.CreateNamespace(h.kubeClient.Kube(), v1alpha1.Namespace(h.iop.Spec), h.networkName(), h.opts.DryRun); err != nil {
 		return err
 	}
 	manifestMap, err := h.RenderCharts()
@@ -341,7 +340,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
 		SkipServiceCheck:             true,
 		SkipDefaultRevisionedWebhook: DetectIfTagWebhookIsNeeded(h.iop, exists),
-	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil)
+	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(v1alpha1.Namespace(h.iop.Spec)), nil)
 
 	// Add in-cluster webhooks
 	objects := &unstructured.UnstructuredList{}
@@ -420,14 +419,14 @@ type ProcessDefaultWebhookOptions struct {
 	DryRun    bool
 }
 
-func DetectIfTagWebhookIsNeeded(iop *istioV1Alpha1.IstioOperator, exists bool) bool {
+func DetectIfTagWebhookIsNeeded(iop *v1alpha1.IstioOperator, exists bool) bool {
 	rev := iop.Spec.Revision
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	operatorManageWebhooks := operatorManageWebhooks(iop)
 	return !operatorManageWebhooks && (!exists || isDefaultInstallation)
 }
 
-func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
+func ProcessDefaultWebhook(client kube.Client, iop *v1alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
 	// Detect whether previous installation exists prior to performing the installation.
 	if !DetectIfTagWebhookIsNeeded(iop, exists) {
 		return false, nil
@@ -493,7 +492,7 @@ func applyManifests(kubeClient kube.Client, manifests string) error {
 }
 
 // operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
-func operatorManageWebhooks(iop *istioV1Alpha1.IstioOperator) bool {
+func operatorManageWebhooks(iop *v1alpha1.IstioOperator) bool {
 	if iop.Spec.GetValues() == nil {
 		return false
 	}
@@ -511,7 +510,7 @@ func operatorManageWebhooks(iop *istioV1Alpha1.IstioOperator) bool {
 
 // validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
 // Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
-func validateEnableNamespacesByDefault(iop *istioV1Alpha1.IstioOperator) bool {
+func validateEnableNamespacesByDefault(iop *v1alpha1.IstioOperator) bool {
 	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
 		return false
 	}

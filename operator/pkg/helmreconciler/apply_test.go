@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
-	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 )
@@ -116,7 +115,7 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 						Name:      "test-operator",
 						Namespace: "istio-operator-test",
 					},
-					Spec: &v1alpha12.IstioOperatorSpec{},
+					Spec: &v1alpha1.IstioOperatorSpec{},
 				},
 			}
 			if err := h.ApplyObject(obj.UnstructuredObject()); (err != nil) != tt.wantErr {

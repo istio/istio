@@ -20,8 +20,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"istio.io/api/operator/v1alpha1"
-	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/labels"
@@ -43,7 +42,7 @@ var DefaultValidations = map[string]ValidatorFunc{
 }
 
 // CheckIstioOperator validates the operator CR.
-func CheckIstioOperator(iop *operator_v1alpha1.IstioOperator) error {
+func CheckIstioOperator(iop *v1alpha1.IstioOperator) error {
 	if iop == nil {
 		return nil
 	}

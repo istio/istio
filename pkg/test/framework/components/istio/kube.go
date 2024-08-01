@@ -35,7 +35,6 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
-	opAPI "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/cmd"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
@@ -96,7 +95,7 @@ type istioImpl struct {
 
 type iopInfo struct {
 	file string
-	spec *opAPI.IstioOperatorSpec
+	spec *iopv1alpha1.IstioOperatorSpec
 }
 
 type iopFiles struct {
@@ -408,7 +407,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	return i, nil
 }
 
-func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOperatorSpec, error) {
+func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*iopv1alpha1.IstioOperatorSpec, error) {
 	operatorYaml := cfg.IstioOperatorConfigYAML(valuesYaml)
 
 	operatorCfg := &iopv1alpha1.IstioOperator{}
@@ -416,7 +415,7 @@ func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOpe
 		return nil, fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
 	}
 	if operatorCfg.Spec == nil {
-		operatorCfg.Spec = &opAPI.IstioOperatorSpec{}
+		operatorCfg.Spec = &iopv1alpha1.IstioOperatorSpec{}
 	}
 
 	// marshaling entire operatorCfg causes panic because of *time.Time in ObjectMeta

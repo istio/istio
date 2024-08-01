@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	v1alpha12 "istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
@@ -35,7 +35,7 @@ const operatorSubdirFilePath = "manifests"
 func TestValidateConfig(t *testing.T) {
 	tests := []struct {
 		name     string
-		value    *v1alpha12.IstioOperatorSpec
+		value    *v1alpha1.IstioOperatorSpec
 		values   string
 		errors   string
 		warnings string
@@ -218,7 +218,7 @@ components:
 		t.Run(tt.name, func(t *testing.T) {
 			iop := tt.value
 			if tt.values != "" {
-				iop = &v1alpha12.IstioOperatorSpec{}
+				iop = &v1alpha1.IstioOperatorSpec{}
 				if err := util.UnmarshalWithJSONPB(tt.values, iop, true); err != nil {
 					t.Fatal(err)
 				}

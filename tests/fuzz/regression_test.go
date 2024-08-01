@@ -132,7 +132,6 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzCheckIstioOperatorSpec", FuzzCheckIstioOperatorSpec},
 		{"FuzzV1Alpha1ValidateConfig", FuzzV1Alpha1ValidateConfig},
 		{"FuzzGetEnabledComponents", FuzzGetEnabledComponents},
-		{"FuzzUnmarshalAndValidateIOPS", FuzzUnmarshalAndValidateIOPS},
 		{"FuzzRenderManifests", FuzzRenderManifests},
 		{"FuzzOverlayIOP", FuzzOverlayIOP},
 		{"FuzzNewControlplane", FuzzNewControlplane},
