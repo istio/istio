@@ -22,8 +22,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/api/operator/v1alpha1"
-	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 )
@@ -40,7 +39,7 @@ func ValidateConfig(iopls *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
 	var validationErrors util.Errors
 	var warningMessages []string
 	iopvalString := util.ToYAMLWithJSONPB(iopls.Values)
-	values := &valuesv1alpha1.Values{}
+	values := &v1alpha1.Values{}
 	if err := util.UnmarshalWithJSONPB(iopvalString, values, true); err != nil {
 		return util.NewErrs(err), ""
 	}
@@ -109,10 +108,10 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 	return errs, messages
 }
 
-type FeatureValidator func(*valuesv1alpha1.Values, *v1alpha1.IstioOperatorSpec) (util.Errors, []string)
+type FeatureValidator func(*v1alpha1.Values, *v1alpha1.IstioOperatorSpec) (util.Errors, []string)
 
 // validateFeatures check whether the config semantically make sense. For example, feature X and feature Y can't be enabled together.
-func validateFeatures(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+func validateFeatures(values *v1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
 	validators := []FeatureValidator{
 		CheckServicePorts,
 		CheckAutoScaleAndReplicaCount,
@@ -128,7 +127,7 @@ func validateFeatures(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperato
 }
 
 // CheckAutoScaleAndReplicaCount warns when autoscaleEnabled is true and k8s replicaCount is set.
-func CheckAutoScaleAndReplicaCount(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+func CheckAutoScaleAndReplicaCount(values *v1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
 	if values.GetPilot().GetAutoscaleEnabled().GetValue() && spec.GetComponents().GetPilot().GetK8S().GetReplicaCount() > 1 {
 		warnings = append(warnings,
 			"components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true")
@@ -157,7 +156,7 @@ func CheckAutoScaleAndReplicaCount(values *valuesv1alpha1.Values, spec *v1alpha1
 // CheckServicePorts validates Service ports. Specifically, this currently
 // asserts that all ports will bind to a port number greater than 1024 when not
 // running as root.
-func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+func CheckServicePorts(values *v1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
 	if !values.GetGateways().GetIstioIngressgateway().GetRunAsRoot().GetValue() {
 		errs = util.AppendErrs(errs, validateGateways(spec.GetComponents().GetIngressGateways(), "istio-ingressgateway"))
 	}

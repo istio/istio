@@ -22,20 +22,19 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"sigs.k8s.io/yaml"
 
-	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio"
 	install "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 // This is to verify that certain proto types handle marshal and unmarshal properly
 func TestIstioOperatorSpec_DeepCopy(t *testing.T) {
-	x := &v1alpha12.ResourceMetricSource{}
+	x := &install.ResourceMetricSource{}
 	err := yaml.UnmarshalStrict([]byte("targetAverageValue: 100m"), x)
 	t.Log(x)
 	if err != nil {
 		t.Fatal(err)
 	}
-	y := &v1alpha12.MetricSpec{}
+	y := &install.MetricSpec{}
 	err = yaml.UnmarshalStrict([]byte(`
 type: Resource
 resource:
@@ -44,7 +43,7 @@ resource:
 	if err != nil {
 		t.Fatal(err)
 	}
-	z := &v1alpha12.HorizontalPodAutoscalerSpec{}
+	z := &install.HorizontalPodAutoscalerSpec{}
 	err = yaml.UnmarshalStrict([]byte(`metrics:
 - type: Resource
   resource:

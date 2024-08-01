@@ -35,13 +35,12 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
-	opAPI "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/cmd"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	opAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
 	istiokube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -89,7 +88,6 @@ type istioImpl struct {
 	// ingress components, indexed first by cluster name and then by gateway name.
 	ingress map[string]map[string]ingress.Instance
 	istiod  map[string]istiokube.PortForwarder
-	values  OperatorValues
 	workDir string
 	iopFiles
 }
@@ -228,14 +226,6 @@ func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.Ad
 	return addr, nil
 }
 
-func (i *istioImpl) Values() (OperatorValues, error) {
-	return i.values, nil
-}
-
-func (i *istioImpl) ValuesOrFail(test.Failer) OperatorValues {
-	return i.values
-}
-
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	cfg.fillDefaults(ctx)
 
@@ -278,7 +268,6 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		cfg:                  cfg,
 		ctx:                  ctx,
 		workDir:              workDir,
-		values:               iop.Spec.Values.Fields,
 		installer:            newInstaller(ctx, workDir),
 		meshConfig:           &meshConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)},
 		injectConfig:         &injectConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)},
@@ -355,8 +344,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		// an environment variable for istiod.
 		watchLocalNamespace := false
 		if i.primaryIOP.spec != nil && i.primaryIOP.spec.Values != nil {
-			values := OperatorValues(i.primaryIOP.spec.Values.Fields)
-			localClusterSecretWatcher := values.GetConfigValue("pilot.env.LOCAL_CLUSTER_SECRET_WATCHER")
+			localClusterSecretWatcher := i.primaryIOP.spec.Values.GetPilot().GetEnv().GetFields()["LOCAL_CLUSTER_SECRET_WATCHER"]
 			if localClusterSecretWatcher.GetStringValue() == "true" && i.externalControlPlane {
 				watchLocalNamespace = true
 			}

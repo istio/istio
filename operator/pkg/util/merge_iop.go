@@ -26,7 +26,7 @@ import (
 
 	v1alpha13 "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 

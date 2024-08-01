@@ -33,9 +33,9 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
-	"istio.io/api/operator/v1alpha1"
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
@@ -398,19 +398,7 @@ func filterOutBasedOnResources(ms diag.Messages, resources object.K8sObjects) di
 }
 
 func (h *HelmReconciler) networkName() string {
-	if h.iop.Spec.GetValues() == nil {
-		return ""
-	}
-	globalI := h.iop.Spec.Values.AsMap()["global"]
-	global, ok := globalI.(map[string]any)
-	if !ok {
-		return ""
-	}
-	nw, ok := global["network"].(string)
-	if !ok {
-		return ""
-	}
-	return nw
+	return h.iop.Spec.GetValues().GetGlobal().GetNetwork()
 }
 
 type ProcessDefaultWebhookOptions struct {
@@ -492,36 +480,11 @@ func applyManifests(kubeClient kube.Client, manifests string) error {
 
 // operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
 func operatorManageWebhooks(iop *istioV1Alpha1.IstioOperator) bool {
-	if iop.Spec.GetValues() == nil {
-		return false
-	}
-	globalValues := iop.Spec.Values.AsMap()["global"]
-	global, ok := globalValues.(map[string]any)
-	if !ok {
-		return false
-	}
-	omw, ok := global["operatorManageWebhooks"].(bool)
-	if !ok {
-		return false
-	}
-	return omw
+	return iop.Spec.GetValues().GetGlobal().GetOperatorManageWebhooks().GetValue()
 }
 
 // validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
 // Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
 func validateEnableNamespacesByDefault(iop *istioV1Alpha1.IstioOperator) bool {
-	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
-		return false
-	}
-	sidecarValues := iop.Spec.Values.AsMap()["sidecarInjectorWebhook"]
-	sidecarMap, ok := sidecarValues.(map[string]any)
-	if !ok {
-		return false
-	}
-	autoInjectNamespaces, ok := sidecarMap["enableNamespacesByDefault"].(bool)
-	if !ok {
-		return false
-	}
-
-	return autoInjectNamespaces
+	return iop.Spec.GetValues().GetSidecarInjectorWebhook().GetEnableNamespacesByDefault().GetValue()
 }

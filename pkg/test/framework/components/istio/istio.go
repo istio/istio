@@ -104,9 +104,6 @@ type Instance interface {
 	// Return POD IPs for the pod with the specified label in the specified namespace
 	PodIPsFor(cluster cluster.Cluster, namespace string, label string) ([]corev1.PodIP, error)
 
-	// Values returns the operator values for the installed control plane.
-	Values() (OperatorValues, error)
-	ValuesOrFail(test.Failer) OperatorValues
 	// MeshConfig used by the Istio installation.
 	MeshConfig() (*meshconfig.MeshConfig, error)
 	MeshConfigOrFail(test.Failer) *meshconfig.MeshConfig

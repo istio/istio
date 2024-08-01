@@ -18,8 +18,6 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	operatorv1alpha1 "istio.io/api/operator/v1alpha1"
 )
 
 //
@@ -55,7 +53,5 @@ type IstioOperator struct {
 
 	// Spec defines the implementation of this definition.
 	// +optional
-	Spec *operatorv1alpha1.IstioOperatorSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-
-	Status *operatorv1alpha1.InstallStatus `json:"status,omitempty"`
+	Spec *IstioOperatorSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 }

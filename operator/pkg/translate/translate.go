@@ -30,8 +30,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -301,26 +301,17 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 	return yml, nil
 }
 
-var componentToAutoScaleEnabledPath = map[name.ComponentName]string{
-	name.PilotComponentName:   "pilot.autoscaleEnabled",
-	name.IngressComponentName: "gateways.istio-ingressgateway.autoscaleEnabled",
-	name.EgressComponentName:  "gateways.istio-egressgateway.autoscaleEnabled",
-}
-
 func skipReplicaCountWithAutoscaleEnabled(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) bool {
-	values := iop.GetValues().AsMap()
-	path, ok := componentToAutoScaleEnabledPath[componentName]
-	if !ok {
+	switch componentName {
+	case name.PilotComponentName:
+		return iop.Values.GetPilot().GetAutoscaleEnabled().GetValue()
+	case name.IngressComponentName:
+		return iop.Values.GetGateways().GetIstioIngressgateway().GetAutoscaleEnabled().GetValue()
+	case name.EgressComponentName:
+		return iop.Values.GetGateways().GetIstioEgressgateway().GetAutoscaleEnabled().GetValue()
+	default:
 		return false
 	}
-
-	enabledVal, found, err := tpath.GetFromStructPath(values, path)
-	if err != nil || !found {
-		return false
-	}
-
-	enabled, ok := enabledVal.(bool)
-	return ok && enabled
 }
 
 func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sObject,
@@ -513,13 +504,15 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	scope.Debugf("Values translated from IstioOperator API:\n%s", apiValsStr)
 
 	// Add global overlay from IstioOperatorSpec.Values/UnvalidatedValues.
-	globalVals := iop.GetValues().AsMap()
-	globalUnvalidatedVals := iop.GetUnvalidatedValues().AsMap()
-
-	if scope.DebugEnabled() {
-		scope.Debugf("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
-		scope.Debugf("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
+	b, err := json.Marshal(iop.GetValues())
+	if err != nil {
+		return "", err
 	}
+	globalVals := make(map[string]any)
+	if err := json.Unmarshal(b, &globalVals); err != nil {
+		return "", err
+	}
+	globalUnvalidatedVals := iop.GetUnvalidatedValues().AsMap()
 
 	mergedVals, err := util.OverlayTrees(apiVals, globalVals)
 	if err != nil {

@@ -17,14 +17,10 @@ package validation_test
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-
-	v1alpha12 "istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
@@ -263,38 +259,5 @@ func TestValidateProfiles(t *testing.T) {
 				t.Fatalf("got warning validating: %v", warnings)
 			}
 		})
-	}
-}
-
-func TestValidate(t *testing.T) {
-	tests := []struct {
-		name       string
-		toValidate *v1alpha1.Values
-		validated  bool
-	}{
-		{
-			name:       "Empty struct",
-			toValidate: &v1alpha1.Values{},
-			validated:  true,
-		},
-		{
-			name: "With CNI defined",
-			toValidate: &v1alpha1.Values{
-				Cni: &v1alpha1.CNIConfig{
-					Enabled: &wrappers.BoolValue{Value: true},
-				},
-			},
-			validated: true,
-		},
-	}
-
-	for _, tt := range tests {
-		err := validation.ValidateSubTypes(reflect.ValueOf(tt.toValidate).Elem(), tt.toValidate, nil)
-		if len(err) != 0 && tt.validated {
-			t.Fatalf("Test %s failed with errors: %+v but supposed to succeed", tt.name, err)
-		}
-		if len(err) == 0 && !tt.validated {
-			t.Fatalf("Test %s failed as it is supposed to fail but succeeded", tt.name)
-		}
 	}
 }

@@ -31,9 +31,6 @@ func (in *IstioOperator) DeepCopyInto(out *IstioOperator) {
 	if in.Spec != nil {
 		in.Spec.DeepCopyInto(out.Spec)
 	}
-	if in.Status != nil {
-		in.Status.DeepCopyInto(out.Status)
-	}
 	return
 }
 

@@ -56,7 +56,7 @@ func FuzzHelmReconciler(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	_ = h.serverSideApply(obj)
+	_ = h.ServerSideApply(obj)
 	_ = h.Reconcile()
 	_ = h.ApplyManifest(m)
 	return 1
