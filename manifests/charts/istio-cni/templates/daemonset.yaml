@@ -176,7 +176,7 @@ spec:
         # Used to install CNI.
         - name: cni-bin-dir
           hostPath:
-            path: {{ .Values.global.cniBinDir | default $defaultBinDir }}
+            path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
         {{- if or .Values.repair.repairPods .Values.ambient.enabled }}
         - name: cni-host-procfs
           hostPath:
@@ -191,7 +191,7 @@ spec:
         {{- end }}
         - name: cni-net-dir
           hostPath:
-            path: {{ default "/etc/cni/net.d" .Values.global.cniConfDir }}
+            path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
         # Used for UDS sockets for logging, ambient eventing
         - name: cni-socket-dir
           hostPath:
