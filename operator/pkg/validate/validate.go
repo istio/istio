@@ -23,12 +23,12 @@ import (
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/protomarshal"
 )
-
 
 // CheckIstioOperator validates the operator CR.
 func CheckIstioOperator(iop *operator_v1alpha1.IstioOperator) error {
@@ -43,30 +43,36 @@ func CheckIstioOperator(iop *operator_v1alpha1.IstioOperator) error {
 // CheckIstioOperatorSpec validates the values in the given Installer spec, using the field map DefaultValidations to
 // call the appropriate validation function. checkRequiredFields determines whether missing mandatory fields generate
 // errors.
-func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec) (util.Errors) {
+func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec) util.Errors {
 	if is == nil {
 		return nil
 	}
 	val := is.Values
 	var errs util.Errors
 
-	run := func(v any, f ValidatorFunc, p util.Path) {
+	run := func(v any, f ValidatorFunc, p string) {
 		if !reflect.ValueOf(v).IsZero() {
-			errs = util.AppendErrs(errs, f(p, v))
+			errs = util.AppendErrs(errs, f(util.PathFromString(p), v))
 		}
 	}
-	run(val.GetGlobal().GetProxy().GetIncludeIPRanges(), validateIPRangesOrStar, util.PathFromString("global.proxy.includeIPRanges"))
-	run(val.GetGlobal().GetProxy().GetExcludeIPRanges(), validateIPRangesOrStar, util.PathFromString("global.proxy.excludeIPRanges"))
-	run(val.GetGlobal().GetProxy().GetIncludeInboundPorts(), validateStringList(validatePortNumberString), util.PathFromString("global.proxy.includeInboundPorts"))
-	run(val.GetGlobal().GetProxy().GetExcludeInboundPorts(), validateStringList(validatePortNumberString), util.PathFromString("global.proxy.excludeInboundPorts"))
-	run(val.GetMeshConfig(), validateMeshConfig, util.PathFromString("meshConfig"))
+	runValues := func(ff ValidatorFunc, p string) {
+		v, f, _ := tpath.GetFromStructPath(val, p)
+		if f {
+			errs = util.AppendErrs(errs, ff(util.PathFromString(p), v))
+		}
+	}
+	runValues(validateIPRangesOrStar, "global.proxy.includeIPRanges")
+	runValues(validateIPRangesOrStar, "global.proxy.excludeIPRanges")
+	runValues(validateStringList(validatePortNumberString), "global.proxy.includeInboundPorts")
+	runValues(validateStringList(validatePortNumberString), "global.proxy.excludeInboundPorts")
+	runValues(validateMeshConfig, "meshConfig")
 
-	//run(is.GetMeshConfig())
-	run(is.GetHub(), validateHub, util.PathFromString("hub"))
-	run(is.GetTag(), validateTag, util.PathFromString("tag"))
-	run(is.GetRevision(), validateRevision, util.PathFromString("revision"))
-	run(is.GetComponents().GetIngressGateways(), validateGatewayName, util.PathFromString("components.ingressGateways"))
-	run(is.GetComponents().GetEgressGateways(), validateGatewayName, util.PathFromString("components.egressGateways"))
+	run(is.GetMeshConfig(), validateMeshConfig, "meshConfig")
+	run(is.GetHub(), validateHub, "hub")
+	run(is.GetTag(), validateTag, "tag")
+	run(is.GetRevision(), validateRevision, "revision")
+	run(is.GetComponents().GetIngressGateways(), validateGatewayName, "components.ingressGateways")
+	run(is.GetComponents().GetEgressGateways(), validateGatewayName, "components.egressGateways")
 	return errs
 }
 

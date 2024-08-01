@@ -128,7 +128,6 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	if h.iop.GetNamespace() != "" {
 		labels[OwningResourceNamespace] = h.iop.GetNamespace()
 	}
-	selector := klabels.Set(labels).AsSelectorPreValidated()
 	resources := NamespacedResources()
 	gvkList := append(resources, ClusterCPResources...)
 	if includeClusterResources {
@@ -158,6 +157,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 			if err != nil {
 				return usList, err
 			}
+			selector := klabels.Set(labels).AsSelectorPreValidated()
 			if err = h.client.List(context.TODO(), objects,
 				client.MatchingLabelsSelector{
 					Selector: selector.Add(*includeRequirement, *componentRequirement),

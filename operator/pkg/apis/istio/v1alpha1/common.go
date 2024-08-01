@@ -14,12 +14,29 @@
 
 package v1alpha1
 
+const (
+	globalKey         = "global"
+	istioNamespaceKey = "istioNamespace"
+)
+
 // Namespace returns the namespace of the containing CR.
 func Namespace(iops *IstioOperatorSpec) string {
 	if iops.Namespace != "" {
 		return iops.Namespace
 	}
-	return iops.GetValues().GetGlobal().GetIstioNamespace()
+	if iops.Values == nil {
+		return ""
+	}
+	v := iops.Values.AsMap()
+	if v[globalKey] == nil {
+		return ""
+	}
+	vg := v[globalKey].(map[string]any)
+	n := vg[istioNamespaceKey]
+	if n == nil {
+		return ""
+	}
+	return n.(string)
 }
 
 // SetNamespace returns the namespace of the containing CR.

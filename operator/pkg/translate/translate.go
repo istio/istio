@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/operator/pkg/version"
 	oversion "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -301,17 +302,26 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 	return yml, nil
 }
 
+var componentToAutoScaleEnabledPath = map[name.ComponentName]string{
+	name.PilotComponentName:   "pilot.autoscaleEnabled",
+	name.IngressComponentName: "gateways.istio-ingressgateway.autoscaleEnabled",
+	name.EgressComponentName:  "gateways.istio-egressgateway.autoscaleEnabled",
+}
+
 func skipReplicaCountWithAutoscaleEnabled(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) bool {
-	switch componentName {
-	case name.PilotComponentName:
-		return iop.Values.GetPilot().GetAutoscaleEnabled().GetValue()
-	case name.IngressComponentName:
-		return iop.Values.GetGateways().GetIstioIngressgateway().GetAutoscaleEnabled().GetValue()
-	case name.EgressComponentName:
-		return iop.Values.GetGateways().GetIstioEgressgateway().GetAutoscaleEnabled().GetValue()
-	default:
+	values := iop.GetValues().AsMap()
+	path, ok := componentToAutoScaleEnabledPath[componentName]
+	if !ok {
 		return false
 	}
+
+	enabledVal, found, err := tpath.GetFromStructPath(values, path)
+	if err != nil || !found {
+		return false
+	}
+
+	enabled, ok := enabledVal.(bool)
+	return ok && enabled
 }
 
 func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sObject,
@@ -504,7 +514,7 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	scope.Debugf("Values translated from IstioOperator API:\n%s", apiValsStr)
 
 	// Add global overlay from IstioOperatorSpec.Values/UnvalidatedValues.
-	b, err := json.Marshal(iop.GetValues())
+	b, err := protomarshal.Marshal(iop.GetValues())
 	if err != nil {
 		return "", err
 	}

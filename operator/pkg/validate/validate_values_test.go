@@ -16,18 +16,18 @@ package validate
 
 import (
 	"fmt"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pkg/test/util/assert"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var repoRootDir string
@@ -138,10 +138,12 @@ global:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			root := &v1alpha1.Values{}
+			root := make(map[string]any)
 			err := yaml.Unmarshal([]byte(tt.yamlStr), &root)
-			assert.NoError(t, err)
-			errs := CheckIstioOperatorSpec(&v1alpha1.IstioOperatorSpec{Values: root})
+			if err != nil {
+				t.Fatalf("yaml.Unmarshal(%s): got error %s", tt.desc, err)
+			}
+			errs := CheckIstioOperatorSpec(&v1alpha1.IstioOperatorSpec{Values: util.MustStruct(root)})
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
 				t.Errorf("CheckValues(%s)(%v): gotErr:\n%s, wantErr:\n%s", tt.desc, tt.yamlStr, gotErr, wantErr)
 			}
@@ -207,9 +209,9 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 
-		root := &v1alpha1.Values{}
+		root := make(map[string]any)
 		assert.NoError(t, yaml.Unmarshal([]byte(valuesYAML), &root))
-		if err := CheckIstioOperatorSpec(&v1alpha1.IstioOperatorSpec{Values: root}); err != nil {
+		if err := CheckIstioOperatorSpec(&v1alpha1.IstioOperatorSpec{Values: util.MustStruct(root)}); err != nil {
 			t.Fatalf("file %s failed validation with: %s", f, err)
 		}
 	}

@@ -398,7 +398,19 @@ func filterOutBasedOnResources(ms diag.Messages, resources object.K8sObjects) di
 }
 
 func (h *HelmReconciler) networkName() string {
-	return h.iop.Spec.GetValues().GetGlobal().GetNetwork()
+	if h.iop.Spec.GetValues() == nil {
+		return ""
+	}
+	globalI := h.iop.Spec.Values.AsMap()["global"]
+	global, ok := globalI.(map[string]any)
+	if !ok {
+		return ""
+	}
+	nw, ok := global["network"].(string)
+	if !ok {
+		return ""
+	}
+	return nw
 }
 
 type ProcessDefaultWebhookOptions struct {
@@ -480,11 +492,36 @@ func applyManifests(kubeClient kube.Client, manifests string) error {
 
 // operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
 func operatorManageWebhooks(iop *istioV1Alpha1.IstioOperator) bool {
-	return iop.Spec.GetValues().GetGlobal().GetOperatorManageWebhooks().GetValue()
+	if iop.Spec.GetValues() == nil {
+		return false
+	}
+	globalValues := iop.Spec.Values.AsMap()["global"]
+	global, ok := globalValues.(map[string]any)
+	if !ok {
+		return false
+	}
+	omw, ok := global["operatorManageWebhooks"].(bool)
+	if !ok {
+		return false
+	}
+	return omw
 }
 
 // validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
 // Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
 func validateEnableNamespacesByDefault(iop *istioV1Alpha1.IstioOperator) bool {
-	return iop.Spec.GetValues().GetSidecarInjectorWebhook().GetEnableNamespacesByDefault().GetValue()
+	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
+		return false
+	}
+	sidecarValues := iop.Spec.Values.AsMap()["sidecarInjectorWebhook"]
+	sidecarMap, ok := sidecarValues.(map[string]any)
+	if !ok {
+		return false
+	}
+	autoInjectNamespaces, ok := sidecarMap["enableNamespacesByDefault"].(bool)
+	if !ok {
+		return false
+	}
+
+	return autoInjectNamespaces
 }

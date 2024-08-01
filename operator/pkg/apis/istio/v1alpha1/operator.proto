@@ -111,7 +111,7 @@ message IstioOperatorSpec {
     // See the [Helm installation options](https://istio.io/v1.5/docs/reference/config/installation-options/) for schema details.
     // Anything that is available in `IstioOperatorSpec` should be set above rather than using the passthrough. This
     // includes Kubernetes resource settings for components in `KubernetesResourcesSpec`.
-    Values values = 100;
+    google.protobuf.Struct values = 100;
     // Unvalidated overrides for default `values.yaml`. Used for custom templates where new parameters are added.
     google.protobuf.Struct unvalidatedValues = 101;
 }
