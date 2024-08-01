@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"go.uber.org/atomic"
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
