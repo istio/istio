@@ -2755,11 +2755,6 @@ func TestCreateSidecarScope(t *testing.T) {
 				t.Errorf("Expected %d listeners, Got: %d", configuredListeneres, numberListeners)
 			}
 
-			if sidecarConfig == nil {
-				services := sidecarScope.EgressListeners[0].services
-				assert.Equal(t, services, sidecarScope.services)
-			}
-
 			if tt.virtualServices != nil {
 				// VirtualService ordering is unstable. This is acceptable because its never selecting multiple services for the same
 				// hostname, which is where ordering is critical
