@@ -992,9 +992,20 @@ type ServiceInfo struct {
 	// PortNames provides a mapping of ServicePort -> port names. Note these are only used internally, not sent over XDS
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
-	Source kind.Kind
-	// Waypoint that clients should use when addressing traffic to this Service.
-	Waypoint string
+	Source   kind.Kind
+	Waypoint WaypointBindingStatus
+}
+
+type WaypointBindingStatus struct {
+	// ResourceName that clients should use when addressing traffic to this Service.
+	ResourceName string
+	// Error represents some error
+	Error *StatusMessage
+}
+
+type StatusMessage struct {
+	Reason  string
+	Message string
 }
 
 func (i ServiceInfo) NamespacedName() types.NamespacedName {
@@ -1005,7 +1016,8 @@ func (i ServiceInfo) Equals(other ServiceInfo) bool {
 	return proto.Equal(i.Service, other.Service) &&
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
-		i.Source == other.Source
+		i.Source == other.Source &&
+		i.Waypoint == other.Waypoint
 }
 
 func (i ServiceInfo) ResourceName() string {

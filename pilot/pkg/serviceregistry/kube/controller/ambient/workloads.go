@@ -134,7 +134,8 @@ func (a *index) workloadEntryWorkloadBuilder(
 		policies := a.buildWorkloadPolicies(ctx, authorizationPolicies, peerAuths, meshCfg, wle.Labels, wle.Namespace)
 		var waypoint *Waypoint
 		if wle.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-			waypoint = fetchWaypointForWorkload(ctx, waypoints, namespaces, wle.ObjectMeta)
+			// TODO: report waypoint status
+			waypoint, _ = fetchWaypointForWorkload(ctx, waypoints, namespaces, wle.ObjectMeta)
 		}
 		var waypointAddress *workloadapi.GatewayAddress
 		if waypoint != nil {
@@ -248,8 +249,9 @@ func (a *index) podWorkloadBuilder(
 				Protocol: instancedWaypoint.DefaultBinding.Protocol,
 				Port:     instancedWaypoint.DefaultBinding.Port,
 			}
-		} else if waypoint := fetchWaypointForWorkload(ctx, waypoints, namespaces, p.ObjectMeta); waypoint != nil {
+		} else if waypoint, err := fetchWaypointForWorkload(ctx, waypoints, namespaces, p.ObjectMeta); err == nil {
 			// there is a workload-attached waypoint, point there with a GatewayAddress
+			// TODO: report waypoint error
 			targetWaypoint = waypoint
 		}
 
@@ -395,7 +397,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 		}
 		// here we don't care about the *service* waypoint (hence it is nil); we are only going to use a subset of the info in
 		// `allServices` (since we are building workloads here, not services).
-		allServices := a.serviceEntriesInfo(se, nil)
+		allServices := a.serviceEntriesInfo(se, nil, nil)
 		if implicitEndpoints {
 			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
 				return &networkingv1alpha3.WorkloadEntry{Address: si.Hostname}
@@ -422,11 +424,11 @@ func (a *index) serviceEntryWorkloadBuilder(
 			var waypointAddress *workloadapi.GatewayAddress
 			// Endpoint does not have a real ObjectMeta, so make one
 			if !implicitEndpoints {
-				if waypoint := fetchWaypointForWorkload(ctx, waypoints, namespaces, metav1.ObjectMeta{
+				if waypoint, err := fetchWaypointForWorkload(ctx, waypoints, namespaces, metav1.ObjectMeta{
 					Name:      se.Name,
 					Namespace: se.Namespace,
 					Labels:    wle.Labels,
-				}); waypoint != nil {
+				}); err != nil {
 					waypointAddress = a.getWaypointAddress(waypoint)
 					// enforce traversing waypoints
 					policies = append(policies, implicitWaypointPolicies(ctx, waypoints, waypoint, services)...)
@@ -777,10 +779,10 @@ func implicitWaypointPolicies(ctx krt.HandlerContext, Waypoints krt.Collection[W
 		return nil
 	}
 	serviceWaypointKeys := slices.MapFilter(services, func(si model.ServiceInfo) *string {
-		if si.Waypoint == "" || (waypoint != nil && waypoint.ResourceName() == si.Waypoint) {
+		if si.Waypoint.ResourceName == "" || (waypoint != nil && waypoint.ResourceName() == si.Waypoint.ResourceName) {
 			return nil
 		}
-		return ptr.Of(si.Waypoint)
+		return ptr.Of(si.Waypoint.ResourceName)
 	})
 	if len(serviceWaypointKeys) == 0 {
 		if waypoint != nil {

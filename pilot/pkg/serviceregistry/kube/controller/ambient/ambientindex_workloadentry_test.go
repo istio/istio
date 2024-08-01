@@ -221,7 +221,6 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	// all affected addresses with the waypoint should be updated
 	s.assertEvent(t,
 		s.svcXdsName("svc1"),
-		s.svcXdsName("waypoint-ns"),
 		s.wleXdsName("name1"),
 		s.wleXdsName("name2"),
 		s.wleXdsName("name3"))
