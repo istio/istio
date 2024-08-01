@@ -89,11 +89,6 @@ func ToYAMLWithJSONPB(val proto.Message) string {
 	return string(yb)
 }
 
-// MarshalWithJSONPB returns a YAML string representation of val (using jsonpb).
-func MarshalWithJSONPB(val proto.Message) (string, error) {
-	return protomarshal.ToYAML(val)
-}
-
 // UnmarshalWithJSONPB unmarshals y into out using gogo jsonpb (required for many proto defined structs).
 func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) error {
 	// Treat nothing as nothing.  If we called jsonpb.Unmarshaler it would return the same.
