@@ -3,7 +3,6 @@ kind: Deployment
 metadata:
   labels:
     app: istio-ingressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
     istio.io/rev: default
     operator.istio.io/component: IngressGateways
@@ -31,7 +30,6 @@ spec:
         app: istio-ingressgateway
         chart: gateways
         heritage: Tiller
-        install.operator.istio.io/owning-resource: unknown
         istio: ingressgateway
         istio.io/rev: default
         operator.istio.io/component: IngressGateways

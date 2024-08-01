@@ -7,7 +7,6 @@ metadata:
   labels:
     app: istiod
     istio.io/rev: {{ .Values.revision | default "default" | quote }}
-    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
     istio: pilot

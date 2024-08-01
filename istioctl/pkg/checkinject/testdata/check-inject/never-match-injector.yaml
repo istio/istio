@@ -3,7 +3,6 @@ kind: MutatingWebhookConfiguration
 metadata:
   labels:
     app: sidecar-injector
-    install.operator.istio.io/owning-resource-namespace: istio-system
     istio.io/rev: default
     operator.istio.io/component: Pilot
     operator.istio.io/managed: Reconcile

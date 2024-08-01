@@ -28,7 +28,6 @@ metadata:
   labels:
     app: ztunnel
     release: {{ .Release.Name }}
-    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
   annotations:
 {{- if .Values.revision }}
     {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
@@ -49,7 +48,6 @@ metadata:
   labels:
     app: ztunnel
     release: {{ .Release.Name }}
-    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
   annotations:
 {{- if .Values.revision }}
     {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}

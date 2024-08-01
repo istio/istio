@@ -14354,7 +14354,6 @@ kind: ServiceAccount
 metadata:
   labels:
     app: istio-egressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: egressgateway
     istio.io/rev: default
     operator.istio.io/component: EgressGateways
@@ -14368,7 +14367,6 @@ kind: ServiceAccount
 metadata:
   labels:
     app: istio-ingressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
     istio.io/rev: default
     operator.istio.io/component: IngressGateways
@@ -14853,7 +14851,6 @@ data:
 kind: ConfigMap
 metadata:
   labels:
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: Pilot
     release: istio
@@ -16811,7 +16808,6 @@ data:
 kind: ConfigMap
 metadata:
   labels:
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: Pilot
     release: istio
@@ -16824,7 +16820,6 @@ kind: MutatingWebhookConfiguration
 metadata:
   labels:
     app: sidecar-injector
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: Pilot
     release: istio
@@ -16977,7 +16972,6 @@ kind: Deployment
 metadata:
   labels:
     app: istio-egressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: egressgateway
     istio.io/rev: default
     operator.istio.io/component: EgressGateways
@@ -17005,7 +16999,6 @@ spec:
         app: istio-egressgateway
         chart: gateways
         heritage: Tiller
-        install.operator.istio.io/owning-resource: unknown
         istio: egressgateway
         istio.io/rev: default
         operator.istio.io/component: EgressGateways
@@ -17195,7 +17188,6 @@ kind: Deployment
 metadata:
   labels:
     app: istio-ingressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
     istio.io/rev: default
     operator.istio.io/component: IngressGateways
@@ -17223,7 +17215,6 @@ spec:
         app: istio-ingressgateway
         chart: gateways
         heritage: Tiller
-        install.operator.istio.io/owning-resource: unknown
         istio: ingressgateway
         istio.io/rev: default
         operator.istio.io/component: IngressGateways
@@ -17415,7 +17406,6 @@ kind: Deployment
 metadata:
   labels:
     app: istiod
-    install.operator.istio.io/owning-resource: unknown
     istio: pilot
     istio.io/rev: default
     operator.istio.io/component: Pilot
@@ -17438,7 +17428,6 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod
-        install.operator.istio.io/owning-resource: unknown
         istio: pilot
         istio.io/dataplane-mode: none
         istio.io/rev: default
@@ -17578,7 +17567,6 @@ kind: PodDisruptionBudget
 metadata:
   labels:
     app: istio-egressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: egressgateway
     istio.io/rev: default
     operator.istio.io/component: EgressGateways
@@ -17598,7 +17586,6 @@ kind: PodDisruptionBudget
 metadata:
   labels:
     app: istio-ingressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
     istio.io/rev: default
     operator.istio.io/component: IngressGateways
@@ -17618,7 +17605,6 @@ kind: PodDisruptionBudget
 metadata:
   labels:
     app: istiod
-    install.operator.istio.io/owning-resource: unknown
     istio: pilot
     istio.io/rev: default
     operator.istio.io/component: Pilot
@@ -17637,7 +17623,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   labels:
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: EgressGateways
     release: istio
@@ -17658,7 +17643,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   labels:
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: IngressGateways
     release: istio
@@ -17722,7 +17706,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels:
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: EgressGateways
     release: istio
@@ -17741,7 +17724,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels:
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: IngressGateways
     release: istio
@@ -17779,7 +17761,6 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istio-egressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: egressgateway
     istio.io/rev: default
     operator.istio.io/component: EgressGateways
@@ -17807,7 +17788,6 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istio-ingressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
     istio.io/rev: default
     operator.istio.io/component: IngressGateways
@@ -17835,7 +17815,6 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istiod
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: Pilot
     release: istio
@@ -17863,7 +17842,6 @@ metadata:
   annotations: null
   labels:
     app: istio-egressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: egressgateway
     istio.io/rev: default
     operator.istio.io/component: EgressGateways
@@ -17892,7 +17870,6 @@ metadata:
   annotations: null
   labels:
     app: istio-ingressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
     istio.io/rev: default
     operator.istio.io/component: IngressGateways
@@ -17924,7 +17901,6 @@ kind: Service
 metadata:
   labels:
     app: istiod
-    install.operator.istio.io/owning-resource: unknown
     istio: pilot
     istio.io/rev: default
     operator.istio.io/component: Pilot

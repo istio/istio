@@ -96,8 +96,6 @@ func TestHelmReconciler_GetPrunedResources(t *testing.T) {
 			for _, u := range uslist.Items {
 				assert.Equal(t, h1.iop.Spec.Revision, u.GetLabels()[label.IoIstioRev.Name])
 				assert.Equal(t, componentName, u.GetLabels()[IstioComponentLabelStr])
-				assert.Equal(t, h1.iop.GetName(), u.GetLabels()[OwningResourceName])
-				assert.Equal(t, h1.iop.GetNamespace(), u.GetLabels()[OwningResourceNamespace])
 			}
 		}
 	})

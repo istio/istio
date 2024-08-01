@@ -21,7 +21,6 @@ data:
 kind: ConfigMap
 metadata:
   labels:
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: Pilot
     release: istio

@@ -34,7 +34,6 @@ metadata:
   labels:
     istio.io/tag: "default"
     istio.io/rev: {{ .Values.revision | default "default" | quote }}
-    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: {{ .Release.Name }}

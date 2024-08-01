@@ -130,12 +130,6 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	if componentName != "" {
 		labels[IstioComponentLabelStr] = componentName
 	}
-	if h.iop.GetName() != "" {
-		labels[OwningResourceName] = h.iop.GetName()
-	}
-	if h.iop.GetNamespace() != "" {
-		labels[OwningResourceNamespace] = h.iop.GetNamespace()
-	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
 	resources := NamespacedResources()
 	gvkList := append(resources, ClusterCPResources...)

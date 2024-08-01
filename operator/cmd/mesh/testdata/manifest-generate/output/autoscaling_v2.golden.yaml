@@ -3,7 +3,6 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istio-ingressgateway
-    install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
     istio.io/rev: default
     operator.istio.io/component: IngressGateways
@@ -33,7 +32,6 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istiod
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: Pilot
     release: istio

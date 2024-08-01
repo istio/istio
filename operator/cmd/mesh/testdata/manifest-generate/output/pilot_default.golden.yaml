@@ -464,7 +464,6 @@ data:
 kind: ConfigMap
 metadata:
   labels:
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: Pilot
     release: istio
@@ -2422,7 +2421,6 @@ data:
 kind: ConfigMap
 metadata:
   labels:
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: Pilot
     release: istio
@@ -2435,7 +2433,6 @@ kind: MutatingWebhookConfiguration
 metadata:
   labels:
     app: sidecar-injector
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: Pilot
     release: istio
@@ -2588,7 +2585,6 @@ kind: Deployment
 metadata:
   labels:
     app: istiod
-    install.operator.istio.io/owning-resource: unknown
     istio: pilot
     istio.io/rev: default
     operator.istio.io/component: Pilot
@@ -2611,7 +2607,6 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod
-        install.operator.istio.io/owning-resource: unknown
         istio: pilot
         istio.io/dataplane-mode: none
         istio.io/rev: default
@@ -2751,7 +2746,6 @@ kind: PodDisruptionBudget
 metadata:
   labels:
     app: istiod
-    install.operator.istio.io/owning-resource: unknown
     istio: pilot
     istio.io/rev: default
     operator.istio.io/component: Pilot
@@ -2832,7 +2826,6 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istiod
-    install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: Pilot
     release: istio
@@ -2859,7 +2852,6 @@ kind: Service
 metadata:
   labels:
     app: istiod
-    install.operator.istio.io/owning-resource: unknown
     istio: pilot
     istio.io/rev: default
     operator.istio.io/component: Pilot

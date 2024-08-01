@@ -13,7 +13,6 @@ metadata:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" | quote }}
-    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "EgressGateways"
 spec:
 {{- if not $gateway.autoscaleEnabled }}
@@ -37,7 +36,6 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         operator.istio.io/component: "EgressGateways"
         sidecar.istio.io/inject: "true"
         {{- with .Values.revision }}

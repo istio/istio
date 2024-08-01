@@ -7,7 +7,6 @@ metadata:
   labels:
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" | quote }}
-    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "EgressGateways"
 roleRef:
   apiGroup: rbac.authorization.k8s.io

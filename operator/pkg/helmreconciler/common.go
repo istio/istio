@@ -25,10 +25,6 @@ import (
 const (
 	// MetadataNamespace is the namespace for mesh metadata (labels, annotations)
 	MetadataNamespace = "install.operator.istio.io"
-	// OwningResourceName represents the name of the owner to which the resource relates
-	OwningResourceName = MetadataNamespace + "/owning-resource"
-	// OwningResourceNamespace represents the namespace of the owner to which the resource relates
-	OwningResourceNamespace = MetadataNamespace + "/owning-resource-namespace"
 	// OwningResourceNotPruned indicates that the resource should not be pruned during reconciliation cycles,
 	// note this will not prevent the resource from being deleted if the owning resource is deleted.
 	OwningResourceNotPruned = MetadataNamespace + "/owning-resource-not-pruned"
