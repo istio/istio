@@ -3499,10 +3499,14 @@ spec:
 		v4, v6 := getSupportedIPFamilies(t, client)
 		expectedIPv4 := []string{}
 		expectedIPv6 := []string{}
-		if v4 {
+		if v4 && v6 {
 			expectedIPv4 = ipv4
-		}
-		if v6 {
+			expectedIPv6 = ipv6
+		} else if v4 {
+			expectedIPv4 = ipv4
+			expectedIPv6 = ipv6[:1]
+		} else {
+			expectedIPv4 = ipv4[:1]
 			expectedIPv6 = ipv6
 		}
 		// If a client is deployed in a remote cluster, which is not a config cluster, i.e. Istio resources
