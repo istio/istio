@@ -98,7 +98,7 @@ func GenerateIstioOperator(
 		return "", nil, err
 	}
 
-	errs, warning := validation.ValidateConfig(false, iops.Spec)
+	errs, warning := validation.ValidateConfig(iops.Spec)
 	if warning != "" {
 		l.LogAndError(warning)
 	}

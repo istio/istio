@@ -57,7 +57,7 @@ func FuzzV1Alpha1ValidateConfig(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	_, _ = validation.ValidateConfig(false, iop)
+	_, _ = validation.ValidateConfig(iop)
 	return 1
 }
 
