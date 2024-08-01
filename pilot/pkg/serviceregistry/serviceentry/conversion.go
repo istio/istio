@@ -60,14 +60,26 @@ type HostAddress struct {
 // See kube.ConvertService for the conversion from K8S to internal Service.
 func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Config {
 	gvk := gvk.ServiceEntry
+	getSvcAddresses := func(s *model.Service, node *model.Proxy) []string {
+		if node.Metadata != nil && node.Metadata.ClusterID == "" {
+			var addresses []string
+			addressMap := s.ClusterVIPs.GetAddresses()
+			for _, clusterAddresses := range addressMap {
+				addresses = append(addresses, clusterAddresses...)
+			}
+			return addresses
+		}
+
+		return s.GetAllAddressesForProxy(proxy)
+	}
 	se := &networking.ServiceEntry{
 		// Host is fully qualified: name, namespace, domainSuffix
 		Hosts: []string{string(svc.Hostname)},
 
-		// Internal Service and K8S Service have a single Address.
-		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
-		// Will be 0.0.0.0 if not specified as ClusterIP or ClusterIP==None. In such case resolution is Passthrough.
-		Addresses: svc.GetAddresses(proxy),
+		// ServiceEntry can represent multiple services, so we return all the addresses of the services
+		// if proxy ClusterID unset.
+		// And only the cluster specific addresses when proxy ClusterID set.
+		Addresses: getSvcAddresses(svc, proxy),
 
 		// This is based on alpha.istio.io/canonical-serviceaccounts and
 		//  alpha.istio.io/kubernetes-serviceaccounts.

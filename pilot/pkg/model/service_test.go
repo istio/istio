@@ -669,8 +669,8 @@ func TestGetAllAddresses(t *testing.T) {
 			},
 			ipMode:                 IPv4,
 			ambientEnabled:         true,
-			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
-			expectedExtraAddresses: []string{"10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28"},
+			expectedExtraAddresses: []string{"10.0.0.16/28"},
 		},
 		{
 			name: "IPv6 mode, ISTIO_DUAL_STACK disabled, ambient enabled, IPv4 and IPv6 addresses, expected to return all addresses",
@@ -684,8 +684,8 @@ func TestGetAllAddresses(t *testing.T) {
 			},
 			ipMode:                 IPv6,
 			ambientEnabled:         true,
-			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
-			expectedExtraAddresses: []string{"10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedAddresses:      []string{"::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedExtraAddresses: []string{"::ffff:10.0.0.48"},
 		},
 		{
 			name: "IPv4 mode, auto-allocation enabled, expected auto-allocated address",
