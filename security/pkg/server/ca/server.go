@@ -167,7 +167,7 @@ func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
 		serverCaLog.Errorf("failed to extract CA cert expiry timestamp (error %v)", err)
 	} else {
 		certChainExpiryTimestamp.Record(float64(certChainExpiry.Unix()))
-		certChainExpirySeconds.ValueFrom(func() float64 { return time.Until(rootCertExpiry).Seconds() })
+		certChainExpirySeconds.ValueFrom(func() float64 { return time.Until(certChainExpiry).Seconds() })
 	}
 }
 
