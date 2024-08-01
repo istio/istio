@@ -20,7 +20,7 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/api/networking/v1alpha3"
+	apiv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
@@ -31,30 +31,39 @@ const (
 	IPAutoallocateStatusType = "ip-autoallocate"
 )
 
-func GetV2AddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) []netip.Addr {
+func GetHostAddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) map[string][]netip.Addr {
 	if se == nil {
-		return []netip.Addr{}
+		return map[string][]netip.Addr{}
 	}
-	return getV2AddressesFromServiceEntryStatus(&se.Status)
+	return getHostAddressesFromServiceEntryStatus(&se.Status)
 }
 
-func GetV2AddressesFromConfig(cfg config.Config) []netip.Addr {
-	status, ok := cfg.Status.(*v1alpha3.ServiceEntryStatus)
+func GetAddressesFromServiceEntry(se *networkingv1alpha3.ServiceEntry) []netip.Addr {
+	addresses := []netip.Addr{}
+	for _, v := range GetHostAddressesFromServiceEntry(se) {
+		addresses = append(addresses, v...)
+	}
+	return addresses
+}
+
+func GetHostAddressesFromConfig(cfg config.Config) map[string][]netip.Addr {
+	status, ok := cfg.Status.(*apiv1alpha3.ServiceEntryStatus)
 	if !ok {
-		return []netip.Addr{}
+		return map[string][]netip.Addr{}
 	}
-	return getV2AddressesFromServiceEntryStatus(status)
+	return getHostAddressesFromServiceEntryStatus(status)
 }
 
-func getV2AddressesFromServiceEntryStatus(status *v1alpha3.ServiceEntryStatus) []netip.Addr {
-	results := []netip.Addr{}
+func getHostAddressesFromServiceEntryStatus(status *apiv1alpha3.ServiceEntryStatus) map[string][]netip.Addr {
+	results := map[string][]netip.Addr{}
 	for _, addr := range status.GetAddresses() {
 		parsed, err := netip.ParseAddr(addr.GetValue())
 		if err != nil {
 			// strange, we should have written these so it probaby should parse but for now unreadable is unusable and we move on
 			continue
 		}
-		results = append(results, parsed)
+		host := addr.GetHost()
+		results[host] = append(results[host], parsed)
 	}
 	return results
 }
@@ -67,27 +76,27 @@ func ShouldV2AutoAllocateIP(se *networkingv1alpha3.ServiceEntry) bool {
 }
 
 func ShouldV2AutoAllocateIPFromConfig(cfg config.Config) bool {
-	spec, ok := cfg.Spec.(*v1alpha3.ServiceEntry)
+	spec, ok := cfg.Spec.(*apiv1alpha3.ServiceEntry)
 	if !ok {
 		return false
 	}
 	return shouldV2AutoAllocateIPFromPieces(cfg.ToObjectMeta(), spec)
 }
 
-func shouldV2AutoAllocateIPFromPieces(meta v1.ObjectMeta, spec *v1alpha3.ServiceEntry) bool {
+func shouldV2AutoAllocateIPFromPieces(meta v1.ObjectMeta, spec *apiv1alpha3.ServiceEntry) bool {
 	// if the feature is off we should not assign/use addresses
 	if !features.EnableIPAutoallocate {
 		return false
 	}
 
 	// if resolution is none we cannot honor the assigned IP in the dataplane and should not assign
-	if spec.Resolution == v1alpha3.ServiceEntry_NONE {
+	if spec.Resolution == apiv1alpha3.ServiceEntry_NONE {
 		return false
 	}
 
 	// check for opt-out by user
-	diabledValue, diabledFound := meta.Labels[constants.EnableV2AutoAllocationLabel]
-	if diabledFound && strings.EqualFold(diabledValue, "false") {
+	enabledValue, enabledFound := meta.Labels[constants.EnableV2AutoAllocationLabel]
+	if enabledFound && strings.EqualFold(enabledValue, "false") {
 		return false
 	}
 
