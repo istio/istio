@@ -49,7 +49,7 @@ func applyResourcesIntoCluster(t *testing.T, h *HelmReconciler, manifestMap name
 			if err := h.applyLabelsAndAnnotations(obju, cn); err != nil {
 				t.Errorf("failed to apply label and annotations: %v", err)
 			}
-			if err := h.ApplyObject(obj.UnstructuredObject()); err != nil {
+			if err := h.ServerSideApply(obj.UnstructuredObject()); err != nil {
 				t.Errorf("HelmReconciler.ApplyObject() error = %v", err)
 			}
 		}

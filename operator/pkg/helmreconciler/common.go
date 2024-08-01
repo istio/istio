@@ -15,9 +15,6 @@
 package helmreconciler
 
 import (
-	"io"
-	"strings"
-
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/pkg/log"
 )
@@ -92,22 +89,5 @@ func insertChildrenRecursive(componentName name.ComponentName, tree ComponentTre
 	tree[componentName] = make(ComponentTree)
 	for _, child := range children[componentName] {
 		insertChildrenRecursive(child, tree[componentName].(ComponentTree), children)
-	}
-}
-
-// InstallTreeString returns a string representation of the dependency tree.
-func InstallTreeString() string {
-	var sb strings.Builder
-	buildInstallTreeString(name.IstioBaseComponentName, "", &sb)
-	return sb.String()
-}
-
-func buildInstallTreeString(componentName name.ComponentName, prefix string, sb io.StringWriter) {
-	_, _ = sb.WriteString(prefix + string(componentName) + "\n")
-	if _, ok := InstallTree[componentName].(ComponentTree); !ok {
-		return
-	}
-	for k := range InstallTree[componentName].(ComponentTree) {
-		buildInstallTreeString(k, prefix+"  ", sb)
 	}
 }

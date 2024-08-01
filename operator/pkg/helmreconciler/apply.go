@@ -23,24 +23,9 @@ import (
 
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util"
 )
 
 const fieldOwnerOperator = "istio-operator"
-
-// AppliedResult is the result of applying a Manifest.
-type AppliedResult struct {
-	// processedObjects is the list of objects that were processed in this apply operation.
-	processedObjects object.K8sObjects
-	// deployed is the number of objects have been deployed which means
-	// it's in the cache and it's not changed from the cache.
-	deployed int
-}
-
-// Succeed returns true if the apply operation succeeded.
-func (r AppliedResult) Succeed() bool {
-	return len(r.processedObjects) > 0 || r.deployed > 0
-}
 
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
 // objects and the number of objects in the manifests.
@@ -55,29 +40,20 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) error {
 
 	plog := h.opts.ProgressLog.NewComponent(cname)
 
-	// Objects are applied in groups: namespaces, CRDs, everything else, with wait for ready in between.
-	nsObjs := object.KindObjects(allObjects, name.NamespaceStr)
-	crdObjs := object.KindObjects(allObjects, name.CRDStr)
-	otherObjs := object.ObjectsNotInLists(allObjects, nsObjs, crdObjs)
-	var processedObjects object.K8sObjects
-	for _, objList := range []object.K8sObjects{nsObjs, crdObjs, otherObjs} {
-		// For a given group of objects, apply in sorted order of priority with no wait in between.
-		objList.Sort(object.DefaultObjectOrder())
-		for _, obj := range objList {
-			obju := obj.UnstructuredObject()
-			if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
-				return err
-			}
-			if err := h.ApplyObject(obj.UnstructuredObject()); err != nil {
-				plog.ReportError(err.Error())
-				return err
-			}
-			plog.ReportProgress()
-			processedObjects = append(processedObjects, obj)
+	allObjects.Sort(object.DefaultObjectOrder())
+	for _, obj := range allObjects {
+		obju := obj.UnstructuredObject()
+		if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
+			return err
 		}
+		if err := h.ServerSideApply(obj.UnstructuredObject()); err != nil {
+			plog.ReportError(err.Error())
+			return err
+		}
+		plog.ReportProgress()
 	}
 
-	if err := WaitForResources(processedObjects, h.kubeClient, h.opts.WaitTimeout, h.opts.DryRun, plog); err != nil {
+	if err := WaitForResources(allObjects, h.kubeClient, h.opts.WaitTimeout, h.opts.DryRun, plog); err != nil {
 		werr := fmt.Errorf("failed to wait for resource: %v", err)
 		plog.ReportError(werr.Error())
 		return werr
@@ -86,41 +62,8 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) error {
 	return nil
 }
 
-// ApplyObject creates or updates an object in the API server depending on whether it already exists.
-// It mutates obj.
-func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
-	if obj.GetKind() == "List" {
-		var errs util.Errors
-		list, err := obj.ToList()
-		if err != nil {
-			scope.Errorf("error converting List object: %s", err)
-			return err
-		}
-		for _, item := range list.Items {
-			err = h.ApplyObject(&item)
-			if err != nil {
-				errs = util.AppendErr(errs, err)
-			}
-		}
-		return errs.ToError()
-	}
-
-	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
-
-	if scope.DebugEnabled() {
-		scope.Debugf("Processing object:\n%s\n\n", util.ToYAML(obj))
-	}
-
-	if h.opts.DryRun {
-		scope.Infof("Not applying object %s because of dry run.", objectStr)
-		return nil
-	}
-
-	return h.serverSideApply(obj)
-}
-
-// use server-side apply, require kubernetes 1.16+
-func (h *HelmReconciler) serverSideApply(obj *unstructured.Unstructured) error {
+// ServerSideApply creates or updates an object in the API server depending on whether it already exists.
+func (h *HelmReconciler) ServerSideApply(obj *unstructured.Unstructured) error {
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 	scope.Infof("using server side apply to update obj: %v", objectStr)
 	opts := []client.PatchOption{client.ForceOwnership, client.FieldOwner(fieldOwnerOperator)}

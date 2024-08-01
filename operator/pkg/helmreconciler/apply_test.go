@@ -119,7 +119,7 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 					Spec: &v1alpha12.IstioOperatorSpec{},
 				},
 			}
-			if err := h.ApplyObject(obj.UnstructuredObject()); (err != nil) != tt.wantErr {
+			if err := h.ServerSideApply(obj.UnstructuredObject()); (err != nil) != tt.wantErr {
 				t.Errorf("HelmReconciler.ApplyObject() error = %v, wantErr %v", err, tt.wantErr)
 			}
 

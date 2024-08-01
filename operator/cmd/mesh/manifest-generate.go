@@ -192,7 +192,6 @@ func orderedManifests(mm name.ManifestMap) ([]string, error) {
 
 // RenderToDir writes manifests to a local filesystem directory tree.
 func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun bool, l clog.Logger) error {
-	l.LogAndPrintf("Component dependencies tree: \n%s", helmreconciler.InstallTreeString())
 	l.LogAndPrintf("Rendering manifests to output dir %s", outputDir)
 	return renderRecursive(manifests, helmreconciler.InstallTree, outputDir, dryRun, l)
 }
