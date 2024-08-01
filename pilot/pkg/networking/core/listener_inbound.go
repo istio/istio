@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
@@ -101,10 +100,7 @@ func (cc inboundChainConfig) StatPrefix(istioVersion *model.IstioVersion) string
 		statPrefix = "inbound_" + cc.Name(istionetworking.ListenerProtocolHTTP)
 	}
 
-	if util.IsIstioVersionGE123(istioVersion) {
-		statPrefix += constants.StatPrefixDelimiter
-	}
-
+	statPrefix = util.DelimitedStatsPrefix(statPrefix, istioVersion)
 	return statPrefix
 }
 

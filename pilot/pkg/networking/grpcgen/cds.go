@@ -27,7 +27,6 @@ import (
 	corexds "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -129,7 +128,7 @@ func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultCluste
 func (b *clusterBuilder) build() []*cluster.Cluster {
 	var defaultCluster *cluster.Cluster
 	if b.filter.Contains(b.defaultClusterName) {
-		defaultCluster = edsCluster(b.defaultClusterName)
+		defaultCluster = b.edsCluster(b.defaultClusterName)
 		if b.svc.SupportsDrainingEndpoints() {
 			// see core/v1alpha3/cluster.go
 			defaultCluster.CommonLbConfig.OverrideHostStatus = &core.HealthStatusSet{
@@ -150,10 +149,10 @@ func (b *clusterBuilder) build() []*cluster.Cluster {
 }
 
 // edsCluster creates a simple cluster to read endpoints from ads/eds.
-func edsCluster(name string) *cluster.Cluster {
+func (b *clusterBuilder) edsCluster(name string) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 name,
-		AltStatName:          name + constants.StatPrefixDelimiter,
+		AltStatName:          util.DelimitedStatsPrefix(name, b.node.IstioVersion),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 		EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 			ServiceName: name,
@@ -189,7 +188,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 			if !b.filter.Contains(subsetKey) {
 				continue
 			}
-			c := edsCluster(subsetKey)
+			c := b.edsCluster(subsetKey)
 			trafficPolicy := util.MergeSubsetTrafficPolicy(trafficPolicy, subset.TrafficPolicy, b.port)
 			b.applyTrafficPolicy(c, trafficPolicy)
 			subsetClusters = append(subsetClusters, c)
