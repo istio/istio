@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util/sets"
 	pkgversion "istio.io/istio/pkg/version"
 )
 
@@ -53,6 +52,8 @@ var installerScope = log.RegisterScope("installer", "installer")
 func GenManifests(inFilename []string, setFlags []string, force bool, filter []string,
 	client kube.Client, l clog.Logger,
 ) (name.ManifestMap, *v1alpha1.IstioOperator, error) {
+	GenerateManifest2(inFilename, setFlags, force, filter, client, l)
+	panic("")
 	mergedYAML, _, err := GenerateIstioOperator(inFilename, setFlags, force, client, l)
 	if err != nil {
 		return nil, nil, err
@@ -438,7 +439,19 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 
 // alwaysString represents types that should always be decoded as strings
 // TODO: this could be automatically derived from the value_types.proto?
-var alwaysString = sets.New("values.compatibilityVersion", "compatibilityVersion")
+var alwaysString = []string{
+	"values.compatibilityVersion",
+	"meshConfig.defaultConfig.proxyMetadata.",
+	"compatibilityVersion",
+}
+func isAlwaysString(s string) bool {
+	for _, a := range alwaysString {
+		if strings.HasPrefix(s, a) {
+			return true
+		}
+	}
+	return false
+}
 
 // overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
 func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
@@ -460,7 +473,7 @@ func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 		}
 		// input value type is always string, transform it to correct type before setting.
 		var val any = v
-		if !alwaysString.Contains(p) {
+		if !isAlwaysString(p) {
 			val = util.ParseValue(v)
 		}
 		if err := tpath.WritePathContext(inc, val, false); err != nil {
@@ -576,4 +589,13 @@ func getPV(setFlag string) (path string, value string) {
 	}
 	path, value = strings.TrimSpace(pv[0]), strings.TrimSpace(pv[1])
 	return
+}
+
+// getPV returns the path and value components for the given set flag string, which must be in path=value format.
+func getPV2(setFlag string) (string, string, error) {
+	pv := strings.Split(setFlag, "=")
+	if len(pv) != 2 {
+		return "", "", fmt.Errorf("set flag %s has incorrect format, must be path=value", setFlag)
+	}
+	return strings.TrimSpace(pv[0]), strings.TrimSpace(pv[1]), nil
 }
