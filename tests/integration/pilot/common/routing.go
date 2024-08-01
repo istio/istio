@@ -3497,8 +3497,7 @@ spec:
 
 	for _, client := range flatten(t.Apps.VM, t.Apps.A, t.Apps.Tproxy) {
 		v4, v6 := getSupportedIPFamilies(t, client)
-		expectedIPv4 := []string{}
-		expectedIPv6 := []string{}
+		var expectedIPv4, expectedIPv6 []string
 		if v4 && v6 {
 			expectedIPv4 = ipv4
 			expectedIPv6 = ipv6
