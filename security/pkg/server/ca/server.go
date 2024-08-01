@@ -148,7 +148,8 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	return response, nil
 }
 
-func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
+// RecordCertsExpiry updates the certificate-expiration related metrics given a new keycertbundle
+func RecordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
 	// Expiry of the first root cert in trust bundle
 	rootCertExpiry, err := keyCertBundle.ExtractRootCertExpiryTimestamp()
 	if err != nil {
@@ -185,7 +186,7 @@ func New(
 ) (*Server, error) {
 	certBundle := ca.GetCAKeyCertBundle()
 	if len(certBundle.GetRootCertPem()) != 0 {
-		recordCertsExpiry(certBundle)
+		RecordCertsExpiry(certBundle)
 	}
 
 	server := &Server{
