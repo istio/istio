@@ -18,7 +18,7 @@ data:
   CNI_CONF_NAME: {{ .Values.cniConfFileName }} # Name of the CNI config file to create. Only override if you know the exact path your CNI requires..
   {{- end }}
   CNI_NET_DIR: {{ .Values.cniConfDir | default "/etc/cni/net.d" }} # Directory where the CNI config file is going to be created.
-  CHAINED_CNI_PLUGIN: {{ .Values.cni.chained | quote }}
+  CHAINED_CNI_PLUGIN: {{ .Values.chained | quote }}
   EXCLUDED_NAMESPACES: "{{ range $idx, $ns := .Values.excludeNamespaces }}{{ if $idx }},{{ end }}{{ $ns }}{{ end }}"
   REPAIR_ENABLED: {{ .Values.chained | quote }}
   REPAIR_LABEL_PODS: {{ .Values.repair.labelPods | quote }}
