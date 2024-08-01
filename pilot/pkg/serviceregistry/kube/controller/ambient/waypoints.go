@@ -130,6 +130,10 @@ func fetchWaypointForTarget(
 func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
 	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
 ) *Waypoint {
+	// This is a waypoint, so it cannot have a waypoint
+	if o.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+		return nil
+	}
 	w := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
 	if w != nil {
 		if w.TrafficType == constants.ServiceTraffic || w.TrafficType == constants.AllTraffic {
