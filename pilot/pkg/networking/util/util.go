@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
 	pm "istio.io/istio/pkg/model"
@@ -851,4 +852,11 @@ func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.Tr
 	ret.Tunnel = original.Tunnel
 	ret.ProxyProtocol = original.ProxyProtocol
 	return ret
+}
+
+func DelimitedStatsPrefix(statPrefix string, proxyVersion *model.IstioVersion) string {
+	if features.EnableDelimitedStatsTagRegex && IsIstioVersionGE123(proxyVersion) {
+		statPrefix += constants.StatPrefixDelimiter
+	}
+	return statPrefix
 }

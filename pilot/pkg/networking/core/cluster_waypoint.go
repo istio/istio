@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
@@ -62,9 +61,7 @@ func buildInternalUpstreamCluster(proxyVersion *model.IstioVersion, name string,
 		},
 	}
 
-	if util.IsIstioVersionGE123(proxyVersion) {
-		c.AltStatName = name + constants.StatPrefixDelimiter
-	}
+	c.AltStatName = util.DelimitedStatsPrefix(name, proxyVersion)
 
 	return c
 }
@@ -323,9 +320,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 		},
 	}
 
-	if util.IsIstioVersionGE123(proxy.IstioVersion) {
-		c.AltStatName = ConnectOriginate + constants.StatPrefixDelimiter
-	}
+	c.AltStatName = util.DelimitedStatsPrefix(ConnectOriginate, proxy.IstioVersion)
 
 	return c
 }
