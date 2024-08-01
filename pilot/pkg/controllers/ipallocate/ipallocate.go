@@ -27,7 +27,7 @@ import (
 
 	apiv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	autoallocate "istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
