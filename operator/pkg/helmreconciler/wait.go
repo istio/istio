@@ -60,20 +60,16 @@ func WaitForResources(objects object.K8sObjects, client kube.Client,
 		return nil
 	}
 
-	if err := waitForCRDs(objects, client); err != nil {
-		return err
-	}
-
 	var notReady []string
 	var debugInfo map[string]string
 
 	// Check if we are ready immediately, to avoid the 2s delay below when we are already ready
-	if ready, _, _, err := waitForResources(objects, client.Kube(), l); err == nil && ready {
+	if ready, _, _, err := waitForResources(objects, client, l); err == nil && ready {
 		return nil
 	}
 
 	errPoll := wait.PollUntilContextTimeout(context.Background(), 2*time.Second, waitTimeout, false, func(context.Context) (bool, error) {
-		isReady, notReadyObjects, debugInfoObjects, err := waitForResources(objects, client.Kube(), l)
+		isReady, notReadyObjects, debugInfoObjects, err := waitForResources(objects, client, l)
 		notReady = notReadyObjects
 		debugInfo = debugInfoObjects
 		return isReady, err
@@ -95,28 +91,35 @@ func WaitForResources(objects object.K8sObjects, client kube.Client,
 	return nil
 }
 
-func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *progress.ManifestLog) (bool, []string, map[string]string, error) {
+func waitForResources(objects object.K8sObjects, k kube.Client, l *progress.ManifestLog) (bool, []string, map[string]string, error) {
 	pods := []corev1.Pod{}
 	deployments := []deployment{}
 	daemonsets := []*appsv1.DaemonSet{}
 	statefulsets := []*appsv1.StatefulSet{}
 	namespaces := []corev1.Namespace{}
+	crds := []apiextensions.CustomResourceDefinition{}
 
 	for _, o := range objects {
 		kind := o.GroupVersionKind().Kind
 		switch kind {
+		case name.CRDStr:
+			crd, err := k.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, nil, nil, err
+			}
+			crds = append(crds, *crd)
 		case name.NamespaceStr:
-			namespace, err := cs.CoreV1().Namespaces().Get(context.TODO(), o.Name, metav1.GetOptions{})
+			namespace, err := k.Kube().CoreV1().Namespaces().Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil, nil, err
 			}
 			namespaces = append(namespaces, *namespace)
 		case name.DeploymentStr:
-			currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
+			currentDeployment, err := k.Kube().AppsV1().Deployments(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil, nil, err
 			}
-			_, _, newReplicaSet, err := kctldeployment.GetAllReplicaSets(currentDeployment, cs.AppsV1())
+			_, _, newReplicaSet, err := kctldeployment.GetAllReplicaSets(currentDeployment, k.Kube().AppsV1())
 			if err != nil || newReplicaSet == nil {
 				return false, nil, nil, err
 			}
@@ -126,13 +129,13 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *pro
 			}
 			deployments = append(deployments, newDeployment)
 		case name.DaemonSetStr:
-			ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
+			ds, err := k.Kube().AppsV1().DaemonSets(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil, nil, err
 			}
 			daemonsets = append(daemonsets, ds)
 		case name.StatefulSetStr:
-			sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
+			sts, err := k.Kube().AppsV1().StatefulSets(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil, nil, err
 			}
@@ -141,61 +144,19 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *pro
 	}
 
 	resourceDebugInfo := map[string]string{}
-	dr, dnr := deploymentsReady(cs, deployments, resourceDebugInfo)
+
+	dr, dnr := deploymentsReady(k.Kube(), deployments, resourceDebugInfo)
 	dsr, dsnr := daemonsetsReady(daemonsets)
 	stsr, stsnr := statefulsetsReady(statefulsets)
 	nsr, nnr := namespacesReady(namespaces)
 	pr, pnr := podsReady(pods)
-	isReady := dr && nsr && dsr && stsr && pr
-	notReady := append(append(append(append(nnr, dnr...), pnr...), dsnr...), stsnr...)
+	crdr, crdnr := crdsReady(crds)
+	isReady := dr && nsr && dsr && stsr && pr && crdr
+	notReady := append(append(append(append(append(nnr, dnr...), pnr...), dsnr...), stsnr...), crdnr...)
 	if !isReady {
 		l.ReportWaiting(notReady)
 	}
 	return isReady, notReady, resourceDebugInfo, nil
-}
-
-func waitForCRDs(objects object.K8sObjects, client kube.Client) error {
-	var crdNames []string
-	for _, o := range object.KindObjects(objects, name.CRDStr) {
-		crdNames = append(crdNames, o.Name)
-	}
-	if len(crdNames) == 0 {
-		return nil
-	}
-
-	errPoll := wait.PollUntilContextTimeout(context.Background(), cRDPollInterval, cRDPollTimeout, false, func(context.Context) (bool, error) {
-	descriptor:
-		for _, crdName := range crdNames {
-			crd, errGet := client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
-			if errGet != nil {
-				return false, errGet
-			}
-			for _, cond := range crd.Status.Conditions {
-				switch cond.Type {
-				case apiextensions.Established:
-					if cond.Status == apiextensions.ConditionTrue {
-						scope.Infof("established CRD %s", crdName)
-						continue descriptor
-					}
-				case apiextensions.NamesAccepted:
-					if cond.Status == apiextensions.ConditionFalse {
-						scope.Warnf("name conflict for %v: %v", crdName, cond.Reason)
-					}
-				}
-			}
-			scope.Infof("missing status condition for %q", crdName)
-			return false, nil
-		}
-		return true, nil
-	})
-
-	if errPoll != nil {
-		scope.Errorf("failed to verify CRD creation; %s", errPoll)
-		return fmt.Errorf("failed to verify CRD creation: %s", errPoll)
-	}
-
-	scope.Info("Finished applying CRDs.")
-	return nil
 }
 
 func getPods(client kubernetes.Interface, namespace string, selector labels.Selector) ([]corev1.Pod, error) {
@@ -220,6 +181,23 @@ func podsReady(pods []corev1.Pod) (bool, []string) {
 	for _, pod := range pods {
 		if !isPodReady(&pod) {
 			notReady = append(notReady, "Pod/"+pod.Namespace+"/"+pod.Name)
+		}
+	}
+	return len(notReady) == 0, notReady
+}
+
+func crdsReady(crds []apiextensions.CustomResourceDefinition) (bool, []string) {
+	var notReady []string
+	for _, crd := range crds {
+		ready := false
+		for _, cond := range crd.Status.Conditions {
+			if cond.Type == apiextensions.Established && cond.Status == apiextensions.ConditionTrue {
+				ready = true
+				break
+			}
+		}
+		if !ready {
+			notReady = append(notReady, "CustomResourceDefinition/", crd.Name)
 		}
 	}
 	return len(notReady) == 0, notReady

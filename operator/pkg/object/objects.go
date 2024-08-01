@@ -460,24 +460,6 @@ func DefaultObjectOrder() func(o *K8sObject) int {
 	}
 }
 
-func ObjectsNotInLists(objects K8sObjects, lists ...K8sObjects) K8sObjects {
-	var ret K8sObjects
-
-	filterMap := make(map[*K8sObject]bool)
-	for _, list := range lists {
-		for _, object := range list {
-			filterMap[object] = true
-		}
-	}
-
-	for _, o := range objects {
-		if !filterMap[o] {
-			ret = append(ret, o)
-		}
-	}
-	return ret
-}
-
 // KindObjects returns the subset of objs with the given kind.
 func KindObjects(objs K8sObjects, kind string) K8sObjects {
 	var ret K8sObjects

@@ -450,9 +450,6 @@ func getIOPConfigs() (string, *meshconfig.MeshConfig, error) {
 		if err := validate.ValidIOP(iop); err != nil {
 			return "", nil, fmt.Errorf("validation errors: \n%s", err)
 		}
-		if err != nil {
-			return "", nil, err
-		}
 		if iop.Spec.Values != nil {
 			values, err := protomarshal.ToJSON(iop.Spec.Values)
 			if err != nil {
