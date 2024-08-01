@@ -41,7 +41,6 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
@@ -298,7 +297,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	}
 
 	// Build default alt stat name - This may be overwritten by the MeshConfig options.
-	c.AltStatName = cb.defaultAltStatName(name)
+	c.AltStatName = util.DelimitedStatsPrefix(name, cb.proxyVersion)
 
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
@@ -357,13 +356,6 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	}
 
 	return ec
-}
-
-func (cb *ClusterBuilder) defaultAltStatName(clusterName string) string {
-	if util.IsIstioVersionGE123(cb.proxyVersion) {
-		return clusterName + constants.StatPrefixDelimiter
-	}
-	return clusterName
 }
 
 // buildInboundCluster constructs a single inbound cluster. The cluster will be bound to
@@ -514,7 +506,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
-	cb.defaultAltStatName(util.BlackHoleCluster)
+	c.AltStatName = util.DelimitedStatsPrefix(util.BlackHoleCluster, cb.proxyVersion)
 	return c
 }
 
@@ -530,7 +522,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
-	cluster.AltStatName = cb.defaultAltStatName(util.PassthroughCluster)
+	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster, cb.proxyVersion)
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
 	cb.applyMetadataExchange(cluster)
 	return cluster
@@ -744,7 +736,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(options),
 		},
 	}
-	c.AltStatName = cb.defaultAltStatName(security.SDSExternalClusterName)
+	c.AltStatName = util.DelimitedStatsPrefix(security.SDSExternalClusterName, cb.proxyVersion)
 	return c
 }
 
