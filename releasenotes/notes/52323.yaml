@@ -6,4 +6,6 @@ issue:
 
 releaseNotes:
 - |
-  **Removed** Stop writing kubeconfig to CNI net dir. Remove `CNI_NET_DIR` from the `istio-cni` configmap, as it now does nothing.
+  **Removed** writing kubeconfig to CNI net directory.
+- |
+  **Removed** `CNI_NET_DIR` from the `istio-cni` configmap, as it now does nothing.
