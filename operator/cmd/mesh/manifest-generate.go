@@ -16,18 +16,13 @@ package mesh
 
 import (
 	"fmt"
-	"istio.io/istio/operator/john"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/operator/john"
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
@@ -125,12 +120,12 @@ func ManifestGenerateCmd(ctx cli.Context, rootArgs *RootArgs, mgArgs *ManifestGe
 				kubeClient = kc
 			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-			return ManifestGenerate2(kubeClient, rootArgs, mgArgs, l)
+			return ManifestGenerate(kubeClient, mgArgs, l)
 		},
 	}
 }
 
-func ManifestGenerate2(kubeClient kube.CLIClient, args *RootArgs, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
+func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
 	manifests, err := john.GenerateManifest(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
 		mgArgs.Force, mgArgs.Filter, kubeClient)
 	if err != nil {
@@ -145,7 +140,6 @@ func ManifestGenerate2(kubeClient kube.CLIClient, args *RootArgs, mgArgs *Manife
 	}
 	return nil
 }
-
 
 // TODO: do not do full parsing
 func sortManifests(mm []string) ([]string, error) {
@@ -165,132 +159,4 @@ func sortManifests(mm []string) ([]string, error) {
 	}
 
 	return output, nil
-}
-
-//
-//func orderedManifests2(mm name.ManifestMap) ([]string, error) {
-//	var rawOutput []string
-//	var output []string
-//	for _, mfs := range mm {
-//		rawOutput = append(rawOutput, mfs...)
-//	}
-//	objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(rawOutput, helm.YAMLSeparator))
-//	if err != nil {
-//		return nil, err
-//	}
-//	// For a given group of objects, sort in order to avoid missing dependencies, such as creating CRDs first
-//	objects.Sort(object.DefaultObjectOrder())
-//	for _, obj := range objects {
-//		yml, err := obj.YAML()
-//		if err != nil {
-//			return nil, err
-//		}
-//		output = append(output, string(yml))
-//	}
-//
-//	return output, nil
-//}
-
-func ManifestGenerate(kubeClient kube.CLIClient, args *RootArgs, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
-	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
-		mgArgs.Force, mgArgs.Filter, kubeClient, l)
-	if err != nil {
-		return err
-	}
-
-	if len(mgArgs.Components) != 0 {
-		filteredManifests := name.ManifestMap{}
-		for _, cArg := range mgArgs.Components {
-			componentName := name.ComponentName(cArg)
-			if cManifests, ok := manifests[componentName]; ok {
-				filteredManifests[componentName] = cManifests
-			} else {
-				return fmt.Errorf("incorrect component name: %s. Valid options: %v", cArg, name.AllComponentNames)
-			}
-		}
-		manifests = filteredManifests
-	}
-
-	if mgArgs.OutFilename == "" {
-		ordered, err := orderedManifests(manifests)
-		if err != nil {
-			return fmt.Errorf("failed to order manifests: %v", err)
-		}
-		for _, m := range ordered {
-			l.Print(m + object.YAMLSeparator)
-		}
-	} else {
-		if err := os.MkdirAll(mgArgs.OutFilename, os.ModePerm); err != nil {
-			return err
-		}
-		if err := RenderToDir(manifests, mgArgs.OutFilename, args.DryRun, l); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// orderedManifests generates a list of manifests from the given map sorted by the default object order
-// This allows
-func orderedManifests(mm name.ManifestMap) ([]string, error) {
-	var rawOutput []string
-	var output []string
-	for _, mfs := range mm {
-		rawOutput = append(rawOutput, mfs...)
-	}
-	objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(rawOutput, helm.YAMLSeparator))
-	if err != nil {
-		return nil, err
-	}
-	// For a given group of objects, sort in order to avoid missing dependencies, such as creating CRDs first
-	objects.Sort(object.DefaultObjectOrder())
-	for _, obj := range objects {
-		yml, err := obj.YAML()
-		if err != nil {
-			return nil, err
-		}
-		output = append(output, string(yml))
-	}
-
-	return output, nil
-}
-
-// RenderToDir writes manifests to a local filesystem directory tree.
-func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun bool, l clog.Logger) error {
-	l.LogAndPrintf("Component dependencies tree: \n%s", helmreconciler.InstallTreeString())
-	l.LogAndPrintf("Rendering manifests to output dir %s", outputDir)
-	return renderRecursive(manifests, helmreconciler.InstallTree, outputDir, dryRun, l)
-}
-
-func renderRecursive(manifests name.ManifestMap, installTree helmreconciler.ComponentTree, outputDir string, dryRun bool, l clog.Logger) error {
-	for k, v := range installTree {
-		componentName := string(k)
-		// In cases (like gateways) where multiple instances can exist, concatenate the manifests and apply as one.
-		ym := strings.Join(manifests[k], helm.YAMLSeparator)
-		l.LogAndPrintf("Rendering: %s", componentName)
-		dirName := filepath.Join(outputDir, componentName)
-		if !dryRun {
-			if err := os.MkdirAll(dirName, os.ModePerm); err != nil {
-				return fmt.Errorf("could not create directory %s; %s", outputDir, err)
-			}
-		}
-		fname := filepath.Join(dirName, componentName) + ".yaml"
-		l.LogAndPrintf("Writing manifest to %s", fname)
-		if !dryRun {
-			if err := os.WriteFile(fname, []byte(ym), 0o644); err != nil {
-				return fmt.Errorf("could not write manifest config; %s", err)
-			}
-		}
-
-		kt, ok := v.(helmreconciler.ComponentTree)
-		if !ok {
-			// Leaf
-			return nil
-		}
-		if err := renderRecursive(manifests, kt, dirName, dryRun, l); err != nil {
-			return err
-		}
-	}
-	return nil
 }

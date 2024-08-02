@@ -247,7 +247,7 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 	return labels, nil
 }
 
-func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, componentName string) map[string]string {
+func addComponentLabels(coreLabels map[string]string, componentName string) map[string]string {
 	labels := map[string]string{}
 	for k, v := range coreLabels {
 		labels[k] = v
@@ -265,7 +265,7 @@ func (h *HelmReconciler) getOwnerLabels(componentName string) (map[string]string
 		return nil, err
 	}
 
-	return h.addComponentLabels(labels, componentName), nil
+	return addComponentLabels(labels, componentName), nil
 }
 
 // applyLabelsAndAnnotations applies owner labels and annotations to the object.

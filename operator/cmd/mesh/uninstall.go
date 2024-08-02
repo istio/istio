@@ -25,7 +25,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
@@ -142,40 +141,19 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 	}
 
 	opts := &helmreconciler.Options{DryRun: rootArgs.DryRun, Log: l, ProgressLog: progress.NewLog()}
-	var h *helmreconciler.HelmReconciler
-
 	// If the user is performing a purge install but also specified a revision or filename, we should warn
 	// that the purge will still remove all resources
 	if uiArgs.purge && (uiArgs.revision != "" || uiArgs.filename != "") {
 		l.LogAndPrint(PurgeWithRevisionOrOperatorSpecifiedWarning)
 	}
-	// If only revision flag is set, we would prune resources by the revision label.
-	// Otherwise we would merge the revision flag and the filename flag and delete resources by following the
-	// owning name label.
-	var iop *iopv1alpha1.IstioOperator
-	if uiArgs.filename == "" {
-		iop = &iopv1alpha1.IstioOperator{
-			Spec: &iopv1alpha1.IstioOperatorSpec{Profile: "empty", Revision: uiArgs.revision},
-		}
-	} else {
-		_, iop, err = manifest.GenManifests([]string{uiArgs.filename},
-			applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, nil, kubeClient, l)
-		if err != nil {
-			return err
-		}
-	}
 
-	h, err = helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
-	if err != nil {
-		return fmt.Errorf("failed to create reconciler: %v", err)
-	}
-	objectsList, err := h.GetPrunedResources(uiArgs.revision, uiArgs.purge, "")
+	objectsList, err := helmreconciler.GetPrunedResources(client, "", "", uiArgs.revision, uiArgs.purge)
 	if err != nil {
 		return err
 	}
 	preCheckWarnings(cmd, kubeClientWithRev, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
 
-	if err := h.DeleteObjectsList(objectsList); err != nil {
+	if err := helmreconciler.DeleteObjectsList(client, opts, objectsList); err != nil {
 		return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 	}
 	opts.ProgressLog.SetState(progress.StateUninstallComplete)
