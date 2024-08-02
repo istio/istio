@@ -649,7 +649,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Hosts: []string{"foo/virtualbar"},
+					Hosts: []string{"foo/virtualbar.foo"},
 				},
 			},
 		},
@@ -2197,9 +2197,19 @@ func TestCreateSidecarScope(t *testing.T) {
 			[]*Service{
 				{
 					Hostname: "baz.svc.cluster.local",
+					Attributes: ServiceAttributes{
+						Name:            "baz",
+						Namespace:       "ns1",
+						ServiceRegistry: provider.Kubernetes,
+					},
 				},
 				{
 					Hostname: "bar.svc.cluster.local",
+					Attributes: ServiceAttributes{
+						Name:            "baz",
+						Namespace:       "ns2",
+						ServiceRegistry: provider.Kubernetes,
+					},
 				},
 			},
 			nil,
