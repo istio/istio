@@ -15,7 +15,6 @@
 package istio
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -37,7 +36,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/cmd"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/manifest"
 	istiokube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test"
@@ -254,30 +252,28 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	iop, err := genDefaultOperator(ctx, cfg, iopFiles.primaryIOP.file)
-	if err != nil {
-		return nil, err
-	}
-
 	// Populate the revisions for the control plane.
 	var revisions resource.RevVerMap
 	if !cfg.DeployIstio {
 		// Using a pre-installed control plane. Get the revisions from the
 		// command-line.
 		revisions = ctx.Settings().Revisions
-	} else if len(iop.Spec.Revision) > 0 {
-		// Use revisions from the default control plane operator.
-		revisions = resource.RevVerMap{
-			iop.Spec.Revision: "",
-		}
 	}
+	// TODO
+	//} else if len(iop.Spec.Revision) > 0 {
+	//	// Use revisions from the default control plane operator.
+	//	revisions = resource.RevVerMap{
+	//		iop.Spec.Revision: "",
+	//	}
+	//}
 
 	i := &istioImpl{
-		env:                  ctx.Environment().(*kube.Environment),
-		cfg:                  cfg,
-		ctx:                  ctx,
-		workDir:              workDir,
-		values:               iop.Spec.Values.Fields,
+		env:     ctx.Environment().(*kube.Environment),
+		cfg:     cfg,
+		ctx:     ctx,
+		workDir: workDir,
+		// TODO
+		// values:               iop.Spec.Values.Fields,
 		installer:            newInstaller(ctx, workDir),
 		meshConfig:           &meshConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)},
 		injectConfig:         &injectConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)},
@@ -913,22 +909,4 @@ func genCommonOperatorFiles(ctx resource.Context, cfg Config, workDir string) (i
 	}
 
 	return
-}
-
-func genDefaultOperator(ctx resource.Context, cfg Config, iopFile string) (*iopv1alpha1.IstioOperator, error) {
-	primary := ctx.AllClusters().Configs()[0]
-	args := commonInstallArgs(ctx, cfg, primary, cfg.PrimaryClusterIOPFile, iopFile)
-
-	var stdOut, stdErr bytes.Buffer
-	_, iop, err := manifest.GenerateIstioOperator(
-		args.Files,
-		args.Set,
-		false,
-		nil,
-		cmdLogger(&stdOut, &stdErr))
-	if err != nil {
-		return nil, fmt.Errorf("failed generating primary manifest: %v", err)
-	}
-
-	return iop, nil
 }
