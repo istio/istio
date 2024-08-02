@@ -75,20 +75,26 @@ func addHubAndTag2() ([]string) {
 
 func ReadLayeredYAMLs2(filenames []string) ([]byte, error) {
 	var stdin bool
-	fs := manifests.BuiltinOrDir("")
-	f, err := fs.Open("profiles/default.yaml")
+	base, err := MapFromJson([]byte(`{
+  "apiVersion": "install.istio.io/v1alpha1",
+  "kind": "IstioOperator",
+  "metadata": {
+    "namespace": "istio-system"
+  },
+  "spec": {
+    "hub": "gcr.io/istio-testing",
+    "tag": "latest",
+    "components": {
+    },
+    "values": {
+      "defaultRevision": "",
+    }
+  }
+}
+`))
 	if err != nil {
 		return nil, err
 	}
-	base, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-	values, err := yaml.YAMLToJSON(base)
-	if err != nil {
-		return nil, err
-	}
-
 	// TODO: add hub and tag prelay
 	// TODO: add cluster specific settings prelay (GKE version)
 
@@ -158,35 +164,6 @@ func FromJson[T any](overlay []byte) (T, error) {
 	return *v, nil
 }
 
-// overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
-func overlaySetFlagValues2(base []byte, setFlags []string) (map[string]any, error) {
-	iop, err := FromJson[map[string]any](base)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, sf := range setFlags {
-		p, v, err := getPV2(sf)
-		if err != nil {
-			return nil, err
-		}
-		p = strings.TrimPrefix(p, "spec.")
-		inc, _, err := tpath.GetPathContext(iop, util.PathFromString("spec."+p), true)
-		if err != nil {
-			return nil, err
-		}
-		// input value type is always string, transform it to correct type before setting.
-		var val any = v
-		if !isAlwaysString(p) {
-			val = util.ParseValue(v)
-		}
-		if err := tpath.WritePathContext(inc, val, false); err != nil {
-			return nil, err
-		}
-	}
-
-	return iop, nil
-}
 func unmarshalAndValidateIOP(iopsYAML string, force, allowUnknownField bool, l clog.Logger) (*v1alpha1.IstioOperator, error) {
 	iop, err := istio.UnmarshalIstioOperator(iopsYAML, allowUnknownField)
 	if err != nil {
