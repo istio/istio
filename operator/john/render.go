@@ -38,7 +38,7 @@ func (m Manifest) Hash() string {
 	return k + ":" + m.GetNamespace() + ":" + m.GetName()
 }
 
-func Render(spec ComponentSpec, comp Component, raw Map) ([]Manifest, error) {
+func Render(spec ComponentSpec, comp Component, vals Map) ([]Manifest, error) {
 	// TODO: installPackagePath
 	f := manifests.BuiltinOrDir("")
 	path := filepath.Join("charts", comp.HelmSubdir)
@@ -47,7 +47,6 @@ func Render(spec ComponentSpec, comp Component, raw Map) ([]Manifest, error) {
 		return nil, err
 	}
 
-	vals, _ := raw.GetPathMap("spec.values")
 	output, err := renderChart(spec, vals, chrt, nil, nil)
 	if err != nil {
 		return nil, err
