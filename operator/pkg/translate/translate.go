@@ -112,54 +112,6 @@ func NewTranslator() *Translator {
 		GlobalNamespaces: map[name.ComponentName]string{
 			name.PilotComponentName: "istioNamespace",
 		},
-		ComponentMaps: map[name.ComponentName]*ComponentMaps{
-			name.IstioBaseComponentName: {
-				HelmSubdir:           "base",
-				ToHelmValuesTreeRoot: "global",
-				SkipReverseTranslate: true,
-			},
-			name.PilotComponentName: {
-				ResourceType:         "Deployment",
-				ResourceName:         "istiod",
-				ContainerName:        "discovery",
-				HelmSubdir:           "istio-control/istio-discovery",
-				ToHelmValuesTreeRoot: "pilot",
-			},
-			name.IngressComponentName: {
-				ResourceType:         "Deployment",
-				ResourceName:         "istio-ingressgateway",
-				ContainerName:        "istio-proxy",
-				HelmSubdir:           "gateways/istio-ingress",
-				ToHelmValuesTreeRoot: "gateways.istio-ingressgateway",
-			},
-			name.EgressComponentName: {
-				ResourceType:         "Deployment",
-				ResourceName:         "istio-egressgateway",
-				ContainerName:        "istio-proxy",
-				HelmSubdir:           "gateways/istio-egress",
-				ToHelmValuesTreeRoot: "gateways.istio-egressgateway",
-			},
-			name.CNIComponentName: {
-				ResourceType:         "DaemonSet",
-				ResourceName:         "istio-cni-node",
-				ContainerName:        "install-cni",
-				HelmSubdir:           "istio-cni",
-				ToHelmValuesTreeRoot: "cni",
-			},
-			name.IstiodRemoteComponentName: {
-				HelmSubdir:           "istiod-remote",
-				ToHelmValuesTreeRoot: "global",
-				SkipReverseTranslate: true,
-			},
-			name.ZtunnelComponentName: {
-				ResourceType:         "DaemonSet",
-				ResourceName:         "ztunnel",
-				HelmSubdir:           "ztunnel",
-				ToHelmValuesTreeRoot: "ztunnel",
-				ContainerName:        "istio-proxy",
-				FlattenValues:        true,
-			},
-		},
 		// nolint: lll
 		KubernetesMapping: map[string]*Translation{
 			"Components.{{.ComponentName}}.K8S.Affinity":            {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"},
