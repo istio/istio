@@ -21,7 +21,8 @@ type ComponentSpec struct {
 	// Hub for the component (overrides top level hub setting).
 	Hub string `json:"hub,omitempty"`
 	// Tag for the component (overrides top level tag setting).
-	Tag string `json:"tag,omitempty"`
+	// This is "any" because people put `tag: 1` in their config and we supported that historically.
+	Tag any `json:"tag,omitempty"`
 	// Kubernetes resource spec.
 	Kubernetes KubernetesResources `json:"k8s,omitempty"`
 }

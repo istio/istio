@@ -69,6 +69,8 @@ func (m Map) MergeInto(other Map) {
 // SetPaths applies values from input like `key.subkey=val`
 func (m Map) SetPaths(paths ...string) error {
 	for _, path := range paths {
+		// Helm supports `foo[0].bar`, but we historically used `foo.[0].bar`
+		path := strings.ReplaceAll(path, ".[", "[")
 		if isAlwaysString(path) {
 			if err := strvals.ParseIntoString(path, m); err != nil {
 				return err
