@@ -24,7 +24,9 @@ type ComponentSpec struct {
 	// This is "any" because people put `tag: 1` in their config and we supported that historically.
 	Tag any `json:"tag,omitempty"`
 	// Kubernetes resource spec.
-	Kubernetes KubernetesResources `json:"k8s,omitempty"`
+	Kubernetes *KubernetesResources `json:"k8s,omitempty"`
+	// Raw is the raw inputs. This allows distinguishing unset vs zero-values for KubernetesResources
+	Raw Map `json:"-"`
 }
 
 // KubernetesResources is a common set of Kubernetes resource configs for components.
