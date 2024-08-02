@@ -73,19 +73,6 @@ func FuzzGetEnabledComponents(data []byte) int {
 	return 1
 }
 
-func FuzzRenderManifests(data []byte) int {
-	f := fuzz.NewConsumer(data)
-	f.AllowUnexportedFields()
-
-	cp := &controlplane.IstioControlPlane{}
-	err := f.GenerateStruct(cp)
-	if err != nil {
-		return 0
-	}
-	_, _ = cp.RenderManifest()
-	return 1
-}
-
 func FuzzOverlayIOP(data []byte) int {
 	f := fuzz.NewConsumer(data)
 

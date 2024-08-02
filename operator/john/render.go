@@ -141,12 +141,6 @@ func renderChart(spec ComponentSpec, values Map, chrt *chart.Chart, filterFunc T
 }
 
 const (
-	// YAMLSeparator is a separator for multi-document YAML files.
-	YAMLSeparator = "\n---\n"
-
-	// DefaultProfileString is the name of the default profile.
-	DefaultProfileString = "default"
-
 	// NotesFileNameSuffix is the file name suffix for helm notes.
 	// see https://helm.sh/docs/chart_template_guide/notes_files/
 	NotesFileNameSuffix = ".txt"

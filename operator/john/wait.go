@@ -33,15 +33,6 @@ import (
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const (
-	// defaultWaitResourceTimeout is the maximum wait time for all resources(namespace/deployment/pod) to be created.
-	defaultWaitResourceTimeout = 300 * time.Second
-	// cRDPollInterval is how often the state of CRDs is polled when waiting for their creation.
-	cRDPollInterval = 500 * time.Millisecond
-	// cRDPollTimeout is the maximum wait time for all CRDs to be created.
-	cRDPollTimeout = 60 * time.Second
-)
-
 // deployment holds associated replicaSets for a deployment
 type deployment struct {
 	replicaSets *appsv1.ReplicaSet
