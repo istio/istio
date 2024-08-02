@@ -2,24 +2,27 @@ package john
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
-	"io/fs"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/version"
+	"sigs.k8s.io/yaml"
+
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/manifests"
 	names "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/version"
-	"os"
-	"path/filepath"
-	"sigs.k8s.io/yaml"
-	"sort"
-	"strconv"
-	"strings"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 type Manifest struct {
@@ -29,7 +32,7 @@ type Manifest struct {
 
 func (m Manifest) Hash() string {
 	k := m.GroupVersionKind().Kind
-		switch m.GroupVersionKind().Kind {
+	switch m.GroupVersionKind().Kind {
 	case names.ClusterRoleStr, names.ClusterRoleBindingStr:
 		return k + ":" + m.GetName()
 	}
@@ -59,7 +62,7 @@ func ParseManifests(output []string) ([]Manifest, error) {
 	for _, m := range output {
 		us := &unstructured.Unstructured{}
 		if err := yaml.Unmarshal([]byte(m), us); err != nil {
-			return nil,err
+			return nil, err
 		}
 		if us.GetObjectKind().GroupVersionKind().Kind == "" {
 			// This is not an object. Could be empty template, comments only, etc
@@ -148,7 +151,7 @@ func renderChart(spec ComponentSpec, values Map, chrt *chart.Chart, filterFunc T
 		return a.Name
 	})
 	for _, crd := range crdFiles {
-		results = append(results, string(crd.File.Data))
+		results = append(results, yml.SplitString(string(crd.File.Data))...)
 	}
 
 	return results, nil
