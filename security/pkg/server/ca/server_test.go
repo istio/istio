@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
@@ -497,4 +498,116 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRecordCertsExipryMetrics(t *testing.T) {
+	t.Run("test certificate metric recording", func(t *testing.T) {
+		mt := monitortest.New(t)
+		now := time.Now()
+		rootTtl := time.Hour
+		certTtl := time.Hour / 2
+		rootCertBytes, rootKeyBytes, err := util.GenCertKeyFromOptions(util.CertOptions{
+			Host:         "citadel.testing.istio.io",
+			Org:          "MyOrg",
+			NotBefore:    now,
+			IsCA:         true,
+			IsSelfSigned: true,
+			TTL:          rootTtl,
+			RSAKeySize:   2048,
+		})
+		if err != nil {
+			t.Errorf("failed to gen root cert for Citadel self signed cert %v", err)
+		}
+
+		rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
+		if err != nil {
+			t.Errorf("failed to parse pem %v", err)
+		}
+
+		rootKey, err := util.ParsePemEncodedKey(rootKeyBytes)
+		if err != nil {
+			t.Errorf("failed to parse pem %v", err)
+		}
+
+		caCertBytes, caCertKeyBytes, err := util.GenCertKeyFromOptions(util.CertOptions{
+			Host:         "citadel.testing.istio.io",
+			Org:          "MyOrg",
+			NotBefore:    now,
+			TTL:          certTtl,
+			IsServer:     true,
+			IsCA:         true,
+			IsSelfSigned: false,
+			RSAKeySize:   2048,
+			SignerCert:   rootCert,
+			SignerPriv:   rootKey,
+		})
+		if err != nil {
+			t.Fatalf("failed to gen CA cert %v", err)
+		}
+
+		kb := util.NewKeyCertBundleFromPem(
+			caCertBytes, caCertKeyBytes, caCertBytes, rootCertBytes,
+		)
+
+		RecordCertsExpiry(kb)
+
+		mt.Assert(rootCertExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(rootTtl).Unix()), 1e-7))
+		mt.Assert(certChainExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(certTtl).Unix()), 1e-7))
+		eps := float64(time.Minute) // so the tests aren't flaky
+		mt.Assert(rootCertExpirySeconds.Name(), nil, monitortest.AlmostEquals(rootTtl.Seconds(), eps))
+		mt.Assert(certChainExpirySeconds.Name(), nil, monitortest.AlmostEquals(certTtl.Seconds(), eps))
+
+		now = time.Now()
+		rootTtl = time.Hour * 60
+		certTtl = time.Hour * 20
+		rootCertBytes, rootKeyBytes, err = util.GenCertKeyFromOptions(util.CertOptions{
+			Host:         "other-citadel.testing.istio.io",
+			Org:          "other-MyOrg",
+			NotBefore:    now,
+			IsCA:         true,
+			IsSelfSigned: true,
+			TTL:          rootTtl,
+			RSAKeySize:   2048,
+		})
+		if err != nil {
+			t.Errorf("failed to gen root cert %v", err)
+		}
+
+		rootCert, err = util.ParsePemEncodedCertificate(rootCertBytes)
+		if err != nil {
+			t.Errorf("failed to parse pem %v", err)
+		}
+
+		rootKey, err = util.ParsePemEncodedKey(rootKeyBytes)
+		if err != nil {
+			t.Errorf("failed to parse pem %v", err)
+		}
+
+		caCertBytes, caCertKeyBytes, err = util.GenCertKeyFromOptions(util.CertOptions{
+			Host:         "other-citadel.testing.istio.io",
+			Org:          "other-MyOrg",
+			NotBefore:    now,
+			TTL:          certTtl,
+			IsServer:     true,
+			IsCA:         true,
+			IsSelfSigned: false,
+			RSAKeySize:   2048,
+			SignerCert:   rootCert,
+			SignerPriv:   rootKey,
+		})
+		if err != nil {
+			t.Fatalf("failed to gen CA cert %v", err)
+		}
+
+		kb = util.NewKeyCertBundleFromPem(
+			caCertBytes, caCertKeyBytes, caCertBytes, rootCertBytes,
+		)
+
+		RecordCertsExpiry(kb)
+
+		mt.Assert(rootCertExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(rootTtl).Unix()), 1e-7))
+		mt.Assert(certChainExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(certTtl).Unix()), 1e-7))
+		mt.Assert(rootCertExpirySeconds.Name(), nil, monitortest.AlmostEquals(rootTtl.Seconds(), eps))
+		mt.Assert(certChainExpirySeconds.Name(), nil, monitortest.AlmostEquals(certTtl.Seconds(), eps))
+	})
 }
