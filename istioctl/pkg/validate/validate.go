@@ -15,6 +15,7 @@
 package validate
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,10 +26,11 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	operatoristio "istio.io/istio/operator/pkg/apis/istio"
@@ -157,7 +159,7 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 			if err != nil {
 				return nil, err
 			}
-			return nil, operatorvalidate.CheckIstioOperator(iop, true)
+			return nil, operatorvalidate.CheckIstioOperator(iop)
 		}
 	}
 
@@ -236,14 +238,11 @@ func GetTemplateLabels(u *unstructured.Unstructured) (map[string]string, error) 
 
 func (v *validator) validateFile(path string, istioNamespace *string, defaultNamespace string, reader io.Reader, writer io.Writer,
 ) (validation.Warning, error) {
-	decoder := yaml.NewDecoder(reader)
-	decoder.SetStrict(true)
+	yamlReader := kubeyaml.NewYAMLReader(bufio.NewReader(reader))
 	var errs error
 	var warnings validation.Warning
 	for {
-		// YAML allows non-string keys and the produces generic keys for nested fields
-		raw := make(map[any]any)
-		err := decoder.Decode(&raw)
+		doc, err := yamlReader.Read()
 		if err == io.EOF {
 			return warnings, errs
 		}
@@ -251,10 +250,14 @@ func (v *validator) validateFile(path string, istioNamespace *string, defaultNam
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("failed to decode file %s: ", path)))
 			return warnings, errs
 		}
-		if len(raw) == 0 {
+		if len(doc) == 0 {
 			continue
 		}
-		out := transformInterfaceMap(raw)
+		out := map[string]any{}
+		if err := yaml.UnmarshalStrict(doc, &out); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("failed to decode file %s: ", path)))
+			return warnings, errs
+		}
 		un := unstructured.Unstructured{Object: out}
 		warning, err := v.validateResource(*istioNamespace, defaultNamespace, &un, writer)
 		if err != nil {
@@ -443,33 +446,6 @@ func warningToString(w validation.Warning) string {
 		}
 	}
 	return w.Error()
-}
-
-func transformInterfaceArray(in []any) []any {
-	out := make([]any, len(in))
-	for i, v := range in {
-		out[i] = transformMapValue(v)
-	}
-	return out
-}
-
-func transformInterfaceMap(in map[any]any) map[string]any {
-	out := make(map[string]any, len(in))
-	for k, v := range in {
-		out[fmt.Sprintf("%v", k)] = transformMapValue(v)
-	}
-	return out
-}
-
-func transformMapValue(in any) any {
-	switch v := in.(type) {
-	case []any:
-		return transformInterfaceArray(v)
-	case map[any]any:
-		return transformInterfaceMap(v)
-	default:
-		return v
-	}
 }
 
 func servicePortPrefixed(n string) bool {

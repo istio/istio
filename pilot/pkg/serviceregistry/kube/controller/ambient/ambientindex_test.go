@@ -31,8 +31,8 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	auth "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
-	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
+	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
+	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -1492,6 +1492,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 			return nil
 		},
 	})
+	idx.NetworksSynced()
 	cl.RunAndWait(test.NewStop(t))
 
 	t.Cleanup(func() {

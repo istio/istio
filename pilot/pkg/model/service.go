@@ -139,6 +139,11 @@ func (s *Service) CmpOpts() []cmp.Option {
 	return serviceCmpOpts
 }
 
+func (s *Service) SupportsDrainingEndpoints() bool {
+	return (features.PersistentSessionLabel != "" && s.Attributes.Labels[features.PersistentSessionLabel] != "") ||
+		(features.PersistentSessionHeaderLabel != "" && s.Attributes.Labels[features.PersistentSessionHeaderLabel] != "")
+}
+
 // Resolution indicates how the service instances need to be resolved before routing traffic.
 type Resolution int
 
@@ -391,7 +396,7 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 		return first.Endpoint == second.Endpoint
 	}
 
-	if !first.Endpoint.IsAddrsEqualIstioEndpoint(second.Endpoint) {
+	if !slices.EqualUnordered(first.Endpoint.Addresses, second.Endpoint.Addresses) {
 		return false
 	}
 
@@ -473,8 +478,6 @@ const (
 //
 //	--> 172.16.0.1:55446 (with ServicePort pointing to 80) and
 //	--> 172.16.0.1:33333 (with ServicePort pointing to 8080)
-//
-// TODO: Investigate removing ServiceInstance entirely.
 type IstioEndpoint struct {
 	// Labels points to the workload or deployment labels.
 	Labels labels.Instance
@@ -564,25 +567,6 @@ func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 		return true
 	}
 	return ep.DiscoverabilityPolicy.IsDiscoverableFromProxy(ep, p)
-}
-
-// IsAddrsEqualIstioEndpoint checks the addresses of an IstioEndpoint are equal to another or not
-func (ep *IstioEndpoint) IsAddrsEqualIstioEndpoint(comp *IstioEndpoint) bool {
-	curEdAddresses := ep.Addresses
-	compEDAddresses := comp.Addresses
-
-	if len(curEdAddresses) != len(compEDAddresses) {
-		return false
-	}
-
-	curEdSets := sets.New(curEdAddresses...)
-	for _, item := range compEDAddresses {
-		if !curEdSets.Contains(item) {
-			return false
-		}
-	}
-
-	return true
 }
 
 // MetadataClone returns the cloned endpoint metadata used for telemetry purposes.
@@ -1271,22 +1255,12 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	return
 }
 
-// GetAddresses returns a Service's addresses.
-// This method returns all the VIPs of a service if the ClusterID is explicitly set to "", otherwise only return the VIP
-// specific to the cluster where the node resides
-func (s *Service) GetAddresses(node *Proxy) []string {
-	if node.Metadata != nil && node.Metadata.ClusterID == "" {
-		return s.getAllAddresses()
-	}
-
-	return []string{s.GetAddressForProxy(node)}
-}
-
 // GetAddressForProxy returns a Service's address specific to the cluster where the node resides
 func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
+			addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 			if len(addresses) > 0 {
 				return addresses[0]
 			}
@@ -1302,6 +1276,8 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 		}
 	}
 
+	// fallback to the default address
+	// TODO: this maybe not right, as the default address may not be the right ip family. We need to come up with a good solution.
 	return s.DefaultAddress
 }
 
@@ -1315,7 +1291,7 @@ func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
 	return nil
 }
 
-// GetAllAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
+// GetAllAddressesForProxy returns a k8s service's all addresses to the cluster where the node resides.
 // Especially for dual stack k8s service to get other IP family addresses.
 func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
 	return s.getAllAddressesForProxy(node)
@@ -1324,7 +1300,7 @@ func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
 func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
-		if (features.EnableDualStack || features.EnableAmbient) && len(addresses) > 0 {
+		if (features.EnableDualStack || features.EnableAmbient) && node.GetIPMode() == Dual {
 			return addresses
 		}
 		addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
@@ -1332,21 +1308,12 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 			return addresses
 		}
 	}
-	if a := s.GetAddressForProxy(node); a != "" {
+
+	// fallback to the auto-allocated address and then to the default address
+	if a := s.GetAddressForProxy(node); len(a) > 0 {
 		return []string{a}
 	}
 	return nil
-}
-
-// getAllAddresses returns a Service's all addresses.
-func (s *Service) getAllAddresses() []string {
-	var addresses []string
-	addressMap := s.ClusterVIPs.GetAddresses()
-	for _, clusterAddresses := range addressMap {
-		addresses = append(addresses, clusterAddresses...)
-	}
-
-	return addresses
 }
 
 func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {
@@ -1496,7 +1463,7 @@ func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
 	}
 
 	// check everything else
-	if !ep.IsAddrsEqualIstioEndpoint(other) {
+	if !slices.EqualUnordered(ep.Addresses, other.Addresses) {
 		return false
 	}
 	if !maps.Equal(ep.Labels, other.Labels) {

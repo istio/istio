@@ -41,7 +41,7 @@ const (
 	// The length of the example certificate chain.
 	exampleCertChainLength = 3
 
-	defaultIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+	defaultIdentityDR = `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "service-b-dr"
@@ -53,7 +53,7 @@ spec:
       subjectAltNames:
       - "spiffe://cluster.local/ns/NS/sa/default"
 `
-	correctIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+	correctIdentityDR = `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "service-b-dr"
@@ -65,7 +65,7 @@ spec:
       subjectAltNames:
       - "spiffe://cluster.local/ns/NS/sa/b"
 `
-	nonExistIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+	nonExistIdentityDR = `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "service-b-dr"
@@ -77,7 +77,7 @@ spec:
       subjectAltNames:
       - "I-do-not-exist"
 `
-	identityListDR = `apiVersion: networking.istio.io/v1alpha3
+	identityListDR = `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "service-b-dr"

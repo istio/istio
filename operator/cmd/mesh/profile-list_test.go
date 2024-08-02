@@ -15,36 +15,26 @@
 package mesh
 
 import (
-	"bytes"
 	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 )
 
 func TestProfileList(t *testing.T) {
 	g := NewWithT(t)
-	args := []string{"profile", "list", "--dry-run", "--manifests", filepath.Join(env.IstioSrc, "manifests")}
+	args := "list --dry-run --manifests " + filepath.Join(env.IstioSrc, "manifests")
 
 	kubeClientFunc = func() (kube.CLIClient, error) {
 		return nil, nil
 	}
-	rootCmd := GetRootCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
-		Version: "25",
-	}), args)
-	var out bytes.Buffer
-	rootCmd.SetOut(&out)
-	rootCmd.SetErr(&out)
-
-	err := rootCmd.Execute()
+	output, err := runCommand(ProfileCmd, args)
 	if err != nil {
 		t.Fatalf("failed to execute istioctl profile command: %v", err)
 	}
-	output := out.String()
 	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "remote"}
 	for _, prof := range expectedProfiles {
 		g.Expect(output).To(ContainSubstring(prof))

@@ -618,7 +618,7 @@ func (conn *Connection) Clusters() []string {
 // watchedResourcesByOrder returns the ordered list of
 // watched resources for the proxy, ordered in accordance with known push order.
 func (conn *Connection) watchedResourcesByOrder() []*model.WatchedResource {
-	allWatched := conn.proxy.CloneWatchedResources()
+	allWatched := conn.proxy.ShallowCloneWatchedResources()
 	ordered := make([]*model.WatchedResource, 0, len(allWatched))
 	// first add all known types, in order
 	for _, tp := range PushOrder {

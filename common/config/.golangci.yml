@@ -226,6 +226,12 @@ linters-settings:
             desc: "do not use golang.org/x/exp/slices; use istio.io/istio/pkg/slices instead"
           - pkg: slices
             desc: "do not use slices; use istio.io/istio/pkg/slices instead"
+          - pkg: gopkg.in/yaml.v2
+            desc: "do not use gopkg.in/yaml.v2; use sigs.k8s.io/yaml instead"
+          - pkg: gopkg.in/yaml.v3
+            desc: "do not use gopkg.in/yaml.v3; use sigs.k8s.io/yaml instead"
+          - pkg: github.com/ghodss/yaml
+            desc: "do not use github.com/ghodss/yaml; use sigs.k8s.io/yaml instead"
       DenyOperatorAndIstioctl:
         files:
           # Tests can do anything

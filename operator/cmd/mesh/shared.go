@@ -20,17 +20,11 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/cache"
-	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
@@ -72,11 +66,6 @@ func refreshGoldenFiles() bool {
 	return ev == "true" || ev == "1"
 }
 
-func kubeBuilderInstalled() bool {
-	ev := os.Getenv("KUBEBUILDER")
-	return ev == "true" || ev == "1"
-}
-
 // Confirm waits for a user to confirm with the supplied message.
 func Confirm(msg string, writer io.Writer) bool {
 	for {
@@ -106,36 +95,6 @@ func KubernetesClients(kubeClient kube.CLIClient, l clog.Logger) (kube.CLIClient
 	return kubeClient, client, nil
 }
 
-// applyOptions contains the startup options for applying the manifest.
-type applyOptions struct {
-	// Path to the kubeconfig file.
-	Kubeconfig string
-	// ComponentName of the kubeconfig context to use.
-	Context string
-	// DryRun performs all steps except actually applying the manifests or creating output dirs/files.
-	DryRun bool
-	// Maximum amount of time to wait for resources to be ready after install when Wait=true.
-	WaitTimeout time.Duration
-}
-
-func applyManifest(kubeClient kube.Client, client client.Client, manifestStr string,
-	componentName name.ComponentName, opts *applyOptions, iop *v1alpha1.IstioOperator, l clog.Logger,
-) error {
-	// Needed in case we are running a test through this path that doesn't start a new process.
-	cache.FlushObjectCaches()
-	reconciler, err := helmreconciler.NewHelmReconciler(client, kubeClient, iop, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
-	if err != nil {
-		l.LogAndError(err)
-		return err
-	}
-	ms := name.Manifest{
-		Name:    componentName,
-		Content: manifestStr,
-	}
-	_, err = reconciler.ApplyManifest(ms)
-	return err
-}
-
 // --manifests is an alias for --set installPackagePath=
 // --revision is an alias for --set revision=
 func applyFlagAliases(flags []string, manifestsPath, revision string) []string {
@@ -146,24 +105,4 @@ func applyFlagAliases(flags []string, manifestsPath, revision string) []string {
 		flags = append(flags, fmt.Sprintf("revision=%s", revision))
 	}
 	return flags
-}
-
-// getCRAndNamespaceFromFile returns the CR name and istio namespace from a file containing an IstioOperator CR.
-func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource string, istioNamespace string, err error) {
-	if filePath == "" {
-		return "", "", nil
-	}
-
-	_, mergedIOPS, err := manifest.GenerateConfig([]string{filePath}, nil, false, nil, l)
-	if err != nil {
-		return "", "", err
-	}
-
-	b, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", "", fmt.Errorf("could not read values from file %s: %s", filePath, err)
-	}
-	customResource = string(b)
-	istioNamespace = mergedIOPS.Namespace
-	return
 }

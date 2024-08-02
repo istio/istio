@@ -51,11 +51,6 @@ import (
 )
 
 const (
-	// Location of K8S CA root.
-	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	// Location of K8s CA root mounted by istio. This is to avoid issues when service account automount is disabled.
-	k8sCAIstioMountedPath = "./var/run/secrets/istio/kubernetes/ca.crt"
-
 	// CitadelCACertPath is the directory for Citadel CA certificate.
 	// This is mounted from config map 'istio-ca-root-cert'. Part of startup,
 	// this may be replaced with ./etc/certs, if a root-cert.pem is found, to
@@ -653,13 +648,6 @@ func (a *Agent) FindRootCAForXDS() (string, error) {
 		// not connecting to CA_ADDR because this mode uses external
 		// agent (Secret refresh, etc)
 		return security.DefaultRootCertFilePath, nil
-	} else if a.secOpts.PilotCertProvider == constants.CertProviderKubernetes {
-		// Using K8S - this is likely incorrect, may work by accident (https://github.com/istio/istio/issues/22161)
-		if fileExists(k8sCAIstioMountedPath) {
-			rootCAPath = k8sCAIstioMountedPath
-		} else {
-			rootCAPath = k8sCAPath
-		}
 	} else if a.secOpts.ProvCert != "" {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
 		// and should not be involved in determining the root CA.
@@ -766,14 +754,6 @@ func (a *Agent) FindRootCAForCA() (string, error) {
 		return "", nil
 	} else if a.cfg.CARootCerts != "" {
 		rootCAPath = a.cfg.CARootCerts
-	} else if a.secOpts.PilotCertProvider == constants.CertProviderKubernetes {
-		// Using K8S - this is likely incorrect, may work by accident.
-		// API is GA.
-		if fileExists(k8sCAIstioMountedPath) {
-			rootCAPath = k8sCAIstioMountedPath
-		} else {
-			rootCAPath = k8sCAPath
-		}
 	} else if a.secOpts.PilotCertProvider == constants.CertProviderCustom {
 		rootCAPath = security.DefaultRootCertFilePath // ./etc/certs/root-cert.pem
 	} else if a.secOpts.ProvCert != "" {

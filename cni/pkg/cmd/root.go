@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -79,7 +80,7 @@ var rootCmd = &cobra.Command{
 
 		// Start UDS log server
 		udsLogger := udsLog.NewUDSLogger(log.GetOutputLevel())
-		if err = udsLogger.StartUDSLogServer(cfg.InstallConfig.LogUDSAddress, ctx.Done()); err != nil {
+		if err = udsLogger.StartUDSLogServer(filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.LogUDSSocketName), ctx.Done()); err != nil {
 			log.Errorf("Failed to start up UDS Log Server: %v", err)
 			return
 		}
@@ -94,8 +95,9 @@ var rootCmd = &cobra.Command{
 
 			// node agent will spawn a goroutine and watch the K8S API for events,
 			// as well as listen for messages from the CNI binary.
-			log.Info("Starting ambient node agent with inpod redirect mode")
-			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cfg.InstallConfig.CNIEventAddress,
+			cniEventAddr := filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.CNIEventSocketName)
+			log.Infof("Starting ambient node agent with inpod redirect mode on socket %s", cniEventAddr)
+			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
 					SystemNamespace: nodeagent.SystemNamespace,
 					Revision:        nodeagent.Revision,
@@ -165,7 +167,6 @@ func init() {
 		Manual:  "Istio CNI Plugin Installer",
 	}))
 
-	registerStringParameter(constants.CNINetDir, "/etc/cni/net.d", "Directory on the host where CNI network plugins are installed")
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI configuration template as a string")
@@ -173,16 +174,12 @@ func init() {
 
 	// Not configurable in CNI helm charts
 	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
+	registerStringParameter(constants.CNIAgentRunDir, "/var/run/istio-cni", "Location of the node agent writable path on the node (used for sockets, etc)")
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
-	registerStringParameter(constants.KubeconfigFilename, "ZZZ-istio-cni-kubeconfig",
-		"Name of the kubeconfig file which CNI plugin will use when interacting with API server")
 	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the same as install-cni pod")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
-	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log output to")
-	registerStringParameter(constants.CNIEventAddress, "/var/run/istio-cni/pluginevent.sock",
-		"The UDS server address which CNI plugin will forward ambient pod creation events to")
 	registerStringParameter(constants.ZtunnelUDSAddress, "/var/run/ztunnel/ztunnel.sock", "The UDS server address which ztunnel will connect to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
 	// Repair
@@ -241,16 +238,15 @@ func bindViper(name string) {
 
 func constructConfig() (*config.Config, error) {
 	installCfg := config.InstallConfig{
-		CNINetDir:        viper.GetString(constants.CNINetDir),
 		MountedCNINetDir: viper.GetString(constants.MountedCNINetDir),
 		CNIConfName:      viper.GetString(constants.CNIConfName),
 		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
+		CNIAgentRunDir:   viper.GetString(constants.CNIAgentRunDir),
 
 		// Whatever user has set (with --log_output_level) for 'cni-plugin', pass it down to the plugin. It will use this to determine
 		// what level to use for itself.
 		// This masks the fact we are doing this weird log-over-UDS to users, and allows them to configure it the same way.
 		PluginLogLevel:        istiolog.LevelToString(istiolog.FindScope(constants.CNIPluginLogScope).GetOutputLevel()),
-		KubeconfigFilename:    viper.GetString(constants.KubeconfigFilename),
 		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
 		KubeCAFile:            viper.GetString(constants.KubeCAFile),
 		SkipTLSVerify:         viper.GetBool(constants.SkipTLSVerify),
@@ -263,8 +259,6 @@ func constructConfig() (*config.Config, error) {
 		CNIBinSourceDir:  constants.CNIBinDir,
 		CNIBinTargetDirs: []string{constants.HostCNIBinDir},
 		MonitoringPort:   viper.GetInt(constants.MonitoringPort),
-		LogUDSAddress:    viper.GetString(constants.LogUDSAddress),
-		CNIEventAddress:  viper.GetString(constants.CNIEventAddress),
 
 		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),

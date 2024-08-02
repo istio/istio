@@ -23,26 +23,21 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
@@ -70,9 +65,7 @@ const (
 var (
 	// By default, tests only run with manifest generate, since it doesn't require any external fake test environment.
 	testedManifestCmds = []cmdType{cmdGenerate}
-	// Only used if kubebuilder is installed.
-	testenv    *envtest.Environment
-	testClient client.Client
+	testClient         client.Client
 
 	allNamespacedGVKs = append(helmreconciler.NamespacedResources(),
 		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"})
@@ -81,46 +74,7 @@ var (
 )
 
 func init() {
-	if kubeBuilderInstalled() {
-		// TestMode is required to not wait in the go client for resources that will never be created in the test server.
-		helmreconciler.TestMode = true
-		// Add install and controller to the list of commands to run tests against.
-		testedManifestCmds = append(testedManifestCmds, cmdApply, cmdController)
-	}
-}
-
-// recreateTestEnv (re)creates a kubebuilder fake API server environment. This is required for testing of the
-// controller runtime, which is used in the operator.
-func recreateTestEnv() error {
-	// If kubebuilder is installed, use that test env for apply and controller testing.
-	log.Infof("Recreating kubebuilder test environment\n")
-
-	if testenv != nil {
-		testenv.Stop()
-	}
-
-	var err error
-	testenv = &envtest.Environment{}
-	testRestConfig, err := testenv.Start()
-	if err != nil {
-		return err
-	}
-
-	_, err = kubernetes.NewForConfig(testRestConfig)
-	testRestConfig.QPS = 50
-	testRestConfig.Burst = 100
-	if err != nil {
-		return err
-	}
-
-	s := scheme.Scheme
-	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
-
-	testClient, err = client.New(testRestConfig, client.Options{Scheme: s})
-	if err != nil {
-		return err
-	}
-	return nil
+	helmreconciler.TestMode = true
 }
 
 var interceptorFunc = interceptor.Funcs{Patch: func(
@@ -154,10 +108,7 @@ var interceptorFunc = interceptor.Funcs{Patch: func(
 func recreateSimpleTestEnv() {
 	log.Infof("Creating simple test environment\n")
 	helmreconciler.TestMode = true
-	s := scheme.Scheme
-	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
-
-	testClient = fake.NewClientBuilder().WithScheme(s).WithInterceptorFuncs(interceptorFunc).Build()
+	testClient = fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
 }
 
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
@@ -169,9 +120,6 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType, file
 		log.Infof("\nRunning test command using %s\n", cmd)
 		switch cmd {
 		case cmdApply, cmdController:
-			if err := cleanTestCluster(); err != nil {
-				return nil, err
-			}
 			if err := fakeApplyExtraResources(inFile); err != nil {
 				return nil, err
 			}
@@ -193,7 +141,7 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType, file
 		case cmdApply:
 			objs, err = fakeApplyManifest(inFile, flags, chartSource)
 		case cmdController:
-			objs, err = fakeControllerReconcile(inFile, chartSource, nil)
+			objs, err = fakeControllerReconcile(inFile, chartSource)
 		default:
 		}
 		if err != nil {
@@ -230,10 +178,10 @@ func fakeApplyExtraResources(inFile string) error {
 	return nil
 }
 
-func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *helmreconciler.Options) (*ObjectSet, error) {
+func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
 	c := kube.NewFakeClientWithVersion("25")
 	l := clog.NewDefaultLogger()
-	_, iop, err := manifest.GenerateConfig(
+	_, iop, err := manifest.GenerateIstioOperator(
 		[]string{inFileAbsolutePath(inFile)},
 		[]string{"installPackagePath=" + string(chartSource)},
 		false, c, l)
@@ -243,44 +191,16 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 
 	iop.Spec.InstallPackagePath = string(chartSource)
 
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, c, iop, opts)
+	reconciler, err := helmreconciler.NewHelmReconciler(testClient, c, iop, nil)
 	if err != nil {
 		return nil, err
 	}
-	if err := fakeInstallOperator(reconciler, chartSource); err != nil {
-		return nil, err
-	}
 
-	if _, err := reconciler.Reconcile(); err != nil {
+	if err := reconciler.Reconcile(); err != nil {
 		return nil, err
 	}
 
 	return NewObjectSet(getAllIstioObjects()), nil
-}
-
-// fakeInstallOperator installs the operator manifest resources into a cluster using the given reconciler.
-// The installation is for testing with a kubebuilder fake cluster only, since no functional Deployment will be
-// created.
-func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType) error {
-	ocArgs := &operatorCommonArgs{
-		manifestsPath:     string(chartSource),
-		istioNamespace:    constants.IstioSystemNamespace,
-		watchedNamespaces: constants.IstioSystemNamespace,
-		operatorNamespace: operatorDefaultNamespace,
-		// placeholders, since the fake API server does not actually pull images and create pods.
-		hub: "fake hub",
-		tag: "fake tag",
-	}
-
-	_, mstr, err := renderOperatorManifest(nil, ocArgs)
-	if err != nil {
-		return err
-	}
-	if err := applyWithReconciler(reconciler, mstr); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // applyWithReconciler applies the given manifest string using the given reconciler.
@@ -290,18 +210,17 @@ func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest str
 		Name:    name.IstioOperatorComponentName,
 		Content: manifest,
 	}
-	_, err := reconciler.ApplyManifest(m)
-	return err
+	return reconciler.ApplyManifest(m)
 }
 
 // runManifestCommand runs the given manifest command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
 func runManifestCommand(command string, filenames []string, flags string, chartSource chartSourceType, fileSelect []string) (string, error) {
-	var args string
-	if command == "install" {
-		args = "install"
-	} else {
-		args = "manifest " + command
+	cmd := InstallCmd
+	args := ""
+	if command != "install" {
+		args = command
+		cmd = ManifestCmd
 	}
 	for _, f := range filenames {
 		args += " -f " + f
@@ -313,33 +232,26 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 		filters := []string{}
 		filters = append(filters, fileSelect...)
 		// Everything needs these
-		filters = append(filters, "templates/_affinity.tpl", "templates/_helpers.tpl", "templates/zzz_profile.yaml")
+		filters = append(filters, "templates/_affinity.tpl", "templates/_helpers.tpl", "templates/zzz_profile.yaml", "zzy_descope_legacy.yaml")
 		args += " --filter " + strings.Join(filters, ",")
 	}
 	args += " --set installPackagePath=" + string(chartSource)
-	return runCommand(args)
+	return runCommand(cmd, args)
 }
 
 // runCommand runs the given command string.
-func runCommand(command string) (string, error) {
+func runCommand(cmdGen func(ctx cli.Context) *cobra.Command, args string) (string, error) {
 	var out bytes.Buffer
-	rootCmd := GetRootCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
+	cli := cli.NewFakeContext(&cli.NewFakeContextOption{
 		Version: "25",
-	}), strings.Split(command, " "))
-	rootCmd.SetOut(&out)
+	})
+	sargs := strings.Split(args, " ")
+	cmd := cmdGen(cli)
+	cmd.SetOut(&out)
+	cmd.SetArgs(sargs)
 
-	err := rootCmd.Execute()
+	err := cmd.Execute()
 	return out.String(), err
-}
-
-// cleanTestCluster resets the test cluster.
-func cleanTestCluster() error {
-	// Needed in case we are running a test through this path that doesn't start a new process.
-	cache.FlushObjectCaches()
-	if !kubeBuilderInstalled() {
-		return nil
-	}
-	return recreateTestEnv()
 }
 
 // getAllIstioObjects lists all Istio GVK resources from the testClient.

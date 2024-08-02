@@ -22,8 +22,25 @@ meshConfig:
         port: 4317
         service: opentelemetry-collector.observability.svc.cluster.local
 
+cni:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 40Mi
+
+ztunnel:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 40Mi
+
 global:
   proxy:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+  waypoint:
     resources:
       requests:
         cpu: 10m

@@ -447,17 +447,17 @@ func TestCreateCNIConfigFile(t *testing.T) {
 
 	for _, c := range cases {
 		cfgFile := config.InstallConfig{
-			CNIConfName:        c.specifiedConfName,
-			ChainedCNIPlugin:   c.chainedCNIPlugin,
-			PluginLogLevel:     "debug",
-			KubeconfigFilename: kubeconfigFilename,
+			CNIConfName:      c.specifiedConfName,
+			ChainedCNIPlugin: c.chainedCNIPlugin,
+			PluginLogLevel:   "debug",
+			CNIAgentRunDir:   kubeconfigFilename,
 		}
 
 		cfg := config.InstallConfig{
-			CNIConfName:        c.specifiedConfName,
-			ChainedCNIPlugin:   c.chainedCNIPlugin,
-			PluginLogLevel:     "debug",
-			KubeconfigFilename: kubeconfigFilename,
+			CNIConfName:      c.specifiedConfName,
+			ChainedCNIPlugin: c.chainedCNIPlugin,
+			PluginLogLevel:   "debug",
+			CNIAgentRunDir:   kubeconfigFilename,
 		}
 		test := func(cfg config.InstallConfig) func(t *testing.T) {
 			return func(t *testing.T) {

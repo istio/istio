@@ -54,6 +54,8 @@ var (
 	serverFirst             bool
 	followRedirects         bool
 	newConnectionPerRequest bool
+	v4Only                  bool
+	v6Only                  bool
 	forceDNSLookup          bool
 
 	clientCert string
@@ -150,6 +152,8 @@ func init() {
 		"If enabled, a new connection will be made to the server for each individual request. "+
 			"If false, an attempt will be made to re-use the connection for the life of the forward request. "+
 			"This is automatically set for DNS, TCP, TLS, and WebSocket protocols.")
+	rootCmd.PersistentFlags().BoolVarP(&v4Only, "ipv4", "4", false, "Only use IPv4")
+	rootCmd.PersistentFlags().BoolVarP(&v6Only, "ipv6", "6", false, "Only use IPv6")
 	rootCmd.PersistentFlags().BoolVar(&forceDNSLookup, "force-dns-lookup", false,
 		"If enabled, each request will force a DNS lookup. Only applies if new-connection-per-request is also enabled.")
 	rootCmd.PersistentFlags().StringVar(&clientCert, "client-cert", "", "client certificate file to use for request")
@@ -198,6 +202,13 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		InsecureSkipVerify:      insecureSkipVerify,
 		NewConnectionPerRequest: newConnectionPerRequest,
 		ForceDNSLookup:          forceDNSLookup,
+	}
+	if v4Only && v6Only {
+		return nil, fmt.Errorf("--v4-only and --v6-only are mutually exclusive")
+	} else if v4Only {
+		request.ForceIpFamily = "tcp4"
+	} else if v6Only {
+		request.ForceIpFamily = "tcp6"
 	}
 	if len(hboneAddress) > 0 {
 		request.Hbone = &proto.HBONE{

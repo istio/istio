@@ -21,7 +21,6 @@ spec:
   template:
     metadata:
       annotations:
-        ambient.istio.io/redirection: disabled
         prometheus.io/port: "15014"
         prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
@@ -29,6 +28,7 @@ spec:
         app: istiod
         install.operator.istio.io/owning-resource: unknown
         istio: pilot
+        istio.io/dataplane-mode: none
         istio.io/rev: default
         operator.istio.io/component: Pilot
         sidecar.istio.io/inject: "false"
@@ -45,8 +45,6 @@ spec:
         env:
         - name: REVISION
           value: default
-        - name: JWT_POLICY
-          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
         - name: POD_NAME
@@ -66,6 +64,8 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: KUBECONFIG
           value: /var/run/secrets/remote/config
+        - name: CA_TRUSTED_NODE_ACCOUNTS
+          value: istio-system/ztunnel
         - name: PILOT_TRACE_SAMPLING
           value: "1"
         - name: PILOT_ENABLE_ANALYSIS
@@ -128,6 +128,9 @@ spec:
           name: istio-csr-ca-configmap
           readOnly: true
       serviceAccountName: istiod
+      tolerations:
+      - key: cni.istio.io/not-ready
+        operator: Exists
       volumes:
       - emptyDir:
           medium: Memory

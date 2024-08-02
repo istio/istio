@@ -332,7 +332,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 	h := host.Name(destination.Host)
 	// If this is an Alias, point to the concrete service
 	// TODO: this will not work if we have Alias -> Alias -> Concrete service.
-	if features.EnableExternalNameAlias && service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
+	if service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
 		h = host.Name(service.Attributes.K8sAttributes.ExternalName)
 	}
 	port := listenerPort

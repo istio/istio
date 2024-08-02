@@ -24,6 +24,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -408,9 +409,10 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "waypoint service attached",
 			selectionOpts: WorkloadPolicyMatcher{
-				IsWaypoint: true,
-				Service:    "foo-svc",
-				Namespace:  "foo",
+				IsWaypoint:      true,
+				Service:         "foo-svc",
+				ServiceRegistry: provider.Kubernetes,
+				Namespace:       "foo",
 				WorkloadLabels: labels.Instance{
 					constants.GatewayNameLabel: "foo-waypoint",
 					// labels match in selector policy but ignore them for waypoint

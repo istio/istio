@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: default-sidecar-scope
@@ -9,7 +9,7 @@ spec:
     - "./*"
 ---
 # Authentication policy to enable mutual TLS for all services (that have sidecar) in the mesh.
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -20,7 +20,7 @@ spec:
 ---
 # Corresponding destination rule to configure client side to use mutual TLS when talking to
 # any service (host) in the mesh.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: default
@@ -32,7 +32,7 @@ spec:
       mode: ISTIO_MUTUAL
 ---
 # Services and configs in ns1 namespace
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: http1
@@ -56,7 +56,7 @@ spec:
       http: 8080
 ---
 # Services and configs in ns1 namespace
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: http2
@@ -78,7 +78,7 @@ spec:
       http: 8080
 ---
 # The sidecar for the consumer only application
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: consumerapp

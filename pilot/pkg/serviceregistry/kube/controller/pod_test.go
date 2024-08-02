@@ -113,9 +113,9 @@ func TestPodLabelUpdate(t *testing.T) {
 
 	initTestEnv(t, c.client.Kube(), fx)
 	// Setup a service with 1 pod and endpointslices
-	createServiceWait(c, "ratings", "nsa",
+	createServiceWait(c, "ratings", "nsa", []string{"10.0.0.1"},
 		nil, nil, []int32{8080}, map[string]string{"app": "test"}, t)
-	pod := generatePod("128.0.0.1", "cpod1", "nsa", "", "", map[string]string{"app": "test", "foo": "bar"}, map[string]string{})
+	pod := generatePod([]string{"128.0.0.1"}, "cpod1", "nsa", "", "", map[string]string{"app": "test", "foo": "bar"}, map[string]string{})
 	addPods(t, c, fx, pod)
 	createEndpoints(t, c, "rating", "nsa", []string{"tcp-port"}, []string{"128.0.0.1"}, []*v1.ObjectReference{
 		{
@@ -157,7 +157,7 @@ func TestHostNetworkPod(t *testing.T) {
 	})
 	initTestEnv(t, c.client.Kube(), fx)
 	createPod := func(ip, name string) {
-		addPods(t, c, fx, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
+		addPods(t, c, fx, generatePod([]string{ip}, name, "ns", "1", "", map[string]string{}, map[string]string{}))
 	}
 
 	createPod("128.0.0.1", "pod1")
@@ -186,7 +186,7 @@ func TestIPReuse(t *testing.T) {
 	initTestEnv(t, c.client.Kube(), fx)
 
 	createPod := func(ip, name string) {
-		addPods(t, c, fx, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
+		addPods(t, c, fx, generatePod([]string{ip}, name, "ns", "1", "", map[string]string{}, map[string]string{}))
 	}
 
 	createPod("128.0.0.1", "pod")
@@ -336,9 +336,9 @@ func TestPodUpdates(t *testing.T) {
 
 	// Namespace must be lowercase (nsA doesn't work)
 	pods := []*v1.Pod{
-		generatePod("128.0.0.1", "cpod1", "nsa", "", "", map[string]string{"app": "test-app"}, map[string]string{}),
-		generatePod("128.0.0.2", "cpod2", "nsa", "", "", map[string]string{"app": "prod-app-1"}, map[string]string{}),
-		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
+		generatePod([]string{"128.0.0.1"}, "cpod1", "nsa", "", "", map[string]string{"app": "test-app"}, map[string]string{}),
+		generatePod([]string{"128.0.0.2"}, "cpod2", "nsa", "", "", map[string]string{"app": "prod-app-1"}, map[string]string{}),
+		generatePod([]string{"128.0.0.3"}, "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
 	}
 
 	addPods(t, c, fx, pods...)

@@ -39,6 +39,7 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -1190,6 +1191,7 @@ func validatePolicyTargetReferences(targetRefs []*type_beta.PolicyTargetReferenc
 // don't validate version, just group and kind
 var allowedTargetRefs = []config.GroupVersionKind{
 	gvk.Service,
+	gvk.ServiceEntry,
 	gvk.KubernetesGateway,
 }
 
@@ -2776,6 +2778,8 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 			}
 		}
 
+		// check for v2 auto IP allocation or opt-out by user
+		autoAllocation := serviceentry.ShouldV2AutoAllocateIPFromConfig(cfg)
 		servicePortNumbers := sets.New[uint32]()
 		servicePorts := sets.NewWithLength[string](len(serviceEntry.Ports))
 		for _, port := range serviceEntry.Ports {
@@ -2795,7 +2799,7 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					errs = AppendWarningf(errs, "targetPort has no effect when resolution mode is NONE")
 				}
 			}
-			if len(serviceEntry.Addresses) == 0 {
+			if len(serviceEntry.Addresses) == 0 && !autoAllocation {
 				if port.Protocol == "" || port.Protocol == "TCP" {
 					errs = AppendValidation(errs, WrapWarning(fmt.Errorf("addresses are required for ports serving TCP (or unset) protocol "+
 						"when ISTIO_META_DNS_AUTO_ALLOCATE is not set on a proxy")))

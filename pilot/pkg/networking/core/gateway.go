@@ -96,7 +96,8 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 
 			// If statPrefix has been set before calling this method, respect that.
 			if len(opt.httpOpts.statPrefix) == 0 {
-				opt.httpOpts.statPrefix = strings.ToLower(ml.Listener.TrafficDirection.String()) + "_" + ml.Listener.Name
+				statPrefix := strings.ToLower(ml.Listener.TrafficDirection.String()) + "_" + ml.Listener.Name
+				opt.httpOpts.statPrefix = util.DelimitedStatsPrefix(statPrefix, builder.node.IstioVersion)
 			}
 			opt.httpOpts.port = opts.port
 			httpConnectionManagers[i] = builder.buildHTTPConnectionManager(opt.httpOpts)

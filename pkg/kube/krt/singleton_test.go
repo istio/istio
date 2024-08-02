@@ -64,7 +64,7 @@ func TestSingleton(t *testing.T) {
 
 func TestNewStatic(t *testing.T) {
 	tt := assert.NewTracker[string](t)
-	s := krt.NewStatic[string](nil)
+	s := krt.NewStatic[string](nil, true)
 	s.Register(TrackerHandler[string](tt))
 
 	assert.Equal(t, s.Get(), nil)

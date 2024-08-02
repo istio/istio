@@ -51,7 +51,7 @@ type azureEnv struct {
 	networkMetadata map[string]any
 }
 
-// IsAzure returns whether or not the platform for bootstrapping is Azure
+// IsAzure returns whether the platform for bootstrapping is Azure
 // Checks the system vendor file (similar to https://github.com/banzaicloud/satellite/blob/master/providers/azure.go)
 func IsAzure() bool {
 	sysVendor, err := os.ReadFile(SysVendorPath)
@@ -104,30 +104,32 @@ func (e *azureEnv) parseMetadata(metadata string) {
 	}
 }
 
+const emptyJSONResponse = "{}"
+
 // Generic Azure metadata GET request helper for the response body
 // Uses the default timeout for the HTTP get request
 func metadataRequest(query string) string {
 	client := http.Client{Timeout: defaultTimeout}
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s?%s", AzureInstanceURL, query), nil)
 	if err != nil {
-		log.Warnf("Failed to create HTTP request: %v", err)
-		return ""
+		log.Debugf("Failed to create HTTP request: %v", err)
+		return emptyJSONResponse
 	}
 	req.Header.Add("Metadata", "True")
 
 	response, err := client.Do(req)
 	if err != nil {
-		log.Warnf("HTTP request failed: %v", err)
-		return ""
+		log.Debugf("HTTP request failed: %v", err)
+		return emptyJSONResponse
 	}
 	if response.StatusCode != http.StatusOK {
-		log.Warnf("HTTP request unsuccessful with status: %v", response.Status)
+		log.Debugf("HTTP request unsuccessful with status: %v", response.Status)
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		log.Warnf("Could not read response body: %v", err)
-		return ""
+		log.Debugf("Could not read response body: %v", err)
+		return emptyJSONResponse
 	}
 	return string(body)
 }
@@ -140,7 +142,7 @@ func stringToJSON(s string) map[string]any {
 	return stringJSON
 }
 
-// Returns Azure instance metadata. Must be run on an Azure VM
+// Metadata returns Azure instance metadata. Must be run on an Azure VM
 func (e *azureEnv) Metadata() map[string]string {
 	md := map[string]string{}
 	if an := e.azureName(); an != "" {

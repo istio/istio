@@ -124,7 +124,7 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 		filteredTemplates := []*chart.File{}
 		for _, t := range chrt.Templates {
 			// Always include required templates that do not produce any output
-			if filterFunc(t.Name) || strings.HasSuffix(t.Name, ".tpl") || t.Name == "templates/zzz_profile.yaml" {
+			if filterFunc(t.Name) || strings.HasSuffix(t.Name, ".tpl") || t.Name == "templates/zzz_profile.yaml" || t.Name == "zzy_descope_legacy.yaml" {
 				filteredTemplates = append(filteredTemplates, t)
 			}
 		}

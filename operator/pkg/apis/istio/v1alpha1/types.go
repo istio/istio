@@ -59,13 +59,3 @@ type IstioOperator struct {
 
 	Status *operatorv1alpha1.InstallStatus `json:"status,omitempty"`
 }
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// IstioOperatorSpecList is a collection of IstioOperatorSpecs.
-type IstioOperatorList struct {
-	metav1.TypeMeta `json:",inline"`
-	// +optional
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-	Items           []IstioOperator `json:"items" protobuf:"bytes,2,rep,name=items"`
-}

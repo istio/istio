@@ -26,8 +26,8 @@ ADDONS="${WD}/../../samples/addons"
 DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
 TMP=$(mktemp -d)
-LOKI_VERSION=${LOKI_VERSION:-"6.6.3"}
-GRAFANA_VERSION=${GRAFANA_VERSION:-"8.0.1"}
+LOKI_VERSION=${LOKI_VERSION:-"6.7.1"}
+GRAFANA_VERSION=${GRAFANA_VERSION:-"8.3.5"}
 
 # Set up kiali
 {
@@ -46,7 +46,7 @@ helm3 template kiali-server \
 # Set up prometheus
 helm3 template prometheus prometheus \
   --namespace istio-system \
-  --version 25.21.0 \
+  --version 25.24.1 \
   --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"
@@ -77,7 +77,7 @@ function compressDashboard() {
   compressDashboard "istio-performance-dashboard.json"
   compressDashboard "istio-workload-dashboard.json"
   compressDashboard "istio-service-dashboard.json"
-  compressDashboard "istio-mesh-dashboard.json"
+  compressDashboard "istio-mesh-dashboard.gen.json"
   compressDashboard "istio-extension-dashboard.json"
   compressDashboard "ztunnel-dashboard.gen.json"
   echo -e "\n---\n"
@@ -92,7 +92,7 @@ function compressDashboard() {
     --dry-run=client -oyaml \
     --from-file=istio-workload-dashboard.json="${TMP}/istio-workload-dashboard.json" \
     --from-file=istio-service-dashboard.json="${TMP}/istio-service-dashboard.json" \
-    --from-file=istio-mesh-dashboard.json="${TMP}/istio-mesh-dashboard.json" \
+    --from-file=istio-mesh-dashboard.json="${TMP}/istio-mesh-dashboard.gen.json" \
     --from-file=istio-extension-dashboard.json="${TMP}/istio-extension-dashboard.json"
 } > "${ADDONS}/grafana.yaml"
 

@@ -57,7 +57,7 @@ func runHealthCheckDeployment(ctx framework.TestContext, ns namespace.Instance, 
 ) {
 	ctx.Helper()
 	wantSuccess := rewrite
-	policyYAML := fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+	policyYAML := fmt.Sprintf(`apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: "mtls-strict-for-%v"

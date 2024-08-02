@@ -1,88 +1,84 @@
 # "defaults" is a workaround for Helm limitations. Users should NOT set ".defaults" explicitly, but rather directly set the fields internally.
 # For instance, instead of `--set defaults.foo=bar`, just set `--set foo=bar`.
 defaults:
-  #.Values.pilot for discovery and mesh wide config
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 5
+  autoscaleBehavior: {}
+  replicaCount: 1
+  rollingMaxSurge: 100%
+  rollingMaxUnavailable: 25%
+  hub: ""
+  tag: ""
+  variant: ""
+  # Can be a full hub/image:tag
+  image: pilot
+  traceSampling: 1.0
+  # Resources for a small pilot install
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2048Mi
+  # Set to `type: RuntimeDefault` to use the default profile if available.
+  seccompProfile: {}
+  # Whether to use an existing CNI installation
+  cni:
+    enabled: false
+    provider: default
+  # Additional container arguments
+  extraContainerArgs: []
+  env: {}
+  # Settings related to the untaint controller
+  # This controller will remove `cni.istio.io/not-ready` from nodes when the istio-cni pod becomes ready
+  # It should be noted that cluster operator/owner is responsible for having the taint set by their infrastructure provider when new nodes are added to the cluster; the untaint controller does not taint nodes
+  taint:
+    # Controls whether or not the untaint controller is active
+    enabled: false
+    # What namespace the untaint controller should watch for istio-cni pods. This is only required when istio-cni is running in a different namespace than istiod
+    namespace: ""
+  affinity: {}
+  tolerations: []
+  cpu:
+    targetAverageUtilization: 80
+  memory: {}
+  # targetAverageUtilization: 80
 
-  ## Discovery Settings
-  pilot:
-    autoscaleEnabled: true
-    autoscaleMin: 1
-    autoscaleMax: 5
-    autoscaleBehavior: {}
-    replicaCount: 1
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
-    hub: ""
-    tag: ""
-    variant: ""
-    # Can be a full hub/image:tag
-    image: pilot
-    traceSampling: 1.0
-    # Resources for a small pilot install
-    resources:
-      requests:
-        cpu: 500m
-        memory: 2048Mi
-    # Set to `type: RuntimeDefault` to use the default profile if available.
-    seccompProfile: {}
-    # Whether to use an existing CNI installation
-    cni:
-      enabled: false
-      provider: default
-    # Additional container arguments
-    extraContainerArgs: []
-    env: {}
-    # Settings related to the untaint controller
-    # This controller will remove `cni.istio.io/not-ready` from nodes when the istio-cni pod becomes ready
-    # It should be noted that cluster operator/owner is responsible for having the taint set by their infrastructure provider when new nodes are added to the cluster; the untaint controller does not taint nodes
-    taint:
-      # Controls whether or not the untaint controller is active
-      enabled: false
-      # What namespace the untaint controller should watch for istio-cni pods. This is only required when istio-cni is running in a different namespace than istiod
-      namespace: ""
-    affinity: {}
-    tolerations: []
-    cpu:
-      targetAverageUtilization: 80
-    memory: {}
-    # targetAverageUtilization: 80
+  # Additional volumeMounts to the istiod container
+  volumeMounts: []
+  # Additional volumes to the istiod pod
+  volumes: []
+  nodeSelector: {}
+  podAnnotations: {}
+  serviceAnnotations: {}
+  serviceAccountAnnotations: {}
+  topologySpreadConstraints: []
+  # You can use jwksResolverExtraRootCA to provide a root certificate
+  # in PEM format. This will then be trusted by pilot when resolving
+  # JWKS URIs.
+  jwksResolverExtraRootCA: ""
+  # The following is used to limit how long a sidecar can be connected
+  # to a pilot. It balances out load across pilot instances at the cost of
+  # increasing system churn.
+  keepaliveMaxServerConnectionAge: 30m
+  # Additional labels to apply to the deployment.
+  deploymentLabels: {}
+  ## Mesh config settings
 
-    # Additional volumeMounts to the istiod container
-    volumeMounts: []
-    # Additional volumes to the istiod pod
-    volumes: []
-    nodeSelector: {}
-    podAnnotations: {}
-    serviceAnnotations: {}
-    serviceAccountAnnotations: {}
-    topologySpreadConstraints: []
-    # You can use jwksResolverExtraRootCA to provide a root certificate
-    # in PEM format. This will then be trusted by pilot when resolving
-    # JWKS URIs.
-    jwksResolverExtraRootCA: ""
-    # The following is used to limit how long a sidecar can be connected
-    # to a pilot. It balances out load across pilot instances at the cost of
-    # increasing system churn.
-    keepaliveMaxServerConnectionAge: 30m
-    # Additional labels to apply to the deployment.
-    deploymentLabels: {}
-    ## Mesh config settings
-
-    # Install the mesh config map, generated from values.yaml.
-    # If false, pilot wil use default values (by default) or user-supplied values.
-    configMap: false
-    # Additional labels to apply on the pod level for monitoring and logging configuration.
-    podLabels: {}
-    # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
-    ipFamilyPolicy: ""
-    ipFamilies: []
-    # Ambient mode only.
-    # Set this if you install ztunnel to a different namespace from `istiod`.
-    # If set, `istiod` will allow connections from trusted node proxy ztunnels
-    # in the provided namespace.
-    # If unset, `istiod` will assume the trusted node proxy ztunnel resides
-    # in the same namespace as itself.
-    trustedZtunnelNamespace: ""
+  # Install the mesh config map, generated from values.yaml.
+  # If false, pilot wil use default values (by default) or user-supplied values.
+  configMap: false
+  # Additional labels to apply on the pod level for monitoring and logging configuration.
+  podLabels: {}
+  # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+  ipFamilyPolicy: ""
+  ipFamilies: []
+  # Ambient mode only.
+  # Set this if you install ztunnel to a different namespace from `istiod`.
+  # If set, `istiod` will allow connections from trusted node proxy ztunnels
+  # in the provided namespace.
+  # If unset, `istiod` will assume the trusted node proxy ztunnel resides
+  # in the same namespace as itself.
+  trustedZtunnelNamespace: ""
   sidecarInjectorWebhook:
     # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
     # always skip the injection on pods that match that label selector, regardless of the global policy.
@@ -426,6 +422,15 @@ defaults:
     # whether to use autoscaling/v2 template for HPA settings
     # for internal usage only, not to be configured by users.
     autoscalingv2API: true
+    waypoint:
+      # Resources for the waypoint proxy.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: "2"
+          memory: 1Gi
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true

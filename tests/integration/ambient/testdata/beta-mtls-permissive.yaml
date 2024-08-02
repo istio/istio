@@ -1,6 +1,6 @@
 # Global PeerAuthentication can be removed for this test, once we remove the (alpha) mesh policy
 # during installation.
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: "default"
@@ -10,7 +10,7 @@ spec:
   mtls:
     mode: PERMISSIVE
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "default"

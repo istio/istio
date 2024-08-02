@@ -22,6 +22,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -34,8 +35,11 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/wellknown"
 )
 
 func TestApplyUpstreamTLSSettings(t *testing.T) {
@@ -266,6 +270,152 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				}
 				test.validateTLSContext(t, ctx)
 			}
+		})
+	}
+}
+
+func TestApplyUpstreamTLSSettingsHBONE(t *testing.T) {
+	test.SetForTest(t, &features.EnableHBONESend, true)
+	istioMutualTLSSettings := &networking.ClientTLSSettings{
+		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+		SubjectAltNames: []string{"custom.foo.com"},
+		Sni:             "custom.foo.com",
+	}
+	simpleTLSSettingsWithCerts := &networking.ClientTLSSettings{
+		Mode:            networking.ClientTLSSettings_SIMPLE,
+		CaCertificates:  "root-cert.pem",
+		SubjectAltNames: []string{"custom.foo.com"},
+		Sni:             "custom.foo.com",
+	}
+	type transportSocket struct {
+		Name  string
+		Inner string
+	}
+	type transportSocketMatch struct {
+		Name   string
+		Socket transportSocket
+	}
+	waypoint := &model.Proxy{
+		Type:         model.Waypoint,
+		Metadata:     &model.NodeMetadata{},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
+	}
+	sidecar := &model.Proxy{
+		Type:         model.SidecarProxy,
+		Metadata:     &model.NodeMetadata{},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
+	}
+
+	const internalUpstream = "envoy.transport_sockets.internal_upstream"
+	tests := []struct {
+		name    string
+		mtlsCtx mtlsContextType
+		tls     *networking.ClientTLSSettings
+		proxy   *model.Proxy
+		matches []transportSocketMatch
+		socket  transportSocket
+
+		validateTLSContext func(t *testing.T, ctx *tls.UpstreamTlsContext)
+	}{
+		{
+			name:    "waypoint: auto mTLS and HBONE",
+			mtlsCtx: autoDetected,
+			proxy:   waypoint,
+			tls:     istioMutualTLSSettings,
+			matches: []transportSocketMatch{
+				{
+					Name:   "hbone",
+					Socket: transportSocket{Name: internalUpstream, Inner: wellknown.TransportSocketRawBuffer},
+				},
+				{
+					Name:   "tlsMode-istio",
+					Socket: transportSocket{Name: wellknown.TransportSocketTLS},
+				},
+				{
+					Name:   "tlsMode-disabled",
+					Socket: transportSocket{Name: wellknown.TransportSocketRawBuffer},
+				},
+			},
+		},
+		{
+			name:    "sidecar: auto mTLS and HBONE",
+			mtlsCtx: autoDetected,
+			proxy:   sidecar,
+			tls:     istioMutualTLSSettings,
+			matches: []transportSocketMatch{
+				{
+					Name:   "hbone",
+					Socket: transportSocket{Name: internalUpstream, Inner: wellknown.TransportSocketRawBuffer},
+				},
+				{
+					Name:   "tlsMode-istio",
+					Socket: transportSocket{Name: wellknown.TransportSocketTLS},
+				},
+				{
+					Name:   "tlsMode-disabled",
+					Socket: transportSocket{Name: wellknown.TransportSocketRawBuffer},
+				},
+			},
+		},
+		{
+			name:  "sidecar: explicit TLS and HBONE",
+			proxy: sidecar,
+			tls:   simpleTLSSettingsWithCerts,
+			matches: []transportSocketMatch{
+				{
+					// HBONE over TLS
+					Name:   "hbone",
+					Socket: transportSocket{Name: internalUpstream, Inner: wellknown.TransportSocketTLS},
+				},
+				{
+					// Just TLS
+					Name:   "user",
+					Socket: transportSocket{Name: wellknown.TransportSocketTLS},
+				},
+			},
+		},
+	}
+
+	push := model.NewPushContext()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := NewClusterBuilder(tt.proxy, &model.PushRequest{Push: push}, model.DisabledCache{})
+			cb.sendHbone = true
+			opts := &buildClusterOpts{
+				mutable: newClusterWrapper(&cluster.Cluster{
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+				}),
+				mesh: push.Mesh,
+			}
+			cb.applyUpstreamTLSSettings(opts, tt.tls, tt.mtlsCtx)
+
+			translateSock := func(e *core.TransportSocket) transportSocket {
+				inner := ""
+				if e.Name == internalUpstream {
+					us := xdstest.UnmarshalAny[internalupstream.InternalUpstreamTransport](t, e.GetTypedConfig())
+					inner = (us).TransportSocket.Name
+				}
+				return transportSocket{Name: e.Name, Inner: inner}
+			}
+
+			if len(tt.matches) > 0 {
+				gotMatches := slices.Map(opts.mutable.cluster.TransportSocketMatches, func(e *cluster.Cluster_TransportSocketMatch) transportSocketMatch {
+					return transportSocketMatch{
+						Name:   e.Name,
+						Socket: translateSock(e.TransportSocket),
+					}
+				})
+				assert.Equal(t, tt.matches, gotMatches)
+			} else {
+				assert.Equal(t, 0, len(opts.mutable.cluster.TransportSocketMatches), "expected no matches")
+			}
+			if tt.socket != (transportSocket{}) {
+				assert.Equal(t, tt.socket, translateSock(opts.mutable.cluster.TransportSocket))
+			} else {
+				assert.Equal(t, true, opts.mutable.cluster.TransportSocket == nil, "expected no transport socket")
+			}
+			t.Log(xdstest.Dump(t, opts.mutable.cluster.TransportSocket))
+			t.Log(xdstest.DumpList(t, opts.mutable.cluster.TransportSocketMatches))
 		})
 	}
 }

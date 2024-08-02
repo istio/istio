@@ -15,7 +15,7 @@
 # Example configurations for deploying ext-authz server locally with the application container in the same pod.
 
 # Define the service entry for the local ext-authz service on port 8000.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: httpbin-ext-authz-http
@@ -31,7 +31,7 @@ spec:
   resolution: STATIC
 ---
 # Define the service entry for the local ext-authz service on port 9000.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: httpbin-ext-authz-grpc

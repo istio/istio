@@ -22,7 +22,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -166,7 +165,7 @@ func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte, force bool) 
 	}
 
 	outputTree := make(map[string]any)
-	err = t.TranslateTree(yamlTree, outputTree, nil)
+	err = t.TranslateTree(yamlTree, outputTree)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +184,7 @@ func (t *ReverseTranslator) TranslateFromValueToSpec(values []byte, force bool) 
 }
 
 // TranslateTree translates input value.yaml Tree to ControlPlaneSpec Tree.
-func (t *ReverseTranslator) TranslateTree(valueTree map[string]any, cpSpecTree map[string]any, path util.Path) error {
+func (t *ReverseTranslator) TranslateTree(valueTree map[string]any, cpSpecTree map[string]any) error {
 	// translate enablement and namespace
 	err := t.setEnablementFromValue(valueTree, cpSpecTree)
 	if err != nil {
@@ -501,7 +500,6 @@ func (t *ReverseTranslator) translateK8sTree(valueTree map[string]any,
 				return err
 			}
 		}
-		metrics.LegacyPathTranslationTotal.Increment()
 
 		if _, err := tpath.Delete(valueTree, util.ToYAMLPath(inPath)); err != nil {
 			return err
@@ -570,8 +568,6 @@ func (t *ReverseTranslator) translateAPI(valueTree map[string]any,
 
 		path := util.ToYAMLPath(v.OutPath)
 		scope.Debugf("path has value in helm Value.yaml tree, mapping to output path %s", path)
-		metrics.LegacyPathTranslationTotal.
-			With(metrics.ResourceKindLabel.Value(inPath)).Increment()
 
 		if err := tpath.WriteNode(cpSpecTree, path, m); err != nil {
 			return err

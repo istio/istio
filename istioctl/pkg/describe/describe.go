@@ -43,7 +43,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	typev1beta1 "istio.io/api/type/v1beta1"
-	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -64,6 +64,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/mesh"
+	protocolinstance "istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/labels"
@@ -586,6 +587,10 @@ func findProtocolForPort(port *corev1.ServicePort) string {
 		protocol = "auto-detect"
 	} else {
 		protocol = string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
+		if protocol == protocolinstance.Unsupported.String() && port.AppProtocol != nil && *port.AppProtocol == "hbone" {
+			// HBONE is used for some internal code.
+			protocol = string(protocolinstance.HBONE)
+		}
 	}
 	return protocol
 }
@@ -707,7 +712,7 @@ func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc corev1.Service
 
 	// Starting with recent 1.5.0 builds, the path will include .istio.io.  Handle both.
 	// nolint: gosimple
-	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
+	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1(?:alpha3)?/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
 		return "", "", fmt.Errorf("not a VS path: %s", path)
@@ -805,7 +810,7 @@ func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc corev1.Servic
 
 	// Starting with recent 1.5.0 builds, the path will include .istio.io.  Handle both.
 	// nolint: gosimple
-	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1alpha3/namespaces/(?P<namespace>[^/]+)/destination-rule/(?P<name>[^/]+)")
+	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1(?:alpha3)?/namespaces/(?P<namespace>[^/]+)/destination-rule/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
 		return "", "", fmt.Errorf("not a DR path: %s", path)
@@ -1059,7 +1064,7 @@ func printIngressInfo(
 					exist := false
 					dr, exist = recordDestinationRules[newResourceID(drNamespace, drName)]
 					if !exist {
-						dr, _ = configClient.NetworkingV1alpha3().DestinationRules(drNamespace).Get(context.Background(), drName, metav1.GetOptions{})
+						dr, _ = configClient.NetworkingV1().DestinationRules(drNamespace).Get(context.Background(), drName, metav1.GetOptions{})
 						if dr == nil {
 							fmt.Fprintf(writer,
 								"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
@@ -1079,7 +1084,7 @@ func printIngressInfo(
 					exist := false
 					vs, exist = recordVirtualServices[newResourceID(vsNamespace, vsName)]
 					if !exist {
-						vs, _ = configClient.NetworkingV1alpha3().VirtualServices(vsNamespace).Get(context.Background(), vsName, metav1.GetOptions{})
+						vs, _ = configClient.NetworkingV1().VirtualServices(vsNamespace).Get(context.Background(), vsName, metav1.GetOptions{})
 						if vs == nil {
 							fmt.Fprintf(writer,
 								"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
@@ -1104,7 +1109,7 @@ func printIngressInfo(
 
 							gwID := newResourceID(gns, gatewayName)
 							if gok := recordGateways[gwID]; !gok {
-								gw, _ := configClient.NetworkingV1alpha3().Gateways(gns).Get(context.Background(), gatewayName, metav1.GetOptions{})
+								gw, _ := configClient.NetworkingV1().Gateways(gns).Get(context.Background(), gatewayName, metav1.GetOptions{})
 								if gw != nil {
 									recordGateways[gwID] = true
 									if gw.Spec.Selector == nil {
@@ -1344,7 +1349,7 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 			}
 			var dr *clientnetworking.DestinationRule
 			if err == nil && drName != "" && drNamespace != "" {
-				dr, _ = configClient.NetworkingV1alpha3().DestinationRules(drNamespace).Get(context.Background(), drName, metav1.GetOptions{})
+				dr, _ = configClient.NetworkingV1().DestinationRules(drNamespace).Get(context.Background(), drName, metav1.GetOptions{})
 				if dr != nil {
 					printDestinationRule(writer, initPolicyLevel, dr, podsLabels)
 					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
@@ -1357,7 +1362,7 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 
 			vsName, vsNamespace, err := getIstioVirtualServiceNameForSvc(&cd, svc, port.Port)
 			if err == nil && vsName != "" && vsNamespace != "" {
-				vs, _ := configClient.NetworkingV1alpha3().VirtualServices(vsNamespace).Get(context.Background(), vsName, metav1.GetOptions{})
+				vs, _ := configClient.NetworkingV1().VirtualServices(vsNamespace).Get(context.Background(), vsName, metav1.GetOptions{})
 				if vs != nil {
 					printVirtualService(writer, initPolicyLevel, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
 				} else {
@@ -1415,12 +1420,12 @@ func describePeerAuthentication(
 		return fmt.Errorf("failed to fetch mesh config: %v", err)
 	}
 
-	workloadPAList, err := configClient.SecurityV1beta1().PeerAuthentications(workloadNamespace).List(context.Background(), metav1.ListOptions{})
+	workloadPAList, err := configClient.SecurityV1().PeerAuthentications(workloadNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch workload namespace PeerAuthentication: %v", err)
 	}
 
-	rootPAList, err := configClient.SecurityV1beta1().PeerAuthentications(meshCfg.RootNamespace).List(context.Background(), metav1.ListOptions{})
+	rootPAList, err := configClient.SecurityV1().PeerAuthentications(meshCfg.RootNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch root namespace PeerAuthentication: %v", err)
 	}

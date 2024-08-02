@@ -1,5 +1,5 @@
 # Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: proxy-service-instance
@@ -16,7 +16,7 @@ spec:
 ---
 # Set up .Services VirtualServices, each pointing to a different Service
 {{- range $i := until .Services }}
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs-{{$i}}
@@ -36,7 +36,7 @@ spec:
       - destination:
           host: random-{{$i}}.host.example
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-{{$i}}

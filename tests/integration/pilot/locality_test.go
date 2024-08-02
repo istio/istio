@@ -30,7 +30,7 @@ import (
 )
 
 const localityTemplate = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-service-locality
@@ -53,7 +53,7 @@ spec:
     locality: "nearregion/zone/subzone"
   {{ end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: external-service-locality

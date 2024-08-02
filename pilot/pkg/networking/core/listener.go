@@ -612,7 +612,8 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 			// we are building a network filter chain (no http connection manager) for this filter chain
 			chain.Filters = opt.networkFilters
 		} else {
-			opt.httpOpts.statPrefix = strings.ToLower(l.TrafficDirection.String()) + "_" + l.Name
+			statsPrefix := strings.ToLower(l.TrafficDirection.String()) + "_" + l.Name
+			opt.httpOpts.statPrefix = util.DelimitedStatsPrefix(statsPrefix, builder.node.IstioVersion)
 			opt.httpOpts.port = le.servicePort.Port
 			hcm := builder.buildHTTPConnectionManager(opt.httpOpts)
 			filter := &listener.Filter{

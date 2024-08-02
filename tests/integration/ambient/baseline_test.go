@@ -494,7 +494,7 @@ func TestServerRouting(t *testing.T) {
 			t.NewSubTest("set header").Run(func(t framework.TestContext) {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
-				}, `apiVersion: networking.istio.io/v1alpha3
+				}, `apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route
@@ -518,7 +518,7 @@ spec:
 			t.NewSubTest("subset").Run(func(t framework.TestContext) {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
-				}, `apiVersion: networking.istio.io/v1alpha3
+				}, `apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route
@@ -531,7 +531,7 @@ spec:
         host: "{{.Destination}}"
         subset: v1
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: route
@@ -640,7 +640,7 @@ func TestTrafficSplit(t *testing.T) {
 			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": dst.Config().Service,
-			}, `apiVersion: networking.istio.io/v1alpha3
+			}, `apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route
@@ -663,7 +663,7 @@ spec:
 `).ApplyOrFail(t)
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": dst.Config().Service,
-			}, `apiVersion: networking.istio.io/v1alpha3
+			}, `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: dr
@@ -735,7 +735,7 @@ func TestPeerAuthentication(t *testing.T) {
 					"Source":      src.Config().Service,
 					"Namespace":   apps.Namespace.Name(),
 				}, `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: global-permissive
@@ -752,7 +752,7 @@ spec:
 					"Source":      src.Config().Service,
 					"Namespace":   apps.Namespace.Name(),
 				}, `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: global-strict
@@ -775,7 +775,7 @@ spec:
 					"Source":      src.Config().Service,
 					"Namespace":   apps.Namespace.Name(),
 				}, `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: global-strict
@@ -855,7 +855,7 @@ func TestAuthorizationL4(t *testing.T) {
 						"Namespace":    apps.Namespace.Name(),
 						"WaypointName": dst.Config().ServiceWaypointProxy,
 					}, `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
@@ -867,7 +867,7 @@ spec:
     name: "{{ .Destination }}"
 `+tc.spec+`
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy
@@ -900,7 +900,7 @@ func TestAuthorizationServiceAttached(t *testing.T) {
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Destination": authzDst.Config().Service,
 		}, `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
@@ -995,7 +995,7 @@ func TestAuthorizationGateway(t *testing.T) {
 				"PortDeny":          strconv.Itoa(ports.HTTP2.ServicePort),
 				"PortDenyWorkload":  strconv.Itoa(ports.HTTP2.WorkloadPort),
 			}, `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy
@@ -1005,7 +1005,7 @@ spec:
       app: "{{ .Destination }}"
 `+policySpec+`
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -1019,7 +1019,7 @@ spec:
       protocol: HTTP
     hosts: ["*"]
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route
@@ -1153,7 +1153,7 @@ func TestAuthorizationL7(t *testing.T) {
 				"Namespace":    apps.Namespace.Name(),
 				"WaypointName": waypointName,
 			}, `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy
@@ -1163,7 +1163,7 @@ spec:
       app: "{{ .Destination }}"
 `+policySpecWL+`
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy-waypoint
@@ -1174,7 +1174,7 @@ spec:
     name: waypoint
 `+policySpec+`
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: deny-policy
@@ -1184,7 +1184,7 @@ spec:
       app: "{{ .Destination }}"
 `+denySpec+`
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: deny-policy-waypoint
@@ -1383,7 +1383,7 @@ func TestDestinationRule(t *testing.T) {
 		{
 			name: "TLS",
 			config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "{{.Host}}"
@@ -1416,7 +1416,7 @@ spec:
         host: "{{.Host}}"
         subset: v1
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: route
@@ -1430,7 +1430,7 @@ spec:
   - labels:
       version: v2
     name: v2
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "{{.Host}}"
@@ -1454,7 +1454,7 @@ spec:
 		{
 			name: "PROXY",
 			config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "{{.Host}}"
@@ -1472,7 +1472,7 @@ spec:
 		{
 			name: "H2",
 			config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "{{.Host}}"
@@ -1517,7 +1517,7 @@ spec:
 
 func applyDrainingWorkaround(t framework.TestContext) {
 	// Workaround https://github.com/istio/istio/issues/43239
-	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
+	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: single-request
@@ -1823,7 +1823,7 @@ func TestServiceEntryInlinedWorkloadEntry(t *testing.T) {
 			// Configure a gateway with one app as the destination to be accessible through the ingress
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": apps.Captured[0].Config().Service,
-			}, `apiVersion: networking.istio.io/v1alpha3
+			}, `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -1837,7 +1837,7 @@ spec:
       protocol: HTTP
     hosts: ["*"]
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route
@@ -1853,7 +1853,7 @@ spec:
 `).ApplyOrFail(t)
 
 			cfg := config.YAML(`
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: test-se
@@ -1963,7 +1963,7 @@ func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
 			// Configure a gateway with one app as the destination to be accessible through the ingress
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": apps.Captured[0].Config().Service,
-			}, `apiVersion: networking.istio.io/v1alpha3
+			}, `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -1977,7 +1977,7 @@ spec:
       protocol: HTTP
     hosts: ["*"]
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route
@@ -1993,7 +1993,7 @@ spec:
 `).ApplyOrFail(t)
 
 			cfg := config.YAML(`
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: test-we
@@ -2004,7 +2004,7 @@ spec:
   labels:
     app: selected
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: test-se
@@ -2093,7 +2093,7 @@ func TestServiceEntrySelectsUncapturedPod(t *testing.T) {
 
 			cfg := config.YAML(`
 {{ $to := .To }}
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: test-se
@@ -2172,7 +2172,7 @@ func TestServiceEntryDNSWithAutoAssign(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			t.Skip("this will work once we resolve https://github.com/istio/ztunnel/issues/582")
-			yaml := `apiVersion: networking.istio.io/v1beta1
+			yaml := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: test-service-entry
@@ -2327,6 +2327,43 @@ func TestIngress(t *testing.T) {
 
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Destination": dst.Config().Service,
+		}, `apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+		src.CallOrFail(t, opt)
+	})
+}
+
+func TestIngressTLS(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]any{
+			"Destination": apps.Captured.Config().Service,
+			"Port":        ports.HTTPS.ServicePort,
 		}, `apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -2354,8 +2391,28 @@ spec:
   - route:
     - destination:
         host: "{{.Destination}}"
+        port:
+          number: {{.Port}}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "{{.Destination}}"
+spec:
+  host: "{{.Destination}}"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
 `).ApplyOrFail(t)
-		src.CallOrFail(t, opt)
+		istio.DefaultIngressOrFail(t, t).CallOrFail(t, echo.CallOptions{
+			Port:    echo.Port{Name: "https"},
+			Scheme:  scheme.HTTP,
+			Count:   5,
+			Timeout: time.Second * 2,
+			Check:   check.OK(),
+			To:      apps.Captured,
+		})
 	})
 }
 
@@ -2972,4 +3029,56 @@ func daemonsetsetComplete(ds *appsv1.DaemonSet) bool {
 	return ds.Status.UpdatedNumberScheduled == ds.Status.DesiredNumberScheduled &&
 		ds.Status.NumberReady == ds.Status.DesiredNumberScheduled &&
 		ds.Status.ObservedGeneration >= ds.Generation
+}
+
+func TestWaypointWithSidecarBackend(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			// Ensure we go through the waypoint (verified by modifying the request) and that we are doing mTLS.
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: add-header
+spec:
+  parentRefs:
+  - name: sidecar
+    kind: Service
+    group: ""
+    port: 80
+  rules:
+  - filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: greeting
+          value: "hello world!"
+    backendRefs:
+    - name: sidecar
+      port: 80
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: sidecar-must-go-through-waypoint
+spec:
+  selector:
+    matchLabels:
+      app: sidecar
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.}}/sa/waypoint"]`).
+				ApplyOrFail(t)
+			SetWaypoint(t, Sidecar, "waypoint")
+			client := apps.Captured
+			client[0].CallOrFail(t, echo.CallOptions{
+				To:   apps.Sidecar,
+				Port: ports.HTTP,
+				Check: check.And(
+					check.OK(),
+					check.RequestHeader("greeting", "hello world!")),
+			})
+		})
 }

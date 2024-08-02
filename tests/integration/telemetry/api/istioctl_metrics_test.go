@@ -38,15 +38,15 @@ func TestIstioctlMetrics(t *testing.T) {
 				if err := SendTraffic(GetClientInstances()[0]); err != nil {
 					return err
 				}
-				return validateDefaultOutput(t, GetTarget().Config().Service)
+				return validateDefaultOutput(t, GetTarget().Config().Service, ist.Settings().SystemNamespace)
 			}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 		})
 }
 
-func validateDefaultOutput(t framework.TestContext, workload string) error { // nolint:interfacer
+func validateDefaultOutput(t framework.TestContext, workload string, systemNamespace string) error { // nolint:interfacer
 	t.Helper()
 	istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-	args := []string{"experimental", "metrics", workload}
+	args := []string{"experimental", "metrics", workload, "-i", systemNamespace}
 	output, stderr, fErr := istioCtl.Invoke(args)
 	if fErr != nil {
 		t.Logf("Unwanted exception for 'istioctl %s': %v. Stderr: %v", strings.Join(args, " "), fErr, stderr)

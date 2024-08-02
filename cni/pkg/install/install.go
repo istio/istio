@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
@@ -41,7 +42,7 @@ type Installer struct {
 func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	return &Installer{
 		cfg:                cfg,
-		kubeconfigFilepath: filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename),
+		kubeconfigFilepath: filepath.Join(cfg.CNIAgentRunDir, constants.CNIPluginKubeconfName),
 		isReady:            isReady,
 	}
 }
@@ -56,10 +57,12 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 		return copiedFiles, fmt.Errorf("copy binaries: %v", err)
 	}
 
-	// Install kubeconfig (if needed) - we write/update this in the shared node CNI netdir,
-	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
-	// unless it's missing or the contents are not what we expect.
-	if err := maybeWriteKubeConfigFile(in.cfg); err != nil {
+	// Write kubeconfig with our current service account token as the contents, to the Istio agent rundir.
+	// We do not write this to the common/shared CNI config dir, because it's not CNI config, we do not
+	// need to watch it, and writing non-shared stuff to that location creates churn for other node agents.
+	// Only our plugin consumes this kubeconfig, and it resides in our owned rundir on the host node,
+	// so we are good to simply write it out if our watched svcacct token changes.
+	if err := writeKubeConfigFile(in.cfg); err != nil {
 		cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
 		return copiedFiles, fmt.Errorf("write kubeconfig: %v", err)
 	}
@@ -124,7 +127,7 @@ func (in *Installer) Cleanup() error {
 			// Read JSON from CNI config file
 			cniConfigMap, err := util.ReadCNIConfigMap(in.cniConfigFilepath)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to read CNI config map from file %s: %w", in.cniConfigFilepath, err)
 			}
 			// Find Istio CNI and remove from plugin list
 			plugins, err := util.GetPlugins(cniConfigMap)
@@ -144,15 +147,15 @@ func (in *Installer) Cleanup() error {
 
 			cniConfig, err := util.MarshalCNIConfig(cniConfigMap)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to marshal CNI config map in file %s: %w", in.cniConfigFilepath, err)
 			}
 			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
-				return err
+				return fmt.Errorf("failed to write updated CNI config to file %s: %w", in.cniConfigFilepath, err)
 			}
 		} else {
 			installLog.Infof("removing Istio CNI config file: %s", in.cniConfigFilepath)
 			if err := os.Remove(in.cniConfigFilepath); err != nil {
-				return err
+				return fmt.Errorf("failed to remove CNI config file %s: %w", in.cniConfigFilepath, err)
 			}
 		}
 	}
@@ -160,7 +163,7 @@ func (in *Installer) Cleanup() error {
 	if len(in.kubeconfigFilepath) > 0 && file.Exists(in.kubeconfigFilepath) {
 		installLog.Infof("removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
 		if err := os.Remove(in.kubeconfigFilepath); err != nil {
-			return err
+			return fmt.Errorf("failed to remove kubeconfig file %s: %w", in.kubeconfigFilepath, err)
 		}
 	}
 
@@ -168,7 +171,7 @@ func (in *Installer) Cleanup() error {
 		if istioCNIBin := filepath.Join(targetDir, "istio-cni"); file.Exists(istioCNIBin) {
 			installLog.Infof("removing binary: %s", istioCNIBin)
 			if err := os.Remove(istioCNIBin); err != nil {
-				return err
+				return fmt.Errorf("failed to remove binary %s: %w", istioCNIBin, err)
 			}
 		}
 	}

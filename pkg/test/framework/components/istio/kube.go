@@ -921,7 +921,7 @@ func genDefaultOperator(ctx resource.Context, cfg Config, iopFile string) (*iopv
 	args := commonInstallArgs(ctx, cfg, primary, cfg.PrimaryClusterIOPFile, iopFile)
 
 	var stdOut, stdErr bytes.Buffer
-	_, iop, err := manifest.GenerateConfig(
+	_, iop, err := manifest.GenerateIstioOperator(
 		args.Files,
 		args.Set,
 		false,

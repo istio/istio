@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 52016
+releaseNotes:
+- |
+  **Fixed** the istiod chart installation for older Helm versions (v3.6 and v3.7) by ensuring that `.Values.profile` is set to a string.

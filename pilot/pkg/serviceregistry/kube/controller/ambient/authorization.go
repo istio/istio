@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"istio.io/api/security/v1beta1"
-	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
+	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"

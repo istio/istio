@@ -24,7 +24,7 @@ spec:
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: {{ .Values.cni.rollingMaxUnavailable }}
+      maxUnavailable: {{ .Values.rollingMaxUnavailable }}
   template:
     metadata:
       labels:
@@ -38,15 +38,15 @@ spec:
         prometheus.io/port: "15014"
         prometheus.io/path: '/metrics'
         # Custom annotations
-        {{- if .Values.cni.podAnnotations }}
-{{ toYaml .Values.cni.podAnnotations | indent 8 }}
+        {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
         {{- end }}
     spec:
-      {{if .Values.cni.ambient.enabled }}hostNetwork: true{{ end }}
+      {{if .Values.ambient.enabled }}hostNetwork: true{{ end }}
       nodeSelector:
         kubernetes.io/os: linux
       # Can be configured to allow for excluding istio-cni from being scheduled on specified nodes
-      {{- with .Values.cni.affinity }}
+      {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -68,14 +68,19 @@ spec:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-{{- if contains "/" .Values.cni.image }}
-          image: "{{ .Values.cni.image }}"
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
 {{- else }}
-          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ template "istio-tag" . }}"
+          image: "{{ .Values.hub | default .Values.global.hub }}/{{ .Values.image | default "install-cni" }}:{{ template "istio-tag" . }}"
 {{- end }}
-{{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
+{{- if or .Values.pullPolicy .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
+          ports:
+          - containerPort: 15014
+            hostPort: 15014
+            name: metrics
+            protocol: TCP
           readinessProbe:
             httpGet:
               path: /readyz
@@ -102,14 +107,14 @@ spec:
               # network namespaces in `/proc` to obtain descriptors for entering pod netnamespaces.
               # There does not appear to be a more granular capability for this.
               - SYS_ADMIN
-{{- if .Values.cni.seccompProfile }}
+{{- if .Values.seccompProfile }}
             seccompProfile:
-{{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
+{{ toYaml .Values.seccompProfile | trim | indent 14 }}
 {{- end }}
           command: ["install-cni"]
           args:
-            {{- if or .Values.cni.logging.level .Values.global.logging.level }}
-            - --log_output_level={{ coalesce .Values.cni.logging.level .Values.global.logging.level }}
+            {{- if or .Values.logging.level .Values.global.logging.level }}
+            - --log_output_level={{ coalesce .Values.logging.level .Values.global.logging.level }}
             {{- end}}
             {{- if .Values.global.logAsJson }}
             - --log_as_json
@@ -150,7 +155,7 @@ spec:
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
-            {{- if or .Values.cni.repair.repairPods .Values.cni.ambient.enabled }}
+            {{- if or .Values.repair.repairPods .Values.ambient.enabled }}
             - mountPath: /host/proc
               name: cni-host-procfs
               readOnly: true
@@ -159,7 +164,7 @@ spec:
               name: cni-net-dir
             - mountPath: /var/run/istio-cni
               name: cni-socket-dir
-            {{- if .Values.cni.ambient.enabled }}
+            {{- if .Values.ambient.enabled }}
             - mountPath: /host/var/run/netns
               mountPropagation: HostToContainer
               name: cni-netns-dir
@@ -167,8 +172,8 @@ spec:
               name: cni-ztunnel-sock-dir
             {{ end }}
           resources:
-{{- if .Values.cni.resources }}
-{{ toYaml .Values.cni.resources | trim | indent 12 }}
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | trim | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
@@ -176,14 +181,14 @@ spec:
         # Used to install CNI.
         - name: cni-bin-dir
           hostPath:
-            path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
-        {{- if or .Values.cni.repair.repairPods .Values.cni.ambient.enabled }}
+            path: {{ .ValuesBinDir | default $defaultBinDir }}
+        {{- if or .Values.repair.repairPods .Values.ambient.enabled }}
         - name: cni-host-procfs
           hostPath:
             path: /proc
             type: Directory
         {{- end }}
-        {{- if .Values.cni.ambient.enabled }}
+        {{- if .Values.ambient.enabled }}
         - name: cni-ztunnel-sock-dir
           hostPath:
             path: /var/run/ztunnel
@@ -191,14 +196,14 @@ spec:
         {{- end }}
         - name: cni-net-dir
           hostPath:
-            path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
+            path: {{ default "/etc/cni/net.d" .ValuesConfDir }}
         # Used for UDS sockets for logging, ambient eventing
         - name: cni-socket-dir
           hostPath:
             path: /var/run/istio-cni
         - name: cni-netns-dir
           hostPath:
-            path: {{ .Values.cni.cniNetnsDir | default "/var/run/netns" }}
+            path: {{ .ValuesNetnsDir | default "/var/run/netns" }}
             type: DirectoryOrCreate # DirectoryOrCreate instead of Directory for the following reason - CNI may not bind mount this until a non-hostnetwork pod is scheduled on the node,
             # and we don't want to block CNI agent pod creation on waiting for the first non-hostnetwork pod.
             # Once the CNI does mount this, it will get populated and we're good.

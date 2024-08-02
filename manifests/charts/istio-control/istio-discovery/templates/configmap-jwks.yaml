@@ -1,4 +1,4 @@
-{{- if .Values.pilot.jwksResolverExtraRootCA }}
+{{- if .Values.jwksResolverExtraRootCA }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,5 +10,5 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
 data:
-  extra.pem: {{ .Values.pilot.jwksResolverExtraRootCA | quote }}
+  extra.pem: {{ .Values.jwksResolverExtraRootCA | quote }}
 {{- end }}

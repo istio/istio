@@ -89,7 +89,7 @@ func TestServiceExportController(t *testing.T) {
 				Name:      "manual-export",
 			},
 			Status: mcsapi.ServiceExportStatus{
-				Conditions: []mcsapi.ServiceExportCondition{
+				Conditions: []metav1.Condition{
 					{
 						Type: mcsapi.ServiceExportValid,
 					},
@@ -136,7 +136,7 @@ func assertServiceExport(t *testing.T, client kube.Client, ns, name string, shou
 	}, serviceExportTimeout)
 }
 
-func assertServiceExportHasCondition(t *testing.T, client kube.Client, ns, name string, condition mcsapi.ServiceExportConditionType) {
+func assertServiceExportHasCondition(t *testing.T, client kube.Client, ns, name string, condition string) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		gotU, err := client.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(ns).Get(context.TODO(), name, metav1.GetOptions{})

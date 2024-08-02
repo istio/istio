@@ -17,14 +17,10 @@ package validation_test
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-
 	v1alpha12 "istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
@@ -44,35 +40,6 @@ func TestValidateConfig(t *testing.T) {
 		errors   string
 		warnings string
 	}{
-		{
-			name: "addons",
-			value: &v1alpha12.IstioOperatorSpec{
-				AddonComponents: map[string]*v1alpha12.ExternalComponentSpec{
-					"grafana": {
-						Enabled: &wrappers.BoolValue{Value: true},
-					},
-				},
-				Values: util.MustStruct(map[string]any{
-					"grafana": map[string]any{
-						"enabled": true,
-					},
-				}),
-			},
-			errors: `! values.grafana.enabled is deprecated; use the samples/addons/ deployments instead
-, ! addonComponents.grafana.enabled is deprecated; use the samples/addons/ deployments instead
-`,
-		},
-		{
-			name: "global",
-			value: &v1alpha12.IstioOperatorSpec{
-				Values: util.MustStruct(map[string]any{
-					"global": map[string]any{
-						"localityLbSetting": map[string]any{"foo": "bar"},
-					},
-				}),
-			},
-			warnings: `! values.global.localityLbSetting is deprecated; use meshConfig.localityLbSetting instead`,
-		},
 		{
 			name: "unset target port",
 			values: `
@@ -256,7 +223,7 @@ components:
 					t.Fatal(err)
 				}
 			}
-			err, warnings := validation.ValidateConfig(false, iop)
+			err, warnings := validation.ValidateConfig(iop)
 			if tt.errors != err.String() {
 				t.Fatalf("expected errors: \n%q\n got: \n%q\n", tt.errors, err.String())
 			}
@@ -280,11 +247,11 @@ func TestValidateProfiles(t *testing.T) {
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
 	for _, tt := range profiles {
 		t.Run(tt, func(t *testing.T) {
-			_, s, err := manifest.GenIOPFromProfile(tt, "", []string{"installPackagePath=" + manifests}, false, false, nil, l)
+			_, s, err := manifest.GenerateIstioOperatorWithProfile(tt, "", []string{"installPackagePath=" + manifests}, false, false, nil, l)
 			if err != nil {
 				t.Fatal(err)
 			}
-			verr, warnings := validation.ValidateConfig(false, s.Spec)
+			verr, warnings := validation.ValidateConfig(s.Spec)
 			if verr != nil {
 				t.Fatalf("got error validating: %v", verr)
 			}
@@ -292,38 +259,5 @@ func TestValidateProfiles(t *testing.T) {
 				t.Fatalf("got warning validating: %v", warnings)
 			}
 		})
-	}
-}
-
-func TestValidate(t *testing.T) {
-	tests := []struct {
-		name       string
-		toValidate *v1alpha1.Values
-		validated  bool
-	}{
-		{
-			name:       "Empty struct",
-			toValidate: &v1alpha1.Values{},
-			validated:  true,
-		},
-		{
-			name: "With CNI defined",
-			toValidate: &v1alpha1.Values{
-				Cni: &v1alpha1.CNIConfig{
-					Enabled: &wrappers.BoolValue{Value: true},
-				},
-			},
-			validated: true,
-		},
-	}
-
-	for _, tt := range tests {
-		err := validation.ValidateSubTypes(reflect.ValueOf(tt.toValidate).Elem(), false, tt.toValidate, nil)
-		if len(err) != 0 && tt.validated {
-			t.Fatalf("Test %s failed with errors: %+v but supposed to succeed", tt.name, err)
-		}
-		if len(err) == 0 && !tt.validated {
-			t.Fatalf("Test %s failed as it is supposed to fail but succeeded", tt.name)
-		}
 	}
 }

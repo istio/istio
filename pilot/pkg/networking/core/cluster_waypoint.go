@@ -20,7 +20,6 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
 	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
@@ -40,7 +39,6 @@ import (
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
@@ -63,9 +61,7 @@ func buildInternalUpstreamCluster(proxyVersion *model.IstioVersion, name string,
 		},
 	}
 
-	if proxyVersion != nil && proxyVersion.Minor >= 23 {
-		c.AltStatName = name + constants.ClusterAltStatNameDelimeter
-	}
+	c.AltStatName = util.DelimitedStatsPrefix(name, proxyVersion)
 
 	return c
 }
@@ -183,14 +179,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	transportSocket := util.RawBufferTransport()
 	if tlsContext := buildWaypointTLSContext(opts, tls); tlsContext != nil {
 		transportSocket = &core.TransportSocket{
-			Name: "internal_upstream",
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-				PassthroughMetadata: util.TunnelHostMetadata,
-				TransportSocket: &core.TransportSocket{
-					Name:       wellknown.TransportSocketTLS,
-					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
-				},
-			})},
+			Name:       wellknown.TransportSocketTLS,
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 		}
 	}
 	if proxyProtocol != nil {
@@ -299,9 +289,8 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 	}
 	// Compliance for Envoy tunnel upstreams.
 	sec_model.EnforceCompliance(ctx)
-	return &cluster.Cluster{
+	c := &cluster.Cluster{
 		Name:                          ConnectOriginate,
-		AltStatName:                   ConnectOriginate + constants.ClusterAltStatNameDelimeter,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:                durationpb.New(2 * time.Second),
@@ -330,6 +319,10 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 			})},
 		},
 	}
+
+	c.AltStatName = util.DelimitedStatsPrefix(ConnectOriginate, proxy.IstioVersion)
+
+	return c
 }
 
 func h2connectUpgrade() map[string]*anypb.Any {

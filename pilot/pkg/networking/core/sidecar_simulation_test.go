@@ -486,7 +486,7 @@ func extractClusterMetadataServices(t test.Failer, c *cluster.Cluster) []string 
 }
 
 func mtlsMode(m string) string {
-	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -499,7 +499,7 @@ spec:
 
 func TestInbound(t *testing.T) {
 	svc := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se
@@ -1134,7 +1134,6 @@ ports:
 }
 
 func TestExternalNameServices(t *testing.T) {
-	test.SetForTest(t, &features.EnableExternalNameAlias, true)
 	ports := `
   - name: http
     port: 80
@@ -1194,7 +1193,7 @@ spec:
 
 	// HTTP Routes
 	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
-		config: `apiVersion: networking.istio.io/v1alpha3
+		config: `apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: alias
@@ -1269,7 +1268,7 @@ spec:
 
 	// TCP Routes
 	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
-		config: `apiVersion: networking.istio.io/v1alpha3
+		config: `apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: alias
@@ -1290,209 +1289,6 @@ spec:
 				Call: simulation.Call{Address: "1.2.3.4", Port: 82, Protocol: simulation.TCP, Path: "/one"},
 				Result: simulation.Result{
 					ClusterMatched: "outbound|82||concrete.default.svc.cluster.local",
-				},
-			},
-		},
-	})
-}
-
-func TestExternalNameServicesWithoutAliases(t *testing.T) {
-	test.SetForTest(t, &features.EnableExternalNameAlias, false)
-	ports := `
-  - name: http
-    port: 80
-  - name: auto
-    port: 81
-  - name: tcp
-    port: 82
-  - name: tls
-    port: 83
-  - name: https
-    port: 84`
-
-	type tc struct {
-		call     simulation.Call
-		expected string
-	}
-	calls := []simulation.Expect{}
-	for _, call := range []tc{
-		{call: simulation.Call{Address: "1.2.3.4", Port: 80, Protocol: simulation.HTTP, HostHeader: "alias.default.svc.cluster.local"}, expected: "alias"},
-
-		// Auto port should support any protocol
-		{call: simulation.Call{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, HostHeader: "alias.default.svc.cluster.local"}, expected: "concrete"},
-		{call: simulation.Call{Address: "1.1.1.1", Port: 81, Protocol: simulation.HTTP, HostHeader: "alias.default.svc.cluster.local"}, expected: "alias"},
-		{
-			call:     simulation.Call{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "alias.default.svc.cluster.local"},
-			expected: "concrete",
-		},
-		{call: simulation.Call{Address: "1.2.3.4", Port: 81, Protocol: simulation.TCP}, expected: "concrete"},
-
-		{call: simulation.Call{Address: "1.2.3.4", Port: 82, Protocol: simulation.TCP}, expected: "concrete"},
-
-		// Use short host name
-		{call: simulation.Call{Address: "1.2.3.4", Port: 83, Protocol: simulation.TCP, TLS: simulation.TLS, HostHeader: "alias.default"}, expected: "concrete"},
-		{call: simulation.Call{Address: "1.2.3.4", Port: 84, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "alias.default"}, expected: "concrete"},
-	} {
-		calls = append(calls, simulation.Expect{
-			Name: fmt.Sprintf("%s-%d", call.call.Protocol, call.call.Port),
-			Call: call.call,
-			Result: simulation.Result{
-				ClusterMatched: fmt.Sprintf("outbound|%d||%s.default.svc.cluster.local", call.call.Port, call.expected),
-			},
-		})
-	}
-	service := `apiVersion: v1
-kind: Service
-metadata:
-  name: alias
-  namespace: default
-spec:
-  type: ExternalName
-  externalName: concrete.default.svc.cluster.local
-  ports:` + ports + `
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: concrete
-  namespace: default
-spec:
-  clusterIP: 1.2.3.4
-  ports:` + ports
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
-		kubeConfig: service,
-		calls:      calls,
-	})
-
-	// HTTP Routes
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
-		config: `apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: alias
-spec:
-  hosts:
-  - alias.default.svc.cluster.local
-  http:
-  - name: "route1"
-    match:
-    - uri:
-        prefix: "/one"
-    route:
-    - destination:
-        host: concrete.default.svc.cluster.local`,
-		kubeConfig: service,
-		calls: []simulation.Expect{
-			{
-				// This work, Host is just an opaque hostname match
-				Name: "HTTP virtual service applies to alias fqdn",
-				Call: simulation.Call{Address: "1.2.3.4", Port: 80, Protocol: simulation.HTTP, HostHeader: "alias.default.svc.cluster.local", Path: "/one"},
-				Result: simulation.Result{
-					RouteMatched:   "route1",
-					ClusterMatched: "outbound|80||concrete.default.svc.cluster.local",
-				},
-			},
-			{
-				// Host is expanded
-				Name: "HTTP virtual service does apply to alias without exact match",
-				Call: simulation.Call{Address: "1.2.3.4", Port: 80, Protocol: simulation.HTTP, HostHeader: "alias.default", Path: "/one"},
-				Result: simulation.Result{
-					RouteMatched:   "route1",
-					ClusterMatched: "outbound|80||concrete.default.svc.cluster.local",
-				},
-			},
-			{
-				Name: "HTTP virtual service of alias does not apply to concrete",
-				Call: simulation.Call{Address: "1.2.3.4", Port: 80, Protocol: simulation.HTTP, HostHeader: "concrete.default.svc.cluster.local", Path: "/one"},
-				Result: simulation.Result{
-					RouteMatched:   "default",
-					ClusterMatched: "outbound|80||concrete.default.svc.cluster.local",
-				},
-			},
-			// Auto
-			{
-				// No opaque host match for auto
-				Name: "Auto virtual service applies to alias fqdn",
-				Call: simulation.Call{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, HostHeader: "alias.default.svc.cluster.local", Path: "/one"},
-				Result: simulation.Result{
-					RouteMatched:   "default",
-					ClusterMatched: "outbound|81||concrete.default.svc.cluster.local",
-				},
-			},
-			{
-				// Host is opaque, so no expansion
-				Name: "Auto virtual service does not apply to alias without exact match",
-				Call: simulation.Call{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, HostHeader: "alias.default", Path: "/one"},
-				Result: simulation.Result{
-					RouteMatched:   "default",
-					ClusterMatched: "outbound|81||concrete.default.svc.cluster.local",
-				},
-			},
-			{
-				Name: "Auto virtual service of alias does not apply to concrete",
-				Call: simulation.Call{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, HostHeader: "concrete.default.svc.cluster.local", Path: "/one"},
-				Result: simulation.Result{
-					RouteMatched:   "default",
-					ClusterMatched: "outbound|81||concrete.default.svc.cluster.local",
-				},
-			},
-		},
-	})
-
-	// TCP Routes
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
-		config: `apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: alias
-spec:
-  hosts:
-  - alias.default.svc.cluster.local
-  tcp:
-  - name: "route1"
-    route:
-    - destination:
-        host: concrete.default.svc.cluster.local
-        port:
-          number: 80`,
-		kubeConfig: service,
-		calls: []simulation.Expect{
-			{
-				Name: "TCP virtual services do not apply",
-				Call: simulation.Call{Address: "1.2.3.4", Port: 82, Protocol: simulation.TCP, Path: "/one"},
-				Result: simulation.Result{
-					ClusterMatched: "outbound|82||concrete.default.svc.cluster.local",
-				},
-			},
-		},
-	})
-
-	// HTTP Routes to alias
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
-		config: `apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: alias
-spec:
-  hosts:
-  - example.com
-  http:
-  - name: "route1"
-    match:
-    - uri:
-        prefix: "/one"
-    route:
-    - destination:
-        host: alias.default.svc.cluster.local`,
-		kubeConfig: service,
-		calls: []simulation.Expect{
-			{
-				// This work, Host is just an opaque hostname match
-				Name: "HTTP route to alias",
-				Call: simulation.Call{Port: 80, Protocol: simulation.HTTP, HostHeader: "example.com", Path: "/one"},
-				Result: simulation.Result{
-					RouteMatched:   "route1",
-					ClusterMatched: "outbound|80||alias.default.svc.cluster.local",
 				},
 			},
 		},
@@ -1595,7 +1391,7 @@ func TestPassthroughTraffic(t *testing.T) {
 				runSimulationTest(t, nil, o,
 					simulationTest{
 						config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se
@@ -1638,7 +1434,7 @@ spec:
 				runSimulationTest(t, nil, o,
 					simulationTest{
 						config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se
@@ -1685,7 +1481,7 @@ func TestLoop(t *testing.T) {
 
 func TestInboundSidecarTLSModes(t *testing.T) {
 	peerAuthConfig := func(m string) string {
-		return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+		return fmt.Sprintf(`apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: peer-auth
@@ -1704,7 +1500,7 @@ spec:
 	}
 	sidecarSimple := func(protocol string) string {
 		return fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   labels:
@@ -1730,7 +1526,7 @@ spec:
 	}
 	sidecarMutual := func(protocol string) string {
 		return fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   labels:
@@ -2031,7 +1827,7 @@ spec:
       port: {{.Port | default 80}}
 `, args)
 	case "virtualservice":
-		return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+		return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: "{{.Namespace}}{{.Match | replace "*" "wild"}}{{.Dest}}"
@@ -2066,7 +1862,7 @@ type scArgs struct {
 }
 
 func (args scArgs) Config(t *testing.T, variant string) string {
-	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: "{{.Namespace}}"
@@ -2131,7 +1927,6 @@ spec:
 		routeName       string
 		expected        map[string][]string
 		expectedGateway map[string][]string
-		oldestWins      bool
 	}{
 		// Port 80 has special cases as there is defaulting logic around this port
 		{
@@ -2424,40 +2219,6 @@ spec:
 			},
 		},
 		{
-			name: "wildcard first then explicit (oldest wins feature flag)",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "*.cluster.local",
-					Dest:      "wild.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "explicit.example.com",
-					Time:      TimeNewer,
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"}, // oldest wins
-				// Matched an exact service, so we have no route for the wildcard
-				"*.cluster.local": nil,
-			},
-			expectedGateway: map[string][]string{
-				// No overrides, use default
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				// Explicit has precedence
-				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
-				// Last is our wildcard
-				"*.cluster.local": {"outbound|80||wild.example.com"},
-			},
-			oldestWins: true,
-		},
-		{
 			name: "wildcard first then explicit",
 			cfg: []Configer{
 				vsArgs{
@@ -2522,46 +2283,6 @@ spec:
 				// Last is our wildcard
 				"*.cluster.local": {"outbound|80||wild.example.com"},
 			},
-		},
-		{
-			name: "wildcard and explicit with sidecar (oldest wins feature flag)",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "*.cluster.local",
-					Dest:      "wild.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "explicit.example.com",
-					Time:      TimeNewer,
-				},
-				scArgs{
-					Namespace: "default",
-					Egress:    []string{"default/known.default.svc.cluster.local", "default/alt-known.default.svc.cluster.local"},
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// Even though we did not import `*.cluster.local`, the VS attaches
-				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				// Oldest wins
-				"known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				// Matched an exact service, so we have no route for the wildcard
-				"*.cluster.local": nil,
-			},
-			expectedGateway: map[string][]string{
-				// No rule imported
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				// Imported rule
-				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
-				// Not imported
-				"*.cluster.local": nil,
-			},
-			oldestWins: true,
 		},
 		{
 			name: "wildcard and explicit with sidecar",
@@ -2631,40 +2352,6 @@ spec:
 				// Matched an exact service, so we have no route for the wildcard
 				"*.cluster.local": nil,
 			},
-		},
-		{
-			name: "wildcard and explicit cross namespace (oldest wins feature flag)",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "not-default",
-					Match:     "*.cluster.local",
-					Dest:      "wild.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "explicit.example.com",
-					Time:      TimeNewer,
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// Wildcard is older, so it wins, even though it is cross namespace
-				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"},
-				// Matched an exact service, so we have no route for the wildcard
-				"*.cluster.local": nil,
-			},
-			expectedGateway: map[string][]string{
-				// Exact match wins
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
-				// Wildcard last
-				"*.cluster.local": {"outbound|80||wild.example.com"},
-			},
-			oldestWins: true,
 		},
 		{
 			name: "wildcard and explicit cross namespace",
@@ -2923,11 +2610,7 @@ spec:
 			for _, tt := range cases {
 				tt := tt
 				t.Run(tt.name, func(t *testing.T) {
-					if tt.oldestWins {
-						test.SetForTest(t, &features.PersistOldestWinsHeuristicForVirtualServiceHostMatching, true)
-					} else {
-						t.Parallel() // feature flags and parallel tests don't mix
-					}
+					t.Parallel() // feature flags and parallel tests don't mix
 					cfg := knownServices
 					for _, tc := range tt.cfg {
 						cfg = cfg + "\n---\n" + tc.Config(t, variant)

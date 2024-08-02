@@ -196,17 +196,20 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 
 			cn := s.GetTls().GetCredentialName()
 			if cn != "" && proxy.VerifiedIdentity != nil {
-				rn := credentials.ToResourceName(cn)
-				parse, _ := credentials.ParseResourceName(rn, proxy.VerifiedIdentity.Namespace, "", "")
-				if gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace && parse.Namespace == proxy.VerifiedIdentity.Namespace {
-					// Same namespace is always allowed
-					verifiedCertificateReferences.Insert(rn)
-					if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
-						verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
+				// Ignore BuiltinGatewaySecretTypeURI, as it is not referencing a Secret at all
+				if !strings.HasPrefix(cn, credentials.BuiltinGatewaySecretTypeURI) {
+					rn := credentials.ToResourceName(cn)
+					parse, err := credentials.ParseResourceName(rn, proxy.VerifiedIdentity.Namespace, "", "")
+					if err == nil && gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace && parse.Namespace == proxy.VerifiedIdentity.Namespace {
+						// Same namespace is always allowed
+						verifiedCertificateReferences.Insert(rn)
+						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
+							verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
+						}
+					} else if ps.ReferenceAllowed(gvk.Secret, rn, proxy.VerifiedIdentity.Namespace) {
+						// Explicitly allowed by some policy
+						verifiedCertificateReferences.Insert(rn)
 					}
-				} else if ps.ReferenceAllowed(gvk.Secret, rn, proxy.VerifiedIdentity.Namespace) {
-					// Explicitly allowed by some policy
-					verifiedCertificateReferences.Insert(rn)
 				}
 			}
 			for _, resolvedPort := range resolvePorts(s.Port.Number, gwAndInstance.instances, gwAndInstance.legacyGatewaySelector) {

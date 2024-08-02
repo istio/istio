@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
@@ -18,7 +18,7 @@ spec:
       protocol: TLS
     tls: {}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
@@ -38,7 +38,7 @@ spec:
       protocol: TLS
     tls: {}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
@@ -59,7 +59,7 @@ spec:
     tls:
       mode: AUTO_PASSTHROUGH
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   annotations:
@@ -83,7 +83,7 @@ spec:
         port:
           number: 15012
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   annotations:

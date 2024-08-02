@@ -25,7 +25,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	networking "istio.io/api/networking/v1alpha3"
-	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
@@ -114,9 +114,11 @@ func TestServiceEntryServices(t *testing.T) {
 				Status: networking.ServiceEntryStatus{
 					Addresses: []*networking.ServiceEntryAddress{
 						{
+							Host:  "assign-me.example.com",
 							Value: "240.240.0.1",
 						},
 						{
+							Host:  "assign-me.example.com",
 							Value: "2001:2::1",
 						},
 					},
@@ -135,6 +137,90 @@ func TestServiceEntryServices(t *testing.T) {
 						{
 							Network: testNW,
 							Address: netip.MustParseAddr("2001:2::1").AsSlice(),
+						},
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+					SubjectAltNames: []string{"san1"},
+				},
+			},
+		},
+		{
+			name:   "Uses multiple auto-assigned addresses",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "multi-host-auto-assigned",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Hosts: []string{
+						"multi-host-assign-me.example.com",
+						"second-host-assign-me.example.com",
+					},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					SubjectAltNames: []string{"san1"},
+					Resolution:      networking.ServiceEntry_DNS,
+				},
+				Status: networking.ServiceEntryStatus{
+					Addresses: []*networking.ServiceEntryAddress{
+						{
+							Host:  "multi-host-assign-me.example.com",
+							Value: "240.240.0.1",
+						},
+						{
+							Host:  "multi-host-assign-me.example.com",
+							Value: "2001:2::1",
+						},
+						{
+							Host:  "second-host-assign-me.example.com",
+							Value: "240.240.0.2",
+						},
+						{
+							Host:  "second-host-assign-me.example.com",
+							Value: "2001:2::2",
+						},
+					},
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "multi-host-auto-assigned",
+					Namespace: "ns",
+					Hostname:  "multi-host-assign-me.example.com",
+					Addresses: []*workloadapi.NetworkAddress{
+						{
+							Network: testNW,
+							Address: netip.AddrFrom4([4]byte{240, 240, 0, 1}).AsSlice(),
+						},
+						{
+							Network: testNW,
+							Address: netip.MustParseAddr("2001:2::1").AsSlice(),
+						},
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+					SubjectAltNames: []string{"san1"},
+				},
+				{
+					Name:      "multi-host-auto-assigned",
+					Namespace: "ns",
+					Hostname:  "second-host-assign-me.example.com",
+					Addresses: []*workloadapi.NetworkAddress{
+						{
+							Network: testNW,
+							Address: netip.AddrFrom4([4]byte{240, 240, 0, 2}).AsSlice(),
+						},
+						{
+							Network: testNW,
+							Address: netip.MustParseAddr("2001:2::2").AsSlice(),
 						},
 					},
 					Ports: []*workloadapi.Port{{
@@ -166,9 +252,11 @@ func TestServiceEntryServices(t *testing.T) {
 				Status: networking.ServiceEntryStatus{
 					Addresses: []*networking.ServiceEntryAddress{
 						{
+							Host:  "user-provided.example.com",
 							Value: "240.240.0.1",
 						},
 						{
+							Host:  "user-provided.example.com",
 							Value: "2001:2::1",
 						},
 					},
@@ -213,9 +301,11 @@ func TestServiceEntryServices(t *testing.T) {
 				Status: networking.ServiceEntryStatus{
 					Addresses: []*networking.ServiceEntryAddress{
 						{
+							Host:  "none-resolution.example.com",
 							Value: "240.240.0.1",
 						},
 						{
+							Host:  "none-resolution.example.com",
 							Value: "2001:2::1",
 						},
 					},
@@ -258,9 +348,11 @@ func TestServiceEntryServices(t *testing.T) {
 				Status: networking.ServiceEntryStatus{
 					Addresses: []*networking.ServiceEntryAddress{
 						{
+							Host:  "user-opt-out.example.com",
 							Value: "240.240.0.1",
 						},
 						{
+							Host:  "user-opt-out.example.com",
 							Value: "2001:2::1",
 						},
 					},
@@ -300,9 +392,11 @@ func TestServiceEntryServices(t *testing.T) {
 				Status: networking.ServiceEntryStatus{
 					Addresses: []*networking.ServiceEntryAddress{
 						{
+							Host:  "this-is-ok.example.com",
 							Value: "240.240.0.1",
 						},
 						{
+							Host:  "this-is-ok.example.com",
 							Value: "2001:2::1",
 						},
 					},
@@ -495,6 +589,39 @@ func TestServiceServices(t *testing.T) {
 						workloadapi.LoadBalancing_SUBZONE,
 					},
 					Mode: workloadapi.LoadBalancing_FAILOVER,
+				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+				}},
+			},
+		},
+		{
+			name:   "publishNotReadyAddresses",
+			inputs: []any{},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: v1.ServiceSpec{
+					PublishNotReadyAddresses: true,
+					ClusterIP:                "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				LoadBalancing: &workloadapi.LoadBalancing{
+					HealthPolicy: workloadapi.LoadBalancing_ALLOW_ALL,
 				},
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,

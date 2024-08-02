@@ -89,11 +89,6 @@ func Run() error {
 			"Packages":    inp.Packages,
 			"PackageName": "kubeclient",
 		}),
-		writeTemplate("pilot/pkg/config/kube/crdclient/types.gen.go", crdclientTemplate, map[string]any{
-			"Entries":     inp.Entries,
-			"Packages":    inp.Packages,
-			"PackageName": "crdclient",
-		}),
 		writeTemplate("pkg/config/schema/kind/resources.gen.go", kindTemplate, map[string]any{
 			"Entries":     kindEntries,
 			"PackageName": "kind",

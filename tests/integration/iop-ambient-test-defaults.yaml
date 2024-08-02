@@ -16,6 +16,9 @@ spec:
         # For that, DNS capture must be enabled in the CNI
         # and DNS proxying must be enabled in ztunnel
         dnsCapture: true
+    pilot:
+      env:
+        PILOT_ENABLE_IP_AUTOALLOCATE: "true"
     ztunnel:
       meshConfig:
         defaultConfig:

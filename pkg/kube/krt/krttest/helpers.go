@@ -56,7 +56,7 @@ func GetMockSingleton[T any](mc *MockCollection) krt.StaticSingleton[T] {
 		mc.t.Helper()
 		mc.t.Fatalf("multiple types returned")
 	}
-	return krt.NewStatic(slices.First(t))
+	return krt.NewStatic(slices.First(t), true)
 }
 
 func extractType[T any](items *[]any) []T {

@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/testhelpers"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -195,7 +196,7 @@ values:
 				}
 				cpYaml, _ := yaml.JSONToYAML(byteArray)
 				if want := tt.want; !util.IsYAMLEqual(string(byteArray), want) {
-					t.Errorf("ValuesToProto(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, string(cpYaml), want, util.YAMLDiff(string(byteArray), want))
+					t.Errorf("ValuesToProto(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, string(cpYaml), want, testhelpers.YAMLDiff(string(byteArray), want))
 				}
 
 			}
@@ -890,7 +891,7 @@ spec:
 			}
 			if tt.wantErr == "" {
 				if want := tt.want; !util.IsYAMLEqual(gotSpec, want) {
-					t.Errorf("ValuesToK8s(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, gotSpec, want, util.YAMLDiff(gotSpec, want))
+					t.Errorf("ValuesToK8s(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, gotSpec, want, testhelpers.YAMLDiff(gotSpec, want))
 				}
 			}
 		})

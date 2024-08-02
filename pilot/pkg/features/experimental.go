@@ -129,12 +129,6 @@ var (
 		return val
 	}()
 
-	EnableStatus = env.Register(
-		"PILOT_ENABLE_STATUS",
-		false,
-		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
-	).Get()
-
 	EnableGatewayAPI = env.Register("PILOT_ENABLE_GATEWAY_API", true,
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
 			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
@@ -189,10 +183,6 @@ var (
 
 	PassthroughTargetPort = env.Register("ENABLE_RESOLUTION_NONE_TARGET_PORT", true,
 		"If enabled, targetPort will be supported for resolution=NONE ServiceEntry").Get()
-
-	PersistOldestWinsHeuristicForVirtualServiceHostMatching = env.Register("PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", false,
-		"If enabled, istiod will persist the oldest first heuristic for subtly conflicting traffic policy selection"+
-			"(such as with overlapping wildcard hosts)").Get()
 
 	Enable100ContinueHeaders = env.Register("ENABLE_100_CONTINUE_HEADERS", true,
 		"If enabled, istiod will proxy 100-continue headers as is").Get()

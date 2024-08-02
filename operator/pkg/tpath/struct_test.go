@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/testhelpers"
 )
 
 func TestGetFromStructPath(t *testing.T) {
@@ -153,7 +154,7 @@ g:
 				return
 			}
 			gotYAML := util.ToYAML(GotOut)
-			diff := util.YAMLDiff(gotYAML, tt.wantYAML)
+			diff := testhelpers.YAMLDiff(gotYAML, tt.wantYAML)
 			if diff != "" {
 				t.Errorf("GetFromStructPath(%s): YAML of gotOut:\n%s\n, YAML of wantOut:\n%s\n, diff:\n%s\n", tt.desc, gotYAML, tt.wantYAML, diff)
 			}

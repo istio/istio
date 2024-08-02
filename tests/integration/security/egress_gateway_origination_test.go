@@ -266,7 +266,7 @@ func newTLSGateway(t framework.TestContext, clientNamespace namespace.Instance,
 	args := map[string]any{"to": to, "EgressNamespace": egressNs, "EgressService": egressSvc, "EgressLabel": egressLabel}
 
 	gateway := `
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: istio-egressgateway-sds
@@ -283,7 +283,7 @@ spec:
       tls:
         mode: ISTIO_MUTUAL
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: egressgateway-for-server-sds
@@ -300,7 +300,7 @@ spec:
           sni: {{ .to.Config.ClusterLocalFQDN }}
 `
 	vs := `
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route-via-egressgateway-sds
@@ -352,7 +352,7 @@ func newTLSGatewayDestinationRule(t framework.TestContext, to echo.Instances, de
 	systemNS := namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 
 	dr := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: originate-tls-for-server-sds-{{.CredentialName}}

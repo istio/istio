@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
@@ -53,6 +54,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/sets"
@@ -61,7 +63,7 @@ import (
 )
 
 const originateTLSTmpl = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "{{.VirtualServiceHost|replace "*" "wild"}}"
@@ -76,7 +78,7 @@ spec:
 `
 
 const httpVirtualServiceTmpl = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: "{{.VirtualServiceHost|replace "*" "wild"}}"
@@ -114,7 +116,7 @@ func httpVirtualService(gateway, host string, port int) string {
 }
 
 const tcpVirtualServiceTmpl = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: "{{.VirtualServiceHost|replace "*" "wild"}}"
@@ -145,7 +147,7 @@ func tcpVirtualService(gateway, host, destHost string, sourcePort, targetPort in
 }
 
 const gatewayTmpl = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -198,7 +200,7 @@ func virtualServiceCases(t TrafficContext) {
 	t.RunTraffic(TrafficTestCase{
 		name: "added header",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -227,7 +229,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "set header",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -256,7 +258,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "set authority header",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -285,7 +287,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header in destination",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -314,7 +316,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "set authority header in destination",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -343,7 +345,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header in route and destination",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -376,7 +378,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header in route and multi destination",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -413,7 +415,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header multi destination",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -450,7 +452,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "redirect",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -487,7 +489,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "redirect port and scheme",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -520,7 +522,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "redirect request port",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -621,7 +623,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "rewrite uri",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -654,7 +656,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "rewrite authority",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -690,7 +692,7 @@ spec:
 		targetMatchers: []match.Matcher{match.NotTProxy, match.NotVM, match.NotNaked, match.NotHeadless, match.NotProxylessGRPC},
 
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -778,7 +780,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "retry conditions",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -806,7 +808,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "fault abort",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -834,7 +836,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "fault abort gRPC",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -864,7 +866,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		name: "catch all route short circuit the other routes",
 		config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -921,7 +923,7 @@ spec:
 			},
 			config: `
 {{ $split := .split }}
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -998,7 +1000,7 @@ spec:
 		t.RunTraffic(TrafficTestCase{
 			name: "without headers",
 			config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs
@@ -1082,7 +1084,7 @@ spec:
 		t.RunTraffic(TrafficTestCase{
 			name: "without headers regex convert to present_match",
 			config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs
@@ -1166,7 +1168,7 @@ spec:
 		t.RunTraffic(TrafficTestCase{
 			name: "without headers regex match any string",
 			config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs
@@ -1258,7 +1260,7 @@ func tlsOriginationCases(t TrafficContext) {
 	tc := TrafficTestCase{
 		name: "DNS",
 		config: fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: external
@@ -1309,7 +1311,7 @@ spec:
 	tc = TrafficTestCase{
 		name: "NONE",
 		config: fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: external
@@ -1320,7 +1322,7 @@ spec:
       mode: SIMPLE
       insecureSkipVerify: true
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: alt-external-service
@@ -1374,7 +1376,7 @@ spec:
 	tc = TrafficTestCase{
 		name: "Redirect NONE",
 		config: tmpl.MustEvaluate(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: external
@@ -1385,7 +1387,7 @@ spec:
       mode: SIMPLE
       insecureSkipVerify: true
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: httpbin.org
@@ -1399,7 +1401,7 @@ spec:
         port:
           number: 443
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: alt-external-service
@@ -1602,7 +1604,7 @@ func autoPassthroughCases(t TrafficContext) {
 		t.RunTraffic(TrafficTestCase{
 			config: globalPeerAuthentication(mode) + `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: cross-network-gateway-test
@@ -1702,7 +1704,7 @@ func gatewayCases(t TrafficContext) {
 		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
-		config: `apiVersion: networking.istio.io/v1alpha3
+		config: `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -1740,7 +1742,7 @@ spec:
 		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
-		config: `apiVersion: networking.istio.io/v1alpha3
+		config: `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -1860,7 +1862,7 @@ spec:
 		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
-		config: `apiVersion: networking.istio.io/v1alpha3
+		config: `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -1903,7 +1905,7 @@ spec:
 		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
-		config: `apiVersion: networking.istio.io/v1alpha3
+		config: `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -1979,7 +1981,7 @@ spec:
 		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
-		config: `apiVersion: networking.istio.io/v1alpha3
+		config: `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -2022,7 +2024,7 @@ spec:
 		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
-		config: `apiVersion: networking.istio.io/v1alpha3
+		config: `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -2074,7 +2076,7 @@ spec:
 		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
-		config: `apiVersion: networking.istio.io/v1alpha3
+		config: `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -2163,7 +2165,7 @@ spec:
 				targetMatchers:   matchers,
 				workloadAgnostic: true,
 				viaIngress:       true,
-				config: `apiVersion: networking.istio.io/v1alpha3
+				config: `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -2330,7 +2332,7 @@ func TestUpstreamProxyProtocol(t TrafficContext) {
 	d := t.Apps.B
 	fqdn := d.Config().ClusterLocalFQDN()
 	destRule := fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: proxy
@@ -2913,7 +2915,7 @@ spec:
 
 			destRule := fmt.Sprintf(`
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: %s
@@ -2927,7 +2929,7 @@ spec:
 
 			cookieWithTTLDest := fmt.Sprintf(`
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: %s
@@ -2943,7 +2945,7 @@ spec:
 
 			cookieWithoutTTLDest := fmt.Sprintf(`
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: %s
@@ -3423,7 +3425,7 @@ func instanceIPTests(t TrafficContext) {
 			var config string
 			if !ipCase.disableSidecar {
 				config = fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: sidecar
@@ -3469,7 +3471,7 @@ type vmCase struct {
 func DNSTestCases(t TrafficContext) {
 	makeSE := func(ips ...string) string {
 		return tmpl.MustEvaluate(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: dns
@@ -3481,71 +3483,97 @@ spec:
   - "{{$ip}}"
 {{ end }}
   resolution: STATIC
-  endpoints: []
+  endpoints:
+  - address: "10.0.0.1"
   ports:
   - number: 80
     name: http
     protocol: HTTP
 `, map[string]any{"IPs": ips})
 	}
-	ipv4 := "1.2.3.4"
-	ipv6 := "1234:1234:1234::1234:1234:1234"
+	ipv4 := []string{"1.2.3.4", "1.2.3.5"}
+	ipv6 := []string{"1234:1234:1234::1234:1234:1234", "1235:1235:1235::1235:1235:1235"}
 	dummyLocalhostServer := "127.0.0.1"
-	cases := []struct {
-		name string
-		// TODO(https://github.com/istio/istio/issues/30282) support multiple vips
-		ips      string
-		protocol string
-		server   string
-		skipCNI  bool
-		expected []string
-	}{
-		{
-			name:     "tcp ipv4",
-			ips:      ipv4,
-			expected: []string{ipv4},
-			protocol: "tcp",
-		},
-		{
-			name:     "udp ipv4",
-			ips:      ipv4,
-			expected: []string{ipv4},
-			protocol: "udp",
-		},
-		{
-			name:     "tcp ipv6",
-			ips:      ipv6,
-			expected: []string{ipv6},
-			protocol: "tcp",
-		},
-		{
-			name:     "udp ipv6",
-			ips:      ipv6,
-			expected: []string{ipv6},
-			protocol: "udp",
-		},
-		{
-			// We should only capture traffic to servers in /etc/resolv.conf nameservers
-			// This checks we do not capture traffic to other servers.
-			// This is important for cases like app -> istio dns server -> dnsmasq -> upstream
-			// If we captured all DNS traffic, we would loop dnsmasq traffic back to our server.
-			name:     "tcp localhost server",
-			ips:      ipv4,
-			expected: nil,
-			protocol: "tcp",
-			skipCNI:  true,
-			server:   dummyLocalhostServer,
-		},
-		{
-			name:     "udp localhost server",
-			ips:      ipv4,
-			expected: nil,
-			protocol: "udp",
-			skipCNI:  true,
-			server:   dummyLocalhostServer,
-		},
-	}
+
 	for _, client := range flatten(t.Apps.VM, t.Apps.A, t.Apps.Tproxy) {
+		v4, v6 := getSupportedIPFamilies(t, client)
+		var expectedIPv4, expectedIPv6 []string
+		if v4 && v6 {
+			expectedIPv4 = ipv4
+			expectedIPv6 = ipv6
+		} else if v4 {
+			expectedIPv4 = ipv4
+			expectedIPv6 = ipv6[:1]
+		} else {
+			expectedIPv4 = ipv4[:1]
+			expectedIPv6 = ipv6
+		}
+		// If a client is deployed in a remote cluster, which is not a config cluster, i.e. Istio resources
+		// are not created in that cluster, it will resolve only the default address, because the ServiceEntry
+		// created in this test is internally assigned to the config cluster, so function GetAllAddressesForProxy(remote),
+		// will only return the default address for that service.
+		remotes := client.Clusters().Remotes()
+		if len(remotes) > 0 && len(remotes.Configs()) == 0 {
+			if v4 {
+				expectedIPv4 = []string{"1.2.3.4"}
+			}
+			if v6 {
+				expectedIPv6 = []string{"1234:1234:1234::1234:1234:1234"}
+			}
+		}
+		cases := []struct {
+			name     string
+			ips      []string
+			protocol string
+			server   string
+			skipCNI  bool
+			expected []string
+		}{
+			{
+				name:     "tcp ipv4",
+				ips:      ipv4,
+				expected: expectedIPv4,
+				protocol: "tcp",
+			},
+			{
+				name:     "udp ipv4",
+				ips:      ipv4,
+				expected: expectedIPv4,
+				protocol: "udp",
+			},
+			{
+				name:     "tcp ipv6",
+				ips:      ipv6,
+				expected: expectedIPv6,
+				protocol: "tcp",
+			},
+			{
+				name:     "udp ipv6",
+				ips:      ipv6,
+				expected: expectedIPv6,
+				protocol: "udp",
+			},
+			{
+				// We should only capture traffic to servers in /etc/resolv.conf nameservers
+				// This checks we do not capture traffic to other servers.
+				// This is important for cases like app -> istio dns server -> dnsmasq -> upstream
+				// If we captured all DNS traffic, we would loop dnsmasq traffic back to our server.
+				name:     "tcp localhost server",
+				ips:      ipv4,
+				expected: nil,
+				protocol: "tcp",
+				skipCNI:  true,
+				server:   dummyLocalhostServer,
+			},
+			{
+				name:     "udp localhost server",
+				ips:      ipv4,
+				expected: nil,
+				protocol: "udp",
+				skipCNI:  true,
+				server:   dummyLocalhostServer,
+			},
+		}
 		for _, tt := range cases {
 			if tt.skipCNI && t.Istio.Settings().EnableCNI {
 				continue
@@ -3571,7 +3599,7 @@ spec:
 			}
 			t.RunTraffic(TrafficTestCase{
 				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
-				config: makeSE(tt.ips),
+				config: makeSE(tt.ips...),
 				call:   client.CallOrFail,
 				opts: echo.CallOptions{
 					Scheme:  scheme.DNS,
@@ -3736,7 +3764,7 @@ func VMTestCases(vms echo.Instances) func(t TrafficContext) {
 func TestExternalService(t TrafficContext) {
 	// Let us enable outboundTrafficPolicy REGISTRY_ONLY
 	// on one of the workloads, to verify selective external connectivity
-	SidecarScope := fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+	SidecarScope := fmt.Sprintf(`apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: restrict-external-service
@@ -3856,7 +3884,7 @@ func testServiceEntryWithMultipleVIPsAndResolutionNone(t TrafficContext) {
 	}
 
 	serviceEntry := tmpl.MustEvaluate(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: server-default-svc
@@ -3895,7 +3923,7 @@ spec:
 }
 
 func destinationRule(app, mode string) string {
-	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: %s
@@ -3908,7 +3936,7 @@ spec:
 `, app, app, mode)
 }
 
-const useClientProtocolDestinationRuleTmpl = `apiVersion: networking.istio.io/v1beta1
+const useClientProtocolDestinationRuleTmpl = `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: use-client-protocol
@@ -3928,7 +3956,7 @@ func useClientProtocolDestinationRule(app string) string {
 }
 
 func idletimeoutDestinationRule(name, app string) string {
-	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: %s
@@ -3945,7 +3973,7 @@ spec:
 }
 
 func peerAuthentication(app, mode string) string {
-	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: %s
@@ -3960,7 +3988,7 @@ spec:
 }
 
 func globalPeerAuthentication(mode string) string {
-	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -4040,7 +4068,7 @@ func jwtClaimRoute(t TrafficContext) {
 		t.Skipf("https://github.com/istio/istio/issues/35835")
 	}
 	configRoute := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -4055,7 +4083,7 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: default
@@ -4088,7 +4116,7 @@ spec:
 ---
 `
 	configAll := configRoute + `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
   name: default
@@ -5118,4 +5146,20 @@ func createService(t TrafficContext, name, ns, appLabelValue string, instances i
 		}
 	}
 	return clusterIPs
+}
+
+func getSupportedIPFamilies(t framework.TestContext, instace echo.Instance) (v4 bool, v6 bool) {
+	for _, a := range instace.WorkloadsOrFail(t).Addresses() {
+		ip, err := netip.ParseAddr(a)
+		assert.NoError(t, err)
+		if ip.Is4() {
+			v4 = true
+		} else if ip.Is6() {
+			v6 = true
+		}
+	}
+	if !v4 && !v6 {
+		t.Fatalf("pod is neither v4 nor v6? %v", instace.WorkloadsOrFail(t).Addresses())
+	}
+	return
 }

@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/util/testhelpers"
 	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/kube"
@@ -193,7 +194,8 @@ func TestMain(m *testing.M) {
 func TestManifestGenerateComponentHubTag(t *testing.T) {
 	g := NewWithT(t)
 
-	objs, err := runManifestCommands("component_hub_tag", "", liveCharts, []string{"templates/deployment.yaml", "templates/daemonset.yaml"})
+	objs, err := runManifestCommands("component_hub_tag", "", liveCharts,
+		[]string{"templates/deployment.yaml", "templates/daemonset.yaml", "templates/zzy_descope_legacy.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +345,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
-			objs, err := fakeControllerReconcile(testResourceFile, tmpCharts, &helmreconciler.Options{Force: tc.force, SkipPrune: true})
+			objs, err := fakeControllerReconcile(testResourceFile, tmpCharts)
 			tc.assertFunc(g, objs, err)
 		})
 	}
@@ -377,12 +379,12 @@ func runRevisionedWebhookTest(t *testing.T, testResourceFile, whSource string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fakeControllerReconcile(testResourceFile, tmpCharts, &helmreconciler.Options{Force: false, SkipPrune: true})
+	_, err = fakeControllerReconcile(testResourceFile, tmpCharts)
 	assert.NoError(t, err)
 
 	// Install a default revision should not cause any error
 	minimal := "minimal"
-	_, err = fakeControllerReconcile(minimal, tmpCharts, &helmreconciler.Options{Force: false, SkipPrune: true})
+	_, err = fakeControllerReconcile(minimal, tmpCharts)
 	assert.NoError(t, err)
 }
 
@@ -436,19 +438,11 @@ func TestPrune(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fakeControllerReconcile("default", tmpCharts, &helmreconciler.Options{
-		Force:     false,
-		SkipPrune: false,
-		Log:       clog.NewDefaultLogger(),
-	})
+	_, err = fakeControllerReconcile("default", tmpCharts)
 	assert.NoError(t, err)
 
 	// Install a default revision should not cause any error
-	objs, err := fakeControllerReconcile("empty", tmpCharts, &helmreconciler.Options{
-		Force:     false,
-		SkipPrune: false,
-		Log:       clog.NewDefaultLogger(),
-	})
+	objs, err := fakeControllerReconcile("empty", tmpCharts)
 	assert.NoError(t, err)
 
 	for _, s := range helmreconciler.PrunedResourcesSchemas() {
@@ -663,7 +657,7 @@ func TestManifestGenerateOrdered(t *testing.T) {
 	}
 
 	if got1 != got2 {
-		fmt.Printf("%s", util.YAMLDiff(got1, got2))
+		fmt.Printf("%s", testhelpers.YAMLDiff(got1, got2))
 		t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
 	}
 }
@@ -681,7 +675,7 @@ func TestManifestGenerateFlagAliases(t *testing.T) {
 
 	if gotAlias != gotSet {
 		t.Errorf("Flag aliases not producing same output: with --set: \n\n%s\n\nWith alias:\n\n%s\nDiff:\n\n%s\n",
-			gotSet, gotAlias, util.YAMLDiff(gotSet, gotAlias))
+			gotSet, gotAlias, testhelpers.YAMLDiff(gotSet, gotAlias))
 	}
 }
 
@@ -897,7 +891,7 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, installerScope)
-	_, iop, err := manifest.GenerateConfig(nil, []string{"installPackagePath=" + string(liveCharts)}, true, nil, l)
+	_, iop, err := manifest.GenerateIstioOperator(nil, []string{"installPackagePath=" + string(liveCharts)}, true, nil, l)
 	if err != nil {
 		t.Fatal(err)
 	}
