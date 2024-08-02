@@ -366,14 +366,19 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 // Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
 // Sidecar.Ingress allows these to be different.
 func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
-	proxy *model.Proxy, instance model.ServiceTarget, inboundServices []model.ServiceTarget,
+	proxy *model.Proxy, inboundServices []model.ServiceTarget,
 ) *clusterWrapper {
-	clusterName := model.BuildInboundSubsetKey(clusterPort)
+	// should not happen
+	if len(inboundServices) == 0 {
+		return nil
+	}
+	instance := inboundServices[0]
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Port.TargetPort)
 	clusterType := cluster.Cluster_ORIGINAL_DST
 	if len(localityLbEndpoints) > 0 {
 		clusterType = cluster.Cluster_STATIC
 	}
+	clusterName := model.BuildInboundSubsetKey(clusterPort)
 	localCluster := cb.buildCluster(clusterName, clusterType, localityLbEndpoints,
 		model.TrafficDirectionInbound, instance.Port.ServicePort, instance.Service, inboundServices, "")
 	// If stat name is configured, build the alt statname.
@@ -750,7 +755,8 @@ func addTelemetryMetadata(cluster *cluster.Cluster,
 	if cluster == nil {
 		return
 	}
-	if direction == model.TrafficDirectionInbound && (len(inboundServices) == 0 || port == nil) {
+	if direction == model.TrafficDirectionInbound &&
+		(len(inboundServices) == 0 || inboundServices[0].Service.MeshExternal || port == nil) {
 		// At inbound, port and local service instance has to be provided
 		return
 	}
