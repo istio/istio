@@ -11,15 +11,22 @@ import (
 	"istio.io/istio/manifests"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/version"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/yaml"
 	"sort"
 	"strconv"
 	"strings"
 )
 
-func Render(spec ComponentSpec, comp Component, raw Map) ([]string, error) {
+type Manifest struct {
+	*unstructured.Unstructured
+	Content string
+}
+
+func Render(spec ComponentSpec, comp Component, raw Map) ([]Manifest, error) {
 	// TODO: installPackagePath
 	f := manifests.BuiltinOrDir("")
 	path := filepath.Join("charts", comp.HelmSubdir)
@@ -31,7 +38,25 @@ func Render(spec ComponentSpec, comp Component, raw Map) ([]string, error) {
 	vals, _ := raw.GetPathMap("spec.values")
 	log.Errorf("howardjohn: RENDER %v", comp)
 	output, err := renderChart(spec, vals, chrt, nil, nil)
-	return output, nil
+	if err != nil {
+		return nil, err
+	}
+	res := make([]Manifest, 0, len(output))
+	for _, m := range output {
+		us := &unstructured.Unstructured{}
+		if err := yaml.Unmarshal([]byte(m), us); err != nil {
+			return nil, err
+		}
+		if us.GetObjectKind().GroupVersionKind().Kind == "" {
+			// This is not an object. Could be empty template, comments only, etc
+			continue
+		}
+		res = append(res, Manifest{
+			Content: m,
+			Unstructured:  us,
+		})
+	}
+	return res, nil
 }
 
 // TemplateFilterFunc filters templates to render by their file name

@@ -16,13 +16,13 @@ package mesh
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/slices"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/john"
-	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
@@ -131,32 +131,58 @@ func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l
 	if err != nil {
 		return err
 	}
-	sorted, err := sortManifests(manifests)
-	if err != nil {
-		return err
-	}
-	for _, manifest := range sorted {
+	for _, manifest := range sortManifests(manifests) {
 		l.Print(manifest + object.YAMLSeparator)
 	}
 	return nil
 }
 
-// TODO: do not do full parsing
-func sortManifests(mm []string) ([]string, error) {
-	var output []string
-	objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(mm, helm.YAMLSeparator))
-	if err != nil {
-		return nil, err
+func sortManifests(raw []john.ManifestSet) ([]string) {
+	all := []john.Manifest{}
+	for _, m := range raw {
+		all = append(all, m.Manifests...)
 	}
-	// For a given group of objects, sort in order to avoid missing dependencies, such as creating CRDs first
-	objects.Sort(object.DefaultObjectOrder())
-	for _, obj := range objects {
-		yml, err := obj.YAML()
-		if err != nil {
-			return nil, err
-		}
-		output = append(output, string(yml))
-	}
+	slices.SortBy(all, func(a john.Manifest) int {
+		o := a.Unstructured
+		gk := o.GroupVersionKind().Group + "/" + o.GroupVersionKind().Kind
+		switch {
+		// Create CRDs asap - both because they are slow and because we will likely create instances of them soon
+		case gk == "apiextensions.k8s.io/CustomResourceDefinition":
+			return -1000
 
-	return output, nil
+			// We need to create ServiceAccounts, Roles before we bind them with a RoleBinding
+		case gk == "/ServiceAccount" || gk == "rbac.authorization.k8s.io/ClusterRole":
+			return 1
+		case gk == "rbac.authorization.k8s.io/ClusterRoleBinding":
+			return 2
+
+			// validatingwebhookconfiguration is configured to FAIL-OPEN in the default install. For the
+			// re-install case we want to apply the validatingwebhookconfiguration first to reset any
+			// orphaned validatingwebhookconfiguration that is FAIL-CLOSE.
+		case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
+			return 3
+
+			// Pods might need configmap or secrets - avoid backoff by creating them first
+		case gk == "/ConfigMap" || gk == "/Secrets":
+			return 100
+
+			// Create the pods after we've created other things they might be waiting for
+		case gk == "extensions/Deployment" || gk == "apps/Deployment":
+			return 1000
+
+			// Autoscalers typically act on a deployment
+		case gk == "autoscaling/HorizontalPodAutoscaler":
+			return 1001
+
+			// Create services late - after pods have been started
+		case gk == "/Service":
+			return 10000
+
+		default:
+			return 1000
+		}
+	})
+	return slices.Map(all, func(e john.Manifest) string {
+		return e.Content
+	})
 }

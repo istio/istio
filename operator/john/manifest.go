@@ -13,7 +13,13 @@ import (
 	pkgversion "istio.io/istio/pkg/version"
 )
 
-func GenerateManifest(files []string, setFlags []string, force bool, filter []string, client kube.Client) ([]string, error) {
+type ManifestSet struct {
+	Component string
+	Manifests []Manifest
+	// TODO: notes, warnings, etc?
+}
+
+func GenerateManifest(files []string, setFlags []string, force bool, filter []string, client kube.Client) ([]ManifestSet, error) {
 	merged, err := MergeInputs(files, setFlags, client)
 	if err != nil {
 		return nil, err
@@ -24,7 +30,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 		return nil, err
 	}
 
-	var allManifests []string
+	var allManifests []ManifestSet
 	for _, comp := range Components {
 		specs, err := comp.Get(merged)
 		if err != nil {
@@ -35,7 +41,10 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 			if err != nil {
 				return nil, err
 			}
-			allManifests = append(allManifests, manifests...)
+			allManifests = append(allManifests, ManifestSet{
+				Component: comp.Name,
+				Manifests: manifests,
+			})
 		}
 	}
 	// TODO: istioNamespace -> IOP.namespace
@@ -136,7 +145,7 @@ func IstioOperatorFromJSON(iopString string, force bool) (*v1alpha1.IstioOperato
 		return nil, err
 	}
 	if errs := validate.CheckIstioOperatorSpec(iop.Spec); len(errs) != 0 && !force {
-		//l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
+		// l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
 		return iop, fmt.Errorf(errs.Error())
 	}
 	return iop, nil
@@ -205,7 +214,6 @@ func (c Component) Get(merged Map) ([]ComponentSpec, error) {
 		spec.Namespace = defaultNamespace
 	}
 	return []ComponentSpec{spec}, nil
-
 }
 
 var Components = []Component{
