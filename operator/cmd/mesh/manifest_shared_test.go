@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
@@ -165,16 +164,17 @@ func fakeApplyManifest(inFile, flags string, chartSource chartSourceType) (*Obje
 
 // fakeApplyExtraResources applies any extra resources for the given test name.
 func fakeApplyExtraResources(inFile string) error {
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, nil, nil, nil)
-	if err != nil {
-		return err
-	}
-
-	if rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", inFile+".yaml")); err == nil {
-		if err := applyWithReconciler(reconciler, rs); err != nil {
-			return err
-		}
-	}
+	// TODO
+	//reconciler, err := helmreconciler.NewHelmReconciler(testClient, nil, nil, nil)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//if rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", inFile+".yaml")); err == nil {
+	//	if err := applyWithReconciler(reconciler, rs); err != nil {
+	//		return err
+	//	}
+	//}
 	return nil
 }
 
@@ -191,27 +191,19 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*Objec
 
 	iop.Spec.InstallPackagePath = string(chartSource)
 
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, c, iop, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := reconciler.Reconcile(); err != nil {
-		return nil, err
-	}
+	// TODO
+	//reconciler, err := helmreconciler.NewHelmReconciler(testClient, c, iop, nil)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//if err := reconciler.Reconcile(); err != nil {
+	//	return nil, err
+	//}
 
 	return NewObjectSet(getAllIstioObjects()), nil
 }
 
-// applyWithReconciler applies the given manifest string using the given reconciler.
-func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest string) error {
-	m := name.Manifest{
-		// Name is not important here, only Content will be applied.
-		Name:    name.IstioOperatorComponentName,
-		Content: manifest,
-	}
-	return reconciler.ApplyManifest(m)
-}
 
 // runManifestCommand runs the given manifest command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.

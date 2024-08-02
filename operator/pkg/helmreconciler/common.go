@@ -15,9 +15,6 @@
 package helmreconciler
 
 import (
-	"io"
-	"strings"
-
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/pkg/log"
 )
@@ -48,66 +45,3 @@ var (
 
 	scope = log.RegisterScope("installer", "installer")
 )
-
-func init() {
-	// Tree representation and wait channels are an inversion of ComponentDependencies and are constructed from it.
-	buildInstallTree()
-}
-
-// ComponentTree represents a tree of component dependencies.
-type (
-	ComponentTree          map[name.ComponentName]any
-	componentNameToListMap map[name.ComponentName][]name.ComponentName
-)
-
-var (
-	// ComponentDependencies is a tree of component dependencies. The semantics are ComponentDependencies[cname] gives
-	// the subtree of components that must wait for cname to be installed before starting installation themselves.
-	ComponentDependencies = componentNameToListMap{
-		name.PilotComponentName: {
-			name.CNIComponentName,
-			name.IngressComponentName,
-			name.EgressComponentName,
-		},
-		name.IstioBaseComponentName: {
-			name.PilotComponentName,
-		},
-		name.CNIComponentName: {
-			name.ZtunnelComponentName,
-		},
-	}
-
-	// InstallTree is a top down hierarchy tree of dependencies where children must wait for the parent to complete
-	// before starting installation.
-	InstallTree = make(ComponentTree)
-)
-
-// buildInstallTree builds a tree from buildInstallTree where parents are the root of each subtree.
-func buildInstallTree() {
-	// Starting with root, recursively insert each first level child into each node.
-	insertChildrenRecursive(name.IstioBaseComponentName, InstallTree, ComponentDependencies)
-}
-
-func insertChildrenRecursive(componentName name.ComponentName, tree ComponentTree, children componentNameToListMap) {
-	tree[componentName] = make(ComponentTree)
-	for _, child := range children[componentName] {
-		insertChildrenRecursive(child, tree[componentName].(ComponentTree), children)
-	}
-}
-
-// InstallTreeString returns a string representation of the dependency tree.
-func InstallTreeString() string {
-	var sb strings.Builder
-	buildInstallTreeString(name.IstioBaseComponentName, "", &sb)
-	return sb.String()
-}
-
-func buildInstallTreeString(componentName name.ComponentName, prefix string, sb io.StringWriter) {
-	_, _ = sb.WriteString(prefix + string(componentName) + "\n")
-	if _, ok := InstallTree[componentName].(ComponentTree); !ok {
-		return
-	}
-	for k := range InstallTree[componentName].(ComponentTree) {
-		buildInstallTreeString(k, prefix+"  ", sb)
-	}
-}

@@ -460,35 +460,6 @@ func DefaultObjectOrder() func(o *K8sObject) int {
 	}
 }
 
-func ObjectsNotInLists(objects K8sObjects, lists ...K8sObjects) K8sObjects {
-	var ret K8sObjects
-
-	filterMap := make(map[*K8sObject]bool)
-	for _, list := range lists {
-		for _, object := range list {
-			filterMap[object] = true
-		}
-	}
-
-	for _, o := range objects {
-		if !filterMap[o] {
-			ret = append(ret, o)
-		}
-	}
-	return ret
-}
-
-// KindObjects returns the subset of objs with the given kind.
-func KindObjects(objs K8sObjects, kind string) K8sObjects {
-	var ret K8sObjects
-	for _, o := range objs {
-		if o.Kind == kind {
-			ret = append(ret, o)
-		}
-	}
-	return ret
-}
-
 // ParseK8SYAMLToIstioOperator parses a IstioOperator CustomResource YAML string and unmarshals in into
 // an IstioOperatorSpec object. It returns the object and an API group/version with it.
 func ParseK8SYAMLToIstioOperator(yml string) (*v1alpha1.IstioOperator, *schema.GroupVersionKind, error) {
@@ -503,20 +474,6 @@ func ParseK8SYAMLToIstioOperator(yml string) (*v1alpha1.IstioOperator, *schema.G
 	gvk := o.GroupVersionKind()
 	v1alpha1.SetNamespace(iop.Spec, o.Namespace)
 	return iop, &gvk, nil
-}
-
-// AllObjectHashes returns a map with object hashes of all the objects contained in cmm as the keys.
-func AllObjectHashes(m string) map[string]bool {
-	ret := make(map[string]bool)
-	objs, err := ParseK8sObjectsFromYAMLManifest(m)
-	if err != nil {
-		log.Error(err.Error())
-	}
-	for _, o := range objs {
-		ret[o.Hash()] = true
-	}
-
-	return ret
 }
 
 // resolvePDBConflict When user uses both minAvailable and
