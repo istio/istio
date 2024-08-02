@@ -1441,7 +1441,7 @@ func (s *Service) Equals(other *Service) bool {
 // DeepCopy creates a clone of IstioEndpoint.
 func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	if ep == nil {
-		return ep
+		return nil
 	}
 
 	out := *ep
