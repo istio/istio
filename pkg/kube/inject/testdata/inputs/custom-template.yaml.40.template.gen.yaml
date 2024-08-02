@@ -1546,6 +1546,7 @@ templates:
               .InfrastructureLabels
               (strdict
                 "gateway.networking.k8s.io/gateway-name" .Name
+                "gateway.istio.io/managed" "istio.io-gateway-controller"
               ) | nindent 8 }}
         spec:
           securityContext:
