@@ -3000,7 +3000,6 @@ func TestInitVirtualService(t *testing.T) {
 		sets.New("delegate.ns2", "public.ns3", "private.ns1", "match-ns1.ns5", "match-ns1.ns1"),
 		sets.New("invisible.ns5"),
 	)
-
 }
 
 func TestServiceWithExportTo(t *testing.T) {
