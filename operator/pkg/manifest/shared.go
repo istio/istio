@@ -22,13 +22,11 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
-	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -44,45 +42,6 @@ import (
 
 // installerScope is the scope for shared manifest package.
 var installerScope = log.RegisterScope("installer", "installer")
-
-// GenManifests generates a manifest map, keyed by the component name, from input file list and a YAML tree
-// representation of path-values passed through the --set flag.
-// If force is set, validation errors will not cause processing to abort but will result in warnings going to the
-// supplied logger.
-func GenManifests(inFilename []string, setFlags []string, force bool, filter []string,
-	client kube.Client, l clog.Logger,
-) (name.ManifestMap, *v1alpha1.IstioOperator, error) {
-	mergedYAML, _, err := GenerateIstioOperator(inFilename, setFlags, force, client, l)
-	if err != nil {
-		return nil, nil, err
-	}
-	mergedIOPS, err := unmarshalAndValidateIOP(mergedYAML, force, false, l)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	t := translate.NewTranslator()
-	var ver *version.Info
-	if client != nil {
-		ver, err = client.GetKubernetesVersion()
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t, filter, ver)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := cp.Run(); err != nil {
-		return nil, nil, err
-	}
-
-	manifests, errs := cp.RenderManifest()
-	if errs != nil {
-		return manifests, mergedIOPS, errs.ToError()
-	}
-	return manifests, mergedIOPS, nil
-}
 
 // GenerateIstioOperator creates an IstioOperatorSpec from the following sources, overlaid sequentially:
 //
@@ -588,13 +547,4 @@ func getPV(setFlag string) (path string, value string) {
 	}
 	path, value = strings.TrimSpace(pv[0]), strings.TrimSpace(pv[1])
 	return
-}
-
-// getPV returns the path and value components for the given set flag string, which must be in path=value format.
-func getPV2(setFlag string) (string, string, error) {
-	pv := strings.Split(setFlag, "=")
-	if len(pv) != 2 {
-		return "", "", fmt.Errorf("set flag %s has incorrect format, must be path=value", setFlag)
-	}
-	return strings.TrimSpace(pv[0]), strings.TrimSpace(pv[1]), nil
 }

@@ -92,7 +92,7 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 }
 
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
-func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList) error {
+func DeleteObjectsList(c client.Client, opts *Options, objectsList []*unstructured.UnstructuredList) error {
 	var errs util.Errors
 	deletedObjects := make(map[string]bool)
 	for _, ul := range objectsList {
@@ -104,7 +104,7 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 			if deletedObjects[oh] {
 				continue
 			}
-			if err := h.deleteResource(obj, oh); err != nil {
+			if err := deleteResource(c, opts, obj, oh); err != nil {
 				errs = append(errs, err)
 			}
 			deletedObjects[oh] = true
@@ -119,7 +119,7 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 // 2. if includeClusterResources is true, we list the namespaced and cluster resources by component labels only.
 // If componentName is not empty, only resources associated with specific components would be returned
 // UnstructuredList of objects and corresponding list of name kind hash of k8sObjects would be returned
-func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResources bool, componentName string) (
+func GetPrunedResources(clt client.Client, iopName, iopNamespace, revision string, includeClusterResources bool) (
 	[]*unstructured.UnstructuredList, error,
 ) {
 	var usList []*unstructured.UnstructuredList
@@ -127,14 +127,11 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	if revision != "" {
 		labels[label.IoIstioRev.Name] = revision
 	}
-	if componentName != "" {
-		labels[IstioComponentLabelStr] = componentName
+	if iopName != "" {
+		labels[OwningResourceName] = iopName
 	}
-	if h.iop.GetName() != "" {
-		labels[OwningResourceName] = h.iop.GetName()
-	}
-	if h.iop.GetNamespace() != "" {
-		labels[OwningResourceNamespace] = h.iop.GetNamespace()
+	if iopNamespace != "" {
+		labels[OwningResourceNamespace] = iopNamespace
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
 	resources := NamespacedResources()
@@ -151,7 +148,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		}
 		if includeClusterResources {
 			s := klabels.NewSelector()
-			err = h.client.List(context.TODO(), objects,
+			err = clt.List(context.TODO(), objects,
 				client.MatchingLabelsSelector{Selector: s.Add(*componentRequirement)})
 		} else {
 			// do not prune base components or unknown components
@@ -166,7 +163,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 			if err != nil {
 				return usList, err
 			}
-			if err = h.client.List(context.TODO(), objects,
+			if err = clt.List(context.TODO(), objects,
 				client.MatchingLabelsSelector{
 					Selector: selector.Add(*includeRequirement, *componentRequirement),
 				},
@@ -233,8 +230,14 @@ func PrunedResourcesSchemas() []schema.GroupVersionKind {
 func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels map[string]string,
 	componentName string, objects *unstructured.UnstructuredList, all bool,
 ) error {
+	return deleteResources(h.client, h.opts, excluded, coreLabels, componentName, objects, all)
+}
+
+func deleteResources(c client.Client, opts *Options, excluded map[string]bool, coreLabels map[string]string,
+	componentName string, objects *unstructured.UnstructuredList, all bool,
+) error {
 	var errs util.Errors
-	labels := h.addComponentLabels(coreLabels, componentName)
+	labels := addComponentLabels(coreLabels, componentName)
 	selector := klabels.Set(labels).AsSelectorPreValidated()
 	for _, o := range objects.Items {
 		obj := object.NewK8sObject(&o, nil, nil)
@@ -252,7 +255,7 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 				continue
 			}
 		}
-		if err := h.deleteResource(obj, oh); err != nil {
+		if err := deleteResource(c, opts, obj, oh); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -260,29 +263,28 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 	return errs.ToError()
 }
 
-func (h *HelmReconciler) deleteResource(obj *object.K8sObject, oh string) error {
-	if h.opts.DryRun {
-		h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
+func deleteResource(c client.Client, opts *Options, obj *object.K8sObject, oh string) error {
+	if opts.DryRun {
+		opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
 		return nil
 	}
 	u := obj.UnstructuredObject()
 	if u.GetKind() == name.IstioOperatorStr {
 		u.SetFinalizers([]string{})
-		if err := h.client.Patch(context.TODO(), u, client.Merge); err != nil {
+		if err := c.Patch(context.TODO(), u, client.Merge); err != nil {
 			scope.Errorf("failed to patch IstioOperator CR: %s, %v", u.GetName(), err)
 		}
 	}
-	err := h.client.Delete(context.TODO(), u, client.PropagationPolicy(metav1.DeletePropagationBackground))
-	scope.Debugf("Deleting %s (%s/%v)", oh, h.iop.Name, h.iop.Spec.Revision)
+	err := c.Delete(context.TODO(), u, client.PropagationPolicy(metav1.DeletePropagationBackground))
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return err
 		}
 		// do not return error if resources are not found
-		h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
+		opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
 		return nil
 	}
 
-	h.opts.Log.LogAndPrintf("  Removed %s.", oh)
+	opts.Log.LogAndPrintf("  Removed %s.", oh)
 	return nil
 }
