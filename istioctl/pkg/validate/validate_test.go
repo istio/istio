@@ -422,8 +422,8 @@ metadata:
   namespace: istio-system
   name: example-istiocontrolplane
 spec:
-  addonComponents:
-    grafana:
+  components:
+    pilot:
       enabled: true
 `
 	invalidDuplicateKey = `

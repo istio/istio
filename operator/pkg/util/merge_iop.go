@@ -24,10 +24,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	yaml2 "sigs.k8s.io/yaml"
 
-	v1alpha13 "istio.io/api/mesh/v1alpha1"
+	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/api/operator/v1alpha1"
-	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 // Partially mirrored from istio/api and operator/pkg/api (for values).
@@ -71,17 +70,17 @@ type gatewaySpec struct {
 }
 
 type values struct {
-	Cni                    *v1alpha12.CNIConfig             `json:"cni" patchStrategy:"merge"`
-	Gateways               *gatewaysConfig                  `json:"gateways" patchStrategy:"merge"`
-	Global                 *v1alpha12.GlobalConfig          `json:"global" patchStrategy:"merge"`
-	Pilot                  *v1alpha12.PilotConfig           `json:"pilot" patchStrategy:"merge"`
-	Telemetry              *telemetryConfig                 `json:"telemetry" patchStrategy:"merge"`
-	SidecarInjectorWebhook *v1alpha12.SidecarInjectorConfig `json:"sidecarInjectorWebhook" patchStrategy:"merge"`
-	IstioCni               *v1alpha12.CNIConfig             `json:"istio_cni" patchStrategy:"merge"`
-	MeshConfig             *meshConfig                      `json:"meshConfig" patchStrategy:"merge"`
-	Base                   *v1alpha12.BaseConfig            `json:"base" patchStrategy:"merge"`
-	IstiodRemote           *v1alpha12.IstiodRemoteConfig    `json:"istiodRemote" patchStrategy:"merge"`
-	Ztunnel                map[string]any                   `json:"ztunnel" patchStrategy:"merge"`
+	Cni                    *v1alpha1.CNIConfig             `json:"cni" patchStrategy:"merge"`
+	Gateways               *gatewaysConfig                 `json:"gateways" patchStrategy:"merge"`
+	Global                 *v1alpha1.GlobalConfig          `json:"global" patchStrategy:"merge"`
+	Pilot                  *v1alpha1.PilotConfig           `json:"pilot" patchStrategy:"merge"`
+	Telemetry              *telemetryConfig                `json:"telemetry" patchStrategy:"merge"`
+	SidecarInjectorWebhook *v1alpha1.SidecarInjectorConfig `json:"sidecarInjectorWebhook" patchStrategy:"merge"`
+	IstioCni               *v1alpha1.CNIConfig             `json:"istio_cni" patchStrategy:"merge"`
+	MeshConfig             *meshConfig                     `json:"meshConfig" patchStrategy:"merge"`
+	Base                   *v1alpha1.BaseConfig            `json:"base" patchStrategy:"merge"`
+	IstiodRemote           *v1alpha1.IstiodRemoteConfig    `json:"istiodRemote" patchStrategy:"merge"`
+	Ztunnel                map[string]any                  `json:"ztunnel" patchStrategy:"merge"`
 }
 
 type gatewaysConfig struct {
@@ -92,25 +91,25 @@ type gatewaysConfig struct {
 
 // Configuration for an ingress gateway.
 type ingressGatewayConfig struct {
-	Env                              map[string]any                      `json:"env" patchStrategy:"merge"`
-	Labels                           map[string]string                   `json:"labels" patchStrategy:"merge"`
-	CPU                              *v1alpha12.TargetUtilizationConfig  `json:"cpu" patchStrategy:"replace"`
-	Memory                           *v1alpha12.TargetUtilizationConfig  `json:"memory" patchStrategy:"replace"`
-	LoadBalancerSourceRanges         []string                            `json:"loadBalancerSourceRanges" patchStrategy:"replace"`
-	NodeSelector                     map[string]any                      `json:"nodeSelector" patchStrategy:"merge"`
-	PodAntiAffinityLabelSelector     []map[string]any                    `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
-	PodAntiAffinityTermLabelSelector []map[string]any                    `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
-	PodAnnotations                   map[string]any                      `json:"podAnnotations" patchStrategy:"merge"`
-	MeshExpansionPorts               []*v1alpha12.PortsConfig            `json:"meshExpansionPorts" patchStrategy:"merge" patchMergeKey:"name"`
-	Ports                            []*v1alpha12.PortsConfig            `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
-	Resources                        *resources                          `json:"resources" patchStrategy:"merge"`
-	SecretVolumes                    []*v1alpha12.SecretVolume           `json:"secretVolumes" patchStrategy:"merge" patchMergeKey:"name"`
-	ServiceAnnotations               map[string]any                      `json:"serviceAnnotations" patchStrategy:"merge"`
-	Tolerations                      []map[string]any                    `json:"tolerations" patchStrategy:"replace"`
-	IngressPorts                     []map[string]any                    `json:"ingressPorts" patchStrategy:"replace"`
-	AdditionalContainers             []map[string]any                    `json:"additionalContainers" patchStrategy:"replace"`
-	ConfigVolumes                    []map[string]any                    `json:"configVolumes" patchStrategy:"replace"`
-	Zvpn                             *v1alpha12.IngressGatewayZvpnConfig `json:"zvpn" patchStrategy:"merge"`
+	Env                              map[string]any                     `json:"env" patchStrategy:"merge"`
+	Labels                           map[string]string                  `json:"labels" patchStrategy:"merge"`
+	CPU                              *v1alpha1.TargetUtilizationConfig  `json:"cpu" patchStrategy:"replace"`
+	Memory                           *v1alpha1.TargetUtilizationConfig  `json:"memory" patchStrategy:"replace"`
+	LoadBalancerSourceRanges         []string                           `json:"loadBalancerSourceRanges" patchStrategy:"replace"`
+	NodeSelector                     map[string]any                     `json:"nodeSelector" patchStrategy:"merge"`
+	PodAntiAffinityLabelSelector     []map[string]any                   `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
+	PodAntiAffinityTermLabelSelector []map[string]any                   `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
+	PodAnnotations                   map[string]any                     `json:"podAnnotations" patchStrategy:"merge"`
+	MeshExpansionPorts               []*v1alpha1.PortsConfig            `json:"meshExpansionPorts" patchStrategy:"merge" patchMergeKey:"name"`
+	Ports                            []*v1alpha1.PortsConfig            `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
+	Resources                        *resources                         `json:"resources" patchStrategy:"merge"`
+	SecretVolumes                    []*v1alpha1.SecretVolume           `json:"secretVolumes" patchStrategy:"merge" patchMergeKey:"name"`
+	ServiceAnnotations               map[string]any                     `json:"serviceAnnotations" patchStrategy:"merge"`
+	Tolerations                      []map[string]any                   `json:"tolerations" patchStrategy:"replace"`
+	IngressPorts                     []map[string]any                   `json:"ingressPorts" patchStrategy:"replace"`
+	AdditionalContainers             []map[string]any                   `json:"additionalContainers" patchStrategy:"replace"`
+	ConfigVolumes                    []map[string]any                   `json:"configVolumes" patchStrategy:"replace"`
+	Zvpn                             *v1alpha1.IngressGatewayZvpnConfig `json:"zvpn" patchStrategy:"merge"`
 }
 
 type resources struct {
@@ -119,19 +118,19 @@ type resources struct {
 }
 
 type egressGatewayConfig struct {
-	Env                              map[string]any            `json:"env" patchStrategy:"merge"`
-	Labels                           map[string]string         `json:"labels" patchStrategy:"merge"`
-	NodeSelector                     map[string]any            `json:"nodeSelector" patchStrategy:"merge"`
-	PodAntiAffinityLabelSelector     []map[string]any          `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
-	PodAntiAffinityTermLabelSelector []map[string]any          `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
-	PodAnnotations                   map[string]any            `json:"podAnnotations" patchStrategy:"merge"`
-	Ports                            []*v1alpha12.PortsConfig  `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
-	Resources                        *resources                `json:"resources" patchStrategy:"merge"`
-	SecretVolumes                    []*v1alpha12.SecretVolume `json:"secretVolumes" patchStrategy:"merge" patchMergeKey:"name"`
-	Tolerations                      []map[string]any          `json:"tolerations" patchStrategy:"replace"`
-	ConfigVolumes                    []map[string]any          `json:"configVolumes" patchStrategy:"replace"`
-	AdditionalContainers             []map[string]any          `json:"additionalContainers" patchStrategy:"replace"`
-	Zvpn                             *v1alpha12.ZeroVPNConfig  `json:"zvpn" patchStrategy:"replace"`
+	Env                              map[string]any           `json:"env" patchStrategy:"merge"`
+	Labels                           map[string]string        `json:"labels" patchStrategy:"merge"`
+	NodeSelector                     map[string]any           `json:"nodeSelector" patchStrategy:"merge"`
+	PodAntiAffinityLabelSelector     []map[string]any         `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
+	PodAntiAffinityTermLabelSelector []map[string]any         `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
+	PodAnnotations                   map[string]any           `json:"podAnnotations" patchStrategy:"merge"`
+	Ports                            []*v1alpha1.PortsConfig  `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
+	Resources                        *resources               `json:"resources" patchStrategy:"merge"`
+	SecretVolumes                    []*v1alpha1.SecretVolume `json:"secretVolumes" patchStrategy:"merge" patchMergeKey:"name"`
+	Tolerations                      []map[string]any         `json:"tolerations" patchStrategy:"replace"`
+	ConfigVolumes                    []map[string]any         `json:"configVolumes" patchStrategy:"replace"`
+	AdditionalContainers             []map[string]any         `json:"additionalContainers" patchStrategy:"replace"`
+	Zvpn                             *v1alpha1.ZeroVPNConfig  `json:"zvpn" patchStrategy:"replace"`
 }
 
 type meshConfig struct {
@@ -140,18 +139,18 @@ type meshConfig struct {
 	RdsRefreshDelay                *durationpb.Duration                                      `json:"rdsRefreshDelay" patchStrategy:"replace"`
 	EnableAutoMtls                 *wrappers.BoolValue                                       `json:"enableAutoMtls" patchStrategy:"replace"`
 	EnablePrometheusMerge          *wrappers.BoolValue                                       `json:"enablePrometheusMerge" patchStrategy:"replace"`
-	OutboundTrafficPolicy          *v1alpha13.MeshConfig_OutboundTrafficPolicy               `json:"outboundTrafficPolicy" patchStrategy:"merge"`
-	InboundTrafficPolicy           *v1alpha13.MeshConfig_InboundTrafficPolicy                `json:"inboundTrafficPolicy" patchStrategy:"merge"`
+	OutboundTrafficPolicy          *meshapi.MeshConfig_OutboundTrafficPolicy                 `json:"outboundTrafficPolicy" patchStrategy:"merge"`
+	InboundTrafficPolicy           *meshapi.MeshConfig_InboundTrafficPolicy                  `json:"inboundTrafficPolicy" patchStrategy:"merge"`
 	TCPKeepalive                   *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive `json:"tcpKeepalive" patchStrategy:"merge"`
 	DefaultConfig                  *proxyConfig                                              `json:"defaultConfig" patchStrategy:"merge"`
-	ConfigSources                  []*v1alpha13.ConfigSource                                 `json:"configSources" patchStrategy:"merge" patchMergeKey:"address"`
+	ConfigSources                  []*meshapi.ConfigSource                                   `json:"configSources" patchStrategy:"merge" patchMergeKey:"address"`
 	TrustDomainAliases             []string                                                  `json:"trustDomainAliases" patchStrategy:"merge"`
 	DefaultServiceExportTo         []string                                                  `json:"defaultServiceExportTo" patchStrategy:"merge"`
 	DefaultVirtualServiceExportTo  []string                                                  `json:"defaultVirtualServiceExportTo" patchStrategy:"merge"`
 	DefaultDestinationRuleExportTo []string                                                  `json:"defaultDestinationRuleExportTo" patchStrategy:"merge"`
 	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting                     `json:"localityLbSetting" patchStrategy:"merge"`
 	DNSRefreshRate                 *durationpb.Duration                                      `json:"dnsRefreshRate" patchStrategy:"replace"`
-	Certificates                   []*v1alpha13.Certificate                                  `json:"certificates" patchStrategy:"merge" patchMergeKey:"secretName"`
+	Certificates                   []*meshapi.Certificate                                    `json:"certificates" patchStrategy:"merge" patchMergeKey:"secretName"`
 	ServiceSettings                []*meshConfigServiceSettings                              `json:"serviceSettings" patchStrategy:"replace"`
 	DefaultProviders               *meshConfigDefaultProviders                               `json:"defaultProviders" patchStrategy:"merge"`
 	ExtensionProviders             []*meshConfigExtensionProvider                            `json:"extensionProviders" patchStrategy:"merge" patchMergeKey:"name"`
@@ -181,33 +180,33 @@ type (
 		OpenTelemetry      struct{} `json:"opentelemetry"`
 	}
 	clusterName struct {
-		ServiceCluster     *v1alpha13.ProxyConfig_ServiceCluster      `json:"serviceCluster,omitempty"`
-		TracingServiceName *v1alpha13.ProxyConfig_TracingServiceName_ `json:"tracingServiceName,omitempty"`
+		ServiceCluster     *meshapi.ProxyConfig_ServiceCluster      `json:"serviceCluster,omitempty"`
+		TracingServiceName *meshapi.ProxyConfig_TracingServiceName_ `json:"tracingServiceName,omitempty"`
 	}
 )
 
 type proxyConfig struct {
-	DrainDuration                  *durationpb.Duration                    `json:"drainDuration" patchStrategy:"replace"`
-	DiscoveryRefreshDelay          *durationpb.Duration                    `json:"discoveryRefreshDelay" patchStrategy:"replace"`
-	TerminationDrainDuration       *durationpb.Duration                    `json:"terminationDrainDuration" patchStrategy:"replace"`
-	Concurrency                    *wrappers.Int32Value                    `json:"concurrency" patchStrategy:"replace"`
-	ConfigSources                  []*v1alpha13.ConfigSource               `json:"configSources" patchStrategy:"replace"`
-	ClusterName                    *clusterName                            `json:"clusterName" patchStrategy:"replace"`
-	TrustDomainAliases             []string                                `json:"trustDomainAliases" patchStrategy:"replace"`
-	DefaultServiceExportTo         []string                                `json:"defaultServiceExportTo" patchStrategy:"replace"`
-	DefaultVirtualServiceExportTo  []string                                `json:"defaultVirtualServiceExportTo" patchStrategy:"replace"`
-	DefaultDestinationRuleExportTo []string                                `json:"defaultDestinationRuleExportTo" patchStrategy:"replace"`
-	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting   `json:"localityLbSetting" patchStrategy:"merge"`
-	DNSRefreshRate                 *durationpb.Duration                    `json:"dnsRefreshRate" patchStrategy:"replace"`
-	Certificates                   []*v1alpha13.Certificate                `json:"certificates" patchStrategy:"replace"`
-	ServiceSettings                []*v1alpha13.MeshConfig_ServiceSettings `json:"serviceSettings" patchStrategy:"replace"`
-	Tracing                        *tracing                                `json:"tracing" patchStrategy:"replace"`
-	Sds                            *v1alpha13.SDS                          `json:"sds" patchStrategy:"replace"`
-	EnvoyAccessLogService          *v1alpha13.RemoteService                `json:"envoyAccessLogService" patchStrategy:"merge" patchMergeKey:"address"`
-	EnvoyMetricsService            *v1alpha13.RemoteService                `json:"envoyMetricsService" patchStrategy:"merge" patchMergeKey:"address"`
-	ProxyMetadata                  map[string]string                       `json:"proxyMetadata" patchStrategy:"merge"`
-	ExtraStatTags                  []string                                `json:"extraStatTags" patchStrategy:"replace"`
-	GatewayTopology                *v1alpha13.Topology                     `json:"gatewayTopology" patchStrategy:"replace"`
+	DrainDuration                  *durationpb.Duration                  `json:"drainDuration" patchStrategy:"replace"`
+	DiscoveryRefreshDelay          *durationpb.Duration                  `json:"discoveryRefreshDelay" patchStrategy:"replace"`
+	TerminationDrainDuration       *durationpb.Duration                  `json:"terminationDrainDuration" patchStrategy:"replace"`
+	Concurrency                    *wrappers.Int32Value                  `json:"concurrency" patchStrategy:"replace"`
+	ConfigSources                  []*meshapi.ConfigSource               `json:"configSources" patchStrategy:"replace"`
+	ClusterName                    *clusterName                          `json:"clusterName" patchStrategy:"replace"`
+	TrustDomainAliases             []string                              `json:"trustDomainAliases" patchStrategy:"replace"`
+	DefaultServiceExportTo         []string                              `json:"defaultServiceExportTo" patchStrategy:"replace"`
+	DefaultVirtualServiceExportTo  []string                              `json:"defaultVirtualServiceExportTo" patchStrategy:"replace"`
+	DefaultDestinationRuleExportTo []string                              `json:"defaultDestinationRuleExportTo" patchStrategy:"replace"`
+	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting `json:"localityLbSetting" patchStrategy:"merge"`
+	DNSRefreshRate                 *durationpb.Duration                  `json:"dnsRefreshRate" patchStrategy:"replace"`
+	Certificates                   []*meshapi.Certificate                `json:"certificates" patchStrategy:"replace"`
+	ServiceSettings                []*meshapi.MeshConfig_ServiceSettings `json:"serviceSettings" patchStrategy:"replace"`
+	Tracing                        *tracing                              `json:"tracing" patchStrategy:"replace"`
+	Sds                            *meshapi.SDS                          `json:"sds" patchStrategy:"replace"`
+	EnvoyAccessLogService          *meshapi.RemoteService                `json:"envoyAccessLogService" patchStrategy:"merge" patchMergeKey:"address"`
+	EnvoyMetricsService            *meshapi.RemoteService                `json:"envoyMetricsService" patchStrategy:"merge" patchMergeKey:"address"`
+	ProxyMetadata                  map[string]string                     `json:"proxyMetadata" patchStrategy:"merge"`
+	ExtraStatTags                  []string                              `json:"extraStatTags" patchStrategy:"replace"`
+	GatewayTopology                *meshapi.Topology                     `json:"gatewayTopology" patchStrategy:"replace"`
 }
 
 type tracing struct {
@@ -215,8 +214,8 @@ type tracing struct {
 }
 
 type meshConfigServiceSettings struct {
-	Settings *v1alpha13.MeshConfig_ServiceSettings_Settings `json:"settings" patchStrategy:"merge"`
-	Hosts    []string                                       `json:"hosts" patchStrategy:"merge"`
+	Settings *meshapi.MeshConfig_ServiceSettings_Settings `json:"settings" patchStrategy:"merge"`
+	Hosts    []string                                     `json:"hosts" patchStrategy:"merge"`
 }
 
 type telemetryConfig struct {
@@ -224,8 +223,8 @@ type telemetryConfig struct {
 }
 
 type telemetryV2Config struct {
-	Prometheus  *v1alpha12.TelemetryV2PrometheusConfig  `json:"prometheus" patchStrategy:"merge"`
-	Stackdriver *v1alpha12.TelemetryV2StackDriverConfig `json:"stackdriver" patchStrategy:"merge"`
+	Prometheus  *v1alpha1.TelemetryV2PrometheusConfig  `json:"prometheus" patchStrategy:"merge"`
+	Stackdriver *v1alpha1.TelemetryV2StackDriverConfig `json:"stackdriver" patchStrategy:"merge"`
 }
 
 var iopMergeStruct iopMergeStructType

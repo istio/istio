@@ -23,7 +23,6 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -156,7 +155,7 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 	var iop *iopv1alpha1.IstioOperator
 	if uiArgs.filename == "" {
 		iop = &iopv1alpha1.IstioOperator{
-			Spec: &v1alpha1.IstioOperatorSpec{Profile: "empty", Revision: uiArgs.revision},
+			Spec: &iopv1alpha1.IstioOperatorSpec{Profile: "empty", Revision: uiArgs.revision},
 		}
 	} else {
 		_, iop, err = manifest.GenManifests([]string{uiArgs.filename},

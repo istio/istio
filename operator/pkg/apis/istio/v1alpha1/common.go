@@ -14,17 +14,13 @@
 
 package v1alpha1
 
-import (
-	"istio.io/api/operator/v1alpha1"
-)
-
 const (
 	globalKey         = "global"
 	istioNamespaceKey = "istioNamespace"
 )
 
 // Namespace returns the namespace of the containing CR.
-func Namespace(iops *v1alpha1.IstioOperatorSpec) string {
+func Namespace(iops *IstioOperatorSpec) string {
 	if iops.Namespace != "" {
 		return iops.Namespace
 	}
@@ -44,7 +40,7 @@ func Namespace(iops *v1alpha1.IstioOperatorSpec) string {
 }
 
 // SetNamespace returns the namespace of the containing CR.
-func SetNamespace(iops *v1alpha1.IstioOperatorSpec, namespace string) {
+func SetNamespace(iops *IstioOperatorSpec, namespace string) {
 	if namespace != "" {
 		iops.Namespace = namespace
 	}

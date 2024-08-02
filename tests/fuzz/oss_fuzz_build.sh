@@ -83,7 +83,6 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateClusters fuzz_validate_c
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCheckIstioOperatorSpec fuzz_check_istio_operator_spec
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzV1Alpha1ValidateConfig fuzz_v1alpha1_validate_config
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGetEnabledComponents fuzz_get_enabled_components
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzUnmarshalAndValidateIOPS fuzz_unmarshal_and_validate_iops
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzRenderManifests fuzz_render_manifests
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzOverlayIOP fuzz_overlay_iop
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzNewControlplane fuzz_new_control_plane
