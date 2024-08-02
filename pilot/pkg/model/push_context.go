@@ -750,8 +750,13 @@ func (ps *PushContext) UpdateMetrics() {
 }
 
 // It is called after virtual service short host name is resolved to FQDN
-// It filters virtualDestinations by using configNamespace, when the value is empty string, then filtering is disabled
-func virtualServiceDestinations(v *networking.VirtualService, configNamespace string) map[string]sets.Set[int] {
+func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Set[int] {
+	return virtualServiceDestinationsFilteredBySourceNamespace(v, "")
+}
+
+// It is called after virtual service short host name is resolved to FQDN
+// It filters destinations present in VirtualService by using configNamespace, when the value is empty string, then filtering is disabled
+func virtualServiceDestinationsFilteredBySourceNamespace(v *networking.VirtualService, configNamespace string) map[string]sets.Set[int] {
 	if v == nil {
 		return nil
 	}
@@ -769,18 +774,20 @@ func virtualServiceDestinations(v *networking.VirtualService, configNamespace st
 	}
 
 	for _, h := range v.Http {
-		namespaceMatched := true
-		for _, m := range h.Match {
-			if m.SourceNamespace != "" {
-				if m.SourceNamespace == configNamespace {
-					namespaceMatched = true
-					break
+		if configNamespace != "" {
+			namespaceMatched := true
+			for _, m := range h.Match {
+				if m.SourceNamespace != "" {
+					if m.SourceNamespace == configNamespace {
+						namespaceMatched = true
+						break
+					}
+					namespaceMatched = false
 				}
-				namespaceMatched = false
 			}
-		}
-		if !namespaceMatched {
-			continue
+			if !namespaceMatched {
+				continue
+			}
 		}
 		for _, r := range h.Route {
 			if r.Destination != nil {
@@ -1760,19 +1767,26 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				if gw == constants.IstioMeshGateway {
 					continue
 				}
-				gatewayNamespace := ns
-				if gwNs, _, found := strings.Cut(gw, "/"); found {
-					gatewayNamespace = gwNs
+				if features.ScopeGatewayToNamespace {
+					gatewayNamespace := ns
+					if gwNs, _, found := strings.Cut(gw, "/"); found {
+						gatewayNamespace = gwNs
+					}
+					for host := range virtualServiceDestinationsFilteredBySourceNamespace(rule, gatewayNamespace) {
+						sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
+					}
+				} else {
+					for host := range virtualServiceDestinations(rule) {
+						sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
+					}
 				}
-				for host := range virtualServiceDestinations(rule, gatewayNamespace) {
-					sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
-				}
+
 			}
 		}
 
 		// For mesh virtual services, build a map of host -> referenced destinations
 		if features.EnableAmbientWaypoints && (len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway)) {
-			for host := range virtualServiceDestinations(rule, "") {
+			for host := range virtualServiceDestinations(rule) {
 				for _, rhost := range rule.Hosts {
 					if _, f := ps.virtualServiceIndex.referencedDestinations[rhost]; !f {
 						ps.virtualServiceIndex.referencedDestinations[rhost] = sets.New[string]()
