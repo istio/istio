@@ -112,6 +112,10 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (Map, e
 		if err != nil {
 			return nil, err
 		}
+		// Special hack to allow an empty spec to work. Should this be more generic?
+		if m["spec"] == nil {
+			delete(m, "spec")
+		}
 		base.MergeInto(m)
 	}
 

@@ -676,10 +676,7 @@ func TestMultiICPSFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	diffSelect := "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway"
-	got, err = filterManifest(t, got, diffSelect)
-	if err != nil {
-		t.Errorf("error selecting from output manifest: %v", err)
-	}
+	got = filterManifest(t, got, diffSelect)
 	assert.Equal(t, got, want)
 }
 
@@ -910,10 +907,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			}
 
 			if tt.diffSelect != "" {
-				got, err = filterManifest(nil, got, tt.diffSelect)
-				if err != nil {
-					t.Errorf("error selecting from output manifest: %v", err)
-				}
+				got = filterManifest(t, got, tt.diffSelect)
 			}
 
 			tutil.RefreshGoldenFile(t, []byte(got), outPath)
@@ -1150,7 +1144,6 @@ func filterManifest(t test.Failer, ms string, selectResources string) (string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	aom := slices.GroupUnique(parsed, john.Manifest.Hash)
 	parsed = slices.FilterInPlace(parsed, func(manifest john.Manifest) bool {
 		for selected := range sm {
 			re, err := buildResourceRegexp(strings.TrimSpace(selected))
@@ -1163,45 +1156,10 @@ func filterManifest(t test.Failer, ms string, selectResources string) (string) {
 		}
 		return false
 	})
-	slrs, err := filterResourceWithSelectAndIgnore(aom, sm)
-	if err != nil {
-		return "", err
-	}
-	var sb strings.Builder
-	for _, ko := range slrs {
-		yl, err := ko.YAML()
-		if err != nil {
-			return "", err
-		}
-		sb.WriteString(string(yl) + object.YAMLSeparator)
-	}
-	k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(sb.String())
-	if err != nil {
-		return "", err
-	}
-	k8sObjects.Sort(object.DefaultObjectOrder())
-	sortdManifests, err := k8sObjects.YAMLManifest()
-	if err != nil {
-		return "", err
-	}
-	return sortdManifests, nil
-}
 
-// filterResourceWithSelectAndIgnore filter the input resources with selected and ignored filter.
-func filterResourceWithSelectAndIgnore(aom []john.Manifest, sm map[string]string) (map[string]john.Manifest, error) {
-	aosm := make(map[string]*object.K8sObject)
-	for ak, av := range aom {
-		for selected := range sm {
-			re, err := buildResourceRegexp(strings.TrimSpace(selected))
-			if err != nil {
-				return nil, fmt.Errorf("error building the resource regexp: %v", err)
-			}
-			if re.MatchString(ak) {
-				aosm[ak] = av
-			}
-		}
-	}
-	return aosm, nil
+	return yml.JoinString(slices.Map(parsed, func(e john.Manifest) string {
+		return e.Content
+	})...)
 }
 
 // buildResourceRegexp translates the resource indicator to regexp.
