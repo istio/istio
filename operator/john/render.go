@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/manifests"
 	names "istio.io/istio/operator/pkg/name"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -49,7 +48,6 @@ func Render(spec ComponentSpec, comp Component, raw Map) ([]Manifest, error) {
 	}
 
 	vals, _ := raw.GetPathMap("spec.values")
-	log.Errorf("howardjohn: RENDER %v", comp)
 	output, err := renderChart(spec, vals, chrt, nil, nil)
 	if err != nil {
 		return nil, err
