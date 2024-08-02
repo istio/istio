@@ -16,6 +16,7 @@ package mesh
 
 import (
 	"fmt"
+	"istio.io/istio/operator/john"
 	"os"
 	"path/filepath"
 	"strings"
@@ -124,10 +125,46 @@ func ManifestGenerateCmd(ctx cli.Context, rootArgs *RootArgs, mgArgs *ManifestGe
 				kubeClient = kc
 			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-			return ManifestGenerate(kubeClient, rootArgs, mgArgs, l)
+			return ManifestGenerate2(kubeClient, rootArgs, mgArgs, l)
 		},
 	}
 }
+
+func ManifestGenerate2(kubeClient kube.CLIClient, args *RootArgs, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
+	manifests, err := john.GenerateManifest(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
+		mgArgs.Force, mgArgs.Filter, kubeClient)
+	if err != nil {
+		return err
+	}
+	for _, manifest := range manifests {
+		l.Print(manifest + object.YAMLSeparator)
+	}
+	return nil
+}
+
+//
+//func orderedManifests2(mm name.ManifestMap) ([]string, error) {
+//	var rawOutput []string
+//	var output []string
+//	for _, mfs := range mm {
+//		rawOutput = append(rawOutput, mfs...)
+//	}
+//	objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(rawOutput, helm.YAMLSeparator))
+//	if err != nil {
+//		return nil, err
+//	}
+//	// For a given group of objects, sort in order to avoid missing dependencies, such as creating CRDs first
+//	objects.Sort(object.DefaultObjectOrder())
+//	for _, obj := range objects {
+//		yml, err := obj.YAML()
+//		if err != nil {
+//			return nil, err
+//		}
+//		output = append(output, string(yml))
+//	}
+//
+//	return output, nil
+//}
 
 func ManifestGenerate(kubeClient kube.CLIClient, args *RootArgs, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
 	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),

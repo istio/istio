@@ -1,80 +1,60 @@
 package john
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
-	"istio.io/istio/operator/pkg/apis/istio"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/pkg/validate"
-	pkgversion "istio.io/istio/pkg/version"
 	"os"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"sigs.k8s.io/yaml"
-	yaml2 "sigs.k8s.io/yaml"
-
-	"istio.io/istio/manifests"
-	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/ptr"
+	pkgversion "istio.io/istio/pkg/version"
 )
 
-func GenerateManifest(inFilename []string, setFlags []string, force bool, filter []string, client kube.Client, l clog.Logger) error {
-	// we should start with the base default.yaml?
-	merged, err := ReadLayeredYAMLs2(inFilename)
+func GenerateManifest(files []string, setFlags []string, force bool, filter []string, client kube.Client) ([]string, error) {
+	merged, err := MergeInputs(files, setFlags, client)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	withSet, err := overlaySetFlagValues2(merged, setFlags)
-	// We do not do NewReverseTranslator. do we really need it???
-	//t := translate.NewReverseTranslator()
-	//overlayYAML, err := t.TranslateK8SfromValueToIOP(string(b))
-	//l.Print(overlayYAML)
-	b, _ := json.MarshalIndent(withSet, "", " ")
-	l.Print(string(b))
-	iop, err := unmarshalAndValidateIOP(string(b), force, false, l)
+	iop, err := IstioOperatorFromJSON(merged.JSON(), force)
 	_ = iop
+	if err != nil {
+		return nil, err
+	}
 
-
-	t := translate.NewTranslator()
-	//t.TranslateHelmValues(iop, )
-	//apv, _ := t.ProtoToValues(iop.Spec)
-	// TODO setComponentProperties?
-	//l.Print(apv)
-	c := name.PilotComponentName
-	hsd := t.ComponentMap(string(c)).HelmSubdir
-	renderer := helm.NewHelmRenderer(iop.Spec.InstallPackagePath, hsd, string(c), "istio-system", nil)
-	renderer.Run()
-	done, err := renderer.RenderManifest(string(b))
-	l.Print(fmt.Sprintf("%v", err))
-	l.Print(done)
-	// We are skipping TranslateHelmValues
+	var allManifests []string
+	for _, comp := range Components {
+		specs, err := comp.Get(merged)
+		if err != nil {
+			return nil, err
+		}
+		for _, spec := range specs {
+			manifests, err := Render(spec, comp, merged.DeepClone())
+			if err != nil {
+				return nil, err
+			}
+			allManifests = append(allManifests, manifests...)
+		}
+	}
 	// TODO: istioNamespace -> IOP.namespace
 	// TODO: set components based on profile
 	// TODO: ValuesEnablementPathMap? This enables the ingress or egress
-	return nil
+	return allManifests, nil
 }
 
-func addHubAndTag2() ([]string) {
+func hubTagOverlay() []string {
 	hub := pkgversion.DockerInfo.Hub
 	tag := pkgversion.DockerInfo.Tag
 	if hub != "unknown" && tag != "unknown" {
-		return []string{"hub="+hub, "tag="+tag}
+		return []string{"hub=" + hub, "tag=" + tag}
 	}
 	return nil
 }
 
-
-func ReadLayeredYAMLs2(filenames []string) ([]byte, error) {
-	var stdin bool
+func MergeInputs(filenames []string, flags []string, client kube.Client) (Map, error) {
+	// Initial base values
 	base, err := MapFromJson([]byte(`{
   "apiVersion": "install.istio.io/v1alpha1",
   "kind": "IstioOperator",
@@ -87,7 +67,7 @@ func ReadLayeredYAMLs2(filenames []string) ([]byte, error) {
     "components": {
     },
     "values": {
-      "defaultRevision": "",
+      "defaultRevision": ""
     }
   }
 }
@@ -95,17 +75,23 @@ func ReadLayeredYAMLs2(filenames []string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: add hub and tag prelay
-	// TODO: add cluster specific settings prelay (GKE version)
+	// Overlay detected settings
+	if err := base.SetSpecPaths(clusterSpecificSettings(client)...); err != nil {
+		return nil, err
+	}
+	// Insert compiled in hub/tag
+	if err := base.SetSpecPaths(hubTagOverlay()...); err != nil {
+		return nil, err
+	}
 
-	for _, fn := range filenames {
+	// Apply all passed in files
+	for i, fn := range filenames {
 		var b []byte
 		var err error
 		if fn == "-" {
-			if stdin {
-				continue
+			if i != len(filenames)-1 {
+				return nil, fmt.Errorf("stdin is only allowed as the last filename")
 			}
-			stdin = true
 			b, err = io.ReadAll(os.Stdin)
 		} else {
 			b, err = os.ReadFile(strings.TrimSpace(fn))
@@ -113,65 +99,172 @@ func ReadLayeredYAMLs2(filenames []string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		//multiple := false
-		//multiple, err = hasMultipleIOPs(string(b))
-		//if err != nil {
-		//	return nil, err
-		//}
-		//if multiple {
-		//	return nil, fmt.Errorf("input file %s contains multiple IstioOperator CRs, only one per file is supported", fn)
-		//}
-		values, err = OverlayIOP2(values, b)
+		m, err := MapFromYaml(b)
 		if err != nil {
 			return nil, err
 		}
+		base.MergeInto(m)
 	}
-	return values, nil
-}
 
-// OverlayIOP overlays over base using JSON strategic merge.
-func OverlayIOP2(base, overlay []byte) ([]byte, error) {
-	if len(bytes.TrimSpace(base)) == 0 {
-		return overlay, nil
-	}
-	if len(bytes.TrimSpace(overlay)) == 0 {
-		return base, nil
-	}
-	// Incoming may be yaml
-	oj, err := yaml2.YAMLToJSON(overlay)
-	if err != nil {
+	// Apply any --set flags
+	if err := base.SetSpecPaths(flags...); err != nil {
 		return nil, err
 	}
 
-	return strategicpatch.StrategicMergePatch(base, oj, &util.IopMergeStruct)
+	return base, nil
 }
 
-func FromYaml[T any](overlay []byte) (T, error) {
-	v := new(T)
-	err := yaml.Unmarshal(overlay, &v)
-	if err != nil {
-		return ptr.Empty[T](), err
+func clusterSpecificSettings(client kube.Client) []string {
+	if client == nil {
+		return nil
 	}
-	return *v, nil
-}
-
-func FromJson[T any](overlay []byte) (T, error) {
-	v := new(T)
-	err := json.Unmarshal(overlay, &v)
+	ver, err := client.GetKubernetesVersion()
 	if err != nil {
-		return ptr.Empty[T](), err
+		return nil
 	}
-	return *v, nil
+	// https://istio.io/latest/docs/setup/additional-setup/cni/#hosted-kubernetes-settings
+	// GKE requires deployment in kube-system namespace.
+	if strings.Contains(ver.GitVersion, "-gke") {
+		return []string{"components.cni.namespace=kube-system"}
+	}
+	return nil
 }
 
-func unmarshalAndValidateIOP(iopsYAML string, force, allowUnknownField bool, l clog.Logger) (*v1alpha1.IstioOperator, error) {
-	iop, err := istio.UnmarshalIstioOperator(iopsYAML, allowUnknownField)
-	if err != nil {
-		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
+func IstioOperatorFromJSON(iopString string, force bool) (*v1alpha1.IstioOperator, error) {
+	iop := &v1alpha1.IstioOperator{}
+	if err := json.Unmarshal([]byte(iopString), iop); err != nil {
+		return nil, err
 	}
 	if errs := validate.CheckIstioOperatorSpec(iop.Spec); len(errs) != 0 && !force {
-		l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
+		//l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
 		return iop, fmt.Errorf(errs.Error())
 	}
 	return iop, nil
+}
+
+type Component struct {
+	Name    string
+	Default bool
+	Multi   bool
+	// ResourceType maps a ComponentName to the type of the rendered k8s resource.
+	ResourceType string
+	// ResourceName maps a ComponentName to the name of the rendered k8s resource.
+	ResourceName string
+	// ContainerName maps a ComponentName to the name of the container in a Deployment.
+	ContainerName string
+	// HelmSubdir is a mapping between a component name and the subdirectory of the component Chart.
+	HelmSubdir string
+	// ToHelmValuesTreeRoot is the tree root in values YAML files for the component.
+	ToHelmValuesTreeRoot string
+	// SkipReverseTranslate defines whether reverse translate of this component need to be skipped.
+	SkipReverseTranslate bool
+	// FlattenValues, if true, means the component expects values not prefixed with ToHelmValuesTreeRoot
+	// For example `.name=foo` instead of `.component.name=foo`.
+	FlattenValues bool
+}
+
+func (c Component) Get(merged Map) ([]ComponentSpec, error) {
+	defaultNamespace, _ := GetPathAs[string](merged, "metadata.namespace")
+	if c.Multi {
+		s, ok := merged.GetPath("spec.components." + c.Name)
+		if !ok {
+			if !c.Default {
+				// TODO: do we need a default name or something?
+				return []ComponentSpec{{Namespace: defaultNamespace}}, nil
+			}
+			// component is disabled
+			return nil, nil
+		}
+		specs := []ComponentSpec{}
+		for _, cur := range s.([]any) {
+			m, _ := asMap(cur)
+			spec, err := ConvertMap[ComponentSpec](m)
+			if err != nil {
+				return nil, fmt.Errorf("fail to convert %v: %v", c.Name, err)
+			}
+			if spec.Namespace == "" {
+				spec.Namespace = defaultNamespace
+			}
+			specs = append(specs, spec)
+		}
+		return specs, nil
+	}
+	s, ok := merged.GetPathMap("spec.components." + c.Name)
+	if !ok {
+		if !c.Default {
+			return []ComponentSpec{{Namespace: defaultNamespace}}, nil
+		}
+		// component is disabled
+		return nil, nil
+	}
+	spec, err := ConvertMap[ComponentSpec](s)
+	if err != nil {
+		return nil, fmt.Errorf("fail to convert %v: %v", c.Name, err)
+	}
+	if spec.Namespace == "" {
+		spec.Namespace = defaultNamespace
+	}
+	return []ComponentSpec{spec}, nil
+
+}
+
+var Components = []Component{
+	{
+		Name:                 "base",
+		Default:              true,
+		HelmSubdir:           "base",
+		ToHelmValuesTreeRoot: "global",
+		SkipReverseTranslate: true,
+	},
+	{
+		Name:                 "pilot",
+		Default:              true,
+		ResourceType:         "Deployment",
+		ResourceName:         "istiod",
+		ContainerName:        "discovery",
+		HelmSubdir:           "istio-control/istio-discovery",
+		ToHelmValuesTreeRoot: "pilot",
+	},
+	{
+		Name:                 "ingressGateways",
+		Multi:                true,
+		Default:              true,
+		ResourceType:         "Deployment",
+		ResourceName:         "istio-ingressgateway",
+		ContainerName:        "istio-proxy",
+		HelmSubdir:           "gateways/istio-ingress",
+		ToHelmValuesTreeRoot: "gateways.istio-ingressgateway",
+	},
+	{
+		Name:                 "egressGateways",
+		Multi:                true,
+		ResourceType:         "Deployment",
+		ResourceName:         "istio-egressgateway",
+		ContainerName:        "istio-proxy",
+		HelmSubdir:           "gateways/istio-egress",
+		ToHelmValuesTreeRoot: "gateways.istio-egressgateway",
+	},
+	{
+		Name:                 "cni",
+		ResourceType:         "DaemonSet",
+		ResourceName:         "istio-cni-node",
+		ContainerName:        "install-cni",
+		HelmSubdir:           "istio-cni",
+		ToHelmValuesTreeRoot: "cni",
+	},
+	{
+		Name:                 "istiodRemote",
+		HelmSubdir:           "istiod-remote",
+		ToHelmValuesTreeRoot: "global",
+		SkipReverseTranslate: true,
+	},
+	{
+		Name:                 "ztunnel",
+		ResourceType:         "DaemonSet",
+		ResourceName:         "ztunnel",
+		HelmSubdir:           "ztunnel",
+		ToHelmValuesTreeRoot: "ztunnel",
+		ContainerName:        "istio-proxy",
+		FlattenValues:        true,
+	},
 }

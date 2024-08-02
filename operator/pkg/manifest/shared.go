@@ -52,8 +52,6 @@ var installerScope = log.RegisterScope("installer", "installer")
 func GenManifests(inFilename []string, setFlags []string, force bool, filter []string,
 	client kube.Client, l clog.Logger,
 ) (name.ManifestMap, *v1alpha1.IstioOperator, error) {
-	GenerateManifest2(inFilename, setFlags, force, filter, client, l)
-	panic("")
 	mergedYAML, _, err := GenerateIstioOperator(inFilename, setFlags, force, client, l)
 	if err != nil {
 		return nil, nil, err
@@ -444,6 +442,7 @@ var alwaysString = []string{
 	"meshConfig.defaultConfig.proxyMetadata.",
 	"compatibilityVersion",
 }
+
 func isAlwaysString(s string) bool {
 	for _, a := range alwaysString {
 		if strings.HasPrefix(s, a) {
