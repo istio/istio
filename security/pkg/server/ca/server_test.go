@@ -504,15 +504,15 @@ func TestRecordCertsExipryMetrics(t *testing.T) {
 	t.Run("test certificate metric recording", func(t *testing.T) {
 		mt := monitortest.New(t)
 		now := time.Now()
-		rootTtl := time.Hour
-		certTtl := time.Hour / 2
+		rootTTL := time.Hour
+		certTTL := time.Hour / 2
 		rootCertBytes, rootKeyBytes, err := util.GenCertKeyFromOptions(util.CertOptions{
 			Host:         "citadel.testing.istio.io",
 			Org:          "MyOrg",
 			NotBefore:    now,
 			IsCA:         true,
 			IsSelfSigned: true,
-			TTL:          rootTtl,
+			TTL:          rootTTL,
 			RSAKeySize:   2048,
 		})
 		if err != nil {
@@ -533,7 +533,7 @@ func TestRecordCertsExipryMetrics(t *testing.T) {
 			Host:         "citadel.testing.istio.io",
 			Org:          "MyOrg",
 			NotBefore:    now,
-			TTL:          certTtl,
+			TTL:          certTTL,
 			IsServer:     true,
 			IsCA:         true,
 			IsSelfSigned: false,
@@ -551,22 +551,22 @@ func TestRecordCertsExipryMetrics(t *testing.T) {
 
 		RecordCertsExpiry(kb)
 
-		mt.Assert(rootCertExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(rootTtl).Unix()), 1e-7))
-		mt.Assert(certChainExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(certTtl).Unix()), 1e-7))
+		mt.Assert(rootCertExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(rootTTL).Unix()), 1e-7))
+		mt.Assert(certChainExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(certTTL).Unix()), 1e-7))
 		eps := float64(time.Minute) // so the tests aren't flaky
-		mt.Assert(rootCertExpirySeconds.Name(), nil, monitortest.AlmostEquals(rootTtl.Seconds(), eps))
-		mt.Assert(certChainExpirySeconds.Name(), nil, monitortest.AlmostEquals(certTtl.Seconds(), eps))
+		mt.Assert(rootCertExpirySeconds.Name(), nil, monitortest.AlmostEquals(rootTTL.Seconds(), eps))
+		mt.Assert(certChainExpirySeconds.Name(), nil, monitortest.AlmostEquals(certTTL.Seconds(), eps))
 
 		now = time.Now()
-		rootTtl = time.Hour * 60
-		certTtl = time.Hour * 20
+		rootTTL = time.Hour * 60
+		certTTL = time.Hour * 20
 		rootCertBytes, rootKeyBytes, err = util.GenCertKeyFromOptions(util.CertOptions{
 			Host:         "other-citadel.testing.istio.io",
 			Org:          "other-MyOrg",
 			NotBefore:    now,
 			IsCA:         true,
 			IsSelfSigned: true,
-			TTL:          rootTtl,
+			TTL:          rootTTL,
 			RSAKeySize:   2048,
 		})
 		if err != nil {
@@ -587,7 +587,7 @@ func TestRecordCertsExipryMetrics(t *testing.T) {
 			Host:         "other-citadel.testing.istio.io",
 			Org:          "other-MyOrg",
 			NotBefore:    now,
-			TTL:          certTtl,
+			TTL:          certTTL,
 			IsServer:     true,
 			IsCA:         true,
 			IsSelfSigned: false,
@@ -605,9 +605,9 @@ func TestRecordCertsExipryMetrics(t *testing.T) {
 
 		RecordCertsExpiry(kb)
 
-		mt.Assert(rootCertExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(rootTtl).Unix()), 1e-7))
-		mt.Assert(certChainExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(certTtl).Unix()), 1e-7))
-		mt.Assert(rootCertExpirySeconds.Name(), nil, monitortest.AlmostEquals(rootTtl.Seconds(), eps))
-		mt.Assert(certChainExpirySeconds.Name(), nil, monitortest.AlmostEquals(certTtl.Seconds(), eps))
+		mt.Assert(rootCertExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(rootTTL).Unix()), 1e-7))
+		mt.Assert(certChainExpiryTimestamp.Name(), nil, monitortest.AlmostEquals(float64(now.Add(certTTL).Unix()), 1e-7))
+		mt.Assert(rootCertExpirySeconds.Name(), nil, monitortest.AlmostEquals(rootTTL.Seconds(), eps))
+		mt.Assert(certChainExpirySeconds.Name(), nil, monitortest.AlmostEquals(certTTL.Seconds(), eps))
 	})
 }

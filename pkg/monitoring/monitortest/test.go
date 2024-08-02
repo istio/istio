@@ -107,12 +107,12 @@ func DoesNotExist(any) error {
 // Check if two floats are equal with some room for errors (for example, rounding errors)
 // For rounding errors, setting `eps` to 1e-7 is a good default
 func AlmostEquals(v float64, eps float64) func(any) error {
-    return func(f any) error  {
-        if math.Abs(v - toFloat(f)) > eps {
+	return func(f any) error {
+		if math.Abs(v-toFloat(f)) > eps {
 			return fmt.Errorf("%v and %v and not within %v", v, toFloat(f), eps)
-        }
-        return nil
-    }
+		}
+		return nil
+	}
 }
 
 func Exactly(v float64) func(any) error {
