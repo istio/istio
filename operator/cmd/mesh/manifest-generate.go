@@ -16,7 +16,6 @@ package mesh
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -26,13 +25,12 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/slices"
 )
 
 type ManifestGenerateArgs struct {
 	// InFilenames is an array of paths to the input IstioOperator CR files.
 	InFilenames []string
-	// OutFilename is the path to the generated output directory.
-	OutFilename string
 
 	// EnableClusterSpecific determines if the current Kubernetes cluster will be used to autodetect values.
 	// If false, generic defaults will be used. This is useful when generating once and then applying later.
@@ -47,8 +45,6 @@ type ManifestGenerateArgs struct {
 	ManifestsPath string
 	// Revision is the Istio control plane revision the command targets.
 	Revision string
-	// Components is a list of strings specifying which component's manifests to be generated.
-	Components []string
 	// Filter is the list of components to render
 	Filter []string
 }
@@ -58,24 +54,20 @@ var kubeClientFunc func() (kube.CLIClient, error)
 func (a *ManifestGenerateArgs) String() string {
 	var b strings.Builder
 	b.WriteString("InFilenames:   " + fmt.Sprint(a.InFilenames) + "\n")
-	b.WriteString("OutFilename:   " + a.OutFilename + "\n")
 	b.WriteString("Set:           " + fmt.Sprint(a.Set) + "\n")
 	b.WriteString("Force:         " + fmt.Sprint(a.Force) + "\n")
 	b.WriteString("ManifestsPath: " + a.ManifestsPath + "\n")
 	b.WriteString("Revision:      " + a.Revision + "\n")
-	b.WriteString("Components:    " + fmt.Sprint(a.Components) + "\n")
 	return b.String()
 }
 
 func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.InFilenames, "filename", "f", nil, filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.OutFilename, "output", "o", "", "Manifest output directory path.")
 	cmd.PersistentFlags().StringArrayVarP(&args.Set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.Force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
-	cmd.PersistentFlags().StringSliceVar(&args.Components, "component", nil, ComponentFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.Filter, "filter", nil, "")
 	_ = cmd.PersistentFlags().MarkHidden("filter")
 
@@ -137,7 +129,7 @@ func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l
 	return nil
 }
 
-func sortManifests(raw []john.ManifestSet) ([]string) {
+func sortManifests(raw []john.ManifestSet) []string {
 	all := []john.Manifest{}
 	for _, m := range raw {
 		all = append(all, m.Manifests...)

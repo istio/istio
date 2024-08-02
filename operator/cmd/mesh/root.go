@@ -40,7 +40,6 @@ If set to true, the user is not prompted and a Yes response is assumed in all ca
 	filenameFlagHelpStr = `Path to file containing IstioOperator custom resource
 This flag can be specified multiple times to overlay multiple files. Multiple files are overlaid in left to right order.`
 	ForceFlagHelpStr       = `Proceed even with validation errors.`
-	ComponentFlagHelpStr   = "Specify which component to generate manifests for."
 	VerifyCRInstallHelpStr = "Verify the Istio control plane after installation/in-place upgrade"
 )
 

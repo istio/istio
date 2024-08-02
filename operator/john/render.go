@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/manifests"
+	names "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,6 +27,15 @@ type Manifest struct {
 	Content string
 }
 
+func (m Manifest) Hash() string {
+	k := m.GroupVersionKind().Kind
+		switch m.GroupVersionKind().Kind {
+	case names.ClusterRoleStr, names.ClusterRoleBindingStr:
+		return k + ":" + m.GetName()
+	}
+	return k + ":" + m.GetNamespace() + ":" + m.GetName()
+}
+
 func Render(spec ComponentSpec, comp Component, raw Map) ([]Manifest, error) {
 	// TODO: installPackagePath
 	f := manifests.BuiltinOrDir("")
@@ -41,19 +51,23 @@ func Render(spec ComponentSpec, comp Component, raw Map) ([]Manifest, error) {
 	if err != nil {
 		return nil, err
 	}
+	return ParseManifests(output)
+}
+
+func ParseManifests(output []string) ([]Manifest, error) {
 	res := make([]Manifest, 0, len(output))
 	for _, m := range output {
 		us := &unstructured.Unstructured{}
 		if err := yaml.Unmarshal([]byte(m), us); err != nil {
-			return nil, err
+			return nil,err
 		}
 		if us.GetObjectKind().GroupVersionKind().Kind == "" {
 			// This is not an object. Could be empty template, comments only, etc
 			continue
 		}
 		res = append(res, Manifest{
-			Content: m,
-			Unstructured:  us,
+			Content:      m,
+			Unstructured: us,
 		})
 	}
 	return res, nil

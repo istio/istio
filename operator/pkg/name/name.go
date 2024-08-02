@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
 )
 
@@ -79,10 +78,6 @@ const (
 	// Gateway components
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
-
-	// Operator components
-	IstioOperatorComponentName      ComponentName = "IstioOperator"
-	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
 )
 
 var IstioComponentIcons = map[ComponentName]string{
@@ -108,70 +103,18 @@ var (
 		ZtunnelComponentName,
 	}
 
-	// AllComponentNames is a list of all Istio components.
-	AllComponentNames = append(AllCoreComponentNames, IngressComponentName, EgressComponentName,
-		IstioOperatorComponentName, IstioOperatorCustomResourceName)
-
-	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
-	// paths in IstioOperator.
-	ValuesEnablementPathMap = map[string]string{
-		"spec.values.gateways.istio-ingressgateway.enabled": "spec.components.ingressGateways.[name:istio-ingressgateway].enabled",
-		"spec.values.gateways.istio-egressgateway.enabled":  "spec.components.egressGateways.[name:istio-egressgateway].enabled",
-	}
-
 	// userFacingComponentNames are the names of components that are displayed to the user in high level CLIs
 	// (like progress log).
 	userFacingComponentNames = map[ComponentName]string{
-		IstioBaseComponentName:          "Istio core",
-		PilotComponentName:              "Istiod",
-		CNIComponentName:                "CNI",
-		ZtunnelComponentName:            "Ztunnel",
-		IngressComponentName:            "Ingress gateways",
-		EgressComponentName:             "Egress gateways",
-		IstioOperatorComponentName:      "Istio operator",
-		IstioOperatorCustomResourceName: "Istio operator CRDs",
-		IstiodRemoteComponentName:       "Istiod remote",
+		IstioBaseComponentName:    "Istio core",
+		PilotComponentName:        "Istiod",
+		CNIComponentName:          "CNI",
+		ZtunnelComponentName:      "Ztunnel",
+		IngressComponentName:      "Ingress gateways",
+		EgressComponentName:       "Egress gateways",
+		IstiodRemoteComponentName: "Istiod remote",
 	}
 )
-
-// Manifest defines a manifest for a component.
-type Manifest struct {
-	Name    ComponentName
-	Content string
-}
-
-// ManifestMap is a map of ComponentName to its manifest string.
-type ManifestMap map[ComponentName][]string
-
-// Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
-// manifest.
-func (mm ManifestMap) Consolidated() map[string]string {
-	out := make(map[string]string)
-	for cname, ms := range mm {
-		allM := ""
-		for _, m := range ms {
-			allM += m + helm.YAMLSeparator
-		}
-		out[string(cname)] = allM
-	}
-	return out
-}
-
-// MergeManifestSlices merges a slice of manifests into a single manifest string.
-func MergeManifestSlices(manifests []string) string {
-	return strings.Join(manifests, helm.YAMLSeparator)
-}
-
-// String implements the Stringer interface.
-func (mm ManifestMap) String() string {
-	out := ""
-	for _, ms := range mm {
-		for _, m := range ms {
-			out += m + helm.YAMLSeparator
-		}
-	}
-	return out
-}
 
 // IsGateway reports whether cn is a gateway component.
 func (cn ComponentName) IsGateway() bool {

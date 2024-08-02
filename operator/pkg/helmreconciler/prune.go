@@ -138,8 +138,9 @@ func GetPrunedResources(clt client.Client, iopName, iopNamespace, revision strin
 			// do not prune base components or unknown components
 			includeCN := []string{
 				string(name.PilotComponentName),
-				string(name.IngressComponentName), string(name.EgressComponentName),
-				string(name.CNIComponentName), string(name.IstioOperatorComponentName),
+				string(name.IngressComponentName),
+				string(name.EgressComponentName),
+				string(name.CNIComponentName),
 				string(name.IstiodRemoteComponentName),
 				string(name.ZtunnelComponentName),
 			}

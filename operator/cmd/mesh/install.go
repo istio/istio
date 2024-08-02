@@ -25,21 +25,19 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/john"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/art"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type InstallArgs struct {
@@ -150,7 +148,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	if err != nil {
 		return fmt.Errorf("fetch Istio version: %v", err)
 	}
-_ = tag
+	_ = tag
 	// return warning if current date is near the EOL date
 	if operatorVer.IsEOL() {
 		warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
@@ -273,40 +271,6 @@ func GetTagVersion(tagInfo string) (string, error) {
 		return "", err
 	}
 	return tag.String(), nil
-}
-
-// getProfileNSAndEnabledComponents get the profile and all the enabled components
-// from the given input files and --set flag overlays.
-func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, string, []string, error) {
-	var enabledComponents []string
-	if iop.Spec.Components != nil {
-		for _, c := range name.AllCoreComponentNames {
-			enabled, err := translate.IsComponentEnabledInSpec(c, iop.Spec)
-			if err != nil {
-				return "", "", nil, fmt.Errorf("failed to check if component: %s is enabled or not: %v", string(c), err)
-			}
-			if enabled {
-				enabledComponents = append(enabledComponents, name.UserFacingComponentName(c))
-			}
-		}
-		for _, c := range iop.Spec.Components.IngressGateways {
-			if c.Enabled.GetValue() {
-				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.IngressComponentName))
-				break
-			}
-		}
-		for _, c := range iop.Spec.Components.EgressGateways {
-			if c.Enabled.GetValue() {
-				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.EgressComponentName))
-				break
-			}
-		}
-	}
-
-	if configuredNamespace := v1alpha12.Namespace(iop.Spec); configuredNamespace != "" {
-		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
-	}
-	return iop.Spec.Profile, constants.IstioSystemNamespace, enabledComponents, nil
 }
 
 func humanReadableJoin(ss []string) string {
