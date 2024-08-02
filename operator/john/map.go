@@ -101,6 +101,16 @@ func GetPathAs[T any](m Map, name string) (T, bool) {
 	return t, ok
 }
 
+// TryGetPathAs
+func TryGetPathAs[T any](m Map, name string) T {
+	v, ok := m.GetPath(name)
+	if !ok {
+		return ptr.Empty[T]()
+	}
+	t, ok := v.(T)
+	return t
+}
+
 // GetPath gets values from input like `key.subkey`
 func (m Map) GetPath(name string) (any, bool) {
 	cur := any(m)

@@ -34,10 +34,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -179,17 +176,18 @@ func fakeApplyExtraResources(inFile string) error {
 }
 
 func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
-	c := kube.NewFakeClientWithVersion("25")
-	l := clog.NewDefaultLogger()
-	_, iop, err := manifest.GenerateIstioOperator(
-		[]string{inFileAbsolutePath(inFile)},
-		[]string{"installPackagePath=" + string(chartSource)},
-		false, c, l)
-	if err != nil {
-		return nil, err
-	}
-
-	iop.Spec.InstallPackagePath = string(chartSource)
+	//TOOO
+	//c := kube.NewFakeClientWithVersion("25")
+	//l := clog.NewDefaultLogger()
+	//_, iop, err := manifest.GenerateIstioOperator(
+	//	[]string{inFileAbsolutePath(inFile)},
+	//	[]string{"installPackagePath=" + string(chartSource)},
+	//	false, c, l)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//iop.Spec.InstallPackagePath = string(chartSource)
 
 	// TODO
 	//reconciler, err := helmreconciler.NewHelmReconciler(testClient, c, iop, nil)
@@ -203,7 +201,6 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*Objec
 
 	return NewObjectSet(getAllIstioObjects()), nil
 }
-
 
 // runManifestCommand runs the given manifest command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.

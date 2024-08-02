@@ -169,49 +169,58 @@ type Component struct {
 	SkipReverseTranslate bool
 	// FlattenValues, if true, means the component expects values not prefixed with ToHelmValuesTreeRoot
 	// For example `.name=foo` instead of `.component.name=foo`.
-	FlattenValues bool
+	FlattenValues     bool
+	AltEnablementPath string
 }
 
 func (c Component) Get(merged Map) ([]ComponentSpec, error) {
-	defaultNamespace, _ := GetPathAs[string](merged, "metadata.namespace")
+	defaultNamespace := TryGetPathAs[string](merged, "metadata.namespace")
+	var defaultResponse []ComponentSpec
+	def := c.Default
+	if c.AltEnablementPath != "" {
+		if TryGetPathAs[bool](merged, c.AltEnablementPath) {
+			def = true
+		}
+	}
+	if def {
+		defaultResponse = []ComponentSpec{{Namespace: defaultNamespace}}
+	}
+
+	buildSpec := func(m Map) (ComponentSpec, error) {
+		spec, err := ConvertMap[ComponentSpec](m)
+		if err != nil {
+			return ComponentSpec{}, fmt.Errorf("fail to convert %v: %v", c.Name, err)
+		}
+		if spec.Namespace == "" {
+			spec.Namespace = defaultNamespace
+		}
+		return spec, nil
+	}
+	// List of components
 	if c.Multi {
 		s, ok := merged.GetPath("spec.components." + c.Name)
 		if !ok {
-			if c.Default {
-				// TODO: do we need a default name or something?
-				return []ComponentSpec{{Namespace: defaultNamespace}}, nil
-			}
-			// component is disabled
-			return nil, nil
+			return defaultResponse, nil
 		}
 		specs := []ComponentSpec{}
 		for _, cur := range s.([]any) {
 			m, _ := asMap(cur)
-			spec, err := ConvertMap[ComponentSpec](m)
+			spec, err := buildSpec(m)
 			if err != nil {
-				return nil, fmt.Errorf("fail to convert %v: %v", c.Name, err)
-			}
-			if spec.Namespace == "" {
-				spec.Namespace = defaultNamespace
+				return nil, err
 			}
 			specs = append(specs, spec)
 		}
 		return specs, nil
 	}
+	// Single component
 	s, ok := merged.GetPathMap("spec.components." + c.Name)
 	if !ok {
-		if c.Default {
-			return []ComponentSpec{{Namespace: defaultNamespace}}, nil
-		}
-		// component is disabled
-		return nil, nil
+		return defaultResponse, nil
 	}
-	spec, err := ConvertMap[ComponentSpec](s)
+	spec, err := buildSpec(s)
 	if err != nil {
-		return nil, fmt.Errorf("fail to convert %v: %v", c.Name, err)
-	}
-	if spec.Namespace == "" {
-		spec.Namespace = defaultNamespace
+		return nil, err
 	}
 	return []ComponentSpec{spec}, nil
 }
@@ -242,6 +251,7 @@ var Components = []Component{
 		ContainerName:        "istio-proxy",
 		HelmSubdir:           "gateways/istio-ingress",
 		ToHelmValuesTreeRoot: "gateways.istio-ingressgateway",
+		AltEnablementPath:    "spec.values.gateways.istio-ingressgateway.enabled",
 	},
 	{
 		Name:                 "egressGateways",
@@ -251,6 +261,7 @@ var Components = []Component{
 		ContainerName:        "istio-proxy",
 		HelmSubdir:           "gateways/istio-egress",
 		ToHelmValuesTreeRoot: "gateways.istio-egressgateway",
+		AltEnablementPath:    "spec.values.gateways.istio-egressgateway.enabled",
 	},
 	{
 		Name:                 "cni",

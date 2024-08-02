@@ -52,12 +52,10 @@ type gatewayKubernetesMapping struct {
 
 var (
 	skipTranslate = map[name.ComponentName]bool{
-		name.IstioBaseComponentName:          true,
-		name.IstioOperatorComponentName:      true,
-		name.IstioOperatorCustomResourceName: true,
-		name.CNIComponentName:                true,
-		name.IstiodRemoteComponentName:       true,
-		name.ZtunnelComponentName:            true,
+		name.IstioBaseComponentName:    true,
+		name.CNIComponentName:          true,
+		name.IstiodRemoteComponentName: true,
+		name.ZtunnelComponentName:      true,
 	}
 
 	gatewayPathMapping = map[string]name.ComponentName{
@@ -77,6 +75,7 @@ func (t *ReverseTranslator) initAPIAndComponentMapping() {
 	}
 	for cn, cm := range ts.ComponentMaps {
 		// we use dedicated translateGateway for gateway instead
+		// So this only happens for pilot...
 		if !skipTranslate[cn] && !cm.SkipReverseTranslate && !cn.IsGateway() {
 			t.ValuesToComponentName[cm.ToHelmValuesTreeRoot] = cn
 		}

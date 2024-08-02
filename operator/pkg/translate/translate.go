@@ -728,7 +728,9 @@ func (t *Translator) IsComponentEnabled(cn name.ComponentName, iop *v1alpha1.Ist
 	if t.ComponentMaps[cn] == nil {
 		return false, nil
 	}
-	return IsComponentEnabledInSpec(cn, iop)
+	// TODO??
+	return false, nil
+	// return IsComponentEnabledInSpec(cn, iop)
 }
 
 // insertLeaf inserts a leaf with value into root at path, which is first mapped using t.APIMapping.
