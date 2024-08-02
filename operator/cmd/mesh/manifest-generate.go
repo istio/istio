@@ -15,10 +15,12 @@
 package mesh
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/john"
@@ -134,47 +136,63 @@ func sortManifests(raw []john.ManifestSet) []string {
 	for _, m := range raw {
 		all = append(all, m.Manifests...)
 	}
-	slices.SortBy(all, func(a john.Manifest) int {
-		o := a.Unstructured
-		gk := o.GroupVersionKind().Group + "/" + o.GroupVersionKind().Kind
-		switch {
-		// Create CRDs asap - both because they are slow and because we will likely create instances of them soon
-		case gk == "apiextensions.k8s.io/CustomResourceDefinition":
-			return -1000
-
-			// We need to create ServiceAccounts, Roles before we bind them with a RoleBinding
-		case gk == "/ServiceAccount" || gk == "rbac.authorization.k8s.io/ClusterRole":
-			return 1
-		case gk == "rbac.authorization.k8s.io/ClusterRoleBinding":
-			return 2
-
-			// validatingwebhookconfiguration is configured to FAIL-OPEN in the default install. For the
-			// re-install case we want to apply the validatingwebhookconfiguration first to reset any
-			// orphaned validatingwebhookconfiguration that is FAIL-CLOSE.
-		case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
-			return 3
-
-			// Pods might need configmap or secrets - avoid backoff by creating them first
-		case gk == "/ConfigMap" || gk == "/Secrets":
-			return 100
-
-			// Create the pods after we've created other things they might be waiting for
-		case gk == "extensions/Deployment" || gk == "apps/Deployment":
-			return 1000
-
-			// Autoscalers typically act on a deployment
-		case gk == "autoscaling/HorizontalPodAutoscaler":
-			return 1001
-
-			// Create services late - after pods have been started
-		case gk == "/Service":
-			return 10000
-
-		default:
-			return 1000
+	slices.SortStableFunc(all, func(a, b john.Manifest) int {
+		if r := cmp.Compare(objectKindOrdering(a), objectKindOrdering(b)); r != 0 {
+			return r
 		}
+		if r := cmp.Compare(a.GroupVersionKind().Group, b.GroupVersionKind().Group); r != 0 {
+			return r
+		}
+		if r := cmp.Compare(a.GroupVersionKind().Kind, b.GroupVersionKind().Kind); r != 0 {
+			return r
+		}
+		return cmp.Compare(a.GetName(), b.GetName())
 	})
 	return slices.Map(all, func(e john.Manifest) string {
-		return e.Content
+		// marshal the object instead of using the raw content to normalized the output
+		// This is likely not good behavior
+		res, _ := yaml.Marshal(e.Object)
+		return string(res)
 	})
+}
+
+func objectKindOrdering(m john.Manifest) int {
+	o := m.Unstructured
+	gk := o.GroupVersionKind().Group + "/" + o.GroupVersionKind().Kind
+	switch {
+	// Create CRDs asap - both because they are slow and because we will likely create instances of them soon
+	case gk == "apiextensions.k8s.io/CustomResourceDefinition":
+		return -1000
+
+		// We need to create ServiceAccounts, Roles before we bind them with a RoleBinding
+	case gk == "/ServiceAccount" || gk == "rbac.authorization.k8s.io/ClusterRole":
+		return 1
+	case gk == "rbac.authorization.k8s.io/ClusterRoleBinding":
+		return 2
+
+		// validatingwebhookconfiguration is configured to FAIL-OPEN in the default install. For the
+		// re-install case we want to apply the validatingwebhookconfiguration first to reset any
+		// orphaned validatingwebhookconfiguration that is FAIL-CLOSE.
+	case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
+		return 3
+
+		// Pods might need configmap or secrets - avoid backoff by creating them first
+	case gk == "/ConfigMap" || gk == "/Secrets":
+		return 100
+
+		// Create the pods after we've created other things they might be waiting for
+	case gk == "extensions/Deployment" || gk == "apps/Deployment":
+		return 1000
+
+		// Autoscalers typically act on a deployment
+	case gk == "autoscaling/HorizontalPodAutoscaler":
+		return 1001
+
+		// Create services late - after pods have been started
+	case gk == "/Service":
+		return 10000
+
+	default:
+		return 1000
+	}
 }
