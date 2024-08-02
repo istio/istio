@@ -168,7 +168,7 @@ func (c Component) Get(merged Map) ([]ComponentSpec, error) {
 	if c.Multi {
 		s, ok := merged.GetPath("spec.components." + c.Name)
 		if !ok {
-			if !c.Default {
+			if c.Default {
 				// TODO: do we need a default name or something?
 				return []ComponentSpec{{Namespace: defaultNamespace}}, nil
 			}
@@ -191,7 +191,7 @@ func (c Component) Get(merged Map) ([]ComponentSpec, error) {
 	}
 	s, ok := merged.GetPathMap("spec.components." + c.Name)
 	if !ok {
-		if !c.Default {
+		if c.Default {
 			return []ComponentSpec{{Namespace: defaultNamespace}}, nil
 		}
 		// component is disabled

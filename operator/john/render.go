@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/manifests"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"k8s.io/apimachinery/pkg/version"
 	"os"
@@ -28,7 +29,7 @@ func Render(spec ComponentSpec, comp Component, raw Map) ([]string, error) {
 	}
 
 	vals, _ := raw.GetPathMap("spec.values")
-
+	log.Errorf("howardjohn: RENDER %v", comp)
 	output, err := renderChart(spec, vals, chrt, nil, nil)
 	return output, nil
 }
@@ -39,7 +40,7 @@ type TemplateFilterFunc func(string) bool
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
 func renderChart(spec ComponentSpec, values Map, chrt *chart.Chart, filterFunc TemplateFilterFunc, version *version.Info) ([]string, error) {
 	options := chartutil.ReleaseOptions{
-		Name:      spec.Name,
+		Name:      "istio", // TODO: this should probably have been the component name. However, its a bit late to change it.
 		Namespace: spec.Namespace,
 	}
 
