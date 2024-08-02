@@ -136,10 +136,35 @@ func ManifestGenerate2(kubeClient kube.CLIClient, args *RootArgs, mgArgs *Manife
 	if err != nil {
 		return err
 	}
-	for _, manifest := range manifests {
+	sorted, err := sortManifests(manifests)
+	if err != nil {
+		return err
+	}
+	for _, manifest := range sorted {
 		l.Print(manifest + object.YAMLSeparator)
 	}
 	return nil
+}
+
+
+// TODO: do not do full parsing
+func sortManifests(mm []string) ([]string, error) {
+	var output []string
+	objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(mm, helm.YAMLSeparator))
+	if err != nil {
+		return nil, err
+	}
+	// For a given group of objects, sort in order to avoid missing dependencies, such as creating CRDs first
+	objects.Sort(object.DefaultObjectOrder())
+	for _, obj := range objects {
+		yml, err := obj.YAML()
+		if err != nil {
+			return nil, err
+		}
+		output = append(output, string(yml))
+	}
+
+	return output, nil
 }
 
 //
