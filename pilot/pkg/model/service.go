@@ -1440,13 +1440,14 @@ func (s *Service) Equals(other *Service) bool {
 
 // DeepCopy creates a clone of IstioEndpoint.
 func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
+	if ep == nil {
+		return ep
+	}
+
 	out := *ep
 	out.Labels = maps.Clone(ep.Labels)
 	out.Addresses = slices.Clone(ep.Addresses)
-	out.Locality = Locality{
-		Label:     ep.Locality.Label,
-		ClusterID: ep.Locality.ClusterID,
-	}
+
 	return &out
 }
 
