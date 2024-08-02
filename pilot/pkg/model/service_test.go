@@ -730,3 +730,30 @@ func TestGetAllAddresses(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkEndpointDeepCopy(b *testing.B) {
+	ep := &IstioEndpoint{
+		Labels:          labels.Instance{"label-foo": "aaa", "label-bar": "bbb"},
+		Addresses:       []string{"address-foo", "address-bar"},
+		ServicePortName: "service-port-name",
+		ServiceAccount:  "service-account",
+		Network:         "Network",
+		Locality: Locality{
+			ClusterID: "cluster-id",
+			Label:     "region1/zone1/subzone1",
+		},
+		EndpointPort: 22,
+		LbWeight:     100,
+		TLSMode:      "mutual",
+		Namespace:    "namespace",
+		WorkloadName: "workload-name",
+		HostName:     "foo-pod.svc",
+		SubDomain:    "subdomain",
+		HealthStatus: Healthy,
+		NodeName:     "node1",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = ep.DeepCopy()
+	}
+}
