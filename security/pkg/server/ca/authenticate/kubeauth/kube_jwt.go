@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"google.golang.org/grpc/metadata"
 	"k8s.io/client-go/kubernetes"
@@ -74,13 +73,6 @@ func NewKubeJWTAuthenticator(
 
 func (a *KubeJWTAuthenticator) AuthenticatorType() string {
 	return KubeJWTAuthenticatorType
-}
-
-func isAllowedKubernetesAudience(a string) bool {
-	// We do not use url.Parse() as it *requires* the protocol.
-	a = strings.TrimPrefix(a, "https://")
-	a = strings.TrimPrefix(a, "http://")
-	return strings.HasPrefix(a, "kubernetes.default.svc")
 }
 
 // Authenticate authenticates the call using the K8s JWT from the context.
