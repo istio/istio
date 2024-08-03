@@ -397,7 +397,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -439,7 +439,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -464,7 +464,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -504,7 +504,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 							},
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -548,7 +548,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -583,7 +583,7 @@ func TestAddSubsetToMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -597,7 +597,7 @@ func TestAddSubsetToMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 							"subset": {

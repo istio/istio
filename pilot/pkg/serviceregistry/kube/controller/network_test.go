@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -337,6 +338,8 @@ func TestAmbientSync(t *testing.T) {
 		SystemNamespace: systemNS,
 		NetworksWatcher: mesh.NewFixedNetworksWatcher(nil),
 		SkipRun:         true,
+		CRDs:            []schema.GroupVersionResource{gvr.KubernetesGateway},
+		ConfigCluster:   true,
 	})
 	done := make(chan struct{})
 	// We want to test that ambient is not marked synced until the Kube controller is synced, since it depends on it for network
@@ -353,6 +356,47 @@ func TestAmbientSync(t *testing.T) {
 	<-done
 	// Once the queue is done, eventually we should sync.
 	assert.EventuallyEqual(t, s.ambientIndex.HasSynced, true)
+
+	gtw := clienttest.NewWriter[*v1beta1.Gateway](t, s.client)
+
+	gateway := &v1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "remote-beta",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"gateway.istio.io/service-account": "eastwest-istio-eastwest",
+			},
+			Labels: map[string]string{
+				"topology.istio.io/network": "beta",
+			},
+		},
+		Spec: v1beta1.GatewaySpec{
+			GatewayClassName: "istio-remote",
+			Addresses: []v1beta1.GatewayAddress{
+				{
+					Type:  ptr.Of(v1beta1.IPAddressType),
+					Value: "172.18.1.45",
+				},
+			},
+			Listeners: []v1beta1.Listener{
+				{
+					Name:     "cross-network",
+					Port:     15008,
+					Protocol: v1beta1.ProtocolType("HBONE"),
+					TLS: &v1beta1.GatewayTLSConfig{
+						Mode: ptr.Of(v1beta1.TLSModeType("Passthrough")),
+						Options: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{
+							"gateway.istio.io/listener-protocol": "auto-passthrough",
+						},
+					},
+				},
+			},
+		},
+	}
+	gtw.Create(gateway)
+	assert.EventuallyEqual(t, func() int {
+		return len(s.ambientIndex.All())
+	}, 1)
 }
 
 func createOrUpdateNamespace(t *testing.T, c *FakeController, name, network string) {

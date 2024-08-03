@@ -23,7 +23,7 @@ import (
 )
 
 const se = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se1
@@ -37,7 +37,7 @@ spec:
     name: port-9999
     protocol: {{.Protocol}}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se2
@@ -52,7 +52,7 @@ spec:
     protocol: {{.Protocol}}
 ---
 {{ if .VirtualService }}
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs1
@@ -211,9 +211,11 @@ func TestServiceEntry(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := &model.Proxy{
-				Labels:   map[string]string{"app": "foo"},
-				Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}},
+				Labels:      map[string]string{"app": "foo"},
+				Metadata:    &model.NodeMetadata{Labels: map[string]string{"app": "foo"}},
+				IPAddresses: []string{"127.0.0.1", "1234::1234"},
 			}
+			proxy.DiscoverIPMode()
 			runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
 				name:   tt.name,
 				config: tt.config,
@@ -224,7 +226,7 @@ func TestServiceEntry(t *testing.T) {
 }
 
 const serviceEntriesWithDuplicatedHosts = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: istio-http
@@ -238,7 +240,7 @@ spec:
     protocol: HTTP
   resolution: DNS
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: istio-https

@@ -26,21 +26,23 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	apiv1alpha3 "istio.io/api/networking/v1alpha3"
-	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	autoallocate "istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	networkingv1 "istio.io/client-go/pkg/apis/networking/v1"
+	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
+	cfghost "istio.io/istio/pkg/config/host"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var log = istiolog.RegisterScope("ip-autoallocate", "IP autoallocate controller")
 
 type IPAllocator struct {
-	serviceEntryClient kclient.Client[*networkingv1alpha3.ServiceEntry]
-	index              kclient.Index[netip.Addr, *networkingv1alpha3.ServiceEntry]
+	serviceEntryClient kclient.Client[*networkingv1.ServiceEntry]
+	index              kclient.Index[netip.Addr, *networkingv1.ServiceEntry]
 	stopChan           <-chan struct{}
 	queue              controllers.Queue
 
@@ -96,9 +98,9 @@ const (
 )
 
 func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
-	client := kclient.New[*networkingv1alpha3.ServiceEntry](c)
-	index := kclient.CreateIndex[netip.Addr, *networkingv1alpha3.ServiceEntry](client, func(serviceentry *networkingv1alpha3.ServiceEntry) []netip.Addr {
-		addresses := autoallocate.GetV2AddressesFromServiceEntry(serviceentry)
+	client := kclient.New[*networkingv1.ServiceEntry](c)
+	index := kclient.CreateIndex[netip.Addr, *networkingv1.ServiceEntry](client, func(serviceentry *networkingv1.ServiceEntry) []netip.Addr {
+		addresses := autoallocate.GetAddressesFromServiceEntry(serviceentry)
 		for _, addr := range serviceentry.Spec.Addresses {
 			a, err := netip.ParseAddr(addr)
 			if err != nil {
@@ -142,7 +144,7 @@ func (c *IPAllocator) populateControllerDatastructures() {
 		count++
 		owner := config.NamespacedName(serviceentry)
 		c.checkInSpecAddresses(serviceentry)
-		c.markUsedOrQueueConflict(autoallocate.GetV2AddressesFromServiceEntry(serviceentry), owner)
+		c.markUsedOrQueueConflict(autoallocate.GetAddressesFromServiceEntry(serviceentry), owner)
 	}
 
 	log.Debugf("discovered %v during warming", count)
@@ -179,23 +181,23 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 		return nil
 	}
 
-	patch, atomicAddPatch, err := c.statusPatchForAddresses(serviceentry, false)
+	replaceAddresses, addStatusAndAddresses, err := c.statusPatchForAddresses(serviceentry, false)
 	if err != nil {
 		return err
 	}
 
-	if patch == nil {
+	if replaceAddresses == nil {
 		log.Debugf("no change needed")
 		return nil // nothing to patch
 	}
 
 	// this patch may fail if there is no status which exists
-	_, err = c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, patch)
+	_, err = c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, replaceAddresses)
 	if err != nil {
 		// try this patch which tests that status doesn't exist, adds status and then add addresses all in 1 operation
-		_, err2 := c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, atomicAddPatch)
+		_, err2 := c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, addStatusAndAddresses)
 		if err2 != nil {
-			log.Errorf("second patch also rejected %v, patch: %s", err2.Error(), atomicAddPatch)
+			log.Errorf("second patch also rejected %v, patch: %s", err2.Error(), addStatusAndAddresses)
 			// if this also didn't work there is perhaps a real issue and perhaps a requeue will resolve
 			return err
 		}
@@ -207,7 +209,7 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 }
 
 func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
-	var serviceentries, autoConflicts, userConflicts []*networkingv1alpha3.ServiceEntry
+	var serviceentries, autoConflicts, userConflicts []*networkingv1.ServiceEntry
 
 	for _, conflictingAddress := range conflict.getAddresses() {
 		serviceentries = append(serviceentries, c.index.Lookup(conflictingAddress)...)
@@ -224,7 +226,7 @@ func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
 		}
 	}
 
-	slices.SortFunc(autoConflicts, func(a, b *networkingv1alpha3.ServiceEntry) int {
+	slices.SortFunc(autoConflicts, func(a, b *networkingv1.ServiceEntry) int {
 		return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
 	})
 
@@ -265,11 +267,11 @@ func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
 	return errs
 }
 
-func allAddresses(se *networkingv1alpha3.ServiceEntry) ([]netip.Addr, []netip.Addr) {
+func allAddresses(se *networkingv1.ServiceEntry) ([]netip.Addr, []netip.Addr) {
 	if se == nil {
 		return nil, nil
 	}
-	autoAssigned := autoallocate.GetV2AddressesFromServiceEntry(se)
+	autoAssigned := autoallocate.GetAddressesFromServiceEntry(se)
 	userAssigned := []netip.Addr{}
 
 	for _, a := range se.Spec.Addresses {
@@ -324,20 +326,57 @@ type jsonPatch struct {
 	Value     interface{} `json:"value"`
 }
 
-func (c *IPAllocator) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntry, forcedReassign bool) ([]byte, []byte, error) {
+// filter out any wildcarded hosts
+func removeWildCarded(h string) bool {
+	return !cfghost.Name(h).IsWildCarded()
+}
+
+func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, forcedReassign bool) ([]byte, []byte, error) {
 	if se == nil {
 		return nil, nil, nil
 	}
 
-	existingAddresses := autoallocate.GetV2AddressesFromServiceEntry(se)
-	if len(existingAddresses) > 0 && !forcedReassign {
+	existingHostAddresses := autoallocate.GetHostAddressesFromServiceEntry(se)
+	existingAddresses := []netip.Addr{}
+	hostsWithAddresses := sets.New[string]()
+
+	// collect existing addresses and the hosts which already have assigned addresses
+	for host, addresses := range existingHostAddresses {
 		// this is likely a noop, but just to be safe we should check and potentially resolve conflict
-		c.markUsedOrQueueConflict(existingAddresses, config.NamespacedName(se))
-		return nil, nil, nil // nothing to patch
+		existingAddresses = append(existingAddresses, addresses...)
+		hostsWithAddresses.Insert(host)
 	}
+
+	// if we are being forced to reassign we already know there is a conflict
+	if !forcedReassign {
+		// if we're not being forced to reassign then we should ensure any addresses found are marked for use and queue up any conflicts found
+		c.markUsedOrQueueConflict(existingAddresses, config.NamespacedName(se))
+	}
+
+	// construct the assigned addresses datastructure to patch
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
-	for _, a := range c.nextAddresses(config.NamespacedName(se)) {
-		assignedAddresses = append(assignedAddresses, apiv1alpha3.ServiceEntryAddress{Value: a.String()})
+	hostsInSpec := sets.New[string]()
+	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
+		if hostsInSpec.InsertContains(host) {
+			// if we already worked on this host don't process it again
+			continue
+		}
+		assignedIPs := []netip.Addr{}
+		if aa, ok := existingHostAddresses[host]; ok && !forcedReassign {
+			// we already assigned this host, do not re-assign
+			assignedIPs = append(assignedIPs, aa...)
+		} else {
+			assignedIPs = append(assignedIPs, c.nextAddresses(config.NamespacedName(se))...)
+		}
+
+		for _, a := range assignedIPs {
+			assignedAddresses = append(assignedAddresses, apiv1alpha3.ServiceEntryAddress{Value: a.String(), Host: host})
+		}
+	}
+
+	// nothing to patch
+	if hostsInSpec.Equals(hostsWithAddresses) && !forcedReassign {
+		return nil, nil, nil
 	}
 
 	replaceAddresses, err := json.Marshal([]jsonPatch{
@@ -348,7 +387,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntr
 		},
 	})
 
-	atomicAddAndAddresses, err2 := json.Marshal([]jsonPatch{
+	addStatusAndAddresses, err2 := json.Marshal([]jsonPatch{
 		{
 			Operation: "test",
 			Path:      "/status",
@@ -366,10 +405,10 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1alpha3.ServiceEntr
 		},
 	})
 
-	return replaceAddresses, atomicAddAndAddresses, errors.Join(err, err2)
+	return replaceAddresses, addStatusAndAddresses, errors.Join(err, err2)
 }
 
-func (c *IPAllocator) checkInSpecAddresses(serviceentry *networkingv1alpha3.ServiceEntry) {
+func (c *IPAllocator) checkInSpecAddresses(serviceentry *networkingv1.ServiceEntry) {
 	addrs := []netip.Addr{}
 	for _, addr := range serviceentry.Spec.Addresses {
 		a, err := netip.ParseAddr(addr)

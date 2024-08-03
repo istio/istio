@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: istiod-gateway
@@ -29,7 +29,7 @@ spec:
       # use a valid gateway host and domain for istiod
       - "ISTIOD-HOST.DOMAIN"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: istiod-vs
@@ -55,7 +55,7 @@ spec:
         port:
           number: 443
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: istiod-dr

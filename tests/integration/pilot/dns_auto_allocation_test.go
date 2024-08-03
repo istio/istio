@@ -51,7 +51,7 @@ spec:
     ISTIO_META_DNS_CAPTURE: "true"
     ISTIO_META_DNS_AUTO_ALLOCATE: "true"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: fake-local
@@ -64,7 +64,7 @@ spec:
     name: http
     protocol: HTTP
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route-to-b

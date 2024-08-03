@@ -1,4 +1,4 @@
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: "a-disable"
@@ -11,7 +11,7 @@ spec:
   mtls:
     mode: DISABLE
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: "b-strict"

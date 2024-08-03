@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/testhelpers"
 )
 
 func TestPatchYAMLManifestSuccess(t *testing.T) {
@@ -233,7 +234,7 @@ a:
 				t.Fatalf("YAMLManifestPatch(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 			}
 			if want := tt.want; !util.IsYAMLEqual(got, want) {
-				t.Errorf("YAMLManifestPatch(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, got, want, util.YAMLDiff(got, want))
+				t.Errorf("YAMLManifestPatch(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, got, want, testhelpers.YAMLDiff(got, want))
 			}
 		})
 	}
@@ -483,7 +484,7 @@ spec:
 				t.Fatalf("YAMLManifestPatch(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)
 			}
 			if want := tt.want; !util.IsYAMLEqual(got, want) {
-				t.Errorf("YAMLManifestPatch(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, got, want, util.YAMLDiff(got, want))
+				t.Errorf("YAMLManifestPatch(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, got, want, testhelpers.YAMLDiff(got, want))
 			}
 		})
 	}

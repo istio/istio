@@ -19,45 +19,12 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 )
-
-func TestOrderedKeys(t *testing.T) {
-	tests := []struct {
-		desc string
-		in   map[string]*v1alpha1.ExternalComponentSpec
-		want []string
-	}{
-		{
-			desc: "not-ordered",
-			in: map[string]*v1alpha1.ExternalComponentSpec{
-				"graphql":   nil,
-				"Abacus":    nil,
-				"Astrology": nil,
-				"gRPC":      nil,
-				"blackjack": nil,
-			},
-			want: []string{
-				"Abacus",
-				"Astrology",
-				"blackjack",
-				"gRPC",
-				"graphql",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			if got := orderedKeys(tt.in); !(reflect.DeepEqual(got, tt.want)) {
-				t.Errorf("%s: got %+v want %+v", tt.desc, got, tt.want)
-			}
-		})
-	}
-}
 
 func TestNewIstioOperator(t *testing.T) {
 	coreComponentOptions := &component.Options{

@@ -121,7 +121,7 @@ func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *
 	cfg.Eval(ns.Name(), map[string]any{
 		"Namespaces": namespaces,
 	}, `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: restrict-to-namespace
@@ -150,7 +150,7 @@ func DeployExternalServiceEntry(cfg config.Factory, deployedNamespace, externalN
 		"Hostname":         ExternalHostname,
 		"Ports":            serviceEntryPorts(),
 		"ManuallyAllocate": manuallyAllocate,
-	}, `apiVersion: networking.istio.io/v1alpha3
+	}, `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-service

@@ -139,7 +139,7 @@ global:
   proxy:
     foo: "bar"
 `,
-			wantErrs: makeErrors([]string{`unknown field "foo" in v1alpha1.ProxyConfig`}),
+			wantErrs: makeErrors([]string{`unknown field "foo" in istio.operator.v1alpha1.ProxyConfig`}),
 		},
 		{
 			desc: "unknown cni field",
@@ -147,7 +147,7 @@ global:
 cni:
   foo: "bar"
 `,
-			wantErrs: makeErrors([]string{`unknown field "foo" in v1alpha1.CNIConfig`}),
+			wantErrs: makeErrors([]string{`unknown field "foo" in istio.operator.v1alpha1.CNIConfig`}),
 		},
 	}
 

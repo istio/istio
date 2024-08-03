@@ -16,13 +16,15 @@
 package ambient
 
 import (
+	"net/netip"
+
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/networking/v1alpha3"
-	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -108,7 +110,7 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint
 }
 
 func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
-	var autoassignedAddresses []*workloadapi.NetworkAddress
+	var autoassignedHostAddresses map[string][]netip.Addr
 	addresses, err := slices.MapErr(svc.Spec.Addresses, a.toNetworkAddressFromCidr)
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
@@ -116,9 +118,7 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 	}
 	// if this se has autoallocation we can se autoallocated IP, otherwise it will remain an empty slice
 	if serviceentry.ShouldV2AutoAllocateIP(svc) {
-		for _, ipaddr := range serviceentry.GetV2AddressesFromServiceEntry(svc) {
-			autoassignedAddresses = append(autoassignedAddresses, a.toNetworkAddressFromIP(ipaddr))
-		}
+		autoassignedHostAddresses = serviceentry.GetHostAddressesFromServiceEntry(svc)
 	}
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
@@ -141,17 +141,19 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
-		// if we have no user-provided addresses and h is not wildcarded and we have a supported resolution
-		// we can try to use autoassigned addresses
-		a := addresses
-		if len(a) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
-			a = autoassignedAddresses
+		// if we have no user-provided hostsAddresses and h is not wildcarded and we have hostsAddresses supported resolution
+		// we can try to use autoassigned hostsAddresses
+		hostsAddresses := addresses
+		if len(hostsAddresses) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
+			if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
+				hostsAddresses = slices.Map(hostsAddrs, a.toNetworkAddressFromIP)
+			}
 		}
 		res = append(res, &workloadapi.Service{
 			Name:            svc.Name,
 			Namespace:       svc.Namespace,
 			Hostname:        h,
-			Addresses:       a,
+			Addresses:       hostsAddresses,
 			Ports:           ports,
 			Waypoint:        waypointAddress,
 			SubjectAltNames: svc.Spec.SubjectAltNames,
@@ -215,6 +217,13 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 			Mode: workloadapi.LoadBalancing_STRICT,
 		}
 	}
+	if svc.Spec.PublishNotReadyAddresses {
+		if lb == nil {
+			lb = &workloadapi.LoadBalancing{}
+		}
+		lb.HealthPolicy = workloadapi.LoadBalancing_ALLOW_ALL
+	}
+
 	ipFamily := workloadapi.IPFamilies_AUTOMATIC
 	if len(svc.Spec.IPFamilies) == 2 {
 		ipFamily = workloadapi.IPFamilies_DUAL

@@ -907,7 +907,7 @@ func setupDiscovery(t *testing.T, auth *security.FakeAuthenticator, certPem []by
 	opt := tlsOptions(t, certPem)
 	// Set up a simple service to make sure we have mTLS requested
 	ds := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: app
@@ -920,7 +920,7 @@ spec:
     name: http
     protocol: HTTP
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: plaintext

@@ -486,7 +486,7 @@ func extractClusterMetadataServices(t test.Failer, c *cluster.Cluster) []string 
 }
 
 func mtlsMode(m string) string {
-	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -499,7 +499,7 @@ spec:
 
 func TestInbound(t *testing.T) {
 	svc := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se
@@ -1193,7 +1193,7 @@ spec:
 
 	// HTTP Routes
 	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
-		config: `apiVersion: networking.istio.io/v1alpha3
+		config: `apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: alias
@@ -1268,7 +1268,7 @@ spec:
 
 	// TCP Routes
 	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
-		config: `apiVersion: networking.istio.io/v1alpha3
+		config: `apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: alias
@@ -1391,7 +1391,7 @@ func TestPassthroughTraffic(t *testing.T) {
 				runSimulationTest(t, nil, o,
 					simulationTest{
 						config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se
@@ -1434,7 +1434,7 @@ spec:
 				runSimulationTest(t, nil, o,
 					simulationTest{
 						config: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se
@@ -1481,7 +1481,7 @@ func TestLoop(t *testing.T) {
 
 func TestInboundSidecarTLSModes(t *testing.T) {
 	peerAuthConfig := func(m string) string {
-		return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+		return fmt.Sprintf(`apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: peer-auth
@@ -1500,7 +1500,7 @@ spec:
 	}
 	sidecarSimple := func(protocol string) string {
 		return fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   labels:
@@ -1526,7 +1526,7 @@ spec:
 	}
 	sidecarMutual := func(protocol string) string {
 		return fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   labels:
@@ -1827,7 +1827,7 @@ spec:
       port: {{.Port | default 80}}
 `, args)
 	case "virtualservice":
-		return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+		return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: "{{.Namespace}}{{.Match | replace "*" "wild"}}{{.Dest}}"
@@ -1862,7 +1862,7 @@ type scArgs struct {
 }
 
 func (args scArgs) Config(t *testing.T, variant string) string {
-	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: "{{.Namespace}}"

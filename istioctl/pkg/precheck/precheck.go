@@ -23,11 +23,11 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 	authorizationapi "k8s.io/api/authorization/v1"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
@@ -186,7 +186,7 @@ func checkTracing(cli kube.CLIClient, messages *diag.Messages) error {
 }
 
 func checkPassthroughTargetPorts(cli kube.CLIClient, messages *diag.Messages) error {
-	ses, err := cli.Istio().NetworkingV1alpha3().ServiceEntries(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	ses, err := cli.Istio().NetworkingV1().ServiceEntries(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}

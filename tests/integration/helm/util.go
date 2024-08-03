@@ -32,7 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
@@ -427,6 +428,21 @@ func DeleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster, config
 			return nil
 		})
 	}
+	// try to delete all leader election locks. Istiod will drop them on shutdown, but `helm delete` ordering removes the
+	// Role allowing it to do so before it is able to, so it ends up failing to do so.
+	// Help it out to ensure the next test doesn't need to wait 30s.
+	g.Go(func() error {
+		locks := []string{
+			leaderelection.NamespaceController,
+			leaderelection.GatewayDeploymentController,
+			leaderelection.GatewayStatusController,
+			leaderelection.IngressController,
+		}
+		for _, lock := range locks {
+			_ = cs.Kube().CoreV1().ConfigMaps(config.Get(IstiodReleaseName)).Delete(context.Background(), lock, metav1.DeleteOptions{})
+		}
+		return nil
+	})
 	if err := g.Wait(); err != nil {
 		t.Fatal(err)
 	}
@@ -525,7 +541,7 @@ func VerifyValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster
 // verifyValidation verifies that Istio resource validation is active on the cluster.
 func verifyValidation(ctx framework.TestContext, revision string) {
 	ctx.Helper()
-	invalidGateway := &v1alpha3.Gateway{
+	invalidGateway := &clientnetworking.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "invalid-istio-gateway",
 			Namespace: IstioNamespace,
@@ -539,7 +555,7 @@ func verifyValidation(ctx framework.TestContext, revision string) {
 		}
 	}
 	createOptions := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
-	istioClient := ctx.Clusters().Default().Istio().NetworkingV1alpha3()
+	istioClient := ctx.Clusters().Default().Istio().NetworkingV1()
 	retry.UntilOrFail(ctx, func() bool {
 		_, err := istioClient.Gateways(IstioNamespace).Create(context.TODO(), invalidGateway, createOptions)
 		rejected := err != nil

@@ -624,6 +624,12 @@ func (node *Proxy) GetIPMode() IPMode {
 	return node.ipMode
 }
 
+// SetIPMode set node's ip mode
+// Note: Donot use this function directly in most cases, use DiscoverIPMode instead.
+func (node *Proxy) SetIPMode(mode IPMode) {
+	node.ipMode = mode
+}
+
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
 // Any non-string values are ignored.
 func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {

@@ -56,6 +56,7 @@ type GatewayAddress struct {
 type LoadBalancer struct {
 	Mode               string   `json:"mode"`
 	RoutingPreferences []string `json:"routingPreferences"`
+	HealthPolicy       string   `json:"healthPolicy"`
 }
 
 type ZtunnelEndpoint struct {

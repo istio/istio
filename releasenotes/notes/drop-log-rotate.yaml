@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Removed** the legacy `--log_rotate_*` flag options. Users wishing to use log rotation should use external log rotation tools.

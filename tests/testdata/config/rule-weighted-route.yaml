@@ -1,6 +1,6 @@
 # Self-contained local test for weighted routes
 # TODO: start services/template for the 2 ports.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: weighted-extsvc
@@ -25,7 +25,7 @@ spec:
       labels:
         version: v2
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: c-weighted
@@ -40,7 +40,7 @@ spec:
       labels:
         version: v2
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: c-weighted

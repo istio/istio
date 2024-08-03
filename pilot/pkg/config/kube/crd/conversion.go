@@ -22,9 +22,9 @@ import (
 	"reflect"
 
 	"github.com/hashicorp/go-multierror"
-	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"

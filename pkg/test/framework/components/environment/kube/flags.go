@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"

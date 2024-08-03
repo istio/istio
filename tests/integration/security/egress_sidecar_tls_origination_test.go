@@ -216,7 +216,7 @@ func newTLSSidecarDestinationRule(t framework.TestContext, to echo.Instances, de
 		"WorkloadSelector": workloadSelector,
 	}
 	se := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: originate-mtls-for-nginx
@@ -234,7 +234,7 @@ spec:
   resolution: DNS
 `
 	dr := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: originate-tls-for-server-sds-{{.WorkloadSelector}}

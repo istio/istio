@@ -26,6 +26,7 @@ import (
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/testhelpers"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -398,7 +399,7 @@ spec:
 					if gotObj, ok := gotK8sObjsMap[objHash]; ok {
 						gotObjYaml := gotObj.YAMLDebugString()
 						if !util.IsYAMLEqual(gotObjYaml, want) {
-							t.Errorf("ParseK8sObjectsFromYAMLManifest(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, gotObjYaml, want, util.YAMLDiff(gotObjYaml, want))
+							t.Errorf("ParseK8sObjectsFromYAMLManifest(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, gotObjYaml, want, testhelpers.YAMLDiff(gotObjYaml, want))
 						}
 					}
 				}

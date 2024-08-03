@@ -200,25 +200,3 @@ func TestAuthenticate(t *testing.T) {
 		})
 	}
 }
-
-func TestIsAllowedKubernetesAudience(t *testing.T) {
-	tests := []struct {
-		in   string
-		want bool
-	}{
-		{"kubernetes.default.svc", true},
-		{"kubernetes.default.svc.cluster.local", true},
-		{"https://kubernetes.default.svc", true},
-		{"https://kubernetes.default.svc.cluster.local", true},
-		{"foo.default.svc", false},
-		{"foo.default.svc:80", false},
-		{"https://foo.default.svc:80", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.in, func(t *testing.T) {
-			if got := isAllowedKubernetesAudience(tt.in); got != tt.want {
-				t.Errorf("isAllowedKubernetesAudience() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}

@@ -30,8 +30,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v2"
-	yaml2 "sigs.k8s.io/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/log"
@@ -556,7 +555,7 @@ func tryToUnmarshalStringToYAML(s any) (any, bool) {
 				// treat JSON as string
 				return vv, false
 			}
-			if err := yaml2.Unmarshal([]byte(vv.(string)), &nv); err == nil {
+			if err := yaml.Unmarshal([]byte(vv.(string)), &nv); err == nil {
 				return nv, true
 			}
 		}

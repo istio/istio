@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: reviews
@@ -10,7 +10,7 @@ spec:
       version: v1
     name: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews
@@ -22,7 +22,7 @@ spec:
         host: reviews
         subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-bogussubset
@@ -34,7 +34,7 @@ spec:
         host: reviews
         subset: bogus # This subset does not exist, should result in a validation error
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-fqdn
@@ -46,7 +46,7 @@ spec:
         host: reviews.default.svc.cluster.local # FQDN representation is valid and should not generate an error
         subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-mirror
@@ -61,7 +61,7 @@ spec:
       host: reviews
       subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-mirror-bogussubset

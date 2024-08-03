@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -60,17 +61,18 @@ func NewDiscoveryNamespacesFilter(
 	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
 		AddFunc: func(ns *corev1.Namespace) {
 			f.lock.Lock()
-			defer f.lock.Unlock()
+			created := f.namespaceCreatedLocked(ns.ObjectMeta)
+			f.lock.Unlock()
 			// In rare cases, a namespace may be created after objects in the namespace, because there is no synchronization between watches
 			// So we need to notify if we started selecting namespace
-			if f.namespaceCreatedLocked(ns.ObjectMeta) {
-				f.notifyHandlersLocked(sets.New(ns.Name), nil)
+			if created {
+				f.notifyHandlers(sets.New(ns.Name), nil)
 			}
 		},
 		UpdateFunc: func(old, new *corev1.Namespace) {
 			f.lock.Lock()
-			defer f.lock.Unlock()
 			membershipChanged, namespaceAdded := f.namespaceUpdatedLocked(old.ObjectMeta, new.ObjectMeta)
+			f.lock.Unlock()
 			if membershipChanged {
 				added := sets.New(new.Name)
 				var removed sets.String
@@ -78,7 +80,7 @@ func NewDiscoveryNamespacesFilter(
 					removed = added
 					added = nil
 				}
-				f.notifyHandlersLocked(added, removed)
+				f.notifyHandlers(added, removed)
 			}
 		},
 		DeleteFunc: func(ns *corev1.Namespace) {
@@ -98,8 +100,14 @@ func NewDiscoveryNamespacesFilter(
 	return f
 }
 
-func (d *discoveryNamespacesFilter) notifyHandlersLocked(added sets.Set[string], removed sets.String) {
-	for _, h := range d.handlers {
+func (d *discoveryNamespacesFilter) notifyHandlers(added sets.Set[string], removed sets.String) {
+	// Clone handlers; we handle dynamic handlers so they can change after the filter has started.
+	// Important: handlers are not called under the lock. If they are, then handlers which eventually call discoveryNamespacesFilter.Filter
+	// (as some do in the codebase currently, via kclient.List), will deadlock.
+	d.lock.RLock()
+	handlers := slices.Clone(d.handlers)
+	d.lock.RUnlock()
+	for _, h := range handlers {
 		h(added, removed)
 	}
 }
@@ -186,49 +194,54 @@ func (d *discoveryNamespacesFilter) selectorsChanged(
 	discoverySelectors []*meshapi.LabelSelector,
 	notify bool,
 ) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	var selectors []labels.Selector
-	newDiscoveryNamespaces := sets.New[string]()
+	// Call closure to allow safe defer lock handling
+	selectedNamespaces, deselectedNamespaces := func() (sets.String, sets.String) {
+		d.lock.Lock()
+		defer d.lock.Unlock()
+		var selectors []labels.Selector
+		newDiscoveryNamespaces := sets.New[string]()
 
-	namespaceList := d.namespaces.List("", labels.Everything())
+		namespaceList := d.namespaces.List("", labels.Everything())
 
-	// convert LabelSelectors to Selectors
-	for _, selector := range discoverySelectors {
-		ls, err := LabelSelectorAsSelector(selector)
-		if err != nil {
-			log.Errorf("error initializing discovery namespaces filter, invalid discovery selector: %v", err)
-			return
+		// convert LabelSelectors to Selectors
+		for _, selector := range discoverySelectors {
+			ls, err := LabelSelectorAsSelector(selector)
+			if err != nil {
+				log.Errorf("error initializing discovery namespaces filter, invalid discovery selector: %v", err)
+				return nil, nil
+			}
+			selectors = append(selectors, ls)
 		}
-		selectors = append(selectors, ls)
-	}
 
-	// range over all namespaces to get discovery namespaces
-	for _, ns := range namespaceList {
-		for _, selector := range selectors {
-			if selector.Matches(labels.Set(ns.Labels)) {
-				newDiscoveryNamespaces.Insert(ns.Name)
+		// range over all namespaces to get discovery namespaces
+		for _, ns := range namespaceList {
+			for _, selector := range selectors {
+				if selector.Matches(labels.Set(ns.Labels)) {
+					newDiscoveryNamespaces.Insert(ns.Name)
+				}
+			}
+			// omitting discoverySelectors indicates discovering all namespaces
+			if len(selectors) == 0 {
+				for _, ns := range namespaceList {
+					newDiscoveryNamespaces.Insert(ns.Name)
+				}
 			}
 		}
-		// omitting discoverySelectors indicates discovering all namespaces
-		if len(selectors) == 0 {
-			for _, ns := range namespaceList {
-				newDiscoveryNamespaces.Insert(ns.Name)
-			}
-		}
-	}
 
-	if notify {
+		// update filter state
 		oldDiscoveryNamespaces := d.discoveryNamespaces
-		selectedNamespaces := newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces)
-		deselectedNamespaces := oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces)
-		// Important: keep the lock while we call handlers. This allows handlers to ensure they do not miss events
-		// if they are processing the change and new events come in.
-		d.notifyHandlersLocked(selectedNamespaces, deselectedNamespaces)
+		d.discoveryNamespaces = newDiscoveryNamespaces
+		d.discoverySelectors = selectors
+		if notify {
+			selectedNamespaces := newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces)
+			deselectedNamespaces := oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces)
+			return selectedNamespaces, deselectedNamespaces
+		}
+		return nil, nil
+	}()
+	if notify {
+		d.notifyHandlers(selectedNamespaces, deselectedNamespaces)
 	}
-	// update filter state
-	d.discoveryNamespaces = newDiscoveryNamespaces
-	d.discoverySelectors = selectors
 }
 
 // namespaceCreated: if newly created namespace is selected, update namespace membership

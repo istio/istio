@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: alpha
@@ -16,7 +16,7 @@ spec:
 apiVersion: v1
 kind: List
 items:
-  - apiVersion: networking.istio.io/v1alpha3
+  - apiVersion: networking.istio.io/v1
     kind: Gateway
     metadata:
       name: beta-l
@@ -31,7 +31,7 @@ items:
           hosts:
             - "foo.bar"
 
-  - apiVersion: networking.istio.io/v1alpha3
+  - apiVersion: networking.istio.io/v1
     kind: Gateway
     metadata:
       name: alpha-l

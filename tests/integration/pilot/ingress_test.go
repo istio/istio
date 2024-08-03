@@ -508,7 +508,7 @@ spec:
         image: auto
         imagePullPolicy: {{ .imagePullPolicy }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: app
@@ -523,7 +523,7 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: app
@@ -578,7 +578,7 @@ spec:
         image: auto
         imagePullPolicy: {{ .imagePullPolicy }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: app
@@ -593,7 +593,7 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: app
@@ -672,7 +672,7 @@ gateways:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway-helm"))
 					return err
 				}, retry.Timeout(time.Minute*2), retry.Delay(time.Millisecond*500))
-				_ = t.ConfigIstio().YAML(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+				_ = t.ConfigIstio().YAML(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: app
@@ -687,7 +687,7 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: app
@@ -739,7 +739,7 @@ resources:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=helm-simple"))
 					return err
 				}, retry.Timeout(time.Minute*2), retry.Delay(time.Millisecond*500))
-				_ = t.ConfigIstio().YAML(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+				_ = t.ConfigIstio().YAML(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: app
@@ -754,7 +754,7 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: app

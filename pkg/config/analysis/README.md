@@ -170,7 +170,7 @@ e.g. for the GatewayAnalyzer used as an example above, you would add something l
 `virtualservice_gateways.yaml`:
 
 ```yaml
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: httpbin-gateway
@@ -178,7 +178,7 @@ spec:
   selector:
     istio: ingressgateway
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: httpbin
@@ -188,7 +188,7 @@ spec:
   gateways:
   - httpbin-gateway # Expected: no validation error since this gateway exists
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: httpbin-bogus

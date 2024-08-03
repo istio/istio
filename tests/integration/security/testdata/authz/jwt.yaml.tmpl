@@ -2,7 +2,7 @@
 
 # The following policy enables JWT authentication on destination service.
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
   name: default
@@ -23,7 +23,7 @@ spec:
 # - Allow request with valid JWT token of presenter bar to access path with suffix "/presenter"
 # - Allow request with valid JWT token of audiences foo to access path with suffix "/audiences"
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .To.ServiceName }}

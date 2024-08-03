@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/api/operator/v1alpha1"
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
@@ -186,7 +185,7 @@ func (cn ComponentName) IsGateway() bool {
 // 4. Otherwise return the component namespace.
 // Namespace assumes that controlPlaneSpec has been validated.
 // TODO: remove extra validations when comfort level is high enough.
-func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOperatorSpec) (string, error) {
+func Namespace(componentName ComponentName, controlPlaneSpec *iop.IstioOperatorSpec) (string, error) {
 	defaultNamespace := iop.Namespace(controlPlaneSpec)
 
 	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Namespace")

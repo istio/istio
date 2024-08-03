@@ -22,7 +22,6 @@ import (
 	"sort"
 	"strings"
 
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,9 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/apis/istio"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
@@ -907,13 +904,9 @@ func MergeK8sObject(base *object.K8sObject, overlayNode any, path util.Path) (*o
 	if err != nil {
 		return nil, err
 	}
-	overlayYAML, err := yaml.Marshal(overlay)
+	overlayJSON, err := json.Marshal(overlay)
 	if err != nil {
 		return nil, err
-	}
-	overlayJSON, err := yaml.YAMLToJSON(overlayYAML)
-	if err != nil {
-		return nil, fmt.Errorf("yamlToJSON error in overlayYAML: %s\n%s", err, overlayYAML)
 	}
 	baseJSON, err := base.JSON()
 	if err != nil {
@@ -1014,49 +1007,4 @@ func createPatchObjectFromPath(node any, path util.Path) (map[string]any, error)
 		nextNode = currentNode[pe]
 	}
 	return patchObj, nil
-}
-
-// IOPStoIOP takes an IstioOperatorSpec and returns a corresponding IstioOperator with the given name and namespace.
-func IOPStoIOP(iops proto.Message, name, namespace string) (*iopv1alpha1.IstioOperator, error) {
-	iopStr, err := IOPStoIOPstr(iops, name, namespace)
-	if err != nil {
-		return nil, err
-	}
-	iop, err := istio.UnmarshalIstioOperator(iopStr, false)
-	if err != nil {
-		return nil, err
-	}
-	return iop, nil
-}
-
-// IOPStoIOPstr takes an IstioOperatorSpec and returns a corresponding IstioOperator string with the given name and namespace.
-func IOPStoIOPstr(iops proto.Message, name, namespace string) (string, error) {
-	iopsStr, err := util.MarshalWithJSONPB(iops)
-	if err != nil {
-		return "", err
-	}
-	spec, err := tpath.AddSpecRoot(iopsStr)
-	if err != nil {
-		return "", err
-	}
-
-	tmpl := `
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-metadata:
-  namespace: {{ .Namespace }}
-  name: {{ .Name }} 
-`
-	// Passing into template causes reformatting, use simple concatenation instead.
-	tmpl += spec
-
-	type Temp struct {
-		Namespace string
-		Name      string
-	}
-	ts := Temp{
-		Namespace: namespace,
-		Name:      name,
-	}
-	return util.RenderTemplate(tmpl, ts)
 }

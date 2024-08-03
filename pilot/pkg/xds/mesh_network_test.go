@@ -405,7 +405,7 @@ spec:
 			name: "ServiceEntry",
 			cfg: `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: remote-we-svc
@@ -518,7 +518,7 @@ spec:
 					}
 					configObjects := `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: subset-se
@@ -540,7 +540,7 @@ spec:
 					for i, entry := range tc.entries {
 						configObjects += fmt.Sprintf(`
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: we-%d
