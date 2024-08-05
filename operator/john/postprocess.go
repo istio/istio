@@ -12,7 +12,6 @@ import (
 
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/log"
 )
 
 func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Manifest, error) {
@@ -24,6 +23,7 @@ func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Ma
 		Patch      string
 	}
 	rn := comp.ResourceName
+	// TODO: if revision and istiod += -revision
 	rt := comp.ResourceType
 	patches := map[string]Patch{
 		"affinity":            {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"affinity":%s}}}}`},
@@ -137,7 +137,6 @@ func applyPatches(base Manifest, patches []Patch) (Manifest, error) {
 			continue
 		}
 
-		log.Errorf("howardjohn: write path %v", v)
 		err = tpath.WritePathContext(inc, v, false)
 		if err != nil {
 			errs = util.AppendErr(errs, err)
