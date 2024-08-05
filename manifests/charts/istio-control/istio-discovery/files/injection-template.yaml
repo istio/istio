@@ -45,8 +45,8 @@ metadata:
     kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
     {{- end }}
     {{- end }}
-{{- if or .Values.pilot.cni.enabled .Values.istio_cni.enabled }}
-    {{- if or (eq .Values.pilot.cni.provider "multus") (eq .Values.istio_cni.provider "multus") (not .Values.istio_cni.chained)}}
+{{- if or .Values.pilot.cniEnabled .Values.istio_cni.enabled }}
+    {{- if or (eq .Values.global.platform "openshift") (eq .Values.istio_cni.provider "multus") (not .Values.istio_cni.chained)}}
     k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `default/istio-cni` }}',
     {{- end }}
     sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}",
@@ -70,7 +70,7 @@ spec:
       (not $nativeSidecar) }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-  {{ if or .Values.pilot.cni.enabled .Values.istio_cni.enabled -}}
+  {{ if or .Values.pilot.cniEnabled .Values.istio_cni.enabled -}}
   - name: istio-validation
   {{ else -}}
   - name: istio-init
@@ -122,7 +122,7 @@ spec:
     {{ if .Values.global.logAsJson -}}
     - "--log_as_json"
     {{ end -}}
-    {{ if or .Values.pilot.cni.enabled .Values.istio_cni.enabled -}}
+    {{ if or .Values.pilot.cniEnabled .Values.istio_cni.enabled -}}
     - "--run-validation"
     - "--skip-rule-apply"
     {{ end -}}
@@ -140,14 +140,14 @@ spec:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       privileged: {{ .Values.global.proxy.privileged }}
       capabilities:
-    {{- if not (or .Values.pilot.cni.enabled .Values.istio_cni.enabled) }}
+    {{- if not (or .Values.pilot.cniEnabled .Values.istio_cni.enabled) }}
         add:
         - NET_ADMIN
         - NET_RAW
     {{- end }}
         drop:
         - ALL
-    {{- if not (or .Values.pilot.cni.enabled .Values.istio_cni.enabled) }}
+    {{- if not (or .Values.pilot.cniEnabled .Values.istio_cni.enabled) }}
       readOnlyRootFilesystem: false
       runAsGroup: 0
       runAsNonRoot: false

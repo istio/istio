@@ -12,7 +12,7 @@ rules:
 - apiGroups: [""]
   resources: ["pods","nodes","namespaces"]
   verbs: ["get", "list", "watch"]
-{{- if (eq .Values.platform "openshift") }}
+{{- if (eq .Values.global.platform "openshift") }}
 - apiGroups: ["security.openshift.io"]
   resources: ["securitycontextconstraints"]
   resourceNames: ["privileged"]

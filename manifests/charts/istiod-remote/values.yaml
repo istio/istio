@@ -22,9 +22,8 @@ defaults:
   # Set to `type: RuntimeDefault` to use the default profile if available.
   seccompProfile: {}
   # Whether to use an existing CNI installation
-  cni:
-    enabled: false
-    provider: default
+  pilot:
+    cniEnabled: false
   # Additional container arguments
   extraContainerArgs: []
   env: {}

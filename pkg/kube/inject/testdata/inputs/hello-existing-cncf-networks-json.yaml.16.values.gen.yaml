@@ -112,11 +112,9 @@
     "provider": "multus"
   },
   "pilot": {
-    "cni": {
-      "enabled": false,
-      "namespace": "istio-system",
-      "provider": "default"
-    }
+    "cniEnabled": false,
+    "enabled": true,
+    "namespace": "istio-system"
   },
   "revision": "",
   "sidecarInjectorWebhook": {

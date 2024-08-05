@@ -1,4 +1,4 @@
-{{- if eq .Values.provider "multus" }}
+{{- if eq .Values.global.platform "openshift" }}
 apiVersion: k8s.cni.cncf.io/v1
 kind: NetworkAttachmentDefinition
 metadata:

@@ -19,10 +19,7 @@ cni:
   chained: false
   cniConfFileName: "istio-cni.conf"
   logLevel: info
-  provider: "multus"
 pilot:
-  cni:
-    enabled: true
-    provider: "multus"
+  cniEnabled: true
   env:
     PILOT_ENABLE_AMBIENT: "true"

@@ -27,9 +27,8 @@ defaults:
   seccompProfile: {}
 
   # Whether to use an existing CNI installation
-  cni:
-    enabled: false
-    provider: default
+  pilot:
+    cniEnabled: false
 
   # Additional container arguments
   extraContainerArgs: []
