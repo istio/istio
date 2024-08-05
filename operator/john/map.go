@@ -6,9 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"helm.sh/helm/v3/pkg/strvals"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/ptr"
 )
 
@@ -56,7 +57,7 @@ func MakeMap(contents any, path ...string) Map {
 	return ret
 }
 
-func MakePatch(contents any, in string) (string) {
+func MakePatch(contents any, in string) string {
 	path, err := splitPath(in)
 	if err != nil {
 		panic("TODO")
@@ -131,7 +132,6 @@ func extractKV(seg string) (string, string, bool) {
 	return strings.Cut(sanitized, ":")
 }
 
-
 func (m Map) MergeFrom(other Map) {
 	for k, v := range other {
 		// Might be a Map or map, possibly recurse
@@ -154,19 +154,32 @@ func (m Map) MergeFrom(other Map) {
 	}
 }
 
+// getPV returns the path and value components for the given set flag string, which must be in path=value format.
+func getPV(setFlag string) (path string, value string) {
+	pv := strings.Split(setFlag, "=")
+	if len(pv) != 2 {
+		return setFlag, ""
+	}
+	path, value = strings.TrimSpace(pv[0]), strings.TrimSpace(pv[1])
+	return
+}
+
 // SetPaths applies values from input like `key.subkey=val`
 func (m Map) SetPaths(paths ...string) error {
-	for _, path := range paths {
-		// Helm supports `foo[0].bar`, but we historically used `foo.[0].bar`
-		path := strings.ReplaceAll(path, ".[", "[")
-		if isAlwaysString(path) {
-			if err := strvals.ParseIntoString(path, m); err != nil {
-				return err
-			}
-		} else {
-			if err := strvals.ParseInto(path, m); err != nil {
-				return err
-			}
+	for _, sf := range paths {
+		p, v := getPV(sf)
+		p = strings.TrimPrefix(p, "spec.")
+		inc, _, err := tpath.GetPathContext((map[string]any)(m), util.PathFromString("spec."+p), true)
+		if err != nil {
+			return err
+		}
+		// input value type is always string, transform it to correct type before setting.
+		var val any = v
+		if !isAlwaysString(p) {
+			val = util.ParseValue(v)
+		}
+		if err := tpath.WritePathContext(inc, val, false); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -217,6 +230,9 @@ func (m Map) GetPath(name string) (any, bool) {
 		cur = sub
 	}
 
+	if p, ok := cur.(*any); ok {
+		return *p, true
+	}
 	return cur, true
 }
 

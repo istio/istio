@@ -3,15 +3,16 @@ package john
 import (
 	"encoding/json"
 	"fmt"
-	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/log"
+
+	yaml2 "gopkg.in/yaml.v2" // nolint: depguard // needed for weird tricks
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
 
-	yaml2 "gopkg.in/yaml.v2" // nolint: depguard // needed for weird tricks
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/log"
 )
 
 func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Manifest, error) {
@@ -39,14 +40,13 @@ func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Ma
 		"strategy":            {Kind: rt, Name: rn, Patch: `{"spec":{"strategy":%s}}`},
 		"tolerations":         {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"tolerations":%s}}}}`},
 		"serviceAnnotations":  {Kind: "Service", Name: rn, Patch: `{"metadata":{"annotations":%s}}`},
-		"service":             {Kind: "Service", Name: rn, Patch: `{"spec"::%s}`},
+		"service":             {Kind: "Service", Name: rn, Patch: `{"spec":%s}`},
 		"securityContext":     {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"securityContext":%s}}}}`},
 	}
 	needPatching := map[int][]string{}
 	for field, k := range patches {
 		v, ok := spec.Raw.GetPath("k8s." + field)
 		if !ok {
-			log.Errorf("howardjohn: %v", field)
 			continue
 		}
 		inner, err := json.Marshal(v)
@@ -76,7 +76,7 @@ func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Ma
 		for _, patch := range patches {
 			newBytes, err := strategicpatch.StrategicMergePatch(baseJSON, []byte(patch), typed)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("patch: %v", err)
 			}
 			baseJSON = newBytes
 		}

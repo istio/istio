@@ -18,18 +18,29 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/kube"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/testing"
+	"sigs.k8s.io/yaml"
+
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/operator/john"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // cmdType is one of the commands used to generate and optionally apply a manifest.
@@ -71,8 +82,34 @@ func init() {
 func recreateSimpleTestEnv() {
 	log.Infof("Creating simple test environment\n")
 	helmreconciler.TestMode = true
-	// TODO: interceptorFunc
-	testClient = kube.NewFakeClient()
+	testClient = SetupFakeClient()
+}
+
+func SetupFakeClient() kube.CLIClient {
+	testClient := kube.NewFakeClient()
+	df := testClient.Dynamic().(*dynamicfake.FakeDynamicClient)
+	df.PrependReactor("patch", "*", func(action testing.Action) (bool, runtime.Object, error) {
+		patch := action.(testing.PatchAction)
+		// Apply patches are supposed to upsert, but fake client fails if the object doesn't exist,
+		// if an apply patch occurs for an object that doesn't yet exist, create it.
+		if patch.GetPatchType() != types.ApplyPatchType {
+			return false, nil, nil
+		}
+		_, err := df.Tracker().Get(patch.GetResource(), patch.GetNamespace(), patch.GetName())
+		if err != nil && kerrors.IsNotFound(err) {
+			us := &unstructured.Unstructured{}
+			if err := yaml.Unmarshal(patch.GetPatch(), us); err != nil {
+				return true, nil, err
+			}
+			if err := df.Tracker().Create(patch.GetResource(), us, patch.GetNamespace()); err != nil {
+				return true, nil, err
+			}
+			o, err := df.Tracker().Get(patch.GetResource(), patch.GetNamespace(), patch.GetName())
+			return true, o, err
+		}
+		return false, nil, nil
+	})
+	return testClient
 }
 
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
@@ -144,28 +181,20 @@ func fakeApplyExtraResources(inFile string) error {
 }
 
 func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
-	//TOOO
-	//c := kube.NewFakeClientWithVersion("25")
-	//l := clog.NewDefaultLogger()
-	//_, iop, err := manifest.GenerateIstioOperator(
-	//	[]string{inFileAbsolutePath(inFile)},
-	//	[]string{"installPackagePath=" + string(chartSource)},
-	//	false, c, l)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//iop.Spec.InstallPackagePath = string(chartSource)
+	// TOOO
+	c := SetupFakeClient()
+	l := clog.NewDefaultLogger()
+	manifests, err := john.GenerateManifest(
+		[]string{inFileAbsolutePath(inFile)},
+		[]string{"installPackagePath=" + string(chartSource)},
+		false, nil, c)
+	if err != nil {
+		return nil, err
+	}
 
-	// TODO
-	//reconciler, err := helmreconciler.NewHelmReconciler(testClient, c, iop, nil)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//if err := reconciler.Reconcile(); err != nil {
-	//	return nil, err
-	//}
+	if err := john.InstallManifests(manifests, false, false, true, c, time.Microsecond, l); err != nil {
+		return nil, err
+	}
 
 	return NewObjectSet(getAllIstioObjects()), nil
 }

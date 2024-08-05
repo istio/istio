@@ -21,9 +21,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"istio.io/istio/operator/john"
-	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/test/util/yml"
 	"os"
 	"path"
 	"path/filepath"
@@ -38,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/istio/operator/john"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -45,9 +43,11 @@ import (
 	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/version"
 )
 
@@ -316,9 +316,8 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			name:  "Duplicate MutatingWebhookConfiguration should not be allowed when --force is disabled",
 			force: false,
 			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
-				// TODO
-				// g.Expect(err.Error()).To(ContainSubstring("Webhook overlaps with others"))
-				// g.Expect(objs).Should(BeNil())
+				g.Expect(err.Error()).To(ContainSubstring("Webhook overlaps with others"))
+				g.Expect(objs).Should(BeNil())
 			},
 		},
 	}
@@ -1140,7 +1139,7 @@ func TestSidecarTemplate(t *testing.T) {
 }
 
 // FilterManifest selects and ignores subset from the manifest string
-func filterManifest(t test.Failer, ms string, selectResources string) (string) {
+func filterManifest(t test.Failer, ms string, selectResources string) string {
 	sm := getObjPathMap(selectResources)
 	parsed, err := john.ParseManifests(yml.SplitString(ms))
 	if err != nil {
@@ -1150,7 +1149,7 @@ func filterManifest(t test.Failer, ms string, selectResources string) (string) {
 		for selected := range sm {
 			re, err := buildResourceRegexp(strings.TrimSpace(selected))
 			if err != nil {
-			t.Fatal(err)
+				t.Fatal(err)
 			}
 			if re.MatchString(manifest.Hash()) {
 				return true

@@ -32,14 +32,14 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 	}
 
 	var allManifests []ManifestSet
-	for _, comp := range Components {
+	for _, comp := range AllComponents {
 		specs, err := comp.Get(merged)
 		if err != nil {
 			return nil, err
 		}
 		for _, spec := range specs {
-
-			manifests, err := Render(spec, comp, merged)
+			values := applyComponentValuesToHelmValues(comp, spec, merged)
+			manifests, err := Render(spec, comp, values)
 			if err != nil {
 				return nil, err
 			}
@@ -57,6 +57,40 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 	// TODO: set components based on profile
 	// TODO: ValuesEnablementPathMap? This enables the ingress or egress
 	return allManifests, nil
+}
+
+func applyComponentValuesToHelmValues(comp Component, spec ComponentSpec, merged Map) Map {
+	root := comp.ToHelmValuesTreeRoot
+	if !comp.FlattenValues && spec.Hub == "" && spec.Tag == nil && spec.Label == nil {
+		return merged
+	}
+	merged = merged.DeepClone()
+	if spec.Hub != "" {
+		merged.SetSpecPaths(fmt.Sprintf("values.%s.hub=%s", root, spec.Hub))
+	}
+	if spec.Tag != "" {
+		merged.SetSpecPaths(fmt.Sprintf("values.%s.tag=%v", root, spec.Tag))
+	}
+	if comp.FlattenValues {
+		cv, f := merged.GetPathMap("spec.values." + root)
+		if f {
+			vals, _ := merged.GetPathMap("spec.values")
+			nv := Map{
+				"global": vals["global"],
+			}
+			for k, v := range vals {
+				_, isMap := v.(map[string]any)
+				if !isMap {
+					nv[k] = v
+				}
+			}
+			for k, v := range cv {
+				nv[k] = v
+			}
+			merged["spec"].(map[string]any)["values"] = nv
+		}
+	}
+	return merged
 }
 
 func hubTagOverlay() []string {
@@ -293,7 +327,7 @@ func (c Component) Get(merged Map) ([]ComponentSpec, error) {
 	return []ComponentSpec{spec}, nil
 }
 
-var Components = []Component{
+var AllComponents = []Component{
 	{
 		Name:                 "base",
 		Default:              true,
