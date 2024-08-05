@@ -159,7 +159,7 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 				return nil, err
 			}
 			if len(warnings) > 0 {
-				return validation.Warning(errors.New(strings.Join(warnings, ","))), nil
+				return validation.Warning(warnings.ToError()), nil
 			}
 		}
 	}

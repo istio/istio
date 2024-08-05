@@ -15,11 +15,15 @@
 package validation
 
 import (
-	"encoding/json"
 	"fmt"
+	"net/netip"
+	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
@@ -27,8 +31,10 @@ import (
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation/agent"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 type deprecatedSettings struct {
@@ -38,59 +44,82 @@ type deprecatedSettings struct {
 	def any
 }
 
-type Warnings = []string
+type Warnings = util.Errors
 
-func ParseAndValidateIstioOperator(yml string, allowUnknownField bool) (Warnings, error) {
+func ParseAndValidateIstioOperator(yml string, allowUnknownField bool) (Warnings, util.Errors) {
 	iop := &apis.IstioOperator{}
 	if allowUnknownField {
 		if err := yaml.Unmarshal([]byte(yml), iop); err != nil {
-			return nil, fmt.Errorf("could not unmarshal: %v", err)
+			return nil, util.NewErrs(fmt.Errorf("could not unmarshal: %v", err))
 		}
 	} else {
 		if err := yaml.UnmarshalStrict([]byte(yml), iop); err != nil {
-			return nil, fmt.Errorf("could not unmarshal: %v", err)
+			return nil, util.NewErrs(fmt.Errorf("could not unmarshal: %v", err))
 		}
 	}
-	var warnings []string
-	valuesWarnings, errors := validateValues(iop)
-	if errors != nil {
-		return nil, errors
-	}
-	warnings = append(warnings, valuesWarnings...)
+	var warnings Warnings
+	var errors util.Errors
 
-	meshWarnings, errors := validateMeshConfig(iop.Spec.MeshConfig)
-	if errors != nil {
-		return nil, errors
-	}
-	warnings = append(warnings, meshWarnings...)
+	vw, ve := validateValues(iop)
+	warnings = util.AppendErrs(warnings, vw)
+	errors = util.AppendErrs(errors, ve)
+
+	mw, me := validateMeshConfig(string(iop.Spec.MeshConfig))
+	warnings = util.AppendErrs(warnings, mw)
+	errors = util.AppendErrs(errors, me)
+
+	errors = util.AppendErr(errors, validateHub(iop.Spec.Hub))
+	errors = util.AppendErr(errors, validateTag(iop.Spec.Tag))
+	errors = util.AppendErr(errors, validateRevision(iop.Spec.Revision))
+	errors = util.AppendErr(errors, validateComponentNames(iop.Spec.Components))
 
 	warnings = append(warnings, checkDeprecatedSettings(iop.Spec)...)
-	return warnings, nil
+
+	return warnings, errors
 }
 
-func validateValues(raw *apis.IstioOperator) (Warnings, error) {
+func validateValues(raw *apis.IstioOperator) (Warnings, util.Errors) {
 	values := &apis.Values{}
 	if err := yaml.Unmarshal(raw.Spec.Values, values); err != nil {
-		return nil, fmt.Errorf("could not unmarshal: %v", err)
+		return nil, util.NewErrs(fmt.Errorf("could not unmarshal: %v", err))
 	}
-	errs, warnings := validateFeatures(values, raw.Spec)
-	if errs != nil {
-		return nil, errs.ToError()
+	warnings, errs := validateFeatures(values, raw.Spec)
+	if values.MeshConfig != nil {
+		j, err := protomarshal.ToJSON(values.MeshConfig)
+		if err != nil {
+			errs = util.AppendErr(errs, err)
+		} else {
+			warn, err := validateMeshConfig(j)
+			warnings = util.AppendErrs(warnings, warn)
+			errs = util.AppendErrs(errs, err)
+		}
 	}
-	return warnings, nil
+
+	run := func(v any, f validatorFunc, p string) {
+		if !reflect.ValueOf(v).IsZero() {
+			errs = util.AppendErrs(errs, f(util.PathFromString(p), v))
+		}
+	}
+
+	run(values.GetGlobal().GetProxy().GetIncludeIPRanges(), validateIPRangesOrStar, "global.proxy.includeIPRanges")
+	run(values.GetGlobal().GetProxy().GetExcludeIPRanges(), validateIPRangesOrStar, "global.proxy.excludeIPRanges")
+	run(values.GetGlobal().GetProxy().GetIncludeInboundPorts(), validateStringList(validatePortNumberString), "global.proxy.includeInboundPorts")
+	run(values.GetGlobal().GetProxy().GetExcludeInboundPorts(), validateStringList(validatePortNumberString), "global.proxy.excludeInboundPorts")
+
+	return warnings, errs
 }
 
-func validateMeshConfig(raw json.RawMessage) (Warnings, error) {
-	mc, err := mesh.ApplyMeshConfigDefaults(string(raw))
+func validateMeshConfig(contents string) (Warnings, util.Errors) {
+	mc, err := mesh.ApplyMeshConfigDefaults(contents)
 	if err != nil {
-		return nil, err
+		return nil, util.NewErrs(err)
 	}
 	warnings, errors := agent.ValidateMeshConfig(mc)
 	if errors != nil {
-		return nil, err
+		return nil, util.NewErrs(err)
 	}
 	if warnings != nil {
-		return []string{warnings.Error()}, nil
+		return util.NewErrs(warnings), nil
 	}
 	return nil, nil
 }
@@ -114,8 +143,8 @@ func firstCharsToLower(s string) string {
 		s)
 }
 
-func checkDeprecatedSettings(iop apis.IstioOperatorSpec) []string {
-	messages := []string{}
+func checkDeprecatedSettings(iop apis.IstioOperatorSpec) Warnings {
+	messages := Warnings{}
 	warningSettings := []deprecatedSettings{
 		{"Values.global.proxy.holdApplicationUntilProxyStarts", "meshConfig.defaultConfig.holdApplicationUntilProxyStarts", false},
 		{"Values.global.tracer.lightstep.address", "meshConfig.defaultConfig.tracing.lightstep.address", ""},
@@ -139,40 +168,43 @@ func checkDeprecatedSettings(iop apis.IstioOperatorSpec) []string {
 				v = t.Value
 			}
 			if v != d.def {
-				messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
+				messages = append(messages, fmt.Errorf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
 			}
 		}
 	}
 	return messages
 }
 
-type FeatureValidator func(*apis.Values, apis.IstioOperatorSpec) (util.Errors, []string)
+type FeatureValidator func(*apis.Values, apis.IstioOperatorSpec) (Warnings, util.Errors)
 
 // validateFeatures check whether the config semantically make sense. For example, feature X and feature Y can't be enabled together.
-func validateFeatures(values *apis.Values, spec apis.IstioOperatorSpec) (errs util.Errors, warnings Warnings) {
+func validateFeatures(values *apis.Values, spec apis.IstioOperatorSpec) (Warnings, util.Errors) {
 	validators := []FeatureValidator{
 		CheckServicePorts,
 		CheckAutoScaleAndReplicaCount,
 	}
 
+	var warnings Warnings
+	var errs util.Errors
 	for _, validator := range validators {
-		newErrs, newWarnings := validator(values, spec)
+		newWarnings, newErrs := validator(values, spec)
 		errs = util.AppendErrs(errs, newErrs)
 		warnings = append(warnings, newWarnings...)
 	}
 
-	return
+	return warnings, errs
 }
 
 // CheckAutoScaleAndReplicaCount warns when autoscaleEnabled is true and k8s replicaCount is set.
-func CheckAutoScaleAndReplicaCount(values *apis.Values, spec apis.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+func CheckAutoScaleAndReplicaCount(values *apis.Values, spec apis.IstioOperatorSpec) (Warnings, util.Errors) {
 	if spec.Components == nil {
 		return nil, nil
 	}
+	var warnings Warnings
 	if values.GetPilot().GetAutoscaleEnabled().GetValue() {
 		if spec.Components.Pilot != nil && spec.Components.Pilot.Kubernetes != nil && spec.Components.Pilot.Kubernetes.ReplicaCount > 1 {
 			warnings = append(warnings,
-				"components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true")
+				fmt.Errorf("components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true"))
 		}
 	}
 
@@ -180,7 +212,7 @@ func CheckAutoScaleAndReplicaCount(values *apis.Values, spec apis.IstioOperatorS
 		const format = "components.%sGateways[name=%s].k8s.replicaCount should not be set when values.gateways.istio-%sgateway.autoscaleEnabled is true"
 		for _, gw := range gateways {
 			if gw.Kubernetes != nil && gw.Kubernetes.ReplicaCount != 0 {
-				warnings = append(warnings, fmt.Sprintf(format, gwType, gw.Name, gwType))
+				warnings = append(warnings, fmt.Errorf(format, gwType, gw.Name, gwType))
 			}
 		}
 	}
@@ -193,13 +225,14 @@ func CheckAutoScaleAndReplicaCount(values *apis.Values, spec apis.IstioOperatorS
 		validateGateways(spec.Components.EgressGateways, "egress")
 	}
 
-	return
+	return warnings, nil
 }
 
 // CheckServicePorts validates Service ports. Specifically, this currently
 // asserts that all ports will bind to a port number greater than 1024 when not
 // running as root.
-func CheckServicePorts(values *apis.Values, spec apis.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+func CheckServicePorts(values *apis.Values, spec apis.IstioOperatorSpec) (Warnings, util.Errors) {
+	var errs util.Errors
 	if spec.Components != nil {
 		if !values.GetGateways().GetIstioIngressgateway().GetRunAsRoot().GetValue() {
 			errs = util.AppendErrs(errs, validateGateways(spec.Components.IngressGateways, "istio-ingressgateway"))
@@ -233,7 +266,7 @@ func CheckServicePorts(values *apis.Values, spec apis.IstioOperatorSpec) (errs u
 			errs = util.AppendErr(errs, fmt.Errorf("port %v is invalid: targetPort is set to %v, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true", portnum, tp))
 		}
 	}
-	return
+	return nil, errs
 }
 
 func validateGateways(gws []apis.GatewayComponentSpec, name string) util.Errors {
@@ -263,4 +296,158 @@ func validateGateways(gws []apis.GatewayComponentSpec, name string) util.Errors 
 		}
 	}
 	return errs
+}
+
+func validateHub(hub string) error {
+	if hub == "" {
+		return nil
+	}
+	// Takes a <hub>/image, we have <hub>, so pass an image we would use
+	_, err := name.NewRepository(hub + "/pilot")
+	if err != nil {
+		return fmt.Errorf("bad hub: %v", err)
+	}
+	return nil
+}
+
+func validateTag(tag any) error {
+	if tag == nil {
+		return nil
+	}
+	// Takes a <hub>/<image>:<tag>, we just have <tag>
+	_, err := name.NewTag(fmt.Sprintf("istio/pilot:%v", tag))
+	if err != nil {
+		return fmt.Errorf("bad tag: %v", err)
+	}
+	return nil
+}
+
+func validateRevision(revision string) error {
+	if revision == "" {
+		return nil
+	}
+	if !labels.IsDNS1123Label(revision) {
+		err := fmt.Errorf("invalid revision specified: %s", revision)
+		return util.Errors{err}
+	}
+	return nil
+}
+
+// ObjectNameRegexp is a legal name for a k8s object.
+var objectNameRegexp = regexp.MustCompile(`[a-z0-9.-]{1,254}`)
+
+func validateComponentNames(components *apis.IstioComponentSpec) error {
+	if components == nil {
+		return nil
+	}
+	for _, gw := range components.EgressGateways {
+		if gw.Name == "" {
+			continue
+		}
+		if err := validateWithRegex(objectNameRegexp, "egressGateways.name", gw.Name); err != nil {
+			return err
+		}
+	}
+	for _, gw := range components.IngressGateways {
+		if gw.Name == "" {
+			continue
+		}
+		if err := validateWithRegex(objectNameRegexp, "inressGateways.name", gw.Name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateWithRegex(r *regexp.Regexp, context string, val string) (err error) {
+	if len(r.FindString(val)) != len(val) {
+		return fmt.Errorf("invalid value %s: %v", context, val)
+	}
+	return nil
+}
+
+// validatorFunc validates a value.
+type validatorFunc func(path util.Path, i any) util.Errors
+
+// validateStringList returns a validator function that works on a string list, using the supplied validatorFunc vf on
+// each element.
+func validateStringList(vf validatorFunc) validatorFunc {
+	return func(path util.Path, val any) util.Errors {
+		if !util.IsString(val) {
+			return util.NewErrs(fmt.Errorf("validateStringList %s got %T, want string", path, val))
+		}
+		var errs util.Errors
+		for _, s := range strings.Split(val.(string), ",") {
+			errs = util.AppendErrs(errs, vf(path, s))
+		}
+		return errs
+	}
+}
+
+// validatePortNumberString checks if val is a string with a valid port number.
+func validatePortNumberString(path util.Path, val any) util.Errors {
+	if !util.IsString(val) {
+		return util.NewErrs(fmt.Errorf("validatePortNumberString(%s) bad type %T, want string", path, val))
+	}
+	if val.(string) == "*" || val.(string) == "" {
+		return nil
+	}
+	intV, err := strconv.ParseInt(val.(string), 10, 32)
+	if err != nil {
+		return util.NewErrs(fmt.Errorf("%s : %s", path, err))
+	}
+	return validatePortNumber(path, intV)
+}
+
+// validatePortNumber checks whether val is an integer representing a valid port number.
+func validatePortNumber(path util.Path, val any) util.Errors {
+	return validateIntRange(path, val, 0, 65535)
+}
+
+// validateIPRangesOrStar validates IP ranges and also allow star, examples: "1.1.0.256/16,2.2.0.257/16", "*"
+func validateIPRangesOrStar(path util.Path, val any) (errs util.Errors) {
+	if !util.IsString(val) {
+		err := fmt.Errorf("validateIPRangesOrStar %s got %T, want string", path, val)
+		return util.NewErrs(err)
+	}
+
+	if val.(string) == "*" || val.(string) == "" {
+		return errs
+	}
+
+	return validateStringList(validateCIDR)(path, val)
+}
+
+// validateIntRange checks whether val is an integer in [min, max].
+func validateIntRange(path util.Path, val any, minimum, maximum int64) util.Errors {
+	k := reflect.TypeOf(val).Kind()
+	var err error
+	switch {
+	case util.IsIntKind(k):
+		v := reflect.ValueOf(val).Int()
+		if v < minimum || v > maximum {
+			err = fmt.Errorf("value %s:%v falls outside range [%v, %v]", path, v, minimum, maximum)
+		}
+	case util.IsUintKind(k):
+		v := reflect.ValueOf(val).Uint()
+		if int64(v) < minimum || int64(v) > maximum {
+			err = fmt.Errorf("value %s:%v falls out side range [%v, %v]", path, v, minimum, maximum)
+		}
+	default:
+		err = fmt.Errorf("validateIntRange %s unexpected type %T, want int type", path, val)
+	}
+	return util.NewErrs(err)
+}
+
+// validateCIDR checks whether val is a string with a valid CIDR.
+func validateCIDR(path util.Path, val any) util.Errors {
+	var err error
+	if !util.IsString(val) {
+		err = fmt.Errorf("validateCIDR %s got %T, want string", path, val)
+	} else {
+		if _, err = netip.ParsePrefix(val.(string)); err != nil {
+			err = fmt.Errorf("%s %s", path, err)
+		}
+	}
+	return util.NewErrs(err)
 }
