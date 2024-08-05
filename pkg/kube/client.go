@@ -218,6 +218,9 @@ type CLIClient interface {
 
 	// InvalidateDiscovery invalidates the discovery client, useful after manually changing CRD's
 	InvalidateDiscovery()
+
+	// DynamicClientFor builds a dynamic client to a resource
+	DynamicClientFor(gvk schema.GroupVersionKind, obj *unstructured.Unstructured, namespace string) (dynamic.ResourceInterface, error)
 }
 
 type PortManager func() (uint16, error)
@@ -1162,18 +1165,29 @@ func (c *client) buildObject(cfg string, namespace string) (*unstructured.Unstru
 		return nil, nil, err
 	}
 
+	dc, err := c.DynamicClientFor(*gvk, obj, namespace)
+	if err != nil {
+		return nil, nil, err
+	}
+	return obj, dc, nil
+}
+
+func (c *client) DynamicClientFor(gvk schema.GroupVersionKind, obj *unstructured.Unstructured, namespace string) (dynamic.ResourceInterface, error) {
 	mapping, err := c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
-		return nil, nil, fmt.Errorf("mapping: %v", err)
+		return nil, fmt.Errorf("mapping: %v", err)
 	}
 
 	var dr dynamic.ResourceInterface
 	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
-		ns := obj.GetNamespace()
+		ns := ""
+		if obj != nil {
+			ns = obj.GetNamespace()
+		}
 		if ns == "" {
 			ns = namespace
 		} else if namespace != "" && ns != namespace {
-			return nil, nil, fmt.Errorf("object %v/%v provided namespace %q but apply called with %q", gvk, obj.GetName(), ns, namespace)
+			return nil, fmt.Errorf("object %v/%v provided namespace %q but apply called with %q", gvk, obj.GetName(), ns, namespace)
 		}
 		// namespaced resources should specify the namespace
 		dr = c.dynamic.Resource(mapping.Resource).Namespace(ns)
@@ -1181,7 +1195,7 @@ func (c *client) buildObject(cfg string, namespace string) (*unstructured.Unstru
 		// for cluster-wide resources
 		dr = c.dynamic.Resource(mapping.Resource)
 	}
-	return obj, dr, nil
+	return dr, nil
 }
 
 // IstioScheme returns a scheme will all known Istio-related types added

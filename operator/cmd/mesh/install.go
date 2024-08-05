@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/john"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -139,9 +140,8 @@ func InstallCmd(ctx cli.Context) *cobra.Command {
 
 func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, stdOut io.Writer, l clog.Logger, p Printer,
 ) error {
-	kubeClient, client, err := KubernetesClients(kubeClient, l)
-	if err != nil {
-		return err
+	if err := k8sversion.IsK8VersionSupported(kubeClient, l); err != nil {
+		return fmt.Errorf("check minimum supported Kubernetes version: %v", err)
 	}
 
 	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
@@ -188,7 +188,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	}
 
 	// Detect whether previous installation exists prior to performing the installation.
-	if err := john.InstallManifests(manifests, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l); err != nil {
+	if err := john.InstallManifests(manifests, iArgs.Force, rootArgs.DryRun, kubeClient, iArgs.ReadinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 	//opts := &helmreconciler.ProcessDefaultWebhookOptions{

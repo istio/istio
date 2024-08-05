@@ -17,25 +17,19 @@ package mesh
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
+	"istio.io/istio/pkg/kube"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
-
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/pkg/log"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // cmdType is one of the commands used to generate and optionally apply a manifest.
@@ -61,7 +55,7 @@ const (
 var (
 	// By default, tests only run with manifest generate, since it doesn't require any external fake test environment.
 	testedManifestCmds = []cmdType{cmdGenerate}
-	testClient         client.Client
+	testClient         kube.CLIClient
 
 	allNamespacedGVKs = append(helmreconciler.NamespacedResources(),
 		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"})
@@ -73,38 +67,12 @@ func init() {
 	helmreconciler.TestMode = true
 }
 
-var interceptorFunc = interceptor.Funcs{Patch: func(
-	ctx context.Context,
-	clnt client.WithWatch,
-	obj client.Object,
-	patch client.Patch,
-	opts ...client.PatchOption,
-) error {
-	// Apply patches are supposed to upsert, but fake client fails if the object doesn't exist,
-	// if an apply patch occurs for an object that doesn't yet exist, create it.
-	if patch.Type() != types.ApplyPatchType {
-		return clnt.Patch(ctx, obj, patch, opts...)
-	}
-	check, ok := obj.DeepCopyObject().(client.Object)
-	if !ok {
-		return errors.New("could not check for object in fake client")
-	}
-	if err := clnt.Get(ctx, client.ObjectKeyFromObject(obj), check); kerrors.IsNotFound(err) {
-		if err := clnt.Create(ctx, check); err != nil {
-			return fmt.Errorf("could not inject object creation for fake: %w", err)
-		}
-	} else if err != nil {
-		return err
-	}
-	obj.SetResourceVersion(check.GetResourceVersion())
-	return clnt.Update(ctx, obj)
-}}
-
 // recreateSimpleTestEnv mocks fake kube api server which relies on a simple object tracker
 func recreateSimpleTestEnv() {
 	log.Infof("Creating simple test environment\n")
 	helmreconciler.TestMode = true
-	testClient = fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
+	// TODO: interceptorFunc
+	testClient = kube.NewFakeClient()
 }
 
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
@@ -247,9 +215,13 @@ func runCommand(cmdGen func(ctx cli.Context) *cobra.Command, args string) (strin
 func getAllIstioObjects() object.K8sObjects {
 	var out object.K8sObjects
 	for _, gvk := range append(allClusterGVKs, allNamespacedGVKs...) {
-		objects := &unstructured.UnstructuredList{}
-		objects.SetGroupVersionKind(gvk)
-		if err := testClient.List(context.TODO(), objects); err != nil {
+		c, err := testClient.DynamicClientFor(gvk, nil, "")
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
+		objects, err := c.List(context.Background(), metav1.ListOptions{})
+		if err != nil {
 			log.Error(err.Error())
 			continue
 		}

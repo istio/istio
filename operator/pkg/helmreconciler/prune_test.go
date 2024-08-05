@@ -15,17 +15,10 @@
 package helmreconciler
 
 import (
-	"context"
 	_ "embed"
-	"errors"
-	"fmt"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"istio.io/istio/pkg/kube"
 	"testing"
 
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
@@ -41,38 +34,9 @@ var (
 	iopTestGwData2 []byte
 )
 
-// TODO: move to shared
-var interceptorFunc = interceptor.Funcs{Patch: func(
-	ctx context.Context,
-	clnt client.WithWatch,
-	obj client.Object,
-	patch client.Patch,
-	opts ...client.PatchOption,
-) error {
-	// Apply patches are supposed to upsert, but fake client fails if the object doesn't exist,
-	// if an apply patch occurs for an object that doesn't yet exist, create it.
-	if patch.Type() != types.ApplyPatchType {
-		return clnt.Patch(ctx, obj, patch, opts...)
-	}
-	check, ok := obj.DeepCopyObject().(client.Object)
-	if !ok {
-		return errors.New("could not check for object in fake client")
-	}
-	if err := clnt.Get(ctx, client.ObjectKeyFromObject(obj), check); kerrors.IsNotFound(err) {
-		if err := clnt.Create(ctx, check); err != nil {
-			return fmt.Errorf("could not inject object creation for fake: %w", err)
-		}
-	} else if err != nil {
-		return err
-	}
-	obj.SetResourceVersion(check.GetResourceVersion())
-	return clnt.Update(ctx, obj)
-}}
-
-
 // TODO
 func TestGetPrunedResources(t *testing.T) {
-	cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
+	cl := kube.NewFakeClient()
 	// init two custom gateways with revision
 	gateways := [][]byte{iopTestGwData1, iopTestGwData2}
 	for i, data := range gateways {

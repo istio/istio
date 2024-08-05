@@ -112,22 +112,16 @@ func UninstallCmd(ctx cli.Context) *cobra.Command {
 // uninstall uninstalls control plane by either pruning by target revision or deleting specified manifests.
 func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *uninstallArgs) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-	cliClient, err := ctx.CLIClient()
+
+	var kubeClient kube.CLIClient
+	var err error
+	if uiArgs.revision != "" && uiArgs.revision != "default" {
+		kubeClient, err = ctx.CLIClientWithRevision(uiArgs.revision)
+	} else {
+		kubeClient, err = ctx.CLIClient()
+	}
 	if err != nil {
 		return err
-	}
-	kubeClient, client, err := KubernetesClients(cliClient, l)
-	if err != nil {
-		l.LogAndFatal(err)
-	}
-	var kubeClientWithRev kube.CLIClient
-	if uiArgs.revision != "" && uiArgs.revision != "default" {
-		kubeClientWithRev, err = ctx.CLIClientWithRevision(uiArgs.revision)
-		if err != nil {
-			return err
-		}
-	} else {
-		kubeClientWithRev = kubeClient
 	}
 
 	if uiArgs.revision != "" {
@@ -147,13 +141,13 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 		l.LogAndPrint(PurgeWithRevisionOrOperatorSpecifiedWarning)
 	}
 
-	objectsList, err := helmreconciler.GetPrunedResources(client, "", "", uiArgs.revision, uiArgs.purge)
+	objectsList, err := helmreconciler.GetPrunedResources(kubeClient, "", "", uiArgs.revision, uiArgs.purge)
 	if err != nil {
 		return err
 	}
-	preCheckWarnings(cmd, kubeClientWithRev, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
+	preCheckWarnings(cmd, kubeClient, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
 
-	if err := helmreconciler.DeleteObjectsList(client, opts, objectsList); err != nil {
+	if err := helmreconciler.DeleteObjectsList(kubeClient, opts, objectsList); err != nil {
 		return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 	}
 	opts.ProgressLog.SetState(progress.StateUninstallComplete)
