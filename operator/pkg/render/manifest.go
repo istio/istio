@@ -8,7 +8,7 @@ import (
 
 	"istio.io/istio/manifests"
 	"istio.io/istio/operator/john"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/values"
@@ -240,8 +240,8 @@ func clusterSpecificSettings(client kube.Client) []string {
 	return nil
 }
 
-func IstioOperatorFromJSON(iopString string, force bool) (*v1alpha1.IstioOperator, error) {
-	iop := &v1alpha1.IstioOperator{}
+func IstioOperatorFromJSON(iopString string, force bool) (*apis.IstioOperator, error) {
+	iop := &apis.IstioOperator{}
 	// TODO: consolidate the two validation packagess
 	//if err := json.Unmarshal([]byte(iopString), iop); err != nil {
 	//	return nil, err

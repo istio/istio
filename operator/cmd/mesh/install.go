@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util"
-	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	v1alpha12 "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/install"
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util/clog"

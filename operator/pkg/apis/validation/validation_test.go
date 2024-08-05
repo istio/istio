@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
+	"istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/operator/pkg/apis/validation"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -29,7 +29,7 @@ const operatorSubdirFilePath = "manifests"
 func TestValidateConfig(t *testing.T) {
 	tests := []struct {
 		name     string
-		value    *v1alpha1.IstioOperatorSpec
+		value    *apis.IstioOperatorSpec
 		values   string
 		errors   error
 		warnings validation.Warnings

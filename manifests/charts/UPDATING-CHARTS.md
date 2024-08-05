@@ -42,7 +42,7 @@ If `values.yaml` is changed, be sure to update corresponding values changes in [
 
 ## Step 3. Update istioctl schema
 
-Istioctl uses a [schema](../../operator/pkg/apis/istio/v1alpha1/values_types.proto) to validate the values. Any changes to
+Istioctl uses a [schema](../../operator/pkg/apis/values_types.proto) to validate the values. Any changes to
 the schema must be added here, otherwise istioctl users will see errors.
 Once the schema file is updated, run:
 

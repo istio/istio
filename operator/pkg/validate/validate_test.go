@@ -17,7 +17,7 @@ package validate
 import (
 	"testing"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -187,7 +187,7 @@ values:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			ispec := &v1alpha1.IstioOperatorSpec{}
+			ispec := &apis.IstioOperatorSpec{}
 			err := util.UnmarshalWithJSONPB(tt.yamlStr, ispec, false)
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s", tt.desc, err)
