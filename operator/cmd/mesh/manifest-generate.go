@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/john"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/slices"
@@ -119,6 +118,11 @@ func ManifestGenerateCmd(ctx cli.Context, _ *RootArgs, mgArgs *ManifestGenerateA
 	}
 }
 
+const (
+	// YAMLSeparator is a separator for multi-document YAML files.
+	YAMLSeparator = "\n---\n"
+)
+
 func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
 	manifests, err := john.GenerateManifest(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
 		mgArgs.Force, mgArgs.Filter, kubeClient)
@@ -126,7 +130,7 @@ func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l
 		return err
 	}
 	for _, manifest := range sortManifests(manifests) {
-		l.Print(manifest + object.YAMLSeparator)
+		l.Print(manifest + YAMLSeparator)
 	}
 	return nil
 }

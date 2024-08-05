@@ -1,6 +1,7 @@
 package john
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -27,6 +28,43 @@ import (
 type Manifest struct {
 	*unstructured.Unstructured
 	Content string
+}
+
+func ManifestFromYaml(y []byte) (Manifest, error) {
+	us := &unstructured.Unstructured{}
+	if err := yaml.Unmarshal(y, us); err != nil {
+		return Manifest{}, err
+	}
+	return Manifest{
+		Unstructured: us,
+		Content:      string(y),
+	}, nil
+}
+
+func ManifestFromJson(j []byte) (Manifest, error) {
+	us := &unstructured.Unstructured{}
+	if err := json.Unmarshal(j, us); err != nil {
+		return Manifest{}, err
+	}
+	yml, err := yaml.Marshal(us)
+	if err != nil {
+		return Manifest{}, err
+	}
+	return Manifest{
+		Unstructured: us,
+		Content:      string(yml),
+	}, nil
+}
+
+func ManifestFromObject(us *unstructured.Unstructured) (Manifest, error) {
+	c, err := yaml.Marshal(us)
+	if err != nil {
+		return Manifest{}, err
+	}
+	return Manifest{
+		Unstructured: us,
+		Content:      string(c),
+	}, nil
 }
 
 func (m Manifest) Hash() string {
@@ -58,18 +96,15 @@ func Render(spec ComponentSpec, comp Component, iop Map) ([]Manifest, error) {
 func ParseManifests(output []string) ([]Manifest, error) {
 	res := make([]Manifest, 0, len(output))
 	for _, m := range output {
-		us := &unstructured.Unstructured{}
-		if err := yaml.Unmarshal([]byte(m), us); err != nil {
+		mf, err := ManifestFromJson([]byte(m))
+		if err != nil {
 			return nil, err
 		}
-		if us.GetObjectKind().GroupVersionKind().Kind == "" {
+		if mf.GetObjectKind().GroupVersionKind().Kind == "" {
 			// This is not an object. Could be empty template, comments only, etc
 			continue
 		}
-		res = append(res, Manifest{
-			Content:      m,
-			Unstructured: us,
-		})
+		res = append(res, mf)
 	}
 	return res, nil
 }

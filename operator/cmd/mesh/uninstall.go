@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/operator/john"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/kube"
@@ -144,7 +143,7 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 	if err != nil {
 		return err
 	}
-	preCheckWarnings(cmd, kubeClient, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
+	preCheckWarnings(cmd, kubeClient, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, l, rootArgs.DryRun)
 
 	if err := john.DeleteObjectsList(kubeClient, rootArgs.DryRun, l, objectsList); err != nil {
 		return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
@@ -157,7 +156,7 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 // 1. checks proxies still pointing to the target control plane revision.
 // 2. lists to be pruned resources if user uninstall by --revision flag.
 func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uninstallArgs, istioNamespace,
-	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger, dryRun bool,
+	rev string, resourcesList []*unstructured.UnstructuredList, l *clog.ConsoleLogger, dryRun bool,
 ) {
 	pids, err := proxyinfo.GetIDsFromProxyInfo(kubeClient, istioNamespace)
 	needConfirmation, message := false, ""
@@ -165,7 +164,7 @@ func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uni
 		needConfirmation = true
 		message += AllResourcesRemovedWarning
 	} else {
-		rmListString, gwList := constructResourceListOutput(resourcesList, objectsList)
+		rmListString, gwList := constructResourceListOutput(resourcesList)
 		if rmListString == "" {
 			l.LogAndPrint(NoResourcesRemovedWarning)
 			return
@@ -206,11 +205,8 @@ func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uni
 }
 
 // constructResourceListOutput is a helper function to construct the output of to be removed resources list
-func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects) (string, string) {
+func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList) (string, string) {
 	var items []unstructured.Unstructured
-	if objectsList != nil {
-		items = objectsList.UnstructuredItems()
-	}
 	for _, usList := range resourcesList {
 		items = append(items, usList.Items...)
 	}

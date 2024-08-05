@@ -22,10 +22,10 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/john"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var repoRootDir string
@@ -186,15 +186,11 @@ func TestValidateValuesFromProfile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.profile, func(t *testing.T) {
-			pf, err := helm.ReadProfileYAML(tt.profile, filepath.Join(env.IstioSrc, "manifests"))
-			if err != nil {
-				t.Fatalf("fail to read profile: %s", tt.profile)
-			}
-			val, _, err := object.ParseK8SYAMLToIstioOperator(pf)
-			if err != nil {
-				t.Fatalf(" fail to parse profile to ISCP: (%s), got error %s", tt.profile, err)
-			}
-			errs := CheckValues(val.Spec.Values)
+			m, err := john.MergeInputs(nil, []string{"profile=" + tt.profile}, nil)
+			assert.NoError(t, err)
+			vm, ok := m.GetPathMap("spec.values")
+			assert.Equal(t, ok, true)
+			errs := CheckValues(vm)
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
 				t.Errorf("CheckValues of (%v): gotErr:%s, wantErr:%s", tt.profile, gotErr, wantErr)
 			}

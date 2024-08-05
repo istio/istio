@@ -17,7 +17,6 @@ package mesh
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,10 +35,10 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/john"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test"
 )
 
 // cmdType is one of the commands used to generate and optionally apply a manifest.
@@ -109,53 +108,43 @@ func SetupFakeClient() kube.CLIClient {
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
 // It returns an ObjectSet for each cmd type.
 // nolint: unparam
-func runManifestCommands(inFile, flags string, chartSource chartSourceType, fileSelect []string) (map[cmdType]*ObjectSet, error) {
+func runManifestCommands(t test.Failer, inFile, flags string, chartSource chartSourceType, fileSelect []string) map[cmdType]*ObjectSet {
 	out := make(map[cmdType]*ObjectSet)
 	for _, cmd := range testedManifestCmds {
 		log.Infof("\nRunning test command using %s\n", cmd)
 		switch cmd {
 		case cmdApply, cmdController:
 			if err := fakeApplyExtraResources(inFile); err != nil {
-				return nil, err
+				t.Fatal(err)
 			}
 		default:
 		}
 
 		var objs *ObjectSet
-		var err error
 		switch cmd {
 		case cmdGenerate:
-			m, err := generateManifest(inFile, flags, chartSource, fileSelect)
-			if err != nil {
-				return nil, err
-			}
-			objs, err = parseObjectSetFromManifest(m)
-			if err != nil {
-				return nil, err
-			}
+			m := generateManifest(t, inFile, flags, chartSource, fileSelect)
+			objs = parseObjectSetFromManifest(t, m)
 		case cmdApply:
-			objs, err = fakeApplyManifest(inFile, flags, chartSource)
+			objs = fakeApplyManifest(t, inFile, flags, chartSource)
 		case cmdController:
-			objs, err = fakeControllerReconcile(inFile, chartSource)
+			objs = fakeControllerReconcile(t, inFile, chartSource)
 		default:
-		}
-		if err != nil {
-			return nil, err
 		}
 		out[cmd] = objs
 	}
 
-	return out, nil
+	return out
 }
 
 // fakeApplyManifest runs istioctl install.
-func fakeApplyManifest(inFile, flags string, chartSource chartSourceType) (*ObjectSet, error) {
+func fakeApplyManifest(t test.Failer, inFile, flags string, chartSource chartSourceType) *ObjectSet {
 	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
 	manifest, err := runManifestCommand("install", []string{inPath}, flags, chartSource, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error %s: %s", err, manifest)
+		t.Fatalf("error %s: %s", err, manifest)
 	}
-	return NewObjectSet(getAllIstioObjects()), nil
+	return NewObjectSet(getAllIstioObjects())
 }
 
 // fakeApplyExtraResources applies any extra resources for the given test name.
@@ -174,8 +163,16 @@ func fakeApplyExtraResources(inFile string) error {
 	return nil
 }
 
-func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
-	// TOOO
+func fakeControllerReconcile(t test.Failer, inFile string, chartSource chartSourceType) *ObjectSet {
+	t.Helper()
+	res, err := fakeControllerReconcileInternal(inFile, chartSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
+
+func fakeControllerReconcileInternal(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
 	c := SetupFakeClient()
 	l := clog.NewDefaultLogger()
 	manifests, err := john.GenerateManifest(
@@ -235,8 +232,8 @@ func runCommand(cmdGen func(ctx cli.Context) *cobra.Command, args string) (strin
 }
 
 // getAllIstioObjects lists all Istio GVK resources from the testClient.
-func getAllIstioObjects() object.K8sObjects {
-	var out object.K8sObjects
+func getAllIstioObjects() []john.Manifest {
+	var out []john.Manifest
 	for _, gvk := range append(allClusterGVKs, allNamespacedGVKs...) {
 		c, err := testClient.DynamicClientFor(gvk, nil, "")
 		if err != nil {
@@ -249,8 +246,12 @@ func getAllIstioObjects() object.K8sObjects {
 			continue
 		}
 		for _, o := range objects.Items {
-			no := o.DeepCopy()
-			out = append(out, object.NewK8sObject(no, nil, nil))
+			mf, err := john.ManifestFromObject(&o)
+			if err != nil {
+				log.Error(err.Error())
+				continue
+			}
+			out = append(out, mf)
 		}
 	}
 	return out
