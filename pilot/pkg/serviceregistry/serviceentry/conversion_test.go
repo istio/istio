@@ -281,6 +281,72 @@ var tcpDNS = &config.Config{
 	},
 }
 
+var tcpDNSAutoAssignedSingleHost = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "tcpDNSAutoAssignedSingleHost",
+		Namespace:         "tcpDNSAutoAssignedSingleHost",
+		CreationTimestamp: GlobalTime,
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"singlehosttcpdns.com"},
+		Ports: []*networking.ServicePort{
+			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+	},
+	Status: &networking.ServiceEntryStatus{
+		Addresses: []*networking.ServiceEntryAddress{
+			{
+				Host:  "singlehosttcpdns.com",
+				Value: "240.240.0.1",
+			},
+			{
+				Host:  "singlehosttcpdns.com",
+				Value: "2001:2::1",
+			},
+		},
+	},
+}
+
+var tcpDNSAutoAssignedMultiHost = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "tcpDNSAutoAssignedMultiHost",
+		Namespace:         "tcpDNSAutoAssignedMultiHost",
+		CreationTimestamp: GlobalTime,
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"multihosttcpdns.com", "secondhosttcpdns.com"},
+		Ports: []*networking.ServicePort{
+			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+	},
+	Status: &networking.ServiceEntryStatus{
+		Addresses: []*networking.ServiceEntryAddress{
+			{
+				Host:  "multihosttcpdns.com",
+				Value: "240.240.0.1",
+			},
+			{
+				Host:  "multihosttcpdns.com",
+				Value: "2001:2::1",
+			},
+			{
+				Host:  "secondhosttcpdns.com",
+				Value: "240.240.0.2",
+			},
+			{
+				Host:  "secondhosttcpdns.com",
+				Value: "2001:2::2",
+			},
+		},
+	},
+}
+
 var tcpStatic = &config.Config{
 	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
@@ -640,6 +706,7 @@ func makeInstance(cfg *config.Config, address string, port int,
 }
 
 func TestConvertService(t *testing.T) {
+	test.SetForTest(t, &features.EnableIPAutoallocate, true)
 	testConvertServiceBody(t)
 	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
 	testConvertServiceBody(t)
@@ -707,6 +774,24 @@ func testConvertServiceBody(t *testing.T) {
 			externalSvc: tcpDNS,
 			services: []*model.Service{
 				makeService("tcpdns.com", "tcpDNS", []string{constants.UnspecifiedIP},
+					map[string]int{"tcp-444": 444}, true, model.DNSLB),
+			},
+		},
+		{
+			// service entry tcp DNS
+			externalSvc: tcpDNSAutoAssignedSingleHost,
+			services: []*model.Service{
+				makeService("singlehosttcpdns.com", "tcpDNSAutoAssignedSingleHost", []string{"240.240.0.1", "2001:2::1"},
+					map[string]int{"tcp-444": 444}, true, model.DNSLB),
+			},
+		},
+		{
+			// service entry tcp DNS
+			externalSvc: tcpDNSAutoAssignedMultiHost,
+			services: []*model.Service{
+				makeService("multihosttcpdns.com", "tcpDNSAutoAssignedMultiHost", []string{"240.240.0.1", "2001:2::1"},
+					map[string]int{"tcp-444": 444}, true, model.DNSLB),
+				makeService("secondhosttcpdns.com", "tcpDNSAutoAssignedMultiHost", []string{"240.240.0.2", "2001:2::2"},
 					map[string]int{"tcp-444": 444}, true, model.DNSLB),
 			},
 		},
