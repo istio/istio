@@ -3,6 +3,7 @@ package john
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"helm.sh/helm/v3/pkg/strvals"
@@ -54,6 +55,82 @@ func MakeMap(contents any, path ...string) Map {
 	}
 	return ret
 }
+
+func MakePatch(contents any, in string) (string) {
+	path, err := splitPath(in)
+	if err != nil {
+		panic("TODO")
+	}
+	lastSeg := path[len(path)-1]
+
+	var base any
+	if k, v, ok := extractKV(lastSeg); ok {
+		base = []Map{{"$patch": "delete", k: v}}
+	} else {
+		base = Map{lastSeg: contents}
+	}
+
+	cur := base
+	for i := len(path) - 2; i >= 0; i-- {
+		seg := path[i]
+		if k, v, ok := extractKV(seg); ok {
+			cur.(Map)[k] = v
+			cur = []any{cur}
+		} else if idx, ok := extractIndex(seg); ok {
+			panic("!TODO!")
+			_ = idx
+		} else {
+			cur = Map{seg: cur}
+		}
+	}
+	return cur.(Map).JSON()
+}
+
+func splitPath(in string) ([]string, error) {
+	segments := []string{}
+	for {
+		if strings.HasPrefix(in, "[") {
+			idx := strings.Index(in, "]")
+			if idx == -1 {
+				return nil, fmt.Errorf("unclosed segment")
+			}
+			segments = append(segments, in[:idx+1])
+			if len(in) > idx+1 {
+				return segments, nil
+			}
+			in = in[idx+2:]
+		} else {
+			idx := strings.Index(in, ".")
+			if idx == -1 {
+				segments = append(segments, in)
+				return segments, nil
+			}
+			segments = append(segments, in[:idx])
+			in = in[idx+1:]
+		}
+	}
+}
+
+func extractIndex(seg string) (int, bool) {
+	if !strings.HasPrefix(seg, "[") || !strings.HasSuffix(seg, "]") {
+		return 0, false
+	}
+	sanitized := seg[1 : len(seg)-1]
+	v, err := strconv.Atoi(sanitized)
+	if err != nil {
+		return 0, false
+	}
+	return v, true
+}
+
+func extractKV(seg string) (string, string, bool) {
+	if !strings.HasPrefix(seg, "[") || !strings.HasSuffix(seg, "]") {
+		return "", "", false
+	}
+	sanitized := seg[1 : len(seg)-1]
+	return strings.Cut(sanitized, ":")
+}
+
 
 func (m Map) MergeFrom(other Map) {
 	for k, v := range other {

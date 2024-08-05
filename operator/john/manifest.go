@@ -112,6 +112,24 @@ func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Ma
 			}
 		}
 	}
+
+
+	for _, o := range spec.Kubernetes.Overlays {
+		for idx, m := range manifests {
+			if o.Kind != m.GetKind() {
+				continue
+			}
+			// While patches have ApiVersion, this is ignored for legacy compatibility
+			if o.Name != m.GetName() {
+				continue
+			}
+			for _,p := range o.Patches {
+				patch := MakePatch(p.Value, p.Path)
+				needPatching[idx] = append(needPatching[idx], patch)
+			}
+		}
+	}
+
 	for idx, patches := range needPatching {
 		m := manifests[idx]
 		baseJSON, err := yaml.YAMLToJSON([]byte(m.Content))

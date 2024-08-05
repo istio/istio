@@ -850,7 +850,7 @@ func firstCharToLower(s string) string {
 
 // MergeK8sObject does strategic merge for overlayNode on the base object.
 func MergeK8sObject(base *object.K8sObject, overlayNode any, path util.Path) (*object.K8sObject, error) {
-	overlay, err := createPatchObjectFromPath(overlayNode, path)
+	overlay, err := CreatePatchObjectFromPath(overlayNode, path)
 	if err != nil {
 		return nil, err
 	}
@@ -883,7 +883,7 @@ func MergeK8sObject(base *object.K8sObject, overlayNode any, path util.Path) (*o
 	return newObj.ResolveK8sConflict(), nil
 }
 
-// createPatchObjectFromPath constructs patch object for node with path, returns nil object and error if the path is invalid.
+// CreatePatchObjectFromPath constructs patch object for node with path, returns nil object and error if the path is invalid.
 // e.g. node:
 //   - name: NEW_VAR
 //     value: new_value
@@ -900,7 +900,7 @@ func MergeK8sObject(base *object.K8sObject, overlayNode any, path util.Path) (*o
 //	          env:
 //	          - name: NEW_VAR
 //	            value: new_value
-func createPatchObjectFromPath(node any, path util.Path) (map[string]any, error) {
+func CreatePatchObjectFromPath(node any, path util.Path) (map[string]any, error) {
 	if len(path) == 0 {
 		return nil, fmt.Errorf("empty path %s", path)
 	}
