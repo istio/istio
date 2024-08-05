@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
 
-	api "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/mesh"
@@ -41,7 +41,7 @@ type deprecatedSettings struct {
 type Warnings = []string
 
 func ParseAndValidateIstioOperator(yml string, allowUnknownField bool) (Warnings, error) {
-	iop := &api.IstioOperator{}
+	iop := &apis.IstioOperator{}
 	if allowUnknownField {
 		if err := yaml.Unmarshal([]byte(yml), iop); err != nil {
 			return nil, fmt.Errorf("could not unmarshal: %v", err)
@@ -68,8 +68,8 @@ func ParseAndValidateIstioOperator(yml string, allowUnknownField bool) (Warnings
 	return warnings, nil
 }
 
-func validateValues(raw *api.IstioOperator) (Warnings, error) {
-	values := &api.Values{}
+func validateValues(raw *apis.IstioOperator) (Warnings, error) {
+	values := &apis.Values{}
 	if err := yaml.Unmarshal(raw.Spec.Values, values); err != nil {
 		return nil, fmt.Errorf("could not unmarshal: %v", err)
 	}
@@ -114,7 +114,7 @@ func firstCharsToLower(s string) string {
 		s)
 }
 
-func checkDeprecatedSettings(iop api.IstioOperatorSpec) []string {
+func checkDeprecatedSettings(iop apis.IstioOperatorSpec) []string {
 	messages := []string{}
 	warningSettings := []deprecatedSettings{
 		{"Values.global.proxy.holdApplicationUntilProxyStarts", "meshConfig.defaultConfig.holdApplicationUntilProxyStarts", false},
@@ -146,10 +146,10 @@ func checkDeprecatedSettings(iop api.IstioOperatorSpec) []string {
 	return messages
 }
 
-type FeatureValidator func(*api.Values, api.IstioOperatorSpec) (util.Errors, []string)
+type FeatureValidator func(*apis.Values, apis.IstioOperatorSpec) (util.Errors, []string)
 
 // validateFeatures check whether the config semantically make sense. For example, feature X and feature Y can't be enabled together.
-func validateFeatures(values *api.Values, spec api.IstioOperatorSpec) (errs util.Errors, warnings Warnings) {
+func validateFeatures(values *apis.Values, spec apis.IstioOperatorSpec) (errs util.Errors, warnings Warnings) {
 	validators := []FeatureValidator{
 		CheckServicePorts,
 		CheckAutoScaleAndReplicaCount,
@@ -165,7 +165,7 @@ func validateFeatures(values *api.Values, spec api.IstioOperatorSpec) (errs util
 }
 
 // CheckAutoScaleAndReplicaCount warns when autoscaleEnabled is true and k8s replicaCount is set.
-func CheckAutoScaleAndReplicaCount(values *api.Values, spec api.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+func CheckAutoScaleAndReplicaCount(values *apis.Values, spec apis.IstioOperatorSpec) (errs util.Errors, warnings []string) {
 	if spec.Components == nil {
 		return nil, nil
 	}
@@ -176,7 +176,7 @@ func CheckAutoScaleAndReplicaCount(values *api.Values, spec api.IstioOperatorSpe
 		}
 	}
 
-	validateGateways := func(gateways []api.GatewayComponentSpec, gwType string) {
+	validateGateways := func(gateways []apis.GatewayComponentSpec, gwType string) {
 		const format = "components.%sGateways[name=%s].k8s.replicaCount should not be set when values.gateways.istio-%sgateway.autoscaleEnabled is true"
 		for _, gw := range gateways {
 			if gw.Kubernetes != nil && gw.Kubernetes.ReplicaCount != 0 {
@@ -199,7 +199,7 @@ func CheckAutoScaleAndReplicaCount(values *api.Values, spec api.IstioOperatorSpe
 // CheckServicePorts validates Service ports. Specifically, this currently
 // asserts that all ports will bind to a port number greater than 1024 when not
 // running as root.
-func CheckServicePorts(values *api.Values, spec api.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+func CheckServicePorts(values *apis.Values, spec apis.IstioOperatorSpec) (errs util.Errors, warnings []string) {
 	if spec.Components != nil {
 		if !values.GetGateways().GetIstioIngressgateway().GetRunAsRoot().GetValue() {
 			errs = util.AppendErrs(errs, validateGateways(spec.Components.IngressGateways, "istio-ingressgateway"))
@@ -236,7 +236,7 @@ func CheckServicePorts(values *api.Values, spec api.IstioOperatorSpec) (errs uti
 	return
 }
 
-func validateGateways(gws []api.GatewayComponentSpec, name string) util.Errors {
+func validateGateways(gws []apis.GatewayComponentSpec, name string) util.Errors {
 	// nolint: lll
 	format := "port %v/%v in gateway %v invalid: targetPort is set to %d, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.%s.runAsRoot=true"
 	var errs util.Errors

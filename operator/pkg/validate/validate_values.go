@@ -19,7 +19,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -42,7 +42,7 @@ func CheckValues(root any) util.Errors {
 	if err != nil {
 		return util.Errors{err}
 	}
-	val := &v1alpha1.Values{}
+	val := &apis.Values{}
 	if err := util.UnmarshalWithJSONPB(string(vs), val, false); err != nil {
 		return util.Errors{err}
 	}

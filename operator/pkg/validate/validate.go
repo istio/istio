@@ -20,7 +20,8 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/labels"
@@ -42,7 +43,7 @@ var DefaultValidations = map[string]ValidatorFunc{
 }
 
 // CheckIstioOperator validates the operator CR.
-func CheckIstioOperator(iop *v1alpha1.IstioOperator) error {
+func CheckIstioOperator(iop *apis.IstioOperator) error {
 	if iop == nil {
 		return nil
 	}
@@ -54,7 +55,7 @@ func CheckIstioOperator(iop *v1alpha1.IstioOperator) error {
 // CheckIstioOperatorSpec validates the values in the given Installer spec, using the field map DefaultValidations to
 // call the appropriate validation function. checkRequiredFields determines whether missing mandatory fields generate
 // errors.
-func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec) (errs util.Errors) {
+func CheckIstioOperatorSpec(is *apis.IstioOperatorSpec) (errs util.Errors) {
 	if is == nil {
 		return util.Errors{}
 	}
@@ -62,7 +63,7 @@ func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec) (errs util.Errors) {
 	return Validate2(DefaultValidations, is)
 }
 
-func Validate2(validations map[string]ValidatorFunc, iop *v1alpha1.IstioOperatorSpec) (errs util.Errors) {
+func Validate2(validations map[string]ValidatorFunc, iop *apis.IstioOperatorSpec) (errs util.Errors) {
 	for path, validator := range validations {
 		v, f, _ := tpath.GetFromStructPath(iop, path)
 		if f {
