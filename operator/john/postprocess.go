@@ -23,7 +23,13 @@ func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Ma
 		Patch      string
 	}
 	rn := comp.ResourceName
-	// TODO: if revision and istiod += -revision
+	if spec.Name != "" {
+		// Gateways can override the name
+		rn = spec.Name
+	}
+	if comp.Name == "pilot" {
+		// TODO: if revision and istiod += -revision
+	}
 	rt := comp.ResourceType
 	patches := map[string]Patch{
 		"affinity":            {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"affinity":%s}}}}`},

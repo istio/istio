@@ -8,7 +8,6 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/ptr"
 )
@@ -168,17 +167,12 @@ func getPV(setFlag string) (path string, value string) {
 func (m Map) SetPaths(paths ...string) error {
 	for _, sf := range paths {
 		p, v := getPV(sf)
-		p = strings.TrimPrefix(p, "spec.")
-		inc, _, err := tpath.GetPathContext((map[string]any)(m), util.PathFromString("spec."+p), true)
-		if err != nil {
-			return err
-		}
 		// input value type is always string, transform it to correct type before setting.
 		var val any = v
 		if !isAlwaysString(p) {
 			val = util.ParseValue(v)
 		}
-		if err := tpath.WritePathContext(inc, val, false); err != nil {
+		if err := m.SetPath(p, val); err != nil {
 			return err
 		}
 	}
@@ -273,30 +267,46 @@ func setPathRecurse(base map[string]any, paths []string, value any) error {
 	nextIsArray := len(paths) >= 2 && strings.HasPrefix(paths[1], "[")
 	if nextIsArray {
 		last = len(paths) == 2
-		if idx, ok := extractIndex(paths[1]); ok {
-			// Find or create target list
-			if _, f := base[seg]; !f {
-				base[seg] = []any{}
-			}
-			l := base[seg].([]any)
-			if idx >= len(l) {
-				// Index is greater, we need to append
-				if last {
-					l = append(l, value)
-				} else {
-					nm := Map{}
-					if err := setPathRecurse(nm, paths[2:], value); err != nil {
-						return err
-					}
-					l = append(l, nm)
+		// Find or create target list
+		if _, f := base[seg]; !f {
+			base[seg] = []any{}
+		}
+		var index int
+		if k, v, ok := extractKV(paths[1]); ok {
+			index = -1
+			for idx, cm := range base[seg].([]any) {
+				if mustAsMap(cm)[k] == v {
+					index = idx
+					break
 				}
-				base[seg] = l
+			}
+			if index == -1 {
+				return fmt.Errorf("element %v not found", paths[1])
+			}
+		} else if idx, ok := extractIndex(paths[1]); ok {
+			index = idx
+		} else {
+			return fmt.Errorf("unknown segment %v", paths[1])
+		}
+		l := base[seg].([]any)
+		if index < 0 || index >= len(l) {
+			// Index is greater, we need to append
+			if last {
+				l = append(l, value)
 			} else {
-				v := mustAsMap(l[idx])
-				if err := setPathRecurse(v, paths[2:], value); err != nil {
+				nm := Map{}
+				if err := setPathRecurse(nm, paths[2:], value); err != nil {
 					return err
 				}
+				l = append(l, nm)
 			}
+			base[seg] = l
+		} else {
+			v := mustAsMap(l[index])
+			if err := setPathRecurse(v, paths[2:], value); err != nil {
+				return err
+			}
+			l[index] = v
 		}
 	} else {
 		// This is a simple key traverse
@@ -375,7 +385,7 @@ func asMap(cur any) (Map, bool) {
 	return nil, false
 }
 
-func mustAsMap(cur any) (Map) {
+func mustAsMap(cur any) Map {
 	m, ok := asMap(cur)
 	if !ok {
 		panic(fmt.Sprintf("not a map, got %T: %v", cur, cur))

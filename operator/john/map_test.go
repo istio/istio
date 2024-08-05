@@ -112,28 +112,31 @@ func TestSetPath(t *testing.T) {
 			out:    `{"top":[{"bar":1,"baz":2}]}`,
 		},
 		{
-			name:   "kv",
+			name:   "kv set",
 			inPath: "env.[name:POD_NAME].value",
+			base: fromJson(`{"env":[{"name":"POD_NAME"}]}`),
 			inData: 1,
-			out:    "",
+			out:    `{"env":[{"name":"POD_NAME","value":1}]}`,
 		},
 		{
 			name:   "escape kv",
 			inPath: "env.[name:foo\\.bar].value",
+			base: fromJson(`{"env":[{"name":"foo\\.bar"}]}`),
 			inData: "hi",
 			out:    `{"env":[{"name":"foo\\.bar","value":"hi"}]}`,
 		},
 		{
-			name:   "delete kv last",
-			inPath: "env.[name:POD_NAME]",
-			inData: nil,
-			out:    `{"env":[{"$patch":"delete","name":"POD_NAME"}]}`,
-		},
-		{
-			name:   "set kv primitive",
+			name:   "set kv",
 			inPath: "spec.ports.[name:https-dns].port",
+			base: fromJson(`{"spec":{"ports":[{"name":"https-dns"}]}}`),
 			inData: 11111,
 			out:    `{"spec":{"ports":[{"name":"https-dns","port":11111}]}}`,
+		},
+		{
+			name:   "set unmatched kv",
+			inPath: "spec.ports.[name:https-dns].port",
+			inData: 11111,
+			out:    ``,
 		},
 	}
 	for _, tt := range cases {
@@ -143,8 +146,12 @@ func TestSetPath(t *testing.T) {
 				m = tt.base
 			}
 			err := m.SetPath(tt.inPath, tt.inData)
-			assert.NoError(t, err)
-			assert.Equal(t, tt.out, m.JSON())
+			if tt.out != "" {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.out, m.JSON())
+			} else {
+				assert.Error(t, err)
+			}
 		})
 	}
 }
