@@ -12,14 +12,17 @@ global:
   seLinuxOptions:
     type: spc_t
 cni:
-  enabled: true
   ambient:
     enabled: true
-  logLevel: info
-  provider: "multus"
   cniBinDir: /var/lib/cni/bin
   cniConfDir: /etc/cni/multus/net.d
   chained: false
   cniConfFileName: "istio-cni.conf"
+  logLevel: info
+  provider: "multus"
+pilot:
+  cni:
+    enabled: true
+    provider: "multus"
   env:
     PILOT_ENABLE_AMBIENT: "true"
