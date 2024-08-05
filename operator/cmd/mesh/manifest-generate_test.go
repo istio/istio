@@ -37,7 +37,6 @@ import (
 
 	"istio.io/istio/operator/john"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/testhelpers"
 	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
@@ -192,11 +191,8 @@ func TestMain(m *testing.M) {
 func TestManifestGenerateComponentHubTag(t *testing.T) {
 	g := NewWithT(t)
 
-	objs, err := runManifestCommands("component_hub_tag", "", liveCharts,
+	objs := runManifestCommands(t, "component_hub_tag", "", liveCharts,
 		[]string{"templates/deployment.yaml", "templates/daemonset.yaml", "templates/zzy_descope_legacy.yaml"})
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	tests := []struct {
 		deploymentName string
@@ -245,10 +241,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 	flags := "-s components.ingressGateways.[0].k8s.resources.requests.memory=999Mi " +
 		"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m"
 
-	objss, err := runManifestCommands("gateways", flags, liveCharts, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	objss := runManifestCommands(t, "gateways", flags, liveCharts, nil)
 
 	for _, objs := range objss {
 		g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
@@ -259,24 +252,24 @@ func TestManifestGenerateGateways(t *testing.T) {
 		g.Expect(objs.kind(name.SAStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
 
 		dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
-		d := dobj.Unstructured()
-		c := dobj.Container("istio-proxy")
+		d := dobj.Unstructured
+		c := getContainer(dobj, "istio-proxy")
 		g.Expect(d).Should(HavePathValueContain(PathValue{"spec.template.metadata.labels", toMap("service.istio.io/canonical-revision:21")}))
 		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("aaa:aaa-val,bbb:bbb-val")}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "111m"}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.memory", "999Mi"}))
 
 		dobj = mustGetDeployment(g, objs, "user-ingressgateway")
-		d = dobj.Unstructured()
-		c = dobj.Container("istio-proxy")
+		d = dobj.Unstructured
+		c = getContainer(dobj, "istio-proxy")
 		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("ccc:ccc-val,ddd:ddd-val")}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "555m"}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.memory", "888Mi"}))
 
 		dobj = mustGetDeployment(g, objs, "ilb-gateway")
-		d = dobj.Unstructured()
-		c = dobj.Container("istio-proxy")
-		s := mustGetService(g, objs, "ilb-gateway").Unstructured()
+		d = dobj.Unstructured
+		c = getContainer(dobj, "istio-proxy")
+		s := mustGetService(g, objs, "ilb-gateway").Unstructured
 		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("app:istio-ingressgateway,istio:ingressgateway,release: istio")}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "333m"}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"env.[name:PILOT_CERT_PROVIDER].value", "foobar"}))
@@ -286,7 +279,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
 
 		for _, o := range objs.kind(name.HPAStr).objSlice {
-			ou := o.Unstructured()
+			ou := o.Unstructured
 			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
 			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
 		}
@@ -343,7 +336,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
-			objs, err := fakeControllerReconcile(testResourceFile, tmpCharts)
+			objs, err := fakeControllerReconcileInternal(testResourceFile, tmpCharts)
 			tc.assertFunc(g, objs, err)
 		})
 	}
@@ -377,22 +370,17 @@ func runRevisionedWebhookTest(t *testing.T, testResourceFile, whSource string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fakeControllerReconcile(testResourceFile, tmpCharts)
-	assert.NoError(t, err)
+	_ = fakeControllerReconcile(t, testResourceFile, tmpCharts)
 
 	// Install a default revision should not cause any error
 	minimal := "minimal"
-	_, err = fakeControllerReconcile(minimal, tmpCharts)
-	assert.NoError(t, err)
+	_ = fakeControllerReconcile(t, minimal, tmpCharts)
 }
 
 func TestManifestGenerateIstiodRemote(t *testing.T) {
 	g := NewWithT(t)
 
-	objss, err := runManifestCommands("istiod_remote", "", liveCharts, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	objss := runManifestCommands(t, "istiod_remote", "", liveCharts, nil)
 
 	for _, objs := range objss {
 		// check core CRDs exists
@@ -407,10 +395,10 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 		g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
 
-		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
+		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured
 		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
 
-		ep := mustGetEndpoint(g, objs, "istiod-remote").Unstructured()
+		ep := mustGetEndpoint(g, objs, "istiod-remote").Unstructured
 		g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
 		g.Expect(ep).Should(HavePathValueContain(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
 
@@ -436,12 +424,10 @@ func TestPrune(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fakeControllerReconcile("default", tmpCharts)
-	assert.NoError(t, err)
+	_ = fakeControllerReconcile(t, "default", tmpCharts)
 
 	// Install a default revision should not cause any error
-	objs, err := fakeControllerReconcile("empty", tmpCharts)
-	assert.NoError(t, err)
+	objs := fakeControllerReconcile(t, "empty", tmpCharts)
 
 	for _, s := range john.PrunedResourcesSchemas() {
 		remainedObjs := objs.kind(s.Kind)
@@ -450,76 +436,52 @@ func TestPrune(t *testing.T) {
 		}
 		for _, v := range remainedObjs.objMap {
 			// exclude operator objects, which will not be pruned
-			if strings.Contains(v.Name, "istio-operator") {
+			if strings.Contains(v.GetName(), "istio-operator") {
 				continue
 			}
-			t.Fatalf("obj %s/%s is not pruned", v.Namespace, v.Name)
+			t.Fatalf("obj %s/%s is not pruned", v.GetNamespace(), v.GetName())
 		}
 	}
 }
 
 func TestManifestGenerateAllOff(t *testing.T) {
 	g := NewWithT(t)
-	m, err := generateManifest("all_off", "", liveCharts, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	objs, err := parseObjectSetFromManifest(m)
-	if err != nil {
-		t.Fatal(err)
-	}
+	m := generateManifest(t, "all_off", "", liveCharts, nil)
+	objs := parseObjectSetFromManifest(t, m)
 	g.Expect(objs.size()).Should(Equal(0))
 }
 
 func TestManifestGenerateFlagsMinimalProfile(t *testing.T) {
 	g := NewWithT(t)
 	// Change profile from empty to minimal using flag.
-	m, err := generateManifest("empty", "-s profile=minimal", liveCharts, []string{"templates/deployment.yaml"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	objs, err := parseObjectSetFromManifest(m)
-	if err != nil {
-		t.Fatal(err)
-	}
+	m := generateManifest(t, "empty", "-s profile=minimal", liveCharts, []string{"templates/deployment.yaml"})
+	objs := parseObjectSetFromManifest(t, m)
 	// minimal profile always has istiod, empty does not.
 	mustGetDeployment(g, objs, "istiod")
 }
 
 func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
 	g := NewWithT(t)
-	m, err := generateManifest("minimal", "-s hub=foo -s tag=bar", liveCharts, []string{"templates/deployment.yaml"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	objs, err := parseObjectSetFromManifest(m)
-	if err != nil {
-		t.Fatal(err)
-	}
+	m := generateManifest(t, "minimal", "-s hub=foo -s tag=bar", liveCharts, []string{"templates/deployment.yaml"})
+	objs := parseObjectSetFromManifest(t, m)
 
 	dobj := mustGetDeployment(g, objs, "istiod")
 
-	c := dobj.Container("discovery")
+	c := getContainer(dobj, "discovery")
 	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "foo/pilot:bar"}))
 }
 
 func TestManifestGenerateFlagsSetValues(t *testing.T) {
 	g := NewWithT(t)
-	m, err := generateManifest("default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts,
+	m := generateManifest(t, "default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts,
 		[]string{"templates/deployment.yaml", "templates/istiod-injector-configmap.yaml"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	objs, err := parseObjectSetFromManifest(m)
-	if err != nil {
-		t.Fatal(err)
-	}
+	objs := parseObjectSetFromManifest(t, m)
 	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 
-	c := dobj.Container("istio-proxy")
+	c := getContainer(dobj, "istio-proxy")
 	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "gcr.io/istio-testing/myproxy:latest"}))
 
-	cm := objs.kind("ConfigMap").nameEquals("istio-sidecar-injector").Unstructured()
+	cm := objs.kind("ConfigMap").nameEquals("istio-sidecar-injector").Unstructured
 	// TODO: change values to some nicer format rather than text block.
 	g.Expect(cm).Should(HavePathValueMatchRegex(PathValue{"data.values", `.*"includeIPRanges"\: "172\.30\.0\.0/16,172\.21\.0\.0/16".*`}))
 }
@@ -746,7 +708,7 @@ func TestTrailingWhitespace(t *testing.T) {
 	}
 }
 
-func validateReferentialIntegrity(t *testing.T, objs object.K8sObjects, cname string, deploymentSelector map[string]string) {
+func validateReferentialIntegrity(t *testing.T, objs []john.Manifest, cname string, deploymentSelector map[string]string) {
 	t.Run(cname, func(t *testing.T) {
 		deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
 		service := mustFindObject(t, objs, cname, name.ServiceStr)
@@ -785,18 +747,12 @@ func TestConfigSelectors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs, err := object.ParseK8sObjectsFromYAMLManifest(got)
-	if err != nil {
-		t.Fatal(err)
-	}
+	objs := parseObjectSetFromManifest(t, got).objSlice
 	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary", liveCharts, selectors)
 	if e != nil {
 		t.Fatal(e)
 	}
-	objsRev, err := object.ParseK8sObjectsFromYAMLManifest(gotRev)
-	if err != nil {
-		t.Fatal(err)
-	}
+	objsRev := parseObjectSetFromManifest(t, gotRev).objSlice
 
 	istiod15Selector := map[string]string{
 		"istio": "pilot",
@@ -924,13 +880,13 @@ func runTestGroup(t *testing.T, tests testGroup) {
 	}
 }
 
-func generateManifest(inFile, flags string, chartSource chartSourceType, fileSelect []string) (string, error) {
+func generateManifest(t test.Failer, inFile, flags string, chartSource chartSourceType, fileSelect []string) string {
 	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
 	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource, fileSelect)
 	if err != nil {
-		return "", fmt.Errorf("error %s: %s", err, manifest)
+		t.Fatalf("error %s: %s", err, manifest)
 	}
-	return manifest, err
+	return manifest
 }
 
 // runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
@@ -939,7 +895,7 @@ func runManifestGenerate(filenames []string, flags string, chartSource chartSour
 	return runManifestCommand("generate", filenames, flags, chartSource, fileSelect)
 }
 
-func mustGetWebhook(t test.Failer, obj object.K8sObject) []v1.MutatingWebhook {
+func mustGetWebhook(t test.Failer, obj john.Manifest) []v1.MutatingWebhook {
 	t.Helper()
 	path := mustGetPath(t, obj, "webhooks")
 	by, err := json.Marshal(path)
@@ -959,10 +915,7 @@ func getWebhooks(t *testing.T, setFlags string, webhookName string) []v1.Mutatin
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs, err := object.ParseK8sObjectsFromYAMLManifest(got)
-	if err != nil {
-		t.Fatal(err)
-	}
+	objs := parseObjectSetFromManifest(t, got).objSlice
 	return mustGetWebhook(t, mustFindObject(t, objs, webhookName, name.MutatingWebhookConfigurationStr))
 }
 

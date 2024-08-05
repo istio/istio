@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	yaml2 "gopkg.in/yaml.v2" // nolint: depguard // needed for weird tricks
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
@@ -86,19 +85,12 @@ func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Ma
 			}
 			baseJSON = newBytes
 		}
-		us := &unstructured.Unstructured{}
-		if err := json.Unmarshal(baseJSON, us); err != nil {
-			return nil, err
-		}
-		yml, err := yaml.Marshal(us)
+		// Rebuild our manifest
+		nm, err := ManifestFromJson(baseJSON)
 		if err != nil {
 			return nil, err
 		}
-		// Rebuild our manifest
-		manifests[idx] = Manifest{
-			Unstructured: us,
-			Content:      string(yml),
-		}
+		manifests[idx] = nm
 	}
 
 	for _, o := range spec.Kubernetes.Overlays {
@@ -115,10 +107,6 @@ func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Ma
 				return nil, err
 			}
 			manifests[idx] = mfs
-			//for _,p := range o.Patches {
-			//	patch := MakePatch(p.Value, p.Path)
-			//	needPatching[idx] = append(needPatching[idx], patch)
-			//}
 		}
 	}
 
@@ -153,13 +141,5 @@ func applyPatches(base Manifest, patches []Patch) (Manifest, error) {
 		return Manifest{}, util.AppendErr(errs, err).ToError()
 	}
 
-	// Rebuild our manifest
-	us := &unstructured.Unstructured{}
-	if err := yaml.Unmarshal(oy, us); err != nil {
-		return Manifest{}, err
-	}
-	return Manifest{
-		Unstructured: us,
-		Content:      string(oy),
-	}, nil
+	return ManifestFromYaml(oy)
 }

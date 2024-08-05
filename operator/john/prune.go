@@ -16,6 +16,7 @@ package john
 
 import (
 	"context"
+	"fmt"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +27,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -103,20 +103,11 @@ func NamespacedResources() []schema.GroupVersionKind {
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
 func DeleteObjectsList(c kube.CLIClient, dryRun bool, log clog.Logger, objectsList []*unstructured.UnstructuredList) error {
 	var errs util.Errors
-	deletedObjects := make(map[string]bool)
 	for _, ul := range objectsList {
 		for _, o := range ul.Items {
-			obj := object.NewK8sObject(&o, nil, nil)
-			oh := obj.Hash()
-
-			// kube client does not differentiate API version when listing, added this check to deduplicate.
-			if deletedObjects[oh] {
-				continue
-			}
-			if err := deleteResource(c, dryRun, log, obj, oh); err != nil {
+			if err := deleteResource(c, dryRun, log, &o); err != nil {
 				errs = append(errs, err)
 			}
-			deletedObjects[oh] = true
 		}
 	}
 
@@ -193,26 +184,26 @@ func PrunedResourcesSchemas() []schema.GroupVersionKind {
 	return append(NamespacedResources(), ClusterResources...)
 }
 
-func deleteResource(clt kube.CLIClient, dryRun bool, log clog.Logger, obj *object.K8sObject, oh string) error {
+func deleteResource(clt kube.CLIClient, dryRun bool, log clog.Logger, obj *unstructured.Unstructured) error {
+	name := fmt.Sprintf("%v/%s.%s", obj.GroupVersionKind(), obj.GetName(), obj.GetNamespace())
 	if dryRun {
-		log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
+		log.LogAndPrintf("Not pruning object %s because of dry run.", name)
 		return nil
 	}
-	u := obj.UnstructuredObject()
-	c, err := clt.DynamicClientFor(obj.GroupVersionKind(), obj.UnstructuredObject(), "")
+	c, err := clt.DynamicClientFor(obj.GroupVersionKind(), obj, "")
 	if err != nil {
 		return err
 	}
 
-	if err := c.Delete(context.TODO(), u.GetName(), metav1.DeleteOptions{PropagationPolicy: ptr.Of(metav1.DeletePropagationForeground)}); err != nil {
+	if err := c.Delete(context.TODO(), obj.GetName(), metav1.DeleteOptions{PropagationPolicy: ptr.Of(metav1.DeletePropagationForeground)}); err != nil {
 		if !kerrors.IsNotFound(err) {
 			return err
 		}
 		// do not return error if resources are not found
-		log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
+		log.LogAndPrintf("object: %s is not being deleted because it no longer exists", name)
 		return nil
 	}
 
-	log.LogAndPrintf("  Removed %s.", oh)
+	log.LogAndPrintf("  Removed %s.", name)
 	return nil
 }
