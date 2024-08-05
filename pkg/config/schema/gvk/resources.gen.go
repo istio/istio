@@ -34,7 +34,6 @@ var (
 	HTTPRoute                      = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "HTTPRoute"}
 	HTTPRoute_v1alpha2             = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "HTTPRoute"}
 	HTTPRoute_v1                   = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute"}
-	HorizontalPodAutoscaler        = config.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: "HorizontalPodAutoscaler"}
 	Ingress                        = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "Ingress"}
 	IngressClass                   = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "IngressClass"}
 	KubernetesGateway              = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "Gateway"}
@@ -49,7 +48,6 @@ var (
 	PeerAuthentication             = config.GroupVersionKind{Group: "security.istio.io", Version: "v1", Kind: "PeerAuthentication"}
 	PeerAuthentication_v1beta1     = config.GroupVersionKind{Group: "security.istio.io", Version: "v1beta1", Kind: "PeerAuthentication"}
 	Pod                            = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
-	PodDisruptionBudget            = config.GroupVersionKind{Group: "policy", Version: "v1", Kind: "PodDisruptionBudget"}
 	ProxyConfig                    = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "ProxyConfig"}
 	ReferenceGrant                 = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "ReferenceGrant"}
 	ReferenceGrant_v1alpha2        = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "ReferenceGrant"}
@@ -134,8 +132,6 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.HTTPRoute_v1alpha2, true
 	case HTTPRoute_v1:
 		return gvr.HTTPRoute_v1, true
-	case HorizontalPodAutoscaler:
-		return gvr.HorizontalPodAutoscaler, true
 	case Ingress:
 		return gvr.Ingress, true
 	case IngressClass:
@@ -164,8 +160,6 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.PeerAuthentication_v1beta1, true
 	case Pod:
 		return gvr.Pod, true
-	case PodDisruptionBudget:
-		return gvr.PodDisruptionBudget, true
 	case ProxyConfig:
 		return gvr.ProxyConfig, true
 	case ReferenceGrant:
@@ -274,8 +268,6 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return GatewayClass, true
 	case gvr.HTTPRoute:
 		return HTTPRoute, true
-	case gvr.HorizontalPodAutoscaler:
-		return HorizontalPodAutoscaler, true
 	case gvr.Ingress:
 		return Ingress, true
 	case gvr.IngressClass:
@@ -298,8 +290,6 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return PeerAuthentication, true
 	case gvr.Pod:
 		return Pod, true
-	case gvr.PodDisruptionBudget:
-		return PodDisruptionBudget, true
 	case gvr.ProxyConfig:
 		return ProxyConfig, true
 	case gvr.ReferenceGrant:

@@ -15,16 +15,20 @@
 package validation
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"unicode"
 
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	api "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/validation/agent"
 )
 
 type deprecatedSettings struct {
@@ -34,23 +38,61 @@ type deprecatedSettings struct {
 	def any
 }
 
-// ValidateConfig  calls validation func for every defined element in Values
-func ValidateConfig(iopls *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
-	var validationErrors util.Errors
-	var warningMessages []string
-	iopvalString := util.ToYAMLWithJSONPB(iopls.Values)
-	values := &v1alpha1.Values{}
-	if err := util.UnmarshalWithJSONPB(iopvalString, values, true); err != nil {
-		return util.NewErrs(err), ""
+type Warnings = []string
+
+func ParseAndValidateIstioOperator(yml string, allowUnknownField bool) (Warnings, error) {
+	iop := &api.IstioOperator{}
+	if allowUnknownField {
+		if err := yaml.Unmarshal([]byte(yml), iop); err != nil {
+			return nil, fmt.Errorf("could not unmarshal: %v", err)
+		}
+	} else {
+		if err := yaml.UnmarshalStrict([]byte(yml), iop); err != nil {
+			return nil, fmt.Errorf("could not unmarshal: %v", err)
+		}
 	}
+	var warnings []string
+	valuesWarnings, errors := validateValues(iop)
+	if errors != nil {
+		return nil, errors
+	}
+	warnings = append(warnings, valuesWarnings...)
 
-	featureErrors, featureWarningMessages := validateFeatures(values, iopls)
-	validationErrors = util.AppendErrs(validationErrors, featureErrors)
-	warningMessages = append(warningMessages, featureWarningMessages...)
+	meshWarnings, errors := validateMeshConfig(iop.Spec.MeshConfig)
+	if errors != nil {
+		return nil, errors
+	}
+	warnings = append(warnings, meshWarnings...)
 
-	deprecatedWarningMessages := checkDeprecatedSettings(iopls)
-	warningMessages = append(warningMessages, deprecatedWarningMessages...)
-	return validationErrors, strings.Join(warningMessages, "\n")
+	warnings = append(warnings, checkDeprecatedSettings(iop.Spec)...)
+	return warnings, nil
+}
+
+func validateValues(raw *api.IstioOperator) (Warnings, error) {
+	values := &api.Values{}
+	if err := yaml.Unmarshal(raw.Spec.Values, values); err != nil {
+		return nil, fmt.Errorf("could not unmarshal: %v", err)
+	}
+	errs, warnings := validateFeatures(values, raw.Spec)
+	if errs != nil {
+		return nil, errs.ToError()
+	}
+	return warnings, nil
+}
+
+func validateMeshConfig(raw json.RawMessage) (Warnings, error) {
+	mc, err := mesh.ApplyMeshConfigDefaults(string(raw))
+	if err != nil {
+		return nil, err
+	}
+	warnings, errors := agent.ValidateMeshConfig(mc)
+	if errors != nil {
+		return nil, err
+	}
+	if warnings != nil {
+		return []string{warnings.Error()}, nil
+	}
+	return nil, nil
 }
 
 // Converts from struct paths to helm paths
@@ -72,7 +114,7 @@ func firstCharsToLower(s string) string {
 		s)
 }
 
-func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) []string {
+func checkDeprecatedSettings(iop api.IstioOperatorSpec) []string {
 	messages := []string{}
 	warningSettings := []deprecatedSettings{
 		{"Values.global.proxy.holdApplicationUntilProxyStarts", "meshConfig.defaultConfig.holdApplicationUntilProxyStarts", false},
@@ -104,10 +146,10 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) []string {
 	return messages
 }
 
-type FeatureValidator func(*v1alpha1.Values, *v1alpha1.IstioOperatorSpec) (util.Errors, []string)
+type FeatureValidator func(*api.Values, api.IstioOperatorSpec) (util.Errors, []string)
 
 // validateFeatures check whether the config semantically make sense. For example, feature X and feature Y can't be enabled together.
-func validateFeatures(values *v1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+func validateFeatures(values *api.Values, spec api.IstioOperatorSpec) (errs util.Errors, warnings Warnings) {
 	validators := []FeatureValidator{
 		CheckServicePorts,
 		CheckAutoScaleAndReplicaCount,
@@ -123,27 +165,32 @@ func validateFeatures(values *v1alpha1.Values, spec *v1alpha1.IstioOperatorSpec)
 }
 
 // CheckAutoScaleAndReplicaCount warns when autoscaleEnabled is true and k8s replicaCount is set.
-func CheckAutoScaleAndReplicaCount(values *v1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
-	if values.GetPilot().GetAutoscaleEnabled().GetValue() && spec.GetComponents().GetPilot().GetK8S().GetReplicaCount() > 1 {
-		warnings = append(warnings,
-			"components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true")
+func CheckAutoScaleAndReplicaCount(values *api.Values, spec api.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+	if spec.Components == nil {
+		return nil, nil
+	}
+	if values.GetPilot().GetAutoscaleEnabled().GetValue() {
+		if spec.Components.Pilot != nil && spec.Components.Pilot.Kubernetes != nil && spec.Components.Pilot.Kubernetes.ReplicaCount > 1 {
+			warnings = append(warnings,
+				"components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true")
+		}
 	}
 
-	validateGateways := func(gateways []*v1alpha1.GatewaySpec, gwType string) {
+	validateGateways := func(gateways []api.GatewayComponentSpec, gwType string) {
 		const format = "components.%sGateways[name=%s].k8s.replicaCount should not be set when values.gateways.istio-%sgateway.autoscaleEnabled is true"
 		for _, gw := range gateways {
-			if gw.GetK8S().GetReplicaCount() != 0 {
+			if gw.Kubernetes != nil && gw.Kubernetes.ReplicaCount != 0 {
 				warnings = append(warnings, fmt.Sprintf(format, gwType, gw.Name, gwType))
 			}
 		}
 	}
 
 	if values.GetGateways().GetIstioIngressgateway().GetAutoscaleEnabled().GetValue() {
-		validateGateways(spec.GetComponents().GetIngressGateways(), "ingress")
+		validateGateways(spec.Components.IngressGateways, "ingress")
 	}
 
 	if values.GetGateways().GetIstioEgressgateway().GetAutoscaleEnabled().GetValue() {
-		validateGateways(spec.GetComponents().GetEgressGateways(), "egress")
+		validateGateways(spec.Components.EgressGateways, "egress")
 	}
 
 	return
@@ -152,12 +199,14 @@ func CheckAutoScaleAndReplicaCount(values *v1alpha1.Values, spec *v1alpha1.Istio
 // CheckServicePorts validates Service ports. Specifically, this currently
 // asserts that all ports will bind to a port number greater than 1024 when not
 // running as root.
-func CheckServicePorts(values *v1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
-	if !values.GetGateways().GetIstioIngressgateway().GetRunAsRoot().GetValue() {
-		errs = util.AppendErrs(errs, validateGateways(spec.GetComponents().GetIngressGateways(), "istio-ingressgateway"))
-	}
-	if !values.GetGateways().GetIstioEgressgateway().GetRunAsRoot().GetValue() {
-		errs = util.AppendErrs(errs, validateGateways(spec.GetComponents().GetEgressGateways(), "istio-egressgateway"))
+func CheckServicePorts(values *api.Values, spec api.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+	if spec.Components != nil {
+		if !values.GetGateways().GetIstioIngressgateway().GetRunAsRoot().GetValue() {
+			errs = util.AppendErrs(errs, validateGateways(spec.Components.IngressGateways, "istio-ingressgateway"))
+		}
+		if !values.GetGateways().GetIstioEgressgateway().GetRunAsRoot().GetValue() {
+			errs = util.AppendErrs(errs, validateGateways(spec.Components.EgressGateways, "istio-egressgateway"))
+		}
 	}
 	for _, raw := range values.GetGateways().GetIstioIngressgateway().GetIngressPorts() {
 		p := raw.AsMap()
@@ -187,22 +236,22 @@ func CheckServicePorts(values *v1alpha1.Values, spec *v1alpha1.IstioOperatorSpec
 	return
 }
 
-func validateGateways(gw []*v1alpha1.GatewaySpec, name string) util.Errors {
+func validateGateways(gws []api.GatewayComponentSpec, name string) util.Errors {
 	// nolint: lll
 	format := "port %v/%v in gateway %v invalid: targetPort is set to %d, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.%s.runAsRoot=true"
 	var errs util.Errors
-	for _, gw := range gw {
-		for _, p := range gw.GetK8S().GetService().GetPorts() {
+	for _, gw := range gws {
+		if gw.Kubernetes == nil || gw.Kubernetes.Service == nil {
+			continue
+		}
+		for _, p := range gw.Kubernetes.Service.Ports {
 			tp := 0
-			if p == nil {
-				continue
-			}
-			if p.TargetPort != nil && p.TargetPort.Type == int64(intstr.String) {
+			if p.TargetPort.Type == intstr.String {
 				// Do not validate named ports
 				continue
 			}
-			if p.TargetPort != nil && p.TargetPort.Type == int64(intstr.Int) {
-				tp = int(p.TargetPort.IntVal.GetValue())
+			if p.TargetPort.Type == intstr.Int {
+				tp = int(p.TargetPort.IntVal)
 			}
 			if tp == 0 && p.Port > 1024 {
 				// Target port defaults to port. If its >1024, it is safe.

@@ -22,11 +22,6 @@ import (
 	"strconv"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/yaml"
-
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/log"
 )
@@ -268,31 +263,3 @@ func anchored(res ...*regexp.Regexp) *regexp.Regexp {
 
 // ValidatorFunc validates a value.
 type ValidatorFunc func(path util.Path, i any) util.Errors
-
-// UnmarshalIOP unmarshals a string containing IstioOperator as YAML.
-func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
-	// Remove creationDate (util.UnmarshalWithJSONPB fails if present)
-	mapIOP := make(map[string]any)
-	if err := yaml.Unmarshal([]byte(iopYAML), &mapIOP); err != nil {
-		return nil, err
-	}
-	// Don't bother trying to remove the timestamp if there are no fields.
-	// This also preserves iopYAML if it is ""; we don't want iopYAML to be the string "null"
-	if len(mapIOP) > 0 {
-		un := &unstructured.Unstructured{Object: mapIOP}
-		un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
-		iopYAML = util.ToYAML(un)
-	}
-	iop := &v1alpha1.IstioOperator{}
-
-	if err := yaml.UnmarshalStrict([]byte(iopYAML), iop); err != nil {
-		return nil, fmt.Errorf("%s:\n\nYAML:\n%s", err, iopYAML)
-	}
-	return iop, nil
-}
-
-// ValidIOP validates the given IstioOperator object.
-func ValidIOP(iop *v1alpha1.IstioOperator) error {
-	errs := CheckIstioOperatorSpec(iop.Spec)
-	return errs.ToError()
-}
