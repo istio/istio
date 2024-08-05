@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	alifeatures "istio.io/istio/pkg/ali/features"
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -148,10 +149,77 @@ func (m *Multicluster) close() error {
 	return g.Wait()
 }
 
+// Added by ingress
+func shouldWatchServices(clusterID cluster.ID) bool {
+	if alifeatures.WatchResourcesByLabelForPrimaryCluster != "" {
+		if alifeatures.ShouldWatchConfigClusterServices {
+			return true
+		}
+		if string(clusterID) == features.ClusterName {
+			log.Info("Istio watches resources by label, it will do not to watch services from local cluster.")
+			return false
+		}
+
+		return true
+	}
+
+	return true
+}
+
+func (m *Multicluster) setupNamespaceController(cluster *multicluster.Cluster, clusterStopCh <-chan struct{}) {
+	m.m.Lock()
+
+	if m.closing {
+		m.m.Unlock()
+		log.Errorf("failed setup local cluster, server shutting down")
+	}
+
+	client := cluster.Client
+
+	// clusterStopCh is a channel that will be closed when this cluster removed.
+	options := m.opts
+	options.ClusterID = cluster.ID
+
+	m.m.Unlock()
+
+	if m.startNsController {
+		// Block server exit on graceful termination of the leader controller.
+		m.s.RunComponentAsyncAndWait("start namespace controller", func(_ <-chan struct{}) error {
+			log.Infof("joining leader-election for %s in %s on cluster %s",
+				leaderelection.ClusterScopedNamespaceController, options.SystemNamespace, options.ClusterID)
+			leaderelection.
+				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ClusterScopedNamespaceController, m.revision, client).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("starting namespace controller for cluster %s", cluster.ID)
+					nc := NewNamespaceController(client, m.caBundleWatcher, nil)
+					// Start informers again. This fixes the case where informers for namespace do not start,
+					// as we create them only after acquiring the leader lock
+					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+					// basically lazy loading the informer, if we stop it when we lose the lock we will never
+					// recreate it again.
+					client.RunAndWait(clusterStopCh)
+					nc.Run(leaderStop)
+				}).Run(clusterStopCh)
+			return nil
+		})
+	}
+
+	return
+}
+
+// End add by ingress
+
 // ClusterAdded is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
 func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh <-chan struct{}) {
+	// Added by ingress
+	if !shouldWatchServices(cluster.ID) {
+		m.setupNamespaceController(cluster, clusterStopCh)
+		return
+	}
+	// End added by ingress
+
 	m.m.Lock()
 	kubeController, kubeRegistry, options, configCluster := m.addCluster(cluster)
 	if kubeController == nil {
@@ -167,8 +235,17 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 // ClusterUpdated is passed to the secret controller as a callback to be called
 // when a remote cluster is updated.
 func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) {
+	// Added by ingress
+	if !shouldWatchServices(cluster.ID) {
+		return
+	}
+	// End added by ingress
+
 	m.m.Lock()
-	m.deleteCluster(cluster.ID)
+	// Add by ingress
+	oldKubeController, exist := m.remoteKubeControllers[cluster.ID]
+	m.deleteCluster(cluster.ID, false)
+	// End add by ingress
 	kubeController, kubeRegistry, options, configCluster := m.addCluster(cluster)
 	if kubeController == nil {
 		// m.closing was true, nothing to do.
@@ -176,16 +253,34 @@ func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan
 		return
 	}
 	m.m.Unlock()
+
+	// Add by ingress
+	if exist {
+		m.copyIstioModelData(oldKubeController.Controller, kubeRegistry)
+	}
+	// End add by ingress
+
 	// clusterStopCh is a channel that will be closed when this cluster removed.
 	m.initializeCluster(cluster, kubeController, kubeRegistry, *options, configCluster, stop)
+}
+
+// Add by ingress
+func (m *Multicluster) ClusterUpdatedInNeed(_ *multicluster.Cluster) {
+	// DO NOTHING
 }
 
 // ClusterDeleted is passed to the secret controller as a callback to be called
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
 func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) {
+	// Added by ingress
+	if !shouldWatchServices(clusterID) {
+		return
+	}
+	// End added by ingress
+
 	m.m.Lock()
-	m.deleteCluster(clusterID)
+	m.deleteCluster(clusterID, true)
 	m.m.Unlock()
 	if m.XDSUpdater != nil {
 		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.ClusterUpdate)})
@@ -204,6 +299,8 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*kubeControlle
 
 	options := m.opts
 	options.ClusterID = cluster.ID
+	// different clusters may have different k8s version, re-apply conditional default
+	options.EndpointMode = DetectEndpointMode(client)
 	if !configCluster {
 		options.SyncTimeout = features.RemoteClusterTimeout
 	}
@@ -286,10 +383,11 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		if m.startNsController && (shouldLead || configCluster) {
 			// Block server exit on graceful termination of the leader controller.
 			m.s.RunComponentAsyncAndWait("namespace controller", func(_ <-chan struct{}) error {
+				// update by ingress
 				log.Infof("joining leader-election for %s in %s on cluster %s",
-					leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
+					leaderelection.ClusterScopedNamespaceController, options.SystemNamespace, options.ClusterID)
 				election := leaderelection.
-					NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
+					NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.ClusterScopedNamespaceController, m.revision, !configCluster, client).
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						log.Infof("starting namespace controller for cluster %s", cluster.ID)
 						nc := NewNamespaceController(client, m.caBundleWatcher, discoveryNamespacesFilter)
@@ -394,7 +492,7 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace st
 
 // deleteCluster deletes cluster resources and does not trigger push.
 // This call is not thread safe.
-func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
+func (m *Multicluster) deleteCluster(clusterID cluster.ID, force bool) {
 	m.opts.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
 	m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
 	kc, ok := m.remoteKubeControllers[clusterID]
@@ -405,8 +503,11 @@ func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
 	if kc.workloadEntryController != nil {
 		m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.External)
 	}
-	if err := kc.Cleanup(); err != nil {
-		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
+	// update by ingress
+	if force {
+		if err := kc.Cleanup(); err != nil {
+			log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
+		}
 	}
 	delete(m.remoteKubeControllers, clusterID)
 }
@@ -418,4 +519,16 @@ func createWleConfigStore(client kubelib.Client, revision string, opts Options) 
 		Build()
 	crdOpts := crdclient.Option{Revision: revision, DomainSuffix: opts.DomainSuffix, Identifier: "mc-workload-entry-controller"}
 	return crdclient.NewForSchemas(client, crdOpts, workloadEntriesSchemas)
+}
+
+func (m *Multicluster) copyIstioModelData(oldController *Controller, controller *Controller) {
+	controller.servicesMap = oldController.servicesMap
+	controller.nodeSelectorsForServices = oldController.nodeSelectorsForServices
+	controller.nodeInfoMap = oldController.nodeInfoMap
+	controller.externalNameSvcInstanceMap = oldController.externalNameSvcInstanceMap
+	controller.registryServiceNameGateways = oldController.registryServiceNameGateways
+}
+
+func (m *Multicluster) HasSynced() bool {
+	return m.opts.MeshServiceController.HasSynced()
 }

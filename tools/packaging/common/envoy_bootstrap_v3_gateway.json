@@ -46,19 +46,35 @@
       },
       {
         "tag_name": "route",
-        "regex": "^vhost\\..*?\\.route\\.([^\\.]+\\.)upstream"
+        "regex": "^vhost\\..*?\\.route\\.((.*?)\\.)upstream"
       },
       {
-        "tag_name": "ecds_name",
-        "regex": "extension_config_discovery\\.(.*?\\.)[^\\.]+$"
+        "tag_name": "api_name",
+        "regex": "^vhost\\..*?\\.route\\.((.*?)@)"
       },
       {
-        "tag_name": "rds_name",
-        "regex": "rds\\.(.*?\\.)[^\\.]+$"
+        "tag_name": "api_env",
+        "regex": "^vhost\\..*?\\.route\\..*?@((.*?)@)"
       },
       {
-        "tag_name": "sds_name",
-        "regex": "sds\\.(.*?\\.)[^\\.]+$"
+        "tag_name": "api_version",
+        "regex": "^vhost\\..*?\\.route\\..*?@.*?@((.*?)@)"
+      },
+      {
+        "tag_name": "api_operation",
+        "regex": "^vhost\\..*?\\.route\\..*?@.*?@.*?@((.*?))upstream"
+      },
+      {
+        "tag_name": "ai_route",
+        "regex": "^wasmcustom\\.route\\.((.*?)\\.)upstream"
+      },
+      {
+        "tag_name": "ai_cluster",
+        "regex": "^wasmcustom\\..*?\\.upstream\\.((.*?)\\.)model"
+      },
+      {
+        "tag_name": "ai_model",
+        "regex": "^wasmcustom\\..*?\\.model\\.((.*?)\\.)(input_token|output_token)"
       },
       {
         "tag_name": "vhost",
@@ -69,20 +85,8 @@
         "regex": "vcluster\\.((.*?)\\.)upstream"
       },
       {
-        "tag_name": "dest_zone",
-        "regex": "zone\\.[^\\.]+\\.([^\\.]+\\.)"
-      },
-      {
-        "tag_name": "from_zone",
-        "regex": "zone\\.([^\\.]+\\.)"
-      },
-      {
         "tag_name": "cluster_name",
         "regex": "^cluster\\.((.*?)\\.)(http1\\.|http2\\.|health_check\\.|zone\\.|external\\.|circuit_breakers\\.|[^\\.]+$)"
-      },
-      {
-        "tag_name": "tcp_prefix",
-        "regex": "^tcp\\.((.*?)\\.)\\w+?$"
       },
       {
         "regex": "(response_code=\\.=(.+?);\\.;)|_rq(_(\\.d{3}))$",
@@ -104,10 +108,6 @@
         "tag_name": "listener_address",
         "regex": "^listener\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
       },
-      {
-        "tag_name": "mongo_prefix",
-        "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
-      },
       {{- range $a, $tag := .extraStatTags }}
       {
         "regex": "({{ $tag }}=\\.=(.*?);\\.;)",
@@ -115,57 +115,15 @@
       },
       {{- end }}
       {
-        "regex": "(cache\\.(.+?)\\.)",
-        "tag_name": "cache"
-      },
-      {
-        "regex": "(component\\.(.+?)\\.)",
-        "tag_name": "component"
-      },
-      {
-        "regex": "(tag\\.(.+?);\\.)",
-        "tag_name": "tag"
-      },
-      {
         "regex": "(wasm_filter\\.(.+?)\\.)",
         "tag_name": "wasm_filter"
-      },
-      {
-        "tag_name": "authz_enforce_result",
-        "regex": "rbac(\\.(allowed|denied))"
-      },
-      {
-        "tag_name": "authz_dry_run_action",
-        "regex": "(\\.istio_dry_run_(allow|deny)_)"
-      },
-      {
-        "tag_name": "authz_dry_run_result",
-        "regex": "(\\.shadow_(allowed|denied))"
       }
     ],
     "stats_matcher": {
-      "inclusion_list": {
+      "exclusion_list": {
         "patterns": [
           {
-          "prefix": "reporter="
-          },
-          {{- range $a, $s := .inclusionPrefix }}
-          {
-          "prefix": "{{$s}}"
-          },
-          {{- end }}
-          {{- range $a, $s := .inclusionSuffix }}
-          {
-          "suffix": "{{$s}}"
-          },
-          {{- end }}
-          {{- range $a, $s := .inclusionRegexps }}
-          {
-          "safe_regex": {"google_re2":{}, "regex":"{{js $s}}"}
-          },
-          {{- end }}
-          {
-          "prefix": "component"
+            "safe_regex": {"regex": "^http.*\\.rds\\..*"}
           }
         ]
       }

@@ -41,6 +41,8 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
+	alifeatures "istio.io/istio/pkg/ali/features"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
@@ -336,8 +338,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	}
 
 	// Allow websocket upgrades
-	websocketUpgrade := &hcm.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
-	connectionManager.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+	// Added by ingress
+	// serverless gateway don't support websocket
+	if alifeatures.WebsocketEnabled {
+		websocketUpgrade := &hcm.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
+		connectionManager.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+	}
+	// End added
 
 	if idleTimeout := parseDuration(lb.node.Metadata.IdleTimeout); idleTimeout != nil {
 		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
@@ -347,7 +354,49 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	connectionManager.StreamIdleTimeout = durationpb.New(0 * time.Second)
 
-	if httpOpts.rds != "" {
+	// Added by ingress
+	enableSRDS := false
+
+	if alifeatures.EnableScopedRDS &&
+		(httpOpts.protocol.IsHTTP() || (httpOpts.protocol == protocol.HTTPS)) {
+		enableSRDS = true
+		portFragment := &hcm.ScopedRoutes_ScopeKeyBuilder_FragmentBuilder{
+			Type: &hcm.ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_LocalPortValueExtractor_{
+				LocalPortValueExtractor: &hcm.ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_LocalPortValueExtractor{},
+			}}
+		hostFragment := &hcm.ScopedRoutes_ScopeKeyBuilder_FragmentBuilder{
+			Type: &hcm.ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HostValueExtractor_{
+				HostValueExtractor: &hcm.ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HostValueExtractor{},
+			}}
+		scopedRoutes := &hcm.HttpConnectionManager_ScopedRoutes{
+			ScopedRoutes: &hcm.ScopedRoutes{
+				Name: constants.DefaultScopedRouteName,
+				ScopeKeyBuilder: &hcm.ScopedRoutes_ScopeKeyBuilder{
+					Fragments: []*hcm.ScopedRoutes_ScopeKeyBuilder_FragmentBuilder{portFragment, hostFragment},
+				},
+				RdsConfigSource: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{
+						Ads: &core.AggregatedConfigSource{},
+					},
+					InitialFetchTimeout: durationpb.New(0),
+					ResourceApiVersion:  core.ApiVersion_V3,
+				},
+				ConfigSpecifier: &hcm.ScopedRoutes_ScopedRds{
+					ScopedRds: &hcm.ScopedRds{
+						ScopedRdsConfigSource: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_Ads{
+								Ads: &core.AggregatedConfigSource{},
+							},
+							InitialFetchTimeout: durationpb.New(0),
+							ResourceApiVersion:  core.ApiVersion_V3,
+						},
+					},
+				},
+			},
+		}
+		connectionManager.RouteSpecifier = scopedRoutes
+	} else if httpOpts.rds != "" {
+		//  End added by ingress
 		rds := &hcm.HttpConnectionManager_Rds{
 			Rds: &hcm.Rds{
 				ConfigSource: &core.ConfigSource{
@@ -370,6 +419,16 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	startChildSpan, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
 
 	filters := []*hcm.HttpFilter{}
+	// Added by ingress
+	// Now only support onDemandRDS when enable SRDS
+	if alifeatures.OnDemandRDS && enableSRDS {
+		filters = append([]*hcm.HttpFilter{xdsfilters.OnDemand, xdsfilters.Cors}, filters...)
+	} else {
+		// End added by ingress
+		// Make sure cors filter always in the first.
+		filters = append([]*hcm.HttpFilter{xdsfilters.Cors}, filters...)
+	}
+
 	if !httpOpts.isWaypoint {
 		wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
 			Port:  httpOpts.port,
@@ -399,6 +458,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
 		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
+
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
@@ -420,7 +480,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	}
 
 	// TypedPerFilterConfig in route needs these filters.
-	filters = append(filters, xdsfilters.Fault, xdsfilters.Cors)
+	filters = append(filters, xdsfilters.Fault)
 	if !httpOpts.isWaypoint {
 		filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class)...)
 	}

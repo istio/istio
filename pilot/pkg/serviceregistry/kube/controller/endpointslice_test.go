@@ -35,7 +35,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 		appName = "prod-app"
 	)
 
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointSliceOnly})
 
 	node := generateNode("node1", map[string]string{
 		NodeZoneLabel:              "zone1",

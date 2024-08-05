@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	alifeatures "istio.io/istio/pkg/ali/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/test/util/assert"
@@ -217,6 +218,31 @@ func TestDefaultMeshConfig(t *testing.T) {
 	}
 }
 
+func TestDefaultConfigSource(t *testing.T) {
+	alifeatures.DefaultConfigSources = `[{"address":"xds://127.0.0.1:15051"},{"address":"k8s://local"}]`
+	m := mesh.DefaultMeshConfig()
+	if _, err := validation.ValidateMeshConfig(m); err != nil {
+		t.Errorf("validation of default mesh config failed with %v", err)
+	}
+	if len(m.ConfigSources) != 2 {
+		t.Errorf("invalid ConfigSources %+v", m.ConfigSources)
+	}
+	if m.ConfigSources[0].Address != "xds://127.0.0.1:15051" {
+		t.Errorf("got invalid address %s", m.ConfigSources[0].Address)
+	}
+	if m.ConfigSources[1].Address != "k8s://local" {
+		t.Errorf("got invalid address %s", m.ConfigSources[1].Address)
+	}
+	cm, err := mesh.ApplyMeshConfig(`configSources: [{"address":"k8s://"}]`, m)
+	if err != nil {
+		t.Errorf("apply mesh config failed:%v", err)
+	}
+	if len(cm.ConfigSources) != 3 {
+		t.Errorf("invalid ConfigSources %+v", cm.ConfigSources)
+	}
+	alifeatures.DefaultConfigSources = ""
+}
+
 func TestApplyMeshConfigDefaults(t *testing.T) {
 	configPath := "/test/config/patch"
 	yaml := fmt.Sprintf(`
@@ -231,6 +257,7 @@ defaultConfig:
 	if err != nil {
 		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
 	}
+	got.MseIngressGlobalConfig = &meshconfig.MSEIngressGlobalConfig{}
 	assert.Equal(t, got, want)
 	// Verify overrides
 	got, err = mesh.ApplyMeshConfigDefaults(`
@@ -489,4 +516,54 @@ networks:
 		t.Fatalf("ApplyMeshNetworksDefaults() failed: %v", err)
 	}
 	assert.Equal(t, got, &want)
+}
+
+// Add by ingress
+func TestApplyXModuleConfig(t *testing.T) {
+	configPath := "/home/rongkang.rk/xmodule-envoy/test/ut/module.json"
+	agentSock := "/home/rongkang.rk/xmodule-envoy/test/ut/xagent.sock"
+	punishCluster := "punish_location"
+	flowSlsProducer := "sec"
+	x5Proxy := "/_____tmd_____"
+	slsPort := uint32(7169)
+
+	yml := fmt.Sprintf(`
+  xmoduleConfig:
+    configPath: %s
+    configCheckRate: 1
+    agentSock: %s
+    punishCluster: %s
+    x5Proxy: %s
+    maxIpcLen: 16384
+    cloudMode: false
+    slsPort: %d
+    flowSlsProducer: %s
+`, configPath, agentSock, punishCluster, x5Proxy, slsPort, flowSlsProducer)
+	config := mesh.DefaultMeshConfig()
+	newConfig, err := mesh.ApplyProxyConfig(yml, config)
+	if err != nil {
+		t.Fatalf("ApplyProxyConfig() failed: %v", err)
+	}
+
+	t.Log("apply proxy config success: \n")
+
+	if newConfig.DefaultConfig.XmoduleConfig.SlsPort != slsPort {
+		t.Fatalf("The expected sls port is %v, it's actually %v", slsPort, newConfig.DefaultConfig.XmoduleConfig.SlsPort)
+	}
+
+	if newConfig.DefaultConfig.XmoduleConfig.ConfigPath != configPath {
+		t.Fatalf("The expected sls port is %v, it's actually %v", configPath, newConfig.DefaultConfig.XmoduleConfig.ConfigPath)
+	}
+
+	if newConfig.DefaultConfig.XmoduleConfig.X5Proxy != x5Proxy {
+		t.Fatalf("The expected sls port is %v, it's actually %v", x5Proxy, newConfig.DefaultConfig.XmoduleConfig.X5Proxy)
+	}
+
+	if newConfig.DefaultConfig.XmoduleConfig.CloudMode {
+		t.Fatalf("The expected cloud mode is false, it's actually true")
+	}
+
+	if newConfig.DefaultConfig.XmoduleConfig.FlowSlsProducer != flowSlsProducer {
+		t.Fatalf("The expected sls port is %v, it's actually %v", flowSlsProducer, newConfig.DefaultConfig.XmoduleConfig.FlowSlsProducer)
+	}
 }

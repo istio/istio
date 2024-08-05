@@ -22,10 +22,11 @@ import (
 	"istio.io/istio/tests/util/leak"
 )
 
+type s struct {
+	Junk string
+}
+
 func TestDelete(t *testing.T) {
-	type s struct {
-		Junk string
-	}
 	var input []*s
 	var output []*s
 	t.Run("inner", func(t *testing.T) {
@@ -127,6 +128,35 @@ func TestFilter(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFilterInPlace(t *testing.T) {
+	var input []*s
+	var output []*s
+	a := &s{"a"}
+	b := &s{"b"}
+	c := &s{"c"}
+	input = []*s{a, b, c}
+
+	t.Run("delete first element a", func(t *testing.T) {
+		// Check that we can garbage collect elements when we delete them.
+		leak.MustGarbageCollect(t, a)
+		output = FilterInPlace(input, func(s *s) bool {
+			return s != nil && s.Junk != "a"
+		})
+	})
+	assert.Equal(t, output, []*s{{"b"}, {"c"}})
+	assert.Equal(t, input, []*s{{"b"}, {"c"}, nil})
+
+	t.Run("delete end element c", func(t *testing.T) {
+		// Check that we can garbage collect elements when we delete them.
+		leak.MustGarbageCollect(t, c)
+		output = FilterInPlace(input, func(s *s) bool {
+			return s != nil && s.Junk != "c"
+		})
+	})
+	assert.Equal(t, output, []*s{{"b"}})
+	assert.Equal(t, input, []*s{{"b"}, nil, nil})
 }
 
 func TestMap(t *testing.T) {

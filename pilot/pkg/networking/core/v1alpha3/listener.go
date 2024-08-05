@@ -1032,6 +1032,9 @@ type gatewayListenerOpts struct {
 	port              *model.Port
 	filterChainOpts   []*filterChainOpts
 	needPROXYProtocol bool
+	// Added by ingrss
+	enableProxyProtocol bool
+	// End added by ingress
 }
 
 // outboundListenerOpts are the options to build an outbound listener
@@ -1057,6 +1060,12 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 	if opts.needPROXYProtocol {
 		listenerFilters = append(listenerFilters, xdsfilters.ProxyProtocol)
 	}
+
+	// Added by ingress
+	if transport == istionetworking.TransportProtocolTCP && opts.enableProxyProtocol {
+		listenerFilters = append(listenerFilters, xdsfilters.ProxyProtocolInspector)
+	}
+	// End added by ingress
 
 	// add a TLS inspector if we need to detect ServerName or ALPN
 	// (this is not applicable for QUIC listeners)

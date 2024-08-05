@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/credentials"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	alifeatures "istio.io/istio/pkg/ali/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
@@ -95,6 +96,7 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 	if pkpConf != nil {
 		pkpConfHashStr = strconv.FormatUint(xxhashv2.Sum64String(pkpConf.String()), 10)
 	}
+
 	for _, resource := range names {
 		sr, err := credentials.ParseResourceName(resource, proxy.VerifiedIdentity.Namespace, proxy.Metadata.ClusterID, s.configCluster)
 		if err != nil {
@@ -173,9 +175,18 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy) *discovery.Resource {
 	// Fetch the appropriate cluster's secret, based on the credential type
 	var secretController credscontroller.Controller
+	var err error
 	switch sr.ResourceType {
 	case credentials.KubernetesGatewaySecretType:
 		secretController = configClusterSecrets
+	case credentials.KubernetesIngressSecretType:
+		// Added by ingress
+		if secretController, err = s.secrets.ForCluster(sr.Cluster); err != nil {
+			log.Warnf("This is an unknown cluster %s, err %v", sr.Cluster, err)
+			pilotSDSCertificateErrors.Increment()
+			return nil
+		}
+		// End added by ingress
 	default:
 		secretController = proxyClusterSecrets
 	}
@@ -237,6 +248,14 @@ func recordInvalidCertificate(name string, err error) {
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
 func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, secrets credscontroller.Controller) []SecretResource {
+	// Added by ingress
+	// We can not check whether the mse gateway access the target secret resource.
+	// So, we just pass it.
+	if alifeatures.WatchResourcesByNamespaceForPrimaryCluster != "" {
+		return resources
+	}
+	// End added by ingress
+
 	var authzResult *bool
 	var authzError error
 	// isAuthorized is a small wrapper around credscontroller.Authorize so we only call it once instead of each time in the loop
@@ -282,14 +301,6 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			} else {
 				deniedResources = append(deniedResources, r.Name)
 			}
-			// Add by ingress
-		case credentials.KubernetesIngressSecretType:
-			if isAuthorized() {
-				allowedResources = append(allowedResources, r)
-			} else {
-				deniedResources = append(deniedResources, r.Name)
-			}
-			// End Add by ingress
 		default:
 			// Should never happen
 			log.Warnf("unknown credential type %q", r.Type)

@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -27,10 +28,12 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	alifeatures "istio.io/istio/pkg/ali/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -91,9 +94,32 @@ func DefaultMeshNetworks() *meshconfig.MeshNetworks {
 func DefaultMeshConfig() *meshconfig.MeshConfig {
 	proxyConfig := DefaultProxyConfig()
 
+	var configSources []*meshconfig.ConfigSource
+	if alifeatures.DefaultConfigSources != "" {
+		var sources []interface{}
+		if err := json.Unmarshal([]byte(alifeatures.DefaultConfigSources), &sources); err != nil {
+			log.Warnf("invalid config sources %s: %v", alifeatures.DefaultConfigSources, err)
+			goto done
+		}
+		for _, source := range sources {
+			configSource := &meshconfig.ConfigSource{}
+			jsStr, err := json.Marshal(source)
+			if err != nil {
+				log.Warnf("marshal source %s failed: %v", source, err)
+				goto done
+			}
+			err = gogoprotomarshal.ApplyJSON(string(jsStr), configSource)
+			if err != nil {
+				log.Warnf("apply json %s to ConfigSource proto failed: %v", jsStr, err)
+			}
+			configSources = append(configSources, configSource)
+		}
+	}
+done:
 	// Defaults matching the standard install
 	// order matches the generated mesh config.
 	return &meshconfig.MeshConfig{
+		ConfigSources:               configSources,
 		EnableTracing:               true,
 		AccessLogFile:               "",
 		AccessLogEncoding:           meshconfig.MeshConfig_TEXT,
@@ -152,6 +178,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 				},
 			},
 		},
+		MseIngressGlobalConfig: &meshconfig.MSEIngressGlobalConfig{},
 	}
 }
 
@@ -223,12 +250,14 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 	prevDefaultProvider := defaultConfig.DefaultProviders
 	prevExtensionProviders := defaultConfig.ExtensionProviders
 	prevTrustDomainAliases := defaultConfig.TrustDomainAliases
+	prevConfigSources := defaultConfig.ConfigSources
 
 	defaultConfig.DefaultConfig = DefaultProxyConfig()
 	if err := protomarshal.ApplyYAML(yaml, defaultConfig); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 	defaultConfig.DefaultConfig = prevProxyConfig
+	defaultConfig.ConfigSources = append(defaultConfig.ConfigSources, prevConfigSources...)
 
 	raw, err := toMap(yaml)
 	if err != nil {

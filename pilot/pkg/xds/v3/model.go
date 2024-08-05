@@ -30,6 +30,10 @@ const (
 	SecretType                 = resource.SecretType
 	ExtensionConfigurationType = resource.ExtensionConfigType
 
+	// Added by ingress
+	ScopedRouteType = resource.APITypePrefix + "envoy.config.route.v3.ScopedRouteConfiguration"
+	// End added by ingress
+
 	NameTableType   = resource.APITypePrefix + "istio.networking.nds.v1.NameTable"
 	HealthInfoType  = resource.APITypePrefix + "istio.v1.HealthInformation"
 	ProxyConfigType = resource.APITypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
@@ -68,6 +72,10 @@ func GetShortType(typeURL string) string {
 		return "WDS"
 	case WorkloadAuthorizationType:
 		return "WADS"
+	// Added by ingress
+	case ScopedRouteType:
+		return "SRDS"
+	// End added by ingress
 	default:
 		return typeURL
 	}
@@ -98,6 +106,10 @@ func GetMetricType(typeURL string) string {
 		return "wds"
 	case WorkloadAuthorizationType:
 		return "wads"
+	// Added by ingress
+	case ScopedRouteType:
+		return "srds"
+	// End added by ingress
 	default:
 		return typeURL
 	}

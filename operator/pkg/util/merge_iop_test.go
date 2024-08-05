@@ -105,6 +105,7 @@ func TestOverlayIOPExhaustiveness(t *testing.T) {
 func TestOverlayIOPDefaultMeshConfig(t *testing.T) {
 	// Transform default mesh config into map[string]interface{} for inclusion in IstioOperator.
 	m := mesh.DefaultMeshConfig()
+	m.MseIngressGlobalConfig = nil
 	my, err := protomarshal.ToJSONMap(m)
 	if err != nil {
 		t.Fatal(err)

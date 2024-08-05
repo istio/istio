@@ -189,6 +189,16 @@ func NewSum(name, description string, opts ...Options) Metric {
 	return newCounter(o)
 }
 
+// MustRegister is a helper function that will ensure that the provided Metrics are
+// registered. If a metric fails to register, this method will panic.
+func MustRegister(metrics ...Metric) {
+	for _, m := range metrics {
+		if err := m.Register(); err != nil {
+			panic(err)
+		}
+	}
+}
+
 // NewGauge creates a new Gauge Metric. That means that data collected by the new
 // Metric will export only the last recorded value.
 func NewGauge(name, description string, opts ...Options) Metric {

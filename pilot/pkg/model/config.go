@@ -35,6 +35,19 @@ var _ = udpa.TypedStruct{}
 
 type ConfigHash uint64
 
+// NamespacedName defines a name and namespace of a resource, with the type elided. This can be used in
+// places where the type is implied.
+// This is preferred to a ConfigKey with empty Kind, especially in performance sensitive code - hashing this struct
+// is 2x faster than ConfigKey.
+type NamespacedName struct {
+	Name      string
+	Namespace string
+}
+
+func (key NamespacedName) String() string {
+	return key.Namespace + "/" + key.Name
+}
+
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
 type ConfigKey struct {
@@ -336,7 +349,7 @@ func sortConfigByCreationTime(configs []config.Config) []config.Config {
 	sort.Slice(configs, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
-		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.`
 		if configs[i].CreationTimestamp == configs[j].CreationTimestamp {
 			in := configs[i].Name + "." + configs[i].Namespace
 			jn := configs[j].Name + "." + configs[j].Namespace

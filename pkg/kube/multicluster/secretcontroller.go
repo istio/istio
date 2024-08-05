@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -31,6 +32,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pilot/pkg/features"
+	alifeatures "istio.io/istio/pkg/ali/features"
+	"istio.io/istio/pkg/ali/global"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
@@ -67,7 +70,9 @@ var (
 type ClusterHandler interface {
 	ClusterAdded(cluster *Cluster, stop <-chan struct{})
 	ClusterUpdated(cluster *Cluster, stop <-chan struct{})
+	ClusterUpdatedInNeed(cluster *Cluster)
 	ClusterDeleted(clusterID cluster.ID)
+	HasSynced() bool
 }
 
 // Controller is the controller implementation for Secret resources
@@ -84,10 +89,17 @@ type Controller struct {
 	cs                        *ClusterStore
 
 	handlers []ClusterHandler
+
+	mutex sync.Mutex
 }
 
 // NewController returns a new secret controller
 func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID, meshWatcher mesh.Watcher) *Controller {
+	labels := MultiClusterSecretLabel + "=true"
+	if alifeatures.WatchResourcesByLabelForPrimaryCluster != "" {
+		labels += ", " + alifeatures.WatchResourcesByLabelForPrimaryCluster
+	}
+
 	informerClient := kubeclientset
 
 	// When these two are set to true, Istiod will be watching the namespace in which
@@ -112,7 +124,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 
 	secrets := kclient.NewFiltered[*corev1.Secret](informerClient, kclient.Filter{
 		Namespace:     namespace,
-		LabelSelector: MultiClusterSecretLabel + "=true",
+		LabelSelector: labels,
 	})
 
 	// init gauges
@@ -156,6 +168,11 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		return fmt.Errorf("failed to sync namespaces")
 	}
 	// run handlers for the config cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
+	for _, handler := range c.handlers {
+		global.CacheSyncs = append(global.CacheSyncs, handler.HasSynced)
+	}
+
+	// run handlers for the local cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
 	configCluster := &Cluster{Client: c.configClusterClient, ID: c.configClusterID}
 	c.handleAdd(configCluster, stopCh)
@@ -185,6 +202,9 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) processItem(key types.NamespacedName) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	log.Infof("processing secret event for secret %s", key)
 	scrt := c.secrets.Get(key.Name, key.Namespace)
 	if scrt != nil {
@@ -292,66 +312,93 @@ func sanitizeKubeConfig(config api.Config, allowlist sets.String) error {
 }
 
 func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*Cluster, error) {
+	clusterInfo := ConvertToClusterInfo(clusterID)
 	clients, err := BuildClientsFromConfig(kubeConfig, cluster.ID(clusterID))
 	if err != nil {
 		return nil, err
 	}
 	return &Cluster{
-		ID:     cluster.ID(clusterID),
+		ID:     cluster.ID(clusterInfo.ClusterID),
 		Client: clients,
 		stop:   make(chan struct{}),
 		// for use inside the package, to close on cleanup
 		initialSync:        atomic.NewBool(false),
 		initialSyncTimeout: atomic.NewBool(false),
 		kubeConfigSha:      sha256.Sum256(kubeConfig),
+		ClusterInfo:        clusterInfo,
+		RawKubeConfig:      kubeConfig,
+		RawClusterID:       clusterID,
 	}, nil
 }
 
 func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) error {
+	clusterInfoMapping := map[string]ClusterInfo{}
+	kubeConfigMapping := map[string][]byte{}
+	for key, kubeConfig := range s.Data {
+		clusterInfo := ConvertToClusterInfo(key)
+		clusterInfoMapping[key] = clusterInfo
+		kubeConfigMapping[clusterInfo.ClusterID] = kubeConfig
+	}
+
 	secretKey := name.String()
 	// First delete clusters
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
 	for _, existingCluster := range existingClusters {
-		if _, ok := s.Data[string(existingCluster.ID)]; !ok {
+		if _, ok := kubeConfigMapping[string(existingCluster.ID)]; !ok {
 			c.deleteCluster(secretKey, existingCluster)
 		}
 	}
 
 	var errs *multierror.Error
-	for clusterID, kubeConfig := range s.Data {
-		logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
-		if cluster.ID(clusterID) == c.configClusterID {
-			logger.Infof("ignoring cluster as it would overwrite the config cluster")
+	for clusterKey, kubeConfig := range s.Data {
+		clusterInfo := clusterInfoMapping[clusterKey]
+		if cluster.ID(clusterInfo.ClusterID) == c.configClusterID {
+			log.Infof("ignoring cluster %v from secret %v as it would overwrite the config cluster", clusterInfo.ClusterID, secretKey)
 			continue
 		}
 
 		action, callback := "Adding", c.handleAdd
-		if prev := c.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
+		if prev := c.cs.Get(secretKey, cluster.ID(clusterInfo.ClusterID)); prev != nil {
 			action, callback = "Updating", c.handleUpdate
 			// clusterID must be unique even across multiple secrets
 			kubeConfigSha := sha256.Sum256(kubeConfig)
 			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
-				logger.Infof("skipping update (kubeconfig are identical)")
-				continue
+				if !prev.ClusterInfo.Equal(clusterInfo) {
+					log.Infof("ClusterID %s has no changes, but the ingress extra options %s has changes", clusterInfo.ClusterID, clusterKey)
+				} else {
+					if prev.ClusterInfo.EnableIngressStatus != clusterInfo.EnableIngressStatus {
+						log.Infof("ClusterID %s has no changes, but the ingress status %s has changes", clusterInfo.ClusterID, clusterKey)
+						prev.ClusterInfo = clusterInfo
+						c.handleUpdateInNeed(prev)
+					}
+					log.Infof("skipping update of cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterInfo.ClusterID, secretKey)
+					continue
+				}
 			}
+
+			global.BlockPush()
+
 			// stop previous remote cluster
 			prev.Stop()
-		} else if c.cs.Contains(cluster.ID(clusterID)) {
+		} else if c.cs.Contains(cluster.ID(clusterInfo.ClusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
-			logger.Warnf("cluster has already been registered")
+			log.Warnf("cluster %d from secret %s has already been registered", clusterInfo.ClusterID, secretKey)
 			continue
 		}
-		logger.Infof("%s cluster", action)
+		log.Infof("%s cluster %v cluster key %v from secret %v", action, clusterInfo.ClusterID, clusterKey, secretKey)
 
-		remoteCluster, err := c.createRemoteCluster(kubeConfig, clusterID)
+		remoteCluster, err := c.createRemoteCluster(kubeConfig, clusterKey)
 		if err != nil {
-			logger.Errorf("%s cluster: create remote cluster failed: %v", action, err)
-			errs = multierror.Append(errs, err)
+			log.Errorf("%s cluster_id=%v from secret=%v: %v", action, clusterInfo.ClusterID, secretKey, err)
 			continue
 		}
 		callback(remoteCluster, remoteCluster.stop)
-		logger.Infof("finished callback for cluster and starting to sync")
+		log.Infof("finished callback for %s and starting to sync", clusterInfo.ClusterID)
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
+
+		if action == "Updating" {
+			go global.TriggerPush(remoteCluster.stop)
+		}
 		go remoteCluster.Run()
 	}
 
@@ -399,6 +446,12 @@ func (c *Controller) handleDelete(key cluster.ID) {
 	}
 }
 
+func (c *Controller) handleUpdateInNeed(cluster *Cluster) {
+	for _, handler := range c.handlers {
+		handler.ClusterUpdatedInNeed(cluster)
+	}
+}
+
 // ListRemoteClusters provides debug info about connected remote clusters.
 func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 	var out []cluster.DebugInfo
@@ -427,4 +480,34 @@ func (c *Controller) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Interf
 		return remoteCluster.Client.Kube()
 	}
 	return nil
+}
+
+// added by ingress
+func (c *Controller) UpdateCluster(clusterID cluster.ID) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	secretKey, prev := c.cs.GetIndexByID(clusterID)
+	if prev == nil {
+		log.Infof("cluster %s not found, no need to update", clusterID)
+		return
+	}
+
+	remoteCluster, err := c.createRemoteCluster(prev.RawKubeConfig, prev.RawClusterID)
+	if err != nil {
+		log.Errorf("updating cluster_id=%v from v1beta to v1 fail, err: %v", clusterID, err)
+		return
+	}
+
+	prev.Stop()
+	global.BlockPush()
+	defer func() {
+		go global.TriggerPush(remoteCluster.stop)
+	}()
+
+	c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
+	c.handleUpdate(remoteCluster, remoteCluster.stop)
+
+	log.Infof("updating cluster_id=%v from v1beta to v1 success", clusterID)
+	go remoteCluster.Run()
 }

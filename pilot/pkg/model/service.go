@@ -115,6 +115,10 @@ type Service struct {
 
 	// ResourceVersion represents the internal version of this object.
 	ResourceVersion string
+
+	// Added by ingress
+	// When auto-scaling is true, we will push mock ip for empty svc.
+	AutoScaling bool
 }
 
 func (s *Service) Key() string {

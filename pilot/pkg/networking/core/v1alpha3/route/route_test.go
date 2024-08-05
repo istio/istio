@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -228,6 +229,40 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
+	})
+
+	// Add by ingress
+	t.Run("for virtual service with internal active redirect", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithInternalActiveRedirect, serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		internalActiveRedirect := routes[0].GetRoute().GetInternalActiveRedirectPolicy()
+		g.Expect(internalActiveRedirect).NotTo(gomega.BeNil())
+		g.Expect(internalActiveRedirect.GetMaxInternalRedirects().Value).To(gomega.Equal(uint32(1)))
+		g.Expect(len(internalActiveRedirect.GetRedirectResponseCodes())).To(gomega.Equal(2))
+		g.Expect(internalActiveRedirect.GetRedirectResponseCodes()[1]).To(gomega.Equal(uint32(503)))
+		g.Expect(internalActiveRedirect.GetRedirectUrl()).To(gomega.Equal("/test"))
+		g.Expect(internalActiveRedirect.GetRequestHeadersToAdd()[0].GetHeader().GetKey()).To(gomega.Equal("x-test"))
+		g.Expect(internalActiveRedirect.GetRequestHeadersToAdd()[0].GetHeader().GetValue()).To(gomega.Equal("true"))
+		g.Expect(internalActiveRedirect.GetHostRewriteLiteral()).To(gomega.Equal("foo.example.org"))
+	})
+	// End add by ingress
+
+	t.Run("for virtual service with regex rewrite URI", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithUriRegexRewrite, serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
+		g.Expect(routes[0].GetRoute().GetPrefixRewrite()).To(gomega.Equal(""))
+		g.Expect(routes[0].GetRoute().GetRegexRewrite().GetSubstitution()).To(gomega.Equal("foostatus"))
+		g.Expect(routes[0].GetRoute().GetRegexRewrite().GetPattern().GetRegex()).To(gomega.Equal("status"))
+		g.Expect(routes[0].GetRoute().GetHostRewriteLiteral()).To(gomega.Equal("test.com"))
 	})
 
 	t.Run("for virtual service with regex matching on URI", func(t *testing.T) {
@@ -1243,6 +1278,49 @@ var virtualServicePlain = config.Config{
 	},
 }
 
+// Add by ingress
+var virtualServiceWithInternalActiveRedirect = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: collections.VirtualService.GroupVersionKind(),
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+				InternalActiveRedirect: &networking.HTTPInternalActiveRedirect{
+					MaxInternalRedirects:  1,
+					RedirectResponseCodes: []uint32{404, 503},
+					RedirectUrlRewriteSpecifier: &networking.HTTPInternalActiveRedirect_RedirectUrl{
+						RedirectUrl: "/test",
+					},
+					AllowCrossScheme: false,
+					Headers: &networking.Headers{
+						Request: &networking.Headers_HeaderOperations{
+							Add: map[string]string{"x-test": "true"},
+						},
+					},
+					Authority: "foo.example.org",
+				},
+			},
+		},
+	},
+}
+
+// End add by ingress
+
 var virtualServiceWithTimeout = config.Config{
 	Meta: config.Meta{
 		GroupVersionKind: gvk.VirtualService,
@@ -1932,10 +2010,8 @@ var virtualServiceWithDirectResponse = config.Config{
 		Http: []*networking.HTTPRoute{
 			{
 				DirectResponse: &networking.HTTPDirectResponse{
-					Status: 200,
-					Body: &networking.HTTPBody{
-						Specifier: &networking.HTTPBody_String_{String_: "hello"},
-					},
+					ResponseCode: 200,
+					Body:         "hello",
 				},
 			},
 		},
@@ -1953,10 +2029,8 @@ var virtualServiceWithDirectResponseAndSetHeader = config.Config{
 		Http: []*networking.HTTPRoute{
 			{
 				DirectResponse: &networking.HTTPDirectResponse{
-					Status: 200,
-					Body: &networking.HTTPBody{
-						Specifier: &networking.HTTPBody_String_{String_: "hello"},
-					},
+					ResponseCode: 200,
+					Body:         "hello",
 				},
 				Headers: &networking.Headers{
 					Response: &networking.Headers_HeaderOperations{
@@ -2070,6 +2144,52 @@ var virtualServiceWithRegexMatchingOnHeader = config.Config{
 		},
 	},
 }
+
+// Add by ingress
+var virtualServiceWithUriRegexRewrite = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: collections.VirtualService.GroupVersionKind(),
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "status",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{
+								Regex: "\\/(.?)\\/status",
+							},
+						},
+					},
+				},
+				Rewrite: &networking.HTTPRewrite{
+					UriRegex: &networking.RegexMatchAndSubstitute{
+						Pattern:      "status",
+						Substitution: "foostatus",
+					},
+					Authority: "test.com",
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+// End add by ingress
 
 func createVirtualServiceWithRegexMatchingForAllCasesOnHeader() []*config.Config {
 	ret := []*config.Config{}
@@ -2257,6 +2377,7 @@ var virtualServiceWithExactMatchingOnQueryParameter = config.Config{
 	},
 }
 
+// Add by ingress
 var virtualServiceWithPrefixMatchingOnQueryParameter = config.Config{
 	Meta: config.Meta{
 		GroupVersionKind: gvk.VirtualService,
@@ -2408,6 +2529,8 @@ var virtualServiceMatchingOnSourceNamespace = config.Config{
 		},
 	},
 }
+
+// End add by ingress
 
 var virtualServiceWithStatPrefix = config.Config{
 	Meta: config.Meta{
@@ -2681,6 +2804,47 @@ func TestSortVHostRoutes(t *testing.T) {
 				for _, g := range tc.expected {
 					t.Errorf("%v\n", g.Match.PathSpecifier)
 				}
+			}
+		})
+	}
+}
+
+func TestIgnoreRedirect(t *testing.T) {
+	cases := []struct {
+		redirect *networking.HTTPRedirect
+		port     int
+		expect   bool
+	}{
+		{
+			redirect: &networking.HTTPRedirect{
+				Scheme: "https",
+			},
+			port:   8080,
+			expect: false,
+		},
+		{
+			redirect: &networking.HTTPRedirect{
+				Scheme: "https",
+				Uri:    "/test",
+			},
+			port:   443,
+			expect: false,
+		},
+		{
+			redirect: &networking.HTTPRedirect{
+				Scheme:       "https",
+				RedirectCode: 308,
+			},
+			port:   443,
+			expect: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run("", func(t *testing.T) {
+			result := route.IgnoreRedirect(c.redirect, c.port)
+			if c.expect != result {
+				t.Fatalf("Should be %v, actual is %v", c.expect, result)
 			}
 		})
 	}

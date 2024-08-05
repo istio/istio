@@ -4,9 +4,9 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
-	"istio.io/istio/pkg/log"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/log"
 )
 
 const defaultRedirectResponseCode = 503

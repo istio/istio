@@ -107,6 +107,14 @@ func FilterInPlace[E any](s []E, f func(E) bool) []E {
 			n++
 		}
 	}
+
+	// If those elements contain pointers you might consider zeroing those elements
+	// so that objects they reference can be garbage collected."
+	var empty E
+	for i := n; i < len(s); i++ {
+		s[i] = empty
+	}
+
 	s = s[:n]
 	return s
 }

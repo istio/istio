@@ -42,6 +42,8 @@ type endpointSliceController struct {
 	c             *Controller
 }
 
+var _ kubeEndpointsController = &endpointSliceController{}
+
 var (
 	endpointSliceRequirement = labelRequirement(mcs.LabelServiceName, selection.DoesNotExist, nil)
 	endpointSliceSelector    = klabels.NewSelector().Add(*endpointSliceRequirement)
@@ -100,6 +102,10 @@ func (esc *endpointSliceController) GetProxyServiceInstances(proxy *model.Proxy)
 	}
 
 	return out
+}
+
+func (esc *endpointSliceController) HasSynced() bool {
+	return esc.slices.HasSynced()
 }
 
 func serviceNameForEndpointSlice(labels map[string]string) string {

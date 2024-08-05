@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
@@ -293,8 +292,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						// We have TLS settings defined and we have already taken care of unique route names
 						// if it is HTTPS. So we can construct a QUIC server on the same port. It is okay as
 						// QUIC listens on UDP port, not TCP
-						if features.EnableQUICListeners && gateway.IsEligibleForHTTP3Upgrade(s) &&
-							udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
+						if enableH3(ps) && gateway.IsEligibleForHTTP3Upgrade(s) {
 							log.Debugf("Server at port %d eligible for HTTP3 upgrade. Add UDP listener for QUIC", serverPort.Number)
 							if mergedQUICServers[serverPort] == nil {
 								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
@@ -312,8 +310,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					if gateway.IsHTTPServer(s) {
 						serversByRouteName[routeName] = []*networking.Server{s}
 
-						if features.EnableQUICListeners && gateway.IsEligibleForHTTP3Upgrade(s) &&
-							udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
+						if enableH3(ps) && gateway.IsEligibleForHTTP3Upgrade(s) {
 							log.Debugf("Server at port %d eligible for HTTP3 upgrade. So QUIC listener will be added", serverPort.Number)
 							http3AdvertisingRoutes.Insert(routeName)
 

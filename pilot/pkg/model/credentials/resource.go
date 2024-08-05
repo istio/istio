@@ -73,7 +73,8 @@ func ToResourceName(name string) string {
 		return "default"
 	}
 	// If they explicitly defined the type, keep it
-	if strings.HasPrefix(name, KubernetesSecretTypeURI) || strings.HasPrefix(name, kubernetesGatewaySecretTypeURI) {
+	if strings.HasPrefix(name, KubernetesSecretTypeURI) || strings.HasPrefix(name, kubernetesGatewaySecretTypeURI) ||
+		strings.HasPrefix(name, KubernetesIngressSecretTypeURI) {
 		return name
 	}
 	// Otherwise, to kubernetes://
@@ -116,6 +117,8 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 			return SecretResource{}, fmt.Errorf("invalid resource name %q. Expected name", resourceName)
 		}
 		return SecretResource{ResourceType: KubernetesGatewaySecretType, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: configCluster}, nil
+	} else if strings.HasPrefix(resourceName, KubernetesIngressSecretTypeURI) {
+		return createSecretResourceForIngress(resourceName)
 	}
 	return SecretResource{}, fmt.Errorf("unknown resource type: %v", resourceName)
 }

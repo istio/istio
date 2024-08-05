@@ -17,6 +17,7 @@ package leaderelection
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pkg/ali/config/ownerreference"
 	"os"
 	"strings"
 	"sync"
@@ -58,6 +59,14 @@ const (
 
 // Leader election key prefix for remote istiod managed clusters
 const remoteIstiodPrefix = "^"
+
+var ClusterScopedNamespaceController = NamespaceController
+
+func init() {
+	if features.ClusterName != "" && features.ClusterName != "Kubernetes" {
+		ClusterScopedNamespaceController = fmt.Sprintf("%s-namespace-controller-election", features.ClusterName)
+	}
+}
 
 type LeaderElection struct {
 	namespace string
@@ -149,7 +158,7 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 		key = remoteIstiodPrefix + key
 	}
 	var lock k8sresourcelock.Interface = &k8sresourcelock.ConfigMapLock{
-		ConfigMapMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
+		ConfigMapMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID, OwnerReferences: []metav1.OwnerReference{ownerreference.GenOwnerReference()}},
 		Client:        l.client.CoreV1(),
 		LockConfig: k8sresourcelock.ResourceLockConfig{
 			Identity: l.name,

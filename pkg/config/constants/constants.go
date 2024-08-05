@@ -54,7 +54,9 @@ const (
 	ConfigPathDir = "./etc/istio/proxy"
 
 	// IstioDataDir is the directory to store binary data such as envoy core dump, profile, and downloaded Wasm modules.
-	IstioDataDir = "/var/lib/istio/data"
+	// Changed by Ingress
+	IstioDataDir = "/home/admin/data"
+	// End changed by Ingress
 
 	// BinaryPathFilename envoy binary location
 	BinaryPathFilename = "/usr/local/bin/envoy"
@@ -183,4 +185,12 @@ const (
 	AmbientRedirectionEnabled = "enabled"
 	// AmbientRedirectionDisabled is an opt-out, configured by user.
 	AmbientRedirectionDisabled = "disabled"
+
+	// Added by ingress
+	HigressHostRDSNamePrefix = "higress-rds-"
+	DefaultScopedRouteName   = "scoped-route"
+	MSEOriginName            = "internal.mse.kubernetes.io/mse-origin-name"
+	GlobalWildcardHost       = "*"
+	// End added by ingress
+
 )

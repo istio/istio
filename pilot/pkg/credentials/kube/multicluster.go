@@ -59,10 +59,18 @@ func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, _ <-chan st
 	m.addCluster(cluster, sc)
 }
 
+func (m *Multicluster) ClusterUpdatedInNeed(_ *multicluster.Cluster) {
+	// DO NOTHING
+}
+
 func (m *Multicluster) ClusterDeleted(key cluster.ID) {
 	m.m.Lock()
 	defer m.m.Unlock()
 	delete(m.remoteKubeControllers, key)
+}
+
+func (m *Multicluster) HasSynced() bool {
+	return true
 }
 
 func (m *Multicluster) addCluster(cluster *multicluster.Cluster, sc *CredentialsController) {

@@ -50,9 +50,12 @@ type Cache struct {
 	// AllowAny indicates if the proxy should allow all outbound traffic or only known registries
 	AllowAny bool
 
-	ListenerPort            int
-	Services                []*model.Service
-	VirtualServices         []config.Config
+	ListenerPort    int
+	Services        []*model.Service
+	VirtualServices []config.Config
+	// Added by ingress
+	HTTPRoutes []config.Config
+	// End added by ingress
 	DelegateVirtualServices []model.ConfigHash
 	DestinationRules        []*model.ConsolidatedDestRule
 	EnvoyFilterKeys         []string
@@ -103,6 +106,12 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 			configs = append(configs, cfg.HashCode())
 		}
 	}
+	// Added by ingress
+	for _, route := range r.HTTPRoutes {
+		configs = append(configs, model.ConfigKey{Kind: kind.HTTPRoute, Name: route.Name, Namespace: route.Namespace}.HashCode())
+	}
+	// End added by ingress
+
 	// add delegate virtual services to dependent configs
 	// so that we can clear the rds cache when delegate virtual services are updated
 	configs = append(configs, r.DelegateVirtualServices...)
@@ -156,6 +165,14 @@ func (r *Cache) Key() any {
 			h.Write([]byte(cfg.Namespace))
 			h.Write(Separator)
 		}
+	}
+	h.Write(Separator)
+
+	for _, route := range r.HTTPRoutes {
+		h.Write([]byte(route.Name))
+		h.Write(Slash)
+		h.Write([]byte(route.Namespace))
+		h.Write(Separator)
 	}
 	h.Write(Separator)
 

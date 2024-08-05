@@ -94,17 +94,30 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 			routeConfigurations = append(routeConfigurations, rc)
 		}
 	case model.Router:
+		// Modified by ingress
+		vsCache := make(map[int][]virtualServiceContext)
+		envoyfilterKeys := efw.Keys()
 		for _, routeName := range routeNames {
-			rc := configgen.buildGatewayHTTPRouteConfig(node, req.Push, routeName)
-			if rc != nil {
-				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, efw, rc)
-				resource := &discovery.Resource{
-					Name:     routeName,
-					Resource: protoconv.MessageToAny(rc),
-				}
-				routeConfigurations = append(routeConfigurations, resource)
+			rc, cached := configgen.buildGatewayHTTPRouteConfig(node, req, routeName, vsCache, efw, envoyfilterKeys)
+			if cached && !features.EnableUnsafeAssertions {
+				hit++
+			} else {
+				miss++
 			}
+			if rc == nil {
+				emptyRoute := &route.RouteConfiguration{
+					Name:             routeName,
+					VirtualHosts:     []*route.VirtualHost{},
+					ValidateClusters: proto.BoolFalse,
+				}
+				rc = &discovery.Resource{
+					Name:     routeName,
+					Resource: protoconv.MessageToAny(emptyRoute),
+				}
+			}
+			routeConfigurations = append(routeConfigurations, rc)
 		}
+		// End modified by ingress
 	}
 	if !features.EnableRDSCaching {
 		return routeConfigurations, model.DefaultXdsLogDetails

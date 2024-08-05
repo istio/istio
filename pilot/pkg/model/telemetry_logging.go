@@ -20,11 +20,15 @@ import (
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	cel "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/filters/cel/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	otelaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/open_telemetry/v3"
 	metadataformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/metadata/v3"
 	reqwithoutquery "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
+	match "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	typepb "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -64,6 +68,8 @@ const (
 	DevStdout = "/dev/stdout"
 
 	builtinEnvoyAccessLogProvider = "envoy"
+
+	celFilter = "envoy.access_loggers.extension_filters.cel"
 )
 
 var (
@@ -415,9 +421,17 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 	if len(formatters) > 0 {
 		fl.GetLogFormat().Formatters = formatters
 	}
+
+	// Add by ingress
+	accessLogFilters := constructAccessLogFilters(mesh)
+	// End add by ingress
+
 	al := &accesslog.AccessLog{
 		Name:       wellknown.FileAccessLog,
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(fl)},
+		// Add by ingress
+		Filter: accessLogFilters,
+		// End add by ingress
 	}
 
 	return al
@@ -543,4 +557,99 @@ func LookupCluster(push *PushContext, service string, port int) (hostname string
 
 	err = fmt.Errorf("could not find service %s in Istio service registry", service)
 	return
+}
+
+// constructAccessLog construct access log filters from mesh config.
+// Added by ingress
+func constructAccessLogFilters(mesh *meshconfig.MeshConfig) *accesslog.AccessLogFilter {
+	// not health check
+	notHealthCheckFilter := &accesslog.AccessLogFilter{
+		FilterSpecifier: &accesslog.AccessLogFilter_NotHealthCheckFilter{},
+	}
+	configFilters := mesh.MseIngressGlobalConfig.AccessLogFilters
+	if len(configFilters) == 0 {
+		return notHealthCheckFilter
+	}
+
+	// non 200
+	expression := &cel.ExpressionFilter{
+		Expression: "(response.code >= 0 && response.code <= 199) || (response.code >= 300 && response.code < 599)",
+	}
+	non200Filters := &accesslog.AccessLogFilter{
+		FilterSpecifier: &accesslog.AccessLogFilter_ExtensionFilter{
+			ExtensionFilter: &accesslog.ExtensionFilter{
+				Name:       celFilter,
+				ConfigType: &accesslog.ExtensionFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(expression)},
+			},
+		},
+	}
+
+	// sampled 200
+	var sampledHostFilters []*accesslog.AccessLogFilter
+	for _, f := range configFilters {
+		sampledHostFilter := &accesslog.AccessLogFilter_AndFilter{
+			AndFilter: &accesslog.AndFilter{
+				Filters: []*accesslog.AccessLogFilter{
+					{
+						FilterSpecifier: &accesslog.AccessLogFilter_HeaderFilter{
+							HeaderFilter: &accesslog.HeaderFilter{
+								Header: &route.HeaderMatcher{
+									Name: ":authority",
+									HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+										StringMatch: &match.StringMatcher{
+											MatchPattern: &match.StringMatcher_SafeRegex{
+												SafeRegex: &match.RegexMatcher{
+													Regex: f.Host,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						FilterSpecifier: &accesslog.AccessLogFilter_RuntimeFilter{
+							RuntimeFilter: &accesslog.RuntimeFilter{
+								RuntimeKey: "access_log.access_error.status",
+								PercentSampled: &typepb.FractionalPercent{
+									Numerator:   f.SampleRate,
+									Denominator: typepb.FractionalPercent_HUNDRED,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		sampledHostFilters = append(sampledHostFilters, &accesslog.AccessLogFilter{
+			FilterSpecifier: sampledHostFilter,
+		})
+	}
+
+	// put non 200 and sampled 200 in or logic.
+	or := &accesslog.OrFilter{}
+	// Add non http status 2xx
+	or.Filters = append(or.Filters, non200Filters)
+	// Add sampled 2xx http status
+	for _, sampled := range sampledHostFilters {
+		or.Filters = append(or.Filters, sampled)
+	}
+	non200OrSampled200 := &accesslog.AccessLogFilter{
+		FilterSpecifier: &accesslog.AccessLogFilter_OrFilter{
+			OrFilter: or,
+		},
+	}
+
+	// put not health check and non200OrSampled200 in and logic.
+	return &accesslog.AccessLogFilter{
+		FilterSpecifier: &accesslog.AccessLogFilter_AndFilter{
+			AndFilter: &accesslog.AndFilter{
+				Filters: []*accesslog.AccessLogFilter{
+					notHealthCheckFilter,
+					non200OrSampled200,
+				},
+			},
+		},
+	}
 }

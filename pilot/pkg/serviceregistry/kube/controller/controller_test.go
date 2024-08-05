@@ -98,66 +98,71 @@ func TestServices(t *testing.T) {
 		},
 	})
 
-	ctl, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{NetworksWatcher: networksWatcher})
-	t.Parallel()
-	ns := "ns-test"
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			ctl, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{NetworksWatcher: networksWatcher, Mode: mode})
+			t.Parallel()
+			ns := "ns-test"
 
-	hostname := kube.ServiceHostname(testService, ns, defaultFakeDomainSuffix)
+			hostname := kube.ServiceHostname(testService, ns, defaultFakeDomainSuffix)
 
-	var sds model.ServiceDiscovery = ctl
-	// "test", ports: http-example on 80
-	makeService(testService, ns, ctl, t)
-	<-fx.Events
+			var sds model.ServiceDiscovery = ctl
+			// "test", ports: http-example on 80
+			makeService(testService, ns, ctl, t)
+			<-fx.Events
 
-	eventually(t, func() bool {
-		out := sds.Services()
+			eventually(t, func() bool {
+				out := sds.Services()
 
-		// Original test was checking for 'protocolTCP' - which is incorrect (the
-		// port name is 'http'. It was working because the Service was created with
-		// an invalid protocol, and the code was ignoring that ( not TCP/UDP).
-		for _, item := range out {
-			if item.Hostname == hostname &&
-				len(item.Ports) == 1 &&
-				item.Ports[0].Protocol == protocol.HTTP {
-				return true
+				// Original test was checking for 'protocolTCP' - which is incorrect (the
+				// port name is 'http'. It was working because the Service was created with
+				// an invalid protocol, and the code was ignoring that ( not TCP/UDP).
+				for _, item := range out {
+					if item.Hostname == hostname &&
+						len(item.Ports) == 1 &&
+						item.Ports[0].Protocol == protocol.HTTP {
+						return true
+					}
+				}
+				return false
+			})
+
+			// 2 ports 1001, 2 IPs
+			createEndpoints(t, ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, nil, nil)
+
+			svc := sds.GetService(hostname)
+			if svc == nil {
+				t.Fatalf("GetService(%q) => should exists", hostname)
 			}
-		}
-		return false
-	})
+			if svc.Hostname != hostname {
+				t.Fatalf("GetService(%q) => %q", hostname, svc.Hostname)
+			}
 
-	// 2 ports 1001, 2 IPs
-	createEndpoints(t, ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, nil, nil)
+			eventually(t, func() bool {
+				ep := sds.InstancesByPort(svc, 80)
+				return len(ep) == 2
+			})
 
-	svc := sds.GetService(hostname)
-	if svc == nil {
-		t.Fatalf("GetService(%q) => should exists", hostname)
-	}
-	if svc.Hostname != hostname {
-		t.Fatalf("GetService(%q) => %q", hostname, svc.Hostname)
-	}
+			ep := sds.InstancesByPort(svc, 80)
+			if len(ep) != 2 {
+				t.Fatalf("Invalid response for GetInstancesByPort %v", ep)
+			}
 
-	eventually(t, func() bool {
-		ep := sds.InstancesByPort(svc, 80)
-		return len(ep) == 2
-	})
+			if ep[0].Endpoint.Address == "10.10.1.1" && ep[0].Endpoint.Network != "network1" {
+				t.Fatalf("Endpoint with IP 10.10.1.1 is expected to be in network1 but get: %s", ep[0].Endpoint.Network)
+			}
 
-	ep := sds.InstancesByPort(svc, 80)
-	if len(ep) != 2 {
-		t.Fatalf("Invalid response for GetInstancesByPort %v", ep)
-	}
+			if ep[1].Endpoint.Address == "10.11.1.2" && ep[1].Endpoint.Network != "network2" {
+				t.Fatalf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Endpoint.Network)
+			}
 
-	if ep[0].Endpoint.Address == "10.10.1.1" && ep[0].Endpoint.Network != "network1" {
-		t.Fatalf("Endpoint with IP 10.10.1.1 is expected to be in network1 but get: %s", ep[0].Endpoint.Network)
-	}
-
-	if ep[1].Endpoint.Address == "10.11.1.2" && ep[1].Endpoint.Network != "network2" {
-		t.Fatalf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Endpoint.Network)
-	}
-
-	missing := kube.ServiceHostname("does-not-exist", ns, defaultFakeDomainSuffix)
-	svc = sds.GetService(missing)
-	if svc != nil {
-		t.Fatalf("GetService(%q) => %s, should not exist", missing, svc.Hostname)
+			missing := kube.ServiceHostname("does-not-exist", ns, defaultFakeDomainSuffix)
+			svc = sds.GetService(missing)
+			if svc != nil {
+				t.Fatalf("GetService(%q) => %s, should not exist", missing, svc.Hostname)
+			}
+		})
 	}
 }
 
@@ -306,323 +311,335 @@ func TestController_GetPodLocality(t *testing.T) {
 
 func TestProxyK8sHostnameLabel(t *testing.T) {
 	clusterID := cluster.ID("fakeCluster")
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		ClusterID: clusterID,
-	})
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+				Mode:      mode,
+				ClusterID: clusterID,
+			})
 
-	pod := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
-	addPods(t, controller, fx, pod)
+			pod := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
+			addPods(t, controller, fx, pod)
 
-	proxy := &model.Proxy{
-		Type:        model.Router,
-		IPAddresses: []string{"128.0.0.1"},
-		ID:          "pod1.nsa",
-		DNSDomain:   "nsa.svc.cluster.local",
-		Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID},
-	}
-	got := controller.GetProxyWorkloadLabels(proxy)
-	if pod.Spec.NodeName != got[labelutil.LabelHostname] {
-		t.Fatalf("expected node name %v, got %v", pod.Spec.NodeName, got[labelutil.LabelHostname])
+			proxy := &model.Proxy{
+				Type:        model.Router,
+				IPAddresses: []string{"128.0.0.1"},
+				ID:          "pod1.nsa",
+				DNSDomain:   "nsa.svc.cluster.local",
+				Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID},
+			}
+			got := controller.GetProxyWorkloadLabels(proxy)
+			if pod.Spec.NodeName != got[labelutil.LabelHostname] {
+				t.Fatalf("expected node name %v, got %v", pod.Spec.NodeName, got[labelutil.LabelHostname])
+			}
+		})
 	}
 }
 
 func TestGetProxyServiceInstances(t *testing.T) {
 	clusterID := cluster.ID("fakeCluster")
 	networkID := network.ID("fakeNetwork")
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		ClusterID: clusterID,
-	})
-	// add a network ID to test endpoints include topology.istio.io/network label
-	controller.network = networkID
-
-	p := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
-	addPods(t, controller, fx, p)
-
-	k8sSaOnVM := "acct4"
-	canonicalSaOnVM := "acctvm2@gserviceaccount2.com"
-
-	createServiceWait(controller, "svc1", "nsa", nil,
-		map[string]string{
-			annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
-			annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM,
-		},
-		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
-
-	// Endpoints are generated by Kubernetes from pod labels and service selectors.
-	// Here we manually create them for mocking purpose.
-	svc1Ips := []string{"128.0.0.1"}
-	portNames := []string{"tcp-port"}
-	// Create 1 endpoint that refers to a pod in the same namespace.
-	createEndpoints(t, controller, "svc1", "nsA", portNames, svc1Ips, nil, nil)
-
-	// Creates 100 endpoints that refers to a pod in a different namespace.
-	fakeSvcCounts := 100
-	for i := 0; i < fakeSvcCounts; i++ {
-		svcName := fmt.Sprintf("svc-fake-%d", i)
-		createServiceWait(controller, svcName, "nsfake", nil,
-			map[string]string{
-				annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
-				annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM,
-			},
-			[]int32{8080}, map[string]string{"app": "prod-app"}, t)
-
-		createEndpoints(t, controller, svcName, "nsfake", portNames, svc1Ips, nil, nil)
-		fx.WaitOrFail(t, "eds")
-	}
-
-	// Create 1 endpoint that refers to a pod in the same namespace.
-	createEndpoints(t, controller, "svc1", "nsa", portNames, svc1Ips, nil, nil)
-	fx.WaitOrFail(t, "eds")
-
-	// this can test get pod by proxy ID
-	svcNode := &model.Proxy{
-		Type:        model.Router,
-		IPAddresses: []string{"128.0.0.1"},
-		ID:          "pod1.nsa",
-		DNSDomain:   "nsa.svc.cluster.local",
-		Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID},
-	}
-	serviceInstances := controller.GetProxyServiceInstances(svcNode)
-
-	if len(serviceInstances) != 1 {
-		t.Fatalf("GetProxyServiceInstances() expected 1 instance, got %d", len(serviceInstances))
-	}
-
-	hostname := kube.ServiceHostname("svc1", "nsa", defaultFakeDomainSuffix)
-	if serviceInstances[0].Service.Hostname != hostname {
-		t.Fatalf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
-			serviceInstances[0].Service.Hostname, hostname)
-	}
-
-	// Test that we can look up instances just by Proxy metadata
-	metaServices := controller.GetProxyServiceInstances(&model.Proxy{
-		Type:            "sidecar",
-		IPAddresses:     []string{"1.1.1.1"},
-		Locality:        &core.Locality{Region: "r", Zone: "z"},
-		ConfigNamespace: "nsa",
-		Labels: map[string]string{
-			"app":                      "prod-app",
-			label.SecurityTlsMode.Name: "mutual",
-		},
-		Metadata: &model.NodeMetadata{
-			ServiceAccount: "account",
-			ClusterID:      clusterID,
-			Labels: map[string]string{
-				"app":                      "prod-app",
-				label.SecurityTlsMode.Name: "mutual",
-			},
-		},
-	})
-
-	expected := &model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: "svc1.nsa.svc.company.com",
-			ClusterVIPs: model.AddressMap{
-				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
-			},
-			DefaultAddress:  "10.0.0.1",
-			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
-			ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
-			Attributes: model.ServiceAttributes{
-				ServiceRegistry: provider.Kubernetes,
-				Name:            "svc1",
-				Namespace:       "nsa",
-				LabelSelectors:  map[string]string{"app": "prod-app"},
-				K8sAttributes: model.K8sAttributes{
-					Type: string(corev1.ServiceTypeClusterIP),
-				},
-			},
-		},
-		ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
-		Endpoint: &model.IstioEndpoint{
-			Labels: labels.Instance{
-				"app":                      "prod-app",
-				label.SecurityTlsMode.Name: "mutual",
-				NodeRegionLabelGA:          "r",
-				NodeZoneLabelGA:            "z",
-				label.TopologyCluster.Name: clusterID.String(),
-				label.TopologyNetwork.Name: networkID.String(),
-			},
-			ServiceAccount:  "account",
-			Address:         "1.1.1.1",
-			Network:         networkID,
-			EndpointPort:    0,
-			ServicePortName: "tcp-port",
-			Locality: model.Locality{
-				Label:     "r/z",
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+				Mode:      mode,
 				ClusterID: clusterID,
-			},
-			HealthStatus: model.Healthy,
-			TLSMode:      "mutual",
-		},
-	}
+			})
+			// add a network ID to test endpoints include topology.istio.io/network label
+			controller.network = networkID
 
-	if len(metaServices) != 1 {
-		t.Fatalf("expected 1 instance, got %v", len(metaServices))
-	}
-	// Remove the discoverability function so that it's ignored by DeepEqual.
-	clearDiscoverabilityPolicy(metaServices[0].Endpoint)
-	if !reflect.DeepEqual(expected, metaServices[0]) {
-		t.Fatalf("expected instance %v, got %v", expected, metaServices[0])
-	}
+			p := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
+			addPods(t, controller, fx, p)
 
-	// Test that we first look up instances by Proxy pod
+			k8sSaOnVM := "acct4"
+			canonicalSaOnVM := "acctvm2@gserviceaccount2.com"
 
-	node := generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"})
-	addNodes(t, controller, node)
-
-	// 1. pod without `istio-locality` label, get locality from node label.
-	p = generatePod("129.0.0.1", "pod2", "nsa", "svcaccount", "node1",
-		map[string]string{"app": "prod-app"}, nil)
-	addPods(t, controller, fx, p)
-
-	// this can test get pod by proxy ip address
-	podServices := controller.GetProxyServiceInstances(&model.Proxy{
-		Type:            "sidecar",
-		IPAddresses:     []string{"129.0.0.1"},
-		Locality:        &core.Locality{Region: "r", Zone: "z"},
-		ConfigNamespace: "nsa",
-		Labels: map[string]string{
-			"app": "prod-app",
-		},
-		Metadata: &model.NodeMetadata{
-			ServiceAccount: "account",
-			ClusterID:      clusterID,
-			Labels: map[string]string{
-				"app": "prod-app",
-			},
-		},
-	})
-
-	expected = &model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: "svc1.nsa.svc.company.com",
-			ClusterVIPs: model.AddressMap{
-				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
-			},
-			DefaultAddress:  "10.0.0.1",
-			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
-			ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
-			Attributes: model.ServiceAttributes{
-				ServiceRegistry: provider.Kubernetes,
-				Name:            "svc1",
-				Namespace:       "nsa",
-				LabelSelectors:  map[string]string{"app": "prod-app"},
-				K8sAttributes: model.K8sAttributes{
-					Type: string(corev1.ServiceTypeClusterIP),
+			createServiceWait(controller, "svc1", "nsa", nil,
+				map[string]string{
+					annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
+					annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM,
 				},
-			},
-		},
-		ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
-		Endpoint: &model.IstioEndpoint{
-			Address:         "129.0.0.1",
-			Network:         networkID,
-			EndpointPort:    0,
-			ServicePortName: "tcp-port",
-			Locality: model.Locality{
-				Label:     "region1/zone1/subzone1",
-				ClusterID: clusterID,
-			},
-			Labels: labels.Instance{
-				"app":                      "prod-app",
-				NodeRegionLabelGA:          "region1",
-				NodeZoneLabelGA:            "zone1",
-				labelutil.LabelHostname:    p.Spec.NodeName,
-				label.TopologySubzone.Name: "subzone1",
-				label.TopologyCluster.Name: clusterID.String(),
-				label.TopologyNetwork.Name: networkID.String(),
-			},
-			ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
-			TLSMode:        model.DisabledTLSModeLabel,
-			WorkloadName:   "pod2",
-			Namespace:      "nsa",
-			HealthStatus:   model.Healthy,
-			NodeName:       p.Spec.NodeName,
-		},
-	}
-	if len(podServices) != 1 {
-		t.Fatalf("expected 1 instance, got %v", len(podServices))
-	}
-	clearDiscoverabilityPolicy(podServices[0].Endpoint)
-	if !reflect.DeepEqual(expected, podServices[0]) {
-		t.Fatalf("expected instance %v, got %v", expected, podServices[0])
-	}
+				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 
-	// 2. pod with `istio-locality` label, ignore node label.
-	p = generatePod("129.0.0.2", "pod3", "nsa", "svcaccount", "node1",
-		map[string]string{"app": "prod-app", "istio-locality": "region.zone"}, nil)
-	addPods(t, controller, fx, p)
+			// Endpoints are generated by Kubernetes from pod labels and service selectors.
+			// Here we manually create them for mocking purpose.
+			svc1Ips := []string{"128.0.0.1"}
+			portNames := []string{"tcp-port"}
+			// Create 1 endpoint that refers to a pod in the same namespace.
+			createEndpoints(t, controller, "svc1", "nsA", portNames, svc1Ips, nil, nil)
 
-	// this can test get pod by proxy ip address
-	podServices = controller.GetProxyServiceInstances(&model.Proxy{
-		Type:            "sidecar",
-		IPAddresses:     []string{"129.0.0.2"},
-		Locality:        &core.Locality{Region: "r", Zone: "z"},
-		ConfigNamespace: "nsa",
-		Labels: map[string]string{
-			"app": "prod-app",
-		},
-		Metadata: &model.NodeMetadata{
-			ServiceAccount: "account",
-			ClusterID:      clusterID,
-			Labels: map[string]string{
-				"app": "prod-app",
-			},
-		},
-	})
+			// Creates 100 endpoints that refers to a pod in a different namespace.
+			fakeSvcCounts := 100
+			for i := 0; i < fakeSvcCounts; i++ {
+				svcName := fmt.Sprintf("svc-fake-%d", i)
+				createServiceWait(controller, svcName, "nsfake", nil,
+					map[string]string{
+						annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
+						annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM,
+					},
+					[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 
-	expected = &model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: "svc1.nsa.svc.company.com",
-			ClusterVIPs: model.AddressMap{
-				Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
-			},
-			DefaultAddress:  "10.0.0.1",
-			Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
-			ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
-			Attributes: model.ServiceAttributes{
-				ServiceRegistry: provider.Kubernetes,
-				Name:            "svc1",
-				Namespace:       "nsa",
-				LabelSelectors:  map[string]string{"app": "prod-app"},
-				K8sAttributes: model.K8sAttributes{
-					Type: string(corev1.ServiceTypeClusterIP),
+				createEndpoints(t, controller, svcName, "nsfake", portNames, svc1Ips, nil, nil)
+				fx.WaitOrFail(t, "eds")
+			}
+
+			// Create 1 endpoint that refers to a pod in the same namespace.
+			createEndpoints(t, controller, "svc1", "nsa", portNames, svc1Ips, nil, nil)
+			fx.WaitOrFail(t, "eds")
+
+			// this can test get pod by proxy ID
+			svcNode := &model.Proxy{
+				Type:        model.Router,
+				IPAddresses: []string{"128.0.0.1"},
+				ID:          "pod1.nsa",
+				DNSDomain:   "nsa.svc.cluster.local",
+				Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID},
+			}
+			serviceInstances := controller.GetProxyServiceInstances(svcNode)
+
+			if len(serviceInstances) != 1 {
+				t.Fatalf("GetProxyServiceInstances() expected 1 instance, got %d", len(serviceInstances))
+			}
+
+			hostname := kube.ServiceHostname("svc1", "nsa", defaultFakeDomainSuffix)
+			if serviceInstances[0].Service.Hostname != hostname {
+				t.Fatalf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
+					serviceInstances[0].Service.Hostname, hostname)
+			}
+
+			// Test that we can look up instances just by Proxy metadata
+			metaServices := controller.GetProxyServiceInstances(&model.Proxy{
+				Type:            "sidecar",
+				IPAddresses:     []string{"1.1.1.1"},
+				Locality:        &core.Locality{Region: "r", Zone: "z"},
+				ConfigNamespace: "nsa",
+				Labels: map[string]string{
+					"app":                      "prod-app",
+					label.SecurityTlsMode.Name: "mutual",
 				},
-			},
-		},
-		ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
-		Endpoint: &model.IstioEndpoint{
-			Address:         "129.0.0.2",
-			Network:         networkID,
-			EndpointPort:    0,
-			ServicePortName: "tcp-port",
-			Locality: model.Locality{
-				Label:     "region/zone",
-				ClusterID: clusterID,
-			},
-			Labels: labels.Instance{
-				"app":                      "prod-app",
-				"istio-locality":           "region.zone",
-				NodeRegionLabelGA:          "region",
-				NodeZoneLabelGA:            "zone",
-				labelutil.LabelHostname:    p.Spec.NodeName,
-				label.TopologyCluster.Name: clusterID.String(),
-				label.TopologyNetwork.Name: networkID.String(),
-			},
-			ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
-			TLSMode:        model.DisabledTLSModeLabel,
-			WorkloadName:   "pod3",
-			Namespace:      "nsa",
-			HealthStatus:   model.Healthy,
-			NodeName:       p.Spec.NodeName,
-		},
-	}
-	if len(podServices) != 1 {
-		t.Fatalf("expected 1 instance, got %v", len(podServices))
-	}
-	clearDiscoverabilityPolicy(podServices[0].Endpoint)
-	if !reflect.DeepEqual(expected, podServices[0]) {
-		t.Fatalf("expected instance %v, got %v", expected, podServices[0])
+				Metadata: &model.NodeMetadata{
+					ServiceAccount: "account",
+					ClusterID:      clusterID,
+					Labels: map[string]string{
+						"app":                      "prod-app",
+						label.SecurityTlsMode.Name: "mutual",
+					},
+				},
+			})
+
+			expected := &model.ServiceInstance{
+				Service: &model.Service{
+					Hostname: "svc1.nsa.svc.company.com",
+					ClusterVIPs: model.AddressMap{
+						Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
+					},
+					DefaultAddress:  "10.0.0.1",
+					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
+					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
+					Attributes: model.ServiceAttributes{
+						ServiceRegistry: provider.Kubernetes,
+						Name:            "svc1",
+						Namespace:       "nsa",
+						LabelSelectors:  map[string]string{"app": "prod-app"},
+						K8sAttributes: model.K8sAttributes{
+							Type: string(corev1.ServiceTypeClusterIP),
+						},
+					},
+				},
+				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
+				Endpoint: &model.IstioEndpoint{
+					Labels: labels.Instance{
+						"app":                      "prod-app",
+						label.SecurityTlsMode.Name: "mutual",
+						NodeRegionLabelGA:          "r",
+						NodeZoneLabelGA:            "z",
+						label.TopologyCluster.Name: clusterID.String(),
+						label.TopologyNetwork.Name: networkID.String(),
+					},
+					ServiceAccount:  "account",
+					Address:         "1.1.1.1",
+					Network:         networkID,
+					EndpointPort:    0,
+					ServicePortName: "tcp-port",
+					Locality: model.Locality{
+						Label:     "r/z",
+						ClusterID: clusterID,
+					},
+					HealthStatus: model.Healthy,
+					TLSMode:      "mutual",
+				},
+			}
+
+			if len(metaServices) != 1 {
+				t.Fatalf("expected 1 instance, got %v", len(metaServices))
+			}
+			// Remove the discoverability function so that it's ignored by DeepEqual.
+			clearDiscoverabilityPolicy(metaServices[0].Endpoint)
+			if !reflect.DeepEqual(expected, metaServices[0]) {
+				t.Fatalf("expected instance %v, got %v", expected, metaServices[0])
+			}
+
+			// Test that we first look up instances by Proxy pod
+
+			node := generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"})
+			addNodes(t, controller, node)
+
+			// 1. pod without `istio-locality` label, get locality from node label.
+			p = generatePod("129.0.0.1", "pod2", "nsa", "svcaccount", "node1",
+				map[string]string{"app": "prod-app"}, nil)
+			addPods(t, controller, fx, p)
+
+			// this can test get pod by proxy ip address
+			podServices := controller.GetProxyServiceInstances(&model.Proxy{
+				Type:            "sidecar",
+				IPAddresses:     []string{"129.0.0.1"},
+				Locality:        &core.Locality{Region: "r", Zone: "z"},
+				ConfigNamespace: "nsa",
+				Labels: map[string]string{
+					"app": "prod-app",
+				},
+				Metadata: &model.NodeMetadata{
+					ServiceAccount: "account",
+					ClusterID:      clusterID,
+					Labels: map[string]string{
+						"app": "prod-app",
+					},
+				},
+			})
+
+			expected = &model.ServiceInstance{
+				Service: &model.Service{
+					Hostname: "svc1.nsa.svc.company.com",
+					ClusterVIPs: model.AddressMap{
+						Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
+					},
+					DefaultAddress:  "10.0.0.1",
+					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
+					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
+					Attributes: model.ServiceAttributes{
+						ServiceRegistry: provider.Kubernetes,
+						Name:            "svc1",
+						Namespace:       "nsa",
+						LabelSelectors:  map[string]string{"app": "prod-app"},
+						K8sAttributes: model.K8sAttributes{
+							Type: string(corev1.ServiceTypeClusterIP),
+						},
+					},
+				},
+				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
+				Endpoint: &model.IstioEndpoint{
+					Address:         "129.0.0.1",
+					Network:         networkID,
+					EndpointPort:    0,
+					ServicePortName: "tcp-port",
+					Locality: model.Locality{
+						Label:     "region1/zone1/subzone1",
+						ClusterID: clusterID,
+					},
+					Labels: labels.Instance{
+						"app":                      "prod-app",
+						NodeRegionLabelGA:          "region1",
+						NodeZoneLabelGA:            "zone1",
+						labelutil.LabelHostname:    p.Spec.NodeName,
+						label.TopologySubzone.Name: "subzone1",
+						label.TopologyCluster.Name: clusterID.String(),
+						label.TopologyNetwork.Name: networkID.String(),
+					},
+					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
+					TLSMode:        model.DisabledTLSModeLabel,
+					WorkloadName:   "pod2",
+					Namespace:      "nsa",
+					HealthStatus:   model.Healthy,
+					NodeName:       p.Spec.NodeName,
+				},
+			}
+			if len(podServices) != 1 {
+				t.Fatalf("expected 1 instance, got %v", len(podServices))
+			}
+			clearDiscoverabilityPolicy(podServices[0].Endpoint)
+			if !reflect.DeepEqual(expected, podServices[0]) {
+				t.Fatalf("expected instance %v, got %v", expected, podServices[0])
+			}
+
+			// 2. pod with `istio-locality` label, ignore node label.
+			p = generatePod("129.0.0.2", "pod3", "nsa", "svcaccount", "node1",
+				map[string]string{"app": "prod-app", "istio-locality": "region.zone"}, nil)
+			addPods(t, controller, fx, p)
+
+			// this can test get pod by proxy ip address
+			podServices = controller.GetProxyServiceInstances(&model.Proxy{
+				Type:            "sidecar",
+				IPAddresses:     []string{"129.0.0.2"},
+				Locality:        &core.Locality{Region: "r", Zone: "z"},
+				ConfigNamespace: "nsa",
+				Labels: map[string]string{
+					"app": "prod-app",
+				},
+				Metadata: &model.NodeMetadata{
+					ServiceAccount: "account",
+					ClusterID:      clusterID,
+					Labels: map[string]string{
+						"app": "prod-app",
+					},
+				},
+			})
+
+			expected = &model.ServiceInstance{
+				Service: &model.Service{
+					Hostname: "svc1.nsa.svc.company.com",
+					ClusterVIPs: model.AddressMap{
+						Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
+					},
+					DefaultAddress:  "10.0.0.1",
+					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
+					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
+					Attributes: model.ServiceAttributes{
+						ServiceRegistry: provider.Kubernetes,
+						Name:            "svc1",
+						Namespace:       "nsa",
+						LabelSelectors:  map[string]string{"app": "prod-app"},
+						K8sAttributes: model.K8sAttributes{
+							Type: string(corev1.ServiceTypeClusterIP),
+						},
+					},
+				},
+				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
+				Endpoint: &model.IstioEndpoint{
+					Address:         "129.0.0.2",
+					Network:         networkID,
+					EndpointPort:    0,
+					ServicePortName: "tcp-port",
+					Locality: model.Locality{
+						Label:     "region/zone",
+						ClusterID: clusterID,
+					},
+					Labels: labels.Instance{
+						"app":                      "prod-app",
+						"istio-locality":           "region.zone",
+						NodeRegionLabelGA:          "region",
+						NodeZoneLabelGA:            "zone",
+						labelutil.LabelHostname:    p.Spec.NodeName,
+						label.TopologyCluster.Name: clusterID.String(),
+						label.TopologyNetwork.Name: networkID.String(),
+					},
+					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
+					TLSMode:        model.DisabledTLSModeLabel,
+					WorkloadName:   "pod3",
+					Namespace:      "nsa",
+					HealthStatus:   model.Healthy,
+					NodeName:       p.Spec.NodeName,
+				},
+			}
+			if len(podServices) != 1 {
+				t.Fatalf("expected 1 instance, got %v", len(podServices))
+			}
+			clearDiscoverabilityPolicy(podServices[0].Endpoint)
+			if !reflect.DeepEqual(expected, podServices[0]) {
+				t.Fatalf("expected instance %v, got %v", expected, podServices[0])
+			}
+		})
 	}
 }
 
@@ -823,34 +840,37 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 	}
 
 	for _, c := range testCases {
-		t.Run(c.name, func(t *testing.T) {
-			// Setup kube caches
-			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+		for mode, name := range EndpointModeNames {
+			mode := mode
+			t.Run(fmt.Sprintf("%s_%s", c.name, name), func(t *testing.T) {
+				// Setup kube caches
+				controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: mode})
 
-			addPods(t, controller, fx, c.pods...)
+				addPods(t, controller, fx, c.pods...)
 
-			createServiceWithTargetPorts(controller, "svc1", "nsa",
-				map[string]string{
-					annotation.AlphaKubernetesServiceAccounts.Name: "acct4",
-					annotation.AlphaCanonicalServiceAccounts.Name:  "acctvm2@gserviceaccount2.com",
-				},
-				c.ports, map[string]string{"app": "test-app"}, t)
+				createServiceWithTargetPorts(controller, "svc1", "nsa",
+					map[string]string{
+						annotation.AlphaKubernetesServiceAccounts.Name: "acct4",
+						annotation.AlphaCanonicalServiceAccounts.Name:  "acctvm2@gserviceaccount2.com",
+					},
+					c.ports, map[string]string{"app": "test-app"}, t)
 
-			fx.WaitOrFail(t, "service")
-			serviceInstances := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: c.ips})
+				fx.WaitOrFail(t, "service")
+				serviceInstances := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: c.ips})
 
-			for i, svc := range serviceInstances {
-				if svc.Endpoint.Address != c.wantEndpoints[i].Address {
-					t.Errorf("wrong endpoint address at #i endpoint, got %v want %v", svc.Endpoint.Address, c.wantEndpoints[i].Address)
+				for i, svc := range serviceInstances {
+					if svc.Endpoint.Address != c.wantEndpoints[i].Address {
+						t.Errorf("wrong endpoint address at #i endpoint, got %v want %v", svc.Endpoint.Address, c.wantEndpoints[i].Address)
+					}
+					if svc.Endpoint.EndpointPort != c.wantEndpoints[i].EndpointPort {
+						t.Errorf("wrong endpoint port at #i endpoint, got %v want %v", svc.Endpoint.EndpointPort, c.wantEndpoints[i].EndpointPort)
+					}
+					if svc.Endpoint.ServicePortName != c.wantEndpoints[i].ServicePortName {
+						t.Errorf("wrong svc port at #i endpoint, got %v want %v", svc.Endpoint.ServicePortName, c.wantEndpoints[i].ServicePortName)
+					}
 				}
-				if svc.Endpoint.EndpointPort != c.wantEndpoints[i].EndpointPort {
-					t.Errorf("wrong endpoint port at #i endpoint, got %v want %v", svc.Endpoint.EndpointPort, c.wantEndpoints[i].EndpointPort)
-				}
-				if svc.Endpoint.ServicePortName != c.wantEndpoints[i].ServicePortName {
-					t.Errorf("wrong svc port at #i endpoint, got %v want %v", svc.Endpoint.ServicePortName, c.wantEndpoints[i].ServicePortName)
-				}
-			}
-		})
+			})
+		}
 	}
 }
 
@@ -1080,72 +1100,77 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 }
 
 func TestController_Service(t *testing.T) {
-	controller, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: mode})
 
-	// Use a timeout to keep the test from hanging.
+			// Use a timeout to keep the test from hanging.
 
-	createServiceWait(controller, "svc1", "nsA",
-		map[string]string{}, map[string]string{},
-		[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
-	createServiceWait(controller, "svc2", "nsA",
-		map[string]string{}, map[string]string{},
-		[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
-	createServiceWait(controller, "svc3", "nsA",
-		map[string]string{}, map[string]string{},
-		[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
-	createServiceWait(controller, "svc4", "nsA",
-		map[string]string{}, map[string]string{},
-		[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
+			createServiceWait(controller, "svc1", "nsA",
+				map[string]string{}, map[string]string{},
+				[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
+			createServiceWait(controller, "svc2", "nsA",
+				map[string]string{}, map[string]string{},
+				[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
+			createServiceWait(controller, "svc3", "nsA",
+				map[string]string{}, map[string]string{},
+				[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
+			createServiceWait(controller, "svc4", "nsA",
+				map[string]string{}, map[string]string{},
+				[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
 
-	expectedSvcList := []*model.Service{
-		{
-			Hostname:       kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
-			DefaultAddress: "10.0.0.1",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port",
-					Port:     8080,
-					Protocol: protocol.TCP,
+			expectedSvcList := []*model.Service{
+				{
+					Hostname:       kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
+					DefaultAddress: "10.0.0.1",
+					Ports: model.PortList{
+						&model.Port{
+							Name:     "tcp-port",
+							Port:     8080,
+							Protocol: protocol.TCP,
+						},
+					},
 				},
-			},
-		},
-		{
-			Hostname:       kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
-			DefaultAddress: "10.0.0.1",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port",
-					Port:     8081,
-					Protocol: protocol.TCP,
+				{
+					Hostname:       kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
+					DefaultAddress: "10.0.0.1",
+					Ports: model.PortList{
+						&model.Port{
+							Name:     "tcp-port",
+							Port:     8081,
+							Protocol: protocol.TCP,
+						},
+					},
 				},
-			},
-		},
-		{
-			Hostname:       kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
-			DefaultAddress: "10.0.0.1",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port",
-					Port:     8082,
-					Protocol: protocol.TCP,
+				{
+					Hostname:       kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
+					DefaultAddress: "10.0.0.1",
+					Ports: model.PortList{
+						&model.Port{
+							Name:     "tcp-port",
+							Port:     8082,
+							Protocol: protocol.TCP,
+						},
+					},
 				},
-			},
-		},
-		{
-			Hostname:       kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
-			DefaultAddress: "10.0.0.1",
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port",
-					Port:     8083,
-					Protocol: protocol.TCP,
+				{
+					Hostname:       kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
+					DefaultAddress: "10.0.0.1",
+					Ports: model.PortList{
+						&model.Port{
+							Name:     "tcp-port",
+							Port:     8083,
+							Protocol: protocol.TCP,
+						},
+					},
 				},
-			},
-		},
+			}
+
+			svcList := controller.Services()
+			servicesEqual(svcList, expectedSvcList)
+		})
 	}
-
-	svcList := controller.Services()
-	servicesEqual(svcList, expectedSvcList)
 }
 
 func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
@@ -1212,69 +1237,74 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 			},
 		},
 	}
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+				Mode:        mode,
+				MeshWatcher: meshWatcher,
+			})
 
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		MeshWatcher: meshWatcher,
-	})
+			nsA := "nsA"
+			nsB := "nsB"
 
-	nsA := "nsA"
-	nsB := "nsB"
+			// event handlers should only be triggered for services in namespaces selected for discovery
+			createNamespace(t, controller.client.Kube(), nsA, map[string]string{"pilot-discovery": "enabled"})
+			createNamespace(t, controller.client.Kube(), nsB, map[string]string{})
 
-	// event handlers should only be triggered for services in namespaces selected for discovery
-	createNamespace(t, controller.client.Kube(), nsA, map[string]string{"pilot-discovery": "enabled"})
-	createNamespace(t, controller.client.Kube(), nsB, map[string]string{})
+			// wait for namespaces to be created
+			eventually(t, func() bool {
+				list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					t.Fatalf("error listing namespaces: %v", err)
+				}
+				return len(list.Items) == 2
+			})
 
-	// wait for namespaces to be created
-	eventually(t, func() bool {
-		list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			t.Fatalf("error listing namespaces: %v", err)
-		}
-		return len(list.Items) == 2
-	})
+			// service event handlers should trigger for svc1 and svc2
+			createServiceWait(controller, "svc1", nsA,
+				map[string]string{}, map[string]string{},
+				[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
+			createServiceWait(controller, "svc2", nsA,
+				map[string]string{}, map[string]string{},
+				[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
+			// service event handlers should not trigger for svc3 and svc4
+			createService(controller, "svc3", nsB,
+				map[string]string{}, map[string]string{},
+				[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
+			createService(controller, "svc4", nsB,
+				map[string]string{}, map[string]string{},
+				[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
 
-	// service event handlers should trigger for svc1 and svc2
-	createServiceWait(controller, "svc1", nsA,
-		map[string]string{}, map[string]string{},
-		[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
-	createServiceWait(controller, "svc2", nsA,
-		map[string]string{}, map[string]string{},
-		[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
-	// service event handlers should not trigger for svc3 and svc4
-	createService(controller, "svc3", nsB,
-		map[string]string{}, map[string]string{},
-		[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
-	createService(controller, "svc4", nsB,
-		map[string]string{}, map[string]string{},
-		[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
+			expectedSvcList := []*model.Service{svc1, svc2}
+			eventually(t, func() bool {
+				svcList := controller.Services()
+				return servicesEqual(svcList, expectedSvcList)
+			})
 
-	expectedSvcList := []*model.Service{svc1, svc2}
-	eventually(t, func() bool {
-		svcList := controller.Services()
-		return servicesEqual(svcList, expectedSvcList)
-	})
+			// test updating namespace with adding discovery label
+			updateNamespace(t, controller.client.Kube(), nsB, map[string]string{"env": "test"})
+			// service event handlers should trigger for svc3 and svc4
+			fx.WaitOrFail(t, "service")
+			fx.WaitOrFail(t, "service")
+			expectedSvcList = []*model.Service{svc1, svc2, svc3, svc4}
+			eventually(t, func() bool {
+				svcList := controller.Services()
+				return servicesEqual(svcList, expectedSvcList)
+			})
 
-	// test updating namespace with adding discovery label
-	updateNamespace(t, controller.client.Kube(), nsB, map[string]string{"env": "test"})
-	// service event handlers should trigger for svc3 and svc4
-	fx.WaitOrFail(t, "service")
-	fx.WaitOrFail(t, "service")
-	expectedSvcList = []*model.Service{svc1, svc2, svc3, svc4}
-	eventually(t, func() bool {
-		svcList := controller.Services()
-		return servicesEqual(svcList, expectedSvcList)
-	})
-
-	// test updating namespace by removing discovery label
-	updateNamespace(t, controller.client.Kube(), nsA, map[string]string{"pilot-discovery": "disabled"})
-	// service event handlers should trigger for svc1 and svc2
-	fx.WaitOrFail(t, "service")
-	fx.WaitOrFail(t, "service")
-	expectedSvcList = []*model.Service{svc3, svc4}
-	eventually(t, func() bool {
-		svcList := controller.Services()
-		return servicesEqual(svcList, expectedSvcList)
-	})
+			// test updating namespace by removing discovery label
+			updateNamespace(t, controller.client.Kube(), nsA, map[string]string{"pilot-discovery": "disabled"})
+			// service event handlers should trigger for svc1 and svc2
+			fx.WaitOrFail(t, "service")
+			fx.WaitOrFail(t, "service")
+			expectedSvcList = []*model.Service{svc3, svc4}
+			eventually(t, func() bool {
+				svcList := controller.Services()
+				return servicesEqual(svcList, expectedSvcList)
+			})
+		})
+	}
 }
 
 func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
@@ -1347,131 +1377,137 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		})
 	}
 
-	client := kubelib.NewFakeClient()
-	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
-	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
-		kclient.New[*corev1.Namespace](client),
-		meshWatcher.Mesh().DiscoverySelectors,
-	)
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			client := kubelib.NewFakeClient()
+			meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+			discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+				kclient.New[*corev1.Namespace](client),
+				meshWatcher.Mesh().DiscoverySelectors,
+			)
 
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		Client:                    client,
-		MeshWatcher:               meshWatcher,
-		DiscoveryNamespacesFilter: discoveryNamespacesFilter,
-	})
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+				Client:                    client,
+				Mode:                      mode,
+				MeshWatcher:               meshWatcher,
+				DiscoveryNamespacesFilter: discoveryNamespacesFilter,
+			})
 
-	nsA := "nsA"
-	nsB := "nsB"
-	nsC := "nsC"
+			nsA := "nsA"
+			nsB := "nsB"
+			nsC := "nsC"
 
-	createNamespace(t, controller.client.Kube(), nsA, map[string]string{"app": "foo"})
-	createNamespace(t, controller.client.Kube(), nsB, map[string]string{"app": "bar"})
-	createNamespace(t, controller.client.Kube(), nsC, map[string]string{"app": "baz"})
+			createNamespace(t, controller.client.Kube(), nsA, map[string]string{"app": "foo"})
+			createNamespace(t, controller.client.Kube(), nsB, map[string]string{"app": "bar"})
+			createNamespace(t, controller.client.Kube(), nsC, map[string]string{"app": "baz"})
 
-	// wait for namespaces to be created
-	eventually(t, func() bool {
-		list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			t.Fatalf("error listing namespaces: %v", err)
-		}
-		return len(list.Items) == 3
-	})
+			// wait for namespaces to be created
+			eventually(t, func() bool {
+				list, err := controller.client.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					t.Fatalf("error listing namespaces: %v", err)
+				}
+				return len(list.Items) == 3
+			})
 
-	// assert that namespace membership has been updated
-	eventually(t, func() bool {
-		members := discoveryNamespacesFilter.GetMembers()
-		return members.Contains(nsA) && members.Contains(nsB) && members.Contains(nsC)
-	})
+			// assert that namespace membership has been updated
+			eventually(t, func() bool {
+				members := discoveryNamespacesFilter.GetMembers()
+				return members.Contains(nsA) && members.Contains(nsB) && members.Contains(nsC)
+			})
 
-	// service event handlers should trigger for all svcs
-	createServiceWait(controller, "svc1", nsA,
-		map[string]string{}, map[string]string{},
-		[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
-	createServiceWait(controller, "svc2", nsA,
-		map[string]string{}, map[string]string{},
-		[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
-	createServiceWait(controller, "svc3", nsB,
-		map[string]string{}, map[string]string{},
-		[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
-	createServiceWait(controller, "svc4", nsC,
-		map[string]string{}, map[string]string{},
-		[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
+			// service event handlers should trigger for all svcs
+			createServiceWait(controller, "svc1", nsA,
+				map[string]string{}, map[string]string{},
+				[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
+			createServiceWait(controller, "svc2", nsA,
+				map[string]string{}, map[string]string{},
+				[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
+			createServiceWait(controller, "svc3", nsB,
+				map[string]string{}, map[string]string{},
+				[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
+			createServiceWait(controller, "svc4", nsC,
+				map[string]string{}, map[string]string{},
+				[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
 
-	expectedSvcList := []*model.Service{svc1, svc2, svc3, svc4}
-	eventually(t, func() bool {
-		svcList := controller.Services()
-		return servicesEqual(svcList, expectedSvcList)
-	})
+			expectedSvcList := []*model.Service{svc1, svc2, svc3, svc4}
+			eventually(t, func() bool {
+				svcList := controller.Services()
+				return servicesEqual(svcList, expectedSvcList)
+			})
 
-	// restrict namespaces to nsA (expect 2 delete events for svc3 and svc4)
-	updateMeshConfig(
-		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{
-				{
-					MatchLabels: map[string]string{
-						"app": "foo",
-					},
-				},
-			},
-		},
-		[]*model.Service{svc1, svc2},
-		2,
-		meshWatcher,
-		fx,
-		controller,
-	)
-
-	// restrict namespaces to nsB (1 create event should trigger for nsB service and 2 delete events for nsA services)
-	updateMeshConfig(
-		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{
-				{
-					MatchLabels: map[string]string{
-						"app": "bar",
-					},
-				},
-			},
-		},
-		[]*model.Service{svc3},
-		3,
-		meshWatcher,
-		fx,
-		controller,
-	)
-
-	// expand namespaces to nsA and nsB with selectors (2 create events should trigger for nsA services)
-	updateMeshConfig(
-		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{
-				{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
+			// restrict namespaces to nsA (expect 2 delete events for svc3 and svc4)
+			updateMeshConfig(
+				&meshconfig.MeshConfig{
+					DiscoverySelectors: []*metav1.LabelSelector{
 						{
-							Key:      "app",
-							Operator: metav1.LabelSelectorOpIn,
-							Values:   []string{"foo", "bar"},
+							MatchLabels: map[string]string{
+								"app": "foo",
+							},
 						},
 					},
 				},
-			},
-		},
-		[]*model.Service{svc1, svc2, svc3},
-		2,
-		meshWatcher,
-		fx,
-		controller,
-	)
+				[]*model.Service{svc1, svc2},
+				2,
+				meshWatcher,
+				fx,
+				controller,
+			)
 
-	// permit all discovery namespaces by omitting discovery selectors (1 create event should trigger for the nsC service)
-	updateMeshConfig(
-		&meshconfig.MeshConfig{
-			DiscoverySelectors: []*metav1.LabelSelector{},
-		},
-		[]*model.Service{svc1, svc2, svc3, svc4},
-		1,
-		meshWatcher,
-		fx,
-		controller,
-	)
+			// restrict namespaces to nsB (1 create event should trigger for nsB service and 2 delete events for nsA services)
+			updateMeshConfig(
+				&meshconfig.MeshConfig{
+					DiscoverySelectors: []*metav1.LabelSelector{
+						{
+							MatchLabels: map[string]string{
+								"app": "bar",
+							},
+						},
+					},
+				},
+				[]*model.Service{svc3},
+				3,
+				meshWatcher,
+				fx,
+				controller,
+			)
+
+			// expand namespaces to nsA and nsB with selectors (2 create events should trigger for nsA services)
+			updateMeshConfig(
+				&meshconfig.MeshConfig{
+					DiscoverySelectors: []*metav1.LabelSelector{
+						{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      "app",
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{"foo", "bar"},
+								},
+							},
+						},
+					},
+				},
+				[]*model.Service{svc1, svc2, svc3},
+				2,
+				meshWatcher,
+				fx,
+				controller,
+			)
+
+			// permit all discovery namespaces by omitting discovery selectors (1 create event should trigger for the nsC service)
+			updateMeshConfig(
+				&meshconfig.MeshConfig{
+					DiscoverySelectors: []*metav1.LabelSelector{},
+				},
+				[]*model.Service{svc1, svc2, svc3, svc4},
+				1,
+				meshWatcher,
+				fx,
+				controller,
+			)
+		})
+	}
 }
 
 func TestControllerEnableResourceScoping(t *testing.T) {
@@ -1744,136 +1780,147 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 }
 
 func TestExternalNameServiceInstances(t *testing.T) {
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
-	createExternalNameService(controller, "svc5", "nsA",
-		[]int32{1, 2, 3}, "foo.co", t, fx)
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: mode})
+			createExternalNameService(controller, "svc5", "nsA",
+				[]int32{1, 2, 3}, "foo.co", t, fx)
 
-	converted := controller.Services()
-	if len(converted) != 1 {
-		t.Fatalf("failed to get services (%v)s", converted)
-	}
-	instances := controller.InstancesByPort(converted[0], 1)
-	if len(instances) != 1 {
-		t.Fatalf("expected 1 instance, got %v", instances)
-	}
-	if instances[0].ServicePort.Port != 1 {
-		t.Fatalf("expected port 1, got %v", instances[0].ServicePort.Port)
+			converted := controller.Services()
+			if len(converted) != 1 {
+				t.Fatalf("failed to get services (%v)s", converted)
+			}
+			instances := controller.InstancesByPort(converted[0], 1)
+			if len(instances) != 1 {
+				t.Fatalf("expected 1 instance, got %v", instances)
+			}
+			if instances[0].ServicePort.Port != 1 {
+				t.Fatalf("expected port 1, got %v", instances[0].ServicePort.Port)
+			}
+		})
 	}
 }
 
 func TestController_ExternalNameService(t *testing.T) {
-	deleteWg := sync.WaitGroup{}
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		ServiceHandler: func(_, _ *model.Service, e model.Event) {
-			if e == model.EventDelete {
-				deleteWg.Done()
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			deleteWg := sync.WaitGroup{}
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+				Mode: mode,
+				ServiceHandler: func(_, _ *model.Service, e model.Event) {
+					if e == model.EventDelete {
+						deleteWg.Done()
+					}
+				},
+			})
+
+			k8sSvcs := []*corev1.Service{
+				createExternalNameService(controller, "svc1", "nsA",
+					[]int32{8080}, "test-app-1.test.svc."+defaultFakeDomainSuffix, t, fx),
+				createExternalNameService(controller, "svc2", "nsA",
+					[]int32{8081}, "test-app-2.test.svc."+defaultFakeDomainSuffix, t, fx),
+				createExternalNameService(controller, "svc3", "nsA",
+					[]int32{8082}, "test-app-3.test.pod."+defaultFakeDomainSuffix, t, fx),
+				createExternalNameService(controller, "svc4", "nsA",
+					[]int32{8083}, "g.co", t, fx),
 			}
-		},
-	})
 
-	k8sSvcs := []*corev1.Service{
-		createExternalNameService(controller, "svc1", "nsA",
-			[]int32{8080}, "test-app-1.test.svc."+defaultFakeDomainSuffix, t, fx),
-		createExternalNameService(controller, "svc2", "nsA",
-			[]int32{8081}, "test-app-2.test.svc."+defaultFakeDomainSuffix, t, fx),
-		createExternalNameService(controller, "svc3", "nsA",
-			[]int32{8082}, "test-app-3.test.pod."+defaultFakeDomainSuffix, t, fx),
-		createExternalNameService(controller, "svc4", "nsA",
-			[]int32{8083}, "g.co", t, fx),
-	}
-
-	expectedSvcList := []*model.Service{
-		{
-			Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port",
-					Port:     8080,
-					Protocol: protocol.TCP,
+			expectedSvcList := []*model.Service{
+				{
+					Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
+					Ports: model.PortList{
+						&model.Port{
+							Name:     "tcp-port",
+							Port:     8080,
+							Protocol: protocol.TCP,
+						},
+					},
+					MeshExternal: true,
+					Resolution:   model.DNSLB,
 				},
-			},
-			MeshExternal: true,
-			Resolution:   model.DNSLB,
-		},
-		{
-			Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port",
-					Port:     8081,
-					Protocol: protocol.TCP,
+				{
+					Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
+					Ports: model.PortList{
+						&model.Port{
+							Name:     "tcp-port",
+							Port:     8081,
+							Protocol: protocol.TCP,
+						},
+					},
+					MeshExternal: true,
+					Resolution:   model.DNSLB,
 				},
-			},
-			MeshExternal: true,
-			Resolution:   model.DNSLB,
-		},
-		{
-			Hostname: kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port",
-					Port:     8082,
-					Protocol: protocol.TCP,
+				{
+					Hostname: kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
+					Ports: model.PortList{
+						&model.Port{
+							Name:     "tcp-port",
+							Port:     8082,
+							Protocol: protocol.TCP,
+						},
+					},
+					MeshExternal: true,
+					Resolution:   model.DNSLB,
 				},
-			},
-			MeshExternal: true,
-			Resolution:   model.DNSLB,
-		},
-		{
-			Hostname: kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
-			Ports: model.PortList{
-				&model.Port{
-					Name:     "tcp-port",
-					Port:     8083,
-					Protocol: protocol.TCP,
+				{
+					Hostname: kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
+					Ports: model.PortList{
+						&model.Port{
+							Name:     "tcp-port",
+							Port:     8083,
+							Protocol: protocol.TCP,
+						},
+					},
+					MeshExternal: true,
+					Resolution:   model.DNSLB,
 				},
-			},
-			MeshExternal: true,
-			Resolution:   model.DNSLB,
-		},
-	}
+			}
 
-	svcList := controller.Services()
-	if len(svcList) != len(expectedSvcList) {
-		t.Fatalf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
-	}
-	for i, exp := range expectedSvcList {
-		if exp.Hostname != svcList[i].Hostname {
-			t.Fatalf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i+1, svcList[i].Hostname, exp.Hostname)
-		}
-		if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
-			t.Fatalf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i+1, svcList[i].Ports, exp.Ports)
-		}
-		if svcList[i].MeshExternal != exp.MeshExternal {
-			t.Fatalf("i=%v, MeshExternal==%v, should be %v: externalName='%s'", i+1, exp.MeshExternal, svcList[i].MeshExternal, k8sSvcs[i].Spec.ExternalName)
-		}
-		if svcList[i].Resolution != exp.Resolution {
-			t.Fatalf("i=%v, Resolution=='%v', should be '%v'", i+1, svcList[i].Resolution, exp.Resolution)
-		}
-		instances := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port)
-		if len(instances) != 1 {
-			t.Fatalf("should be exactly 1 instance: len(instances) = %v", len(instances))
-		}
-		if instances[0].Endpoint.Address != k8sSvcs[i].Spec.ExternalName {
-			t.Fatalf("wrong instance endpoint address: '%s' != '%s'", instances[0].Endpoint.Address, k8sSvcs[i].Spec.ExternalName)
-		}
-	}
+			svcList := controller.Services()
+			if len(svcList) != len(expectedSvcList) {
+				t.Fatalf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
+			}
+			for i, exp := range expectedSvcList {
+				if exp.Hostname != svcList[i].Hostname {
+					t.Fatalf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i+1, svcList[i].Hostname, exp.Hostname)
+				}
+				if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
+					t.Fatalf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i+1, svcList[i].Ports, exp.Ports)
+				}
+				if svcList[i].MeshExternal != exp.MeshExternal {
+					t.Fatalf("i=%v, MeshExternal==%v, should be %v: externalName='%s'", i+1, exp.MeshExternal, svcList[i].MeshExternal, k8sSvcs[i].Spec.ExternalName)
+				}
+				if svcList[i].Resolution != exp.Resolution {
+					t.Fatalf("i=%v, Resolution=='%v', should be '%v'", i+1, svcList[i].Resolution, exp.Resolution)
+				}
+				instances := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port)
+				if len(instances) != 1 {
+					t.Fatalf("should be exactly 1 instance: len(instances) = %v", len(instances))
+				}
+				if instances[0].Endpoint.Address != k8sSvcs[i].Spec.ExternalName {
+					t.Fatalf("wrong instance endpoint address: '%s' != '%s'", instances[0].Endpoint.Address, k8sSvcs[i].Spec.ExternalName)
+				}
+			}
 
-	deleteWg.Add(len(k8sSvcs))
-	for _, s := range k8sSvcs {
-		deleteExternalNameService(controller, s.Name, s.Namespace, t, fx)
-	}
-	deleteWg.Wait()
+			deleteWg.Add(len(k8sSvcs))
+			for _, s := range k8sSvcs {
+				deleteExternalNameService(controller, s.Name, s.Namespace, t, fx)
+			}
+			deleteWg.Wait()
 
-	svcList = controller.Services()
-	if len(svcList) != 0 {
-		t.Fatalf("Should have 0 services at this point")
-	}
-	for _, exp := range expectedSvcList {
-		instances := controller.InstancesByPort(exp, exp.Ports[0].Port)
-		if len(instances) != 0 {
-			t.Fatalf("should be exactly 0 instance: len(instances) = %v", len(instances))
-		}
+			svcList = controller.Services()
+			if len(svcList) != 0 {
+				t.Fatalf("Should have 0 services at this point")
+			}
+			for _, exp := range expectedSvcList {
+				instances := controller.InstancesByPort(exp, exp.Ports[0].Port)
+				if len(instances) != 0 {
+					t.Fatalf("should be exactly 0 instance: len(instances) = %v", len(instances))
+				}
+			}
+		})
 	}
 }
 
@@ -2252,183 +2299,193 @@ func addNodes(t *testing.T, controller *FakeController, nodes ...*corev1.Node) {
 }
 
 func TestEndpointUpdate(t *testing.T) {
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: mode})
 
-	pod1 := generatePod("128.0.0.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
-	pods := []*corev1.Pod{pod1}
-	addPods(t, controller, fx, pods...)
+			pod1 := generatePod("128.0.0.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+			pods := []*corev1.Pod{pod1}
+			addPods(t, controller, fx, pods...)
 
-	// 1. incremental eds for normal service endpoint update
-	createServiceWait(controller, "svc1", "nsa", nil, nil,
-		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+			// 1. incremental eds for normal service endpoint update
+			createServiceWait(controller, "svc1", "nsa", nil, nil,
+				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 
-	// Endpoints are generated by Kubernetes from pod labels and service selectors.
-	// Here we manually create them for mocking purpose.
-	svc1Ips := []string{"128.0.0.1"}
-	portNames := []string{"tcp-port"}
-	// Create 1 endpoint that refers to a pod in the same namespace.
-	createEndpoints(t, controller, "svc1", "nsa", portNames, svc1Ips, nil, nil)
-	fx.WaitOrFail(t, "eds")
+			// Endpoints are generated by Kubernetes from pod labels and service selectors.
+			// Here we manually create them for mocking purpose.
+			svc1Ips := []string{"128.0.0.1"}
+			portNames := []string{"tcp-port"}
+			// Create 1 endpoint that refers to a pod in the same namespace.
+			createEndpoints(t, controller, "svc1", "nsa", portNames, svc1Ips, nil, nil)
+			fx.WaitOrFail(t, "eds")
 
-	// delete normal service
-	clienttest.Wrap(t, controller.services).Delete("svc1", "nsa")
-	fx.WaitOrFail(t, "service")
+			// delete normal service
+			clienttest.Wrap(t, controller.services).Delete("svc1", "nsa")
+			fx.WaitOrFail(t, "service")
 
-	// 2. full xds push request for headless service endpoint update
+			// 2. full xds push request for headless service endpoint update
 
-	// create a headless service
-	createServiceWithoutClusterIP(controller, "svc1", "nsa", nil,
-		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
-	fx.WaitOrFail(t, "service")
+			// create a headless service
+			createServiceWithoutClusterIP(controller, "svc1", "nsa", nil,
+				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+			fx.WaitOrFail(t, "service")
 
-	// Create 1 endpoint that refers to a pod in the same namespace.
-	svc1Ips = append(svc1Ips, "128.0.0.2")
-	updateEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, t)
-	host := string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix))
-	fx.MatchOrFail(t, xdsfake.Event{Type: "xds full", ID: host})
+			// Create 1 endpoint that refers to a pod in the same namespace.
+			svc1Ips = append(svc1Ips, "128.0.0.2")
+			updateEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, t)
+			host := string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix))
+			fx.MatchOrFail(t, xdsfake.Event{Type: "xds full", ID: host})
+		})
+	}
 }
 
 // Validates that when Pilot sees Endpoint before the corresponding Pod, it triggers endpoint event on pod event.
 func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: mode})
 
-	addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}))
-	// Setup help functions to make the test more explicit
-	addPod := func(name, ip string) {
-		pod := generatePod(ip, name, "nsA", name, "node1", map[string]string{"app": "prod-app"}, map[string]string{})
-		addPods(t, controller, fx, pod)
-	}
-	deletePod := func(name, ip string) {
-		if err := controller.client.Kube().CoreV1().Pods("nsA").Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
-			t.Fatal(err)
-		}
-		retry.UntilSuccessOrFail(t, func() error {
-			controller.pods.RLock()
-			defer controller.pods.RUnlock()
-			if _, ok := controller.pods.podsByIP[ip]; ok {
-				return fmt.Errorf("pod still present")
+			addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}))
+			// Setup help functions to make the test more explicit
+			addPod := func(name, ip string) {
+				pod := generatePod(ip, name, "nsA", name, "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+				addPods(t, controller, fx, pod)
 			}
-			return nil
-		}, retry.Timeout(time.Second))
-	}
-	addService := func(name string) {
-		// create service
-		createServiceWait(controller, name, "nsA", nil, nil,
-			[]int32{8080}, map[string]string{"app": "prod-app"}, t)
-	}
-	addEndpoint := func(svcName string, ips []string, pods []string) {
-		var refs []*corev1.ObjectReference
-		for _, pod := range pods {
-			if pod == "" {
-				refs = append(refs, nil)
-			} else {
-				refs = append(refs, &corev1.ObjectReference{
-					Kind:      "Pod",
-					Namespace: "nsA",
-					Name:      pod,
-				})
+			deletePod := func(name, ip string) {
+				if err := controller.client.Kube().CoreV1().Pods("nsA").Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
+					t.Fatal(err)
+				}
+				retry.UntilSuccessOrFail(t, func() error {
+					controller.pods.RLock()
+					defer controller.pods.RUnlock()
+					if _, ok := controller.pods.podsByIP[ip]; ok {
+						return fmt.Errorf("pod still present")
+					}
+					return nil
+				}, retry.Timeout(time.Second))
 			}
-		}
-		createEndpoints(t, controller, svcName, "nsA", []string{"tcp-port"}, ips, refs, nil)
-	}
-	assertEndpointsEvent := func(ips []string, pods []string) {
-		t.Helper()
-		ev := fx.WaitOrFail(t, "eds")
-		var gotIps []string
-		for _, e := range ev.Endpoints {
-			gotIps = append(gotIps, e.Address)
-		}
-		var gotSA []string
-		var expectedSa []string
-		for _, e := range pods {
-			if e == "" {
-				expectedSa = append(expectedSa, "")
-			} else {
-				expectedSa = append(expectedSa, "spiffe://cluster.local/ns/nsA/sa/"+e)
+			addService := func(name string) {
+				// create service
+				createServiceWait(controller, name, "nsA", nil, nil,
+					[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 			}
-		}
-
-		for _, e := range ev.Endpoints {
-			gotSA = append(gotSA, e.ServiceAccount)
-		}
-		if !reflect.DeepEqual(gotIps, ips) {
-			t.Fatalf("expected ips %v, got %v", ips, gotIps)
-		}
-		if !reflect.DeepEqual(gotSA, expectedSa) {
-			t.Fatalf("expected SAs %v, got %v", expectedSa, gotSA)
-		}
-	}
-	assertPendingResync := func(expected int) {
-		t.Helper()
-		retry.UntilSuccessOrFail(t, func() error {
-			controller.pods.RLock()
-			defer controller.pods.RUnlock()
-			if len(controller.pods.needResync) != expected {
-				return fmt.Errorf("expected %d pods needing resync, got %d", expected, len(controller.pods.needResync))
+			addEndpoint := func(svcName string, ips []string, pods []string) {
+				var refs []*corev1.ObjectReference
+				for _, pod := range pods {
+					if pod == "" {
+						refs = append(refs, nil)
+					} else {
+						refs = append(refs, &corev1.ObjectReference{
+							Kind:      "Pod",
+							Namespace: "nsA",
+							Name:      pod,
+						})
+					}
+				}
+				createEndpoints(t, controller, svcName, "nsA", []string{"tcp-port"}, ips, refs, nil)
 			}
-			return nil
-		}, retry.Timeout(time.Second))
+			assertEndpointsEvent := func(ips []string, pods []string) {
+				t.Helper()
+				ev := fx.WaitOrFail(t, "eds")
+				var gotIps []string
+				for _, e := range ev.Endpoints {
+					gotIps = append(gotIps, e.Address)
+				}
+				var gotSA []string
+				var expectedSa []string
+				for _, e := range pods {
+					if e == "" {
+						expectedSa = append(expectedSa, "")
+					} else {
+						expectedSa = append(expectedSa, "spiffe://cluster.local/ns/nsA/sa/"+e)
+					}
+				}
+
+				for _, e := range ev.Endpoints {
+					gotSA = append(gotSA, e.ServiceAccount)
+				}
+				if !reflect.DeepEqual(gotIps, ips) {
+					t.Fatalf("expected ips %v, got %v", ips, gotIps)
+				}
+				if !reflect.DeepEqual(gotSA, expectedSa) {
+					t.Fatalf("expected SAs %v, got %v", expectedSa, gotSA)
+				}
+			}
+			assertPendingResync := func(expected int) {
+				t.Helper()
+				retry.UntilSuccessOrFail(t, func() error {
+					controller.pods.RLock()
+					defer controller.pods.RUnlock()
+					if len(controller.pods.needResync) != expected {
+						return fmt.Errorf("expected %d pods needing resync, got %d", expected, len(controller.pods.needResync))
+					}
+					return nil
+				}, retry.Timeout(time.Second))
+			}
+
+			// standard ordering
+			addService("svc")
+			addPod("pod1", "172.0.1.1")
+			addEndpoint("svc", []string{"172.0.1.1"}, []string{"pod1"})
+			assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
+			fx.Clear()
+
+			// Create the endpoint, then later add the pod. Should eventually get an update for the endpoint
+			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
+			assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
+			fx.Clear()
+			addPod("pod2", "172.0.1.2")
+			assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
+			fx.Clear()
+
+			// Create the endpoint without a pod reference. We should see it immediately
+			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", ""})
+			assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", ""})
+			fx.Clear()
+
+			// Delete a pod before the endpoint
+			addEndpoint("svc", []string{"172.0.1.1"}, []string{"pod1"})
+			deletePod("pod2", "172.0.1.2")
+			assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
+			fx.Clear()
+
+			// add another service
+			addService("other")
+			// Add endpoints for the new service, and the old one. Both should be missing the last IP
+			addEndpoint("other", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
+			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
+			assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
+			assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
+			fx.Clear()
+			// Add the pod, expect the endpoints update for both
+			addPod("pod2", "172.0.1.2")
+			assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
+			assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
+
+			// Check for memory leaks
+			assertPendingResync(0)
+			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", "pod3"})
+			// This is really an implementation detail here - but checking to sanity check our test
+			assertPendingResync(1)
+			// Remove the endpoint again, with no pod events in between. Should have no memory leaks
+			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
+			// TODO this case would leak
+			// assertPendingResync(0)
+
+			// completely remove the endpoint
+			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", "pod3"})
+			assertPendingResync(1)
+			if err := controller.client.Kube().CoreV1().Endpoints("nsA").Delete(context.TODO(), "svc", metav1.DeleteOptions{}); err != nil {
+				t.Fatal(err)
+			}
+			if err := controller.client.Kube().DiscoveryV1().EndpointSlices("nsA").Delete(context.TODO(), "svc", metav1.DeleteOptions{}); err != nil {
+				t.Fatal(err)
+			}
+			assertPendingResync(0)
+		})
 	}
-
-	// standard ordering
-	addService("svc")
-	addPod("pod1", "172.0.1.1")
-	addEndpoint("svc", []string{"172.0.1.1"}, []string{"pod1"})
-	assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
-	fx.Clear()
-
-	// Create the endpoint, then later add the pod. Should eventually get an update for the endpoint
-	addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
-	assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
-	fx.Clear()
-	addPod("pod2", "172.0.1.2")
-	assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
-	fx.Clear()
-
-	// Create the endpoint without a pod reference. We should see it immediately
-	addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", ""})
-	assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", ""})
-	fx.Clear()
-
-	// Delete a pod before the endpoint
-	addEndpoint("svc", []string{"172.0.1.1"}, []string{"pod1"})
-	deletePod("pod2", "172.0.1.2")
-	assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
-	fx.Clear()
-
-	// add another service
-	addService("other")
-	// Add endpoints for the new service, and the old one. Both should be missing the last IP
-	addEndpoint("other", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
-	addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
-	assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
-	assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
-	fx.Clear()
-	// Add the pod, expect the endpoints update for both
-	addPod("pod2", "172.0.1.2")
-	assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
-	assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
-
-	// Check for memory leaks
-	assertPendingResync(0)
-	addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", "pod3"})
-	// This is really an implementation detail here - but checking to sanity check our test
-	assertPendingResync(1)
-	// Remove the endpoint again, with no pod events in between. Should have no memory leaks
-	addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
-	// TODO this case would leak
-	// assertPendingResync(0)
-
-	// completely remove the endpoint
-	addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", "pod3"})
-	assertPendingResync(1)
-	if err := controller.client.Kube().CoreV1().Endpoints("nsA").Delete(context.TODO(), "svc", metav1.DeleteOptions{}); err != nil {
-		t.Fatal(err)
-	}
-	if err := controller.client.Kube().DiscoveryV1().EndpointSlices("nsA").Delete(context.TODO(), "svc", metav1.DeleteOptions{}); err != nil {
-		t.Fatal(err)
-	}
-	assertPendingResync(0)
 }
 
 func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
@@ -2648,66 +2705,71 @@ func TestDiscoverySelector(t *testing.T) {
 			},
 		},
 	})
-	ctl, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{NetworksWatcher: networksWatcher})
-	t.Parallel()
-	ns := "ns-test"
+	for mode, name := range EndpointModeNames {
+		mode := mode
+		t.Run(name, func(t *testing.T) {
+			ctl, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{NetworksWatcher: networksWatcher, Mode: mode})
+			t.Parallel()
+			ns := "ns-test"
 
-	hostname := kube.ServiceHostname(testService, ns, defaultFakeDomainSuffix)
+			hostname := kube.ServiceHostname(testService, ns, defaultFakeDomainSuffix)
 
-	var sds model.ServiceDiscovery = ctl
-	// "test", ports: http-example on 80
-	makeService(testService, ns, ctl, t)
-	<-fx.Events
+			var sds model.ServiceDiscovery = ctl
+			// "test", ports: http-example on 80
+			makeService(testService, ns, ctl, t)
+			<-fx.Events
 
-	eventually(t, func() bool {
-		out := sds.Services()
+			eventually(t, func() bool {
+				out := sds.Services()
 
-		// Original test was checking for 'protocolTCP' - which is incorrect (the
-		// port name is 'http'. It was working because the Service was created with
-		// an invalid protocol, and the code was ignoring that ( not TCP/UDP).
-		for _, item := range out {
-			if item.Hostname == hostname &&
-				len(item.Ports) == 1 &&
-				item.Ports[0].Protocol == protocol.HTTP {
-				return true
+				// Original test was checking for 'protocolTCP' - which is incorrect (the
+				// port name is 'http'. It was working because the Service was created with
+				// an invalid protocol, and the code was ignoring that ( not TCP/UDP).
+				for _, item := range out {
+					if item.Hostname == hostname &&
+						len(item.Ports) == 1 &&
+						item.Ports[0].Protocol == protocol.HTTP {
+						return true
+					}
+				}
+				return false
+			})
+
+			// 2 ports 1001, 2 IPs
+			createEndpoints(t, ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, nil, nil)
+
+			svc := sds.GetService(hostname)
+			if svc == nil {
+				t.Fatalf("GetService(%q) => should exists", hostname)
 			}
-		}
-		return false
-	})
+			if svc.Hostname != hostname {
+				t.Fatalf("GetService(%q) => %q", hostname, svc.Hostname)
+			}
 
-	// 2 ports 1001, 2 IPs
-	createEndpoints(t, ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, nil, nil)
+			eventually(t, func() bool {
+				ep := sds.InstancesByPort(svc, 80)
+				return len(ep) == 2
+			})
 
-	svc := sds.GetService(hostname)
-	if svc == nil {
-		t.Fatalf("GetService(%q) => should exists", hostname)
-	}
-	if svc.Hostname != hostname {
-		t.Fatalf("GetService(%q) => %q", hostname, svc.Hostname)
-	}
+			ep := sds.InstancesByPort(svc, 80)
+			if len(ep) != 2 {
+				t.Fatalf("Invalid response for GetInstancesByPort %v", ep)
+			}
 
-	eventually(t, func() bool {
-		ep := sds.InstancesByPort(svc, 80)
-		return len(ep) == 2
-	})
+			if ep[0].Endpoint.Address == "10.10.1.1" && ep[0].Endpoint.Network != "network1" {
+				t.Fatalf("Endpoint with IP 10.10.1.1 is expected to be in network1 but get: %s", ep[0].Endpoint.Network)
+			}
 
-	ep := sds.InstancesByPort(svc, 80)
-	if len(ep) != 2 {
-		t.Fatalf("Invalid response for GetInstancesByPort %v", ep)
-	}
+			if ep[1].Endpoint.Address == "10.11.1.2" && ep[1].Endpoint.Network != "network2" {
+				t.Fatalf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Endpoint.Network)
+			}
 
-	if ep[0].Endpoint.Address == "10.10.1.1" && ep[0].Endpoint.Network != "network1" {
-		t.Fatalf("Endpoint with IP 10.10.1.1 is expected to be in network1 but get: %s", ep[0].Endpoint.Network)
-	}
-
-	if ep[1].Endpoint.Address == "10.11.1.2" && ep[1].Endpoint.Network != "network2" {
-		t.Fatalf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Endpoint.Network)
-	}
-
-	missing := kube.ServiceHostname("does-not-exist", ns, defaultFakeDomainSuffix)
-	svc = sds.GetService(missing)
-	if svc != nil {
-		t.Fatalf("GetService(%q) => %s, should not exist", missing, svc.Hostname)
+			missing := kube.ServiceHostname("does-not-exist", ns, defaultFakeDomainSuffix)
+			svc = sds.GetService(missing)
+			if svc != nil {
+				t.Fatalf("GetService(%q) => %s, should not exist", missing, svc.Hostname)
+			}
+		})
 	}
 }
 

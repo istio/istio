@@ -24,6 +24,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -37,7 +38,10 @@ type Watcher interface {
 	Holder
 
 	// AddMeshHandler registers a callback handler for changes to the mesh config.
-	AddMeshHandler(func())
+	AddMeshHandler(h func()) *WatcherHandlerRegistration
+
+	// DeleteMeshHandler unregisters a callback handler when remote cluster is removed.
+	DeleteMeshHandler(registration *WatcherHandlerRegistration)
 
 	// HandleUserMeshConfig keeps track of user mesh config overrides. These are merged with the standard
 	// mesh config, which takes precedence.
@@ -60,7 +64,7 @@ var _ Watcher = &internalWatcher{}
 
 type internalWatcher struct {
 	mutex    sync.Mutex
-	handlers []func()
+	handlers []*WatcherHandlerRegistration
 	// Current merged mesh config
 	MeshConfig *meshconfig.MeshConfig
 
@@ -122,10 +126,28 @@ func (w *internalWatcher) Mesh() *meshconfig.MeshConfig {
 }
 
 // AddMeshHandler registers a callback handler for changes to the mesh config.
-func (w *internalWatcher) AddMeshHandler(h func()) {
+func (w *internalWatcher) AddMeshHandler(h func()) *WatcherHandlerRegistration {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	w.handlers = append(w.handlers, h)
+
+	handler := &WatcherHandlerRegistration{
+		handler: h,
+	}
+	w.handlers = append(w.handlers, handler)
+	return handler
+}
+
+func (w *internalWatcher) DeleteMeshHandler(registration *WatcherHandlerRegistration) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if len(w.handlers) == 0 {
+		return
+	}
+
+	w.handlers = slices.FilterInPlace(w.handlers, func(handler *WatcherHandlerRegistration) bool {
+		return handler != registration
+	})
 }
 
 // HandleMeshConfigData keeps track of the standard mesh config. These are merged with the user
@@ -182,7 +204,7 @@ func (w *internalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 
 // handleMeshConfigInternal behaves the same as HandleMeshConfig but must be called under a lock
 func (w *internalWatcher) handleMeshConfigInternal(meshConfig *meshconfig.MeshConfig) {
-	var handlers []func()
+	var handlers []*WatcherHandlerRegistration
 
 	if !reflect.DeepEqual(meshConfig, w.MeshConfig) {
 		log.Infof("mesh configuration updated to: %s", PrettyFormatOfMeshConfig(meshConfig))
@@ -197,7 +219,7 @@ func (w *internalWatcher) handleMeshConfigInternal(meshConfig *meshconfig.MeshCo
 
 	// TODO hack: the first handler added is the ConfigPush, other handlers affect what will be pushed, so reversing iteration
 	for i := len(handlers) - 1; i >= 0; i-- {
-		handlers[i]()
+		handlers[i].handler()
 	}
 }
 

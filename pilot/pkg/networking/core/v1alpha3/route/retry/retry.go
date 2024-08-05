@@ -30,7 +30,7 @@ import (
 )
 
 // Add by ingress
-const NonIdempotent = "non-idempotent"
+const NonIdempotent = "non_idempotent"
 
 var defaultRetryPriorityTypedConfig = protoconv.MessageToAny(buildPreviousPrioritiesConfig())
 

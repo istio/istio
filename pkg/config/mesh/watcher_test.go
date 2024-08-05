@@ -51,6 +51,7 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 	writeMessage(t, path, m)
 
 	w := newWatcher(t, path, multi)
+	w.Mesh().MseIngressGlobalConfig = &meshconfig.MSEIngressGlobalConfig{}
 	assert.Equal(t, w.Mesh(), m)
 
 	doneCh := make(chan struct{}, 1)
@@ -58,6 +59,7 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 	var newM *meshconfig.MeshConfig
 	w.AddMeshHandler(func() {
 		newM = w.Mesh()
+		newM.MseIngressGlobalConfig = &meshconfig.MSEIngressGlobalConfig{}
 		close(doneCh)
 	})
 

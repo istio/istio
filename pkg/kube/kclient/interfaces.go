@@ -54,6 +54,8 @@ type Informer[T controllers.Object] interface {
 	// This function should only be called once. It does not wait for the informer to become ready nor does it block,
 	// so it should generally not be called in a goroutine.
 	Start(stop <-chan struct{})
+	// SetWatchErrorHandler should be call if store has started
+	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
 }
 
 type Writer[T controllers.Object] interface {
