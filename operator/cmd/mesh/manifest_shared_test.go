@@ -36,7 +36,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/john"
-	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
@@ -68,20 +67,15 @@ var (
 	testedManifestCmds = []cmdType{cmdGenerate}
 	testClient         kube.CLIClient
 
-	allNamespacedGVKs = append(helmreconciler.NamespacedResources(),
+	allNamespacedGVKs = append(john.NamespacedResources(),
 		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"})
 	// CRDs are not in the prune list, but must be considered for tests.
-	allClusterGVKs = helmreconciler.ClusterResources
+	allClusterGVKs = john.ClusterResources
 )
-
-func init() {
-	helmreconciler.TestMode = true
-}
 
 // recreateSimpleTestEnv mocks fake kube api server which relies on a simple object tracker
 func recreateSimpleTestEnv() {
 	log.Infof("Creating simple test environment\n")
-	helmreconciler.TestMode = true
 	testClient = SetupFakeClient()
 }
 

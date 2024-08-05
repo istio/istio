@@ -201,7 +201,7 @@ func (m Map) SetPathOld(paths string, value any) error {
 			_ = l
 			_ = k
 			_ = v
-			//cur = []any{cur}
+			// cur = []any{cur}
 		} else if idx, ok := extractIndex(seg); ok {
 			l, ok := cur.([]any)
 			if cur == nil {
@@ -475,4 +475,18 @@ func isAlwaysString(s string) bool {
 		}
 	}
 	return false
+}
+
+// GetValueForSetFlag parses the passed set flags which have format key=value and if any set the given path,
+// returns the corresponding value, otherwise returns the empty string. setFlags must have valid format.
+func GetValueForSetFlag(setFlags []string, path string) string {
+	ret := ""
+	for _, sf := range setFlags {
+		p, v := getPV(sf)
+		if p == path {
+			ret = v
+		}
+		// if set multiple times, return last set value
+	}
+	return ret
 }

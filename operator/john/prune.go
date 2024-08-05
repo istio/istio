@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helmreconciler
+package john
 
 import (
 	"context"
@@ -28,10 +28,34 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/ptr"
 )
+
+const (
+	// MetadataNamespace is the namespace for mesh metadata (labels, annotations)
+	MetadataNamespace = "install.operator.istio.io"
+	// OwningResourceName represents the name of the owner to which the resource relates
+	OwningResourceName = MetadataNamespace + "/owning-resource"
+	// OwningResourceNamespace represents the namespace of the owner to which the resource relates
+	OwningResourceNamespace = MetadataNamespace + "/owning-resource-namespace"
+	// OwningResourceNotPruned indicates that the resource should not be pruned during reconciliation cycles,
+	// note this will not prevent the resource from being deleted if the owning resource is deleted.
+	OwningResourceNotPruned = MetadataNamespace + "/owning-resource-not-pruned"
+	// operatorLabelStr indicates Istio operator is managing this resource.
+	operatorLabelStr = name.OperatorAPINamespace + "/managed"
+	// operatorReconcileStr indicates that the operator will reconcile the resource.
+	operatorReconcileStr = "Reconcile"
+	// IstioComponentLabelStr indicates which Istio component a resource belongs to.
+	IstioComponentLabelStr = name.OperatorAPINamespace + "/component"
+	// istioVersionLabelStr indicates the Istio version of the installation.
+	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
+)
+
+// TestMode sets the controller into test mode. Used for unit tests to bypass things like waiting on resources.
+var TestMode = false
 
 var (
 	// ClusterResources are resource types the operator prunes, ordered by which types should be deleted, first to last.
@@ -77,7 +101,7 @@ func NamespacedResources() []schema.GroupVersionKind {
 }
 
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
-func DeleteObjectsList(c kube.CLIClient, opts *Options, objectsList []*unstructured.UnstructuredList) error {
+func DeleteObjectsList(c kube.CLIClient, dryRun bool, log clog.Logger, objectsList []*unstructured.UnstructuredList) error {
 	var errs util.Errors
 	deletedObjects := make(map[string]bool)
 	for _, ul := range objectsList {
@@ -89,7 +113,7 @@ func DeleteObjectsList(c kube.CLIClient, opts *Options, objectsList []*unstructu
 			if deletedObjects[oh] {
 				continue
 			}
-			if err := deleteResource(c, opts, obj, oh); err != nil {
+			if err := deleteResource(c, dryRun, log, obj, oh); err != nil {
 				errs = append(errs, err)
 			}
 			deletedObjects[oh] = true
@@ -169,9 +193,9 @@ func PrunedResourcesSchemas() []schema.GroupVersionKind {
 	return append(NamespacedResources(), ClusterResources...)
 }
 
-func deleteResource(clt kube.CLIClient, opts *Options, obj *object.K8sObject, oh string) error {
-	if opts.DryRun {
-		opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
+func deleteResource(clt kube.CLIClient, dryRun bool, log clog.Logger, obj *object.K8sObject, oh string) error {
+	if dryRun {
+		log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
 		return nil
 	}
 	u := obj.UnstructuredObject()
@@ -185,10 +209,10 @@ func deleteResource(clt kube.CLIClient, opts *Options, obj *object.K8sObject, oh
 			return err
 		}
 		// do not return error if resources are not found
-		opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
+		log.LogAndPrintf("object: %s is not being deleted because it no longer exists", obj.Hash())
 		return nil
 	}
 
-	opts.Log.LogAndPrintf("  Removed %s.", oh)
+	log.LogAndPrintf("  Removed %s.", oh)
 	return nil
 }
