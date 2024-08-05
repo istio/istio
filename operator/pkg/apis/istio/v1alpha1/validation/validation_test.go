@@ -15,12 +15,12 @@
 package validation_test
 
 import (
-	"strings"
+	"fmt"
 	"testing"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
-	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const operatorSubdirFilePath = "manifests"
@@ -31,199 +31,196 @@ func TestValidateConfig(t *testing.T) {
 		name     string
 		value    *v1alpha1.IstioOperatorSpec
 		values   string
-		errors   string
-		warnings string
+		errors   error
+		warnings validation.Warnings
 	}{
 		{
 			name: "unset target port",
 			values: `
-components:
-  ingressGateways:
-    - name: istio-ingressgateway
-      enabled: true
-    - name: cluster-local-gateway
-      enabled: true
-      k8s:
-        service:
-          type: ClusterIP
-          ports:
-          - port: 15020
-            name: status-port
-          - port: 80
-            name: http2
+spec:
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+      - name: cluster-local-gateway
+        enabled: true
+        k8s:
+          service:
+            type: ClusterIP
+            ports:
+            - port: 15020
+              name: status-port
+            - port: 80
+              name: http2
 `,
-			errors: `port http2/80 in gateway cluster-local-gateway invalid: targetPort is set to 0, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`,
+			errors: fmt.Errorf(`port http2/80 in gateway cluster-local-gateway invalid: targetPort is set to 0, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`),
 		},
 		{
 			name: "explicitly invalid target port",
 			values: `
-components:
-  ingressGateways:
-    - name: istio-ingressgateway
-      enabled: true
-    - name: cluster-local-gateway
-      enabled: true
-      k8s:
-        service:
-          type: ClusterIP
-          ports:
-          - port: 15020
-            name: status-port
-          - port: 80
-            name: http2
-            targetPort: 90
+spec:
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+      - name: cluster-local-gateway
+        enabled: true
+        k8s:
+          service:
+            type: ClusterIP
+            ports:
+            - port: 15020
+              name: status-port
+            - port: 80
+              name: http2
+              targetPort: 90
 `,
-			errors: `port http2/80 in gateway cluster-local-gateway invalid: targetPort is set to 90, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`,
+			errors: fmt.Errorf(`port http2/80 in gateway cluster-local-gateway invalid: targetPort is set to 90, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`),
 		},
 		{
 			name: "explicitly invalid target port for egress",
 			values: `
-components:
-  egressGateways:
-    - name: egress-gateway
-      enabled: true
-      k8s:
-        service:
-          type: ClusterIP
-          ports:
-          - port: 15020
-            name: status-port
-          - port: 80
-            name: http2
-            targetPort: 90
+spec:
+  components:
+    egressGateways:
+      - name: egress-gateway
+        enabled: true
+        k8s:
+          service:
+            type: ClusterIP
+            ports:
+            - port: 15020
+              name: status-port
+            - port: 80
+              name: http2
+              targetPort: 90
 `,
-			errors: `port http2/80 in gateway egress-gateway invalid: targetPort is set to 90, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-egressgateway.runAsRoot=true`,
+			errors: fmt.Errorf(`port http2/80 in gateway egress-gateway invalid: targetPort is set to 90, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-egressgateway.runAsRoot=true`),
 		},
 		{
 			name: "low target port with root",
 			values: `
-components:
-  ingressGateways:
-    - name: istio-ingressgateway
-      enabled: true
-    - name: cluster-local-gateway
-      enabled: true
-      k8s:
-        service:
-          type: ClusterIP
-          ports:
-          - port: 15020
-            name: status-port
-          - port: 80
-            name: http2
-            targetPort: 90
-values:
-  gateways:
-    istio-ingressgateway:
-      runAsRoot: true
+spec:
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+      - name: cluster-local-gateway
+        enabled: true
+        k8s:
+          service:
+            type: ClusterIP
+            ports:
+            - port: 15020
+              name: status-port
+            - port: 80
+              name: http2
+              targetPort: 90
+  values:
+    gateways:
+      istio-ingressgateway:
+        runAsRoot: true
 `,
-			errors: ``,
+			errors: nil,
 		},
 		{
 			name: "legacy values ports config empty targetPort",
 			values: `
-values:
-  gateways:
-    istio-ingressgateway:
-      ingressPorts:
-      - name: http
-        port: 80
+spec:
+  values:
+    gateways:
+      istio-ingressgateway:
+        ingressPorts:
+        - name: http
+          port: 80
 `,
-			errors: `port 80 is invalid: targetPort is set to 0, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`,
+			errors: fmt.Errorf(`port 80 is invalid: targetPort is set to 0, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`),
 		},
 		{
 			name: "legacy values ports config explicit targetPort",
 			values: `
-values:
-  gateways:
-    istio-ingressgateway:
-      ingressPorts:
-      - name: http
-        port: 80
-        targetPort: 90
+spec:
+  values:
+    gateways:
+      istio-ingressgateway:
+        ingressPorts:
+        - name: http
+          port: 80
+          targetPort: 90
 `,
-			errors: `port 80 is invalid: targetPort is set to 90, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`,
+			errors: fmt.Errorf(`port 80 is invalid: targetPort is set to 90, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`),
 		},
 		{
 			name: "legacy values ports valid",
 			values: `
-values:
-  gateways:
-    istio-ingressgateway:
-      ingressPorts:
-      - name: http
-        port: 80
-        targetPort: 8080
+spec:
+  values:
+    gateways:
+      istio-ingressgateway:
+        ingressPorts:
+        - name: http
+          port: 80
+          targetPort: 8080
 `,
-			errors: ``,
+			errors: nil,
 		},
 		{
 			name: "replicaCount set when autoscaleEnabled is true",
 			values: `
-values:
-  pilot:
-    autoscaleEnabled: true
-  gateways:
-    istio-ingressgateway:
+spec:
+  values:
+    pilot:
       autoscaleEnabled: true
-    istio-egressgateway:
-      autoscaleEnabled: true
-components:
-  pilot:
-    k8s:
-      replicaCount: 2
-  ingressGateways:
-    - name: istio-ingressgateway
-      enabled: true
+    gateways:
+      istio-ingressgateway:
+        autoscaleEnabled: true
+      istio-egressgateway:
+        autoscaleEnabled: true
+  components:
+    pilot:
       k8s:
         replicaCount: 2
-  egressGateways:
-    - name: istio-egressgateway
-      enabled: true
-      k8s:
-        replicaCount: 2
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        k8s:
+          replicaCount: 2
+    egressGateways:
+      - name: istio-egressgateway
+        enabled: true
+        k8s:
+          replicaCount: 2
 `,
-			warnings: strings.TrimSpace(`
-components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true
-components.ingressGateways[name=istio-ingressgateway].k8s.replicaCount should not be set when values.gateways.istio-ingressgateway.autoscaleEnabled is true
-components.egressGateways[name=istio-egressgateway].k8s.replicaCount should not be set when values.gateways.istio-egressgateway.autoscaleEnabled is true
-`),
+			warnings: validation.Warnings{
+				`components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true`,
+				`components.ingressGateways[name=istio-ingressgateway].k8s.replicaCount should not be set when values.gateways.istio-ingressgateway.autoscaleEnabled is true`,
+				`components.egressGateways[name=istio-egressgateway].k8s.replicaCount should not be set when values.gateways.istio-egressgateway.autoscaleEnabled is true`,
+			},
 		},
 		{
 			name: "pilot.k8s.replicaCount is default value set when autoscaleEnabled is true",
 			values: `
-values:
-  pilot:
-    autoscaleEnabled: true
-  gateways:
-    istio-ingressgateway:
+spec:
+  values:
+    pilot:
       autoscaleEnabled: true
-    istio-egressgateway:
-      autoscaleEnabled: true
-components:
-  pilot:
-    k8s:
-      replicaCount: 1
+    gateways:
+      istio-ingressgateway:
+        autoscaleEnabled: true
+      istio-egressgateway:
+        autoscaleEnabled: true
+  components:
+    pilot:
+      k8s:
+        replicaCount: 1
 `,
-			warnings: strings.TrimSpace(``),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			iop := tt.value
-			if tt.values != "" {
-				iop = &v1alpha1.IstioOperatorSpec{}
-				if err := util.UnmarshalWithJSONPB(tt.values, iop, true); err != nil {
-					t.Fatal(err)
-				}
-			}
-			err, warnings := validation.ValidateConfig(iop)
-			if tt.errors != err.String() {
-				t.Fatalf("expected errors: \n%q\n got: \n%q\n", tt.errors, err.String())
-			}
-			if tt.warnings != warnings {
-				t.Fatalf("expected warnings: \n%q\n got \n%q\n", tt.warnings, warnings)
-			}
+			warnings, errors := validation.ParseAndValidateIstioOperator(tt.values, false)
+			assert.Equal(t, tt.errors, errors, "errors")
+			assert.Equal(t, tt.warnings, warnings, "warnings")
 		})
 	}
 }

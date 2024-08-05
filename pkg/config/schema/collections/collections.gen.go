@@ -10,13 +10,11 @@ import (
 
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
-	k8sioapiautoscalingv2 "k8s.io/api/autoscaling/v2"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
 	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
-	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -268,21 +266,6 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
-	HorizontalPodAutoscaler = resource.Builder{
-		Identifier: "HorizontalPodAutoscaler",
-		Group:      "autoscaling",
-		Kind:       "HorizontalPodAutoscaler",
-		Plural:     "horizontalpodautoscalers",
-		Version:    "v2",
-		Proto:      "k8s.io.api.autoscaling.v2.HorizontalPodAutoscalerSpec", StatusProto: "k8s.io.api.autoscaling.v2.HorizontalPodAutoscalerStatus",
-		ReflectType: reflect.TypeOf(&k8sioapiautoscalingv2.HorizontalPodAutoscalerSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapiautoscalingv2.HorizontalPodAutoscalerStatus{}).Elem(),
-		ProtoPackage: "k8s.io/api/autoscaling/v2", StatusPackage: "k8s.io/api/autoscaling/v2",
-		ClusterScoped: false,
-		Synthetic:     false,
-		Builtin:       true,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild()
-
 	Ingress = resource.Builder{
 		Identifier: "Ingress",
 		Group:      "networking.k8s.io",
@@ -449,21 +432,6 @@ var (
 		Proto:         "k8s.io.api.core.v1.PodSpec",
 		ReflectType:   reflect.TypeOf(&k8sioapicorev1.PodSpec{}).Elem(),
 		ProtoPackage:  "k8s.io/api/core/v1",
-		ClusterScoped: false,
-		Synthetic:     false,
-		Builtin:       true,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild()
-
-	PodDisruptionBudget = resource.Builder{
-		Identifier: "PodDisruptionBudget",
-		Group:      "policy",
-		Kind:       "PodDisruptionBudget",
-		Plural:     "poddisruptionbudgets",
-		Version:    "v1",
-		Proto:      "k8s.io.api.policy.v1.PodDisruptionBudgetSpec", StatusProto: "k8s.io.api.policy.v1.PodDisruptionBudgetStatus",
-		ReflectType: reflect.TypeOf(&k8sioapipolicyv1.PodDisruptionBudgetSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapipolicyv1.PodDisruptionBudgetStatus{}).Elem(),
-		ProtoPackage: "k8s.io/api/policy/v1", StatusPackage: "k8s.io/api/policy/v1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       true,
@@ -785,7 +753,6 @@ var (
 		MustAdd(Gateway).
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
-		MustAdd(HorizontalPodAutoscaler).
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
@@ -797,7 +764,6 @@ var (
 		MustAdd(Node).
 		MustAdd(PeerAuthentication).
 		MustAdd(Pod).
-		MustAdd(PodDisruptionBudget).
 		MustAdd(ProxyConfig).
 		MustAdd(ReferenceGrant).
 		MustAdd(RequestAuthentication).
@@ -830,7 +796,6 @@ var (
 		MustAdd(GRPCRoute).
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
-		MustAdd(HorizontalPodAutoscaler).
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
@@ -839,7 +804,6 @@ var (
 		MustAdd(Namespace).
 		MustAdd(Node).
 		MustAdd(Pod).
-		MustAdd(PodDisruptionBudget).
 		MustAdd(ReferenceGrant).
 		MustAdd(Secret).
 		MustAdd(Service).
