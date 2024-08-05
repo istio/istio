@@ -35,12 +35,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
 	uninstall2 "istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util/testhelpers"
 	tutil "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/slices"
@@ -246,12 +245,12 @@ func TestManifestGenerateGateways(t *testing.T) {
 	objss := runManifestCommands(t, "gateways", flags, liveCharts, nil)
 
 	for _, objs := range objss {
-		g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
-		g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
-		g.Expect(objs.kind(name.ServiceStr).labels("istio=ingressgateway").size()).Should(Equal(3))
-		g.Expect(objs.kind(name.RoleStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
-		g.Expect(objs.kind(name.RoleBindingStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
-		g.Expect(objs.kind(name.SAStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
+		g.Expect(objs.kind(manifest.HorizontalPodAutoscaler).size()).Should(Equal(3))
+		g.Expect(objs.kind(manifest.PodDisruptionBudget).size()).Should(Equal(3))
+		g.Expect(objs.kind(gvk.Service.Kind).labels("istio=ingressgateway").size()).Should(Equal(3))
+		g.Expect(objs.kind(manifest.Role).nameMatches(".*gateway.*").size()).Should(Equal(3))
+		g.Expect(objs.kind(manifest.RoleBinding).nameMatches(".*gateway.*").size()).Should(Equal(3))
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameMatches(".*gateway.*").size()).Should(Equal(3))
 
 		dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 		d := dobj.Unstructured
@@ -280,7 +279,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[1]", portVal("tcp-citadel-grpc-tls", 8060, 8060)}))
 		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
 
-		for _, o := range objs.kind(name.HPAStr).objSlice {
+		for _, o := range objs.kind(manifest.HorizontalPodAutoscaler).objSlice {
 			ou := o.Unstructured
 			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
 			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
@@ -303,7 +302,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			force: true,
 			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
 				g.Expect(err).Should(BeNil())
-				g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(3))
+				g.Expect(objs.kind(gvk.MutatingWebhookConfiguration.Kind).size()).Should(Equal(3))
 			},
 		},
 		{
@@ -386,16 +385,16 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 
 	for _, objs := range objss {
 		// check core CRDs exists
-		g.Expect(objs.kind(name.CRDStr).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.CRDStr).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.CRDStr).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(BeNil())
-		g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("adapters.config.istio.io")).Should(BeNil())
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
 
-		g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.ConfigMap.Kind).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.Service.Kind).nameEquals("istiod")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
 
 		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured
 		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
@@ -712,10 +711,10 @@ func TestTrailingWhitespace(t *testing.T) {
 
 func validateReferentialIntegrity(t *testing.T, objs []manifest.Manifest, cname string, deploymentSelector map[string]string) {
 	t.Run(cname, func(t *testing.T) {
-		deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
-		service := mustFindObject(t, objs, cname, name.ServiceStr)
-		pdb := mustFindObject(t, objs, cname, name.PDBStr)
-		hpa := mustFindObject(t, objs, cname, name.HPAStr)
+		deployment := mustFindObject(t, objs, cname, gvk.Deployment.Kind)
+		service := mustFindObject(t, objs, cname, gvk.Service.Kind)
+		pdb := mustFindObject(t, objs, cname, manifest.PodDisruptionBudget)
+		hpa := mustFindObject(t, objs, cname, manifest.HorizontalPodAutoscaler)
 		podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
 		// Check all selectors align
 		mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels)
@@ -726,7 +725,7 @@ func validateReferentialIntegrity(t *testing.T, objs []manifest.Manifest, cname 
 		}
 
 		serviceAccountName := mustGetPath(t, deployment, "spec.template.spec.serviceAccountName").(string)
-		mustFindObject(t, objs, serviceAccountName, name.SAStr)
+		mustFindObject(t, objs, serviceAccountName, gvk.ServiceAccount.Kind)
 
 		// Check we aren't changing immutable fields. This only matters for in place upgrade (non revision)
 		// This one is not a selector, it must be an exact match
@@ -782,17 +781,17 @@ func TestConfigSelectors(t *testing.T) {
 		// Istiod revisions have complicated cross revision implications. We should assert these are correct
 		// First we fetch all the objects for our default install
 		cname := "istiod"
-		deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
-		service := mustFindObject(t, objs, cname, name.ServiceStr)
-		pdb := mustFindObject(t, objs, cname, name.PDBStr)
+		deployment := mustFindObject(t, objs, cname, gvk.Deployment.Kind)
+		service := mustFindObject(t, objs, cname, gvk.Service.Kind)
+		pdb := mustFindObject(t, objs, cname, manifest.PodDisruptionBudget)
 		podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
 
 		// Next we fetch all the objects for a revision install
 		nameRev := "istiod-canary"
-		deploymentRev := mustFindObject(t, objsRev, nameRev, name.DeploymentStr)
-		hpaRev := mustFindObject(t, objsRev, nameRev, name.HPAStr)
-		serviceRev := mustFindObject(t, objsRev, nameRev, name.ServiceStr)
-		pdbRev := mustFindObject(t, objsRev, nameRev, name.PDBStr)
+		deploymentRev := mustFindObject(t, objsRev, nameRev, gvk.Deployment.Kind)
+		hpaRev := mustFindObject(t, objsRev, nameRev, manifest.HorizontalPodAutoscaler)
+		serviceRev := mustFindObject(t, objsRev, nameRev, gvk.Service.Kind)
+		pdbRev := mustFindObject(t, objsRev, nameRev, manifest.PodDisruptionBudget)
 		podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
 
 		// Make sure default and revisions do not cross
@@ -918,7 +917,7 @@ func getWebhooks(t *testing.T, setFlags string, webhookName string) []v1.Mutatin
 		t.Fatal(err)
 	}
 	objs := parseObjectSetFromManifest(t, got).objSlice
-	return mustGetWebhook(t, mustFindObject(t, objs, webhookName, name.MutatingWebhookConfigurationStr))
+	return mustGetWebhook(t, mustFindObject(t, objs, webhookName, gvk.MutatingWebhookConfiguration.Kind))
 }
 
 type LabelSet struct {
@@ -1095,7 +1094,7 @@ func TestSidecarTemplate(t *testing.T) {
 // FilterManifest selects and ignores subset from the manifest string
 func filterManifest(t test.Failer, ms string, selectResources string) string {
 	sm := getObjPathMap(selectResources)
-	parsed, err := helm.ParseManifests(yml.SplitString(ms))
+	parsed, err := manifest.Parse(yml.SplitString(ms))
 	if err != nil {
 		t.Fatal(err)
 	}

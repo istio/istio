@@ -24,12 +24,11 @@ import (
 	"github.com/onsi/gomega/types"
 	labels2 "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
-	name2 "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/values"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
@@ -63,9 +62,9 @@ func NewObjectSet(objs []manifest.Manifest) *ObjectSet {
 }
 
 // parseObjectSetFromManifest parses an ObjectSet from the given manifest.
-func parseObjectSetFromManifest(t test.Failer, manifest string) *ObjectSet {
-	spl := yml.SplitString(manifest)
-	mfs, err := helm.ParseManifests(spl)
+func parseObjectSetFromManifest(t test.Failer, raw string) *ObjectSet {
+	spl := yml.SplitString(raw)
+	mfs, err := manifest.Parse(spl)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,35 +174,35 @@ func hasLabel(o manifest.Manifest, label, value string) bool {
 
 // mustGetService returns the service with the given name or fails if it's not found in objs.
 func mustGetService(g *WithT, objs *ObjectSet, name string) manifest.Manifest {
-	obj := objs.kind(name2.ServiceStr).nameEquals(name)
+	obj := objs.kind(gvk.Service.Kind).nameEquals(name)
 	g.Expect(obj).Should(Not(BeNil()))
 	return *obj
 }
 
 // mustGetDeployment returns the deployment with the given name or fails if it's not found in objs.
 func mustGetDeployment(g *WithT, objs *ObjectSet, deploymentName string) manifest.Manifest {
-	obj := objs.kind(name2.DeploymentStr).nameEquals(deploymentName)
+	obj := objs.kind(gvk.Deployment.Kind).nameEquals(deploymentName)
 	g.Expect(obj).Should(Not(BeNil()))
 	return *obj
 }
 
 // mustGetDaemonset returns the DaemonSet with the given name or fails if it's not found in objs.
 func mustGetDaemonset(g *WithT, objs *ObjectSet, daemonSetName string) manifest.Manifest {
-	obj := objs.kind(name2.DaemonSetStr).nameEquals(daemonSetName)
+	obj := objs.kind(gvk.DaemonSet.Kind).nameEquals(daemonSetName)
 	g.Expect(obj).Should(Not(BeNil()))
 	return *obj
 }
 
 // mustGetClusterRole returns the clusterRole with the given name or fails if it's not found in objs.
 func mustGetClusterRole(g *WithT, objs *ObjectSet, name string) manifest.Manifest {
-	obj := objs.kind(name2.ClusterRoleStr).nameEquals(name)
+	obj := objs.kind(manifest.ClusterRole).nameEquals(name)
 	g.Expect(obj).Should(Not(BeNil()))
 	return *obj
 }
 
 // mustGetRole returns the role with the given name or fails if it's not found in objs.
 func mustGetRole(g *WithT, objs *ObjectSet, name string) manifest.Manifest {
-	obj := objs.kind(name2.RoleStr).nameEquals(name)
+	obj := objs.kind(manifest.Role).nameEquals(name)
 	g.Expect(obj).Should(Not(BeNil()))
 	return *obj
 }
@@ -241,7 +240,7 @@ func mustGetContainerFromDaemonset(g *WithT, objs *ObjectSet, daemonSetName, con
 
 // mustGetEndpoint returns the endpoint tree with the given name in the deployment with the given name.
 func mustGetEndpoint(g *WithT, objs *ObjectSet, endpointName string) *manifest.Manifest {
-	obj := objs.kind(name2.EndpointStr).nameEquals(endpointName)
+	obj := objs.kind(gvk.Endpoints.Kind).nameEquals(endpointName)
 	if obj == nil {
 		return nil
 	}
@@ -251,7 +250,7 @@ func mustGetEndpoint(g *WithT, objs *ObjectSet, endpointName string) *manifest.M
 
 // mustGetMutatingWebhookConfiguration returns the mutatingWebhookConfiguration with the given name or fails if it's not found in objs.
 func mustGetMutatingWebhookConfiguration(g *WithT, objs *ObjectSet, mutatingWebhookConfigurationName string) *manifest.Manifest {
-	obj := objs.kind(name2.MutatingWebhookConfigurationStr).nameEquals(mutatingWebhookConfigurationName)
+	obj := objs.kind(gvk.MutatingWebhookConfiguration.Kind).nameEquals(mutatingWebhookConfigurationName)
 	g.Expect(obj).Should(Not(BeNil()))
 	return obj
 }
@@ -517,7 +516,7 @@ func portVal(name string, port, targetPort int64) map[string]any {
 
 // checkRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
 func checkRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
-	for _, o := range objs.kind(name2.RoleBindingStr).objSlice {
+	for _, o := range objs.kind(manifest.RoleBinding).objSlice {
 		rrname := values.TryGetPathAs[string](o.Object, "roleRef.name")
 		mustGetRole(g, objs, rrname)
 	}
@@ -525,7 +524,7 @@ func checkRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
 
 // checkClusterRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
 func checkClusterRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
-	for _, o := range objs.kind(name2.ClusterRoleBindingStr).objSlice {
+	for _, o := range objs.kind(manifest.ClusterRoleBinding).objSlice {
 		rrname := values.TryGetPathAs[string](o.Object, "roleRef.name")
 		mustGetRole(g, objs, rrname)
 	}

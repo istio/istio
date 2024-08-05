@@ -15,12 +15,15 @@
 package validation_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/apis/validation"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const operatorSubdirFilePath = "manifests"
@@ -192,9 +195,9 @@ spec:
           replicaCount: 2
 `,
 			warnings: validation.Warnings{
-				`components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true`,
-				`components.ingressGateways[name=istio-ingressgateway].k8s.replicaCount should not be set when values.gateways.istio-ingressgateway.autoscaleEnabled is true`,
-				`components.egressGateways[name=istio-egressgateway].k8s.replicaCount should not be set when values.gateways.istio-egressgateway.autoscaleEnabled is true`,
+				errors.New(`components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true`),
+				errors.New(`components.ingressGateways[name=istio-ingressgateway].k8s.replicaCount should not be set when values.gateways.istio-ingressgateway.autoscaleEnabled is true`),
+				errors.New(`components.egressGateways[name=istio-egressgateway].k8s.replicaCount should not be set when values.gateways.istio-egressgateway.autoscaleEnabled is true`),
 			},
 		},
 		{
@@ -219,8 +222,147 @@ spec:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			warnings, errors := validation.ParseAndValidateIstioOperator(tt.values, false)
-			assert.Equal(t, tt.errors, errors, "errors")
-			assert.Equal(t, tt.warnings, warnings, "warnings")
+			assert.Equal(t, tt.errors, errors.ToError(), "errors")
+			assert.Equal(t, tt.warnings.ToError(), warnings.ToError(), "warnings")
 		})
 	}
+}
+
+func TestValidateValues(t *testing.T) {
+	tests := []struct {
+		desc     string
+		yamlStr  string
+		wantErrs util.Errors
+	}{
+		{
+			desc: "nil success",
+		},
+		{
+			desc: "StarIPRange",
+			yamlStr: `
+global:
+  proxy:
+    includeIPRanges: "*"
+    excludeIPRanges: "*"
+`,
+		},
+		{
+			desc: "ProxyConfig",
+			yamlStr: `
+global:
+  podDNSSearchNamespaces:
+  - "my-namespace"
+  proxy:
+    includeIPRanges: "1.1.0.0/16,2.2.0.0/16"
+    excludeIPRanges: "3.3.0.0/16,4.4.0.0/16"
+    excludeInboundPorts: "333,444"
+    clusterDomain: "my.domain"
+    lifecycle:
+      preStop:
+        exec:
+          command: ["/bin/sh", "-c", "sleep 30"]
+`,
+		},
+		{
+			desc: "CNIConfig",
+			yamlStr: `
+cni:
+  cniBinDir: "/var/lib/cni/bin"
+  cniConfDir: "/var/run/multus/cni/net.d"
+`,
+		},
+
+		{
+			desc: "BadIPRange",
+			yamlStr: `
+global:
+  proxy:
+    includeIPRanges: "1.1.0.256/16,2.2.0.257/16"
+    excludeIPRanges: "3.3.0.0/33,4.4.0.0/34"
+`,
+			wantErrs: makeErrors([]string{
+				`global.proxy.excludeIPRanges netip.ParsePrefix("3.3.0.0/33"): prefix length out of range`,
+				`global.proxy.excludeIPRanges netip.ParsePrefix("4.4.0.0/34"): prefix length out of range`,
+				`global.proxy.includeIPRanges netip.ParsePrefix("1.1.0.256/16"): ParseAddr("1.1.0.256"): IPv4 field has value >255`,
+				`global.proxy.includeIPRanges netip.ParsePrefix("2.2.0.257/16"): ParseAddr("2.2.0.257"): IPv4 field has value >255`,
+			}),
+		},
+		{
+			desc: "BadIPMalformed",
+			yamlStr: `
+global:
+  proxy:
+    includeIPRanges: "1.2.3/16,1.2.3.x/16"
+`,
+			wantErrs: makeErrors([]string{
+				`global.proxy.includeIPRanges netip.ParsePrefix("1.2.3/16"): ParseAddr("1.2.3"): IPv4 address too short`,
+				`global.proxy.includeIPRanges netip.ParsePrefix("1.2.3.x/16"): ParseAddr("1.2.3.x"): unexpected character (at "x")`,
+			}),
+		},
+		{
+			desc: "BadIPWithStar",
+			yamlStr: `
+global:
+  proxy:
+    includeIPRanges: "*,1.1.0.0/16,2.2.0.0/16"
+`,
+			wantErrs: makeErrors([]string{`global.proxy.includeIPRanges netip.ParsePrefix("*"): no '/'`}),
+		},
+		{
+			desc: "BadPortRange",
+			yamlStr: `
+global:
+  proxy:
+    excludeInboundPorts: "-1,444"
+`,
+			wantErrs: makeErrors([]string{`value global.proxy.excludeInboundPorts:-1 falls outside range [0, 65535]`}),
+		},
+		{
+			desc: "BadPortMalformed",
+			yamlStr: `
+global:
+  proxy:
+    excludeInboundPorts: "111,222x"
+`,
+			wantErrs: makeErrors([]string{`global.proxy.excludeInboundPorts : strconv.ParseInt: parsing "222x": invalid syntax`}),
+		},
+		{
+			desc: "unknown field",
+			yamlStr: `
+global:
+  proxy:
+    foo: "bar"
+`,
+			wantErrs: makeErrors([]string{`could not unmarshal: error unmarshaling JSON: while decoding JSON: unknown field "foo" in istio.operator.v1alpha1.ProxyConfig`}),
+		},
+		{
+			desc: "unknown cni field",
+			yamlStr: `
+cni:
+  foo: "bar"
+`,
+			wantErrs: makeErrors([]string{`could not unmarshal: error unmarshaling JSON: while decoding JSON: unknown field "foo" in istio.operator.v1alpha1.CNIConfig`}),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			v := tmpl.EvaluateOrFail(t, `
+spec:
+  values:
+{{.|indent 4}}`, tt.yamlStr)
+			_, errs := validation.ParseAndValidateIstioOperator(v, false)
+			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
+				t.Errorf("CheckValues(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.yamlStr, gotErr, wantErr)
+			}
+		})
+	}
+}
+
+func makeErrors(estr []string) util.Errors {
+	var errs util.Errors
+	for _, s := range estr {
+		errs = util.AppendErr(errs, fmt.Errorf("%s", s))
+	}
+	return errs
 }
