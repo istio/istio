@@ -24,6 +24,9 @@ defaults:
     ipFamilyPolicy: ""
     ipFamilies: []
 
+    # Labels to apply to all resources
+    labels: {}
+
   base:
     # Used for helm2 to add the CRDs to templates.
     enableCRDTemplates: false

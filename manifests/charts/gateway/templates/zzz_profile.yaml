@@ -41,3 +41,15 @@ Finally, we can set all of that under .Values so the chart behaves without aware
 {{- $a := mustMergeOverwrite $defaults $globals  }}
 {{- end }}
 {{- $b := set $ "Values" (mustMergeOverwrite $defaults $.Values) }}
+
+{{/*
+Labels that should be applied to ALL resources.
+*/}}
+{{- define "istio.labels" -}}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/part-of: istio
+app.kubernetes.io/version: {{ .Chart.AppVersion }}
+istio.io/rev: {{ .Values.revision | default "default" | quote }}
+helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+{{- end -}}

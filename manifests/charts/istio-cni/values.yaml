@@ -114,6 +114,9 @@ defaults:
     # Default tag for Istio images.
     tag: latest
 
+    # Labels to apply to all resources
+    labels: {}
+
     # Variant of the image to use.
     # Currently supported are: [debug, distroless]
     variant: ""
@@ -121,7 +124,7 @@ defaults:
     # Specify image pull policy if default behavior isn't desired.
     # Default behavior: latest images will be Always else IfNotPresent.
     imagePullPolicy: ""
-
+    #
     # change cni scope level to control logging out of istio-cni-node DaemonSet
     logging:
       level: info

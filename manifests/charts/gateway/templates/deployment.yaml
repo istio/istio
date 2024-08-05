@@ -25,6 +25,7 @@ spec:
       labels:
         {{- include "gateway.sidecarInjectionLabels" . | nindent 8 }}
         {{- include "gateway.selectorLabels" . | nindent 8 }}
+        # FIXMlj
         app.kubernetes.io/name: {{ include "gateway.name" . }}
         app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
         {{- range $key, $val := .Values.labels }}

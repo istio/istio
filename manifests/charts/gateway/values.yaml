@@ -12,6 +12,9 @@ defaults:
 
   kind: Deployment
 
+  # Labels to apply to all resources
+  labels: {a : b}
+
   rbac:
     # If enabled, roles will be created to enable accessing certificates from Gateways. This is not needed
     # when using http://gateway-api.org/.
@@ -83,12 +86,6 @@ defaults:
 
   # Pod environment variables
   env: {}
-
-  # Labels to apply to all resources
-  labels: {}
-
-  # Annotations to apply to all resources
-  annotations: {}
 
   nodeSelector: {}
 

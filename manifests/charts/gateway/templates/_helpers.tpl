@@ -6,19 +6,10 @@
 {{- end -}}
 {{- end }}
 
-{{/*
-Create chart name and version as used by the helm.sh/chart label.
-*/}}
-{{- define "gateway.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
 {{- define "gateway.labels" -}}
-helm.sh/chart: {{ include "gateway.chart" . }}
-{{ include "gateway.selectorLabels" . }}
 app.kubernetes.io/name: {{ include "gateway.name" . }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{ include "istio.labels" . }}
+{{ include "gateway.selectorLabels" . }}
 {{- range $key, $val := .Values.labels }}
 {{- if and (ne $key "app") (ne $key "istio") }}
 {{ $key | quote }}: {{ $val | quote }}

@@ -6,6 +6,7 @@ metadata:
   name: {{ include "gateway.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
+    app.kubernetes.io/name: gateway
     {{- include "gateway.labels" . | nindent 4}}
   annotations:
     {{- .Values.annotations | toYaml | nindent 4 }}
@@ -20,6 +21,7 @@ metadata:
   name: {{ include "gateway.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
+    app.kubernetes.io/name: gateway
     {{- include "gateway.labels" . | nindent 4}}
   annotations:
     {{- .Values.annotations | toYaml | nindent 4 }}

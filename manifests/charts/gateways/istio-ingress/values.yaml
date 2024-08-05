@@ -162,6 +162,9 @@ defaults:
     # Default tag for Istio images.
     tag: latest
 
+    # Labels to apply to all resources
+    labels: {}
+
     # Variant of the image to use.
     # Currently supported are: [debug, distroless]
     variant: ""

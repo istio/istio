@@ -621,7 +621,11 @@ message GlobalConfig {
 
   // Specifies how waypoints are configured within Istio.
   WaypointConfig waypoint = 72;
-  // The next available key is 73
+
+  // Labels to apply to all resources
+  map<string, string> labels = 73;
+
+  // The next available key is 74
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -1338,6 +1342,8 @@ message BaseConfig {
 
   // validation webhook CA bundle
   string validationCABundle = 5;
+
+  map<string, string> labels = 6;
 }
 
 message IstiodRemoteConfig {
