@@ -224,6 +224,33 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (Map, e
 	// Merge the user values on top
 	base.MergeFrom(userConfigBase)
 
+	// Canonicalize some of the values, translating things like spec.hub to spec.values.global.hub for helm compatibility
+	return translateIstioOperatorToHelm(base)
+}
+
+func translateIstioOperatorToHelm(base Map) (Map, error) {
+	translations := map[string]string{
+		"spec.hub":                  "global.hub",
+		"spec.tag":                  "global.tag",
+		"spec.revision":             "revision",
+		"spec.meshConfig":           "meshConfig",
+		"spec.compatibilityVersion": "compatibilityVersion",
+		// TODO: istioNamespace?
+	}
+	for in, out := range translations {
+		v, f := base.GetPath(in)
+		if !f {
+			continue
+		}
+		if _, ok := v.(map[string]any); ok {
+			nm := MakeMap(v, "spec", "values", "meshConfig")
+			base.MergeFrom(nm)
+		} else {
+			if err := base.SetSpecPaths(fmt.Sprintf("values.%s=%v", out, v)); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return base, nil
 }
 

@@ -47,9 +47,20 @@ func (m Map) YAML() string {
 	return string(b)
 }
 
+func MakeMap(contents any, path ...string) Map {
+	ret := Map{path[len(path)-1]: contents}
+	for i := len(path) - 2; i >= 0; i-- {
+		ret = Map{path[i]: any(ret).(Map)}
+	}
+	return ret
+}
+
 func (m Map) MergeFrom(other Map) {
 	for k, v := range other {
-		// Might be a map, possibly recurse
+		// Might be a Map or map, possibly recurse
+		if vm, ok := v.(Map); ok {
+			v = (map[string]any)(vm)
+		}
 		if v, ok := v.(map[string]any); ok {
 			// It's a map...
 			if bv, ok := m[k]; ok {
