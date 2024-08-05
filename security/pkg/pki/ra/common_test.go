@@ -26,9 +26,12 @@ import (
 
 func TestCompareCSRs(t *testing.T) {
 	basicGenCSR, err := util.GenCSRTemplate(util.CertOptions{Host: testCsrHostName})
+	if err != nil {
+		t.Fatalf("Failed to generate basic CSR template: %v", err)
+	}
 	basicGenDualHostCSR, err := util.GenCSRTemplate(util.CertOptions{Host: testCsrHostName, IsDualUse: true})
 	if err != nil {
-		t.Fatalf("Failed to generate CSR template: %v", err)
+		t.Fatalf("Failed to generate dual host CSR template: %v", err)
 	}
 	cases := []struct {
 		name           string
@@ -157,8 +160,11 @@ func TestCompareCSRs(t *testing.T) {
 			expectedResult: true,
 		},
 		{
-			name:           "orgCSR with SANs and non SANs extensions",
-			orgCSR:         &x509.CertificateRequest{Subject: pkix.Name{Organization: []string{""}}, Extensions: []pkix.Extension{{Id: util.OidSubjectAlternativeName}, {Id: asn1.ObjectIdentifier{1, 2, 3}}}},
+			name: "orgCSR with SANs and non SANs extensions",
+			orgCSR: &x509.CertificateRequest{
+				Subject:    pkix.Name{Organization: []string{""}},
+				Extensions: []pkix.Extension{{Id: util.OidSubjectAlternativeName}, {Id: asn1.ObjectIdentifier{1, 2, 3}}},
+			},
 			genCSR:         basicGenCSR,
 			expectedResult: false,
 		},
@@ -181,8 +187,11 @@ func TestCompareCSRs(t *testing.T) {
 			expectedResult: true,
 		},
 		{
-			name:           "orgCSR with non empty extra extensions",
-			orgCSR:         &x509.CertificateRequest{Subject: pkix.Name{Organization: []string{""}}, ExtraExtensions: []pkix.Extension{{Id: asn1.ObjectIdentifier{1, 2, 3}}}},
+			name: "orgCSR with non empty extra extensions",
+			orgCSR: &x509.CertificateRequest{
+				Subject:         pkix.Name{Organization: []string{""}},
+				ExtraExtensions: []pkix.Extension{{Id: asn1.ObjectIdentifier{1, 2, 3}}},
+			},
 			genCSR:         basicGenCSR,
 			expectedResult: false,
 		},
