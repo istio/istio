@@ -22,7 +22,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/operator/john"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
@@ -186,7 +186,7 @@ func TestValidateValuesFromProfile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.profile, func(t *testing.T) {
-			m, err := john.MergeInputs(nil, []string{"profile=" + tt.profile}, nil)
+			m, err := render.MergeInputs(nil, []string{"profile=" + tt.profile}, nil)
 			assert.NoError(t, err)
 			vm, ok := m.GetPathMap("spec.values")
 			assert.Equal(t, ok, true)

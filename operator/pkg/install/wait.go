@@ -1,4 +1,4 @@
-package john
+package install
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	kctldeployment "k8s.io/kubectl/pkg/util/deployment"
 
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
@@ -43,7 +44,7 @@ type deployment struct {
 
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
-func WaitForResources(objects []Manifest, client kube.Client, waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog) error {
+func WaitForResources(objects []manifest.Manifest, client kube.Client, waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog) error {
 	if dryRun { // TODO: testmode?
 		return nil
 	}
@@ -79,7 +80,7 @@ func WaitForResources(objects []Manifest, client kube.Client, waitTimeout time.D
 	return nil
 }
 
-func waitForResources(objects []Manifest, k kube.Client, l *progress.ManifestLog) (bool, []string, map[string]string, error) {
+func waitForResources(objects []manifest.Manifest, k kube.Client, l *progress.ManifestLog) (bool, []string, map[string]string, error) {
 	pods := []corev1.Pod{}
 	deployments := []deployment{}
 	daemonsets := []*appsv1.DaemonSet{}

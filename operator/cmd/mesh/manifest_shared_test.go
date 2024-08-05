@@ -34,7 +34,10 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/operator/john"
+	"istio.io/istio/operator/pkg/install"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/render"
+	uninstall2 "istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
@@ -66,10 +69,10 @@ var (
 	testedManifestCmds = []cmdType{cmdGenerate}
 	testClient         kube.CLIClient
 
-	allNamespacedGVKs = append(john.NamespacedResources(),
+	allNamespacedGVKs = append(uninstall2.NamespacedResources(),
 		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"})
 	// CRDs are not in the prune list, but must be considered for tests.
-	allClusterGVKs = john.ClusterResources
+	allClusterGVKs = uninstall2.ClusterResources
 )
 
 // recreateSimpleTestEnv mocks fake kube api server which relies on a simple object tracker
@@ -175,7 +178,7 @@ func fakeControllerReconcile(t test.Failer, inFile string, chartSource chartSour
 func fakeControllerReconcileInternal(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
 	c := SetupFakeClient()
 	l := clog.NewDefaultLogger()
-	manifests, err := john.GenerateManifest(
+	manifests, err := render.GenerateManifest(
 		[]string{inFileAbsolutePath(inFile)},
 		[]string{"installPackagePath=" + string(chartSource)},
 		false, nil, c)
@@ -183,7 +186,7 @@ func fakeControllerReconcileInternal(inFile string, chartSource chartSourceType)
 		return nil, err
 	}
 
-	if err := john.InstallManifests(manifests, false, false, true, c, time.Microsecond, l); err != nil {
+	if err := install.InstallManifests(manifests, false, false, true, c, time.Microsecond, l); err != nil {
 		return nil, err
 	}
 
@@ -232,8 +235,8 @@ func runCommand(cmdGen func(ctx cli.Context) *cobra.Command, args string) (strin
 }
 
 // getAllIstioObjects lists all Istio GVK resources from the testClient.
-func getAllIstioObjects() []john.Manifest {
-	var out []john.Manifest
+func getAllIstioObjects() []manifest.Manifest {
+	var out []manifest.Manifest
 	for _, gvk := range append(allClusterGVKs, allNamespacedGVKs...) {
 		c, err := testClient.DynamicClientFor(gvk, nil, "")
 		if err != nil {
@@ -246,7 +249,7 @@ func getAllIstioObjects() []john.Manifest {
 			continue
 		}
 		for _, o := range objects.Items {
-			mf, err := john.ManifestFromObject(&o)
+			mf, err := manifest.FromObject(&o)
 			if err != nil {
 				log.Error(err.Error())
 				continue

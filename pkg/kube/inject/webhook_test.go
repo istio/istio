@@ -45,7 +45,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	v1beta12 "istio.io/api/networking/v1beta1"
-	"istio.io/istio/operator/john"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -627,7 +627,7 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 		inFilenames = []string{"testdata/inject/" + inFilePath}
 	}
 
-	manifests, err := john.GenerateManifest(inFilenames, setFlags, false, nil, nil)
+	manifests, err := render.GenerateManifest(inFilenames, setFlags, false, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}

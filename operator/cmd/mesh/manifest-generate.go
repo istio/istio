@@ -23,7 +23,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/operator/john"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/slices"
@@ -124,7 +125,7 @@ const (
 )
 
 func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
-	manifests, err := john.GenerateManifest(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
+	manifests, err := render.GenerateManifest(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
 		mgArgs.Force, mgArgs.Filter, kubeClient)
 	if err != nil {
 		return err
@@ -135,12 +136,12 @@ func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l
 	return nil
 }
 
-func sortManifests(raw []john.ManifestSet) []string {
-	all := []john.Manifest{}
+func sortManifests(raw []render.ManifestSet) []string {
+	all := []manifest.Manifest{}
 	for _, m := range raw {
 		all = append(all, m.Manifests...)
 	}
-	slices.SortStableFunc(all, func(a, b john.Manifest) int {
+	slices.SortStableFunc(all, func(a, b manifest.Manifest) int {
 		if r := cmp.Compare(objectKindOrdering(a), objectKindOrdering(b)); r != 0 {
 			return r
 		}
@@ -152,7 +153,7 @@ func sortManifests(raw []john.ManifestSet) []string {
 		}
 		return cmp.Compare(a.GetName(), b.GetName())
 	})
-	return slices.Map(all, func(e john.Manifest) string {
+	return slices.Map(all, func(e manifest.Manifest) string {
 		// marshal the object instead of using the raw content to normalized the output
 		// This is likely not good behavior
 		res, _ := yaml.Marshal(e.Object)
@@ -160,7 +161,7 @@ func sortManifests(raw []john.ManifestSet) []string {
 	})
 }
 
-func objectKindOrdering(m john.Manifest) int {
+func objectKindOrdering(m manifest.Manifest) int {
 	o := m.Unstructured
 	gk := o.GroupVersionKind().Group + "/" + o.GroupVersionKind().Kind
 	switch {

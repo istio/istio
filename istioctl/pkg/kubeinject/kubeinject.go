@@ -48,7 +48,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
-	"istio.io/istio/operator/john"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -435,7 +435,7 @@ func getIOPConfigs() (string, *meshconfig.MeshConfig, error) {
 	var meshConfig *meshconfig.MeshConfig
 	var valuesConfig string
 	if iopFilename != "" {
-		iop, err := john.MergeInputs([]string{iopFilename}, nil, nil)
+		iop, err := render.MergeInputs([]string{iopFilename}, nil, nil)
 		if err != nil {
 			return "", nil, err
 		}

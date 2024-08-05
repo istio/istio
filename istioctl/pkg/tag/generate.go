@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"istio.io/istio/operator/cmd/mesh"
 	"net/url"
 	"strconv"
 	"strings"
@@ -30,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
-	"istio.io/istio/operator/john"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/maps"
 )
@@ -153,8 +152,8 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
 		tagWhYAML = fmt.Sprintf(`%s
-%s
-%s`, tagWhYAML, mesh.YAMLSeparator, vwhYAML)
+---
+%s`, tagWhYAML, vwhYAML)
 	}
 
 	return tagWhYAML, nil
@@ -210,7 +209,7 @@ func generateValidatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) 
 		"values.base.validationURL=" + config.URL,
 		"values.global.istioNamespace=" + config.IstioNamespace,
 	}
-	mfs, err := john.GenerateManifest(nil, flags,
+	mfs, err := render.GenerateManifest(nil, flags,
 		false, nil, nil)
 	if err != nil {
 		return "", nil
@@ -286,7 +285,7 @@ func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (s
 		"values.sidecarInjectorWebhook.enableNamespacesByDefault=" + strconv.FormatBool(opts.AutoInjectNamespaces),
 		"values.istiodRemote.injectionURL=" + config.URL,
 	}
-	mfs, err := john.GenerateManifest(nil, flags,
+	mfs, err := render.GenerateManifest(nil, flags,
 		false, nil, nil)
 	if err != nil {
 		return "", nil

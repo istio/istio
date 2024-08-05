@@ -35,8 +35,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/operator/john"
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
+	uninstall2 "istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util/testhelpers"
 	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
@@ -429,7 +431,7 @@ func TestPrune(t *testing.T) {
 	// Install a default revision should not cause any error
 	objs := fakeControllerReconcile(t, "empty", tmpCharts)
 
-	for _, s := range john.PrunedResourcesSchemas() {
+	for _, s := range uninstall2.PrunedResourcesSchemas() {
 		remainedObjs := objs.kind(s.Kind)
 		if remainedObjs.size() == 0 {
 			continue
@@ -708,7 +710,7 @@ func TestTrailingWhitespace(t *testing.T) {
 	}
 }
 
-func validateReferentialIntegrity(t *testing.T, objs []john.Manifest, cname string, deploymentSelector map[string]string) {
+func validateReferentialIntegrity(t *testing.T, objs []manifest.Manifest, cname string, deploymentSelector map[string]string) {
 	t.Run(cname, func(t *testing.T) {
 		deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
 		service := mustFindObject(t, objs, cname, name.ServiceStr)
@@ -895,7 +897,7 @@ func runManifestGenerate(filenames []string, flags string, chartSource chartSour
 	return runManifestCommand("generate", filenames, flags, chartSource, fileSelect)
 }
 
-func mustGetWebhook(t test.Failer, obj john.Manifest) []v1.MutatingWebhook {
+func mustGetWebhook(t test.Failer, obj manifest.Manifest) []v1.MutatingWebhook {
 	t.Helper()
 	path := mustGetPath(t, obj, "webhooks")
 	by, err := json.Marshal(path)
@@ -1093,11 +1095,11 @@ func TestSidecarTemplate(t *testing.T) {
 // FilterManifest selects and ignores subset from the manifest string
 func filterManifest(t test.Failer, ms string, selectResources string) string {
 	sm := getObjPathMap(selectResources)
-	parsed, err := john.ParseManifests(yml.SplitString(ms))
+	parsed, err := helm.ParseManifests(yml.SplitString(ms))
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed = slices.FilterInPlace(parsed, func(manifest john.Manifest) bool {
+	parsed = slices.FilterInPlace(parsed, func(manifest manifest.Manifest) bool {
 		for selected := range sm {
 			re, err := buildResourceRegexp(strings.TrimSpace(selected))
 			if err != nil {
@@ -1110,7 +1112,7 @@ func filterManifest(t test.Failer, ms string, selectResources string) string {
 		return false
 	})
 
-	return yml.JoinString(slices.Map(parsed, func(e john.Manifest) string {
+	return yml.JoinString(slices.Map(parsed, func(e manifest.Manifest) string {
 		return e.Content
 	})...) + "\n"
 }

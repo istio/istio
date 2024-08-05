@@ -1,4 +1,4 @@
-package john
+package values
 
 import (
 	"encoding/json"
@@ -275,7 +275,7 @@ func setPathRecurse(base map[string]any, paths []string, value any) error {
 		if k, v, ok := extractKV(paths[1]); ok {
 			index = -1
 			for idx, cm := range base[seg].([]any) {
-				if mustAsMap(cm)[k] == v {
+				if MustAsMap(cm)[k] == v {
 					index = idx
 					break
 				}
@@ -302,7 +302,7 @@ func setPathRecurse(base map[string]any, paths []string, value any) error {
 			}
 			base[seg] = l
 		} else {
-			v := mustAsMap(l[index])
+			v := MustAsMap(l[index])
 			if err := setPathRecurse(v, paths[2:], value); err != nil {
 				return err
 			}
@@ -318,7 +318,7 @@ func setPathRecurse(base map[string]any, paths []string, value any) error {
 		if last {
 			base[seg] = value
 		} else {
-			return setPathRecurse(mustAsMap(base[seg]), paths[1:], value)
+			return setPathRecurse(MustAsMap(base[seg]), paths[1:], value)
 		}
 	}
 	return nil
@@ -358,7 +358,7 @@ func (m Map) GetPath(name string) (any, bool) {
 	cur := any(m)
 
 	for _, n := range parsePath(name) {
-		cm, ok := asMap(cur)
+		cm, ok := AsMap(cur)
 		if !ok {
 			return nil, false
 		}
@@ -375,7 +375,7 @@ func (m Map) GetPath(name string) (any, bool) {
 	return cur, true
 }
 
-func asMap(cur any) (Map, bool) {
+func AsMap(cur any) (Map, bool) {
 	if m, ok := cur.(Map); ok {
 		return m, true
 	}
@@ -385,8 +385,8 @@ func asMap(cur any) (Map, bool) {
 	return nil, false
 }
 
-func mustAsMap(cur any) Map {
-	m, ok := asMap(cur)
+func MustAsMap(cur any) Map {
+	m, ok := AsMap(cur)
 	if !ok {
 		panic(fmt.Sprintf("not a map, got %T: %v", cur, cur))
 	}
