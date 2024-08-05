@@ -19,12 +19,13 @@ import (
 )
 
 type Installer struct {
-	force   bool
-	dryRun  bool
-	kube    kube.CLIClient
-	timeout time.Duration
-	l       clog.Logger
-	pl      *progress.Log
+	force    bool
+	dryRun   bool
+	skipWait bool
+	kube     kube.CLIClient
+	timeout  time.Duration
+	l        clog.Logger
+	pl       *progress.Log
 }
 
 func (i Installer) Install(manifests []ManifestSet) error {
@@ -82,10 +83,12 @@ func (i Installer) ApplyManifest(manifestSet ManifestSet) error {
 		plog.ReportProgress()
 	}
 
-	if err := WaitForResources(manifests, i.kube, i.timeout, i.dryRun, plog); err != nil {
-		werr := fmt.Errorf("failed to wait for resource: %v", err)
-		plog.ReportError(werr.Error())
-		return werr
+	if !i.skipWait {
+		if err := WaitForResources(manifests, i.kube, i.timeout, i.dryRun, plog); err != nil {
+			werr := fmt.Errorf("failed to wait for resource: %v", err)
+			plog.ReportError(werr.Error())
+			return werr
+		}
 	}
 	plog.ReportFinished()
 	return nil
@@ -115,14 +118,15 @@ func (i Installer) ServerSideApply(obj Manifest) error {
 	return nil
 }
 
-func InstallManifests(manifests []ManifestSet, force bool, dryRun bool, kubeclient kube.CLIClient, timeout time.Duration, l clog.Logger) error {
+func InstallManifests(manifests []ManifestSet, force, dryRun, skipWait bool, kubeclient kube.CLIClient, timeout time.Duration, l clog.Logger) error {
 	installer := Installer{
-		force:   force,
-		dryRun:  dryRun,
-		kube:    kubeclient,
-		timeout: timeout,
-		l:       l,
-		pl:      progress.NewLog(),
+		force:    force,
+		dryRun:   dryRun,
+		skipWait: skipWait,
+		kube:     kubeclient,
+		timeout:  timeout,
+		l:        l,
+		pl:       progress.NewLog(),
 	}
 	// TODO: do not hardcode
 	if err := util.CreateNamespace(kubeclient.Kube(), "istio-system", "", dryRun); err != nil {

@@ -188,7 +188,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	}
 
 	// Detect whether previous installation exists prior to performing the installation.
-	if err := john.InstallManifests(manifests, iArgs.Force, rootArgs.DryRun, kubeClient, iArgs.ReadinessTimeout, l); err != nil {
+	if err := john.InstallManifests(manifests, iArgs.Force, rootArgs.DryRun, false, kubeClient, iArgs.ReadinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 	//opts := &helmreconciler.ProcessDefaultWebhookOptions{

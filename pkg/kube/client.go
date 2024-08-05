@@ -83,6 +83,8 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/kubetypes"
@@ -236,7 +238,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		informerWatchesPending: atomic.NewInt32(0),
 		clusterID:              "fake",
 	}
-	c.kube = fake.NewSimpleClientset(objects...)
+	c.kube = fake.NewClientset(objects...)
 
 	c.config = &rest.Config{
 		Host: "server",
@@ -1172,14 +1174,28 @@ func (c *client) buildObject(cfg string, namespace string) (*unstructured.Unstru
 	return obj, dc, nil
 }
 
-func (c *client) DynamicClientFor(gvk schema.GroupVersionKind, obj *unstructured.Unstructured, namespace string) (dynamic.ResourceInterface, error) {
-	mapping, err := c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-	if err != nil {
-		return nil, fmt.Errorf("mapping: %v", err)
+func (c *client) DynamicClientFor(g schema.GroupVersionKind, obj *unstructured.Unstructured, namespace string) (dynamic.ResourceInterface, error) {
+	var namespaced bool
+	var gvr schema.GroupVersionResource
+	if s, f := collections.All.FindByGroupVersionAliasesKind(config.FromKubernetesGVK(g)); f {
+		gvr = s.GroupVersionResource()
+		namespaced = !s.IsClusterScoped()
+	} else if c.mapper != nil {
+		// Fallback to dynamic lookup
+		mapping, err := c.mapper.RESTMapping(g.GroupKind(), g.Version)
+		if err != nil {
+			return nil, fmt.Errorf("mapping: %v", err)
+		}
+		gvr = mapping.Resource
+		namespaced = mapping.Scope.Name() == meta.RESTScopeNameNamespace
+	} else {
+		// Fallback to guessing
+		gvr, _ = meta.UnsafeGuessKindToResource(g)
+		namespaced = (obj != nil && obj.GetNamespace() != "") || namespace != ""
 	}
 
 	var dr dynamic.ResourceInterface
-	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+	if namespaced {
 		ns := ""
 		if obj != nil {
 			ns = obj.GetNamespace()
@@ -1187,13 +1203,13 @@ func (c *client) DynamicClientFor(gvk schema.GroupVersionKind, obj *unstructured
 		if ns == "" {
 			ns = namespace
 		} else if namespace != "" && ns != namespace {
-			return nil, fmt.Errorf("object %v/%v provided namespace %q but apply called with %q", gvk, obj.GetName(), ns, namespace)
+			return nil, fmt.Errorf("object %v/%v provided namespace %q but apply called with %q", g, obj.GetName(), ns, namespace)
 		}
 		// namespaced resources should specify the namespace
-		dr = c.dynamic.Resource(mapping.Resource).Namespace(ns)
+		dr = c.dynamic.Resource(gvr).Namespace(ns)
 	} else {
 		// for cluster-wide resources
-		dr = c.dynamic.Resource(mapping.Resource)
+		dr = c.dynamic.Resource(gvr)
 	}
 	return dr, nil
 }
