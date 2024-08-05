@@ -17,7 +17,6 @@ package helm
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -185,75 +184,7 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 	return sb.String(), nil
 }
 
-// GenerateHubTagOverlay creates an IstioOperatorSpec overlay YAML for hub and tag.
-func GenerateHubTagOverlay(hub, tag string) (string, error) {
-	hubTagYAMLTemplate := `
-spec:
-  hub: {{.Hub}}
-  tag: {{.Tag}}
-`
-	ts := struct {
-		Hub string
-		Tag string
-	}{
-		Hub: hub,
-		Tag: tag,
-	}
-	return util.RenderTemplate(hubTagYAMLTemplate, ts)
-}
-
-// DefaultFilenameForProfile returns the profile name of the default profile for the given profile.
-func DefaultFilenameForProfile(profile string) string {
-	switch {
-	case util.IsFilePath(profile):
-		return filepath.Join(filepath.Dir(profile), DefaultProfileFilename)
-	default:
-		return DefaultProfileString
-	}
-}
-
-// IsDefaultProfile reports whether the given profile is the default profile.
-func IsDefaultProfile(profile string) bool {
-	return profile == "" || profile == DefaultProfileString || filepath.Base(profile) == DefaultProfileFilename
-}
-
 func readFile(path string) (string, error) {
 	b, err := os.ReadFile(path)
 	return string(b), err
-}
-
-// GetProfileYAML returns the YAML for the given profile name, using the given profileOrPath string, which may be either
-// a profile label or a file path.
-func GetProfileYAML(installPackagePath, profileOrPath string) (string, error) {
-	if profileOrPath == "" {
-		profileOrPath = "default"
-	}
-	profiles, err := readProfiles(installPackagePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read profiles: %v", err)
-	}
-	// If charts are a file path and profile is a name like default, transform it to the file path.
-	if profiles[profileOrPath] && installPackagePath != "" {
-		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
-	}
-	// This contains the IstioOperator CR.
-	baseCRYAML, err := ReadProfileYAML(profileOrPath, installPackagePath)
-	if err != nil {
-		return "", err
-	}
-
-	if !IsDefaultProfile(profileOrPath) {
-		// Profile definitions are relative to the default profileOrPath, so read that first.
-		dfn := DefaultFilenameForProfile(profileOrPath)
-		defaultYAML, err := ReadProfileYAML(dfn, installPackagePath)
-		if err != nil {
-			return "", err
-		}
-		baseCRYAML, err = util.OverlayIOP(defaultYAML, baseCRYAML)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return baseCRYAML, nil
 }

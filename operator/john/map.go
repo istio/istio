@@ -47,7 +47,7 @@ func (m Map) YAML() string {
 	return string(b)
 }
 
-func (m Map) MergeInto(other Map) {
+func (m Map) MergeFrom(other Map) {
 	for k, v := range other {
 		// Might be a map, possibly recurse
 		if v, ok := v.(map[string]any); ok {
@@ -56,7 +56,7 @@ func (m Map) MergeInto(other Map) {
 				// And the base map has the same key
 				if bv, ok := bv.(map[string]any); ok {
 					// And it is a map in the base as well
-					Map(bv).MergeInto(v)
+					Map(bv).MergeFrom(v)
 					continue
 				}
 			}
