@@ -77,19 +77,9 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzInitContext fuzz_init_context
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzAnalyzer fuzz_analyzer
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzXds fuzz_xds
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCompareDiff fuzz_compare_diff
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHelmReconciler fuzz_helm_reconciler
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzIntoResourceFile fuzz_into_resource_file
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzTranslateFromValueToSpec fuzz_translate_from_value_to_spec
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzBNMUnmarshalJSON fuzz_bnm_unmarshal_json
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateClusters fuzz_validate_clusters
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCheckIstioOperatorSpec fuzz_check_istio_operator_spec
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzV1Alpha1ValidateConfig fuzz_v1alpha1_validate_config
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGetEnabledComponents fuzz_get_enabled_components
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzRenderManifests fuzz_render_manifests
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzOverlayIOP fuzz_overlay_iop
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzNewControlplane fuzz_new_control_plane
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzResolveK8sConflict fuzz_resolve_k8s_conflict
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzYAMLManifestPatch fuzz_yaml_manifest_patch
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGalleyDiag fuzz_galley_diag
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzNewBootstrapServer fuzz_new_bootstrap_server
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGenCSR fuzz_gen_csr
@@ -97,7 +87,6 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCreateCertE2EUsingClientCertAuth
 
 # Create seed corpora:
 zip "${OUT}"/fuzz_config_validation2_seed_corpus.zip "${SRC}"/istio/tests/fuzz/testdata/FuzzConfigValidation2/seed1
-zip "${OUT}"/fuzz_helm_reconciler_seed_corpus.zip "${SRC}"/istio/operator/pkg/helmreconciler/testdata/*
 zip "${OUT}"/fuzz_into_resource_file_seed_corpus.zip ./pkg/kube/inject/testdata/inject/*.yaml
 
 # Add dictionaries

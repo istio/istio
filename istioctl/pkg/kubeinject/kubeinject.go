@@ -48,14 +48,11 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/operator/john"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/version"
 )
 
@@ -438,34 +435,14 @@ func getIOPConfigs() (string, *meshconfig.MeshConfig, error) {
 	var meshConfig *meshconfig.MeshConfig
 	var valuesConfig string
 	if iopFilename != "" {
-		var iop *iopv1alpha1.IstioOperator
-		y, err := manifest.ReadLayeredYAMLs([]string{iopFilename})
+		iop, err := john.MergeInputs([]string{iopFilename}, nil, nil)
 		if err != nil {
 			return "", nil, err
 		}
-		iop, err = validate.UnmarshalIOP(y)
-		if err != nil {
-			return "", nil, err
-		}
-		if err := validate.ValidIOP(iop); err != nil {
-			return "", nil, fmt.Errorf("validation errors: \n%s", err)
-		}
-		if err != nil {
-			return "", nil, err
-		}
-		if iop.Spec.Values != nil {
-			values, err := protomarshal.ToJSON(iop.Spec.Values)
-			if err != nil {
-				return "", nil, err
-			}
-			valuesConfig = values
-		}
-		if iop.Spec.MeshConfig != nil {
-			meshConfigYaml, err := protomarshal.ToYAML(iop.Spec.MeshConfig)
-			if err != nil {
-				return "", nil, err
-			}
-			meshConfig, err = mesh.ApplyMeshConfigDefaults(meshConfigYaml)
+		v, _ := iop.GetPathMap("spec.values")
+		valuesConfig = v.JSON()
+		if mc, f := iop.GetPathMap("spec.meshConfig"); f {
+			meshConfig, err = mesh.ApplyMeshConfigDefaults(mc.JSON())
 			if err != nil {
 				return "", nil, err
 			}

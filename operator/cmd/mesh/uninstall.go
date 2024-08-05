@@ -25,8 +25,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
-	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/john"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
@@ -92,7 +91,7 @@ func UninstallCmd(ctx cli.Context) *cobra.Command {
   # Uninstall all control planes and shared resources
   istioctl uninstall --purge`,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if uiArgs.revision == "" && manifest.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
+			if uiArgs.revision == "" && john.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
 				return fmt.Errorf("at least one of the --revision (or --set revision=<revision>), --filename or --purge flags must be set")
 			}
 			if len(args) > 0 {
@@ -134,23 +133,23 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 		}
 	}
 
-	opts := &helmreconciler.Options{DryRun: rootArgs.DryRun, Log: l, ProgressLog: progress.NewLog()}
+	pl := progress.NewLog()
 	// If the user is performing a purge install but also specified a revision or filename, we should warn
 	// that the purge will still remove all resources
 	if uiArgs.purge && (uiArgs.revision != "" || uiArgs.filename != "") {
 		l.LogAndPrint(PurgeWithRevisionOrOperatorSpecifiedWarning)
 	}
 
-	objectsList, err := helmreconciler.GetPrunedResources(kubeClient, "", "", uiArgs.revision, uiArgs.purge)
+	objectsList, err := john.GetPrunedResources(kubeClient, "", "", uiArgs.revision, uiArgs.purge)
 	if err != nil {
 		return err
 	}
 	preCheckWarnings(cmd, kubeClient, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
 
-	if err := helmreconciler.DeleteObjectsList(kubeClient, opts, objectsList); err != nil {
+	if err := john.DeleteObjectsList(kubeClient, rootArgs.DryRun, l, objectsList); err != nil {
 		return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 	}
-	opts.ProgressLog.SetState(progress.StateUninstallComplete)
+	pl.SetState(progress.StateUninstallComplete)
 	return nil
 }
 

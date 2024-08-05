@@ -36,7 +36,6 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/istio/operator/john"
-	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/testhelpers"
@@ -444,7 +443,7 @@ func TestPrune(t *testing.T) {
 	objs, err := fakeControllerReconcile("empty", tmpCharts)
 	assert.NoError(t, err)
 
-	for _, s := range helmreconciler.PrunedResourcesSchemas() {
+	for _, s := range john.PrunedResourcesSchemas() {
 		remainedObjs := objs.kind(s.Kind)
 		if remainedObjs.size() == 0 {
 			continue

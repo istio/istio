@@ -25,14 +25,12 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/john"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/util/clog"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
@@ -286,20 +284,20 @@ func humanReadableJoin(ss []string) string {
 	}
 }
 
-func detectDefaultWebhookChange(p Printer, client kube.CLIClient, iop *v1alpha12.IstioOperator, exists bool) error {
-	if !helmreconciler.DetectIfTagWebhookIsNeeded(iop, exists) {
-		return nil
-	}
-	mwhs, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
-		LabelSelector: "app=sidecar-injector,istio.io/rev=default,istio.io/tag=default",
-	})
-	if err != nil {
-		return err
-	}
-	// If there is no default webhook but a revisioned default webhook exists,
-	// and we are installing a new IOP with default semantics, the default webhook shifts.
-	if exists && len(mwhs.Items) == 0 && iop.Spec.GetRevision() == "" {
-		p.Println("The default revision has been updated to point to this installation.")
-	}
-	return nil
-}
+//func detectDefaultWebhookChange(p Printer, client kube.CLIClient, iop *v1alpha12.IstioOperator, exists bool) error {
+//	if !helmreconciler.DetectIfTagWebhookIsNeeded(iop, exists) {
+//		return nil
+//	}
+//	mwhs, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
+//		LabelSelector: "app=sidecar-injector,istio.io/rev=default,istio.io/tag=default",
+//	})
+//	if err != nil {
+//		return err
+//	}
+//	// If there is no default webhook but a revisioned default webhook exists,
+//	// and we are installing a new IOP with default semantics, the default webhook shifts.
+//	if exists && len(mwhs.Items) == 0 && iop.Spec.GetRevision() == "" {
+//		p.Println("The default revision has been updated to point to this installation.")
+//	}
+//	return nil
+//}

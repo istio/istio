@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"istio.io/istio/operator/john"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -46,6 +45,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	v1beta12 "istio.io/api/networking/v1beta1"
+	"istio.io/istio/operator/john"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -632,47 +632,44 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
 	for _, object := range manifests {
-		if len(object) == 0 {
+		if object.Component != "pilot" {
 			continue
 		}
-		r := bytes.NewReader([]byte(object))
-		decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
-
-		out := &unstructured.Unstructured{}
-		err := decoder.Decode(out)
-		if err != nil {
-			t.Fatalf("error decoding object %q: %v", object, err)
+		if len(object.Manifests) == 0 {
+			continue
 		}
-		if out.GetName() == "istio-sidecar-injector" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
-			data, ok := out.Object["data"].(map[string]any)
-			if !ok {
-				t.Fatalf("failed to convert %v", out)
-			}
-			config, ok := data["config"].(string)
-			if !ok {
-				t.Fatalf("failed to config %v", data)
-			}
-			vs, ok := data["values"].(string)
-			if !ok {
-				t.Fatalf("failed to config %v", data)
-			}
-			if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".values.gen.yaml"), []byte(vs), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".template.gen.yaml"), []byte(config), 0o644); err != nil {
-				t.Fatal(err)
-			}
-		} else if out.GetName() == "istio" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
-			data, ok := out.Object["data"].(map[string]any)
-			if !ok {
-				t.Fatalf("failed to convert %v", out)
-			}
-			meshdata, ok := data["mesh"].(string)
-			if !ok {
-				t.Fatalf("failed to get meshconfig %v", data)
-			}
-			if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".mesh.gen.yaml"), []byte(meshdata), 0o644); err != nil {
-				t.Fatal(err)
+		for _, o := range object.Manifests {
+			if o.GetName() == "istio-sidecar-injector" {
+				data, ok := o.Object["data"].(map[string]any)
+				if !ok {
+					t.Fatalf("failed to convert %v", o)
+				}
+				config, ok := data["config"].(string)
+				if !ok {
+					t.Fatalf("failed to config %v", data)
+				}
+				vs, ok := data["values"].(string)
+				if !ok {
+					t.Fatalf("failed to config %v", data)
+				}
+				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".values.gen.yaml"), []byte(vs), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".template.gen.yaml"), []byte(config), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			} else if o.GetName() == "istio" {
+				data, ok := o.Object["data"].(map[string]any)
+				if !ok {
+					t.Fatalf("failed to convert %v", o)
+				}
+				meshdata, ok := data["mesh"].(string)
+				if !ok {
+					t.Fatalf("failed to get meshconfig %v", data)
+				}
+				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".mesh.gen.yaml"), []byte(meshdata), 0o644); err != nil {
+					t.Fatal(err)
+				}
 			}
 		}
 	}
