@@ -18,7 +18,6 @@ package mesh
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,11 +58,6 @@ func (w *writerPrinter) Printf(format string, a ...any) {
 
 func (w *writerPrinter) Println(str string) {
 	_, _ = fmt.Fprintln(w.writer, str)
-}
-
-func refreshGoldenFiles() bool {
-	ev := os.Getenv("REFRESH_GOLDEN")
-	return ev == "true" || ev == "1"
 }
 
 // Confirm waits for a user to confirm with the supplied message.
