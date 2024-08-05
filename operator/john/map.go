@@ -50,7 +50,7 @@ func (m Map) YAML() string {
 func MakeMap(contents any, path ...string) Map {
 	ret := Map{path[len(path)-1]: contents}
 	for i := len(path) - 2; i >= 0; i-- {
-		ret = Map{path[i]: any(ret).(Map)}
+		ret = Map{path[i]: ret}
 	}
 	return ret
 }
