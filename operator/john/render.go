@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/manifests"
-	names "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -70,7 +69,7 @@ func ManifestFromObject(us *unstructured.Unstructured) (Manifest, error) {
 func (m Manifest) Hash() string {
 	k := m.GroupVersionKind().Kind
 	switch m.GroupVersionKind().Kind {
-	case names.ClusterRoleStr, names.ClusterRoleBindingStr:
+	case "ClusterRole", "ClusterRoleBinding":
 		return k + ":" + m.GetName()
 	}
 	return k + ":" + m.GetNamespace() + ":" + m.GetName()
