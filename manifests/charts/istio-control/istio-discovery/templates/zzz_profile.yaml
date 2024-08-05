@@ -52,5 +52,4 @@ app.kubernetes.io/part-of: istio
 app.kubernetes.io/version: {{ .Chart.AppVersion }}
 istio.io/rev: {{ .Values.revision | default "default" | quote }}
 helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-{{ with .Values.labels -}}{{ toYaml . }}{{ end }}
 {{- end -}}
