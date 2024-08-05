@@ -38,9 +38,10 @@ func (m Manifest) Hash() string {
 	return k + ":" + m.GetNamespace() + ":" + m.GetName()
 }
 
-func Render(spec ComponentSpec, comp Component, vals Map) ([]Manifest, error) {
-	// TODO: installPackagePath
-	f := manifests.BuiltinOrDir("")
+func Render(spec ComponentSpec, comp Component, iop Map) ([]Manifest, error) {
+	vals, _ := iop.GetPathMap("spec.values")
+	installPackagePath := TryGetPathAs[string](iop, "spec.installPackagePath")
+	f := manifests.BuiltinOrDir(installPackagePath)
 	path := filepath.Join("charts", comp.HelmSubdir)
 	chrt, err := loadChart(f, path)
 	if err != nil {

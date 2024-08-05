@@ -4,13 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"strings"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/scheme"
-	"os"
 	"sigs.k8s.io/yaml"
-	"strings"
 
+	"istio.io/istio/manifests"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/kube"
@@ -42,8 +44,8 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 			return nil, err
 		}
 		for _, spec := range specs {
-			vals, _ := merged.GetPathMap("spec.values")
-			manifests, err := Render(spec, comp, vals)
+
+			manifests, err := Render(spec, comp, merged)
 			if err != nil {
 				return nil, err
 			}
@@ -154,34 +156,19 @@ func hubTagOverlay() []string {
 	return nil
 }
 
+// MergeInputs merges the various configuration inputs into one single IstioOperator.
 func MergeInputs(filenames []string, flags []string, client kube.Client) (Map, error) {
+	// We want our precedence order to be: base < profile < auto detected settings < files (in order) < --set flags (in order).
+	// The tricky bit is we don't know where to read the profile from until we read the files/--set flags.
+	// To handle this, we will build up these first, then apply it on top of the base once we know what base to use.
 	// Initial base values
-	base, err := MapFromJson([]byte(`{
+	userConfigBase, err := MapFromJson([]byte(`{
   "apiVersion": "install.istio.io/v1alpha1",
   "kind": "IstioOperator",
-  "metadata": {
-    "namespace": "istio-system"
-  },
-  "spec": {
-    "hub": "gcr.io/istio-testing",
-    "tag": "latest",
-    "components": {
-    },
-    "values": {
-      "defaultRevision": ""
-    }
-  }
-}
-`))
+  "metadata": {},
+  "spec": {}
+}`))
 	if err != nil {
-		return nil, err
-	}
-	// Overlay detected settings
-	if err := base.SetSpecPaths(clusterSpecificSettings(client)...); err != nil {
-		return nil, err
-	}
-	// Insert compiled in hub/tag
-	if err := base.SetSpecPaths(hubTagOverlay()...); err != nil {
 		return nil, err
 	}
 
@@ -208,15 +195,52 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (Map, e
 		if m["spec"] == nil {
 			delete(m, "spec")
 		}
-		base.MergeInto(m)
+		userConfigBase.MergeFrom(m)
 	}
 
 	// Apply any --set flags
-	if err := base.SetSpecPaths(flags...); err != nil {
+	if err := userConfigBase.SetSpecPaths(flags...); err != nil {
 		return nil, err
 	}
 
+	installPackagePath := TryGetPathAs[string](userConfigBase, "spec.installPackagePath")
+	profile := TryGetPathAs[string](userConfigBase, "spec.profile")
+
+	// Now we have the base
+	base, err := readProfile(installPackagePath, profile)
+	if err != nil {
+		return nil, err
+	}
+
+	// Overlay detected settings
+	if err := base.SetSpecPaths(clusterSpecificSettings(client)...); err != nil {
+		return nil, err
+	}
+	// Insert compiled in hub/tag
+	if err := base.SetSpecPaths(hubTagOverlay()...); err != nil {
+		return nil, err
+	}
+
+	// Merge the user values on top
+	base.MergeFrom(userConfigBase)
+
 	return base, nil
+}
+
+func readProfile(path string, profile string) (Map, error) {
+	if profile == "" {
+		profile = "default"
+	}
+	fs := manifests.BuiltinOrDir(path)
+	f, err := fs.Open(fmt.Sprintf("profiles/%v.yaml", profile))
+	if err != nil {
+		return nil, fmt.Errorf("profile %q not found: %v", profile, err)
+	}
+	pb, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	return MapFromYaml(pb)
 }
 
 func clusterSpecificSettings(client kube.Client) []string {
