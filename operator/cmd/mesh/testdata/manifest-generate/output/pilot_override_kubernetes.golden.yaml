@@ -20,13 +20,146 @@ metadata:
     release: istio
   name: istio-sidecar-injector-istio-control
 webhooks:
-  '[name:namespace\':
-    sidecar-injector\:
-      istio\:
-        io]:
-          clientConfig:
-            service:
-              name: foo
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-control
+      path: /inject
+      port: 443
+  failurePolicy: Fail
+  name: rev.namespace.sidecar-injector.istio.io
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: In
+      values:
+      - default
+    - key: istio-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+  reinvocationPolicy: Never
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-control
+      path: /inject
+      port: 443
+  failurePolicy: Fail
+  name: rev.object.sidecar-injector.istio.io
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: DoesNotExist
+    - key: istio-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+    - key: istio.io/rev
+      operator: In
+      values:
+      - default
+  reinvocationPolicy: Never
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: foo
+      namespace: istio-control
+      path: /inject
+      port: 443
+  failurePolicy: Fail
+  name: namespace.sidecar-injector.istio.io
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+  reinvocationPolicy: Never
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: istiod
+      namespace: istio-control
+      path: /inject
+      port: 443
+  failurePolicy: Fail
+  name: object.sidecar-injector.istio.io
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: DoesNotExist
+    - key: istio.io/rev
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: In
+      values:
+      - "true"
+    - key: istio.io/rev
+      operator: DoesNotExist
+  reinvocationPolicy: Never
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -71,7 +204,7 @@ spec:
         - --domain
         - cluster.local
         - --keepaliveMaxServerConnectionAge
-        - 30m
+        - 60m
         env:
         - name: PILOT_CERT_PROVIDER
           value: istiod
@@ -81,7 +214,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.name
         - name: POD_NAMESPACE
-          valueFrom: |
+          valueFrom:
             fieldRef:
               apiVersion: v2
               fieldPath: metadata.myPath
@@ -113,8 +246,7 @@ spec:
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
-        - containerPort: "8080"
-        - containerPort: 8080
+        - containerPort: 1234
           protocol: TCP
         - containerPort: 15010
           protocol: TCP
@@ -198,13 +330,11 @@ metadata:
   namespace: istio-control
 spec:
   ports:
-  - name: https-dns
-    port: 11111
   - name: grpc-xds
     port: 15010
     protocol: TCP
   - name: https-dns
-    port: 15012
+    port: 11111
     protocol: TCP
   - name: https-webhook
     port: 443
