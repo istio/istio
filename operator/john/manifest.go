@@ -61,6 +61,11 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 
 func applyComponentValuesToHelmValues(comp Component, spec ComponentSpec, merged Map) Map {
 	root := comp.ToHelmValuesTreeRoot
+	if comp.Name == "ingressGateways" || comp.Name == "egressGateways" {
+		merged = merged.DeepClone()
+		merged.SetSpecPaths(fmt.Sprintf("values.%s.name=%s", root, spec.Name))
+		// TODO: labels, ports
+	}
 	if !comp.FlattenValues && spec.Hub == "" && spec.Tag == nil && spec.Label == nil {
 		return merged
 	}
@@ -345,10 +350,11 @@ var AllComponents = []Component{
 		ToHelmValuesTreeRoot: "pilot",
 	},
 	{
-		Name:                 "ingressGateways",
-		Multi:                true,
-		Default:              true,
-		ResourceType:         "Deployment",
+		Name:         "ingressGateways",
+		Multi:        true,
+		Default:      true,
+		ResourceType: "Deployment",
+		// TODO: overrides
 		ResourceName:         "istio-ingressgateway",
 		ContainerName:        "istio-proxy",
 		HelmSubdir:           "gateways/istio-ingress",
