@@ -23,13 +23,14 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/ptr"
 )
 
 var (
@@ -76,7 +77,7 @@ func NamespacedResources() []schema.GroupVersionKind {
 }
 
 // DeleteObjectsList removed resources that are in the slice of UnstructuredList.
-func DeleteObjectsList(c client.Client, opts *Options, objectsList []*unstructured.UnstructuredList) error {
+func DeleteObjectsList(c kube.CLIClient, opts *Options, objectsList []*unstructured.UnstructuredList) error {
 	var errs util.Errors
 	deletedObjects := make(map[string]bool)
 	for _, ul := range objectsList {
@@ -103,7 +104,7 @@ func DeleteObjectsList(c client.Client, opts *Options, objectsList []*unstructur
 // 2. if includeClusterResources is true, we list the namespaced and cluster resources by component labels only.
 // If componentName is not empty, only resources associated with specific components would be returned
 // UnstructuredList of objects and corresponding list of name kind hash of k8sObjects would be returned
-func GetPrunedResources(clt client.Client, iopName, iopNamespace, revision string, includeClusterResources bool) (
+func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision string, includeClusterResources bool) (
 	[]*unstructured.UnstructuredList, error,
 ) {
 	var usList []*unstructured.UnstructuredList
@@ -124,16 +125,18 @@ func GetPrunedResources(clt client.Client, iopName, iopNamespace, revision strin
 		gvkList = append(resources, AllClusterResources...)
 	}
 	for _, gvk := range gvkList {
-		objects := &unstructured.UnstructuredList{}
-		objects.SetGroupVersionKind(gvk)
+		var result *unstructured.UnstructuredList
 		componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)
 		if err != nil {
-			return usList, err
+			return nil, err
+		}
+		c, err := clt.DynamicClientFor(gvk, nil, "")
+		if err != nil {
+			return nil, err
 		}
 		if includeClusterResources {
 			s := klabels.NewSelector()
-			err = clt.List(context.TODO(), objects,
-				client.MatchingLabelsSelector{Selector: s.Add(*componentRequirement)})
+			result, err = c.List(context.Background(), metav1.ListOptions{LabelSelector: s.Add(*componentRequirement).String()})
 		} else {
 			// do not prune base components or unknown components
 			includeCN := []string{
@@ -146,23 +149,17 @@ func GetPrunedResources(clt client.Client, iopName, iopNamespace, revision strin
 			}
 			includeRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.In, includeCN)
 			if err != nil {
-				return usList, err
+				return nil, err
 			}
-			if err = clt.List(context.TODO(), objects,
-				client.MatchingLabelsSelector{
-					Selector: selector.Add(*includeRequirement, *componentRequirement),
-				},
-			); err != nil {
-				continue
-			}
+			result, err = c.List(context.Background(), metav1.ListOptions{LabelSelector: selector.Add(*includeRequirement, *componentRequirement).String()})
 		}
 		if err != nil {
+			return nil, err
+		}
+		if len(result.Items) == 0 {
 			continue
 		}
-		if len(objects.Items) == 0 {
-			continue
-		}
-		usList = append(usList, objects)
+		usList = append(usList, result)
 	}
 
 	return usList, nil
@@ -172,20 +169,18 @@ func PrunedResourcesSchemas() []schema.GroupVersionKind {
 	return append(NamespacedResources(), ClusterResources...)
 }
 
-func deleteResource(c client.Client, opts *Options, obj *object.K8sObject, oh string) error {
+func deleteResource(clt kube.CLIClient, opts *Options, obj *object.K8sObject, oh string) error {
 	if opts.DryRun {
 		opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
 		return nil
 	}
 	u := obj.UnstructuredObject()
-	if u.GetKind() == name.IstioOperatorStr {
-		u.SetFinalizers([]string{})
-		if err := c.Patch(context.TODO(), u, client.Merge); err != nil {
-			scope.Errorf("failed to patch IstioOperator CR: %s, %v", u.GetName(), err)
-		}
-	}
-	err := c.Delete(context.TODO(), u, client.PropagationPolicy(metav1.DeletePropagationBackground))
+	c, err := clt.DynamicClientFor(obj.GroupVersionKind(), obj.UnstructuredObject(), "")
 	if err != nil {
+		return err
+	}
+
+	if err := c.Delete(context.TODO(), u.GetName(), metav1.DeleteOptions{PropagationPolicy: ptr.Of(metav1.DeletePropagationForeground)}); err != nil {
 		if !kerrors.IsNotFound(err) {
 			return err
 		}
