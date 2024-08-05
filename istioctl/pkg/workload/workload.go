@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"istio.io/istio/operator/john"
 	"os"
 	"path/filepath"
 	"sort"
@@ -40,7 +41,6 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/completion"
 	istioctlutil "istio.io/istio/istioctl/pkg/util"
-	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -617,15 +617,7 @@ func extractClusterIDFromInjectionConfig(kubeClient kube.CLIClient, istioNamespa
 	if err := json.Unmarshal([]byte(istioInjectionCM.Data[istioctlutil.ValuesConfigMapKey]), &injectedCMValues); err != nil {
 		return "", err
 	}
-	v, f, err := tpath.GetFromStructPath(injectedCMValues, "global.multiCluster.clusterName")
-	if err != nil {
-		return "", err
-	}
-	vs, ok := v.(string)
-	if !f || !ok {
-		return "", fmt.Errorf("could not retrieve global.multiCluster.clusterName from injection config")
-	}
-	return vs, nil
+	return john.TryGetPathAs[string](injectedCMValues, "global.multiCluster.clusterName"), nil
 }
 
 // Because we are placing into an Unstructured, place as a map instead
