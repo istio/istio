@@ -32,7 +32,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/mitchellh/copystructure"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -1424,7 +1423,15 @@ func (s *Service) Equals(other *Service) bool {
 
 // DeepCopy creates a clone of IstioEndpoint.
 func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
-	return copyInternal(ep).(*IstioEndpoint)
+	if ep == nil {
+		return nil
+	}
+
+	out := *ep
+	out.Labels = maps.Clone(ep.Labels)
+	out.Addresses = slices.Clone(ep.Addresses)
+
+	return &out
 }
 
 // ShallowCopy creates a shallow clone of IstioEndpoint.
@@ -1484,16 +1491,4 @@ func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
 	}
 
 	return true
-}
-
-func copyInternal(v any) any {
-	copied, err := copystructure.Copy(v)
-	if err != nil {
-		// There are 2 locations where errors are generated in copystructure.Copy:
-		//  * The reflection walk over the structure fails, which should never happen
-		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
-		// Therefore, this should never happen
-		panic(err)
-	}
-	return copied
 }
