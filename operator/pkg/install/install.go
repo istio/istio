@@ -1,4 +1,4 @@
-package john
+package install
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
@@ -28,7 +30,7 @@ type Installer struct {
 	pl       *progress.Log
 }
 
-func (i Installer) Install(manifests []ManifestSet) error {
+func (i Installer) Install(manifests []render.ManifestSet) error {
 	var mu sync.Mutex
 	errors := istiomultierror.New()
 	// wg waits for all manifest processing goroutines to finish
@@ -63,7 +65,7 @@ func (i Installer) Install(manifests []ManifestSet) error {
 	return errors.ErrorOrNil()
 }
 
-func (i Installer) ApplyManifest(manifestSet ManifestSet) error {
+func (i Installer) ApplyManifest(manifestSet render.ManifestSet) error {
 	cname := string(manifestSet.Component)
 
 	manifests := manifestSet.Manifests
@@ -95,7 +97,7 @@ func (i Installer) ApplyManifest(manifestSet ManifestSet) error {
 }
 
 // ServerSideApply creates or updates an object in the API server depending on whether it already exists.
-func (i Installer) ServerSideApply(obj Manifest) error {
+func (i Installer) ServerSideApply(obj manifest.Manifest) error {
 	const fieldOwnerOperator = "istio-operator"
 	dc, err := i.kube.DynamicClientFor(obj.GroupVersionKind(), obj.Unstructured, "")
 	if err != nil {
@@ -118,7 +120,7 @@ func (i Installer) ServerSideApply(obj Manifest) error {
 	return nil
 }
 
-func InstallManifests(manifests []ManifestSet, force, dryRun, skipWait bool, kubeclient kube.CLIClient, timeout time.Duration, l clog.Logger) error {
+func InstallManifests(manifests []render.ManifestSet, force, dryRun, skipWait bool, kubeclient kube.CLIClient, timeout time.Duration, l clog.Logger) error {
 	installer := Installer{
 		force:    force,
 		dryRun:   dryRun,

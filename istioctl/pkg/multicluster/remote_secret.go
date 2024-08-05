@@ -39,7 +39,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/cmd/mesh"
-	"istio.io/istio/operator/john"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
@@ -425,7 +425,7 @@ func createServiceAccount(client kube.CLIClient, opt RemoteSecretOptions) error 
 }
 
 func generateServiceAccountYAML(opt RemoteSecretOptions) (string, error) {
-	mfs, err := john.GenerateManifest(nil, []string{"installPackagePath=" + opt.ManifestsPath, "values.global.istioNamespace=" + opt.Namespace}, false, nil, nil)
+	mfs, err := render.GenerateManifest(nil, []string{"installPackagePath=" + opt.ManifestsPath, "values.global.istioNamespace=" + opt.Namespace}, false, nil, nil)
 	if err != nil {
 		return "", nil
 	}

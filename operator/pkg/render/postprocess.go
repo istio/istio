@@ -1,4 +1,4 @@
-package john
+package render
 
 import (
 	"encoding/json"
@@ -9,11 +9,13 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/operator/john"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 )
 
-func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Manifest, error) {
+func postProcess(comp Component, spec john.ComponentSpec, manifests []manifest.Manifest) ([]manifest.Manifest, error) {
 	if spec.Kubernetes == nil {
 		return manifests, nil
 	}
@@ -86,7 +88,7 @@ func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Ma
 			baseJSON = newBytes
 		}
 		// Rebuild our manifest
-		nm, err := ManifestFromJson(baseJSON)
+		nm, err := manifest.FromJson(baseJSON)
 		if err != nil {
 			return nil, err
 		}
@@ -115,12 +117,12 @@ func postProcess(comp Component, spec ComponentSpec, manifests []Manifest) ([]Ma
 
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,
 // or a list of errors otherwise.
-func applyPatches(base Manifest, patches []Patch) (Manifest, error) {
+func applyPatches(base manifest.Manifest, patches []john.Patch) (manifest.Manifest, error) {
 	bo := make(map[any]any)
 	// Use yaml2 specifically to allow interface{} as key which WritePathContext treats specially
 	err := yaml2.Unmarshal([]byte(base.Content), &bo)
 	if err != nil {
-		return Manifest{}, err
+		return manifest.Manifest{}, err
 	}
 	var errs util.Errors
 	for _, p := range patches {
@@ -138,8 +140,8 @@ func applyPatches(base Manifest, patches []Patch) (Manifest, error) {
 	}
 	oy, err := yaml2.Marshal(bo)
 	if err != nil {
-		return Manifest{}, util.AppendErr(errs, err).ToError()
+		return manifest.Manifest{}, util.AppendErr(errs, err).ToError()
 	}
 
-	return ManifestFromYaml(oy)
+	return manifest.FromYaml(oy)
 }

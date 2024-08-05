@@ -1,8 +1,9 @@
-package john
+package values
 
 import (
-	"istio.io/istio/pkg/test/util/assert"
 	"testing"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestMakePatch(t *testing.T) {
@@ -114,21 +115,21 @@ func TestSetPath(t *testing.T) {
 		{
 			name:   "kv set",
 			inPath: "env.[name:POD_NAME].value",
-			base: fromJson(`{"env":[{"name":"POD_NAME"}]}`),
+			base:   fromJson(`{"env":[{"name":"POD_NAME"}]}`),
 			inData: 1,
 			out:    `{"env":[{"name":"POD_NAME","value":1}]}`,
 		},
 		{
 			name:   "escape kv",
 			inPath: "env.[name:foo\\.bar].value",
-			base: fromJson(`{"env":[{"name":"foo\\.bar"}]}`),
+			base:   fromJson(`{"env":[{"name":"foo\\.bar"}]}`),
 			inData: "hi",
 			out:    `{"env":[{"name":"foo\\.bar","value":"hi"}]}`,
 		},
 		{
 			name:   "set kv",
 			inPath: "spec.ports.[name:https-dns].port",
-			base: fromJson(`{"spec":{"ports":[{"name":"https-dns"}]}}`),
+			base:   fromJson(`{"spec":{"ports":[{"name":"https-dns"}]}}`),
 			inData: 11111,
 			out:    `{"spec":{"ports":[{"name":"https-dns","port":11111}]}}`,
 		},

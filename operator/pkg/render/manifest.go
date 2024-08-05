@@ -1,22 +1,24 @@
-package john
+package render
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	"istio.io/istio/manifests"
+	"istio.io/istio/operator/john"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/kube"
 	pkgversion "istio.io/istio/pkg/version"
 )
 
 type ManifestSet struct {
 	Component string
-	Manifests []Manifest
+	Manifests []manifest.Manifest
 	// TODO: notes, warnings, etc?
 }
 
@@ -39,7 +41,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 		}
 		for _, spec := range specs {
 			values := applyComponentValuesToHelmValues(comp, spec, merged)
-			manifests, err := Render(spec, comp, values)
+			manifests, err := helm.Render(spec.Namespace, comp.HelmSubdir, values)
 			if err != nil {
 				return nil, err
 			}
@@ -59,7 +61,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 	return allManifests, nil
 }
 
-func applyComponentValuesToHelmValues(comp Component, spec ComponentSpec, merged Map) Map {
+func applyComponentValuesToHelmValues(comp Component, spec john.ComponentSpec, merged values.Map) values.Map {
 	root := comp.ToHelmValuesTreeRoot
 	if comp.Name == "ingressGateways" || comp.Name == "egressGateways" {
 		merged = merged.DeepClone()
@@ -81,7 +83,7 @@ func applyComponentValuesToHelmValues(comp Component, spec ComponentSpec, merged
 		cv, f := merged.GetPathMap("spec.values." + root)
 		if f {
 			vals, _ := merged.GetPathMap("spec.values")
-			nv := Map{
+			nv := values.Map{
 				"global": vals["global"],
 			}
 			for k, v := range vals {
@@ -109,12 +111,12 @@ func hubTagOverlay() []string {
 }
 
 // MergeInputs merges the various configuration inputs into one single IstioOperator.
-func MergeInputs(filenames []string, flags []string, client kube.Client) (Map, error) {
+func MergeInputs(filenames []string, flags []string, client kube.Client) (values.Map, error) {
 	// We want our precedence order to be: base < profile < auto detected settings < files (in order) < --set flags (in order).
 	// The tricky bit is we don't know where to read the profile from until we read the files/--set flags.
 	// To handle this, we will build up these first, then apply it on top of the base once we know what base to use.
 	// Initial base values
-	userConfigBase, err := MapFromJson([]byte(`{
+	userConfigBase, err := values.MapFromJson([]byte(`{
   "apiVersion": "install.istio.io/v1alpha1",
   "kind": "IstioOperator",
   "metadata": {},
@@ -139,7 +141,7 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (Map, e
 		if err != nil {
 			return nil, err
 		}
-		m, err := MapFromYaml(b)
+		m, err := values.MapFromYaml(b)
 		if err != nil {
 			return nil, err
 		}
@@ -155,8 +157,8 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (Map, e
 		return nil, err
 	}
 
-	installPackagePath := TryGetPathAs[string](userConfigBase, "spec.installPackagePath")
-	profile := TryGetPathAs[string](userConfigBase, "spec.profile")
+	installPackagePath := values.TryGetPathAs[string](userConfigBase, "spec.installPackagePath")
+	profile := values.TryGetPathAs[string](userConfigBase, "spec.profile")
 
 	// Now we have the base
 	base, err := readProfile(installPackagePath, profile)
@@ -180,7 +182,7 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (Map, e
 	return translateIstioOperatorToHelm(base)
 }
 
-func translateIstioOperatorToHelm(base Map) (Map, error) {
+func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
 	translations := map[string]string{
 		"spec.hub":                  "global.hub",
 		"spec.tag":                  "global.tag",
@@ -195,7 +197,7 @@ func translateIstioOperatorToHelm(base Map) (Map, error) {
 			continue
 		}
 		if _, ok := v.(map[string]any); ok {
-			nm := MakeMap(v, "spec", "values", "meshConfig")
+			nm := values.MakeMap(v, "spec", "values", "meshConfig")
 			base.MergeFrom(nm)
 		} else {
 			if err := base.SetSpecPaths(fmt.Sprintf("values.%s=%v", out, v)); err != nil {
@@ -206,7 +208,7 @@ func translateIstioOperatorToHelm(base Map) (Map, error) {
 	return base, nil
 }
 
-func readProfile(path string, profile string) (Map, error) {
+func readProfile(path string, profile string) (values.Map, error) {
 	if profile == "" {
 		profile = "default"
 	}
@@ -219,7 +221,7 @@ func readProfile(path string, profile string) (Map, error) {
 	if err != nil {
 		return nil, err
 	}
-	return MapFromYaml(pb)
+	return values.MapFromYaml(pb)
 }
 
 func clusterSpecificSettings(client kube.Client) []string {
@@ -240,13 +242,14 @@ func clusterSpecificSettings(client kube.Client) []string {
 
 func IstioOperatorFromJSON(iopString string, force bool) (*v1alpha1.IstioOperator, error) {
 	iop := &v1alpha1.IstioOperator{}
-	if err := json.Unmarshal([]byte(iopString), iop); err != nil {
-		return nil, err
-	}
-	if errs := validate.CheckIstioOperatorSpec(iop.Spec); len(errs) != 0 && !force {
-		// l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
-		return iop, fmt.Errorf(errs.Error())
-	}
+	// TODO: consolidate the two validation packagess
+	//if err := json.Unmarshal([]byte(iopString), iop); err != nil {
+	//	return nil, err
+	//}
+	//if errs := validate.CheckIstioOperatorSpec(iop.Spec); len(errs) != 0 && !force {
+	//	l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
+	//return iop, fmt.Errorf(errs.Error())
+	//}
 	return iop, nil
 }
 
@@ -272,23 +275,23 @@ type Component struct {
 	AltEnablementPath string
 }
 
-func (c Component) Get(merged Map) ([]ComponentSpec, error) {
-	defaultNamespace := TryGetPathAs[string](merged, "metadata.namespace")
-	var defaultResponse []ComponentSpec
+func (c Component) Get(merged values.Map) ([]john.ComponentSpec, error) {
+	defaultNamespace := values.TryGetPathAs[string](merged, "metadata.namespace")
+	var defaultResponse []john.ComponentSpec
 	def := c.Default
 	if c.AltEnablementPath != "" {
-		if TryGetPathAs[bool](merged, c.AltEnablementPath) {
+		if values.TryGetPathAs[bool](merged, c.AltEnablementPath) {
 			def = true
 		}
 	}
 	if def {
-		defaultResponse = []ComponentSpec{{Namespace: defaultNamespace}}
+		defaultResponse = []john.ComponentSpec{{Namespace: defaultNamespace}}
 	}
 
-	buildSpec := func(m Map) (ComponentSpec, error) {
-		spec, err := ConvertMap[ComponentSpec](m)
+	buildSpec := func(m values.Map) (john.ComponentSpec, error) {
+		spec, err := values.ConvertMap[john.ComponentSpec](m)
 		if err != nil {
-			return ComponentSpec{}, fmt.Errorf("fail to convert %v: %v", c.Name, err)
+			return john.ComponentSpec{}, fmt.Errorf("fail to convert %v: %v", c.Name, err)
 		}
 		if spec.Namespace == "" {
 			spec.Namespace = defaultNamespace
@@ -305,9 +308,9 @@ func (c Component) Get(merged Map) ([]ComponentSpec, error) {
 		if !ok {
 			return defaultResponse, nil
 		}
-		specs := []ComponentSpec{}
+		specs := []john.ComponentSpec{}
 		for _, cur := range s.([]any) {
-			m, _ := asMap(cur)
+			m, _ := values.AsMap(cur)
 			spec, err := buildSpec(m)
 			if err != nil {
 				return nil, err
@@ -330,7 +333,7 @@ func (c Component) Get(merged Map) ([]ComponentSpec, error) {
 	if !spec.Enabled.GetValueOrTrue() {
 		return nil, nil
 	}
-	return []ComponentSpec{spec}, nil
+	return []john.ComponentSpec{spec}, nil
 }
 
 var AllComponents = []Component{

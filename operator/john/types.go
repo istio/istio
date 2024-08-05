@@ -7,6 +7,8 @@ import (
 	autoscaling "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1"
+
+	"istio.io/istio/operator/pkg/values"
 )
 
 type ComponentSpec struct {
@@ -26,7 +28,7 @@ type ComponentSpec struct {
 	// Kubernetes resource spec.
 	Kubernetes *KubernetesResources `json:"k8s,omitempty"`
 	// Raw is the raw inputs. This allows distinguishing unset vs zero-values for KubernetesResources
-	Raw Map `json:"-"`
+	Raw values.Map `json:"-"`
 }
 
 // KubernetesResources is a common set of Kubernetes resource configs for components.

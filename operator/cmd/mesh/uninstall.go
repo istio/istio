@@ -25,9 +25,10 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
-	"istio.io/istio/operator/john"
+	uninstall2 "istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/kube"
 	proxyinfo "istio.io/istio/pkg/proxy"
 )
@@ -90,7 +91,7 @@ func UninstallCmd(ctx cli.Context) *cobra.Command {
   # Uninstall all control planes and shared resources
   istioctl uninstall --purge`,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if uiArgs.revision == "" && john.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
+			if uiArgs.revision == "" && values.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
 				return fmt.Errorf("at least one of the --revision (or --set revision=<revision>), --filename or --purge flags must be set")
 			}
 			if len(args) > 0 {
@@ -139,13 +140,13 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 		l.LogAndPrint(PurgeWithRevisionOrOperatorSpecifiedWarning)
 	}
 
-	objectsList, err := john.GetPrunedResources(kubeClient, "", "", uiArgs.revision, uiArgs.purge)
+	objectsList, err := uninstall2.GetPrunedResources(kubeClient, "", "", uiArgs.revision, uiArgs.purge)
 	if err != nil {
 		return err
 	}
 	preCheckWarnings(cmd, kubeClient, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, l, rootArgs.DryRun)
 
-	if err := john.DeleteObjectsList(kubeClient, rootArgs.DryRun, l, objectsList); err != nil {
+	if err := uninstall2.DeleteObjectsList(kubeClient, rootArgs.DryRun, l, objectsList); err != nil {
 		return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 	}
 	pl.SetState(progress.StateUninstallComplete)
