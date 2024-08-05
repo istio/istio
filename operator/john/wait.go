@@ -3,9 +3,10 @@ package john
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/pkg/kube"
+	"sort"
+	"strings"
+	"time"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -14,9 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	kctldeployment "k8s.io/kubectl/pkg/util/deployment"
-	"sort"
-	"strings"
-	"time"
+
+	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
 )
 
 // Copyright Istio Authors
@@ -41,8 +43,8 @@ type deployment struct {
 
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
-func WaitForResources(objects []Manifest, client kube.Client, waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog, ) error {
-	if dryRun  { // TODO: testmode?
+func WaitForResources(objects []Manifest, client kube.Client, waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog) error {
+	if dryRun { // TODO: testmode?
 		return nil
 	}
 
@@ -88,19 +90,19 @@ func waitForResources(objects []Manifest, k kube.Client, l *progress.ManifestLog
 	for _, o := range objects {
 		kind := o.GroupVersionKind().Kind
 		switch kind {
-		case name.CRDStr:
+		case gvk.CustomResourceDefinition.Kind:
 			crd, err := k.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), o.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return false, nil, nil, err
 			}
 			crds = append(crds, *crd)
-		case name.NamespaceStr:
+		case gvk.Namespace.Kind:
 			namespace, err := k.Kube().CoreV1().Namespaces().Get(context.TODO(), o.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return false, nil, nil, err
 			}
 			namespaces = append(namespaces, *namespace)
-		case name.DeploymentStr:
+		case gvk.Deployment.Kind:
 			currentDeployment, err := k.Kube().AppsV1().Deployments(o.GetNamespace()).Get(context.TODO(), o.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return false, nil, nil, err
@@ -114,13 +116,13 @@ func waitForResources(objects []Manifest, k kube.Client, l *progress.ManifestLog
 				currentDeployment,
 			}
 			deployments = append(deployments, newDeployment)
-		case name.DaemonSetStr:
+		case gvk.DaemonSet.Kind:
 			ds, err := k.Kube().AppsV1().DaemonSets(o.GetNamespace()).Get(context.TODO(), o.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return false, nil, nil, err
 			}
 			daemonsets = append(daemonsets, ds)
-		case name.StatefulSetStr:
+		case gvk.StatefulSet.Kind:
 			sts, err := k.Kube().AppsV1().StatefulSets(o.GetNamespace()).Get(context.TODO(), o.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return false, nil, nil, err

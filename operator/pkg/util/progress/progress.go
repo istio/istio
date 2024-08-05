@@ -22,8 +22,6 @@ import (
 	"sync"
 
 	"github.com/cheggaaa/pb/v3"
-
-	"istio.io/istio/operator/pkg/name"
 )
 
 type InstallState int
@@ -62,7 +60,9 @@ func (p *Log) createStatus(maxWidth int) string {
 	comps := make([]string, 0, len(p.components))
 	wait := make([]string, 0, len(p.components))
 	for c, l := range p.components {
-		comps = append(comps, name.UserFacingComponentName(name.ComponentName(c)))
+		comps = append(comps, "TODO")
+		_ = c
+		// comps = append(comps, name.UserFacingComponentName(name.ComponentName(c)))
 		wait = append(wait, l.waitingResources()...)
 	}
 	sort.Strings(comps)
@@ -111,8 +111,9 @@ func createBar() *pb.ProgressBar {
 // on a new line, and create a new bar. For example, this becomes "x succeeded", "waiting for y, z".
 func (p *Log) reportProgress(component string) func() {
 	return func() {
-		cmpName := name.ComponentName(component)
-		cliName := name.UserFacingComponentName(cmpName)
+		//
+		cmpName := component
+		cliName := cmpName
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		cmp := p.components[component]
@@ -122,7 +123,9 @@ func (p *Log) reportProgress(component string) func() {
 		cmpErr := cmp.err
 		cmp.mu.Unlock()
 		successIcon := "✅"
-		if icon, found := name.IstioComponentIcons[cmpName]; found {
+		// TODO
+		IstioComponentIcons := map[string]string{}
+		if icon, found := IstioComponentIcons[cmpName]; found {
 			successIcon = icon
 		}
 		if finished || cmpErr != "" {
