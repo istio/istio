@@ -82,10 +82,7 @@ func TestStatsFilter(t *testing.T) {
 							return err
 						}
 						c := cltInstance.Config().Cluster
-						sourceCluster := constants.DefaultClusterName
-						if len(t.AllClusters()) > 1 {
-							sourceCluster = c.Name()
-						}
+						sourceCluster := c.Name()
 						sourceQuery, destinationQuery, appQuery := buildQuery(sourceCluster)
 						// Query client side metrics
 						prom := promInst
