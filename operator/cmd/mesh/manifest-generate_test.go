@@ -1161,7 +1161,7 @@ func filterManifest(t test.Failer, ms string, selectResources string) (string) {
 
 	return yml.JoinString(slices.Map(parsed, func(e john.Manifest) string {
 		return e.Content
-	})...)
+	})...) + "\n"
 }
 
 // buildResourceRegexp translates the resource indicator to regexp.
