@@ -63,7 +63,8 @@ func applyComponentValuesToHelmValues(comp Component, spec ComponentSpec, merged
 	root := comp.ToHelmValuesTreeRoot
 	if comp.Name == "ingressGateways" || comp.Name == "egressGateways" {
 		merged = merged.DeepClone()
-		merged.SetSpecPaths(fmt.Sprintf("values.%s.name=%s", root, spec.Name))
+		merged.SetPath(fmt.Sprintf("spec.values.%s.name", root), spec.Name)
+		merged.SetPath(fmt.Sprintf("spec.values.%s.labels", root), spec.Label)
 		// TODO: labels, ports
 	}
 	if !comp.FlattenValues && spec.Hub == "" && spec.Tag == nil && spec.Label == nil {
