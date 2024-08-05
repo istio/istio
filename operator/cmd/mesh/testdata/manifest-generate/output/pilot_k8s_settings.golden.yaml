@@ -165,10 +165,7 @@ spec:
           name: istio-ca-root-cert
           optional: true
         name: istio-csr-ca-configmap
-
 ---
-
-
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -200,5 +197,3 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: istio-pilot
-
----
