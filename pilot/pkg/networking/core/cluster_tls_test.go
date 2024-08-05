@@ -1416,7 +1416,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 							// if not specified, envoy use TLSv1_2 as default for client.
 							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
-						},
+                                                        EcdhCurves:   []string{"P-256", "P-384"},
+                                                },
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name: "default",

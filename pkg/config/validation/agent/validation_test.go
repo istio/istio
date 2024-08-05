@@ -1082,7 +1082,6 @@ func TestValidateMeshConfig(t *testing.T) {
 			"trustDomainAliases[0]",
 			"trustDomainAliases[1]",
 			"trustDomainAliases[2]",
-			"mesh TLS does not support ECDH curves configuration",
 		}
 		switch err := err.(type) {
 		case *multierror.Error:
