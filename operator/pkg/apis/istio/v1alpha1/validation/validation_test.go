@@ -15,15 +15,12 @@
 package validation_test
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
-	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/test/env"
 )
 
 const operatorSubdirFilePath = "manifests"
@@ -226,34 +223,6 @@ components:
 			}
 			if tt.warnings != warnings {
 				t.Fatalf("expected warnings: \n%q\n got \n%q\n", tt.warnings, warnings)
-			}
-		})
-	}
-}
-
-func TestValidateProfiles(t *testing.T) {
-	manifests := filepath.Join(env.IstioSrc, operatorSubdirFilePath)
-	profiles, err := helm.ListProfiles(manifests)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(profiles) < 2 {
-		// Just ensure we find some profiles, in case this code breaks
-		t.Fatalf("Maybe have failed getting profiles, got %v", profiles)
-	}
-	for _, tt := range profiles {
-		t.Run(tt, func(t *testing.T) {
-			//_, s, err := manifest.GenerateIstioOperatorWithProfile(tt, "", []string{"installPackagePath=" + manifests}, false, false, nil, l)
-			//if err != nil {
-			//	t.Fatal(err)
-			//}
-			// TODO
-			verr, warnings := validation.ValidateConfig(nil)
-			if verr != nil {
-				t.Fatalf("got error validating: %v", verr)
-			}
-			if warnings != "" {
-				t.Fatalf("got warning validating: %v", warnings)
 			}
 		})
 	}
