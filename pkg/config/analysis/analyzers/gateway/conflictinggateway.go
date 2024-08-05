@@ -69,12 +69,16 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 
 	// Check non-exist gateway with particular selector
 	isExists := false
+	hitSameGateways := map[string]map[string][]string{}
 	for gwmKey := range gwCMap {
-		if strings.Contains(gwmKey, sGWSelector) {
+		kSelector, _ := parseFromGatewayMapKey(gwmKey)
+		if strings.Contains(kSelector, sGWSelector) || strings.Contains(sGWSelector, kSelector) {
 			isExists = true
-			break
+			// record match same selector
+			hitSameGateways[gwmKey] = gwCMap[gwmKey]
 		}
 	}
+
 	if sGWSelector != "" && !isExists {
 		m := msg.NewReferencedResourceNotFound(r, "selector", sGWSelector)
 		label := util.ExtractLabelFromSelectorString(sGWSelector)
@@ -89,14 +93,18 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		var gateways []string
 		conflictingGWMatch := 0
 		sPortNumber := strconv.Itoa(int(server.GetPort().GetNumber()))
-		mapKey := genGatewayMapKey(sGWSelector, sPortNumber)
-		for gwNameKey, gwHostsValue := range gwCMap[mapKey] {
-			for _, gwHost := range server.GetHosts() {
-				// both selector and portnumber are the same, then check hosts
-				if isGWsHostMatched(gwHost, gwHostsValue) {
-					if gwName != gwNameKey {
-						conflictingGWMatch++
-						gateways = append(gateways, gwNameKey)
+		for k, gwValue := range hitSameGateways {
+			// match same port
+			if _, p := parseFromGatewayMapKey(k); sPortNumber == p {
+				for gwNameKey, gwHostsValue := range gwValue {
+					for _, gwHost := range server.GetHosts() {
+						// both selector and portNumber are the same, then check hosts
+						if isGWsHostMatched(gwHost, gwHostsValue) {
+							if gwName != gwNameKey {
+								conflictingGWMatch++
+								gateways = append(gateways, gwNameKey)
+							}
+						}
 					}
 				}
 			}
@@ -151,4 +159,12 @@ func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
 func genGatewayMapKey(selector, portNumber string) string {
 	key := selector + "~" + portNumber
 	return key
+}
+
+func parseFromGatewayMapKey(key string) (selector, port string) {
+	parts := strings.Split(key, "~")
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return parts[0], parts[1]
 }
