@@ -105,7 +105,7 @@ type BoolValue struct {
 }
 
 func (b *BoolValue) MarshalJSON() ([]byte, error) {
-	return json.Marshal(b.GetValue())
+	return json.Marshal(b.GetValueOrFalse())
 }
 
 func (b *BoolValue) UnmarshalJSON(bytes []byte) error {
@@ -117,9 +117,16 @@ func (b *BoolValue) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
-func (b *BoolValue) GetValue() bool {
+func (b *BoolValue) GetValueOrFalse() bool {
 	if b == nil {
 		return false
+	}
+	return b.bool
+}
+
+func (b *BoolValue) GetValueOrTrue() bool {
+	if b == nil {
+		return true
 	}
 	return b.bool
 }

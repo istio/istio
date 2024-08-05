@@ -2318,7 +2318,6 @@ data:
             "cpu": "10m"
           }
         },
-        "enabled": false,
         "externalIstiod": false,
         "hub": "docker.io/istio",
         "imagePullPolicy": "",
@@ -2338,7 +2337,6 @@ data:
           "clusterName": "",
           "enabled": false
         },
-        "namespace": "istio-system",
         "network": "",
         "omitSidecarInjectorConfigMap": false,
         "operatorManageWebhooks": false,
@@ -2392,6 +2390,7 @@ data:
           "servicePort": 0
         },
         "tag": "1.1.4",
+<<<<<<< HEAD
         "variant": "",
         "waypoint": {
           "resources": {
@@ -2405,6 +2404,13 @@ data:
             }
           }
         }
+=======
+        "variant": ""
+      },
+      "istio_cni": {
+        "chained": true,
+        "provider": "default"
+>>>>>>> 68ea861fb6 (more)
       },
       "pilot": {
         "cni": {

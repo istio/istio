@@ -341,6 +341,9 @@ func (c Component) Get(merged Map) ([]ComponentSpec, error) {
 		if spec.Namespace == "" {
 			spec.Namespace = defaultNamespace
 		}
+		if spec.Namespace == "" {
+			spec.Namespace = "istio-system"
+		}
 		spec.Raw = m
 		return spec, nil
 	}
@@ -357,7 +360,9 @@ func (c Component) Get(merged Map) ([]ComponentSpec, error) {
 			if err != nil {
 				return nil, err
 			}
-			specs = append(specs, spec)
+			if spec.Enabled.GetValueOrTrue() {
+				specs = append(specs, spec)
+			}
 		}
 		return specs, nil
 	}
@@ -369,6 +374,9 @@ func (c Component) Get(merged Map) ([]ComponentSpec, error) {
 	spec, err := buildSpec(s)
 	if err != nil {
 		return nil, err
+	}
+	if !spec.Enabled.GetValueOrTrue() {
+		return nil, nil
 	}
 	return []ComponentSpec{spec}, nil
 }

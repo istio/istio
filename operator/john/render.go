@@ -141,7 +141,7 @@ func renderChart(spec ComponentSpec, values Map, chrt *chart.Chart, filterFunc T
 
 	results := make([]string, 0, len(keys))
 	for _, k := range keys {
-		results = append(results, files[k])
+		results = append(results, yml.SplitString(files[k])...)
 	}
 
 	// Sort crd files by name to ensure stable manifest output
