@@ -96,7 +96,7 @@ func splitPath(in string) ([]string, error) {
 				return nil, fmt.Errorf("unclosed segment")
 			}
 			segments = append(segments, in[:idx+1])
-			if len(in) > idx+1 {
+			if len(in) <= idx+1 {
 				return segments, nil
 			}
 			in = in[idx+2:]
@@ -185,6 +185,135 @@ func (m Map) SetPaths(paths ...string) error {
 	return nil
 }
 
+// SetPath applies values from a path like `key.subkey`, `key.[0].var`, `key.[name:foo]`
+func (m Map) SetPathOld(paths string, value any) error {
+	path, err := splitPath(paths)
+	if err != nil {
+		return err
+	}
+	var prev any
+	var prevKey string
+	cur := any(m)
+	for _, seg := range path {
+		fmt.Println(seg, cur, prev, prevKey)
+		if k, v, ok := extractKV(seg); ok {
+			l, ok := cur.([]any)
+			if l == nil {
+				fmt.Println("is nil")
+			}
+			if !ok {
+				return fmt.Errorf("invalid path: %s, data is not a list", seg)
+			}
+			_ = l
+			_ = k
+			_ = v
+			//cur = []any{cur}
+		} else if idx, ok := extractIndex(seg); ok {
+			l, ok := cur.([]any)
+			if cur == nil {
+				// Adding new field
+				prev.(Map)[prevKey] = []any{nil}
+			} else if !ok {
+				// Field exists and is not a list
+				return fmt.Errorf("invalid path: %s, data is not a list", seg)
+			} else {
+				// Modifying existing
+				if len(l) <= idx {
+					// Index out of bounds, append
+					l := append(l, nil)
+					prev.(Map)[prevKey] = l
+				} else {
+					l[idx] = nil
+				}
+			}
+		} else {
+			prev = cur
+			prevKey = seg
+			n, f := cur.(Map)[seg]
+			if !f {
+				cur.(Map)[seg] = nil
+				cur = cur.(Map)[seg]
+			} else {
+				cur = n
+			}
+		}
+		fmt.Println(cur)
+		//inc, _, err := tpath.GetPathContext((map[string]any)(m), util.PathFromString("spec."+p), true)
+		//if err != nil {
+		//	return err
+		//}
+		//// input value type is always string, transform it to correct type before setting.
+		//var val any = v
+		//if !isAlwaysString(p) {
+		//	val = util.ParseValue(v)
+		//}
+		//if err := tpath.WritePathContext(inc, val, false); err != nil {
+		//	return err
+		//}
+	}
+	return nil
+}
+
+// SetPath applies values from a path like `key.subkey`, `key.[0].var`, `key.[name:foo]`
+func (m Map) SetPath(paths string, value any) error {
+	path, err := splitPath(paths)
+	if err != nil {
+		return err
+	}
+	base := m
+	if err := setPathRecurse(base, path, value); err != nil {
+		return err
+	}
+	return nil
+}
+
+func setPathRecurse(base map[string]any, paths []string, value any) error {
+	seg := paths[0]
+	last := len(paths) == 1
+	nextIsArray := len(paths) >= 2 && strings.HasPrefix(paths[1], "[")
+	if nextIsArray {
+		last = len(paths) == 2
+		if idx, ok := extractIndex(paths[1]); ok {
+			// Find or create target list
+			if _, f := base[seg]; !f {
+				base[seg] = []any{}
+			}
+			l := base[seg].([]any)
+			if idx >= len(l) {
+				// Index is greater, we need to append
+				if last {
+					l = append(l, value)
+				} else {
+					nm := Map{}
+					if err := setPathRecurse(nm, paths[2:], value); err != nil {
+						return err
+					}
+					l = append(l, nm)
+				}
+				base[seg] = l
+			} else {
+				v := mustAsMap(l[idx])
+				if err := setPathRecurse(v, paths[2:], value); err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		// This is a simple key traverse
+		// Find or create the target
+		// Create if needed
+		if _, f := base[seg]; !f {
+			base[seg] = map[string]any{}
+		}
+		if last {
+			base[seg] = value
+		} else {
+			return setPathRecurse(mustAsMap(base[seg]), paths[1:], value)
+		}
+	}
+	return nil
+}
+
 // SetSpecPaths applies values from input like `key.subkey=val`, and applies them under 'spec'
 func (m Map) SetSpecPaths(paths ...string) error {
 	for _, path := range paths {
@@ -244,6 +373,14 @@ func asMap(cur any) (Map, bool) {
 		return m, true
 	}
 	return nil, false
+}
+
+func mustAsMap(cur any) (Map) {
+	m, ok := asMap(cur)
+	if !ok {
+		panic(fmt.Sprintf("not a map, got %T: %v", cur, cur))
+	}
+	return m
 }
 
 // GetPathMap gets values from input like `key.subkey`

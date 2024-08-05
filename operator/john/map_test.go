@@ -57,3 +57,94 @@ func TestMakePatch(t *testing.T) {
 		})
 	}
 }
+
+func TestSetPath(t *testing.T) {
+	fromJson := func(s string) Map {
+		m, err := FromJson[Map]([]byte(s))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	cases := []struct {
+		name   string
+		base   Map
+		inPath string
+		inData any
+		out    string
+	}{
+		{
+			name:   "trivial",
+			inPath: "spec",
+			inData: 1,
+			out:    `{"spec":1}`,
+		},
+		{
+			name:   "simple create",
+			inPath: "spec.bar",
+			inData: 1,
+			out:    `{"spec":{"bar":1}}`,
+		},
+		{
+			name:   "simple merge",
+			inPath: "spec.bar",
+			base:   Map{"spec": Map{"foo": "baz"}},
+			inData: 1,
+			out:    `{"spec":{"bar":1,"foo":"baz"}}`,
+		},
+		{
+			name:   "array",
+			inPath: "top.[0]",
+			inData: 1,
+			out:    `{"top":[1]}`,
+		},
+		{
+			name:   "array and values",
+			inPath: "top.[0].bar",
+			inData: 1,
+			out:    `{"top":[{"bar":1}]}`,
+		},
+		{
+			name:   "array and values merge",
+			inPath: "top.[0].bar",
+			base:   fromJson(`{"top":[{"baz":2}]}`),
+			inData: 1,
+			out:    `{"top":[{"bar":1,"baz":2}]}`,
+		},
+		{
+			name:   "kv",
+			inPath: "env.[name:POD_NAME].value",
+			inData: 1,
+			out:    "",
+		},
+		{
+			name:   "escape kv",
+			inPath: "env.[name:foo\\.bar].value",
+			inData: "hi",
+			out:    `{"env":[{"name":"foo\\.bar","value":"hi"}]}`,
+		},
+		{
+			name:   "delete kv last",
+			inPath: "env.[name:POD_NAME]",
+			inData: nil,
+			out:    `{"env":[{"$patch":"delete","name":"POD_NAME"}]}`,
+		},
+		{
+			name:   "set kv primitive",
+			inPath: "spec.ports.[name:https-dns].port",
+			inData: 11111,
+			out:    `{"spec":{"ports":[{"name":"https-dns","port":11111}]}}`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			m := Map{}
+			if tt.base != nil {
+				m = tt.base
+			}
+			err := m.SetPath(tt.inPath, tt.inData)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.out, m.JSON())
+		})
+	}
+}
