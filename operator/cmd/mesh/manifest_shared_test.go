@@ -17,8 +17,11 @@ package mesh
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/spf13/cobra"
-	"istio.io/istio/operator/pkg/util/progress"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,10 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/testing"
-	"os"
-	"path/filepath"
 	"sigs.k8s.io/yaml"
-	"strings"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/install"
@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/operator/pkg/render"
 	uninstall2 "istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
@@ -177,10 +178,7 @@ func fakeControllerReconcile(t test.Failer, inFile string, chartSource chartSour
 
 func fakeControllerReconcileInternal(c kube.CLIClient, inFile string, chartSource chartSourceType) (*ObjectSet, error) {
 	l := clog.NewDefaultLogger()
-	manifests, values, err := render.GenerateManifest(
-		[]string{inFileAbsolutePath(inFile)},
-		[]string{"installPackagePath=" + string(chartSource)},
-		false, nil, c)
+	manifests, values, err := render.GenerateManifest([]string{inFileAbsolutePath(inFile)}, []string{"installPackagePath=" + string(chartSource)}, false, c, nil)
 	if err != nil {
 		return nil, err
 	}

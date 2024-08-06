@@ -209,8 +209,7 @@ func generateValidatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) 
 		"values.base.validationURL=" + config.URL,
 		"values.global.istioNamespace=" + config.IstioNamespace,
 	}
-	mfs, _, err := render.GenerateManifest(nil, flags,
-		false, nil, nil)
+	mfs, _, err := render.GenerateManifest(nil, flags, false, nil, nil)
 	if err != nil {
 		return "", nil
 	}
@@ -285,8 +284,7 @@ func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (s
 		"values.sidecarInjectorWebhook.enableNamespacesByDefault=" + strconv.FormatBool(opts.AutoInjectNamespaces),
 		"values.istiodRemote.injectionURL=" + config.URL,
 	}
-	mfs, _, err := render.GenerateManifest(nil, flags,
-		false, nil, nil)
+	mfs, _, err := render.GenerateManifest(nil, flags, false, nil, nil)
 	if err != nil {
 		return "", nil
 	}

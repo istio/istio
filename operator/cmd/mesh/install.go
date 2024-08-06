@@ -158,7 +158,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 
 	setFlags := applyFlagAliases(iArgs.Set, iArgs.ManifestsPath, iArgs.Revision)
 
-	manifests, values, err := render.GenerateManifest(iArgs.InFilenames, setFlags, iArgs.Force, nil, kubeClient)
+	manifests, values, err := render.GenerateManifest(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
 	if err != nil {
 		return fmt.Errorf("generate config: %v", err)
 	}
