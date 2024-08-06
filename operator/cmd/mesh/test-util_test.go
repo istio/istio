@@ -489,7 +489,7 @@ func portVal(name string, port, targetPort int64) map[string]any {
 // checkRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
 func checkRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
 	for _, o := range objs.kind(manifest.RoleBinding).objSlice {
-		rrname := values.TryGetPathAs[string](o.Object, "roleRef.name")
+		rrname := values.Map(o.Object).GetPathString("roleRef.name")
 		mustGetRole(g, objs, rrname)
 	}
 }
@@ -497,7 +497,7 @@ func checkRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
 // checkClusterRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
 func checkClusterRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
 	for _, o := range objs.kind(manifest.ClusterRoleBinding).objSlice {
-		rrname := values.TryGetPathAs[string](o.Object, "roleRef.name")
+		rrname := values.Map(o.Object).GetPathString("roleRef.name")
 		mustGetRole(g, objs, rrname)
 	}
 }

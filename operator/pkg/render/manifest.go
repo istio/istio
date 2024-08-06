@@ -174,8 +174,8 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (values
 		return nil, err
 	}
 
-	installPackagePath := values.TryGetPathAs[string](userConfigBase, "spec.installPackagePath")
-	profile := values.TryGetPathAs[string](userConfigBase, "spec.profile")
+	installPackagePath := userConfigBase.GetPathString("spec.installPackagePath")
+	profile := userConfigBase.GetPathString("spec.profile")
 	userValues, _ := userConfigBase.GetPathMap("spec.values")
 
 	// Now we have the base
@@ -236,17 +236,17 @@ func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
 	}
 
 	// Propagate component enablement to values. This is used for cross-chart dependencies.
-	if values.TryGetPathAs[bool](base, "spec.components.pilot.enabled") {
+	if base.GetPathBool("spec.components.pilot.enabled") {
 		if err := base.SetSpecPaths("values.pilot.enabled=true"); err != nil {
 			return nil, err
 		}
 	}
-	if values.TryGetPathAs[bool](base, "spec.components.cni.enabled") {
+	if base.GetPathBool("spec.components.cni.enabled") {
 		if err := base.SetSpecPaths("values.istio_cni.enabled=true"); err != nil {
 			return nil, err
 		}
 	}
-	if n := values.TryGetPathAs[string](base, "spec.values.global.istioNamespace"); n != "" {
+	if n := base.GetPathString("spec.values.global.istioNamespace"); n != "" {
 		if err := base.SetPath("metadata.namespace", n); err != nil {
 			return nil, err
 		}

@@ -25,7 +25,7 @@ import (
 
 func Render(namespace string, directory string, iop values.Map) ([]manifest.Manifest, error) {
 	vals, _ := iop.GetPathMap("spec.values")
-	installPackagePath := values.TryGetPathAs[string](iop, "spec.installPackagePath")
+	installPackagePath := iop.GetPathString("spec.installPackagePath")
 	f := manifests.BuiltinOrDir(installPackagePath)
 	path := filepath.Join("charts", directory)
 	chrt, err := loadChart(f, path)

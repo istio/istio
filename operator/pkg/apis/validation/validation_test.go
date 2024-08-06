@@ -349,7 +349,7 @@ cni:
 		t.Run(tt.desc, func(t *testing.T) {
 			m, err := values.MapFromYaml([]byte(tt.yamlStr))
 			assert.NoError(t, err)
-			_, errs := validation.ParseAndValidateIstioOperator(values.Map{"spec": values.Map{"values": m}})
+			_, errs := validation.ParseAndValidateIstioOperator(values.MakeMap(m, "spec", "values"))
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
 				t.Errorf("CheckValues(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.yamlStr, gotErr, wantErr)
 			}

@@ -617,7 +617,7 @@ func extractClusterIDFromInjectionConfig(kubeClient kube.CLIClient, istioNamespa
 	if err := json.Unmarshal([]byte(istioInjectionCM.Data[istioctlutil.ValuesConfigMapKey]), &injectedCMValues); err != nil {
 		return "", err
 	}
-	return values.TryGetPathAs[string](injectedCMValues, "global.multiCluster.clusterName"), nil
+	return values.Map(injectedCMValues).GetPathString("global.multiCluster.clusterName"), nil
 }
 
 // Because we are placing into an Unstructured, place as a map instead

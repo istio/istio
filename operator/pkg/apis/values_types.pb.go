@@ -1292,8 +1292,8 @@ type EgressGatewayConfig struct {
 	// of pods at the start of the update.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-	RollingMaxUnavailable *IntOrString       `protobuf:"bytes,22,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
-	ConfigVolumes         []*structpb.Struct `protobuf:"bytes,23,rep,name=configVolumes,proto3" json:"configVolumes,omitempty"`
+	RollingMaxUnavailable *IntOrString          `protobuf:"bytes,22,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
+	ConfigVolumes         []*structpb.Struct    `protobuf:"bytes,23,rep,name=configVolumes,proto3" json:"configVolumes,omitempty"`
 	AdditionalContainers  []*structpb.Struct    `protobuf:"bytes,24,rep,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
 	RunAsRoot             *wrapperspb.BoolValue `protobuf:"bytes,26,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
 	// The injection template to use for the gateway. If not set, no injection will be performed.

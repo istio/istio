@@ -32,12 +32,12 @@ type Component struct {
 }
 
 func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
-	defaultNamespace := values.TryGetPathAs[string](merged, "metadata.namespace")
+	defaultNamespace := merged.GetPathString("metadata.namespace")
 	var defaultResponse []apis.GatewayComponentSpec
 	def := c.Default
 	altEnabled := false
 	if c.AltEnablementPath != "" {
-		if values.TryGetPathAs[bool](merged, c.AltEnablementPath) {
+		if merged.GetPathBool(c.AltEnablementPath) {
 			def = true
 			altEnabled = true
 		}

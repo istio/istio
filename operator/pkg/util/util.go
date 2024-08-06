@@ -16,24 +16,8 @@ package util
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 )
-
-// ParseValue parses string into a value
-func ParseValue(valueStr string) any {
-	var value any
-	if v, err := strconv.Atoi(valueStr); err == nil {
-		value = v
-	} else if v, err := strconv.ParseFloat(valueStr, 64); err == nil {
-		value = v
-	} else if v, err := strconv.ParseBool(valueStr); err == nil {
-		value = v
-	} else {
-		value = strings.ReplaceAll(valueStr, "\\,", ",")
-	}
-	return value
-}
 
 // ConsolidateLog is a helper function to dedup the log message.
 func ConsolidateLog(logMessage string) string {
