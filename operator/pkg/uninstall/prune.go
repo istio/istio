@@ -102,7 +102,7 @@ func DeleteObjectsList(c kube.CLIClient, dryRun bool, log clog.Logger, objectsLi
 	var errs util.Errors
 	for _, ul := range objectsList {
 		for _, o := range ul.Items {
-			if err := deleteResource(c, dryRun, log, &o); err != nil {
+			if err := DeleteResource(c, dryRun, log, &o); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -181,7 +181,7 @@ func PrunedResourcesSchemas() []schema.GroupVersionKind {
 	return append(NamespacedResources(), ClusterResources...)
 }
 
-func deleteResource(clt kube.CLIClient, dryRun bool, log clog.Logger, obj *unstructured.Unstructured) error {
+func DeleteResource(clt kube.CLIClient, dryRun bool, log clog.Logger, obj *unstructured.Unstructured) error {
 	name := fmt.Sprintf("%v/%s.%s", obj.GroupVersionKind(), obj.GetName(), obj.GetNamespace())
 	if dryRun {
 		log.LogAndPrintf("Not pruning object %s because of dry run.", name)

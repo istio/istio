@@ -8,11 +8,14 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
@@ -130,10 +133,15 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 		}
 	}
 	wg.Wait()
+	if err := errors.ErrorOrNil(); err != nil {
+		return err
+	}
 
-	// TODO: prune!
+	if err := i.prune(manifests); err != nil {
+		return err
+	}
 	i.ProgressLogger.SetState(progress.StateComplete)
-	return errors.ErrorOrNil()
+	return nil
 }
 
 // applyManifestSet applies a set of manifests to the cluster
@@ -199,6 +207,68 @@ func (i Installer) applyLabelsAndAnnotations(obj manifest.Manifest, cname string
 	}
 	// We mutating the unstructured, must rebuild the YAML
 	return manifest.FromObject(obj.Unstructured)
+}
+
+// prune removes resources that are in the cluster, but not a part of the currently installed set of objects.
+func (i Installer) prune(manifests []manifest.ManifestSet) error {
+	if i.DryRun {
+		return nil
+	}
+	i.ProgressLogger.SetState(progress.StatePruning)
+
+	// Build up a map of component->resources, so we know what to keep around
+	excluded := map[component.Name]sets.String{}
+	// Include all components in case we disabled some.
+	for _, c := range component.AllComponents {
+		excluded[c.UserFacingName] = sets.New[string]()
+	}
+	for _, mfs := range manifests {
+		for _, m := range mfs.Manifests {
+			excluded[mfs.Component].Insert(m.Hash())
+		}
+	}
+
+	coreLabels := getOwnerLabels(i.Values, "")
+	selector := klabels.Set(coreLabels).AsSelectorPreValidated()
+	componentRequirement, err := klabels.NewRequirement(manifest.IstioComponentLabel, selection.Exists, nil)
+	if err != nil {
+		return err
+	}
+	selector = selector.Add(*componentRequirement)
+
+	var errs util.Errors
+	resources := uninstall.PrunedResourcesSchemas()
+	for _, gvk := range resources {
+		dc, err := i.Kube.DynamicClientFor(gvk, nil, "")
+		if err != nil {
+			return err
+		}
+		objs, err := dc.List(context.Background(), metav1.ListOptions{LabelSelector: selector.String()})
+		if err != nil {
+			return err
+		}
+		for component, excluded := range excluded {
+			componentLabels := klabels.SelectorFromSet(getOwnerLabels(i.Values, string(component)))
+			for _, obj := range objs.Items {
+				if excluded.Contains(manifest.ObjectHash(&obj)) {
+					continue
+				}
+				if obj.GetLabels()[manifest.OwningResourceNotPruned] == "true" {
+					continue
+				}
+				// Label mismatch. Provided objects don't select against the component, so this likely means the object
+				// is for another component.
+				if !componentLabels.Matches(klabels.Set(obj.GetLabels())) {
+					continue
+				}
+
+				if err := uninstall.DeleteResource(i.Kube, i.DryRun, i.Logger, &obj); err != nil {
+					errs = append(errs, err)
+				}
+			}
+		}
+	}
+	return errs.ToError()
 }
 
 var componentDependencies = map[component.Name][]component.Name{
