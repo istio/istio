@@ -15,13 +15,17 @@ type Manifest struct {
 	Content string
 }
 
-func (m Manifest) Hash() string {
-	k := m.GroupVersionKind().Kind
-	switch m.GroupVersionKind().Kind {
+func ObjectHash(o *unstructured.Unstructured) string {
+	k := o.GroupVersionKind().Kind
+	switch o.GroupVersionKind().Kind {
 	case "ClusterRole", "ClusterRoleBinding":
-		return k + ":" + m.GetName()
+		return k + ":" + o.GetName()
 	}
-	return k + ":" + m.GetNamespace() + ":" + m.GetName()
+	return k + ":" + o.GetNamespace() + ":" + o.GetName()
+}
+
+func (m Manifest) Hash() string {
+	return ObjectHash(m.Unstructured)
 }
 
 func FromYaml(y []byte) (Manifest, error) {
