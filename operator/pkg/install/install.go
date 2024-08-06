@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/operator/pkg/webhook"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/istiomultierror"
@@ -139,7 +140,7 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 	}
 
 	if err := i.prune(manifests); err != nil {
-		return err
+		return fmt.Errorf("pruning: %v", err)
 	}
 	i.ProgressLogger.SetState(progress.StateComplete)
 	return nil
@@ -245,8 +246,12 @@ func (i Installer) prune(manifests []manifest.ManifestSet) error {
 			return err
 		}
 		objs, err := dc.List(context.Background(), metav1.ListOptions{LabelSelector: selector.String()})
-		if err != nil {
+		if err := controllers.IgnoreNotFound(err); err != nil {
+			// Cluster may not even have these resources; ignore these errors
 			return err
+		}
+		if objs == nil {
+			continue
 		}
 		for component, excluded := range excluded {
 			componentLabels := klabels.SelectorFromSet(getOwnerLabels(i.Values, string(component)))
