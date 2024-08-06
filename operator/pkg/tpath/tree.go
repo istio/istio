@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"sigs.k8s.io/yaml"
@@ -99,45 +98,6 @@ func WritePathContext(nc *PathContext, value any, merge bool) error {
 	default:
 	}
 	return fmt.Errorf("cannot delete path: unsupported parent type %T for delete", nc.Parent.Node)
-}
-
-// WriteNode writes value to the tree in root at the given path, creating any required missing internal nodes in path.
-func WriteNode(root any, path util.Path, value any) error {
-	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, true)
-	if err != nil {
-		return err
-	}
-	return WritePathContext(pc, value, false)
-}
-
-// MergeNode merges value to the tree in root at the given path, creating any required missing internal nodes in path.
-func MergeNode(root any, path util.Path, value any) error {
-	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, true)
-	if err != nil {
-		return err
-	}
-	return WritePathContext(pc, value, true)
-}
-
-// Find returns the value at path from the given tree, or false if the path does not exist.
-// It behaves differently from GetPathContext in that it never creates map entries at the leaf and does not provide
-// a way to mutate the parent of the found node.
-func Find(inputTree map[string]any, path util.Path) (any, bool, error) {
-	scope.Debugf("Find path=%s", path)
-	if len(path) == 0 {
-		return nil, false, fmt.Errorf("path is empty")
-	}
-	node, found := find(inputTree, path)
-	return node, found, nil
-}
-
-// Delete sets value at path of input untyped tree to nil
-func Delete(root map[string]any, path util.Path) (bool, error) {
-	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, false)
-	if err != nil {
-		return false, err
-	}
-	return true, WritePathContext(pc, nil, false)
 }
 
 // getPathContext is the internal implementation of GetPathContext.
@@ -459,45 +419,6 @@ func mergeConditional(newVal, originalVal any, merge bool) (any, error) {
 		return nil, err
 	}
 	return out, nil
-}
-
-// find returns the value at path from the given tree, or false if the path does not exist.
-func find(treeNode any, path util.Path) (any, bool) {
-	if len(path) == 0 || treeNode == nil {
-		return nil, false
-	}
-	switch nt := treeNode.(type) {
-	case map[any]any:
-		val := nt[path[0]]
-		if val == nil {
-			return nil, false
-		}
-		if len(path) == 1 {
-			return val, true
-		}
-		return find(val, path[1:])
-	case map[string]any:
-		val := nt[path[0]]
-		if val == nil {
-			return nil, false
-		}
-		if len(path) == 1 {
-			return val, true
-		}
-		return find(val, path[1:])
-	case []any:
-		idx, err := strconv.Atoi(path[0])
-		if err != nil {
-			return nil, false
-		}
-		if idx >= len(nt) {
-			return nil, false
-		}
-		val := nt[idx]
-		return find(val, path[1:])
-	default:
-		return nil, false
-	}
 }
 
 // stringsEqual reports whether the string representations of a and b are equal. a and b may have different types.

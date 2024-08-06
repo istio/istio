@@ -25,7 +25,6 @@ import (
 	labels2 "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -161,15 +160,8 @@ func (o *ObjectSet) labels(labels ...string) *ObjectSet {
 
 // HasLabel reports whether 0 has the given label.
 func hasLabel(o manifest.Manifest, label, value string) bool {
-	got, found, err := tpath.Find(o.Unstructured.UnstructuredContent(), util.PathFromString("metadata.labels"))
-	if err != nil {
-		log.Errorf("bad path: %s", err)
-		return false
-	}
-	if !found {
-		return false
-	}
-	return got.(map[string]any)[label] == value
+	m := values.TryGetPathAs[map[string]any](o.Object, "metadata.labels")
+	return m[label] == value
 }
 
 // mustGetService returns the service with the given name or fails if it's not found in objs.
@@ -270,16 +262,15 @@ type HavePathValueEqualMatcher struct {
 // Match implements the Matcher interface.
 func (m *HavePathValueEqualMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]any)
-	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
-	if err != nil || !f {
-		return false, err
+	got, f := values.MustAsMap(actual).GetPath(pv.path)
+	if !f {
+		return false, fmt.Errorf("could not find path %v", pv.path)
 	}
-	if reflect.TypeOf(got.Node) != reflect.TypeOf(pv.value) {
-		return false, fmt.Errorf("comparison types don't match: got %v(%T), want %v(%T)", got.Node, got.Node, pv.value, pv.value)
+	if reflect.TypeOf(got) != reflect.TypeOf(pv.value) {
+		return false, fmt.Errorf("comparison types don't match: got %v(%T), want %v(%T)", got, got, pv.value, pv.value)
 	}
-	if !reflect.DeepEqual(got.Node, pv.value) {
-		return false, fmt.Errorf("values don't match: got %v, want %v", got.Node, pv.value)
+	if !reflect.DeepEqual(got, pv.value) {
+		return false, fmt.Errorf("values don't match: got %v, want %v", got, pv.value)
 	}
 	return true, nil
 }
@@ -313,22 +304,21 @@ type HavePathValueMatchRegexMatcher struct {
 // Match implements the Matcher interface.
 func (m *HavePathValueMatchRegexMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]any)
-	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
-	if err != nil || !f {
-		return false, err
+	got, f := values.MustAsMap(actual).GetPath(pv.path)
+	if !f {
+		return false, fmt.Errorf("could not find path %v", pv.path)
 	}
-	if reflect.TypeOf(got.Node).Kind() != reflect.String || reflect.TypeOf(pv.value).Kind() != reflect.String {
-		return false, fmt.Errorf("comparison types must both be string: got %v(%T), want %v(%T)", got.Node, got.Node, pv.value, pv.value)
+	if reflect.TypeOf(got).Kind() != reflect.String || reflect.TypeOf(pv.value).Kind() != reflect.String {
+		return false, fmt.Errorf("comparison types must both be string: got %v(%T), want %v(%T)", got, got, pv.value, pv.value)
 	}
-	gotS := got.Node.(string)
+	gotS := got.(string)
 	wantS := pv.value.(string)
 	ok, err := regexp.MatchString(wantS, gotS)
 	if err != nil {
 		return false, err
 	}
 	if !ok {
-		return false, fmt.Errorf("values don't match: got %v, want %v", got.Node, pv.value)
+		return false, fmt.Errorf("values don't match: got %v, want %v", got, pv.value)
 	}
 	return true, nil
 }
@@ -362,15 +352,14 @@ type HavePathValueContainMatcher struct {
 // Match implements the Matcher interface.
 func (m *HavePathValueContainMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]any)
-	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
-	if err != nil || !f {
-		return false, err
+	got, f := values.MustAsMap(actual).GetPath(pv.path)
+	if !f {
+		return false, fmt.Errorf("could not find path %v", pv.path)
 	}
-	if reflect.TypeOf(got.Node) != reflect.TypeOf(pv.value) {
-		return false, fmt.Errorf("comparison types don't match: got %T, want %T", got.Node, pv.value)
+	if reflect.TypeOf(got) != reflect.TypeOf(pv.value) {
+		return false, fmt.Errorf("comparison types don't match: got %T, want %T", got, pv.value)
 	}
-	gotValStr := util.ToYAML(got.Node)
+	gotValStr := util.ToYAML(got)
 	subsetValStr := util.ToYAML(pv.value)
 	overlay, err := util.OverlayYAML(gotValStr, subsetValStr)
 	if err != nil {
@@ -456,15 +445,6 @@ func findObject(objs []manifest.Manifest, name, kind string) *manifest.Manifest 
 		}
 	}
 	return nil
-}
-
-// mustGetValueAtPath returns the value at the given path in the unstructured tree t. Fails if the path is not found
-// in the tree.
-func mustGetValueAtPath(g *WithT, t map[string]any, path string) any {
-	got, f, err := tpath.GetPathContext(t, util.PathFromString(path), false)
-	g.Expect(err).Should(BeNil(), "path %s should exist (%s)", path, err)
-	g.Expect(f).Should(BeTrue(), "path %s should exist", path)
-	return got.Node
 }
 
 // toMap transforms a comma separated key:value list (e.g. "a:aval, b:bval") to a map.
