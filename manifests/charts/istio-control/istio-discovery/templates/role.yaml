@@ -6,6 +6,7 @@ metadata:
   labels:
     app: istiod
     release: {{ .Release.Name }}
+{{- include "istio.labels" . | nindent 4 }}
 rules:
 # permissions to verify the webhook is ready and rejecting
 # invalid config. We use --server-dry-run so no config is persisted.

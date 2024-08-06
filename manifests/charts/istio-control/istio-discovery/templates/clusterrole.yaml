@@ -6,6 +6,7 @@ metadata:
   labels:
     app: istiod
     release: {{ .Release.Name }}
+{{- include "istio.labels" . | nindent 4 }}
 rules:
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
@@ -148,6 +149,7 @@ metadata:
   labels:
     app: istiod
     release: {{ .Release.Name }}
+{{- include "istio.labels" . | nindent 4 }}
 rules:
   - apiGroups: ["apps"]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]

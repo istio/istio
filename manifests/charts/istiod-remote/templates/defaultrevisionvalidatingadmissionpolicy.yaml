@@ -7,9 +7,8 @@ metadata:
   labels:
     release: {{ .Release.Name }}
     istio: istiod
-    app.kubernetes.io/name: istiod
-    {{- include "istio.labels" . | nindent 4}} 
-
+    istio.io/rev: {{ .Values.defaultRevision }}
+    {{ include "istio.labels" . | nindent 4 }}
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -48,12 +47,6 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
   name: "stable-channel-default-policy-binding.istio.io"
-  labels:
-    app: istiod
-    release: {{ .Release.Name }}
-    istio: istiod
-    app.kubernetes.io/name: istiod
-    {{- include "istio.labels" . | nindent 4}} 
 spec:
   policyName: "stable-channel-default-policy.istio.io"
   validationActions: [Deny]

@@ -11,11 +11,7 @@ metadata:
   {{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istiod
-    release: {{ .Release.Name }}
-    istio: istiod
-    app.kubernetes.io/name: istiod
-    {{- include "istio.labels" . | nindent 4}} 
+    {{ include "istio.labels" . | nindent 4 }}
 spec:
   ports:
   - port: 15012

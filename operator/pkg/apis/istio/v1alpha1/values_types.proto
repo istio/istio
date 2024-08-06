@@ -286,6 +286,7 @@ message EgressGatewayConfig {
   // Environment variables passed to the proxy container.
   google.protobuf.Struct env = 8;
 
+  // Labels to apply to all resources
   map<string, string> labels = 9;
 
   string name = 25;

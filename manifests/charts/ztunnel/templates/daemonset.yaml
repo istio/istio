@@ -4,8 +4,7 @@ metadata:
   name: ztunnel
   namespace: {{ .Release.Namespace }}
   labels:
-{{- template "istio-labels" -}}
-{{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
+{{- include "istio-labels" . | nindent 4 }}
   annotations:
 {{- if .Values.revision }}
     {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}

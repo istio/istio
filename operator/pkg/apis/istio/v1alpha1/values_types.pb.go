@@ -1215,7 +1215,8 @@ type EgressGatewayConfig struct {
 	// Controls whether an egress gateway is enabled.
 	Enabled *wrapperspb.BoolValue `protobuf:"bytes,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Environment variables passed to the proxy container.
-	Env    *structpb.Struct  `protobuf:"bytes,8,opt,name=env,proto3" json:"env,omitempty"`
+	Env *structpb.Struct `protobuf:"bytes,8,opt,name=env,proto3" json:"env,omitempty"`
+	// Labels to apply to all resources
 	Labels map[string]string `protobuf:"bytes,9,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	Name   string            `protobuf:"bytes,25,opt,name=name,proto3" json:"name,omitempty"`
 	// K8s node selector.

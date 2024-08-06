@@ -11,6 +11,7 @@ metadata:
     operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
     istio: pilot
+{{- include "istio.labels" . | nindent 4 }}
 spec:
   minAvailable: 1
   selector:

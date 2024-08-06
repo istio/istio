@@ -10,8 +10,7 @@ metadata:
   {{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/name: istiod
-    {{- include "istio.labels" . | nindent 4}} 
+    {{- include "istio.labels" . | nindent 4 }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}

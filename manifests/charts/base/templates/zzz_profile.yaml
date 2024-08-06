@@ -50,7 +50,10 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/part-of: istio
 app.kubernetes.io/version: {{ .Chart.AppVersion }}
-istio.io/rev: {{ .Values.revision | default "default" | quote }}
 helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-{{ with .Values.labels -}}{{ toYaml . }}{{ end }}
+{{- range $key, $val := .Values.labels }}
+{{- if and (ne $key "app") (ne $key "istio") }}
+{{ $key | quote }}: {{ $val | quote }}
+{{- end }}
+{{- end }}
 {{- end -}}
