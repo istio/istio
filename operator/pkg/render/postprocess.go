@@ -17,7 +17,8 @@ import (
 	"istio.io/istio/operator/pkg/values"
 )
 
-func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manifests []manifest.Manifest) ([]manifest.Manifest, error) {
+// postProcess applies any manifest manipulation to be done after Helm chart rendering.
+func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manifests []manifest.Manifest, vals values.Map) ([]manifest.Manifest, error) {
 	if spec.Kubernetes == nil {
 		return manifests, nil
 	}
