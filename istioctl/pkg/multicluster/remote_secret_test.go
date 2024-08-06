@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/util/yml"
 )
 
 var (
@@ -420,8 +419,7 @@ func TestGenerateServiceAccount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate service account YAML: %v", err)
 	}
-	spl := yml.SplitString(yaml)
-	objs, err := manifest.Parse(spl)
+	objs, err := manifest.ParseMultiple(yaml)
 	if err != nil {
 		t.Fatal(err)
 	}

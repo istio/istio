@@ -238,7 +238,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		informerWatchesPending: atomic.NewInt32(0),
 		clusterID:              "fake",
 	}
-	c.kube = fake.NewClientset(objects...)
+	c.kube = fake.NewSimpleClientset(objects...)
 
 	c.config = &rest.Config{
 		Host: "server",

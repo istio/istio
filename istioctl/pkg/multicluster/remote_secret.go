@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -431,7 +432,7 @@ func generateServiceAccountYAML(opt RemoteSecretOptions) (string, error) {
 	}
 	included := []string{}
 	for _, mf := range mfs {
-		if mf.Component != "base" && mf.Component != "pilot" {
+		if mf.Component != component.BaseComponentName && mf.Component != component.PilotComponentName {
 			continue
 		}
 		for _, m := range mf.Manifests {
