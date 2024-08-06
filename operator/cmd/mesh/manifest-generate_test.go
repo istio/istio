@@ -640,11 +640,9 @@ func TestBareSpec(t *testing.T) {
 func TestMultipleSpecOneFile(t *testing.T) {
 	inPathBase := filepath.Join(testDataDir, "input/multiple_iops.yaml")
 	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts, []string{"templates/deployment.yaml"})
-	// TODO
-	_ = err
-	//if !strings.Contains(err.Error(), "contains multiple IstioOperator CRs, only one per file is supported") {
-	//	t.Fatalf("got %v, expected error for file with multiple IOPs", err)
-	//}
+	if !strings.Contains(err.Error(), "contains multiple IstioOperator CRs, only one per file is supported") {
+		t.Fatalf("got %v, expected error for file with multiple IOPs", err)
+	}
 }
 
 func TestBareValues(t *testing.T) {
@@ -1076,7 +1074,7 @@ func TestSidecarTemplate(t *testing.T) {
 // FilterManifest selects and ignores subset from the manifest string
 func filterManifest(t test.Failer, ms string, selectResources string) string {
 	sm := getObjPathMap(selectResources)
-	parsed, err := manifest.Parse(yml.SplitString(ms))
+	parsed, err := manifest.ParseMultiple(ms)
 	if err != nil {
 		t.Fatal(err)
 	}
