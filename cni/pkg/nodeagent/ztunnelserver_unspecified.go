@@ -7,7 +7,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,15 +18,18 @@
 package nodeagent
 
 import (
-	"fmt"
-	"io/fs"
-	"syscall"
+	"context"
+	"errors"
+
+	v1 "k8s.io/api/core/v1"
 )
 
-func GetInode(fi fs.FileInfo) (uint64, error) {
-	return 0, fmt.Errorf("unable to get inode os not supported")
+var errNotImplemented = errors.New("not implemented on this platform")
+
+func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) error {
+	return errNotImplemented
 }
 
-func statHostNetns(proc fs.FS) (*syscall.Stat_t, error) {
-	return nil, fmt.Errorf("unable to start host netns os not supported")
+func (z *ztunnelServer) accept() (ZtunnelConnection, error) {
+	return nil, errNotImplemented
 }

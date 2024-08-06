@@ -15,18 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagent
+package repair
 
-import (
-	"fmt"
-	"io/fs"
-	"syscall"
-)
+import corev1 "k8s.io/api/core/v1"
 
-func GetInode(fi fs.FileInfo) (uint64, error) {
-	return 0, fmt.Errorf("unable to get inode os not supported")
+func runInHost[T any](f func() (T, error)) (T, error) {
+	panic("not implemented")
+	// return f()
 }
 
-func statHostNetns(proc fs.FS) (*syscall.Stat_t, error) {
-	return nil, fmt.Errorf("unable to start host netns os not supported")
+// getPodNetNs returns the network namespace of the pod.
+// On windows, we can look at the pod ip address and enumerate all of the
+// networks to find the one that corresponds with this pod. From there,
+// we return the network namespace guid.
+func getPodNetNs(pod *corev1.Pod) (string, error) {
+	panic("not implemented")
 }

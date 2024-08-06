@@ -1,3 +1,6 @@
+//go:build aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris
+// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris
+
 // Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

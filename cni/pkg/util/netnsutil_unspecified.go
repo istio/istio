@@ -15,18 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagent
+package util
 
-import (
-	"fmt"
-	"io/fs"
-	"syscall"
-)
+import "errors"
 
-func GetInode(fi fs.FileInfo) (uint64, error) {
-	return 0, fmt.Errorf("unable to get inode os not supported")
-}
+var errNotImplemented = errors.New("not implemented on this OS platform")
 
-func statHostNetns(proc fs.FS) (*syscall.Stat_t, error) {
-	return nil, fmt.Errorf("unable to start host netns os not supported")
+// RunAsHost executes the given function `f` within the host network namespace
+func RunAsHost(f func() error) error {
+	return errNotImplemented
 }
