@@ -84,7 +84,6 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 				podLabels := klabels.Set(rPod.Metadata.Labels)
 				if gwSelector.Matches(podLabels) && xSelector.Matches(podLabels) {
 					matched = true
-					// break iterating
 					return false
 				}
 				return true
