@@ -17,6 +17,7 @@ package gateway
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -372,6 +373,11 @@ func TestConfigureIstioGateway(t *testing.T) {
 				assert.Equal(t, buf.String(), "")
 			} else {
 				resp := timestampRegex.ReplaceAll(buf.Bytes(), []byte("lastTransitionTime: fake"))
+				if util.Refresh() {
+					if err := os.WriteFile(filepath.Join("testdata", "deployment", tt.name+".yaml"), resp, 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
 				util.CompareContent(t, resp, filepath.Join("testdata", "deployment", tt.name+".yaml"))
 			}
 			// ensure we didn't mutate the object
