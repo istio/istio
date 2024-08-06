@@ -30,3 +30,29 @@ spec:
       protocol: HTTP
     hosts:
     - "foo.bar"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    istio: ingressgateway
+    app: istio-ingressgateway
+    cusKey: cusValue
+  name: my-ingressgateway-1
+spec:
+  containers:
+    - args:
+      name: istio-proxy
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    istio: ingressgateway
+    app: istio-ingressgateway
+    cusKey: cusValue
+  name: my-ingressgateway-2
+spec:
+  containers:
+    - args:
+      name: istio-proxy

@@ -45,6 +45,7 @@ func (*ConflictingGatewayAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks a gateway's selector, port number and hosts",
 		Inputs: []config.GroupVersionKind{
 			gvk.Gateway,
+			gvk.Pod,
 		},
 	}
 }
@@ -71,8 +72,26 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	isExists := false
 	hitSameGateways := map[string]map[string][]string{}
 	for gwmKey := range gwCMap {
-		kSelector, _ := parseFromGatewayMapKey(gwmKey)
-		if strings.Contains(kSelector, sGWSelector) || strings.Contains(sGWSelector, kSelector) {
+		matched := false
+		xSelectorStr, _ := parseFromGatewayMapKey(gwmKey)
+
+		if sGWSelector == xSelectorStr {
+			matched = true
+		} else if strings.Contains(xSelectorStr, sGWSelector) || strings.Contains(sGWSelector, xSelectorStr) {
+			xSelector := parseSelectorFromString(xSelectorStr)
+			c.ForEach(gvk.Pod, func(rPod *resource.Instance) bool {
+				// need match the same pod
+				podLabels := klabels.Set(rPod.Metadata.Labels)
+				if gwSelector.Matches(podLabels) && xSelector.Matches(podLabels) {
+					matched = true
+					// break iterating
+					return false
+				}
+				return true
+			})
+		}
+
+		if matched {
 			isExists = true
 			// record match same selector
 			hitSameGateways[gwmKey] = gwCMap[gwmKey]
@@ -153,6 +172,7 @@ func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
 		}
 		return true
 	})
+
 	return gwConflictingMap
 }
 
@@ -161,10 +181,22 @@ func genGatewayMapKey(selector, portNumber string) string {
 	return key
 }
 
-func parseFromGatewayMapKey(key string) (selector, port string) {
+func parseFromGatewayMapKey(key string) (selector string, port string) {
 	parts := strings.Split(key, "~")
 	if len(parts) != 2 {
 		return "", ""
 	}
 	return parts[0], parts[1]
+}
+
+func parseSelectorFromString(selectorString string) klabels.Selector {
+	selector := make(map[string]string)
+	selectorParts := strings.Split(selectorString, ",")
+	for _, pair := range selectorParts {
+		keyValue := strings.Split(pair, "=")
+		if len(keyValue) == 2 {
+			selector[keyValue[0]] = keyValue[1]
+		}
+	}
+	return klabels.SelectorFromSet(selector)
 }
