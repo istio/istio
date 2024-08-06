@@ -2390,7 +2390,6 @@ data:
           "servicePort": 0
         },
         "tag": "1.1.4",
-<<<<<<< HEAD
         "variant": "",
         "waypoint": {
           "resources": {
@@ -2404,18 +2403,10 @@ data:
             }
           }
         }
-=======
-        "variant": ""
-      },
-      "istio_cni": {
-        "chained": true,
-        "provider": "default"
->>>>>>> 68ea861fb6 (more)
       },
       "pilot": {
         "cni": {
           "enabled": false,
-          "namespace": "istio-system",
           "provider": "default"
         }
       },

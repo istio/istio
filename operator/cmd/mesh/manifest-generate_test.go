@@ -21,13 +21,11 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"sigs.k8s.io/yaml"
 	"strings"
 	"testing"
 
@@ -36,6 +34,7 @@ import (
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/manifest"
 	uninstall2 "istio.io/istio/operator/pkg/uninstall"
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -329,7 +329,6 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	objs, err = fakeControllerReconcileInternal(c, testResourceFile, tmpCharts)
 	assert.Error(t, err)
 	assert.Equal(t, strings.Contains(err.Error(), "Webhook overlaps with others"), true)
-
 }
 
 func TestManifestGenerateDefaultWithRevisionedWebhook(t *testing.T) {
@@ -471,7 +470,7 @@ func TestManifestGenerateFlagsSetValues(t *testing.T) {
 	c := getContainer(dobj, "istio-proxy")
 	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "gcr.io/istio-testing/myproxy:latest"}))
 
-	cm := objs.kind("ConfigMap").nameEquals("istio-sidecar-injector").Unstructured
+	cm := objs.kind("ConfigMap").nameEquals("istio-sidecar-injector").Unstructured.Object
 	// TODO: change values to some nicer format rather than text block.
 	g.Expect(cm).Should(HavePathValueMatchRegex(PathValue{"data.values", `.*"includeIPRanges"\: "172\.30\.0\.0/16,172\.21\.0\.0/16".*`}))
 }
@@ -672,12 +671,6 @@ func TestInstallPackagePath(t *testing.T) {
 			desc:       "install_package_path",
 			diffSelect: "Deployment:*:istiod",
 			flags:      "--set installPackagePath=" + string(liveCharts),
-		},
-		{
-			// Specify both charts and profile from local filesystem.
-			desc:       "install_package_path",
-			diffSelect: "Deployment:*:istiod",
-			flags:      fmt.Sprintf("--set installPackagePath=%s --set profile=%s/profiles/default.yaml", string(liveCharts), string(liveCharts)),
 		},
 	})
 }

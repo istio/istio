@@ -214,10 +214,7 @@ spec:
         secret:
           optional: true
           secretName: istio-egressgateway-ca-certs
-
 ---
-
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -245,5 +242,3 @@ spec:
     app: istio-egressgateway
     istio: egressgateway
   type: ClusterIP
-
----

@@ -176,7 +176,7 @@ metadata:
   name: istiod
   namespace: istio-control
 spec:
-  maxReplicas: 5
+  maxReplicas: 8
   metrics:
   - resource:
       name: cpu
@@ -184,7 +184,7 @@ spec:
         averageUtilization: 80
         type: Utilization
     type: Resource
-  minReplicas: 1
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment

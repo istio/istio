@@ -21,6 +21,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 	if err != nil {
 		return nil, nil, fmt.Errorf("merge inputs: %v", err)
 	}
+	// TODO!!
 	iop, err := IstioOperatorFromJSON(merged.JSON(), force)
 	_ = iop
 	if err != nil {
@@ -70,7 +71,7 @@ func applyComponentValuesToHelmValues(comp component.Component, spec apis.Gatewa
 	if spec.Hub != "" {
 		merged.SetSpecPaths(fmt.Sprintf("values.%s.hub=%s", root, spec.Hub))
 	}
-	if spec.Tag != "" {
+	if spec.Tag != nil {
 		merged.SetSpecPaths(fmt.Sprintf("values.%s.tag=%v", root, spec.Tag))
 	}
 	if comp.FlattenValues {
@@ -153,6 +154,7 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (values
 
 	installPackagePath := values.TryGetPathAs[string](userConfigBase, "spec.installPackagePath")
 	profile := values.TryGetPathAs[string](userConfigBase, "spec.profile")
+	userValues, _ := userConfigBase.GetPathMap("spec.values")
 
 	// Now we have the base
 	base, err := readProfile(installPackagePath, profile)
@@ -172,8 +174,20 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (values
 	// Merge the user values on top
 	base.MergeFrom(userConfigBase)
 
-	// Canonicalize some of the values, translating things like spec.hub to spec.values.global.hub for helm compatibility
-	return translateIstioOperatorToHelm(base)
+	// Canonical-ize some of the values, translating things like `spec.hub` to `spec.values.global.hub` for helm compatibility
+	base, err = translateIstioOperatorToHelm(base)
+	if err != nil {
+		return nil, err
+	}
+
+	// User values may override things from translateIstioOperatorToHelm.
+	// For instance, I may set `values.istio_cni.enabled=true` without enabling the CNI component; translateIstioOperatorToHelm would set this to
+	// nil.
+	// So apply the user values on top as the last step
+	if userValues != nil {
+		base.MergeFrom(values.Map{"spec": values.Map{"values": userValues}})
+	}
+	return base, nil
 }
 
 func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
@@ -200,7 +214,7 @@ func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
 		}
 	}
 
-	// Propogate component enablement to values. This is used for cross-chart dependencies.
+	// Propagate component enablement to values. This is used for cross-chart dependencies.
 	if values.TryGetPathAs[bool](base, "spec.components.pilot.enabled") {
 		if err := base.SetSpecPaths("values.pilot.enabled=true"); err != nil {
 			return nil, err
@@ -218,6 +232,25 @@ func readProfile(path string, profile string) (values.Map, error) {
 	if profile == "" {
 		profile = "default"
 	}
+	// All profiles are based on applying on top of the 'default' profile
+	base, err := readProfileInternal(path, "default")
+	if err != nil {
+		return nil, err
+	}
+	if profile == "default" {
+		// If we requested the default profile, just return it
+		return base, nil
+	}
+	// Otherwise, merge default with the requested profile
+	top, err := readProfileInternal(path, profile)
+	if err != nil {
+		return nil, err
+	}
+	base.MergeFrom(top)
+	return base, nil
+}
+
+func readProfileInternal(path string, profile string) (values.Map, error) {
 	fs := manifests.BuiltinOrDir(path)
 	f, err := fs.Open(fmt.Sprintf("profiles/%v.yaml", profile))
 	if err != nil {
