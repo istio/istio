@@ -250,7 +250,6 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 			}
 		}
 	}
-	return
 }
 
 // GetTagVersion returns istio tag version
@@ -264,34 +263,3 @@ func GetTagVersion(tagInfo string) (string, error) {
 	}
 	return tag.String(), nil
 }
-
-func humanReadableJoin(ss []string) string {
-	switch len(ss) {
-	case 0:
-		return ""
-	case 1:
-		return ss[0]
-	case 2:
-		return ss[0] + " and " + ss[1]
-	default:
-		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
-	}
-}
-
-//func detectDefaultWebhookChange(p Printer, client kube.CLIClient, iop *v1alpha12.IstioOperator, exists bool) error {
-//	if !helmreconciler.DetectIfTagWebhookIsNeeded(iop, exists) {
-//		return nil
-//	}
-//	mwhs, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
-//		LabelSelector: "app=sidecar-injector,istio.io/rev=default,istio.io/tag=default",
-//	})
-//	if err != nil {
-//		return err
-//	}
-//	// If there is no default webhook but a revisioned default webhook exists,
-//	// and we are installing a new IOP with default semantics, the default webhook shifts.
-//	if exists && len(mwhs.Items) == 0 && iop.Spec.GetRevision() == "" {
-//		p.Println("The default revision has been updated to point to this installation.")
-//	}
-//	return nil
-//}

@@ -98,9 +98,10 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 		return e.UserFacingName
 	})...)
 	dependencyWaitCh := dependenciesChannels()
-	for _, manifest := range manifests {
-		c := manifest.Component
-		ms := manifest.Manifests
+	for _, mf := range manifests {
+		mf := mf
+		c := mf.Component
+		ms := mf.Manifests
 		disabledComponents.Delete(c)
 		wg.Add(1)
 		go func() {
@@ -112,7 +113,7 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 
 			// Apply all the manifests
 			if len(ms) != 0 {
-				if err := i.applyManifestSet(manifest); err != nil {
+				if err := i.applyManifestSet(mf); err != nil {
 					mu.Lock()
 					errors = multierror.Append(errors, err)
 					mu.Unlock()

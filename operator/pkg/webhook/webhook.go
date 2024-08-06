@@ -12,7 +12,6 @@ import (
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/config/analysis"
@@ -35,7 +34,7 @@ func WebhooksToDeploy(iop values.Map, clt kube.Client, dryRun bool) ([]manifest.
 	autoInject := iop.GetPathBool("spec.values.sidecarInjectorWebhook.enableNamespacesByDefault")
 
 	ignorePruneLabel := map[string]string{
-		uninstall.OwningResourceNotPruned: "true",
+		manifest.OwningResourceNotPruned: "true",
 	}
 	ns := ptr.NonEmptyOrDefault(iop.GetPathString("metadata.namespace"), "istio-system")
 	o := &revtag.GenerateOptions{

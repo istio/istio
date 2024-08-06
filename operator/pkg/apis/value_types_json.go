@@ -20,55 +20,56 @@ import (
 	"bytes"
 	"encoding/json"
 
-	github_com_golang_protobuf_jsonpb "github.com/golang/protobuf/jsonpb"
+	github_com_golang_protobuf_jsonpb "github.com/golang/protobuf/jsonpb" // nolint: depguard
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+// nolint
 var _ github_com_golang_protobuf_jsonpb.JSONPBUnmarshaler = &IntOrString{}
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
-func (this *IntOrString) UnmarshalJSON(value []byte) error {
+func (i *IntOrString) UnmarshalJSON(value []byte) error {
 	if value[0] == '"' {
-		this.Type = int64(intstr.String)
+		i.Type = int64(intstr.String)
 		var s string
 		err := json.Unmarshal(value, &s)
 		if err != nil {
 			return err
 		}
-		this.StrVal = &wrapperspb.StringValue{Value: s}
+		i.StrVal = &wrapperspb.StringValue{Value: s}
 		return nil
 	}
-	this.Type = int64(intstr.Int)
+	i.Type = int64(intstr.Int)
 	var s int32
 	err := json.Unmarshal(value, &s)
 	if err != nil {
 		return err
 	}
-	this.IntVal = &wrapperspb.Int32Value{Value: s}
+	i.IntVal = &wrapperspb.Int32Value{Value: s}
 	return nil
 }
 
-func (this *IntOrString) MarshalJSONPB(_ *github_com_golang_protobuf_jsonpb.Marshaler) ([]byte, error) {
-	return this.MarshalJSON()
+func (i *IntOrString) MarshalJSONPB(_ *github_com_golang_protobuf_jsonpb.Marshaler) ([]byte, error) {
+	return i.MarshalJSON()
 }
 
-func (this *IntOrString) MarshalJSON() ([]byte, error) {
-	if this.IntVal != nil {
-		return json.Marshal(this.IntVal.GetValue())
+func (i *IntOrString) MarshalJSON() ([]byte, error) {
+	if i.IntVal != nil {
+		return json.Marshal(i.IntVal.GetValue())
 	}
-	return json.Marshal(this.StrVal.GetValue())
+	return json.Marshal(i.StrVal.GetValue())
 }
 
-func (this *IntOrString) UnmarshalJSONPB(_ *github_com_golang_protobuf_jsonpb.Unmarshaler, value []byte) error {
-	return this.UnmarshalJSON(value)
+func (i *IntOrString) UnmarshalJSONPB(_ *github_com_golang_protobuf_jsonpb.Unmarshaler, value []byte) error {
+	return i.UnmarshalJSON(value)
 }
 
-func (this *IntOrString) ToKubernetes() intstr.IntOrString {
-	if this.IntVal != nil {
-		return intstr.FromInt32(this.GetIntVal().GetValue())
+func (i *IntOrString) ToKubernetes() intstr.IntOrString {
+	if i.IntVal != nil {
+		return intstr.FromInt32(i.GetIntVal().GetValue())
 	}
-	return intstr.FromString(this.GetStrVal().GetValue())
+	return intstr.FromString(i.GetStrVal().GetValue())
 }
 
 // MarshalJSON is a custom marshaler for Values

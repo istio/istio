@@ -249,14 +249,12 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		// Using a pre-installed control plane. Get the revisions from the
 		// command-line.
 		revisions = ctx.Settings().Revisions
+	} else if len(iopFiles.primaryIOP.spec.Revision) > 0 {
+		// Use revisions from the default control plane operator.
+		revisions = resource.RevVerMap{
+			iopFiles.primaryIOP.spec.Revision: "",
+		}
 	}
-	// TODO
-	//} else if len(iop.Spec.Revision) > 0 {
-	//	// Use revisions from the default control plane operator.
-	//	revisions = resource.RevVerMap{
-	//		iop.Spec.Revision: "",
-	//	}
-	//}
 
 	i := &istioImpl{
 		env:     ctx.Environment().(*kube.Environment),
