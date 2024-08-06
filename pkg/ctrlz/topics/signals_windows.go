@@ -11,15 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//go:build aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris
-// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris
+//go:build windows
+// +build windows
 
 package topics
 
 import (
 	"net/http"
-	"os"
-	"syscall"
 
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/ctrlz/topics/assets"
@@ -48,11 +46,8 @@ func (signalsTopic) Activate(context fw.TopicContext) {
 	})
 
 	_ = context.JSONRouter().StrictSlash(true).NewRoute().Methods("PUT", "POST").Path("/SIGUSR1").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		err := syscall.Kill(os.Getpid(), syscall.SIGUSR1)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		//@TODO send signal equivalent on windows:
+		// err := syscall.Kill(os.Getpid(), syscall.SIGUSR1)
 		w.WriteHeader(http.StatusAccepted)
 	})
 }

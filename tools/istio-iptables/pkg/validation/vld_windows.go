@@ -1,6 +1,3 @@
-//go:build !linux
-// +build !linux
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,23 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagent
+//go:build windows
+// +build windows
 
-import "errors"
+package validation
 
-func inodeForFd(_ NetnsFd) (uint64, error) {
-	return 0, errors.New("not implemented")
+import (
+	"net"
+	"syscall"
+)
+
+// Recover the original address from redirect socket. Supposed to work for tcp over ipv4 and ipv6.
+func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err error) {
+	return
 }
 
-func NetnsSet(n NetnsFd) error {
-	return errors.New("not implemented")
-}
-
-func OpenNetns(nspath string) (NetnsCloser, error) {
-	return nil, errors.New("not implemented")
-}
-
-// inspired by netns.Do() but with an existing fd.
-func NetnsDo(fdable NetnsFd, toRun func() error) error {
-	return errors.New("not implemented")
+// Setup reuse address to run the validation server more robustly
+func reuseAddr(network, address string, conn syscall.RawConn) error {
+	return nil
 }

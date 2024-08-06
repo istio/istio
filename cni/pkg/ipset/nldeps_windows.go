@@ -1,5 +1,5 @@
-//go:build !linux && !windows
-// +build !linux,!windows
+//go:build windows
+// +build windows
 
 // Copyright Istio Authors
 //
@@ -21,10 +21,6 @@ import (
 	"errors"
 	"net/netip"
 )
-
-func RealNlDeps() NetlinkIpsetDeps {
-	return &realDeps{}
-}
 
 type realDeps struct{}
 

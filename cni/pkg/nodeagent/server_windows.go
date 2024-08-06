@@ -1,5 +1,5 @@
-//go:build !linux
-// +build !linux
+//go:build windows
+// +build windows
 
 // Copyright Istio Authors
 //
@@ -17,21 +17,8 @@
 
 package nodeagent
 
-import "errors"
+import "istio.io/istio/pkg/kube"
 
-func inodeForFd(_ NetnsFd) (uint64, error) {
-	return 0, errors.New("not implemented")
-}
-
-func NetnsSet(n NetnsFd) error {
-	return errors.New("not implemented")
-}
-
-func OpenNetns(nspath string) (NetnsCloser, error) {
-	return nil, errors.New("not implemented")
-}
-
-// inspired by netns.Do() but with an existing fd.
-func NetnsDo(fdable NetnsFd, toRun func() error) error {
-	return errors.New("not implemented")
+func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, error) {
+	panic("not implemented")
 }

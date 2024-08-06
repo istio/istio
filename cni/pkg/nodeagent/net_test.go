@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,19 +34,9 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/cni/pkg/iptables"
-	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
-
-func setupLogging() {
-	opts := istiolog.DefaultOptions()
-	opts.SetDefaultOutputLevel(istiolog.OverrideScopeName, istiolog.DebugLevel)
-	istiolog.Configure(opts)
-	for _, scope := range istiolog.Scopes() {
-		scope.SetOutputLevel(istiolog.DebugLevel)
-	}
-}
 
 type netTestFixture struct {
 	netServer               *NetServer

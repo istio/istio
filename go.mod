@@ -116,6 +116,7 @@ require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Microsoft/go-winio v0.6.2
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/alecthomas/participle/v2 v2.1.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect

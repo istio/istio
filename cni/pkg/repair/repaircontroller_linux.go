@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,42 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagent
+package repair
 
 import (
-	"io/fs"
+	"fmt"
 
+	"istio.io/istio/cni/pkg/plugin"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
-type PodToNetns map[string]WorkloadInfo
-
-func (p PodToNetns) Close() {
-	for _, wl := range p {
-		wl.Netns.Close()
+// redirectRunningPod dynamically enters the provided pod, that is already running, and programs it's networking configuration.
+func redirectRunningPod(pod *corev1.Pod, netns string) error {
+	pi := plugin.ExtractPodInfo(pod)
+	redirect, err := plugin.NewRedirect(pi)
+	if err != nil {
+		return fmt.Errorf("setup redirect: %v", err)
 	}
-}
-
-type PodNetnsFinder interface {
-	FindNetnsForPods(filter map[types.UID]*corev1.Pod) (PodToNetns, error)
-}
-
-type PodNetnsProcFinder struct {
-	proc fs.FS
-}
-
-func NewPodNetnsProcFinder(proc fs.FS) *PodNetnsProcFinder {
-	return &PodNetnsProcFinder{proc: proc}
-}
-
-func isNotNumber(r rune) bool {
-	return r < '0' || r > '9'
-}
-
-type PodNetnsEntry struct {
-	uid     types.UID
-	netns   fs.File
-	netnsfd uintptr
-	inode   uint64
+	rulesMgr := plugin.IptablesInterceptRuleMgr()
+	if err := rulesMgr.Program(pod.Name, netns, redirect); err != nil {
+		return fmt.Errorf("program redirection: %v", err)
+	}
+	return nil
 }
