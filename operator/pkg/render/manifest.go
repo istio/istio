@@ -158,6 +158,9 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (values
 		if err != nil {
 			return nil, err
 		}
+		if err := checkNoMultipleIOPs(string(b)); err != nil {
+			return nil, err
+		}
 		m, err := values.MapFromYaml(b)
 		if err != nil {
 			return nil, err
@@ -210,6 +213,17 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (values
 		base.MergeFrom(values.Map{"spec": values.Map{"values": userValues}})
 	}
 	return base, nil
+}
+
+func checkNoMultipleIOPs(s string) error {
+	mfs, err := manifest.ParseMultiple(s)
+	if err != nil {
+		return fmt.Errorf("unable to parse file: %v", err)
+	}
+	if len(mfs) > 1 {
+		return fmt.Errorf("contains multiple IstioOperator CRs, only one per file is supported")
+	}
+	return nil
 }
 
 // translateIstioOperatorToHelm converts top level IstioOperator configs into Helm values.

@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -52,7 +51,7 @@ func WebhooksToDeploy(iop values.Map, clt kube.Client, dryRun bool) ([]manifest.
 	if err != nil {
 		return nil, nil
 	}
-	return manifest.Parse(yml.SplitString(tagManifests))
+	return manifest.ParseMultiple(tagManifests)
 }
 
 func CheckWebhooks(manifests []manifest.ManifestSet, iop values.Map, clt kube.Client, logger clog.Logger) error {

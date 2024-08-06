@@ -7,6 +7,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/component"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 type Manifest struct {
@@ -60,6 +61,12 @@ func FromObject(us *unstructured.Unstructured) (Manifest, error) {
 	}, nil
 }
 
+// ParseMultiple splits a string containing potentially many YAML objects, and parses them
+func ParseMultiple(output string) ([]Manifest, error) {
+	return Parse(yml.SplitString(output))
+}
+
+// Parse parses a list of YAML objects
 func Parse(output []string) ([]Manifest, error) {
 	res := make([]Manifest, 0, len(output))
 	for _, m := range output {
