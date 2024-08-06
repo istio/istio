@@ -71,11 +71,11 @@ func GetPathContext(root any, path util.Path, createMissing bool) (*PathContext,
 }
 
 // WritePathContext writes the given value to the Node in the given PathContext.
-func WritePathContext(nc *PathContext, value any, merge bool) error {
+func WritePathContext(nc *PathContext, value any) error {
 	scope.Debugf("WritePathContext PathContext=%s, value=%v", nc, value)
 
 	if !util.IsValueNil(value) {
-		return setPathContext(nc, value, merge)
+		return setPathContext(nc, value)
 	}
 
 	scope.Debug("delete")
@@ -277,8 +277,8 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 
 // setPathContext writes the given value to the Node in the given PathContext,
 // enlarging all PathContext lists to ensure all indexes are valid.
-func setPathContext(nc *PathContext, value any, merge bool) error {
-	processParent, err := setValueContext(nc, value, merge)
+func setPathContext(nc *PathContext, value any) error {
+	processParent, err := setValueContext(nc, value)
 	if err != nil || !processParent {
 		return err
 	}
@@ -287,12 +287,12 @@ func setPathContext(nc *PathContext, value any, merge bool) error {
 	if nc.Parent.Parent == nil {
 		return nil
 	}
-	return setPathContext(nc.Parent, nc.Parent.Node, false) // note: tail recursive
+	return setPathContext(nc.Parent, nc.Parent.Node) // note: tail recursive
 }
 
 // setValueContext writes the given value to the Node in the given PathContext.
 // If setting the value requires growing the final slice, grows it.
-func setValueContext(nc *PathContext, value any, merge bool) (bool, error) {
+func setValueContext(nc *PathContext, value any) (bool, error) {
 	if nc.Parent == nil {
 		return false, nil
 	}
@@ -315,13 +315,8 @@ func setValueContext(nc *PathContext, value any, merge bool) (bool, error) {
 				*parentNode = vParentNode
 			}
 
-			merged, err := mergeConditional(vv, nc.Node, merge)
-			if err != nil {
-				return false, err
-			}
-
-			vParentNode[idx] = merged
-			nc.Node = merged
+			vParentNode[idx] = vv
+			nc.Node = vv
 		default:
 			return false, fmt.Errorf("don't know about vtype %T", vParentNode)
 		}
@@ -339,13 +334,8 @@ func setValueContext(nc *PathContext, value any, merge bool) (bool, error) {
 					mergedValue := append(vNcNode, vv)
 					parentNode[key] = mergedValue
 				case *any:
-					merged, err := mergeConditional(vv, vNcNode, merge)
-					if err != nil {
-						return false, err
-					}
-
-					parentNode[key] = merged
-					nc.Node = merged
+					parentNode[key] = vv
+					nc.Node = vv
 				default:
 					// the vv is an basic JSON type (int, float, string, bool)
 					vv = append(vNcNode, vv)
@@ -378,47 +368,6 @@ func setValueContext(nc *PathContext, value any, merge bool) (bool, error) {
 	}
 
 	return true, nil
-}
-
-// mergeConditional returns a merge of newVal and originalVal if merge is true, otherwise it returns newVal.
-func mergeConditional(newVal, originalVal any, merge bool) (any, error) {
-	if !merge || util.IsValueNilOrDefault(originalVal) {
-		return newVal, nil
-	}
-	newS, err := yaml.Marshal(newVal)
-	if err != nil {
-		return nil, err
-	}
-	if util.IsYAMLEmpty(string(newS)) {
-		return originalVal, nil
-	}
-	originalS, err := yaml.Marshal(originalVal)
-	if err != nil {
-		return nil, err
-	}
-	if util.IsYAMLEmpty(string(originalS)) {
-		return newVal, nil
-	}
-
-	mergedS, err := util.OverlayYAML(string(originalS), string(newS))
-	if err != nil {
-		return nil, err
-	}
-
-	if util.IsMap(originalVal) {
-		// For JSON compatibility
-		out := make(map[string]any)
-		if err := yaml.Unmarshal([]byte(mergedS), &out); err != nil {
-			return nil, err
-		}
-		return out, nil
-	}
-	// For scalars and slices, copy the type
-	out := originalVal
-	if err := yaml.Unmarshal([]byte(mergedS), &out); err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 // stringsEqual reports whether the string representations of a and b are equal. a and b may have different types.

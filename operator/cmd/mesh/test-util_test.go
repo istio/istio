@@ -23,9 +23,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/log"
@@ -279,14 +279,14 @@ func (m *HavePathValueEqualMatcher) Match(actual any) (bool, error) {
 func (m *HavePathValueEqualMatcher) FailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to have path=value %s=%v\n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 // NegatedFailureMessage implements the Matcher interface.
 func (m *HavePathValueEqualMatcher) NegatedFailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to have path=value %s=%v\n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 // HavePathValueMatchRegex matches map[string]interface{} tree against a PathValue.
@@ -327,14 +327,14 @@ func (m *HavePathValueMatchRegexMatcher) Match(actual any) (bool, error) {
 func (m *HavePathValueMatchRegexMatcher) FailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to regex match path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to regex match path=value %s=%v\n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 // NegatedFailureMessage implements the Matcher interface.
 func (m *HavePathValueMatchRegexMatcher) NegatedFailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to regex match path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to regex match path=value %s=%v\n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 // HavePathValueContain matches map[string]interface{} tree against a PathValue.
@@ -359,14 +359,13 @@ func (m *HavePathValueContainMatcher) Match(actual any) (bool, error) {
 	if reflect.TypeOf(got) != reflect.TypeOf(pv.value) {
 		return false, fmt.Errorf("comparison types don't match: got %T, want %T", got, pv.value)
 	}
-	gotValStr := util.ToYAML(got)
-	subsetValStr := util.ToYAML(pv.value)
-	overlay, err := util.OverlayYAML(gotValStr, subsetValStr)
-	if err != nil {
-		return false, err
-	}
-	if overlay != gotValStr {
-		return false, fmt.Errorf("actual value:\n\n%s\ndoesn't contain expected subset:\n\n%s", gotValStr, subsetValStr)
+	g := got.(map[string]any)
+	want := pv.value.(map[string]any)
+	for k, v := range want {
+		gv := g[k]
+		if !reflect.DeepEqual(gv, v) {
+			return false, fmt.Errorf("values don't match %q: got %v, want %v", k, gv, v)
+		}
 	}
 	return true, nil
 }
@@ -375,14 +374,14 @@ func (m *HavePathValueContainMatcher) Match(actual any) (bool, error) {
 func (m *HavePathValueContainMatcher) FailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected path %s with value \n\n%v\nto be a subset of \n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected path %s with value \n\n%v\nto be a subset of \n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 // NegatedFailureMessage implements the Matcher interface.
 func (m *HavePathValueContainMatcher) NegatedFailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected path %s with value \n\n%v\nto NOT be a subset of \n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected path %s with value \n\n%v\nto NOT be a subset of \n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 func mustSelect(t test.Failer, selector map[string]string, labels map[string]string) {
@@ -508,4 +507,13 @@ func checkClusterRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
 		rrname := values.TryGetPathAs[string](o.Object, "roleRef.name")
 		mustGetRole(g, objs, rrname)
 	}
+}
+
+// toYAML returns a YAML string representation of val, or the error string if an error occurs.
+func toYAML(val any) string {
+	y, err := yaml.Marshal(val)
+	if err != nil {
+		return err.Error()
+	}
+	return string(y)
 }
