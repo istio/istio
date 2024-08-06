@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"istio.io/istio/operator/pkg/render"
 	"os"
 	"path"
 	"path/filepath"
@@ -38,6 +37,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/render"
 	uninstall2 "istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util/testhelpers"
 	tutil "istio.io/istio/pilot/test/util"

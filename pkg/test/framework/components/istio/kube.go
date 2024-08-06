@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/istiomultierror"
 )
 
 // TODO: dynamically generate meshID to support multi-tenancy tests
@@ -330,6 +331,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		})
 	}
 	if errs := errG.Wait(); errs != nil {
+		errs.ErrorFormat = istiomultierror.MultiErrorFormat()
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
