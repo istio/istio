@@ -35,7 +35,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 	}
 	// After validation, apply any unvalidatedValues they may have set.
 	if unvalidatedValues, _ := merged.GetPathMap("spec.unvalidatedValues"); unvalidatedValues != nil {
-		merged.MergeFrom(values.Map{"spec": values.Map{"values": unvalidatedValues}})
+		merged.MergeFrom(values.MakeMap(unvalidatedValues, "spec", "values"))
 	}
 
 	// Render each component
@@ -76,7 +76,6 @@ func applyComponentValuesToHelmValues(comp component.Component, spec apis.Gatewa
 		merged = merged.DeepClone()
 		_ = merged.SetPath(fmt.Sprintf("spec.values.%s.name", root), spec.Name)
 		_ = merged.SetPath(fmt.Sprintf("spec.values.%s.labels", root), spec.Label)
-		// TODO: ports
 	}
 	// No changes needed, skip early to avoid copy
 	if !comp.FlattenValues && spec.Hub == "" && spec.Tag == nil && spec.Label == nil {
@@ -212,6 +211,8 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (values
 	return base, nil
 }
 
+// translateIstioOperatorToHelm converts top level IstioOperator configs into Helm values.
+// Note: many other settings are done as post-processing steps, so they are not included here.
 func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
 	translations := map[string]string{
 		"spec.hub":                  "global.hub",
