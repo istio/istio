@@ -34,9 +34,9 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// minimumRsaKeySize is the minimum RSA key size to generate certificates
+// MinimumRsaKeySize is the minimum RSA key size to generate certificates
 // to ensure proper security
-const minimumRsaKeySize = 2048
+const MinimumRsaKeySize = 2048
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
 func GenCSR(options CertOptions) ([]byte, []byte, error) {
@@ -60,8 +60,8 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 			return nil, nil, errors.New("csr cert generation fails due to unsupported EC signature algorithm")
 		}
 	} else {
-		if options.RSAKeySize < minimumRsaKeySize {
-			return nil, nil, fmt.Errorf("requested key size does not meet the minimum required size of %d (requested: %d)", minimumRsaKeySize, options.RSAKeySize)
+		if options.RSAKeySize < MinimumRsaKeySize {
+			return nil, nil, fmt.Errorf("requested key size does not meet the minimum required size of %d (requested: %d)", MinimumRsaKeySize, options.RSAKeySize)
 		}
 
 		priv, err = rsa.GenerateKey(rand.Reader, options.RSAKeySize)
