@@ -252,15 +252,11 @@ func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
 	}
 
 	// Propagate component enablement to values. This is used for cross-chart dependencies.
-	if base.GetPathBool("spec.components.pilot.enabled") {
-		if err := base.SetSpecPaths("values.pilot.enabled=true"); err != nil {
-			return nil, err
-		}
+	if err := base.SetPath("spec.values.pilot.enabled", base.GetPathBool("spec.components.pilot.enabled")); err != nil {
+		return nil, err
 	}
-	if base.GetPathBool("spec.components.cni.enabled") {
-		if err := base.SetSpecPaths("values.istio_cni.enabled=true"); err != nil {
-			return nil, err
-		}
+	if err := base.SetPath("spec.values.istio_cni.enabled", base.GetPathBool("spec.components.cni.enabled")); err != nil {
+		return nil, err
 	}
 	if n := base.GetPathString("spec.values.global.istioNamespace"); n != "" {
 		if err := base.SetPath("metadata.namespace", n); err != nil {
