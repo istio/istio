@@ -123,7 +123,6 @@ func (p *Log) reportProgress(componentName string) func() {
 		cmpErr := cmp.err
 		cmp.mu.Unlock()
 		successIcon := "✅"
-		// TODO
 		if icon, found := component.Icons[cmpName]; found {
 			successIcon = icon
 		}

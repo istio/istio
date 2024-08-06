@@ -176,9 +176,8 @@ func (i Installer) serverSideApply(obj manifest.Manifest) error {
 	}
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 	var dryRun []string
-	// TODO: can we do this? it doesn't work well if the namespace is not already created
+	// TODO: can we do this a server-side dry run? it doesn't work well if the namespace is not already created
 	if i.DryRun {
-		//	dryRun = []string{metav1.DryRunAll}
 		return nil
 	}
 	if _, err := dc.Patch(context.TODO(), obj.GetName(), types.ApplyPatchType, []byte(obj.Content), metav1.PatchOptions{
