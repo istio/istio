@@ -178,6 +178,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.DryRun && !iArgs.SkipConfirmation {
+		// TODO!
 		prompt := fmt.Sprintf("This will install the Istio %s %q profile (with components: %s) into the cluster. Proceed? (y/N)",
 			"tag", "profile", "comp")
 		if !Confirm(prompt, stdOut) {

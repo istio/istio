@@ -10,12 +10,13 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/john"
+	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 )
 
-func postProcess(comp Component, spec john.ComponentSpec, manifests []manifest.Manifest) ([]manifest.Manifest, error) {
+func postProcess(comp component.Component, spec john.ComponentSpec, manifests []manifest.Manifest) ([]manifest.Manifest, error) {
 	if spec.Kubernetes == nil {
 		return manifests, nil
 	}

@@ -30,12 +30,12 @@ func Render(namespace string, directory string, iop values.Map) ([]manifest.Mani
 	path := filepath.Join("charts", directory)
 	chrt, err := loadChart(f, path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("load chart: %v", err)
 	}
 
 	output, err := renderChart(namespace, vals, chrt, nil, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("render chart: %v", err)
 	}
 	return manifest.Parse(output)
 }
@@ -65,7 +65,7 @@ func renderChart(namespace string, vals values.Map, chrt *chart.Chart, filterFun
 	}
 	helmVals, err := chartutil.ToRenderValues(chrt, vals, options, &caps)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("converting values: %v", err)
 	}
 
 	if filterFunc != nil {
