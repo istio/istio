@@ -40,11 +40,6 @@ const (
 	IstioTagLabel       = "istio.io/tag"
 	DefaultRevisionName = "default"
 
-	defaultChart            = "default"
-	pilotDiscoveryChart     = "istio-control/istio-discovery"
-	revisionTagTemplateName = "revision-tags.yaml"
-	vwhTemplateName         = "validatingwebhook.yaml"
-
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 
 	vwhBaseTemplateName = "istiod-default-validator"

@@ -27,31 +27,12 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/component"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/ptr"
-)
-
-const (
-	// MetadataNamespace is the namespace for mesh metadata (labels, annotations)
-	MetadataNamespace = "install.operator.istio.io"
-	// OwningResourceName represents the name of the owner to which the resource relates
-	OwningResourceName = "install.operator.istio.io/owning-resource"
-	// OwningResourceNamespace represents the namespace of the owner to which the resource relates
-	OwningResourceNamespace = "install.operator.istio.io/owning-resource-namespace"
-	// OwningResourceNotPruned indicates that the resource should not be pruned during reconciliation cycles,
-	// note this will not prevent the resource from being deleted if the owning resource is deleted.
-	OwningResourceNotPruned = "install.operator.istio.io/owning-resource-not-pruned"
-	// operatorLabelStr indicates Istio operator is managing this resource.
-	operatorLabelStr = "operator.istio.io/managed"
-	// operatorReconcileStr indicates that the operator will reconcile the resource.
-	operatorReconcileStr = "Reconcile"
-	// IstioComponentLabelStr indicates which Istio component a resource belongs to.
-	IstioComponentLabelStr = "operator.istio.io/component"
-	// istioVersionLabelStr indicates the Istio version of the installation.
-	istioVersionLabelStr = "operator.istio.io/version"
 )
 
 var (
@@ -125,10 +106,10 @@ func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision stri
 		labels[label.IoIstioRev.Name] = revision
 	}
 	if iopName != "" {
-		labels[OwningResourceName] = iopName
+		labels[manifest.OwningResourceName] = iopName
 	}
 	if iopNamespace != "" {
-		labels[OwningResourceNamespace] = iopNamespace
+		labels[manifest.OwningResourceNamespace] = iopNamespace
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
 	resources := NamespacedResources()
@@ -138,7 +119,7 @@ func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision stri
 	}
 	for _, gvk := range gvkList {
 		var result *unstructured.UnstructuredList
-		componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)
+		componentRequirement, err := klabels.NewRequirement(manifest.IstioComponentLabel, selection.Exists, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -159,7 +140,7 @@ func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision stri
 				string(component.IstiodRemoteComponentName),
 				string(component.ZtunnelComponentName),
 			}
-			includeRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.In, includeCN)
+			includeRequirement, err := klabels.NewRequirement(manifest.IstioComponentLabel, selection.In, includeCN)
 			if err != nil {
 				return nil, err
 			}

@@ -62,7 +62,7 @@ func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 	}
 	// List of components
 	if c.Multi {
-		s, ok := merged.GetPath("spec.components." + string(c.SpecName))
+		s, ok := merged.GetPath("spec.components." + c.SpecName)
 		if !ok {
 			return defaultResponse, nil
 		}
@@ -80,7 +80,7 @@ func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 		return specs, nil
 	}
 	// Single component
-	s, ok := merged.GetPathMap("spec.components." + string(c.SpecName))
+	s, ok := merged.GetPathMap("spec.components." + c.SpecName)
 	if !ok {
 		return defaultResponse, nil
 	}

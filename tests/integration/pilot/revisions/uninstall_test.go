@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/operator/pkg/component"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/test"
@@ -148,7 +149,7 @@ spec:
 
 			// Check if custom webhook is installed
 			validateWebhookExistence := func() {
-				ls := fmt.Sprintf("%s=%s", uninstall.IstioComponentLabelStr, component.IstiodRemoteComponentName)
+				ls := fmt.Sprintf("%s=%s", manifest.IstioComponentLabel, component.IstiodRemoteComponentName)
 				cs := t.Clusters().Default()
 				objs, _ := getRemainingResourcesCluster(cs, gvr.MutatingWebhookConfiguration, ls)
 				if len(objs) == 0 {
@@ -169,7 +170,7 @@ spec:
 
 			// Check no resources from the custom file exist
 			checkCPResourcesUninstalled(t, t.Clusters().Default(), allGVKs,
-				fmt.Sprintf("%s=%s", uninstall.IstioComponentLabelStr, component.IstiodRemoteComponentName), true)
+				fmt.Sprintf("%s=%s", manifest.IstioComponentLabel, component.IstiodRemoteComponentName), true)
 		})
 }
 
@@ -184,7 +185,7 @@ func TestUninstallPurge(t *testing.T) {
 			}
 			istioCtl.InvokeOrFail(t, uninstallCmd)
 			cs := t.Clusters().Default()
-			checkCPResourcesUninstalled(t, cs, allGVKs, uninstall.IstioComponentLabelStr, true)
+			checkCPResourcesUninstalled(t, cs, allGVKs, manifest.IstioComponentLabel, true)
 		})
 }
 

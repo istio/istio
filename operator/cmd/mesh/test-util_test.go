@@ -490,7 +490,7 @@ func portVal(name string, port, targetPort int64) map[string]any {
 func checkRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
 	for _, o := range objs.kind(manifest.RoleBinding).objSlice {
 		rrname := values.Map(o.Object).GetPathString("roleRef.name")
-		mustGetRole(g, objs, rrname)
+		_ = mustGetRole(g, objs, rrname)
 	}
 }
 
@@ -498,7 +498,7 @@ func checkRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
 func checkClusterRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
 	for _, o := range objs.kind(manifest.ClusterRoleBinding).objSlice {
 		rrname := values.Map(o.Object).GetPathString("roleRef.name")
-		mustGetRole(g, objs, rrname)
+		_ = mustGetRole(g, objs, rrname)
 	}
 }
 

@@ -102,7 +102,7 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 			baseJSON = newBytes
 		}
 		// Rebuild our manifest
-		nm, err := manifest.FromJson(baseJSON)
+		nm, err := manifest.FromJSON(baseJSON)
 		if err != nil {
 			return nil, err
 		}

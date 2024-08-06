@@ -39,7 +39,7 @@ func FromYaml(y []byte) (Manifest, error) {
 	}, nil
 }
 
-func FromJson(j []byte) (Manifest, error) {
+func FromJSON(j []byte) (Manifest, error) {
 	us := &unstructured.Unstructured{}
 	if err := json.Unmarshal(j, us); err != nil {
 		return Manifest{}, err
