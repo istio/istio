@@ -54,9 +54,6 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 			})
 		}
 	}
-	// TODO: istioNamespace -> IOP.namespace
-	// TODO: set components based on profile
-	// TODO: ValuesEnablementPathMap? This enables the ingress or egress
 	return allManifests, merged, nil
 }
 
@@ -201,7 +198,6 @@ func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
 		"spec.revision":             "revision",
 		"spec.meshConfig":           "meshConfig",
 		"spec.compatibilityVersion": "compatibilityVersion",
-		// TODO: istioNamespace?
 	}
 	for in, out := range translations {
 		v, f := base.GetPath(in)
@@ -226,6 +222,11 @@ func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
 	}
 	if values.TryGetPathAs[bool](base, "spec.components.cni.enabled") {
 		if err := base.SetSpecPaths("values.istio_cni.enabled=true"); err != nil {
+			return nil, err
+		}
+	}
+	if n := values.TryGetPathAs[string](base, "spec.values.global.istioNamespace"); n != "" {
+		if err := base.SetPath("metadata.namespace", n); err != nil {
 			return nil, err
 		}
 	}

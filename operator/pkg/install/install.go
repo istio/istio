@@ -34,6 +34,38 @@ type Installer struct {
 	ProgressLogger *progress.Log
 }
 
+// InstallManifests applies a set of rendered manifests to the cluster.
+func (i Installer) InstallManifests(manifests []manifest.ManifestSet, vals values.Map) error {
+	err := i.installSystemNamespace(vals)
+	if err != nil {
+		return err
+	}
+
+	if err := webhook.CheckWebhooks(manifests, vals, i.Kube); err != nil {
+		if i.Force {
+			i.Logger.LogAndErrorf("invalid webhook configs; continuing because of --force: %v", err)
+		} else {
+			return err
+		}
+	}
+
+	if err := i.install(manifests); err != nil {
+		return err
+	}
+
+	i.ProgressLogger.SetState(progress.StateComplete)
+	return nil
+}
+
+func (i Installer) installSystemNamespace(vals values.Map) error {
+	ns := ptr.NonEmptyOrDefault(values.TryGetPathAs[string](vals, "metadata.namespace"), "istio-system")
+	network := values.TryGetPathAs[string](vals, "spec.values.global.network")
+	if err := util.CreateNamespace(i.Kube.Kube(), ns, network, i.DryRun); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (i Installer) install(manifests []manifest.ManifestSet) error {
 	var mu sync.Mutex
 	errors := istiomultierror.New()
@@ -56,7 +88,7 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 			}
 
 			if len(ms) != 0 {
-				if err := i.ApplyManifest(manifest); err != nil {
+				if err := i.applyManifestSet(manifest); err != nil {
 					mu.Lock()
 					errors = multierror.Append(errors, err)
 					mu.Unlock()
@@ -80,7 +112,7 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 	return errors.ErrorOrNil()
 }
 
-func (i Installer) ApplyManifest(manifestSet manifest.ManifestSet) error {
+func (i Installer) applyManifestSet(manifestSet manifest.ManifestSet) error {
 	cname := string(manifestSet.Component)
 
 	manifests := manifestSet.Manifests
@@ -93,7 +125,7 @@ func (i Installer) ApplyManifest(manifestSet manifest.ManifestSet) error {
 		//if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
 		//	return err
 		//}
-		if err := i.ServerSideApply(obj); err != nil {
+		if err := i.serverSideApply(obj); err != nil {
 			plog.ReportError(err.Error())
 			return err
 		}
@@ -111,8 +143,8 @@ func (i Installer) ApplyManifest(manifestSet manifest.ManifestSet) error {
 	return nil
 }
 
-// ServerSideApply creates or updates an object in the API server depending on whether it already exists.
-func (i Installer) ServerSideApply(obj manifest.Manifest) error {
+// serverSideApply creates or updates an object in the API server depending on whether it already exists.
+func (i Installer) serverSideApply(obj manifest.Manifest) error {
 	const fieldOwnerOperator = "istio-operator"
 	dc, err := i.Kube.DynamicClientFor(obj.GroupVersionKind(), obj.Unstructured, "")
 	if err != nil {
@@ -132,28 +164,6 @@ func (i Installer) ServerSideApply(obj manifest.Manifest) error {
 	}); err != nil {
 		return fmt.Errorf("failed to update resource with server-side apply for obj %v: %v", objectStr, err)
 	}
-	return nil
-}
-
-func (i Installer) InstallManifests(manifests []manifest.ManifestSet, values values.Map) error {
-	// TODO: do not hardcode
-	if err := util.CreateNamespace(i.Kube.Kube(), "istio-system", "", i.DryRun); err != nil {
-		return err
-	}
-
-	if err := webhook.CheckWebhooks(manifests, values, i.Kube); err != nil {
-		if i.Force {
-			i.Logger.LogAndErrorf("invalid webhook configs; continuing because of --force: %v", err)
-		} else {
-			return err
-		}
-	}
-
-	if err := i.install(manifests); err != nil {
-		return err
-	}
-
-	i.ProgressLogger.SetState(progress.StateComplete)
 	return nil
 }
 
