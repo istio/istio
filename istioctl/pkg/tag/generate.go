@@ -29,7 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/render"
+	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/maps"
 )
@@ -201,25 +203,25 @@ func Create(client kube.CLIClient, manifests, ns string) error {
 
 // generateValidatingWebhook renders a validating webhook configuration from the given tagWebhookConfig.
 func generateValidatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (string, error) {
-	flags := []string{
-		"installPackagePath=" + opts.ManifestsPath,
-		"profile=empty",
-		"components.pilot.enabled=true",
-		"revision=" + config.Revision,
-		"values.base.validationURL=" + config.URL,
-		"values.global.istioNamespace=" + config.IstioNamespace,
+	vals := values.Map{
+		"spec": values.Map{
+			"installPackagePath": opts.ManifestsPath,
+			"values": values.Map{
+				"revision": config.Revision,
+				"base":     values.Map{"validationURL": config.URL},
+				"global":   values.Map{"istioNamespace": config.IstioNamespace},
+			},
+		},
 	}
-	mfs, _, err := render.GenerateManifest(nil, flags, false, nil, nil)
+	mfs, err := helm.Render(config.IstioNamespace, "default", vals)
 	if err != nil {
 		return "", nil
 	}
 	var validatingWebhookYAML string
-	for _, mf := range mfs {
-		for _, m := range mf.Manifests {
-			if m.GetKind() == "ValidatingWebhookConfiguration" {
-				validatingWebhookYAML = m.Content
-				break
-			}
+	for _, m := range mfs {
+		if m.GetKind() == "ValidatingWebhookConfiguration" {
+			validatingWebhookYAML = m.Content
+			break
 		}
 	}
 	if validatingWebhookYAML == "" {
