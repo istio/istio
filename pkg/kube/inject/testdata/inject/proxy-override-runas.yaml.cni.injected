@@ -18,11 +18,7 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         proxy.istio.io/overrides: '{"containers":[{"name":"istio-proxy","resources":{},"securityContext":{"runAsUser":1234,"runAsGroup":4321}}]}'
-        sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"initContainers":["istio-validation"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
-        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
-        traffic.sidecar.istio.io/includeInboundPorts: '*'
-        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
         app: hello
@@ -181,10 +177,8 @@ spec:
         - -d
         - 15090,15021,15020
         - --log_output_level=default:info
-        - --run-validation
-        - --skip-rule-apply
         image: gcr.io/istio-testing/proxyv2:latest
-        name: istio-validation
+        name: istio-init
         resources:
           limits:
             cpu: "2"
@@ -195,13 +189,16 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
             drop:
             - ALL
           privileged: false
-          readOnlyRootFilesystem: true
-          runAsGroup: 4321
-          runAsNonRoot: true
-          runAsUser: 1234
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       volumes:
       - name: workload-socket
       - name: credential-socket

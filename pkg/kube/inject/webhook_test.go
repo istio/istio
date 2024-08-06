@@ -639,7 +639,7 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 			continue
 		}
 		for _, o := range object.Manifests {
-			if o.GetName() == "istio-sidecar-injector" {
+			if o.GetName() == "istio-sidecar-injector" && o.GetKind() == gvk.ConfigMap.Kind {
 				data, ok := o.Object["data"].(map[string]any)
 				if !ok {
 					t.Fatalf("failed to convert %v", o)
@@ -658,7 +658,7 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".template.gen.yaml"), []byte(config), 0o644); err != nil {
 					t.Fatal(err)
 				}
-			} else if o.GetName() == "istio" {
+			} else if o.GetName() == "istio" && o.GetKind() == gvk.ConfigMap.Kind {
 				data, ok := o.Object["data"].(map[string]any)
 				if !ok {
 					t.Fatalf("failed to convert %v", o)
