@@ -117,6 +117,7 @@ func applyComponentValuesToHelmValues(comp component.Component, spec apis.Gatewa
 	return merged
 }
 
+// hubTagOverlay returns settings to override the default hub/tag, if the binary is compiled with specific versions
 func hubTagOverlay() []string {
 	hub := pkgversion.DockerInfo.Hub
 	tag := pkgversion.DockerInfo.Tag
