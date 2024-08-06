@@ -36,9 +36,10 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 		if rev := vals.GetPathStringOr("spec.values.revision", "default"); rev != "default" {
 			rn = rn + "-" + rev
 		}
-		// TODO: if revision and istiod += -revision
 	}
 	rt := comp.ResourceType
+	// Setup our patches. Each patch takes from some top level field under the component.k8s spec (the map key), and applies to some resource.
+	// The patch is just a standard StrategicMergePatch.
 	patches := map[string]Patch{
 		"affinity":            {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"affinity":%s}}}}`},
 		"env":                 {Kind: rt, Name: rn, Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q, "env": %%s}]}}}}`, comp.ContainerName)},
@@ -57,16 +58,19 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 		"service":             {Kind: "Service", Name: rn, Patch: `{"spec":%s}`},
 		"securityContext":     {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"securityContext":%s}}}}`},
 	}
+	// needPatching builds a map of manifest index -> patch. This ensures we only do the full round-tripping once per object.
 	needPatching := map[int][]string{}
 	for field, k := range patches {
 		v, ok := values.Map(spec.Raw).GetPath("k8s." + field)
 		if !ok {
 			continue
 		}
+		// Get the users patch...
 		inner, err := json.Marshal(v)
 		if err != nil {
 			return nil, err
 		}
+		// And insert it into our patch template
 		patch := fmt.Sprintf(k.Patch, inner)
 		// Find which manifests need the patch
 		for idx, m := range manifests {
@@ -76,8 +80,10 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 		}
 	}
 
+	// For anything needing a patch, apply them.
 	for idx, patches := range needPatching {
 		m := manifests[idx]
+		// Convert to JSON, which the StrategicMergePatch requires
 		baseJSON, err := yaml.YAMLToJSON([]byte(m.Content))
 		if err != nil {
 			return nil, err
@@ -87,6 +93,7 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 			return nil, err
 		}
 
+		// Apply all the patches
 		for _, patch := range patches {
 			newBytes, err := strategicpatch.StrategicMergePatch(baseJSON, []byte(patch), typed)
 			if err != nil {
@@ -99,9 +106,11 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 		if err != nil {
 			return nil, err
 		}
+		// Update the manifests list.
 		manifests[idx] = nm
 	}
 
+	// In addition to the structured patches, we also allow arbitrary overlays.
 	for _, o := range spec.Kubernetes.Overlays {
 		for idx, m := range manifests {
 			if o.Kind != m.GetKind() {
@@ -111,6 +120,7 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 			if o.Name != m.GetName() {
 				continue
 			}
+			// Overlay applies to this manifest, apply it and update
 			mfs, err := applyPatches(m, o.Patches)
 			if err != nil {
 				return nil, err
@@ -127,6 +137,7 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 func applyPatches(base manifest.Manifest, patches []apis.Patch) (manifest.Manifest, error) {
 	bo := make(map[any]any)
 	// Use yaml2 specifically to allow interface{} as key which WritePathContext treats specially
+	// TODO: can we get away from using yaml2 and tpath?
 	err := yaml2.Unmarshal([]byte(base.Content), &bo)
 	if err != nil {
 		return manifest.Manifest{}, err
