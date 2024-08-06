@@ -253,7 +253,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameMatches(".*gateway.*").size()).Should(Equal(3))
 
 		dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
-		d := dobj.Unstructured
+		d := dobj.Unstructured.Object
 		c := getContainer(dobj, "istio-proxy")
 		g.Expect(d).Should(HavePathValueContain(PathValue{"spec.template.metadata.labels", toMap("service.istio.io/canonical-revision:21")}))
 		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("aaa:aaa-val,bbb:bbb-val")}))
@@ -261,16 +261,16 @@ func TestManifestGenerateGateways(t *testing.T) {
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.memory", "999Mi"}))
 
 		dobj = mustGetDeployment(g, objs, "user-ingressgateway")
-		d = dobj.Unstructured
+		d = dobj.Unstructured.Object
 		c = getContainer(dobj, "istio-proxy")
 		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("ccc:ccc-val,ddd:ddd-val")}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "555m"}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.memory", "888Mi"}))
 
 		dobj = mustGetDeployment(g, objs, "ilb-gateway")
-		d = dobj.Unstructured
+		d = dobj.Unstructured.Object
 		c = getContainer(dobj, "istio-proxy")
-		s := mustGetService(g, objs, "ilb-gateway").Unstructured
+		s := mustGetService(g, objs, "ilb-gateway").Unstructured.Object
 		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("app:istio-ingressgateway,istio:ingressgateway,release: istio")}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "333m"}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"env.[name:PILOT_CERT_PROVIDER].value", "foobar"}))
@@ -280,7 +280,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
 
 		for _, o := range objs.kind(manifest.HorizontalPodAutoscaler).objSlice {
-			ou := o.Unstructured
+			ou := o.Unstructured.Object
 			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
 			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
 		}
