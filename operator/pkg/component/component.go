@@ -8,9 +8,12 @@ import (
 )
 
 type Component struct {
-	Name    Name
-	Default bool
-	Multi   bool
+	// UserFacingName is the component name in user facing cases
+	UserFacingName Name
+	// SpecName is the yaml key in the IstioOperato spec
+	SpecName string
+	Default  bool
+	Multi    bool
 	// ResourceType maps a Name to the type of the rendered k8s resource.
 	ResourceType string
 	// ResourceName maps a Name to the name of the rendered k8s resource.
@@ -46,7 +49,7 @@ func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 	buildSpec := func(m values.Map) (apis.GatewayComponentSpec, error) {
 		spec, err := values.ConvertMap[apis.GatewayComponentSpec](m)
 		if err != nil {
-			return apis.GatewayComponentSpec{}, fmt.Errorf("fail to convert %v: %v", c.Name, err)
+			return apis.GatewayComponentSpec{}, fmt.Errorf("fail to convert %v: %v", c.SpecName, err)
 		}
 		if spec.Namespace == "" {
 			spec.Namespace = defaultNamespace
@@ -59,7 +62,7 @@ func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 	}
 	// List of components
 	if c.Multi {
-		s, ok := merged.GetPath("spec.components." + string(c.Name))
+		s, ok := merged.GetPath("spec.components." + string(c.SpecName))
 		if !ok {
 			return defaultResponse, nil
 		}
@@ -77,7 +80,7 @@ func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 		return specs, nil
 	}
 	// Single component
-	s, ok := merged.GetPathMap("spec.components." + string(c.Name))
+	s, ok := merged.GetPathMap("spec.components." + string(c.SpecName))
 	if !ok {
 		return defaultResponse, nil
 	}
@@ -97,28 +100,30 @@ type Name string
 const (
 	// IstioComponent names corresponding to the IstioOperator proto component names. Must be the same, since these
 	// are used for struct traversal.
-	BaseComponentName  Name = "base"
-	PilotComponentName Name = "pilot"
+	BaseComponentName  Name = "Base"
+	PilotComponentName Name = "Pilot"
 
-	CNIComponentName     Name = "cni"
-	ZtunnelComponentName Name = "ztunnel"
+	CNIComponentName     Name = "Cni"
+	ZtunnelComponentName Name = "Ztunnel"
 
 	// istiod remote component
-	IstiodRemoteComponentName Name = "istiodRemote"
+	IstiodRemoteComponentName Name = "IstiodRemote"
 
-	IngressComponentName Name = "ingressGateways"
-	EgressComponentName  Name = "egressGateways"
+	IngressComponentName Name = "IngressGateways"
+	EgressComponentName  Name = "EgressGateways"
 )
 
 var AllComponents = []Component{
 	{
-		Name:                 BaseComponentName,
+		UserFacingName:       BaseComponentName,
+		SpecName:             "base",
 		Default:              true,
 		HelmSubdir:           "base",
 		ToHelmValuesTreeRoot: "global",
 	},
 	{
-		Name:                 PilotComponentName,
+		UserFacingName:       PilotComponentName,
+		SpecName:             "pilot",
 		Default:              true,
 		ResourceType:         "Deployment",
 		ResourceName:         "istiod",
@@ -127,7 +132,8 @@ var AllComponents = []Component{
 		ToHelmValuesTreeRoot: "pilot",
 	},
 	{
-		Name:                 IngressComponentName,
+		UserFacingName:       IngressComponentName,
+		SpecName:             "ingressGateways",
 		Multi:                true,
 		Default:              true,
 		ResourceType:         "Deployment",
@@ -138,7 +144,8 @@ var AllComponents = []Component{
 		AltEnablementPath:    "spec.values.gateways.istio-ingressgateway.enabled",
 	},
 	{
-		Name:                 EgressComponentName,
+		UserFacingName:       EgressComponentName,
+		SpecName:             "egressGateways",
 		Multi:                true,
 		ResourceType:         "Deployment",
 		ResourceName:         "istio-egressgateway",
@@ -148,7 +155,8 @@ var AllComponents = []Component{
 		AltEnablementPath:    "spec.values.gateways.istio-egressgateway.enabled",
 	},
 	{
-		Name:                 CNIComponentName,
+		UserFacingName:       CNIComponentName,
+		SpecName:             "cni",
 		ResourceType:         "DaemonSet",
 		ResourceName:         "istio-cni-node",
 		ContainerName:        "install-cni",
@@ -156,12 +164,14 @@ var AllComponents = []Component{
 		ToHelmValuesTreeRoot: "cni",
 	},
 	{
-		Name:                 IstiodRemoteComponentName,
+		UserFacingName:       IstiodRemoteComponentName,
+		SpecName:             "istiodRemote",
 		HelmSubdir:           "istiod-remote",
 		ToHelmValuesTreeRoot: "global",
 	},
 	{
-		Name:                 ZtunnelComponentName,
+		UserFacingName:       ZtunnelComponentName,
+		SpecName:             "ztunnel",
 		ResourceType:         "DaemonSet",
 		ResourceName:         "ztunnel",
 		HelmSubdir:           "ztunnel",

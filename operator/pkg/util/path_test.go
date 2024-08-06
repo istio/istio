@@ -146,28 +146,6 @@ func TestPathFromString(t *testing.T) {
 	}
 }
 
-func TestToYAMLPath(t *testing.T) {
-	tests := []struct {
-		desc   string
-		in     string
-		expect Path
-	}{
-		{
-			desc:   "all-uppercase",
-			in:     "A.B.C.D",
-			expect: Path{"a", "b", "c", "d"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			if got := ToYAMLPath(tt.in); !got.Equals(tt.expect) {
-				t.Errorf("%s: expect %v got %v", tt.desc, tt.expect, got)
-			}
-		})
-	}
-}
-
 func TestIsKVPathElement(t *testing.T) {
 	tests := []struct {
 		desc   string

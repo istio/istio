@@ -30,7 +30,7 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 		// Gateways can override the name
 		rn = spec.Name
 	}
-	if comp.Name == "pilot" {
+	if comp.UserFacingName == "pilot" {
 		// TODO: if revision and istiod += -revision
 	}
 	rt := comp.ResourceType
