@@ -47,6 +47,12 @@ func TestSetPath(t *testing.T) {
 			out:    `{"top":[1]}`,
 		},
 		{
+			name:   "array flattened",
+			inPath: "top[0]",
+			inData: 1,
+			out:    `{"top":[1]}`,
+		},
+		{
 			name:   "array and values",
 			inPath: "top.[0].bar",
 			inData: 1,
@@ -69,9 +75,9 @@ func TestSetPath(t *testing.T) {
 		{
 			name:   "escape kv",
 			inPath: "env.[name:foo\\.bar].value",
-			base:   fromJson(`{"env":[{"name":"foo\\.bar"}]}`),
+			base:   fromJson(`{"env":[{"name":"foo.bar"}]}`),
 			inData: "hi",
-			out:    `{"env":[{"name":"foo\\.bar","value":"hi"}]}`,
+			out:    `{"env":[{"name":"foo.bar","value":"hi"}]}`,
 		},
 		{
 			name:   "set kv",
@@ -163,7 +169,7 @@ func TestGetPath(t *testing.T) {
 		{
 			name: "escape kv",
 			path: "env.[name:foo\\.bar].value",
-			base: fromJson(`{"env":[{"name":"foo\\.bar","value":"hi"}]}`),
+			base: fromJson(`{"env":[{"name":"foo.bar","value":"hi"}]}`),
 			out:  "hi",
 		},
 	}

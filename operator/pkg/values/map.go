@@ -3,6 +3,7 @@ package values
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -427,29 +428,45 @@ func parseValue(valueStr string) any {
 	return value
 }
 
-func splitPath(in string) ([]string, error) {
-	segments := []string{}
-	for {
-		if strings.HasPrefix(in, "[") {
-			idx := strings.Index(in, "]")
-			if idx == -1 {
-				return nil, fmt.Errorf("unclosed segment")
+func splitPath(path string) ([]string, error) {
+	path = filepath.Clean(path)
+	path = strings.TrimPrefix(path, ".")
+	path = strings.TrimSuffix(path, ".")
+	pv := splitEscaped(path, '.')
+	var r []string
+	for _, str := range pv {
+		if str != "" {
+			str = strings.ReplaceAll(str, "\\.", ".")
+			// Is str of the form node[expr], convert to "node", "[expr]"?
+			nBracket := strings.IndexRune(str, '[')
+			if nBracket > 0 {
+				r = append(r, str[:nBracket], str[nBracket:])
+			} else {
+				// str is "[expr]" or "node"
+				r = append(r, str)
 			}
-			segments = append(segments, in[:idx+1])
-			if len(in) <= idx+1 {
-				return segments, nil
-			}
-			in = in[idx+2:]
-		} else {
-			idx := strings.Index(in, ".")
-			if idx == -1 {
-				segments = append(segments, in)
-				return segments, nil
-			}
-			segments = append(segments, in[:idx])
-			in = in[idx+1:]
 		}
 	}
+	return r, nil
+}
+
+// splitEscaped splits a string using the rune r as a separator. It does not split on r if it's prefixed by \.
+func splitEscaped(s string, r rune) []string {
+	var prev rune
+	if len(s) == 0 {
+		return []string{}
+	}
+	prevIdx := 0
+	var out []string
+	for i, c := range s {
+		if c == r && (i == 0 || (i > 0 && prev != '\\')) {
+			out = append(out, s[prevIdx:i])
+			prevIdx = i + 1
+		}
+		prev = c
+	}
+	out = append(out, s[prevIdx:])
+	return out
 }
 
 func extractIndex(seg string) (int, bool) {
