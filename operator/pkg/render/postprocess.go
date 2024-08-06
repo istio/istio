@@ -20,6 +20,7 @@ import (
 // postProcess applies any manifest manipulation to be done after Helm chart rendering.
 func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manifests []manifest.Manifest, vals values.Map) ([]manifest.Manifest, error) {
 	if spec.Kubernetes == nil {
+		// No post-processing steps to apply
 		return manifests, nil
 	}
 	type Patch struct {
@@ -31,7 +32,10 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 		// Gateways can override the name
 		rn = spec.Name
 	}
-	if comp.UserFacingName == "pilot" {
+	if comp.UserFacingName == component.PilotComponentName {
+		if rev := vals.GetPathStringOr("spec.values.revision", "default"); rev != "default" {
+			rn = rn + "-" + rev
+		}
 		// TODO: if revision and istiod += -revision
 	}
 	rt := comp.ResourceType
