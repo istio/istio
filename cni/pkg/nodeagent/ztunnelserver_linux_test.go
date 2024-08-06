@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -105,10 +108,10 @@ func TestZtunnelServerHandleConn(t *testing.T) {
 		}
 		ret := make(chan updateResponse, 1)
 		fdF := int(info.Netns.Fd())
-		req := UpdateRequest{
-			Update: r,
-			Fd:     &fdF,
-			Resp:   ret,
+		req := updateRequest{
+			update: r,
+			fd:     &fdF,
+			resp:   ret,
 		}
 
 		conn.On("SendMsgAndWaitForAck", r, &fdF).Times(1).Return(respData, nil)
@@ -185,10 +188,10 @@ func TestZtunnelServerHandleConnWhenConnDies(t *testing.T) {
 		}
 		ret := make(chan updateResponse, 1)
 		fdF := int(info.Netns.Fd())
-		req := UpdateRequest{
-			Update: r,
-			Fd:     &fdF,
-			Resp:   ret,
+		req := updateRequest{
+			update: r,
+			fd:     &fdF,
+			resp:   ret,
 		}
 
 		conn.On("SendMsgAndWaitForAck", r, &fdF).Times(1).Return(nil, fmt.Errorf("sendmsg: broken pipe"))

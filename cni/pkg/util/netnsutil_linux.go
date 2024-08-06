@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,20 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package validation
+package util
 
 import (
-	"encoding/binary"
-	"testing"
+	netns "github.com/containernetworking/plugins/pkg/ns"
+
+	pconstants "istio.io/istio/cni/pkg/constants"
 )
 
-func TestNtohs(t *testing.T) {
-	hostValue := ntohs(0xbeef)
-	expectValue := 0xbeef
-	if nativeByteOrder == binary.LittleEndian {
-		expectValue = 0xefbe
+// RunAsHost executes the given function `f` within the host network namespace
+func RunAsHost(f func() error) error {
+	if f == nil {
+		return nil
 	}
-	if hostValue != uint16(expectValue) {
-		t.Errorf("Expected evaluating ntohs(%v) is %v, actual %v", 0xbeef, expectValue, hostValue)
+
+	// A network namespace switch is definitely not required in this case, which helps with testing
+	if pconstants.HostNetNSPath == pconstants.SelfNetNSPath {
+		return f()
 	}
+	return netns.WithNetNSPath(pconstants.HostNetNSPath, func(_ netns.NetNS) error {
+		return f()
+	})
 }
