@@ -17,12 +17,8 @@ package mesh
 import (
 	"bytes"
 	"context"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
-
 	"github.com/spf13/cobra"
+	"istio.io/istio/operator/pkg/util/progress"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -31,7 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/testing"
+	"os"
+	"path/filepath"
 	"sigs.k8s.io/yaml"
+	"strings"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/install"
@@ -147,7 +146,7 @@ func fakeApplyManifest(t test.Failer, inFile, flags string, chartSource chartSou
 	if err != nil {
 		t.Fatalf("error %s: %s", err, manifest)
 	}
-	return NewObjectSet(getAllIstioObjects())
+	return NewObjectSet(getAllIstioObjects(testClient))
 }
 
 // fakeApplyExtraResources applies any extra resources for the given test name.
@@ -168,17 +167,17 @@ func fakeApplyExtraResources(inFile string) error {
 
 func fakeControllerReconcile(t test.Failer, inFile string, chartSource chartSourceType) *ObjectSet {
 	t.Helper()
-	res, err := fakeControllerReconcileInternal(inFile, chartSource)
+	c := SetupFakeClient()
+	res, err := fakeControllerReconcileInternal(c, inFile, chartSource)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return res
 }
 
-func fakeControllerReconcileInternal(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
-	c := SetupFakeClient()
+func fakeControllerReconcileInternal(c kube.CLIClient, inFile string, chartSource chartSourceType) (*ObjectSet, error) {
 	l := clog.NewDefaultLogger()
-	manifests, err := render.GenerateManifest(
+	manifests, values, err := render.GenerateManifest(
 		[]string{inFileAbsolutePath(inFile)},
 		[]string{"installPackagePath=" + string(chartSource)},
 		false, nil, c)
@@ -186,11 +185,19 @@ func fakeControllerReconcileInternal(inFile string, chartSource chartSourceType)
 		return nil, err
 	}
 
-	if err := install.InstallManifests(manifests, false, false, true, c, time.Microsecond, l); err != nil {
+	installer := install.Installer{
+		Force:          false,
+		DryRun:         false,
+		SkipWait:       true,
+		Kube:           c,
+		Logger:         l,
+		ProgressLogger: progress.NewLog(),
+	}
+	if err := installer.InstallManifests(manifests, values); err != nil {
 		return nil, err
 	}
 
-	return NewObjectSet(getAllIstioObjects()), nil
+	return NewObjectSet(getAllIstioObjects(c)), nil
 }
 
 // runManifestCommand runs the given manifest command. If filenames is set, passes the given filenames as -f flag,
@@ -235,10 +242,10 @@ func runCommand(cmdGen func(ctx cli.Context) *cobra.Command, args string) (strin
 }
 
 // getAllIstioObjects lists all Istio GVK resources from the testClient.
-func getAllIstioObjects() []manifest.Manifest {
+func getAllIstioObjects(c kube.CLIClient) []manifest.Manifest {
 	var out []manifest.Manifest
 	for _, gvk := range append(allClusterGVKs, allNamespacedGVKs...) {
-		c, err := testClient.DynamicClientFor(gvk, nil, "")
+		c, err := c.DynamicClientFor(gvk, nil, "")
 		if err != nil {
 			log.Error(err.Error())
 			continue

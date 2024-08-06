@@ -3,7 +3,7 @@ package component
 import (
 	"fmt"
 
-	"istio.io/istio/operator/john"
+	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/values"
 )
 
@@ -28,9 +28,9 @@ type Component struct {
 	AltEnablementPath string
 }
 
-func (c Component) Get(merged values.Map) ([]john.ComponentSpec, error) {
+func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 	defaultNamespace := values.TryGetPathAs[string](merged, "metadata.namespace")
-	var defaultResponse []john.ComponentSpec
+	var defaultResponse []apis.GatewayComponentSpec
 	def := c.Default
 	if c.AltEnablementPath != "" {
 		if values.TryGetPathAs[bool](merged, c.AltEnablementPath) {
@@ -38,13 +38,13 @@ func (c Component) Get(merged values.Map) ([]john.ComponentSpec, error) {
 		}
 	}
 	if def {
-		defaultResponse = []john.ComponentSpec{{Namespace: defaultNamespace}}
+		defaultResponse = []apis.GatewayComponentSpec{{ComponentSpec: apis.ComponentSpec{Namespace: defaultNamespace}}}
 	}
 
-	buildSpec := func(m values.Map) (john.ComponentSpec, error) {
-		spec, err := values.ConvertMap[john.ComponentSpec](m)
+	buildSpec := func(m values.Map) (apis.GatewayComponentSpec, error) {
+		spec, err := values.ConvertMap[apis.GatewayComponentSpec](m)
 		if err != nil {
-			return john.ComponentSpec{}, fmt.Errorf("fail to convert %v: %v", c.Name, err)
+			return apis.GatewayComponentSpec{}, fmt.Errorf("fail to convert %v: %v", c.Name, err)
 		}
 		if spec.Namespace == "" {
 			spec.Namespace = defaultNamespace
@@ -61,7 +61,7 @@ func (c Component) Get(merged values.Map) ([]john.ComponentSpec, error) {
 		if !ok {
 			return defaultResponse, nil
 		}
-		specs := []john.ComponentSpec{}
+		var specs []apis.GatewayComponentSpec
 		for _, cur := range s.([]any) {
 			m, _ := values.AsMap(cur)
 			spec, err := buildSpec(m)
@@ -86,7 +86,7 @@ func (c Component) Get(merged values.Map) ([]john.ComponentSpec, error) {
 	if !spec.Enabled.GetValueOrTrue() {
 		return nil, nil
 	}
-	return []john.ComponentSpec{spec}, nil
+	return []apis.GatewayComponentSpec{spec}, nil
 }
 
 // Name is a component name string, typed to constrain allowed values.

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"istio.io/istio/manifests"
-	"istio.io/istio/operator/john"
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/helm"
@@ -17,40 +16,34 @@ import (
 	pkgversion "istio.io/istio/pkg/version"
 )
 
-type ManifestSet struct {
-	Component component.Name
-	Manifests []manifest.Manifest
-	// TODO: notes, warnings, etc?
-}
-
-func GenerateManifest(files []string, setFlags []string, force bool, filter []string, client kube.Client) ([]ManifestSet, error) {
+func GenerateManifest(files []string, setFlags []string, force bool, filter []string, client kube.Client) ([]manifest.ManifestSet, values.Map, error) {
 	merged, err := MergeInputs(files, setFlags, client)
 	if err != nil {
-		return nil, fmt.Errorf("merge inputs: %v", err)
+		return nil, nil, fmt.Errorf("merge inputs: %v", err)
 	}
 	iop, err := IstioOperatorFromJSON(merged.JSON(), force)
 	_ = iop
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	var allManifests []ManifestSet
+	var allManifests []manifest.ManifestSet
 	for _, comp := range component.AllComponents {
 		specs, err := comp.Get(merged)
 		if err != nil {
-			return nil, fmt.Errorf("get component %v: %v", comp.Name, err)
+			return nil, nil, fmt.Errorf("get component %v: %v", comp.Name, err)
 		}
 		for _, spec := range specs {
 			values := applyComponentValuesToHelmValues(comp, spec, merged)
 			manifests, err := helm.Render(spec.Namespace, comp.HelmSubdir, values)
 			if err != nil {
-				return nil, fmt.Errorf("helm render: %v", err)
+				return nil, nil, fmt.Errorf("helm render: %v", err)
 			}
 			manifests, err = postProcess(comp, spec, manifests)
 			if err != nil {
-				return nil, fmt.Errorf("post processing: %v", err)
+				return nil, nil, fmt.Errorf("post processing: %v", err)
 			}
-			allManifests = append(allManifests, ManifestSet{
+			allManifests = append(allManifests, manifest.ManifestSet{
 				Component: comp.Name,
 				Manifests: manifests,
 			})
@@ -59,10 +52,10 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 	// TODO: istioNamespace -> IOP.namespace
 	// TODO: set components based on profile
 	// TODO: ValuesEnablementPathMap? This enables the ingress or egress
-	return allManifests, nil
+	return allManifests, merged, nil
 }
 
-func applyComponentValuesToHelmValues(comp component.Component, spec john.ComponentSpec, merged values.Map) values.Map {
+func applyComponentValuesToHelmValues(comp component.Component, spec apis.GatewayComponentSpec, merged values.Map) values.Map {
 	root := comp.ToHelmValuesTreeRoot
 	if comp.Name == "ingressGateways" || comp.Name == "egressGateways" {
 		merged = merged.DeepClone()

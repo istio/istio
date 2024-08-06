@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sigs.k8s.io/yaml"
 	"strings"
 	"testing"
 
@@ -292,31 +294,6 @@ func TestManifestGenerateGateways(t *testing.T) {
 func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	testResourceFile := "duplicate_mwc"
 
-	testCases := []struct {
-		name       string
-		force      bool
-		assertFunc func(g *WithT, objs *ObjectSet, err error)
-	}{
-		{
-			name:  "Duplicate MutatingWebhookConfiguration should be allowed when --force is enabled",
-			force: true,
-			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
-				g.Expect(err).Should(BeNil())
-				g.Expect(objs.kind(gvk.MutatingWebhookConfiguration.Kind).size()).Should(Equal(3))
-			},
-		},
-		{
-			name:  "Duplicate MutatingWebhookConfiguration should not be allowed when --force is disabled",
-			force: false,
-			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
-				g.Expect(err.Error()).To(ContainSubstring("Webhook overlaps with others"))
-				g.Expect(objs).Should(BeNil())
-			},
-		},
-	}
-
-	recreateSimpleTestEnv()
-
 	tmpDir := t.TempDir()
 	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
 	err := copyDir(string(liveCharts), string(tmpCharts))
@@ -334,13 +311,25 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			g := NewWithT(t)
-			objs, err := fakeControllerReconcileInternal(testResourceFile, tmpCharts)
-			tc.assertFunc(g, objs, err)
-		})
+	c := SetupFakeClient()
+	mwh := clienttest.NewWriter[*v1.MutatingWebhookConfiguration](t, c)
+
+	// First attempt: success
+	objs, err := fakeControllerReconcileInternal(c, testResourceFile, tmpCharts)
+	assert.NoError(t, err)
+	assert.Equal(t, objs.kind(gvk.MutatingWebhookConfiguration.Kind).size(), 3)
+	// Install writes to dynamic client, but we read from the typed one. Copy things over.
+	for _, o := range objs.kind(gvk.MutatingWebhookConfiguration.Kind).objSlice {
+		wh := &v1.MutatingWebhookConfiguration{}
+		assert.NoError(t, yaml.Unmarshal([]byte(o.Content), wh))
+		mwh.CreateOrUpdate(wh)
 	}
+
+	// Second attempt: fails
+	objs, err = fakeControllerReconcileInternal(c, testResourceFile, tmpCharts)
+	assert.Error(t, err)
+	assert.Equal(t, strings.Contains(err.Error(), "Webhook overlaps with others"), true)
+
 }
 
 func TestManifestGenerateDefaultWithRevisionedWebhook(t *testing.T) {

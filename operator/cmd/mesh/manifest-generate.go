@@ -125,7 +125,7 @@ const (
 )
 
 func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
-	manifests, err := render.GenerateManifest(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
+	manifests, _, err := render.GenerateManifest(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
 		mgArgs.Force, mgArgs.Filter, kubeClient)
 	if err != nil {
 		return err
@@ -136,7 +136,7 @@ func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l
 	return nil
 }
 
-func sortManifests(raw []render.ManifestSet) []string {
+func sortManifests(raw []manifest.ManifestSet) []string {
 	all := []manifest.Manifest{}
 	for _, m := range raw {
 		all = append(all, m.Manifests...)
