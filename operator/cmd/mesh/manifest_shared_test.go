@@ -115,13 +115,6 @@ func runManifestCommands(t test.Failer, inFile, flags string, chartSource chartS
 	out := make(map[cmdType]*ObjectSet)
 	for _, cmd := range testedManifestCmds {
 		log.Infof("\nRunning test command using %s\n", cmd)
-		switch cmd {
-		case cmdApply, cmdController:
-			if err := fakeApplyExtraResources(inFile); err != nil {
-				t.Fatal(err)
-			}
-		default:
-		}
 
 		var objs *ObjectSet
 		switch cmd {
@@ -148,22 +141,6 @@ func fakeApplyManifest(t test.Failer, inFile, flags string, chartSource chartSou
 		t.Fatalf("error %s: %s", err, manifest)
 	}
 	return NewObjectSet(getAllIstioObjects(testClient))
-}
-
-// fakeApplyExtraResources applies any extra resources for the given test name.
-func fakeApplyExtraResources(inFile string) error {
-	// TODO
-	//reconciler, err := helmreconciler.NewHelmReconciler(testClient, nil, nil, nil)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//if rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", inFile+".yaml")); err == nil {
-	//	if err := applyWithReconciler(reconciler, rs); err != nil {
-	//		return err
-	//	}
-	//}
-	return nil
 }
 
 func fakeControllerReconcile(t test.Failer, inFile string, chartSource chartSourceType) *ObjectSet {

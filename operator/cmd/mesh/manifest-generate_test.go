@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"istio.io/istio/operator/pkg/render"
 	"os"
 	"path"
 	"path/filepath"
@@ -807,14 +808,12 @@ func TestLDFlags(t *testing.T) {
 	}()
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
-	// TODO
-	//_, iop, err := manifest.GenerateIstioOperator(nil, []string{"installPackagePath=" + string(liveCharts)}, true, nil, l)
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
-	//if iop.Spec.Hub != version.DockerInfo.Hub || iop.Spec.Tag.GetStringValue() != version.DockerInfo.Tag {
-	//	t.Fatalf("DockerInfoHub, DockerInfoTag got: %s,%s, want: %s, %s", iop.Spec.Hub, iop.Spec.Tag, version.DockerInfo.Hub, version.DockerInfo.Tag)
-	//}
+	_, vals, err := render.GenerateManifest(nil, []string{"installPackagePath=" + string(liveCharts)}, true, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, vals.GetPathString("spec.hub"), version.DockerInfo.Hub)
+	assert.Equal(t, vals.GetPathString("spec.tag"), version.DockerInfo.Tag)
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {
