@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/operator/pkg/values"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/art"
@@ -164,9 +163,9 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		return fmt.Errorf("generate config: %v", err)
 	}
 
-	namespace := values.TryGetPathAs[string](vals, "metadata.namespace")
-	revision := values.TryGetPathAs[string](vals, "spec.values.revision")
-	profile := ptr.NonEmptyOrDefault(values.TryGetPathAs[string](vals, "spec.profile"), "default")
+	namespace := vals.GetPathString("metadata.namespace")
+	revision := vals.GetPathString("spec.values.revision")
+	profile := ptr.NonEmptyOrDefault(vals.GetPathString("spec.profile"), "default")
 
 	// Print information about version changing
 	detectIstioVersionDiff(p, tag, namespace, kubeClient, revision)

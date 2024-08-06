@@ -9,12 +9,30 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/ptr"
 )
 
+// Map is a wrapper around an untyped map. This is used throughout the operator codebase to provide generic access.
+// While un-intuitive, as generally strong typing is preferred, this solves a number of problems:
+// A large portion of the codebase is dealing with inherently unstructured input. The core type, the Helm values, is already
+// an untyped value.
+//
+// For example, while we do have a value_types.proto representation, this isn't actually appropriate for direct usage. For example, we allow
+// passing `unvalidatedValues` which is a completely opaque blob. We also allow many types to be both string or ints, for instance, which makes usage awkward.
+// Really this is useful for *validation* but not usage throughout the codebase.
+// Historically, there were attempts to use the direct typed value. In practice, what we ended up doing is converting to/from
+// the typed struct, protobuf.Struct, JSON/YAML, and an unstructured Map, depending on the needs of the current codebase.
+//
+// Some other problems with attempting to use typed structs:
+//   - There is a mix of golang protobuf (Istio) and gogo protobuf (Kubernetes types) which have poor interactions
+//   - Typed structs lose context on what was explicitly set by a user vs the zero value (without taking care at every point, and making more painful
+//     struct definitions). For instance, `pilot.enabled=false` is very different from just not setting `enabled`, which defaults to 'true'.
+//     Some of these types also come from others (Kubernetes), which we don't control.
+//   - A large portion of the code is dynamically getting or setting values, like applying `--set values.foo.bar=baz`. These are MUCH easier
+//     to do on a Map than on a struct which requires complex reflection.
 type Map map[string]any
 
+// MapFromJson constructs a Map from JSON
 func MapFromJson(input []byte) (Map, error) {
 	m := make(Map)
 	err := json.Unmarshal(input, &m)
@@ -24,6 +42,7 @@ func MapFromJson(input []byte) (Map, error) {
 	return m, nil
 }
 
+// MapFromYaml constructs a Map from YAML
 func MapFromYaml(input []byte) (Map, error) {
 	m := make(Map)
 	err := yaml.Unmarshal(input, &m)
@@ -33,22 +52,8 @@ func MapFromYaml(input []byte) (Map, error) {
 	return m, nil
 }
 
-func (m Map) JSON() string {
-	b, err := json.Marshal(m)
-	if err != nil {
-		panic(fmt.Sprintf("json Marshal: %v", err))
-	}
-	return string(b)
-}
-
-func (m Map) YAML() string {
-	b, err := yaml.Marshal(m)
-	if err != nil {
-		panic(fmt.Sprintf("json Marshal: %v", err))
-	}
-	return string(b)
-}
-
+// MakeMap is a helper to construct a map that has a single value, nested under some set of paths.
+// For example, `MakeMap(1, "a", "b") = Map{"a": Map{"b": 1}}`
 func MakeMap(contents any, path ...string) Map {
 	ret := Map{path[len(path)-1]: contents}
 	for i := len(path) - 2; i >= 0; i-- {
@@ -57,81 +62,49 @@ func MakeMap(contents any, path ...string) Map {
 	return ret
 }
 
-func MakePatch(contents any, in string) string {
-	path, err := splitPath(in)
-	if err != nil {
-		panic("TODO")
+// AsMap casts a value to a Map, if possible.
+func AsMap(cur any) (Map, bool) {
+	if m, ok := cur.(Map); ok {
+		return m, true
 	}
-	lastSeg := path[len(path)-1]
-
-	var base any
-	if k, v, ok := extractKV(lastSeg); ok {
-		base = []Map{{"$patch": "delete", k: v}}
-	} else {
-		base = Map{lastSeg: contents}
+	if m, ok := cur.(map[string]any); ok {
+		return m, true
 	}
+	return nil, false
+}
 
-	cur := base
-	for i := len(path) - 2; i >= 0; i-- {
-		seg := path[i]
-		if k, v, ok := extractKV(seg); ok {
-			cur.(Map)[k] = v
-			cur = []any{cur}
-		} else if idx, ok := extractIndex(seg); ok {
-			panic("!TODO!")
-			_ = idx
-		} else {
-			cur = Map{seg: cur}
+// MustAsMap casts a value to a Map; if the value is not a map, it will panic..
+func MustAsMap(cur any) Map {
+	m, ok := AsMap(cur)
+	if !ok {
+		if !reflect.ValueOf(cur).IsValid() {
+			return Map{}
 		}
+		panic(fmt.Sprintf("not a map, got %T: %v %v", cur, cur, reflect.ValueOf(cur).Kind()))
 	}
-	return cur.(Map).JSON()
+	return m
 }
 
-func splitPath(in string) ([]string, error) {
-	segments := []string{}
-	for {
-		if strings.HasPrefix(in, "[") {
-			idx := strings.Index(in, "]")
-			if idx == -1 {
-				return nil, fmt.Errorf("unclosed segment")
-			}
-			segments = append(segments, in[:idx+1])
-			if len(in) <= idx+1 {
-				return segments, nil
-			}
-			in = in[idx+2:]
-		} else {
-			idx := strings.Index(in, ".")
-			if idx == -1 {
-				segments = append(segments, in)
-				return segments, nil
-			}
-			segments = append(segments, in[:idx])
-			in = in[idx+1:]
-		}
-	}
-}
-
-func extractIndex(seg string) (int, bool) {
-	if !strings.HasPrefix(seg, "[") || !strings.HasSuffix(seg, "]") {
-		return 0, false
-	}
-	sanitized := seg[1 : len(seg)-1]
-	v, err := strconv.Atoi(sanitized)
+// JSON serializes a Map to a JSON string.
+func (m Map) JSON() string {
+	b, err := json.Marshal(m)
 	if err != nil {
-		return 0, false
+		panic(fmt.Sprintf("json Marshal: %v", err))
 	}
-	return v, true
+	return string(b)
 }
 
-func extractKV(seg string) (string, string, bool) {
-	if !strings.HasPrefix(seg, "[") || !strings.HasSuffix(seg, "]") {
-		return "", "", false
+// YAML serializes a Map to a YAML string.
+func (m Map) YAML() string {
+	b, err := yaml.Marshal(m)
+	if err != nil {
+		panic(fmt.Sprintf("yaml Marshal: %v", err))
 	}
-	sanitized := seg[1 : len(seg)-1]
-	return strings.Cut(sanitized, ":")
+	return string(b)
 }
 
+// MergeFrom does a key-wise merge between the current map and the passed in map.
+// The other map has precedence, and the result will modify the current map.
 func (m Map) MergeFrom(other Map) {
 	for k, v := range other {
 		// Might be a Map or map, possibly recurse
@@ -154,16 +127,6 @@ func (m Map) MergeFrom(other Map) {
 	}
 }
 
-// getPV returns the path and value components for the given set flag string, which must be in path=value format.
-func getPV(setFlag string) (path string, value string) {
-	pv := strings.Split(setFlag, "=")
-	if len(pv) != 2 {
-		return setFlag, ""
-	}
-	path, value = strings.TrimSpace(pv[0]), strings.TrimSpace(pv[1])
-	return
-}
-
 // SetPaths applies values from input like `key.subkey=val`
 func (m Map) SetPaths(paths ...string) error {
 	for _, sf := range paths {
@@ -171,7 +134,7 @@ func (m Map) SetPaths(paths ...string) error {
 		// input value type is always string, transform it to correct type before setting.
 		var val any = v
 		if !isAlwaysString(p) {
-			val = util.ParseValue(v)
+			val = parseValue(v)
 		}
 		if err := m.SetPath(p, val); err != nil {
 			return err
@@ -180,7 +143,7 @@ func (m Map) SetPaths(paths ...string) error {
 	return nil
 }
 
-// SetPath applies values from a path like `key.subkey`, `key.[0].var`, `key.[name:foo]`
+// SetPath applies values from a path like `key.subkey`, `key.[0].var`, or `key.[name:foo]`.
 func (m Map) SetPath(paths string, value any) error {
 	path, err := splitPath(paths)
 	if err != nil {
@@ -191,6 +154,137 @@ func (m Map) SetPath(paths string, value any) error {
 		return err
 	}
 	return nil
+}
+
+// SetSpecPaths applies values from input like `key.subkey=val`, and applies them under 'spec'
+func (m Map) SetSpecPaths(paths ...string) error {
+	for _, path := range paths {
+		if err := m.SetPaths("spec." + path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// GetPathAs is a helper function to get a patch value and cast it to a specified type.
+// If the path is not found, or the cast fails, false is returned.
+func GetPathAs[T any](m Map, name string) (T, bool) {
+	v, ok := m.GetPath(name)
+	if !ok {
+		return ptr.Empty[T](), false
+	}
+	t, ok := v.(T)
+	return t, ok
+}
+
+// TryGetPathAs is a helper function to get a patch value and cast it to a specified type.
+// If the path is not found, or the cast fails, the zero value is returned.
+func TryGetPathAs[T any](m Map, name string) T {
+	v, ok := m.GetPath(name)
+	if !ok {
+		return ptr.Empty[T]()
+	}
+	t, ok := v.(T)
+	return t
+}
+
+// GetPath gets values from input like `key.subkey`, `key.[0].var`, or `key.[name:foo]`.
+func (m Map) GetPath(name string) (any, bool) {
+	cur := any(m)
+
+	paths, err := splitPath(name)
+	if err != nil {
+		return nil, false
+	}
+	for _, n := range paths {
+		if idx, ok := extractIndex(n); ok {
+			a, ok := cur.([]any)
+			if !ok {
+				return nil, false
+			}
+			if idx >= 0 && idx < len(a) {
+				cur = a[idx]
+			} else {
+				return nil, false
+			}
+		} else if k, v, ok := extractKV(n); ok {
+			a, ok := cur.([]any)
+			if !ok {
+				return nil, false
+			}
+			index := -1
+			for idx, cm := range a {
+				if MustAsMap(cm)[k] == v {
+					index = idx
+					break
+				}
+			}
+			if index == -1 {
+				return nil, false
+			}
+			cur = a[idx]
+		} else {
+			cm, ok := AsMap(cur)
+			if !ok {
+				return nil, false
+			}
+			sub, ok := cm[n]
+			if !ok {
+				return nil, false
+			}
+			cur = sub
+		}
+	}
+
+	if p, ok := cur.(*any); ok {
+		return *p, true
+	}
+	return cur, true
+}
+
+// GetPathMap gets values from input like `key.subkey`
+func (m Map) GetPathMap(name string) (Map, bool) {
+	cur := m
+
+	for _, n := range parsePath(name) {
+		sub, ok := tableLookup(cur, n)
+		if !ok {
+			return nil, false
+		}
+		cur = sub
+	}
+	return cur, true
+}
+
+// DeepClone performs a deep clone of the map
+func (m Map) DeepClone() Map {
+	// TODO: More efficient way?
+	res, err := ConvertMap[Map](m)
+	if err != nil {
+		panic("deep clone should not fail")
+	}
+	return res
+}
+
+// GetPathString is a helper around TryGetPathAs[string] to allow usage as a method (otherwise impossible with generics)
+func (m Map) GetPathString(s string) string {
+	return TryGetPathAs[string](m, s)
+}
+
+// GetPathStringOr is a helper around TryGetPathAs[string] to allow usage as a method (otherwise impossible with generics),
+// with an allowance for a default value if it is not found/not set.
+func (m Map) GetPathStringOr(s string, def string) string {
+	return ptr.NonEmptyOrDefault(m.GetPathString(s), def)
+}
+
+// GetPathBool is a helper around TryGetPathAs[bool] to allow usage as a method (otherwise impossible with generics)
+func (m Map) GetPathBool(s string) bool {
+	return TryGetPathAs[bool](m, s)
+}
+
+// ConvertMap translates a Map to a T, via JSON
+func ConvertMap[T any](m Map) (T, error) {
+	return fromJson[T]([]byte(m.JSON()))
 }
 
 func setPathRecurse(base map[string]any, paths []string, value any) error {
@@ -256,143 +350,18 @@ func setPathRecurse(base map[string]any, paths []string, value any) error {
 	return nil
 }
 
-// SetSpecPaths applies values from input like `key.subkey=val`, and applies them under 'spec'
-func (m Map) SetSpecPaths(paths ...string) error {
-	for _, path := range paths {
-		if err := m.SetPaths("spec." + path); err != nil {
-			return err
+// GetValueForSetFlag parses the passed set flags which have format key=value and if any set the given path,
+// returns the corresponding value, otherwise returns the empty string. setFlags must have valid format.
+func GetValueForSetFlag(setFlags []string, path string) string {
+	ret := ""
+	for _, sf := range setFlags {
+		p, v := getPV(sf)
+		if p == path {
+			ret = v
 		}
+		// if set multiple times, return last set value
 	}
-	return nil
-}
-
-func GetPathAs[T any](m Map, name string) (T, bool) {
-	v, ok := m.GetPath(name)
-	if !ok {
-		return ptr.Empty[T](), false
-	}
-	t, ok := v.(T)
-	return t, ok
-}
-
-// TryGetPathAs
-func TryGetPathAs[T any](m Map, name string) T {
-	v, ok := m.GetPath(name)
-	if !ok {
-		return ptr.Empty[T]()
-	}
-	t, ok := v.(T)
-	return t
-}
-
-// GetPath gets values from input like `key.subkey`
-func (m Map) GetPath(name string) (any, bool) {
-	cur := any(m)
-
-	paths, err := splitPath(name)
-	if err != nil {
-		return nil, false
-	}
-	for _, n := range paths {
-		if idx, ok := extractIndex(n); ok {
-			a, ok := cur.([]any)
-			if !ok {
-				return nil, false
-			}
-			if idx >= 0 && idx < len(a) {
-				cur = a[idx]
-			} else {
-				return nil, false
-			}
-		} else if k, v, ok := extractKV(n); ok {
-			a, ok := cur.([]any)
-			if !ok {
-				return nil, false
-			}
-			index := -1
-			for idx, cm := range a {
-				if MustAsMap(cm)[k] == v {
-					index = idx
-					break
-				}
-			}
-			if index == -1 {
-				return nil, false
-			}
-			cur = a[idx]
-		} else {
-			cm, ok := AsMap(cur)
-			if !ok {
-				return nil, false
-			}
-			sub, ok := cm[n]
-			if !ok {
-				return nil, false
-			}
-			cur = sub
-		}
-	}
-
-	if p, ok := cur.(*any); ok {
-		return *p, true
-	}
-	return cur, true
-}
-
-func AsMap(cur any) (Map, bool) {
-	if m, ok := cur.(Map); ok {
-		return m, true
-	}
-	if m, ok := cur.(map[string]any); ok {
-		return m, true
-	}
-	return nil, false
-}
-
-func MustAsMap(cur any) Map {
-	m, ok := AsMap(cur)
-	if !ok {
-		if !reflect.ValueOf(cur).IsValid() {
-			return Map{}
-		}
-		panic(fmt.Sprintf("not a map, got %T: %v %v", cur, cur, reflect.ValueOf(cur).Kind()))
-	}
-	return m
-}
-
-// GetPathMap gets values from input like `key.subkey`
-func (m Map) GetPathMap(name string) (Map, bool) {
-	cur := m
-
-	for _, n := range parsePath(name) {
-		sub, ok := tableLookup(cur, n)
-		if !ok {
-			return nil, false
-		}
-		cur = sub
-	}
-	return cur, true
-}
-
-func (m Map) DeepClone() Map {
-	// More efficient way?
-	res, err := ConvertMap[Map](m)
-	if err != nil {
-		panic("deep clone should not fail")
-	}
-	return res
-}
-
-func (m Map) GetPathString(s string) string {
-	return TryGetPathAs[string](m, s)
-}
-
-func (m Map) GetPathStringOr(s string, def string) string {
-	return ptr.NonEmptyOrDefault(TryGetPathAs[string](m, s), def)
-}
-
-func ConvertMap[T any](m Map) (T, error) {
-	return fromJson[T]([]byte(m.JSON()))
+	return ret
 }
 
 func fromJson[T any](overlay []byte) (T, error) {
@@ -443,16 +412,72 @@ func isAlwaysString(s string) bool {
 	return false
 }
 
-// GetValueForSetFlag parses the passed set flags which have format key=value and if any set the given path,
-// returns the corresponding value, otherwise returns the empty string. setFlags must have valid format.
-func GetValueForSetFlag(setFlags []string, path string) string {
-	ret := ""
-	for _, sf := range setFlags {
-		p, v := getPV(sf)
-		if p == path {
-			ret = v
-		}
-		// if set multiple times, return last set value
+// parseValue parses string into a value
+func parseValue(valueStr string) any {
+	var value any
+	if v, err := strconv.Atoi(valueStr); err == nil {
+		value = v
+	} else if v, err := strconv.ParseFloat(valueStr, 64); err == nil {
+		value = v
+	} else if v, err := strconv.ParseBool(valueStr); err == nil {
+		value = v
+	} else {
+		value = strings.ReplaceAll(valueStr, "\\,", ",")
 	}
-	return ret
+	return value
+}
+
+func splitPath(in string) ([]string, error) {
+	segments := []string{}
+	for {
+		if strings.HasPrefix(in, "[") {
+			idx := strings.Index(in, "]")
+			if idx == -1 {
+				return nil, fmt.Errorf("unclosed segment")
+			}
+			segments = append(segments, in[:idx+1])
+			if len(in) <= idx+1 {
+				return segments, nil
+			}
+			in = in[idx+2:]
+		} else {
+			idx := strings.Index(in, ".")
+			if idx == -1 {
+				segments = append(segments, in)
+				return segments, nil
+			}
+			segments = append(segments, in[:idx])
+			in = in[idx+1:]
+		}
+	}
+}
+
+func extractIndex(seg string) (int, bool) {
+	if !strings.HasPrefix(seg, "[") || !strings.HasSuffix(seg, "]") {
+		return 0, false
+	}
+	sanitized := seg[1 : len(seg)-1]
+	v, err := strconv.Atoi(sanitized)
+	if err != nil {
+		return 0, false
+	}
+	return v, true
+}
+
+func extractKV(seg string) (string, string, bool) {
+	if !strings.HasPrefix(seg, "[") || !strings.HasSuffix(seg, "]") {
+		return "", "", false
+	}
+	sanitized := seg[1 : len(seg)-1]
+	return strings.Cut(sanitized, ":")
+}
+
+// getPV returns the path and value components for the given set flag string, which must be in path=value format.
+func getPV(setFlag string) (path string, value string) {
+	pv := strings.Split(setFlag, "=")
+	if len(pv) != 2 {
+		return setFlag, ""
+	}
+	path, value = strings.TrimSpace(pv[0]), strings.TrimSpace(pv[1])
+	return
 }

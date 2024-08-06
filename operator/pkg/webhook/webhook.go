@@ -32,13 +32,13 @@ func WebhooksToDeploy(iop values.Map, clt kube.Client, dryRun bool) ([]manifest.
 	if !needed {
 		return nil, nil
 	}
-	rev := ptr.NonEmptyOrDefault(values.TryGetPathAs[string](iop, "spec.values.revision"), "default")
-	autoInject := values.TryGetPathAs[bool](iop, "spec.values.sidecarInjectorWebhook.enableNamespacesByDefault")
+	rev := ptr.NonEmptyOrDefault(iop.GetPathString("spec.values.revision"), "default")
+	autoInject := iop.GetPathBool("spec.values.sidecarInjectorWebhook.enableNamespacesByDefault")
 
 	ignorePruneLabel := map[string]string{
 		uninstall.OwningResourceNotPruned: "true",
 	}
-	ns := ptr.NonEmptyOrDefault(values.TryGetPathAs[string](iop, "metadata.namespace"), "istio-system")
+	ns := ptr.NonEmptyOrDefault(iop.GetPathString("metadata.namespace"), "istio-system")
 	o := &revtag.GenerateOptions{
 		Tag:                  revtag.DefaultRevisionName,
 		Revision:             rev,
@@ -64,7 +64,7 @@ func CheckWebhooks(manifests []manifest.ManifestSet, iop values.Map, clt kube.Cl
 	// Add webhook manifests to be applied
 	var localWebhookYAMLReaders []local.ReaderSource
 	exists := revtag.PreviousInstallExists(context.Background(), clt.Kube())
-	rev := values.TryGetPathAs[string](iop, "spec.values.revision")
+	rev := iop.GetPathString("spec.values.revision")
 	needed := detectIfTagWebhookIsNeeded(iop, exists)
 	webhookNames := sets.New[string]()
 	for i, wh := range pilotManifests {
@@ -157,8 +157,8 @@ func filterOutBasedOnResources(messages diag.Messages, names sets.Set[string]) d
 }
 
 func detectIfTagWebhookIsNeeded(iop values.Map, exists bool) bool {
-	rev := values.TryGetPathAs[string](iop, "spec.values.revision")
-	operatorManageWebhooks := values.TryGetPathAs[bool](iop, "spec.values.global.operatorManageWebhooks")
+	rev := iop.GetPathString("spec.values.revision")
+	operatorManageWebhooks := iop.GetPathBool("spec.values.global.operatorManageWebhooks")
 	isDefaultInstallation := rev == ""
 	return !operatorManageWebhooks && (!exists || isDefaultInstallation)
 }
