@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 
 	"istio.io/api/label"
+	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -151,12 +152,12 @@ func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision stri
 		} else {
 			// do not prune base components or unknown components
 			includeCN := []string{
-				"Pilot",
-				"IngressGateways",
-				"EgressGateways",
-				"Cni",
-				"IstiodRemote",
-				"Ztunnel",
+				string(component.PilotComponentName),
+				string(component.IngressComponentName),
+				string(component.EgressComponentName),
+				string(component.CNIComponentName),
+				string(component.IstiodRemoteComponentName),
+				string(component.ZtunnelComponentName),
 			}
 			includeRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.In, includeCN)
 			if err != nil {

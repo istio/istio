@@ -36,7 +36,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 	for _, comp := range component.AllComponents {
 		specs, err := comp.Get(merged)
 		if err != nil {
-			return nil, nil, fmt.Errorf("get component %v: %v", comp.Name, err)
+			return nil, nil, fmt.Errorf("get component %v: %v", comp.UserFacingName, err)
 		}
 		for _, spec := range specs {
 			values := applyComponentValuesToHelmValues(comp, spec, merged)
@@ -49,7 +49,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 				return nil, nil, fmt.Errorf("post processing: %v", err)
 			}
 			allManifests = append(allManifests, manifest.ManifestSet{
-				Component: comp.Name,
+				Component: comp.UserFacingName,
 				Manifests: manifests,
 			})
 		}
@@ -59,7 +59,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 
 func applyComponentValuesToHelmValues(comp component.Component, spec apis.GatewayComponentSpec, merged values.Map) values.Map {
 	root := comp.ToHelmValuesTreeRoot
-	if comp.Name == "ingressGateways" || comp.Name == "egressGateways" {
+	if comp.UserFacingName == component.IngressComponentName || comp.UserFacingName == component.EgressComponentName {
 		merged = merged.DeepClone()
 		merged.SetPath(fmt.Sprintf("spec.values.%s.name", root), spec.Name)
 		merged.SetPath(fmt.Sprintf("spec.values.%s.labels", root), spec.Label)

@@ -280,13 +280,13 @@ func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (s
 		"profile=empty",
 		"components.pilot.enabled=true",
 		"revision=" + config.Revision,
-		"values.revisionTags[0]=" + config.Tag,
+		"values.revisionTags.[0]=" + config.Tag,
 		"values.sidecarInjectorWebhook.enableNamespacesByDefault=" + strconv.FormatBool(opts.AutoInjectNamespaces),
 		"values.istiodRemote.injectionURL=" + config.URL,
 	}
 	mfs, _, err := render.GenerateManifest(nil, flags, false, nil, nil)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	var tagWebhookYaml string
 	for _, mf := range mfs {

@@ -189,9 +189,10 @@ func fakeControllerReconcileInternal(c kube.CLIClient, inFile string, chartSourc
 		SkipWait:       true,
 		Kube:           c,
 		Logger:         l,
+		Values:         values,
 		ProgressLogger: progress.NewLog(),
 	}
-	if err := installer.InstallManifests(manifests, values); err != nil {
+	if err := installer.InstallManifests(manifests); err != nil {
 		return nil, err
 	}
 

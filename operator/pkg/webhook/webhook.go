@@ -12,6 +12,8 @@ import (
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/uninstall"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
@@ -19,10 +21,41 @@ import (
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/sets"
 )
 
-func CheckWebhooks(manifests []manifest.ManifestSet, iop values.Map, clt kube.Client) error {
+func WebhooksToDeploy(iop values.Map, clt kube.Client, dryRun bool) ([]manifest.Manifest, error) {
+	exists := revtag.PreviousInstallExists(context.Background(), clt.Kube())
+	needed := detectIfTagWebhookIsNeeded(iop, exists)
+	if !needed {
+		return nil, nil
+	}
+	rev := ptr.NonEmptyOrDefault(values.TryGetPathAs[string](iop, "spec.values.revision"), "default")
+	autoInject := values.TryGetPathAs[bool](iop, "spec.values.sidecarInjectorWebhook.enableNamespacesByDefault")
+
+	ignorePruneLabel := map[string]string{
+		uninstall.OwningResourceNotPruned: "true",
+	}
+	ns := ptr.NonEmptyOrDefault(values.TryGetPathAs[string](iop, "metadata.namespace"), "istio-system")
+	o := &revtag.GenerateOptions{
+		Tag:                  revtag.DefaultRevisionName,
+		Revision:             rev,
+		Overwrite:            true,
+		AutoInjectNamespaces: autoInject,
+		CustomLabels:         ignorePruneLabel,
+		Generate:             dryRun,
+	}
+	// If tag cannot be created could be remote cluster install, don't fail out.
+	tagManifests, err := revtag.Generate(context.Background(), clt, o, ns)
+	if err != nil {
+		return nil, nil
+	}
+	return manifest.Parse(yml.SplitString(tagManifests))
+}
+
+func CheckWebhooks(manifests []manifest.ManifestSet, iop values.Map, clt kube.Client, logger clog.Logger) error {
 	pilotManifests := manifest.ExtractComponent(manifests, component.PilotComponentName)
 	if len(pilotManifests) == 0 {
 		return nil
@@ -31,6 +64,7 @@ func CheckWebhooks(manifests []manifest.ManifestSet, iop values.Map, clt kube.Cl
 	// Add webhook manifests to be applied
 	var localWebhookYAMLReaders []local.ReaderSource
 	exists := revtag.PreviousInstallExists(context.Background(), clt.Kube())
+	rev := values.TryGetPathAs[string](iop, "spec.values.revision")
 	needed := detectIfTagWebhookIsNeeded(iop, exists)
 	webhookNames := sets.New[string]()
 	for i, wh := range pilotManifests {
@@ -92,6 +126,22 @@ func CheckWebhooks(manifests []manifest.ManifestSet, iop values.Map, clt kube.Cl
 			return err
 		}
 		return fmt.Errorf("creating default tag would conflict:\n%v", o)
+	}
+
+	// Check if we would be changing the default webhook
+	if needed {
+		mwhs, err := clt.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
+			LabelSelector: "app=sidecar-injector,istio.io/rev=default,istio.io/tag=default",
+		})
+		if err != nil {
+			return err
+		}
+		// If there is no default webhook but a revisioned default webhook exists,
+		// and we are installing a new IOP with default semantics, the default webhook shifts.
+		if exists && len(mwhs.Items) == 0 && rev == "" {
+			logger.Print("This installation will make default injection and validation pointing to the default revision, and " +
+				"originally it was pointing to the revisioned one.")
+		}
 	}
 	return nil
 }

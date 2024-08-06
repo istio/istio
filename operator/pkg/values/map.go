@@ -383,6 +383,14 @@ func (m Map) DeepClone() Map {
 	return res
 }
 
+func (m Map) GetPathString(s string) string {
+	return TryGetPathAs[string](m, s)
+}
+
+func (m Map) GetPathStringOr(s string, def string) string {
+	return ptr.NonEmptyOrDefault(TryGetPathAs[string](m, s), def)
+}
+
 func ConvertMap[T any](m Map) (T, error) {
 	return fromJson[T]([]byte(m.JSON()))
 }

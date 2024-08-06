@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
@@ -22,6 +23,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/version"
 )
 
 type Installer struct {
@@ -29,19 +31,23 @@ type Installer struct {
 	DryRun         bool
 	SkipWait       bool
 	Kube           kube.CLIClient
+	Values         values.Map
 	WaitTimeout    time.Duration
 	Logger         clog.Logger
 	ProgressLogger *progress.Log
 }
 
 // InstallManifests applies a set of rendered manifests to the cluster.
-func (i Installer) InstallManifests(manifests []manifest.ManifestSet, vals values.Map) error {
-	err := i.installSystemNamespace(vals)
+func (i Installer) InstallManifests(manifests []manifest.ManifestSet) error {
+	// The namespace is not a part of the manifest generation, but needed to actually deploy to the cluster.
+	// Install if needed.
+	err := i.installSystemNamespace()
 	if err != nil {
 		return err
 	}
 
-	if err := webhook.CheckWebhooks(manifests, vals, i.Kube); err != nil {
+	// Precheck to ensure we do not deploy conflicting webhooks.
+	if err := webhook.CheckWebhooks(manifests, i.Values, i.Kube, i.Logger); err != nil {
 		if i.Force {
 			i.Logger.LogAndErrorf("invalid webhook configs; continuing because of --force: %v", err)
 		} else {
@@ -49,23 +55,36 @@ func (i Installer) InstallManifests(manifests []manifest.ManifestSet, vals value
 		}
 	}
 
+	// Finally, we can actually install all the manifests
 	if err := i.install(manifests); err != nil {
 		return err
 	}
 
-	i.ProgressLogger.SetState(progress.StateComplete)
+	// We may need to manually deploy some webhooks out-of-band from the install, making this th
+	webhooks, err := webhook.WebhooksToDeploy(i.Values, i.Kube, i.DryRun)
+	if err != nil {
+		return fmt.Errorf("failed generating webhooks: %v", err)
+	}
+	for _, wh := range webhooks {
+		if err := i.serverSideApply(wh); err != nil {
+			return fmt.Errorf("failed deploying webhooks: %v", err)
+		}
+	}
+
 	return nil
 }
 
-func (i Installer) installSystemNamespace(vals values.Map) error {
-	ns := ptr.NonEmptyOrDefault(values.TryGetPathAs[string](vals, "metadata.namespace"), "istio-system")
-	network := values.TryGetPathAs[string](vals, "spec.values.global.network")
+// installSystemNamespace creates the system namespace before install
+func (i Installer) installSystemNamespace() error {
+	ns := i.Values.GetPathStringOr("metadata.namespace", "istio-system")
+	network := i.Values.GetPathString("spec.values.global.network")
 	if err := util.CreateNamespace(i.Kube.Kube(), ns, network, i.DryRun); err != nil {
 		return err
 	}
 	return nil
 }
 
+// install takes rendered manifests and actually applies them to the cluster. This takes into account ordering based on component.
 func (i Installer) install(manifests []manifest.ManifestSet) error {
 	var mu sync.Mutex
 	errors := istiomultierror.New()
@@ -73,7 +92,7 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 	var wg sync.WaitGroup
 
 	disabledComponents := sets.New(slices.Map(component.AllComponents, func(e component.Component) component.Name {
-		return e.Name
+		return e.UserFacingName
 	})...)
 	dependencyWaitCh := dependenciesChannels()
 	for _, manifest := range manifests {
@@ -83,10 +102,12 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			// Wait for all of our dependencies to finish...
 			if s := dependencyWaitCh[c]; s != nil {
 				<-s
 			}
 
+			// Apply all the manifests
 			if len(ms) != 0 {
 				if err := i.applyManifestSet(manifest); err != nil {
 					mu.Lock()
@@ -109,9 +130,13 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 		}
 	}
 	wg.Wait()
+
+	// TODO: prune!
+	i.ProgressLogger.SetState(progress.StateComplete)
 	return errors.ErrorOrNil()
 }
 
+// applyManifestSet applies a set of manifests to the cluster
 func (i Installer) applyManifestSet(manifestSet manifest.ManifestSet) error {
 	cname := string(manifestSet.Component)
 
@@ -119,12 +144,11 @@ func (i Installer) applyManifestSet(manifestSet manifest.ManifestSet) error {
 
 	plog := i.ProgressLogger.NewComponent(cname)
 
-	// TODO
-	// allObjects.Sort(object.DefaultObjectOrder())
 	for _, obj := range manifests {
-		//if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
-		//	return err
-		//}
+		obj, err := i.applyLabelsAndAnnotations(obj, cname)
+		if err != nil {
+			return err
+		}
 		if err := i.serverSideApply(obj); err != nil {
 			plog.ReportError(err.Error())
 			return err
@@ -154,8 +178,8 @@ func (i Installer) serverSideApply(obj manifest.Manifest) error {
 	var dryRun []string
 	// TODO: can we do this? it doesn't work well if the namespace is not already created
 	if i.DryRun {
-		return nil
 		//	dryRun = []string{metav1.DryRunAll}
+		return nil
 	}
 	if _, err := dc.Patch(context.TODO(), obj.GetName(), types.ApplyPatchType, []byte(obj.Content), metav1.PatchOptions{
 		DryRun:       dryRun,
@@ -165,6 +189,17 @@ func (i Installer) serverSideApply(obj manifest.Manifest) error {
 		return fmt.Errorf("failed to update resource with server-side apply for obj %v: %v", objectStr, err)
 	}
 	return nil
+}
+
+func (i Installer) applyLabelsAndAnnotations(obj manifest.Manifest, cname string) (manifest.Manifest, error) {
+	for k, v := range getOwnerLabels(i.Values, cname) {
+		err := util.SetLabel(obj, k, v)
+		if err != nil {
+			return manifest.Manifest{}, err
+		}
+	}
+	// We mutating the unstructured, must rebuild the YAML
+	return manifest.FromObject(obj.Unstructured)
 }
 
 var componentDependencies = map[component.Name][]component.Name{
@@ -189,4 +224,25 @@ func dependenciesChannels() map[component.Name]chan struct{} {
 		}
 	}
 	return ret
+}
+
+func getOwnerLabels(iop values.Map, c string) map[string]string {
+	labels := make(map[string]string)
+
+	labels[manifest.OperatorManagedLabel] = "Reconcile"
+	labels[manifest.OperatorVersionLabel] = version.Info.Version
+	if n := iop.GetPathString("metadata.name"); n != "" {
+		labels[manifest.OwningResourceName] = n
+	}
+	if n := iop.GetPathString("metadata.namespace"); n != "" {
+		labels[manifest.OwningResourceNamespace] = n
+	}
+	if n := iop.GetPathStringOr("spec.values.revision", "default"); n != "" {
+		labels[label.IoIstioRev.Name] = n
+	}
+
+	if c != "" {
+		labels[manifest.IstioComponentLabel] = c
+	}
+	return labels
 }

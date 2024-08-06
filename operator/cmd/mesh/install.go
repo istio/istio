@@ -29,16 +29,17 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util"
-	v1alpha12 "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/install"
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/operator/pkg/values"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/art"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/ptr"
 )
 
 type InstallArgs struct {
@@ -148,7 +149,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	if err != nil {
 		return fmt.Errorf("fetch Istio version: %v", err)
 	}
-	_ = tag
+
 	// return warning if current date is near the EOL date
 	if operatorVer.IsEOL() {
 		warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
@@ -158,30 +159,21 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 
 	setFlags := applyFlagAliases(iArgs.Set, iArgs.ManifestsPath, iArgs.Revision)
 
-	manifests, values, err := render.GenerateManifest(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
+	manifests, vals, err := render.GenerateManifest(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
 	if err != nil {
 		return fmt.Errorf("generate config: %v", err)
 	}
 
-	//profile, ns, enabledComponents, err := getProfileNSAndEnabledComponents(iop)
-	//if err != nil {
-	//	return fmt.Errorf("failed to get profile, namespace or enabled components: %v", err)
-	//}
+	namespace := values.TryGetPathAs[string](vals, "metadata.namespace")
+	revision := values.TryGetPathAs[string](vals, "spec.values.revision")
+	profile := ptr.NonEmptyOrDefault(values.TryGetPathAs[string](vals, "spec.profile"), "default")
 
-	// Ignore the err because we don't want to show
-	// "no running Istio pods in istio-system" for the first time
-	//_ = detectIstioVersionDiff(p, tag, ns, kubeClient, iop)
-	//exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
-	//err = detectDefaultWebhookChange(p, kubeClient, iop, exists)
-	//if err != nil {
-	//	return fmt.Errorf("failed to detect the default webhook change: %v", err)
-	//}
+	// Print information about version changing
+	detectIstioVersionDiff(p, tag, namespace, kubeClient, revision)
 
-	// Warn users if they use `istioctl install` without any config args.
+	// Install is mutating state in the cluster; give users a confirmation to ensure they want this.
 	if !rootArgs.DryRun && !iArgs.SkipConfirmation {
-		// TODO!
-		prompt := fmt.Sprintf("This will install the Istio %s %q profile (with components: %s) into the cluster. Proceed? (y/N)",
-			"tag", "profile", "comp")
+		prompt := fmt.Sprintf("This will install the Istio %s profile %q into the cluster. Proceed? (y/N)", tag, profile)
 		if !Confirm(prompt, stdOut) {
 			p.Println("Cancelled.")
 			os.Exit(1)
@@ -195,39 +187,31 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		Kube:           kubeClient,
 		WaitTimeout:    iArgs.ReadinessTimeout,
 		Logger:         l,
+		Values:         vals,
 		ProgressLogger: progress.NewLog(),
 	}
-	if err := i.InstallManifests(manifests, values); err != nil {
+	if err := i.InstallManifests(manifests); err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
-	//opts := &helmreconciler.ProcessDefaultWebhookOptions{
-	//	Namespace: ns,
-	//	DryRun:    rootArgs.DryRun,
-	//}
-	//if processed, err := helmreconciler.ProcessDefaultWebhook(kubeClient, iop, exists, opts); err != nil {
-	//	return fmt.Errorf("failed to process default webhook: %v", err)
-	//} else if processed {
-	//	p.Println("Made this installation the default for cluster-wide operations.")
-	//}
-	//
-	//// Post-install message
-	//if profile == "ambient" {
-	//	p.Println("The ambient profile has been installed successfully, enjoy Istio without sidecars!")
-	//}
+
+	// Post-install message
+	if profile == "ambient" {
+		p.Println("The ambient profile has been installed successfully, enjoy Istio without sidecars!")
+	}
 	return nil
 }
 
 // detectIstioVersionDiff will show warning if istioctl version and control plane version are different
 // nolint: interfacer
-func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CLIClient, iop *v1alpha12.IstioOperator) error {
+func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CLIClient, revision string) {
 	warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
-	revision := iop.Spec.Revision
 	if revision == "" {
 		revision = util.DefaultRevisionName
 	}
 	icps, err := kubeClient.GetIstioVersions(context.TODO(), ns)
 	if err != nil {
-		return err
+		// Istio may not be installed, no problem
+		return
 	}
 	if len(*icps) != 0 {
 		var icpTags []string
@@ -239,7 +223,7 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 			}
 			tagVer, err := GetTagVersion(icp.Info.GitTag)
 			if err != nil {
-				return err
+				return
 			}
 			icpTags = append(icpTags, tagVer)
 		}
@@ -267,7 +251,7 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 			}
 		}
 	}
-	return nil
+	return
 }
 
 // GetTagVersion returns istio tag version
