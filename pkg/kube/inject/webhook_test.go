@@ -627,7 +627,7 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 		inFilenames = []string{"testdata/inject/" + inFilePath}
 	}
 
-	manifests, err := render.GenerateManifest(inFilenames, setFlags, false, nil, nil)
+	manifests, _, err := render.GenerateManifest(inFilenames, setFlags, false, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}

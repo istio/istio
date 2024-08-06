@@ -136,7 +136,12 @@ func (i Installer) InstallManifests(manifests []manifest.ManifestSet, values val
 		}
 	}
 
-	return i.install(manifests)
+	if err := i.install(manifests); err != nil {
+		return err
+	}
+
+	i.ProgressLogger.SetState(progress.StateComplete)
+	return nil
 }
 
 var componentDependencies = map[component.Name][]component.Name{

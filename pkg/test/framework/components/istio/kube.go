@@ -36,9 +36,9 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/cmd"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/operator/pkg/values"
 	istiokube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -86,7 +86,6 @@ type istioImpl struct {
 	// ingress components, indexed first by cluster name and then by gateway name.
 	ingress map[string]map[string]ingress.Instance
 	istiod  map[string]istiokube.PortForwarder
-	values  OperatorValues
 	workDir string
 	iopFiles
 }
@@ -225,14 +224,6 @@ func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.Ad
 	return addr, nil
 }
 
-func (i *istioImpl) Values() (OperatorValues, error) {
-	return i.values, nil
-}
-
-func (i *istioImpl) ValuesOrFail(test.Failer) OperatorValues {
-	return i.values
-}
-
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	cfg.fillDefaults(ctx)
 
@@ -350,9 +341,12 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		// an environment variable for istiod.
 		watchLocalNamespace := false
 		if i.primaryIOP.spec != nil && i.primaryIOP.spec.Values != nil {
-			values := OperatorValues(i.primaryIOP.spec.Values.Fields)
-			localClusterSecretWatcher := values.GetConfigValue("pilot.env.LOCAL_CLUSTER_SECRET_WATCHER")
-			if localClusterSecretWatcher.GetStringValue() == "true" && i.externalControlPlane {
+			v, err := values.MapFromJson(i.primaryIOP.spec.Values)
+			if err != nil {
+				return nil, err
+			}
+			localClusterSecretWatcher := values.TryGetPathAs[string](v, "spec.values.pilot.env.LOCAL_CLUSTER_SECRET_WATCHER")
+			if localClusterSecretWatcher == "true" && i.externalControlPlane {
 				watchLocalNamespace = true
 			}
 		}
@@ -410,27 +404,18 @@ func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*iopv1alpha1.Is
 	if err := yaml.Unmarshal([]byte(operatorYaml), operatorCfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
 	}
-	if operatorCfg.Spec == nil {
-		operatorCfg.Spec = &iopv1alpha1.IstioOperatorSpec{}
-	}
 
 	// marshaling entire operatorCfg causes panic because of *time.Time in ObjectMeta
-	outb, err := yaml.Marshal(operatorCfg.Spec)
+	outb, err := yaml.Marshal(operatorCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed marshaling iop spec: %v", err)
 	}
 
-	out := fmt.Sprintf(`
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-%s`, Indent(string(outb), "  "))
-
-	if err := os.WriteFile(iopFile, []byte(out), os.ModePerm); err != nil {
+	if err := os.WriteFile(iopFile, outb, os.ModePerm); err != nil {
 		return nil, fmt.Errorf("failed to write iop: %v", err)
 	}
 
-	return operatorCfg.Spec, nil
+	return &operatorCfg.Spec, nil
 }
 
 // installControlPlaneCluster installs the istiod control plane to the given cluster.

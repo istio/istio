@@ -3,22 +3,23 @@ package webhook
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/operator/pkg/component"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/values"
-	"istio.io/istio/pkg/config/analysis/diag"
-	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/util/sets"
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
-	"strings"
 
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	"istio.io/istio/operator/pkg/component"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func CheckWebhooks(manifests []manifest.ManifestSet, iop values.Map, clt kube.Client) error {
@@ -58,6 +59,8 @@ func CheckWebhooks(manifests []manifest.ManifestSet, iop values.Map, clt kube.Cl
 		return err
 	}
 	for i, obj := range inCluster.Items {
+		obj.TypeMeta.Kind = "MutatingWebhookConfiguration"
+		obj.TypeMeta.APIVersion = "admissionregistration.k8s.io/v1"
 		objYAML, err := yaml.Marshal(obj)
 		if err != nil {
 			return err
