@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 
 	"k8s.io/client-go/rest"
 
@@ -114,6 +115,7 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 
 	// Actually run the install command
 	iArgs.SkipConfirmation = true
+	iArgs.ReadinessTimeout = time.Minute * 5
 
 	componentName := args.ComponentName
 	if len(componentName) == 0 {

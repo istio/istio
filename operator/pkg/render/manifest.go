@@ -62,7 +62,7 @@ func applyComponentValuesToHelmValues(comp component.Component, spec apis.Gatewa
 		merged = merged.DeepClone()
 		merged.SetPath(fmt.Sprintf("spec.values.%s.name", root), spec.Name)
 		merged.SetPath(fmt.Sprintf("spec.values.%s.labels", root), spec.Label)
-		// TODO: labels, ports
+		// TODO: ports
 	}
 	if !comp.FlattenValues && spec.Hub == "" && spec.Tag == nil && spec.Label == nil {
 		return merged
