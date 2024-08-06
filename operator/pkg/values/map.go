@@ -3,6 +3,7 @@ package values
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -388,7 +389,10 @@ func AsMap(cur any) (Map, bool) {
 func MustAsMap(cur any) Map {
 	m, ok := AsMap(cur)
 	if !ok {
-		panic(fmt.Sprintf("not a map, got %T: %v", cur, cur))
+		if !reflect.ValueOf(cur).IsValid() {
+			return Map{}
+		}
+		panic(fmt.Sprintf("not a map, got %T: %v %v", cur, cur, reflect.ValueOf(cur).Kind()))
 	}
 	return m
 }

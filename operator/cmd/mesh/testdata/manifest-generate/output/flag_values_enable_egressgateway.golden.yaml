@@ -25,5 +25,3 @@ spec:
     app: istio-egressgateway
     istio: egressgateway
   type: ClusterIP
-
----

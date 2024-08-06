@@ -32,9 +32,11 @@ func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 	defaultNamespace := values.TryGetPathAs[string](merged, "metadata.namespace")
 	var defaultResponse []apis.GatewayComponentSpec
 	def := c.Default
+	altEnabled := false
 	if c.AltEnablementPath != "" {
 		if values.TryGetPathAs[bool](merged, c.AltEnablementPath) {
 			def = true
+			altEnabled = true
 		}
 	}
 	if def {
@@ -68,7 +70,7 @@ func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 			if err != nil {
 				return nil, err
 			}
-			if spec.Enabled.GetValueOrTrue() {
+			if spec.Enabled.GetValueOrTrue() || altEnabled {
 				specs = append(specs, spec)
 			}
 		}
@@ -83,7 +85,7 @@ func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !spec.Enabled.GetValueOrTrue() {
+	if !(spec.Enabled.GetValueOrTrue() || altEnabled) {
 		return nil, nil
 	}
 	return []apis.GatewayComponentSpec{spec}, nil
