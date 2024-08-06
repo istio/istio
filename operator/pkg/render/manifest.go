@@ -256,6 +256,7 @@ func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
 	return base, nil
 }
 
+// readProfile reads a profile, from given path.
 func readProfile(path string, profile string) (values.Map, error) {
 	if profile == "" {
 		profile = "default"
@@ -291,6 +292,7 @@ func readProfileInternal(path string, profile string) (values.Map, error) {
 	return values.MapFromYaml(pb)
 }
 
+// clusterSpecificSettings computes any automatically detected settings from the cluster.
 func clusterSpecificSettings(client kube.Client) []string {
 	if client == nil {
 		return nil
@@ -307,6 +309,7 @@ func clusterSpecificSettings(client kube.Client) []string {
 	return nil
 }
 
+// validateIstioOperator validates an IstioOperator, logging any warnings and reporting any errors.
 func validateIstioOperator(iop values.Map, logger clog.Logger, force bool) error {
 	warnings, errs := validation.ParseAndValidateIstioOperator(iop)
 	if err := errs.ToError(); err != nil {
