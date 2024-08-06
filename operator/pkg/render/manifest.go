@@ -18,20 +18,27 @@ import (
 	pkgversion "istio.io/istio/pkg/version"
 )
 
+// GenerateManifest produces fully rendered Kubernetes objects from rendering Helm charts.
+// Inputs can be files and --set strings.
+// Client is option; if it is provided, cluster-specific settings can be auto-detected.
+// Logger is also option; if it is provided warning messages may be logged.
 func GenerateManifest(files []string, setFlags []string, force bool, client kube.Client, logger clog.Logger) ([]manifest.ManifestSet, values.Map, error) {
+	// First, compute our final configuration input. This will be in the form of an IstioOperator, but as an unstructured values.Map.
+	// This allows safe access to get/fetch values dynamically, and avoids issues are typing and whether we should emit empty fields.
 	merged, err := MergeInputs(files, setFlags, client)
 	if err != nil {
 		return nil, nil, fmt.Errorf("merge inputs: %v", err)
 	}
+	// Validate the config. This can emit warnings to the logger. If force is set, errors will be logged as warnings but not returned.
 	if err := validateIstioOperator(merged, logger, force); err != nil {
 		return nil, nil, err
 	}
-
 	// After validation, apply any unvalidatedValues they may have set.
 	if unvalidatedValues, _ := merged.GetPathMap("spec.unvalidatedValues"); unvalidatedValues != nil {
 		merged.MergeFrom(values.Map{"spec": values.Map{"values": unvalidatedValues}})
 	}
 
+	// Render each component
 	var allManifests []manifest.ManifestSet
 	for _, comp := range component.AllComponents {
 		specs, err := comp.Get(merged)
@@ -39,42 +46,56 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 			return nil, nil, fmt.Errorf("get component %v: %v", comp.UserFacingName, err)
 		}
 		for _, spec := range specs {
-			values := applyComponentValuesToHelmValues(comp, spec, merged)
-			manifests, err := helm.Render(spec.Namespace, comp.HelmSubdir, values)
+			// Each component may get a different view of the values; modify them as needed (with a copy)
+			compVals := applyComponentValuesToHelmValues(comp, spec, merged)
+			// Render the chart
+			rendered, err := helm.Render(spec.Namespace, comp.HelmSubdir, compVals)
 			if err != nil {
 				return nil, nil, fmt.Errorf("helm render: %v", err)
 			}
-			manifests, err = postProcess(comp, spec, manifests)
+			// IstioOperator has a variety of processing steps that are done *after* Helm, such as patching. Apply any of these steps.
+			finalized, err := postProcess(comp, spec, rendered, compVals)
 			if err != nil {
 				return nil, nil, fmt.Errorf("post processing: %v", err)
 			}
 			allManifests = append(allManifests, manifest.ManifestSet{
 				Component: comp.UserFacingName,
-				Manifests: manifests,
+				Manifests: finalized,
 			})
 		}
 	}
 	return allManifests, merged, nil
 }
 
+// applyComponentValuesToHelmValues translates a generic values set into a component-specific one
 func applyComponentValuesToHelmValues(comp component.Component, spec apis.GatewayComponentSpec, merged values.Map) values.Map {
 	root := comp.ToHelmValuesTreeRoot
+
+	// Gateways allow providing 'name' and 'label' overrides.
 	if comp.UserFacingName == component.IngressComponentName || comp.UserFacingName == component.EgressComponentName {
 		merged = merged.DeepClone()
-		merged.SetPath(fmt.Sprintf("spec.values.%s.name", root), spec.Name)
-		merged.SetPath(fmt.Sprintf("spec.values.%s.labels", root), spec.Label)
+		_ = merged.SetPath(fmt.Sprintf("spec.values.%s.name", root), spec.Name)
+		_ = merged.SetPath(fmt.Sprintf("spec.values.%s.labels", root), spec.Label)
 		// TODO: ports
 	}
+	// No changes needed, skip early to avoid copy
 	if !comp.FlattenValues && spec.Hub == "" && spec.Tag == nil && spec.Label == nil {
 		return merged
 	}
+
+	// Copy to ensure we are not mutating the shared state
 	merged = merged.DeepClone()
 	if spec.Hub != "" {
-		merged.SetSpecPaths(fmt.Sprintf("values.%s.hub=%s", root, spec.Hub))
+		_ = merged.SetSpecPaths(fmt.Sprintf("values.%s.hub=%s", root, spec.Hub))
 	}
 	if spec.Tag != nil {
-		merged.SetSpecPaths(fmt.Sprintf("values.%s.tag=%v", root, spec.Tag))
+		_ = merged.SetSpecPaths(fmt.Sprintf("values.%s.tag=%v", root, spec.Tag))
 	}
+	// IstioOperator presents users a single set of values to apply to all charts. This works well when the chart expects all
+	// values to be prefixed (like `pilot.resources=...`).
+	// Other charts do not, and expect direct settings (like `resources=...`).
+	// To avoid these direct settings being confusing/conflicting with other charts, IstioOperator nests them in the user-facing configuration,
+	// then translates them to the flattened version.
 	if comp.FlattenValues {
 		cv, f := merged.GetPathMap("spec.values." + root)
 		if f {
