@@ -61,7 +61,7 @@ func FromObject(us *unstructured.Unstructured) (Manifest, error) {
 func Parse(output []string) ([]Manifest, error) {
 	res := make([]Manifest, 0, len(output))
 	for _, m := range output {
-		mf, err := FromJson([]byte(m))
+		mf, err := FromYaml([]byte(m))
 		if err != nil {
 			return nil, err
 		}

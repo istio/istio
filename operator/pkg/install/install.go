@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util"
@@ -56,7 +57,7 @@ func (i Installer) Install(manifests []render.ManifestSet) error {
 			}
 
 			// Signal all the components that depend on us.
-			for _, ch := range ComponentDependencies[c] {
+			for _, ch := range componentDependencies[c] {
 				dependencyWaitCh[ch] <- struct{}{}
 			}
 		}()
@@ -138,23 +139,23 @@ func InstallManifests(manifests []render.ManifestSet, force, dryRun, skipWait bo
 	return installer.Install(manifests)
 }
 
-var ComponentDependencies = map[string][]string{
-	"pilot": {
-		"cni",
-		"ingressGateways",
-		"egressGateways",
+var componentDependencies = map[component.Name][]component.Name{
+	component.PilotComponentName: {
+		component.CNIComponentName,
+		component.IngressComponentName,
+		component.EgressComponentName,
 	},
-	"base": {
-		"pilot",
+	component.BaseComponentName: {
+		component.PilotComponentName,
 	},
-	"cni": {
-		"ztunnel",
+	component.CNIComponentName: {
+		component.ZtunnelComponentName,
 	},
 }
 
-func dependenciesChannels() map[string]chan struct{} {
-	ret := make(map[string]chan struct{})
-	for _, parent := range ComponentDependencies {
+func dependenciesChannels() map[component.Name]chan struct{} {
+	ret := make(map[component.Name]chan struct{})
+	for _, parent := range componentDependencies {
 		for _, child := range parent {
 			ret[child] = make(chan struct{}, 1)
 		}

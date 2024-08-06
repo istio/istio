@@ -22,6 +22,8 @@ import (
 	"sync"
 
 	"github.com/cheggaaa/pb/v3"
+
+	"istio.io/istio/operator/pkg/component"
 )
 
 type InstallState int
@@ -109,14 +111,14 @@ func createBar() *pb.ProgressBar {
 // progress into a single line. For example "Waiting for x, y, z". Once a component completes, we want
 // a new line created so the information is not lost. To do this, we spin up a new bar with the remaining components
 // on a new line, and create a new bar. For example, this becomes "x succeeded", "waiting for y, z".
-func (p *Log) reportProgress(component string) func() {
+func (p *Log) reportProgress(componentName string) func() {
 	return func() {
 		//
-		cmpName := component
-		cliName := cmpName
+		cmpName := component.Name(componentName)
+		cliName := component.UserFacingComponentName(cmpName)
 		p.mu.Lock()
 		defer p.mu.Unlock()
-		cmp := p.components[component]
+		cmp := p.components[componentName]
 		// The component has completed
 		cmp.mu.Lock()
 		finished := cmp.finished
@@ -124,8 +126,7 @@ func (p *Log) reportProgress(component string) func() {
 		cmp.mu.Unlock()
 		successIcon := "✅"
 		// TODO
-		IstioComponentIcons := map[string]string{}
-		if icon, found := IstioComponentIcons[cmpName]; found {
+		if icon, found := component.Icons[cmpName]; found {
 			successIcon = icon
 		}
 		if finished || cmpErr != "" {
@@ -135,7 +136,7 @@ func (p *Log) reportProgress(component string) func() {
 				p.SetMessage(fmt.Sprintf(`{{ red "✘" }} %s encountered an error: %s`, cliName, cmpErr), true)
 			}
 			// Close the bar out, outputting a new line
-			delete(p.components, component)
+			delete(p.components, componentName)
 
 			// Now we create a new bar, which will have the remaining components
 			p.bar = createBar()

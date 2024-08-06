@@ -9,6 +9,7 @@ import (
 	"istio.io/istio/manifests"
 	"istio.io/istio/operator/john"
 	"istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/values"
@@ -17,7 +18,7 @@ import (
 )
 
 type ManifestSet struct {
-	Component string
+	Component component.Name
 	Manifests []manifest.Manifest
 	// TODO: notes, warnings, etc?
 }
@@ -25,7 +26,7 @@ type ManifestSet struct {
 func GenerateManifest(files []string, setFlags []string, force bool, filter []string, client kube.Client) ([]ManifestSet, error) {
 	merged, err := MergeInputs(files, setFlags, client)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("merge inputs: %v", err)
 	}
 	iop, err := IstioOperatorFromJSON(merged.JSON(), force)
 	_ = iop
@@ -34,20 +35,20 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 	}
 
 	var allManifests []ManifestSet
-	for _, comp := range AllComponents {
+	for _, comp := range component.AllComponents {
 		specs, err := comp.Get(merged)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get component %v: %v", comp.Name, err)
 		}
 		for _, spec := range specs {
 			values := applyComponentValuesToHelmValues(comp, spec, merged)
 			manifests, err := helm.Render(spec.Namespace, comp.HelmSubdir, values)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("helm render: %v", err)
 			}
 			manifests, err = postProcess(comp, spec, manifests)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("post processing: %v", err)
 			}
 			allManifests = append(allManifests, ManifestSet{
 				Component: comp.Name,
@@ -61,7 +62,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, filter []st
 	return allManifests, nil
 }
 
-func applyComponentValuesToHelmValues(comp Component, spec john.ComponentSpec, merged values.Map) values.Map {
+func applyComponentValuesToHelmValues(comp component.Component, spec john.ComponentSpec, merged values.Map) values.Map {
 	root := comp.ToHelmValuesTreeRoot
 	if comp.Name == "ingressGateways" || comp.Name == "egressGateways" {
 		merged = merged.DeepClone()
@@ -251,151 +252,4 @@ func IstioOperatorFromJSON(iopString string, force bool) (*apis.IstioOperator, e
 	//return iop, fmt.Errorf(errs.Error())
 	//}
 	return iop, nil
-}
-
-type Component struct {
-	Name    string
-	Default bool
-	Multi   bool
-	// ResourceType maps a ComponentName to the type of the rendered k8s resource.
-	ResourceType string
-	// ResourceName maps a ComponentName to the name of the rendered k8s resource.
-	ResourceName string
-	// ContainerName maps a ComponentName to the name of the container in a Deployment.
-	ContainerName string
-	// HelmSubdir is a mapping between a component name and the subdirectory of the component Chart.
-	HelmSubdir string
-	// ToHelmValuesTreeRoot is the tree root in values YAML files for the component.
-	ToHelmValuesTreeRoot string
-	// SkipReverseTranslate defines whether reverse translate of this component need to be skipped.
-	SkipReverseTranslate bool
-	// FlattenValues, if true, means the component expects values not prefixed with ToHelmValuesTreeRoot
-	// For example `.name=foo` instead of `.component.name=foo`.
-	FlattenValues     bool
-	AltEnablementPath string
-}
-
-func (c Component) Get(merged values.Map) ([]john.ComponentSpec, error) {
-	defaultNamespace := values.TryGetPathAs[string](merged, "metadata.namespace")
-	var defaultResponse []john.ComponentSpec
-	def := c.Default
-	if c.AltEnablementPath != "" {
-		if values.TryGetPathAs[bool](merged, c.AltEnablementPath) {
-			def = true
-		}
-	}
-	if def {
-		defaultResponse = []john.ComponentSpec{{Namespace: defaultNamespace}}
-	}
-
-	buildSpec := func(m values.Map) (john.ComponentSpec, error) {
-		spec, err := values.ConvertMap[john.ComponentSpec](m)
-		if err != nil {
-			return john.ComponentSpec{}, fmt.Errorf("fail to convert %v: %v", c.Name, err)
-		}
-		if spec.Namespace == "" {
-			spec.Namespace = defaultNamespace
-		}
-		if spec.Namespace == "" {
-			spec.Namespace = "istio-system"
-		}
-		spec.Raw = m
-		return spec, nil
-	}
-	// List of components
-	if c.Multi {
-		s, ok := merged.GetPath("spec.components." + c.Name)
-		if !ok {
-			return defaultResponse, nil
-		}
-		specs := []john.ComponentSpec{}
-		for _, cur := range s.([]any) {
-			m, _ := values.AsMap(cur)
-			spec, err := buildSpec(m)
-			if err != nil {
-				return nil, err
-			}
-			if spec.Enabled.GetValueOrTrue() {
-				specs = append(specs, spec)
-			}
-		}
-		return specs, nil
-	}
-	// Single component
-	s, ok := merged.GetPathMap("spec.components." + c.Name)
-	if !ok {
-		return defaultResponse, nil
-	}
-	spec, err := buildSpec(s)
-	if err != nil {
-		return nil, err
-	}
-	if !spec.Enabled.GetValueOrTrue() {
-		return nil, nil
-	}
-	return []john.ComponentSpec{spec}, nil
-}
-
-var AllComponents = []Component{
-	{
-		Name:                 "base",
-		Default:              true,
-		HelmSubdir:           "base",
-		ToHelmValuesTreeRoot: "global",
-		SkipReverseTranslate: true,
-	},
-	{
-		Name:                 "pilot",
-		Default:              true,
-		ResourceType:         "Deployment",
-		ResourceName:         "istiod",
-		ContainerName:        "discovery",
-		HelmSubdir:           "istio-control/istio-discovery",
-		ToHelmValuesTreeRoot: "pilot",
-	},
-	{
-		Name:         "ingressGateways",
-		Multi:        true,
-		Default:      true,
-		ResourceType: "Deployment",
-		// TODO: overrides
-		ResourceName:         "istio-ingressgateway",
-		ContainerName:        "istio-proxy",
-		HelmSubdir:           "gateways/istio-ingress",
-		ToHelmValuesTreeRoot: "gateways.istio-ingressgateway",
-		AltEnablementPath:    "spec.values.gateways.istio-ingressgateway.enabled",
-	},
-	{
-		Name:                 "egressGateways",
-		Multi:                true,
-		ResourceType:         "Deployment",
-		ResourceName:         "istio-egressgateway",
-		ContainerName:        "istio-proxy",
-		HelmSubdir:           "gateways/istio-egress",
-		ToHelmValuesTreeRoot: "gateways.istio-egressgateway",
-		AltEnablementPath:    "spec.values.gateways.istio-egressgateway.enabled",
-	},
-	{
-		Name:                 "cni",
-		ResourceType:         "DaemonSet",
-		ResourceName:         "istio-cni-node",
-		ContainerName:        "install-cni",
-		HelmSubdir:           "istio-cni",
-		ToHelmValuesTreeRoot: "cni",
-	},
-	{
-		Name:                 "istiodRemote",
-		HelmSubdir:           "istiod-remote",
-		ToHelmValuesTreeRoot: "global",
-		SkipReverseTranslate: true,
-	},
-	{
-		Name:                 "ztunnel",
-		ResourceType:         "DaemonSet",
-		ResourceName:         "ztunnel",
-		HelmSubdir:           "ztunnel",
-		ToHelmValuesTreeRoot: "ztunnel",
-		ContainerName:        "istio-proxy",
-		FlattenValues:        true,
-	},
 }
