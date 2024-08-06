@@ -125,8 +125,7 @@ const (
 )
 
 func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
-	manifests, _, err := render.GenerateManifest(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
-		mgArgs.Force, mgArgs.Filter, kubeClient)
+	manifests, _, err := render.GenerateManifest(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision), mgArgs.Force, kubeClient, nil)
 	if err != nil {
 		return err
 	}

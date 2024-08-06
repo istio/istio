@@ -15,22 +15,22 @@
 package validation
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/apis"
-	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation/agent"
@@ -46,17 +46,14 @@ type deprecatedSettings struct {
 
 type Warnings = util.Errors
 
-func ParseAndValidateIstioOperator(yml string, allowUnknownField bool) (Warnings, util.Errors) {
+func ParseAndValidateIstioOperator(iopm values.Map) (Warnings, util.Errors) {
 	iop := &apis.IstioOperator{}
-	if allowUnknownField {
-		if err := yaml.Unmarshal([]byte(yml), iop); err != nil {
-			return nil, util.NewErrs(fmt.Errorf("could not unmarshal: %v", err))
-		}
-	} else {
-		if err := yaml.UnmarshalStrict([]byte(yml), iop); err != nil {
-			return nil, util.NewErrs(fmt.Errorf("could not unmarshal: %v", err))
-		}
+	dec := json.NewDecoder(bytes.NewBufferString(iopm.JSON()))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(iop); err != nil {
+		return nil, util.NewErrs(fmt.Errorf("could not unmarshal: %v", err))
 	}
+
 	var warnings Warnings
 	var errors util.Errors
 
@@ -73,7 +70,7 @@ func ParseAndValidateIstioOperator(yml string, allowUnknownField bool) (Warnings
 	errors = util.AppendErr(errors, validateRevision(iop.Spec.Revision))
 	errors = util.AppendErr(errors, validateComponentNames(iop.Spec.Components))
 
-	warnings = append(warnings, checkDeprecatedSettings(iop.Spec)...)
+	warnings = append(warnings, checkDeprecatedSettings(iopm)...)
 
 	return warnings, errors
 }
@@ -124,51 +121,27 @@ func validateMeshConfig(contents string) (Warnings, util.Errors) {
 	return nil, nil
 }
 
-// Converts from struct paths to helm paths
-// Global.Proxy.AccessLogFormat -> global.proxy.accessLogFormat
-func firstCharsToLower(s string) string {
-	// Use a closure here to remember state.
-	// Hackish but effective. Depends on Map scanning in order and calling
-	// the closure once per rune.
-	prev := '.'
-	return strings.Map(
-		func(r rune) rune {
-			if prev == '.' {
-				prev = r
-				return unicode.ToLower(r)
-			}
-			prev = r
-			return r
-		},
-		s)
-}
-
-func checkDeprecatedSettings(iop apis.IstioOperatorSpec) Warnings {
+func checkDeprecatedSettings(iop values.Map) Warnings {
 	messages := Warnings{}
 	warningSettings := []deprecatedSettings{
-		{"Values.global.proxy.holdApplicationUntilProxyStarts", "meshConfig.defaultConfig.holdApplicationUntilProxyStarts", false},
-		{"Values.global.tracer.lightstep.address", "meshConfig.defaultConfig.tracing.lightstep.address", ""},
-		{"Values.global.tracer.lightstep.accessToken", "meshConfig.defaultConfig.tracing.lightstep.accessToken", ""},
-		{"Values.global.tracer.zipkin.address", "meshConfig.defaultConfig.tracing.zipkin.address", nil},
-		{"Values.global.tracer.datadog.address", "meshConfig.defaultConfig.tracing.datadog.address", ""},
+		{"spec.values.global.proxy.holdApplicationUntilProxyStarts", "meshConfig.defaultConfig.holdApplicationUntilProxyStarts", false},
+		{"spec.values.global.tracer.lightstep.address", "meshConfig.defaultConfig.tracing.lightstep.address", ""},
+		{"spec.values.global.tracer.lightstep.accessToken", "meshConfig.defaultConfig.tracing.lightstep.accessToken", ""},
+		{"spec.values.global.tracer.zipkin.address", "meshConfig.defaultConfig.tracing.zipkin.address", nil},
+		{"spec.values.global.tracer.datadog.address", "meshConfig.defaultConfig.tracing.datadog.address", ""},
 		// nolint: lll
-		{"Values.global.jwtPolicy", "Values.global.jwtPolicy=third-party-jwt. See https://istio.io/latest/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for more information", "third-party-jwt"},
-		{"Values.global.arch", "the affinity of k8s settings", nil},
+		{"spec.values.global.jwtPolicy", "Values.global.jwtPolicy=third-party-jwt. See https://istio.io/latest/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for more information", "third-party-jwt"},
+		{"spec.values.global.arch", "the affinity of k8s settings", nil},
 	}
 
 	// There are addition validations that do hard failures; these are done in the helm charts themselves to be shared logic.
 	// Ideally, warnings are there too. However, we don't currently parse our Helm warnings.
 
 	for _, d := range warningSettings {
-		v, f, _ := tpath.GetFromStructPath(iop, d.old)
+		v, f := iop.GetPath(d.old)
 		if f {
-			switch t := v.(type) {
-			// need to do conversion for bool value defined in IstioOperator component spec.
-			case *wrappers.BoolValue:
-				v = t.Value
-			}
 			if v != d.def {
-				messages = append(messages, fmt.Errorf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
+				messages = append(messages, fmt.Errorf("! %s is deprecated; use %s instead", strings.TrimPrefix(d.old, "spec."), d.new))
 			}
 		}
 	}
@@ -180,8 +153,8 @@ type FeatureValidator func(*apis.Values, apis.IstioOperatorSpec) (Warnings, util
 // validateFeatures check whether the config semantically make sense. For example, feature X and feature Y can't be enabled together.
 func validateFeatures(values *apis.Values, spec apis.IstioOperatorSpec) (Warnings, util.Errors) {
 	validators := []FeatureValidator{
-		CheckServicePorts,
-		CheckAutoScaleAndReplicaCount,
+		checkServicePorts,
+		checkAutoScaleAndReplicaCount,
 	}
 
 	var warnings Warnings
@@ -195,8 +168,8 @@ func validateFeatures(values *apis.Values, spec apis.IstioOperatorSpec) (Warning
 	return warnings, errs
 }
 
-// CheckAutoScaleAndReplicaCount warns when autoscaleEnabled is true and k8s replicaCount is set.
-func CheckAutoScaleAndReplicaCount(values *apis.Values, spec apis.IstioOperatorSpec) (Warnings, util.Errors) {
+// checkAutoScaleAndReplicaCount warns when autoscaleEnabled is true and k8s replicaCount is set.
+func checkAutoScaleAndReplicaCount(values *apis.Values, spec apis.IstioOperatorSpec) (Warnings, util.Errors) {
 	if spec.Components == nil {
 		return nil, nil
 	}
@@ -228,10 +201,10 @@ func CheckAutoScaleAndReplicaCount(values *apis.Values, spec apis.IstioOperatorS
 	return warnings, nil
 }
 
-// CheckServicePorts validates Service ports. Specifically, this currently
+// checkServicePorts validates Service ports. Specifically, this currently
 // asserts that all ports will bind to a port number greater than 1024 when not
 // running as root.
-func CheckServicePorts(values *apis.Values, spec apis.IstioOperatorSpec) (Warnings, util.Errors) {
+func checkServicePorts(values *apis.Values, spec apis.IstioOperatorSpec) (Warnings, util.Errors) {
 	var errs util.Errors
 	if spec.Components != nil {
 		if !values.GetGateways().GetIstioIngressgateway().GetRunAsRoot().GetValue() {

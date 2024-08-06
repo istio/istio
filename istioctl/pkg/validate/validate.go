@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	operator "istio.io/istio/operator/pkg/apis"
 	operatorvalidate "istio.io/istio/operator/pkg/apis/validation"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -149,12 +148,7 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 			if err := checkFields(un); err != nil {
 				return nil, err
 			}
-			// IstioOperator isn't part of pkg/config/schema/collections,
-			// usual conversion not available.  Convert unstructured to string
-			// and ask operator code to check.
-			un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
-			by := util.ToYAML(un)
-			warnings, err := operatorvalidate.ParseAndValidateIstioOperator(by, false)
+			warnings, err := operatorvalidate.ParseAndValidateIstioOperator(un.Object)
 			if err != nil {
 				return nil, err
 			}

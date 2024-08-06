@@ -22,8 +22,8 @@ import (
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/apis/validation"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const operatorSubdirFilePath = "manifests"
@@ -221,7 +221,9 @@ spec:
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			warnings, errors := validation.ParseAndValidateIstioOperator(tt.values, false)
+			m, err := values.MapFromYaml([]byte(tt.values))
+			assert.NoError(t, err)
+			warnings, errors := validation.ParseAndValidateIstioOperator(m)
 			assert.Equal(t, tt.errors, errors.ToError(), "errors")
 			assert.Equal(t, tt.warnings.ToError(), warnings.ToError(), "warnings")
 		})
@@ -347,11 +349,9 @@ cni:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			v := tmpl.EvaluateOrFail(t, `
-spec:
-  values:
-{{.|indent 4}}`, tt.yamlStr)
-			_, errs := validation.ParseAndValidateIstioOperator(v, false)
+			m, err := values.MapFromYaml([]byte(tt.yamlStr))
+			assert.NoError(t, err)
+			_, errs := validation.ParseAndValidateIstioOperator(values.Map{"spec": values.Map{"values": m}})
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
 				t.Errorf("CheckValues(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.yamlStr, gotErr, wantErr)
 			}

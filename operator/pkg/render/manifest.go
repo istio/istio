@@ -8,24 +8,28 @@ import (
 
 	"istio.io/istio/manifests"
 	"istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/operator/pkg/apis/validation"
 	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/kube"
 	pkgversion "istio.io/istio/pkg/version"
 )
 
-func GenerateManifest(files []string, setFlags []string, force bool, filter []string, client kube.Client) ([]manifest.ManifestSet, values.Map, error) {
+func GenerateManifest(files []string, setFlags []string, force bool, client kube.Client, logger clog.Logger) ([]manifest.ManifestSet, values.Map, error) {
 	merged, err := MergeInputs(files, setFlags, client)
 	if err != nil {
 		return nil, nil, fmt.Errorf("merge inputs: %v", err)
 	}
-	// TODO!!
-	iop, err := IstioOperatorFromJSON(merged.JSON(), force)
-	_ = iop
-	if err != nil {
+	if err := validateIstioOperator(merged, logger, force); err != nil {
 		return nil, nil, err
+	}
+
+	// After validation, apply any unvalidatedValues they may have set.
+	if unvalidatedValues, _ := merged.GetPathMap("spec.unvalidatedValues"); unvalidatedValues != nil {
+		merged.MergeFrom(values.Map{"spec": values.Map{"values": unvalidatedValues}})
 	}
 
 	var allManifests []manifest.ManifestSet
@@ -279,15 +283,21 @@ func clusterSpecificSettings(client kube.Client) []string {
 	return nil
 }
 
-func IstioOperatorFromJSON(iopString string, force bool) (*apis.IstioOperator, error) {
-	iop := &apis.IstioOperator{}
-	// TODO: consolidate the two validation packagess
-	//if err := json.Unmarshal([]byte(iopString), iop); err != nil {
-	//	return nil, err
-	//}
-	//if errs := validate.CheckIstioOperatorSpec(iop.Spec); len(errs) != 0 && !force {
-	//	l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
-	//return iop, fmt.Errorf(errs.Error())
-	//}
-	return iop, nil
+func validateIstioOperator(iop values.Map, logger clog.Logger, force bool) error {
+	warnings, errs := validation.ParseAndValidateIstioOperator(iop)
+	if err := errs.ToError(); err != nil {
+		if force {
+			if logger != nil {
+				logger.PrintErr(fmt.Sprintf("spec invalid; continuing because of --force: %v", err))
+			}
+		} else {
+			return err
+		}
+	}
+	if logger != nil {
+		for _, w := range warnings {
+			logger.LogAndError(w)
+		}
+	}
+	return nil
 }
