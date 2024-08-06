@@ -19,7 +19,9 @@ import (
 	"istio.io/istio/operator/pkg/webhook"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/istiomultierror"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type Installer struct {
@@ -38,10 +40,14 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 	// wg waits for all manifest processing goroutines to finish
 	var wg sync.WaitGroup
 
+	disabledComponents := sets.New(slices.Map(component.AllComponents, func(e component.Component) component.Name {
+		return e.Name
+	})...)
 	dependencyWaitCh := dependenciesChannels()
 	for _, manifest := range manifests {
 		c := manifest.Component
 		ms := manifest.Manifests
+		disabledComponents.Delete(c)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -62,6 +68,13 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 				dependencyWaitCh[ch] <- struct{}{}
 			}
 		}()
+	}
+	// For any components we did not install, mark them as "done"
+	for c := range disabledComponents {
+		// Signal all the components that depend on us.
+		for _, ch := range componentDependencies[c] {
+			dependencyWaitCh[ch] <- struct{}{}
+		}
 	}
 	wg.Wait()
 	return errors.ErrorOrNil()
