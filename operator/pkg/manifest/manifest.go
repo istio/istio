@@ -5,6 +5,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
+
+	"istio.io/istio/operator/pkg/component"
 )
 
 type Manifest struct {
@@ -72,4 +74,19 @@ func Parse(output []string) ([]Manifest, error) {
 		res = append(res, mf)
 	}
 	return res, nil
+}
+
+type ManifestSet struct {
+	Component component.Name
+	Manifests []Manifest
+	// TODO: notes, warnings, etc?
+}
+
+func ExtractComponent(sets []ManifestSet, c component.Name) []Manifest {
+	for _, m := range sets {
+		if m.Component == c {
+			return m.Manifests
+		}
+	}
+	return nil
 }

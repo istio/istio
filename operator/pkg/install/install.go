@@ -12,26 +12,27 @@ import (
 
 	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/operator/pkg/values"
+	"istio.io/istio/operator/pkg/webhook"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/istiomultierror"
 )
 
 type Installer struct {
-	force    bool
-	dryRun   bool
-	skipWait bool
-	kube     kube.CLIClient
-	timeout  time.Duration
-	l        clog.Logger
-	pl       *progress.Log
+	Force          bool
+	DryRun         bool
+	SkipWait       bool
+	Kube           kube.CLIClient
+	WaitTimeout    time.Duration
+	Logger         clog.Logger
+	ProgressLogger *progress.Log
 }
 
-func (i Installer) Install(manifests []render.ManifestSet) error {
+func (i Installer) install(manifests []manifest.ManifestSet) error {
 	var mu sync.Mutex
 	errors := istiomultierror.New()
 	// wg waits for all manifest processing goroutines to finish
@@ -66,12 +67,12 @@ func (i Installer) Install(manifests []render.ManifestSet) error {
 	return errors.ErrorOrNil()
 }
 
-func (i Installer) ApplyManifest(manifestSet render.ManifestSet) error {
+func (i Installer) ApplyManifest(manifestSet manifest.ManifestSet) error {
 	cname := string(manifestSet.Component)
 
 	manifests := manifestSet.Manifests
 
-	plog := i.pl.NewComponent(cname)
+	plog := i.ProgressLogger.NewComponent(cname)
 
 	// TODO
 	// allObjects.Sort(object.DefaultObjectOrder())
@@ -86,8 +87,8 @@ func (i Installer) ApplyManifest(manifestSet render.ManifestSet) error {
 		plog.ReportProgress()
 	}
 
-	if !i.skipWait {
-		if err := WaitForResources(manifests, i.kube, i.timeout, i.dryRun, plog); err != nil {
+	if !i.SkipWait {
+		if err := WaitForResources(manifests, i.Kube, i.WaitTimeout, i.DryRun, plog); err != nil {
 			werr := fmt.Errorf("failed to wait for resource: %v", err)
 			plog.ReportError(werr.Error())
 			return werr
@@ -100,14 +101,14 @@ func (i Installer) ApplyManifest(manifestSet render.ManifestSet) error {
 // ServerSideApply creates or updates an object in the API server depending on whether it already exists.
 func (i Installer) ServerSideApply(obj manifest.Manifest) error {
 	const fieldOwnerOperator = "istio-operator"
-	dc, err := i.kube.DynamicClientFor(obj.GroupVersionKind(), obj.Unstructured, "")
+	dc, err := i.Kube.DynamicClientFor(obj.GroupVersionKind(), obj.Unstructured, "")
 	if err != nil {
 		return err
 	}
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 	var dryRun []string
 	// TODO: can we do this? it doesn't work well if the namespace is not already created
-	if i.dryRun {
+	if i.DryRun {
 		return nil
 		//	dryRun = []string{metav1.DryRunAll}
 	}
@@ -121,22 +122,21 @@ func (i Installer) ServerSideApply(obj manifest.Manifest) error {
 	return nil
 }
 
-func InstallManifests(manifests []render.ManifestSet, force, dryRun, skipWait bool, kubeclient kube.CLIClient, timeout time.Duration, l clog.Logger) error {
-	installer := Installer{
-		force:    force,
-		dryRun:   dryRun,
-		skipWait: skipWait,
-		kube:     kubeclient,
-		timeout:  timeout,
-		l:        l,
-		pl:       progress.NewLog(),
-	}
+func (i Installer) InstallManifests(manifests []manifest.ManifestSet, values values.Map) error {
 	// TODO: do not hardcode
-	if err := util.CreateNamespace(kubeclient.Kube(), "istio-system", "", dryRun); err != nil {
+	if err := util.CreateNamespace(i.Kube.Kube(), "istio-system", "", i.DryRun); err != nil {
 		return err
 	}
 
-	return installer.Install(manifests)
+	if err := webhook.CheckWebhooks(manifests, values, i.Kube); err != nil {
+		if i.Force {
+			i.Logger.LogAndErrorf("invalid webhook configs; continuing because of --force: %v", err)
+		} else {
+			return err
+		}
+	}
+
+	return i.install(manifests)
 }
 
 var componentDependencies = map[component.Name][]component.Name{

@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/operator/pkg/install"
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/util/progress"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/art"
@@ -157,7 +158,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 
 	setFlags := applyFlagAliases(iArgs.Set, iArgs.ManifestsPath, iArgs.Revision)
 
-	manifests, err := render.GenerateManifest(iArgs.InFilenames, setFlags, iArgs.Force, nil, kubeClient)
+	manifests, values, err := render.GenerateManifest(iArgs.InFilenames, setFlags, iArgs.Force, nil, kubeClient)
 	if err != nil {
 		return fmt.Errorf("generate config: %v", err)
 	}
@@ -187,8 +188,16 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		}
 	}
 
-	// Detect whether previous installation exists prior to performing the installation.
-	if err := install.InstallManifests(manifests, iArgs.Force, rootArgs.DryRun, false, kubeClient, iArgs.ReadinessTimeout, l); err != nil {
+	i := install.Installer{
+		Force:          iArgs.Force,
+		DryRun:         rootArgs.DryRun,
+		SkipWait:       false,
+		Kube:           kubeClient,
+		WaitTimeout:    iArgs.ReadinessTimeout,
+		Logger:         l,
+		ProgressLogger: progress.NewLog(),
+	}
+	if err := i.InstallManifests(manifests, values); err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 	//opts := &helmreconciler.ProcessDefaultWebhookOptions{
