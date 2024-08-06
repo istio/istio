@@ -53,9 +53,6 @@ const (
 	istioVersionLabelStr = "operator.istio.io/version"
 )
 
-// TestMode sets the controller into test mode. Used for unit tests to bypass things like waiting on resources.
-var TestMode = false
-
 var (
 	// ClusterResources are resource types the operator prunes, ordered by which types should be deleted, first to last.
 	ClusterResources = []schema.GroupVersionKind{

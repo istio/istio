@@ -26,8 +26,6 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-const operatorSubdirFilePath = "manifests"
-
 // nolint: lll
 func TestValidateConfig(t *testing.T) {
 	tests := []struct {

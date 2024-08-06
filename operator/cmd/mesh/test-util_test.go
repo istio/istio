@@ -185,13 +185,6 @@ func mustGetDaemonset(g *WithT, objs *ObjectSet, daemonSetName string) manifest.
 	return *obj
 }
 
-// mustGetClusterRole returns the clusterRole with the given name or fails if it's not found in objs.
-func mustGetClusterRole(g *WithT, objs *ObjectSet, name string) manifest.Manifest {
-	obj := objs.kind(manifest.ClusterRole).nameEquals(name)
-	g.Expect(obj).Should(Not(BeNil()))
-	return *obj
-}
-
 // mustGetRole returns the role with the given name or fails if it's not found in objs.
 func mustGetRole(g *WithT, objs *ObjectSet, name string) manifest.Manifest {
 	obj := objs.kind(manifest.Role).nameEquals(name)

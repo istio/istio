@@ -15,14 +15,7 @@
 package util
 
 import (
-	"strings"
-
 	"istio.io/istio/pkg/log"
 )
 
 var scope = log.RegisterScope("util", "util")
-
-// IsFilePath reports whether the given URL is a local file path.
-func IsFilePath(path string) bool {
-	return strings.Contains(path, "/") || strings.Contains(path, ".")
-}
