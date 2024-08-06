@@ -62,9 +62,7 @@ func (p *Log) createStatus(maxWidth int) string {
 	comps := make([]string, 0, len(p.components))
 	wait := make([]string, 0, len(p.components))
 	for c, l := range p.components {
-		comps = append(comps, "TODO")
-		_ = c
-		// comps = append(comps, name.UserFacingComponentName(name.ComponentName(c)))
+		comps = append(comps, component.UserFacingComponentName(component.Name(c)))
 		wait = append(wait, l.waitingResources()...)
 	}
 	sort.Strings(comps)
