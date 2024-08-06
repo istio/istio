@@ -289,16 +289,48 @@ func TryGetPathAs[T any](m Map, name string) T {
 func (m Map) GetPath(name string) (any, bool) {
 	cur := any(m)
 
-	for _, n := range parsePath(name) {
-		cm, ok := AsMap(cur)
-		if !ok {
-			return nil, false
+	paths, err := splitPath(name)
+	if err != nil {
+		return nil, false
+	}
+	for _, n := range paths {
+		if idx, ok := extractIndex(n); ok {
+			a, ok := cur.([]any)
+			if !ok {
+				return nil, false
+			}
+			if idx >= 0 && idx < len(a) {
+				cur = a[idx]
+			} else {
+				return nil, false
+			}
+		} else if k, v, ok := extractKV(n); ok {
+			a, ok := cur.([]any)
+			if !ok {
+				return nil, false
+			}
+			index := -1
+			for idx, cm := range a {
+				if MustAsMap(cm)[k] == v {
+					index = idx
+					break
+				}
+			}
+			if index == -1 {
+				return nil, false
+			}
+			cur = a[idx]
+		} else {
+			cm, ok := AsMap(cur)
+			if !ok {
+				return nil, false
+			}
+			sub, ok := cm[n]
+			if !ok {
+				return nil, false
+			}
+			cur = sub
 		}
-		sub, ok := cm[n]
-		if !ok {
-			return nil, false
-		}
-		cur = sub
 	}
 
 	if p, ok := cur.(*any); ok {
@@ -352,19 +384,10 @@ func (m Map) DeepClone() Map {
 }
 
 func ConvertMap[T any](m Map) (T, error) {
-	return FromJson[T]([]byte(m.JSON()))
+	return fromJson[T]([]byte(m.JSON()))
 }
 
-func FromYaml[T any](overlay []byte) (T, error) {
-	v := new(T)
-	err := yaml.Unmarshal(overlay, &v)
-	if err != nil {
-		return ptr.Empty[T](), err
-	}
-	return *v, nil
-}
-
-func FromJson[T any](overlay []byte) (T, error) {
+func fromJson[T any](overlay []byte) (T, error) {
 	v := new(T)
 	err := json.Unmarshal(overlay, &v)
 	if err != nil {

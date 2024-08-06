@@ -62,7 +62,7 @@ func TestMakePatch(t *testing.T) {
 
 func TestSetPath(t *testing.T) {
 	fromJson := func(s string) Map {
-		m, err := FromJson[Map]([]byte(s))
+		m, err := fromJson[Map]([]byte(s))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -154,6 +154,77 @@ func TestSetPath(t *testing.T) {
 			} else {
 				assert.Error(t, err)
 			}
+		})
+	}
+}
+
+func TestGetPath(t *testing.T) {
+	fromJson := func(s string) Map {
+		m, err := fromJson[Map]([]byte(s))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	cases := []struct {
+		name string
+		base Map
+		path string
+		out  any
+	}{
+		{
+			name: "trivial",
+			base: fromJson(`{"spec":1}`),
+			path: "spec",
+			out:  float64(1),
+		},
+		{
+			name: "nested",
+			path: "spec.bar",
+			base: fromJson(`{"spec":{"bar":1}}`),
+			out:  float64(1),
+		},
+		{
+			name: "map",
+			path: "spec",
+			base: fromJson(`{"spec":{"bar":1}}`),
+			out:  map[string]any{"bar": float64(1)},
+		},
+		{
+			name: "array",
+			path: "top.[0]",
+			base: fromJson(`{"top":[1]}`),
+			out:  float64(1),
+		},
+		{
+			name: "array out of bounds",
+			path: "top.[9]",
+			base: fromJson(`{"top":[1]}`),
+			out:  nil,
+		},
+		{
+			name: "array and values",
+			path: "top.[0].bar",
+			base: fromJson(`{"top":[{"bar":1}]}`),
+			out:  float64(1),
+		},
+		{
+			name: "kv",
+			path: "env.[name:POD_NAME].value",
+			base: fromJson(`{"env":[{"name":"POD_NAME","value":1}]}`),
+			out:  float64(1),
+		},
+		{
+			name: "escape kv",
+			path: "env.[name:foo\\.bar].value",
+			base: fromJson(`{"env":[{"name":"foo\\.bar","value":"hi"}]}`),
+			out:  "hi",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			v, _ := tt.base.GetPath(tt.path)
+			assert.Equal(t, tt.out, v)
 		})
 	}
 }

@@ -135,7 +135,7 @@ func applyPatches(base manifest.Manifest, patches []apis.Patch) (manifest.Manife
 			continue
 		}
 
-		err = tpath.WritePathContext(inc, v, false)
+		err = tpath.WritePathContext(inc, v)
 		if err != nil {
 			errs = util.AppendErr(errs, err)
 		}
