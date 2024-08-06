@@ -24,7 +24,7 @@ import "k8s.io/api/core/v1/generated.proto";
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 
 // Package-wide variables from generator "generated".
-option go_package = "istio.io/istio/operator/pkg/apis/istio/v1alpha1";
+option go_package = "istio.io/istio/operator/pkg/apis";
 
 // ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x, arm64)
 // for all the Istio control plane components.
