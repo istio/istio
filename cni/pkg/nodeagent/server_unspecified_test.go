@@ -25,3 +25,35 @@ func getFakeDP(fs *fakeServer, fakeClient kubernetes.Interface) *meshDataplane {
 	// not supported
 	return nil
 }
+
+func TestSocketOriginalDst(t *testing.T) {
+	listener, err := net.Listen("tcp", "localhost:8080")
+	assert.NoError(t, err)
+
+	done := false
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			assert.NoError(t, err)
+			dstIp, dPort, err := GetOriginalDestination(conn)
+			assert.NoError(t, err)
+			t.Fail()
+			fmt.Println(dstIp, dPort)
+			done = true
+			conn.Close()
+			return
+		}
+	}()
+
+	c, err := net.Dial("tcp", "localhost:8080")
+	assert.NoError(t, err)
+
+	for {
+		if !done {
+			time.Sleep(time.Millisecond * 10)
+			continue
+		}
+		break
+	}
+	c.Close()
+}
