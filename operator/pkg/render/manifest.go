@@ -147,7 +147,7 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (values
 	// The tricky bit is we don't know where to read the profile from until we read the files/--set flags.
 	// To handle this, we will build up these first, then apply it on top of the base once we know what base to use.
 	// Initial base values
-	userConfigBase, err := values.MapFromJson([]byte(`{
+	userConfigBase, err := values.MapFromJSON([]byte(`{
   "apiVersion": "install.istio.io/v1alpha1",
   "kind": "IstioOperator",
   "metadata": {},

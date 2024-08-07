@@ -21,8 +21,8 @@ import (
 )
 
 func TestSetPath(t *testing.T) {
-	fromJson := func(s string) Map {
-		m, err := fromJson[Map]([]byte(s))
+	fromJSON := func(s string) Map {
+		m, err := fromJSON[Map]([]byte(s))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -75,28 +75,28 @@ func TestSetPath(t *testing.T) {
 		{
 			name:   "array and values merge",
 			inPath: "top.[0].bar",
-			base:   fromJson(`{"top":[{"baz":2}]}`),
+			base:   fromJSON(`{"top":[{"baz":2}]}`),
 			inData: 1,
 			out:    `{"top":[{"bar":1,"baz":2}]}`,
 		},
 		{
 			name:   "kv set",
 			inPath: "env.[name:POD_NAME].value",
-			base:   fromJson(`{"env":[{"name":"POD_NAME"}]}`),
+			base:   fromJSON(`{"env":[{"name":"POD_NAME"}]}`),
 			inData: 1,
 			out:    `{"env":[{"name":"POD_NAME","value":1}]}`,
 		},
 		{
 			name:   "escape kv",
 			inPath: "env.[name:foo\\.bar].value",
-			base:   fromJson(`{"env":[{"name":"foo.bar"}]}`),
+			base:   fromJSON(`{"env":[{"name":"foo.bar"}]}`),
 			inData: "hi",
 			out:    `{"env":[{"name":"foo.bar","value":"hi"}]}`,
 		},
 		{
 			name:   "set kv",
 			inPath: "spec.ports.[name:https-dns].port",
-			base:   fromJson(`{"spec":{"ports":[{"name":"https-dns"}]}}`),
+			base:   fromJSON(`{"spec":{"ports":[{"name":"https-dns"}]}}`),
 			inData: 11111,
 			out:    `{"spec":{"ports":[{"name":"https-dns","port":11111}]}}`,
 		},
@@ -125,8 +125,8 @@ func TestSetPath(t *testing.T) {
 }
 
 func TestGetPath(t *testing.T) {
-	fromJson := func(s string) Map {
-		m, err := fromJson[Map]([]byte(s))
+	fromJSON := func(s string) Map {
+		m, err := fromJSON[Map]([]byte(s))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -140,50 +140,50 @@ func TestGetPath(t *testing.T) {
 	}{
 		{
 			name: "trivial",
-			base: fromJson(`{"spec":1}`),
+			base: fromJSON(`{"spec":1}`),
 			path: "spec",
 			out:  float64(1),
 		},
 		{
 			name: "nested",
 			path: "spec.bar",
-			base: fromJson(`{"spec":{"bar":1}}`),
+			base: fromJSON(`{"spec":{"bar":1}}`),
 			out:  float64(1),
 		},
 		{
 			name: "map",
 			path: "spec",
-			base: fromJson(`{"spec":{"bar":1}}`),
+			base: fromJSON(`{"spec":{"bar":1}}`),
 			out:  map[string]any{"bar": float64(1)},
 		},
 		{
 			name: "array",
 			path: "top.[0]",
-			base: fromJson(`{"top":[1]}`),
+			base: fromJSON(`{"top":[1]}`),
 			out:  float64(1),
 		},
 		{
 			name: "array out of bounds",
 			path: "top.[9]",
-			base: fromJson(`{"top":[1]}`),
+			base: fromJSON(`{"top":[1]}`),
 			out:  nil,
 		},
 		{
 			name: "array and values",
 			path: "top.[0].bar",
-			base: fromJson(`{"top":[{"bar":1}]}`),
+			base: fromJSON(`{"top":[{"bar":1}]}`),
 			out:  float64(1),
 		},
 		{
 			name: "kv",
 			path: "env.[name:POD_NAME].value",
-			base: fromJson(`{"env":[{"name":"POD_NAME","value":1}]}`),
+			base: fromJSON(`{"env":[{"name":"POD_NAME","value":1}]}`),
 			out:  float64(1),
 		},
 		{
 			name: "escape kv",
 			path: "env.[name:foo\\.bar].value",
-			base: fromJson(`{"env":[{"name":"foo.bar","value":"hi"}]}`),
+			base: fromJSON(`{"env":[{"name":"foo.bar","value":"hi"}]}`),
 			out:  "hi",
 		},
 	}

@@ -141,9 +141,9 @@ func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision stri
 				string(component.IstiodRemoteComponentName),
 				string(component.ZtunnelComponentName),
 			}
-			includeRequirement, err := klabels.NewRequirement(manifest.IstioComponentLabel, selection.In, includeCN)
-			if err != nil {
-				return nil, err
+			includeRequirement, lerr := klabels.NewRequirement(manifest.IstioComponentLabel, selection.In, includeCN)
+			if lerr != nil {
+				return nil, lerr
 			}
 			result, err = c.List(context.Background(), metav1.ListOptions{LabelSelector: selector.Add(*includeRequirement, *componentRequirement).String()})
 		}

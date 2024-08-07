@@ -327,7 +327,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	}
 
 	// Second attempt: fails
-	objs, err = fakeControllerReconcileInternal(c, testResourceFile, tmpCharts)
+	_, err = fakeControllerReconcileInternal(c, testResourceFile, tmpCharts)
 	assert.Error(t, err)
 	assert.Equal(t, strings.Contains(err.Error(), "Webhook overlaps with others"), true)
 }

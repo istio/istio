@@ -187,7 +187,3 @@ func splitEscaped(s string, r rune) []string {
 	out = append(out, s[prevIdx:])
 	return out
 }
-
-func firstCharToLowerCase(s string) string {
-	return strings.ToLower(s[0:1]) + s[1:]
-}

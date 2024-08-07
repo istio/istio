@@ -47,8 +47,8 @@ import (
 //     to do on a Map than on a struct which requires complex reflection.
 type Map map[string]any
 
-// MapFromJson constructs a Map from JSON
-func MapFromJson(input []byte) (Map, error) {
+// MapFromJSON constructs a Map from JSON
+func MapFromJSON(input []byte) (Map, error) {
 	m := make(Map)
 	err := json.Unmarshal(input, &m)
 	if err != nil {
@@ -124,7 +124,7 @@ func (m Map) MergeFrom(other Map) {
 	for k, v := range other {
 		// Might be a Map or map, possibly recurse
 		if vm, ok := v.(Map); ok {
-			v = (map[string]any)(vm)
+			v = map[string]any(vm)
 		}
 		if v, ok := v.(map[string]any); ok {
 			// It's a map...
@@ -160,10 +160,7 @@ func (m Map) SetPaths(paths ...string) error {
 
 // SetPath applies values from a path like `key.subkey`, `key.[0].var`, or `key.[name:foo]`.
 func (m Map) SetPath(paths string, value any) error {
-	path, err := splitPath(paths)
-	if err != nil {
-		return err
-	}
+	path := splitPath(paths)
 	base := m
 	if err := setPathRecurse(base, path, value); err != nil {
 		return err
@@ -199,7 +196,7 @@ func TryGetPathAs[T any](m Map, name string) T {
 	if !ok {
 		return ptr.Empty[T]()
 	}
-	t, ok := v.(T)
+	t, _ := v.(T)
 	return t
 }
 
@@ -207,10 +204,7 @@ func TryGetPathAs[T any](m Map, name string) T {
 func (m Map) GetPath(name string) (any, bool) {
 	cur := any(m)
 
-	paths, err := splitPath(name)
-	if err != nil {
-		return nil, false
-	}
+	paths := splitPath(name)
 	for _, n := range paths {
 		if idx, ok := extractIndex(n); ok {
 			a, ok := cur.([]any)
@@ -299,7 +293,7 @@ func (m Map) GetPathBool(s string) bool {
 
 // ConvertMap translates a Map to a T, via JSON
 func ConvertMap[T any](m Map) (T, error) {
-	return fromJson[T]([]byte(m.JSON()))
+	return fromJSON[T]([]byte(m.JSON()))
 }
 
 func setPathRecurse(base map[string]any, paths []string, value any) error {
@@ -379,7 +373,7 @@ func GetValueForSetFlag(setFlags []string, path string) string {
 	return ret
 }
 
-func fromJson[T any](overlay []byte) (T, error) {
+func fromJSON[T any](overlay []byte) (T, error) {
 	v := new(T)
 	err := json.Unmarshal(overlay, &v)
 	if err != nil {
@@ -442,7 +436,7 @@ func parseValue(valueStr string) any {
 	return value
 }
 
-func splitPath(path string) ([]string, error) {
+func splitPath(path string) []string {
 	path = filepath.Clean(path)
 	path = strings.TrimPrefix(path, ".")
 	path = strings.TrimSuffix(path, ".")
@@ -461,7 +455,7 @@ func splitPath(path string) ([]string, error) {
 			}
 		}
 	}
-	return r, nil
+	return r
 }
 
 // splitEscaped splits a string using the rune r as a separator. It does not split on r if it's prefixed by \.

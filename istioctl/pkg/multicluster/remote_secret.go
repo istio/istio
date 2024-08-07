@@ -426,9 +426,10 @@ func createServiceAccount(client kube.CLIClient, opt RemoteSecretOptions) error 
 }
 
 func generateServiceAccountYAML(opt RemoteSecretOptions) (string, error) {
-	mfs, _, err := render.GenerateManifest(nil, []string{"installPackagePath=" + opt.ManifestsPath, "values.global.istioNamespace=" + opt.Namespace}, false, nil, nil)
+	flags := []string{"installPackagePath=" + opt.ManifestsPath, "values.global.istioNamespace=" + opt.Namespace}
+	mfs, _, err := render.GenerateManifest(nil, flags, false, nil, nil)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	included := []string{}
 	for _, mf := range mfs {

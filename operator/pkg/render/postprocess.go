@@ -55,22 +55,38 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 	// Setup our patches. Each patch takes from some top level field under the component.k8s spec (the map key), and applies to some resource.
 	// The patch is just a standard StrategicMergePatch.
 	patches := map[string]Patch{
-		"affinity":            {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"affinity":%s}}}}`},
-		"env":                 {Kind: rt, Name: rn, Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q, "env": %%s}]}}}}`, comp.ContainerName)},
-		"hpaSpec":             {Kind: "HorizontalPodAutoscaler", Name: rn, Patch: `{"spec":%s}`},
-		"imagePullPolicy":     {Kind: rt, Name: rn, Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q, "imagePullPolicy": %%s}]}}}}`, comp.ContainerName)},
+		"affinity": {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"affinity":%s}}}}`},
+		"env": {
+			Kind:  rt,
+			Name:  rn,
+			Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q, "env": %%s}]}}}}`, comp.ContainerName),
+		},
+		"hpaSpec": {Kind: "HorizontalPodAutoscaler", Name: rn, Patch: `{"spec":%s}`},
+		"imagePullPolicy": {
+			Kind:  rt,
+			Name:  rn,
+			Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q, "imagePullPolicy": %%s}]}}}}`, comp.ContainerName),
+		},
 		"nodeSelector":        {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"nodeSelector":%s}}}}`},
 		"podDisruptionBudget": {Kind: "PodDisruptionBudget", Name: rn, Patch: `{"spec":%s}`},
 		"podAnnotations":      {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"metadata":{"annotations":%s}}}}`},
 		"priorityClassName":   {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"priorityClassName":%s}}}}`},
-		"readinessProbe":      {Kind: rt, Name: rn, Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q, "readinessProbe": %%s}]}}}}`, comp.ContainerName)},
-		"replicaCount":        {Kind: rt, Name: rn, Patch: `{"spec":{"replicas":%s}}`},
-		"resources":           {Kind: rt, Name: rn, Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q, "resources": %%s}]}}}}`, comp.ContainerName)},
-		"strategy":            {Kind: rt, Name: rn, Patch: `{"spec":{"strategy":%s}}`},
-		"tolerations":         {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"tolerations":%s}}}}`},
-		"serviceAnnotations":  {Kind: "Service", Name: rn, Patch: `{"metadata":{"annotations":%s}}`},
-		"service":             {Kind: "Service", Name: rn, Patch: `{"spec":%s}`},
-		"securityContext":     {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"securityContext":%s}}}}`},
+		"readinessProbe": {
+			Kind:  rt,
+			Name:  rn,
+			Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q, "readinessProbe": %%s}]}}}}`, comp.ContainerName),
+		},
+		"replicaCount": {Kind: rt, Name: rn, Patch: `{"spec":{"replicas":%s}}`},
+		"resources": {
+			Kind:  rt,
+			Name:  rn,
+			Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q, "resources": %%s}]}}}}`, comp.ContainerName),
+		},
+		"strategy":           {Kind: rt, Name: rn, Patch: `{"spec":{"strategy":%s}}`},
+		"tolerations":        {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"tolerations":%s}}}}`},
+		"serviceAnnotations": {Kind: "Service", Name: rn, Patch: `{"metadata":{"annotations":%s}}`},
+		"service":            {Kind: "Service", Name: rn, Patch: `{"spec":%s}`},
+		"securityContext":    {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"securityContext":%s}}}}`},
 	}
 	// needPatching builds a map of manifest index -> patch. This ensures we only do the full round-tripping once per object.
 	needPatching := map[int][]string{}

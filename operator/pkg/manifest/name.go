@@ -26,8 +26,6 @@ const (
 )
 
 const (
-	// MetadataNamespace is the namespace for mesh metadata (labels, annotations)
-	MetadataNamespace = "install.operator.istio.io"
 	// OwningResourceName represents the name of the owner to which the resource relates
 	OwningResourceName = "install.operator.istio.io/owning-resource"
 	// OwningResourceNamespace represents the namespace of the owner to which the resource relates
@@ -37,8 +35,6 @@ const (
 	OwningResourceNotPruned = "install.operator.istio.io/owning-resource-not-pruned"
 	// OperatorManagedLabel indicates Istio operator is managing this resource.
 	OperatorManagedLabel = "operator.istio.io/managed"
-	// operatorReconcileStr indicates that the operator will reconcile the resource.
-	operatorReconcileStr = "Reconcile"
 	// IstioComponentLabel indicates which Istio component a resource belongs to.
 	IstioComponentLabel = "operator.istio.io/component"
 	// OperatorVersionLabel indicates the Istio version of the installation.

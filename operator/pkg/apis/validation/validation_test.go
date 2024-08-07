@@ -228,6 +228,7 @@ spec:
 	}
 }
 
+// nolint: lll
 func TestValidateValues(t *testing.T) {
 	tests := []struct {
 		desc     string
