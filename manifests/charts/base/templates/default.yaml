@@ -8,7 +8,8 @@ metadata:
     release: {{ .Release.Name }}
     istio: istiod
     istio.io/rev: {{ .Values.defaultRevision | quote }}
-{{- include "istio.labels" . | nindent 4 }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 webhooks:
   - name: validation.istio.io
     clientConfig:

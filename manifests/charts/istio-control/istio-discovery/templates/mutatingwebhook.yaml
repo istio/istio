@@ -50,7 +50,8 @@ metadata:
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: {{ .Release.Name }}
-{{- include "istio.labels" . | nindent 4 }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 webhooks:
 {{- /* Set up the selectors. First section is for revision, rest is for "default" revision */}}
 

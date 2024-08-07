@@ -150,9 +150,6 @@ defaults:
     # Default tag for Istio images.
     tag: latest
 
-    # Labels to apply to all resources
-    labels: {}
-
     # Specify image pull policy if default behavior isn't desired.
     # Default behavior: latest images will be Always else IfNotPresent.
     imagePullPolicy: ""

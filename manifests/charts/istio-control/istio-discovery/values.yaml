@@ -89,9 +89,6 @@ defaults:
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
 
-  # Labels to apply to all resources
-  labels: {}
-
   # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
   ipFamilyPolicy: ""
   ipFamilies: []

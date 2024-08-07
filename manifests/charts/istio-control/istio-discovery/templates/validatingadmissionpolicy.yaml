@@ -4,7 +4,8 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: "stable-channel-policy{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}.istio.io"
   labels:
-{{- include "istio.labels" . | nindent 4 }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 spec:
   failurePolicy: Fail
   matchConstraints:

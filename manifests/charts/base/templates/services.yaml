@@ -11,6 +11,7 @@ metadata:
   {{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    app.kubernetes.io/name: "istiod"
     {{ include "istio.labels" . | nindent 4 }}
 spec:
   ports:

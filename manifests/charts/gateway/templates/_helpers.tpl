@@ -7,8 +7,6 @@
 {{- end }}
 
 {{- define "gateway.labels" -}}
-app.kubernetes.io/name: {{ include "gateway.name" . }}
-{{ include "istio.labels" . }}
 {{ include "gateway.selectorLabels" . }}
 {{- range $key, $val := .Values.labels }}
 {{- if and (ne $key "app") (ne $key "istio") }}

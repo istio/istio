@@ -51,9 +51,4 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/part-of: istio
 app.kubernetes.io/version: {{ .Chart.AppVersion }}
 helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-{{- range $key, $val := .Values.labels }}
-{{- if and (ne $key "app") (ne $key "istio") }}
-{{ $key | quote }}: {{ $val | quote }}
-{{- end }}
-{{- end }}
 {{- end -}}

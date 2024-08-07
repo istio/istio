@@ -286,7 +286,6 @@ message EgressGatewayConfig {
   // Environment variables passed to the proxy container.
   google.protobuf.Struct env = 8;
 
-  // Labels to apply to all resources
   map<string, string> labels = 9;
 
   string name = 25;
@@ -622,11 +621,7 @@ message GlobalConfig {
 
   // Specifies how waypoints are configured within Istio.
   WaypointConfig waypoint = 72;
-
-  // Labels to apply to all resources
-  map<string, string> labels = 73;
-
-  // The next available key is 74
+  // The next available key is 73
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -1343,8 +1338,6 @@ message BaseConfig {
 
   // validation webhook CA bundle
   string validationCABundle = 5;
-
-  map<string, string> labels = 6;
 }
 
 message IstiodRemoteConfig {

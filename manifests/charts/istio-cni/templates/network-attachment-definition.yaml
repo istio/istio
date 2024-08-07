@@ -6,4 +6,6 @@ metadata:
   namespace: default
   labels:
     operator.istio.io/component: "Cni"
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
 {{- end }}

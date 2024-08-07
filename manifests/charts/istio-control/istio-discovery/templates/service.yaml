@@ -14,7 +14,8 @@ metadata:
     app: istiod
     istio: pilot
     release: {{ .Release.Name }}
-{{- include "istio.labels" . | nindent 4 }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 spec:
   ports:
     - port: 15010

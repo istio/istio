@@ -10,7 +10,8 @@ metadata:
     operator.istio.io/component: "Pilot"
     istio: pilot
     release: {{ .Release.Name }}
-{{- include "istio.labels" . | nindent 4 }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 {{- range $key, $val := .Values.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
 {{- end }}
@@ -49,7 +50,8 @@ spec:
         {{ $key }}: "{{ $val }}"
         {{- end }}
         istio.io/dataplane-mode: none
-{{- include "istio.labels" . | nindent 8 }}
+        app.kubernetes.io/name: "istiod"
+        {{- include "istio.labels" . | nindent 8 }}
       annotations:
         prometheus.io/port: "15014"
         prometheus.io/scrape: "true"
