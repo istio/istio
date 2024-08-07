@@ -87,7 +87,7 @@ func applyComponentValuesToHelmValues(comp component.Component, spec apis.Gatewa
 	root := comp.ToHelmValuesTreeRoot
 
 	// Gateways allow providing 'name' and 'label' overrides.
-	if comp.UserFacingName == component.IngressComponentName || comp.UserFacingName == component.EgressComponentName {
+	if comp.IsGateway() {
 		merged = merged.DeepClone()
 		_ = merged.SetPath(fmt.Sprintf("spec.values.%s.name", root), spec.Name)
 		_ = merged.SetPath(fmt.Sprintf("spec.values.%s.labels", root), spec.Label)

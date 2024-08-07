@@ -91,6 +91,12 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 	// needPatching builds a map of manifest index -> patch. This ensures we only do the full round-tripping once per object.
 	needPatching := map[int][]string{}
 	for field, k := range patches {
+		if field == "service" && comp.IsGateway() {
+			// Hack: https://github.com/kubernetes/kubernetes/issues/103544 means strategy merge is ~broken for service ports.
+			// We already handle the service ports as helm values (since they are used for other things as well, like Pod container pod),
+			// so simply remove this. We cannot skip it entirely since there could be other parts of service they are patching.
+			_ = values.Map(spec.Raw).SetPath("k8s.service.ports", []any{})
+		}
 		v, ok := values.Map(spec.Raw).GetPath("k8s." + field)
 		if !ok {
 			continue
