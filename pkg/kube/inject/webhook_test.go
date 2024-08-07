@@ -632,12 +632,6 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
 	for _, object := range manifests {
-		if object.Component != "pilot" {
-			continue
-		}
-		if len(object.Manifests) == 0 {
-			continue
-		}
 		for _, o := range object.Manifests {
 			if o.GetName() == "istio-sidecar-injector" && o.GetKind() == gvk.ConfigMap.Kind {
 				data, ok := o.Object["data"].(map[string]any)
