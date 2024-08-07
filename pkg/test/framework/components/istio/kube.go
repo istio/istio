@@ -345,7 +345,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 			if err != nil {
 				return nil, err
 			}
-			localClusterSecretWatcher := v.GetPathString("spec.values.pilot.env.LOCAL_CLUSTER_SECRET_WATCHER")
+			localClusterSecretWatcher := v.GetPathString("pilot.env.LOCAL_CLUSTER_SECRET_WATCHER")
 			if localClusterSecretWatcher == "true" && i.externalControlPlane {
 				watchLocalNamespace = true
 			}

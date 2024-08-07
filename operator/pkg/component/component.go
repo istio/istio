@@ -82,7 +82,7 @@ func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 		}
 		var specs []apis.GatewayComponentSpec
 		for _, cur := range s.([]any) {
-			m, _ := values.AsMap(cur)
+			m, _ := values.CastAsMap(cur)
 			spec, err := buildSpec(m)
 			if err != nil {
 				return nil, err
