@@ -256,7 +256,7 @@ type HavePathValueEqualMatcher struct {
 // Match implements the Matcher interface.
 func (m *HavePathValueEqualMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	got, f := values.MustAsMap(actual).GetPath(pv.path)
+	got, f := values.MustCastAsMap(actual).GetPath(pv.path)
 	if !f {
 		return false, fmt.Errorf("could not find path %v", pv.path)
 	}
@@ -298,7 +298,7 @@ type HavePathValueMatchRegexMatcher struct {
 // Match implements the Matcher interface.
 func (m *HavePathValueMatchRegexMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	got, f := values.MustAsMap(actual).GetPath(pv.path)
+	got, f := values.MustCastAsMap(actual).GetPath(pv.path)
 	if !f {
 		return false, fmt.Errorf("could not find path %v", pv.path)
 	}
@@ -346,7 +346,7 @@ type HavePathValueContainMatcher struct {
 // Match implements the Matcher interface.
 func (m *HavePathValueContainMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	got, f := values.MustAsMap(actual).GetPath(pv.path)
+	got, f := values.MustCastAsMap(actual).GetPath(pv.path)
 	if !f {
 		return false, fmt.Errorf("could not find path %v", pv.path)
 	}

@@ -15,6 +15,7 @@
 package render
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -90,6 +91,12 @@ func applyComponentValuesToHelmValues(comp component.Component, spec apis.Gatewa
 		merged = merged.DeepClone()
 		_ = merged.SetPath(fmt.Sprintf("spec.values.%s.name", root), spec.Name)
 		_ = merged.SetPath(fmt.Sprintf("spec.values.%s.labels", root), spec.Label)
+		if spec.Kubernetes != nil && spec.Kubernetes.Service != nil && len(spec.Kubernetes.Service.Ports) > 0 {
+			b, _ := json.Marshal(spec.Kubernetes.Service.Ports)
+			var ports []map[string]any
+			_ = json.Unmarshal(b, &ports)
+			_ = merged.SetPath(fmt.Sprintf("spec.values.%s.ports", root), ports)
+		}
 	}
 	// No changes needed, skip early to avoid copy
 	if !comp.FlattenValues && spec.Hub == "" && spec.Tag == nil && spec.Label == nil {

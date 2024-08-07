@@ -77,8 +77,17 @@ func MakeMap(contents any, path ...string) Map {
 	return ret
 }
 
-// AsMap casts a value to a Map, if possible.
-func AsMap(cur any) (Map, bool) {
+// MapFromObject is a helper to construct a map from an object, through a roundtrip JSON
+func MapFromObject[T any](contents T) (Map, error) {
+	b, err := json.Marshal(contents)
+	if err != nil {
+		return nil, err
+	}
+	return MapFromJSON(b)
+}
+
+// CastAsMap casts a value to a Map, if possible.
+func CastAsMap(cur any) (Map, bool) {
 	if m, ok := cur.(Map); ok {
 		return m, true
 	}
@@ -88,9 +97,9 @@ func AsMap(cur any) (Map, bool) {
 	return nil, false
 }
 
-// MustAsMap casts a value to a Map; if the value is not a map, it will panic..
-func MustAsMap(cur any) Map {
-	m, ok := AsMap(cur)
+// MustCastAsMap casts a value to a Map; if the value is not a map, it will panic..
+func MustCastAsMap(cur any) Map {
+	m, ok := CastAsMap(cur)
 	if !ok {
 		if !reflect.ValueOf(cur).IsValid() {
 			return Map{}
@@ -223,7 +232,7 @@ func (m Map) GetPath(name string) (any, bool) {
 			}
 			index := -1
 			for idx, cm := range a {
-				if MustAsMap(cm)[k] == v {
+				if MustCastAsMap(cm)[k] == v {
 					index = idx
 					break
 				}
@@ -233,7 +242,7 @@ func (m Map) GetPath(name string) (any, bool) {
 			}
 			cur = a[idx]
 		} else {
-			cm, ok := AsMap(cur)
+			cm, ok := CastAsMap(cur)
 			if !ok {
 				return nil, false
 			}
@@ -310,7 +319,7 @@ func setPathRecurse(base map[string]any, paths []string, value any) error {
 		if k, v, ok := extractKV(paths[1]); ok {
 			index = -1
 			for idx, cm := range base[seg].([]any) {
-				if MustAsMap(cm)[k] == v {
+				if MustCastAsMap(cm)[k] == v {
 					index = idx
 					break
 				}
@@ -337,7 +346,7 @@ func setPathRecurse(base map[string]any, paths []string, value any) error {
 			}
 			base[seg] = l
 		} else {
-			v := MustAsMap(l[index])
+			v := MustCastAsMap(l[index])
 			if err := setPathRecurse(v, paths[2:], value); err != nil {
 				return err
 			}
@@ -353,7 +362,7 @@ func setPathRecurse(base map[string]any, paths []string, value any) error {
 		if last {
 			base[seg] = value
 		} else {
-			return setPathRecurse(MustAsMap(base[seg]), paths[1:], value)
+			return setPathRecurse(MustCastAsMap(base[seg]), paths[1:], value)
 		}
 	}
 	return nil
