@@ -146,6 +146,7 @@ func TestCorrectDeepCopy(t *testing.T) {
 		},
 		{
 			name: "correct deepcopy",
+			// nolint: gocritic
 			deepCopyFunc: func(d []string) []string {
 				return slices.Clone(d)
 			},
