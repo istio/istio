@@ -79,6 +79,7 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 		//
 		// TODO: Handle ServiceEntryStatus -> IstioStatus analyzer conversion more elegantly.
 		if status == nil {
+			log.Debugf("ensure that status is initialized before zero-ing out analysis messages")
 			status = &v1alpha1.IstioStatus{}
 		}
 		// zero out analysis messages, as this is the sole controller for those

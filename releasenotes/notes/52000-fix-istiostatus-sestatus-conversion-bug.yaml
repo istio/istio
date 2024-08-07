@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio/issues/52000
+
+docs:
+ - '[reference] https://istio.io/latest/docs/reference/config/analysis/ist0134/'
+
+releaseNotes:
+- |
+  **Fixed** an issue that caused the Analyzer to panic when a ServiceEntry with a TCP protocol is added with a nil spec.address. 
+  This ensures that the type conversion between IstioStatus and ServiceEntryStatus succeeds and produces the appropriate validation message.
+  
