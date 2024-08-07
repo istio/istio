@@ -6,7 +6,7 @@ metadata:
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
-    app.kubernetes.io/name: "istiod"
+    app.kubernetes.io/name: "istio-reader"
     {{- include "istio.labels" . | nindent 4 }}
 rules:
   - apiGroups:
