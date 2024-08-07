@@ -45,6 +45,8 @@ spec:
         {{- with .Values.revision }}
         istio.io/rev: {{ . }}
         {{- end }}
+        app.kubernetes.io/name: "istio-egressgateway"
+        {{- include "istio.labels" . | nindent 8 }}
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
@@ -53,8 +55,6 @@ spec:
         {{- end }}
         sidecar.istio.io/inject: "true"
         inject.istio.io/templates: "{{ $gateway.injectionTemplate }}"
-        app.kubernetes.io/name: "istio-egressgateway"
-        {{- include "istio.labels" . | nindent 8 }}
 {{- if $gateway.podAnnotations }}
 {{ toYaml $gateway.podAnnotations | indent 8 }}
 {{ end }}
