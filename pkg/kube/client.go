@@ -1178,26 +1178,7 @@ func (c *client) buildObject(cfg string, namespace string) (*unstructured.Unstru
 }
 
 func (c *client) DynamicClientFor(g schema.GroupVersionKind, obj *unstructured.Unstructured, namespace string) (dynamic.ResourceInterface, error) {
-	var namespaced bool
-	var gvr schema.GroupVersionResource
-	if s, f := collections.All.FindByGroupVersionAliasesKind(config.FromKubernetesGVK(g)); f {
-		gvr = s.GroupVersionResource()
-		// Might have been an alias, assign back the correct version
-		gvr.Version = g.Version
-		namespaced = !s.IsClusterScoped()
-	} else if c.mapper != nil {
-		// Fallback to dynamic lookup
-		mapping, err := c.mapper.RESTMapping(g.GroupKind(), g.Version)
-		if err != nil {
-			return nil, fmt.Errorf("mapping: %v", err)
-		}
-		gvr = mapping.Resource
-		namespaced = mapping.Scope.Name() == meta.RESTScopeNameNamespace
-	} else {
-		// Fallback to guessing
-		gvr, _ = meta.UnsafeGuessKindToResource(g)
-		namespaced = (obj != nil && obj.GetNamespace() != "") || namespace != ""
-	}
+	gvr, namespaced := c.bestEffortToGVR(g, obj, namespace)
 
 	var dr dynamic.ResourceInterface
 	if namespaced {
@@ -1217,6 +1198,26 @@ func (c *client) DynamicClientFor(g schema.GroupVersionKind, obj *unstructured.U
 		dr = c.dynamic.Resource(gvr)
 	}
 	return dr, nil
+}
+
+func (c *client) bestEffortToGVR(g schema.GroupVersionKind, obj *unstructured.Unstructured, namespace string) (schema.GroupVersionResource, bool) {
+	if s, f := collections.All.FindByGroupVersionAliasesKind(config.FromKubernetesGVK(g)); f {
+		gvr := s.GroupVersionResource()
+		// Might have been an alias, assign back the correct version
+		gvr.Version = g.Version
+		return gvr, !s.IsClusterScoped()
+	}
+	if c.mapper != nil {
+		// Fallback to dynamic lookup
+		mapping, err := c.mapper.RESTMapping(g.GroupKind(), g.Version)
+		if err == nil {
+			return mapping.Resource, mapping.Scope.Name() == meta.RESTScopeNameNamespace
+		}
+	}
+	// Fallback to guessing
+	gvr, _ := meta.UnsafeGuessKindToResource(g)
+	namespaced := (obj != nil && obj.GetNamespace() != "") || namespace != ""
+	return gvr, namespaced
 }
 
 // IstioScheme returns a scheme will all known Istio-related types added

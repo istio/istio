@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
 )
 
@@ -146,10 +147,10 @@ func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision stri
 			}
 			result, err = c.List(context.Background(), metav1.ListOptions{LabelSelector: selector.Add(*includeRequirement, *componentRequirement).String()})
 		}
-		if err != nil {
+		if controllers.IgnoreNotFound(err) != nil {
 			return nil, err
 		}
-		if len(result.Items) == 0 {
+		if result == nil || len(result.Items) == 0 {
 			continue
 		}
 		usList = append(usList, result)
