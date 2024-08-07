@@ -19,6 +19,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	endpointsliceutil "k8s.io/endpointslice/util"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -61,34 +62,6 @@ func newPodCache(c *Controller, pods kclient.Client[*v1.Pod], queueEndpointEvent
 	}
 
 	return out
-}
-
-// Copied from kubernetes/kubernetes/pkg/controller/util/endpoint/controller_utils.go
-//
-// shouldPodBeInEndpoints returns true if a specified pod should be in an
-// Endpoints or EndpointSlice resource. Terminating pods are not included.
-func shouldPodBeInEndpoints(pod *v1.Pod) bool {
-	// "Terminal" describes when a Pod is complete (in a succeeded or failed phase).
-	// This is distinct from the "Terminating" condition which represents when a Pod
-	// is being terminated (metadata.deletionTimestamp is non nil).
-	if isPodPhaseTerminal(pod.Status.Phase) {
-		return false
-	}
-
-	if len(pod.Status.PodIP) == 0 && len(pod.Status.PodIPs) == 0 {
-		return false
-	}
-
-	if pod.DeletionTimestamp != nil {
-		return false
-	}
-
-	return true
-}
-
-// isPodPhaseTerminal returns true if the pod's phase is terminal.
-func isPodPhaseTerminal(phase v1.PodPhase) bool {
-	return phase == v1.PodFailed || phase == v1.PodSucceeded
 }
 
 func IsPodRunning(pod *v1.Pod) bool {
@@ -158,19 +131,19 @@ func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
 	key := config.NamespacedName(pod)
 	switch ev {
 	case model.EventAdd:
-		if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
+		if endpointsliceutil.ShouldPodBeInEndpoints(pod, false) && IsPodReady(pod) {
 			pc.addPod(pod, ip, key)
 		} else {
 			return nil
 		}
 	case model.EventUpdate:
-		if !shouldPodBeInEndpoints(pod) || !IsPodReady(pod) {
+		if !endpointsliceutil.ShouldPodBeInEndpoints(pod, false) || !IsPodReady(pod) {
 			// delete only if this pod was in the cache
 			if !pc.deleteIP(ip, key) {
 				return nil
 			}
 			ev = model.EventDelete
-		} else if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
+		} else if endpointsliceutil.ShouldPodBeInEndpoints(pod, false) && IsPodReady(pod) {
 			pc.addPod(pod, ip, key)
 		} else {
 			return nil

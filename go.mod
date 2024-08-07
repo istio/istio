@@ -102,6 +102,7 @@ require (
 	k8s.io/apiserver v0.30.3
 	k8s.io/cli-runtime v0.30.3
 	k8s.io/client-go v0.30.3
+	k8s.io/endpointslice v0.30.3
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.30.3
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
