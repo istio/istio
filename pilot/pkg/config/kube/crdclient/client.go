@@ -234,9 +234,8 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 	// TODO: Handle ServiceEntryStatus -> IstioStatus analyzer conversion more elegantly before
 	// we get to this point.
 	if cfg.Meta.GroupVersionKind.Kind == gvk.ServiceEntry.Kind {
-		switch cfg.Status.(type) {
+		switch s := cfg.Status.(type) {
 		case *v1alpha1.IstioStatus:
-			s := cfg.Status.(*v1alpha1.IstioStatus)
 			cfg.Status = &v1alpha3.ServiceEntryStatus{
 				Conditions:         s.Conditions,
 				ValidationMessages: s.ValidationMessages,
