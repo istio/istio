@@ -1018,7 +1018,7 @@ func (c *client) ssapplyYAMLFile(namespace string, dryRun bool, file string) err
 	cfgs := yml.SplitString(string(d))
 	for _, cfg := range cfgs {
 		if err := c.ssapplyYAML(cfg, namespace, dryRun); err != nil {
-			return err
+			return fmt.Errorf("apply: %v", err)
 		}
 	}
 	return nil
@@ -1049,8 +1049,11 @@ func (c *client) ssapplyYAML(cfg string, namespace string, dryRun bool) error {
 	if !dryRun && obj.GetKind() == gvk.CustomResourceDefinition.Kind {
 		c.InvalidateDiscovery()
 	}
+	if err != nil {
+		return fmt.Errorf("patch: %v", err)
+	}
 
-	return err
+	return nil
 }
 
 func (c *client) deleteYAMLFile(namespace string, dryRun bool, file string) error {
@@ -1164,12 +1167,12 @@ func (c *client) buildObject(cfg string, namespace string) (*unstructured.Unstru
 	obj := &unstructured.Unstructured{}
 	_, gvk, err := decUnstructured.Decode([]byte(cfg), nil, obj)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("decode: %v", err)
 	}
 
 	dc, err := c.DynamicClientFor(*gvk, obj, namespace)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("get dynamic client: %v", err)
 	}
 	return obj, dc, nil
 }
@@ -1179,6 +1182,8 @@ func (c *client) DynamicClientFor(g schema.GroupVersionKind, obj *unstructured.U
 	var gvr schema.GroupVersionResource
 	if s, f := collections.All.FindByGroupVersionAliasesKind(config.FromKubernetesGVK(g)); f {
 		gvr = s.GroupVersionResource()
+		// Might have been an alias, assign back the correct version
+		gvr.Version = g.Version
 		namespaced = !s.IsClusterScoped()
 	} else if c.mapper != nil {
 		// Fallback to dynamic lookup
