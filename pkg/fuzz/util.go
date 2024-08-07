@@ -17,10 +17,13 @@ package fuzz
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
+	"unsafe"
 
 	fuzzheaders "github.com/AdaLogics/go-fuzz-headers"
+	"github.com/mitchellh/copystructure"
 
 	"istio.io/istio/pkg/test"
 )
@@ -132,4 +135,110 @@ func BaseCases(f test.Fuzzer) {
 // T Returns the underlying test.Failer. Should be avoided where possible; in oss-fuzz many functions do not work.
 func (h Helper) T() test.Failer {
 	return h.t
+}
+
+// MutateStruct modify the field value of the structure.
+// It is mainly used to check the correctness of the deep copy.
+func MutateStruct(h Helper, st any) {
+	e := reflect.ValueOf(st).Elem()
+	if err := mutateStruct(h, e); err != nil {
+		h.t.Skip(err.Error())
+	}
+}
+
+func mutateStruct(h Helper, e reflect.Value) error {
+	switch e.Kind() {
+	case reflect.Struct:
+		for i := 0; i < e.NumField(); i++ {
+			var v reflect.Value
+			if !e.Field(i).CanSet() {
+				v = reflect.NewAt(e.Field(i).Type(), unsafe.Pointer(e.Field(i).UnsafeAddr())).Elem()
+			} else {
+				v = e.Field(i)
+			}
+			err := mutateStruct(h, v)
+			if err != nil {
+				return err
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < e.Len(); i++ {
+			err := mutateStruct(h, e.Index(i))
+			if err != nil {
+				return err
+			}
+		}
+	case reflect.Map:
+		for _, k := range e.MapKeys() {
+			v := reflect.New(e.Type().Elem()).Elem()
+			err := mutateStruct(h, v)
+			if err != nil {
+				return err
+			}
+			e.SetMapIndex(k, v)
+		}
+	case reflect.Ptr:
+		err := mutateStruct(h, e.Elem())
+		if err != nil {
+			return err
+		}
+	case reflect.Bool:
+		if e.CanSet() {
+			old := e.Bool()
+			e.SetBool(!old)
+		}
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if e.CanSet() {
+			old := e.Int()
+			// check overflow
+			if old+1 < old {
+				e.SetInt(old - 1)
+			} else {
+				e.SetInt(old + 1)
+			}
+		}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		if e.CanSet() {
+			old := e.Uint()
+			// check overflow
+			if old+1 < old {
+				e.SetUint(old - 1)
+			} else {
+				e.SetUint(old + 1)
+			}
+		}
+	case reflect.Float32, reflect.Float64:
+		if e.CanSet() {
+			old := e.Float()
+			// check overflow
+			if old+1 < old {
+				e.SetFloat(old - 1)
+			} else {
+				e.SetFloat(old + 1)
+			}
+		}
+	case reflect.String:
+		if e.CanSet() {
+			// add fixed suffix
+			str := e.String() + "mutated"
+			e.SetString(str)
+		}
+	default:
+		h.t.Logf("unimplemented type %s", e.Kind())
+	}
+	return nil
+}
+
+// DeepCopySlow is a general deep copy method that guarantees the correctness of deep copying,
+// but may be very slow. Here, it is only used for testing.
+func DeepCopySlow[T any](v T) T {
+	copied, err := copystructure.Copy(v)
+	if err != nil {
+		// There are 2 locations where errors are generated in copystructure.Copy:
+		//  * The reflection walk over the structure fails, which should never happen
+		//  * A configurable copy function returns an error. This is only used for copying times, which never returns an error.
+		// Therefore, this should never happen
+		panic(err)
+	}
+	return copied.(T)
 }
