@@ -341,7 +341,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		// an environment variable for istiod.
 		watchLocalNamespace := false
 		if i.primaryIOP.spec != nil && i.primaryIOP.spec.Values != nil {
-			v, err := values.MapFromJson(i.primaryIOP.spec.Values)
+			v, err := values.MapFromJSON(i.primaryIOP.spec.Values)
 			if err != nil {
 				return nil, err
 			}
