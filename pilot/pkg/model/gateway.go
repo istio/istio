@@ -225,7 +225,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					if tlsHostsByPort[resolvedPort] == nil {
 						tlsHostsByPort[resolvedPort] = map[string]string{}
 					}
-					if duplicateHosts := CheckDuplicates(s.Hosts, s.Bind, tlsHostsByPort[resolvedPort]); len(duplicateHosts) != 0 {
+					if duplicateHosts := CheckGatewayHostsDuplicates(s.Hosts, s.Bind, tlsHostsByPort[resolvedPort]); len(duplicateHosts) != 0 {
 						log.Warnf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
 						RecordRejectedConfig(gatewayName)
 						continue
@@ -465,9 +465,9 @@ func GetSNIHostsForServer(server *networking.Server) []string {
 	return sets.SortedList(sniHosts)
 }
 
-// CheckDuplicates returns all of the hosts provided that are already known
+// CheckGatewayHostsDuplicates returns all of the hosts provided that are already known
 // If there were no duplicates, all hosts are added to the known hosts.
-func CheckDuplicates(hosts []string, bind string, knownHosts map[string]string) []string {
+func CheckGatewayHostsDuplicates(hosts []string, bind string, knownHosts map[string]string) []string {
 	var duplicates []string
 	for _, h := range hosts {
 		if existingBind, ok := knownHosts[h]; ok && bind == existingBind {

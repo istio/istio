@@ -20,14 +20,18 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/model"
+
+	"istio.io/istio/pilot/pkg/model"
+
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -59,7 +63,7 @@ func (s *ConflictingGatewayAnalyzer) Analyze(c analysis.Context) {
 }
 
 func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analysis.Context,
-	gwCMap map[string]map[string][]string,
+	gwCMap gatewaysContextMap,
 ) {
 	gw := r.Message.(*v1alpha3.Gateway)
 	gwName := r.Metadata.FullName.String()
@@ -90,15 +94,11 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		conflictingGWMatch := 0
 		sPortNumber := strconv.Itoa(int(server.GetPort().GetNumber()))
 		mapKey := genGatewayMapKey(sGWSelector, sPortNumber)
-		for gwNameKey, gwHostsValue := range gwCMap[mapKey] {
-			for _, gwHost := range server.GetHosts() {
-				// both selector and portnumber are the same, then check hosts
-				if isGWsHostMatched(gwHost, gwHostsValue) {
-					if gwName != gwNameKey {
-						conflictingGWMatch++
-						gateways = append(gateways, gwNameKey)
-					}
-				}
+		for gwNameKey, gwHostsBind := range gwCMap[mapKey] {
+			// both selector and portnumber are the same, then check hosts and bind
+			if gwName != gwNameKey && isGWConflict(server, gwHostsBind) {
+				conflictingGWMatch++
+				gateways = append(gateways, gwNameKey)
 			}
 		}
 		if conflictingGWMatch > 0 {
@@ -111,21 +111,24 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	}
 }
 
-// isGWsHostMatched implements gateway's hosts match
-func isGWsHostMatched(gwInstance string, gwHostList []string) bool {
-	gwInstanceNamed := host.Name(gwInstance)
-	for _, gwElem := range gwHostList {
-		gwElemNamed := host.Name(gwElem)
-		if gwInstanceNamed.Matches(gwElemNamed) {
-			return true
-		}
-	}
-	return false
+// isGWConflict implements gateway's hosts match
+func isGWConflict(server *v1alpha3.Server, knowHostsBind gatewayHostsBind) bool {
+	newHostsBind := knowHostsBind
+	// CheckGatewayHostsDuplicates returns all of the hosts provided that are already known
+	// If there were no duplicates, all hosts are added to the known hosts.
+	duplicates := model.CheckGatewayHostsDuplicates(server.GetHosts(), server.GetBind(), newHostsBind)
+	return len(duplicates) > 0
 }
 
+// gatewayHostsBind: key host, value bind
+type gatewayHostsBind map[string]string
+
+// gatewaysContextMap: key selectors~port, valueKey gatewayName
+type gatewaysContextMap map[string]map[string]gatewayHostsBind
+
 // initGatewaysMap implements initialization for gateways Map
-func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
-	gwConflictingMap := make(map[string]map[string][]string)
+func initGatewaysMap(ctx analysis.Context) gatewaysContextMap {
+	gwConflictingMap := make(map[string]map[string]gatewayHostsBind)
 	ctx.ForEach(gvk.Gateway, func(r *resource.Instance) bool {
 		gw := r.Message.(*v1alpha3.Gateway)
 		gwName := r.Metadata.FullName.String()
@@ -136,12 +139,14 @@ func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
 			sPortNumber := strconv.Itoa(int(server.GetPort().GetNumber()))
 			mapKey := genGatewayMapKey(sGWSelector, sPortNumber)
 			if _, exits := gwConflictingMap[mapKey]; !exits {
-				objMap := make(map[string][]string)
-				objMap[gwName] = server.GetHosts()
+				objMap := make(map[string]gatewayHostsBind)
 				gwConflictingMap[mapKey] = objMap
-			} else {
-				gwConflictingMap[mapKey][gwName] = server.GetHosts()
 			}
+			hb := map[string]string{}
+			for _, h := range server.GetHosts() {
+				hb[h] = server.GetBind()
+			}
+			gwConflictingMap[mapKey][gwName] = hb
 		}
 		return true
 	})
