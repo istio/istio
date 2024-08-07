@@ -38,11 +38,14 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
 
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -225,9 +228,31 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("nil status for %v/%v on updateStatus()", cfg.Name, cfg.Namespace)
 	}
 
+	// Special case where IstioStatus isn't properly getting converted to ServiceEntryStatus by the time
+	// UpdateStatus is called by the analyzer. Do the conversion here.
+	//
+	// TODO: Handle ServiceEntryStatus -> IstioStatus analyzer conversion more elegantly before
+	// we get to this point.
+	if cfg.Meta.GroupVersionKind.Kind == gvk.ServiceEntry.Kind {
+		switch cfg.Status.(type) {
+		case *v1alpha1.IstioStatus:
+			s := cfg.Status.(*v1alpha1.IstioStatus)
+			cfg.Status = &v1alpha3.ServiceEntryStatus{
+				Conditions:         s.Conditions,
+				ValidationMessages: s.ValidationMessages,
+				ObservedGeneration: s.ObservedGeneration,
+			}
+			log.Debugf("converting IstioStatus: %v\n to ServiceEntryStatus: %v\n", s, cfg.Status)
+		case *v1alpha3.ServiceEntryStatus:
+			// happy with this, no conversion
+		default:
+			panic("unknown type")
+		}
+	}
+
 	meta, err := updateStatus(cl.client, cfg, getObjectMetadata(cfg))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to update status: %w", err)
 	}
 	return meta.GetResourceVersion(), nil
 }

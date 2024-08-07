@@ -73,6 +73,14 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 	}
 	ctl := statusManager.CreateIstioStatusController(func(status *v1alpha1.IstioStatus, context any) *v1alpha1.IstioStatus {
 		msgs := context.(diag.Messages)
+		// There's an edge case with analyzing ServiceEntryStatus that causes status to be nil due to a type conversion issue.
+		// Initialize status here so that it can be converted back to ServiceEntryStatus later on when UpdateStatus is called
+		// instead of panicking and crashing here.
+		//
+		// TODO: Handle ServiceEntryStatus -> IstioStatus analyzer conversion more elegantly.
+		if status == nil {
+			status = &v1alpha1.IstioStatus{}
+		}
 		// zero out analysis messages, as this is the sole controller for those
 		status.ValidationMessages = []*v1alpha12.AnalysisMessageBase{}
 		for _, msg := range msgs {
