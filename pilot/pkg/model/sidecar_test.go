@@ -1198,7 +1198,7 @@ var (
 		{
 			Hostname: "bar.svc.cluster.local",
 			Attributes: ServiceAttributes{
-				Name:            "baz",
+				Name:            "bar",
 				Namespace:       "ns2",
 				ServiceRegistry: provider.Kubernetes,
 			},
@@ -2196,18 +2196,18 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices6,
 			[]*Service{
 				{
-					Hostname: "baz.svc.cluster.local",
+					Hostname: "bar.svc.cluster.local",
 					Attributes: ServiceAttributes{
-						Name:            "baz",
-						Namespace:       "ns1",
+						Name:            "bar",
+						Namespace:       "ns2",
 						ServiceRegistry: provider.Kubernetes,
 					},
 				},
 				{
-					Hostname: "bar.svc.cluster.local",
+					Hostname: "baz.svc.cluster.local",
 					Attributes: ServiceAttributes{
 						Name:            "baz",
-						Namespace:       "ns2",
+						Namespace:       "ns1",
 						ServiceRegistry: provider.Kubernetes,
 					},
 				},
