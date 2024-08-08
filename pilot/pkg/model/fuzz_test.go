@@ -68,8 +68,18 @@ func fuzzDeepCopy[T deepCopier[T]](f test.Fuzzer) {
 func fuzzDeepCopyEqual[T equalCopier[T]](f test.Fuzzer) {
 	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		orig := fuzz.Struct[T](fg)
-		copied := orig.DeepCopy()
-		assert.Equal(fg.T(), orig, copied)
-		assert.Equal(fg.T(), orig.Equals(copied), true)
+		fast := orig.DeepCopy()
+		slow := fuzz.DeepCopySlow[T](orig)
+
+		// check copy is correct
+		assert.Equal(fg.T(), orig, fast)
+		assert.Equal(fg.T(), orig.Equals(fast), true)
+		assert.Equal(fg.T(), orig, slow)
+		assert.Equal(fg.T(), orig.Equals(slow), true)
+
+		// check is deep copy
+		fuzz.MutateStruct(fg, &orig)
+		assert.Equal(fg.T(), fast, slow)
+		assert.Equal(fg.T(), fast.Equals(slow), true)
 	})
 }
