@@ -149,10 +149,11 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 }
 
 func (lb *ListenerBuilder) buildConnectTerminateListener(routes []*route.Route) *listener.Listener {
-	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
+	actualWildcard, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
+	bind := actualWildcard
 	l := &listener.Listener{
 		Name:    ConnectTerminate,
-		Address: util.BuildAddress(actualWildcard, model.HBoneInboundListenPort),
+		Address: util.BuildAddress(bind[0], model.HBoneInboundListenPort),
 		FilterChains: []*listener.FilterChain{
 			{
 				Name: "default",
@@ -166,6 +167,9 @@ func (lb *ListenerBuilder) buildConnectTerminateListener(routes []*route.Route) 
 				Filters: lb.buildHCMConnectTerminateChain(routes),
 			},
 		},
+	}
+	if len(actualWildcard) > 1 {
+		l.AdditionalAddresses = util.BuildAdditionalAddresses(bind[1:], model.HBoneInboundListenPort)
 	}
 	return l
 }
