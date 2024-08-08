@@ -388,10 +388,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 	servicesByName := make(map[host.Name]*model.Service)
 	for _, svc := range services {
-		if svc.Resolution == model.Alias {
-			// Will be handled by the service it is an alias for
-			continue
-		}
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port

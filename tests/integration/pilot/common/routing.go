@@ -2839,6 +2839,40 @@ spec:
 		children: calls("b-ext-se"),
 	})
 
+	t.RunTraffic(TrafficTestCase{
+		name:         "routed",
+		globalConfig: true,
+		config: fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: ext-route
+spec:
+  gateways:
+  - mesh
+  hosts:
+  - c
+  http:
+  - route:
+    - destination:
+        host: b-ext-route.%s.svc.cluster.local
+        port:
+          number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: b-ext-route
+spec:
+  type: ExternalName
+  externalName: b.%s.svc.cluster.local
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80`, t.Apps.Namespace.Name(), t.Apps.Namespace.Name()),
+		children: calls("c", check.MTLSForHTTP()),
+	})
+
 	gatewayListenPort := 80
 	gatewayListenPortName := "http"
 	t.RunTraffic(TrafficTestCase{
