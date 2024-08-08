@@ -14,7 +14,11 @@
 package ra
 
 import (
+	"bytes"
+	"crypto/x509"
+	"encoding/asn1"
 	"fmt"
+	"strings"
 	"time"
 
 	clientset "k8s.io/client-go/kubernetes"
@@ -68,7 +72,8 @@ const (
 	DefaultExtCACertDir string = "./etc/external-ca-cert"
 )
 
-// ValidateCSR : Validate all SAN extensions in csrPEM match authenticated identities
+// ValidateCSR : Validate all SAN extensions in csrPEM match authenticated identities and
+// verify additional CSR fields.
 func ValidateCSR(csrPEM []byte, subjectIDs []string) bool {
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
@@ -86,7 +91,76 @@ func ValidateCSR(csrPEM []byte, subjectIDs []string) bool {
 			return false
 		}
 	}
+
+	// Verify Istio CSR was created by Istio-Proxy by generating template using same the
+	// same process as performed on the client and comparing the generated CSR with the
+	// received CSR.
+
+	// Convert csrIDs to Host comma separated string
+	hosts := strings.Join(csrIDs, ",")
+	// genCSRTemplate is the expected CSR template. The template's extensions are marshaled
+	// in the ExtraExtensions field. CreateCertificateRequest would normally add the SAN extensions
+	// from ExtraExtensions to the Extensions field. However, we are only generating the
+	// template here and not the actual CSR since we do not know the exact signing mechanisms
+	// of the client. Additionally, if we compared extensions the the generated CSR and the original
+	// CSR would match since the hosts where constructed from the extracted SAN extensions.
+	genCSRTemplate, err := util.GenCSRTemplate(util.CertOptions{Host: hosts})
+	if err != nil {
+		return false
+	}
+	if !compareCSRs(csr, genCSRTemplate) {
+		return false
+	}
 	return true
+}
+
+// Compare Workload CSRs
+// Verification of the CSR fields based on expected setting from Istio CSR creation in
+// security/pkg/pki/util/generate_csr.go and security/pi/nodeagent/cache/secretcache.go
+func compareCSRs(orgCSR, genCSR *x509.CertificateRequest) bool {
+	// Compare the CSR fields
+	if orgCSR == nil || genCSR == nil {
+		return false
+	}
+
+	orgSubj, err := asn1.Marshal(orgCSR.Subject.ToRDNSequence())
+	if err != nil {
+		return false
+	}
+	gensubj, err := asn1.Marshal(genCSR.Subject.ToRDNSequence())
+	if err != nil {
+		return false
+	}
+
+	if !bytes.Equal(orgSubj, gensubj) {
+		return false
+	}
+	// Expected length is 0 or 1
+	if len(orgCSR.URIs) > 1 {
+		return false
+	}
+	// Expected length is 0
+	if len(orgCSR.EmailAddresses) != len(genCSR.EmailAddresses) {
+		return false
+	}
+	// Expexted length is 0
+	if len(orgCSR.IPAddresses) != len(genCSR.IPAddresses) {
+		return false
+	}
+	// Expected length is 0
+	if len(orgCSR.DNSNames) != len(genCSR.DNSNames) {
+		return false
+	}
+	// Only SAN extensions are expected in the orgCSR
+	for _, extension := range orgCSR.Extensions {
+		switch {
+		case extension.Id.Equal(util.OidSubjectAlternativeName):
+		default:
+			return false // no other extension used.
+		}
+	}
+	// ExtraExtensions should not be populated in the orgCSR
+	return len(orgCSR.ExtraExtensions) == 0
 }
 
 // NewIstioRA is a factory method that returns an RA that implements the RegistrationAuthority functionality.
