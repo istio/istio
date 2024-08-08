@@ -22,6 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -84,10 +85,8 @@ func (a *index) getWaypointAddress(w *Waypoint) *workloadapi.GatewayAddress {
 			Destination: &workloadapi.GatewayAddress_Hostname{
 				Hostname: &workloadapi.NamespacedHostname{
 					Namespace: w.Namespace,
-					Hostname:  fmt.Sprintf("%s.%s.svc.cluster.local", w.Name, w.Namespace),
+					Hostname:  string(kube.ServiceHostname(w.Name, w.Namespace, a.DomainSuffix)),
 				},
-				// probably use from Cidr instead?
-				// Address: a.toNetworkAddressFromIP(w.Addresses[0]),
 			},
 			// TODO: look up the HBONE port instead of hardcoding it
 			HboneMtlsPort: 15008,

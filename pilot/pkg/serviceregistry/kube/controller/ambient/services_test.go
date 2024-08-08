@@ -678,10 +678,10 @@ func TestServiceServices(t *testing.T) {
 					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
 				}},
 				Waypoint: &workloadapi.GatewayAddress{
-					Destination: &workloadapi.GatewayAddress_Address{
-						Address: &workloadapi.NetworkAddress{
-							Network: testNW,
-							Address: netip.AddrFrom4([4]byte{5, 6, 7, 8}).AsSlice(),
+					Destination: &workloadapi.GatewayAddress_Hostname{
+						Hostname: &workloadapi.NamespacedHostname{
+							Namespace: "waypoint-ns",
+							Hostname:  "waypoint.waypoint-ns.svc.domain.suffix",
 						},
 					},
 					HboneMtlsPort: 15008,
