@@ -1340,8 +1340,8 @@ spec:
     number: 8882
     protocol: http2
     targetPort: 443`,
-			"external."+t.Apps.External.Namespace.Name()+".svc.cluster.local",
-			"external."+t.Apps.External.Namespace.Name()+".svc.cluster.local",
+			deployment.ExternalHostname,
+			deployment.ExternalHostname,
 		),
 		children: []TrafficCall{},
 	}
@@ -1358,9 +1358,9 @@ spec:
 					// Failed requests will go to non-existent port which hangs forever
 					// Set a low timeout to fail faster
 					Timeout: time.Millisecond * 500,
-					Address: t.Apps.External.All.ForCluster(c.Config().Cluster.Name())[0].Address(),
+					Address: t.Apps.External.All.Config().DefaultHostHeader,
 					HTTP: echo.HTTP{
-						Headers: HostHeader(t.Apps.External.All[0].Config().ClusterLocalFQDN()),
+						Headers: HostHeader(t.Apps.External.All.Config().DefaultHostHeader),
 					},
 					Scheme: scheme.HTTP,
 					Check: check.And(
@@ -1422,7 +1422,7 @@ spec:
     targetPort: 443
     protocol: https
     `,
-			"external."+t.Apps.External.Namespace.Name()+".svc.cluster.local",
+			deployment.ExternalHostname,
 		),
 		children: []TrafficCall{},
 	}
@@ -1449,7 +1449,7 @@ spec:
 					Timeout: time.Millisecond * 500,
 					Address: t.Apps.External.All.ForCluster(c.Config().Cluster.Name())[0].Address(),
 					HTTP: echo.HTTP{
-						Headers: HostHeader(t.Apps.External.All[0].Config().ClusterLocalFQDN()),
+						Headers: HostHeader(t.Apps.External.All.Config().DefaultHostHeader),
 					},
 					Scheme: scheme.HTTP,
 					Check: check.And(
