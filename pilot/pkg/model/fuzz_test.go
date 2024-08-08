@@ -78,7 +78,7 @@ func fuzzDeepCopyEqual[T equalCopier[T]](f test.Fuzzer) {
 		assert.Equal(fg.T(), orig.Equals(slow), true)
 
 		// check is deep copy
-		fuzz.MutateStruct(fg, &orig)
+		fuzz.MutateStruct(fg.T(), &orig)
 		assert.Equal(fg.T(), fast, slow)
 		assert.Equal(fg.T(), fast.Equals(slow), true)
 	})
