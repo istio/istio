@@ -47,7 +47,7 @@ metadata:
     app: sidecar-injector
     release: {{ $.Release.Name }}
     app.kubernetes.io/name: "sidecar-injector"
-    {{- include "istio.labels" . | nindent 4 }}
+    {{- include "istio.labels" $ | nindent 4 }}
 webhooks:
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.namespace.") ) }}
   namespaceSelector:
