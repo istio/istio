@@ -20,10 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/pilot/pkg/model"
-
-	"istio.io/istio/pilot/pkg/model"
-
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
