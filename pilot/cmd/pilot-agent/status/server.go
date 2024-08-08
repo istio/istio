@@ -540,7 +540,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 	// Gather all the metrics we will merge
 	if !s.config.NoEnvoy {
-		if envoy, envoyCancel, _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
+		scrapeURL := fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort)
+		if r.URL != nil && r.URL.Query().Has("usedonly") {
+			scrapeURL += "?usedonly"
+		}
+		if envoy, envoyCancel, _, err = s.scrape(scrapeURL, r.Header); err != nil {
 			log.Errorf("failed scraping envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
