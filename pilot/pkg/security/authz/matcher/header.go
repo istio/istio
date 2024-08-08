@@ -33,14 +33,27 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 				PresentMatch: true,
 			},
 		}
-	} else if strings.HasPrefix(v, "*") {
+	}
+
+	if strings.HasPrefix(v, "*") && strings.HasSuffix(v, "*") {
+		return &routepb.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+				StringMatch: StringMatcherContains(v[1:len(v)-1], false),
+			},
+		}
+	}
+
+	if strings.HasPrefix(v, "*") {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
 				StringMatch: StringMatcherSuffix(v[1:], false),
 			},
 		}
-	} else if strings.HasSuffix(v, "*") {
+	}
+
+	if strings.HasSuffix(v, "*") {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
@@ -48,6 +61,7 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 			},
 		}
 	}
+
 	return &routepb.HeaderMatcher{
 		Name: k,
 		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{

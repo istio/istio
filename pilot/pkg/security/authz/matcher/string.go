@@ -93,6 +93,16 @@ func StringMatcherExact(exact string, ignoreCase bool) *matcher.StringMatcher {
 	}
 }
 
+// StringMatcherContains create a string matcher for contains matching.
+func StringMatcherContains(str string, ignoreCase bool) *matcher.StringMatcher {
+	return &matcher.StringMatcher{
+		IgnoreCase: ignoreCase,
+		MatchPattern: &matcher.StringMatcher_Contains{
+			Contains: str,
+		},
+	}
+}
+
 // StringMatcherWithPrefix creates a string matcher for v with the extra prefix inserted to the
 // created string matcher, note the prefix is ignored if v is wildcard ("*").
 // The wildcard "*" will be generated as ".+" instead of ".*".

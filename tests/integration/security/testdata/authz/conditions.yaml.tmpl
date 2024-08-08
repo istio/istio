@@ -19,6 +19,12 @@ spec:
     when:
       - key: request.headers[x-foo]
         notValues: [ "bar" ]
+  - to:
+      - operation:
+          paths: [ "/request-headers-valueContains" ]
+    when:
+      - key: request.headers[Cookie]
+        values: [ "*foo=*" ]
 ---
 
 apiVersion: security.istio.io/v1

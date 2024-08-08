@@ -75,6 +75,17 @@ func TestHeaderMatcher(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "contains match",
+			K:    "cookie",
+			V:    "*foo*",
+			Expect: &routepb.HeaderMatcher{
+				Name: "cookie",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: StringMatcherContains("foo", false),
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
