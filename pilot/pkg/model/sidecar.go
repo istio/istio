@@ -24,6 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -255,7 +256,12 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 		out.appendSidecarServices(servicesAdded, s)
 	}
 	out.selectDestinationRules(ps, configNamespace)
-	out.EgressListeners = []*IstioEgressListenerWrapper{{}}
+
+	// waypoint need to get vses from the egress listener
+	defaultEgressListener := &IstioEgressListenerWrapper{
+		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
+	}
+	out.EgressListeners = []*IstioEgressListenerWrapper{defaultEgressListener}
 
 	return out
 }
@@ -697,8 +703,9 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		} else if svc.Attributes.Namespace == configNamespace {
 			// We have seen the hostname, but now its in the configNamespace which has precedence
 			validServices[svc.Hostname] = np
-		} else if !ex.KubernetesService && np.KubernetesService {
+		} else if !ex.KubernetesService && np.KubernetesService && (np.Namespace == configNamespace || ex.Namespace != configNamespace) {
 			// We saw the hostname, but this time it is a Kubernetes service, rather than a ServiceEntry for the same hostname.
+			// Make sure this isn't preempting the "same namespace wins" rule as well.
 			// Prefer this one.
 			validServices[svc.Hostname] = np
 		}
