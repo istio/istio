@@ -402,6 +402,7 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 			Hostname:  host,
 		})...)
 	}
+	out = model.SortWorkloadsByCreationTime(out)
 	return out
 }
 
