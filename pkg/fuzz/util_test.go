@@ -137,8 +137,10 @@ func TestMutateStruct(t *testing.T) {
 	}
 }
 
-type Bar struct{ f *Foo }
-type Foo struct{ b *Bar }
+type (
+	Bar struct{ f *Foo }
+	Foo struct{ b *Bar }
+)
 
 func TestMutateCircularStruct(t *testing.T) {
 	// foo -> bar -> foo...
