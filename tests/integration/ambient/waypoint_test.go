@@ -213,7 +213,6 @@ metadata:
   labels:
     istio.io/dataplane-mode: ambient
   annotations:
-    networking.istio.io/address-type: IPAddress
     networking.istio.io/service-type: ClusterIP
 spec:
   gatewayClassName: istio

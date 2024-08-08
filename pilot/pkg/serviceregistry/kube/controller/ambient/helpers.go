@@ -22,7 +22,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -79,18 +78,8 @@ func byteIPToAddr(b []byte) netip.Addr {
 }
 
 func (a *index) getWaypointAddress(w *Waypoint) *workloadapi.GatewayAddress {
-	// probably overly cautious... I don't think the ambient index impl counts something with zero addresses as waypoint
-	if w != nil && len(w.Addresses) >= 1 {
-		return &workloadapi.GatewayAddress{
-			Destination: &workloadapi.GatewayAddress_Hostname{
-				Hostname: &workloadapi.NamespacedHostname{
-					Namespace: w.Namespace,
-					Hostname:  string(kube.ServiceHostname(w.Name, w.Namespace, a.DomainSuffix)),
-				},
-			},
-			// TODO: look up the HBONE port instead of hardcoding it
-			HboneMtlsPort: 15008,
-		}
+	if w != nil {
+		return w.Address
 	}
 	return nil
 }

@@ -1585,15 +1585,15 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType stri
 	gateway.Labels = labels
 
 	if ready {
-		addrType := k8sbeta.IPAddressType
+		addrType := k8sbeta.HostnameAddressType
 		gateway.Status = k8sbeta.GatewayStatus{
 			// addresses:
-			// - type: IPAddress
+			// - type: Hostname
 			//   value: 10.96.59.188
 			Addresses: []k8sv1.GatewayStatusAddress{
 				{
 					Type:  &addrType,
-					Value: ip,
+					Value: fmt.Sprintf("%s.%s.svc.%s", name, testNS, s.DomainSuffix),
 				},
 			},
 		}

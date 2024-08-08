@@ -170,7 +170,7 @@ func New(options Options) Index {
 	}, krt.WithName("EndpointSlices"))
 
 	MeshConfig := MeshConfigCollection(ConfigMaps, options)
-	Waypoints := WaypointsCollection(Gateways, GatewayClasses, Pods)
+	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods)
 
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints)
