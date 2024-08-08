@@ -17,15 +17,16 @@ package fuzz
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
 type demo struct {
-	Name    string
-	Priv    string
-	Age     int
+	String  string
+	priv    string // private filed
+	Int     int
 	Slice   []int
 	Map     map[int]int
 	Bool    bool
@@ -42,9 +43,9 @@ func TestMutateStruct(t *testing.T) {
 			name:  "empty input",
 			input: demo{},
 			want: demo{
-				Name:    "mutated",
-				Priv:    "mutated",
-				Age:     1,
+				String:  "mutated",
+				priv:    "mutated",
+				Int:     1,
 				Slice:   nil,
 				Map:     nil,
 				Bool:    true,
@@ -54,27 +55,35 @@ func TestMutateStruct(t *testing.T) {
 		{
 			name: "zero value",
 			input: demo{
-				Name:    "",
-				Priv:    "",
-				Age:     0,
-				Slice:   []int{},
-				Map:     map[int]int{},
-				Bool:    false,
-				Pointer: &demo{},
+				String: "",
+				priv:   "",
+				Int:    0,
+				Slice:  []int{},
+				Map:    map[int]int{},
+				Bool:   false,
+				Pointer: &demo{
+					String:  "",
+					priv:    "",
+					Int:     0,
+					Slice:   []int{},
+					Map:     map[int]int{},
+					Bool:    false,
+					Pointer: nil,
+				},
 			},
 			want: demo{
-				Name:  "mutated",
-				Priv:  "mutated",
-				Age:   1,
-				Slice: []int{},
-				Map:   map[int]int{},
-				Bool:  true,
+				String: "mutated",
+				priv:   "mutated",
+				Int:    1,
+				Slice:  []int{},
+				Map:    map[int]int{},
+				Bool:   true,
 				Pointer: &demo{
-					Name:    "mutated",
-					Priv:    "mutated",
-					Age:     1,
-					Slice:   nil,
-					Map:     nil,
+					String:  "mutated",
+					priv:    "mutated",
+					Int:     1,
+					Slice:   []int{},
+					Map:     map[int]int{},
 					Bool:    true,
 					Pointer: nil,
 				},
@@ -83,16 +92,16 @@ func TestMutateStruct(t *testing.T) {
 		{
 			name: "mutate value",
 			input: demo{
-				Name:  "1",               // add mutated suffix
-				Priv:  "1",               // add mutated suffix
-				Age:   1,                 // +1
-				Slice: []int{1},          // elements +1
-				Map:   map[int]int{1: 2}, // according to different types
-				Bool:  true,              // inverse
+				String: "1",               // add mutated suffix
+				priv:   "1",               // add mutated suffix
+				Int:    1,                 // +1
+				Slice:  []int{1},          // elements +1
+				Map:    map[int]int{1: 2}, // according to different types
+				Bool:   true,              // inverse
 				Pointer: &demo{
-					Name:    "1",               // add mutated suffix
-					Priv:    "1",               // add mutated suffix
-					Age:     1,                 // +1
+					String:  "1",               // add mutated suffix
+					priv:    "1",               // add mutated suffix
+					Int:     1,                 // +1
 					Slice:   []int{1},          // elements +1
 					Map:     map[int]int{1: 2}, // according to different types
 					Bool:    true,              // inverse
@@ -100,16 +109,16 @@ func TestMutateStruct(t *testing.T) {
 				},
 			},
 			want: demo{
-				Name:  "1mutated",
-				Priv:  "1mutated",
-				Age:   2,
-				Slice: []int{2},
-				Map:   map[int]int{1: 1},
-				Bool:  false,
+				String: "1mutated",
+				priv:   "1mutated",
+				Int:    2,
+				Slice:  []int{2},
+				Map:    map[int]int{1: 1},
+				Bool:   false,
 				Pointer: &demo{
-					Name:    "1mutated",
-					Priv:    "1mutated",
-					Age:     2,
+					String:  "1mutated",
+					priv:    "1mutated",
+					Int:     2,
 					Slice:   []int{2},
 					Map:     map[int]int{1: 1},
 					Bool:    false,
@@ -120,12 +129,36 @@ func TestMutateStruct(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			h := New(t, nil)
-			MutateStruct(h, &c.input)
+			MutateStruct(t, &c.input)
 			if !reflect.DeepEqual(c.input, c.want) {
 				t.Errorf("mutate result want %+v, but got: %+v", c.want, c.input)
 			}
 		})
+	}
+}
+
+type (
+	Bar struct{ f *Foo }
+	Foo struct{ b *Bar }
+)
+
+func TestMutateCircularStruct(t *testing.T) {
+	// foo -> bar -> foo...
+	f := Foo{}
+	b := Bar{}
+	f.b = &b
+	b.f = &f
+
+	done := make(chan struct{})
+	go func() {
+		MutateStruct(t, &f)
+		close(done)
+	}()
+
+	select {
+	case <-time.After(time.Millisecond * 100):
+		t.Error("test mutate circular data structure timeout")
+	case <-done:
 	}
 }
 
@@ -168,8 +201,7 @@ func TestCorrectDeepCopy(t *testing.T) {
 			// Assuming that `fast` is the result of deep copy, it is not affected by `input` mutation,
 			// so it is equal to `slow` (`slow` is the result of deep copy).
 			// If they are not equal, it proves that `fast` is not the result of `deep` copy.
-			h := New(t, nil)
-			MutateStruct(h, &c.input)
+			MutateStruct(t, &c.input)
 			got := reflect.DeepEqual(fast, slow)
 			if got != c.correct {
 				t.Errorf("want %+v, but got %+v", c.correct, got)
