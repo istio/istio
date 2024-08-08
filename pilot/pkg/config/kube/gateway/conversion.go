@@ -2244,10 +2244,11 @@ func reportGatewayStatus(
 				wantAddressType = k8s.AddressType(override)
 			}
 			// There are no external addresses, so report the internal ones
-			// TODO: should we always report both?
-			if wantAddressType == k8s.IPAddressType {
+			// This can be IP, Hostname, or both (indicated by empty wantAddressType)
+			if wantAddressType != k8s.HostnameAddressType {
 				addressesToReport = internalIP
-			} else {
+			}
+			if wantAddressType != k8s.IPAddressType {
 				for _, hostport := range internal {
 					svchost, _, _ := net.SplitHostPort(hostport)
 					if !slices.Contains(pending, svchost) && !slices.Contains(addressesToReport, svchost) {

@@ -456,6 +456,16 @@ func TestServiceEntryServices(t *testing.T) {
 }
 
 func TestServiceServices(t *testing.T) {
+	waypointAddr := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{
+				Namespace: "ns",
+				Hostname:  "hostname.example",
+			},
+		},
+		// TODO: look up the HBONE port instead of hardcoding it
+		HboneMtlsPort: 15008,
+	}
 	cases := []struct {
 		name   string
 		inputs []any
@@ -637,7 +647,7 @@ func TestServiceServices(t *testing.T) {
 						Namespace: "waypoint-ns",
 					},
 					TrafficType: constants.AllTraffic,
-					Addresses:   []netip.Addr{netip.AddrFrom4([4]byte{5, 6, 7, 8})},
+					Address:     waypointAddr,
 					AllowedRoutes: WaypointSelector{
 						FromNamespaces: gatewayv1.NamespacesFromSelector,
 						Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
@@ -677,15 +687,7 @@ func TestServiceServices(t *testing.T) {
 					Network: testNW,
 					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
 				}},
-				Waypoint: &workloadapi.GatewayAddress{
-					Destination: &workloadapi.GatewayAddress_Hostname{
-						Hostname: &workloadapi.NamespacedHostname{
-							Namespace: "waypoint-ns",
-							Hostname:  "waypoint.waypoint-ns.svc.domain.suffix",
-						},
-					},
-					HboneMtlsPort: 15008,
-				},
+				Waypoint: waypointAddr,
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
@@ -700,7 +702,7 @@ func TestServiceServices(t *testing.T) {
 						Namespace: "waypoint-ns",
 					},
 					TrafficType: constants.AllTraffic,
-					Addresses:   []netip.Addr{netip.AddrFrom4([4]byte{5, 6, 7, 8})},
+					Address:     waypointAddr,
 					AllowedRoutes: WaypointSelector{
 						FromNamespaces: gatewayv1.NamespacesFromSelector,
 						Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "not-ns"}),
