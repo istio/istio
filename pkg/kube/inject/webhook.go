@@ -1153,6 +1153,22 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		} else {
 			log.Warnf("unable to fetch namespace, failed to get client for %q", clusterID)
 		}
+
+		// OpenShift automatically assigns a SecurityContext.RunAsUser to all containers in the Pod, even if the Pod's
+		// YAML does not explicitly set this value. Istio treats the values specified in the istio-proxy container as
+		// overrides and preserves them in the final Pod yaml as expected. However, the RunAsUser value which is
+		// automatically set by OpenShift would be the same for all containers within the Pod, which is a problem.
+		// Because the RunAsUser is identical for both the application container and the proxy container, traffic
+		// interception fails for the pod. Here, we ignore the RunAsUser value on the sidecar proxy if it matches the
+		// application container's value. At the same time, if user explicitly configures a RunAsUser in the istio-proxy
+		// container which is different to the application container's value, that setting is still honored.
+		if sideCarProxy := FindSidecar(params.pod); sideCarProxy != nil && sideCarProxy.SecurityContext != nil {
+			if isSidecarUserMatchingAppUser(params.pod.Spec.Containers) {
+				log.Infof("Resetting the UserID of sideCar proxy as it matches with the app container for Pod %q", params.pod.Name)
+				sideCarProxy.SecurityContext.RunAsUser = nil
+				sideCarProxy.SecurityContext.RunAsGroup = nil
+			}
+		}
 	}
 	wh.mu.RUnlock()
 
@@ -1172,6 +1188,23 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	}
 	totalSuccessfulInjections.Increment()
 	return &reviewResponse
+}
+
+func isSidecarUserMatchingAppUser(containers []corev1.Container) bool {
+	var sideCarUser, appUser int64
+	for i := range containers {
+		if containers[i].Name == ProxyContainerName {
+			if containers[i].SecurityContext != nil && containers[i].SecurityContext.RunAsUser != nil {
+				sideCarUser = *containers[i].SecurityContext.RunAsUser
+			}
+		} else if containers[i].Name != ValidationContainerName && containers[i].Name != InitContainerName {
+			if containers[i].SecurityContext != nil && containers[i].SecurityContext.RunAsUser != nil {
+				appUser = *containers[i].SecurityContext.RunAsUser
+			}
+		}
+	}
+
+	return sideCarUser == appUser
 }
 
 func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
