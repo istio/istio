@@ -143,6 +143,8 @@ func InstallCmd(ctx cli.Context) *cobra.Command {
 	return InstallCmdWithArgs(ctx, &RootArgs{}, &InstallArgs{})
 }
 
+const ambientProfile = "ambient"
+
 func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, stdOut io.Writer, l clog.Logger, p Printer,
 ) error {
 	kubeClient, client, err := KubernetesClients(kubeClient, l)
@@ -208,8 +210,8 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	}
 
 	// Post-install message
-	if profile == "ambient" {
-		p.Println("The ambient profile has been installed successfully, enjoy Istio without sidecars!")
+	if profile == ambientProfile {
+		p.Println("The ambient profile has been installed successfully. Enjoy Istio without sidecars!")
 	}
 	return nil
 }
