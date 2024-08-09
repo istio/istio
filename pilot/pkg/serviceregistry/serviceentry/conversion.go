@@ -49,8 +49,10 @@ func convertPort(port *networking.ServicePort) *model.Port {
 }
 
 type HostAddress struct {
-	host      string
-	addresses []string
+	host           string
+	addresses      []string
+	autoAssignedV4 string
+	autoAssignedV6 string
 }
 
 // ServiceToServiceEntry converts from internal Service representation to ServiceEntry
@@ -204,16 +206,8 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 	hostAddresses := []*HostAddress{}
 	for _, hostname := range serviceEntry.Hosts {
 		localAddresses := addresses
-		if len(localAddresses) == 0 {
-			// we have no user-assed addresses but we can check if we have auto-assigned addresses
-			if autoAddresses, ok := addressLookup[hostname]; ok {
-				for _, aa := range autoAddresses {
-					localAddresses = append(localAddresses, aa.String())
-				}
-			}
-		}
 		if len(localAddresses) > 0 {
-			ha := &HostAddress{hostname, []string{}}
+			ha := &HostAddress{hostname, []string{}, "", ""}
 			for _, address := range localAddresses {
 				// Check if addresses is an IP first because that is the most common case.
 				if netutil.IsValidIPAddress(address) {
@@ -229,7 +223,18 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 			}
 			hostAddresses = append(hostAddresses, ha)
 		} else {
-			hostAddresses = append(hostAddresses, &HostAddress{hostname, []string{constants.UnspecifiedIP}})
+			var v4, v6 string
+			if autoAddresses, ok := addressLookup[hostname]; ok {
+				for _, aa := range autoAddresses {
+					if aa.Is4() {
+						v4 = aa.String()
+					}
+					if aa.Is6() {
+						v6 = aa.String()
+					}
+				}
+			}
+			hostAddresses = append(hostAddresses, &HostAddress{hostname, []string{constants.UnspecifiedIP}, v4, v6})
 		}
 	}
 
@@ -256,6 +261,12 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 				LabelSelectors:         labelSelectors,
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
+		}
+		if ha.autoAssignedV4 != "" {
+			svc.AutoAllocatedIPv4Address = ha.autoAssignedV4
+		}
+		if ha.autoAssignedV6 != "" {
+			svc.AutoAllocatedIPv6Address = ha.autoAssignedV6
 		}
 		if !slices.Equal(ha.addresses, []string{constants.UnspecifiedIP}) {
 			svc.ClusterVIPs = model.AddressMap{
