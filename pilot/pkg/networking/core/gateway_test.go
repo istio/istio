@@ -1100,6 +1100,10 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
+                                        TlsParams: &auth.TlsParameters{
+                                                EcdhCurves:   []string{"P-256"},
+                                                CipherSuites: []string{"ECDHE-ECDSA-AES128-SHA", "ECDHE-RSA-AES256-GCM-SHA384"},
+                                        },
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "default",

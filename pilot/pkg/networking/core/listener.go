@@ -175,28 +175,31 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 
 	if isSimpleOrMutual(serverTLSSettings.Mode) {
 		// If Mesh TLSDefaults are set, use them.
-		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
+		applyDownstreamTLSConfig(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
 		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
 	}
+        if serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+                        applyDownstreamTLSConfig(mesh.GetMeshMTLS(), ctx.CommonTlsContext)
+        }
 
 	// Compliance for Envoy TLS downstreams.
 	authnmodel.EnforceCompliance(ctx.CommonTlsContext)
 	return ctx
 }
 
-func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ctx *auth.CommonTlsContext) {
-	if tlsDefaults == nil {
+func applyDownstreamTLSConfig(tlsConfig *meshconfig.MeshConfig_TLSConfig, ctx *auth.CommonTlsContext) {
+	if tlsConfig == nil {
 		return
 	}
 
-	if len(tlsDefaults.EcdhCurves) > 0 {
-		tlsParamsOrNew(ctx).EcdhCurves = tlsDefaults.EcdhCurves
+	if len(tlsConfig.EcdhCurves) > 0 {
+		tlsParamsOrNew(ctx).EcdhCurves = tlsConfig.EcdhCurves
 	}
-	if len(tlsDefaults.CipherSuites) > 0 {
-		tlsParamsOrNew(ctx).CipherSuites = tlsDefaults.CipherSuites
+	if len(tlsConfig.CipherSuites) > 0 {
+		tlsParamsOrNew(ctx).CipherSuites = tlsConfig.CipherSuites
 	}
-	if tlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
-		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(tlsDefaults.MinProtocolVersion)
+	if tlsConfig.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(tlsConfig.MinProtocolVersion)
 	}
 }
 

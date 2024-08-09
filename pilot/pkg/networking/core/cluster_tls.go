@@ -191,6 +191,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 			}
 		}
+                applyTLSConfig(tlsContext, opts.mesh.GetMeshMTLS())
+
 	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext, err = constructUpstreamTLS(opts, tls, c, false)
 
@@ -265,7 +267,7 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		}
 	}
 
-	applyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
+	applyTLSConfig(tlsContext, opts.mesh.GetTlsDefaults())
 
 	if isHttp2Cluster(c) {
 		// This is HTTP/2 cluster, advertise it with ALPN.
@@ -275,15 +277,15 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 }
 
 // applyTLSDefaults applies tls default settings from mesh config to UpstreamTlsContext.
-func applyTLSDefaults(tlsContext *tlsv3.UpstreamTlsContext, tlsDefaults *v1alpha1.MeshConfig_TLSConfig) {
-	if tlsDefaults == nil {
+func applyTLSConfig(tlsContext *tlsv3.UpstreamTlsContext, tlsConfig *v1alpha1.MeshConfig_TLSConfig) {
+	if tlsConfig == nil {
 		return
 	}
-	if len(tlsDefaults.EcdhCurves) > 0 {
-		tlsContext.CommonTlsContext.TlsParams.EcdhCurves = tlsDefaults.EcdhCurves
+	if len(tlsConfig.EcdhCurves) > 0 {
+		tlsContext.CommonTlsContext.TlsParams.EcdhCurves = tlsConfig.EcdhCurves
 	}
-	if len(tlsDefaults.CipherSuites) > 0 {
-		tlsContext.CommonTlsContext.TlsParams.CipherSuites = tlsDefaults.CipherSuites
+	if len(tlsConfig.CipherSuites) > 0 {
+		tlsContext.CommonTlsContext.TlsParams.CipherSuites = tlsConfig.CipherSuites
 	}
 }
 
