@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/xds"
 )
@@ -83,7 +84,7 @@ type Connection struct {
 	deltaReqChan chan *discovery.DeltaDiscoveryRequest
 
 	s   *DiscoveryServer
-	ids []string
+	ids *security.Caller
 }
 
 func (conn *Connection) XdsConnection() *xds.Connection {
@@ -220,7 +221,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		return status.Error(codes.Unauthenticated, err.Error())
 	}
 	if ids != nil {
-		log.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
+		log.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids.Identities)
 	} else {
 		log.Debugf("Unauthenticated XDS: %s", peerAddr)
 	}
@@ -240,16 +241,18 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 
 // update the node associated with the connection, after receiving a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, identities []string) error {
+func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, identities *security.Caller) error {
 	// Setup the initial proxy metadata
 	proxy, err := s.initProxyMetadata(node)
 	if err != nil {
 		return err
 	}
+
 	// Check if proxy cluster has an alias configured, if yes use that as cluster ID for this proxy.
 	if alias, exists := s.ClusterAliases[proxy.Metadata.ClusterID]; exists {
 		proxy.Metadata.ClusterID = alias
 	}
+
 	// To ensure push context is monotonically increasing, setup LastPushContext before we addCon. This
 	// way only new push contexts will be registered for this proxy.
 	proxy.LastPushContext = s.globalPushContext()

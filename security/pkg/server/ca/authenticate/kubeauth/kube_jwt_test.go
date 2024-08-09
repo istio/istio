@@ -194,6 +194,7 @@ func TestAuthenticate(t *testing.T) {
 					PodNamespace:      "default",
 					PodServiceAccount: "example-pod-sa",
 				},
+				ClusterID: "Kubernetes",
 			}
 
 			assert.Equal(t, actualCaller, expectedCaller)

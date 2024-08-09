@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/xds"
@@ -76,7 +77,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 		return status.Error(codes.Unauthenticated, err.Error())
 	}
 	if ids != nil {
-		deltaLog.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
+		deltaLog.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids.Identities)
 	} else {
 		deltaLog.Debugf("Unauthenticated XDS: %v", peerAddr)
 	}
@@ -178,7 +179,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 	return nil
 }
 
-func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
+func (s *DiscoveryServer) receiveDelta(con *Connection, identities *security.Caller) {
 	defer func() {
 		close(con.deltaReqChan)
 		close(con.ErrorCh())

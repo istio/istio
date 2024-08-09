@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/security"
@@ -93,6 +94,9 @@ func (a *KubeJWTAuthenticator) authenticateHTTP(req *http.Request) (*security.Ca
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
 	clusterID := cluster.ID(req.Header.Get(clusterIDMeta))
+	if !features.RemoteClusterAccess {
+		clusterID = "" // do not allow other clusters unless Istiod is running in 'central istiod' mode.
+	}
 	return a.authenticate(targetJWT, clusterID)
 }
 
@@ -123,10 +127,14 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	if id.PodNamespace == "" {
 		return nil, fmt.Errorf("failed to parse the JWT; namespace required")
 	}
+	if !features.RemoteClusterAccess {
+		clusterID = ""
+	}
 	return &security.Caller{
 		AuthSource:     security.AuthSourceIDToken,
 		Identities:     []string{spiffe.MustGenSpiffeURI(a.meshHolder.Mesh(), id.PodNamespace, id.PodServiceAccount)},
 		KubernetesInfo: id,
+		ClusterID:      string(clusterID),
 	}, nil
 }
 
@@ -134,6 +142,10 @@ func (a *KubeJWTAuthenticator) getKubeClient(clusterID cluster.ID) kubernetes.In
 	// first match local/primary cluster
 	// or if clusterID is not sent (we assume that its a single cluster)
 	if a.clusterID == clusterID || clusterID == "" {
+		return a.kubeClient
+	}
+
+	if !features.RemoteClusterAccess {
 		return a.kubeClient
 	}
 
