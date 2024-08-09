@@ -18,13 +18,13 @@ package status
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/api/meta/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -95,18 +95,14 @@ func ResourceFromModelConfig(c config.Config) Resource {
 	}
 }
 
-func GetTypedStatus(in any) (out *v1alpha1.IstioStatus, err error) {
-	if ret, ok := in.(*v1alpha1.IstioStatus); ok {
-		return ret, nil
-	}
-	return nil, fmt.Errorf("cannot cast %T: %v to IstioStatus", in, in)
-}
-
-func GetOGProvider(in any) (out GenerationProvider, err error) {
+func GetStatusManipulator(in any) (out Manipulator) {
 	if ret, ok := in.(*v1alpha1.IstioStatus); ok && ret != nil {
-		return &IstioGenerationProvider{ret}, nil
+		return &IstioGenerationProvider{ret}
 	}
-	return nil, fmt.Errorf("cannot cast %T: %v to GenerationProvider", in, in)
+	if ret, ok := in.(*networking.ServiceEntryStatus); ok && ret != nil {
+		return &ServiceEntryGenerationProvider{ret}
+	}
+	return &NopStatusManipulator{in}
 }
 
 func NewIstioContext(stop <-chan struct{}) context.Context {

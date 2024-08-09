@@ -17,7 +17,6 @@
 package status
 
 import (
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -36,10 +35,8 @@ type Manager struct {
 }
 
 func NewManager(store model.ConfigStore) *Manager {
-	writeFunc := func(m *config.Config, istatus any) {
+	writeFunc := func(m *config.Config) {
 		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
-		status := istatus.(GenerationProvider)
-		m.Status = status.Unwrap()
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
 			// TODO: need better error handling
@@ -87,24 +84,16 @@ func (m *Manager) CreateGenericController(fn UpdateFunc) *Controller {
 	return result
 }
 
-func (m *Manager) CreateIstioStatusController(fn func(status *v1alpha1.IstioStatus, context any) *v1alpha1.IstioStatus) *Controller {
-	wrapper := func(status any, context any) GenerationProvider {
-		var input *v1alpha1.IstioStatus
-		if status != nil {
-			converted := status.(*IstioGenerationProvider)
-			input = converted.IstioStatus
-		}
-		result := fn(input, context)
-		return &IstioGenerationProvider{result}
-	}
+func (m *Manager) CreateIstioStatusController(fn func(status Manipulator, context any)) *Controller {
 	result := &Controller{
-		fn:      wrapper,
+		fn:      fn,
 		workers: m.workers,
 	}
 	return result
 }
 
-type UpdateFunc func(status any, context any) GenerationProvider
+// UpdateFunc is called on each object before it is written to allow mutating any status
+type UpdateFunc func(status Manipulator, context any)
 
 type Controller struct {
 	fn      UpdateFunc

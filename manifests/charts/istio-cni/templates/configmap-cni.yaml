@@ -14,8 +14,8 @@ data:
   AMBIENT_ENABLED: {{ .Values.ambient.enabled | quote }}
   AMBIENT_DNS_CAPTURE: {{ .Values.ambient.dnsCapture | default "false" | quote  }}
   AMBIENT_IPV6: {{ .Values.ambient.ipv6 | default "false" | quote }}
-  {{- if .ValuesConfFileName }} # K8S < 1.24 doesn't like empty values
-  CNI_CONF_NAME: {{ .ValuesConfFileName }} # Name of the CNI config file to create. Only override if you know the exact path your CNI requires..
+  {{- if .Values.cniConfFileName }} # K8S < 1.24 doesn't like empty values
+  CNI_CONF_NAME: {{ .Values.cniConfFileName }} # Name of the CNI config file to create. Only override if you know the exact path your CNI requires..
   {{- end }}
   CHAINED_CNI_PLUGIN: {{ .Values.chained | quote }}
   EXCLUDED_NAMESPACES: "{{ range $idx, $ns := .Values.excludeNamespaces }}{{ if $idx }},{{ end }}{{ $ns }}{{ end }}"

@@ -160,7 +160,7 @@ func describeManagement(metadata *core.Metadata) string {
 }
 
 func renderConfig(configPath string) string {
-	if strings.HasPrefix(configPath, "/apis/networking.istio.io/v1alpha3/namespaces/") {
+	if strings.HasPrefix(configPath, "/apis/networking.istio.io/") {
 		pieces := strings.Split(configPath, "/")
 		if len(pieces) != 8 {
 			return ""

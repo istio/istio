@@ -45,7 +45,15 @@ type deepCopier[T any] interface {
 func fuzzDeepCopy[T deepCopier[T]](f test.Fuzzer) {
 	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		orig := fuzz.Struct[T](fg)
-		copied := orig.DeepCopy()
-		assert.Equal(fg.T(), orig, copied)
+		fast := orig.DeepCopy()
+		slow := fuzz.DeepCopySlow[T](orig)
+
+		// check copy is correct
+		assert.Equal(fg.T(), orig, fast)
+		assert.Equal(fg.T(), orig, slow)
+
+		// check is deep copy
+		fuzz.MutateStruct(fg.T(), &orig)
+		assert.Equal(fg.T(), fast, slow)
 	})
 }

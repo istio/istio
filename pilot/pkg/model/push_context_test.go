@@ -2707,188 +2707,299 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 }
 
 func TestInitVirtualService(t *testing.T) {
-	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
-	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
-	ps.Mesh = env.Mesh()
-	configStore := NewFakeStore()
-	gatewayName := "ns1/gateway"
-
-	root := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             "root",
-			Namespace:        "ns1",
-		},
-		Spec: &networking.VirtualService{
-			ExportTo: []string{"*"},
-			Hosts:    []string{"*.org"},
-			Gateways: []string{"gateway"},
-			Http: []*networking.HTTPRoute{
-				{
-					Match: []*networking.HTTPMatchRequest{
-						{
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
-							},
-						},
-						{
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Exact{Exact: "/login"},
-							},
-						},
-					},
-					Delegate: &networking.Delegate{
-						Name:      "delegate",
-						Namespace: "ns2",
-					},
-				},
+	testCase := func(legacy bool, ns1GatewayExpectedDestinations, ns5GatewayExpectedDestinations sets.String) {
+		test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
+		test.SetForTest(t, &features.ScopeGatewayToNamespace, legacy)
+		ps := NewPushContext()
+		env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+		ps.Mesh = env.Mesh()
+		configStore := NewFakeStore()
+		gatewayName := "ns1/gateway"
+		root := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "root",
+				Namespace:        "ns1",
 			},
-		},
-	}
-	delegate := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             "delegate",
-			Namespace:        "ns2",
-		},
-		Spec: &networking.VirtualService{
-			ExportTo: []string{"*"},
-			Hosts:    []string{},
-			Gateways: []string{gatewayName},
-			Http: []*networking.HTTPRoute{
-				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "delegate",
-								Port: &networking.PortSelector{
-									Number: 80,
+			Spec: &networking.VirtualService{
+				ExportTo: []string{"*"},
+				Hosts:    []string{"*.org"},
+				Gateways: []string{"gateway"},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Exact{Exact: "/login"},
 								},
 							},
 						},
-					},
-				},
-			},
-		},
-	}
-	public := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             "public",
-			Namespace:        "ns3",
-		},
-		Spec: &networking.VirtualService{
-			Hosts:    []string{"*.org"},
-			Gateways: []string{gatewayName},
-			Http: []*networking.HTTPRoute{
-				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "public",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-							},
+						Delegate: &networking.Delegate{
+							Name:      "delegate",
+							Namespace: "ns2",
 						},
 					},
 				},
 			},
-		},
-	}
-	private := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             "private",
-			Namespace:        "ns1",
-		},
-		Spec: &networking.VirtualService{
-			ExportTo: []string{".", "ns2"},
-			Hosts:    []string{"*.org"},
-			Gateways: []string{gatewayName},
-			Http: []*networking.HTTPRoute{
-				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "private",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	invisible := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             "invisible",
-			Namespace:        "ns5",
-		},
-		Spec: &networking.VirtualService{
-			ExportTo: []string{".", "ns3"},
-			Hosts:    []string{"*.org"},
-			Gateways: []string{"gateway", "mesh"},
-			Http: []*networking.HTTPRoute{
-				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "invisible",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, c := range []config.Config{root, delegate, public, private, invisible} {
-		if _, err := configStore.Create(c); err != nil {
-			t.Fatalf("could not create %v", c.Name)
 		}
-	}
-
-	env.ConfigStore = configStore
-	ps.initDefaultExportMaps()
-	ps.initVirtualServices(env)
-
-	t.Run("resolve shortname", func(t *testing.T) {
-		rules := ps.VirtualServicesForGateway("ns1", gatewayName)
-		if len(rules) != 3 {
-			t.Fatalf("wanted 3 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
+		delegate := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "delegate",
+				Namespace:        "ns2",
+			},
+			Spec: &networking.VirtualService{
+				ExportTo: []string{"*"},
+				Hosts:    []string{},
+				Gateways: []string{gatewayName},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "delegate",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		}
-		gotHTTPHosts := make([]string, 0)
-		for _, r := range rules {
-			vs := r.Spec.(*networking.VirtualService)
-			for _, route := range vs.GetHttp() {
-				for _, dst := range route.Route {
-					gotHTTPHosts = append(gotHTTPHosts, dst.Destination.Host)
-				}
+		public := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "public",
+				Namespace:        "ns3",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"*.org"},
+				Gateways: []string{gatewayName},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "public",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		private := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "private",
+				Namespace:        "ns1",
+			},
+			Spec: &networking.VirtualService{
+				ExportTo: []string{".", "ns2"},
+				Hosts:    []string{"*.org"},
+				Gateways: []string{gatewayName},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "private",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		invisible := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "invisible",
+				Namespace:        "ns5",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"*.org"},
+				Gateways: []string{"gateway", "mesh"},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "invisible",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		sourceNamespaceMatch := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "matchNs1FromDifferentNamespace",
+				Namespace:        "ns5",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"*.org"},
+				Gateways: []string{gatewayName},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								SourceNamespace: "ns1",
+							},
+						},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "match-ns1",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		sourceNamespaceMatchWithoutGatewayNamespace := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "matchNs1-without-explicit-gateway-namespace",
+				Namespace:        "ns1",
+			},
+			Spec: &networking.VirtualService{
+				ExportTo: []string{".", "ns3"},
+				Hosts:    []string{"*.org"},
+				Gateways: []string{"gateway"},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								SourceNamespace: "ns1",
+							},
+						},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "match-ns1",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		sourceNamespaceNotMatch := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "matchNs7",
+				Namespace:        "ns7",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"*.org"},
+				Gateways: []string{gatewayName},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								SourceNamespace: "ns7",
+							},
+						},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "match-ns7",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		for _, c := range []config.Config{
+			root,
+			delegate,
+			public,
+			private,
+			invisible,
+			sourceNamespaceMatch,
+			sourceNamespaceMatchWithoutGatewayNamespace,
+			sourceNamespaceNotMatch,
+		} {
+			if _, err := configStore.Create(c); err != nil {
+				t.Fatalf("could not create %v", c.Name)
 			}
 		}
-		if !reflect.DeepEqual(gotHTTPHosts, []string{"private.ns1", "public.ns3", "delegate.ns2"}) {
-			t.Errorf("got %+v", gotHTTPHosts)
-		}
-	})
 
-	t.Run("destinations by gateway", func(t *testing.T) {
-		got := ps.virtualServiceIndex.destinationsByGateway
-		want := map[string]sets.String{
-			gatewayName:   sets.New("delegate.ns2", "public.ns3", "private.ns1"),
-			"ns5/gateway": sets.New("invisible.ns5"),
-		}
-		if !reflect.DeepEqual(got, want) {
-			t.Errorf("destinationsByGateway: got %+v", got)
-		}
-	})
+		env.ConfigStore = configStore
+		ps.initDefaultExportMaps()
+		ps.initVirtualServices(env)
+
+		t.Run("resolve shortname", func(t *testing.T) {
+			rules := ps.VirtualServicesForGateway("ns1", gatewayName)
+			if len(rules) != 6 {
+				t.Fatalf("wanted 6 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
+			}
+			gotHTTPHosts := make([]string, 0)
+			for _, r := range rules {
+				vs := r.Spec.(*networking.VirtualService)
+				for _, route := range vs.GetHttp() {
+					for _, dst := range route.Route {
+						gotHTTPHosts = append(gotHTTPHosts, dst.Destination.Host)
+					}
+				}
+			}
+			if !reflect.DeepEqual(gotHTTPHosts, []string{"match-ns1.ns1", "private.ns1", "match-ns1.ns5", "match-ns7.ns7", "public.ns3", "delegate.ns2"}) {
+				t.Errorf("got %+v", gotHTTPHosts)
+			}
+		})
+
+		t.Run("destinations by gateway", func(t *testing.T) {
+			got := ps.virtualServiceIndex.destinationsByGateway
+			want := map[string]sets.String{
+				gatewayName:   ns1GatewayExpectedDestinations,
+				"ns5/gateway": ns5GatewayExpectedDestinations,
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("destinationsByGateway: got %+v", got)
+			}
+		})
+	}
+
+	testCase(false,
+		sets.New("delegate.ns2", "public.ns3", "private.ns1", "match-ns1.ns5", "match-ns1.ns1", "match-ns7.ns7"),
+		sets.New("invisible.ns5"),
+	)
+	testCase(true,
+		sets.New("delegate.ns2", "public.ns3", "private.ns1", "match-ns1.ns5", "match-ns1.ns1"),
+		sets.New("invisible.ns5"),
+	)
 }
 
 func TestServiceWithExportTo(t *testing.T) {

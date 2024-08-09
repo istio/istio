@@ -21,8 +21,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	v1alpha12 "istio.io/api/analysis/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -127,7 +130,7 @@ type WorkerPool struct {
 	// indicates the queue is closing
 	closing bool
 	// the function which will be run for each task in queue
-	write func(*config.Config, any)
+	write func(*config.Config)
 	// the function to retrieve the initial status
 	get func(Resource) *config.Config
 	// current worker routine count
@@ -138,7 +141,7 @@ type WorkerPool struct {
 	lock             sync.Mutex
 }
 
-func NewWorkerPool(write func(*config.Config, any), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
+func NewWorkerPool(write func(*config.Config), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
 	return &WorkerPool{
 		write:            write,
 		get:              get,
@@ -204,16 +207,14 @@ func (wp *WorkerPool) maybeAddWorker() {
 			if cfg != nil {
 				// Check that generation matches
 				if strconv.FormatInt(cfg.Generation, 10) == target.Generation {
-					x, err := GetOGProvider(cfg.Status)
-					if err == nil {
-						// Not all controllers user generation, so we can ignore errors
-						x.SetObservedGeneration(cfg.Generation)
-					}
+					sm := GetStatusManipulator(cfg.Status)
+					sm.SetObservedGeneration(cfg.Generation)
 					for c, i := range perControllerWork {
 						// TODO: this does not guarantee controller order.  perhaps it should?
-						x = c.fn(x, i)
+						c.fn(sm, i)
 					}
-					wp.write(cfg, x)
+					cfg.Status = sm.Unwrap()
+					wp.write(cfg)
 				}
 			}
 			wp.lock.Lock()
@@ -223,13 +224,45 @@ func (wp *WorkerPool) maybeAddWorker() {
 	}()
 }
 
-type GenerationProvider interface {
+// Manipulator gives controllers an opportunity to manipulate the status of an object.
+// This allows the controller to be generic over the types of status messages it needs to handle.
+type Manipulator interface {
 	SetObservedGeneration(int64)
+	SetValidationMessages(msgs diag.Messages)
+	SetInner(c any)
 	Unwrap() any
+}
+
+var (
+	_ Manipulator = &IstioGenerationProvider{}
+	_ Manipulator = &ServiceEntryGenerationProvider{}
+	_ Manipulator = &NopStatusManipulator{}
+)
+
+type NopStatusManipulator struct {
+	inner any
+}
+
+func (n *NopStatusManipulator) SetObservedGeneration(i int64) {
+}
+
+func (n *NopStatusManipulator) SetValidationMessages(msgs diag.Messages) {
+}
+
+func (n *NopStatusManipulator) Unwrap() any {
+	return n.inner
+}
+
+func (n *NopStatusManipulator) SetInner(c any) {
+	n.inner = c
 }
 
 type IstioGenerationProvider struct {
 	*v1alpha1.IstioStatus
+}
+
+func (i *IstioGenerationProvider) SetInner(c any) {
+	panic("not supported for this type")
 }
 
 func (i *IstioGenerationProvider) SetObservedGeneration(in int64) {
@@ -238,4 +271,36 @@ func (i *IstioGenerationProvider) SetObservedGeneration(in int64) {
 
 func (i *IstioGenerationProvider) Unwrap() any {
 	return i.IstioStatus
+}
+
+func (i *IstioGenerationProvider) SetValidationMessages(msgs diag.Messages) {
+	// zero out analysis messages, as this is the sole controller for those
+	i.ValidationMessages = []*v1alpha12.AnalysisMessageBase{}
+	for _, msg := range msgs {
+		i.ValidationMessages = append(i.ValidationMessages, msg.AnalysisMessageBase())
+	}
+}
+
+type ServiceEntryGenerationProvider struct {
+	*networking.ServiceEntryStatus
+}
+
+func (i *ServiceEntryGenerationProvider) SetInner(c any) {
+	panic("not supported for this type")
+}
+
+func (i *ServiceEntryGenerationProvider) SetObservedGeneration(in int64) {
+	i.ObservedGeneration = in
+}
+
+func (i *ServiceEntryGenerationProvider) Unwrap() any {
+	return i.ServiceEntryStatus
+}
+
+func (i *ServiceEntryGenerationProvider) SetValidationMessages(msgs diag.Messages) {
+	// zero out analysis messages, as this is the sole controller for those
+	i.ValidationMessages = []*v1alpha12.AnalysisMessageBase{}
+	for _, msg := range msgs {
+		i.ValidationMessages = append(i.ValidationMessages, msg.AnalysisMessageBase())
+	}
 }

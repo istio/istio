@@ -530,6 +530,11 @@
     ],
     "listeners":[
       {
+        {{- if .metrics_localhost_access_only }}
+        "name": "{{ .localhost }}_{{ .envoy_prometheus_port }}",
+        {{ else }}
+        "name": "{{ .wildcard }}_{{ .envoy_prometheus_port }}",
+        {{ end }} 
         "address": {
           "socket_address": {
             "protocol": "TCP",
@@ -631,6 +636,7 @@
         ]
       },
       {
+        "name": "{{ .wildcard }}_{{ .envoy_status_port }}",
         "address": {
            "socket_address": {
              "protocol": "TCP",

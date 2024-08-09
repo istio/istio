@@ -751,6 +751,12 @@ func (ps *PushContext) UpdateMetrics() {
 
 // It is called after virtual service short host name is resolved to FQDN
 func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Set[int] {
+	return virtualServiceDestinationsFilteredBySourceNamespace(v, "")
+}
+
+// It is called after virtual service short host name is resolved to FQDN
+// It filters destinations present in VirtualService by using configNamespace, when the value is empty string, then filtering is disabled
+func virtualServiceDestinationsFilteredBySourceNamespace(v *networking.VirtualService, configNamespace string) map[string]sets.Set[int] {
 	if v == nil {
 		return nil
 	}
@@ -768,6 +774,21 @@ func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Se
 	}
 
 	for _, h := range v.Http {
+		if configNamespace != "" {
+			namespaceMatched := true
+			for _, m := range h.Match {
+				if m.SourceNamespace != "" {
+					if m.SourceNamespace == configNamespace {
+						namespaceMatched = true
+						break
+					}
+					namespaceMatched = false
+				}
+			}
+			if !namespaceMatched {
+				continue
+			}
+		}
 		for _, r := range h.Route {
 			if r.Destination != nil {
 				addDestination(r.Destination.Host, r.Destination.GetPort())
@@ -1744,9 +1765,20 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				if gw == constants.IstioMeshGateway {
 					continue
 				}
-				for host := range virtualServiceDestinations(rule) {
-					sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
+				if features.ScopeGatewayToNamespace {
+					gatewayNamespace := ns
+					if gwNs, _, found := strings.Cut(gw, "/"); found {
+						gatewayNamespace = gwNs
+					}
+					for host := range virtualServiceDestinationsFilteredBySourceNamespace(rule, gatewayNamespace) {
+						sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
+					}
+				} else {
+					for host := range virtualServiceDestinations(rule) {
+						sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
+					}
 				}
+
 			}
 		}
 

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 51966
+releaseNotes:
+  - |
+    **Added** stricter validation of CSRs when Istio is functioning as the RA and is configured with an external CA for workload certificate signing.
