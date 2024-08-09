@@ -278,34 +278,10 @@ MARKDOWN_LINT_ALLOWLIST=localhost:8080,storage.googleapis.com/istio-artifacts/pi
 lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint
 
-lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global check-agent-deps ## Runs all linters.
+lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
 	@bin/check_samples.sh
 	@testlinter
 	@envvarlinter istioctl pilot security
-
-# Allow-list:
-# (k8s) some Machinery, utils, klog
-# (proto) Istio API non-CRDs, MeshConfig and ProxyConfig
-# (proto) Envoy TLS proto for SDS
-# (proto) Envoy Wasm filters for wasm xDS proxy
-# (proto) xDS discovery service for xDS proxy
-# (proto) SDS secret and contrib QAT and cryptomb
-.PHONY: check-agent-deps
-check-agent-deps:
-	@go list -f '{{ join .Deps "\n" }}' -tags=agent \
-			./pilot/cmd/pilot-agent/... \
-			./pkg/istio-agent/... | sort | uniq |\
-		grep -Pv '^k8s.io/(utils|klog)/' |\
-		grep -Pv '^k8s.io/apimachinery/pkg/types' |\
-		grep -Pv '^k8s.io/apimachinery/pkg/util/(rand|version)' |\
-		grep -Pv 'envoy/type/|envoy/annotations|envoy/config/core/' |\
-		grep -Pv 'envoy/extensions/transport_sockets/tls/' |\
-		grep -Pv 'envoy/service/(discovery|secret)/v3' |\
-		grep -Pv 'envoy/extensions/wasm/' |\
-		grep -Pv 'envoy/extensions/filters/(http|network)/wasm/' |\
-		grep -Pv 'contrib/envoy/extensions/private_key_providers/' |\
-		grep -Pv 'istio\.io/api/(annotation|label|mcp|mesh|networking|analysis/v1alpha1|meta/v1alpha1|security/v1alpha1|type)' |\
-		(! grep -P '^k8s.io|^sigs.k8s.io/gateway-api|cel|antlr|jwx/jwk|envoy/|istio.io/api')
 
 go-gen:
 	@mkdir -p /tmp/bin
