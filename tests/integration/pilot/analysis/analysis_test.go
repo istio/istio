@@ -102,6 +102,145 @@ spec:
 			retry.UntilSuccessOrFail(t, func() error {
 				return expectVirtualServiceStatus(t, ns, false)
 			})
+			// Apply bad config (ServiceEntry missing address)
+			t.ConfigIstio().YAML(ns.Name(), `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: vm-1
+spec:
+  hosts:
+  - dummy.github.com
+  addresses:
+  - 1.1.1.1
+  location: MESH_EXTERNAL
+  ports:
+  - name: tcp
+    number: 22
+	protocol: TCP
+`).ApplyOrFail(t)
+			// Status should report error
+			retry.UntilSuccessOrFail(t, func() error {
+				return expectServiceEntryStatus(t, ns, nil, true)
+			}, retry.Timeout(time.Second*5))
+		})
+}
+
+func TestServiceEntryUpdatesStatus(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix:   "default",
+				Inject:   true,
+				Revision: "",
+				Labels:   nil,
+			})
+
+			// create ServiceEntry
+			t.ConfigIstio().YAML(ns.Name(), `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: vm-1
+spec:
+  hosts:
+  - dummy.github.com
+  addresses:
+  - 1.1.1.1
+  location: MESH_EXTERNAL
+  ports:
+  - name: tcp
+    number: 22
+    protocol: TCP
+`).ApplyOrFail(t)
+			retry.UntilSuccessOrFail(t, func() error {
+				// we should expect an empty array not nil
+				return expectServiceEntryStatus(t, ns, nil, false)
+			})
+
+			// add one health condition and one other condition
+			addedConds := []*v1alpha1.IstioCondition{
+				{
+					Type:   "Health",
+					Reason: "DontTellAnyoneButImNotARealReason",
+					Status: "True",
+				},
+				{
+					Type:   "SomeRandomType",
+					Reason: "ImNotHealthSoDontTouchMe",
+					Status: "True",
+				},
+			}
+
+			// Get ServiceEntry to append to
+			se, err := t.Clusters().Default().Istio().NetworkingV1alpha3().ServiceEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+			if err != nil {
+				t.Error(err)
+			}
+
+			if se.Status.Conditions == nil {
+				se.Status.Conditions = []*v1alpha1.IstioCondition{}
+			}
+			// append to conditions
+			se.Status.Conditions = append(se.Status.Conditions, addedConds...)
+			// update the status
+			_, err = t.Clusters().Default().Istio().NetworkingV1alpha3().ServiceEntries(ns.Name()).UpdateStatus(context.TODO(), se, metav1.UpdateOptions{})
+			if err != nil {
+				t.Error(err)
+			}
+			// we should have all the conditions present
+			retry.UntilSuccessOrFail(t, func() error {
+				// should update
+				return expectServiceEntryStatus(t, ns, []*v1alpha1.IstioCondition{
+					{
+						Type:   "Health",
+						Reason: "DontTellAnyoneButImNotARealReason",
+						Status: "True",
+					},
+					{
+						Type:   "SomeRandomType",
+						Reason: "ImNotHealthSoDontTouchMe",
+						Status: "True",
+					},
+				}, false)
+			})
+
+			// get the service entry to replace the health condition field
+			se, err = t.Clusters().Default().Istio().NetworkingV1alpha3().ServiceEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			// replacing the condition
+			for i, cond := range se.Status.Conditions {
+				if cond.Type == "Health" {
+					se.Status.Conditions[i] = &v1alpha1.IstioCondition{
+						Type:   "Health",
+						Reason: "LooksLikeIHavebeenReplaced",
+						Status: "False",
+					}
+				}
+			}
+
+			// update this new status
+			_, err = t.Clusters().Default().Istio().NetworkingV1alpha3().ServiceEntries(ns.Name()).UpdateStatus(context.TODO(), se, metav1.UpdateOptions{})
+			if err != nil {
+				t.Error(err)
+			}
+			retry.UntilSuccessOrFail(t, func() error {
+				// should update
+				return expectServiceEntryStatus(t, ns, []*v1alpha1.IstioCondition{
+					{
+						Type:   "Health",
+						Reason: "LooksLikeIHavebeenReplaced",
+						Status: "False",
+					},
+					{
+						Type:   "SomeRandomType",
+						Reason: "ImNotHealthSoDontTouchMe",
+						Status: "True",
+					},
+				}, false)
+			})
 		})
 }
 
@@ -266,6 +405,22 @@ func expectWorkloadEntryStatus(t framework.TestContext, ns namespace.Instance, e
 		}
 	}
 
+	if !cmp.Equal(statusConds, expectedConds, protocmp.Transform()) {
+		return fmt.Errorf("expected conditions %v got %v", expectedConds, statusConds)
+	}
+	return nil
+}
+
+func expectServiceEntryStatus(t framework.TestContext, ns namespace.Instance, expectedConds []*v1alpha1.IstioCondition, hasError bool) error {
+	c := t.Clusters().Default()
+
+	x, err := c.Istio().NetworkingV1alpha3().ServiceEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("unexpected test failure: can't get serviceentry: %v", err)
+		return err
+	}
+
+	statusConds := x.Status.Conditions
 	if !cmp.Equal(statusConds, expectedConds, protocmp.Transform()) {
 		return fmt.Errorf("expected conditions %v got %v", expectedConds, statusConds)
 	}
