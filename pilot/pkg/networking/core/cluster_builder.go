@@ -205,7 +205,9 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 
 	maybeApplyEdsConfig(subsetCluster.cluster)
 
-	cb.applyMetadataExchange(opts.mutable.cluster)
+	if !service.MeshExternal {
+		cb.applyMetadataExchange(opts.mutable.cluster)
+	}
 
 	// Add the DestinationRule+subsets metadata. Metadata here is generated on a per-cluster
 	// basis in buildCluster, so we can just insert without a copy.
@@ -252,7 +254,9 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	// discovery type.
 	maybeApplyEdsConfig(mc.cluster)
 
-	cb.applyMetadataExchange(opts.mutable.cluster)
+	if !service.MeshExternal {
+		cb.applyMetadataExchange(opts.mutable.cluster)
+	}
 
 	if service.MeshExternal {
 		im := getOrCreateIstioMetadata(mc.cluster)
@@ -529,7 +533,6 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	}
 	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster, cb.proxyVersion)
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
-	cb.applyMetadataExchange(cluster)
 	return cluster
 }
 
