@@ -102,7 +102,7 @@ func GetStatusManipulator(in any) (out Manipulator) {
 	if ret, ok := in.(*networking.ServiceEntryStatus); ok && ret != nil {
 		return &ServiceEntryGenerationProvider{ret}
 	}
-	return &NopStatusManipulator{in}
+	return &NoopStatusManipulator{in}
 }
 
 func NewIstioContext(stop <-chan struct{}) context.Context {

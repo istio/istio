@@ -16,6 +16,7 @@ package status
 
 import (
 	"context"
+	"reflect"
 	"strconv"
 	"sync"
 
@@ -236,24 +237,24 @@ type Manipulator interface {
 var (
 	_ Manipulator = &IstioGenerationProvider{}
 	_ Manipulator = &ServiceEntryGenerationProvider{}
-	_ Manipulator = &NopStatusManipulator{}
+	_ Manipulator = &NoopStatusManipulator{}
 )
 
-type NopStatusManipulator struct {
+type NoopStatusManipulator struct {
 	inner any
 }
 
-func (n *NopStatusManipulator) SetObservedGeneration(i int64) {
+func (n *NoopStatusManipulator) SetObservedGeneration(i int64) {
 }
 
-func (n *NopStatusManipulator) SetValidationMessages(msgs diag.Messages) {
+func (n *NoopStatusManipulator) SetValidationMessages(msgs diag.Messages) {
 }
 
-func (n *NopStatusManipulator) Unwrap() any {
+func (n *NoopStatusManipulator) Unwrap() any {
 	return n.inner
 }
 
-func (n *NopStatusManipulator) SetInner(c any) {
+func (n *NoopStatusManipulator) SetInner(c any) {
 	n.inner = c
 }
 
@@ -262,7 +263,7 @@ type IstioGenerationProvider struct {
 }
 
 func (i *IstioGenerationProvider) SetInner(c any) {
-	panic("not supported for this type")
+	panic("not supported for this type: " + reflect.TypeOf(c).String())
 }
 
 func (i *IstioGenerationProvider) SetObservedGeneration(in int64) {
@@ -286,7 +287,7 @@ type ServiceEntryGenerationProvider struct {
 }
 
 func (i *ServiceEntryGenerationProvider) SetInner(c any) {
-	panic("not supported for this type")
+	panic("not supported for this type: " + reflect.TypeOf(c).String())
 }
 
 func (i *ServiceEntryGenerationProvider) SetObservedGeneration(in int64) {
