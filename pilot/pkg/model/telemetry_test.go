@@ -726,18 +726,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stats": `{"metrics":[` +
-					`{"name":"request_messages_total"},` +
-					`{"name":"response_messages_total"},` +
-					`{"name":"requests_total"},` +
-					`{"name":"request_duration_milliseconds"},` +
-					`{"name":"request_bytes"},` +
-					`{"name":"response_bytes"},` +
-					`{"name":"tcp_connections_closed_total"},` +
-					`{"name":"tcp_connections_opened_total"},` +
-					`{"name":"tcp_received_bytes_total"},` +
-					`{"name":"tcp_sent_bytes_total"}` +
-					`]}`,
+				"istio.stats": `{}`,
 			},
 		},
 		{
@@ -816,16 +805,7 @@ func TestTelemetryFilters(t *testing.T) {
 			// TODO: the following should be simple to `{"metrics":[{"dimensions":{"add":"bar"},"tags_to_remove":["remove"]}]}`
 			map[string]string{
 				"istio.stats": `{"metrics":[` +
-					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`{"dimensions":{"add":"bar"},"tags_to_remove":["remove"]}` +
 					`]}`,
 			},
 		},
@@ -869,16 +849,17 @@ func TestTelemetryFilters(t *testing.T) {
 			nil,
 			map[string]string{
 				"istio.stats": `{"metrics":[` +
-					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"add-override"},"name":"requests_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`{"tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_messages_total"},` +
+					`{"dimensions":{"add":"bar"},"name":"response_messages_total"},` +
+					`{"dimensions":{"add":"add-override"},"name":"requests_total"},` +
+					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds"},` +
+					`{"dimensions":{"add":"bar"},"name":"request_bytes"},` +
+					`{"dimensions":{"add":"bar"},"name":"response_bytes"},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total"},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total"},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total"},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total"}` +
 					`]}`,
 			},
 		},
@@ -922,16 +903,7 @@ func TestTelemetryFilters(t *testing.T) {
 			nil,
 			map[string]string{
 				"istio.stats": `{"metrics":[` +
-					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
-					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`{"dimensions":{"add":"bar"},"tags_to_remove":["remove"]}` +
 					`]}`,
 			},
 		},
@@ -1515,6 +1487,352 @@ func Test_computedTelemetries_Equal(t *testing.T) {
 			if got := tt.computedTelemetries.Equal(tt.args.other); got != tt.want {
 				t.Errorf("computedTelemetries.Equal() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestSimplyMetricConfig(t *testing.T) {
+	cases := []struct {
+		name     string
+		input    metricConfig
+		expected metricConfig
+	}{
+		{
+			name: "merge all metrics",
+			input: metricConfig{
+				Overrides: func() []metricsOverride {
+					var result []metricsOverride
+
+					for _, n := range allMetrics {
+						result = append(result, metricsOverride{
+							Name: n,
+							Tags: []tagOverride{
+								{
+									Name:  "add",
+									Value: "add_val",
+								},
+							},
+						})
+					}
+
+					return result
+				}(),
+			},
+			expected: metricConfig{
+				Overrides: []metricsOverride{
+					{
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "cannot merge",
+			input: metricConfig{
+				Overrides: func() []metricsOverride {
+					var result []metricsOverride
+
+					for _, n := range allMetrics {
+						if n == "REQUEST_COUNT" {
+							continue
+						}
+
+						result = append(result, metricsOverride{
+							Name: n,
+							Tags: []tagOverride{
+								{
+									Name:  "add",
+									Value: "add_val",
+								},
+							},
+						})
+					}
+
+					return result
+				}(),
+			},
+			expected: metricConfig{
+				Overrides: []metricsOverride{
+					{
+						Name: "GRPC_REQUEST_MESSAGES",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "GRPC_RESPONSE_MESSAGES",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "REQUEST_DURATION",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "REQUEST_SIZE",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "RESPONSE_SIZE",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "TCP_CLOSED_CONNECTIONS",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "TCP_OPENED_CONNECTIONS",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "TCP_RECEIVED_BYTES",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "TCP_SENT_BYTES",
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "merge metrics with different tags",
+			input: metricConfig{
+				Overrides: func() []metricsOverride {
+					var result []metricsOverride
+
+					for _, n := range allMetrics {
+						if n == "REQUEST_COUNT" {
+							result = append(result, metricsOverride{
+								Name: n,
+								Tags: []tagOverride{
+									{
+										Name:  "add",
+										Value: "add_val",
+									},
+									{
+										Name:  "add2",
+										Value: "add_val2",
+									},
+								},
+							})
+							continue
+						}
+
+						result = append(result, metricsOverride{
+							Name: n,
+							Tags: []tagOverride{
+								{
+									Name:  "add",
+									Value: "add_val",
+								},
+							},
+						})
+					}
+
+					return result
+				}(),
+			},
+			expected: metricConfig{
+				Overrides: []metricsOverride{
+					{
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "REQUEST_COUNT",
+						Tags: []tagOverride{
+							{
+								Name:  "add2",
+								Value: "add_val2",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "merge metrics with remove tags",
+			input: metricConfig{
+				Overrides: func() []metricsOverride {
+					var result []metricsOverride
+
+					for _, n := range allMetrics {
+						if n == "REQUEST_COUNT" {
+							result = append(result, metricsOverride{
+								Name: n,
+								Tags: []tagOverride{
+									{
+										Name:  "add",
+										Value: "add_val",
+									},
+									{
+										Name:   "add2",
+										Remove: true,
+										Value:  "add_val2",
+									},
+								},
+							})
+							continue
+						}
+
+						result = append(result, metricsOverride{
+							Name: n,
+							Tags: []tagOverride{
+								{
+									Name:  "add",
+									Value: "add_val",
+								},
+							},
+						})
+					}
+
+					return result
+				}(),
+			},
+			expected: metricConfig{
+				Overrides: []metricsOverride{
+					{
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "REQUEST_COUNT",
+						Tags: []tagOverride{
+							{
+								Name:   "add2",
+								Remove: true,
+								Value:  "add_val2",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "merge metrics with remove same tags",
+			input: metricConfig{
+				Overrides: func() []metricsOverride {
+					var result []metricsOverride
+
+					for _, n := range allMetrics {
+						if n == "REQUEST_COUNT" {
+							result = append(result, metricsOverride{
+								Name: n,
+								Tags: []tagOverride{
+									{
+										Name:  "add",
+										Value: "add_val",
+									},
+									{
+										Name:   "add",
+										Remove: true,
+										Value:  "add_val",
+									},
+								},
+							})
+							continue
+						}
+
+						result = append(result, metricsOverride{
+							Name: n,
+							Tags: []tagOverride{
+								{
+									Name:  "add",
+									Value: "add_val",
+								},
+							},
+						})
+					}
+
+					return result
+				}(),
+			},
+			expected: metricConfig{
+				Overrides: []metricsOverride{
+					{
+						Tags: []tagOverride{
+							{
+								Name:  "add",
+								Value: "add_val",
+							},
+						},
+					},
+					{
+						Name: "REQUEST_COUNT",
+						Tags: []tagOverride{
+							{
+								Name:   "add",
+								Remove: true,
+								Value:  "add_val",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := simplyMetricConfig(tc.input)
+
+			assert.Equal(t, tc.expected, got)
 		})
 	}
 }
