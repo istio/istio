@@ -17,6 +17,7 @@ package builder
 import (
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -200,6 +201,153 @@ func TestBuilder(t *testing.T) {
 			}
 			checkFunc(goldenNameV4, iptables.BuildV4(), iptables.BuildV4Restore(), tt.expectV4)
 			checkFunc(goldenNameV6, iptables.BuildV6(), iptables.BuildV6Restore(), tt.expectV6)
+		})
+	}
+}
+
+func TestCheckRulesV4V6(t *testing.T) {
+	builderConfig := &config.Config{
+		EnableIPv6: true,
+	}
+	iptables := NewIptablesRuleBuilder(builderConfig)
+	iptables.InsertRuleV4(iptableslog.UndefinedCommand, "chain", "table", 2, "-f", "foo", "-b", "bar")
+	iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain2", "table2", "-f", "foo", "-b", "baz")
+	iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain2", "table", "-f", "foo", "-b", "baz", "-j", "chain")
+	iptables.InsertRuleV6(iptableslog.UndefinedCommand, "chain", "table", 3, "-f", "foo", "-b", "baar")
+	iptables.AppendRuleV6(iptableslog.UndefinedCommand, "chain2", "table2", "-f", "foo", "-b", "baaz")
+	iptables.AppendRuleV6(iptableslog.UndefinedCommand, "chain2", "table", "-f", "foo", "-b", "baaz", "-j", "chain")
+
+	actual := iptables.BuildCheckV4()
+	expected := [][]string{
+		{"-t", "table", "-C", "chain", "-f", "foo", "-b", "bar"},
+		{"-t", "table2", "-C", "chain2", "-f", "foo", "-b", "baz"},
+		{"-t", "table", "-C", "chain2", "-f", "foo", "-b", "baz", "-j", "chain"},
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Actual and expected output mismatch; but instead got Actual: %#v ; Expected: %#v", actual, expected)
+	}
+	actual = iptables.BuildCheckV6()
+	expected = [][]string{
+		{"-t", "table", "-C", "chain", "-f", "foo", "-b", "baar"},
+		{"-t", "table2", "-C", "chain2", "-f", "foo", "-b", "baaz"},
+		{"-t", "table", "-C", "chain2", "-f", "foo", "-b", "baaz", "-j", "chain"},
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Actual and expected output mismatch; but instead got Actual: %#v ; Expected: %#v", actual, expected)
+	}
+}
+
+func TestReverseRulesV4V6(t *testing.T) {
+	builderConfig := &config.Config{
+		EnableIPv6: true,
+	}
+	for _, tt := range []struct {
+		name       string
+		setupFunc  func(iptables *IptablesRuleBuilder)
+		expectedv4 [][]string
+		expectedv6 [][]string
+	}{
+		{
+			"no-jumps",
+			func(iptables *IptablesRuleBuilder) {
+				iptables.InsertRuleV4(iptableslog.UndefinedCommand, "chain", "table", 2, "-f", "foo", "-b", "bar")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain2", "table2", "-f", "foo", "-b", "baz")
+				iptables.InsertRuleV6(iptableslog.UndefinedCommand, "chain", "table", 3, "-f", "foo", "-b", "baar")
+				iptables.AppendRuleV6(iptableslog.UndefinedCommand, "chain2", "table2", "-f", "foo", "-b", "baaz")
+			},
+			[][]string{
+				{"-t", "table2", "-D", "chain2", "-f", "foo", "-b", "baz"},
+				{"-t", "table", "-D", "chain", "-f", "foo", "-b", "bar"},
+				{"-t", "table2", "-F", "chain2"},
+				{"-t", "table2", "-X", "chain2"},
+				{"-t", "table", "-F", "chain"},
+				{"-t", "table", "-X", "chain"},
+			},
+			[][]string{
+				{"-t", "table2", "-D", "chain2", "-f", "foo", "-b", "baaz"},
+				{"-t", "table", "-D", "chain", "-f", "foo", "-b", "baar"},
+				{"-t", "table2", "-F", "chain2"},
+				{"-t", "table2", "-X", "chain2"},
+				{"-t", "table", "-F", "chain"},
+				{"-t", "table", "-X", "chain"},
+			},
+		},
+		{
+			"with-jump",
+			func(iptables *IptablesRuleBuilder) {
+				iptables.InsertRuleV4(iptableslog.UndefinedCommand, "chain", "table", 2, "-f", "foo", "-b", "bar")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain2", "table", "-f", "foo", "-b", "bar", "-j", "chain1")
+				iptables.InsertRuleV4(iptableslog.UndefinedCommand, "chain2", "table", 1, "-f", "foo", "-b", "baz")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "table2", "-f", "foo", "-b", "bar")
+				iptables.InsertRuleV6(iptableslog.UndefinedCommand, "chain", "table", 2, "-f", "foo", "-b", "baar")
+				iptables.AppendRuleV6(iptableslog.UndefinedCommand, "chain2", "table", "-f", "foo", "-b", "baar", "-j", "chain1")
+				iptables.InsertRuleV6(iptableslog.UndefinedCommand, "chain2", "table", 1, "-f", "foo", "-b", "baaz")
+				iptables.AppendRuleV6(iptableslog.UndefinedCommand, "chain", "table2", "-f", "foo", "-b", "baar")
+			},
+			[][]string{
+				{"-t", "table2", "-D", "chain", "-f", "foo", "-b", "bar"},
+				{"-t", "table", "-D", "chain2", "-f", "foo", "-b", "baz"},
+				{"-t", "table", "-D", "chain2", "-f", "foo", "-b", "bar", "-j", "chain1"},
+				{"-t", "table", "-D", "chain", "-f", "foo", "-b", "bar"},
+				{"-t", "table2", "-F", "chain"},
+				{"-t", "table2", "-X", "chain"},
+				{"-t", "table", "-F", "chain2"},
+				{"-t", "table", "-X", "chain2"},
+				{"-t", "table", "-F", "chain"},
+				{"-t", "table", "-X", "chain"},
+			},
+			[][]string{
+				{"-t", "table2", "-D", "chain", "-f", "foo", "-b", "baar"},
+				{"-t", "table", "-D", "chain2", "-f", "foo", "-b", "baaz"},
+				{"-t", "table", "-D", "chain2", "-f", "foo", "-b", "baar", "-j", "chain1"},
+				{"-t", "table", "-D", "chain", "-f", "foo", "-b", "baar"},
+				{"-t", "table2", "-F", "chain"},
+				{"-t", "table2", "-X", "chain"},
+				{"-t", "table", "-F", "chain2"},
+				{"-t", "table", "-X", "chain2"},
+				{"-t", "table", "-F", "chain"},
+				{"-t", "table", "-X", "chain"},
+			},
+		},
+		{
+			"with-jump-istio-prefix", // verify that rules inside ISTIO_* chains are not explicitly deleted
+			func(iptables *IptablesRuleBuilder) {
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "ISTIO_TEST", "table", "-f", "foo", "-b", "bar")
+				iptables.InsertRuleV4(iptableslog.UndefinedCommand, "chain", "table", 1, "-f", "foo", "-b", "bar", "-j", "ISTIO_TEST")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "table", "-f", "foo", "-b", "bar")
+				iptables.AppendRuleV6(iptableslog.UndefinedCommand, "ISTIO_TEST", "table", "-f", "foo", "-b", "baar")
+				iptables.InsertRuleV6(iptableslog.UndefinedCommand, "chain", "table", 1, "-f", "foo", "-b", "baar", "-j", "ISTIO_TEST")
+				iptables.AppendRuleV6(iptableslog.UndefinedCommand, "chain", "table", "-f", "foo", "-b", "baar")
+			},
+			[][]string{
+				{"-t", "table", "-D", "chain", "-f", "foo", "-b", "bar"},
+				{"-t", "table", "-D", "chain", "-f", "foo", "-b", "bar", "-j", "ISTIO_TEST"},
+				{"-t", "table", "-F", "chain"},
+				{"-t", "table", "-X", "chain"},
+				{"-t", "table", "-F", "ISTIO_TEST"},
+				{"-t", "table", "-X", "ISTIO_TEST"},
+			},
+			[][]string{
+				{"-t", "table", "-D", "chain", "-f", "foo", "-b", "baar"},
+				{"-t", "table", "-D", "chain", "-f", "foo", "-b", "baar", "-j", "ISTIO_TEST"},
+				{"-t", "table", "-F", "chain"},
+				{"-t", "table", "-X", "chain"},
+				{"-t", "table", "-F", "ISTIO_TEST"},
+				{"-t", "table", "-X", "ISTIO_TEST"},
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			iptables := NewIptablesRuleBuilder(builderConfig)
+			tt.setupFunc(iptables)
+			actual := iptables.BuildCleanupV4()
+			if !reflect.DeepEqual(actual, tt.expectedv4) {
+				t.Errorf("Actual and expected output mismatch; but instead got Actual: %#v ; Expected: %#v", actual, tt.expectedv4)
+			}
+			actual = iptables.BuildCleanupV6()
+			if !reflect.DeepEqual(actual, tt.expectedv6) {
+				t.Errorf("Actual and expected output mismatch; but instead got Actual: %#v ; Expected: %#v", actual, tt.expectedv6)
+			}
 		})
 	}
 }

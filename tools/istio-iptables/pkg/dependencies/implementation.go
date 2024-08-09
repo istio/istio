@@ -15,6 +15,7 @@
 package dependencies
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os/exec"
@@ -218,6 +219,11 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 // Run runs a command
 func (r *RealDependencies) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
 	return r.executeXTables(cmd, iptVer, false, stdin, args...)
+}
+
+// Run runs a command and returns stdout
+func (r *RealDependencies) RunWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error) {
+	return r.executeXTablesWithOutput(cmd, iptVer, false, stdin, args...)
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
