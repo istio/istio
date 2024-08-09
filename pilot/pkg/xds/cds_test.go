@@ -120,6 +120,7 @@ func TestSAN(t *testing.T) {
 			}},
 		},
 	}
+	// ServiceEntry for a Service in `default`, but with ServiceEntry in `test`. Proxy lives in `test`.
 	seEDS := config.Config{
 		Meta: config.Meta{
 			Name:             "service-entry",
@@ -142,6 +143,7 @@ func TestSAN(t *testing.T) {
 			}},
 		},
 	}
+	// ServiceEntry for a Service in `default`, but with ServiceEntry in `test`. Proxy lives in `test`.
 	seNONE := config.Config{
 		Meta: config.Meta{
 			Name:             "service-entry",
@@ -156,7 +158,7 @@ func TestSAN(t *testing.T) {
 				Protocol: "HTTP",
 				Name:     "http",
 			}},
-			SubjectAltNames: []string{"custom"},
+			SubjectAltNames: []string{"se-top"},
 			Resolution:      networking.ServiceEntry_NONE,
 		},
 	}
@@ -170,36 +172,35 @@ func TestSAN(t *testing.T) {
 			name:    "Kubernetes service and EDS ServiceEntry",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{dr, seEDS},
-			// The ServiceEntry rule will "win" the pushContext.ServiceAccounts.
-			// However, the Service will be processed first into a cluster. Since its not external, we do not add the SANs automatically
-			sans: nil,
+			// The ServiceEntry rule will "win" the conflict since it is in the proxy namespace.
+			sans: []string{"se-top", "spiffe://cluster.local/ns/test/sa/se-endpoint"},
 		},
 		{
 			name:    "Kubernetes service and NONE ServiceEntry",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{dr, seNONE},
-			// Service properly sets SAN. Since it's not external, we do not add the SANs automatically though
-			sans: nil,
+			// The ServiceEntry rule will "win" the conflict since it is in the proxy namespace.
+			sans: []string{"se-top"},
 		},
 		{
 			name:    "Kubernetes service and EDS ServiceEntry ISTIO_MUTUAL",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{drIstioMTLS, seEDS},
-			// The Service has precedence, so its cluster will be used
-			sans: []string{"spiffe://cluster.local/ns/default/sa/pod"},
+			// The ServiceEntry rule will "win" the conflict since it is in the proxy namespace.
+			sans: []string{"se-top", "spiffe://cluster.local/ns/test/sa/se-endpoint"},
 		},
 		{
 			name:    "Kubernetes service and NONE ServiceEntry ISTIO_MUTUAL",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{drIstioMTLS, seNONE},
-			// The Service has precedence, so its cluster will be used
-			sans: []string{"spiffe://cluster.local/ns/default/sa/pod"},
+			// The ServiceEntry rule will "win" the conflict since it is in the proxy namespace.
+			sans: []string{"se-top"},
 		},
 		{
 			name:    "NONE ServiceEntry ISTIO_MUTUAL",
 			configs: []config.Config{drIstioMTLS, seNONE},
 			// Totally broken; service level ServiceAccount are ignored.
-			sans: []string{"custom"},
+			sans: []string{"se-top"},
 		},
 	}
 	for _, tt := range cases {
