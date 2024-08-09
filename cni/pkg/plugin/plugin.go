@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"runtime/debug"
 	"strconv"
 	"time"
@@ -35,6 +36,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
+	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -52,12 +54,6 @@ const (
 	ISTIOPROXY = "istio-proxy"
 )
 
-// Kubernetes a K8s specific struct to hold config
-type Kubernetes struct {
-	Kubeconfig        string   `json:"kubeconfig"`
-	ExcludeNamespaces []string `json:"exclude_namespaces"`
-}
-
 // Config is whatever you expect your configuration json to be. This is whatever
 // is passed in on stdin. Your plugin may wish to expose its functionality via
 // runtime args, see CONVENTIONS.md in the CNI spec.
@@ -65,11 +61,10 @@ type Config struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	PluginLogLevel  string     `json:"plugin_log_level"`
-	LogUDSAddress   string     `json:"log_uds_address"`
-	CNIEventAddress string     `json:"cni_event_address"`
-	AmbientEnabled  bool       `json:"ambient_enabled"`
-	Kubernetes      Kubernetes `json:"kubernetes"`
+	PluginLogLevel    string   `json:"plugin_log_level"`
+	CNIAgentRunDir    string   `json:"cni_agent_run_dir"`
+	AmbientEnabled    bool     `json:"ambient_enabled"`
+	ExcludeNamespaces []string `json:"exclude_namespaces"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -118,10 +113,11 @@ func GetLoggingOptions(cfg *Config) *log.Options {
 	loggingOptions.OutputPaths = []string{"stderr"}
 	loggingOptions.JSONEncoding = true
 	if cfg != nil {
+		udsAddr := filepath.Join(cfg.CNIAgentRunDir, constants.LogUDSSocketName)
 		// Tee all logs to UDS. Stdout will go to kubelet (hard to access, UDS will be read by the CNI DaemonSet and exposed
 		// by normal `kubectl logs`
-		if cfg.LogUDSAddress != "" {
-			loggingOptions.WithTeeToUDS(cfg.LogUDSAddress, constants.UDSLogPath)
+		if file.Exists(udsAddr) {
+			loggingOptions.WithTeeToUDS(udsAddr, constants.UDSLogPath)
 		}
 		// Override plugin log level based on their config. Not we use "all" (OverrideScopeName) since there is no scoping in the plugin.
 		if cfg.PluginLogLevel != "" {
@@ -170,7 +166,9 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 }
 
 func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, rulesMgr InterceptRuleMgr) error {
-	setupLogging(conf)
+	if err := log.Configure(GetLoggingOptions(conf)); err != nil {
+		log.Error("Failed to configure istio-cni logging")
+	}
 
 	var loggedPrevResult any
 	if conf.PrevResult == nil {
@@ -196,7 +194,7 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 		return nil
 	}
 
-	for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
+	for _, excludeNs := range conf.ExcludeNamespaces {
 		if podNamespace == excludeNs {
 			log.Infof("pod namespace excluded")
 			return nil
@@ -220,7 +218,8 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 
 		// Only send event if this pod "would be" an ambient-watched pod - otherwise skip
 		if podIsAmbient {
-			cniClient := newCNIClient(conf.CNIEventAddress, constants.CNIAddEventPath)
+			cniEventAddr := filepath.Join(conf.CNIAgentRunDir, constants.CNIEventSocketName)
+			cniClient := newCNIClient(cniEventAddr, constants.CNIAddEventPath)
 			if err = PushCNIEvent(cniClient, args, prevResIps, podName, podNamespace); err != nil {
 				log.Errorf("istio-cni cmdAdd failed to signal node Istio CNI agent: %s", err)
 				return err
@@ -302,15 +301,6 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 	}
 
 	return nil
-}
-
-func setupLogging(conf *Config) {
-	if conf.LogUDSAddress != "" {
-		// reconfigure log output with tee to UDS if UDS log is enabled.
-		if err := log.Configure(GetLoggingOptions(conf)); err != nil {
-			log.Error("Failed to configure istio-cni with UDS log")
-		}
-	}
 }
 
 func pluginResponse(conf *Config) error {

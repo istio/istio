@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
@@ -41,7 +42,7 @@ type Installer struct {
 func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	return &Installer{
 		cfg:                cfg,
-		kubeconfigFilepath: filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename),
+		kubeconfigFilepath: filepath.Join(cfg.CNIAgentRunDir, constants.CNIPluginKubeconfName),
 		isReady:            isReady,
 	}
 }
@@ -56,10 +57,12 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 		return copiedFiles, fmt.Errorf("copy binaries: %v", err)
 	}
 
-	// Install kubeconfig (if needed) - we write/update this in the shared node CNI netdir,
-	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
-	// unless it's missing or the contents are not what we expect.
-	if err := maybeWriteKubeConfigFile(in.cfg); err != nil {
+	// Write kubeconfig with our current service account token as the contents, to the Istio agent rundir.
+	// We do not write this to the common/shared CNI config dir, because it's not CNI config, we do not
+	// need to watch it, and writing non-shared stuff to that location creates churn for other node agents.
+	// Only our plugin consumes this kubeconfig, and it resides in our owned rundir on the host node,
+	// so we are good to simply write it out if our watched svcacct token changes.
+	if err := writeKubeConfigFile(in.cfg); err != nil {
 		cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
 		return copiedFiles, fmt.Errorf("write kubeconfig: %v", err)
 	}

@@ -17,12 +17,14 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
@@ -41,7 +43,7 @@ type PodInfo struct {
 // newK8sClient returns a Kubernetes client
 func newK8sClient(conf Config) (kubernetes.Interface, error) {
 	// Some config can be passed in a kubeconfig file
-	kubeconfig := conf.Kubernetes.Kubeconfig
+	kubeconfig := filepath.Join(conf.CNIAgentRunDir, constants.CNIPluginKubeconfName)
 
 	config, err := kube.DefaultRestConfig(kubeconfig, "")
 	if err != nil {
