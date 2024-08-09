@@ -236,6 +236,12 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		"-j", ChainInpodOutput,
 	)
 
+	// -t nat -A PREROUTING -p tcp -j ISTIO_PRERT
+	iptablesBuilder.AppendRule(
+		iptableslog.UndefinedCommand, iptablesconstants.PREROUTING, iptablesconstants.NAT,
+		"-j", ChainInpodPrerouting,
+	)
+
 	// From here on, we should be only inserting rules into our custom chains.
 
 	// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
@@ -245,24 +251,6 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		"--mark", inpodMark,
 		"-j", "CONNMARK",
 		"--set-xmark", inpodTproxyMark)
-
-	// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
-	// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
-	//
-	// We do this so we can exempt this traffic from ztunnel capture/proxy - otherwise both kube-proxy (legit)
-	// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
-
-	// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
-	// CLI: -t mangle -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
-	//
-	// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
-	iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
-		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-		"-s", iptablesconstants.IPVersionSpecific,
-		"-p", "tcp",
-		"-m", "tcp",
-		"-j", "ACCEPT",
-	)
 
 	// CLI: -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp -j ACCEPT
 	// CLI: -t NAT -A ISTIO_OUTPUT -d fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp -j ACCEPT
@@ -277,38 +265,21 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		"-j", "ACCEPT",
 	)
 
-	// prevent intercept traffic from app ==> app by pod ip
-	iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
-		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-		"!", "-d", iptablesconstants.IPVersionSpecific, // ignore traffic to localhost ip, as this rule means to catch traffic to pod ip.
-		"-p", iptablesconstants.TCP,
-		"-i", "lo",
-		"-j", "ACCEPT")
-
-	// CLI: -A ISTIO_PRERT -p tcp -m tcp --dport <INPORT> -m mark ! --mark 0x539/0xfff -j TPROXY --on-port <INPORT> --on-ip 127.0.0.1 --tproxy-mark 0x111/0xfff
+	// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
+	// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
 	//
-	// DESC: Anything heading to <INPORT> that does not have the mark, TPROXY to ztunnel inbound port <INPORT>
-	iptablesBuilder.AppendRule(
-		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
+	// We do this so we can exempt this traffic from ztunnel capture/proxy - otherwise both kube-proxy (legit)
+	// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
+
+	// CLI: -t nat -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+	// CLI: -t nat -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+	//
+	// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
+	iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
+		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
+		"-s", iptablesconstants.IPVersionSpecific,
 		"-p", "tcp",
 		"-m", "tcp",
-		"--dport", fmt.Sprintf("%d", ZtunnelInboundPort),
-		"-m", "mark", "!",
-		"--mark", inpodMark,
-		"-j", "TPROXY",
-		"--on-port", fmt.Sprintf("%d", ZtunnelInboundPort),
-		// "--on-ip", "127.0.0.1",
-		"--tproxy-mark", inpodTproxyMark,
-	)
-
-	// CLI: -A ISTIO_PRERT -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-	//
-	// DESC: Anything that's already in conntrack as an established connection, accept
-	iptablesBuilder.AppendRule(
-		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-		"-p", "tcp",
-		"-m", "conntrack",
-		"--ctstate", "RELATED,ESTABLISHED",
 		"-j", "ACCEPT",
 	)
 
@@ -316,15 +287,14 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 	//
 	// DESC: Anything that is not bound for localhost and does not have the mark, TPROXY to ztunnel inbound plaintext port <INPLAINPORT>
 	iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
-		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
+		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
 		"!", "-d", iptablesconstants.IPVersionSpecific,
 		"-p", "tcp",
+		"!", "--dport", fmt.Sprint(ZtunnelInboundPort),
 		"-m", "mark", "!",
 		"--mark", inpodMark,
-		"-j", "TPROXY",
-		"--on-port", fmt.Sprintf("%d", ZtunnelInboundPlaintextPort),
-		// "--on-ip", "127.0.0.1",
-		"--tproxy-mark", inpodTproxyMark,
+		"-j", "REDIRECT",
+		"--to-ports", fmt.Sprint(ZtunnelInboundPlaintextPort),
 	)
 
 	// CLI: -A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
