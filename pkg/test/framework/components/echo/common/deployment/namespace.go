@@ -54,9 +54,9 @@ type EchoNamespace struct {
 	B echo.Instances
 	// Standard echo app to be used by tests
 	C echo.Instances
-	// Dual-stack echo app to be used by tests if running in dual-stack mode
+	// v4-only echo app to be used by tests if running in dual-stack mode
 	D echo.Instances
-	// IPv6 only echo app to be used by tests if running in dual-stack mode
+	// v6-only echo app to be used by tests if running in dual-stack mode
 	E echo.Instances
 	// Standard echo app with TPROXY interception mode to be used by tests
 	Tproxy echo.Instances

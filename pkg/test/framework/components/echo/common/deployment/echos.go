@@ -282,8 +282,8 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Ports:           ports.All(),
 			Subsets:         []echo.SubsetConfig{{}},
 			IncludeExtAuthz: c.IncludeExtAuthz,
-			IPFamilies:      "IPv6, IPv4",
-			IPFamilyPolicy:  string(corev1.IPFamilyPolicyRequireDualStack),
+			IPFamilies:      "IPv4",
+			IPFamilyPolicy:  string(corev1.IPFamilyPolicySingleStack),
 			DualStack:       true,
 		}
 		eSvc := echo.Config{
