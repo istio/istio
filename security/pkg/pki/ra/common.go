@@ -45,22 +45,35 @@ type CaExternalType string
 // IstioRAOptions : Configuration Options for the IstioRA
 type IstioRAOptions struct {
 	// ExternalCAType: Integration API type with external CA
+	// Only ISTIOD_RA_KUBERNETES_API is supported
+	// DEPRECATED - when a different CA type is supported, we can add the appropriate options in another field.
 	ExternalCAType CaExternalType
+
 	// DefaultCertTTL: Default Certificate TTL
 	DefaultCertTTL time.Duration
+
 	// MaxCertTTL: Maximum Certificate TTL that can be requested
 	MaxCertTTL time.Duration
+
 	// CaCertFile : File containing PEM encoded CA root certificate of external CA
+	// Mounted from ./etc/external-ca-cert/root-cert.pem (external-ca-cert volume)
+	// or /var/run/secrets/kubernetes.io/serviceaccount/ca.crt for legacy signer
 	CaCertFile string
+
 	// CaSigner : To indicate custom CA Signer name when using external K8s CA
+	// Set using K8S_SIGNER
 	CaSigner string
+
 	// VerifyAppendCA : Whether to use caCertFile containing CA root cert to verify and append to signed cert-chain
 	VerifyAppendCA bool
 	// K8sClient : K8s API client
 	K8sClient clientset.Interface
 	// TrustDomain
 	TrustDomain string
-	// CertSignerDomain info
+	// CertSignerDomain is based on CERT_SIGNER_DOMAIN env variable
+	// It is concatenated with a user-supplied header - and used to dynamically select the K8S signer.
+	// This can be dangerous - Istio does not enforce any namespace or policy check, and the signer doesn't
+	// have any information about the client.
 	CertSignerDomain string
 }
 
@@ -177,6 +190,8 @@ func NewIstioRA(opts *IstioRAOptions) (RegistrationAuthority, error) {
 }
 
 // preSign : Validation checks to execute before signing certificates
+// Will set the requestedLifetime to default (24h unless set by flag) and reject
+// CA certs and lifetime longer than max (which defaults to 24h as well)
 func preSign(raOpts *IstioRAOptions, csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) (time.Duration, error) {
 	if forCA {
 		return requestedLifetime, raerror.NewError(raerror.CSRError,

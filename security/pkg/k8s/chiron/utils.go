@@ -42,7 +42,10 @@ const (
 var certWatchTimeout = 60 * time.Second
 
 // GenKeyCertK8sCA : Generates a key pair and gets public certificate signed by K8s_CA
-// Options are meant to sign DNS certs
+// Options are meant to sign DNS certs - used for Istiod certificates.
+//
+// signerName is required.
+//
 // 1. Generate a CSR
 // 2. Call SignCSRK8s to finish rest of the flow
 func GenKeyCertK8sCA(client clientset.Interface, dnsName,
