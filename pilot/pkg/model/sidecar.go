@@ -233,8 +233,7 @@ type IstioEgressListenerWrapper struct {
 	virtualServices []config.Config
 
 	// An index of hostname to the namespaced name of the VirtualService containing the most
-	// relevant host match. Depending on the `PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING`
-	// feature flag, it could be the most specific host match or the oldest host match.
+	// specific host match.
 	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName
 }
 
