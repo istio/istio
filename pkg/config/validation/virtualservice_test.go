@@ -479,6 +479,76 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
+		{name: "invalid percentage match upper range", route: &networking.HTTPRoute{
+			Delegate: &networking.Delegate{
+				Name:      "test",
+				Namespace: "test",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Exact{Exact: "/"},
+				},
+				Percentage: &networking.Percent{
+					Value: 101.0,
+				},
+			}},
+		}, valid: false},
+		{name: "invalid percentage match lower range", route: &networking.HTTPRoute{
+			Delegate: &networking.Delegate{
+				Name:      "test",
+				Namespace: "test",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Exact{Exact: "/"},
+				},
+				Percentage: &networking.Percent{
+					Value: 0.00001,
+				},
+			}},
+		}, valid: false},
+		{name: "percentage match 0.0", route: &networking.HTTPRoute{
+			Delegate: &networking.Delegate{
+				Name:      "test",
+				Namespace: "test",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Exact{Exact: "/"},
+				},
+				Percentage: &networking.Percent{
+					Value: 0.0,
+				},
+			}},
+		}, valid: true},
+		{name: "percentage match 100.0", route: &networking.HTTPRoute{
+			Delegate: &networking.Delegate{
+				Name:      "test",
+				Namespace: "test",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Exact{Exact: "/"},
+				},
+				Percentage: &networking.Percent{
+					Value: 100.0,
+				},
+			}},
+		}, valid: true},
+		{name: "percentage match 10.5", route: &networking.HTTPRoute{
+			Delegate: &networking.Delegate{
+				Name:      "test",
+				Namespace: "test",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Exact{Exact: "/"},
+				},
+				Percentage: &networking.Percent{
+					Value: 10.5,
+				},
+			}},
+		}, valid: true},
 	}
 
 	for _, tc := range testCases {

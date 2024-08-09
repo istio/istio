@@ -276,6 +276,24 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes[0].GetRoute().GetRetryPolicy().RetryHostPredicate)).To(Equal(1))
 	})
 
+	t.Run("for virtual service with percentage set for a match on URI", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithPercentageMatch,
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(3))
+		g.Expect(routes[0].GetMatch().GetPrefix()).To(Equal("/foo"))
+		g.Expect(routes[0].GetMatch().GetRuntimeFraction().DefaultValue.Numerator).To(Equal(uint32(100000)))
+		g.Expect(routes[1].GetMatch().GetPrefix()).To(Equal("/baz"))
+		g.Expect(routes[1].GetMatch().GetRuntimeFraction()).To(BeNil())
+		g.Expect(routes[2].GetMatch().GetPrefix()).To(Equal("/bar"))
+		g.Expect(routes[2].GetMatch().GetRuntimeFraction()).To(BeNil())
+		g.Expect(len(routes[0].GetRoute().GetRetryPolicy().RetryHostPredicate)).To(Equal(1))
+	})
+
 	t.Run("for virtual service with exact matching on JWT claims", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
@@ -2697,6 +2715,77 @@ var virtualServiceWithStatPrefix = config.Config{
 							},
 						},
 						StatPrefix: "foo",
+					},
+					{
+						Name: "baz",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/baz",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+			{
+				Name: "bar",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "bar",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/bar",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "bar.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithPercentageMatch = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts: []string{},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "foo",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "foo",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/foo",
+							},
+						},
+						Percentage: &networking.Percent{
+							Value: 10.0,
+						},
 					},
 					{
 						Name: "baz",
