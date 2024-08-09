@@ -1419,6 +1419,30 @@ func TestAuthz_Conditions(t *testing.T) {
 							headers: headers.New().With("x-foo", "bar").Build(),
 							allow:   false,
 						},
+						{
+							path:    "/request-headers-valueContains",
+							headers: headers.New().With("Cookie", "foo=bar").Build(),
+							allow:   true,
+						},
+						{
+							path:    "/request-headers-valueContains",
+							headers: headers.New().With("Cookie", "abc=bar").Build(),
+							allow:   false,
+						},
+						{
+							path:    "/request-headers-valueContains",
+							headers: headers.New().With("Cookie", "foo=bar; abc=bar").Build(),
+							allow:   true,
+						},
+						{
+							path:    "/request-headers-valueContains",
+							headers: headers.New().With("Cookie", "abc=bar; foo=bar").Build(),
+							allow:   true,
+						},
+						{
+							path:  "/request-headers-valueContains",
+							allow: false,
+						},
 
 						// Test source IP
 						{
