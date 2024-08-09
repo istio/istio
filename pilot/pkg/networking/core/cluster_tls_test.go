@@ -1861,6 +1861,30 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			},
 			userSupplied,
 		},
+		{
+			"Metadata certs with Mesh Exteranl",
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				PrivateKey:        "/custom/external/key.pem",
+				ClientCertificate: "/custom/external/chain.pem",
+				CaCertificates:    "/custom/external/root.pem",
+			},
+			[]string{"custom.foo.com"},
+			"custom.foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/custom/meta/chain.pem",
+				TLSClientKey:       "/custom/meta/key.pem",
+				TLSClientRootCert:  "/custom/meta/root.pem",
+			}},
+			false, true, model.MTLSUnknown,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				PrivateKey:        "/custom/external/key.pem",
+				ClientCertificate: "/custom/external/chain.pem",
+				CaCertificates:    "/custom/external/root.pem",
+			},
+			userSupplied,
+		},
 	}
 
 	for _, tt := range tests {

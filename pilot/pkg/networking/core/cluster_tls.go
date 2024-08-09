@@ -412,6 +412,12 @@ func (cb *ClusterBuilder) buildUpstreamTLSSettings(
 		}
 		// For backward compatibility, use metadata certs if provided.
 		if cb.hasMetadataCerts() {
+			// For mesh external services, we should always use user supplied settings because even though
+			// the proxy has metadata certs, the destination may have different CA certs. So we need to honor
+			// the user supplied settings in Destination Rule.
+			if meshExternal {
+				return tls, userSupplied
+			}
 			// When building Mutual TLS settings, we should always use user supplied SubjectAltNames and SNI
 			// in destination rule. The Service Accounts and auto computed SNI should only be used for
 			// ISTIO_MUTUAL.
