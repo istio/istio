@@ -2394,16 +2394,14 @@ func TestHttpProxyListenerPerWorkload(t *testing.T) {
 
 func TestHttpProxyListener_Tracing(t *testing.T) {
 	customTagsTest := []struct {
-		name             string
-		in               *meshconfig.Tracing
-		out              *hcm.HttpConnectionManager_Tracing
-		tproxy           *model.Proxy
-		envPilotSampling float64
+		name   string
+		in     *meshconfig.Tracing
+		out    *hcm.HttpConnectionManager_Tracing
+		tproxy *model.Proxy
 	}{
 		{
-			name:             "random-sampling-env",
-			tproxy:           getProxy(),
-			envPilotSampling: 80.0,
+			name:   "random-sampling-env",
+			tproxy: getProxy(),
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
 				CustomTags:       nil,
@@ -2416,7 +2414,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100.0,
 				},
 				RandomSampling: &xdstype.Percent{
-					Value: 80.0,
+					Value: 1.0,
 				},
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
@@ -2425,9 +2423,8 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			},
 		},
 		{
-			name:             "random-sampling-env-and-meshconfig",
-			tproxy:           getProxy(),
-			envPilotSampling: 80.0,
+			name:   "random-sampling-env-and-meshconfig",
+			tproxy: getProxy(),
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
 				CustomTags:       nil,
@@ -2449,9 +2446,8 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			},
 		},
 		{
-			name:             "random-sampling-too-low-env",
-			tproxy:           getProxy(),
-			envPilotSampling: -1,
+			name:   "random-sampling-too-low-env",
+			tproxy: getProxy(),
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
 				CustomTags:       nil,
@@ -2473,9 +2469,8 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			},
 		},
 		{
-			name:             "random-sampling-too-high-meshconfig",
-			tproxy:           getProxy(),
-			envPilotSampling: 80.0,
+			name:   "random-sampling-too-high-meshconfig",
+			tproxy: getProxy(),
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
 				CustomTags:       nil,
@@ -2497,9 +2492,8 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			},
 		},
 		{
-			name:             "random-sampling-too-high-env",
-			tproxy:           getProxy(),
-			envPilotSampling: 2000.0,
+			name:   "random-sampling-too-high-env",
+			tproxy: getProxy(),
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
 				CustomTags:       nil,
@@ -2687,10 +2681,6 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 	}
 	for _, tc := range customTagsTest {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.envPilotSampling != 0.0 {
-				test.SetForTest(t, &features.TraceSampling, tc.envPilotSampling)
-			}
-
 			m := mesh.DefaultMeshConfig()
 			m.ProxyHttpPort = 15007
 			m.EnableTracing = true

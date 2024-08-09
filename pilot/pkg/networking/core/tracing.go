@@ -31,7 +31,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	telemetrypb "istio.io/api/telemetry/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
@@ -577,8 +576,7 @@ func configureSampling(hcmTracing *hcm.HttpConnectionManager_Tracing, providerPe
 }
 
 func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
-	// PILOT_TRACE_SAMPLING
-	sampling := features.TraceSampling
+	sampling := 1.0
 
 	// Tracing from default_config
 	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
