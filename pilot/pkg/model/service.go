@@ -1265,7 +1265,9 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 			}
 		}
 
-		if node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate && s.DefaultAddress == constants.UnspecifiedIP {
+		if node.Metadata.DNSCapture &&
+			(node.Metadata.DNSAutoAllocate || pm.StringBool(features.EnableIPAutoallocate)) &&
+			s.DefaultAddress == constants.UnspecifiedIP {
 			if node.SupportsIPv4() && s.AutoAllocatedIPv4Address != "" {
 				return s.AutoAllocatedIPv4Address
 			}
