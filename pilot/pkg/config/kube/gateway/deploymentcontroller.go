@@ -168,7 +168,7 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			templates:          "waypoint",
 			disableNameSuffix:  true,
 			defaultServiceType: corev1.ServiceTypeClusterIP,
-			addressType:        gateway.IPAddressType,
+			addressType:        "", // Report both
 		}
 	}
 	return m
