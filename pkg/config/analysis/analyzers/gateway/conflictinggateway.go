@@ -110,9 +110,9 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 // isGWConflict implements gateway's hosts match
 func isGWConflict(server *v1alpha3.Server, knowHostsBind gatewayHostsBind) bool {
 	newHostsBind := knowHostsBind
-	// CheckGatewayHostsDuplicates returns all of the hosts provided that are already known
+	// CheckDuplicates returns all of the hosts provided that are already known
 	// If there were no duplicates, all hosts are added to the known hosts.
-	duplicates := model.CheckGatewayHostsDuplicates(server.GetHosts(), server.GetBind(), newHostsBind)
+	duplicates := model.CheckDuplicates(server.GetHosts(), server.GetBind(), newHostsBind)
 	return len(duplicates) > 0
 }
 
