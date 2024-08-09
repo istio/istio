@@ -45,11 +45,11 @@ func TestHeaderMatcher(t *testing.T) {
 		{
 			Name: "suffix match",
 			K:    ":path",
-			V:    "*/productpage*",
+			V:    "*/productpage",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: StringMatcherSuffix("/productpage*", false),
+					StringMatch: StringMatcherSuffix("/productpage", false),
 				},
 			},
 		},
