@@ -83,7 +83,7 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 		}
 
 		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
-		gwRes := c.Find(gvk.Gateway, gwFullName)
+		gwRes := c.Find(gvk.Gateway, gwFullName, r.Metadata.UID)
 		if gwRes == nil {
 			// The gateway does not exist, this should already be covered by the gateway analyzer.
 			continue

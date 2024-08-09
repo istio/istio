@@ -53,6 +53,12 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+// clusterStoreWithController stores the config sources in a cluster (with additional handlers) to analyze.
+type clusterStoreWithController struct {
+	clusterID             cluster.ID
+	configStoreController model.ConfigStoreController
+}
+
 // IstiodAnalyzer handles local analysis of k8s event sources, both live and file-based
 type IstiodAnalyzer struct {
 	// internalStore stores synthetic configs for analysis (mesh config, etc)
@@ -60,7 +66,7 @@ type IstiodAnalyzer struct {
 	// stores contains all the (non file) config sources to analyze
 	stores []model.ConfigStoreController
 	// multiClusterStores contains all the multi-cluster config sources to analyze
-	multiClusterStores map[cluster.ID]model.ConfigStoreController
+	multiClusterStores []*clusterStoreWithController
 	// cluster is the cluster ID for the environment we are analyzing
 	cluster cluster.ID
 	// fileSource contains all file bases sources
@@ -122,7 +128,7 @@ func NewIstiodAnalyzer(analyzer analysis.CombinedAnalyzer, namespace,
 		kubeResources:      kubeResources,
 		collectionReporter: cr,
 		clientsToRun:       []kubelib.Client{},
-		multiClusterStores: make(map[cluster.ID]model.ConfigStoreController),
+		multiClusterStores: []*clusterStoreWithController{},
 	}
 
 	return sa
@@ -141,7 +147,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 func (sa *IstiodAnalyzer) internalAnalyze(a analysis.CombinedAnalyzer, cancel <-chan struct{}) (AnalysisResult, error) {
 	var schemas collection.Schemas
 	for _, store := range sa.multiClusterStores {
-		schemas = schemas.Union(store.Schemas())
+		schemas = schemas.Union(store.configStoreController.Schemas())
 	}
 
 	var result AnalysisResult
@@ -150,13 +156,17 @@ func (sa *IstiodAnalyzer) internalAnalyze(a analysis.CombinedAnalyzer, cancel <-
 	result.MappedMessages = make(map[string]diag.Messages, len(result.ExecutedAnalyzers))
 
 	for _, store := range sa.multiClusterStores {
-		kubelib.WaitForCacheSync("istiod analyzer", cancel, store.HasSynced)
+		kubelib.WaitForCacheSync("istiod analyzer", cancel, store.configStoreController.HasSynced)
 	}
 
-	stores := map[cluster.ID]model.ConfigStore{}
-	for k, v := range sa.multiClusterStores {
-		stores[k] = v
+	var stores []*ClusterStore
+	for _, mcs := range sa.multiClusterStores {
+		stores = append(stores, &ClusterStore{
+			ClusterID:   mcs.clusterID,
+			ConfigStore: mcs.configStoreController,
+		})
 	}
+
 	ctx := NewContext(stores, cancel, sa.collectionReporter)
 
 	a.Analyze(ctx)
@@ -235,9 +245,12 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	sa.multiClusterStores[sa.cluster] = store
+	sa.multiClusterStores = append(sa.multiClusterStores, &clusterStoreWithController{
+		clusterID:             sa.cluster,
+		configStoreController: store,
+	})
 	for _, mcs := range sa.multiClusterStores {
-		go mcs.Run(cancel)
+		go mcs.configStoreController.Run(cancel)
 	}
 	return nil
 }
@@ -424,7 +437,10 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		if clusterID == "" {
 			clusterID = "default"
 		}
-		sa.multiClusterStores[clusterID] = store
+		sa.multiClusterStores = append(sa.multiClusterStores, &clusterStoreWithController{
+			clusterID:             clusterID,
+			configStoreController: store,
+		})
 	} else {
 		sa.stores = append(sa.stores, store)
 	}
@@ -550,7 +566,10 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 // AddSourceForCluster adds a source based on user supplied configstore to the current IstiodAnalyzer with cluster specified.
 // It functions like the same as AddSource, but it adds the source to the specified cluster.
 func (sa *IstiodAnalyzer) AddSourceForCluster(src model.ConfigStoreController, clusterName cluster.ID) {
-	sa.multiClusterStores[clusterName] = src
+	sa.multiClusterStores = append(sa.multiClusterStores, &clusterStoreWithController{
+		clusterID:             clusterName,
+		configStoreController: src,
+	})
 }
 
 // CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context

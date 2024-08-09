@@ -29,10 +29,10 @@ type Context interface {
 	Report(c config.GroupVersionKind, t diag.Message)
 
 	// Find a resource in the collection. If not found, nil is returned
-	Find(c config.GroupVersionKind, name resource.FullName) *resource.Instance
+	Find(c config.GroupVersionKind, name resource.FullName, uid resource.UID) *resource.Instance
 
 	// Exists returns true if the specified resource exists in the context, false otherwise
-	Exists(c config.GroupVersionKind, name resource.FullName) bool
+	Exists(c config.GroupVersionKind, name resource.FullName, uid resource.UID) bool
 
 	// ForEach iterates over all the entries of a given collection.
 	ForEach(c config.GroupVersionKind, fn IteratorFn)

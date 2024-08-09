@@ -58,7 +58,7 @@ func (gateway *CertificateAnalyzer) analyzeDuplicateCertificate(currentResource 
 			continue
 		}
 
-		gatewayInstance := context.Find(gvk.Gateway, gatewayFullName)
+		gatewayInstance := context.Find(gvk.Gateway, gatewayFullName, currentResource.Metadata.UID)
 		gateway := gatewayInstance.Message.(*v1alpha3.Gateway)
 		for _, currentServer := range currentGateway.Servers {
 			for _, server := range gateway.Servers {

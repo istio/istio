@@ -69,8 +69,12 @@ func getObjectLabels() []klabels.Set {
 }
 
 func (a *Analyzer) Analyze(context analysis.Context) {
+	type webhook struct {
+		mwhs []v1.MutatingWebhook
+		uid  resource.UID
+	}
 	// First, extract and index all webhooks we found
-	webhooks := map[string][]v1.MutatingWebhook{}
+	webhooks := map[string]webhook{}
 	resources := map[string]*resource.Instance{}
 	revisions := sets.New[string]()
 	context.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
@@ -82,7 +86,10 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 		if len(revs) == 0 && !isIstioWebhook(wh) {
 			return true
 		}
-		webhooks[resource.Metadata.FullName.String()] = wh.Webhooks
+		webhooks[resource.Metadata.FullName.String()] = webhook{
+			mwhs: wh.Webhooks,
+			uid:  resource.Metadata.UID,
+		}
 		for _, h := range wh.Webhooks {
 			resources[fmt.Sprintf("%v/%v", resource.Metadata.FullName.String(), h.Name)] = resource
 		}
@@ -111,7 +118,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 		for _, ol := range objectLabels {
 			matches := sets.New[string]()
 			for name, whs := range webhooks {
-				for _, wh := range whs {
+				for _, wh := range whs.mwhs {
 					if selectorMatches(wh.NamespaceSelector, nl) && selectorMatches(wh.ObjectSelector, ol) {
 						matches.Insert(fmt.Sprintf("%v/%v", name, wh.Name))
 					}
@@ -131,17 +138,17 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	if a.SkipServiceCheck {
 		return
 	}
-	for name, whs := range webhooks {
-		for _, wh := range whs {
-			if wh.ClientConfig.Service == nil {
+	for name, wh := range webhooks {
+		for _, mwh := range wh.mwhs {
+			if mwh.ClientConfig.Service == nil {
 				// it is an url, skip it
 				continue
 			}
 			fname := resource.NewFullName(
-				resource.Namespace(wh.ClientConfig.Service.Namespace),
-				resource.LocalName(wh.ClientConfig.Service.Name))
-			if !context.Exists(gvk.Service, fname) {
-				context.Report(gvk.MutatingWebhookConfiguration, msg.NewInvalidWebhook(resources[fmt.Sprintf("%v/%v", name, wh.Name)],
+				resource.Namespace(mwh.ClientConfig.Service.Namespace),
+				resource.LocalName(mwh.ClientConfig.Service.Name))
+			if !context.Exists(gvk.Service, fname, wh.uid) {
+				context.Report(gvk.MutatingWebhookConfiguration, msg.NewInvalidWebhook(resources[fmt.Sprintf("%v/%v", name, mwh.Name)],
 					fmt.Sprintf("Injector refers to a control plane service that does not exist: %v.", fname)))
 			}
 		}

@@ -92,7 +92,7 @@ func TestAnalyzersRun(t *testing.T) {
 	m := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Exists(K8SCollection1.GroupVersionKind(), resource.NewFullName("", ""))
+			ctx.Exists(K8SCollection1.GroupVersionKind(), resource.NewFullName("", ""), resource.UID("uid"))
 			ctx.Report(K8SCollection1.GroupVersionKind(), m)
 		},
 	}
