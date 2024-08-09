@@ -21,8 +21,6 @@ import (
 	"strings"
 	"time"
 
-	v1alpha12 "istio.io/api/analysis/v1alpha1"
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -71,14 +69,9 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize analysis controller, releasing lease: %s", err)
 	}
-	ctl := statusManager.CreateIstioStatusController(func(status *v1alpha1.IstioStatus, context any) *v1alpha1.IstioStatus {
+	ctl := statusManager.CreateIstioStatusController(func(status status.Manipulator, context any) {
 		msgs := context.(diag.Messages)
-		// zero out analysis messages, as this is the sole controller for those
-		status.ValidationMessages = []*v1alpha12.AnalysisMessageBase{}
-		for _, msg := range msgs {
-			status.ValidationMessages = append(status.ValidationMessages, msg.AnalysisMessageBase())
-		}
-		return status
+		status.SetValidationMessages(msgs)
 	})
 	return &Controller{analyzer: ia, statusctl: ctl}, nil
 }
