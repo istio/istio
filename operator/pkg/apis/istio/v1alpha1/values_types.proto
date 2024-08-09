@@ -600,10 +600,6 @@ message GlobalConfig {
   // mechanisms (e.g., environmental variable CA_PROVIDER).
   string caName = 65;
 
-  // TODO: remove this?
-  // No longer used.
-  google.protobuf.BoolValue autoscalingv2API = 66;
-
   // Platform in which Istio is deployed. Possible values are: "openshift" and "gcp"
   // An empty value means it is a vanilla Kubernetes distribution, therefore no special
   // treatment will be considered.

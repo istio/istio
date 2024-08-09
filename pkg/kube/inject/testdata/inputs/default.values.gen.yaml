@@ -4,7 +4,6 @@
     "securityContext": {}
   },
   "global": {
-    "autoscalingv2API": true,
     "caAddress": "",
     "caName": "",
     "certSigners": [],
