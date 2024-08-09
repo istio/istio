@@ -2023,6 +2023,26 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
+		{name: "allow sni based domains", in: &networking.VirtualService{
+			Hosts:    []string{"outbound_.15010_._.istiod.istio-system.svc.cluster.local"},
+			Gateways: []string{"ns1/gateway"},
+			Tls: []*networking.TLSRoute{
+				{
+					Match: []*networking.TLSMatchAttributes{
+						{
+							SniHosts: []string{"outbound_.15010_._.istiod.istio-system.svc.cluster.local"},
+						},
+					},
+					Route: []*networking.RouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "istio.istio-system.svc.cluster.local",
+							},
+						},
+					},
+				},
+			},
+		}, valid: true},
 		{name: "duplicate hosts", in: &networking.VirtualService{
 			Hosts: []string{"*.foo.bar", "*.bar"},
 			Http: []*networking.HTTPRoute{{
