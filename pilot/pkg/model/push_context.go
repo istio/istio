@@ -359,6 +359,9 @@ type PushRequest struct {
 	// The kind of resources are defined in pkg/config/schemas.
 	ConfigsUpdated sets.Set[ConfigKey]
 
+	// SkipXDSPush indicates that we don't need to generate and push the xDS to Envoy.
+	SkipXDSPush bool
+
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
 	Push *PushContext
@@ -489,6 +492,9 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 
 	// If either is full we need a full push
 	pr.Full = pr.Full || other.Full
+
+	// If both skip xDS generation, then skip
+	pr.SkipXDSPush = pr.SkipXDSPush && other.SkipXDSPush
 
 	// The other push context is presumed to be later and more up to date
 	if other.Push != nil {

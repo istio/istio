@@ -483,6 +483,11 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		return nil
 	}
 
+	if features.EnableConditionalXDSPush && pushRequest.SkipXDSPush {
+		log.Debugf("Skipping push to %v, no updates required because the push event is caused by gateway api status changing only", con.ID())
+		return nil
+	}
+
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
 	wrl := con.watchedResourcesByOrder()

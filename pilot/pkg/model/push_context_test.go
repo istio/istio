@@ -86,27 +86,30 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"simple merge",
 			&PushRequest{
-				Full:  true,
-				Push:  push0,
-				Start: t0,
+				Full:        true,
+				SkipXDSPush: true,
+				Push:        push0,
+				Start:       t0,
 				ConfigsUpdated: sets.Set[ConfigKey]{
 					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
 				},
 				Reason: NewReasonStats(ServiceUpdate, ServiceUpdate),
 			},
 			&PushRequest{
-				Full:  false,
-				Push:  push1,
-				Start: t1,
+				Full:        false,
+				SkipXDSPush: false,
+				Push:        push1,
+				Start:       t1,
 				ConfigsUpdated: sets.Set[ConfigKey]{
 					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
 				Reason: NewReasonStats(EndpointUpdate),
 			},
 			PushRequest{
-				Full:  true,
-				Push:  push1,
-				Start: t0,
+				Full:        true,
+				SkipXDSPush: false,
+				Push:        push1,
+				Start:       t0,
 				ConfigsUpdated: sets.Set[ConfigKey]{
 					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
 					{Kind: kind.Kind(2), Namespace: "ns2"}: {},

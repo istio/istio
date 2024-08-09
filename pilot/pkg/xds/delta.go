@@ -165,6 +165,11 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		return nil
 	}
 
+	if features.EnableConditionalXDSPush && pushRequest.SkipXDSPush {
+		deltaLog.Debugf("Skipping push to %v, no updates required because the push event is caused by gateway api status changing only", con.ID())
+		return nil
+	}
+
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
 	wrl := con.watchedResourcesByOrder()
