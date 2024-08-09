@@ -238,6 +238,21 @@ func ValidateHTTPHeaderName(name string) error {
 	return nil
 }
 
+// ValidateCORSHTTPHeaderName validates a headers for CORS.
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Headers#directives
+func ValidateCORSHTTPHeaderName(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
+	if name == "*" {
+		return nil
+	}
+	if !validHeaderRegex.MatchString(name) {
+		return fmt.Errorf("header name %s is not a valid header name", name)
+	}
+	return nil
+}
+
 // ValidateHTTPHeaderNameOrJwtClaimRoute validates a header name, allowing special @request.auth.claims syntax
 func ValidateHTTPHeaderNameOrJwtClaimRoute(name string) error {
 	if name == "" {
@@ -2304,11 +2319,11 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 	}
 
 	for _, name := range policy.AllowHeaders {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateCORSHTTPHeaderName(name))
 	}
 
 	for _, name := range policy.ExposeHeaders {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateCORSHTTPHeaderName(name))
 	}
 
 	if policy.MaxAge != nil {
