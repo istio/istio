@@ -5,6 +5,8 @@ metadata:
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istio-reader"
+    {{- include "istio.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

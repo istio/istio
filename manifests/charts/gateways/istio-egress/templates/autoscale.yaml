@@ -11,6 +11,8 @@ metadata:
     istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "EgressGateways"
+    app.kubernetes.io/name: "istio-egressgateway"
+    {{- include "istio.labels" . | nindent 4 }}
 spec:
   maxReplicas: {{ $gateway.autoscaleMax }}
   minReplicas: {{ $gateway.autoscaleMin }}

@@ -11,6 +11,8 @@ metadata:
     istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "EgressGateways"
+    app.kubernetes.io/name: "istio-egressgateway"
+    {{- include "istio.labels" . | nindent 4 }}
 spec:
 {{- if not $gateway.autoscaleEnabled }}
 {{- if $gateway.replicaCount }}
@@ -39,6 +41,8 @@ spec:
         install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         operator.istio.io/component: "EgressGateways"
         sidecar.istio.io/inject: "false"
+        app.kubernetes.io/name: "istio-egressgateway"
+        {{- include "istio.labels" . | nindent 8 }}
       annotations:
         istio.io/rev: {{ .Values.revision | default "default" | quote }}
         {{- if .Values.meshConfig.enablePrometheusMerge }}

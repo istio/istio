@@ -10,6 +10,8 @@ metadata:
     # Required to make sure this resource is removed
     # when purging Istio resources
     operator.istio.io/component: Pilot
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 webhooks:
   - name: validation.istio.io
     clientConfig:

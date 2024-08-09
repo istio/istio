@@ -4,6 +4,9 @@ kind: ResourceQuota
 metadata:
   name: {{ template "name" . }}-resource-quota
   namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
 spec:
   hard:
     pods: {{ .Values.resourceQuotas.pods | quote }}
