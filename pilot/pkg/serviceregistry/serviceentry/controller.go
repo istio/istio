@@ -748,14 +748,14 @@ func (s *Controller) queueEdsEvent(keys sets.Set[instancesKey], edsFn func(keys 
 func (s *Controller) doEdsCacheUpdate(keys sets.Set[instancesKey]) {
 	endpoints := s.buildEndpoints(keys)
 	shard := model.ShardKeyFromRegistry(s)
-	// This is delete.
-	if len(endpoints) == 0 {
-		for k := range keys {
-			s.XdsUpdater.EDSCacheUpdate(shard, string(k.hostname), k.namespace, nil)
-		}
-	} else {
-		for k, eps := range endpoints {
+
+	for k := range keys {
+		if eps, ok := endpoints[k]; ok {
+			// Update the cache with the generated endpoints.
 			s.XdsUpdater.EDSCacheUpdate(shard, string(k.hostname), k.namespace, eps)
+		} else {
+			// Handle deletions by sending a nil endpoints update.
+			s.XdsUpdater.EDSCacheUpdate(shard, string(k.hostname), k.namespace, nil)
 		}
 	}
 }
@@ -764,14 +764,14 @@ func (s *Controller) doEdsCacheUpdate(keys sets.Set[instancesKey]) {
 func (s *Controller) doEdsUpdate(keys sets.Set[instancesKey]) {
 	endpoints := s.buildEndpoints(keys)
 	shard := model.ShardKeyFromRegistry(s)
-	// This is delete.
-	if len(endpoints) == 0 {
-		for k := range keys {
-			s.XdsUpdater.EDSUpdate(shard, string(k.hostname), k.namespace, nil)
-		}
-	} else {
-		for k, eps := range endpoints {
+
+	for k := range keys {
+		if eps, ok := endpoints[k]; ok {
+			// Update with the generated endpoints.
 			s.XdsUpdater.EDSUpdate(shard, string(k.hostname), k.namespace, eps)
+		} else {
+			// Handle deletions by sending a nil endpoints update.
+			s.XdsUpdater.EDSUpdate(shard, string(k.hostname), k.namespace, nil)
 		}
 	}
 }
