@@ -23,13 +23,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	labels2 "k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/yaml"
 
-	name2 "istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/values"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 // PathValue is a path/value type.
@@ -45,13 +46,13 @@ func (pv *PathValue) String() string {
 
 // ObjectSet is a set of objects maintained both as a slice (for ordering) and map (for speed).
 type ObjectSet struct {
-	objSlice object.K8sObjects
-	objMap   map[string]*object.K8sObject
+	objSlice []manifest.Manifest
+	objMap   map[string]manifest.Manifest
 	keySlice []string
 }
 
 // NewObjectSet creates a new ObjectSet from objs and returns a pointer to it.
-func NewObjectSet(objs object.K8sObjects) *ObjectSet {
+func NewObjectSet(objs []manifest.Manifest) *ObjectSet {
 	ret := &ObjectSet{}
 	for _, o := range objs {
 		ret.append(o)
@@ -60,17 +61,21 @@ func NewObjectSet(objs object.K8sObjects) *ObjectSet {
 }
 
 // parseObjectSetFromManifest parses an ObjectSet from the given manifest.
-func parseObjectSetFromManifest(manifest string) (*ObjectSet, error) {
-	objSlice, err := object.ParseK8sObjectsFromYAMLManifest(manifest)
-	return NewObjectSet(objSlice), err
+func parseObjectSetFromManifest(t test.Failer, raw string) *ObjectSet {
+	spl := yml.SplitString(raw)
+	mfs, err := manifest.Parse(spl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return NewObjectSet(mfs)
 }
 
 // append appends an object to o.
-func (o *ObjectSet) append(obj *object.K8sObject) {
+func (o *ObjectSet) append(obj manifest.Manifest) {
 	h := obj.Hash()
 	o.objSlice = append(o.objSlice, obj)
 	if o.objMap == nil {
-		o.objMap = make(map[string]*object.K8sObject)
+		o.objMap = make(map[string]manifest.Manifest)
 	}
 	o.objMap[h] = obj
 	o.keySlice = append(o.keySlice, h)
@@ -81,11 +86,21 @@ func (o *ObjectSet) size() int {
 	return len(o.keySlice)
 }
 
+// FromHash parses kind, namespace and name from a hash.
+func FromHash(hash string) (kind, namespace, name string) {
+	hv := strings.Split(hash, ":")
+	if len(hv) != 3 {
+		return "Bad hash string: " + hash, "", ""
+	}
+	kind, namespace, name = hv[0], hv[1], hv[2]
+	return
+}
+
 // nameMatches returns a subset of o where objects names match the given regex.
 func (o *ObjectSet) nameMatches(nameRegex string) *ObjectSet {
 	ret := &ObjectSet{}
 	for k, v := range o.objMap {
-		_, _, objName := object.FromHash(k)
+		_, _, objName := FromHash(k)
 		m, err := regexp.MatchString(nameRegex, objName)
 		if err != nil {
 			log.Error(err.Error())
@@ -99,11 +114,11 @@ func (o *ObjectSet) nameMatches(nameRegex string) *ObjectSet {
 }
 
 // nameEquals returns the object in o whose name matches "name", or nil if no object name matches.
-func (o *ObjectSet) nameEquals(name string) *object.K8sObject {
+func (o *ObjectSet) nameEquals(name string) *manifest.Manifest {
 	for k, v := range o.objMap {
-		_, _, objName := object.FromHash(k)
+		_, _, objName := FromHash(k)
 		if objName == name {
-			return v
+			return &v
 		}
 	}
 	return nil
@@ -113,7 +128,7 @@ func (o *ObjectSet) nameEquals(name string) *object.K8sObject {
 func (o *ObjectSet) kind(kind string) *ObjectSet {
 	ret := &ObjectSet{}
 	for k, v := range o.objMap {
-		objKind, _, _ := object.FromHash(k)
+		objKind, _, _ := FromHash(k)
 		if objKind == kind {
 			ret.append(v)
 		}
@@ -144,72 +159,74 @@ func (o *ObjectSet) labels(labels ...string) *ObjectSet {
 }
 
 // HasLabel reports whether 0 has the given label.
-func hasLabel(o *object.K8sObject, label, value string) bool {
-	got, found, err := tpath.Find(o.UnstructuredObject().UnstructuredContent(), util.PathFromString("metadata.labels"))
-	if err != nil {
-		log.Errorf("bad path: %s", err)
-		return false
-	}
-	if !found {
-		return false
-	}
-	return got.(map[string]any)[label] == value
+func hasLabel(o manifest.Manifest, label, value string) bool {
+	m := values.TryGetPathAs[map[string]any](o.Object, "metadata.labels")
+	return m[label] == value
 }
 
 // mustGetService returns the service with the given name or fails if it's not found in objs.
-func mustGetService(g *WithT, objs *ObjectSet, name string) *object.K8sObject {
-	obj := objs.kind(name2.ServiceStr).nameEquals(name)
+func mustGetService(g *WithT, objs *ObjectSet, name string) manifest.Manifest {
+	obj := objs.kind(gvk.Service.Kind).nameEquals(name)
 	g.Expect(obj).Should(Not(BeNil()))
-	return obj
+	return *obj
 }
 
 // mustGetDeployment returns the deployment with the given name or fails if it's not found in objs.
-func mustGetDeployment(g *WithT, objs *ObjectSet, deploymentName string) *object.K8sObject {
-	obj := objs.kind(name2.DeploymentStr).nameEquals(deploymentName)
+func mustGetDeployment(g *WithT, objs *ObjectSet, deploymentName string) manifest.Manifest {
+	obj := objs.kind(gvk.Deployment.Kind).nameEquals(deploymentName)
 	g.Expect(obj).Should(Not(BeNil()))
-	return obj
+	return *obj
 }
 
 // mustGetDaemonset returns the DaemonSet with the given name or fails if it's not found in objs.
-func mustGetDaemonset(g *WithT, objs *ObjectSet, daemonSetName string) *object.K8sObject {
-	obj := objs.kind(name2.DaemonSetStr).nameEquals(daemonSetName)
+func mustGetDaemonset(g *WithT, objs *ObjectSet, daemonSetName string) manifest.Manifest {
+	obj := objs.kind(gvk.DaemonSet.Kind).nameEquals(daemonSetName)
 	g.Expect(obj).Should(Not(BeNil()))
-	return obj
-}
-
-// mustGetClusterRole returns the clusterRole with the given name or fails if it's not found in objs.
-func mustGetClusterRole(g *WithT, objs *ObjectSet, name string) *object.K8sObject {
-	obj := objs.kind(name2.ClusterRoleStr).nameEquals(name)
-	g.Expect(obj).Should(Not(BeNil()))
-	return obj
+	return *obj
 }
 
 // mustGetRole returns the role with the given name or fails if it's not found in objs.
-func mustGetRole(g *WithT, objs *ObjectSet, name string) *object.K8sObject {
-	obj := objs.kind(name2.RoleStr).nameEquals(name)
+// nolint: unparam
+func mustGetRole(g *WithT, objs *ObjectSet, name string) manifest.Manifest {
+	obj := objs.kind(manifest.Role).nameEquals(name)
 	g.Expect(obj).Should(Not(BeNil()))
-	return obj
+	return *obj
 }
 
 // mustGetContainer returns the container tree with the given name in the deployment with the given name.
 func mustGetContainer(g *WithT, objs *ObjectSet, deploymentName, containerName string) map[string]any {
 	obj := mustGetDeployment(g, objs, deploymentName)
-	container := obj.Container(containerName)
+	container := getContainer(obj, containerName)
 	g.Expect(container).Should(Not(BeNil()), fmt.Sprintf("Expected to get container %s in deployment %s", containerName, deploymentName))
+	return container
+}
+
+func getContainer(obj manifest.Manifest, containerName string) map[string]any {
+	var container map[string]any
+	sl, ok := values.Map(obj.Object).GetPath("spec.template.spec.containers")
+	if ok {
+		for _, cm := range sl.([]any) {
+			t := cm.(map[string]any)
+			if t["name"] == containerName {
+				container = t
+				break
+			}
+		}
+	}
 	return container
 }
 
 // mustGetContainer returns the container tree with the given name in the deployment with the given name.
 func mustGetContainerFromDaemonset(g *WithT, objs *ObjectSet, daemonSetName, containerName string) map[string]any {
 	obj := mustGetDaemonset(g, objs, daemonSetName)
-	container := obj.Container(containerName)
+	container := getContainer(obj, containerName)
 	g.Expect(container).Should(Not(BeNil()), fmt.Sprintf("Expected to get container %s in daemonset %s", containerName, daemonSetName))
 	return container
 }
 
 // mustGetEndpoint returns the endpoint tree with the given name in the deployment with the given name.
-func mustGetEndpoint(g *WithT, objs *ObjectSet, endpointName string) *object.K8sObject {
-	obj := objs.kind(name2.EndpointStr).nameEquals(endpointName)
+func mustGetEndpoint(g *WithT, objs *ObjectSet, endpointName string) *manifest.Manifest {
+	obj := objs.kind(gvk.Endpoints.Kind).nameEquals(endpointName)
 	if obj == nil {
 		return nil
 	}
@@ -218,8 +235,8 @@ func mustGetEndpoint(g *WithT, objs *ObjectSet, endpointName string) *object.K8s
 }
 
 // mustGetMutatingWebhookConfiguration returns the mutatingWebhookConfiguration with the given name or fails if it's not found in objs.
-func mustGetMutatingWebhookConfiguration(g *WithT, objs *ObjectSet, mutatingWebhookConfigurationName string) *object.K8sObject {
-	obj := objs.kind(name2.MutatingWebhookConfigurationStr).nameEquals(mutatingWebhookConfigurationName)
+func mustGetMutatingWebhookConfiguration(g *WithT, objs *ObjectSet, mutatingWebhookConfigurationName string) *manifest.Manifest {
+	obj := objs.kind(gvk.MutatingWebhookConfiguration.Kind).nameEquals(mutatingWebhookConfigurationName)
 	g.Expect(obj).Should(Not(BeNil()))
 	return obj
 }
@@ -239,16 +256,15 @@ type HavePathValueEqualMatcher struct {
 // Match implements the Matcher interface.
 func (m *HavePathValueEqualMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]any)
-	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
-	if err != nil || !f {
-		return false, err
+	got, f := values.MustCastAsMap(actual).GetPath(pv.path)
+	if !f {
+		return false, fmt.Errorf("could not find path %v", pv.path)
 	}
-	if reflect.TypeOf(got.Node) != reflect.TypeOf(pv.value) {
-		return false, fmt.Errorf("comparison types don't match: got %v(%T), want %v(%T)", got.Node, got.Node, pv.value, pv.value)
+	if reflect.TypeOf(got) != reflect.TypeOf(pv.value) {
+		return false, fmt.Errorf("comparison types don't match: got %v(%T), want %v(%T)", got, got, pv.value, pv.value)
 	}
-	if !reflect.DeepEqual(got.Node, pv.value) {
-		return false, fmt.Errorf("values don't match: got %v, want %v", got.Node, pv.value)
+	if !reflect.DeepEqual(got, pv.value) {
+		return false, fmt.Errorf("values don't match: got %v, want %v", got, pv.value)
 	}
 	return true, nil
 }
@@ -257,14 +273,14 @@ func (m *HavePathValueEqualMatcher) Match(actual any) (bool, error) {
 func (m *HavePathValueEqualMatcher) FailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to have path=value %s=%v\n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 // NegatedFailureMessage implements the Matcher interface.
 func (m *HavePathValueEqualMatcher) NegatedFailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to have path=value %s=%v\n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 // HavePathValueMatchRegex matches map[string]interface{} tree against a PathValue.
@@ -282,22 +298,21 @@ type HavePathValueMatchRegexMatcher struct {
 // Match implements the Matcher interface.
 func (m *HavePathValueMatchRegexMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]any)
-	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
-	if err != nil || !f {
-		return false, err
+	got, f := values.MustCastAsMap(actual).GetPath(pv.path)
+	if !f {
+		return false, fmt.Errorf("could not find path %v", pv.path)
 	}
-	if reflect.TypeOf(got.Node).Kind() != reflect.String || reflect.TypeOf(pv.value).Kind() != reflect.String {
-		return false, fmt.Errorf("comparison types must both be string: got %v(%T), want %v(%T)", got.Node, got.Node, pv.value, pv.value)
+	if reflect.TypeOf(got).Kind() != reflect.String || reflect.TypeOf(pv.value).Kind() != reflect.String {
+		return false, fmt.Errorf("comparison types must both be string: got %v(%T), want %v(%T)", got, got, pv.value, pv.value)
 	}
-	gotS := got.Node.(string)
+	gotS := got.(string)
 	wantS := pv.value.(string)
 	ok, err := regexp.MatchString(wantS, gotS)
 	if err != nil {
 		return false, err
 	}
 	if !ok {
-		return false, fmt.Errorf("values don't match: got %v, want %v", got.Node, pv.value)
+		return false, fmt.Errorf("values don't match: got %v, want %v", got, pv.value)
 	}
 	return true, nil
 }
@@ -306,14 +321,14 @@ func (m *HavePathValueMatchRegexMatcher) Match(actual any) (bool, error) {
 func (m *HavePathValueMatchRegexMatcher) FailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to regex match path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to regex match path=value %s=%v\n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 // NegatedFailureMessage implements the Matcher interface.
 func (m *HavePathValueMatchRegexMatcher) NegatedFailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to regex match path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to regex match path=value %s=%v\n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 // HavePathValueContain matches map[string]interface{} tree against a PathValue.
@@ -331,22 +346,20 @@ type HavePathValueContainMatcher struct {
 // Match implements the Matcher interface.
 func (m *HavePathValueContainMatcher) Match(actual any) (bool, error) {
 	pv := m.expected.(PathValue)
-	node := actual.(map[string]any)
-	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
-	if err != nil || !f {
-		return false, err
+	got, f := values.MustCastAsMap(actual).GetPath(pv.path)
+	if !f {
+		return false, fmt.Errorf("could not find path %v", pv.path)
 	}
-	if reflect.TypeOf(got.Node) != reflect.TypeOf(pv.value) {
-		return false, fmt.Errorf("comparison types don't match: got %T, want %T", got.Node, pv.value)
+	if reflect.TypeOf(got) != reflect.TypeOf(pv.value) {
+		return false, fmt.Errorf("comparison types don't match: got %T, want %T", got, pv.value)
 	}
-	gotValStr := util.ToYAML(got.Node)
-	subsetValStr := util.ToYAML(pv.value)
-	overlay, err := util.OverlayYAML(gotValStr, subsetValStr)
-	if err != nil {
-		return false, err
-	}
-	if overlay != gotValStr {
-		return false, fmt.Errorf("actual value:\n\n%s\ndoesn't contain expected subset:\n\n%s", gotValStr, subsetValStr)
+	g := got.(map[string]any)
+	want := pv.value.(map[string]any)
+	for k, v := range want {
+		gv := g[k]
+		if !reflect.DeepEqual(gv, v) {
+			return false, fmt.Errorf("values don't match %q: got %v, want %v", k, gv, v)
+		}
 	}
 	return true, nil
 }
@@ -355,14 +368,14 @@ func (m *HavePathValueContainMatcher) Match(actual any) (bool, error) {
 func (m *HavePathValueContainMatcher) FailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected path %s with value \n\n%v\nto be a subset of \n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected path %s with value \n\n%v\nto be a subset of \n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 // NegatedFailureMessage implements the Matcher interface.
 func (m *HavePathValueContainMatcher) NegatedFailureMessage(actual any) string {
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]any)
-	return fmt.Sprintf("Expected path %s with value \n\n%v\nto NOT be a subset of \n\n%v", pv.path, pv.value, util.ToYAML(node))
+	return fmt.Sprintf("Expected path %s with value \n\n%v\nto NOT be a subset of \n\n%v", pv.path, pv.value, toYAML(node))
 }
 
 func mustSelect(t test.Failer, selector map[string]string, labels map[string]string) {
@@ -381,7 +394,7 @@ func mustNotSelect(t test.Failer, selector map[string]string, labels map[string]
 	}
 }
 
-func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]string {
+func mustGetLabels(t test.Failer, obj manifest.Manifest, path string) map[string]string {
 	t.Helper()
 	got := mustGetPath(t, obj, path)
 	conv, ok := got.(map[string]any)
@@ -399,44 +412,32 @@ func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]
 	return ret
 }
 
-func mustGetPath(t test.Failer, obj object.K8sObject, path string) any {
+func mustGetPath(t test.Failer, obj manifest.Manifest, path string) any {
 	t.Helper()
-	got, f, err := tpath.Find(obj.UnstructuredObject().UnstructuredContent(), util.PathFromString(path))
-	if err != nil {
-		t.Fatal(err)
-	}
+	v, f := values.Map(obj.Object).GetPath(path)
 	if !f {
 		t.Fatalf("couldn't find path %v", path)
 	}
-	return got
+	return v
 }
 
-func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) object.K8sObject {
+func mustFindObject(t test.Failer, objs []manifest.Manifest, name, kind string) manifest.Manifest {
 	t.Helper()
 	o := findObject(objs, name, kind)
 	if o == nil {
 		t.Fatalf("expected %v/%v", name, kind)
-		return object.K8sObject{}
+		return manifest.Manifest{}
 	}
 	return *o
 }
 
-func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
+func findObject(objs []manifest.Manifest, name, kind string) *manifest.Manifest {
 	for _, o := range objs {
-		if o.Kind == kind && o.Name == name {
-			return o
+		if o.GroupVersionKind().Kind == kind && o.GetName() == name {
+			return &o
 		}
 	}
 	return nil
-}
-
-// mustGetValueAtPath returns the value at the given path in the unstructured tree t. Fails if the path is not found
-// in the tree.
-func mustGetValueAtPath(g *WithT, t map[string]any, path string) any {
-	got, f, err := tpath.GetPathContext(t, util.PathFromString(path), false)
-	g.Expect(err).Should(BeNil(), "path %s should exist (%s)", path, err)
-	g.Expect(f).Should(BeTrue(), "path %s should exist", path)
-	return got.Node
 }
 
 // toMap transforms a comma separated key:value list (e.g. "a:aval, b:bval") to a map.
@@ -488,18 +489,25 @@ func portVal(name string, port, targetPort int64) map[string]any {
 
 // checkRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
 func checkRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
-	for _, o := range objs.kind(name2.RoleBindingStr).objSlice {
-		ou := o.Unstructured()
-		rrname := mustGetValueAtPath(g, ou, "roleRef.name")
-		mustGetRole(g, objs, rrname.(string))
+	for _, o := range objs.kind(manifest.RoleBinding).objSlice {
+		rrname := values.Map(o.Object).GetPathString("roleRef.name")
+		_ = mustGetRole(g, objs, rrname)
 	}
 }
 
 // checkClusterRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
 func checkClusterRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
-	for _, o := range objs.kind(name2.ClusterRoleBindingStr).objSlice {
-		ou := o.Unstructured()
-		rrname := mustGetValueAtPath(g, ou, "roleRef.name")
-		mustGetClusterRole(g, objs, rrname.(string))
+	for _, o := range objs.kind(manifest.ClusterRoleBinding).objSlice {
+		rrname := values.Map(o.Object).GetPathString("roleRef.name")
+		_ = mustGetRole(g, objs, rrname)
 	}
+}
+
+// toYAML returns a YAML string representation of val, or the error string if an error occurs.
+func toYAML(val any) string {
+	y, err := yaml.Marshal(val)
+	if err != nil {
+		return err.Error()
+	}
+	return string(y)
 }

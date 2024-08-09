@@ -15,28 +15,24 @@
 package mesh
 
 import (
+	"cmp"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/slices"
 )
 
 type ManifestGenerateArgs struct {
 	// InFilenames is an array of paths to the input IstioOperator CR files.
 	InFilenames []string
-	// OutFilename is the path to the generated output directory.
-	OutFilename string
 
 	// EnableClusterSpecific determines if the current Kubernetes cluster will be used to autodetect values.
 	// If false, generic defaults will be used. This is useful when generating once and then applying later.
@@ -51,8 +47,6 @@ type ManifestGenerateArgs struct {
 	ManifestsPath string
 	// Revision is the Istio control plane revision the command targets.
 	Revision string
-	// Components is a list of strings specifying which component's manifests to be generated.
-	Components []string
 	// Filter is the list of components to render
 	Filter []string
 }
@@ -62,24 +56,20 @@ var kubeClientFunc func() (kube.CLIClient, error)
 func (a *ManifestGenerateArgs) String() string {
 	var b strings.Builder
 	b.WriteString("InFilenames:   " + fmt.Sprint(a.InFilenames) + "\n")
-	b.WriteString("OutFilename:   " + a.OutFilename + "\n")
 	b.WriteString("Set:           " + fmt.Sprint(a.Set) + "\n")
 	b.WriteString("Force:         " + fmt.Sprint(a.Force) + "\n")
 	b.WriteString("ManifestsPath: " + a.ManifestsPath + "\n")
 	b.WriteString("Revision:      " + a.Revision + "\n")
-	b.WriteString("Components:    " + fmt.Sprint(a.Components) + "\n")
 	return b.String()
 }
 
 func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.InFilenames, "filename", "f", nil, filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.OutFilename, "output", "o", "", "Manifest output directory path.")
 	cmd.PersistentFlags().StringArrayVarP(&args.Set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.Force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
-	cmd.PersistentFlags().StringSliceVar(&args.Components, "component", nil, ComponentFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.Filter, "filter", nil, "")
 	_ = cmd.PersistentFlags().MarkHidden("filter")
 
@@ -87,7 +77,7 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
 		"If enabled, the current cluster will be checked for cluster-specific setting detection.")
 }
 
-func ManifestGenerateCmd(ctx cli.Context, rootArgs *RootArgs, mgArgs *ManifestGenerateArgs) *cobra.Command {
+func ManifestGenerateCmd(ctx cli.Context, _ *RootArgs, mgArgs *ManifestGenerateArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "generate",
 		Short: "Generates an Istio install manifest",
@@ -124,111 +114,90 @@ func ManifestGenerateCmd(ctx cli.Context, rootArgs *RootArgs, mgArgs *ManifestGe
 				kubeClient = kc
 			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-			return ManifestGenerate(kubeClient, rootArgs, mgArgs, l)
+			return ManifestGenerate(kubeClient, mgArgs, l)
 		},
 	}
 }
 
-func ManifestGenerate(kubeClient kube.CLIClient, args *RootArgs, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
-	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
-		mgArgs.Force, mgArgs.Filter, kubeClient, l)
+const (
+	// YAMLSeparator is a separator for multi-document YAML files.
+	YAMLSeparator = "\n---\n"
+)
+
+func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l clog.Logger) error {
+	setFlags := applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision)
+	manifests, _, err := render.GenerateManifest(mgArgs.InFilenames, setFlags, mgArgs.Force, kubeClient, nil)
 	if err != nil {
 		return err
 	}
-
-	if len(mgArgs.Components) != 0 {
-		filteredManifests := name.ManifestMap{}
-		for _, cArg := range mgArgs.Components {
-			componentName := name.ComponentName(cArg)
-			if cManifests, ok := manifests[componentName]; ok {
-				filteredManifests[componentName] = cManifests
-			} else {
-				return fmt.Errorf("incorrect component name: %s. Valid options: %v", cArg, name.AllComponentNames)
-			}
-		}
-		manifests = filteredManifests
-	}
-
-	if mgArgs.OutFilename == "" {
-		ordered, err := orderedManifests(manifests)
-		if err != nil {
-			return fmt.Errorf("failed to order manifests: %v", err)
-		}
-		for _, m := range ordered {
-			l.Print(m + object.YAMLSeparator)
-		}
-	} else {
-		if err := os.MkdirAll(mgArgs.OutFilename, os.ModePerm); err != nil {
-			return err
-		}
-		if err := RenderToDir(manifests, mgArgs.OutFilename, args.DryRun, l); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// orderedManifests generates a list of manifests from the given map sorted by the default object order
-// This allows
-func orderedManifests(mm name.ManifestMap) ([]string, error) {
-	var rawOutput []string
-	var output []string
-	for _, mfs := range mm {
-		rawOutput = append(rawOutput, mfs...)
-	}
-	objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(rawOutput, helm.YAMLSeparator))
-	if err != nil {
-		return nil, err
-	}
-	// For a given group of objects, sort in order to avoid missing dependencies, such as creating CRDs first
-	objects.Sort(object.DefaultObjectOrder())
-	for _, obj := range objects {
-		yml, err := obj.YAML()
-		if err != nil {
-			return nil, err
-		}
-		output = append(output, string(yml))
-	}
-
-	return output, nil
-}
-
-// RenderToDir writes manifests to a local filesystem directory tree.
-func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun bool, l clog.Logger) error {
-	l.LogAndPrintf("Component dependencies tree: \n%s", helmreconciler.InstallTreeString())
-	l.LogAndPrintf("Rendering manifests to output dir %s", outputDir)
-	return renderRecursive(manifests, helmreconciler.InstallTree, outputDir, dryRun, l)
-}
-
-func renderRecursive(manifests name.ManifestMap, installTree helmreconciler.ComponentTree, outputDir string, dryRun bool, l clog.Logger) error {
-	for k, v := range installTree {
-		componentName := string(k)
-		// In cases (like gateways) where multiple instances can exist, concatenate the manifests and apply as one.
-		ym := strings.Join(manifests[k], helm.YAMLSeparator)
-		l.LogAndPrintf("Rendering: %s", componentName)
-		dirName := filepath.Join(outputDir, componentName)
-		if !dryRun {
-			if err := os.MkdirAll(dirName, os.ModePerm); err != nil {
-				return fmt.Errorf("could not create directory %s; %s", outputDir, err)
-			}
-		}
-		fname := filepath.Join(dirName, componentName) + ".yaml"
-		l.LogAndPrintf("Writing manifest to %s", fname)
-		if !dryRun {
-			if err := os.WriteFile(fname, []byte(ym), 0o644); err != nil {
-				return fmt.Errorf("could not write manifest config; %s", err)
-			}
-		}
-
-		kt, ok := v.(helmreconciler.ComponentTree)
-		if !ok {
-			// Leaf
-			return nil
-		}
-		if err := renderRecursive(manifests, kt, dirName, dryRun, l); err != nil {
-			return err
-		}
+	for _, manifest := range sortManifests(manifests) {
+		l.Print(manifest + YAMLSeparator)
 	}
 	return nil
+}
+
+func sortManifests(raw []manifest.ManifestSet) []string {
+	all := []manifest.Manifest{}
+	for _, m := range raw {
+		all = append(all, m.Manifests...)
+	}
+	slices.SortStableFunc(all, func(a, b manifest.Manifest) int {
+		if r := cmp.Compare(objectKindOrdering(a), objectKindOrdering(b)); r != 0 {
+			return r
+		}
+		if r := cmp.Compare(a.GroupVersionKind().Group, b.GroupVersionKind().Group); r != 0 {
+			return r
+		}
+		if r := cmp.Compare(a.GroupVersionKind().Kind, b.GroupVersionKind().Kind); r != 0 {
+			return r
+		}
+		return cmp.Compare(a.GetName(), b.GetName())
+	})
+	return slices.Map(all, func(e manifest.Manifest) string {
+		// marshal the object instead of using the raw content to normalized the output
+		// This is likely not good behavior
+		res, _ := yaml.Marshal(e.Object)
+		return string(res)
+	})
+}
+
+func objectKindOrdering(m manifest.Manifest) int {
+	o := m.Unstructured
+	gk := o.GroupVersionKind().Group + "/" + o.GroupVersionKind().Kind
+	switch {
+	// Create CRDs asap - both because they are slow and because we will likely create instances of them soon
+	case gk == "apiextensions.k8s.io/CustomResourceDefinition":
+		return -1000
+
+		// We need to create ServiceAccounts, Roles before we bind them with a RoleBinding
+	case gk == "/ServiceAccount" || gk == "rbac.authorization.k8s.io/ClusterRole":
+		return 1
+	case gk == "rbac.authorization.k8s.io/ClusterRoleBinding":
+		return 2
+
+		// validatingwebhookconfiguration is configured to FAIL-OPEN in the default install. For the
+		// re-install case we want to apply the validatingwebhookconfiguration first to reset any
+		// orphaned validatingwebhookconfiguration that is FAIL-CLOSE.
+	case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
+		return 3
+
+		// Pods might need configmap or secrets - avoid backoff by creating them first
+	case gk == "/ConfigMap" || gk == "/Secrets":
+		return 100
+
+		// Create the pods after we've created other things they might be waiting for
+	case gk == "extensions/Deployment" || gk == "apps/Deployment":
+		return 1000
+
+		// Autoscalers typically act on a deployment
+	case gk == "autoscaling/HorizontalPodAutoscaler":
+		return 1001
+
+		// Create services late - after pods have been started
+	case gk == "/Service":
+		return 10000
+
+	default:
+		return 1000
+	}
 }

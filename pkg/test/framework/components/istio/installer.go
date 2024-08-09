@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 
 	"k8s.io/client-go/rest"
 
@@ -96,7 +97,7 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 
 	// Generate the manifest YAML, so that we can uninstall it in Close.
 	var stdOut, stdErr bytes.Buffer
-	if err := mesh.ManifestGenerate(kubeClient, &mesh.RootArgs{}, &mesh.ManifestGenerateArgs{
+	if err := mesh.ManifestGenerate(kubeClient, &mesh.ManifestGenerateArgs{
 		InFilenames:   iArgs.InFilenames,
 		Set:           iArgs.Set,
 		Force:         iArgs.Force,
@@ -114,6 +115,7 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 
 	// Actually run the install command
 	iArgs.SkipConfirmation = true
+	iArgs.ReadinessTimeout = time.Minute * 5
 
 	componentName := args.ComponentName
 	if len(componentName) == 0 {

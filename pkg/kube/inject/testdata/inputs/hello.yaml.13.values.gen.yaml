@@ -18,7 +18,6 @@
         "cpu": "10m"
       }
     },
-    "enabled": false,
     "externalIstiod": false,
     "hub": "gcr.io/istio-testing",
     "imagePullPolicy": "",
@@ -38,7 +37,6 @@
       "clusterName": "",
       "enabled": false
     },
-    "namespace": "istio-system",
     "network": "",
     "omitSidecarInjectorConfigMap": false,
     "operatorManageWebhooks": false,
@@ -114,7 +112,6 @@
   "pilot": {
     "cni": {
       "enabled": false,
-      "namespace": "istio-system",
       "provider": "default"
     }
   },

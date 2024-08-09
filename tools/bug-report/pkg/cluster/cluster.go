@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
@@ -378,11 +378,11 @@ func PodKey(namespace, pod string) string {
 
 func getOwnerDeployment(pod *corev1.Pod, replicasets []appsv1.ReplicaSet) string {
 	for _, o := range pod.OwnerReferences {
-		if o.Kind == name.ReplicaSetStr {
+		if o.Kind == "ReplicaSet" {
 			for _, rs := range replicasets {
 				if rs.Name == o.Name {
 					for _, oo := range rs.OwnerReferences {
-						if oo.Kind == name.DeploymentStr {
+						if oo.Kind == gvk.Deployment.Kind {
 							return oo.Name
 						}
 					}
@@ -395,7 +395,7 @@ func getOwnerDeployment(pod *corev1.Pod, replicasets []appsv1.ReplicaSet) string
 
 func getOwnerDaemonSet(pod *corev1.Pod, daemonsets []appsv1.DaemonSet) string {
 	for _, o := range pod.OwnerReferences {
-		if o.Kind == name.DaemonSetStr {
+		if o.Kind == gvk.DaemonSet.Kind {
 			for _, ds := range daemonsets {
 				if ds.Name == o.Name {
 					return ds.Name

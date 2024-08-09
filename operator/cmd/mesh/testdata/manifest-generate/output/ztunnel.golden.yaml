@@ -136,5 +136,3 @@ spec:
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
-
----

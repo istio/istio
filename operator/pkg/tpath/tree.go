@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"sigs.k8s.io/yaml"
@@ -72,11 +71,11 @@ func GetPathContext(root any, path util.Path, createMissing bool) (*PathContext,
 }
 
 // WritePathContext writes the given value to the Node in the given PathContext.
-func WritePathContext(nc *PathContext, value any, merge bool) error {
+func WritePathContext(nc *PathContext, value any) error {
 	scope.Debugf("WritePathContext PathContext=%s, value=%v", nc, value)
 
 	if !util.IsValueNil(value) {
-		return setPathContext(nc, value, merge)
+		return setPathContext(nc, value)
 	}
 
 	scope.Debug("delete")
@@ -99,45 +98,6 @@ func WritePathContext(nc *PathContext, value any, merge bool) error {
 	default:
 	}
 	return fmt.Errorf("cannot delete path: unsupported parent type %T for delete", nc.Parent.Node)
-}
-
-// WriteNode writes value to the tree in root at the given path, creating any required missing internal nodes in path.
-func WriteNode(root any, path util.Path, value any) error {
-	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, true)
-	if err != nil {
-		return err
-	}
-	return WritePathContext(pc, value, false)
-}
-
-// MergeNode merges value to the tree in root at the given path, creating any required missing internal nodes in path.
-func MergeNode(root any, path util.Path, value any) error {
-	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, true)
-	if err != nil {
-		return err
-	}
-	return WritePathContext(pc, value, true)
-}
-
-// Find returns the value at path from the given tree, or false if the path does not exist.
-// It behaves differently from GetPathContext in that it never creates map entries at the leaf and does not provide
-// a way to mutate the parent of the found node.
-func Find(inputTree map[string]any, path util.Path) (any, bool, error) {
-	scope.Debugf("Find path=%s", path)
-	if len(path) == 0 {
-		return nil, false, fmt.Errorf("path is empty")
-	}
-	node, found := find(inputTree, path)
-	return node, found, nil
-}
-
-// Delete sets value at path of input untyped tree to nil
-func Delete(root map[string]any, path util.Path) (bool, error) {
-	pc, _, err := getPathContext(&PathContext{Node: root}, path, path, false)
-	if err != nil {
-		return false, err
-	}
-	return true, WritePathContext(pc, nil, false)
 }
 
 // getPathContext is the internal implementation of GetPathContext.
@@ -317,8 +277,8 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 
 // setPathContext writes the given value to the Node in the given PathContext,
 // enlarging all PathContext lists to ensure all indexes are valid.
-func setPathContext(nc *PathContext, value any, merge bool) error {
-	processParent, err := setValueContext(nc, value, merge)
+func setPathContext(nc *PathContext, value any) error {
+	processParent, err := setValueContext(nc, value)
 	if err != nil || !processParent {
 		return err
 	}
@@ -327,12 +287,12 @@ func setPathContext(nc *PathContext, value any, merge bool) error {
 	if nc.Parent.Parent == nil {
 		return nil
 	}
-	return setPathContext(nc.Parent, nc.Parent.Node, false) // note: tail recursive
+	return setPathContext(nc.Parent, nc.Parent.Node) // note: tail recursive
 }
 
 // setValueContext writes the given value to the Node in the given PathContext.
 // If setting the value requires growing the final slice, grows it.
-func setValueContext(nc *PathContext, value any, merge bool) (bool, error) {
+func setValueContext(nc *PathContext, value any) (bool, error) {
 	if nc.Parent == nil {
 		return false, nil
 	}
@@ -355,13 +315,8 @@ func setValueContext(nc *PathContext, value any, merge bool) (bool, error) {
 				*parentNode = vParentNode
 			}
 
-			merged, err := mergeConditional(vv, nc.Node, merge)
-			if err != nil {
-				return false, err
-			}
-
-			vParentNode[idx] = merged
-			nc.Node = merged
+			vParentNode[idx] = vv
+			nc.Node = vv
 		default:
 			return false, fmt.Errorf("don't know about vtype %T", vParentNode)
 		}
@@ -379,13 +334,8 @@ func setValueContext(nc *PathContext, value any, merge bool) (bool, error) {
 					mergedValue := append(vNcNode, vv)
 					parentNode[key] = mergedValue
 				case *any:
-					merged, err := mergeConditional(vv, vNcNode, merge)
-					if err != nil {
-						return false, err
-					}
-
-					parentNode[key] = merged
-					nc.Node = merged
+					parentNode[key] = vv
+					nc.Node = vv
 				default:
 					// the vv is an basic JSON type (int, float, string, bool)
 					vv = append(vNcNode, vv)
@@ -418,86 +368,6 @@ func setValueContext(nc *PathContext, value any, merge bool) (bool, error) {
 	}
 
 	return true, nil
-}
-
-// mergeConditional returns a merge of newVal and originalVal if merge is true, otherwise it returns newVal.
-func mergeConditional(newVal, originalVal any, merge bool) (any, error) {
-	if !merge || util.IsValueNilOrDefault(originalVal) {
-		return newVal, nil
-	}
-	newS, err := yaml.Marshal(newVal)
-	if err != nil {
-		return nil, err
-	}
-	if util.IsYAMLEmpty(string(newS)) {
-		return originalVal, nil
-	}
-	originalS, err := yaml.Marshal(originalVal)
-	if err != nil {
-		return nil, err
-	}
-	if util.IsYAMLEmpty(string(originalS)) {
-		return newVal, nil
-	}
-
-	mergedS, err := util.OverlayYAML(string(originalS), string(newS))
-	if err != nil {
-		return nil, err
-	}
-
-	if util.IsMap(originalVal) {
-		// For JSON compatibility
-		out := make(map[string]any)
-		if err := yaml.Unmarshal([]byte(mergedS), &out); err != nil {
-			return nil, err
-		}
-		return out, nil
-	}
-	// For scalars and slices, copy the type
-	out := originalVal
-	if err := yaml.Unmarshal([]byte(mergedS), &out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// find returns the value at path from the given tree, or false if the path does not exist.
-func find(treeNode any, path util.Path) (any, bool) {
-	if len(path) == 0 || treeNode == nil {
-		return nil, false
-	}
-	switch nt := treeNode.(type) {
-	case map[any]any:
-		val := nt[path[0]]
-		if val == nil {
-			return nil, false
-		}
-		if len(path) == 1 {
-			return val, true
-		}
-		return find(val, path[1:])
-	case map[string]any:
-		val := nt[path[0]]
-		if val == nil {
-			return nil, false
-		}
-		if len(path) == 1 {
-			return val, true
-		}
-		return find(val, path[1:])
-	case []any:
-		idx, err := strconv.Atoi(path[0])
-		if err != nil {
-			return nil, false
-		}
-		if idx >= len(nt) {
-			return nil, false
-		}
-		val := nt[idx]
-		return find(val, path[1:])
-	default:
-		return nil, false
-	}
 }
 
 // stringsEqual reports whether the string representations of a and b are equal. a and b may have different types.
