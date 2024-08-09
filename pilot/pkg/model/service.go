@@ -380,11 +380,12 @@ func (instance *WorkloadInstance) CmpOpts() []cmp.Option {
 // DeepCopy creates a copy of WorkloadInstance.
 func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	return &WorkloadInstance{
-		Name:      instance.Name,
-		Namespace: instance.Namespace,
-		Kind:      instance.Kind,
-		PortMap:   maps.Clone(instance.PortMap),
-		Endpoint:  instance.Endpoint.DeepCopy(),
+		Name:                instance.Name,
+		Namespace:           instance.Namespace,
+		Kind:                instance.Kind,
+		PortMap:             maps.Clone(instance.PortMap),
+		Endpoint:            instance.Endpoint.DeepCopy(),
+		DNSServiceEntryOnly: instance.DNSServiceEntryOnly,
 	}
 }
 
@@ -784,6 +785,7 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	}
 
 	out.Aliases = slices.Clone(s.Aliases)
+	out.PassthroughTargetPorts = maps.Clone(out.PassthroughTargetPorts)
 
 	// AddressMap contains a mutex, which is safe to return a copy in this case.
 	// nolint: govet
