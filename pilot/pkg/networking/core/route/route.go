@@ -200,7 +200,7 @@ func separateVSHostsAndServices(virtualService config.Config,
 			}
 			// The mostSpecificWildcardVsIndex ensures that each VirtualService host is only associated with
 			// a single service in the registry. This is generally results in the most specific wildcard match for
-			// a given wildcard host (unless PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING is true).
+			// a given wildcard host.
 			vs, ok := mostSpecificWildcardVsIndex[svcHost]
 			if !ok {
 				// This service doesn't have a virtualService that matches it.
