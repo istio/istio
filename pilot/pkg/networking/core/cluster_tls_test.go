@@ -434,14 +434,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	credentialName := "some-fake-credential"
 
 	testCases := []struct {
-		name                     string
-		opts                     *buildClusterOpts
-		tls                      *networking.ClientTLSSettings
-		h2                       bool
-		router                   bool
-		result                   expectedResult
-		enableAutoSni            bool
-		enableVerifyCertAtClient bool
+		name          string
+		opts          *buildClusterOpts
+		tls           *networking.ClientTLSSettings
+		h2            bool
+		router        bool
+		result        expectedResult
+		enableAutoSni bool
 	}{
 		{
 			name: "tls mode disabled",
@@ -703,8 +702,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				err: nil,
 			},
-			enableAutoSni:            true,
-			enableVerifyCertAtClient: true,
+			enableAutoSni: true,
 		},
 		{
 			name: "tls mode SIMPLE, with VerifyCert and AutoSni enabled without SubjectAltNames set",
@@ -729,8 +727,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				err: nil,
 			},
-			enableAutoSni:            true,
-			enableVerifyCertAtClient: true,
+			enableAutoSni: true,
 		},
 		{
 			name: "tls mode SIMPLE, with certs specified in tls",
@@ -1670,7 +1667,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableAutoSni, tc.enableAutoSni)
-			test.SetForTest(t, &features.VerifyCertAtClient, tc.enableVerifyCertAtClient)
 			var proxy *model.Proxy
 			if tc.router {
 				proxy = newGatewayProxy()
@@ -1691,7 +1687,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				if len(tc.tls.Sni) == 0 {
 					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
 				}
-				if tc.enableVerifyCertAtClient && len(tc.tls.Sni) == 0 && len(tc.tls.SubjectAltNames) == 0 {
+				if len(tc.tls.Sni) == 0 && len(tc.tls.SubjectAltNames) == 0 {
 					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, true)
 				}
 			}

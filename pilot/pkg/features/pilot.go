@@ -225,9 +225,6 @@ var (
 	EnableAutoSni = env.Register("ENABLE_AUTO_SNI", true,
 		"If enabled, automatically set SNI when `DestinationRules` do not specify the same").Get()
 
-	VerifyCertAtClient = env.Register("VERIFY_CERTIFICATE_AT_CLIENT", true,
-		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
-
 	EnableVtprotobuf = env.Register("ENABLE_VTPROTOBUF", true,
 		"If true, will use optimized vtprotobuf based marshaling. Requires a build with -tags=vtprotobuf.").Get()
 

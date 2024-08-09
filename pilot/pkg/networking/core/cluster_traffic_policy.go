@@ -83,7 +83,7 @@ func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
 	proxyProtocol := policy.ProxyProtocol
 
 	// Check if CA Certificate should be System CA Certificate
-	if features.VerifyCertAtClient && tls != nil && tls.CaCertificates == "" {
+	if tls != nil && tls.CaCertificates == "" {
 		tls.CaCertificates = "system"
 	}
 

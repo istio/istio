@@ -2998,11 +2998,10 @@ func TestVerifyCertAtClient(t *testing.T) {
 	testCases := []struct {
 		name               string
 		policy             *networking.TrafficPolicy
-		verifyCertAtClient bool
 		expectedCARootPath string
 	}{
 		{
-			name: "VERIFY_CERTIFICATE_AT_CLIENT works as expected",
+			name: "Check that certs are verfied against the OS CA certificate bundle",
 			policy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
@@ -3013,11 +3012,10 @@ func TestVerifyCertAtClient(t *testing.T) {
 					CaCertificates: "",
 				},
 			},
-			verifyCertAtClient: true,
 			expectedCARootPath: "system",
 		},
 		{
-			name: "VERIFY_CERTIFICATE_AT_CLIENT does not override CaCertificates",
+			name: "Check that CaCertificates has priority over OS CA certificate bundle",
 			policy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
@@ -3028,44 +3026,12 @@ func TestVerifyCertAtClient(t *testing.T) {
 					CaCertificates: "file-root:certPath",
 				},
 			},
-			verifyCertAtClient: true,
 			expectedCARootPath: "file-root:certPath",
-		},
-		{
-			name: "Filled CaCertificates does not get over written by VERIFY_CERTIFICATE_AT_CLIENT is false",
-			policy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 10,
-					},
-				},
-				Tls: &networking.ClientTLSSettings{
-					CaCertificates: "file-root:certPath",
-				},
-			},
-			verifyCertAtClient: false,
-			expectedCARootPath: "file-root:certPath",
-		},
-		{
-			name: "Empty CaCertificates does not get over written by VERIFY_CERTIFICATE_AT_CLIENT is false",
-			policy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 10,
-					},
-				},
-				Tls: &networking.ClientTLSSettings{
-					CaCertificates: "",
-				},
-			},
-			verifyCertAtClient: false,
-			expectedCARootPath: "",
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			test.SetForTest(t, &features.VerifyCertAtClient, testCase.verifyCertAtClient)
 			selectTrafficPolicyComponents(testCase.policy)
 			if testCase.policy.Tls.CaCertificates != testCase.expectedCARootPath {
 				t.Errorf("%v got %v when expecting %v", testCase.name, testCase.policy.Tls.CaCertificates, testCase.expectedCARootPath)

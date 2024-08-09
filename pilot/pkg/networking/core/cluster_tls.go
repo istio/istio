@@ -288,7 +288,7 @@ func applyTLSDefaults(tlsContext *tlsv3.UpstreamTlsContext, tlsDefaults *v1alpha
 }
 
 // Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.
-// Set auto_san_validation if VerifyCertAtClient feature flag is enabled and if there is no explicit SubjectAltNames specified  in DR.
+// Set auto_san_validation if there is no explicit SubjectAltNames specified in DR.
 func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTLSSettings) {
 	if mc == nil || !features.EnableAutoSni {
 		return
@@ -299,7 +299,7 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 	if len(tls.Sni) == 0 {
 		setAutoSni = true
 	}
-	if features.VerifyCertAtClient && setAutoSni && len(tls.SubjectAltNames) == 0 && !tls.GetInsecureSkipVerify().GetValue() {
+	if setAutoSni && len(tls.SubjectAltNames) == 0 && !tls.GetInsecureSkipVerify().GetValue() {
 		setAutoSanValidation = true
 	}
 
