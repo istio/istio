@@ -20,16 +20,11 @@ import (
 	"os"
 	"runtime"
 	"sync"
-	"testing"
 
 	"istio.io/istio/pkg/log"
 )
 
-var (
-	_ Failer = &testing.T{}
-	_ Failer = &testing.B{}
-	_ Failer = &errorWrapper{}
-)
+var _ Failer = &errorWrapper{}
 
 // Failer is an interface to be provided to test functions of the form XXXOrFail. This is a
 // substitute for testing.TB, which cannot be implemented outside of the testing

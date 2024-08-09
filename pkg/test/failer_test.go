@@ -16,6 +16,12 @@ package test
 
 import "testing"
 
+// Compile time assertions. In the test package to avoid exposing the `testing` dependency to users.
+var (
+	_ Failer = &testing.T{}
+	_ Failer = &testing.B{}
+)
+
 func TestWrapper(t *testing.T) {
 	t.Run("fail", func(t *testing.T) {
 		if err := Wrap(func(t Failer) {
