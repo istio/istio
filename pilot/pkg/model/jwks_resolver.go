@@ -229,15 +229,15 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.
 	if val, found := r.keyEntries.Load(key); found {
 		e := val.(jwtPubKeyEntry)
 		// Update cached key's last used time.
-		if(now.Sub(e.lastUsedTime)<timeeout){
-		e.lastUsedTime = now
-		e.timeout = timeout
-	    r.keyEntries.Store(key, e)
-	    if e.pubKey == "" {
-			return e.pubKey, errEmptyPubKeyFoundInCache
-		   }
-		}
-        return e.pubKey, nil
+		if(now.Sub(e.lastUsedTime) < timeout){
+			e.lastUsedTime = now
+			e.timeout = timeout
+			r.keyEntries.Store(key, e)
+			if e.pubKey == "" {
+				return e.pubKey, errEmptyPubKeyFoundInCache
+			}
+	    }
+			return e.pubKey, nil
 	}
 
 	var err error
