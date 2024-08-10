@@ -122,26 +122,6 @@ func TestGetPublicKey(t *testing.T) {
 	if got, want := ms.PubKeyHitNum, uint64(1); got != want {
 		t.Errorf("Mock server Hit number => expected %d but got %d", want, got)
 	}
-
-	// Additional test cases to check the new behavior
-	// Case when key is found in cache but new public key is different
-	{
-		// Update the mock server to return a different public key
-		ms.UpdatePublicKey(test.JwtPubKey2)
-
-		pk, err := r.GetPublicKey("testIssuer", mockCertURL, testRequestTimeout)
-		if err != nil {
-			t.Errorf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", []string{"testIssuer", mockCertURL}, err)
-		}
-		if test.JwtPubKey2 != pk {
-			t.Errorf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", []string{"testIssuer", mockCertURL}, test.JwtPubKey2, pk)
-		}
-
-		// Verify mock server was called again for the new public key
-		if got, want := ms.PubKeyHitNum, uint64(2); got != want {
-			t.Errorf("Mock server Hit number => expected %d but got %d", want, got)
-		}
-	}
 }
 
 func TestGetPublicKeyWithTimeout(t *testing.T) {

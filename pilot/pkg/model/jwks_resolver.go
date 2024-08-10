@@ -229,29 +229,15 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.
 	if val, found := r.keyEntries.Load(key); found {
 		e := val.(jwtPubKeyEntry)
 		// Update cached key's last used time.
+		if(now.Sub(e.lastUsedTime)<timeeout){
 		e.lastUsedTime = now
 		e.timeout = timeout
-	
-		// Check if the new public key is different before storing
-		if e.pubKey != newPubKey {
-			e.pubKey = newPubKey
-		}
-	
-		r.keyEntries.Store(key, e)
-	
-		if e.pubKey == "" {
+	    r.keyEntries.Store(key, e)
+	    if e.pubKey == "" {
 			return e.pubKey, errEmptyPubKeyFoundInCache
+		   }
 		}
-	
-		return e.pubKey, nil
-	} else {
-		// Key not found in cache, add it
-		r.keyEntries.Store(key, jwtPubKeyEntry{
-			pubKey:       newPubKey,
-			lastUsedTime: now,
-			timeout:      timeout,
-		})
-		return newPubKey, nil
+        return e.pubKey, nil
 	}
 
 	var err error
@@ -516,24 +502,15 @@ func (r *JwksResolver) refresh(jwksURIBackgroundChannel bool) bool {
 				hasErrors.Store(true)
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
 				atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
-			    if oldPubKey == "" {
-				    // If oldPubKey is empty, directly store the new key entry
-				    r.keyEntries.Store(k, jwtPubKeyEntry{
-					   pubKey: newPubKey,
-				    })
-				    return
-			    }
+			    return
 			}
 			newPubKey := string(resp)
-			if oldPubKey != newPubKey {
-				// Only update if the new public key is different from the old one
-				r.keyEntries.Store(k, jwtPubKeyEntry{
+			r.keyEntries.Store(k, jwtPubKeyEntry{
 					pubKey:            newPubKey,
 					lastRefreshedTime: now,            // update the lastRefreshedTime if we get a success response from the network.
 				    lastUsedTime:      e.lastUsedTime, // keep original lastUsedTime.
 				    timeout:           e.timeout,
 				})
-			}
 			isNewKey, err := compareJWKSResponse(oldPubKey, newPubKey)
 			if err != nil {
 				hasErrors.Store(true)
