@@ -242,6 +242,9 @@ var (
 
 	Exclude503FromDefaultRetries = env.Register("EXCLUDE_UNSAFE_503_FROM_DEFAULT_RETRY", true,
 		"If true, excludes unsafe retry on 503 from default retry policy.").Get()
+
+	PreferDestinationRulesTLSForExternalServices = env.Register("PREFER_DESTINATIONRULE_TLS_FOR_EXTERNAL_SERVICES", true,
+		"If true, external services will prefer the TLS settings from DestinationRules over the metadata TLS settings.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

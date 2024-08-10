@@ -415,7 +415,7 @@ func (cb *ClusterBuilder) buildUpstreamTLSSettings(
 			// For mesh external services, we should always use user supplied settings because even though
 			// the proxy has metadata certs, the destination may have different CA certs. So we need to honor
 			// the user supplied settings in Destination Rule.
-			if meshExternal {
+			if features.PreferDestinationRulesTLSForExternalServices && meshExternal {
 				return tls, userSupplied
 			}
 			// When building Mutual TLS settings, we should always use user supplied SubjectAltNames and SNI
