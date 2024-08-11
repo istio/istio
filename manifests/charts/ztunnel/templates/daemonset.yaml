@@ -111,6 +111,10 @@ spec:
         {{- else }}
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
         {{- end }}
+        {{- if .Values.logAsJson }}
+        - name: LOG_FORMAT
+          value: json
+        {{- end}}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
         - name: RUST_BACKTRACE
