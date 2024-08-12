@@ -107,9 +107,9 @@
   },
   "pilot": {
     "cni": {
-      "enabled": false,
+      "enabled": true,
       "namespace": "istio-system",
-      "provider": "default"
+      "provider": "multus"
     }
   },
   "revision": "",

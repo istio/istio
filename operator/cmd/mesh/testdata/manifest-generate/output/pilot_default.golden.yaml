@@ -1832,13 +1832,10 @@ data:
                 - name: ISTIO_META_MESH_ID
                   value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
                 {{- end }}
+                {{- if .Values.global.waypoint.resources }}
                 resources:
-                  limits:
-                    cpu: "2"
-                    memory: 1Gi
-                  requests:
-                    cpu: 100m
-                    memory: 128Mi
+                {{- toYaml .Values.global.waypoint.resources | nindent 10 }}
+                {{- end }}
                 startupProbe:
                   failureThreshold: 30
                   httpGet:
@@ -1994,6 +1991,7 @@ data:
               .InfrastructureLabels
               (strdict
                 "gateway.networking.k8s.io/gateway-name" .Name
+                "gateway.istio.io/managed" "istio.io-gateway-controller"
               ) | nindent 4 }}
           ownerReferences:
           - apiVersion: gateway.networking.k8s.io/v1beta1
@@ -2025,6 +2023,7 @@ data:
                   .InfrastructureLabels
                   (strdict
                     "gateway.networking.k8s.io/gateway-name" .Name
+                    "gateway.istio.io/managed" "istio.io-gateway-controller"
                   ) | nindent 8 }}
             spec:
               securityContext:
@@ -2306,7 +2305,6 @@ data:
         "securityContext": {}
       },
       "global": {
-        "autoscalingv2API": true,
         "caAddress": "",
         "caName": "",
         "certSigners": [],
@@ -2394,11 +2392,24 @@ data:
           "servicePort": 0
         },
         "tag": "1.1.4",
-        "variant": ""
+        "variant": "",
+        "waypoint": {
+          "resources": {
+            "limits": {
+              "cpu": "2",
+              "memory": "1Gi"
+            },
+            "requests": {
+              "cpu": "100m",
+              "memory": "128Mi"
+            }
+          }
+        }
       },
       "pilot": {
         "cni": {
           "enabled": false,
+          "namespace": "istio-system",
           "provider": "default"
         }
       },
@@ -2670,6 +2681,8 @@ spec:
         - containerPort: 15010
           protocol: TCP
         - containerPort: 15017
+          protocol: TCP
+        - containerPort: 15014
           protocol: TCP
         readinessProbe:
           httpGet:

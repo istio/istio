@@ -70,7 +70,7 @@ spec:
       (not $nativeSidecar) }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-  {{ if or .Values.pilot.cni.enabled -}}
+  {{ if .Values.pilot.cni.enabled -}}
   - name: istio-validation
   {{ else -}}
   - name: istio-init
@@ -122,7 +122,7 @@ spec:
     {{ if .Values.global.logAsJson -}}
     - "--log_as_json"
     {{ end -}}
-    {{ if or .Values.pilot.cni.enabled -}}
+    {{ if .Values.pilot.cni.enabled -}}
     - "--run-validation"
     - "--skip-rule-apply"
     {{ end -}}
