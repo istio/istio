@@ -815,6 +815,119 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
 	})
 
+	t.Run("ServiceEntry selects WorkloadEntry", func(t *testing.T) {
+		store, _, fx := setupTest(t)
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry-1",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"service-1.namespace.svc.cluster.local"},
+				Ports: []*networking.ServicePort{port},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: map[string]string{
+						"app.foo": "true",
+					},
+				},
+				Resolution: networking.ServiceEntry_STATIC,
+			},
+		})
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry-2",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"service-2.namespace.svc.cluster.local"},
+				Ports: []*networking.ServicePort{port},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: map[string]string{
+						"app.bar": "true",
+					},
+				},
+				Resolution: networking.ServiceEntry_STATIC,
+			},
+		})
+		// Both service entries share a common workload entry
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "workloadentry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels: map[string]string{
+					"app.foo": "true",
+					"app.bar": "true",
+				},
+			},
+		})
+
+		fx.WaitOrFail(t, "xds full")
+		instances := []EndpointResponse{{
+			Address: "2.3.4.5",
+			Port:    80,
+		}}
+		expectedSvc1 := &model.Service{
+			Hostname: "service-1.namespace.svc.cluster.local",
+			Ports: []*model.Port{{
+				Name:     "http",
+				Port:     80,
+				Protocol: "http",
+			}},
+			Attributes: model.ServiceAttributes{
+				Namespace: namespace,
+				Name:      "service-entry-1",
+				LabelSelectors: map[string]string{
+					"app.foo": "true",
+				},
+			},
+		}
+		expectedSvc2 := &model.Service{
+			Hostname: "service-2.namespace.svc.cluster.local",
+			Ports: []*model.Port{{
+				Name:     "http",
+				Port:     80,
+				Protocol: "http",
+			}},
+			Attributes: model.ServiceAttributes{
+				Namespace: namespace,
+				Name:      "service-entry-2",
+				LabelSelectors: map[string]string{
+					"app.bar": "true",
+				},
+			},
+		}
+		expectServiceEndpoints(t, fx, expectedSvc1, 80, instances)
+		expectServiceEndpoints(t, fx, expectedSvc2, 80, instances)
+		fx.Clear()
+		// Delete the `app.foo` label to unselect service entry
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "workloadentry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels: map[string]string{
+					"app.bar": "true",
+				},
+			},
+		})
+		fx.WaitOrFail(t, "xds")
+		expectServiceEndpoints(t, fx, expectedSvc1, 80, []EndpointResponse{})
+		expectServiceEndpoints(t, fx, expectedSvc2, 80, instances)
+	})
+
 	t.Run("All directions", func(t *testing.T) {
 		store, kube, fx := setupTest(t)
 		makeService(t, kube, service)
