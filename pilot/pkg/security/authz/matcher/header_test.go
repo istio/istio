@@ -15,7 +15,6 @@
 package matcher
 
 import (
-	"regexp"
 	"testing"
 
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -80,73 +79,6 @@ func TestHeaderMatcher(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			actual := HeaderMatcher(tc.K, tc.V)
-			if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
-				t.Errorf("expecting %v, but got %v", tc.Expect, actual)
-			}
-		})
-	}
-}
-
-func TestHostMatcherWithRegex(t *testing.T) {
-	testCases := []struct {
-		Name   string
-		K      string
-		V      string
-		Expect *routepb.HeaderMatcher
-	}{
-		{
-			Name: "present match",
-			K:    ":authority",
-			V:    "*",
-			Expect: &routepb.HeaderMatcher{
-				Name:                 ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{PresentMatch: true},
-			},
-		},
-		{
-			Name: "prefix match",
-			K:    ":authority",
-			V:    "*.example.com",
-			Expect: &routepb.HeaderMatcher{
-				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: StringMatcherRegex(`(?i).*\.example\.com`),
-				},
-			},
-		},
-		{
-			Name: "suffix match",
-			K:    ":authority",
-			V:    "example.*",
-			Expect: &routepb.HeaderMatcher{
-				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: StringMatcherRegex(`(?i)example\..*`),
-				},
-			},
-		},
-		{
-			Name: "exact match",
-			K:    ":authority",
-			V:    "example.com",
-			Expect: &routepb.HeaderMatcher{
-				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: StringMatcherRegex(`(?i)example\.com`),
-				},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.Name, func(t *testing.T) {
-			actual := HostMatcherWithRegex(tc.K, tc.V)
-			if re := actual.GetStringMatch().GetSafeRegex().GetRegex(); re != "" {
-				_, err := regexp.Compile(re)
-				if err != nil {
-					t.Errorf("failed to compile regex %s: %v", re, err)
-				}
-			}
 			if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
 				t.Errorf("expecting %v, but got %v", tc.Expect, actual)
 			}
