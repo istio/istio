@@ -49,14 +49,18 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 		destRules = p.specificDestRules
 	}
 
-	var addRuleToProcessedDestRules bool
 	if mdrList, exists := destRules[resolvedHost]; exists {
 		// `addRuleToProcessedDestRules` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
-		addRuleToProcessedDestRules = true
+		addRuleToProcessedDestRules := true
 		for _, mdr := range mdrList {
-			if !mdr.exportTo.Equals(exportToSet) {
-				// If the exportTo not equal, skip merging
-				continue
+			if exportToSet.Equals(mdr.exportTo) {
+				addRuleToProcessedDestRules = false
+			} else {
+				// If the exportTo totally not equal, skip merging
+				// If one is subset of the other, continue merging
+				if len(exportToSet.Difference(mdr.exportTo)) > 0 && len(mdr.exportTo.Difference(exportToSet)) > 0 {
+					continue
+				}
 			}
 
 			existingRule := mdr.rule.Spec.(*networking.DestinationRule)
@@ -66,13 +70,16 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			if bothWithSelector && !selectorsMatch {
 				// If the new destination rule and the existing one has workload selectors associated with them, skip merging
 				// if the selectors do not match
+				addRuleToProcessedDestRules = true
 				continue
 			}
 			// If both the destination rules are without a workload selector or with matching workload selectors, simply merge them.
 			// If the incoming rule has a workload selector, it has to be merged with the existing rules with workload selector, and
 			// at the same time added as a unique entry in the processedDestRules.
 			if bothWithoutSelector || (rule.GetWorkloadSelector() != nil && selectorsMatch) {
-				addRuleToProcessedDestRules = false
+				addRuleToProcessedDestRules = addRuleToProcessedDestRules || false
+			} else {
+				addRuleToProcessedDestRules = true
 			}
 
 			// Deep copy destination rule, to prevent mutate it later when merge with a new one.
@@ -113,7 +120,6 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 		}
 		return
 	}
-
 	// DestinationRule does not exist for the resolved host so add it
 	destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig, exportToSet))
 }
