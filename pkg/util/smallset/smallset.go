@@ -15,9 +15,8 @@
 package smallset
 
 import (
+	"cmp"
 	"fmt"
-
-	"golang.org/x/exp/constraints"
 
 	"istio.io/istio/pkg/slices"
 )
@@ -28,19 +27,19 @@ import (
 // *Contains* sets is O(1). smallsets is O(logn). smallsets is typically faster up to about 5 elements.
 //
 //	At 1000 items, it is roughly 5x slower (30ns vs 5ns).
-type Set[T constraints.Ordered] struct {
+type Set[T cmp.Ordered] struct {
 	items []T
 }
 
 // NewPresorted creates a new Set with the given items.
 // If items is not sorted or contains duplicates, this gives undefined behavior; use New instead.
-func NewPresorted[T constraints.Ordered](items ...T) Set[T] {
+func NewPresorted[T cmp.Ordered](items ...T) Set[T] {
 	return Set[T]{items: items}
 }
 
 // New creates a new Set with the given items.
 // Duplicates are removed
-func New[T constraints.Ordered](items ...T) Set[T] {
+func New[T cmp.Ordered](items ...T) Set[T] {
 	if len(items) == 1 {
 		return Set[T]{items: items}
 	}
