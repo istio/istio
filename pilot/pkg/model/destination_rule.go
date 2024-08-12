@@ -51,9 +51,9 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 
 	var addRuleToProcessedDestRules bool
 	if mdrList, exists := destRules[resolvedHost]; exists {
+		// `addRuleToProcessedDestRules` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
+		addRuleToProcessedDestRules = true
 		for _, mdr := range mdrList {
-			// `addRuleToProcessedDestRules` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
-			addRuleToProcessedDestRules = true
 			if !mdr.exportTo.Equals(exportToSet) {
 				// If the exportTo not equal, skip merging
 				continue
