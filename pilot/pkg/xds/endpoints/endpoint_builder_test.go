@@ -284,7 +284,7 @@ func TestPopulateFailoverPriorityLabels(t *testing.T) {
 				},
 			}
 			if tt.dr != nil {
-				b.destinationRule = model.ConvertConsolidatedDestRule(tt.dr)
+				b.destinationRule = model.ConvertConsolidatedDestRule(tt.dr, nil)
 			}
 			b.populateFailoverPriorityLabels()
 			if !reflect.DeepEqual(b.failoverPriorityLabels, tt.expectedLabels) {

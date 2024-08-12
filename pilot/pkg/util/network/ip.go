@@ -95,6 +95,7 @@ func GetPrivateIPsIfAvailable() ([]string, bool) {
 				ip = v.IP
 			default:
 				continue
+
 			}
 			ipAddr, okay := netip.AddrFromSlice(ip)
 			if !okay {

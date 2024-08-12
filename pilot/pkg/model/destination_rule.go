@@ -49,15 +49,20 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 		destRules = p.specificDestRules
 	}
 
+	var addRuleToProcessedDestRules bool
 	if mdrList, exists := destRules[resolvedHost]; exists {
-		// `addRuleToProcessedDestRules` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
-		addRuleToProcessedDestRules := true
 		for _, mdr := range mdrList {
+			// `addRuleToProcessedDestRules` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
+			addRuleToProcessedDestRules = true
+			if !mdr.exportTo.Equals(exportToSet) {
+				// If the exportTo not equal, skip merging
+				continue
+			}
+
 			existingRule := mdr.rule.Spec.(*networking.DestinationRule)
 			bothWithoutSelector := rule.GetWorkloadSelector() == nil && existingRule.GetWorkloadSelector() == nil
 			bothWithSelector := existingRule.GetWorkloadSelector() != nil && rule.GetWorkloadSelector() != nil
 			selectorsMatch := labels.Instance(existingRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels())
-
 			if bothWithSelector && !selectorsMatch {
 				// If the new destination rule and the existing one has workload selectors associated with them, skip merging
 				// if the selectors do not match
@@ -102,27 +107,22 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
 				mergedRule.TrafficPolicy = rule.TrafficPolicy
 			}
-			// If there is no exportTo in the existing rule and
-			// the incoming rule has an explicit exportTo, use the
-			// one from the incoming rule.
-			if p.exportTo[resolvedHost].IsEmpty() && !exportToSet.IsEmpty() {
-				p.exportTo[resolvedHost] = exportToSet
-			}
 		}
 		if addRuleToProcessedDestRules {
-			destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig))
+			destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig, exportToSet))
 		}
 		return
 	}
+
 	// DestinationRule does not exist for the resolved host so add it
-	destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig))
-	p.exportTo[resolvedHost] = exportToSet
+	destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig, exportToSet))
 }
 
-func ConvertConsolidatedDestRule(cfg *config.Config) *ConsolidatedDestRule {
+func ConvertConsolidatedDestRule(cfg *config.Config, exportToSet sets.Set[visibility.Instance]) *ConsolidatedDestRule {
 	return &ConsolidatedDestRule{
-		rule: cfg,
-		from: []types.NamespacedName{cfg.NamespacedName()},
+		exportTo: exportToSet,
+		rule:     cfg,
+		from:     []types.NamespacedName{cfg.NamespacedName()},
 	}
 }
 

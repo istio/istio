@@ -2207,13 +2207,34 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 			},
 		},
 	}
+	destinationRuleNamespace3 := config.Config{
+		Meta: config.Meta{
+			Name:      "rule3",
+			Namespace: "test",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{"istio-system"},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset1",
+				},
+				{
+					Name: "subset2",
+				},
+			},
+		},
+	}
+
 	expectedDestRules := []types.NamespacedName{
 		{Namespace: "test", Name: "rule1"},
 		{Namespace: "test", Name: "rule2"},
 	}
-	ps.setDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
+	ps.setDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2, destinationRuleNamespace3})
 	private := ps.destinationRuleIndex.namespaceLocal["test"].specificDestRules[host.Name(testhost)]
 	public := ps.destinationRuleIndex.exportedByNamespace["test"].specificDestRules[host.Name(testhost)]
+	assert.Equal(t, len(private), 1)
+	assert.Equal(t, len(public), 2)
 	subsetsLocal := private[0].rule.Spec.(*networking.DestinationRule).Subsets
 	subsetsExport := public[0].rule.Spec.(*networking.DestinationRule).Subsets
 	assert.Equal(t, private[0].from, expectedDestRules)
@@ -2223,6 +2244,18 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 	}
 	if len(subsetsExport) != 4 {
 		t.Errorf("want %d, but got %d", 4, len(subsetsExport))
+	}
+
+	expectedDestRules = []types.NamespacedName{
+		{Namespace: "test", Name: "rule3"},
+	}
+	subsetsExport = public[1].rule.Spec.(*networking.DestinationRule).Subsets
+	assert.Equal(t, public[1].from, expectedDestRules)
+	if len(subsetsExport) != 2 {
+		t.Errorf("want %d, but got %d", 2, len(subsetsExport))
+	}
+	if !public[1].exportTo.Contains("istio-system") {
+		t.Errorf("want %s, but got %v", "istio-system", public[1].exportTo)
 	}
 }
 
