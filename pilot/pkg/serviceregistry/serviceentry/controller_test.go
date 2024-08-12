@@ -508,6 +508,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			Event{Type: "service", ID: "selector1.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "eds cache", ID: "selector1.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "xds full", ID: "*.google.com,selector1.com"}) // service added
 
 		selector1Updated := func() *config.Config {
@@ -523,6 +524,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "service", ID: "selector1.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "eds cache", ID: "selector1.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "xds full", ID: "*.google.com,selector1.com"}) // service updated
 	})
 }
