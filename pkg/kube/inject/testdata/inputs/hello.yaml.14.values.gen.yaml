@@ -105,11 +105,6 @@
       }
     }
   },
-  "istio_cni": {
-    "chained": true,
-    "enabled": true,
-    "provider": "multus"
-  },
   "pilot": {
     "cni": {
       "enabled": false,

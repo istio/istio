@@ -105,11 +105,6 @@
       }
     }
   },
-  "istio_cni": {
-    "chained": true,
-    "enabled": false,
-    "provider": "default"
-  },
   "pilot": {
     "cni": {
       "enabled": false,
