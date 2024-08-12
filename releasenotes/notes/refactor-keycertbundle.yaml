@@ -10,5 +10,5 @@ upgradeNotes:
     content: |
       `rootCertExpiryTimestamp` and `certChainExpiryTimestamp` no longer record a negative number for expired certificate/certificate chains.
       This was never the actual behavior, but the docs are now updated to reflect the actual behavior.
-      Users who relied on this behavior should check the check the signs of `rootCertExpirySeconds` and `certChainExpirySeconds` instead.
+      Users who relied on this behavior should check the signs of `rootCertExpirySeconds` and `certChainExpirySeconds` instead.
 
