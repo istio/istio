@@ -533,8 +533,8 @@ data:
             kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
             {{- end }}
             {{- end }}
-        {{- if or .Values.pilot.cni.enabled .Values.istio_cni.enabled }}
-            {{- if or (eq .Values.pilot.cni.provider "multus") (eq .Values.istio_cni.provider "multus") (not .Values.istio_cni.chained)}}
+        {{- if .Values.pilot.cni.enabled }}
+            {{- if eq .Values.pilot.cni.provider "multus" }}
             k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `default/istio-cni` }}',
             {{- end }}
             sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}",
@@ -558,7 +558,7 @@ data:
               (not $nativeSidecar) }}
           initContainers:
           {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-          {{ if or .Values.pilot.cni.enabled .Values.istio_cni.enabled -}}
+          {{ if .Values.pilot.cni.enabled -}}
           - name: istio-validation
           {{ else -}}
           - name: istio-init
@@ -610,7 +610,7 @@ data:
             {{ if .Values.global.logAsJson -}}
             - "--log_as_json"
             {{ end -}}
-            {{ if or .Values.pilot.cni.enabled .Values.istio_cni.enabled -}}
+            {{ if .Values.pilot.cni.enabled -}}
             - "--run-validation"
             - "--skip-rule-apply"
             {{ end -}}
@@ -628,14 +628,14 @@ data:
               allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
               privileged: {{ .Values.global.proxy.privileged }}
               capabilities:
-            {{- if not (or .Values.pilot.cni.enabled .Values.istio_cni.enabled) }}
+            {{- if not .Values.pilot.cni.enabled }}
                 add:
                 - NET_ADMIN
                 - NET_RAW
             {{- end }}
                 drop:
                 - ALL
-            {{- if not (or .Values.pilot.cni.enabled .Values.istio_cni.enabled) }}
+            {{- if not .Values.pilot.cni.enabled }}
               readOnlyRootFilesystem: false
               runAsGroup: 0
               runAsNonRoot: false
@@ -1832,13 +1832,10 @@ data:
                 - name: ISTIO_META_MESH_ID
                   value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
                 {{- end }}
+                {{- if .Values.global.waypoint.resources }}
                 resources:
-                  limits:
-                    cpu: "2"
-                    memory: 1Gi
-                  requests:
-                    cpu: 100m
-                    memory: 128Mi
+                {{- toYaml .Values.global.waypoint.resources | nindent 10 }}
+                {{- end }}
                 startupProbe:
                   failureThreshold: 30
                   httpGet:
@@ -1994,6 +1991,7 @@ data:
               .InfrastructureLabels
               (strdict
                 "gateway.networking.k8s.io/gateway-name" .Name
+                "gateway.istio.io/managed" "istio.io-gateway-controller"
               ) | nindent 4 }}
           ownerReferences:
           - apiVersion: gateway.networking.k8s.io/v1beta1
@@ -2025,6 +2023,7 @@ data:
                   .InfrastructureLabels
                   (strdict
                     "gateway.networking.k8s.io/gateway-name" .Name
+                    "gateway.istio.io/managed" "istio.io-gateway-controller"
                   ) | nindent 8 }}
             spec:
               securityContext:
@@ -2306,7 +2305,6 @@ data:
         "securityContext": {}
       },
       "global": {
-        "autoscalingv2API": true,
         "caAddress": "",
         "caName": "",
         "certSigners": [],
@@ -2394,16 +2392,24 @@ data:
           "servicePort": 0
         },
         "tag": "1.1.4",
-        "variant": ""
-      },
-      "istio_cni": {
-        "chained": true,
-        "enabled": false,
-        "provider": "default"
+        "variant": "",
+        "waypoint": {
+          "resources": {
+            "limits": {
+              "cpu": "2",
+              "memory": "1Gi"
+            },
+            "requests": {
+              "cpu": "100m",
+              "memory": "128Mi"
+            }
+          }
+        }
       },
       "pilot": {
         "cni": {
           "enabled": false,
+          "namespace": "istio-system",
           "provider": "default"
         }
       },
@@ -2675,6 +2681,8 @@ spec:
         - containerPort: 15010
           protocol: TCP
         - containerPort: 15017
+          protocol: TCP
+        - containerPort: 15014
           protocol: TCP
         readinessProbe:
           httpGet:

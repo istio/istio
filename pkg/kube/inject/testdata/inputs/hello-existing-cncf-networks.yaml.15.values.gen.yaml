@@ -105,16 +105,11 @@
       }
     }
   },
-  "istio_cni": {
-    "chained": true,
-    "enabled": true,
-    "provider": "multus"
-  },
   "pilot": {
     "cni": {
-      "enabled": false,
+      "enabled": true,
       "namespace": "istio-system",
-      "provider": "default"
+      "provider": "multus"
     }
   },
   "revision": "",
