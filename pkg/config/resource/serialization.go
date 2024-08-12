@@ -17,7 +17,6 @@ package resource
 import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/kube/controllers"
 )
 
 // PilotConfigToInstance convert from config.Config, which has no associated proto, to MCP Resource proto.
@@ -32,21 +31,5 @@ func PilotConfigToInstance(c *config.Config, schema resource.Schema) *Instance {
 			Annotations: c.Annotations,
 		},
 		Message: c.Spec,
-	}
-}
-
-// ObjectToInstance convert from a controller object to MCP Resource proto.
-// Note you need to pass the object and its spec
-func ObjectToInstance(c controllers.Object, spec config.Spec, schema resource.Schema) *Instance {
-	return &Instance{
-		Metadata: Metadata{
-			Schema:      schema,
-			FullName:    FullName{Namespace(c.GetNamespace()), LocalName(c.GetName())},
-			CreateTime:  c.GetCreationTimestamp().Time,
-			Version:     Version(c.GetResourceVersion()),
-			Labels:      c.GetLabels(),
-			Annotations: c.GetAnnotations(),
-		},
-		Message: spec,
 	}
 }

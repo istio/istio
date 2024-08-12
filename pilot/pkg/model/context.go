@@ -732,23 +732,6 @@ const (
 	serviceNodeSeparator = "~"
 )
 
-// ParsePort extracts port number from a valid proxy address
-func ParsePort(addr string) int {
-	_, sPort, err := net.SplitHostPort(addr)
-	if sPort == "" {
-		return 0
-	}
-	if err != nil {
-		log.Warn(err)
-	}
-	port, pErr := strconv.Atoi(sPort)
-	if pErr != nil {
-		log.Warn(pErr)
-	}
-
-	return port
-}
-
 // hasValidIPAddresses returns true if the input ips are all valid, otherwise returns false.
 func hasValidIPAddresses(ipAddresses []string) bool {
 	if len(ipAddresses) == 0 {

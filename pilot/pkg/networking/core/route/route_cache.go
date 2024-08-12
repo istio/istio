@@ -15,7 +15,6 @@
 package route
 
 import (
-	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -84,23 +83,6 @@ func (r *Cache) Cacheable() bool {
 	}
 
 	return true
-}
-
-func extractNamespaceForKubernetesService(hostname string) (string, error) {
-	ih := strings.Index(hostname, ".svc.")
-	if ih < 0 {
-		return "", fmt.Errorf("hostname is a not a Kubernetes name, missing .svc: %v", hostname)
-	}
-	nsI := strings.Index(hostname, ".")
-	if nsI+1 >= len(hostname) || nsI+1 > ih {
-		// Invalid domain
-		return "", fmt.Errorf("hostname is a not a Kubernetes name, missing namespace: %v", hostname)
-	}
-	ns := hostname[nsI+1 : ih]
-	if len(ns) == 0 {
-		return "", fmt.Errorf("namespace not found")
-	}
-	return ns, nil
 }
 
 func (r *Cache) DependentConfigs() []model.ConfigHash {

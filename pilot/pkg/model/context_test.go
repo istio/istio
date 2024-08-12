@@ -178,33 +178,6 @@ func mapToStruct(msg map[string]any) (*structpb.Struct, error) {
 	return pbs, nil
 }
 
-func TestParsePort(t *testing.T) {
-	if port := model.ParsePort("localhost:3000"); port != 3000 {
-		t.Errorf("ParsePort(localhost:3000) => Got %d, want 3000", port)
-	}
-	if port := model.ParsePort("localhost"); port != 0 {
-		t.Errorf("ParsePort(localhost) => Got %d, want 0", port)
-	}
-	if port := model.ParsePort("127.0.0.1:3000"); port != 3000 {
-		t.Errorf("ParsePort(127.0.0.1:3000) => Got %d, want 3000", port)
-	}
-	if port := model.ParsePort("127.0.0.1"); port != 0 {
-		t.Errorf("ParsePort(127.0.0.1) => Got %d, want 0", port)
-	}
-	if port := model.ParsePort("[::1]:3000"); port != 3000 {
-		t.Errorf("ParsePort([::1]:3000) => Got %d, want 3000", port)
-	}
-	if port := model.ParsePort("::1"); port != 0 {
-		t.Errorf("ParsePort(::1) => Got %d, want 0", port)
-	}
-	if port := model.ParsePort("[2001:4860:0:2001::68]:3000"); port != 3000 {
-		t.Errorf("ParsePort([2001:4860:0:2001::68]:3000) => Got %d, want 3000", port)
-	}
-	if port := model.ParsePort("2001:4860:0:2001::68"); port != 0 {
-		t.Errorf("ParsePort(2001:4860:0:2001::68) => Got %d, want 0", port)
-	}
-}
-
 func TestGetOrDefault(t *testing.T) {
 	assert.Equal(t, "a", model.GetOrDefault("a", "b"))
 	assert.Equal(t, "b", model.GetOrDefault("", "b"))
