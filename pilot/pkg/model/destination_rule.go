@@ -50,17 +50,14 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 	}
 
 	if mdrList, exists := destRules[resolvedHost]; exists {
-		// `addRuleToProcessedDestRules` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
-		addRuleToProcessedDestRules := true
+		// `appendSeparately` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
+		appendSeparately := true
 		for _, mdr := range mdrList {
 			if exportToSet.Equals(mdr.exportTo) {
-				addRuleToProcessedDestRules = false
-			} else {
-				// If the exportTo totally not equal, skip merging
-				// If one is subset of the other, continue merging
-				if len(exportToSet.Difference(mdr.exportTo)) > 0 && len(mdr.exportTo.Difference(exportToSet)) > 0 {
-					continue
-				}
+				appendSeparately = false
+			} else if len(exportToSet.Difference(mdr.exportTo)) > 0 && len(mdr.exportTo.Difference(exportToSet)) > 0 {
+				// If anyone's exportTo is not the subset of the other, skip merging, append as a standalone one
+				continue
 			}
 
 			existingRule := mdr.rule.Spec.(*networking.DestinationRule)
@@ -70,16 +67,16 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			if bothWithSelector && !selectorsMatch {
 				// If the new destination rule and the existing one has workload selectors associated with them, skip merging
 				// if the selectors do not match
-				addRuleToProcessedDestRules = true
+				appendSeparately = true
 				continue
 			}
 			// If both the destination rules are without a workload selector or with matching workload selectors, simply merge them.
 			// If the incoming rule has a workload selector, it has to be merged with the existing rules with workload selector, and
 			// at the same time added as a unique entry in the processedDestRules.
-			if bothWithoutSelector || (rule.GetWorkloadSelector() != nil && selectorsMatch) {
-				addRuleToProcessedDestRules = addRuleToProcessedDestRules || false
+			if !appendSeparately && (bothWithoutSelector || (rule.GetWorkloadSelector() != nil && selectorsMatch)) {
+				appendSeparately = false
 			} else {
-				addRuleToProcessedDestRules = true
+				appendSeparately = true
 			}
 
 			// Deep copy destination rule, to prevent mutate it later when merge with a new one.
@@ -115,7 +112,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 				mergedRule.TrafficPolicy = rule.TrafficPolicy
 			}
 		}
-		if addRuleToProcessedDestRules {
+		if appendSeparately {
 			destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig, exportToSet))
 		}
 		return
