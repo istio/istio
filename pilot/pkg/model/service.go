@@ -864,7 +864,7 @@ type AmbientIndexes interface {
 }
 
 // WaypointKey is a multi-address extension of NetworkAddress which is commonly used for lookups in AmbientIndex
-// We likely need to consider alternative keying options internally such as hostname as we look to expand beyong istio-waypoint
+// We likely need to consider alternative keying options internally such as hostname as we look to expand beyond istio-waypoint
 // This extension can ideally support that type of lookup in the interface without introducing scope creep into things
 // like NetworkAddress
 type WaypointKey struct {
@@ -880,7 +880,19 @@ func WaypointKeyForProxy(node *Proxy) WaypointKey {
 	}
 	for _, svct := range node.ServiceTargets {
 		ips := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
-		key.Addresses = append(key.Addresses, ips...)
+		// if we find autoAllocated addresses then ips should contain constants.UnspecifiedIP which should not be used
+		foundAutoAllocated := false
+		if svct.Service.AutoAllocatedIPv4Address != "" {
+			key.Addresses = append(key.Addresses, svct.Service.AutoAllocatedIPv4Address)
+			foundAutoAllocated = true
+		}
+		if svct.Service.AutoAllocatedIPv6Address != "" {
+			key.Addresses = append(key.Addresses, svct.Service.AutoAllocatedIPv6Address)
+			foundAutoAllocated = true
+		}
+		if !foundAutoAllocated {
+			key.Addresses = append(key.Addresses, ips...)
+		}
 	}
 	return key
 }
