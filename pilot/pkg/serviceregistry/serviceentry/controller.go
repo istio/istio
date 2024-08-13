@@ -468,7 +468,7 @@ func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Ev
 		keys.Insert(instancesKey{hostname: svc.Hostname, namespace: curr.Namespace})
 	}
 
-	s.queueEdsEvent(keys, s.doEdsCacheUpdate)
+	s.queueEdsEvent(keys, false)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -709,7 +709,7 @@ func (s *Controller) edsUpdate(instances []*model.ServiceInstance) {
 	for _, i := range instances {
 		keys.Insert(makeInstanceKey(i))
 	}
-	s.queueEdsEvent(keys, s.doEdsUpdate)
+	s.queueEdsEvent(keys, true)
 }
 
 // edsCacheUpdate updates eds cache serially such that we can prevent allinstances
@@ -721,17 +721,21 @@ func (s *Controller) edsCacheUpdate(instances []*model.ServiceInstance) {
 	for _, i := range instances {
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
-	s.queueEdsEvent(keys, s.doEdsCacheUpdate)
+	s.queueEdsEvent(keys, false)
 }
 
 // queueEdsEvent processes eds events sequentially for the passed keys and invokes the passed function.
-func (s *Controller) queueEdsEvent(keys sets.Set[instancesKey], edsFn func(keys sets.Set[instancesKey])) {
+func (s *Controller) queueEdsEvent(keys sets.Set[instancesKey], pushEds bool) {
 	// wait for the cache update finished
 	waitCh := make(chan struct{})
 	// trigger update eds endpoint shards
 	s.edsQueue.Push(func() error {
 		defer close(waitCh)
-		edsFn(keys)
+		xdsUpdateFn := s.XdsUpdater.EDSCacheUpdate
+		if pushEds {
+			xdsUpdateFn = s.XdsUpdater.EDSUpdate
+		}
+		s.triggerEdsUpdate(keys, xdsUpdateFn)
 		return nil
 	})
 	select {
@@ -746,32 +750,25 @@ func (s *Controller) queueEdsEvent(keys sets.Set[instancesKey], edsFn func(keys 
 
 // doEdsCacheUpdate invokes XdsUpdater's EDSCacheUpdate to update endpoint shards.
 func (s *Controller) doEdsCacheUpdate(keys sets.Set[instancesKey]) {
-	endpoints := s.buildEndpoints(keys)
-	shard := model.ShardKeyFromRegistry(s)
-	// This is delete.
-	if len(endpoints) == 0 {
-		for k := range keys {
-			s.XdsUpdater.EDSCacheUpdate(shard, string(k.hostname), k.namespace, nil)
-		}
-	} else {
-		for k, eps := range endpoints {
-			s.XdsUpdater.EDSCacheUpdate(shard, string(k.hostname), k.namespace, eps)
-		}
-	}
+	s.triggerEdsUpdate(keys, s.XdsUpdater.EDSCacheUpdate)
 }
 
 // doEdsUpdate invokes XdsUpdater's eds update to trigger eds push.
 func (s *Controller) doEdsUpdate(keys sets.Set[instancesKey]) {
+	s.triggerEdsUpdate(keys, s.XdsUpdater.EDSUpdate)
+}
+
+func (s *Controller) triggerEdsUpdate(keys sets.Set[instancesKey], xdsUpdateFn model.EdsUpdateFn) {
 	endpoints := s.buildEndpoints(keys)
 	shard := model.ShardKeyFromRegistry(s)
 	// This is delete.
 	if len(endpoints) == 0 {
 		for k := range keys {
-			s.XdsUpdater.EDSUpdate(shard, string(k.hostname), k.namespace, nil)
+			xdsUpdateFn(shard, string(k.hostname), k.namespace, nil)
 		}
 	} else {
 		for k, eps := range endpoints {
-			s.XdsUpdater.EDSUpdate(shard, string(k.hostname), k.namespace, eps)
+			xdsUpdateFn(shard, string(k.hostname), k.namespace, eps)
 		}
 	}
 }
