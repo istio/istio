@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +28,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"math/rand/v2"
 
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/file"

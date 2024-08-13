@@ -66,7 +66,7 @@ func TestRootCertRotatorWithoutRootCertSecret(t *testing.T) {
 
 	rotator0.checkAndRotateRootCert()
 	caSecret, err := client0.Secrets(rotator0.config.caStorageNamespace).Get(context.TODO(), rotator0.config.secretName, metav1.GetOptions{})
-	if !errors.IsNotFound(err) || caSecret != nil {
+	if !errors.IsNotFound(err) {
 		t.Errorf("CA secret should not exist, but get %v: %v", caSecret, err)
 	}
 }
