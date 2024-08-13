@@ -651,7 +651,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 
 var rotateTime = func(secret security.SecretItem, graceRatio float64, graceRatioJitter float64) time.Duration {
 	// stagger rotation times to prevent large fleets of clients from renewing at the same moment.
-	jitter := (rand.Float64() * graceRatioJitter) * float64(rand.IntN(3)-1) // #nosec G404 -- crypto/rand not worth the cost
+	jitter := (rand.Float64() * graceRatioJitter) * float64(rand.IntN(2)*2-1) // #nosec G404 -- crypto/rand not worth the cost
 	jitterGraceRatio := graceRatio + jitter
 	if jitterGraceRatio > 1 {
 		jitterGraceRatio = 1
