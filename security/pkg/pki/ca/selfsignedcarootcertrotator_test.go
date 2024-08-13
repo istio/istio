@@ -273,7 +273,7 @@ func TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel(t *testing.T) {
 // TestRollbackAtRootCertRotatorForSigningCitadel verifies that rotator rollbacks
 // new root cert if it fails to update new root cert into configmap.
 func TestRollbackAtRootCertRotatorForSigningCitadel(t *testing.T) {
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := fake.NewClientset()
 	rotator := getRootCertRotator(getDefaultSelfSignedIstioCAOptions(fakeClient))
 
 	// Make a copy of CA secret, a copy of root cert form key cert bundle, and
@@ -324,7 +324,7 @@ func getDefaultSelfSignedIstioCAOptions(fclient *fake.Clientset) *IstioCAOptions
 	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
 	org := "test.ca.Org"
-	client := fake.NewSimpleClientset().CoreV1()
+	client := fake.NewClientset().CoreV1()
 	if fclient != nil {
 		client = fclient.CoreV1()
 	}

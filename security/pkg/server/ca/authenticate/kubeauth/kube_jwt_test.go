@@ -153,7 +153,7 @@ func TestAuthenticate(t *testing.T) {
 				Groups:   []string{"system:serviceaccounts"},
 			}
 
-			client := fake.NewSimpleClientset()
+			client := fake.NewClientset()
 			if !tc.remoteCluster {
 				client.PrependReactor("create", "tokenreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
 					return true, tokenReview, nil
@@ -162,7 +162,7 @@ func TestAuthenticate(t *testing.T) {
 
 			remoteKubeClientGetter := func(clusterID cluster.ID) kubernetes.Interface {
 				if clusterID == remoteCluster {
-					client := fake.NewSimpleClientset()
+					client := fake.NewClientset()
 					if tc.remoteCluster {
 						client.PrependReactor("create", "tokenreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
 							return true, tokenReview, nil

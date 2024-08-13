@@ -182,7 +182,7 @@ func TestSubmitCSR(t *testing.T) {
 
 	for tcName, tc := range testCases {
 		t.Run(tcName, func(t *testing.T) {
-			client := fake.NewSimpleClientset()
+			client := fake.NewClientset()
 			csr := &cert.CertificateSigningRequest{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "domain-cluster.local-ns--secret-mock-secret",
