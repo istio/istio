@@ -37,13 +37,6 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-type deprecatedSettings struct {
-	old string
-	new string
-	// In ordered to distinguish between unset for non-pointer values, we need to specify the default value
-	def any
-}
-
 type Warnings = util.Errors
 
 func ParseAndValidateIstioOperator(iopm values.Map) (Warnings, util.Errors) {
@@ -69,8 +62,6 @@ func ParseAndValidateIstioOperator(iopm values.Map) (Warnings, util.Errors) {
 	errors = util.AppendErr(errors, validateTag(iop.Spec.Tag))
 	errors = util.AppendErr(errors, validateRevision(iop.Spec.Revision))
 	errors = util.AppendErr(errors, validateComponentNames(iop.Spec.Components))
-
-	warnings = append(warnings, checkDeprecatedSettings(iopm)...)
 
 	return warnings, errors
 }
@@ -119,33 +110,6 @@ func validateMeshConfig(contents string) (Warnings, util.Errors) {
 		return util.NewErrs(warnings), nil
 	}
 	return nil, nil
-}
-
-func checkDeprecatedSettings(iop values.Map) Warnings {
-	messages := Warnings{}
-	warningSettings := []deprecatedSettings{
-		{"spec.values.global.proxy.holdApplicationUntilProxyStarts", "meshConfig.defaultConfig.holdApplicationUntilProxyStarts", false},
-		{"spec.values.global.tracer.lightstep.address", "meshConfig.defaultConfig.tracing.lightstep.address", ""},
-		{"spec.values.global.tracer.lightstep.accessToken", "meshConfig.defaultConfig.tracing.lightstep.accessToken", ""},
-		{"spec.values.global.tracer.zipkin.address", "meshConfig.defaultConfig.tracing.zipkin.address", nil},
-		{"spec.values.global.tracer.datadog.address", "meshConfig.defaultConfig.tracing.datadog.address", ""},
-		// nolint: lll
-		{"spec.values.global.jwtPolicy", "Values.global.jwtPolicy=third-party-jwt. See https://istio.io/latest/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for more information", "third-party-jwt"},
-		{"spec.values.global.arch", "the affinity of k8s settings", nil},
-	}
-
-	// There are addition validations that do hard failures; these are done in the helm charts themselves to be shared logic.
-	// Ideally, warnings are there too. However, we don't currently parse our Helm warnings.
-
-	for _, d := range warningSettings {
-		v, f := iop.GetPath(d.old)
-		if f {
-			if v != d.def {
-				messages = append(messages, fmt.Errorf("! %s is deprecated; use %s instead", strings.TrimPrefix(d.old, "spec."), d.new))
-			}
-		}
-	}
-	return messages
 }
 
 type FeatureValidator func(*apis.Values, apis.IstioOperatorSpec) (Warnings, util.Errors)

@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
-	uninstall2 "istio.io/istio/operator/pkg/uninstall"
+	"istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/operator/pkg/values"
@@ -100,7 +100,7 @@ func UninstallCmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return uninstall(cmd, ctx, rootArgs, uiArgs)
+			return runUninstall(cmd, ctx, rootArgs, uiArgs)
 		},
 	}
 	addFlags(uicmd, rootArgs)
@@ -108,8 +108,8 @@ func UninstallCmd(ctx cli.Context) *cobra.Command {
 	return uicmd
 }
 
-// uninstall uninstalls control plane by either pruning by target revision or deleting specified manifests.
-func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *uninstallArgs) error {
+// runUninstall uninstalls control plane by either pruning by target revision or deleting specified manifests.
+func runUninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *uninstallArgs) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 
 	var kubeClient kube.CLIClient
@@ -140,13 +140,13 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 		l.LogAndPrint(PurgeWithRevisionOrOperatorSpecifiedWarning)
 	}
 
-	objectsList, err := uninstall2.GetPrunedResources(kubeClient, "", "", uiArgs.revision, uiArgs.purge)
+	objectsList, err := uninstall.GetPrunedResources(kubeClient, "", "", uiArgs.revision, uiArgs.purge)
 	if err != nil {
 		return err
 	}
 	preCheckWarnings(cmd, kubeClient, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, l, rootArgs.DryRun)
 
-	if err := uninstall2.DeleteObjectsList(kubeClient, rootArgs.DryRun, l, objectsList); err != nil {
+	if err := uninstall.DeleteObjectsList(kubeClient, rootArgs.DryRun, l, objectsList); err != nil {
 		return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 	}
 	pl.SetState(progress.StateUninstallComplete)

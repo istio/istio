@@ -42,7 +42,7 @@ type deployment struct {
 	deployment  *appsv1.Deployment
 }
 
-// WaitForResources polls to get the current status of all pods, PVCs, and Services
+// WaitForResources polls to get the current status of various objects that are not immediately ready
 // until all are ready or a timeout is reached
 func WaitForResources(objects []manifest.Manifest, client kube.Client, waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog) error {
 	if dryRun {

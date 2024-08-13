@@ -208,7 +208,7 @@ func generateValidatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) 
 			},
 		},
 	}
-	mfs, err := helm.Render(config.IstioNamespace, "default", vals)
+	mfs, _, err := helm.Render(config.IstioNamespace, "default", vals, nil)
 	if err != nil {
 		return "", nil
 	}

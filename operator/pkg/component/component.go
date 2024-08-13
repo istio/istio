@@ -108,6 +108,10 @@ func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 	return []apis.GatewayComponentSpec{spec}, nil
 }
 
+func (c Component) IsGateway() bool {
+	return c.UserFacingName == IngressComponentName || c.UserFacingName == EgressComponentName
+}
+
 // Name is a component name string, typed to constrain allowed values.
 type Name string
 

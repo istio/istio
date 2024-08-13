@@ -105,7 +105,7 @@
   },
   "pilot": {
     "cni": {
-      "enabled": false,
+      "enabled": true,
       "provider": "multus"
     }
   },

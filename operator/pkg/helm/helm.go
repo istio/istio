@@ -15,6 +15,7 @@
 package helm
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -32,33 +33,40 @@ import (
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/manifests"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
-func Render(namespace string, directory string, iop values.Map) ([]manifest.Manifest, error) {
+// Render produces a set of fully rendered manifests from Helm.
+// Any warnings are also propagated up.
+// Note: this is the direct result of the Helm call. Postprocessing steps are done later.
+func Render(namespace string, directory string, iop values.Map, kubernetesVersion *version.Info) ([]manifest.Manifest, util.Errors, error) {
 	vals, _ := iop.GetPathMap("spec.values")
 	installPackagePath := iop.GetPathString("spec.installPackagePath")
 	f := manifests.BuiltinOrDir(installPackagePath)
 	path := filepath.Join("charts", directory)
 	chrt, err := loadChart(f, path)
 	if err != nil {
-		return nil, fmt.Errorf("load chart: %v", err)
+		return nil, nil, fmt.Errorf("load chart: %v", err)
 	}
 
-	output, err := renderChart(namespace, vals, chrt, nil, nil)
+	output, warnings, err := renderChart(namespace, vals, chrt, kubernetesVersion)
 	if err != nil {
-		return nil, fmt.Errorf("render chart: %v", err)
+		return nil, nil, fmt.Errorf("render chart: %v", err)
 	}
-	return manifest.Parse(output)
+	mfs, err := manifest.Parse(output)
+	return mfs, warnings, err
 }
 
 // TemplateFilterFunc filters templates to render by their file name
 type TemplateFilterFunc func(string) bool
 
+type Warnings = util.Errors
+
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
-func renderChart(namespace string, vals values.Map, chrt *chart.Chart, filterFunc TemplateFilterFunc, version *version.Info) ([]string, error) {
+func renderChart(namespace string, vals values.Map, chrt *chart.Chart, version *version.Info) ([]string, Warnings, error) {
 	options := chartutil.ReleaseOptions{
 		Name:      "istio", // TODO: this should probably have been the component name. However, its a bit late to change it.
 		Namespace: namespace,
@@ -79,26 +87,12 @@ func renderChart(namespace string, vals values.Map, chrt *chart.Chart, filterFun
 	}
 	helmVals, err := chartutil.ToRenderValues(chrt, vals, options, &caps)
 	if err != nil {
-		return nil, fmt.Errorf("converting values: %v", err)
-	}
-
-	if filterFunc != nil {
-		filteredTemplates := []*chart.File{}
-		for _, t := range chrt.Templates {
-			// Always include required templates that do not produce any output
-			if filterFunc(t.Name) ||
-				strings.HasSuffix(t.Name, ".tpl") ||
-				t.Name == "templates/zzz_profile.yaml" ||
-				t.Name == "templates/zzy_descope_legacy.yaml" {
-				filteredTemplates = append(filteredTemplates, t)
-			}
-		}
-		chrt.Templates = filteredTemplates
+		return nil, nil, fmt.Errorf("converting values: %v", err)
 	}
 
 	files, err := engine.Render(chrt, helmVals)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	crdFiles := chrt.CRDObjects()
@@ -109,10 +103,12 @@ func renderChart(namespace string, vals values.Map, chrt *chart.Chart, filterFun
 		}
 	}
 
+	var warnings Warnings
 	// Create sorted array of keys to iterate over, to stabilize the order of the rendered templates
 	keys := make([]string, 0, len(files))
-	for k := range files {
+	for k, v := range files {
 		if strings.HasSuffix(k, NotesFileNameSuffix) {
+			warnings = extractWarnings(v)
 			continue
 		}
 		keys = append(keys, k)
@@ -132,7 +128,17 @@ func renderChart(namespace string, vals values.Map, chrt *chart.Chart, filterFun
 		results = append(results, yml.SplitString(string(crd.File.Data))...)
 	}
 
-	return results, nil
+	return results, warnings, nil
+}
+
+func extractWarnings(v string) Warnings {
+	var w Warnings
+	for _, l := range strings.Split(v, "\n") {
+		if strings.HasPrefix(l, "WARNING: ") {
+			w = util.AppendErr(w, errors.New(strings.TrimPrefix(l, "WARNING: ")))
+		}
+	}
+	return w
 }
 
 const (

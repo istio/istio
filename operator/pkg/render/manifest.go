@@ -21,12 +21,15 @@ import (
 	"os"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/version"
+
 	"istio.io/istio/manifests"
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/apis/validation"
 	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pkg/kube"
@@ -52,9 +55,18 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 	if unvalidatedValues, _ := merged.GetPathMap("spec.unvalidatedValues"); unvalidatedValues != nil {
 		merged.MergeFrom(values.MakeMap(unvalidatedValues, "spec", "values"))
 	}
+	var kubernetesVersion *version.Info
+	if client != nil {
+		v, err := client.GetKubernetesVersion()
+		if err != nil {
+			return nil, nil, fmt.Errorf("fail to get Kubernetes version: %v", err)
+		}
+		kubernetesVersion = v
+	}
 
 	// Render each component
 	var allManifests []manifest.ManifestSet
+	var chartWarnings util.Errors
 	for _, comp := range component.AllComponents {
 		specs, err := comp.Get(merged)
 		if err != nil {
@@ -64,10 +76,11 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 			// Each component may get a different view of the values; modify them as needed (with a copy)
 			compVals := applyComponentValuesToHelmValues(comp, spec, merged)
 			// Render the chart
-			rendered, err := helm.Render(spec.Namespace, comp.HelmSubdir, compVals)
+			rendered, warnings, err := helm.Render(spec.Namespace, comp.HelmSubdir, compVals, kubernetesVersion)
 			if err != nil {
 				return nil, nil, fmt.Errorf("helm render: %v", err)
 			}
+			chartWarnings = util.AppendErrs(chartWarnings, warnings)
 			// IstioOperator has a variety of processing steps that are done *after* Helm, such as patching. Apply any of these steps.
 			finalized, err := postProcess(comp, spec, rendered, compVals)
 			if err != nil {
@@ -79,6 +92,13 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 			})
 		}
 	}
+
+	// Log any warnings we got from the charts
+	if logger != nil {
+		for _, w := range chartWarnings {
+			logger.LogAndErrorf("%s %v", "❗", w)
+		}
+	}
 	return allManifests, merged, nil
 }
 
@@ -87,7 +107,7 @@ func applyComponentValuesToHelmValues(comp component.Component, spec apis.Gatewa
 	root := comp.ToHelmValuesTreeRoot
 
 	// Gateways allow providing 'name' and 'label' overrides.
-	if comp.UserFacingName == component.IngressComponentName || comp.UserFacingName == component.EgressComponentName {
+	if comp.IsGateway() {
 		merged = merged.DeepClone()
 		_ = merged.SetPath(fmt.Sprintf("spec.values.%s.name", root), spec.Name)
 		_ = merged.SetPath(fmt.Sprintf("spec.values.%s.labels", root), spec.Label)
@@ -276,7 +296,7 @@ func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
 	if err := base.SetPath("spec.values.pilot.enabled", base.GetPathBool("spec.components.pilot.enabled")); err != nil {
 		return nil, err
 	}
-	if err := base.SetPath("spec.values.istio_cni.enabled", base.GetPathBool("spec.components.cni.enabled")); err != nil {
+	if err := base.SetPath("spec.values.pilot.cni.enabled", base.GetPathBool("spec.components.cni.enabled")); err != nil {
 		return nil, err
 	}
 	if n := base.GetPathString("spec.values.global.istioNamespace"); n != "" {
@@ -354,7 +374,7 @@ func validateIstioOperator(iop values.Map, logger clog.Logger, force bool) error
 	}
 	if logger != nil {
 		for _, w := range warnings {
-			logger.LogAndError(w)
+			logger.LogAndErrorf("%s %v", "❗", w)
 		}
 	}
 	return nil

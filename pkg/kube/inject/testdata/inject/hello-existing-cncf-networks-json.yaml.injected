@@ -15,13 +15,17 @@ spec:
     metadata:
       annotations:
         istio.io/rev: default
-        k8s.v1.cni.cncf.io/networks: '[{"name": "alt_cni"}]'
+        k8s.v1.cni.cncf.io/networks: '[{"name": "alt_cni"}, {"name": "default/istio-cni"}]'
         kubectl.kubernetes.io/default-container: hello
         kubectl.kubernetes.io/default-logs-container: hello
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/interceptionMode: REDIRECT
+        sidecar.istio.io/status: '{"initContainers":["istio-validation"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+        traffic.sidecar.istio.io/includeInboundPorts: '*'
+        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: hello
@@ -186,8 +190,10 @@ spec:
         - -d
         - 15090,15021,15020
         - --log_output_level=default:info
+        - --run-validation
+        - --skip-rule-apply
         image: gcr.io/istio-testing/proxyv2:latest
-        name: istio-init
+        name: istio-validation
         resources:
           limits:
             cpu: "2"
@@ -198,16 +204,13 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
             drop:
             - ALL
           privileged: false
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
       volumes:
       - name: workload-socket
       - name: credential-socket
