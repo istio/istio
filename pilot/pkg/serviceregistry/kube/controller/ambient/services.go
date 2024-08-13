@@ -132,12 +132,6 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 		})
 	}
 
-	// handle svc waypoint scenario
-	var waypointAddress *workloadapi.GatewayAddress
-	if w != nil {
-		waypointAddress = a.getWaypointAddress(w)
-	}
-
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
@@ -155,7 +149,7 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 			Hostname:        h,
 			Addresses:       hostsAddresses,
 			Ports:           ports,
-			Waypoint:        waypointAddress,
+			Waypoint:        w.GetAddress(),
 			SubjectAltNames: svc.Spec.SubjectAltNames,
 		})
 	}
@@ -175,11 +169,6 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 	if err != nil {
 		log.Warnf("fail to parse service %v: %v", config.NamespacedName(svc), err)
 		return nil
-	}
-	// handle svc waypoint scenario
-	var waypointAddress *workloadapi.GatewayAddress
-	if w != nil {
-		waypointAddress = a.getWaypointAddress(w)
 	}
 
 	var lb *workloadapi.LoadBalancing
@@ -242,7 +231,7 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 		Hostname:      string(kube.ServiceHostname(svc.Name, svc.Namespace, a.DomainSuffix)),
 		Addresses:     addresses,
 		Ports:         ports,
-		Waypoint:      waypointAddress,
+		Waypoint:      w.GetAddress(),
 		LoadBalancing: lb,
 		IpFamilies:    ipFamily,
 	}

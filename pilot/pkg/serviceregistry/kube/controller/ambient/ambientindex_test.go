@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -1585,14 +1586,14 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType stri
 	gateway.Labels = labels
 
 	if ready {
-		addrType := k8sbeta.HostnameAddressType
 		gateway.Status = k8sbeta.GatewayStatus{
-			// addresses:
-			// - type: Hostname
-			//   value: 10.96.59.188
 			Addresses: []k8sv1.GatewayStatusAddress{
 				{
-					Type:  &addrType,
+					Type:  ptr.Of(k8sbeta.IPAddressType),
+					Value: ip,
+				},
+				{
+					Type:  ptr.Of(k8sbeta.HostnameAddressType),
 					Value: fmt.Sprintf("%s.%s.svc.%s", name, testNS, s.DomainSuffix),
 				},
 			},

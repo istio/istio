@@ -335,6 +335,14 @@ func (w Waypoint) AllowsAttachmentFromNamespace(namespace *v1.Namespace) bool {
 	}
 }
 
+// GetAddress is a nil-safe traversal method for Waypoint
+func (w *Waypoint) GetAddress() *workloadapi.GatewayAddress {
+	if w == nil {
+		return nil
+	}
+	return w.Address
+}
+
 func makeAllowedRoutes(gateway *v1beta1.Gateway) WaypointSelector {
 	for _, l := range gateway.Spec.Listeners {
 		if l.Protocol == "HBONE" && l.Port == 15008 {
@@ -360,6 +368,9 @@ func (a *index) getGatewayAddress(gw *v1beta1.Gateway) *workloadapi.GatewayAddre
 	for _, addr := range gw.Status.Addresses {
 		if addr.Type != nil && *addr.Type == v1beta1.HostnameAddressType {
 			// Prefer hostname from status, if we can find it.
+			// Hostnames are a more reliable lookup key than IP; hostname is already the unique key for services, and IPs can be re-allocated.
+			// Additionally, a destination can have multiple IPs, which makes handling more challenging. For example, was the IPv4 address
+			// referenced because we specifically wanted to always use IPv4, or because we happened to pick a random IP among the multiple?
 			return &workloadapi.GatewayAddress{
 				Destination: &workloadapi.GatewayAddress_Hostname{
 					Hostname: &workloadapi.NamespacedHostname{

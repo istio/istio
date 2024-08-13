@@ -168,7 +168,9 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			templates:          "waypoint",
 			disableNameSuffix:  true,
 			defaultServiceType: corev1.ServiceTypeClusterIP,
-			addressType:        "", // Report both
+			// Report both. Consumers of the gateways can choose which they want.
+			// In particular, Istio across different versions consumes different address types, so this retains compat
+			addressType: "",
 		}
 	}
 	return m

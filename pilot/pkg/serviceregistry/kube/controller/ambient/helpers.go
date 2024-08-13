@@ -77,7 +77,7 @@ func byteIPToAddr(b []byte) netip.Addr {
 	return ip
 }
 
-func (a *index) getWaypointAddress(w *Waypoint) *workloadapi.GatewayAddress {
+func getWaypointAddress(w *Waypoint) *workloadapi.GatewayAddress {
 	if w != nil {
 		return w.Address
 	}
