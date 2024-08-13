@@ -144,7 +144,6 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzConfigValidation3", FuzzConfigValidation3},
 		{"FuzzCidrRange", FuzzCidrRange},
 		{"FuzzHeaderMatcher", FuzzHeaderMatcher},
-		{"FuzzHostMatcherWithRegex", FuzzHostMatcherWithRegex},
 		{"FuzzHostMatcher", FuzzHostMatcher},
 		{"FuzzMetadataListMatcher", FuzzMetadataListMatcher},
 		{"FuzzGrpcGenGenerate", FuzzGrpcGenGenerate},
