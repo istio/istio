@@ -14,6 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+cd "$SRC"
+git clone --depth=1 https://github.com/AdamKorcz/go-118-fuzz-build --branch=include-all-test-files
+cd go-118-fuzz-build
+go build .
+mv go-118-fuzz-build /root/go/bin/
+cd "$SRC"/istio
+
 set -o nounset
 set -o pipefail
 set -o errexit
@@ -25,13 +32,11 @@ cd instrumentation
 go run main.go --target_dir="${SRC}"/istio --check_io_length=true
 cd "${SRC}"/istio
 
-sed -i 's/\"testing\"/\"github.com\/AdamKorcz\/go-118-fuzz-build\/testing\"/g' "${SRC}"/istio/pkg/fuzz/util.go
-
-sed -i 's/out.initJwksResolver()/\/\/out.initJwksResolver()/g' "${SRC}"/istio/pilot/pkg/xds/discovery.go
 # Create empty file that imports "github.com/AdamKorcz/go-118-fuzz-build/testing"
 # This is a small hack to install this dependency, since it is not used anywhere,
 # and Go would therefore remove it from go.mod once we run "go mod tidy && go mod vendor".
 printf "package main\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/testing\"\n" > register.go
+go mod edit -replace github.com/AdamKorcz/go-118-fuzz-build="$SRC"/go-118-fuzz-build
 go mod tidy
 
 # Find all native fuzzers and compile them
@@ -54,9 +59,7 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzVerifyCertificate fuzz_verify_ce
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzFindRootCertFromCertificateChainBytes fuzz_find_root_cert_from_certificate_chain_bytes
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzAggregateController fuzz_aggregate_controller
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzKubeCRD fuzz_kube_crd
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzReconcileStatuses fuzz_reconcile_statuses
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzWE fuzz_workload_entry
-
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation3 fuzz_config_validation_3
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCidrRange fuzz_cidr_range
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHeaderMatcher fuzz_header_matcher
