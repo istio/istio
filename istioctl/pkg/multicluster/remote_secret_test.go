@@ -34,6 +34,8 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
@@ -367,6 +369,7 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 				makeServiceAccount(tokenSecretName(testServiceAccountName)),
 			},
 			want: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{Kind: gvk.Secret.Kind, APIVersion: gvr.Secret.GroupVersion().String()},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        tokenSecretName(testServiceAccountName),
 					Namespace:   testNamespace,
@@ -381,6 +384,9 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 		t.Run(fmt.Sprintf("%v", c.name), func(tt *testing.T) {
 			client := kube.NewFakeClientWithVersion(k8sMinorVer, c.objs...)
 			got, err := getServiceAccountSecret(client, c.opts)
+			if err == nil {
+				got.ManagedFields = nil
+			}
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
