@@ -54,6 +54,7 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 			options.LabelSelector += s.String()
 		})
 	q := queue.NewQueue(1 * time.Second)
+	// nolint: staticcheck
 	_, informer := cache.NewInformer(podListWatch, &corev1.Pod{}, 0, controllers.EventHandler[*corev1.Pod]{
 		AddFunc: func(pod *corev1.Pod) {
 			q.Push(func() error {
