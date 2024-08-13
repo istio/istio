@@ -77,13 +77,6 @@ func byteIPToAddr(b []byte) netip.Addr {
 	return ip
 }
 
-func getWaypointAddress(w *Waypoint) *workloadapi.GatewayAddress {
-	if w != nil {
-		return w.Address
-	}
-	return nil
-}
-
 func (a *index) toNetworkAddress(vip string) (*workloadapi.NetworkAddress, error) {
 	ip, err := netip.ParseAddr(vip)
 	if err != nil {

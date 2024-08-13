@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -61,6 +62,15 @@ type Waypoint struct {
 	// the ServiceAccounts directly on a Gateway resource.
 	ServiceAccounts []string
 	AllowedRoutes   WaypointSelector
+}
+
+func (w Waypoint) Equals(other Waypoint) bool {
+	return w.Named == other.Named &&
+		w.DefaultBinding == other.DefaultBinding &&
+		w.TrafficType == other.TrafficType &&
+		w.AllowedRoutes == other.AllowedRoutes &&
+		slices.Equal(w.ServiceAccounts, other.ServiceAccounts) &&
+		proto.Equal(w.Address, other.Address)
 }
 
 // fetchWaypointForInstance attempts to find a Waypoint a given object is an instance of.
