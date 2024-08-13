@@ -915,6 +915,7 @@ metadata:
 spec:
   hosts:
   - app.com
+  location: MESH_INTERNAL
   ports:
   - number: 80
     name: http
