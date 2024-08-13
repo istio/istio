@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+- |
+  **Added** an experimental feature to enable lazily create subset of Envoy staistics.
+  This will save memory and CPU cycles when creating the objects that own these stats,
+  if those stats are never referenced throughout the lifetime of the process.
