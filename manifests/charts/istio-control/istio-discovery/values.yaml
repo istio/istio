@@ -496,10 +496,6 @@ defaults:
     # mechanisms (e.g., environmental variable CA_PROVIDER).
     caName: ""
 
-    # whether to use autoscaling/v2 template for HPA settings
-    # for internal usage only, not to be configured by users.
-    autoscalingv2API: true
-
     waypoint:
       # Resources for the waypoint proxy.
       resources:
@@ -513,12 +509,6 @@ defaults:
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
-
-  # `istio_cni` has been deprecated and will be removed in a future release. use `pilot.cni` instead
-  istio_cni:
-    # `chained` has been deprecated and will be removed in a future release. use `provider` instead
-    chained: true
-    provider: default
 
   # Gateway Settings
   gateways:

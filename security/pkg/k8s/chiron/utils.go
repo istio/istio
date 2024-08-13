@@ -19,7 +19,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"net"
 	"os"
 	"time"
 
@@ -133,21 +132,6 @@ func readCACert(caCertPath string) ([]byte, error) {
 	}
 
 	return caCert, nil
-}
-
-func isTCPReachable(host string, port int) bool {
-	addr := fmt.Sprintf("%s:%d", host, port)
-	conn, err := net.DialTimeout("tcp", addr, 1*time.Second)
-	if err != nil {
-		log.Debugf("DialTimeout() returns err: %v", err)
-		// No connection yet, so no need to conn.Close()
-		return false
-	}
-	err = conn.Close()
-	if err != nil {
-		log.Infof("tcp connection is not closed: %v", err)
-	}
-	return true
 }
 
 func submitCSR(

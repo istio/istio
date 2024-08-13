@@ -91,6 +91,8 @@ spec:
           protocol: TCP
         - containerPort: 15017
           protocol: TCP
+        - containerPort: 15014
+          protocol: TCP
         readinessProbe:
           httpGet:
             path: /ready
@@ -177,7 +179,7 @@ metadata:
   name: istiod
   namespace: istio-control
 spec:
-  maxReplicas: 8
+  maxReplicas: 5
   metrics:
   - resource:
       name: cpu
@@ -185,7 +187,7 @@ spec:
         averageUtilization: 80
         type: Utilization
     type: Resource
-  minReplicas: 2
+  minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment

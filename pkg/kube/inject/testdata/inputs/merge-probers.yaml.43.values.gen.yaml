@@ -4,7 +4,6 @@
     "securityContext": {}
   },
   "global": {
-    "autoscalingv2API": true,
     "caAddress": "",
     "caName": "",
     "certSigners": [],
@@ -106,11 +105,6 @@
         }
       }
     }
-  },
-  "istio_cni": {
-    "chained": true,
-    "enabled": false,
-    "provider": "default"
   },
   "pilot": {
     "cni": {

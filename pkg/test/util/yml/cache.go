@@ -45,14 +45,6 @@ type resourceState struct {
 	file string
 }
 
-// NewCache returns a new Cache instance
-func NewCache(dir string) *Cache {
-	return &Cache{
-		resources: make(map[CacheKey]*resourceState),
-		dir:       dir,
-	}
-}
-
 // Apply adds the given yamlText contents as part of a given context name. If there is an existing context
 // with the given name, then a diffgram will be generated.
 func (c *Cache) Apply(yamlText string) ([]CacheKey, error) {

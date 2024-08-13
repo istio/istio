@@ -60,7 +60,6 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzWE fuzz_workload_entry
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation3 fuzz_config_validation_3
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCidrRange fuzz_cidr_range
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHeaderMatcher fuzz_header_matcher
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHostMatcherWithRegex fuzz_hostMatcher_with_regex
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHostMatcher fuzz_host_matcher
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzMetadataListMatcher fuzz_metadata_list_matcher
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGrpcGenGenerate fuzz_grpc_gen_generate

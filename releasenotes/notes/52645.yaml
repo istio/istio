@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 52645
+releaseNotes:
+- |
+  **Removed** unused `istio_cni` values from the `istiod` chart that were marked as deprecated (#49290) 2 releases ago.

@@ -80,7 +80,6 @@ require (
 	go.opentelemetry.io/proto/otlp v1.2.0
 	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/exp v0.0.0-20240716175740-e3f259677ff7
 	golang.org/x/net v0.27.0
 	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sync v0.7.0
@@ -94,8 +93,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.15.1
-	istio.io/api v1.23.0-alpha.0.0.20240729190637-410f46584029
-	istio.io/client-go v1.23.0-alpha.0.0.20240729191036-59ebc36e22cf
+	istio.io/api v1.23.0-alpha.0.0.20240809192158-5302fff8a801
+	istio.io/client-go v1.23.0-alpha.0.0.20240809192551-f32a7326ae19
 	k8s.io/api v0.30.3
 	k8s.io/apiextensions-apiserver v0.30.3
 	k8s.io/apimachinery v0.30.3
@@ -215,6 +214,7 @@ require (
 	go.uber.org/mock v0.4.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.25.0 // indirect
+	golang.org/x/exp v0.0.0-20240716175740-e3f259677ff7 // indirect
 	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect

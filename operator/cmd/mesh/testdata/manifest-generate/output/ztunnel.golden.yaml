@@ -63,7 +63,7 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: ISTIO_META_ENABLE_HBONE
           value: "true"
-        image: gcr.io/istio-testing/ztunnel:latest-distroless
+        image: gcr.io/istio-testing/ztunnel:latest
         name: istio-proxy
         ports:
         - containerPort: 15020
@@ -81,7 +81,7 @@ spec:
             cpu: 100m
             memory: 100Mi
         securityContext:
-          allowPrivilegeEscalation: false
+          allowPrivilegeEscalation: true
           capabilities:
             add:
             - NET_ADMIN

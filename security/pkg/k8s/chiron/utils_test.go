@@ -16,13 +16,8 @@ package chiron
 
 import (
 	"bytes"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -93,10 +88,6 @@ aFKltOc+RAjzDklcUPeG4Y6eMA==
 	DefaulCertTTL = 24 * time.Hour
 )
 
-type mockTLSServer struct {
-	httpServer *httptest.Server
-}
-
 func defaultReactionFunc(obj runtime.Object) kt.ReactionFunc {
 	return func(act kt.Action) (bool, runtime.Object, error) {
 		return true, obj, nil
@@ -163,34 +154,6 @@ func TestReadCACert(t *testing.T) {
 				t.Error("the certificate read is unexpected")
 			}
 		})
-	}
-}
-
-func TestIsTCPReachable(t *testing.T) {
-	server1 := newMockTLSServer(t)
-	defer server1.httpServer.Close()
-	server2 := newMockTLSServer(t)
-	defer server2.httpServer.Close()
-
-	host := "127.0.0.1"
-	port1, err := getServerPort(server1.httpServer)
-	if err != nil {
-		t.Fatalf("error to get the server 1 port: %v", err)
-	}
-	port2, err := getServerPort(server2.httpServer)
-	if err != nil {
-		t.Fatalf("error to get the server 2 port: %v", err)
-	}
-
-	// Server 1 should be reachable, since it is not closed.
-	if !isTCPReachable(host, port1) {
-		t.Fatal("server 1 is unreachable")
-	}
-
-	// After closing server 2, server 2 should not be reachable
-	server2.httpServer.Close()
-	if isTCPReachable(host, port2) {
-		t.Fatal("server 2 is reachable")
 	}
 }
 
@@ -338,39 +301,6 @@ func createFakeCsr(t *testing.T) []byte {
 		return nil
 	}
 	return csrPEM
-}
-
-// newMockTLSServer creates a mock TLS server for testing purpose.
-func newMockTLSServer(t *testing.T) *mockTLSServer {
-	server := &mockTLSServer{}
-
-	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		t.Logf("request: %+v", *req)
-		switch req.URL.Path {
-		default:
-			t.Logf("The request contains path: %v", req.URL)
-			resp.WriteHeader(http.StatusOK)
-		}
-	})
-
-	server.httpServer = httptest.NewTLSServer(handler)
-
-	t.Logf("Serving TLS at: %v", server.httpServer.URL)
-
-	return server
-}
-
-// Get the server port from server.URL (e.g., https://127.0.0.1:36253)
-func getServerPort(server *httptest.Server) (int, error) {
-	strs := strings.Split(server.URL, ":")
-	if len(strs) < 2 {
-		return 0, fmt.Errorf("server.URL is invalid: %v", server.URL)
-	}
-	port, err := strconv.Atoi(strs[len(strs)-1])
-	if err != nil {
-		return 0, fmt.Errorf("error to extract port from URL: %v", server.URL)
-	}
-	return port, nil
 }
 
 func initFakeKubeClient(t test.Failer, certificate []byte) kube.CLIClient {

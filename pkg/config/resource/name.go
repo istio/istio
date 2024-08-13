@@ -79,18 +79,3 @@ func NewFullName(ns Namespace, n LocalName) FullName {
 		Name:      n,
 	}
 }
-
-// ParseFullName parses the given name string that was serialized via FullName.String()
-func ParseFullName(name string) (FullName, error) {
-	return ParseFullNameWithDefaultNamespace("", name)
-}
-
-// ParseFullNameWithDefaultNamespace parses the given name string using defaultNamespace if no namespace is found.
-func ParseFullNameWithDefaultNamespace(defaultNamespace Namespace, name string) (FullName, error) {
-	out := NewShortOrFullName(defaultNamespace, name)
-
-	if err := out.Validate(); err != nil {
-		return FullName{}, fmt.Errorf("failed parsing name '%v': %v", name, err)
-	}
-	return out, nil
-}
