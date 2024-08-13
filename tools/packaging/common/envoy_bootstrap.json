@@ -814,5 +814,11 @@
     "load_stats_config": {{- .load_stats_config_json_str }}
     {{- end }}
   }
+  {{ if .deferred_stats_creation }}
+  ,
+  "deferred_stat_options": {
+    "enable_deferred_creation_stats": true
+  }
+  {{- end }}
   {{ end }}
 }
