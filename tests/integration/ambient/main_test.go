@@ -329,7 +329,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Mesh = inMesh.GetMatches(echos)
 	apps.MeshExternal = match.Not(inMesh).GetMatches(echos)
 
-	if err := cdeployment.DeployExternalServiceEntry(t.ConfigIstio(), apps.Namespace, apps.ExternalNamespace, false).
+	// TODO(https://github.com/istio/istio/issues/52678) remove manually allocate
+	if err := cdeployment.DeployExternalServiceEntry(t.ConfigIstio(), apps.Namespace, apps.ExternalNamespace, true).
 		Apply(apply.CleanupConditionally); err != nil {
 		return err
 	}
