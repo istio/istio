@@ -1313,19 +1313,28 @@ func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
 }
 
 func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
+	addresses := []string{}
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
-		addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
-		if (features.EnableDualStack || features.EnableAmbient) && node.GetIPMode() == Dual {
-			return addresses
+		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
+	}
+	if len(addresses) == 0 {
+		// maybe autoallocated
+		if s.AutoAllocatedIPv4Address != "" {
+			addresses = append(addresses, s.AutoAllocatedIPv4Address)
 		}
-		addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
-		if len(addresses) > 0 {
-			return addresses
+		if s.AutoAllocatedIPv6Address != "" {
+			addresses = append(addresses, s.AutoAllocatedIPv6Address)
 		}
 	}
+	if (!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual {
+		addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
+	}
+	if len(addresses) > 0 {
+		return addresses
+	}
 
-	// fallback to the auto-allocated address and then to the default address
-	if a := s.GetAddressForProxy(node); len(a) > 0 {
+	// fallback the default address
+	if a := s.DefaultAddress; len(a) > 0 {
 		return []string{a}
 	}
 	return nil
