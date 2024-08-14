@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: telemetry
-issue: [52034]
-releaseNotes:
-- |
-  **Added** Ingress and Egress gateways now have the `app.kubernetes.io/name=istiod` label.
