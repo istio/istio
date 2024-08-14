@@ -142,7 +142,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			}
 			want, _ := os.ReadFile(tt.want)
 			if err := util.Compare(got.Bytes(), want); err != nil {
-				t.Errorf(err.Error())
+				t.Error(err)
 			}
 		})
 	}

@@ -96,7 +96,7 @@ func TestNDS(t *testing.T) {
 				return
 			}
 			if len(nt.Table) == 0 {
-				t.Fatalf("expected more than 0 entries in name table")
+				t.Fatal("expected more than 0 entries in name table")
 			}
 			if diff := cmp.Diff(nt, tt.expected, protocmp.Transform()); diff != "" {
 				t.Fatalf("name table does not match expected value:\n %v", diff)

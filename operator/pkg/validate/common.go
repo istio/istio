@@ -115,7 +115,7 @@ func validateStringList(vf ValidatorFunc) ValidatorFunc {
 			scope.Debugf("\nerrors(%d): %v", len(errs), errs)
 			msg += fmt.Sprintf("\nerrors(%d): %v", len(errs), errs)
 		}
-		logWithError(errs.ToError(), msg)
+		logWithError(errs.ToError(), "%s", msg)
 		return errs
 	}
 }

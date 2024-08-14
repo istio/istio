@@ -53,7 +53,7 @@ func DumpCertFromSidecar(t test.Failer, from echo.Instance, to echo.Target, port
 		Check: check.NoError(),
 	})
 	if result.Responses.Len() != 1 {
-		t.Fatalf("dump cert failed, no responses")
+		t.Fatal("dump cert failed, no responses")
 	}
 	var certs []string
 	for _, rr := range result.Responses[0].Body() {

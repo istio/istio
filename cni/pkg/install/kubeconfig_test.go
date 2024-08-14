@@ -87,7 +87,7 @@ func TestCreateValidKubeconfigFile(t *testing.T) {
 				// Successful test case expecting failure
 				return
 			} else if c.expectedFailure {
-				t.Fatalf("expected failure")
+				t.Fatal("expected failure")
 			}
 
 			goldenFilepath := "testdata/kubeconfig-tls"

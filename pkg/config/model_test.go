@@ -52,7 +52,7 @@ func TestDeepCopy(t *testing.T) {
 	copied.Annotations["policy.istio.io/checkRetries"] = "0"
 	if cfg.Labels["app"] == copied.Labels["app"] ||
 		cfg.Annotations["policy.istio.io/checkRetries"] == copied.Annotations["policy.istio.io/checkRetries"] {
-		t.Fatalf("Did not deep copy labels and annotations")
+		t.Fatal("Did not deep copy labels and annotations")
 	}
 
 	// change the copied gateway to see if the original config is not effected
@@ -178,7 +178,7 @@ func TestDeepCopyTypes(t *testing.T) {
 			}
 			changed := tt.modify(tt.input)
 			if cmp.Equal(cpy, changed, tt.option) {
-				t.Fatalf("deep copy allowed modification")
+				t.Fatal("deep copy allowed modification")
 			}
 		})
 	}
@@ -238,7 +238,7 @@ func TestApplyJSON(t *testing.T) {
 				t.Fatalf("Diff: %v", diff)
 			}
 			if err := ApplyJSONStrict(tt.input, tt.json); err == nil {
-				t.Fatalf("expected error from non existent field in strict mode")
+				t.Fatal("expected error from non existent field in strict mode")
 			}
 		})
 	}

@@ -239,7 +239,7 @@ func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, 
 		if !found {
 			return fmt.Errorf("expected error %v to exist", msg.ReferencedResourceNotFound.Code())
 		}
-	} else if status.ValidationMessages != nil && len(status.ValidationMessages) > 0 {
+	} else if len(status.ValidationMessages) > 0 {
 		return fmt.Errorf("expected no validation messages, but got %d", len(status.ValidationMessages))
 	}
 

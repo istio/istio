@@ -878,7 +878,7 @@ func TestAppProbe(t *testing.T) {
 	testFn := func(t *testing.T, tc test) {
 		appProber, err := json.Marshal(tc.config)
 		if err != nil {
-			t.Fatalf("invalid app probers")
+			t.Fatal("invalid app probers")
 		}
 		config := Options{
 			KubeAppProbers: string(appProber),
@@ -1045,7 +1045,7 @@ func TestHttpsAppProbe(t *testing.T) {
 			client := http.Client{}
 			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%d/%s", statusPort, tc.probePath), nil)
 			if err != nil {
-				t.Fatalf("failed to create request")
+				t.Fatal("failed to create request")
 			}
 			resp, err := client.Do(req)
 			if err != nil {
@@ -1381,7 +1381,7 @@ func TestProbeHeader(t *testing.T) {
 				},
 			})
 			if err != nil {
-				t.Fatalf("invalid app probers")
+				t.Fatal("invalid app probers")
 			}
 			config := Options{
 				KubeAppProbers: string(appProber),
@@ -1465,12 +1465,12 @@ func TestHandleQuit(t *testing.T) {
 				select {
 				case <-shutdown:
 				case <-time.After(time.Second):
-					t.Fatalf("Failed to receive expected shutdown")
+					t.Fatal("Failed to receive expected shutdown")
 				}
 			} else {
 				select {
 				case <-shutdown:
-					t.Fatalf("unexpected shutdown")
+					t.Fatal("unexpected shutdown")
 				default:
 				}
 			}

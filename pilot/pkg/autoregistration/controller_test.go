@@ -182,7 +182,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 			c.OnConnect(makeConn(tc, time.Now()))
 			items := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if len(items) != 0 {
-				t.Fatalf("expected 0 WorkloadEntry")
+				t.Fatal("expected 0 WorkloadEntry")
 			}
 		})
 	}
@@ -859,7 +859,7 @@ func checkNoEntryOrFail(
 
 	cfg := store.Get(gvk.WorkloadEntry, name, wg.Namespace)
 	if cfg != nil {
-		t.Fatalf("workload entry found when it was not expected")
+		t.Fatal("workload entry found when it was not expected")
 	}
 }
 
@@ -944,10 +944,10 @@ func checkNonAutoRegisteredEntryOrFail(t test.Failer, store model.ConfigStoreCon
 			t.Fatalf("expected WorkloadEntry to be updated by %s; got %s", connectedTo, v)
 		}
 		if _, ok := cfg.Annotations[annotation.IoIstioConnectedAt.Name]; !ok {
-			t.Fatalf("expected connection timestamp to be set")
+			t.Fatal("expected connection timestamp to be set")
 		}
 	} else if _, ok := cfg.Annotations[annotation.IoIstioDisconnectedAt.Name]; !ok {
-		t.Fatalf("expected disconnection timestamp to be set")
+		t.Fatal("expected disconnection timestamp to be set")
 	}
 }
 

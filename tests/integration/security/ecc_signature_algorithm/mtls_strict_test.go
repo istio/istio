@@ -79,7 +79,7 @@ func TestStrictMTLS(t *testing.T) {
 			certPEMs := cert.DumpCertFromSidecar(t, client, server, "http")
 			block, _ := pem.Decode([]byte(strings.Join(certPEMs, "\n")))
 			if block == nil { // nolint: staticcheck
-				t.Fatalf("failed to parse certificate PEM")
+				t.Fatal("failed to parse certificate PEM")
 			}
 
 			certificate, err := x509.ParseCertificate(block.Bytes) // nolint: staticcheck

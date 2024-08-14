@@ -71,7 +71,7 @@ func TestCRDWatcher(t *testing.T) {
 
 	// created once running
 	assert.Equal(t, ctl.KnownOrCallback(gvr.GatewayClass, func(s <-chan struct{}) {
-		t.Fatalf("callback should not be called")
+		t.Fatal("callback should not be called")
 	}), true)
 
 	// Create CRD later

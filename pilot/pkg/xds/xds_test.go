@@ -366,7 +366,7 @@ spec:
 		found = true
 	}
 	if !found {
-		t.Fatalf("failed to find tcp proxy")
+		t.Fatal("failed to find tcp proxy")
 	}
 
 	found = false
@@ -385,7 +385,7 @@ spec:
 		}
 	}
 	if !found {
-		t.Fatalf("failed to find expected fallthrough route")
+		t.Fatal("failed to find expected fallthrough route")
 	}
 }
 

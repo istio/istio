@@ -52,7 +52,7 @@ func ExpectTimeout(t *testing.T, p *PushQueue) {
 	}()
 	select {
 	case <-done:
-		t.Fatalf("Expected timeout")
+		t.Fatal("Expected timeout")
 	case <-time.After(time.Millisecond * 500):
 	}
 }
@@ -70,7 +70,7 @@ func ExpectDequeue(t *testing.T, p *PushQueue, expected *Connection) {
 			t.Fatalf("Expected proxy %v, got %v", expected, got)
 		}
 	case <-time.After(time.Millisecond * 500):
-		t.Fatalf("Timed out")
+		t.Fatal("Timed out")
 	}
 }
 
