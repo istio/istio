@@ -58,12 +58,10 @@ func (xff XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.C
 func buildSecurityCaller(xfccHeader string) (*security.Caller, error) {
 	clientCerts, err := xfccparser.ParseXFCCHeader(xfccHeader)
 	if err != nil {
-		message := fmt.Sprintf("error in parsing xfcc header: %v", err)
-		return nil, fmt.Errorf(message)
+		return nil, fmt.Errorf("error in parsing xfcc header: %v", err)
 	}
 	if len(clientCerts) == 0 {
-		message := "xfcc header does not have atleast one client certs"
-		return nil, fmt.Errorf(message)
+		return nil, fmt.Errorf("xfcc header does not have atleast one client certs")
 	}
 	ids := []string{}
 	for _, cc := range clientCerts {

@@ -169,7 +169,7 @@ func TestServiceConversion(t *testing.T) {
 
 	service := ConvertService(localSvc, domainSuffix, clusterID, &meshconfig.MeshConfig{TrustDomain: domainSuffix})
 	if service == nil {
-		t.Fatalf("could not convert service")
+		t.Fatal("could not convert service")
 	}
 
 	if service.CreationTime != tnow {
@@ -212,7 +212,7 @@ func TestServiceConversion(t *testing.T) {
 
 	sa := service.ServiceAccounts
 	if sa == nil || len(sa) != 4 {
-		t.Fatalf("number of service accounts is incorrect")
+		t.Fatal("number of service accounts is incorrect")
 	}
 	expected := []string{
 		saC, saD,
@@ -255,7 +255,7 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 
 	service := ConvertService(localSvc, domainSuffix, clusterID, nil)
 	if service == nil {
-		t.Fatalf("could not convert service")
+		t.Fatal("could not convert service")
 	}
 
 	sa := service.ServiceAccounts
@@ -288,7 +288,7 @@ func TestExternalServiceConversion(t *testing.T) {
 
 	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
 	if service == nil {
-		t.Fatalf("could not convert external service")
+		t.Fatal("could not convert external service")
 	}
 
 	if len(service.Ports) != len(extSvc.Spec.Ports) {
@@ -338,7 +338,7 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 
 	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
 	if service == nil {
-		t.Fatalf("could not convert external service")
+		t.Fatal("could not convert external service")
 	}
 
 	if len(service.Ports) != len(extSvc.Spec.Ports) {
@@ -399,12 +399,12 @@ func TestLBServiceConversion(t *testing.T) {
 
 	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
 	if service == nil {
-		t.Fatalf("could not convert external service")
+		t.Fatal("could not convert external service")
 	}
 
 	gotAddresses := service.Attributes.ClusterExternalAddresses.GetAddressesFor(clusterID)
 	if len(gotAddresses) == 0 {
-		t.Fatalf("no load balancer addresses found")
+		t.Fatal("no load balancer addresses found")
 	}
 
 	for i, addr := range addresses {
@@ -445,7 +445,7 @@ func TestInternalTrafficPolicyServiceConversion(t *testing.T) {
 
 	service := ConvertService(svc, domainSuffix, clusterID, nil)
 	if service == nil {
-		t.Fatalf("could not convert service")
+		t.Fatal("could not convert service")
 	}
 
 	if !service.Attributes.NodeLocal {

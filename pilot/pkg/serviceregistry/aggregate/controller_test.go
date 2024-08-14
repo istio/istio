@@ -363,7 +363,7 @@ func TestGetDeleteRegistry(t *testing.T) {
 	}
 	// check left registries are orders as before
 	if !reflect.DeepEqual(result[0], wrapRegistry(registries[0])) || !reflect.DeepEqual(result[1], wrapRegistry(registries[2])) {
-		t.Fatalf("Expected registries order has been changed")
+		t.Fatal("Expected registries order has been changed")
 	}
 }
 

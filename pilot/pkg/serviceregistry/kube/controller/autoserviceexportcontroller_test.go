@@ -149,7 +149,7 @@ func assertServiceExportHasCondition(t *testing.T, client kube.Client, ns, name 
 			return err
 		}
 
-		if got.Status.Conditions == nil || len(got.Status.Conditions) == 0 || got.Status.Conditions[0].Type != condition {
+		if len(got.Status.Conditions) == 0 || got.Status.Conditions[0].Type != condition {
 			return fmt.Errorf("condition incorrect or not found")
 		}
 

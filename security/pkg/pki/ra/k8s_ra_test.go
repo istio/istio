@@ -176,7 +176,7 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 				// expect failure in sign since root cert in mesh config does not match
 				_, err = ra.SignWithCertChain(csrPEM, certOptions)
 				if err == nil && !tc.expectedFailOnUpdatedRootCert {
-					t.Fatalf("expected failed, got none")
+					t.Fatal("expected failed, got none")
 				}
 			}
 		})
@@ -261,7 +261,7 @@ func genTestCSR(t *testing.T, options pkiutil.CertOptions, cn string) []byte {
 				return nil
 			}
 		default:
-			t.Fatalf("csr cert generation fails due to unsupported EC signature algorithm")
+			t.Fatal("csr cert generation fails due to unsupported EC signature algorithm")
 			return nil
 		}
 	} else {

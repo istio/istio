@@ -19,6 +19,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"runtime/debug"
@@ -139,7 +140,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 				// present both.
 				msg = fmt.Sprintf("%s: %v", msg, err)
 			}
-			err = fmt.Errorf(msg)
+			err = errors.New(msg)
 		}
 		if err != nil {
 			log.Errorf("istio-cni cmdAdd error: %v", err)

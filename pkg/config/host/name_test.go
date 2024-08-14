@@ -177,7 +177,7 @@ func BenchmarkNameMatch(b *testing.B) {
 		for _, test := range tests {
 			doesMatch := test.a.Matches(test.z)
 			if doesMatch != test.matches {
-				b.Fatalf("does not match")
+				b.Fatal("does not match")
 			}
 		}
 	}

@@ -157,7 +157,7 @@ func TestIngressController(t *testing.T) {
 		case x := <-configCh:
 			return x
 		case <-time.After(time.Second * 10):
-			t.Fatalf("timed out waiting for config")
+			t.Fatal("timed out waiting for config")
 		}
 		return config.Config{}
 	}
@@ -262,7 +262,7 @@ func TestIngressControllerWithPortName(t *testing.T) {
 		case x := <-configCh:
 			return x
 		case <-time.After(time.Second * 10):
-			t.Fatalf("timed out waiting for config")
+			t.Fatal("timed out waiting for config")
 		}
 		return config.Config{}
 	}

@@ -131,7 +131,7 @@ func TestWatchFile(t *testing.T) {
 	t.Run("link to real file changed (for k8s configmap/secret path)", func(t *testing.T) {
 		// skip if not executed on Linux
 		if runtime.GOOS != "linux" {
-			t.Skipf("Skipping test as symlink replacements don't work on non-linux environment...")
+			t.Skip("Skipping test as symlink replacements don't work on non-linux environment...")
 		}
 		g := NewGomegaWithT(t)
 

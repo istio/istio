@@ -134,7 +134,7 @@ func ChannelHasItem[T any](t test.Failer, c <-chan T) T {
 	case r := <-c:
 		return r
 	case <-time.After(time.Second * 5):
-		t.Fatalf("failed to receive event after 5s")
+		t.Fatal("failed to receive event after 5s")
 	}
 	// Not reachable
 	return ptr.Empty[T]()

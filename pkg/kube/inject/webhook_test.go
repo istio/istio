@@ -697,7 +697,7 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 		byteParts = append(byteParts, getInjectableYamlDocs(stringPart, t)...)
 	}
 	if len(byteParts) == 0 {
-		t.Fatalf("Found no injectable parts")
+		t.Fatal("Found no injectable parts")
 	}
 	return byteParts
 }
@@ -748,7 +748,7 @@ func prettyJSON(inputJSON []byte, t test.Failer) []byte {
 	// Pretty-print the JSON
 	var prettyBuffer bytes.Buffer
 	if err := json.Indent(&prettyBuffer, inputJSON, "", "  "); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	return prettyBuffer.Bytes()
 }
@@ -1029,7 +1029,7 @@ func TestRunAndServe(t *testing.T) {
 			var gotPatch bytes.Buffer
 			if len(gotReview.Response.Patch) > 0 {
 				if err := json.Compact(&gotPatch, gotReview.Response.Patch); err != nil {
-					t.Fatalf(err.Error())
+					t.Fatal(err.Error())
 				}
 			}
 		})

@@ -1627,7 +1627,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 
 			got := telemetryAccessLog(push, tc.fp, tc.proxyVersion)
 			if got == nil {
-				t.Fatalf("get nil accesslog")
+				t.Fatal("get nil accesslog")
 			}
 			assert.Equal(t, tc.expected, got)
 		})

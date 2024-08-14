@@ -139,7 +139,7 @@ func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options
 	defer func() {
 		if time.Until(curTime.Add(commandTimeout)) < 0 {
 			message := "Timeout when running bug report command, please using --include or --exclude to filter"
-			common.LogAndPrintf(message)
+			common.LogAndPrintf("%s", message)
 		}
 		getClusterResourcesCancel()
 	}()
@@ -225,7 +225,7 @@ func dumpRevisionsAndVersions(ctx cli.Context, resources *cluster2.Resources, is
 	for rev, ver := range proxyVersions {
 		text += fmt.Sprintf("Revision %s: Versions {%s}\n", rev, strings.Join(ver, ", "))
 	}
-	common.LogAndPrintf(text)
+	common.LogAndPrintf("%s", text)
 	writeFile(filepath.Join(archive.OutputRootDir(tempDir), "versions"), text, dryRun)
 }
 
@@ -531,7 +531,7 @@ func runAnalyze(config *config.BugReportConfig, params *content.Params, analyzeT
 		return
 	}
 	common.LogAndPrintf("\nAnalysis Report:\n")
-	common.LogAndPrintf(out[common.StrNamespaceAll])
+	common.LogAndPrintf("%s", out[common.StrNamespaceAll])
 	common.LogAndPrintf("\n")
 	writeFiles(archive.AnalyzePath(tempDir, common.StrNamespaceAll), out, config.DryRun)
 }

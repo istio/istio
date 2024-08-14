@@ -210,7 +210,7 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 		dir := filepath.Join(manifestDir, sd)
 		files, err := util.FindFiles(dir, yamlFileFilter)
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err.Error())
 		}
 		allFiles = append(allFiles, files...)
 	}

@@ -415,7 +415,7 @@ func TestInjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(files) < 3 {
-		t.Fatalf("Didn't find test files - something must have gone wrong")
+		t.Fatal("Didn't find test files - something must have gone wrong")
 	}
 	// Automatically add any other test files in the folder. This ensures we don't
 	// forget to add to this list, that we don't have duplicates, etc
@@ -509,7 +509,7 @@ func TestInjection(t *testing.T) {
 					t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 				}
 				if c.expectedError != "" {
-					t.Fatalf("expected error but got none")
+					t.Fatal("expected error but got none")
 				}
 				if c.expectedLog != "" {
 					hasExpectedLog := false

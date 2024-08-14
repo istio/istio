@@ -2545,7 +2545,7 @@ func hostCases(t TrafficContext) {
 		port := ports.AutoHTTP.WorkloadPort
 		wl := t.Apps.Headless[0].WorkloadsOrFail(t)
 		if len(wl) == 0 {
-			t.Fatalf("no workloads found")
+			t.Fatal("no workloads found")
 		}
 		address := wl[0].Address()
 		// We test all variants with no port, the expected port, and a random port.
@@ -2873,7 +2873,7 @@ func consistentHashCases(t TrafficContext) {
 	if len(t.Clusters().ByNetwork()) != 1 {
 		// Consistent hashing does not work for multinetwork. The first request will consistently go to a
 		// gateway, but that gateway will tcp_proxy it to a random pod.
-		t.Skipf("multi-network is not supported")
+		t.Skip("multi-network is not supported")
 	}
 	for _, app := range []echo.Instances{t.Apps.A, t.Apps.B} {
 		app := app
@@ -3667,7 +3667,7 @@ spec:
 func VMTestCases(vms echo.Instances) func(t TrafficContext) {
 	return func(t TrafficContext) {
 		if t.Settings().Skip(echo.VM) {
-			t.Skipf("VMs are disabled")
+			t.Skip("VMs are disabled")
 		}
 		var testCases []vmCase
 
@@ -4065,7 +4065,7 @@ func serverFirstTestCases(t TrafficContext) {
 
 func jwtClaimRoute(t TrafficContext) {
 	if t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) {
-		t.Skipf("https://github.com/istio/istio/issues/35835")
+		t.Skip("https://github.com/istio/istio/issues/35835")
 	}
 	configRoute := `
 apiVersion: networking.istio.io/v1

@@ -74,7 +74,7 @@ func TestXdsCacheToken(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			val := c.Get(k)
 			if val == nil {
-				t.Fatalf("no cache found")
+				t.Fatal("no cache found")
 			}
 			if val != nil && val.Resource.TypeUrl != fmt.Sprint(n.Load()) {
 				t.Fatalf("got bad write: %v", val.Resource.TypeUrl)

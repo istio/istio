@@ -89,8 +89,7 @@ func WaitForResources(objects object.K8sObjects, client kube.Client,
 		}
 	}
 	if errPoll != nil {
-		msg := fmt.Sprintf("resources not ready after %v: %v\n%s", waitTimeout, errPoll, strings.Join(messages, "\n"))
-		return fmt.Errorf(msg)
+		return fmt.Errorf("resources not ready after %v: %v\n%s", waitTimeout, errPoll, strings.Join(messages, "\n"))
 	}
 	return nil
 }
@@ -273,7 +272,7 @@ func extractPodFailureReason(client kubernetes.Interface, namespace string, sele
 			}
 		}
 		if c := getCondition(pod.Status.Conditions, corev1.PodReady); c != nil && c.Status == corev1.ConditionFalse {
-			return fmt.Sprintf(c.Message)
+			return c.Message
 		}
 	}
 	return ""

@@ -950,7 +950,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			}
 
 			if got != want {
-				t.Fatalf(cmp.Diff(got, want))
+				t.Fatal(cmp.Diff(got, want))
 			}
 		})
 	}

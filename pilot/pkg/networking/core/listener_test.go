@@ -1853,7 +1853,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 				t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
 			}
 			if listeners[0].DefaultFilterChain == nil {
-				t.Fatalf("expected default filter chains, found none")
+				t.Fatal("expected default filter chains, found none")
 			}
 
 			_ = getTCPFilterChain(t, listeners[0])
@@ -1888,7 +1888,7 @@ func getTCPFilterChain(t *testing.T, l *listener.Listener) *listener.FilterChain
 			}
 		}
 	}
-	t.Fatalf("tcp filter chain not found")
+	t.Fatal("tcp filter chain not found")
 	return nil
 }
 
@@ -1919,7 +1919,7 @@ func getHTTPFilterChain(t *testing.T, l *listener.Listener) *listener.FilterChai
 			}
 		}
 	}
-	t.Fatalf("tcp filter chain not found")
+	t.Fatal("tcp filter chain not found")
 	return nil
 }
 
@@ -1935,7 +1935,7 @@ func testInboundListenerConfigWithConflictPort(t *testing.T, proxy *model.Proxy,
 	virtualListener := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 	for _, fc := range virtualListener.FilterChains {
 		if fc.FilterChainMatch.DestinationPort.GetValue() == 15021 {
-			t.Fatalf("port 15021 should not be included in inbound listener")
+			t.Fatal("port 15021 should not be included in inbound listener")
 		}
 	}
 }
@@ -2286,11 +2286,11 @@ func TestVirtualListeners_TrafficRedirectionEnabled(t *testing.T) {
 			listeners := buildListeners(t, TestOptions{}, &model.Proxy{Metadata: &model.NodeMetadata{InterceptionMode: tc.mode}})
 
 			if l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners); l == nil {
-				t.Fatalf("did not generate virtual inbound listener")
+				t.Fatal("did not generate virtual inbound listener")
 			}
 
 			if l := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners); l == nil {
-				t.Fatalf("did not generate virtual outbound listener")
+				t.Fatal("did not generate virtual outbound listener")
 			}
 		})
 	}
@@ -2299,11 +2299,11 @@ func TestVirtualListeners_TrafficRedirectionEnabled(t *testing.T) {
 func TestVirtualListeners_TrafficRedirectionDisabled(t *testing.T) {
 	listeners := buildListeners(t, TestOptions{}, &model.Proxy{Metadata: &model.NodeMetadata{InterceptionMode: model.InterceptionNone}})
 	if l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners); l != nil {
-		t.Fatalf("unexpectedly generated virtual inbound listener")
+		t.Fatal("unexpectedly generated virtual inbound listener")
 	}
 
 	if l := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners); l != nil {
-		t.Fatalf("unexpectedly generated virtual outbound listener")
+		t.Fatal("unexpectedly generated virtual outbound listener")
 	}
 }
 
@@ -2341,7 +2341,7 @@ func TestListenerAccessLogs(t *testing.T) {
 func validateAccessLog(t *testing.T, l *listener.Listener, format string) {
 	t.Helper()
 	if l == nil {
-		t.Fatalf("nil listener")
+		t.Fatal("nil listener")
 	}
 
 	fc := &tcp.TcpProxy{}
@@ -2364,7 +2364,7 @@ func TestHttpProxyListener(t *testing.T) {
 	m.ProxyHttpPort = 15007
 	listeners := buildListeners(t, TestOptions{MeshConfig: m}, nil)
 	httpProxy := xdstest.ExtractListener("127.0.0.1_15007", listeners)
-	t.Logf(xdstest.Dump(t, httpProxy))
+	t.Log(xdstest.Dump(t, httpProxy))
 	f := httpProxy.FilterChains[0].Filters[0]
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 
@@ -2777,7 +2777,7 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 	listeners := buildListeners(t, TestOptions{Services: services}, nil)
 	l := xdstest.ExtractListener("0.0.0.0_8080", listeners)
 	if l == nil {
-		t.Fatalf("failed to find listener")
+		t.Fatal("failed to find listener")
 	}
 	if len(l.FilterChains) != 1 {
 		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
@@ -2807,7 +2807,7 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *listener.Listener, hostn
 	fc := l.FilterChains[0]
 	f := getTCPFilter(fc)
 	if f == nil {
-		t.Fatalf("expected TCP filters, found none")
+		t.Fatal("expected TCP filters, found none")
 	}
 	expectedStatPrefix := fmt.Sprintf("outbound|8080||%s", hostname)
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())

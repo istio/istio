@@ -419,7 +419,7 @@ func unmarshalAndValidateIOP(iopsYAML string, force, allowUnknownField bool, l c
 	}
 	if errs := validate.CheckIstioOperatorSpec(iop.Spec); len(errs) != 0 && !force {
 		l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
-		return iop, fmt.Errorf(errs.Error())
+		return iop, errs.ToError()
 	}
 	return iop, nil
 }

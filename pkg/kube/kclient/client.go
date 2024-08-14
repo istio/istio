@@ -277,7 +277,7 @@ func NewDelayedInformer[T controllers.ComparableObject](
 ) Informer[T] {
 	watcher := c.CrdWatcher()
 	if watcher == nil {
-		log.Fatalf("NewDelayedInformer called without a CrdWatcher enabled")
+		log.Fatal("NewDelayedInformer called without a CrdWatcher enabled")
 	}
 	delay := newDelayedFilter(gvr, watcher)
 	inf := func() informerfactory.StartableInformer {

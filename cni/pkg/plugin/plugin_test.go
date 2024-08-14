@@ -389,7 +389,7 @@ func TestCmdAddTwoContainers(t *testing.T) {
 	mockIntercept := testDoAddRun(t, buildMockConf(false), testNSName, pod, ns)
 
 	if len(mockIntercept.lastRedirect) == 0 {
-		t.Fatalf("expected nsenterFunc to be called")
+		t.Fatal("expected nsenterFunc to be called")
 	}
 	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
 	if r.includeInboundPorts != "*" {
@@ -408,7 +408,7 @@ func TestCmdAddTwoContainersWithStarInboundPort(t *testing.T) {
 	mockIntercept := testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
 
 	if len(mockIntercept.lastRedirect) != 1 {
-		t.Fatalf("expected nsenterFunc to be called")
+		t.Fatal("expected nsenterFunc to be called")
 	}
 	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
 	if r.includeInboundPorts != "*" {
@@ -427,7 +427,7 @@ func TestCmdAddTwoContainersWithEmptyInboundPort(t *testing.T) {
 	mockIntercept := testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
 
 	if len(mockIntercept.lastRedirect) != 1 {
-		t.Fatalf("expected nsenterFunc to be called")
+		t.Fatal("expected nsenterFunc to be called")
 	}
 	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
 	if r.includeInboundPorts != "" {
@@ -445,7 +445,7 @@ func TestCmdAddTwoContainersWithEmptyExcludeInboundPort(t *testing.T) {
 	mockIntercept := testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
 
 	if len(mockIntercept.lastRedirect) != 1 {
-		t.Fatalf("expected nsenterFunc to be called")
+		t.Fatal("expected nsenterFunc to be called")
 	}
 	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
 	if r.excludeInboundPorts != "15020,15021,15090" {
@@ -463,7 +463,7 @@ func TestCmdAddTwoContainersWithExplictExcludeInboundPort(t *testing.T) {
 	mockIntercept := testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
 
 	if len(mockIntercept.lastRedirect) == 0 {
-		t.Fatalf("expected nsenterFunc to be called")
+		t.Fatal("expected nsenterFunc to be called")
 	}
 	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
 	if r.excludeInboundPorts != "3306,15020,15021,15090" {
@@ -479,7 +479,7 @@ func TestCmdAddTwoContainersWithoutSideCar(t *testing.T) {
 	mockIntercept := testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
 
 	if len(mockIntercept.lastRedirect) != 0 {
-		t.Fatalf("Didnt Expect nsenterFunc to be called because this pod does not contain a sidecar")
+		t.Fatal("Didnt Expect nsenterFunc to be called because this pod does not contain a sidecar")
 	}
 }
 
@@ -488,7 +488,7 @@ func TestCmdAddExcludePod(t *testing.T) {
 
 	mockIntercept := testDoAddRun(t, buildMockConf(true), "testExcludeNS", pod, ns)
 	if len(mockIntercept.lastRedirect) != 0 {
-		t.Fatalf("failed to exclude pod")
+		t.Fatal("failed to exclude pod")
 	}
 }
 
@@ -500,7 +500,7 @@ func TestCmdAddExcludePodWithIstioInitContainer(t *testing.T) {
 	mockIntercept := testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
 
 	if len(mockIntercept.lastRedirect) != 0 {
-		t.Fatalf("failed to exclude pod")
+		t.Fatal("failed to exclude pod")
 	}
 }
 
@@ -515,7 +515,7 @@ func TestCmdAddExcludePodWithEnvoyDisableEnv(t *testing.T) {
 	mockIntercept := testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
 
 	if len(mockIntercept.lastRedirect) != 0 {
-		t.Fatalf("failed to exclude pod")
+		t.Fatal("failed to exclude pod")
 	}
 }
 
@@ -556,7 +556,7 @@ func TestCmdAddEnableDualStack(t *testing.T) {
 	mockIntercept := testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
 
 	if len(mockIntercept.lastRedirect) == 0 {
-		t.Fatalf("expected nsenterFunc to be called")
+		t.Fatal("expected nsenterFunc to be called")
 	}
 	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
 	if !r.dualStack {

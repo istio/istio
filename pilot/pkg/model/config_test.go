@@ -390,7 +390,7 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				_, _, ok := model.MostSpecificHostMatch(bm.needle, bm.specificHostsMap, bm.wildcardHostsMap)
 				if bm.matches != ok {
-					b.Fatalf("expected to find match")
+					b.Fatal("expected to find match")
 				}
 			}
 		})
@@ -452,7 +452,7 @@ func BenchmarkMostSpecificHostMatchMixed(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				_, _, ok := model.MostSpecificHostMatch(bm.needle, bm.specificHostsMap, bm.wildcardHostsMap)
 				if bm.matches != ok {
-					b.Fatalf("expected to find match")
+					b.Fatal("expected to find match")
 				}
 			}
 		})
@@ -488,7 +488,7 @@ func BenchmarkMostSpecificHostMatchMultiMatch(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				_, _, ok := model.MostSpecificHostMatch(bm.needle, bm.specificHostsMap, bm.wildcardHostsMap)
 				if !ok {
-					b.Fatalf("expected to find match")
+					b.Fatal("expected to find match")
 				}
 			}
 		})

@@ -105,7 +105,7 @@ func TestPodsAppearsWithNilNetnsWhenEnsureIsUsed(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("expected pod 123 to be in the cache")
+		t.Fatal("expected pod 123 to be in the cache")
 	}
 }
 
@@ -134,7 +134,7 @@ func TestUpsertPodCacheWithLiveNetns(t *testing.T) {
 		t.Fatalf("Expected the original Netns for the same uid, got %p and %p", netns2, ns)
 	}
 	if !ns2.closed.Load() {
-		t.Fatalf("Expected the second Netns to be closed")
+		t.Fatal("Expected the second Netns to be closed")
 	}
 }
 
@@ -154,7 +154,7 @@ func TestDoubleTake(t *testing.T) {
 	}
 	if nil != p.Take(string(pod.UID)) {
 		// expect nil because we already took it
-		t.Fatalf("Expected nil Netns for the same uid twice")
+		t.Fatal("Expected nil Netns for the same uid twice")
 	}
 }
 
