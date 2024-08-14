@@ -285,6 +285,10 @@ func DeferredClusterCreation(deferred bool) Instance {
 	return newOption("deferred_cluster_creation", deferred)
 }
 
+func DeferredStatsCreation(deferred bool) Instance {
+	return newOption("deferred_stats_creation", deferred)
+}
+
 func LoadStatsConfigJSONStr(node *model.Node) Instance {
 	// JSON string for configuring Load Reporting Service.
 	if json, ok := node.RawMetadata["LOAD_STATS_CONFIG_JSON"].(string); ok {

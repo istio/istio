@@ -23,6 +23,8 @@ meshConfig:
       ISTIO_DELTA_XDS: "false"
       # 1.23 behavioral changes
       ENABLE_DELIMITED_STATS_TAG_REGEX: "false"
+      # 1.24 behaviour changes
+      ENABLE_DEFERRED_STATS_CREATION: "false"
     tracing:
       zipkin:
         address: zipkin.istio-system:9411

@@ -19,3 +19,5 @@ meshConfig:
       ENABLE_DEFERRED_CLUSTER_CREATION: "false"
       # 1.23 behavioral changes
       ENABLE_DELIMITED_STATS_TAG_REGEX: "false"
+      # 1.24 behaviour changes
+      ENABLE_DEFERRED_STATS_CREATION: "false"
