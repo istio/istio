@@ -135,10 +135,10 @@ func (a *AdsTest) ExpectResponse(t test.Failer) *discovery.DiscoveryResponse {
 	t.Helper()
 	select {
 	case <-time.After(a.timeout):
-		t.Fatalf("did not get response in time")
+		t.Fatal("did not get response in time")
 	case resp := <-a.responses:
 		if resp == nil || len(resp.Resources) == 0 {
-			t.Fatalf("got empty response")
+			t.Fatal("got empty response")
 		}
 		return resp
 	case err := <-a.error:
@@ -152,7 +152,7 @@ func (a *AdsTest) ExpectError(t test.Failer) error {
 	t.Helper()
 	select {
 	case <-time.After(a.timeout):
-		t.Fatalf("did not get error in time")
+		t.Fatal("did not get error in time")
 	case err := <-a.error:
 		return err
 	}

@@ -73,7 +73,7 @@ func Test_tokenSupplier_GetRequestMetadata(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(m1, m2) {
-		t.Fatalf("Unexpectedly getting a new tokens")
+		t.Fatal("Unexpectedly getting a new tokens")
 	}
 
 	var m3 map[string]string
@@ -86,6 +86,6 @@ func Test_tokenSupplier_GetRequestMetadata(t *testing.T) {
 		retry.Timeout(expirationSeconds*time.Second),
 	)
 	if reflect.DeepEqual(m1, m3) {
-		t.Fatalf("Unexpectedly not getting a new token")
+		t.Fatal("Unexpectedly not getting a new token")
 	}
 }

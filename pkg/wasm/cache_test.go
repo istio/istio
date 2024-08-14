@@ -735,7 +735,7 @@ func TestWasmCache(t *testing.T) {
 				}
 
 				if !moduleDeleted {
-					t.Fatalf("Wasm modules are not purged before purge timeout")
+					t.Fatal("Wasm modules are not purged before purge timeout")
 				}
 			}
 

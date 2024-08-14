@@ -97,7 +97,7 @@ func (c *kubeComponent) Invoke(args []string) (string, string, error) {
 	// It happens to do this via PersistentPreRunE, which we can disable.
 	// We add an additional check in case someone refactors this away, to ensure we don't wipe out non-logging code.
 	if fmt.Sprintf("%p", rootCmd.PersistentPreRunE) != fmt.Sprintf("%p", cmd.ConfigureLogging) {
-		log.Fatalf("istioctl PersistentPreRunE is not configuring logging")
+		log.Fatal("istioctl PersistentPreRunE is not configuring logging")
 	}
 	rootCmd.PersistentPreRunE = nil
 	fErr := rootCmd.Execute()

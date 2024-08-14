@@ -513,7 +513,7 @@ func TestGenerator(t *testing.T) {
 				_, err1 := tc.g.principal(tc.key, tc.value, tc.forTCP, false)
 				_, err2 := tc.g.permission(tc.key, tc.value, tc.forTCP)
 				if err1 == nil || err2 == nil {
-					t.Fatalf("wanted error")
+					t.Fatal("wanted error")
 				}
 				return
 			}

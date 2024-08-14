@@ -155,7 +155,7 @@ func TestBasicScopes(t *testing.T) {
 			wantExit: true,
 		},
 		{
-			f:        func() { s.Fatalf("Hello") },
+			f:        func() { s.Fatal("Hello") },
 			pat:      timePattern + "\tfatal\ttestScope\tHello",
 			wantExit: true,
 		},

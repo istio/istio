@@ -1206,7 +1206,7 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 			} else {
 				report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the non identical ROOTCA, theoretically the connectivity between them is unavailable",
 					podName1, podNamespace1, podName2, podNamespace2)
-				returnErr = fmt.Errorf(report)
+				returnErr = errors.New(report)
 			}
 			return returnErr
 		},

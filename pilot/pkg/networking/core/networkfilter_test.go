@@ -830,7 +830,7 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 			listeners := lb.buildOutboundNetworkFilters(tt.routes, &model.Port{Port: 9999}, tt.configMeta, false)
 			tcp := &tcp.TcpProxy{}
 			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
-			hasSourceIP := tcp.HashPolicy != nil && len(tcp.HashPolicy) == 1 && tcp.HashPolicy[0].GetSourceIp() != nil
+			hasSourceIP := len(tcp.HashPolicy) == 1 && tcp.HashPolicy[0].GetSourceIp() != nil
 			if hasSourceIP != tt.useSourceIP {
 				t.Fatalf("Unexpected SourceIp hash policy. expected: %v, got: %v", tt.useSourceIP, hasSourceIP)
 			}

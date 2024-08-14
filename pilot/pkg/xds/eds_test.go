@@ -1306,7 +1306,7 @@ func testEdsz(t *testing.T, s *xdsfake.FakeDiscoveryServer, proxyID string) {
 
 	data, err := io.ReadAll(rr.Body)
 	if err != nil {
-		t.Fatalf("Failed to read /edsz")
+		t.Fatal("Failed to read /edsz")
 	}
 	statusStr := string(data)
 
