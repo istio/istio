@@ -279,7 +279,7 @@ func TestReadSignedCertificate(t *testing.T) {
 
 			if tc.expectFail {
 				if err == nil {
-					t.Fatalf("should have failed at updateMutatingWebhookConfig")
+					t.Fatal("should have failed at updateMutatingWebhookConfig")
 				}
 			} else if err != nil {
 				t.Fatalf("failed at updateMutatingWebhookConfig: %v", err)

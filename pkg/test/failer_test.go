@@ -25,9 +25,9 @@ var (
 func TestWrapper(t *testing.T) {
 	t.Run("fail", func(t *testing.T) {
 		if err := Wrap(func(t Failer) {
-			t.Fatalf("failed")
+			t.Fatal("failed")
 		}); err == nil {
-			t.Fatalf("expected error, got none")
+			t.Fatal("expected error, got none")
 		}
 	})
 	t.Run("success", func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestWrapper(t *testing.T) {
 			t.Fatalf("expected no error, got: %v", err)
 		}
 		if !done {
-			t.Fatalf("cleanup not triggered")
+			t.Fatal("cleanup not triggered")
 		}
 	})
 }

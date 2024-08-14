@@ -443,7 +443,7 @@ func checkStatsTags(t *testing.T, got *bootstrap.Bootstrap) {
 
 func checkHTTPConnManagerPrefixTag(t *testing.T, regex string) {
 	if regex == "" {
-		t.Fatalf("cluster_name tag regex is empty")
+		t.Fatal("cluster_name tag regex is empty")
 	}
 
 	compiledRegex, err := regexp.Compile(regex)
@@ -534,7 +534,7 @@ func checkHTTPConnManagerPrefixTag(t *testing.T, regex string) {
 
 func checkClusterNameTag(t *testing.T, regex string) {
 	if regex == "" {
-		t.Fatalf("cluster_name tag regex is empty")
+		t.Fatal("cluster_name tag regex is empty")
 	}
 
 	compiledRegex, err := regexp.Compile(regex)

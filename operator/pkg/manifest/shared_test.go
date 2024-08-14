@@ -76,7 +76,7 @@ func TestReadLayeredYAMLs(t *testing.T) {
 						t.Fatalf("os.ReadFile() error = %v, filenaem: %v", err, filename)
 					}
 					if _, err := stdinReader.Write(b); err != nil {
-						t.Fatalf("failed to populate fake sdtin")
+						t.Fatal("failed to populate fake sdtin")
 					}
 					filenames = append(filenames, "-")
 				} else {
@@ -134,15 +134,15 @@ func TestConvertIOPMapValues(t *testing.T) {
 			outPath := filepath.Join(testDataDir, "output", tt.name+".yaml")
 			input, err := os.ReadFile(inPath)
 			if err != nil {
-				t.Fatalf(err.Error())
+				t.Fatal(err.Error())
 			}
 			actualOutput, err := convertIOPMapValues(string(input), tt.inputFlags, tt.convertPaths)
 			if err != nil {
-				t.Fatalf(err.Error())
+				t.Fatal(err.Error())
 			}
 			expectOutput, err := os.ReadFile(outPath)
 			if err != nil {
-				t.Fatalf(err.Error())
+				t.Fatal(err.Error())
 			}
 
 			diff := testhelpers.YAMLDiff(actualOutput, string(expectOutput))

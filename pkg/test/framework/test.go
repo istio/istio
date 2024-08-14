@@ -271,16 +271,16 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 	if t.requireLocalIstiod {
 		for _, c := range ctx.Clusters() {
 			if !c.IsPrimary() {
-				t.goTest.Skipf(fmt.Sprintf("Skipping %q: cluster %s is not using a local control plane",
-					t.goTest.Name(), c.Name()))
+				t.goTest.Skipf("Skipping %q: cluster %s is not using a local control plane", t.goTest.Name(), c.Name())
+
 				return
 			}
 		}
 	}
 
 	if t.requireSingleNetwork && t.s.Environment().IsMultiNetwork() {
-		t.goTest.Skipf(fmt.Sprintf("Skipping %q: only single network allowed",
-			t.goTest.Name()))
+		t.goTest.Skipf("Skipping %q: only single network allowed", t.goTest.Name())
+
 		return
 	}
 

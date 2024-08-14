@@ -132,7 +132,7 @@ func (s *Settings) clusterConfigsFromFile() ([]cluster.Config, error) {
 	}
 
 	// Apply clusterConfigs overrides from flags, if specified.
-	if s.controlPlaneTopology != nil && len(s.controlPlaneTopology) > 0 {
+	if len(s.controlPlaneTopology) > 0 {
 		if len(s.controlPlaneTopology) != len(clusterConfigs) {
 			return nil, fmt.Errorf("istio.test.kube.controlPlaneTopology has %d entries but there are %d clusters", len(controlPlaneTopology), len(clusterConfigs))
 		}

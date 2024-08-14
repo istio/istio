@@ -427,7 +427,7 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	raw := xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	for _, scrt := range raw {
 		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {
-			t.Fatalf("expect no private key provider in secret")
+			t.Fatal("expect no private key provider in secret")
 		}
 	}
 
@@ -437,10 +437,10 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	for _, scrt := range raw {
 		privateKeyProvider := scrt.GetTlsCertificate().GetPrivateKeyProvider()
 		if privateKeyProvider == nil {
-			t.Fatalf("expect private key provider in secret")
+			t.Fatal("expect private key provider in secret")
 		}
 		if privateKeyProvider.GetFallback() {
-			t.Fatalf("expect fallback for private key provider in secret as false")
+			t.Fatal("expect fallback for private key provider in secret as false")
 		}
 	}
 
@@ -449,7 +449,7 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	raw = xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	for _, scrt := range raw {
 		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {
-			t.Fatalf("expect no private key provider in secret")
+			t.Fatal("expect no private key provider in secret")
 		}
 	}
 }

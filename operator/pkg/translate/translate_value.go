@@ -15,6 +15,7 @@
 package translate
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -355,7 +356,7 @@ func (t *ReverseTranslator) TranslateK8SfromValueToIOP(userOverlayYaml string) (
 		return "", fmt.Errorf("error handling values gateway k8s settings: %v", err)
 	}
 	if warning != "" {
-		return "", fmt.Errorf(warning)
+		return "", errors.New(warning)
 	}
 	iopSpecTreeYAML, err := yaml.Marshal(iopSpecTree)
 	if err != nil {

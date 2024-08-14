@@ -56,7 +56,7 @@ func TestConverge(t *testing.T) {
 			return fmt.Errorf("oops")
 		}, MaxAttempts(10), Delay(0))
 		if err == nil {
-			t.Fatalf("expected error")
+			t.Fatal("expected error")
 		}
 		if n != 10 {
 			t.Fatalf("expected exactly 10 attempts, got %d", n)

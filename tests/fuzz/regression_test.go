@@ -55,7 +55,7 @@ func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
 			} else {
 				// Ensure we update brokenCases when they are fixed
 				if _, broken := brokenCases[name]; broken {
-					t.Fatalf("expected broken case passed")
+					t.Fatal("expected broken case passed")
 				}
 			}
 		}()
