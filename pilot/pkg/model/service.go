@@ -1319,7 +1319,7 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	}
 	if len(addresses) == 0 && node.Metadata != nil && bool(node.Metadata.DNSCapture) &&
 		(bool(node.Metadata.DNSAutoAllocate) || features.EnableIPAutoallocate) {
-		// maybe autoallocated
+		// The criteria to use AutoAllocated addresses is met so we should go ahead and use them if they are populated
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
 		}
@@ -1334,7 +1334,7 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 		return addresses
 	}
 
-	// fallback the default address
+	// fallback to the default address
 	if a := s.DefaultAddress; len(a) > 0 {
 		return []string{a}
 	}
