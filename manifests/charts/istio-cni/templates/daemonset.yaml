@@ -17,6 +17,8 @@ metadata:
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Cni"
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
@@ -31,6 +33,8 @@ spec:
         k8s-app: {{ template "name" . }}-node
         sidecar.istio.io/inject: "false"
         istio.io/dataplane-mode: none
+        app.kubernetes.io/name: {{ template "name" . }}
+        {{- include "istio.labels" . | nindent 8 }}
       annotations:
         sidecar.istio.io/inject: "false"
         # Add Prometheus Scrape annotations

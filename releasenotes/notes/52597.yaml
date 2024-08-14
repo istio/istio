@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Added** support for honouring Destination Rule Certificates for MESH_EXTERNAL services instead of Metadata certificates.
+  This can be reverted by setting PREFER_DESTINATIONRULE_TLS_FOR_EXTERNAL_SERVICES to `false`.
