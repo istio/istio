@@ -1317,7 +1317,8 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 	}
-	if len(addresses) == 0 {
+	if len(addresses) == 0 && bool(node.Metadata.DNSCapture) &&
+		(bool(node.Metadata.DNSAutoAllocate) || features.EnableIPAutoallocate) {
 		// maybe autoallocated
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
