@@ -148,7 +148,7 @@ func TestDependencies(t *testing.T) {
 		})
 	}
 	t.Run("exhaustive", func(t *testing.T) {
-		all, err := getDependencies(env.IstioSrc+"/...", "", true)
+		all, err := getDependencies(env.IstioSrc+"/...", "integ", true)
 		assert.NoError(t, err)
 		for _, d := range allDenials {
 			found := false
