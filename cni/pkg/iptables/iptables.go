@@ -145,6 +145,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 	deleteCmds := [][]string{
 		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
+		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
 	}
 
@@ -153,9 +154,11 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 		// flush-then-delete our created chains
 		{"-t", iptablesconstants.MANGLE, "-F", ChainInpodPrerouting},
 		{"-t", iptablesconstants.MANGLE, "-F", ChainInpodOutput},
+		{"-t", iptablesconstants.NAT, "-F", ChainInpodPrerouting},
 		{"-t", iptablesconstants.NAT, "-F", ChainInpodOutput},
 		{"-t", iptablesconstants.MANGLE, "-X", ChainInpodPrerouting},
 		{"-t", iptablesconstants.MANGLE, "-X", ChainInpodOutput},
+		{"-t", iptablesconstants.NAT, "-X", ChainInpodPrerouting},
 		{"-t", iptablesconstants.NAT, "-X", ChainInpodOutput},
 	}
 
