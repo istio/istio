@@ -36,6 +36,13 @@ func TestIptables(t *testing.T) {
 				cfg.RedirectDNS = true
 			},
 		},
+		{
+			"tproxy",
+			func(cfg *Config) {
+				cfg.RedirectTPROXY = true
+				cfg.RedirectDNS = true
+			},
+		},
 	}
 	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
 	probeSNATipv6 := netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")
