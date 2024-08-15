@@ -76,6 +76,7 @@ var GCPStaticMetadata = func() map[string]string {
 	return md
 }()
 
+// nolint: staticcheck // we are not currently using Context() function variants
 var (
 	// shouldFillMetadata returns whether the workload is running on GCP and the metadata endpoint is accessible
 	// In contrast, DiscoverWithTimeout only checks if the workload is running on GCP
