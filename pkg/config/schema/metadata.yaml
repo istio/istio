@@ -176,6 +176,32 @@ resources:
     proto: "k8s.io.api.coordination.v1.LeaseSpec"
     protoPackage: "k8s.io/api/coordination/v1"
 
+#  - kind: "HorizontalPodAutoscaler"
+#    plural: "horizontalpodautoscalers"
+#    group: "autoscaling"
+#    version: "v2"
+#    builtin: true
+#    proto: "k8s.io.api.autoscaling.v2.HorizontalPodAutoscalerSpec"
+#    protoPackage: "k8s.io/api/autoscaling/v2"
+#    statusProto: "k8s.io.api.autoscaling.v2.HorizontalPodAutoscalerStatus"
+#    statusProtoPackage: "k8s.io/api/autoscaling/v2"
+#
+#  - kind: "PodDisruptionBudget"
+#    plural: "poddisruptionbudgets"
+#    group: "policy"
+#    version: "v1"
+#    builtin: true
+#    proto: "k8s.io.api.policy.v1.PodDisruptionBudgetSpec"
+#    protoPackage: "k8s.io/api/policy/v1"
+#    statusProto: "k8s.io.api.policy.v1.PodDisruptionBudgetStatus"
+#    statusProtoPackage: "k8s.io/api/policy/v1"
+#
+#  - kind: "ClusterRole"
+#    plural: "clusterroles"
+#    group: "rbac.authorization.k8s.io"
+#    version: "v1"
+#    builtin: true
+
   - kind: "GatewayClass"
     plural: "gatewayclasses"
     group: "gateway.networking.k8s.io"

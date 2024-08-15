@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
@@ -419,9 +419,9 @@ func TestGenerateServiceAccount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate service account YAML: %v", err)
 	}
-	objs, err := object.ParseK8sObjectsFromYAMLManifest(yaml)
+	objs, err := manifest.ParseMultiple(yaml)
 	if err != nil {
-		t.Fatalf("could not parse k8s objects from generated YAML: %v", err)
+		t.Fatal(err)
 	}
 
 	mustFindObject(t, objs, "istio-reader-service-account", "ServiceAccount")
@@ -429,12 +429,13 @@ func TestGenerateServiceAccount(t *testing.T) {
 	mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRoleBinding")
 }
 
-func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) {
+func mustFindObject(t test.Failer, objs []manifest.Manifest, name, kind string) {
 	t.Helper()
-	var obj *object.K8sObject
+	var obj *manifest.Manifest
 	for _, o := range objs {
-		if o.Kind == kind && o.Name == name {
-			obj = o
+		o := o
+		if o.GetKind() == kind && o.GetName() == name {
+			obj = &o
 			break
 		}
 	}

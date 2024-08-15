@@ -24,10 +24,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: istio-ingressgateway
-
 ---
-
-
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -45,7 +42,13 @@ spec:
   - resource:
       name: cpu
       target:
-        averageUtilization: 80
+        averageUtilization: 90
+        type: Utilization
+    type: Resource
+  - resource:
+      name: memory
+      target:
+        averageUtilization: 90
         type: Utilization
     type: Resource
   minReplicas: 1
@@ -53,5 +56,3 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: istiod
-
----

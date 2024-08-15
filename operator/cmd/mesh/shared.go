@@ -20,24 +20,11 @@ import (
 	"io"
 	"strings"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"istio.io/istio/istioctl/pkg/install/k8sversion"
-	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
 // installerScope is the scope for all commands in the mesh package.
 var installerScope = log.RegisterScope("installer", "installer")
-
-func init() {
-	// adding to remove message about the controller-runtime logs not getting displayed
-	// We cannot do this in the `log` package since it would place a runtime dependency on controller-runtime for all binaries.
-	scope := log.RegisterScope("controlleruntime", "scope for controller runtime")
-	controllruntimelog.SetLogger(log.NewLogrAdapter(scope))
-}
 
 type Printer interface {
 	Printf(format string, a ...any)
@@ -76,17 +63,6 @@ func Confirm(msg string, writer io.Writer) bool {
 			return false
 		}
 	}
-}
-
-func KubernetesClients(kubeClient kube.CLIClient, l clog.Logger) (kube.CLIClient, client.Client, error) {
-	client, err := client.New(kubeClient.RESTConfig(), client.Options{Scheme: kube.IstioScheme})
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := k8sversion.IsK8VersionSupported(kubeClient, l); err != nil {
-		return nil, nil, fmt.Errorf("check minimum supported Kubernetes version: %v", err)
-	}
-	return kubeClient, client, nil
 }
 
 // --manifests is an alias for --set installPackagePath=

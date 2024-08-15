@@ -219,10 +219,7 @@ spec:
         secret:
           optional: true
           secretName: istio-ingressgateway-ca-certs
-
 ---
-
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -441,10 +438,7 @@ spec:
         secret:
           optional: true
           secretName: istio-ingressgateway-ca-certs
-
 ---
-
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -478,10 +472,7 @@ spec:
     app: istio-ingressgateway
     istio: ingressgateway
   type: LoadBalancer
-
 ---
-
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -514,5 +505,3 @@ spec:
     app: istio-ingressgateway
     istio: ingressgateway
   type: LoadBalancer
-
----

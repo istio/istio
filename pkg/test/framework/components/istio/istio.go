@@ -16,12 +16,8 @@ package istio
 
 import (
 	"net/netip"
-	"regexp"
-	"strconv"
-	"strings"
 	"time"
 
-	"google.golang.org/protobuf/types/known/structpb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -34,45 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/scopes"
 )
-
-// OperatorValues is the map of the values from the installed operator yaml.
-type OperatorValues map[string]*structpb.Value
-
-// This regular expression matches list object index selection expression such as
-// abc[100], Tba_a[0].
-var listObjRex = regexp.MustCompile(`^([a-zA-Z]?[a-z_A-Z\d]*)\[([ ]*[\d]+)[ ]*\]$`)
-
-func getConfigValue(path []string, val map[string]*structpb.Value) *structpb.Value {
-	retVal := structpb.NewNullValue()
-	if len(path) > 0 {
-		match := listObjRex.FindStringSubmatch(path[0])
-		// valid list index
-		switch len(match) {
-		case 0: // does not match list object selection, should be name of a field, should be struct value
-			thisVal := val[path[0]]
-			// If it is a struct and looking for more down the path
-			if thisVal.GetStructValue() != nil && len(path) > 1 {
-				return getConfigValue(path[1:], thisVal.GetStructValue().Fields)
-			}
-			retVal = thisVal
-		case 3: // match something like aaa[100]
-			thisVal := val[match[1]]
-			// If it is a list and looking for more down the path
-			if thisVal.GetListValue() != nil && len(path) > 1 {
-				index, _ := strconv.Atoi(match[2])
-				return getConfigValue(path[1:], thisVal.GetListValue().Values[index].GetStructValue().Fields)
-			}
-			retVal = thisVal
-		}
-	}
-	return retVal
-}
-
-// GetConfigValue returns a structpb value from a structpb map by
-// using a dotted path such as `pilot.env.LOCAL_CLUSTER_SECRET_WATCHER`.
-func (v OperatorValues) GetConfigValue(path string) *structpb.Value {
-	return getConfigValue(strings.Split(path, "."), v)
-}
 
 // Instance represents a deployed Istio instance
 type Instance interface {
@@ -104,9 +61,6 @@ type Instance interface {
 	// Return POD IPs for the pod with the specified label in the specified namespace
 	PodIPsFor(cluster cluster.Cluster, namespace string, label string) ([]corev1.PodIP, error)
 
-	// Values returns the operator values for the installed control plane.
-	Values() (OperatorValues, error)
-	ValuesOrFail(test.Failer) OperatorValues
 	// MeshConfig used by the Istio installation.
 	MeshConfig() (*meshconfig.MeshConfig, error)
 	MeshConfigOrFail(test.Failer) *meshconfig.MeshConfig

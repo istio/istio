@@ -281,7 +281,7 @@ be used for reference. All K8s overlay values are also validated in the operator
 The new platform install API above deals with K8s level settings. The remaining values.yaml parameters deal with Istio
 control plane operation rather than installation. For the time being, the operator just passes these through to the Helm
 charts unmodified (but validated through a
-[schema](pkg/apis/istio/v1alpha1/values_types.proto)). Values.yaml settings
+[schema](pkg/apis/values_types.proto)). Values.yaml settings
 are overridden the same way as the new API, though a customized CR overlaid over default values for the selected
 profile. Here's an example of overriding some global level default values ([samples/values-global.yaml](samples/values-global.yaml)):
 

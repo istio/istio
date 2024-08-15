@@ -8,10 +8,7 @@ metadata:
   namespace: istio-system
 spec:
   automountServiceAccountToken: false
-
 ---
-
-
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -163,10 +160,7 @@ webhooks:
     resources:
     - pods
   sideEffects: None
-
 ---
-
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -321,10 +315,7 @@ spec:
           name: istio-ca-root-cert
           optional: true
         name: istio-csr-ca-configmap
-
 ---
-
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -355,5 +346,3 @@ spec:
   selector:
     app: istiod
     istio: pilot
-
----
