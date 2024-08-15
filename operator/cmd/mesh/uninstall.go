@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
@@ -139,8 +140,23 @@ func runUninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArg
 	if uiArgs.purge && (uiArgs.revision != "" || uiArgs.filename != "") {
 		l.LogAndPrint(PurgeWithRevisionOrOperatorSpecifiedWarning)
 	}
+	setFlags := applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision)
+	filenames := []string{}
+	if uiArgs.filename != "" {
+		filenames = append(filenames, uiArgs.filename)
+	}
+	values, err := render.MergeInputs(filenames, setFlags, nil)
+	if err != nil {
+		return err
+	}
 
-	objectsList, err := uninstall.GetPrunedResources(kubeClient, "", "", uiArgs.revision, uiArgs.purge)
+	objectsList, err := uninstall.GetPrunedResources(
+		kubeClient,
+		values.GetPathString("metadata.name"),
+		values.GetPathString("metadata.namespace"),
+		uiArgs.revision,
+		uiArgs.purge,
+	)
 	if err != nil {
 		return err
 	}
