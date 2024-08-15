@@ -104,6 +104,7 @@ var rootCmd = &cobra.Command{
 					ServerSocket:    cfg.InstallConfig.ZtunnelUDSAddress,
 					DNSCapture:      cfg.InstallConfig.AmbientDNSCapture,
 					EnableIPv6:      cfg.InstallConfig.AmbientIPv6,
+					RedirectTPROXY:  cfg.InstallConfig.AmbientRedirectTPROXY,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
@@ -263,9 +264,10 @@ func constructConfig() (*config.Config, error) {
 		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
-		AmbientEnabled:    viper.GetBool(constants.AmbientEnabled),
-		AmbientDNSCapture: viper.GetBool(constants.AmbientDNSCapture),
-		AmbientIPv6:       viper.GetBool(constants.AmbientIPv6),
+		AmbientEnabled:        viper.GetBool(constants.AmbientEnabled),
+		AmbientDNSCapture:     viper.GetBool(constants.AmbientDNSCapture),
+		AmbientIPv6:           viper.GetBool(constants.AmbientIPv6),
+		AmbientRedirectTPROXY: viper.GetBool(constants.AmbientRedirectTPROXY),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {

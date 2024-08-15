@@ -79,6 +79,9 @@ type InstallConfig struct {
 
 	// Whether ipv6 is enabled for ambient capture
 	AmbientIPv6 bool
+
+	// Feature flag to determined whether TPROXY is used for redirection.
+	AmbientRedirectTPROXY bool
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -141,6 +144,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")
 	b.WriteString("AmbientDNSCapture: " + fmt.Sprint(c.AmbientDNSCapture) + "\n")
 	b.WriteString("AmbientIPv6: " + fmt.Sprint(c.AmbientIPv6) + "\n")
+	b.WriteString("AmbientRedirectTPROXY: " + fmt.Sprint(c.AmbientRedirectTPROXY) + "\n")
 
 	return b.String()
 }

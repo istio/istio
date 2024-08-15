@@ -50,4 +50,5 @@ type AmbientArgs struct {
 	ServerSocket    string
 	DNSCapture      bool
 	EnableIPv6      bool
+	RedirectTPROXY  bool
 }
