@@ -221,7 +221,7 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			m, err := values.MapFromYaml([]byte(tt.values))
 			assert.NoError(t, err)
-			warnings, errors := validation.ParseAndValidateIstioOperator(m)
+			warnings, errors := validation.ParseAndValidateIstioOperator(m, nil)
 			assert.Equal(t, tt.errors, errors.ToError(), "errors")
 			assert.Equal(t, tt.warnings.ToError(), warnings.ToError(), "warnings")
 		})
@@ -350,7 +350,7 @@ cni:
 		t.Run(tt.desc, func(t *testing.T) {
 			m, err := values.MapFromYaml([]byte(tt.yamlStr))
 			assert.NoError(t, err)
-			_, errs := validation.ParseAndValidateIstioOperator(values.MakeMap(m, "spec", "values"))
+			_, errs := validation.ParseAndValidateIstioOperator(values.MakeMap(m, "spec", "values"), nil)
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
 				t.Errorf("CheckValues(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.yamlStr, gotErr, wantErr)
 			}
