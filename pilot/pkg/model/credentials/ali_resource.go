@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 )
 
@@ -17,6 +18,11 @@ func ToKubernetesIngressResourceBasedFullName(fullName string) string {
 }
 
 func ToKubernetesIngressResource(clusterId, namespace, name string) string {
+	// Added by ingress
+	if clusterId == "" {
+		clusterId = features.ClusterName
+	}
+	// End added by ingress
 	return fmt.Sprintf("%s://%s/%s/%s", KubernetesIngressSecretType, clusterId, namespace, name)
 }
 
