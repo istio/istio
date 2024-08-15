@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -381,20 +380,13 @@ func TestWaypointDNS(t *testing.T) {
 				if src.Config().HasSidecar() {
 					t.Skip("TODO: sidecars don't properly handle use-waypoint")
 				}
-				address := "240.240.240.239"
-				if _, v6 := getSupportedIPFamilies(t); v6 {
-					address = "2001:2::f0f0:239"
-				}
 				src.CallOrFail(t, echo.CallOptions{
 					To:      apps.MockExternal,
-					Address: address,
-					HTTP: echo.HTTP{
-						Headers: http.Header{"Host": []string{apps.MockExternal.Config().DefaultHostHeader}},
-					},
-					Port:   echo.Port{Name: "http"},
-					Scheme: scheme.HTTP,
-					Count:  1,
-					Check:  check,
+					Address: apps.MockExternal.Config().DefaultHostHeader,
+					Port:    echo.Port{Name: "http"},
+					Scheme:  scheme.HTTP,
+					Count:   1,
+					Check:   check,
 				})
 			})
 		}
