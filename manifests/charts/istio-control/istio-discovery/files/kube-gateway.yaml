@@ -1,3 +1,29 @@
+{{- define "resources"  }}
+  {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) }}
+          requests:
+            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -}}
+            cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` }}"
+            {{ end }}
+            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
+            memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` }}"
+            {{ end }}
+    {{- end }}
+    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+          limits:
+            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) -}}
+            cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit` }}"
+            {{ end }}
+            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) -}}
+            memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit` }}"
+            {{ end }}
+    {{- end }}
+  {{- else }}
+    {{- if .Values.global.proxy.resources }}
+      {{ toYaml .Values.global.proxy.resources | nindent 10 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -87,10 +113,8 @@ spec:
       {{- else }}
         image: "{{ .ProxyImage }}"
       {{- end }}
-        {{- if .Values.global.proxy.resources }}
         resources:
-          {{- toYaml .Values.global.proxy.resources | nindent 10 }}
-        {{- end }}
+      {{-  template "resources" . }}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         securityContext:
           capabilities:
