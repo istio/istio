@@ -148,7 +148,7 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 			if err := checkFields(un); err != nil {
 				return nil, err
 			}
-			warnings, err := operatorvalidate.ParseAndValidateIstioOperator(un.Object)
+			warnings, err := operatorvalidate.ParseAndValidateIstioOperator(un.Object, nil)
 			if err != nil {
 				return nil, err
 			}

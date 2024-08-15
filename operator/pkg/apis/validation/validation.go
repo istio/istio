@@ -16,6 +16,7 @@ package validation
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/netip"
@@ -25,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
 
@@ -34,12 +36,13 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation/agent"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
 type Warnings = util.Errors
 
-func ParseAndValidateIstioOperator(iopm values.Map) (Warnings, util.Errors) {
+func ParseAndValidateIstioOperator(iopm values.Map, client kube.Client) (Warnings, util.Errors) {
 	iop := &apis.IstioOperator{}
 	dec := json.NewDecoder(bytes.NewBufferString(iopm.JSON()))
 	dec.DisallowUnknownFields()
@@ -49,6 +52,12 @@ func ParseAndValidateIstioOperator(iopm values.Map) (Warnings, util.Errors) {
 
 	var warnings Warnings
 	var errors util.Errors
+
+	if client != nil {
+		vw, ve := environmentalDetection(client, iop)
+		warnings = util.AppendErrs(warnings, vw)
+		errors = util.AppendErrs(errors, ve)
+	}
 
 	vw, ve := validateValues(iop)
 	warnings = util.AppendErrs(warnings, vw)
@@ -64,6 +73,28 @@ func ParseAndValidateIstioOperator(iopm values.Map) (Warnings, util.Errors) {
 	errors = util.AppendErr(errors, validateComponentNames(iop.Spec.Components))
 
 	return warnings, errors
+}
+
+// nolint: unparam
+func environmentalDetection(client kube.Client, iop *apis.IstioOperator) (Warnings, util.Errors) {
+	var warnings Warnings
+	var errors util.Errors
+	if iop.Spec.Components != nil && iop.Spec.Components.Cni != nil && iop.Spec.Components.Cni.Enabled.GetValueOrFalse() {
+		warnings = util.AppendErr(warnings, detectCniIncompatibility(client))
+	}
+	return warnings, errors
+}
+
+func detectCniIncompatibility(client kube.Client) error {
+	cilium, err := client.Kube().CoreV1().ConfigMaps("kube-system").Get(context.Background(), "cilium-config", metav1.GetOptions{})
+	if err != nil {
+		// Ignore errors, user may not be running Cilium at all
+		return nil
+	}
+	if cilium.Data["cni-exclusive"] == "true" {
+		return fmt.Errorf("detected Cilium CNI with 'cni-exclusive=true'; this must be set to 'cni-exclusive=false' in the Cilium configuration")
+	}
+	return nil
 }
 
 func validateValues(raw *apis.IstioOperator) (Warnings, util.Errors) {

@@ -48,7 +48,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 		return nil, nil, fmt.Errorf("merge inputs: %v", err)
 	}
 	// Validate the config. This can emit warnings to the logger. If force is set, errors will be logged as warnings but not returned.
-	if err := validateIstioOperator(merged, logger, force); err != nil {
+	if err := validateIstioOperator(merged, client, logger, force); err != nil {
 		return nil, nil, err
 	}
 	// After validation, apply any unvalidatedValues they may have set.
@@ -361,8 +361,8 @@ func clusterSpecificSettings(client kube.Client) []string {
 }
 
 // validateIstioOperator validates an IstioOperator, logging any warnings and reporting any errors.
-func validateIstioOperator(iop values.Map, logger clog.Logger, force bool) error {
-	warnings, errs := validation.ParseAndValidateIstioOperator(iop)
+func validateIstioOperator(iop values.Map, client kube.Client, logger clog.Logger, force bool) error {
+	warnings, errs := validation.ParseAndValidateIstioOperator(iop, client)
 	if err := errs.ToError(); err != nil {
 		if force {
 			if logger != nil {
