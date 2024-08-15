@@ -93,7 +93,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	maxCertTTL := time.Hour
 	org := "test.ca.Org"
 	const caNamespace = "default"
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	rootCertFile := ""
 	rootCertCheckInverval := time.Hour
 	rsaKeySize := 2048
@@ -158,7 +158,7 @@ func TestCreateSelfSignedIstioCAWithoutSecretAndUseCacertsEnabled(t *testing.T) 
 	maxCertTTL := time.Hour
 	org := "test.ca.Org"
 	const caNamespace = "default"
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	rootCertFile := ""
 	rootCertCheckInverval := time.Hour
 	rsaKeySize := 2048
@@ -223,7 +223,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	signingCertPem := []byte(cert1Pem)
 	signingKeyPem := []byte(key1Pem)
 
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	initSecret := BuildSecret(CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
 	_, err := client.CoreV1().Secrets("default").Create(context.TODO(), initSecret, metav1.CreateOptions{})
 	if err != nil {
@@ -285,7 +285,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	rootCertCheckInverval := time.Hour
 	rsaKeySize := 2048
 
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 
 	// succeed creating a self-signed cert
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
@@ -345,7 +345,7 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 	rootCertCheckInverval := time.Hour
 	rsaKeySize := 2048
 
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 
 	parallel := 10
 	wg := sync.WaitGroup{}

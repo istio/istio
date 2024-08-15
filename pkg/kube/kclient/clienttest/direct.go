@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 )
 
@@ -39,8 +40,11 @@ type directClient[T controllers.Object, PT any, TL runtime.Object] struct {
 func (d *directClient[T, PT, TL]) Get(name, namespace string) T {
 	api := kubeclient.GetClient[T, TL](d.client, namespace)
 	res, err := api.Get(context.Background(), name, metav1.GetOptions{})
-	if err != nil && !kerrors.IsNotFound(err) {
-		d.t.Fatalf("get: %v", err)
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			d.t.Fatalf("get: %v", err)
+		}
+		return ptr.Empty[T]()
 	}
 	return res
 }

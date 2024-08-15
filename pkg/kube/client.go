@@ -238,7 +238,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		informerWatchesPending: atomic.NewInt32(0),
 		clusterID:              "fake",
 	}
-	c.kube = fake.NewSimpleClientset(objects...)
+	c.kube = fake.NewClientset(objects...)
 
 	c.config = &rest.Config{
 		Host: "server",
@@ -251,7 +251,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = istiofake.NewSimpleClientset()
 	c.gatewayapi = gatewayapifake.NewSimpleClientset()
-	c.extSet = extfake.NewSimpleClientset()
+	c.extSet = extfake.NewClientset()
 
 	// https://github.com/kubernetes/kubernetes/issues/95372
 	// There is a race condition in the client fakes, where events that happen between the List and Watch

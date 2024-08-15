@@ -113,7 +113,7 @@ func (w *fakeDefaultWatcher) AddHandler(handler revisions.DefaultHandler) {
 }
 
 func TestLeaderElection(t *testing.T) {
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	watcher := &fakeDefaultWatcher{}
 	// First pod becomes the leader
 	_, stop := createElection(t, "pod1", "", watcher, true, client)
@@ -124,7 +124,7 @@ func TestLeaderElection(t *testing.T) {
 }
 
 func TestPerRevisionElection(t *testing.T) {
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	watcher := &fakeDefaultWatcher{"foo"}
 	// First pod becomes the leader
 	_, stop := createPerRevisionElection(t, "pod1", "foo", watcher, true, client)
@@ -142,7 +142,7 @@ func TestPerRevisionElection(t *testing.T) {
 }
 
 func TestPrioritizedLeaderElection(t *testing.T) {
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	watcher := &fakeDefaultWatcher{defaultRevision: "red"}
 
 	// First pod, revision "green" becomes the leader, but is not the default revision
@@ -166,7 +166,7 @@ func TestPrioritizedLeaderElection(t *testing.T) {
 }
 
 func TestMulticlusterLeaderElection(t *testing.T) {
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	watcher := &fakeDefaultWatcher{}
 	// First remote pod becomes the leader
 	_, stop := createElectionMulticluster(t, "pod1", "", true, false, watcher, true, client)
@@ -180,7 +180,7 @@ func TestMulticlusterLeaderElection(t *testing.T) {
 }
 
 func TestPrioritizedMulticlusterLeaderElection(t *testing.T) {
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	watcher := &fakeDefaultWatcher{defaultRevision: "red"}
 
 	// First pod, revision "green" becomes the remote leader
@@ -279,7 +279,7 @@ func checkCycles(t *testing.T, start instance, cases []instance, chain []instanc
 }
 
 func TestLeaderElectionConfigMapRemoved(t *testing.T) {
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	watcher := &fakeDefaultWatcher{}
 	_, stop := createElection(t, "pod1", "", watcher, true, client)
 	if err := client.CoreV1().ConfigMaps("ns").Delete(context.TODO(), testLock, metav1.DeleteOptions{}); err != nil {
@@ -299,7 +299,7 @@ func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 }
 
 func TestLeaderElectionNoPermission(t *testing.T) {
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	watcher := &fakeDefaultWatcher{}
 	allowRbac := atomic.NewBool(true)
 	client.Fake.PrependReactor("update", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
@@ -344,7 +344,7 @@ func expectInt(t *testing.T, f func() int32, expected int32) {
 }
 
 func TestLeaderElectionDisabled(t *testing.T) {
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	watcher := &fakeDefaultWatcher{}
 	// Prevent LeaderElection from creating a lease, so that the runFn only runs
 	// if leader election is disabled.

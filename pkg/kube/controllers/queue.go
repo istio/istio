@@ -31,7 +31,7 @@ type ReconcilerFn func(key types.NamespacedName) error
 // Queue defines an abstraction around Kubernetes' workqueue.
 // Items enqueued are deduplicated; this generally means relying on ordering of events in the queue is not feasible.
 type Queue struct {
-	queue       workqueue.RateLimitingInterface
+	queue       workqueue.TypedRateLimitingInterface[any]
 	initialSync *atomic.Bool
 	name        string
 	maxAttempts int
@@ -48,9 +48,9 @@ func WithName(name string) func(q *Queue) {
 }
 
 // WithRateLimiter allows defining a custom rate limiter for the queue
-func WithRateLimiter(r workqueue.RateLimiter) func(q *Queue) {
+func WithRateLimiter(r workqueue.TypedRateLimiter[any]) func(q *Queue) {
 	return func(q *Queue) {
-		q.queue = workqueue.NewRateLimitingQueue(r)
+		q.queue = workqueue.NewTypedRateLimitingQueue[any](r)
 	}
 }
 
@@ -90,7 +90,7 @@ func NewQueue(name string, options ...func(*Queue)) Queue {
 		o(&q)
 	}
 	if q.queue == nil {
-		q.queue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		q.queue = workqueue.NewTypedRateLimitingQueue[any](workqueue.DefaultTypedControllerRateLimiter[any]())
 	}
 	q.log = log.WithLabels("controller", q.name)
 	return q
