@@ -99,11 +99,12 @@ var rootCmd = &cobra.Command{
 			log.Infof("Starting ambient node agent with inpod redirect mode on socket %s", cniEventAddr)
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
-					SystemNamespace: nodeagent.SystemNamespace,
-					Revision:        nodeagent.Revision,
-					ServerSocket:    cfg.InstallConfig.ZtunnelUDSAddress,
-					DNSCapture:      cfg.InstallConfig.AmbientDNSCapture,
-					EnableIPv6:      cfg.InstallConfig.AmbientIPv6,
+					SystemNamespace:   nodeagent.SystemNamespace,
+					Revision:          nodeagent.Revision,
+					ServerSocket:      cfg.InstallConfig.ZtunnelUDSAddress,
+					DNSCapture:        cfg.InstallConfig.AmbientDNSCapture,
+					EnableIPv6:        cfg.InstallConfig.AmbientIPv6,
+					TPROXYRedirection: cfg.InstallConfig.AmbientTPROXYRedirection,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
@@ -263,9 +264,10 @@ func constructConfig() (*config.Config, error) {
 		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
-		AmbientEnabled:    viper.GetBool(constants.AmbientEnabled),
-		AmbientDNSCapture: viper.GetBool(constants.AmbientDNSCapture),
-		AmbientIPv6:       viper.GetBool(constants.AmbientIPv6),
+		AmbientEnabled:           viper.GetBool(constants.AmbientEnabled),
+		AmbientDNSCapture:        viper.GetBool(constants.AmbientDNSCapture),
+		AmbientIPv6:              viper.GetBool(constants.AmbientIPv6),
+		AmbientTPROXYRedirection: viper.GetBool(constants.AmbientTPROXYRedirection),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {
