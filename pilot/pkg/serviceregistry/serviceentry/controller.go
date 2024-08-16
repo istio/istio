@@ -739,14 +739,14 @@ func (s *Controller) queueEdsEvent(keys sets.Set[instancesKey], pushEds bool) {
 func (s *Controller) doEdsUpdate(keys sets.Set[instancesKey], xdsUpdateFn model.EdsUpdateFn) {
 	endpoints := s.buildEndpoints(keys)
 	shard := model.ShardKeyFromRegistry(s)
-	// This is delete.
-	if len(endpoints) == 0 {
-		for k := range keys {
-			xdsUpdateFn(shard, string(k.hostname), k.namespace, nil)
-		}
-	} else {
-		for k, eps := range endpoints {
+
+	for k := range keys {
+		if eps, ok := endpoints[k]; ok {
+			// Update the cache with the generated endpoints.
 			xdsUpdateFn(shard, string(k.hostname), k.namespace, eps)
+		} else {
+			// Handle deletions by sending a nil endpoints update.
+			xdsUpdateFn(shard, string(k.hostname), k.namespace, nil)
 		}
 	}
 }
