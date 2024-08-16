@@ -26,6 +26,7 @@ ARG SIDECAR=envoy
 
 # Copy Envoy bootstrap templates used by pilot-agent
 COPY envoy_bootstrap.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+COPY envoy_bootstrap_lite.json /var/lib/istio/envoy/envoy_bootstrap_lite_tmpl.json
 COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 # Install Envoy.
@@ -38,5 +39,30 @@ ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
 ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/pilot-agent /usr/local/bin/pilot-agent
 
+RUN apt-get update && \
+  apt-get install --no-install-recommends -y \
+  logrotate \
+  cron \
+  && apt-get upgrade -y \
+  && apt-get clean
+
+# Latest releases available at https://github.com/aptible/supercronic/releases
+ENV SUPERCRONIC_URL=https://higress.io/release-binary/supercronic-linux-${TARGETARCH:-amd64} \
+    SUPERCRONIC=supercronic-linux-${TARGETARCH:-amd64}
+
+RUN curl -fsSLO "$SUPERCRONIC_URL" \
+ && chmod +x "$SUPERCRONIC" \
+ && mv "$SUPERCRONIC" "/usr/local/bin/${SUPERCRONIC}" \
+ && ln -s "/usr/local/bin/${SUPERCRONIC}" /usr/local/bin/supercronic
+
+
+COPY higress-proxy-start.sh /usr/local/bin/higress-proxy-start.sh
+
+COPY higress-proxy-container-init.sh /usr/local/bin/higress-proxy-container-init.sh
+
+RUN chmod a+x /usr/local/bin/higress-proxy-container-init.sh;/usr/local/bin/higress-proxy-container-init.sh
+
+RUN chmod a+x /usr/local/bin/higress-proxy-start.sh
+
 # The pilot-agent will bootstrap Envoy.
-ENTRYPOINT ["/usr/local/bin/pilot-agent"]
+ENTRYPOINT ["/usr/local/bin/higress-proxy-start.sh"]
