@@ -374,31 +374,6 @@ func (g *generator) genConfigFile(flags *pflag.FlagSet) error {
 	return nil
 }
 
-func dereferenceMap(m map[string]string) (result map[string]string) {
-	// return a map keyed by alias, whose value is the alias' ultimate target
-	// consider the map as the list of edges in a set of trees
-	// return a map where each node has one key pointing to the root node of its tree
-	reversemap := make(map[string][]string)
-	result = make(map[string]string)
-	for key, value := range m {
-		if deepvalue, ok := result[value]; ok {
-			value = deepvalue
-		}
-		if deepkeys, ok := reversemap[key]; ok {
-			// we have found a new candidate root node for this tree
-			// look through our results so far and update to new candidate root
-			for _, deepkey := range deepkeys {
-				result[deepkey] = value
-			}
-			delete(reversemap, key)
-			reversemap[value] = append(reversemap[value], deepkeys...)
-		}
-		result[key] = value
-		reversemap[value] = append(reversemap[value], key)
-	}
-	return
-}
-
 func buildNestedMap(flatMap map[string]string) (result map[string]any) {
 	result = make(map[string]any)
 	for complexkey, value := range flatMap {

@@ -33,15 +33,13 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	operatoristio "istio.io/istio/operator/pkg/apis/istio"
-	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/util"
-	operatorvalidate "istio.io/istio/operator/pkg/validate"
+	operator "istio.io/istio/operator/pkg/apis"
+	operatorvalidate "istio.io/istio/operator/pkg/apis/validation"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube/labels"
@@ -82,12 +80,12 @@ func checkFields(un *unstructured.Unstructured) error {
 }
 
 func (v *validator) validateResource(istioNamespace, defaultNamespace string, un *unstructured.Unstructured, writer io.Writer) (validation.Warning, error) {
-	gvk := config.GroupVersionKind{
+	g := config.GroupVersionKind{
 		Group:   un.GroupVersionKind().Group,
 		Version: un.GroupVersionKind().Version,
 		Kind:    un.GroupVersionKind().Kind,
 	}
-	schema, exists := collections.Pilot.FindByGroupVersionAliasesKind(gvk)
+	schema, exists := collections.Pilot.FindByGroupVersionAliasesKind(g)
 	if exists {
 		obj, err := convertObjectFromUnstructured(schema, un, "")
 		if err != nil {
@@ -115,13 +113,13 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 	if un.IsList() {
 		_ = un.EachListItem(func(item runtime.Object) error {
 			castItem := item.(*unstructured.Unstructured)
-			if castItem.GetKind() == name.ServiceStr {
+			if castItem.GetKind() == gvk.Service.Kind {
 				err := v.validateServicePortPrefix(istioNamespace, castItem)
 				if err != nil {
 					errs = multierror.Append(errs, err)
 				}
 			}
-			if castItem.GetKind() == name.DeploymentStr {
+			if castItem.GetKind() == gvk.Deployment.Kind {
 				err := v.validateDeploymentLabel(istioNamespace, castItem, writer)
 				if err != nil {
 					errs = multierror.Append(errs, err)
@@ -134,32 +132,29 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 	if errs != nil {
 		return nil, errs
 	}
-	if un.GetKind() == name.ServiceStr {
+	if un.GetKind() == gvk.Service.Kind {
 		return nil, v.validateServicePortPrefix(istioNamespace, un)
 	}
 
-	if un.GetKind() == name.DeploymentStr {
+	if un.GetKind() == gvk.Deployment.Kind {
 		if err := v.validateDeploymentLabel(istioNamespace, un, writer); err != nil {
 			return nil, err
 		}
 		return nil, nil
 	}
 
-	if un.GetAPIVersion() == istioV1Alpha1.IstioOperatorGVK.GroupVersion().String() {
-		if un.GetKind() == istioV1Alpha1.IstioOperatorGVK.Kind {
+	if un.GetAPIVersion() == operator.IstioOperatorGVK.GroupVersion().String() {
+		if un.GetKind() == operator.IstioOperatorGVK.Kind {
 			if err := checkFields(un); err != nil {
 				return nil, err
 			}
-			// IstioOperator isn't part of pkg/config/schema/collections,
-			// usual conversion not available.  Convert unstructured to string
-			// and ask operator code to check.
-			un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
-			by := util.ToYAML(un)
-			iop, err := operatoristio.UnmarshalIstioOperator(by, false)
+			warnings, err := operatorvalidate.ParseAndValidateIstioOperator(un.Object, nil)
 			if err != nil {
 				return nil, err
 			}
-			return nil, operatorvalidate.CheckIstioOperator(iop)
+			if len(warnings) > 0 {
+				return validation.Warning(warnings.ToError()), nil
+			}
 		}
 	}
 

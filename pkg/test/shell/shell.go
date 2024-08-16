@@ -27,12 +27,10 @@ import (
 var scope = log.RegisterScope("shell", "Shell execution scope")
 
 // Execute the given command.
-func Execute(combinedOutput bool, format string, args ...any) (string, error) {
-	s := fmt.Sprintf(format, args...)
-
-	parts, err := shlex.Split(s)
+func Execute(combinedOutput bool, args string) (string, error) {
+	parts, err := shlex.Split(args)
 	if err != nil {
-		return "", fmt.Errorf("fail to parse cmd: %q, err: %v", s, err)
+		return "", fmt.Errorf("fail to parse cmd: %q, err: %v", args, err)
 	}
 
 	var p []string

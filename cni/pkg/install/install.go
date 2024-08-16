@@ -19,13 +19,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
+	"time"
+
+	"golang.org/x/time/rate"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -97,8 +103,9 @@ func (in *Installer) Run(ctx context.Context) error {
 		return err
 	}
 	installLog.Info("initial installation complete, start watching for re-installation")
-
+	throttle := newInstallationThrottle(in)
 	for {
+		throttle.Throttle(ctx)
 		// if sleepWatchInstall yields without error, that means the config might have been modified in some fashion.
 		// so we rerun `install`, which will update the modified config if it has fallen out of sync with
 		// our desired state
@@ -303,4 +310,52 @@ func setReady(isReady *atomic.Value) {
 func setNotReady(isReady *atomic.Value) {
 	installReady.Record(0)
 	isReady.Store(false)
+}
+
+// installationThrottle is a small wrapper around a rate limitter. It aims to avoid excessive writes to CNI configuration,
+// and detect if there is a loop of requests, typically caused by another component constantly reverting our work.
+// Where possible, the remediate steps are logged.
+type installationThrottle struct {
+	limiter *rate.Limiter
+	hits    int
+	in      *Installer
+}
+
+func newInstallationThrottle(in *Installer) *installationThrottle {
+	return &installationThrottle{
+		// Setup the limiter to once every 5s. We don't actually limit to only 1/5, this is just to use it to keep track
+		// of whether we got a lot of requests
+		limiter: rate.NewLimiter(rate.Limit(0.2), 1),
+		hits:    0,
+		in:      in,
+	}
+}
+
+func (i *installationThrottle) Throttle(ctx context.Context) {
+	res := i.limiter.Reserve()
+	// Slightly weird usage of the limiter, as we are not strictly using it for limiting
+	// First, we get a reservation. This will use up the limit for 5s
+	if res.Delay() == 0 {
+		// If its available, we haven't tried to install in over 5s, reset our hits and return
+		i.hits = 0
+		return
+	}
+	// Otherwise, wait. We only wait up to 1s.
+	sleep.UntilContext(ctx, min(res.Delay(), time.Second))
+	// Increment our hits. If we are spamming this loop, we will hit this many times as we continually are sending >1 RPS
+	i.hits++
+	// Log every 5 times to not spam too much (and not log on initial startup where some reconciling is expected
+	if i.hits > 5 {
+		detectedCNI := ""
+		if strings.Contains(i.in.cniConfigFilepath, "cilium") {
+			detectedCNI = "cilium"
+		}
+		hint := ""
+		switch detectedCNI {
+		case "cilium":
+			hint = " Hint: Cilium CNI was detected; ensure 'cni.exclusive=false' in the Cilium configuration."
+		}
+		log.Warnf("Configuration has been reconciled multiple times in a short period of time. "+
+			"This may be due to a conflicting component constantly reverting our work.%s", hint)
+	}
 }

@@ -159,7 +159,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				retry.UntilSuccessOrFail(t, func() error {
 					entries := getWorkloadEntriesOrFail(t, autoVM)
 					if len(entries) != 1 || entries[0].UID != initialWLE.UID {
-						t.Fatalf("WorkloadEntry was cleaned up unexpectedly")
+						t.Fatal("WorkloadEntry was cleaned up unexpectedly")
 					}
 
 					currentPilot := entries[0].Annotations[annotation.IoIstioWorkloadController.Name]

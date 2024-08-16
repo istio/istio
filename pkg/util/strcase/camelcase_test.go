@@ -68,66 +68,6 @@ func TestCamelCaseToKebabCase(t *testing.T) {
 	}
 }
 
-func TestCamelCaseWithSeparator(t *testing.T) {
-	type args struct {
-		n   string
-		sep string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "foo_bar",
-			args: args{
-				n:   "foo_bar",
-				sep: "_",
-			},
-			want: "FooBar",
-		},
-		{
-			name: "foo-bar",
-			args: args{
-				n:   "foo-bar",
-				sep: "-",
-			},
-			want: "FooBar",
-		},
-		{
-			name: "foo9bar",
-			args: args{
-				n:   "foo9bar",
-				sep: "9",
-			},
-			want: "FooBar",
-		},
-		{
-			name: "foo/bar",
-			args: args{
-				n:   "foo/bar",
-				sep: "/",
-			},
-			want: "FooBar",
-		},
-		{
-			name: "foobar",
-			args: args{
-				n:   "foobar",
-				sep: "",
-			},
-			want: "FOOBAR",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := CamelCaseWithSeparator(tt.args.n, tt.args.sep); got != tt.want {
-				t.Errorf("CamelCaseWithSeparator() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func Test_isWordSeparator(t *testing.T) {
 	tests := []struct {
 		name string

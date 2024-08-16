@@ -98,10 +98,10 @@ func TestEndpointSliceCache(t *testing.T) {
 	}
 	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, epMulAddrs})
 	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, epMulAddrs}) {
-		t.Fatalf("unexpected endpoints")
+		t.Fatal("unexpected endpoints")
 	}
 	if !cache.Has(hostname) {
-		t.Fatalf("expect to find the host name")
+		t.Fatal("expect to find the host name")
 	}
 	// add a new endpoint
 	ep2 := &model.IstioEndpoint{
@@ -110,7 +110,7 @@ func TestEndpointSliceCache(t *testing.T) {
 	}
 	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, epMulAddrs, ep2})
 	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, epMulAddrs, ep2}) {
-		t.Fatalf("unexpected endpoints")
+		t.Fatal("unexpected endpoints")
 	}
 
 	// change service port name
@@ -128,7 +128,7 @@ func TestEndpointSliceCache(t *testing.T) {
 	}
 	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, epMulAddrs, ep2})
 	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, epMulAddrs, ep2}) {
-		t.Fatalf("unexpected endpoints")
+		t.Fatal("unexpected endpoints")
 	}
 
 	// add a new slice
@@ -138,23 +138,23 @@ func TestEndpointSliceCache(t *testing.T) {
 	}
 	cache.Update(hostname, "slice2", []*model.IstioEndpoint{ep3})
 	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, epMulAddrs, ep2, ep3}) {
-		t.Fatalf("unexpected endpoints")
+		t.Fatal("unexpected endpoints")
 	}
 
 	// dedup when transitioning
 	cache.Update(hostname, "slice2", []*model.IstioEndpoint{ep2, ep3})
 	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, epMulAddrs, ep2, ep3}) {
-		t.Fatalf("unexpected endpoints")
+		t.Fatal("unexpected endpoints")
 	}
 
 	cache.Delete(hostname, "slice1")
 	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep2, ep3}) {
-		t.Fatalf("unexpected endpoints")
+		t.Fatal("unexpected endpoints")
 	}
 
 	cache.Delete(hostname, "slice2")
 	if cache.Get(hostname) != nil {
-		t.Fatalf("unexpected endpoints")
+		t.Fatal("unexpected endpoints")
 	}
 }
 

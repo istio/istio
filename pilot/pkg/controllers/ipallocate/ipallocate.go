@@ -30,9 +30,11 @@ import (
 	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	cfghost "istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/gvr"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -41,7 +43,8 @@ import (
 var log = istiolog.RegisterScope("ip-autoallocate", "IP autoallocate controller")
 
 type IPAllocator struct {
-	serviceEntryClient kclient.Client[*networkingv1.ServiceEntry]
+	serviceEntryClient kclient.Informer[*networkingv1.ServiceEntry]
+	serviceEntryWriter kclient.Writer[*networkingv1.ServiceEntry]
 	index              kclient.Index[netip.Addr, *networkingv1.ServiceEntry]
 	stopChan           <-chan struct{}
 	queue              controllers.Queue
@@ -98,7 +101,10 @@ const (
 )
 
 func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
-	client := kclient.New[*networkingv1.ServiceEntry](c)
+	client := kclient.NewDelayedInformer[*networkingv1.ServiceEntry](c, gvr.ServiceEntry, kubetypes.StandardInformer, kclient.Filter{
+		ObjectFilter: c.ObjectFilter(),
+	})
+	writer := kclient.NewWriteClient[*networkingv1.ServiceEntry](c)
 	index := kclient.CreateIndex[netip.Addr, *networkingv1.ServiceEntry](client, func(serviceentry *networkingv1.ServiceEntry) []netip.Addr {
 		addresses := autoallocate.GetAddressesFromServiceEntry(serviceentry)
 		for _, addr := range serviceentry.Spec.Addresses {
@@ -112,6 +118,7 @@ func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 	})
 	allocator := &IPAllocator{
 		serviceEntryClient: client,
+		serviceEntryWriter: writer,
 		index:              index,
 		stopChan:           stop,
 		// MustParsePrefix is OK because these are const. If we allow user configuration we must not use this function.
@@ -192,10 +199,10 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 	}
 
 	// this patch may fail if there is no status which exists
-	_, err = c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, replaceAddresses)
+	_, err = c.serviceEntryWriter.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, replaceAddresses)
 	if err != nil {
 		// try this patch which tests that status doesn't exist, adds status and then add addresses all in 1 operation
-		_, err2 := c.serviceEntryClient.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, addStatusAndAddresses)
+		_, err2 := c.serviceEntryWriter.PatchStatus(se.Name, se.Namespace, types.JSONPatchType, addStatusAndAddresses)
 		if err2 != nil {
 			log.Errorf("second patch also rejected %v, patch: %s", err2.Error(), addStatusAndAddresses)
 			// if this also didn't work there is perhaps a real issue and perhaps a requeue will resolve
@@ -258,7 +265,7 @@ func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
 			errs = errors.Join(errs, fmt.Errorf("this should not occur but patch was empty on a forced reassignment"))
 		}
 
-		_, err = c.serviceEntryClient.PatchStatus(resolveMe.Name, resolveMe.Namespace, types.JSONPatchType, patch)
+		_, err = c.serviceEntryWriter.PatchStatus(resolveMe.Name, resolveMe.Namespace, types.JSONPatchType, patch)
 		if err != nil {
 			errs = errors.Join(errs, err)
 		}

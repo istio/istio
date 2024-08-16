@@ -414,7 +414,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			}
 			env.SetPushContext(push)
 			if push.NetworkManager() == nil {
-				t.Fatalf("error: NetworkManager should not be nil!")
+				t.Fatal("error: NetworkManager should not be nil!")
 			}
 
 			builder := NewCDSEndpointBuilder(

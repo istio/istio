@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvr"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
@@ -63,6 +64,7 @@ func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocator, ipAllocateTestR
 	features.EnableIPAutoallocate = true
 	s := test.NewStop(t)
 	c := kubelib.NewFakeClient()
+	clienttest.MakeCRD(t, c, gvr.ServiceEntry)
 
 	se := clienttest.NewDirectClient[*networkingv1alpha3.ServiceEntry, networkingv1alpha3.ServiceEntry, *networkingv1alpha3.ServiceEntryList](t, c)
 	ipController := ipallocate.NewIPAllocator(s, c)

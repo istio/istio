@@ -25,25 +25,20 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	revtag "istio.io/istio/istioctl/pkg/tag"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util"
-	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/install"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/art"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/ptr"
 )
 
 type InstallArgs struct {
@@ -145,9 +140,8 @@ func InstallCmd(ctx cli.Context) *cobra.Command {
 
 func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, stdOut io.Writer, l clog.Logger, p Printer,
 ) error {
-	kubeClient, client, err := KubernetesClients(kubeClient, l)
-	if err != nil {
-		return err
+	if err := k8sversion.IsK8VersionSupported(kubeClient, l); err != nil {
+		return fmt.Errorf("check minimum supported Kubernetes version: %v", err)
 	}
 
 	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
@@ -164,47 +158,39 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 
 	setFlags := applyFlagAliases(iArgs.Set, iArgs.ManifestsPath, iArgs.Revision)
 
-	_, iop, err := manifest.GenerateIstioOperator(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
+	manifests, vals, err := render.GenerateManifest(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
 	if err != nil {
 		return fmt.Errorf("generate config: %v", err)
 	}
 
-	profile, ns, enabledComponents, err := getProfileNSAndEnabledComponents(iop)
-	if err != nil {
-		return fmt.Errorf("failed to get profile, namespace or enabled components: %v", err)
-	}
+	namespace := vals.GetPathString("metadata.namespace")
+	revision := vals.GetPathString("spec.values.revision")
+	profile := ptr.NonEmptyOrDefault(vals.GetPathString("spec.profile"), "default")
 
-	// Ignore the err because we don't want to show
-	// "no running Istio pods in istio-system" for the first time
-	_ = detectIstioVersionDiff(p, tag, ns, kubeClient, iop)
-	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
-	err = detectDefaultWebhookChange(p, kubeClient, iop, exists)
-	if err != nil {
-		return fmt.Errorf("failed to detect the default webhook change: %v", err)
-	}
+	// Print information about version changing
+	detectIstioVersionDiff(p, tag, namespace, kubeClient, revision)
 
-	// Warn users if they use `istioctl install` without any config args.
+	// Install is mutating state in the cluster; give users a confirmation to ensure they want this.
 	if !rootArgs.DryRun && !iArgs.SkipConfirmation {
-		prompt := fmt.Sprintf("This will install the Istio %s %q profile (with components: %s) into the cluster. Proceed? (y/N)",
-			tag, profile, humanReadableJoin(enabledComponents))
+		prompt := fmt.Sprintf("This will install the Istio %s profile %q into the cluster. Proceed? (y/N)", tag, profile)
 		if !Confirm(prompt, stdOut) {
 			p.Println("Cancelled.")
 			os.Exit(1)
 		}
 	}
 
-	// Detect whether previous installation exists prior to performing the installation.
-	if err := InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l); err != nil {
+	i := install.Installer{
+		Force:          iArgs.Force,
+		DryRun:         rootArgs.DryRun,
+		SkipWait:       false,
+		Kube:           kubeClient,
+		WaitTimeout:    iArgs.ReadinessTimeout,
+		Logger:         l,
+		Values:         vals,
+		ProgressLogger: progress.NewLog(),
+	}
+	if err := i.InstallManifests(manifests); err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
-	}
-	opts := &helmreconciler.ProcessDefaultWebhookOptions{
-		Namespace: ns,
-		DryRun:    rootArgs.DryRun,
-	}
-	if processed, err := helmreconciler.ProcessDefaultWebhook(kubeClient, iop, exists, opts); err != nil {
-		return fmt.Errorf("failed to process default webhook: %v", err)
-	} else if processed {
-		p.Println("Made this installation the default for cluster-wide operations.")
 	}
 
 	// Post-install message
@@ -214,45 +200,17 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	return nil
 }
 
-// InstallManifests generates manifests from the given istiooperator instance and applies them to the
-// cluster. See GenManifests for more description of the manifest generation process.
-//
-//	force   validation warnings are written to logger but command is not aborted
-//	DryRun  all operations are done but nothing is written
-//
-// Returns final IstioOperator after installation if successful.
-func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kubeClient kube.Client, client client.Client,
-	waitTimeout time.Duration, l clog.Logger,
-) error {
-	opts := &helmreconciler.Options{
-		DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
-		Force: force,
-	}
-	reconciler, err := helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
-	if err != nil {
-		return err
-	}
-
-	if err := reconciler.Reconcile(); err != nil {
-		return fmt.Errorf("errors occurred during operation: %v", err)
-	}
-
-	opts.ProgressLog.SetState(progress.StateComplete)
-
-	return nil
-}
-
 // detectIstioVersionDiff will show warning if istioctl version and control plane version are different
 // nolint: interfacer
-func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CLIClient, iop *v1alpha12.IstioOperator) error {
+func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CLIClient, revision string) {
 	warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
-	revision := iop.Spec.Revision
 	if revision == "" {
 		revision = util.DefaultRevisionName
 	}
 	icps, err := kubeClient.GetIstioVersions(context.TODO(), ns)
 	if err != nil {
-		return err
+		// Istio may not be installed, no problem
+		return
 	}
 	if len(*icps) != 0 {
 		var icpTags []string
@@ -264,7 +222,7 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 			}
 			tagVer, err := GetTagVersion(icp.Info.GitTag)
 			if err != nil {
-				return err
+				return
 			}
 			icpTags = append(icpTags, tagVer)
 		}
@@ -292,7 +250,6 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 			}
 		}
 	}
-	return nil
 }
 
 // GetTagVersion returns istio tag version
@@ -305,69 +262,4 @@ func GetTagVersion(tagInfo string) (string, error) {
 		return "", err
 	}
 	return tag.String(), nil
-}
-
-// getProfileNSAndEnabledComponents get the profile and all the enabled components
-// from the given input files and --set flag overlays.
-func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, string, []string, error) {
-	var enabledComponents []string
-	if iop.Spec.Components != nil {
-		for _, c := range name.AllCoreComponentNames {
-			enabled, err := translate.IsComponentEnabledInSpec(c, iop.Spec)
-			if err != nil {
-				return "", "", nil, fmt.Errorf("failed to check if component: %s is enabled or not: %v", string(c), err)
-			}
-			if enabled {
-				enabledComponents = append(enabledComponents, name.UserFacingComponentName(c))
-			}
-		}
-		for _, c := range iop.Spec.Components.IngressGateways {
-			if c.Enabled.GetValue() {
-				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.IngressComponentName))
-				break
-			}
-		}
-		for _, c := range iop.Spec.Components.EgressGateways {
-			if c.Enabled.GetValue() {
-				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.EgressComponentName))
-				break
-			}
-		}
-	}
-
-	if configuredNamespace := v1alpha12.Namespace(iop.Spec); configuredNamespace != "" {
-		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
-	}
-	return iop.Spec.Profile, constants.IstioSystemNamespace, enabledComponents, nil
-}
-
-func humanReadableJoin(ss []string) string {
-	switch len(ss) {
-	case 0:
-		return ""
-	case 1:
-		return ss[0]
-	case 2:
-		return ss[0] + " and " + ss[1]
-	default:
-		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
-	}
-}
-
-func detectDefaultWebhookChange(p Printer, client kube.CLIClient, iop *v1alpha12.IstioOperator, exists bool) error {
-	if !helmreconciler.DetectIfTagWebhookIsNeeded(iop, exists) {
-		return nil
-	}
-	mwhs, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
-		LabelSelector: "app=sidecar-injector,istio.io/rev=default,istio.io/tag=default",
-	})
-	if err != nil {
-		return err
-	}
-	// If there is no default webhook but a revisioned default webhook exists,
-	// and we are installing a new IOP with default semantics, the default webhook shifts.
-	if exists && len(mwhs.Items) == 0 && iop.Spec.GetRevision() == "" {
-		p.Println("The default revision has been updated to point to this installation.")
-	}
-	return nil
 }

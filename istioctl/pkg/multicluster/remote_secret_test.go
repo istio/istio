@@ -33,7 +33,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
@@ -367,6 +369,7 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 				makeServiceAccount(tokenSecretName(testServiceAccountName)),
 			},
 			want: &v1.Secret{
+				TypeMeta: metav1.TypeMeta{Kind: gvk.Secret.Kind, APIVersion: gvr.Secret.GroupVersion().String()},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        tokenSecretName(testServiceAccountName),
 					Namespace:   testNamespace,
@@ -381,6 +384,9 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 		t.Run(fmt.Sprintf("%v", c.name), func(tt *testing.T) {
 			client := kube.NewFakeClientWithVersion(k8sMinorVer, c.objs...)
 			got, err := getServiceAccountSecret(client, c.opts)
+			if err == nil {
+				got.ManagedFields = nil
+			}
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
@@ -419,9 +425,9 @@ func TestGenerateServiceAccount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate service account YAML: %v", err)
 	}
-	objs, err := object.ParseK8sObjectsFromYAMLManifest(yaml)
+	objs, err := manifest.ParseMultiple(yaml)
 	if err != nil {
-		t.Fatalf("could not parse k8s objects from generated YAML: %v", err)
+		t.Fatal(err)
 	}
 
 	mustFindObject(t, objs, "istio-reader-service-account", "ServiceAccount")
@@ -429,12 +435,13 @@ func TestGenerateServiceAccount(t *testing.T) {
 	mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRoleBinding")
 }
 
-func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) {
+func mustFindObject(t test.Failer, objs []manifest.Manifest, name, kind string) {
 	t.Helper()
-	var obj *object.K8sObject
+	var obj *manifest.Manifest
 	for _, o := range objs {
-		if o.Kind == kind && o.Name == name {
-			obj = o
+		o := o
+		if o.GetKind() == kind && o.GetName() == name {
+			obj = &o
 			break
 		}
 	}

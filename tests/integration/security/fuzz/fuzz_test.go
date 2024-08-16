@@ -264,7 +264,7 @@ func runJwtToolTest(t framework.TestContext, ns, server, jwtToken string) {
 	t.Logf("jwttool fuzz test completed for %s", server)
 
 	if !strings.Contains(stdout, "Prescan: original token Response Code: 200") {
-		t.Fatalf("could not find prescan check, please make sure the jwt_tool.py completed successfully")
+		t.Fatal("could not find prescan check, please make sure the jwt_tool.py completed successfully")
 	}
 	errCases := []string{}
 	scanStarted := false

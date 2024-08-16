@@ -27,5 +27,3 @@ metadata:
     release: istio
   name: istio
   namespace: istio-system
-
----

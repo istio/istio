@@ -36,44 +36,6 @@ import (
 	"testing"
 )
 
-func Test_dereferenceMap(t *testing.T) {
-	type args struct {
-		m map[string]string
-	}
-	tests := []struct {
-		name       string
-		args       args
-		wantResult map[string]string
-	}{
-		{
-			name: "complextree",
-			args: args{
-				m: map[string]string{
-					"1": "2",
-					"3": "4",
-					"0": "2",
-					"2": "3",
-					"5": "6",
-				},
-			},
-			wantResult: map[string]string{
-				"0": "4",
-				"1": "4",
-				"2": "4",
-				"3": "4",
-				"5": "6",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if gotResult := dereferenceMap(tt.args.m); !reflect.DeepEqual(gotResult, tt.wantResult) {
-				t.Errorf("dereferenceMap() = %v, want %v", gotResult, tt.wantResult)
-			}
-		})
-	}
-}
-
 func Test_buildNestedMap(t *testing.T) {
 	type args struct {
 		flatMap map[string]string

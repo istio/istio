@@ -4,8 +4,9 @@ metadata:
   name: ztunnel
   namespace: {{ .Release.Namespace }}
   labels:
-{{- template "istio-labels" -}}
-{{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
+    app.kubernetes.io/name: ztunnel
+    {{- include "istio.labels" . | nindent 4}}
+    {{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
   annotations:
 {{- if .Values.revision }}
     {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
@@ -27,6 +28,8 @@ spec:
         sidecar.istio.io/inject: "false"
         istio.io/dataplane-mode: none
         app: ztunnel
+        app.kubernetes.io/name: ztunnel
+        {{- include "istio.labels" . | nindent 8}}
 {{ with .Values.podLabels -}}{{ toYaml . | indent 8 }}{{ end }}
       annotations:
         sidecar.istio.io/inject: "false"
@@ -111,6 +114,10 @@ spec:
         {{- else }}
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
         {{- end }}
+        {{- if .Values.logAsJson }}
+        - name: LOG_FORMAT
+          value: json
+        {{- end}}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
         - name: RUST_BACKTRACE

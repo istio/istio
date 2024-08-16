@@ -48,7 +48,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 
 	vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, cg.Listeners(proxy))
 	if vo == nil {
-		t.Fatalf("didn't find virtual outbound listener")
+		t.Fatal("didn't find virtual outbound listener")
 	}
 }
 
@@ -173,7 +173,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	for _, listeners := range testCases {
 		l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 		if l == nil {
-			t.Fatalf("failed to find virtual inbound listener")
+			t.Fatal("failed to find virtual inbound listener")
 		}
 		listenertest.VerifyListener(t, l, listenertest.ListenerTest{
 			FilterChains: []listenertest.FilterChainTest{
@@ -208,7 +208,7 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	for _, listeners := range testCases {
 		l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 		if l == nil {
-			t.Fatalf("failed to find virtual inbound listener")
+			t.Fatal("failed to find virtual inbound listener")
 		}
 		if _, f := xdstest.ExtractListenerFilters(l)[wellknown.OriginalSource]; !f {
 			t.Fatalf("missing %v filter", wellknown.OriginalSource)
@@ -234,7 +234,7 @@ func TestSidecarInboundListenerWithQUICAndExactBalance(t *testing.T) {
 	for _, listeners := range testCases {
 		l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 		if l == nil {
-			t.Fatalf("failed to find virtual inbound listener")
+			t.Fatal("failed to find virtual inbound listener")
 		}
 		if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
 			t.Fatal("expected listener to have exact_balance set, but was empty")
@@ -672,7 +672,7 @@ func testInboundListenerFilters(t *testing.T, enableDualStack bool) {
 			evaluateListenerFilterPredicates(t, filters[wellknown.HTTPInspector].GetFilterDisabled(), tt.http)
 			if filters[wellknown.TLSInspector] == nil {
 				if len(tt.tls) > 0 {
-					t.Fatalf("Expected tls inspector, got none")
+					t.Fatal("Expected tls inspector, got none")
 				}
 			} else {
 				evaluateListenerFilterPredicates(t, filters[wellknown.TLSInspector].FilterDisabled, tt.tls)
@@ -770,7 +770,7 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 						commonTLSContext.TlsCertificates[0].CertificateChain.String())
 				}
 				if tlsContext.RequireClientCertificate.Value {
-					t.Fatalf("expected RequireClientCertificate to be false")
+					t.Fatal("expected RequireClientCertificate to be false")
 				}
 			},
 		},
@@ -909,9 +909,9 @@ func TestAdditionalAddressesForIPv6(t *testing.T) {
 	listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
 	vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners)
 	if vo == nil {
-		t.Fatalf("didn't find virtual outbound listener")
+		t.Fatal("didn't find virtual outbound listener")
 	}
 	if vo.AdditionalAddresses == nil || len(vo.AdditionalAddresses) != 1 {
-		t.Fatalf("expected additional ipv4 bind addresse")
+		t.Fatal("expected additional ipv4 bind addresse")
 	}
 }

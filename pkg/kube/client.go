@@ -83,6 +83,8 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/kubetypes"
@@ -218,6 +220,9 @@ type CLIClient interface {
 
 	// InvalidateDiscovery invalidates the discovery client, useful after manually changing CRD's
 	InvalidateDiscovery()
+
+	// DynamicClientFor builds a dynamic client to a resource
+	DynamicClientFor(gvk schema.GroupVersionKind, obj *unstructured.Unstructured, namespace string) (dynamic.ResourceInterface, error)
 }
 
 type PortManager func() (uint16, error)
@@ -233,7 +238,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		informerWatchesPending: atomic.NewInt32(0),
 		clusterID:              "fake",
 	}
-	c.kube = fake.NewSimpleClientset(objects...)
+	c.kube = fake.NewClientset(objects...)
 
 	c.config = &rest.Config{
 		Host: "server",
@@ -246,7 +251,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = istiofake.NewSimpleClientset()
 	c.gatewayapi = gatewayapifake.NewSimpleClientset()
-	c.extSet = extfake.NewSimpleClientset()
+	c.extSet = extfake.NewClientset()
 
 	// https://github.com/kubernetes/kubernetes/issues/95372
 	// There is a race condition in the client fakes, where events that happen between the List and Watch
@@ -1013,7 +1018,7 @@ func (c *client) ssapplyYAMLFile(namespace string, dryRun bool, file string) err
 	cfgs := yml.SplitString(string(d))
 	for _, cfg := range cfgs {
 		if err := c.ssapplyYAML(cfg, namespace, dryRun); err != nil {
-			return err
+			return fmt.Errorf("apply: %v", err)
 		}
 	}
 	return nil
@@ -1044,8 +1049,11 @@ func (c *client) ssapplyYAML(cfg string, namespace string, dryRun bool) error {
 	if !dryRun && obj.GetKind() == gvk.CustomResourceDefinition.Kind {
 		c.InvalidateDiscovery()
 	}
+	if err != nil {
+		return fmt.Errorf("patch: %v", err)
+	}
 
-	return err
+	return nil
 }
 
 func (c *client) deleteYAMLFile(namespace string, dryRun bool, file string) error {
@@ -1159,29 +1167,57 @@ func (c *client) buildObject(cfg string, namespace string) (*unstructured.Unstru
 	obj := &unstructured.Unstructured{}
 	_, gvk, err := decUnstructured.Decode([]byte(cfg), nil, obj)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("decode: %v", err)
 	}
 
-	mapping, err := c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	dc, err := c.DynamicClientFor(*gvk, obj, namespace)
 	if err != nil {
-		return nil, nil, fmt.Errorf("mapping: %v", err)
+		return nil, nil, fmt.Errorf("get dynamic client: %v", err)
 	}
+	return obj, dc, nil
+}
+
+func (c *client) DynamicClientFor(g schema.GroupVersionKind, obj *unstructured.Unstructured, namespace string) (dynamic.ResourceInterface, error) {
+	gvr, namespaced := c.bestEffortToGVR(g, obj, namespace)
 
 	var dr dynamic.ResourceInterface
-	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
-		ns := obj.GetNamespace()
+	if namespaced {
+		ns := ""
+		if obj != nil {
+			ns = obj.GetNamespace()
+		}
 		if ns == "" {
 			ns = namespace
 		} else if namespace != "" && ns != namespace {
-			return nil, nil, fmt.Errorf("object %v/%v provided namespace %q but apply called with %q", gvk, obj.GetName(), ns, namespace)
+			return nil, fmt.Errorf("object %v/%v provided namespace %q but apply called with %q", g, obj.GetName(), ns, namespace)
 		}
 		// namespaced resources should specify the namespace
-		dr = c.dynamic.Resource(mapping.Resource).Namespace(ns)
+		dr = c.dynamic.Resource(gvr).Namespace(ns)
 	} else {
 		// for cluster-wide resources
-		dr = c.dynamic.Resource(mapping.Resource)
+		dr = c.dynamic.Resource(gvr)
 	}
-	return obj, dr, nil
+	return dr, nil
+}
+
+func (c *client) bestEffortToGVR(g schema.GroupVersionKind, obj *unstructured.Unstructured, namespace string) (schema.GroupVersionResource, bool) {
+	if s, f := collections.All.FindByGroupVersionAliasesKind(config.FromKubernetesGVK(g)); f {
+		gvr := s.GroupVersionResource()
+		// Might have been an alias, assign back the correct version
+		gvr.Version = g.Version
+		return gvr, !s.IsClusterScoped()
+	}
+	if c.mapper != nil {
+		// Fallback to dynamic lookup
+		mapping, err := c.mapper.RESTMapping(g.GroupKind(), g.Version)
+		if err == nil {
+			return mapping.Resource, mapping.Scope.Name() == meta.RESTScopeNameNamespace
+		}
+	}
+	// Fallback to guessing
+	gvr, _ := meta.UnsafeGuessKindToResource(g)
+	namespaced := (obj != nil && obj.GetNamespace() != "") || namespace != ""
+	return gvr, namespaced
 }
 
 // IstioScheme returns a scheme will all known Istio-related types added

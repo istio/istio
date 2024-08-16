@@ -91,6 +91,8 @@ spec:
           protocol: TCP
         - containerPort: 15017
           protocol: TCP
+        - containerPort: 15014
+          protocol: TCP
         readinessProbe:
           httpGet:
             path: /ready
@@ -161,10 +163,7 @@ spec:
           name: istio-ca-root-cert
           optional: true
         name: istio-csr-ca-configmap
-
 ---
-
-
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -190,5 +189,3 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: istiod
-
----

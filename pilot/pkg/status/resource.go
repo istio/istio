@@ -35,24 +35,6 @@ import (
 var scope = log.RegisterScope("status",
 	"status controller for istio")
 
-func ResourceFromString(s string) *Resource {
-	pieces := strings.Split(s, "/")
-	if len(pieces) != 6 {
-		scope.Errorf("cannot unmarshal %s into resource identifier", s)
-		return nil
-	}
-	return &Resource{
-		GroupVersionResource: schema.GroupVersionResource{
-			Group:    pieces[0],
-			Version:  pieces[1],
-			Resource: pieces[2],
-		},
-		Namespace:  pieces[3],
-		Name:       pieces[4],
-		Generation: pieces[5],
-	}
-}
-
 // TODO: maybe replace with a kubernetes resource identifier, if that's a thing
 type Resource struct {
 	schema.GroupVersionResource

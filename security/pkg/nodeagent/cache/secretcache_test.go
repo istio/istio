@@ -535,7 +535,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) 
 	gotSecret, err := sc.GenerateSecret(resource)
 
 	if err == nil {
-		t.Fatalf("expected to get error")
+		t.Fatal("expected to get error")
 	}
 
 	if gotSecret != nil {
@@ -546,7 +546,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) 
 	gotSecretRoot, err := sc.GenerateSecret(rootResource)
 
 	if err == nil {
-		t.Fatalf("Expected to get error, but did not get")
+		t.Fatal("Expected to get error, but did not get")
 	}
 	if !strings.Contains(err.Error(), "no such file or directory") {
 		t.Fatalf("Expected file not found error, but got %v", err)
@@ -682,7 +682,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	})
 
 	if !bytes.Equal(sc.mergeConfigTrustBundle([]string{string(caClientRootCert), string(rootCert)}), expectedCerts) {
-		t.Fatalf("deduplicate test failed!")
+		t.Fatal("deduplicate test failed!")
 	}
 
 	// Update the proxyConfig with fakeCaClient certs

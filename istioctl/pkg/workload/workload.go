@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/completion"
 	istioctlutil "istio.io/istio/istioctl/pkg/util"
-	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/operator/pkg/values"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -554,7 +554,7 @@ func createHosts(kubeClient kube.CLIClient, istioNamespace, ingressIP, dir strin
 		}
 		ingress, err := kubeClient.Kube().CoreV1().Services(ingressNs).Get(context.Background(), ingressSvc, metav1.GetOptions{})
 		if err == nil {
-			if ingress.Status.LoadBalancer.Ingress != nil && len(ingress.Status.LoadBalancer.Ingress) > 0 {
+			if len(ingress.Status.LoadBalancer.Ingress) > 0 {
 				ingressIP = ingress.Status.LoadBalancer.Ingress[0].IP
 			} else if len(ingress.Spec.ExternalIPs) > 0 {
 				ingressIP = ingress.Spec.ExternalIPs[0]
@@ -617,15 +617,7 @@ func extractClusterIDFromInjectionConfig(kubeClient kube.CLIClient, istioNamespa
 	if err := json.Unmarshal([]byte(istioInjectionCM.Data[istioctlutil.ValuesConfigMapKey]), &injectedCMValues); err != nil {
 		return "", err
 	}
-	v, f, err := tpath.GetFromStructPath(injectedCMValues, "global.multiCluster.clusterName")
-	if err != nil {
-		return "", err
-	}
-	vs, ok := v.(string)
-	if !f || !ok {
-		return "", fmt.Errorf("could not retrieve global.multiCluster.clusterName from injection config")
-	}
-	return vs, nil
+	return values.Map(injectedCMValues).GetPathString("global.multiCluster.clusterName"), nil
 }
 
 // Because we are placing into an Unstructured, place as a map instead

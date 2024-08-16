@@ -24,6 +24,7 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/shell"
 
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/tools/docker-builder/builder"
 )
 
@@ -185,8 +186,21 @@ func (s state) Expand(i string) string {
 	for k, v := range s.env {
 		avail[k] = v
 	}
-	r, _ := s.shlex.ProcessWordWithMap(i, avail)
+	r, _, _ := s.shlex.ProcessWord(i, envGetter(avail))
 	return r
+}
+
+type envGetter map[string]string
+
+var _ shell.EnvGetter = envGetter{}
+
+func (e envGetter) Get(key string) (string, bool) {
+	v, ok := e[key]
+	return v, ok
+}
+
+func (e envGetter) Keys() []string {
+	return maps.Keys(e)
 }
 
 // Below is inspired by MIT licensed https://github.com/asottile/dockerfile

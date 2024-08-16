@@ -85,12 +85,12 @@ func newDialer(cfg *Config) hbone.Dialer {
 		out.Resolver = newResolver(common.ConnectionTimeout, "", "")
 	}
 	if ipf := cfg.Request.ForceIpFamily; ipf != "" {
-		return SpecificVersionDialer{
+		return proxy.FromEnvironmentUsing(SpecificVersionDialer{
 			network: ipf,
 			inner:   out,
-		}
+		}).(hbone.Dialer)
 	}
-	return out
+	return proxy.FromEnvironmentUsing(out).(hbone.Dialer)
 }
 
 func newResolver(timeout time.Duration, protocol, dnsServer string) *net.Resolver {

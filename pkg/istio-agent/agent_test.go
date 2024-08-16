@@ -360,7 +360,7 @@ func TestAgent(t *testing.T) {
 		ctx, done := context.WithCancel(context.Background())
 		_, err := a.Run(ctx)
 		if err == nil {
-			t.Fatalf("expected to return an error if SDS socket not provided, and not default")
+			t.Fatal("expected to return an error if SDS socket not provided, and not default")
 		}
 		t.Cleanup(done)
 		t.Cleanup(func() {
@@ -585,7 +585,7 @@ func TestAgent(t *testing.T) {
 			xdsc := xds.NewAdsTest(t, conn).WithMetadata(meta)
 			_ = xdsc.RequestResponseAck(t, nil)
 		}); err == nil {
-			t.Fatalf("connect success with wrong CA")
+			t.Fatal("connect success with wrong CA")
 		}
 
 		// change ROOT CA, XDS will success
@@ -804,7 +804,7 @@ func expectFileUnchanged(t *testing.T, files ...string) {
 		for i, f := range files {
 			now := testutil.ReadFile(t, f)
 			if !reflect.DeepEqual(initials[i], now) {
-				t.Fatalf("file is changed!")
+				t.Fatal("file is changed!")
 			}
 		}
 	}
@@ -915,6 +915,7 @@ metadata:
 spec:
   hosts:
   - app.com
+  location: MESH_INTERNAL
   ports:
   - number: 80
     name: http

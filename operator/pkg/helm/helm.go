@@ -15,7 +15,9 @@
 package helm
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -23,83 +25,51 @@ import (
 	"strings"
 
 	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
 	"k8s.io/apimachinery/pkg/version"
-	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/manifests"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/operator/pkg/values"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
-const (
-	// YAMLSeparator is a separator for multi-document YAML files.
-	YAMLSeparator = "\n---\n"
+// Render produces a set of fully rendered manifests from Helm.
+// Any warnings are also propagated up.
+// Note: this is the direct result of the Helm call. Postprocessing steps are done later.
+func Render(namespace string, directory string, iop values.Map, kubernetesVersion *version.Info) ([]manifest.Manifest, util.Errors, error) {
+	vals, _ := iop.GetPathMap("spec.values")
+	installPackagePath := iop.GetPathString("spec.installPackagePath")
+	f := manifests.BuiltinOrDir(installPackagePath)
+	path := filepath.Join("charts", directory)
+	chrt, err := loadChart(f, path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load chart: %v", err)
+	}
 
-	// DefaultProfileString is the name of the default profile.
-	DefaultProfileString = "default"
-
-	// NotesFileNameSuffix is the file name suffix for helm notes.
-	// see https://helm.sh/docs/chart_template_guide/notes_files/
-	NotesFileNameSuffix = ".txt"
-)
-
-var scope = log.RegisterScope("installer", "installer")
+	output, warnings, err := renderChart(namespace, vals, chrt, kubernetesVersion)
+	if err != nil {
+		return nil, nil, fmt.Errorf("render chart: %v", err)
+	}
+	mfs, err := manifest.Parse(output)
+	return mfs, warnings, err
+}
 
 // TemplateFilterFunc filters templates to render by their file name
 type TemplateFilterFunc func(string) bool
 
-// TemplateRenderer defines a helm template renderer interface.
-type TemplateRenderer interface {
-	// Run starts the renderer and should be called before using it.
-	Run() error
-	// RenderManifest renders the associated helm charts with the given values YAML string and returns the resulting
-	// string.
-	RenderManifest(values string) (string, error)
-	// RenderManifestFiltered filters manifests to render by template file name
-	RenderManifestFiltered(values string, filter TemplateFilterFunc) (string, error)
-}
-
-// NewHelmRenderer creates a new helm renderer with the given parameters and returns an interface to it.
-// The format of helmBaseDir and profile strings determines the type of helm renderer returned (compiled-in, file,
-// HTTP etc.)
-func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace string, version *version.Info) TemplateRenderer {
-	dir := strings.Join([]string{ChartsSubdirName, helmSubdir}, "/")
-	return NewGenericRenderer(manifests.BuiltinOrDir(operatorDataDir), dir, componentName, namespace, version)
-}
-
-// ReadProfileYAML reads the YAML values associated with the given profile. It uses an appropriate reader for the
-// profile format (compiled-in, file, HTTP, etc.).
-func ReadProfileYAML(profile, manifestsPath string) (string, error) {
-	var err error
-	var globalValues string
-
-	// Get global values from profile.
-	switch {
-	case util.IsFilePath(profile):
-		if globalValues, err = readFile(profile); err != nil {
-			return "", err
-		}
-	default:
-		if globalValues, err = LoadValues(profile, manifestsPath); err != nil {
-			return "", fmt.Errorf("failed to read profile %v from %v: %v", profile, manifestsPath, err)
-		}
-	}
-
-	return globalValues, nil
-}
+type Warnings = util.Errors
 
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
-func renderChart(namespace, values string, chrt *chart.Chart, filterFunc TemplateFilterFunc, version *version.Info) (string, error) {
+func renderChart(namespace string, vals values.Map, chrt *chart.Chart, version *version.Info) ([]string, Warnings, error) {
 	options := chartutil.ReleaseOptions{
-		Name:      "istio",
+		Name:      "istio", // TODO: this should probably have been the component name. However, its a bit late to change it.
 		Namespace: namespace,
-	}
-	valuesMap := map[string]any{}
-	if err := yaml.Unmarshal([]byte(values), &valuesMap); err != nil {
-		return "", fmt.Errorf("failed to unmarshal values: %v", err)
 	}
 
 	caps := *chartutil.DefaultCapabilities
@@ -115,145 +85,113 @@ func renderChart(namespace, values string, chrt *chart.Chart, filterFunc Templat
 			Minor:   version.Minor,
 		}
 	}
-	vals, err := chartutil.ToRenderValues(chrt, valuesMap, options, &caps)
+	helmVals, err := chartutil.ToRenderValues(chrt, vals, options, &caps)
 	if err != nil {
-		return "", err
+		return nil, nil, fmt.Errorf("converting values: %v", err)
 	}
 
-	if filterFunc != nil {
-		filteredTemplates := []*chart.File{}
-		for _, t := range chrt.Templates {
-			// Always include required templates that do not produce any output
-			if filterFunc(t.Name) || strings.HasSuffix(t.Name, ".tpl") || t.Name == "templates/zzz_profile.yaml" || t.Name == "zzy_descope_legacy.yaml" {
-				filteredTemplates = append(filteredTemplates, t)
-			}
-		}
-		chrt.Templates = filteredTemplates
+	files, err := engine.Render(chrt, helmVals)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	files, err := engine.Render(chrt, vals)
 	crdFiles := chrt.CRDObjects()
-	if err != nil {
-		return "", err
-	}
 	if chrt.Metadata.Name == "base" {
-		base, _ := valuesMap["base"].(map[string]any)
-		if enableIstioConfigCRDs, ok := base["enableIstioConfigCRDs"].(bool); ok && !enableIstioConfigCRDs {
+		enableIstioConfigCRDs, ok := values.GetPathAs[bool](vals, "base.enableIstioConfigCRDs")
+		if ok && !enableIstioConfigCRDs {
 			crdFiles = []chart.CRD{}
 		}
 	}
 
+	var warnings Warnings
 	// Create sorted array of keys to iterate over, to stabilize the order of the rendered templates
 	keys := make([]string, 0, len(files))
-	for k := range files {
+	for k, v := range files {
 		if strings.HasSuffix(k, NotesFileNameSuffix) {
+			warnings = extractWarnings(v)
 			continue
 		}
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
-	var sb strings.Builder
-	for i := 0; i < len(keys); i++ {
-		f := files[keys[i]]
-		// add yaml separator if the rendered file doesn't have one at the end
-		f = strings.TrimSpace(f) + "\n"
-		if !strings.HasSuffix(f, YAMLSeparator) {
-			f += YAMLSeparator
-		}
-		_, err := sb.WriteString(f)
-		if err != nil {
-			return "", err
-		}
+	results := make([]string, 0, len(keys))
+	for _, k := range keys {
+		results = append(results, yml.SplitString(files[k])...)
 	}
 
 	// Sort crd files by name to ensure stable manifest output
-	sort.Slice(crdFiles, func(i, j int) bool { return crdFiles[i].Name < crdFiles[j].Name })
-	for _, crdFile := range crdFiles {
-		f := string(crdFile.File.Data)
-		// add yaml separator if the rendered file doesn't have one at the end
-		f = strings.TrimSpace(f) + "\n"
-		if !strings.HasSuffix(f, YAMLSeparator) {
-			f += YAMLSeparator
+	slices.SortBy(crdFiles, func(a chart.CRD) string {
+		return a.Name
+	})
+	for _, crd := range crdFiles {
+		results = append(results, yml.SplitString(string(crd.File.Data))...)
+	}
+
+	return results, warnings, nil
+}
+
+func extractWarnings(v string) Warnings {
+	var w Warnings
+	for _, l := range strings.Split(v, "\n") {
+		if strings.HasPrefix(l, "WARNING: ") {
+			w = util.AppendErr(w, errors.New(strings.TrimPrefix(l, "WARNING: ")))
 		}
-		_, err := sb.WriteString(f)
-		if err != nil {
-			return "", err
-		}
 	}
-
-	return sb.String(), nil
+	return w
 }
 
-// GenerateHubTagOverlay creates an IstioOperatorSpec overlay YAML for hub and tag.
-func GenerateHubTagOverlay(hub, tag string) (string, error) {
-	hubTagYAMLTemplate := `
-spec:
-  hub: {{.Hub}}
-  tag: {{.Tag}}
-`
-	ts := struct {
-		Hub string
-		Tag string
-	}{
-		Hub: hub,
-		Tag: tag,
-	}
-	return util.RenderTemplate(hubTagYAMLTemplate, ts)
-}
+const (
+	// NotesFileNameSuffix is the file name suffix for helm notes.
+	// see https://helm.sh/docs/chart_template_guide/notes_files/
+	NotesFileNameSuffix = ".txt"
+)
 
-// DefaultFilenameForProfile returns the profile name of the default profile for the given profile.
-func DefaultFilenameForProfile(profile string) string {
-	switch {
-	case util.IsFilePath(profile):
-		return filepath.Join(filepath.Dir(profile), DefaultProfileFilename)
-	default:
-		return DefaultProfileString
-	}
-}
-
-// IsDefaultProfile reports whether the given profile is the default profile.
-func IsDefaultProfile(profile string) bool {
-	return profile == "" || profile == DefaultProfileString || filepath.Base(profile) == DefaultProfileFilename
-}
-
-func readFile(path string) (string, error) {
-	b, err := os.ReadFile(path)
-	return string(b), err
-}
-
-// GetProfileYAML returns the YAML for the given profile name, using the given profileOrPath string, which may be either
-// a profile label or a file path.
-func GetProfileYAML(installPackagePath, profileOrPath string) (string, error) {
-	if profileOrPath == "" {
-		profileOrPath = "default"
-	}
-	profiles, err := readProfiles(installPackagePath)
+// loadChart reads a chart from the filesystem. This is like loader.LoadDir but allows a fs.FS.
+func loadChart(f fs.FS, root string) (*chart.Chart, error) {
+	fnames, err := getFilesRecursive(f, root)
 	if err != nil {
-		return "", fmt.Errorf("failed to read profiles: %v", err)
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("component does not exist")
+		}
+		return nil, fmt.Errorf("list files: %v", err)
 	}
-	// If charts are a file path and profile is a name like default, transform it to the file path.
-	if profiles[profileOrPath] && installPackagePath != "" {
-		profileOrPath = filepath.Join(installPackagePath, "profiles", profileOrPath+".yaml")
-	}
-	// This contains the IstioOperator CR.
-	baseCRYAML, err := ReadProfileYAML(profileOrPath, installPackagePath)
-	if err != nil {
-		return "", err
+	var bfs []*loader.BufferedFile
+	for _, fname := range fnames {
+		b, err := fs.ReadFile(f, fname)
+		if err != nil {
+			return nil, fmt.Errorf("read file: %v", err)
+		}
+		// Helm expects unix / separator, but on windows this will be \
+		name := strings.ReplaceAll(stripPrefix(fname, root), string(filepath.Separator), "/")
+		bf := &loader.BufferedFile{
+			Name: name,
+			Data: b,
+		}
+		bfs = append(bfs, bf)
 	}
 
-	if !IsDefaultProfile(profileOrPath) {
-		// Profile definitions are relative to the default profileOrPath, so read that first.
-		dfn := DefaultFilenameForProfile(profileOrPath)
-		defaultYAML, err := ReadProfileYAML(dfn, installPackagePath)
-		if err != nil {
-			return "", err
-		}
-		baseCRYAML, err = util.OverlayIOP(defaultYAML, baseCRYAML)
-		if err != nil {
-			return "", err
-		}
-	}
+	return loader.LoadFiles(bfs)
+}
 
-	return baseCRYAML, nil
+// stripPrefix removes the given prefix from prefix.
+func stripPrefix(path, prefix string) string {
+	pl := len(strings.Split(prefix, "/"))
+	pv := strings.Split(path, "/")
+	return strings.Join(pv[pl:], "/")
+}
+
+func getFilesRecursive(f fs.FS, root string) ([]string, error) {
+	res := []string{}
+	err := fs.WalkDir(f, root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		res = append(res, path)
+		return nil
+	})
+	return res, err
 }

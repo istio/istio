@@ -88,6 +88,9 @@ defaults:
   # Valid values are: trace, debug, info, warn, error
   logLevel: info
 
+  # To output all logs in json format
+  logAsJson: false
+
   # Set to `type: RuntimeDefault` to use the default profile if available.
   seLinuxOptions: {}
   # TODO Ambient inpod - for OpenShift, set to the following to get writable sockets in hostmounts to work, eventually consider CSI driver instead

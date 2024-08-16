@@ -131,12 +131,12 @@ func TestListenerAccessLog(t *testing.T) {
 								continue
 							}
 							if len(tcpConfig.AccessLog) < 1 {
-								t.Fatalf("tcp_proxy want at least 1 access log, got 0")
+								t.Fatal("tcp_proxy want at least 1 access log, got 0")
 							}
 
 							for _, tcpAccessLog := range tcpConfig.AccessLog {
 								if tcpAccessLog.Filter != nil {
-									t.Fatalf("tcp_proxy filter chain's accesslog filter must be empty")
+									t.Fatal("tcp_proxy filter chain's accesslog filter must be empty")
 								}
 							}
 
@@ -148,7 +148,7 @@ func TestListenerAccessLog(t *testing.T) {
 								t.Fatal(err)
 							}
 							if len(httpConfig.AccessLog) < 1 {
-								t.Fatalf("http_connection_manager want at least 1 access log, got 0")
+								t.Fatal("http_connection_manager want at least 1 access log, got 0")
 							}
 							// Verify HTTP connection manager access log.
 							verify(t, tc.encoding, httpConfig.AccessLog[0], tc.wantFormat)

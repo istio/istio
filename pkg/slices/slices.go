@@ -19,8 +19,6 @@ import (
 	"cmp"
 	"slices" // nolint: depguard
 	"strings"
-
-	"golang.org/x/exp/constraints"
 )
 
 // Equal reports whether two slices are equal: the same length and all
@@ -82,7 +80,7 @@ func SortStableFunc[E any](x []E, less func(a, b E) int) []E {
 
 // SortBy is a helper to sort a slice by some value. Typically, this would be sorting a struct
 // by a single field. If you need to have multiple fields, see the ExampleSort.
-func SortBy[E any, A constraints.Ordered](x []E, extract func(a E) A) []E {
+func SortBy[E any, A cmp.Ordered](x []E, extract func(a E) A) []E {
 	if len(x) <= 1 {
 		return x
 	}
@@ -94,7 +92,7 @@ func SortBy[E any, A constraints.Ordered](x []E, extract func(a E) A) []E {
 
 // Sort sorts a slice of any ordered type in ascending order.
 // The slice is modified in place but returned.
-func Sort[E constraints.Ordered](x []E) []E {
+func Sort[E cmp.Ordered](x []E) []E {
 	if len(x) <= 1 {
 		return x
 	}

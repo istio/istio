@@ -189,7 +189,7 @@ func TestShouldRespond(t *testing.T) {
 			}
 			if tt.name != "reconnect" && tt.response {
 				if tt.proxy.WatchedResources[tt.request.TypeUrl].NonceAcked != tt.request.ResponseNonce {
-					t.Fatalf("Version & Nonce not updated properly")
+					t.Fatal("Version & Nonce not updated properly")
 				}
 			}
 		})

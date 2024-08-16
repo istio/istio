@@ -4,7 +4,6 @@
     "securityContext": {}
   },
   "global": {
-    "autoscalingv2API": true,
     "caAddress": "",
     "caName": "",
     "certSigners": [],
@@ -18,7 +17,6 @@
         "cpu": "10m"
       }
     },
-    "enabled": false,
     "externalIstiod": false,
     "hub": "gcr.io/istio-testing",
     "imagePullPolicy": "Always",
@@ -38,7 +36,6 @@
       "clusterName": "",
       "enabled": false
     },
-    "namespace": "istio-system",
     "network": "",
     "omitSidecarInjectorConfigMap": false,
     "operatorManageWebhooks": false,
@@ -106,15 +103,9 @@
       }
     }
   },
-  "istio_cni": {
-    "chained": true,
-    "enabled": false,
-    "provider": "default"
-  },
   "pilot": {
     "cni": {
       "enabled": false,
-      "namespace": "istio-system",
       "provider": "default"
     }
   },

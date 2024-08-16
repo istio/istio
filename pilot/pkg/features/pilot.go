@@ -225,9 +225,6 @@ var (
 	EnableAutoSni = env.Register("ENABLE_AUTO_SNI", true,
 		"If enabled, automatically set SNI when `DestinationRules` do not specify the same").Get()
 
-	VerifyCertAtClient = env.Register("VERIFY_CERTIFICATE_AT_CLIENT", true,
-		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
-
 	EnableVtprotobuf = env.Register("ENABLE_VTPROTOBUF", true,
 		"If true, will use optimized vtprotobuf based marshaling. Requires a build with -tags=vtprotobuf.").Get()
 
@@ -242,6 +239,9 @@ var (
 
 	Exclude503FromDefaultRetries = env.Register("EXCLUDE_UNSAFE_503_FROM_DEFAULT_RETRY", true,
 		"If true, excludes unsafe retry on 503 from default retry policy.").Get()
+
+	PreferDestinationRulesTLSForExternalServices = env.Register("PREFER_DESTINATIONRULE_TLS_FOR_EXTERNAL_SERVICES", true,
+		"If true, external services will prefer the TLS settings from DestinationRules over the metadata TLS settings.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

@@ -45,7 +45,7 @@ func TestMeshDataplaneAddsAnnotationOnAdd(t *testing.T) {
 	}
 
 	fakeCtx := context.Background()
-	fakeClientSet := fake.NewSimpleClientset(pod)
+	fakeClientSet := fake.NewClientset(pod)
 
 	podIP := netip.MustParseAddr("99.9.9.1")
 	podIPs := []netip.Addr{podIP}
@@ -99,7 +99,7 @@ func TestMeshDataplaneAddsAnnotationOnAddWithPartialError(t *testing.T) {
 	).Return(ErrPartialAdd)
 
 	server.Start(fakeCtx)
-	fakeClientSet := fake.NewSimpleClientset(pod)
+	fakeClientSet := fake.NewClientset(pod)
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -140,7 +140,7 @@ func TestMeshDataplaneDoesntAnnotateOnAddWithRealError(t *testing.T) {
 	).Return(errors.New("not partial error"))
 
 	server.Start(fakeCtx)
-	fakeClientSet := fake.NewSimpleClientset(pod)
+	fakeClientSet := fake.NewClientset(pod)
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -171,7 +171,7 @@ func TestMeshDataplaneRemovePodRemovesAnnotation(t *testing.T) {
 		false,
 	).Return(nil)
 
-	fakeClientSet := fake.NewSimpleClientset(pod)
+	fakeClientSet := fake.NewClientset(pod)
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -201,7 +201,7 @@ func TestMeshDataplaneRemovePodErrorDoesntRemoveAnnotation(t *testing.T) {
 		false,
 	).Return(errors.New("fake error"))
 
-	fakeClientSet := fake.NewSimpleClientset(pod)
+	fakeClientSet := fake.NewClientset(pod)
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -232,7 +232,7 @@ func TestMeshDataplaneDelPod(t *testing.T) {
 		true,
 	).Return(nil)
 
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -260,7 +260,7 @@ func TestMeshDataplaneDelPodErrorDoesntPatchPod(t *testing.T) {
 		true,
 	).Return(errors.New("fake error"))
 
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -282,7 +282,7 @@ func TestMeshDataplaneAddPodToHostNSIPSets(t *testing.T) {
 	fakeCtx := context.Background()
 	server := &fakeServer{}
 	server.Start(fakeCtx)
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -320,7 +320,7 @@ func TestMeshDataplaneAddPodToHostNSIPSetsV6(t *testing.T) {
 	fakeCtx := context.Background()
 	server := &fakeServer{}
 	server.Start(fakeCtx)
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", V6Name: "foo-v6", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -358,7 +358,7 @@ func TestMeshDataplaneAddPodToHostNSIPSetsDualstack(t *testing.T) {
 	fakeCtx := context.Background()
 	server := &fakeServer{}
 	server.Start(fakeCtx)
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", V6Name: "foo-v6", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -396,7 +396,7 @@ func TestMeshDataplaneAddPodIPToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T)
 	fakeCtx := context.Background()
 	server := &fakeServer{}
 	server.Start(fakeCtx)
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -456,7 +456,7 @@ func TestMeshDataplaneSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 	fakeCtx := context.Background()
 	server := &fakeServer{}
 	server.Start(fakeCtx)
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -497,7 +497,7 @@ func TestMeshDataplaneSyncHostIPSetsIgnoresPodIPAddErrorAndContinues(t *testing.
 
 	pod2.ObjectMeta.SetUID("4455")
 
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 
 	fakeCtx := context.Background()
 	server := &fakeServer{}
@@ -562,7 +562,7 @@ func TestMeshDataplaneSyncHostIPSetsAddsNothingIfPodHasNoIPs(t *testing.T) {
 	fakeCtx := context.Background()
 	server := &fakeServer{}
 	server.Start(fakeCtx)
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
@@ -586,7 +586,7 @@ func TestMeshDataplaneSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 	fakeCtx := context.Background()
 	server := &fakeServer{}
 	server.Start(fakeCtx)
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := fake.NewClientset()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}

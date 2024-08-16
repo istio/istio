@@ -110,7 +110,7 @@ func TestValidation(t *testing.T) {
 									t.Fatalf("got unexpected unknown error for valid config: %v", dryRunErr)
 								}
 							case dryRunErr == nil && !valid:
-								t.Fatalf("got unexpected success for invalid config")
+								t.Fatal("got unexpected success for invalid config")
 							case dryRunErr != nil && !valid:
 								if !denied(dryRunErr) {
 									t.Fatalf("config request denied for wrong reason: %v", dryRunErr)
