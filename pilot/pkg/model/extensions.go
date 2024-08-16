@@ -161,20 +161,13 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace)
 	datasource := buildDataSource(u, wasmPlugin)
 	resourceName := plugin.Namespace + "." + plugin.Name
-	// add by ingress
-	failOpen := true
-	if wasmPlugin.FailStrategy == extensions.FailStrategy_FAIL_CLOSE {
-		failOpen = false
-	}
-	// end add by ingress
 	wasmExtensionConfig := &envoyWasmFilterV3.Wasm{
 		Config: &envoyExtensionsWasmV3.PluginConfig{
 			Name:          resourceName,
 			RootId:        wasmPlugin.PluginName,
 			Configuration: cfg,
 			Vm:            buildVMConfig(datasource, plugin.ResourceVersion, wasmPlugin),
-			// Update by ingress
-			FailOpen: failOpen,
+			FailOpen:      wasmPlugin.FailStrategy == extensions.FailStrategy_FAIL_OPEN,
 		},
 	}
 	if err != nil {
