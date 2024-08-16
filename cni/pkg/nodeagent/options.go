@@ -44,11 +44,11 @@ const (
 )
 
 type AmbientArgs struct {
-	SystemNamespace string
-	Revision        string
-	KubeConfig      string
-	ServerSocket    string
-	DNSCapture      bool
-	EnableIPv6      bool
-	RedirectTPROXY  bool
+	SystemNamespace   string
+	Revision          string
+	KubeConfig        string
+	ServerSocket      string
+	DNSCapture        bool
+	EnableIPv6        bool
+	TPROXYRedirection bool
 }

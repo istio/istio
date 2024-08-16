@@ -39,7 +39,7 @@ func TestIptables(t *testing.T) {
 		{
 			"tproxy",
 			func(cfg *Config) {
-				cfg.RedirectTPROXY = true
+				cfg.TPROXYRedirection = true
 				cfg.RedirectDNS = true
 			},
 		},

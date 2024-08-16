@@ -59,7 +59,7 @@ type Config struct {
 	RedirectDNS   bool `json:"REDIRECT_DNS"`
 	// If true, TPROXY will be used for redirection. Else, REDIRECT will be used.
 	// Currently, this is treated as a feature flag, but may be promoted to a permanent feature if there is a need.
-	RedirectTPROXY bool `json:"REDIRECT_TPROXY"`
+	TPROXYRedirection bool `json:"TPROXY_REDIRECTION"`
 }
 
 type IptablesConfigurator struct {
@@ -242,16 +242,14 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		"-j", ChainInpodOutput,
 	)
 
-	if !cfg.cfg.RedirectTPROXY {
+	natOrMangleBasedOnTproxy := iptablesconstants.MANGLE
+	if !cfg.cfg.TPROXYRedirection {
+		natOrMangleBasedOnTproxy = iptablesconstants.NAT
 		// -t nat -A PREROUTING -p tcp -j ISTIO_PRERT
 		iptablesBuilder.AppendRule(
 			iptableslog.UndefinedCommand, iptablesconstants.PREROUTING, iptablesconstants.NAT,
 			"-j", ChainInpodPrerouting,
 		)
-	}
-	natOrMangleBasedOnTproxy := iptablesconstants.NAT
-	if cfg.cfg.RedirectTPROXY {
-		natOrMangleBasedOnTproxy = iptablesconstants.MANGLE
 	}
 
 	// From here on, we should be only inserting rules into our custom chains.
@@ -295,7 +293,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		"-j", "ACCEPT",
 	)
 
-	if cfg.cfg.RedirectTPROXY {
+	if cfg.cfg.TPROXYRedirection {
 		// prevent intercept traffic from app ==> app by pod ip
 		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
 			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
@@ -303,9 +301,6 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 			"-p", iptablesconstants.TCP,
 			"-i", "lo",
 			"-j", "ACCEPT")
-	}
-
-	if cfg.cfg.RedirectTPROXY {
 		// CLI: -A ISTIO_PRERT -p tcp -m tcp --dport <INPORT> -m mark ! --mark 0x539/0xfff -j TPROXY --on-port <INPORT> --on-ip 127.0.0.1 --tproxy-mark 0x111/0xfff
 		//
 		// DESC: Anything heading to <INPORT> that does not have the mark, TPROXY to ztunnel inbound port <INPORT>
