@@ -1,21 +1,21 @@
 {{- define "resources"  }}
-  {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
-    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) }}
+  {{- if or (isset .InfrastructureAnnotations `gateway.istio.io/proxy-cpu`) (isset .InfrastructureAnnotations `gateway.istio.io/proxy-memory`) (isset .InfrastructureAnnotations `gateway.istio.io/proxy-cpu-limit`) (isset .InfrastructureAnnotations `gateway.istio.io/proxy-memory-limit`) }}
+    {{- if or (isset .InfrastructureAnnotations `gateway.istio.io/proxy-cpu`) (isset .InfrastructureAnnotations `gateway.istio.io/proxy-memory`) }}
           requests:
-            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -}}
-            cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` }}"
+            {{ if (isset .InfrastructureAnnotations `gateway.istio.io/proxy-cpu`) -}}
+            cpu: "{{ index .InfrastructureAnnotations `gateway.istio.io/proxy-cpu` }}"
             {{ end }}
-            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
-            memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` }}"
+            {{ if (isset .InfrastructureAnnotations `gateway.istio.io/proxy-memory`) -}}
+            memory: "{{ index .InfrastructureAnnotations `gateway.istio.io/proxy-memory` }}"
             {{ end }}
     {{- end }}
-    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+    {{- if or (isset .InfrastructureAnnotations `gateway.istio.io/proxy-cpu-limit`) (isset .InfrastructureAnnotations `gateway.istio.io/proxy-memory-limit`) }}
           limits:
-            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) -}}
-            cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit` }}"
+            {{ if (isset .InfrastructureAnnotations `gateway.istio.io/proxy-cpu-limit`) -}}
+            cpu: "{{ index .InfrastructureAnnotations `gateway.istio.io/proxy-cpu-limit` }}"
             {{ end }}
-            {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) -}}
-            memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit` }}"
+            {{ if (isset .InfrastructureAnnotations `gateway.istio.io/proxy-memory-limit`) -}}
+            memory: "{{ index .InfrastructureAnnotations `gateway.istio.io/proxy-memory-limit` }}"
             {{ end }}
     {{- end }}
   {{- else }}
