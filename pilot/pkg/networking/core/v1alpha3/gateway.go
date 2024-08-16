@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/mseingress"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -756,6 +757,8 @@ func (configgen *ConfigGeneratorImpl) buildHostRDSConfig(
 		return selectedVirtualServices[i].virtualService.CreationTimestamp.Before(selectedVirtualServices[j].virtualService.CreationTimestamp)
 	})
 
+	globalHTTPFilters := mseingress.ExtractGlobalHTTPFilters(node, push)
+
 	port := int(listenerPort)
 	for _, ctx := range selectedVirtualServices {
 		virtualService := ctx.virtualService
@@ -780,8 +783,8 @@ func (configgen *ConfigGeneratorImpl) buildHostRDSConfig(
 				Mesh:                      push.Mesh,
 			}
 			hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService)
-			routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap,
-				hashByDestination, port, sets.New(gatewayName), opts)
+			routes, err = istio_route.BuildHTTPRoutesForVirtualServiceWithHTTPFilters(node, virtualService, nameToServiceMap,
+				hashByDestination, port, sets.New(gatewayName), opts, globalHTTPFilters)
 			if err != nil {
 				log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
 				continue
@@ -819,6 +822,7 @@ func (configgen *ConfigGeneratorImpl) buildHostRDSConfig(
 				Name:                       util.DomainName(hostRDSHost, port),
 				Domains:                    []string{hostRDSHost},
 				Routes:                     routes,
+				TypedPerFilterConfig:       mseingress.ConstructTypedPerFilterConfigForVHost(globalHTTPFilters, virtualService),
 				IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
 			}
 			if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -948,6 +952,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(
 
 	servers := merged.ServersByRouteName[routeName]
 
+	// Add by ingress
+	globalHTTPFilters := mseingress.ExtractGlobalHTTPFilters(node, push)
+	// End add by ingress
+
 	// When this is true, we add alt-svc header to the response to tell the client
 	// that HTTP/3 over QUIC is available on the same port for this host. This is
 	// very important for discovering HTTP/3 services
@@ -1001,8 +1009,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(
 				}
 				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService)
 				// update by ingress
-				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap,
-					hashByDestination, port, sets.New(gatewayName), opts)
+				routes, err = istio_route.BuildHTTPRoutesForVirtualServiceWithHTTPFilters(node, virtualService, nameToServiceMap,
+					hashByDestination, port, sets.New(gatewayName), opts, globalHTTPFilters)
 				// End update by ingress
 				if err != nil {
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
@@ -1041,6 +1049,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(
 						Name:                       util.DomainName(string(hostname), port),
 						Domains:                    []string{hostname.String()},
 						Routes:                     routes,
+						TypedPerFilterConfig:       mseingress.ConstructTypedPerFilterConfigForVHost(globalHTTPFilters, virtualService),
 						IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {

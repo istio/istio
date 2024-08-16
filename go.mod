@@ -10,7 +10,7 @@ replace (
 	github.com/envoyproxy/go-control-plane => github.com/higress-group/go-control-plane v0.0.0-20240729105554-0ab56e249a34
 	github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 	golang.org/x/exp => golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
-	istio.io/api => github.com/higress-group/api v0.0.0-20240726092318-531f67408299
+	istio.io/api => github.com/higress-group/api v0.0.0-20240815114325-d54f2e0f423d
 	istio.io/client-go => github.com/higress-group/client-go v0.0.0-20240117062328-9b3841d7dec6
 )
 

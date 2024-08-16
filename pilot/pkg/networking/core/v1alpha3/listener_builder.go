@@ -37,6 +37,7 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
+	"istio.io/istio/pilot/pkg/networking/plugin/mseingress"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -71,6 +72,10 @@ type ListenerBuilder struct {
 	authzBuilder *authz.Builder
 	// authzCustomBuilder provides access to CUSTOM authz configuration for the given proxy.
 	authzCustomBuilder *authz.Builder
+
+	// Added by ingress
+	mseIngressBuilder *mseingress.Builder
+	// End added by ingress
 }
 
 // enabledInspector captures if for a given listener, listener filter inspectors are added
@@ -87,6 +92,9 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 	builder.authnBuilder = authn.NewBuilder(push, node)
 	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node)
 	builder.authzCustomBuilder = authz.NewBuilder(authz.Custom, push, node)
+	// Added by ingress
+	builder.mseIngressBuilder = mseingress.NewBuilder(push, node)
+	// End added by ingress
 	return builder
 }
 
@@ -458,6 +466,9 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
 		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
+		// Added by ingress
+		filters = append(filters, lb.mseIngressBuilder.BuildHTTPFilters(filters)...)
+		// End added by ingress
 
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
