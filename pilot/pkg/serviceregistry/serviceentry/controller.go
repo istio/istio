@@ -324,12 +324,12 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		if event == model.EventAdd {
 			s.XdsUpdater.ProxyUpdate(s.Cluster(), wle.Address)
 		}
-		s.edsUpdate(allInstances)
+		s.edsUpdate(allInstances, true)
 		return
 	}
 
 	// update eds cache only
-	s.edsCacheUpdate(allInstances)
+	s.edsUpdate(allInstances, false)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -451,7 +451,7 @@ func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Ev
 	fullPush := len(configsUpdated) > 0
 	// if not full push needed, at least one service unchanged
 	if !fullPush {
-		s.edsUpdate(serviceInstances)
+		s.edsUpdate(serviceInstances, true)
 		return
 	}
 
@@ -604,7 +604,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 
 	s.mutex.Unlock()
 
-	s.edsUpdate(append(instances, instancesDeleted...))
+	s.edsUpdate(append(instances, instancesDeleted...), true)
 
 	// ServiceEntry with WorkloadEntry results in STRICT_DNS cluster with hardcoded endpoints
 	// need to update CDS to refresh endpoints
@@ -691,7 +691,7 @@ func (s *Controller) ResyncEDS() {
 	s.mutex.RLock()
 	allInstances := s.serviceInstances.getAll()
 	s.mutex.RUnlock()
-	s.edsUpdate(allInstances)
+	s.edsUpdate(allInstances, true)
 	// HACK to workaround Service syncing after WorkloadEntry: https://github.com/istio/istio/issues/45114
 	s.workloadInstances.ForEach(func(wi *model.WorkloadInstance) {
 		if wi.Kind == model.WorkloadEntryKind {
@@ -703,25 +703,13 @@ func (s *Controller) ResyncEDS() {
 // edsUpdate triggers an EDS push serially such that we can prevent all instances
 // got at t1 can accidentally override that got at t2 if multiple threads are
 // running this function. Queueing ensures latest updated wins.
-func (s *Controller) edsUpdate(instances []*model.ServiceInstance) {
+func (s *Controller) edsUpdate(instances []*model.ServiceInstance, pushEds bool) {
 	// Find all keys we need to lookup
 	keys := sets.NewWithLength[instancesKey](len(instances))
 	for _, i := range instances {
 		keys.Insert(makeInstanceKey(i))
 	}
-	s.queueEdsEvent(keys, true)
-}
-
-// edsCacheUpdate updates eds cache serially such that we can prevent allinstances
-// got at t1 can accidentally override that got at t2 if multiple threads are
-// running this function. Queueing ensures latest updated wins.
-func (s *Controller) edsCacheUpdate(instances []*model.ServiceInstance) {
-	// Find all keys we need to lookup
-	keys := map[instancesKey]struct{}{}
-	for _, i := range instances {
-		keys[makeInstanceKey(i)] = struct{}{}
-	}
-	s.queueEdsEvent(keys, false)
+	s.queueEdsEvent(keys, pushEds)
 }
 
 // queueEdsEvent processes eds events sequentially for the passed keys and invokes the passed function.
@@ -735,7 +723,7 @@ func (s *Controller) queueEdsEvent(keys sets.Set[instancesKey], pushEds bool) {
 		if pushEds {
 			xdsUpdateFn = s.XdsUpdater.EDSUpdate
 		}
-		s.triggerEdsUpdate(keys, xdsUpdateFn)
+		s.doEdsUpdate(keys, xdsUpdateFn)
 		return nil
 	})
 	select {
@@ -748,17 +736,7 @@ func (s *Controller) queueEdsEvent(keys sets.Set[instancesKey], pushEds bool) {
 	}
 }
 
-// doEdsCacheUpdate invokes XdsUpdater's EDSCacheUpdate to update endpoint shards.
-func (s *Controller) doEdsCacheUpdate(keys sets.Set[instancesKey]) {
-	s.triggerEdsUpdate(keys, s.XdsUpdater.EDSCacheUpdate)
-}
-
-// doEdsUpdate invokes XdsUpdater's eds update to trigger eds push.
-func (s *Controller) doEdsUpdate(keys sets.Set[instancesKey]) {
-	s.triggerEdsUpdate(keys, s.XdsUpdater.EDSUpdate)
-}
-
-func (s *Controller) triggerEdsUpdate(keys sets.Set[instancesKey], xdsUpdateFn model.EdsUpdateFn) {
+func (s *Controller) doEdsUpdate(keys sets.Set[instancesKey], xdsUpdateFn model.EdsUpdateFn) {
 	endpoints := s.buildEndpoints(keys)
 	shard := model.ShardKeyFromRegistry(s)
 	// This is delete.
