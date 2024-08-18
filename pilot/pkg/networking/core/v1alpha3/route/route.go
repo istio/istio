@@ -37,6 +37,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/mseingress"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -373,6 +374,61 @@ func BuildHTTPRoutesForVirtualService(
 	}
 	return out, nil
 }
+
+// Add by ingress
+func BuildHTTPRoutesForVirtualServiceWithHTTPFilters(
+	node *model.Proxy,
+	virtualService config.Config,
+	serviceRegistry map[host.Name]*model.Service,
+	hashByDestination DestinationHashMap,
+	listenPort int,
+	gatewayNames sets.String,
+	opts RouteOptions,
+	globalHTTPFilters *mseingress.GlobalHTTPFilters,
+) ([]*route.Route, error) {
+	vs, ok := virtualService.Spec.(*networking.VirtualService)
+	if !ok { // should never happen
+		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
+	}
+
+	out := make([]*route.Route, 0, len(vs.Http))
+
+	catchall := false
+	for _, http := range vs.Http {
+		if len(http.Match) == 0 {
+			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry,
+				hashByDestination, gatewayNames, opts); r != nil {
+				out = append(out, r)
+				r.TypedPerFilterConfig = mseingress.ConstructTypedPerFilterConfigForRoute(globalHTTPFilters, virtualService, http)
+			}
+			catchall = true
+		} else {
+			for _, match := range http.Match {
+				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry,
+					hashByDestination, gatewayNames, opts); r != nil {
+					out = append(out, r)
+					r.TypedPerFilterConfig = mseingress.ConstructTypedPerFilterConfigForRoute(globalHTTPFilters, virtualService, http)
+					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
+					// As an optimization, we can just top sending any more routes here.
+					if isCatchAllMatch(match) {
+						catchall = true
+						break
+					}
+				}
+			}
+		}
+		if catchall {
+			break
+		}
+	}
+
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no routes matched")
+	}
+	return out, nil
+}
+
+// End Add by ingress
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
 // labels for the proxy or the gateway name for which we are generating a route

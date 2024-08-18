@@ -1091,8 +1091,8 @@ github.com/hashicorp/golang-lru/v2 v2.0.4 h1:7GHuZcgid37q8o5i3QI9KMT4nCWQQ3Kx3Ov
 github.com/hashicorp/golang-lru/v2 v2.0.4/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
 github.com/hashicorp/hcl v1.0.0 h1:0Anlzjpi4vEasTeNFn2mLJgTSwt0+6sfsiTG8qcWGx4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
-github.com/higress-group/api v0.0.0-20240726092318-531f67408299 h1:+m5OI2O9uTCG9UeHklzvXSxajPTeHGuH0DZUsRBaE+s=
-github.com/higress-group/api v0.0.0-20240726092318-531f67408299/go.mod h1:KstZe4bKbXouALUJ5PqpjNEhu5nj90HrDFitZfpNhlU=
+github.com/higress-group/api v0.0.0-20240815114325-d54f2e0f423d h1:t9Y+jiRgF/p/XMuoQweA4LZExdGNot1eWlckKm2OwWw=
+github.com/higress-group/api v0.0.0-20240815114325-d54f2e0f423d/go.mod h1:KstZe4bKbXouALUJ5PqpjNEhu5nj90HrDFitZfpNhlU=
 github.com/higress-group/client-go v0.0.0-20240117062328-9b3841d7dec6 h1:gFMA7qAJz9G3S47GPE1Kwjyg3m9TTFFKd2z6s4END+g=
 github.com/higress-group/client-go v0.0.0-20240117062328-9b3841d7dec6/go.mod h1:jG3Rt/lWHlo5h9dUduY/y9PAvLVOn0JoGEcinP1kylg=
 github.com/higress-group/go-control-plane v0.0.0-20240729105554-0ab56e249a34 h1:C5y3V4XuVk7DOD+U5qHMeljmhEjvjroia3AD20c/Mk8=
