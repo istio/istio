@@ -155,7 +155,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 				// new endpoint. Always send new endpoints even if they are not healthy.
 				// This is OK since we disable panic threshold when SendUnhealthyEndpoints is enabled.
 				// Without SendUnhealthyEndpoints we do not need this; headless services will trigger the push in the Kubernetes controller.
-				if features.SendUnhealthyEndpoints.Load() {
+				if nie.HealthStatus != model.UnHealthy || features.SendUnhealthyEndpoints.Load() {
 					needPush = true
 				}
 				newIstioEndpoints = append(newIstioEndpoints, nie)
