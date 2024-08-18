@@ -41,6 +41,9 @@ var (
 
 	WebsocketEnabled = env.RegisterBoolVar("WEBSOCKET_ENABLED", true, "Whether to enable websocket by default.").Get()
 
+	CustomCACertConfigMapName = env.RegisterStringVar("CUSTOM_CA_CERT_NAME", "",
+		"Defines the configmap's name of  istio's root ca certificate").Get()
+
 	HostRDSMergeSubset = env.RegisterBoolVar("HOST_RDS_MERGE_SUBSET", true,
 		"If enabled, if host A is a subset of B, then we merge B's routes into A's hostRDS").Get()
 

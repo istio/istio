@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"os"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,18 +50,23 @@ const (
 
 var (
 	configMapLabel = map[string]string{"istio.io/config": "true"}
-	// Add by ingress
+
+	// Added by ingress
 	dynamicCACertNamespaceConfigMap = CACertNamespaceConfigMap
+	// End added by ingres
 )
 
-// Add by ingress
+// Added by ingress
 func init() {
 	if features.ClusterName != "" && features.ClusterName != "Kubernetes" {
 		dynamicCACertNamespaceConfigMap = fmt.Sprintf("%s-ca-root-cert", features.ClusterName)
 	}
+	if alifeatures.CustomCACertConfigMapName != "" {
+		dynamicCACertNamespaceConfigMap = alifeatures.CustomCACertConfigMapName
+	}
 }
 
-// End add by ingress
+// End added by ingress
 
 // NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {
@@ -104,6 +110,9 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 
 	c.configmaps.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		// Add by ingress
+		if o.GetNamespace() != podNs {
+			return false
+		}
 		if o.GetName() != dynamicCACertNamespaceConfigMap {
 			// This is a change to a configmap we don't watch, ignore it
 			return false
@@ -198,9 +207,16 @@ func (nc *NamespaceController) reconcileCACert(o types.NamespacedName) error {
 	return k8s.InsertDataToConfigMap(nc.configmaps, meta, nc.caBundleWatcher.GetCABundle())
 }
 
+var podNs = os.Getenv("POD_NAMESPACE")
+
 // On namespace change, update the config map.
 // If terminating, this will be skipped
 func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) {
+	// Added by ingress
+	if ns.Name != podNs {
+		return
+	}
+	// End added by ingress
 	if ns.Status.Phase != v1.NamespaceTerminating {
 		nc.syncNamespace(ns.Name)
 	}

@@ -220,13 +220,8 @@ func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, internalMux *http.
 		internalMux.HandleFunc(path, handler)
 	}
 
-	// Add by ingress
-	handlerFunc := http.HandlerFunc(handler)
-	if features.DebugAuth {
-		handlerFunc = s.allowAuthenticatedOrLocalhost(handlerFunc)
-	}
 	// Add handler with auth; this is expose on an HTTP server
-	mux.HandleFunc(path, handlerFunc)
+	mux.HandleFunc(path, s.allowAuthenticatedOrLocalhost(http.HandlerFunc(handler)))
 }
 
 func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.HandlerFunc {

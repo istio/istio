@@ -17,11 +17,12 @@ package leaderelection
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/ali/config/ownerreference"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"istio.io/istio/pkg/ali/config/ownerreference"
 
 	"go.uber.org/atomic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,25 +37,26 @@ import (
 )
 
 // Various locks used throughout the code
+// update by ingress
 const (
-	NamespaceController     = "istio-namespace-controller-election"
-	ServiceExportController = "istio-serviceexport-controller-election"
+	NamespaceController     = "higress-namespace-controller-election"
+	ServiceExportController = "higress-serviceexport-controller-election"
 	// This holds the legacy name to not conflict with older control plane deployments which are just
 	// doing the ingress syncing.
-	IngressController = "istio-leader"
+	IngressController = "higress-leader"
 	// GatewayStatusController controls the status of gateway.networking.k8s.io objects. For the v1alpha1
 	// this was formally "istio-gateway-leader"; because they are a different API group we need a different
 	// election to ensure we do not only handle one or the other.
-	GatewayStatusController = "istio-gateway-status-leader"
-	StatusController        = "istio-status-leader"
-	AnalyzeController       = "istio-analyze-leader"
+	GatewayStatusController = "higress-gateway-status-leader"
+	StatusController        = "higress-status-leader"
+	AnalyzeController       = "higress-analyze-leader"
 	// GatewayDeploymentController controls translating Kubernetes Gateway objects into various derived
 	// resources (Service, Deployment, etc).
 	// Unlike other types which use ConfigMaps, we use a Lease here. This is because:
 	// * Others use configmap for backwards compatibility
 	// * This type is per-revision, so it is higher cost. Leases are cheaper
 	// * Other types use "prioritized leader election", which isn't implemented for Lease
-	GatewayDeploymentController = "istio-gateway-deployment"
+	GatewayDeploymentController = "higress-gateway-deployment"
 )
 
 // Leader election key prefix for remote istiod managed clusters

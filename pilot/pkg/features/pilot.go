@@ -365,14 +365,6 @@ var (
 	EnableUnsafeAdminEndpoints = env.Register("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoints will be exposed on the debug interface. Not recommended for production.").Get()
 
-	// Add by ingress
-	DebugAuth = env.RegisterBoolVar("DEBUG_AUTH", true,
-		"If this is set to false, the debug interface will allow all anonymous request from any remote host, which is not recommended for production").Get()
-
-	CustomCACertConfigMapName = env.RegisterStringVar("CUSTOM_CA_CERT_NAME", "",
-		"Defines the configmap's name of  istio's root ca certificate").Get()
-	// End added by ingress
-
 	XDSAuth = env.Register("XDS_AUTH", true,
 		"If true, will authenticate XDS clients.").Get()
 
