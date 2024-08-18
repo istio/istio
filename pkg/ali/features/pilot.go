@@ -52,4 +52,10 @@ var (
 
 	DefaultUpstreamConcurrencyThreshold = env.RegisterIntVar("DEFAULT_UPSTREAM_CONCURRENCY_THRESHOLD", math.MaxUint32,
 		"The default threshold of max_requests/max_pending_requests/max_connections of circuit breaker").Get()
+
+	EnableLDSAuthnFilter = env.RegisterBoolVar("ENABLE_AUTHN_FILTER", false,
+		"If enabled, the istio_authn filter will be append to LDS filter chain").Get()
+
+	EnableLDSGrpcStatsFilter = env.RegisterBoolVar("ENABLE_GRPC_STATS_FILTER", false,
+		"If enabled, the grpc_stats filter will be append to LDS filter chain").Get()
 )

@@ -227,7 +227,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			}
 
 			for cnum := range newFilterChains {
-				if util.IsIstioVersionGE117(builder.node.IstioVersion) {
+				// update by ingress
+				if util.IsIstioVersionGE117(builder.node.IstioVersion) && alifeatures.EnableLDSAuthnFilter {
 					newFilterChains[cnum].TCP = append(newFilterChains[cnum].TCP, xdsfilters.IstioNetworkAuthenticationFilter)
 				}
 				if newFilterChains[cnum].ListenerProtocol == istionetworking.ListenerProtocolTCP {

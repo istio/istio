@@ -481,7 +481,10 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = append(filters, xdsfilters.GrpcWeb)
 	}
 
-	filters = append(filters, xdsfilters.GrpcStats)
+	// add by ingress
+	if alifeatures.EnableLDSGrpcStatsFilter {
+		filters = append(filters, xdsfilters.GrpcStats)
+	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
 	if features.ALPNFilter {
