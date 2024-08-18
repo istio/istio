@@ -54,9 +54,7 @@ const (
 	ConfigPathDir = "./etc/istio/proxy"
 
 	// IstioDataDir is the directory to store binary data such as envoy core dump, profile, and downloaded Wasm modules.
-	// Changed by Ingress
-	IstioDataDir = "/home/admin/data"
-	// End changed by Ingress
+	IstioDataDir = "/var/lib/istio/data"
 
 	// BinaryPathFilename envoy binary location
 	BinaryPathFilename = "/usr/local/bin/envoy"
