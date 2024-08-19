@@ -1296,11 +1296,16 @@ func nodeUsesAutoallocatedIPs(node *Proxy) bool {
 	if node == nil {
 		return false
 	}
+	var DNSAutoAllocate, DNSCapture bool
+	if node.Metadata != nil {
+		DNSAutoAllocate = bool(node.Metadata.DNSAutoAllocate)
+		DNSCapture = bool(node.Metadata.DNSCapture)
+	}
 	// check whether either version of auto-allocation is enabled
-	autoallocationEnabled := bool(node.Metadata.DNSAutoAllocate) || features.EnableIPAutoallocate
+	autoallocationEnabled := DNSAutoAllocate || features.EnableIPAutoallocate
 
 	// check if this proxy is a type that always consumes or has consumption explicitly enabled
-	nodeConsumesAutoIP := bool(node.Metadata.DNSCapture) || node.Type == Waypoint
+	nodeConsumesAutoIP := DNSCapture || node.Type == Waypoint
 
 	return autoallocationEnabled && nodeConsumesAutoIP
 }
