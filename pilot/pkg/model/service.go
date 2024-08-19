@@ -1262,9 +1262,7 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 			}
 		}
 
-		if bool(node.Metadata.DNSCapture) &&
-			(bool(node.Metadata.DNSAutoAllocate) || features.EnableIPAutoallocate) &&
-			s.DefaultAddress == constants.UnspecifiedIP {
+		if nodeUsesAutoallocatedIPs(node) && s.DefaultAddress == constants.UnspecifiedIP {
 			if node.SupportsIPv4() && s.AutoAllocatedIPv4Address != "" {
 				return s.AutoAllocatedIPv4Address
 			}
@@ -1293,13 +1291,26 @@ func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
 	return s.getAllAddressesForProxy(node)
 }
 
+// nodeUsesAutoallocatedIPs checks to see if this node is eligible to consume automatically allocated IPs
+func nodeUsesAutoallocatedIPs(node *Proxy) bool {
+	if node == nil {
+		return false
+	}
+	// check whether either version of auto-allocation is enabled
+	autoallocationEnabled := bool(node.Metadata.DNSAutoAllocate) || features.EnableIPAutoallocate
+
+	// check if this proxy is a type that always consumes or has consumption explicitly enabled
+	nodeConsumesAutoIP := bool(node.Metadata.DNSCapture) || node.Type == Waypoint
+
+	return autoallocationEnabled && nodeConsumesAutoIP
+}
+
 func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	addresses := []string{}
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 	}
-	if len(addresses) == 0 && node.Metadata != nil && bool(node.Metadata.DNSCapture) &&
-		(bool(node.Metadata.DNSAutoAllocate) || features.EnableIPAutoallocate) {
+	if len(addresses) == 0 && nodeUsesAutoallocatedIPs(node) {
 		// The criteria to use AutoAllocated addresses is met so we should go ahead and use them if they are populated
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
