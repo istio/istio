@@ -1265,9 +1265,8 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 			}
 		}
 
-		useAutoAlloc := (bool(node.Metadata.DNSCapture) &&
-			(bool(node.Metadata.DNSAutoAllocate) || features.EnableIPAutoallocate)) || node.IsWaypointProxy()
-		if useAutoAlloc &&
+		if bool(node.Metadata.DNSCapture) &&
+			(bool(node.Metadata.DNSAutoAllocate) || features.EnableIPAutoallocate) &&
 			s.DefaultAddress == constants.UnspecifiedIP {
 			if node.SupportsIPv4() && s.AutoAllocatedIPv4Address != "" {
 				return s.AutoAllocatedIPv4Address
@@ -1304,8 +1303,8 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 	}
-	if len(addresses) == 0 && node.Metadata != nil && (bool(node.Metadata.DNSCapture) &&
-		(bool(node.Metadata.DNSAutoAllocate) || features.EnableIPAutoallocate) || node.IsWaypointProxy()) {
+	if len(addresses) == 0 && node.Metadata != nil && bool(node.Metadata.DNSCapture) &&
+		(bool(node.Metadata.DNSAutoAllocate) || features.EnableIPAutoallocate) {
 		// The criteria to use AutoAllocated addresses is met so we should go ahead and use them if they are populated
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
