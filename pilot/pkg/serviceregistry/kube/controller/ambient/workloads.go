@@ -136,10 +136,6 @@ func (a *index) workloadEntryWorkloadBuilder(
 		if wle.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
 			waypoint = fetchWaypointForWorkload(ctx, waypoints, namespaces, wle.ObjectMeta)
 		}
-		var waypointAddress *workloadapi.GatewayAddress
-		if waypoint != nil {
-			waypointAddress = a.getWaypointAddress(waypoint)
-		}
 		fo := []krt.FetchOption{krt.FilterIndex(workloadServicesNamespaceIndex, wle.Namespace), krt.FilterSelectsNonEmpty(wle.GetLabels())}
 		if !features.EnableK8SServiceSelectWorkloadEntries {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
@@ -167,7 +163,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 			Services:              constructServicesFromWorkloadEntry(&wle.Spec, services),
 			AuthorizationPolicies: policies,
 			Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
-			Waypoint:              waypointAddress,
+			Waypoint:              waypoint.GetAddress(),
 			TrustDomain:           pickTrustDomain(meshCfg),
 			Locality:              getWorkloadEntryLocality(&wle.Spec),
 		}
@@ -265,7 +261,7 @@ func (a *index) podWorkloadBuilder(
 			ClusterId:             string(a.ClusterID),
 			Addresses:             podIPs,
 			ServiceAccount:        p.Spec.ServiceAccountName,
-			Waypoint:              a.getWaypointAddress(targetWaypoint),
+			Waypoint:              targetWaypoint.GetAddress(),
 			Node:                  p.Spec.NodeName,
 			ApplicationTunnel:     appTunnel,
 			Services:              constructServices(p, services),
@@ -427,7 +423,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 					Namespace: se.Namespace,
 					Labels:    wle.Labels,
 				}); waypoint != nil {
-					waypointAddress = a.getWaypointAddress(waypoint)
+					waypointAddress = waypoint.Address
 					// enforce traversing waypoints
 					policies = append(policies, implicitWaypointPolicies(ctx, waypoints, waypoint, services)...)
 				}
