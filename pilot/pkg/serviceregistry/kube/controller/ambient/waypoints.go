@@ -317,8 +317,16 @@ type WaypointSelector struct {
 }
 
 func (w WaypointSelector) Equals(other WaypointSelector) bool {
-	return w.FromNamespaces == other.FromNamespaces &&
-		w.Selector.String() == other.Selector.String()
+	if w.FromNamespaces != other.FromNamespaces {
+		return false
+	}
+	if (w.Selector) == nil != (other.Selector == nil) {
+		return false
+	}
+	if w.Selector == nil && other.Selector == nil {
+		return true
+	}
+	return w.Selector.String() == other.Selector.String()
 }
 
 func (w Waypoint) AllowsAttachmentFromNamespaceOrLookup(ctx krt.HandlerContext, Namespaces krt.Collection[*v1.Namespace], namespace string) bool {

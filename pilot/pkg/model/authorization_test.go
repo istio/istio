@@ -98,14 +98,14 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "no policies",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "foo",
+				WorkloadNamespace: "foo",
 			},
 			wantAllow: nil,
 		},
 		{
 			name: "no policies in namespace foo",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "foo",
+				WorkloadNamespace: "foo",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policy),
@@ -116,7 +116,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "no policies with a targetRef in namespace foo",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "foo",
+				WorkloadNamespace: "foo",
 				WorkloadLabels: labels.Instance{
 					constants.GatewayNameLabel: "my-gateway",
 				},
@@ -129,7 +129,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "one allow policy",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policy),
@@ -145,7 +145,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "one deny policy",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", denyPolicy),
@@ -161,7 +161,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "one audit policy",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", auditPolicy),
@@ -177,7 +177,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "one custom policy",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", customPolicy),
@@ -193,7 +193,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "two policies",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "foo", policy),
@@ -216,7 +216,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "mixing allow, deny, and audit policies",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policy),
@@ -254,7 +254,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "targetRef is an exact match",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 				WorkloadLabels: labels.Instance{
 					constants.GatewayNameLabel: "my-gateway",
 				},
@@ -273,7 +273,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "selector exact match",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 				WorkloadLabels: labels.Instance{
 					"app":     "httpbin",
 					"version": "v1",
@@ -293,7 +293,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "selector subset match",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 				WorkloadLabels: labels.Instance{
 					"app":     "httpbin",
 					"version": "v1",
@@ -314,7 +314,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "targetRef is not a match",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 				WorkloadLabels: labels.Instance{
 					constants.GatewayNameLabel: "my-gateway2",
 				},
@@ -327,7 +327,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "selector not match",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 				WorkloadLabels: labels.Instance{
 					"app":     "httpbin",
 					"version": "v2",
@@ -341,7 +341,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "namespace not match",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "foo",
+				WorkloadNamespace: "foo",
 				WorkloadLabels: labels.Instance{
 					"app":     "httpbin",
 					"version": "v1",
@@ -355,7 +355,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "root namespace",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "istio-config", policy),
@@ -371,7 +371,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "root namespace equals config namespace",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "istio-config",
+				WorkloadNamespace: "istio-config",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "istio-config", policy),
@@ -387,7 +387,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "root namespace and config namespace",
 			selectionOpts: WorkloadPolicyMatcher{
-				Namespace: "bar",
+				WorkloadNamespace: "bar",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "istio-config", policy),
@@ -409,10 +409,11 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "waypoint service attached",
 			selectionOpts: WorkloadPolicyMatcher{
-				IsWaypoint:      true,
-				Service:         "foo-svc",
-				ServiceRegistry: provider.Kubernetes,
-				Namespace:       "foo",
+				IsWaypoint:        true,
+				Service:           "foo-svc",
+				ServiceNamespace:  "foo",
+				ServiceRegistry:   provider.Kubernetes,
+				WorkloadNamespace: "foo",
 				WorkloadLabels: labels.Instance{
 					constants.GatewayNameLabel: "foo-waypoint",
 					// labels match in selector policy but ignore them for waypoint

@@ -297,7 +297,7 @@ spec:
 			}, retry.Timeout(2*time.Minute))
 
 			// Update use-waypoint for Captured service
-			SetWaypoint(t, Captured, "simple-http-waypoint", "")
+			SetWaypoint(t, Captured, "simple-http-waypoint")
 
 			// ensure HTTP traffic works with all hostname variants
 			for _, src := range apps.All {
@@ -332,15 +332,15 @@ spec:
 		})
 }
 
-func SetWaypoint(t framework.TestContext, svc string, waypoint string, waypointNamespace string) {
-	setWaypointInternal(t, svc, apps.Namespace.Name(), waypoint, waypointNamespace, true)
+func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
+	setWaypointInternal(t, svc, apps.Namespace.Name(), waypoint, true)
 }
 
-func SetWaypointServiceEntry(t framework.TestContext, se, namespace string, waypoint string, waypointNamespace string) {
-	setWaypointInternal(t, se, namespace, waypoint, waypointNamespace, false)
+func SetWaypointServiceEntry(t framework.TestContext, se, namespace string, waypoint string) {
+	setWaypointInternal(t, se, namespace, waypoint, false)
 }
 
-func setWaypointInternal(t framework.TestContext, name, ns string, waypoint string, waypointNamespace string, service bool) {
+func setWaypointInternal(t framework.TestContext, name, ns string, waypoint string, service bool) {
 	for _, c := range t.Clusters() {
 		setWaypoint := func(waypoint string) error {
 			if waypoint == "" {
@@ -350,12 +350,6 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 			}
 			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
 				constants.AmbientUseWaypointLabel, waypoint))
-			if waypointNamespace != "" {
-				label = []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s,%q:%q}}}`,
-					constants.AmbientUseWaypointLabel, waypoint,
-					constants.AmbientUseWaypointNamespaceLabel, waypointNamespace,
-				))
-			}
 			if service {
 				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
 				return err
@@ -428,7 +422,7 @@ func TestWaypointDNS(t *testing.T) {
 			})
 			t.NewSubTest("with waypoint").Run(func(t framework.TestContext) {
 				// Update use-waypoint for Captured service
-				SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint", "")
+				SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint")
 				runTest(t, check.And(check.OK(), IsL7()))
 			})
 		})

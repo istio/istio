@@ -66,45 +66,47 @@ func TestPolicyMatcher(t *testing.T) {
 		},
 	}
 	regularApp := WorkloadPolicyMatcher{
-		Namespace: "default",
+		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
 			"app": "my-app",
 		},
 		IsWaypoint: false,
 	}
 	sampleGateway := WorkloadPolicyMatcher{
-		Namespace: "default",
+		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
 			constants.GatewayNameLabel: "sample-gateway",
 		},
 		IsWaypoint: false,
 	}
 	sampleWaypoint := WorkloadPolicyMatcher{
-		Namespace: "default",
+		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
 			constants.GatewayNameLabel: "sample-waypoint",
 		},
 		IsWaypoint: true,
 	}
 	serviceTarget := WorkloadPolicyMatcher{
-		Namespace: "default",
+		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
 			"app":                      "my-app",
 			constants.GatewayNameLabel: "sample-waypoint",
 		},
-		IsWaypoint:      true,
-		Service:         "sample-svc",
-		ServiceRegistry: provider.Kubernetes,
+		IsWaypoint:       true,
+		Service:          "sample-svc",
+		ServiceNamespace: "default",
+		ServiceRegistry:  provider.Kubernetes,
 	}
 	serviceEntryTarget := WorkloadPolicyMatcher{
-		Namespace: "default",
+		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
 			"app":                      "my-app",
 			constants.GatewayNameLabel: "sample-waypoint",
 		},
-		IsWaypoint:      true,
-		Service:         "sample-svc-entry",
-		ServiceRegistry: provider.External,
+		IsWaypoint:       true,
+		ServiceNamespace: "default",
+		Service:          "sample-svc-entry",
+		ServiceRegistry:  provider.External,
 	}
 	tests := []struct {
 		name                   string

@@ -39,27 +39,27 @@ type TargetablePolicy interface {
 // TargetRef selection uses either the workload's namespace + the gateway name based on labels,
 // or the Services the workload is a part of.
 type WorkloadPolicyMatcher struct {
-	Namespace        string
-	WorkloadLabels   labels.Instance
-	IsWaypoint       bool
-	Service          string
-	ServiceNamespace string
-	ServiceRegistry  provider.ID
+	WorkloadNamespace string
+	WorkloadLabels    labels.Instance
+	IsWaypoint        bool
+	Service           string
+	ServiceNamespace  string
+	ServiceRegistry   provider.ID
 }
 
 func PolicyMatcherFor(workloadNamespace string, labels labels.Instance, isWaypoint bool) WorkloadPolicyMatcher {
 	return WorkloadPolicyMatcher{
-		Namespace:      workloadNamespace,
-		WorkloadLabels: labels,
-		IsWaypoint:     isWaypoint,
+		WorkloadNamespace: workloadNamespace,
+		WorkloadLabels:    labels,
+		IsWaypoint:        isWaypoint,
 	}
 }
 
 func PolicyMatcherForProxy(proxy *Proxy) WorkloadPolicyMatcher {
 	return WorkloadPolicyMatcher{
-		Namespace:      proxy.ConfigNamespace,
-		WorkloadLabels: proxy.Labels,
-		IsWaypoint:     proxy.IsWaypointProxy(),
+		WorkloadNamespace: proxy.ConfigNamespace,
+		WorkloadLabels:    proxy.Labels,
+		IsWaypoint:        proxy.IsWaypointProxy(),
 	}
 }
 
@@ -113,7 +113,8 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 		// gateways require the feature flag for selector-based policy
 		// waypoints never use selector
 		if p.IsWaypoint || !features.EnableSelectorBasedK8sGatewayPolicy {
-			log.Debugf("Ignoring workload-scoped %s/%s %s for gateway %s.%s because it has no targetRef", kind.Group, kind.Kind, policyName, gatewayName, p.Namespace)
+			log.Debugf("Ignoring workload-scoped %s/%s %s for gateway %s.%s because it has no targetRef",
+				kind.Group, kind.Kind, policyName, gatewayName, p.WorkloadNamespace)
 			return false
 		}
 		return p.isSelected(policy)
@@ -141,7 +142,7 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 		}
 
 		// Namespace does not match
-		if !(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.Namespace) {
+		if !(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.WorkloadNamespace) {
 			continue
 		}
 

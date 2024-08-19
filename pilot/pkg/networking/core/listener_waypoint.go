@@ -33,7 +33,6 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -486,7 +485,7 @@ func getVirtualServiceForWaypoint(configNamespace string, svc *model.Service, co
 			// We only allow routes in the same namespace as the service or in the waypoint's own namespace
 			continue
 		}
-		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
+		virtualService := cfg.Spec.(*networking.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
 			if host.Name(vsHost).Matches(svc.Hostname) {
 				return &cfg
