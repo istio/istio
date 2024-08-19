@@ -1490,6 +1490,29 @@ spec:
 				Check:  check.And(check.OK(), check.Protocol("HTTP/2.0")),
 			},
 		},
+		{
+			name: "port level TLS",
+			config: `
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: "{{.Host}}"
+spec:
+  host: "{{.Host}}"
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 443
+      tls:
+        mode: SIMPLE
+        insecureSkipVerify: true
+`,
+			call: echo.CallOptions{
+				// Send to HTTPS port but over HTTP
+				Port:   dst.PortForName("https"),
+				Scheme: scheme.HTTP,
+			},
+		},
 	}
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		for _, tt := range cases {
