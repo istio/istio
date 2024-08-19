@@ -107,7 +107,7 @@ var (
 		"If true, pilot will add Istio ALPN filters, required for proper protocol sniffing.",
 	).Get()
 
-	MxFilter = env.Register("PILOT_DISABLE_MX_FILTER_ON_MESH_EXTERNAl_SERVICE", true,
+	DisableMxFilter = env.Register("PILOT_DISABLE_MX_FILTER_ON_MESH_EXTERNAl_SERVICE", true,
 		"If true, pilot will not add metadata exchange cluster filter for mesh external service.",
 	).Get()
 
