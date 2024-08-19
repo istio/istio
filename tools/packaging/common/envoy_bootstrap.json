@@ -96,6 +96,10 @@
       },
       {{- end }}
       {
+        "tag_name": "thread_name",
+        "regex": "^server(\\.(.+))\\.watchdog"
+      },
+      {
         "tag_name": "tcp_prefix",
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
       },
