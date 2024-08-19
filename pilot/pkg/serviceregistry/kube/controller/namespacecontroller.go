@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/ali/config/ownerreference"
 	alifeatures "istio.io/istio/pkg/ali/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -94,27 +93,16 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		controllers.WithMaxAttempts(maxRetries))
 
 	// updated by ingress
-	if alifeatures.WatchResourcesByNamespaceForPrimaryCluster != "" {
-		c.configmaps = kclient.NewFiltered[*v1.ConfigMap](kubeClient, kclient.Filter{
-			FieldSelector: "metadata.name=" + dynamicCACertNamespaceConfigMap,
-			ObjectFilter:  c.GetFilter(),
-		})
-	} else {
-		c.configmaps = kclient.NewFiltered[*v1.ConfigMap](kubeClient, kclient.Filter{
-			FieldSelector: "metadata.name=" + CACertNamespaceConfigMap,
-			ObjectFilter:  c.GetFilter(),
-		})
-	}
+	c.configmaps = kclient.NewFiltered[*v1.ConfigMap](kubeClient, kclient.Filter{
+		FieldSelector: "metadata.name=" + dynamicCACertNamespaceConfigMap,
+		ObjectFilter:  c.GetFilter(),
+	})
 
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
 	c.configmaps.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		// Add by ingress
 		if o.GetNamespace() != podNs {
-			return false
-		}
-		if o.GetName() != dynamicCACertNamespaceConfigMap {
-			// This is a change to a configmap we don't watch, ignore it
 			return false
 		}
 		// End add by ingress
@@ -199,10 +187,9 @@ func (nc *NamespaceController) reconcileCACert(o types.NamespacedName) error {
 	}
 
 	meta := metav1.ObjectMeta{
-		Name:            dynamicCACertNamespaceConfigMap,
-		Namespace:       ns,
-		Labels:          configMapLabel,
-		OwnerReferences: []metav1.OwnerReference{ownerreference.GenOwnerReference()},
+		Name:      dynamicCACertNamespaceConfigMap,
+		Namespace: ns,
+		Labels:    configMapLabel,
 	}
 	return k8s.InsertDataToConfigMap(nc.configmaps, meta, nc.caBundleWatcher.GetCABundle())
 }
