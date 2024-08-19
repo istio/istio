@@ -205,7 +205,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 
 	maybeApplyEdsConfig(subsetCluster.cluster)
 
-	if !service.MeshExternal {
+	if !features.DisableMxFilter || !service.MeshExternal {
 		cb.applyMetadataExchange(opts.mutable.cluster)
 	}
 
@@ -254,7 +254,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	// discovery type.
 	maybeApplyEdsConfig(mc.cluster)
 
-	if !service.MeshExternal {
+	if !features.DisableMxFilter || !service.MeshExternal {
 		cb.applyMetadataExchange(opts.mutable.cluster)
 	}
 

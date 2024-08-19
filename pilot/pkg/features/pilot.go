@@ -107,6 +107,10 @@ var (
 		"If true, pilot will add Istio ALPN filters, required for proper protocol sniffing.",
 	).Get()
 
+	MxFilter = env.Register("PILOT_DISABLE_MX_FILTER_ON_MESH_EXTERNAl_SERVICE", true,
+		"If true, pilot will not add metadata exchange cluster filter for mesh external service.",
+	).Get()
+
 	WorkloadEntryAutoRegistration = env.Register("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", true,
 		"Enables auto-registering WorkloadEntries based on associated WorkloadGroups upon XDS connection by the workload.").Get()
 
