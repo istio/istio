@@ -33,6 +33,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -50,7 +51,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/wellknown"
@@ -453,19 +453,15 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	if svc == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
-	vss := getConfigsForHost(lb.node.ConfigNamespace, svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
-	if len(vss) == 0 {
+	vs := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+	if vs == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
-	if len(vss) > 1 {
-		log.Warnf("multiple virtual services for one service: %v", svc.Hostname)
-	}
-	vs := vss[0]
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
 	// hostname purely to match to the Service VIP. So we only need a single VHost, with routes compute based on the VS.
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
-	routes, err := lb.waypointInboundRoute(vs, cc.port.Port)
+	routes, err := lb.waypointInboundRoute(*vs, cc.port.Port)
 	if err != nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
@@ -481,6 +477,23 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
+}
+
+// Select the config pertaining to the service being processed.
+func getVirtualServiceForWaypoint(configNamespace string, svc *model.Service, configs []config.Config) *config.Config {
+	for _, cfg := range configs {
+		if cfg.Namespace != configNamespace && cfg.Namespace != svc.Attributes.Namespace {
+			// We only allow routes in the same namespace as the service or in the waypoint's own namespace
+			continue
+		}
+		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
+		for _, vsHost := range virtualService.Hosts {
+			if host.Name(vsHost).Matches(svc.Hostname) {
+				return &cfg
+			}
+		}
+	}
+	return nil
 }
 
 func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, listenPort int) ([]*route.Route, error) {

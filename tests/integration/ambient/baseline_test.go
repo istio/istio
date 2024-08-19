@@ -427,7 +427,7 @@ func TestRemoveAddWaypoint(t *testing.T) {
 			}
 		})
 
-		SetWaypoint(t, Captured, "captured-waypoint")
+		SetWaypoint(t, Captured, "captured-waypoint", "")
 
 		// Now should always be L7
 		t.NewSubTest("after").Run(func(t framework.TestContext) {
@@ -477,10 +477,10 @@ func TestBogusUseWaypoint(t *testing.T) {
 		}
 		t.NewSubTest("before").Run(check)
 
-		SetWaypoint(t, Captured, "bogus-waypoint")
+		SetWaypoint(t, Captured, "bogus-waypoint", "")
 		t.NewSubTest("with waypoint").Run(check)
 
-		SetWaypoint(t, Captured, "")
+		SetWaypoint(t, Captured, "", "")
 		t.NewSubTest("waypoint removed").Run(check)
 	})
 }
@@ -3072,7 +3072,7 @@ spec:
     - source:
         principals: ["cluster.local/ns/{{.}}/sa/waypoint"]`).
 				ApplyOrFail(t)
-			SetWaypoint(t, Sidecar, "waypoint")
+			SetWaypoint(t, Sidecar, "waypoint", "")
 			client := apps.Captured
 			client[0].CallOrFail(t, echo.CallOptions{
 				To:   apps.Sidecar,

@@ -259,6 +259,7 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 				Labels:                 lbls,
 				ExportTo:               exportTo,
 				LabelSelectors:         labelSelectors,
+				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name},
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
 		}

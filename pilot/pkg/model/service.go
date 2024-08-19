@@ -741,6 +741,9 @@ type K8sAttributes struct {
 	// NodeLocal means the proxy will only forward traffic to node local endpoints
 	// spec.InternalTrafficPolicy == Local
 	NodeLocal bool
+
+	// ObjectName is the object name of the underlying object. This may differ from the Service.Attributes.Name for legacy semantics.
+	ObjectName string
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.

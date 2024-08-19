@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/ptr"
 )
 
 // this can be any type from istio/api that uses these types of selectors
@@ -38,11 +39,12 @@ type TargetablePolicy interface {
 // TargetRef selection uses either the workload's namespace + the gateway name based on labels,
 // or the Services the workload is a part of.
 type WorkloadPolicyMatcher struct {
-	Namespace       string
-	WorkloadLabels  labels.Instance
-	IsWaypoint      bool
-	Service         string
-	ServiceRegistry provider.ID
+	Namespace        string
+	WorkloadLabels   labels.Instance
+	IsWaypoint       bool
+	Service          string
+	ServiceNamespace string
+	ServiceRegistry  provider.ID
 }
 
 func PolicyMatcherFor(workloadNamespace string, labels labels.Instance, isWaypoint bool) WorkloadPolicyMatcher {
@@ -65,11 +67,9 @@ func (p WorkloadPolicyMatcher) WithService(service *Service) WorkloadPolicyMatch
 	if service == nil {
 		return p
 	}
-	if service.Attributes.Namespace != p.Namespace {
-		log.Debugf("matching policy for service in namespace %s for workload in %s", service.Attributes.Namespace, p.Namespace)
-	}
 
-	p.Service = service.Attributes.Name
+	p.Service = ptr.NonEmptyOrDefault(service.Attributes.ObjectName, service.Attributes.Name)
+	p.ServiceNamespace = service.Attributes.Namespace
 	p.ServiceRegistry = service.Attributes.ServiceRegistry
 	return p
 }
@@ -121,20 +121,12 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 
 	for _, targetRef := range targetRefs {
 		target := targetRef.GetName()
-		// Namespace does not match
-		if !(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.Namespace) {
-			continue
-		}
-
-		// Gateway attached
-		if matchesGroupKind(targetRef, gvk.KubernetesGateway) && target == gatewayName {
-			return true
-		}
 
 		// Service attached
 		if p.IsWaypoint &&
 			matchesGroupKind(targetRef, gvk.Service) &&
 			target == p.Service &&
+			policyName.Namespace == p.ServiceNamespace &&
 			p.ServiceRegistry == provider.Kubernetes {
 			return true
 		}
@@ -143,7 +135,18 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 		if p.IsWaypoint &&
 			matchesGroupKind(targetRef, gvk.ServiceEntry) &&
 			target == p.Service &&
+			policyName.Namespace == p.ServiceNamespace &&
 			p.ServiceRegistry == provider.External {
+			return true
+		}
+
+		// Namespace does not match
+		if !(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.Namespace) {
+			continue
+		}
+
+		// Gateway attached
+		if matchesGroupKind(targetRef, gvk.KubernetesGateway) && target == gatewayName {
 			return true
 		}
 	}

@@ -76,19 +76,8 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 	if policy == nil {
 		return configs
 	}
-	rootNamespace := policy.RootNamespace
-	namespace := selectionOpts.Namespace
-	var lookupInNamespaces []string
 
-	if namespace != rootNamespace {
-		// Only check the root namespace if the (workload) namespace is not already the root namespace
-		// to avoid double inclusion.
-		lookupInNamespaces = []string{rootNamespace, namespace}
-	} else {
-		lookupInNamespaces = []string{namespace}
-	}
-
-	for _, ns := range lookupInNamespaces {
+	lookup := func(ns string) {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 
@@ -96,6 +85,19 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 				configs = updateAuthorizationPoliciesResult(configs, config)
 			}
 		}
+	}
+
+	rootNamespace := policy.RootNamespace
+	namespace := selectionOpts.Namespace
+	svcNs := selectionOpts.ServiceNamespace
+	if namespace != rootNamespace {
+		// Only check the root namespace if the (workload) namespace is not already the root namespace
+		// to avoid double inclusion.
+		lookup(rootNamespace)
+	}
+	lookup(namespace)
+	if svcNs != "" && svcNs != namespace && svcNs != rootNamespace {
+		lookup(svcNs)
 	}
 
 	return configs
