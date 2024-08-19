@@ -52,6 +52,10 @@
         "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));)"
       },
       {
+        "tag_name": "thread_name",
+        "regex": "^server(\\.(.+))\\.watchdog"
+      },
+      {
         "tag_name": "tcp_prefix",
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
       },
