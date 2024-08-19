@@ -155,6 +155,8 @@ type CallOptions struct {
 	// ForceIPFamily will force a specific IP family to be used for DNS resolution only.
 	// Valid values: "tcp4", "tcp6".
 	ForceIPFamily string
+	// If DualStack is true, an IPv4 and IPv6 request will be sent if the source workload supports dual stack.
+	DualStack bool
 
 	// ForceDNSLookup if true, the forwarder will force a DNS lookup for each individual request. This is
 	// useful for any situation where DNS is used for load balancing (e.g. headless). This is ignored if
