@@ -22,8 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/ali/config/ownerreference"
-
 	"go.uber.org/atomic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -160,7 +158,7 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 		key = remoteIstiodPrefix + key
 	}
 	var lock k8sresourcelock.Interface = &k8sresourcelock.ConfigMapLock{
-		ConfigMapMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID, OwnerReferences: []metav1.OwnerReference{ownerreference.GenOwnerReference()}},
+		ConfigMapMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
 		Client:        l.client.CoreV1(),
 		LockConfig: k8sresourcelock.ResourceLockConfig{
 			Identity: l.name,
