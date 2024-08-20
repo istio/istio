@@ -38,7 +38,7 @@ metadata:
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: {{ .Release.Name }}
-    app.kubernetes.io/name: "sidecar-injector"
+    app.kubernetes.io/name: "istiod"
     {{- include "istio.labels" . | nindent 4 }}
 webhooks:
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.namespace.") ) }}
