@@ -113,3 +113,35 @@ func TestString(t *testing.T) {
 		})
 	}
 }
+
+func TestToEnvoySocketProtocol(t *testing.T) {
+	tests := []struct {
+		name  string
+		value uint
+		want  core.SocketAddress_Protocol
+	}{
+		{
+			"test ToEnvoySocketProtocol method for tcp transport protocol",
+			TransportProtocolTCP,
+			core.SocketAddress_TCP,
+		},
+		{
+			"test ToEnvoySocketProtocol method for udp transport protocol",
+			TransportProtocolQUIC,
+			core.SocketAddress_UDP,
+		},
+		{
+			"test ToEnvoySocketProtocol method for invalid transport protocol",
+			2,
+			core.SocketAddress_TCP,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := TransportProtocol(tt.value).ToEnvoySocketProtocol(); got != tt.want {
+				t.Errorf("Failed to get TransportProtocol.String :: got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
