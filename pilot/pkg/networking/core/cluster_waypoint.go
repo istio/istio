@@ -246,7 +246,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 			}
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
 			dr := CastDestinationRule(cfg)
-			policy := dr.GetTrafficPolicy()
+			policy, _ := util.GetPortLevelTrafficPolicy(dr.GetTrafficPolicy(), port)
 			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, policy, cfg))
 			}
