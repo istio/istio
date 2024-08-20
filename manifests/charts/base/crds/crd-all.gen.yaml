@@ -13329,8 +13329,6 @@ spec:
                     type: integer
                 type: object
                 x-kubernetes-validations:
-                - message: Address is required
-                  rule: has(self.address) || has(self.network)
                 - message: UDS may not include ports
                   rule: '(has(self.address) && self.address.startsWith(''unix://''))
                     ? !has(self.ports) : true'
@@ -13595,8 +13593,6 @@ spec:
                     type: integer
                 type: object
                 x-kubernetes-validations:
-                - message: Address is required
-                  rule: has(self.address) || has(self.network)
                 - message: UDS may not include ports
                   rule: '(has(self.address) && self.address.startsWith(''unix://''))
                     ? !has(self.ports) : true'
@@ -13861,8 +13857,6 @@ spec:
                     type: integer
                 type: object
                 x-kubernetes-validations:
-                - message: Address is required
-                  rule: has(self.address) || has(self.network)
                 - message: UDS may not include ports
                   rule: '(has(self.address) && self.address.startsWith(''unix://''))
                     ? !has(self.ports) : true'
