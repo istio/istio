@@ -337,19 +337,17 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 	p.registerStream(con)
 	defer p.unregisterStream(con)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	upstreamConn, err := p.buildUpstreamConn(ctx)
+	upstreamConn, err := p.buildUpstreamConn()
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		metrics.IstiodConnectionFailures.Increment()
 		return err
 	}
+
 	defer upstreamConn.Close()
 
 	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
-	ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
+	ctx := metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
 	for k, v := range p.xdsHeaders {
 		ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 	}
@@ -357,11 +355,11 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 	return p.handleUpstream(ctx, con, xds)
 }
 
-func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, error) {
+func (p *XdsProxy) buildUpstreamConn() (*grpc.ClientConn, error) {
 	p.optsMutex.RLock()
 	opts := p.dialOptions
 	p.optsMutex.RUnlock()
-	return grpc.DialContext(ctx, p.istiodAddress, opts...)
+	return grpc.NewClient(p.istiodAddress, opts...)
 }
 
 func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {

@@ -63,19 +63,17 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream DeltaDiscoveryStream) err
 	p.registerStream(con)
 	defer p.unregisterStream(con)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	upstreamConn, err := p.buildUpstreamConn(ctx)
+	upstreamConn, err := p.buildUpstreamConn()
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		metrics.IstiodConnectionFailures.Increment()
 		return err
 	}
+
 	defer upstreamConn.Close()
 
 	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
-	ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
+	ctx := metadata.AppendToOutgoingContext(context.Background(), "ClusterID", p.clusterID)
 	for k, v := range p.xdsHeaders {
 		ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 	}
