@@ -330,12 +330,12 @@ func (c *instance) aggregateResponses(opts echo.CallOptions) (echo.CallResult, e
 	}
 	aggErr := istiomultierror.New()
 	for _, w := range workloads {
+		w := w.(*workload)
 		for _, ipf := range ipFamilies(w, opts) {
-			clusterName := w.(*workload).cluster.Name()
-			serviceName := fmt.Sprintf("%s (cluster=%s)", c.cfg.Service, clusterName)
+			serviceName := fmt.Sprintf("%s (cluster=%s)", c.cfg.Service, w.cluster.Name())
 			opts = opts.DeepCopy()
 			opts.ForceIPFamily = ipf
-			out, err := common.ForwardEcho(serviceName, c, opts, w.(*workload).Client)
+			out, err := common.ForwardEcho(serviceName, c, opts, w.Client)
 			if err != nil {
 				aggErr = multierror.Append(aggErr, err)
 				continue
