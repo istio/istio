@@ -68,7 +68,7 @@ func NewCLIContext(rootFlags *RootFlags) Context {
 			configContext:    ptr.Of[string](""),
 			impersonate:      ptr.Of[string](""),
 			impersonateUID:   ptr.Of[string](""),
-			impersonateGroup: ptr.Of[[]string]([]string{}),
+			impersonateGroup: nil,
 			namespace:        ptr.Of[string](""),
 			istioNamespace:   ptr.Of[string](""),
 			defaultNamespace: "",
@@ -84,10 +84,11 @@ func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 		i.clients = make(map[string]kube.CLIClient)
 	}
 	if i.clients[rev] == nil {
-		impersonateConfig := rest.ImpersonationConfig{
-			UserName: *i.impersonate,
-			UID:      *i.impersonateUID,
-			Groups:   *i.impersonateGroup,
+		impersonateConfig := rest.ImpersonationConfig{}
+		if len(*i.impersonate) > 0 {
+			impersonateConfig.UserName = *i.impersonate
+			impersonateConfig.UID = *i.impersonateUID
+			impersonateConfig.Groups = *i.impersonateGroup
 		}
 		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev, impersonateConfig)
 		if err != nil {
@@ -216,7 +217,7 @@ func NewFakeContext(opts *NewFakeContextOption) Context {
 			istioNamespace:   &ins,
 			impersonate:      ptr.Of[string](""),
 			impersonateUID:   ptr.Of[string](""),
-			impersonateGroup: ptr.Of[[]string]([]string{}),
+			impersonateGroup: nil,
 			defaultNamespace: "",
 		},
 		results: opts.Results,
