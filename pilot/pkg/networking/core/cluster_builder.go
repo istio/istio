@@ -307,6 +307,12 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		} else if networkutil.AllIPv6(cb.proxyIPAddresses) {
 			// IPv6 only
 			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
+			// If we are in this mode, Istio sees ourselves as only have IPv6 addresses, but there is actually a link-local
+			// interface that serves the IPv4. Allow both families.
+			// This ensures we do not break DNS resolution to destinations that are IPv4 only.
+			if features.EnableAdditionalIpv4OutboundListenerForIpv6Only {
+				c.DnsLookupFamily = cluster.Cluster_ALL
+			}
 		} else {
 			// Dual Stack
 			if features.EnableDualStack {
