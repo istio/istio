@@ -423,7 +423,7 @@ message GlobalConfig {
   google.protobuf.Struct defaultNodeSelector = 6 [deprecated = true];
 
   // Specifies the default pod disruption budget configuration.
-  DefaultPodDisruptionBudgetConfig defaultPodDisruptionBudget = 7 [deprecated = true];
+  DefaultPodDisruptionBudgetConfig defaultPodDisruptionBudget = 7;
 
   // Default k8s resources settings for all Istio control plane components.
   //
