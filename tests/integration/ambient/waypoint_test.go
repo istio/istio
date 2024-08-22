@@ -431,6 +431,11 @@ func TestWaypointDNS(t *testing.T) {
 func TestWaypointAsEgressGateway(t *testing.T) {
 	runTest := func(t framework.TestContext, name string, config string, opts ...echo.CallOptions) {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
+			// TMP
+			_, _ = namespace.Claim(t, namespace.Config{
+				Prefix: "egress",
+				Inject: false,
+			})
 			if config != "" {
 				t.ConfigIstio().YAML(apps.Namespace.Name(), config).ApplyOrFail(t)
 			}

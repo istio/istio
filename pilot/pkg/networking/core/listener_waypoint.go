@@ -199,8 +199,9 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				continue
 			}
 			portString := strconv.Itoa(port.Port)
+			tcpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port)
 			cc := inboundChainConfig{
-				clusterName:   model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
+				clusterName:   tcpClusterName,
 				policyService: svc,
 				port: model.ServiceInstancePort{
 					ServicePort: port,
@@ -209,24 +210,22 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				bind:  "0.0.0.0",
 				hbone: true,
 			}
-			name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "", svc.Hostname, port.Port)
-			tcpName := name + "-tcp"
 			tcpChain := &listener.FilterChain{
 				Filters: lb.buildInboundNetworkFilters(cc),
-				Name:    tcpName,
+				Name:    cc.clusterName,
 			}
-			cc.clusterName = model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
-			httpName := name + "-http"
+			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
+			cc.clusterName = httpClusterName
 			httpChain := &listener.FilterChain{
 				Filters: lb.buildWaypointInboundHTTPFilters(svc, cc),
-				Name:    httpName,
+				Name:    cc.clusterName,
 			}
 			if port.Protocol.IsUnsupported() {
 				// If we need to sniff, insert two chains and the protocol detector
 				chains = append(chains, tcpChain, httpChain)
 				portMapper.Map[portString] = match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
-					TCP:  match.ToChain(tcpName),
-					HTTP: match.ToChain(httpName),
+					TCP:  match.ToChain(tcpClusterName),
+					HTTP: match.ToChain(httpClusterName),
 				}))
 			} else if port.Protocol.IsHTTP() {
 				// Otherwise, just insert HTTP/TCP
