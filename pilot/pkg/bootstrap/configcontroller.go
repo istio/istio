@@ -253,7 +253,8 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
 			}
-			store := memory.Make(collections.Pilot)
+			// Changed by ingress
+			store := memory.MakeSkipValidation(collections.Pilot)
 			// TODO: enable namespace filter for memory controller
 			configController := memory.NewController(store)
 			configController.RegisterHasSyncedHandler(xdsMCP.HasSynced)
