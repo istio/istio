@@ -45,6 +45,7 @@ func (*ConflictingGatewayAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks a gateway's selector, port number and hosts",
 		Inputs: []config.GroupVersionKind{
 			gvk.Gateway,
+			gvk.Pod,
 		},
 	}
 }
@@ -69,12 +70,33 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 
 	// Check non-exist gateway with particular selector
 	isExists := false
+	hitSameGateways := gatewaysContextMap{}
 	for gwmKey := range gwCMap {
-		if strings.Contains(gwmKey, sGWSelector) {
+		matched := false
+		xSelectorStr, _ := parseFromGatewayMapKey(gwmKey)
+
+		if sGWSelector == xSelectorStr {
+			matched = true
+		} else if strings.Contains(xSelectorStr, sGWSelector) || strings.Contains(sGWSelector, xSelectorStr) {
+			xSelector := parseSelectorFromString(xSelectorStr)
+			c.ForEach(gvk.Pod, func(rPod *resource.Instance) bool {
+				// need match the same pod
+				podLabels := klabels.Set(rPod.Metadata.Labels)
+				if gwSelector.Matches(podLabels) && xSelector.Matches(podLabels) {
+					matched = true
+					return false
+				}
+				return true
+			})
+		}
+
+		if matched {
 			isExists = true
-			break
+			// record match same selector
+			hitSameGateways[gwmKey] = gwCMap[gwmKey]
 		}
 	}
+
 	if sGWSelector != "" && !isExists {
 		m := msg.NewReferencedResourceNotFound(r, "selector", sGWSelector)
 		label := util.ExtractLabelFromSelectorString(sGWSelector)
@@ -89,14 +111,16 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		var gateways []string
 		conflictingGWMatch := 0
 		sPortNumber := strconv.Itoa(int(server.GetPort().GetNumber()))
-		mapKey := genGatewayMapKey(sGWSelector, sPortNumber)
-		for gwNameKey, gwHostsBind := range gwCMap[mapKey] {
-			// both selector and portnumber are the same, then check hosts and bind
-			if gwName != gwNameKey && isGWConflict(server, gwHostsBind) {
-				conflictingGWMatch++
-				gateways = append(gateways, gwNameKey)
+		for _, values := range hitSameGateways {
+			for gwNameKey, gwHostsBind := range values {
+				// both selector and port number are the same, then check hosts and bind
+				if gwName != gwNameKey && isGWConflict(server, gwHostsBind) {
+					conflictingGWMatch++
+					gateways = append(gateways, gwNameKey)
+				}
 			}
 		}
+
 		if conflictingGWMatch > 0 {
 			sort.Strings(gateways)
 			reportMsg := strings.Join(gateways, ",")
@@ -146,10 +170,31 @@ func initGatewaysMap(ctx analysis.Context) gatewaysContextMap {
 		}
 		return true
 	})
+
 	return gwConflictingMap
 }
 
 func genGatewayMapKey(selector, portNumber string) string {
 	key := selector + "~" + portNumber
 	return key
+}
+
+func parseFromGatewayMapKey(key string) (selector string, port string) {
+	parts := strings.Split(key, "~")
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return parts[0], parts[1]
+}
+
+func parseSelectorFromString(selectorString string) klabels.Selector {
+	selector := make(map[string]string)
+	selectorParts := strings.Split(selectorString, ",")
+	for _, pair := range selectorParts {
+		keyValue := strings.Split(pair, "=")
+		if len(keyValue) == 2 {
+			selector[keyValue[0]] = keyValue[1]
+		}
+	}
+	return klabels.SelectorFromSet(selector)
 }

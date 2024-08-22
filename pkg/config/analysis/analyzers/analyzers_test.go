@@ -251,6 +251,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "conflicting gateways detect by sub selector",
+		inputFiles: []string{"testdata/conflicting-gateways-subSelector.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected: []message{
+			{msg.ConflictingGateways, "Gateway alpha"},
+			{msg.ConflictingGateways, "Gateway beta"},
+		},
+	},
+	{
 		name:       "conflicting gateways detect: no port",
 		inputFiles: []string{"testdata/conflicting-gateways-invalid-port.yaml"},
 		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
