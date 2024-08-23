@@ -44,7 +44,7 @@
       },
       {
         "tag_name": "http_conn_manager_prefix",
-        "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));)"
+        "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));\\.)"
       },
       {
         "tag_name": "thread_name",
@@ -348,7 +348,7 @@
     "listeners":[
       {
         "name": "0.0.0.0_15090",
-         
+        
         "address": {
           "socket_address": {
             "protocol": "TCP",
