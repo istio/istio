@@ -193,7 +193,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 	for {
 		req, err := con.deltaStream.Recv()
 		if err != nil {
-			if istiogrpc.IsExpectedGRPCError(err) {
+			if istiogrpc.GRPCErrorType(err) != istiogrpc.UnexpectedError {
 				deltaLog.Infof("ADS: %q %s terminated", con.Peer(), con.ID())
 				return
 			}

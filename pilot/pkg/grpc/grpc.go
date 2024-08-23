@@ -102,28 +102,40 @@ func containsExpectedMessage(msg string) bool {
 	return false
 }
 
-// IsExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
-// things are operating normally. This is basically capturing when the client disconnects.
-func IsExpectedGRPCError(err error) bool {
+type ErrorType string
+
+const (
+	// This indicates all the errors except the expected errors or graceful termination.
+	UnexpectedError ErrorType = "unexpectedError"
+	// This indicates an expected error when things are operating normally.
+	ExpectedError ErrorType = "expectedError"
+	// This indicates an error which happen when the connection is gracefully terminated.
+	// For example, the peer calls `SendClose()`.
+	GracefulTermination ErrorType = "gracefulTermination"
+)
+
+// GRPCErrorType checks a gRPC error code and determines its ErrorType.
+// This is basically capturing when the peer disconnects.
+func GRPCErrorType(err error) ErrorType {
 	if err == io.EOF {
-		return true
+		return GracefulTermination
 	}
 
 	if s, ok := status.FromError(err); ok {
 		if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
-			return true
+			return ExpectedError
 		}
 		if s.Code() == codes.Unavailable && containsExpectedMessage(s.Message()) {
-			return true
+			return ExpectedError
 		}
 	}
 	// If this is not a gRPCStatus we should just error message.
 	if strings.Contains(err.Error(), "stream terminated by RST_STREAM with error code: NO_ERROR") {
-		return true
+		return ExpectedError
 	}
 	if strings.Contains(err.Error(), "received prior goaway: code: NO_ERROR") {
-		return true
+		return ExpectedError
 	}
 
-	return false
+	return ExpectedError
 }
