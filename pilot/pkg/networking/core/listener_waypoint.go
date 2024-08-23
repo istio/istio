@@ -701,10 +701,8 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 // GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
-	dir, subset, port := model.TrafficDirectionInboundVIP, "http", listenerPort
-	if destination.Subset != "" {
-		subset += "/" + destination.Subset
-	}
+	dir, port := model.TrafficDirectionInboundVIP, listenerPort
+
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
 	} else if service != nil && len(service.Ports) == 1 {
@@ -717,6 +715,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
+	subset := portToSubset(service, port, destination)
 	if service != nil {
 		_, wps := findWaypointResources(lb.node, lb.push)
 		_, f := wps.services[service.Hostname]
@@ -732,6 +731,27 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 		host.Name(destination.Host),
 		port,
 	)
+}
+
+// portToSubset helps translate a port to the waypoint subset to use
+func portToSubset(service *model.Service, port int, destination *networking.Destination) string {
+	p, ok := service.Ports.GetByPort(port)
+	if !ok {
+		// Port is unknown.
+		if destination.Subset != "" {
+			return "http/" + destination.Subset
+		}
+		return "http"
+	}
+	// Ambient will have the subset as <protocol>[/subset]. Pick that based on the service information
+	subset := "tcp"
+	if p.Protocol.IsHTTP() || p.Protocol.IsUnsupported() {
+		subset = "http"
+	}
+	if destination.Subset != "" {
+		subset += "/" + destination.Subset
+	}
+	return subset
 }
 
 // NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used with this function.
