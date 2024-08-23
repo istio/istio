@@ -48,11 +48,7 @@ func newDistribution(o options) *distribution {
 
 func (f *distribution) Record(value float64) {
 	f.runRecordHook(value)
-	if f.precomputedRecordOption != nil {
-		f.d.Record(context.Background(), value, f.precomputedRecordOption...)
-	} else {
-		f.d.Record(context.Background(), value)
-	}
+	f.d.Record(context.Background(), value, f.precomputedRecordOption...)
 }
 
 func (f *distribution) With(labelValues ...LabelValue) Metric {

@@ -48,11 +48,7 @@ func newGauge(o options) *gauge {
 
 func (f *gauge) Record(value float64) {
 	f.runRecordHook(value)
-	if f.precomputedRecordOption != nil {
-		f.g.Record(context.Background(), value, f.precomputedRecordOption...)
-	} else {
-		f.g.Record(context.Background(), value)
-	}
+	f.g.Record(context.Background(), value, f.precomputedRecordOption...)
 }
 
 func (f *gauge) With(labelValues ...LabelValue) Metric {
