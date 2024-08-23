@@ -28,14 +28,22 @@ rules:
     resources: ["*"]
 {{- if .Values.global.istiod.enableAnalysis }}
   - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io", "telemetry.istio.io", "extensions.istio.io"]
-    verbs: ["update"]
-    # TODO: should be on just */status but wildcard is not supported
-    resources: ["*"]
-
-  # Needed because status reporter sets the config map owner reference to the istiod pod
-  - apiGroups: [""]
-    verbs: ["update"]
-    resources: ["pods/finalizers"]
+    verbs: ["update", "patch"]
+    resources:
+    - authorizationpolicies/status
+    - destinationrules/status
+    - envoyfilters/status
+    - gateways/status
+    - peerauthentications/status
+    - proxyconfigs/status
+    - requestauthentications/status
+    - serviceentries/status
+    - sidecars/status
+    - telemetries/status
+    - virtualservices/status
+    - wasmplugins/status
+    - workloadentries/status
+    - workloadgroups/status
 {{- end }}
   - apiGroups: ["networking.istio.io"]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
@@ -118,11 +126,20 @@ rules:
     verbs: ["create"]
 
   # Use for Kubernetes Service APIs
-  - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
+  - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["*"]
     verbs: ["get", "watch", "list"]
-  - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
-    resources: ["*"] # TODO: should be on just */status but wildcard is not supported
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources:
+    - backendtlspolicies/status
+    - gatewayclasses/status
+    - gateways/status
+    - grpcroutes/status
+    - httproutes/status
+    - referencegrants/status
+    - tcproutes/status
+    - tlsroutes/status
+    - udproutes/status
     verbs: ["update", "patch"]
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["gatewayclasses"]
