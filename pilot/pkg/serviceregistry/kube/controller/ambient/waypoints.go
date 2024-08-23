@@ -68,7 +68,7 @@ func (w Waypoint) Equals(other Waypoint) bool {
 	return w.Named == other.Named &&
 		w.DefaultBinding == other.DefaultBinding &&
 		w.TrafficType == other.TrafficType &&
-		w.AllowedRoutes == other.AllowedRoutes &&
+		w.AllowedRoutes.Equals(other.AllowedRoutes) &&
 		slices.Equal(w.ServiceAccounts, other.ServiceAccounts) &&
 		proto.Equal(w.Address, other.Address)
 }
@@ -314,6 +314,19 @@ func (a *index) makeWaypoint(
 type WaypointSelector struct {
 	FromNamespaces v1beta1.FromNamespaces
 	Selector       labels.Selector
+}
+
+func (w WaypointSelector) Equals(other WaypointSelector) bool {
+	if w.FromNamespaces != other.FromNamespaces {
+		return false
+	}
+	if (w.Selector) == nil != (other.Selector == nil) {
+		return false
+	}
+	if w.Selector == nil && other.Selector == nil {
+		return true
+	}
+	return w.Selector.String() == other.Selector.String()
 }
 
 func (w Waypoint) AllowsAttachmentFromNamespaceOrLookup(ctx krt.HandlerContext, Namespaces krt.Collection[*v1.Namespace], namespace string) bool {

@@ -50,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/wellknown"
@@ -200,8 +199,9 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				continue
 			}
 			portString := strconv.Itoa(port.Port)
+			tcpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port)
 			cc := inboundChainConfig{
-				clusterName:   model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
+				clusterName:   tcpClusterName,
 				policyService: svc,
 				port: model.ServiceInstancePort{
 					ServicePort: port,
@@ -210,24 +210,22 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				bind:  "0.0.0.0",
 				hbone: true,
 			}
-			name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "", svc.Hostname, port.Port)
-			tcpName := name + "-tcp"
 			tcpChain := &listener.FilterChain{
 				Filters: lb.buildInboundNetworkFilters(cc),
-				Name:    tcpName,
+				Name:    cc.clusterName,
 			}
-			cc.clusterName = model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
-			httpName := name + "-http"
+			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
+			cc.clusterName = httpClusterName
 			httpChain := &listener.FilterChain{
 				Filters: lb.buildWaypointInboundHTTPFilters(svc, cc),
-				Name:    httpName,
+				Name:    cc.clusterName,
 			}
 			if port.Protocol.IsUnsupported() {
 				// If we need to sniff, insert two chains and the protocol detector
 				chains = append(chains, tcpChain, httpChain)
 				portMapper.Map[portString] = match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
-					TCP:  match.ToChain(tcpName),
-					HTTP: match.ToChain(httpName),
+					TCP:  match.ToChain(tcpClusterName),
+					HTTP: match.ToChain(httpClusterName),
 				}))
 			} else if port.Protocol.IsHTTP() {
 				// Otherwise, just insert HTTP/TCP
@@ -453,19 +451,15 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	if svc == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
-	vss := getConfigsForHost(lb.node.ConfigNamespace, svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
-	if len(vss) == 0 {
+	vs := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+	if vs == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
-	if len(vss) > 1 {
-		log.Warnf("multiple virtual services for one service: %v", svc.Hostname)
-	}
-	vs := vss[0]
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
 	// hostname purely to match to the Service VIP. So we only need a single VHost, with routes compute based on the VS.
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
-	routes, err := lb.waypointInboundRoute(vs, cc.port.Port)
+	routes, err := lb.waypointInboundRoute(*vs, cc.port.Port)
 	if err != nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
@@ -481,6 +475,23 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
+}
+
+// Select the config pertaining to the service being processed.
+func getVirtualServiceForWaypoint(configNamespace string, svc *model.Service, configs []config.Config) *config.Config {
+	for _, cfg := range configs {
+		if cfg.Namespace != configNamespace && cfg.Namespace != svc.Attributes.Namespace {
+			// We only allow routes in the same namespace as the service or in the waypoint's own namespace
+			continue
+		}
+		virtualService := cfg.Spec.(*networking.VirtualService)
+		for _, vsHost := range virtualService.Hosts {
+			if host.Name(vsHost).Matches(svc.Hostname) {
+				return &cfg
+			}
+		}
+	}
+	return nil
 }
 
 func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, listenPort int) ([]*route.Route, error) {
@@ -690,10 +701,8 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 // GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
-	dir, subset, port := model.TrafficDirectionInboundVIP, "http", listenerPort
-	if destination.Subset != "" {
-		subset += "/" + destination.Subset
-	}
+	dir, port := model.TrafficDirectionInboundVIP, listenerPort
+
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
 	} else if service != nil && len(service.Ports) == 1 {
@@ -706,6 +715,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
+	subset := portToSubset(service, port, destination)
 	if service != nil {
 		_, wps := findWaypointResources(lb.node, lb.push)
 		_, f := wps.services[service.Hostname]
@@ -721,6 +731,27 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 		host.Name(destination.Host),
 		port,
 	)
+}
+
+// portToSubset helps translate a port to the waypoint subset to use
+func portToSubset(service *model.Service, port int, destination *networking.Destination) string {
+	p, ok := service.Ports.GetByPort(port)
+	if !ok {
+		// Port is unknown.
+		if destination.Subset != "" {
+			return "http/" + destination.Subset
+		}
+		return "http"
+	}
+	// Ambient will have the subset as <protocol>[/subset]. Pick that based on the service information
+	subset := "tcp"
+	if p.Protocol.IsHTTP() || p.Protocol.IsUnsupported() {
+		subset = "http"
+	}
+	if destination.Subset != "" {
+		subset += "/" + destination.Subset
+	}
+	return subset
 }
 
 // NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used with this function.

@@ -228,7 +228,7 @@ func GetAmbientPolicyConfigName(key ConfigKey) string {
 
 func getConfigsForWorkload(rootNamespace string, configsByNamespace map[string][]config.Config, selectionOpts WorkloadPolicyMatcher) []*config.Config {
 	workloadLabels := selectionOpts.WorkloadLabels
-	namespace := selectionOpts.Namespace
+	namespace := selectionOpts.WorkloadNamespace
 	configs := make([]*config.Config, 0)
 	var lookupInNamespaces []string
 	if namespace != rootNamespace {

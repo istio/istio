@@ -514,9 +514,9 @@ func TestMatchListener(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
 			opts := WorkloadPolicyMatcher{
-				Namespace:      "ns",
-				WorkloadLabels: tc.proxyLabels,
-				IsWaypoint:     false,
+				WorkloadNamespace: "ns",
+				WorkloadLabels:    tc.proxyLabels,
+				IsWaypoint:        false,
 			}
 			got := tc.wasmPlugin.MatchListener(opts, tc.listenerInfo)
 			if tc.want != got {

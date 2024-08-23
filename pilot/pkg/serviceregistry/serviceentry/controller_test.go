@@ -133,9 +133,12 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	store, sd, fx := initServiceDiscovery(t)
 	expectedServices := []*model.Service{
 		makeService(
-			"*.istio.io", "httpDNSRR", []string{constants.UnspecifiedIP}, "", "", map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSRoundRobinLB),
-		makeService("*.google.com", "httpDNS", []string{constants.UnspecifiedIP}, "", "", map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
-		makeService("tcpstatic.com", "tcpStatic", []string{"172.217.0.1"}, "", "", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
+			"*.istio.io", "httpDNSRR", "httpDNSRR",
+			[]string{constants.UnspecifiedIP}, "", "", map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSRoundRobinLB),
+		makeService("*.google.com", "httpDNS", "httpDNS",
+			[]string{constants.UnspecifiedIP}, "", "", map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+		makeService("tcpstatic.com", "tcpStatic", "tcpStatic",
+			[]string{"172.217.0.1"}, "", "", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 	}
 
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
