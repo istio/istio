@@ -13,8 +13,8 @@ status:
     status: "True"
     type: Accepted
   supportedFeatures:
-  - HTTPRouteFeatureA
-  - HTTPRouteFeatureB
+  - name: HTTPRouteFeatureA
+  - name: HTTPRouteFeatureB
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway

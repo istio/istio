@@ -13,8 +13,8 @@ status:
     status: "True"
     type: Accepted
   supportedFeatures:
-  - HTTPRouteFeatureA
-  - HTTPRouteFeatureB
+  - name: HTTPRouteFeatureA
+  - name: HTTPRouteFeatureB
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -39,7 +39,7 @@ status:
     status: "True"
     type: Programmed
   listeners:
-  - attachedRoutes: 1
+  - attachedRoutes: 2
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -71,6 +71,31 @@ kind: GRPCRoute
 metadata:
   creationTimestamp: null
   name: grpc
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  creationTimestamp: null
+  name: grpc2-named-rule
   namespace: default
 spec: null
 status:

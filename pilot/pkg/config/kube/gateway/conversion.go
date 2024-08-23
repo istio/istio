@@ -200,7 +200,11 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 	vs := &istio.HTTPRoute{}
 	// Auto-name the route. If upstream defines an explicit name, will use it instead
 	// The position within the route is unique
-	vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format: %s.%s.%d
+	if r.Name != nil {
+		vs.Name = string(*r.Name)
+	} else {
+		vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format: %s.%s.%d
+	}
 
 	for _, match := range r.Matches {
 		uri, err := createURIMatch(match)
@@ -308,7 +312,11 @@ func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 	vs := &istio.HTTPRoute{}
 	// Auto-name the route. If upstream defines an explicit name, will use it instead
 	// The position within the route is unique
-	vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format:%s.%s.%d
+	if r.Name != nil {
+		vs.Name = string(*r.Name)
+	} else {
+		vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format: %s.%s.%d
+	}
 
 	for _, match := range r.Matches {
 		uri, err := createGRPCURIMatch(match)
@@ -1759,7 +1767,7 @@ func createGRPCHeadersMatch(match k8s.GRPCRouteMatch) (map[string]*istio.StringM
 	for _, header := range match.Headers {
 		tp := k8s.HeaderMatchExact
 		if header.Type != nil {
-			tp = *header.Type
+			tp = k8s.HeaderMatchType(*header.Type)
 		}
 		switch tp {
 		case k8s.HeaderMatchExact:

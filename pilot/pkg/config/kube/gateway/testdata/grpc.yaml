@@ -61,3 +61,29 @@ spec:
     backendRefs:
     - name: httpbin
       port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: GRPCRoute
+metadata:
+  name: grpc2-named-rule
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["named.domain.example"]
+  rules:
+    - matches:
+        - method:
+            service: "foo"
+      backendRefs:
+        - name: httpbin
+          port: 80
+      name: foo
+    - matches:
+        - method:
+            service: "bar"
+      backendRefs:
+        - name: httpbin
+          port: 80
+      name: bar

@@ -89,6 +89,34 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
+  name: http3-named-rule
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["named.domain.example"]
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /match/prefix
+      backendRefs:
+        - name: httpbin-second
+          port: 80
+      name: match-prefix
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: httpbin-wildcard
+          port: 80
+      name: match-all
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
   name: redirect
   namespace: default
 spec:
