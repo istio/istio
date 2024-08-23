@@ -16,9 +16,7 @@ package monitoring
 
 import (
 	"context"
-	"sync"
 
-	"go.opentelemetry.io/otel/attribute"
 	api "go.opentelemetry.io/otel/metric"
 
 	"istio.io/istio/pkg/log"
@@ -26,36 +24,21 @@ import (
 
 type gauge struct {
 	baseMetric
-	g api.Float64ObservableGauge
-
-	// attributeSets stores a map of attributes -> values, for gauges.
-	attributeSetsMutex *sync.RWMutex
-	attributeSets      map[attribute.Set]*gaugeValues
-	currentGaugeSet    *gaugeValues
+	g api.Float64Gauge
+	// precomputedRecordOption is just a precomputation to avoid allocations on each record call
+	precomputedRecordOption []api.RecordOption
 }
 
 var _ Metric = &gauge{}
 
 func newGauge(o options) *gauge {
-	r := &gauge{
-		attributeSetsMutex: &sync.RWMutex{},
-	}
-	r.attributeSets = map[attribute.Set]*gaugeValues{}
-	g, err := meter().Float64ObservableGauge(o.name,
-		api.WithFloat64Callback(func(ctx context.Context, observer api.Float64Observer) error {
-			r.attributeSetsMutex.Lock()
-			defer r.attributeSetsMutex.Unlock()
-			for _, gv := range r.attributeSets {
-				observer.Observe(gv.val, gv.opt...)
-			}
-			return nil
-		}),
+	g, err := meter().Float64Gauge(o.name,
 		api.WithDescription(o.description),
 		api.WithUnit(string(o.unit)))
 	if err != nil {
 		log.Fatalf("failed to create gauge: %v", err)
 	}
-	r.g = g
+	r := &gauge{g: g}
 	r.baseMetric = baseMetric{
 		name: o.name,
 		rest: r,
@@ -65,40 +48,23 @@ func newGauge(o options) *gauge {
 
 func (f *gauge) Record(value float64) {
 	f.runRecordHook(value)
-	// TODO: https://github.com/open-telemetry/opentelemetry-specification/issues/2318 use synchronous gauge so we don't need to deal with this
-	f.attributeSetsMutex.Lock()
-	// Special case: we lazy-load the non-labeled value. This ensures that metrics which should always have labels do not end up with a un-labeled zero-value
-	// If a metric really requires `metric{} 0`, they can explicitly call .Record(0).
-	if f.currentGaugeSet == nil {
-		f.currentGaugeSet = &gaugeValues{}
-		f.attributeSets[attribute.NewSet()] = f.currentGaugeSet
+	if f.precomputedRecordOption != nil {
+		f.g.Record(context.Background(), value, f.precomputedRecordOption...)
+	} else {
+		f.g.Record(context.Background(), value)
 	}
-	f.currentGaugeSet.val = value
-	f.attributeSetsMutex.Unlock()
 }
 
 func (f *gauge) With(labelValues ...LabelValue) Metric {
 	attrs, set := rebuildAttributes(f.baseMetric, labelValues)
 	nm := &gauge{
-		g:                  f.g,
-		attributeSetsMutex: f.attributeSetsMutex,
-		attributeSets:      f.attributeSets,
+		g:                       f.g,
+		precomputedRecordOption: []api.RecordOption{api.WithAttributeSet(set)},
 	}
-	if _, f := nm.attributeSets[set]; !f {
-		nm.attributeSets[set] = &gaugeValues{
-			opt: []api.ObserveOption{api.WithAttributeSet(set)},
-		}
-	}
-	nm.currentGaugeSet = nm.attributeSets[set]
 	nm.baseMetric = baseMetric{
 		name:  f.name,
 		attrs: attrs,
 		rest:  nm,
 	}
 	return nm
-}
-
-type gaugeValues struct {
-	val float64
-	opt []api.ObserveOption
 }
