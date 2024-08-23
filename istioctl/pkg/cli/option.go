@@ -62,7 +62,8 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 	flags.StringVar(r.impersonate, FlagImpersonate, *r.impersonate,
 		"Username to impersonate for the operation. User could be a regular user or a service account in a namespace")
 	flags.StringVar(r.impersonateUID, FlagImpersonateUID, *r.impersonateUID, "UID to impersonate for the operation.")
-	flags.StringArrayVar(r.impersonateGroup, FlagImpersonateGroup, *r.impersonateGroup, "Group to impersonate for the operation, this flag can be repeated to specify multiple groups.")
+	flags.StringArrayVar(r.impersonateGroup, FlagImpersonateGroup, *r.impersonateGroup,
+		"Group to impersonate for the operation, this flag can be repeated to specify multiple groups.")
 	flags.StringVarP(r.namespace, FlagNamespace, "n", v1.NamespaceAll,
 		"Kubernetes namespace")
 	flags.StringVarP(r.istioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
