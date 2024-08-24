@@ -811,10 +811,14 @@ func (p *XdsProxy) initDebugInterface(port int) error {
 
 // upstreamErr sends the error to upstreamError channel, and return immediately if the connection closed.
 func upstreamErr(con *ProxyConnection, err error) {
-	if istiogrpc.IsExpectedGRPCError(err) {
+	switch istiogrpc.GRPCErrorType(err) {
+	case istiogrpc.GracefulTermination:
+		err = nil
+		fallthrough
+	case istiogrpc.ExpectedError:
 		proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
 		metrics.IstiodConnectionCancellations.Increment()
-	} else {
+	default:
 		proxyLog.Warnf("upstream [%d] terminated with unexpected error %v", con.conID, err)
 		metrics.IstiodConnectionErrors.Increment()
 	}
@@ -826,10 +830,14 @@ func upstreamErr(con *ProxyConnection, err error) {
 
 // downstreamErr sends the error to downstreamError channel, and return immediately if the connection closed.
 func downstreamErr(con *ProxyConnection, err error) {
-	if istiogrpc.IsExpectedGRPCError(err) {
+	switch istiogrpc.GRPCErrorType(err) {
+	case istiogrpc.GracefulTermination:
+		err = nil
+		fallthrough
+	case istiogrpc.ExpectedError:
 		proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
 		metrics.EnvoyConnectionCancellations.Increment()
-	} else {
+	default:
 		proxyLog.Warnf("downstream [%d] terminated with unexpected error %v", con.conID, err)
 		metrics.EnvoyConnectionErrors.Increment()
 	}

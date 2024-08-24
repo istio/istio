@@ -163,7 +163,7 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
-			if istiogrpc.IsExpectedGRPCError(err) {
+			if istiogrpc.GRPCErrorType(err) != istiogrpc.UnexpectedError {
 				log.Infof("ADS: %q %s terminated", con.peerAddr, con.conID)
 				return
 			}
