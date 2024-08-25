@@ -566,7 +566,14 @@ func applyHTTPRouteDestination(
 			Cluster: in.Name,
 		}
 
-		if uri := in.Rewrite.GetUri(); uri != "" {
+		if uriRegexRewrite := in.Rewrite.GetUriRegexRewrite(); uriRegexRewrite != nil {
+			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
+				Pattern: &matcher.RegexMatcher{
+					Regex: uriRegexRewrite.Match,
+				},
+				Substitution: uriRegexRewrite.Rewrite,
+			}
+		} else if uri := in.Rewrite.GetUri(); uri != "" {
 			action.PrefixRewrite = uri
 		}
 		if in.Rewrite.GetAuthority() != "" {
