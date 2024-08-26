@@ -377,10 +377,23 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
 			"!", "-o", "lo",
 			"-p", "udp",
+			"-m", "mark", "!",
+			"--mark", inpodMark,
 			"-m", "udp",
 			"--dport", "53",
 			"-j", "REDIRECT",
 			"--to-port", fmt.Sprintf("%d", DNSCapturePort),
+		)
+
+		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
+			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
+			"!", "-d", iptablesconstants.IPVersionSpecific,
+			"-p", "tcp",
+			"--dport", "53",
+			"-m", "mark", "!",
+			"--mark", inpodMark,
+			"-j", "REDIRECT",
+			"--to-ports", fmt.Sprintf("%d", DNSCapturePort),
 		)
 	}
 
@@ -403,6 +416,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		"-o", "lo",
 		"-j", "ACCEPT",
 	)
+
 
 	// CLI: -A ISTIO_OUTPUT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports <OUTPORT>
 	//
