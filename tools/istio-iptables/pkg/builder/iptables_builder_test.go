@@ -237,7 +237,7 @@ func TestCheckRulesV4V6(t *testing.T) {
 	}
 }
 
-func TestReverseRulesV4V6(t *testing.T) {
+func TestCleanupRulesV4V6(t *testing.T) {
 	builderConfig := &config.Config{
 		EnableIPv6: true,
 	}

@@ -179,6 +179,11 @@ func (rb *IptablesRuleBuilder) buildRules(rules []Rule) [][]string {
 	return output
 }
 
+// reverseRules generates the minimal set of rules that are necessary to reverse the changes made by the input rules.
+// The function transforms -A/--append and -I/--insert flags into -D/--delete flags while preserving the
+// structure of other parameters.
+// Non-jump rules in ISTIO_* chains are skipped as these chains will be flushed, but jump rules are retained to ensure proper reversal.
+// Note: This function does not support converting -D/--delete flags back to -A/-I flags.
 func reverseRules(rules []*Rule) []*Rule {
 	output := make([]*Rule, 0)
 	for _, r := range rules {
@@ -225,6 +230,10 @@ func reverseRules(rules []*Rule) []*Rule {
 	return output
 }
 
+// checkRules generates a set of iptables rules that are used to verify the existence of the input rules.
+// The function transforms -A/--append and -I/--insert flags into -C/--check flags while preserving the
+// structure of other parameters.
+// The transformation allows for checking whether the corresponding rules are already present in the iptables configuration.
 func checkRules(rules []*Rule) []*Rule {
 	output := make([]*Rule, 0)
 	for _, r := range rules {
