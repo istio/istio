@@ -15,25 +15,25 @@
 package mesh
 
 import (
+	_ "embed"
 	"fmt"
 	"io/fs"
-	"reflect"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
-	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/manifests"
-	"istio.io/istio/operator/pkg/component"
-	"istio.io/istio/operator/pkg/controlplane"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
+
+//go:embed readme.tpl
+var readmeTemplate string
 
 type ManifestTranslateArgs struct {
 	// InFilenames is an array of paths to the input IstioOperator CR files.
@@ -46,6 +46,9 @@ type ManifestTranslateArgs struct {
 	ManifestsPath string
 	// Revision is the Istio control plane revision the command targets.
 	Revision string
+
+	// Output path to print out instructions and configurations
+	Output string
 }
 
 func addManifestTranslateFlags(cmd *cobra.Command, args *ManifestTranslateArgs) {
@@ -53,6 +56,7 @@ func addManifestTranslateFlags(cmd *cobra.Command, args *ManifestTranslateArgs) 
 	cmd.PersistentFlags().StringArrayVarP(&args.Set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.Output, "output", "o", "", "where to put translated outputs")
 }
 
 func ManifestTranslateCmd(ctx cli.Context, mgArgs *ManifestTranslateArgs) *cobra.Command {
@@ -86,6 +90,13 @@ func ManifestTranslateCmd(ctx cli.Context, mgArgs *ManifestTranslateArgs) *cobra
 			if kubeClientFunc == nil {
 				kubeClientFunc = ctx.CLIClient
 			}
+			if mgArgs.Output == "" {
+				var err error
+				mgArgs.Output, err = os.MkdirTemp(os.TempDir(), "istioctl-migrate-")
+				if err != nil {
+					return err
+				}
+			}
 			var kubeClient kube.CLIClient
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			return ManifestTranslate(kubeClient, mgArgs, l)
@@ -94,157 +105,92 @@ func ManifestTranslateCmd(ctx cli.Context, mgArgs *ManifestTranslateArgs) *cobra
 }
 
 func ManifestTranslate(kubeClient kube.CLIClient, mgArgs *ManifestTranslateArgs, l clog.Logger) error {
-	_, iop, err := manifest.GenerateConfig(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
-		true, kubeClient, l)
+	setFlags := applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision)
+	istioctlGeneratedManifests, _, err := render.GenerateManifest(mgArgs.InFilenames, setFlags, false, kubeClient, nil)
 	if err != nil {
 		return err
 	}
-	t := translate.NewTranslator()
-	valuesMap := map[string]any{}
-	debugMap := map[string]any{}
-	opts := &component.Options{
-		InstallSpec: iop.Spec,
-		Translator:  t,
-		Filter:      nil,
-		Version:     nil,
-	}
-	comps, err := controlplane.BuildComponents(*opts)
+	res, err := render.Migrate(mgArgs.InFilenames, setFlags, kubeClient)
 	if err != nil {
 		return err
 	}
-	for _, c := range comps {
-		k := c.ComponentName
-		compYAML, err := t.TranslateHelmValues(iop.Spec, c.ComponentSpec, k)
-		if err != nil {
-			return err
+	_ = res
+	out := mgArgs.Output
+	write := func(name string, contents string) error {
+		perm := 0o644
+		if filepath.Ext(name) == ".sh" {
+			perm = 0o755
 		}
-		compmap := map[string]any{}
-		err = yaml.Unmarshal([]byte(compYAML), &compmap)
-		if err != nil {
-			return err
-		}
-		debugMap[string(c.ComponentName)] = compmap
-		if err := mergeMaps(compmap, valuesMap, util.Path{}); err != nil {
-			return err
-		}
+		return os.WriteFile(filepath.Join(out, name), []byte(contents), fs.FileMode(perm))
 	}
-	defaults := loadDefaults(mgArgs.ManifestsPath)
-
-	// remove any values that are already defaults
-	subtractMaps(defaults, valuesMap)
-	// remove any empty parts of the map
-	removeEmptyYaml(valuesMap)
-
-	out, err := yaml.Marshal(valuesMap)
-	l.Print(string(out))
-
-	return nil
-}
-
-func subtractMaps(src, dst map[string]any) {
-	if util.IsValueNil(src) {
-		return
-	}
-	for k, v := range src {
-		if _, ok := dst[k]; ok {
-			if reflect.DeepEqual(v, dst[k]) {
-				delete(dst, k)
-			} else if reflect.TypeOf(v).Kind() == reflect.Map {
-				subtractMaps(v.(map[string]any), dst[k].(map[string]any))
-				if dst[k] == nil || len(dst[k].(map[string]any)) == 0 {
-					delete(dst, k)
-				}
-			}
-		}
-	}
-}
-
-func removeEmptyYaml(src map[string]any) {
-	if len(src) == 0 {
-		return
-	}
-	for k, v := range src {
-		if src[k] == nil {
-			delete(src, k)
-		} else if reflect.TypeOf(v).Kind() == reflect.Map {
-			removeEmptyYaml(v.(map[string]any))
-			if len(v.(map[string]any)) == 0 {
-				delete(src, k)
-			}
-		} else if reflect.TypeOf(v).Kind() == reflect.Slice && len(v.([]any)) == 0 {
-			delete(src, k)
-		}
-	}
-}
-
-func mergeMaps(src any, dst map[string]any, path util.Path) (errs util.Errors) {
-	if util.IsValueNil(src) {
-		return nil
-	}
-
-	vv := reflect.ValueOf(src)
-	vt := reflect.TypeOf(src)
-	switch vt.Kind() {
-	case reflect.Ptr:
-		if !util.IsNilOrInvalidValue(vv.Elem()) {
-			errs = util.AppendErrs(errs, mergeMaps(vv.Elem().Interface(), dst, path))
-		}
-	case reflect.Struct:
-		for i := 0; i < vv.NumField(); i++ {
-			fieldName := vv.Type().Field(i).Name
-			fieldValue := vv.Field(i)
-			if a, ok := vv.Type().Field(i).Tag.Lookup("json"); ok && a == "-" {
-				continue
-			}
-			if !fieldValue.CanInterface() {
-				continue
-			}
-			errs = util.AppendErrs(errs, mergeMaps(fieldValue.Interface(), dst, append(path, fieldName)))
-		}
-	case reflect.Map:
-		for _, key := range vv.MapKeys() {
-			nnp := append(path, key.String())
-			errs = util.AppendErr(errs, mergeLeaf(dst, nnp, vv.MapIndex(key)))
-		}
-	case reflect.Slice:
-		for i := 0; i < vv.Len(); i++ {
-			errs = util.AppendErrs(errs, mergeMaps(vv.Index(i).Interface(), dst, path))
-		}
-	default:
-		// Must be a leaf
-		if vv.CanInterface() {
-			errs = util.AppendErr(errs, mergeLeaf(dst, path, vv))
-		}
-	}
-
-	return errs
-}
-
-func mergeLeaf(out map[string]any, path util.Path, value reflect.Value) error {
-	return tpath.WriteNode(out, path, value.Interface())
-}
-
-// load all values.yaml files, representing defaults, and merge into single default map
-func loadDefaults(manifestsPath string) map[string]any {
-	f := manifests.BuiltinOrDir(manifestsPath)
-	filenames, err := fs.Glob(f, "charts/**/values.yaml")
-	// files, err := os.ReadDir(manifestsPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	result := map[string]any{}
-	for _, filename := range filenames {
-		fs.ReadFile(f, filename)
-		valuesFile, err := fs.ReadFile(f, filename)
-		if err != nil {
+	results := []string{}
+	for idx, info := range res.Components {
+		name := ptr.NonEmptyOrDefault(info.ComponentSpec.Name, info.Component.SpecName)
+		if info.Component.ReleaseName == "" {
+			results = append(results, fmt.Sprintf(`* ❌ **Component %s**: migration is **NOT** directly supported!`,
+				"`"+name+"`"))
 			continue
 		}
-		var values map[string]any
-		err = yaml.Unmarshal(valuesFile, &values)
-		if err != nil {
-			log.Fatal(err)
+		commands := []string{"#!/usr/bin/env bash", "", "# Label/Annotate resources to mark them a part of the Helm release."}
+		ns := info.ComponentSpec.Namespace
+		vals, _ := info.Values.GetPathMap("spec.values")
+		valuesName := fmt.Sprintf("%v-values.yaml", name)
+		if err := write(valuesName, vals.YAML()); err != nil {
+			return err
 		}
-		mergeMaps(values, result, util.Path{})
+		for _, m := range info.Manifest {
+			gk := m.GetObjectKind().GroupVersionKind().GroupKind().String()
+			ns := ""
+			if m.GetNamespace() != "" {
+				ns = " --namespace=" + m.GetNamespace()
+			}
+			commands = append(commands, fmt.Sprintf("kubectl annotate %s%s %s meta.helm.sh/release-name=%s", gk, ns, m.GetName(), name))
+			if m.GetNamespace() != "" {
+				commands = append(commands, fmt.Sprintf("kubectl annotate %s%s %s meta.helm.sh/release-namespace=%s", gk, ns, m.GetName(), m.GetNamespace()))
+			}
+			commands = append(commands, fmt.Sprintf("kubectl label %s%s %s app.kubernetes.io/managed-by=Helm", gk, ns, m.GetName()))
+		}
+		commands = append(commands, "\n", "# Run the actual Helm install operation", fmt.Sprintf("helm upgrade --install %s --namespace %s -f %s oci://gcr.io/istio-release/charts/%s",
+			name, ns, valuesName, info.Component.ReleaseName))
+
+		if err := write(fmt.Sprintf("install-%s.sh", name), strings.Join(commands, "\n")+"\n"); err != nil {
+			return err
+		}
+		diffWarn := ""
+		helmManifests := strings.Join(sortManifests(info.Manifest), "\n---\n")
+		istioctlManifests := strings.Join(sortManifests(istioctlGeneratedManifests[idx].Manifests), "\n---\n")
+		if helmManifests != istioctlManifests {
+			helmName := fmt.Sprintf("diff-%s-helm-output.yaml", name)
+			istioctlName := fmt.Sprintf("diff-%s-istioctl-output.yaml", name)
+			if err := write(helmName, helmManifests); err != nil {
+				return err
+			}
+			if err := write(istioctlName, istioctlManifests); err != nil {
+				return err
+			}
+			diffWarn = fmt.Sprintf(`
+  ⚠️ Component rendering is different between Istioctl and Helm!
+  This may be from incompatibilities between the two installation methods.
+  Review the difference between the two and take appropriate actions to resolve these, if needed: %s.
+`, "`"+"diff "+helmName+" "+istioctlName+"`")
+		}
+		results = append(results, fmt.Sprintf(`* ✅ **Component %s**: migration is supported!
+%s
+  The translated values have been written to %s.
+  You may use these directly, or follow the guided %s script.`,
+			"`"+name+"`", diffWarn, valuesName, fmt.Sprintf("`install-%s.sh`", name)))
+
 	}
-	return result
+	args := map[string]any{
+		"Results": results,
+	}
+	readme, err := tmpl.Evaluate(readmeTemplate, args)
+	if err != nil {
+		return err
+	}
+	if err := write("README.md", readme); err != nil {
+		return err
+	}
+	l.LogAndPrintf("Output written to %v! See the README.md for next steps", mgArgs.Output)
+	return nil
 }
