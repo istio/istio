@@ -592,7 +592,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 
 	if needHTTPInspector {
 		l.ListenerFilters = append(l.ListenerFilters, xdsfilters.HTTPInspector)
-		// Enable timeout only if they configure it and we have an HTTP inspector.
+	}
+
+	if len(l.ListenerFilters) > 0 {
+		// Enable timeout only if they configure it and we have listener filters.
 		// This is really unsafe, so hopefully not used...
 		l.ListenerFiltersTimeout = builder.push.Mesh.ProtocolDetectionTimeout
 	} else {
