@@ -834,6 +834,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				}
 			}
 		}
+		log.Errorf("howardjohn: %+v", listenerOpts.bind)
 		for _, b := range listenerOpts.bind.binds {
 			listenerMapKeys = append(listenerMapKeys, listenerKey{b, listenerOpts.port.Port})
 		}
@@ -866,6 +867,8 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 	// resolution type, since we collapse all HTTP listeners into a
 	// single 0.0.0.0:port listener and use vhosts to distinguish
 	// individual http services in that port
+	// TODO: this isn't right, we don't want to just filter locked here. Locked is a rare thing.
+	// we need to make the currentListenerEntry have multiple
 	listenerMapKeys = slices.FilterInPlace(listenerMapKeys, func(key listenerKey) bool {
 		if cur, exists := listenerMap[key]; exists {
 			currentListenerEntry = cur
