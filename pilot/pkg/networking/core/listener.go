@@ -275,9 +275,10 @@ type outboundListenerEntry struct {
 
 	bind listenerBinding
 
-	locked   bool
-	chains   []*filterChainOpts
-	protocol protocol.Instance
+	locked    bool
+	chains    []*filterChainOpts
+	protocol  protocol.Instance
+	secondary bool
 }
 
 func protocolName(p protocol.Instance) string {
@@ -535,6 +536,9 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 func finalizeOutboundListeners(lb *ListenerBuilder, listenerMap map[listenerKey]*outboundListenerEntry) []*listener.Listener {
 	listeners := make([]*listener.Listener, 0, len(listenerMap))
 	for _, le := range listenerMap {
+		if le.secondary {
+			continue
+		}
 		// TODO: this could be outside the loop, but we would get object sharing in EnvoyFilter patches.
 		fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(lb.push, lb.node)
 		l := buildListenerFromEntry(lb, le, fallthroughNetworkFilters)
@@ -787,14 +791,10 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 		return
 	}
 	// TODO: remove actualWildcard
-	var currentListenerEntry *outboundListenerEntry
-
-	conflictType := NoConflict
 
 	listenerPortProtocol := listenerOpts.port.Protocol
 	listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(listenerOpts.port.Protocol)
 
-	var listenerMapKeys []listenerKey
 	switch listenerProtocol {
 	case istionetworking.ListenerProtocolTCP, istionetworking.ListenerProtocolAuto:
 		// Determine the listener address if bind is empty
@@ -834,183 +834,167 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				}
 			}
 		}
-		log.Errorf("howardjohn: %+v", listenerOpts.bind)
-		for _, b := range listenerOpts.bind.binds {
-			listenerMapKeys = append(listenerMapKeys, listenerKey{b, listenerOpts.port.Port})
-		}
-
 	case istionetworking.ListenerProtocolHTTP:
 		// first identify the bind if its not set. Then construct the key
 		// used to lookup the listener in the conflict map.
 		if len(listenerOpts.bind.Primary()) == 0 { // no user specified bind. Use 0.0.0.0:Port or [::]:Port
 			listenerOpts.bind.binds = actualWildcards
 		}
-
-		for _, b := range listenerOpts.bind.binds {
-			listenerMapKeys = append(listenerMapKeys, listenerKey{b, listenerOpts.port.Port})
-		}
 	}
 
-	// Have we already generated a listener for this Port based on user
-	// specified listener ports? if so, we should not add any more HTTP
-	// services to the port. The user could have specified a sidecar
-	// resource with one or more explicit ports and then added a catch
-	// all listener, implying add all other ports as usual. When we are
-	// iterating through the services for a catchAll egress listener,
-	// the caller would have set the locked bit for each listener Entry
-	// in the map.
-	//
-	// Check if this HTTP listener conflicts with an existing TCP
-	// listener. We could have listener conflicts occur on unix domain
-	// sockets, or on IP binds. Specifically, its common to see
-	// conflicts on binds for wildcard address when a service has NONE
-	// resolution type, since we collapse all HTTP listeners into a
-	// single 0.0.0.0:port listener and use vhosts to distinguish
-	// individual http services in that port
-	// TODO: this isn't right, we don't want to just filter locked here. Locked is a rare thing.
-	// we need to make the currentListenerEntry have multiple
-	listenerMapKeys = slices.FilterInPlace(listenerMapKeys, func(key listenerKey) bool {
-		if cur, exists := listenerMap[key]; exists {
-			currentListenerEntry = cur
-			// NOTE: This is not a conflict. This is simply filtering the
-			// services for a given listener explicitly.
-			// When the user declares their own ports in Sidecar.egress
-			// with some specific services on those ports, we should not
-			// generate any more listeners on that port as the user does
-			// not want those listeners. Protocol sniffing is not needed.
-			if cur.locked {
-				return false
-			}
-		}
-		return true
-	})
-	// All filtered, skip entirely
-	if len(listenerMapKeys) == 0 {
-		return
-	}
-	var opts []*filterChainOpts
+	var build func() []*filterChainOpts
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if listenerPortProtocol == protocol.HTTP_PROXY {
-		opts = buildSidecarOutboundHTTPListenerOpts(listenerOpts, actualWildcards[0], listenerProtocol)
+		build = func() []*filterChainOpts {
+			return buildSidecarOutboundHTTPListenerOpts(listenerOpts, actualWildcards[0], listenerProtocol)
+		}
 	} else {
 		switch listenerProtocol {
 		case istionetworking.ListenerProtocolHTTP:
-			// Check if conflict happens
-			if currentListenerEntry != nil {
-				// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
-				// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
-				if currentListenerEntry.protocol.IsTCP() {
-					conflictType = HTTPOverTCP
-				} else {
-					// Exit early, listener already exists
-					return
-				}
-			}
-			opts = buildSidecarOutboundHTTPListenerOpts(listenerOpts, actualWildcards[0], listenerProtocol)
+			build = func() []*filterChainOpts {
+				opts := buildSidecarOutboundHTTPListenerOpts(listenerOpts, actualWildcards[0], listenerProtocol)
+				// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
+				// Since application protocol filter chain match has been added to the http filter chain, a fall through filter chain will be
+				// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
+				// HTTP services, which can happen when a pod accesses a non registry service.
+				if listenerOpts.bind.Primary() == actualWildcards[0] {
+					for _, opt := range opts {
+						// Support HTTP/1.0, HTTP/1.1 and HTTP/2
+						opt.applicationProtocols = append(opt.applicationProtocols, plaintextHTTPALPNs...)
+						opt.transportProtocol = xdsfilters.RawBufferTransportProtocol
+					}
 
-			// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
-			// Since application protocol filter chain match has been added to the http filter chain, a fall through filter chain will be
-			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
-			// HTTP services, which can happen when a pod accesses a non registry service.
-			if listenerOpts.bind.Primary() == actualWildcards[0] {
-				for _, opt := range opts {
+					// if we have a tcp fallthrough filter chain, this is no longer an HTTP listener - it
+					// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
+					// inspection to route between them
+					listenerPortProtocol = protocol.Unsupported
+				}
+				return opts
+			}
+		case istionetworking.ListenerProtocolTCP:
+			build = func() []*filterChainOpts {
+				return buildSidecarOutboundTCPListenerOpts(listenerOpts, virtualServices)
+			}
+
+		case istionetworking.ListenerProtocolAuto:
+			build = func() []*filterChainOpts {
+				// Add tcp filter chain, build TCP filter chain first.
+				tcpOpts := buildSidecarOutboundTCPListenerOpts(listenerOpts, virtualServices)
+
+				// Add http filter chain and tcp filter chain to the listener opts
+				httpOpts := buildSidecarOutboundHTTPListenerOpts(listenerOpts, actualWildcards[0], listenerProtocol)
+				// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
+				for _, opt := range httpOpts {
 					// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 					opt.applicationProtocols = append(opt.applicationProtocols, plaintextHTTPALPNs...)
 					opt.transportProtocol = xdsfilters.RawBufferTransportProtocol
 				}
 
-				// if we have a tcp fallthrough filter chain, this is no longer an HTTP listener - it
-				// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
-				// inspection to route between them
-				listenerPortProtocol = protocol.Unsupported
+				return append(tcpOpts, httpOpts...)
 			}
-
-		case istionetworking.ListenerProtocolTCP:
-			opts = buildSidecarOutboundTCPListenerOpts(listenerOpts, virtualServices)
-
-			// Check if conflict happens
-			if currentListenerEntry != nil {
-				// Build TCP listener. If current listener entry is using HTTP, add a new TCP filter chain
-				// If current listener is using protocol sniffing, merge the TCP filter chains.
-				if currentListenerEntry.protocol.IsHTTP() {
-					conflictType = TCPOverHTTP
-				} else if currentListenerEntry.protocol.IsTCP() {
-					conflictType = TCPOverTCP
-				} else {
-					conflictType = TCPOverAuto
-				}
-			}
-
-		case istionetworking.ListenerProtocolAuto:
-			if currentListenerEntry != nil {
-				if currentListenerEntry.protocol.IsHTTP() {
-					conflictType = AutoOverHTTP
-				} else if currentListenerEntry.protocol.IsTCP() {
-					conflictType = AutoOverTCP
-				} else {
-					// Exit early, listener already exists
-					return
-				}
-			}
-			// Add tcp filter chain, build TCP filter chain first.
-			tcpOpts := buildSidecarOutboundTCPListenerOpts(listenerOpts, virtualServices)
-
-			// Add http filter chain and tcp filter chain to the listener opts
-			httpOpts := buildSidecarOutboundHTTPListenerOpts(listenerOpts, actualWildcards[0], listenerProtocol)
-			// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
-			for _, opt := range httpOpts {
-				// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-				opt.applicationProtocols = append(opt.applicationProtocols, plaintextHTTPALPNs...)
-				opt.transportProtocol = xdsfilters.RawBufferTransportProtocol
-			}
-
-			opts = append(tcpOpts, httpOpts...)
-
 		default:
 			// UDP or other protocols: no need to log, it's too noisy
 			return
 		}
 	}
 
-	// If there is a TCP listener on well known port, cannot add any http filter chain
-	// with the inspector as it will break for server-first protocols. Similarly,
-	// if there was a HTTP listener on well known port, cannot add a tcp listener
-	// with the inspector as inspector breaks all server-first protocols.
-	if currentListenerEntry != nil &&
-		!isConflictWithWellKnownPort(listenerOpts.port.Protocol, currentListenerEntry.protocol, conflictType) {
-		log.Warnf("conflict happens on a well known port %d, incoming protocol %v, existing protocol %v, conflict type %v",
-			listenerOpts.port.Port, listenerOpts.port.Protocol, currentListenerEntry.protocol, conflictType)
-		return
-	}
-
-	// In general, for handling conflicts we:
-	// * Turn on sniffing if its HTTP and TCP mixed
-	// * Merge filter chains
-	switch conflictType {
-	case NoConflict, AutoOverHTTP:
-		// This is a new entry (NoConflict), or completely overriding (AutoOverHTTP); add it to the map
-		for _, key := range listenerMapKeys {
-			listenerMap[key] = &outboundListenerEntry{
+	var opts []*filterChainOpts
+	for idx, bind := range listenerOpts.bind.binds {
+		lmk := listenerKey{bind, listenerOpts.port.Port}
+		cur, f := listenerMap[lmk]
+		if f && cur.locked {
+			// NOTE: This is not a conflict. This is simply filtering the
+			// services for a given listener explicitly.
+			// When the user declares their own ports in Sidecar.egress
+			// with some specific services on those ports, we should not
+			// generate any more listeners on that port as the user does
+			// not want those listeners. Protocol sniffing is not needed.
+			return
+		}
+		conflictType, skipBuild := getConflictType(cur, listenerPortProtocol, listenerProtocol)
+		if skipBuild {
+			continue
+		}
+		if cur != nil &&
+			!isConflictWithWellKnownPort(listenerOpts.port.Protocol, cur.protocol, conflictType) {
+			log.Warnf("conflict happens on a well known port %d, incoming protocol %v, existing protocol %v, conflict type %v",
+				listenerOpts.port.Port, listenerOpts.port.Protocol, cur.protocol, conflictType)
+			continue
+		}
+		// Lazy-build opts. This is deferred in case we have multiple binds, we only want to build once
+		if opts == nil {
+			opts = build()
+		}
+		switch conflictType {
+		case NoConflict, AutoOverHTTP:
+			// This is a new entry (NoConflict), or completely overriding (AutoOverHTTP); add it to the map
+			listenerMap[lmk] = &outboundListenerEntry{
 				servicePort: listenerOpts.port,
 				bind:        listenerOpts.bind,
 				chains:      opts,
 				protocol:    listenerPortProtocol,
+				secondary: idx != 0,
 			}
+
+		case HTTPOverTCP, TCPOverHTTP, AutoOverTCP:
+			// Merge the two and "upgrade" to sniffed
+			mergeTCPFilterChains(cur, opts, listenerOpts)
+			cur.protocol = protocol.Unsupported
+			cur.secondary = false
+
+		case TCPOverTCP, TCPOverAuto:
+			// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
+			// HTTP filter chain is different from TCP filter chain's.
+			mergeTCPFilterChains(cur, opts, listenerOpts)
+			cur.secondary = false
+
+		default:
+			// This should never happen
+			log.Errorf("Got unexpected conflict type %v. This should never happen", conflictType)
 		}
+	}
+}
 
-	case HTTPOverTCP, TCPOverHTTP, AutoOverTCP:
-		// Merge the two and "upgrade" to sniffed
-		mergeTCPFilterChains(currentListenerEntry, opts, listenerOpts)
-		currentListenerEntry.protocol = protocol.Unsupported
+func getConflictType(cur *outboundListenerEntry, portProtocol protocol.Instance, listenerProtocol istionetworking.ListenerProtocol) (int, bool) {
+	if cur == nil {
+		return NoConflict, false
+	}
+	if portProtocol == protocol.HTTP_PROXY {
+		return NoConflict, false
+	}
+	switch listenerProtocol {
+	case istionetworking.ListenerProtocolHTTP:
+		// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
+		// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
+		if cur.protocol.IsTCP() {
+			return HTTPOverTCP, false
+		} else {
+			// Exit early, listener already exists
+			return NoConflict, true
+		}
+	case istionetworking.ListenerProtocolTCP:
 
-	case TCPOverTCP, TCPOverAuto:
-		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
-		// HTTP filter chain is different from TCP filter chain's.
-		mergeTCPFilterChains(currentListenerEntry, opts, listenerOpts)
+		// Build TCP listener. If current listener entry is using HTTP, add a new TCP filter chain
+		// If current listener is using protocol sniffing, merge the TCP filter chains.
+		if cur.protocol.IsHTTP() {
+			return TCPOverHTTP, false
+		} else if cur.protocol.IsTCP() {
+			return TCPOverTCP, false
+		} else {
+			return TCPOverAuto, false
+		}
+	case istionetworking.ListenerProtocolAuto:
 
+		if cur.protocol.IsHTTP() {
+			return AutoOverHTTP, false
+		} else if cur.protocol.IsTCP() {
+			return AutoOverTCP, false
+		} else {
+			// Exit early, listener already exists
+			return NoConflict, true
+		}
 	default:
-		// This should never happen
-		log.Errorf("Got unexpected conflict type %v. This should never happen", conflictType)
+		return NoConflict, false
 	}
 }
 
