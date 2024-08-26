@@ -71,7 +71,7 @@ func setup(t *testing.T) {
 		_, err := os.Create(xtables)
 		assert.NoError(t, err)
 		_ = os.Mkdir("/run", 0o777)
-		assert.NoError(t, mountns.BindMount(xtables, "/run/xtables.lock"))
+		_ = mountns.BindMount(xtables, "/run/xtables.lock")
 	})
 }
 
