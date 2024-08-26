@@ -794,7 +794,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 	listenerPortProtocol := listenerOpts.port.Protocol
 	listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(listenerOpts.port.Protocol)
 
-	var listenerMapKey listenerKey
+	var listenerMapKeys []listenerKey
 	switch listenerProtocol {
 	case istionetworking.ListenerProtocolTCP, istionetworking.ListenerProtocolAuto:
 		// Determine the listener address if bind is empty
@@ -834,7 +834,9 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				}
 			}
 		}
-		listenerMapKey = listenerKey{listenerOpts.bind.Primary(), listenerOpts.port.Port}
+		for _, b := range listenerOpts.bind.binds {
+			listenerMapKeys = append(listenerMapKeys, listenerKey{b, listenerOpts.port.Port})
+		}
 
 	case istionetworking.ListenerProtocolHTTP:
 		// first identify the bind if its not set. Then construct the key
@@ -842,7 +844,10 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 		if len(listenerOpts.bind.Primary()) == 0 { // no user specified bind. Use 0.0.0.0:Port or [::]:Port
 			listenerOpts.bind.binds = actualWildcards
 		}
-		listenerMapKey = listenerKey{listenerOpts.bind.Primary(), listenerOpts.port.Port}
+
+		for _, b := range listenerOpts.bind.binds {
+			listenerMapKeys = append(listenerMapKeys, listenerKey{b, listenerOpts.port.Port})
+		}
 	}
 
 	// Have we already generated a listener for this Port based on user
@@ -861,19 +866,25 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 	// resolution type, since we collapse all HTTP listeners into a
 	// single 0.0.0.0:port listener and use vhosts to distinguish
 	// individual http services in that port
-	if cur, exists := listenerMap[listenerMapKey]; exists {
-		currentListenerEntry = cur
-		// NOTE: This is not a conflict. This is simply filtering the
-		// services for a given listener explicitly.
-		// When the user declares their own ports in Sidecar.egress
-		// with some specific services on those ports, we should not
-		// generate any more listeners on that port as the user does
-		// not want those listeners. Protocol sniffing is not needed.
-		if cur.locked {
-			return
+	listenerMapKeys = slices.FilterInPlace(listenerMapKeys, func(key listenerKey) bool {
+		if cur, exists := listenerMap[key]; exists {
+			currentListenerEntry = cur
+			// NOTE: This is not a conflict. This is simply filtering the
+			// services for a given listener explicitly.
+			// When the user declares their own ports in Sidecar.egress
+			// with some specific services on those ports, we should not
+			// generate any more listeners on that port as the user does
+			// not want those listeners. Protocol sniffing is not needed.
+			if cur.locked {
+				return false
+			}
 		}
+		return true
+	})
+	// All filtered, skip entirely
+	if len(listenerMapKeys) == 0 {
+		return
 	}
-
 	var opts []*filterChainOpts
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if listenerPortProtocol == protocol.HTTP_PROXY {
@@ -975,11 +986,13 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 	switch conflictType {
 	case NoConflict, AutoOverHTTP:
 		// This is a new entry (NoConflict), or completely overriding (AutoOverHTTP); add it to the map
-		listenerMap[listenerMapKey] = &outboundListenerEntry{
-			servicePort: listenerOpts.port,
-			bind:        listenerOpts.bind,
-			chains:      opts,
-			protocol:    listenerPortProtocol,
+		for _, key := range listenerMapKeys {
+			listenerMap[key] = &outboundListenerEntry{
+				servicePort: listenerOpts.port,
+				bind:        listenerOpts.bind,
+				chains:      opts,
+				protocol:    listenerPortProtocol,
+			}
 		}
 
 	case HTTPOverTCP, TCPOverHTTP, AutoOverTCP:
