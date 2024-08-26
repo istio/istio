@@ -35,8 +35,8 @@ type Rule struct {
 
 // Rules represents iptables for V4 and V6
 type Rules struct {
-	rulesv4 []*Rule
-	rulesv6 []*Rule
+	rulesv4 []Rule
+	rulesv6 []Rule
 }
 
 // IptablesRuleBuilder is an implementation for IptablesRuleBuilder interface
@@ -52,8 +52,8 @@ func NewIptablesRuleBuilder(cfg *config.Config) *IptablesRuleBuilder {
 	}
 	return &IptablesRuleBuilder{
 		rules: Rules{
-			rulesv4: []*Rule{},
-			rulesv6: []*Rule{},
+			rulesv4: []Rule{},
+			rulesv6: []Rule{},
 		},
 		cfg: cfg,
 	}
@@ -66,9 +66,9 @@ func (rb *IptablesRuleBuilder) InsertRule(command log.Command, chain string, tab
 }
 
 // nolint lll
-func (rb *IptablesRuleBuilder) insertInternal(ipt *[]*Rule, command log.Command, chain string, table string, position int, params ...string) *IptablesRuleBuilder {
+func (rb *IptablesRuleBuilder) insertInternal(ipt *[]Rule, command log.Command, chain string, table string, position int, params ...string) *IptablesRuleBuilder {
 	rules := params
-	*ipt = append(*ipt, &Rule{
+	*ipt = append(*ipt, Rule{
 		chain:  chain,
 		table:  table,
 		params: append([]string{"-I", chain, fmt.Sprint(position)}, rules...),
@@ -81,7 +81,7 @@ func (rb *IptablesRuleBuilder) insertInternal(ipt *[]*Rule, command log.Command,
 		// 1337 group is just a random constant to be matched on the log reader side
 		// Size of 20 allows reading the IPv4 IP header.
 		match = append(match, "-j", "NFLOG", "--nflog-prefix", fmt.Sprintf(`%q`, command.Identifier), "--nflog-group", "1337", "--nflog-size", "20")
-		*ipt = append(*ipt, &Rule{
+		*ipt = append(*ipt, Rule{
 			chain:  chain,
 			table:  table,
 			params: append([]string{"-I", chain, fmt.Sprint(position)}, match...),
@@ -110,7 +110,7 @@ func indexOf(element string, data []string) int {
 	return -1 // not found.
 }
 
-func (rb *IptablesRuleBuilder) appendInternal(ipt *[]*Rule, command log.Command, chain string, table string, params ...string) *IptablesRuleBuilder {
+func (rb *IptablesRuleBuilder) appendInternal(ipt *[]Rule, command log.Command, chain string, table string, params ...string) *IptablesRuleBuilder {
 	idx := indexOf("-j", params)
 	// We have identified the type of command this is and logging is enabled. Appending a rule to log this chain will be hit
 	if rb.cfg.TraceLogging && idx >= 0 && command != log.UndefinedCommand {
@@ -118,14 +118,14 @@ func (rb *IptablesRuleBuilder) appendInternal(ipt *[]*Rule, command log.Command,
 		// 1337 group is just a random constant to be matched on the log reader side
 		// Size of 20 allows reading the IPv4 IP header.
 		match = append(match, "-j", "NFLOG", "--nflog-prefix", fmt.Sprintf(`%q`, command.Identifier), "--nflog-group", "1337", "--nflog-size", "20")
-		*ipt = append(*ipt, &Rule{
+		*ipt = append(*ipt, Rule{
 			chain:  chain,
 			table:  table,
 			params: append([]string{"-A", chain}, match...),
 		})
 	}
 	rules := params
-	*ipt = append(*ipt, &Rule{
+	*ipt = append(*ipt, Rule{
 		chain:  chain,
 		table:  table,
 		params: append([]string{"-A", chain}, rules...),
@@ -150,7 +150,7 @@ func (rb *IptablesRuleBuilder) AppendRuleV6(command log.Command, chain string, t
 	return rb.appendInternal(&rb.rules.rulesv6, command, chain, table, params...)
 }
 
-func (rb *IptablesRuleBuilder) buildRules(rules []*Rule) [][]string {
+func (rb *IptablesRuleBuilder) buildRules(rules []Rule) [][]string {
 	output := make([][]string, 0)
 	chainTableLookupSet := sets.New[string]()
 	for _, r := range rules {
@@ -195,7 +195,7 @@ func (rb *IptablesRuleBuilder) constructIptablesRestoreContents(tableRulesMap ma
 	return b.String()
 }
 
-func (rb *IptablesRuleBuilder) buildRestore(rules []*Rule) string {
+func (rb *IptablesRuleBuilder) buildRestore(rules []Rule) string {
 	tableRulesMap := map[string][]string{
 		constants.FILTER: {},
 		constants.NAT:    {},
