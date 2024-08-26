@@ -94,6 +94,7 @@ metadata:
 spec:
   http:
   - route:
+    - {} # test destination null
     - destination:
         host: reviews-bogus # This host does not exist, should result in a validation error
         subset: v1

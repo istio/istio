@@ -432,6 +432,7 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogushost"},
+			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogushost"},
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bookinfo-other"},
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-mirror-bogushost"},
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogusport"},
