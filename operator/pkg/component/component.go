@@ -24,7 +24,7 @@ import (
 type Component struct {
 	// UserFacingName is the component name in user facing cases
 	UserFacingName Name
-	// SpecName is the yaml key in the IstioOperato spec
+	// SpecName is the yaml key in the IstioOperator spec
 	SpecName string
 	Default  bool
 	Multi    bool
@@ -43,6 +43,8 @@ type Component struct {
 	FlattenValues bool
 	// AltEnablementPath is the alternative path, from values, to enable the component
 	AltEnablementPath string
+	// ReleaseName is the name of the chart in the official istio helm release. Not present for all components
+	ReleaseName string
 }
 
 func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
@@ -138,6 +140,7 @@ var AllComponents = []Component{
 		Default:              true,
 		HelmSubdir:           "base",
 		ToHelmValuesTreeRoot: "global",
+		ReleaseName:          "base",
 	},
 	{
 		UserFacingName:       PilotComponentName,
@@ -148,6 +151,7 @@ var AllComponents = []Component{
 		ContainerName:        "discovery",
 		HelmSubdir:           "istio-control/istio-discovery",
 		ToHelmValuesTreeRoot: "pilot",
+		ReleaseName:          "istiod",
 	},
 	{
 		UserFacingName:       IngressComponentName,
@@ -180,12 +184,14 @@ var AllComponents = []Component{
 		ContainerName:        "install-cni",
 		HelmSubdir:           "istio-cni",
 		ToHelmValuesTreeRoot: "cni",
+		ReleaseName:          "cni",
 	},
 	{
 		UserFacingName:       IstiodRemoteComponentName,
 		SpecName:             "istiodRemote",
 		HelmSubdir:           "istiod-remote",
 		ToHelmValuesTreeRoot: "global",
+		ReleaseName:          "istiod-remote",
 	},
 	{
 		UserFacingName:       ZtunnelComponentName,
@@ -196,6 +202,7 @@ var AllComponents = []Component{
 		ToHelmValuesTreeRoot: "ztunnel",
 		ContainerName:        "istio-proxy",
 		FlattenValues:        true,
+		ReleaseName:          "ztunnel",
 	},
 }
 
