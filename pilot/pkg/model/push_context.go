@@ -297,6 +297,8 @@ type ConsolidatedDestRule struct {
 	from []types.NamespacedName
 }
 
+type EdsUpdateFn func(shard ShardKey, hostname string, namespace string, entry []*IstioEndpoint)
+
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
 // Pilot uses multiple registries - for example each K8S cluster is a registry
 // instance. Each registry is responsible for tracking a set
