@@ -547,7 +547,9 @@ func (d *DeploymentController) setGatewayControllerVersion(gws gateway.Gateway) 
 		ControllerVersionAnnotation, ControllerVersion)
 
 	log.Debugf("applying %v", patch)
-	return d.patcher(gvr.KubernetesGateway, gws.GetName(), gws.GetNamespace(), []byte(patch))
+	// Use status RBAC so we do not require full Gateway write.
+	// `status` write can modify annotations, and we already need to write status anyway so we have the permission.
+	return d.patcher(gvr.KubernetesGateway, gws.GetName(), gws.GetNamespace(), []byte(patch), "status")
 }
 
 // apply server-side applies a template to the cluster.
