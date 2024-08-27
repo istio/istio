@@ -47,16 +47,10 @@ func TestFileAccessLogFormat(t *testing.T) {
 		name         string
 		formatString string
 		expected     string
-		proxyVersion *IstioVersion
 	}{
 		{
 			name:     "empty",
 			expected: EnvoyTextLogFormat,
-		},
-		{
-			name:         "empty - version < 1.23",
-			expected:     LegacyEnvoyTextLogFormat,
-			proxyVersion: &IstioVersion{Major: 1, Minor: 22, Patch: 0},
 		},
 		{
 			name:         "contains newline",
@@ -72,7 +66,7 @@ func TestFileAccessLogFormat(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := fileAccessLogFormat(tc.formatString, tc.proxyVersion)
+			got := fileAccessLogFormat(tc.formatString)
 			assert.Equal(t, tc.expected, got)
 		})
 	}
@@ -1304,21 +1298,6 @@ func TestTelemetryAccessLog(t *testing.T) {
 		},
 	}
 
-	legacyStdout := &fileaccesslog.FileAccessLog{
-		Path: DevStdout,
-		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
-			LogFormat: &core.SubstitutionFormatString{
-				Format: &core.SubstitutionFormatString_TextFormatSource{
-					TextFormatSource: &core.DataSource{
-						Specifier: &core.DataSource_InlineString{
-							InlineString: LegacyEnvoyTextLogFormat,
-						},
-					},
-				},
-			},
-		},
-	}
-
 	customTextOut := &fileaccesslog.FileAccessLog{
 		Path: DevStdout,
 		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
@@ -1451,12 +1430,11 @@ func TestTelemetryAccessLog(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		name         string
-		ctx          *PushContext
-		meshConfig   *meshconfig.MeshConfig
-		fp           *meshconfig.MeshConfig_ExtensionProvider
-		expected     *accesslog.AccessLog
-		proxyVersion *IstioVersion
+		name       string
+		ctx        *PushContext
+		meshConfig *meshconfig.MeshConfig
+		fp         *meshconfig.MeshConfig_ExtensionProvider
+		expected   *accesslog.AccessLog
 	}{
 		{
 			name: "stdout",
@@ -1470,18 +1448,6 @@ func TestTelemetryAccessLog(t *testing.T) {
 			},
 		},
 		{
-			name: "legacy stdout",
-			meshConfig: &meshconfig.MeshConfig{
-				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
-			},
-			fp: stdoutFormat,
-			expected: &accesslog.AccessLog{
-				Name:       wellknown.FileAccessLog,
-				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(legacyStdout)},
-			},
-			proxyVersion: &IstioVersion{Major: 1, Minor: 22, Patch: 0},
-		},
-		{
 			name: "stderr",
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
@@ -1491,7 +1457,6 @@ func TestTelemetryAccessLog(t *testing.T) {
 				Name:       wellknown.FileAccessLog,
 				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(stderrout)},
 			},
-			proxyVersion: &IstioVersion{Major: 1, Minor: 23, Patch: 0},
 		},
 		{
 			name: "custom-text",
@@ -1631,7 +1596,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 			}
 			push.Mesh = tc.meshConfig
 
-			got := telemetryAccessLog(push, tc.fp, tc.proxyVersion)
+			got := telemetryAccessLog(push, tc.fp)
 			if got == nil {
 				t.Fatal("get nil accesslog")
 			}

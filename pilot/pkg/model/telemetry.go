@@ -269,7 +269,7 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 			Disabled: v.Disabled,
 		}
 
-		al := telemetryAccessLog(push, fp, proxy.IstioVersion)
+		al := telemetryAccessLog(push, fp)
 		if al == nil {
 			// stackdriver will be handled in HTTPFilters/TCPFilters
 			continue

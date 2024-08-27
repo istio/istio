@@ -986,22 +986,15 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 	svc := buildService("test.com", wildcardIPv4, protocol.HTTP, tnow)
 	for _, p := range []*model.Proxy{getProxy(), &proxyHTTP10, &dualStackProxy} {
 		cases := []struct {
-			name                 string
-			p                    *model.Proxy
-			cfg                  []config.Config
-			services             []*model.Service
-			istioVersionOverride *model.IstioVersion
+			name     string
+			p        *model.Proxy
+			cfg      []config.Config
+			services []*model.Service
 		}{
 			{
 				name:     "simple",
 				p:        p,
 				services: []*model.Service{svc},
-			},
-			{
-				name:                 "simple (< 1.23)",
-				p:                    p,
-				services:             []*model.Service{svc},
-				istioVersionOverride: &model.IstioVersion{Major: 1, Minor: 22, Patch: 0},
 			},
 			{
 				name:     "sidecar with service",
@@ -1019,20 +1012,6 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
 				t.Helper()
-				if tt.istioVersionOverride != nil {
-					// Create a new proxy object with the overridden version
-					p := &model.Proxy{
-						Type:            tt.p.Type,
-						IPAddresses:     tt.p.IPAddresses,
-						ID:              tt.p.ID,
-						DNSDomain:       tt.p.DNSDomain,
-						Metadata:        tt.p.Metadata,
-						ConfigNamespace: tt.p.ConfigNamespace,
-						IstioVersion:    tt.istioVersionOverride,
-					}
-					p.DiscoverIPMode()
-					tt.p = p
-				}
 				listeners := buildListeners(t, TestOptions{
 					Services: tt.services,
 					Configs:  tt.cfg,
@@ -1050,9 +1029,6 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 							ValidateHCM: func(t test.Failer, hcm *hcm.HttpConnectionManager) {
 								assert.Equal(t, "istio-envoy", hcm.GetServerName(), "server name")
 								statPrefixDelimeter := constants.StatPrefixDelimiter
-								if tt.istioVersionOverride != nil && !util.IsIstioVersionGE123(tt.istioVersionOverride) {
-									statPrefixDelimeter = ""
-								}
 								if len(tt.cfg) == 0 {
 									assert.Equal(t, "inbound_0.0.0.0_8080"+statPrefixDelimeter, hcm.GetStatPrefix(), "stat prefix")
 								} else {
