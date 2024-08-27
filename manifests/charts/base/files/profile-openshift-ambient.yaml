@@ -9,8 +9,8 @@ meshConfig:
 global:
   platform: openshift
   variant: distroless
-  seLinuxOptions:
-    type: spc_t
+seLinuxOptions:
+  type: spc_t
 cni:
   ambient:
     enabled: true
