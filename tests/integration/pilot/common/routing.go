@@ -2840,7 +2840,11 @@ spec:
 	})
 
 	t.RunTraffic(TrafficTestCase{
-		name:         "routed",
+		name: "routed",
+		skip: skip{
+			skip:   t.Clusters().IsMulticluster(),
+			reason: "we need to apply service to all but Istio config to only Istio clusters, which we don't support",
+		},
 		globalConfig: true,
 		config: fmt.Sprintf(`apiVersion: networking.istio.io/v1
 kind: VirtualService
