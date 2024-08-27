@@ -29,6 +29,7 @@ import (
 	"github.com/howardjohn/unshare-go/userns"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	cleancmd "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptablescmd "istio.io/istio/tools/istio-iptables/pkg/cmd"
@@ -36,17 +37,23 @@ import (
 
 func TestIptablesCleanRoundTrip(t *testing.T) {
 	setup(t)
-	// We only have UID 0 in our namespace, so always set it to that
-	const proxyUID = "--proxy-uid=0"
-	t.Run("basic", func(t *testing.T) {
-		assert.NoError(t, runIptables(proxyUID))
-		assert.NoError(t, runIptablesClean(proxyUID))
+	roundtrip := func(t *testing.T, args ...string) {
+		// We only have UID 0 in our namespace, so always set it to that
+		args = append([]string{"--proxy-uid=0"}, args...)
+		// Apply, cleanup with the old approach
+		assert.NoError(t, runIptables(args...))
+		assert.NoError(t, runIptablesOldClean(args...))
 		validateIptablesClean(t)
+		// App, cleanup with the new approach
+		assert.NoError(t, runIptables(args...))
+		assert.NoError(t, runIptablesClean(args...))
+		validateIptablesClean(t)
+	}
+	t.Run("basic", func(t *testing.T) {
+		roundtrip(t)
 	})
 	t.Run("dns", func(t *testing.T) {
-		assert.NoError(t, runIptables(proxyUID, "--redirect-dns"))
-		assert.NoError(t, runIptablesClean(proxyUID, "--redirect-dns"))
-		validateIptablesClean(t)
+		roundtrip(t, "--redirect-dns")
 	})
 }
 
@@ -54,6 +61,9 @@ func validateIptablesClean(t *testing.T) {
 	cur := iptablesSave(t)
 	if strings.Contains(cur, "ISTIO") {
 		t.Fatalf("Istio rules leftover: %v", cur)
+	}
+	if strings.Contains(cur, "-A") {
+		t.Fatalf("Rules: %v", cur)
 	}
 }
 
@@ -81,6 +91,13 @@ func runIptables(args ...string) error {
 }
 
 func runIptablesClean(args ...string) error {
+	c := iptablescmd.GetCommand(log.DefaultOptions())
+	args = append(slices.Clone(args), "--cleanup-only")
+	c.SetArgs(args)
+	return c.Execute()
+}
+
+func runIptablesOldClean(args ...string) error {
 	c := cleancmd.GetCommand(log.DefaultOptions())
 	c.SetArgs(args)
 	return c.Execute()
