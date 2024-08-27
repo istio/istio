@@ -1,9 +1,13 @@
 iptables -t mangle -N ISTIO_PRERT
 iptables -t nat -N ISTIO_OUTPUT
 iptables -t mangle -N ISTIO_OUTPUT
+iptables -t raw -N ISTIO_OUTPUT
+iptables -t raw -N ISTIO_PRERT
 iptables -t mangle -A PREROUTING -j ISTIO_PRERT
 iptables -t mangle -A OUTPUT -j ISTIO_OUTPUT
 iptables -t nat -A OUTPUT -j ISTIO_OUTPUT
+iptables -t raw -A PREROUTING -j ISTIO_PRERT
+iptables -t raw -A OUTPUT -j ISTIO_OUTPUT
 iptables -t mangle -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
 iptables -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp -j ACCEPT
 iptables -t nat -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp -j ACCEPT
@@ -12,16 +16,23 @@ iptables -t mangle -A ISTIO_PRERT -p tcp -m tcp --dport 15008 -m mark ! --mark 0
 iptables -t mangle -A ISTIO_PRERT -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -t mangle -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x539/0xfff -j TPROXY --on-port 15006 --tproxy-mark 0x111/0xfff
 iptables -t mangle -A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
-iptables -t nat -A ISTIO_OUTPUT ! -o lo -p udp -m udp --dport 53 -j REDIRECT --to-port 15053
+iptables -t nat -A ISTIO_OUTPUT ! -o lo -p udp -m mark ! --mark 0x539/0xfff -m udp --dport 53 -j REDIRECT --to-port 15053
+iptables -t nat -A ISTIO_OUTPUT ! -d 127.0.0.1/32 -p tcp --dport 53 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports 15053
+iptables -t raw -A ISTIO_OUTPUT -p udp -m mark --mark 0x539/0xfff -m udp --dport 53 -j CT --zone 1
+iptables -t raw -A ISTIO_PRERT -p udp -m mark ! --mark 0x539/0xfff -m udp --sport 53 -j CT --zone 1
 iptables -t nat -A ISTIO_OUTPUT -p tcp -m mark --mark 0x111/0xfff -j ACCEPT
 iptables -t nat -A ISTIO_OUTPUT ! -d 127.0.0.1/32 -o lo -j ACCEPT
 iptables -t nat -A ISTIO_OUTPUT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports 15001
 ip6tables -t mangle -N ISTIO_PRERT
 ip6tables -t nat -N ISTIO_OUTPUT
 ip6tables -t mangle -N ISTIO_OUTPUT
+ip6tables -t raw -N ISTIO_OUTPUT
+ip6tables -t raw -N ISTIO_PRERT
 ip6tables -t mangle -A PREROUTING -j ISTIO_PRERT
 ip6tables -t mangle -A OUTPUT -j ISTIO_OUTPUT
 ip6tables -t nat -A OUTPUT -j ISTIO_OUTPUT
+ip6tables -t raw -A PREROUTING -j ISTIO_PRERT
+ip6tables -t raw -A OUTPUT -j ISTIO_OUTPUT
 ip6tables -t mangle -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
 ip6tables -t mangle -A ISTIO_PRERT -s e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164 -p tcp -m tcp -j ACCEPT
 ip6tables -t nat -A ISTIO_OUTPUT -d e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164 -p tcp -m tcp -j ACCEPT
@@ -30,7 +41,10 @@ ip6tables -t mangle -A ISTIO_PRERT -p tcp -m tcp --dport 15008 -m mark ! --mark 
 ip6tables -t mangle -A ISTIO_PRERT -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 ip6tables -t mangle -A ISTIO_PRERT ! -d ::1/128 -p tcp -m mark ! --mark 0x539/0xfff -j TPROXY --on-port 15006 --tproxy-mark 0x111/0xfff
 ip6tables -t mangle -A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
-ip6tables -t nat -A ISTIO_OUTPUT ! -o lo -p udp -m udp --dport 53 -j REDIRECT --to-port 15053
+ip6tables -t nat -A ISTIO_OUTPUT ! -o lo -p udp -m mark ! --mark 0x539/0xfff -m udp --dport 53 -j REDIRECT --to-port 15053
+ip6tables -t nat -A ISTIO_OUTPUT ! -d ::1/128 -p tcp --dport 53 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports 15053
+ip6tables -t raw -A ISTIO_OUTPUT -p udp -m mark --mark 0x539/0xfff -m udp --dport 53 -j CT --zone 1
+ip6tables -t raw -A ISTIO_PRERT -p udp -m mark ! --mark 0x539/0xfff -m udp --sport 53 -j CT --zone 1
 ip6tables -t nat -A ISTIO_OUTPUT -p tcp -m mark --mark 0x111/0xfff -j ACCEPT
 ip6tables -t nat -A ISTIO_OUTPUT ! -d ::1/128 -o lo -j ACCEPT
 ip6tables -t nat -A ISTIO_OUTPUT ! -d ::1/128 -p tcp -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports 15001
