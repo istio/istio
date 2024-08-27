@@ -29,6 +29,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/config/schema/kubetypes"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
@@ -59,19 +61,29 @@ func (a *index) serviceServiceBuilder(
 				TargetPortName: p.TargetPort.StrVal,
 			}
 		}
-		waypointKey := ""
-		waypoint := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
+		waypointStatus := model.WaypointBindingStatus{}
+		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
 		if waypoint != nil {
-			waypointKey = waypoint.ResourceName()
+			waypointStatus.ResourceName = waypoint.ResourceName()
 		}
+		waypointStatus.Error = wperr
+
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		return &model.ServiceInfo{
 			Service:       a.constructService(s, waypoint),
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(s.Spec.Selector),
-			Source:        kind.Service,
-			Waypoint:      waypointKey,
+			Source:        MakeSource(s),
+			Waypoint:      waypointStatus,
 		}
+	}
+}
+
+// MakeSource is a helper to turn an Object into a model.TypedObject.
+func MakeSource(o controllers.Object) model.TypedObject {
+	return model.TypedObject{
+		NamespacedName: config.NamespacedName(o),
+		Kind:           kind.MustFromGVK(kubetypes.GvkFromObject(o)),
 	}
 }
 
@@ -80,13 +92,13 @@ func (a *index) serviceEntryServiceBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
-		waypoint := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
+		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		return a.serviceEntriesInfo(s, waypoint)
+		return a.serviceEntriesInfo(s, waypoint, waypointError)
 	}
 }
 
-func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint) []model.ServiceInfo {
+func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint, wperr *model.StatusMessage) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
 	portNames := map[int32]model.ServicePortName{}
 	for _, p := range s.Spec.Ports {
@@ -94,17 +106,20 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint
 			PortName: p.Name,
 		}
 	}
-	waypointKey := ""
+	waypoint := model.WaypointBindingStatus{}
 	if w != nil {
-		waypointKey = w.ResourceName()
+		waypoint.ResourceName = w.ResourceName()
+	}
+	if wperr != nil {
+		waypoint.Error = wperr
 	}
 	return slices.Map(a.constructServiceEntries(s, w), func(e *workloadapi.Service) model.ServiceInfo {
 		return model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
 			LabelSelector: sel,
-			Source:        kind.ServiceEntry,
-			Waypoint:      waypointKey,
+			Source:        MakeSource(s),
+			Waypoint:      waypoint,
 		}
 	})
 }

@@ -75,9 +75,47 @@ type Writer[T controllers.Object] interface {
 	UpdateStatus(object T) (T, error)
 	// Patch patches the resource, returning the newly applied resource.
 	Patch(name, namespace string, pt apitypes.PatchType, data []byte) (T, error)
+	// PatchStatus patches the resource's status, returning the newly applied resource.
 	PatchStatus(name, namespace string, pt apitypes.PatchType, data []byte) (T, error)
+	// ApplyStatus does a server-side Apply of the the resource's status, returning the newly applied resource.
+	// fieldManager is a required field; see https://kubernetes.io/docs/reference/using-api/server-side-apply/#managers.
+	ApplyStatus(name, namespace string, pt apitypes.PatchType, data []byte, fieldManager string) (T, error)
 	// Delete removes a resource.
 	Delete(name, namespace string) error
+}
+
+type patcher[T controllers.Object] struct {
+	Writer[T]
+}
+
+func (p patcher[T]) Patch(name, namespace string, pt apitypes.PatchType, data []byte) error {
+	_, err := p.Writer.Patch(name, namespace, pt, data)
+	return err
+}
+
+func (p patcher[T]) PatchStatus(name, namespace string, pt apitypes.PatchType, data []byte) error {
+	_, err := p.Writer.PatchStatus(name, namespace, pt, data)
+	return err
+}
+
+func (p patcher[T]) ApplyStatus(name, namespace string, pt apitypes.PatchType, data []byte, fieldManager string) error {
+	_, err := p.Writer.ApplyStatus(name, namespace, pt, data, fieldManager)
+	return err
+}
+
+func ToPatcher[T controllers.Object](w Writer[T]) Patcher {
+	return patcher[T]{Writer: w}
+}
+
+// Patcher is a type-erased writer that can be used for patching
+type Patcher interface {
+	// Patch patches the resource, returning the newly applied resource.
+	Patch(name, namespace string, pt apitypes.PatchType, data []byte) error
+	// PatchStatus patches the resource's status, returning the newly applied resource.
+	PatchStatus(name, namespace string, pt apitypes.PatchType, data []byte) error
+	// ApplyStatus does a server-side Apply of the the resource's status, returning the newly applied resource.
+	// fieldManager is a required field; see https://kubernetes.io/docs/reference/using-api/server-side-apply/#managers.
+	ApplyStatus(name, namespace string, pt apitypes.PatchType, data []byte, fieldManager string) error
 }
 
 type ReadWriter[T controllers.Object] interface {
