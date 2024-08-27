@@ -15,6 +15,8 @@ iptables -t nat -F ISTIO_REDIRECT
 iptables -t nat -X ISTIO_REDIRECT
 iptables -t nat -F ISTIO_IN_REDIRECT
 iptables -t nat -X ISTIO_IN_REDIRECT
+iptables -t nat -F ISTIO_OUTPUT
+iptables -t nat -X ISTIO_OUTPUT
 ip6tables -t nat -D PREROUTING -p tcp -j ISTIO_INBOUND
 ip6tables -t mangle -D PREROUTING -p tcp -j ISTIO_INBOUND
 ip6tables -t nat -D OUTPUT -p tcp -j ISTIO_OUTPUT
@@ -32,6 +34,8 @@ ip6tables -t nat -F ISTIO_REDIRECT
 ip6tables -t nat -X ISTIO_REDIRECT
 ip6tables -t nat -F ISTIO_IN_REDIRECT
 ip6tables -t nat -X ISTIO_IN_REDIRECT
+ip6tables -t nat -F ISTIO_OUTPUT
+ip6tables -t nat -X ISTIO_OUTPUT
 iptables -t nat -D OUTPUT -p udp -j ISTIO_OUTPUT
 iptables -t raw -D OUTPUT -p udp -j ISTIO_OUTPUT
 ip6tables -t nat -D OUTPUT -p udp -j ISTIO_OUTPUT
@@ -48,5 +52,9 @@ iptables -t raw -D ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j C
 ip6tables -t raw -D ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
 iptables -t raw -D ISTIO_OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
 ip6tables -t raw -D ISTIO_OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
+iptables -t raw -F ISTIO_OUTPUT
+iptables -t raw -X ISTIO_OUTPUT
+iptables -t nat -F ISTIO_OUTPUT
+iptables -t nat -X ISTIO_OUTPUT
 iptables-save
 ip6tables-save
