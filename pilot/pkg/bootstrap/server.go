@@ -286,6 +286,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, err
 	}
 
+	// Initialize trust bundle after mesh config which it depends on
 	s.workloadTrustBundle = tb.NewTrustBundle(nil, e.Watcher)
 	e.TrustBundle = s.workloadTrustBundle
 
