@@ -184,8 +184,8 @@ func (rb *IptablesRuleBuilder) buildRules(rules []Rule) [][]string {
 // structure of other parameters.
 // Non-jump rules in ISTIO_* chains are skipped as these chains will be flushed, but jump rules are retained to ensure proper reversal.
 // Note: This function does not support converting rules with -D/--delete flags back to -A/-I flags.
-func undoRules(rules []*Rule) []*Rule {
-	output := make([]*Rule, 0)
+func undoRules(rules []Rule) []Rule {
+	output := make([]Rule, 0)
 	for _, r := range rules {
 		var modifiedParams []string
 		skip := false
@@ -220,7 +220,7 @@ func undoRules(rules []*Rule) []*Rule {
 			continue
 		}
 
-		output = append(output, &Rule{
+		output = append(output, Rule{
 			chain:  r.chain,
 			table:  r.table,
 			params: modifiedParams,
@@ -234,8 +234,8 @@ func undoRules(rules []*Rule) []*Rule {
 // The function transforms -A/--append and -I/--insert flags into -C/--check flags while preserving the
 // structure of other parameters.
 // The transformation allows for checking whether the corresponding rules are already present in the iptables configuration.
-func checkRules(rules []*Rule) []*Rule {
-	output := make([]*Rule, 0)
+func checkRules(rules []Rule) []Rule {
+	output := make([]Rule, 0)
 	for _, r := range rules {
 		var modifiedParams []string
 		insertIndex := -1
@@ -256,7 +256,7 @@ func checkRules(rules []*Rule) []*Rule {
 				modifiedParams = append(modifiedParams, element)
 			}
 		}
-		output = append(output, &Rule{
+		output = append(output, Rule{
 			chain:  r.chain,
 			table:  r.table,
 			params: modifiedParams,
@@ -266,7 +266,7 @@ func checkRules(rules []*Rule) []*Rule {
 	return output
 }
 
-func (rb *IptablesRuleBuilder) buildCheckRules(rules []*Rule) [][]string {
+func (rb *IptablesRuleBuilder) buildCheckRules(rules []Rule) [][]string {
 	output := make([][]string, 0)
 	checkRules := checkRules(rules)
 	for _, r := range checkRules {
@@ -276,8 +276,8 @@ func (rb *IptablesRuleBuilder) buildCheckRules(rules []*Rule) [][]string {
 	return output
 }
 
-func (rb *IptablesRuleBuilder) buildCleanupRules(rules []*Rule) [][]string {
-	newRules := make([]*Rule, len(rules))
+func (rb *IptablesRuleBuilder) buildCleanupRules(rules []Rule) [][]string {
+	newRules := make([]Rule, len(rules))
 	for i := len(rules) - 1; i >= 0; i-- {
 		newRules[len(rules)-1-i] = rules[i]
 	}
@@ -306,8 +306,8 @@ func (rb *IptablesRuleBuilder) buildCleanupRules(rules []*Rule) [][]string {
 	return output
 }
 
-func (rb *IptablesRuleBuilder) buildGuardrails() []*Rule {
-	rules := make([]*Rule, 0)
+func (rb *IptablesRuleBuilder) buildGuardrails() []Rule {
+	rules := make([]Rule, 0)
 	rb.insertInternal(&rules, iptableslog.UndefinedCommand, constants.INPUT, constants.FILTER, 1, "-p", "tcp", "-j", "DROP")
 	rb.insertInternal(&rules, iptableslog.UndefinedCommand, constants.INPUT, constants.FILTER, 1, "-p", "udp", "-j", "DROP")
 	rb.insertInternal(&rules, iptableslog.UndefinedCommand, constants.FORWARD, constants.FILTER, 1, "-p", "tcp", "-j", "DROP")
