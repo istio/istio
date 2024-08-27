@@ -179,12 +179,12 @@ func (rb *IptablesRuleBuilder) buildRules(rules []Rule) [][]string {
 	return output
 }
 
-// reverseRules generates the minimal set of rules that are necessary to reverse the changes made by the input rules.
+// undoRules generates the minimal set of rules that are necessary to undo the changes made by the input rules.
 // The function transforms -A/--append and -I/--insert flags into -D/--delete flags while preserving the
 // structure of other parameters.
 // Non-jump rules in ISTIO_* chains are skipped as these chains will be flushed, but jump rules are retained to ensure proper reversal.
-// Note: This function does not support converting -D/--delete flags back to -A/-I flags.
-func reverseRules(rules []*Rule) []*Rule {
+// Note: This function does not support converting rules with -D/--delete flags back to -A/-I flags.
+func undoRules(rules []*Rule) []*Rule {
 	output := make([]*Rule, 0)
 	for _, r := range rules {
 		var modifiedParams []string
@@ -226,7 +226,7 @@ func reverseRules(rules []*Rule) []*Rule {
 			params: modifiedParams,
 		})
 	}
-	log.Debugf("Reversed rules to %+v", output)
+	log.Debugf("Generated undo-rules: %+v", output)
 	return output
 }
 
@@ -262,7 +262,7 @@ func checkRules(rules []*Rule) []*Rule {
 			params: modifiedParams,
 		})
 	}
-	log.Debugf("Rules mutated into check-rules %+v", output)
+	log.Debugf("Generated check-rules: %+v", output)
 	return output
 }
 
@@ -283,7 +283,7 @@ func (rb *IptablesRuleBuilder) buildCleanupRules(rules []*Rule) [][]string {
 	}
 
 	output := make([][]string, 0)
-	reversedRules := reverseRules(newRules)
+	reversedRules := undoRules(newRules)
 	for _, r := range reversedRules {
 		cmd := append([]string{"-t", r.table}, r.params...)
 		output = append(output, cmd)
@@ -352,7 +352,7 @@ func (rb *IptablesRuleBuilder) BuildGuardrails() [][]string {
 }
 
 func (rb *IptablesRuleBuilder) BuildCleanupGuardrails() [][]string {
-	rules := reverseRules(rb.buildGuardrails())
+	rules := undoRules(rb.buildGuardrails())
 	output := make([][]string, 0)
 	for _, r := range rules {
 		cmd := append([]string{"-t", r.table}, r.params...)
