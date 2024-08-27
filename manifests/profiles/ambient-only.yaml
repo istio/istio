@@ -1,0 +1,17 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    base:
+      enableCRDTemplates: true
+      enableIstioConfigCRDs: false
+      excludedCRDs:
+      # Not supported in ambient (likely ever)
+      - "sidecars.networking.istio.io"
+      - "envoyfilters.networking.istio.io"
+      # Not recommended in ambient (replaced with Gateway API)
+      - "gateways.networking.istio.io"
+      - "virtualservices.networking.istio.io"
+      # Not supported in ambient (until VM supported is added)
+      - "workloadgroups.networking.istio.io"
+    profile: ambient
