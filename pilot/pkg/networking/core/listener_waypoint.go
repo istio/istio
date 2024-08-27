@@ -77,7 +77,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	listeners = append(listeners,
 		lb.buildWaypointInboundConnectTerminate(),
 		lb.buildWaypointInternal(wls, wps.orderedServices),
-		buildWaypointConnectOriginateListener())
+		buildWaypointConnectOriginateListener(lb.push, lb.node))
 
 	return listeners
 }
@@ -340,12 +340,20 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 	return l
 }
 
-func buildWaypointConnectOriginateListener() *listener.Listener {
-	return buildConnectOriginateListener()
+func buildWaypointConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	return buildConnectOriginateListener(push, proxy, istionetworking.ListenerClassSidecarInbound)
 }
 
-func buildConnectOriginateListener() *listener.Listener {
-	var headers []*core.HeaderValueOption
+func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) *listener.Listener {
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:       ConnectOriginate,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: ConnectOriginate},
+		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
+		},
+	}
+	// Set access logs. These are filtered down to only connection establishment errors, to avoid double logs in most cases.
+	accessLogBuilder.setHboneAccessLog(push, proxy, tcpProxy, class)
 	l := &listener.Listener{
 		Name:              ConnectOriginate,
 		UseOriginalDst:    wrappers.Bool(false),
@@ -357,18 +365,12 @@ func buildConnectOriginateListener() *listener.Listener {
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
 				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-						StatPrefix:       ConnectOriginate,
-						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: ConnectOriginate},
-						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-							Hostname:     "%DOWNSTREAM_LOCAL_ADDRESS%",
-							HeadersToAdd: headers,
-						},
-					}),
+					TypedConfig: protoconv.MessageToAny(tcpProxy),
 				},
 			}},
 		}},
 	}
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, class)
 	return l
 }
 
