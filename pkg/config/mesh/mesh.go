@@ -74,7 +74,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		AccessLogEncoding:           meshconfig.MeshConfig_TEXT,
 		AccessLogFormat:             "",
 		EnableEnvoyAccessLogService: false,
-		ProtocolDetectionTimeout:    durationpb.New(0),
+		ProtocolDetectionTimeout:    durationpb.New(5 * time.Second),
 		IngressService:              "istio-ingressgateway",
 		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
 		IngressClass:                "istio",
