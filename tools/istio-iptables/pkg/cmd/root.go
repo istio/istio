@@ -136,6 +136,12 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 		&cfg.NetworkNamespace)
 
 	flag.BindEnv(fs, constants.CNIMode, "", "Whether to run as CNI plugin.", &cfg.HostFilesystemPodNetwork)
+
+	flag.BindEnv(fs, constants.Reconcile, "", "Reconcile pre-existing and incompatible iptables rules instead of failing if drift is detected",
+		&cfg.Reconcile)
+
+	flag.BindEnv(fs, constants.CleanupOnly, "", "Perform a forced cleanup without creating new iptables chains or rules.",
+		&cfg.CleanupOnly)
 }
 
 func GetCommand(logOpts *log.Options) *cobra.Command {
