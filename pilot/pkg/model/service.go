@@ -1023,6 +1023,8 @@ type Condition struct {
 
 func (i ServiceInfo) GetConditions() ConditionSet {
 	set := map[ConditionType]*Condition{
+		// Write all conditions here, then overide if we want them set.
+		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound: nil,
 	}
 	if i.Waypoint.ResourceName != "" {

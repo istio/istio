@@ -79,6 +79,7 @@ func (a *index) serviceServiceBuilder(
 	}
 }
 
+// MakeSource is a helper to turn an Object into a model.TypedObject.
 func MakeSource(o controllers.Object) model.TypedObject {
 	return model.TypedObject{
 		NamespacedName: config.NamespacedName(o),
