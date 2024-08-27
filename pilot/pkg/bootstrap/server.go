@@ -242,14 +242,12 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 		webhookInfo:             &webhookInfo{},
 	}
-	s.workloadTrustBundle = tb.NewTrustBundle(nil, e.Watcher)
 
 	// Apply custom initialization functions.
 	for _, fn := range initFuncs {
 		fn(s)
 	}
 	// Initialize workload Trust Bundle before XDS Server
-	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.RegistryOptions.KubeOptions.ClusterAliases)
 	configGen := core.NewConfigGenerator(s.XDSServer.Cache)
 
@@ -287,6 +285,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if err := s.environment.InitNetworksManager(s.XDSServer); err != nil {
 		return nil, err
 	}
+
+	// Initialize trust bundle after mesh config which it depends on
+	s.workloadTrustBundle = tb.NewTrustBundle(nil, e.Watcher)
+	e.TrustBundle = s.workloadTrustBundle
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
