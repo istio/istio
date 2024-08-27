@@ -92,6 +92,7 @@
     "tag": "latest",
     "variant": "",
     "waypoint": {
+      "affinity": {},
       "resources": {
         "limits": {
           "cpu": "2",

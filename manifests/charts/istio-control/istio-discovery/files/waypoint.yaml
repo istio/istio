@@ -68,6 +68,10 @@ spec:
             "gateway.istio.io/managed" "istio.io-mesh-controller"
           ) | nindent 8}}
     spec:
+      {{- if .Values.waypoint.affinity }}
+      affinity:
+      {{- toYaml .Values.waypoint.affinity | nindent 8 }}
+      {{- end }}
       terminationGracePeriodSeconds: 2
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
