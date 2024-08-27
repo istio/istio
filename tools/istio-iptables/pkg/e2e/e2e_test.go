@@ -44,7 +44,6 @@ func TestIptablesCleanRoundTrip(t *testing.T) {
 		validateIptablesClean(t)
 	})
 	t.Run("dns", func(t *testing.T) {
-		t.Skip("https://github.com/istio/istio/issues/52835")
 		assert.NoError(t, runIptables(proxyUID, "--redirect-dns"))
 		assert.NoError(t, runIptablesClean(proxyUID, "--redirect-dns"))
 		validateIptablesClean(t)
