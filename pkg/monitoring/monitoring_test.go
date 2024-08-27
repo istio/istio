@@ -164,7 +164,9 @@ func TestGaugeLabels(t *testing.T) {
 func TestParallelLabels(t *testing.T) {
 	metrics := []monitoring.Metric{testGauge, testDistribution, testSum}
 	for _, m := range metrics {
+		m := m
 		for i := range 100 {
+			i := i
 			go func() {
 				m.With(kind.Value(fmt.Sprint(i))).Record(1)
 			}()
