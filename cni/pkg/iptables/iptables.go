@@ -150,6 +150,8 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
 		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
+		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
+		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
 	}
 
 	// these sometimes fail due to "Device or resource busy"
@@ -241,6 +243,17 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		iptableslog.UndefinedCommand, iptablesconstants.OUTPUT, iptablesconstants.NAT,
 		"-j", ChainInpodOutput,
 	)
+
+	if redirectDNS {
+		iptablesBuilder.AppendRule(
+			iptableslog.UndefinedCommand, iptablesconstants.PREROUTING, iptablesconstants.RAW,
+			"-j", ChainInpodPrerouting,
+		)
+		iptablesBuilder.AppendRule(
+			iptableslog.UndefinedCommand, iptablesconstants.OUTPUT, iptablesconstants.RAW,
+			"-j", ChainInpodOutput,
+		)
+	}
 
 	natOrMangleBasedOnTproxy := iptablesconstants.MANGLE
 	if !cfg.cfg.TPROXYRedirection {
@@ -369,10 +382,10 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		"--ctmask", fmt.Sprintf("0x%x", InpodRestoreMask),
 	)
 
-	// CLI: -A ISTIO_OUTPUT ! -o lo -p udp -m udp --dport 53 -j REDIRECT --to-port 15053
-	//
-	// DESC: If this is a UDP DNS request to a non-localhost resolver, send it to ztunnel DNS proxy port
 	if redirectDNS {
+		// CLI: -A ISTIO_OUTPUT ! -o lo -p udp -m udp --dport 53 -j REDIRECT --to-port 15053
+		//
+		// DESC: If this is a UDP DNS request to a non-localhost resolver, send it to ztunnel DNS proxy port
 		iptablesBuilder.AppendRule(
 			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
 			"!", "-o", "lo",
@@ -384,7 +397,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 			"-j", "REDIRECT",
 			"--to-port", fmt.Sprintf("%d", DNSCapturePort),
 		)
-
+		// Same as above for TCP
 		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
 			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
 			"!", "-d", iptablesconstants.IPVersionSpecific,
@@ -394,6 +407,32 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 			"--mark", inpodMark,
 			"-j", "REDIRECT",
 			"--to-ports", fmt.Sprintf("%d", DNSCapturePort),
+		)
+
+		// Assign packets between the proxy and upstream DNS servers to their own conntrack zones to avoid issues in port collision
+		// See https://github.com/istio/istio/issues/33469
+		// Proxy --> Upstream
+		iptablesBuilder.AppendRule(
+			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.RAW,
+			"-p", "udp",
+			// Proxy will mark outgoing packets
+			"-m", "mark",
+			"--mark", inpodMark,
+			"-m", "udp",
+			"--dport", "53",
+			"-j", "CT",
+			"--zone", "1",
+		)
+		// Upstream --> Proxy return packets
+		iptablesBuilder.AppendRule(
+			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.RAW,
+			"-p", "udp",
+			"-m", "mark", "!",
+			"--mark", inpodMark,
+			"-m", "udp",
+			"--sport", "53",
+			"-j", "CT",
+			"--zone", "1",
 		)
 	}
 
