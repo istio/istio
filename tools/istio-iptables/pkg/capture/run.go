@@ -856,10 +856,10 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 
 	residueExists, deltaExists := cfg.VerifyIptablesState(iptVer, ipt6Ver)
 	if residueExists && deltaExists && !cfg.cfg.Reconcile {
-		return fmt.Errorf("reconcile is needed but no-reconcile flag is set. Can't recover from this state")
+		log.Warn("reconcile is needed but no-reconcile flag is set. Unexpected behavior may occur due to preexisting iptables rules")
 	}
 	// Cleanup Step
-	if (residueExists && deltaExists) || cfg.cfg.CleanupOnly {
+	if (residueExists && deltaExists && cfg.cfg.Reconcile) || cfg.cfg.CleanupOnly {
 		// Apply safety guardrails
 		if !cfg.cfg.CleanupOnly {
 			log.Info("Setting up guardrails")
