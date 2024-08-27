@@ -15,6 +15,7 @@
 package monitoring_test
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/monitoring"
@@ -157,6 +158,20 @@ func TestGaugeLabels(t *testing.T) {
 
 	mt.Assert(testGauge.Name(), map[string]string{"kind": "foo"}, monitortest.Exactly(42))
 	mt.Assert(testGauge.Name(), map[string]string{"kind": "bar"}, monitortest.Exactly(72))
+}
+
+// Regression test to ensure we can safely mutate labels in parallel
+func TestParallelLabels(t *testing.T) {
+	metrics := []monitoring.Metric{testGauge, testDistribution, testSum}
+	for _, m := range metrics {
+		m := m
+		for i := range 100 {
+			i := i
+			go func() {
+				m.With(kind.Value(fmt.Sprint(i))).Record(1)
+			}()
+		}
+	}
 }
 
 var (
