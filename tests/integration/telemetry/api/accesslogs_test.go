@@ -66,7 +66,8 @@ func TestAccessLogs(t *testing.T) {
 				crd.DeployGatewayAPIOrSkip(t)
 				t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "./testdata/gateway-api.yaml").ApplyOrFail(t)
 				applyTelemetryResourceWithTargetRef(t, true)
-				runAccessLogsTests(t, true, true)
+				// We should not get logs from the client, since the policy only applies to the Gateway.
+				runAccessLogsTests(t, false, true)
 				deleteTelemetryResource(t, true)
 			})
 			t.NewSubTest("disabled").Run(func(t framework.TestContext) {

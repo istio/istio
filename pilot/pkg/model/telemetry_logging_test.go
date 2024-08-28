@@ -85,6 +85,12 @@ func TestAccessLogging(t *testing.T) {
 		Labels:          labels,
 		Metadata:        &NodeMetadata{Labels: labels},
 	}
+	waypoint := &Proxy{
+		ConfigNamespace: "default",
+		Type:            Waypoint,
+		Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "waypoint"},
+		Metadata:        &NodeMetadata{Labels: map[string]string{"gateway.networking.k8s.io/gateway-name": "waypoint"}},
+	}
 	prometheus := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
 			{
@@ -142,7 +148,7 @@ func TestAccessLogging(t *testing.T) {
 		TargetRef: &v1beta1.PolicyTargetReference{
 			Group: gvk.KubernetesGateway.Group,
 			Kind:  gvk.KubernetesGateway.Kind,
-			Name:  "my-gateway",
+			Name:  "waypoint",
 		},
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -478,7 +484,7 @@ func TestAccessLogging(t *testing.T) {
 			"client - gateway defined by targetRef",
 			[]config.Config{newTelemetry("default", targetRefClient)},
 			networking.ListenerClassGateway,
-			sidecar,
+			waypoint,
 			nil,
 			[]string{"envoy"},
 		},

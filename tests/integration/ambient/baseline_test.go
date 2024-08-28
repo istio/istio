@@ -2538,6 +2538,82 @@ func TestL7Telemetry(t *testing.T) {
 		})
 }
 
+// TestCustomizeMetrics tests that we can override metrics information for
+func TestCustomizeMetrics(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			t.ConfigIstio().YAML(apps.Namespace.Name(), `
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: ns-default
+spec:
+  targetRefs:
+  - kind: Service
+    group: core
+    name: "service-addressed-waypoint"
+  metrics:
+  - providers:
+    - name: prometheus
+    overrides:
+    - match:
+        metric: REQUEST_COUNT
+      tagOverrides:
+        custom_dimension: 
+          value: "'test'"
+        source_principal:
+          operation: REMOVE
+
+`).ApplyOrFail(t)
+			t.Cleanup(func() {
+				if t.Failed() {
+					util.PromDump(t.Clusters().Default(), prom, prometheus.Query{Metric: "istio_requests_total"})
+				}
+			})
+
+			query := prometheus.Query{
+				Metric: "istio_requests_total",
+				Labels: map[string]string{
+					"request_protocol":               "http",
+					"response_code":                  "200",
+					"destination_app":                "service-addressed-waypoint",
+					"destination_version":            "v1",
+					"destination_service":            "service-addressed-waypoint." + apps.Namespace.Name() + ".svc.cluster.local",
+					"destination_service_name":       "service-addressed-waypoint",
+					"destination_workload_namespace": apps.Namespace.Name(),
+					"destination_service_namespace":  apps.Namespace.Name(),
+					"source_app":                     "captured",
+					"source_version":                 "v1",
+					"source_workload":                "captured-v1",
+					"source_workload_namespace":      apps.Namespace.Name(),
+					"custom_dimension":               "test",
+					"reporter":                       "waypoint",
+				},
+			}
+
+			var httpMetricVal string
+			cluster := t.Clusters().Default()
+			retry.UntilSuccessOrFail(t, func() error {
+				if _, err := apps.Captured[0].Call(echo.CallOptions{To: apps.ServiceAddressedWaypoint, Port: echo.Port{Name: "http"}}); err != nil {
+					t.Log("failed to send traffic")
+					return err
+				}
+				var err error
+				httpMetricVal, err = util.QueryPrometheus(t, cluster, query, prom)
+				if err != nil {
+					util.PromDiff(t, prom, cluster, query)
+					return err
+				}
+				return nil
+			}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
+			// check tag removed
+			if strings.Contains(httpMetricVal, "source_principal") {
+				t.Errorf("failed to remove tag: source_principal")
+			}
+			util.ValidateMetric(t, cluster, prom, query, 1)
+		})
+}
+
 func TestL4Telemetry(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(tc framework.TestContext) {
