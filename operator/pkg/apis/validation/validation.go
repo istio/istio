@@ -95,17 +95,20 @@ func detectCniIncompatibility(client kube.Client, cniEnabled bool, ztunnelEnable
 	}
 	if cniEnabled && cilium.Data["cni-exclusive"] == "true" {
 		// Without this, Cilium will constantly overwrite our CNI config.
-		errs = util.AppendErr(errs, fmt.Errorf("detected Cilium CNI with 'cni-exclusive=true'; this must be set to 'cni-exclusive=false' in the Cilium configuration"))
+		errs = util.AppendErr(errs,
+			fmt.Errorf("detected Cilium CNI with 'cni-exclusive=true'; this must be set to 'cni-exclusive=false' in the Cilium configuration"))
 	}
 	if ztunnelEnabled && cilium.Data["enable-bpf-masquerade"] == "true" {
 		// See https://github.com/istio/istio/issues/52208
-		errs = util.AppendErr(errs, fmt.Errorf("detected Cilium CNI with 'enable-bpf-masquerade=true'; this must be set to 'false' when using ambient mode"))
+		errs = util.AppendErr(errs,
+			fmt.Errorf("detected Cilium CNI with 'enable-bpf-masquerade=true'; this must be set to 'false' when using ambient mode"))
 	}
 	bpfLbSocket := cilium.Data["bpf-lb-sock"] == "true"                 // Unset implies 'false', so this check is ok
 	bpfLbHostnsOnly := cilium.Data["bpf-lb-sock-hostns-only"] == "true" // Unset implies 'false', so this check is ok
 	if bpfLbSocket && !bpfLbHostnsOnly {
 		// See https://github.com/istio/istio/issues/27619
-		errs = util.AppendErr(errs, errors.New("detected Cilium CNI with 'bpf-lb-sock=true'; this requires 'bpf-lb-sock-hostns-only=true' to be set"))
+		errs = util.AppendErr(errs,
+			errors.New("detected Cilium CNI with 'bpf-lb-sock=true'; this requires 'bpf-lb-sock-hostns-only=true' to be set"))
 	}
 	return errs
 }
