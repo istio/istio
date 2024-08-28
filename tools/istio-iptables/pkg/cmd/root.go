@@ -137,11 +137,16 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 
 	flag.BindEnv(fs, constants.CNIMode, "", "Whether to run as CNI plugin.", &cfg.HostFilesystemPodNetwork)
 
-	flag.BindEnv(fs, constants.Reconcile, "", "Reconcile pre-existing and incompatible iptables rules instead of failing if drift is detected",
+	flag.BindEnv(fs, constants.Reconcile, "", "Reconcile pre-existing and incompatible iptables rules instead of failing if drift is detected.",
 		&cfg.Reconcile)
 
 	flag.BindEnv(fs, constants.CleanupOnly, "", "Perform a forced cleanup without creating new iptables chains or rules.",
 		&cfg.CleanupOnly)
+
+	// This flag is a safety measure in case the idempotency changes of #50328 backfire.
+	// Allows override if detection incorrectly assumes rules are already applied. Consider removing after several stable releases with no reported issues.
+	flag.BindEnv(fs, constants.ForceApply, "", "Apply iptables changes even if they appear to already be in place.",
+		&cfg.ForceApply)
 }
 
 func GetCommand(logOpts *log.Options) *cobra.Command {

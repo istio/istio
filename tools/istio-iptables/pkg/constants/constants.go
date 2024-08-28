@@ -108,6 +108,7 @@ const (
 	CNIMode                   = "cni-mode"
 	Reconcile                 = "reconcile"
 	CleanupOnly               = "cleanup-only"
+	ForceApply                = "force-apply"
 )
 
 // Environment variables that deliberately have no equivalent command-line flags.

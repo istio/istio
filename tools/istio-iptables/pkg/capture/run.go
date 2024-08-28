@@ -880,7 +880,7 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 	}
 
 	// Apply Step
-	if deltaExists && !cfg.cfg.CleanupOnly {
+	if (deltaExists || cfg.cfg.ForceApply) && !cfg.cfg.CleanupOnly {
 		log.Info("Applying iptables chains and rules")
 		if cfg.cfg.RestoreFormat {
 			// Execute iptables-restore
@@ -901,6 +901,10 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 				return err
 			}
 		}
+	}
+
+	if !deltaExists && cfg.cfg.ForceApply {
+		log.Warn("The forced apply of iptables changes succeeded despite the presence of conflicting rules or chains. If you encounter this message, please consider reporting it as an issue.")
 	}
 
 	return nil

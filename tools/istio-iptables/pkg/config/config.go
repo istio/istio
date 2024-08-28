@@ -92,6 +92,7 @@ type Config struct {
 	HostIPv4LoopbackCidr     string     `json:"HOST_IPV4_LOOPBACK_CIDR"`
 	Reconcile                bool       `json:"RECONCILE"`
 	CleanupOnly              bool       `json:"CLEANUP_ONLY"`
+	ForceApply               bool       `json:"FORCE_APPLY"`
 }
 
 func (c *Config) String() string {
