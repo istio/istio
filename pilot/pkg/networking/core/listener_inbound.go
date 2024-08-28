@@ -39,8 +39,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
@@ -88,6 +90,8 @@ type inboundChainConfig struct {
 	// proxies that accept service-attached policy should include the service for per-service chains
 	// so that those policies can be found
 	policyService *model.Service
+
+	configMetadata config.Meta
 }
 
 // StatPrefix returns the stat prefix for the config
@@ -324,6 +328,7 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 				Filters:          lb.buildInboundNetworkFiltersForHTTP(cc),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
 				Name:             cc.Name(opt.Protocol),
+				Metadata:         util.BuildConfigInfoMetadata(cc.configMetadata),
 			})
 		case istionetworking.ListenerProtocolTCP:
 			chains = append(chains, &listener.FilterChain{
@@ -331,6 +336,7 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 				Filters:          lb.buildInboundNetworkFilters(cc),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
 				Name:             cc.Name(opt.Protocol),
+				Metadata:         util.BuildConfigInfoMetadata(cc.configMetadata),
 			})
 		}
 	}
@@ -346,11 +352,12 @@ func getSidecarIngressPortList(node *model.Proxy) sets.Set[int] {
 	return ingressPortListSet
 }
 
-func (lb *ListenerBuilder) getFilterChainsByServicePort(enableSidecarServiceInboundListenerMerge bool) map[uint32]inboundChainConfig {
+func (lb *ListenerBuilder) getFilterChainsByServicePort() map[uint32]inboundChainConfig {
 	chainsByPort := make(map[uint32]inboundChainConfig)
 	ingressPortListSet := sets.New[int]()
 	sidecarScope := lb.node.SidecarScope
-	if sidecarScope.HasIngressListener() {
+	mergeServicePorts := features.EnableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener()
+	if mergeServicePorts {
 		ingressPortListSet = getSidecarIngressPortList(lb.node)
 	}
 	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
@@ -370,7 +377,7 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(enableSidecarServiceInbo
 			continue
 		}
 		port := i.Port
-		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
+		if mergeServicePorts &&
 			// ingress listener port means the target port, may not equal to service port
 			ingressPortListSet.Contains(int(port.TargetPort)) {
 			// here if port is declared in service and sidecar ingress both, we continue to take the one on sidecar + other service ports
@@ -420,11 +427,11 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 		if lb.node.GetInterceptionMode() == model.InterceptionNone {
 			return nil
 		}
-		chainsByPort = lb.getFilterChainsByServicePort(false)
+		chainsByPort = lb.getFilterChainsByServicePort()
 	} else {
 		// only allow to merge inbound listeners if sidecar has ingress listener pilot has env EnableSidecarServiceInboundListenerMerge set
 		if features.EnableSidecarServiceInboundListenerMerge {
-			chainsByPort = lb.getFilterChainsByServicePort(true)
+			chainsByPort = lb.getFilterChainsByServicePort()
 		} else {
 			chainsByPort = make(map[uint32]inboundChainConfig)
 		}
@@ -461,6 +468,11 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				bind:        i.Bind,
 				bindToPort:  bindtoPort,
 				hbone:       lb.node.IsWaypointProxy(),
+				configMetadata: config.Meta{
+					Name:             lb.node.SidecarScope.Name,
+					Namespace:        lb.node.SidecarScope.Namespace,
+					GroupVersionKind: gvk.Sidecar,
+				},
 			}
 			if cc.bind == "" {
 				// If user didn't provide, pick one based on IP
