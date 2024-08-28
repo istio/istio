@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/netip"
 	"reflect"
@@ -79,22 +80,34 @@ func ParseAndValidateIstioOperator(iopm values.Map, client kube.Client) (Warning
 func environmentalDetection(client kube.Client, iop *apis.IstioOperator) (Warnings, util.Errors) {
 	var warnings Warnings
 	var errors util.Errors
-	if iop.Spec.Components != nil && iop.Spec.Components.Cni != nil && iop.Spec.Components.Cni.Enabled.GetValueOrFalse() {
-		warnings = util.AppendErr(warnings, detectCniIncompatibility(client))
-	}
+	cniEnabled := iop.Spec.Components != nil && iop.Spec.Components.Cni != nil && iop.Spec.Components.Cni.Enabled.GetValueOrFalse()
+	ztunnelEnabled := iop.Spec.Components != nil && iop.Spec.Components.Ztunnel != nil && iop.Spec.Components.Ztunnel.Enabled.GetValueOrFalse()
+	warnings = util.AppendErrs(warnings, detectCniIncompatibility(client, cniEnabled, ztunnelEnabled))
 	return warnings, errors
 }
 
-func detectCniIncompatibility(client kube.Client) error {
+func detectCniIncompatibility(client kube.Client, cniEnabled bool, ztunnelEnabled bool) util.Errors {
+	var errs util.Errors
 	cilium, err := client.Kube().CoreV1().ConfigMaps("kube-system").Get(context.Background(), "cilium-config", metav1.GetOptions{})
 	if err != nil {
 		// Ignore errors, user may not be running Cilium at all
 		return nil
 	}
-	if cilium.Data["cni-exclusive"] == "true" {
-		return fmt.Errorf("detected Cilium CNI with 'cni-exclusive=true'; this must be set to 'cni-exclusive=false' in the Cilium configuration")
+	if cniEnabled && cilium.Data["cni-exclusive"] == "true" {
+		// Without this, Cilium will constantly overwrite our CNI config.
+		errs = util.AppendErr(errs, fmt.Errorf("detected Cilium CNI with 'cni-exclusive=true'; this must be set to 'cni-exclusive=false' in the Cilium configuration"))
 	}
-	return nil
+	if ztunnelEnabled && cilium.Data["enable-bpf-masquerade"] == "true" {
+		// See https://github.com/istio/istio/issues/52208
+		errs = util.AppendErr(errs, fmt.Errorf("detected Cilium CNI with 'enable-bpf-masquerade=true'; this must be set to 'false' when using ambient mode"))
+	}
+	bpfLbSocket := cilium.Data["bpf-lb-sock"] == "true"                 // Unset implies 'false', so this check is ok
+	bpfLbHostnsOnly := cilium.Data["bpf-lb-sock-hostns-only"] == "true" // Unset implies 'false', so this check is ok
+	if bpfLbSocket && !bpfLbHostnsOnly {
+		// See https://github.com/istio/istio/issues/27619
+		errs = util.AppendErr(errs, errors.New("detected Cilium CNI with 'bpf-lb-sock=true'; this requires 'bpf-lb-sock-hostns-only=true' to be set"))
+	}
+	return errs
 }
 
 func validateValues(raw *apis.IstioOperator) (Warnings, util.Errors) {
