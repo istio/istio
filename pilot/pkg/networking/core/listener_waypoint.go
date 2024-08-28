@@ -167,6 +167,19 @@ func (lb *ListenerBuilder) buildConnectTerminateListener(routes []*route.Route) 
 				Filters: lb.buildHCMConnectTerminateChain(routes),
 			},
 		},
+		// for HBONE inbound specifically, we want to prefer exact balance.
+		// This is because by definition we have fewer, longer-lived connections,
+		// and want to avoid issues where (for instance) 2 HBONE tunnel connections
+		// (each with ~100 connections multiplexed) both end up on the same envoy worker thread,
+		// which effectively defeats the HBONE pooling ztunnel does.
+		//
+		// With sandwiching, this isn't a concern, as ztunnel handles HBONE decap, and this listener
+		// wouldn't be used anyway.
+		ConnectionBalanceConfig: &listener.Listener_ConnectionBalanceConfig{
+			BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
+				ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},
+			},
+		},
 	}
 	if len(actualWildcard) > 1 {
 		l.AdditionalAddresses = util.BuildAdditionalAddresses(bind[1:], model.HBoneInboundListenPort)
