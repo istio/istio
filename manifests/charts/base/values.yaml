@@ -41,3 +41,7 @@ defaults:
   defaultRevision: "default"
   experimental:
     stableValidationPolicy: false
+
+  multicluster:
+    # If true, this will deploy the `istio-reader` components for enabling multi-cluster access
+    enableReader: true

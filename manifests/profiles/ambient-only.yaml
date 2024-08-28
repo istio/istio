@@ -1,7 +1,25 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
+  components:
+    cni:
+      enabled: true
+    ztunnel:
+      enabled: true
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: false
   values:
+    multicluster:
+      enableReader: false
+    gateways:
+      # Intentionally break gateways. Users should deploy with Gateway API only.
+      istio-ingressgateway:
+        rollingMaxUnavailable: "WARNING ambient-only profile does not support installing Gateways; use the Gateway API object. This will intentionally fail to deploy"
+      istio-egressgateway:
+        rollingMaxUnavailable: "WARNING ambient-only profile does not support installing Gateways; use the Gateway API object. This will intentionally fail to deploy"
+    global:
+      operatorManageWebhooks: true
     base:
       enableCRDTemplates: true
       enableIstioConfigCRDs: false

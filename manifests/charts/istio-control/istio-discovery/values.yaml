@@ -86,6 +86,10 @@ defaults:
   # If false, pilot wil use default values (by default) or user-supplied values.
   configMap: true
 
+  multicluster:
+    # If true, this will deploy the `istio-reader` components for enabling multi-cluster access
+    enableReader: true
+
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
 
