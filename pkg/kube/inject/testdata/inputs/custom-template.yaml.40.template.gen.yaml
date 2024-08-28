@@ -1248,6 +1248,18 @@ templates:
           affinity:
           {{- toYaml .Values.waypoint.affinity | nindent 8 }}
           {{- end }}
+          {{- if .Values.waypoint.topologySpreadConstraints }}
+          topologySpreadConstraints:
+          {{- toYaml .Values.waypoint.topologySpreadConstraints | nindent 10 }}
+          {{- end }}
+          {{- if .Values.waypoint.nodeSelector }}
+          nodeSelector:
+          {{- toYaml .Values.waypoint.nodeSelector | nindent 10 }}
+          {{- end }}
+          {{- if .Values.waypoint.tolerations }}
+          tolerations:
+          {{- toYaml .Values.waypoint.tolerations | nindent 10 }}
+          {{- end }}
           terminationGracePeriodSeconds: 2
           serviceAccountName: {{.ServiceAccount | quote}}
           containers:

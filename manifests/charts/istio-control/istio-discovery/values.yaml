@@ -509,6 +509,15 @@ defaults:
       # If specified, affinity defines the scheduling constraints of waypoint pods.
       affinity: {}
 
+      # Topology Spread Constraints for the waypoint proxy.
+      topologySpreadConstraints: []
+
+      # Node labels for the waypoint proxy.
+      nodeSelector: {}
+
+      # Tolerations for the waypoint proxy.
+      tolerations: []
+
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true

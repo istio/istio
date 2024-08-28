@@ -1448,4 +1448,19 @@ message WaypointConfig {
   //
   // See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
   k8s.io.api.core.v1.Affinity affinity = 2;
+
+  // K8s topology spread constraints settings.
+  //
+  // See https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
+  repeated k8s.io.api.core.v1.TopologySpreadConstraint topologySpreadConstraints = 3;
+
+  // K8s node labels settings.
+  //
+  // See https://kubernetes.io/docs/user-guide/node-selection/
+  k8s.io.api.core.v1.NodeSelector nodeSelector = 4;
+
+  // K8s tolerations settings.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+  repeated k8s.io.api.core.v1.Toleration toleration = 5;
 }

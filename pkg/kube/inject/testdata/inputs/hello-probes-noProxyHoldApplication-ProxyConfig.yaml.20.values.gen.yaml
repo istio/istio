@@ -93,6 +93,7 @@
     "variant": "",
     "waypoint": {
       "affinity": {},
+      "nodeSelector": {},
       "resources": {
         "limits": {
           "cpu": "2",
@@ -102,7 +103,9 @@
           "cpu": "100m",
           "memory": "128Mi"
         }
-      }
+      },
+      "tolerations": [],
+      "topologySpreadConstraints": []
     }
   },
   "pilot": {
