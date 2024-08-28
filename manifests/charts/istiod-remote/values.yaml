@@ -316,7 +316,7 @@ defaults:
       # Base name for the proxy_init container, used to configure iptables.
       image: proxyv2
       # Allows override if detection incorrectly assumes rules are already applied. Consider removing after several releases with no reported issues.
-      force_apply_iptables: false
+      forceApplyIptables: false
     # configure remote pilot and istiod service and endpoint
     remotePilotAddress: ""
     ##############################################################################################
