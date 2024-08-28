@@ -278,7 +278,7 @@ func applyLocalityLoadBalancer(locality *core.Locality, proxyLabels map[string]s
 	// Failover should only be applied with outlier detection, or traffic will never failover.
 	enableFailover := c.OutlierDetection != nil
 	// set locality weighted lb config when locality lb is enabled, otherwise it will influence the result of LBPolicy like `least request`
-	if enableFailover {
+	if enableFailover || localityLB.GetDistribute() != nil {
 		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
 			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}

@@ -2383,6 +2383,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
 				t.Errorf("cluster expected to have weighed config, but is nil")
 			}
+
 			if !tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() != nil {
 				t.Errorf("cluster unexpected locality weighed config, but it is present")
 			}
