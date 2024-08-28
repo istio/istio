@@ -10,7 +10,7 @@ releaseNotes:
 ---
 apiVersion: release-notes/v2
 kind: feature
-area: networking
+area: traffic-management
 releaseNotes:
 - |
   **Added** `--cleanup-only` option to istio-iptables to perform a cleanup of chains/rules without creating new ones.

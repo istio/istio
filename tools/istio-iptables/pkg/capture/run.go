@@ -904,7 +904,8 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 	}
 
 	if !deltaExists && cfg.cfg.ForceApply {
-		log.Warn("The forced apply of iptables changes succeeded despite the presence of conflicting rules or chains. If you encounter this message, please consider reporting it as an issue.")
+		log.Warn("The forced apply of iptables changes succeeded despite the presence of conflicting rules or chains. " +
+			"If you encounter this message, please consider reporting it as an issue.")
 	}
 
 	return nil
