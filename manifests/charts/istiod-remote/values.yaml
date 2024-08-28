@@ -316,7 +316,7 @@ defaults:
       # Base name for the proxy_init container, used to configure iptables.
       image: proxyv2
       # Bypasses iptables idempotency handling, and attempts to apply iptables rules regardless of table state, which may cause unrecoverable failures.
-      # Do not use unless you need to work around an idempotency issue. This flag will be removed in future releases.
+      # Do not use unless you need to work around an issue of the idempotency handling. This flag will be removed in future releases.
       forceApplyIptables: false
     # configure remote pilot and istiod service and endpoint
     remotePilotAddress: ""
