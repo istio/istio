@@ -234,13 +234,8 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	if features.SendUnhealthyEndpoints.Load() {
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
-	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-	if localityLbSetting != nil {
-		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
-			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
-		}
-	}
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
+	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	applyLocalityLoadBalancer(locality, proxyLabels, c, localityLbSetting)
 
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
@@ -275,14 +270,21 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	ApplyRingHashLoadBalancer(c, lb)
 }
 
-func applyLocalityLoadBalancer(locality *core.Locality, proxyLabels map[string]string, cluster *cluster.Cluster,
+func applyLocalityLoadBalancer(locality *core.Locality, proxyLabels map[string]string, c *cluster.Cluster,
 	localityLB *networking.LocalityLoadBalancerSetting,
 ) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
-	enableFailover := cluster.OutlierDetection != nil
-	if cluster.LoadAssignment != nil {
+	enableFailover := c.OutlierDetection != nil
+	// set locality weighted lb config when locality lb is enabled, otherwise it will influence the result of LBPolicy like `least request`
+	if enableFailover && localityLB != nil && (localityLB.Enabled == nil || localityLB.Enabled.Value) ||
+		localityLB.Distribute != nil {
+		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
+		}
+	}
+	if c.LoadAssignment != nil {
 		// TODO: enable failoverPriority for `STRICT_DNS` cluster type
-		loadbalancer.ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, proxyLabels, localityLB, enableFailover)
+		loadbalancer.ApplyLocalityLoadBalancer(c.LoadAssignment, nil, locality, proxyLabels, localityLB, enableFailover)
 	}
 }
 
