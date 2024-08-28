@@ -277,7 +277,7 @@ func applyLocalityLoadBalancer(locality *core.Locality, proxyLabels map[string]s
 	enableFailover := c.OutlierDetection != nil
 	// set locality weighted lb config when locality lb is enabled, otherwise it will influence the result of LBPolicy like `least request`
 	if enableFailover && localityLB != nil && (localityLB.Enabled == nil || localityLB.Enabled.Value) ||
-		localityLB.Distribute != nil {
+		localityLB.GetDistribute() != nil {
 		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
 			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
