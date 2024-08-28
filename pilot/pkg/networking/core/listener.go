@@ -1118,14 +1118,18 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 	}
 
 	res := &listener.Listener{
-		TrafficDirection: core.TrafficDirection_OUTBOUND,
-		ListenerFilters:  listenerFilters,
-		FilterChains:     filterChains,
-		// For Gateways, we want no timeout. We should wait indefinitely for the TLS if we are sniffing.
-		// The timeout is useful for sidecars, where we may operate on server first traffic; for gateways if we have listener filters
-		// we know those filters are required.
+		TrafficDirection:                 core.TrafficDirection_OUTBOUND,
+		ListenerFilters:                  listenerFilters,
+		FilterChains:                     filterChains,
 		ContinueOnListenerFiltersTimeout: false,
-		ListenerFiltersTimeout:           durationpb.New(0),
+	}
+	if len(listenerFilters) > 0 {
+		// Enable timeout only if they configure it and we have listener filters.
+		// This is really unsafe, so hopefully not used...
+		res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
+	} else {
+		// Otherwise, do not have a timeout at all
+		res.ListenerFiltersTimeout = durationpb.New(0)
 	}
 	switch transport {
 	case istionetworking.TransportProtocolTCP:
