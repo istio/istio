@@ -144,7 +144,8 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 		&cfg.CleanupOnly)
 
 	// This flag is a safety measure in case the idempotency changes of #50328 backfire.
-	// Allows override if detection incorrectly assumes rules are already applied. Consider removing after several releases with no reported issues.
+	// Allow bypassing of iptables idempotency handling, and attempts to apply iptables rules regardless of table state, which may cause unrecoverable failures.
+	// Consider removing it after several releases with no reported issues.
 	flag.BindEnv(fs, constants.ForceApply, "", "Apply iptables changes even if they appear to already be in place.",
 		&cfg.ForceApply)
 }
