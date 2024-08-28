@@ -617,7 +617,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 			chain.Filters = opt.networkFilters
 		} else {
 			statsPrefix := strings.ToLower(l.TrafficDirection.String()) + "_" + l.Name
-			opt.httpOpts.statPrefix = util.DelimitedStatsPrefix(statsPrefix, builder.node.IstioVersion)
+			opt.httpOpts.statPrefix = util.DelimitedStatsPrefix(statsPrefix)
 			opt.httpOpts.port = le.servicePort.Port
 			hcm := builder.buildHTTPConnectionManager(opt.httpOpts)
 			filter := &listener.Filter{

@@ -297,7 +297,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	}
 
 	// Build default alt stat name - This may be overwritten by the MeshConfig options.
-	c.AltStatName = util.DelimitedStatsPrefix(name, cb.proxyVersion)
+	c.AltStatName = util.DelimitedStatsPrefix(name)
 
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
@@ -357,7 +357,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		// If stat name is configured, build the alternate stats name.
 		if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
 			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName, string(service.Hostname), subset, port, 0, &service.Attributes)
-			ec.cluster.AltStatName = util.DelimitedStatsPrefix(statPrefix, cb.proxyVersion)
+			ec.cluster.AltStatName = util.DelimitedStatsPrefix(statPrefix)
 		}
 	}
 
@@ -392,7 +392,7 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort,
 			&instance.Service.Attributes)
-		localCluster.cluster.AltStatName = util.DelimitedStatsPrefix(statPrefix, cb.proxyVersion)
+		localCluster.cluster.AltStatName = util.DelimitedStatsPrefix(statPrefix)
 	}
 	if clusterType == cluster.Cluster_ORIGINAL_DST {
 		// Disable cleanup for inbound clusters - set to Max possible duration.
@@ -517,7 +517,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
-	c.AltStatName = util.DelimitedStatsPrefix(util.BlackHoleCluster, cb.proxyVersion)
+	c.AltStatName = util.DelimitedStatsPrefix(util.BlackHoleCluster)
 	return c
 }
 
@@ -533,7 +533,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
-	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster, cb.proxyVersion)
+	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster)
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
 	cb.applyMetadataExchange(cluster)
 	return cluster
@@ -747,7 +747,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(options),
 		},
 	}
-	c.AltStatName = util.DelimitedStatsPrefix(security.SDSExternalClusterName, cb.proxyVersion)
+	c.AltStatName = util.DelimitedStatsPrefix(security.SDSExternalClusterName)
 	return c
 }
 

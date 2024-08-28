@@ -91,7 +91,7 @@ type inboundChainConfig struct {
 }
 
 // StatPrefix returns the stat prefix for the config
-func (cc inboundChainConfig) StatPrefix(istioVersion *model.IstioVersion) string {
+func (cc inboundChainConfig) StatPrefix() string {
 	var statPrefix string
 	if cc.passthrough {
 		// A bit arbitrary, but for backwards compatibility just use the cluster name
@@ -100,7 +100,7 @@ func (cc inboundChainConfig) StatPrefix(istioVersion *model.IstioVersion) string
 		statPrefix = "inbound_" + cc.Name(istionetworking.ListenerProtocolHTTP)
 	}
 
-	statPrefix = util.DelimitedStatsPrefix(statPrefix, istioVersion)
+	statPrefix = util.DelimitedStatsPrefix(statPrefix)
 	return statPrefix
 }
 
@@ -812,7 +812,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 		protocol:                  cc.port.Protocol,
 		class:                     istionetworking.ListenerClassSidecarInbound,
 		port:                      int(cc.port.TargetPort),
-		statPrefix:                cc.StatPrefix(lb.node.IstioVersion),
+		statPrefix:                cc.StatPrefix(),
 		hbone:                     cc.hbone,
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy

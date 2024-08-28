@@ -28,7 +28,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -86,7 +85,7 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			tcp.AccessLog = append(tcp.AccessLog, b.buildFileAccessLog(mesh, proxy.IstioVersion))
+			tcp.AccessLog = append(tcp.AccessLog, b.buildFileAccessLog(mesh))
 		}
 
 		if mesh.EnableEnvoyAccessLogService {
@@ -108,7 +107,7 @@ func (b *AccessLogBuilder) setHboneAccessLog(push *model.PushContext, proxy *mod
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			tcp.AccessLog = append(tcp.AccessLog, b.buildHboneFileAccessLog(mesh, proxy.IstioVersion))
+			tcp.AccessLog = append(tcp.AccessLog, b.buildHboneFileAccessLog(mesh))
 		}
 		return
 	}
@@ -171,7 +170,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh, proxy.IstioVersion))
+			connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh))
 		}
 
 		if mesh.EnableEnvoyAccessLogService {
@@ -198,7 +197,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh, proxy.IstioVersion))
+			listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh))
 		}
 
 		if mesh.EnableEnvoyAccessLogService {
@@ -214,24 +213,14 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	}
 }
 
-func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig, proxyVersion *model.IstioVersion) *accesslog.AccessLog {
-	// Building the access log is relatively expensive, and changes infrequently, so we typically
-	// amortize the cost via a cache. However, because we (temporarily) have version-specific access logging
-	// configuration, we need to skip the caching logic altogether if the proxy version is less than 1.23
-	// in order to avoid sending 1.22 config to 1.23 proxies (or vice-versa).
-
-	// Calculate access log config on-the-flay for proxy versions <1.23
-	if !util.IsIstioVersionGE123(proxyVersion) {
-		return model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh, proxyVersion)
-	}
-
-	// Now deal with the caching logic
+func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+	// Building the access log is relatively expensive, and changes infrequently, so we amortize the cost via a cache.
 	if cal := b.cachedFileAccessLog(); cal != nil {
 		return cal
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	al := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh, proxyVersion)
+	al := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -277,13 +266,13 @@ func buildAccessLogFilter(f ...*accesslog.AccessLogFilter) *accesslog.AccessLogF
 	}
 }
 
-func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfig, proxyVersion *model.IstioVersion) *accesslog.AccessLog {
+func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	if cal := b.cachedListenerFileAccessLog(); cal != nil {
 		return cal
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	lal := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh, proxyVersion)
+	lal := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
 	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 	// not get filter Access Logs like in cases like NR to upstream.
 	lal.Filter = listenerAccessLogFilter()
@@ -295,13 +284,13 @@ func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfi
 	return lal
 }
 
-func (b *AccessLogBuilder) buildHboneFileAccessLog(mesh *meshconfig.MeshConfig, proxyVersion *model.IstioVersion) *accesslog.AccessLog {
+func (b *AccessLogBuilder) buildHboneFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	if cal := b.cachedHboneFileAccessLog(); cal != nil {
 		return cal
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	lal := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh, proxyVersion)
+	lal := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
 	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 	// not get filter Access Logs like in cases like NR to upstream.
 	lal.Filter = hboneAccessLogFilter()
