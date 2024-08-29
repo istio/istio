@@ -210,10 +210,11 @@ func TestConfigureTracing(t *testing.T) {
 			wantReqIDExtCtx: nil,
 		},
 		{
-			name:            "basic config (with opentelemetry provider via grpc with initial metadata)",
-			inSpec:          fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true),
-			opts:            fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(),
-			want:            fakeTracingConfig(fakeOpenTelemetryGrpcWithInitialMetadataProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			name:   "basic config (with opentelemetry provider via grpc with initial metadata)",
+			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true),
+			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(),
+			want: fakeTracingConfig(fakeOpenTelemetryGrpcWithInitialMetadataProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 	}

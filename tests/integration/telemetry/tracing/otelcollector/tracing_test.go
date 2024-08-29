@@ -163,11 +163,11 @@ meshConfig:
     opentelemetry:
       service: opentelemetry-collector.istio-system.svc.cluster.local
       port: 4317
-	  grpc:
-	    timeout: 3s
-	    initialMetadata:
-		- name: "Authentication"
-		  value: "token-xxxxx"
+      grpc:
+        timeout: 3s
+        initialMetadata:
+        - name: "Authentication"
+          value: "token-xxxxx"
 `
 }
 
