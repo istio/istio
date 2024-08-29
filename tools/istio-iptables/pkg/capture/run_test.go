@@ -403,6 +403,11 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 			// Second Pass
 			iptConfigurator = NewIptablesConfigurator(cfg, ext)
 			assert.NoError(t, iptConfigurator.Run())
+
+			// Execution should fail if force-apply is used and chains exists
+			cfg.ForceApply = true
+			iptConfigurator = NewIptablesConfigurator(cfg, ext)
+			assert.Error(t, iptConfigurator.Run())
 		})
 	}
 }

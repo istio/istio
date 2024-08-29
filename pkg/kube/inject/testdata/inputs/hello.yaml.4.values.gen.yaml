@@ -77,6 +77,7 @@
       "tracer": "none"
     },
     "proxy_init": {
+      "forceApplyIptables": false,
       "image": "proxyv2"
     },
     "remotePilotAddress": "",

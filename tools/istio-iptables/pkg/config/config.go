@@ -92,6 +92,7 @@ type Config struct {
 	HostIPv4LoopbackCidr     string     `json:"HOST_IPV4_LOOPBACK_CIDR"`
 	Reconcile                bool       `json:"RECONCILE"`
 	CleanupOnly              bool       `json:"CLEANUP_ONLY"`
+	ForceApply               bool       `json:"FORCE_APPLY"`
 }
 
 func (c *Config) String() string {
@@ -135,6 +136,9 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("NETWORK_NAMESPACE=%s\n", c.NetworkNamespace))
 	b.WriteString(fmt.Sprintf("CNI_MODE=%s\n", strconv.FormatBool(c.HostFilesystemPodNetwork)))
 	b.WriteString(fmt.Sprintf("EXCLUDE_INTERFACES=%s\n", c.ExcludeInterfaces))
+	b.WriteString(fmt.Sprintf("RECONCILE=%t\n", c.Reconcile))
+	b.WriteString(fmt.Sprintf("CLEANUP_ONLY=%t\n", c.CleanupOnly))
+	b.WriteString(fmt.Sprintf("FORCE_APPLY=%t\n", c.ForceApply))
 	log.Infof("Istio iptables variables:\n%s", b.String())
 }
 

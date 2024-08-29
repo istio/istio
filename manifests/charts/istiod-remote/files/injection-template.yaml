@@ -125,6 +125,8 @@ spec:
     {{ if .Values.pilot.cni.enabled -}}
     - "--run-validation"
     - "--skip-rule-apply"
+    {{ else if .Values.global.proxy_init.forceApplyIptables -}}
+    - "--force-apply"
     {{ end -}}
     {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
   {{- if .ProxyConfig.ProxyMetadata }}
