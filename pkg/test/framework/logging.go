@@ -17,12 +17,17 @@ package framework
 import (
 	"flag"
 
+	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"istio.io/istio/pkg/log"
 )
 
 var logOptionsFromCommandline = log.DefaultOptions()
 
 func init() {
+	scope := log.RegisterScope("controlleruntime", "scope for controller runtime")
+	controllruntimelog.SetLogger(log.NewLogrAdapter(scope))
+
 	logOptionsFromCommandline.AttachFlags(
 		func(p *[]string, name string, value []string, usage string) {
 			// TODO(ozben): Implement string array method for capturing the complete set of log settings.
