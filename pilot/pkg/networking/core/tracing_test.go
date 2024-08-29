@@ -209,6 +209,13 @@ func TestConfigureTracing(t *testing.T) {
 			want:            nil,
 			wantReqIDExtCtx: nil,
 		},
+		{
+			name:            "basic config (with opentelemetry provider via grpc with initial metadata)",
+			inSpec:          fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true),
+			opts:            fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(),
+			want:            fakeTracingConfig(fakeOpenTelemetryGrpcWithInitialMetadataProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
 	}
 
 	for _, tc := range testcases {
@@ -820,6 +827,28 @@ func fakeOpenTelemetryGrpc() *meshconfig.MeshConfig_ExtensionProvider {
 	}
 }
 
+func fakeOpenTelemetryGrpcWithInitialMetadata() *meshconfig.MeshConfig_ExtensionProvider {
+	return &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "opentelemetry",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+			Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service:      "tracing.example.com",
+				Port:         8090,
+				MaxTagLength: 256,
+				Grpc: &meshconfig.MeshConfig_ExtensionProvider_GrpcService{
+					InitialMetadata: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+						{
+							Name:  "Authentication",
+							Value: "token-xxxxx",
+						},
+					},
+					Timeout: &durationpb.Duration{Seconds: 3},
+				},
+			},
+		},
+	}
+}
+
 func fakeOpenTelemetryHTTP() *meshconfig.MeshConfig_ExtensionProvider {
 	return &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "opentelemetry",
@@ -866,6 +895,42 @@ func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {
 							Service:      "otel-collector",
 							Port:         4317,
 							MaxTagLength: 256,
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
+		},
+	}
+
+	return opts
+}
+
+func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI() gatewayListenerOpts {
+	var opts gatewayListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "opentelemetry",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+						Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+							Service:      "tracing.example.com",
+							Port:         8090,
+							MaxTagLength: 256,
+							Grpc: &meshconfig.MeshConfig_ExtensionProvider_GrpcService{
+								InitialMetadata: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+									{
+										Name:  "Authentication",
+										Value: "token-xxxxx",
+									},
+								},
+								Timeout: &durationpb.Duration{Seconds: 3},
+							},
 						},
 					},
 				},
@@ -1115,6 +1180,31 @@ func fakeDatadogProvider(expectServcieName, expectHostName, expectClusterName st
 func fakeOpenTelemetryGrpcProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
 	fakeOTelGrpcProviderConfig := &tracingcfg.OpenTelemetryConfig{
 		GrpcService: &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: expectClusterName,
+					Authority:   expectAuthority,
+				},
+			},
+		},
+	}
+	fakeOtelGrpcAny := protoconv.MessageToAny(fakeOTelGrpcProviderConfig)
+	return &tracingcfg.Tracing_Http{
+		Name:       envoyOpenTelemetry,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelGrpcAny},
+	}
+}
+
+func fakeOpenTelemetryGrpcWithInitialMetadataProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
+	fakeOTelGrpcProviderConfig := &tracingcfg.OpenTelemetryConfig{
+		GrpcService: &core.GrpcService{
+			InitialMetadata: []*core.HeaderValue{
+				{
+					Key:   "Authentication",
+					Value: "token-xxxxx",
+				},
+			},
+			Timeout: &durationpb.Duration{Seconds: 3},
 			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 					ClusterName: expectClusterName,

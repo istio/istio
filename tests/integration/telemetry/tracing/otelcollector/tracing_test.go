@@ -46,6 +46,9 @@ var otelTracingHTTPCfg string
 //go:embed testdata/otel-tracing-res-detectors.yaml
 var otelTracingResDetectorsCfg string
 
+//go:embed testdata/test-otel-grpc-with-initial-metadata.yaml
+var otelTracingGRPCWithInitialMetadataCfg string
+
 // TestProxyTracingOpenTelemetryProvider validates that Telemetry API configuration
 // referencing an OpenTelemetry provider will generate traces appropriately.
 // NOTE: This test relies on the priority of Telemetry API over MeshConfig tracing
@@ -71,6 +74,11 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 			name:            "resource detectors",
 			customAttribute: "provider=otel-grpc-with-res-detectors",
 			cfgFile:         otelTracingResDetectorsCfg,
+		},
+		{
+			name:            "grpc exporter with initial metadata",
+			customAttribute: "provider=test-otel-grpc-with-initial-metadata",
+			cfgFile:         otelTracingGRPCWithInitialMetadataCfg,
 		},
 	}
 
@@ -151,6 +159,15 @@ meshConfig:
       resource_detectors:
         environment: {}
         dynatrace: {}
+  - name: test-otel-grpc-with-initial-metadata
+    opentelemetry:
+      service: opentelemetry-collector.istio-system.svc.cluster.local
+      port: 4317
+	  grpc:
+	    timeout: 3s
+	    initialMetadata:
+		- name: "Authentication"
+		  value: "token-xxxxx"
 `
 }
 
