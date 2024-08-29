@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio/issues/52873
+
+releaseNotes:
+- |
+  **Added** support headers and timeout configurations of gRPC requests when exporting traces to OpenTelemetry Collector.
