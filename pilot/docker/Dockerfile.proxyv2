@@ -28,7 +28,7 @@ ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/${SIDECAR} /usr/local/bin/${SIDECAR}
 
 # Environment variable indicating the exact proxy sha - for debugging or version-specific configs
-ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
+ENV ISTIO_META_ISTIO_PROXY_SHA=$proxy_version
 
 ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/pilot-agent /usr/local/bin/pilot-agent

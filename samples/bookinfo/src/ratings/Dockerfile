@@ -20,7 +20,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ARG service_version
-ENV SERVICE_VERSION ${service_version:-v1}
+ENV SERVICE_VERSION=${service_version:-v1}
 
 COPY package.json /opt/microservices/
 COPY ratings.js /opt/microservices/
