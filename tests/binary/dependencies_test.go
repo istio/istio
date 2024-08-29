@@ -70,6 +70,7 @@ func TestDependencies(t *testing.T) {
 				`^github\.com/lestrrat-go/jwx/jwk`,
 				`^github\.com/envoyproxy`,
 				`^istio\.io/api`,
+				`^sigs\.k8s\.io/controller-runtime`,
 			},
 			wantToDeny: []string{
 				`^testing$`,
@@ -92,6 +93,23 @@ func TestDependencies(t *testing.T) {
 				`^github\.com/google/shlex`,
 				`^github\.com/howardjohn/unshare-go`,
 				`^github\.com/pmezard/go-difflib`,
+			},
+			wantToDeny: []string{
+				`^testing$`,
+			},
+		},
+		{
+			entrypoint: "istioctl/cmd/istioctl",
+			exceptions: []string{},
+			denied: []string{
+				// Deps meant only for other components; if we import them, something may be wrong
+				`^github\.com/containernetworking/`,
+				`^github\.com/florianl/go-nflog/v2`,
+				`^github\.com/vishvananda/`,
+				`^sigs\.k8s\.io/controller-runtime`,
+				// Testing deps
+				`^github\.com/AdaLogics/go-fuzz-headers`,
+				`^github\.com/howardjohn/unshare-go`,
 			},
 			wantToDeny: []string{
 				`^testing$`,
