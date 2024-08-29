@@ -185,6 +185,9 @@ func New(options Options) Index {
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints)
 	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater, func(i model.WorkloadAuthorization) model.ConfigKey {
+		if i.Authorization == nil {
+			return model.ConfigKey{}
+		}
 		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 	}), false)
 
@@ -192,6 +195,8 @@ func New(options Options) Index {
 	servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
+
+	authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
 
 	statusQueue := statusqueue.NewQueue()
 	if features.EnableAmbientStatus {
@@ -201,6 +206,9 @@ func New(options Options) Index {
 				return kclient.ToPatcher(serviceEntriesWriter), getConditions(info.Source.NamespacedName, serviceEntries)
 			}
 			return kclient.ToPatcher(servicesWriter), getConditions(info.Source.NamespacedName, servicesClient)
+		})
+		statusqueue.Register(statusQueue, "istio-ambient-policy", AuthorizationPolicies, func(pol model.WorkloadAuthorization) (kclient.Patcher, []string) {
+			return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, authzPolicies)
 		})
 	}
 
@@ -307,6 +315,8 @@ func getConditions[T controllers.ComparableObject](name types.NamespacedName, i 
 	case *v1.Service:
 		return slices.Map(t.Status.Conditions, func(c metav1.Condition) string { return c.Type })
 	case *networkingclient.ServiceEntry:
+		return slices.Map(t.Status.Conditions, (*v1alpha1.IstioCondition).GetType)
+	case *securityclient.AuthorizationPolicy:
 		return slices.Map(t.Status.Conditions, (*v1alpha1.IstioCondition).GetType)
 	default:
 		log.Fatalf("unknown type %T; cannot write status", o)

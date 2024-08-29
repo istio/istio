@@ -339,13 +339,13 @@ func convertPeerAuthentication(rootNamespace string, cfg *securityclient.PeerAut
 	return opol
 }
 
-func convertAuthorizationPolicy(rootns string, obj *securityclient.AuthorizationPolicy) *security.Authorization {
+func convertAuthorizationPolicy(rootns string, obj *securityclient.AuthorizationPolicy) (*security.Authorization, *model.StatusMessage) {
 	pol := &obj.Spec
 
 	polTargetRef := model.GetTargetRefs(pol)
 	if len(polTargetRef) > 0 {
 		// TargetRef is not intended for ztunnel
-		return nil
+		return nil, nil // this is not an error per se, should we have a message that this is not bound to ztunnel though?
 	}
 
 	scope := security.Scope_WORKLOAD_SELECTOR
@@ -362,7 +362,10 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 	case v1beta1.AuthorizationPolicy_DENY:
 		action = security.Action_DENY
 	default:
-		return nil
+		return nil, &model.StatusMessage{
+			Reason:  "UnsupportedAction",
+			Message: fmt.Sprintf("Policy not accepted because of unsupported action: %s", pol.Action),
+		}
 	}
 	opol := &security.Authorization{
 		Name:      obj.Name,
@@ -382,7 +385,7 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 		}
 	}
 
-	return opol
+	return opol, nil
 }
 
 func anyNonEmpty[T any](arr ...[]T) bool {

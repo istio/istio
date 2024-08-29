@@ -34,6 +34,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -1011,6 +1012,7 @@ type ConditionType string
 
 const (
 	WaypointBound ConditionType = "istio.io/WaypointBound"
+	ZtunnelBound  ConditionType = "istio.io/ZtunnelBound"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1109,15 +1111,74 @@ func (i WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
 }
 
+type WorkloadAuthorizationBindingScope string
+
+const (
+	NamespaceScope WorkloadAuthorizationBindingScope = "Namespace"
+	WorkloadScope  WorkloadAuthorizationBindingScope = "Workload"
+)
+
+// const Ztunnel string = "ztunnel"
+
+type WorkloadAuthorizationBindingStatus struct {
+	ResourceName string
+	Error        *StatusMessage // label selector has no targets or similar?
+	Warn         []string       // concerns, contains L7 thus will be oddly enfoced by ztunnel
+}
+
+func (i WorkloadAuthorizationBindingStatus) Equals(other WorkloadAuthorizationBindingStatus) bool {
+	return ptr.Equal(i.Error, other.Error) &&
+		slices.Equal(i.Warn, other.Warn)
+}
+
 type WorkloadAuthorization struct {
 	// LabelSelectors for the workload. Note these are only used internally, not sent over XDS
 	LabelSelector
 	Authorization *security.Authorization
+
+	Source  TypedObject
+	Binding WorkloadAuthorizationBindingStatus
 }
 
+// impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
+func (i WorkloadAuthorization) GetStatusTarget() TypedObject {
+	return i.Source
+}
+
+func (i WorkloadAuthorization) GetConditions() ConditionSet {
+	set := make(ConditionSet, 1)
+
+	if i.Binding.Error != nil {
+		set[ZtunnelBound] = &Condition{
+			Reason:  i.Binding.Error.Reason,
+			Message: i.Binding.Error.Message,
+			Status:  false,
+		}
+	} else {
+		var message string
+		message = "Successfully attached to ztunnel"
+		if len(i.Binding.Warn) != 0 {
+			// attached but with warning
+			// TODO(ilrudie): formatting is not great, fix me!
+			message = message + fmt.Sprintf(", with warnings: %v", i.Binding.Warn)
+		}
+		set[ZtunnelBound] = &Condition{
+			Reason:  "ztunnelAccepted",
+			Message: message,
+			Status:  true,
+		}
+	}
+
+	return set
+}
+
+// end impl StatusWriter
+
 func (i WorkloadAuthorization) Equals(other WorkloadAuthorization) bool {
-	return maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
-		proto.Equal(i.Authorization, other.Authorization)
+	return maps.Equal(i.Labels, other.Labels) &&
+		proto.Equal(i.Authorization, other.Authorization) &&
+		i.Source == other.Source &&
+		i.Binding.Equals(other.Binding)
 }
 
 func (i WorkloadAuthorization) ResourceName() string {
